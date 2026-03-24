@@ -26,18 +26,19 @@
 #include "config.h"
 #include "AcceleratedEffectValues.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include "IntSize.h"
 #include "MotionPath.h"
 #include "Path.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderLayerModelObject.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleOffsetAnchor.h"
 #include "StyleOffsetDistance.h"
 #include "StyleOffsetPath.h"
 #include "StyleOffsetPosition.h"
+#include "StyleTransformResolver.h"
 #include "TransformOperationData.h"
 
 namespace WebCore {
@@ -61,21 +62,21 @@ AcceleratedEffectValues AcceleratedEffectValues::clone() const
     auto clonedBackdropFilter = backdropFilter.clone();
 
     return {
-        WTFMove(clonedOpacity),
-        WTFMove(clonedTransformOperationData),
-        WTFMove(clonedTransformOrigin),
-        WTFMove(clonedTransformBox),
-        WTFMove(clonedTransform),
-        WTFMove(clonedTranslate),
-        WTFMove(clonedScale),
-        WTFMove(clonedRotate),
-        WTFMove(clonedOffsetPath),
-        WTFMove(clonedOffsetDistance),
-        WTFMove(clonedOffsetPosition),
-        WTFMove(clonedOffsetAnchor),
-        WTFMove(clonedOffsetRotate),
-        WTFMove(clonedFilter),
-        WTFMove(clonedBackdropFilter)
+        WTF::move(clonedOpacity),
+        WTF::move(clonedTransformOperationData),
+        WTF::move(clonedTransformOrigin),
+        WTF::move(clonedTransformBox),
+        WTF::move(clonedTransform),
+        WTF::move(clonedTranslate),
+        WTF::move(clonedScale),
+        WTF::move(clonedRotate),
+        WTF::move(clonedOffsetPath),
+        WTF::move(clonedOffsetDistance),
+        WTF::move(clonedOffsetPosition),
+        WTF::move(clonedOffsetAnchor),
+        WTF::move(clonedOffsetRotate),
+        WTF::move(clonedFilter),
+        WTF::move(clonedBackdropFilter)
     };
 }
 
@@ -121,7 +122,7 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
 
     if (!style.offsetPath().isNone() && transformOperationData) {
         if (auto path = Style::tryPath(style.offsetPath(), *transformOperationData)) {
-            transformOrigin = { .value = style.computeTransformOrigin(transformOperationData->boundingBox).xy() };
+            transformOrigin = { .value = Style::TransformResolver::computeTransformOrigin(style, transformOperationData->boundingBox).xy() };
             offsetPath = Style::toPlatform(style.offsetPath());
             offsetDistance = Style::evaluate<AcceleratedEffectOffsetDistance>(style.offsetDistance(), path->length(), Style::ZoomNeeded { });
             offsetRotate = Style::evaluate<AcceleratedEffectOffsetRotate>(style.offsetRotate());
@@ -132,8 +133,10 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
         }
     }
 
-    filter = Style::toPlatform(style.filter());
-    backdropFilter = Style::toPlatform(style.backdropFilter());
+    if (!style.filter().hasReferenceFilter())
+        filter = Style::toPlatform(style.filter(), style, Style::Filter::PlatformConversionAllowsCurrentColor::No);
+    if (!style.backdropFilter().hasReferenceFilter())
+        backdropFilter = Style::toPlatform(style.backdropFilter(), style, Style::Filter::PlatformConversionAllowsCurrentColor::No);
 }
 
 TransformationMatrix AcceleratedEffectValues::computedTransformationMatrix(const FloatRect& boundingBox) const
@@ -190,4 +193,4 @@ TransformationMatrix AcceleratedEffectValues::computedTransformationMatrix(const
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

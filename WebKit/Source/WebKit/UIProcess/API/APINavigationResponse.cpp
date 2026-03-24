@@ -39,7 +39,7 @@ NavigationResponse::NavigationResponse(API::FrameInfo& frame, const WebCore::Res
     , m_request(request)
     , m_response(response)
     , m_canShowMIMEType(canShowMIMEType)
-    , m_downloadAttribute(WTFMove(downloadAttribute))
+    , m_downloadAttribute(WTF::move(downloadAttribute))
     , m_navigation(navigation) { }
 
 NavigationResponse::~NavigationResponse() = default;
@@ -48,9 +48,14 @@ FrameInfo* NavigationResponse::navigationInitiatingFrame()
 {
     if (!m_navigation)
         return nullptr;
+
+    if (m_navigation->targetItem() || m_navigation->isRequestFromClientOrUserInput())
+        return nullptr;
+
     auto& frameInfo = m_navigation->originatingFrameInfo();
     if (!frameInfo)
         return nullptr;
+
     RefPtr frame = WebKit::WebFrameProxy::webFrame(frameInfo->frameID);
     m_sourceFrame = FrameInfo::create(WebKit::FrameInfoData { *frameInfo });
     return m_sourceFrame.get();

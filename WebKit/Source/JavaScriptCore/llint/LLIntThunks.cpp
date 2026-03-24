@@ -50,6 +50,9 @@ JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith0Arguments);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith1Arguments);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith2Arguments);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith3Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith4Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith5Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith6Arguments);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToNative);
 JSC_ANNOTATE_JIT_OPERATION_RETURN(vmEntryToJavaScriptGateAfter);
 JSC_ANNOTATE_JIT_OPERATION_RETURN(llint_function_for_call_arity_checkUntagGateAfter);
@@ -804,16 +807,6 @@ MacroAssemblerCodeRef<JITThunkPtrTag> inPlaceInterpreterEntryThunk()
     static std::once_flag onceKey;
     std::call_once(onceKey, [&] {
         codeRef.construct(generateThunkWithJumpToPrologue<JITThunkPtrTag>(ipint_entry, "function for IPInt entry"));
-    });
-    return codeRef;
-}
-
-MacroAssemblerCodeRef<JITThunkPtrTag> inPlaceInterpreterSIMDEntryThunk()
-{
-    static LazyNeverDestroyed<MacroAssemblerCodeRef<JITThunkPtrTag>> codeRef;
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [&] {
-        codeRef.construct(generateThunkWithJumpToPrologue<JITThunkPtrTag>(ipint_simd_entry, "function for IPInt SIMD call"));
     });
     return codeRef;
 }

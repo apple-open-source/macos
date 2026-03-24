@@ -41,7 +41,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCommandBuffer);
 RemoteCommandBuffer::RemoteCommandBuffer(WebCore::WebGPU::CommandBuffer& commandBuffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(commandBuffer)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -62,7 +62,7 @@ void RemoteCommandBuffer::stopListeningForIPC()
 
 void RemoteCommandBuffer::setLabel(String&& label)
 {
-    Ref { m_backing }->setLabel(WTFMove(label));
+    Ref { m_backing }->setLabel(WTF::move(label));
 }
 
 Ref<IPC::StreamServerConnection> RemoteCommandBuffer::protectedStreamConnection() const

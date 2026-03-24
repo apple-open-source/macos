@@ -112,13 +112,13 @@ void ExtensionStyleSheets::updatePageUserSheet()
         protectedDocument()->styleScope().didChangeExtensionStyleSheets();
 }
 
-const Vector<RefPtr<CSSStyleSheet>>& ExtensionStyleSheets::injectedUserStyleSheets() const
+const Vector<Ref<CSSStyleSheet>>& ExtensionStyleSheets::injectedUserStyleSheets() const
 {
     updateInjectedStyleSheetCache();
     return m_injectedUserStyleSheets;
 }
 
-const Vector<RefPtr<CSSStyleSheet>>& ExtensionStyleSheets::injectedAuthorStyleSheets() const
+const Vector<Ref<CSSStyleSheet>>& ExtensionStyleSheets::injectedAuthorStyleSheets() const
 {
     updateInjectedStyleSheetCache();
     return m_injectedAuthorStyleSheets;
@@ -144,9 +144,9 @@ void ExtensionStyleSheets::updateInjectedStyleSheetCache() const
         m_injectedStyleSheetToSource.set(sheet.copyRef(), userStyleSheet.source());
 
         if (sheet->contents().isUserStyleSheet())
-            m_injectedUserStyleSheets.append(WTFMove(sheet));
+            m_injectedUserStyleSheets.append(WTF::move(sheet));
         else
-            m_injectedAuthorStyleSheets.append(WTFMove(sheet));
+            m_injectedAuthorStyleSheets.append(WTF::move(sheet));
     };
 
     for (const auto& userStyleSheet : m_pageSpecificStyleSheets)
@@ -220,14 +220,14 @@ void ExtensionStyleSheets::invalidateInjectedStyleSheetCache()
 void ExtensionStyleSheets::addUserStyleSheet(Ref<StyleSheetContents>&& userSheet)
 {
     ASSERT(userSheet.get().isUserStyleSheet());
-    m_userStyleSheets.append(CSSStyleSheet::create(WTFMove(userSheet), protectedDocument().get()));
+    m_userStyleSheets.append(CSSStyleSheet::create(WTF::move(userSheet), protectedDocument().get()));
     protectedDocument()->styleScope().didChangeExtensionStyleSheets();
 }
 
 void ExtensionStyleSheets::addAuthorStyleSheetForTesting(Ref<StyleSheetContents>&& authorSheet)
 {
     ASSERT(!authorSheet.get().isUserStyleSheet());
-    m_authorStyleSheetsForTesting.append(CSSStyleSheet::create(WTFMove(authorSheet), protectedDocument().get()));
+    m_authorStyleSheetsForTesting.append(CSSStyleSheet::create(WTF::move(authorSheet), protectedDocument().get()));
     protectedDocument()->styleScope().didChangeExtensionStyleSheets();
 }
 
@@ -237,7 +237,7 @@ void ExtensionStyleSheets::addDisplayNoneSelector(const String& identifier, cons
     auto result = m_contentExtensionSelectorSheets.add(identifier, nullptr);
     if (result.isNewEntry) {
         result.iterator->value = ContentExtensionStyleSheet::create(protectedDocument().get());
-        m_userStyleSheets.append(&result.iterator->value->styleSheet());
+        m_userStyleSheets.append(result.iterator->value->styleSheet());
     }
 
     if (result.iterator->value->addDisplayNoneSelector(selector, selectorID))
@@ -251,17 +251,17 @@ void ExtensionStyleSheets::maybeAddContentExtensionSheet(const String& identifie
     if (m_contentExtensionSheets.contains(identifier))
         return;
 
-    Ref<CSSStyleSheet> cssSheet = CSSStyleSheet::create(sheet, protectedDocument().get());
-    m_contentExtensionSheets.set(identifier, &cssSheet.get());
-    m_userStyleSheets.append(adoptRef(cssSheet.leakRef()));
+    Ref cssSheet = CSSStyleSheet::create(sheet, protectedDocument().get());
+    m_contentExtensionSheets.set(identifier, cssSheet.copyRef());
+    m_userStyleSheets.append(WTF::move(cssSheet));
     protectedDocument()->styleScope().didChangeExtensionStyleSheets();
 
 }
 #endif // ENABLE(CONTENT_EXTENSIONS)
 
-String ExtensionStyleSheets::contentForInjectedStyleSheet(const RefPtr<CSSStyleSheet>& styleSheet) const
+String ExtensionStyleSheets::contentForInjectedStyleSheet(CSSStyleSheet& styleSheet) const
 {
-    return m_injectedStyleSheetToSource.get(*styleSheet);
+    return m_injectedStyleSheetToSource.get(styleSheet);
 }
 
 void ExtensionStyleSheets::detachFromDocument()

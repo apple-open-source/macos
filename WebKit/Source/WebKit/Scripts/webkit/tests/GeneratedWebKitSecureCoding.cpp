@@ -104,7 +104,7 @@ template<typename T> static Vector<RetainPtr<T>> vectorFromArray(NSArray *array)
         return { };
     Vector<RetainPtr<T>> result;
     for (id element in array) {
-        if ([element isKindOfClass:IPC::getClass<T>()])
+        SUPPRESS_UNRETAINED_ARG if ([element isKindOfClass:retainPtr(IPC::getClass<T>()).get()])
             result.append((T *)element);
     }
     return result;
@@ -122,8 +122,8 @@ CoreIPCAVOutputContext::CoreIPCAVOutputContext(
     RetainPtr<NSString>&& AVOutputContextSerializationKeyContextID,
     RetainPtr<NSString>&& AVOutputContextSerializationKeyContextType
 )
-    : m_AVOutputContextSerializationKeyContextID(WTFMove(AVOutputContextSerializationKeyContextID))
-    , m_AVOutputContextSerializationKeyContextType(WTFMove(AVOutputContextSerializationKeyContextType))
+    : m_AVOutputContextSerializationKeyContextID(WTF::move(AVOutputContextSerializationKeyContextID))
+    , m_AVOutputContextSerializationKeyContextType(WTF::move(AVOutputContextSerializationKeyContextType))
 {
 }
 
@@ -131,11 +131,11 @@ CoreIPCAVOutputContext::CoreIPCAVOutputContext(AVOutputContext *object)
 {
     auto dictionary = dictionaryForWebKitSecureCodingType(object);
     m_AVOutputContextSerializationKeyContextID = (NSString *)[dictionary objectForKey:@"AVOutputContextSerializationKeyContextID"];
-    if (![m_AVOutputContextSerializationKeyContextID isKindOfClass:IPC::getClass<NSString>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_AVOutputContextSerializationKeyContextID isKindOfClass:IPC::getClass<NSString>()])
         m_AVOutputContextSerializationKeyContextID = nullptr;
 
     m_AVOutputContextSerializationKeyContextType = (NSString *)[dictionary objectForKey:@"AVOutputContextSerializationKeyContextType"];
-    if (![m_AVOutputContextSerializationKeyContextType isKindOfClass:IPC::getClass<NSString>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_AVOutputContextSerializationKeyContextType isKindOfClass:IPC::getClass<NSString>()])
         m_AVOutputContextSerializationKeyContextType = nullptr;
 
 }
@@ -164,13 +164,13 @@ CoreIPCNSSomeFoundationType::CoreIPCNSSomeFoundationType(
     RetainPtr<NSDictionary>&& DictionaryKey,
     RetainPtr<NSDictionary>&& OptionalDictionaryKey
 )
-    : m_StringKey(WTFMove(StringKey))
-    , m_NumberKey(WTFMove(NumberKey))
-    , m_OptionalNumberKey(WTFMove(OptionalNumberKey))
-    , m_ArrayKey(WTFMove(ArrayKey))
-    , m_OptionalArrayKey(WTFMove(OptionalArrayKey))
-    , m_DictionaryKey(WTFMove(DictionaryKey))
-    , m_OptionalDictionaryKey(WTFMove(OptionalDictionaryKey))
+    : m_StringKey(WTF::move(StringKey))
+    , m_NumberKey(WTF::move(NumberKey))
+    , m_OptionalNumberKey(WTF::move(OptionalNumberKey))
+    , m_ArrayKey(WTF::move(ArrayKey))
+    , m_OptionalArrayKey(WTF::move(OptionalArrayKey))
+    , m_DictionaryKey(WTF::move(DictionaryKey))
+    , m_OptionalDictionaryKey(WTF::move(OptionalDictionaryKey))
 {
 }
 
@@ -178,31 +178,31 @@ CoreIPCNSSomeFoundationType::CoreIPCNSSomeFoundationType(NSSomeFoundationType *o
 {
     auto dictionary = dictionaryForWebKitSecureCodingType(object);
     m_StringKey = (NSString *)[dictionary objectForKey:@"StringKey"];
-    if (![m_StringKey isKindOfClass:IPC::getClass<NSString>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_StringKey isKindOfClass:IPC::getClass<NSString>()])
         m_StringKey = nullptr;
 
     m_NumberKey = (NSNumber *)[dictionary objectForKey:@"NumberKey"];
-    if (![m_NumberKey isKindOfClass:IPC::getClass<NSNumber>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_NumberKey isKindOfClass:IPC::getClass<NSNumber>()])
         m_NumberKey = nullptr;
 
     m_OptionalNumberKey = (NSNumber *)[dictionary objectForKey:@"OptionalNumberKey"];
-    if (![m_OptionalNumberKey isKindOfClass:IPC::getClass<NSNumber>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_OptionalNumberKey isKindOfClass:IPC::getClass<NSNumber>()])
         m_OptionalNumberKey = nullptr;
 
     m_ArrayKey = (NSArray *)[dictionary objectForKey:@"ArrayKey"];
-    if (![m_ArrayKey isKindOfClass:IPC::getClass<NSArray>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_ArrayKey isKindOfClass:IPC::getClass<NSArray>()])
         m_ArrayKey = nullptr;
 
     m_OptionalArrayKey = (NSArray *)[dictionary objectForKey:@"OptionalArrayKey"];
-    if (![m_OptionalArrayKey isKindOfClass:IPC::getClass<NSArray>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_OptionalArrayKey isKindOfClass:IPC::getClass<NSArray>()])
         m_OptionalArrayKey = nullptr;
 
     m_DictionaryKey = (NSDictionary *)[dictionary objectForKey:@"DictionaryKey"];
-    if (![m_DictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_DictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
         m_DictionaryKey = nullptr;
 
     m_OptionalDictionaryKey = (NSDictionary *)[dictionary objectForKey:@"OptionalDictionaryKey"];
-    if (![m_OptionalDictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_OptionalDictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
         m_OptionalDictionaryKey = nullptr;
 
 }
@@ -235,7 +235,7 @@ RetainPtr<id> CoreIPCNSSomeFoundationType::toID() const
 CoreIPCclass NSSomeOtherFoundationType::CoreIPCclass NSSomeOtherFoundationType(
     RetainPtr<NSDictionary>&& DictionaryKey
 )
-    : m_DictionaryKey(WTFMove(DictionaryKey))
+    : m_DictionaryKey(WTF::move(DictionaryKey))
 {
 }
 
@@ -243,7 +243,7 @@ CoreIPCclass NSSomeOtherFoundationType::CoreIPCclass NSSomeOtherFoundationType(c
 {
     auto dictionary = dictionaryForWebKitSecureCodingTypeFromWKKeyedCoder(object);
     m_DictionaryKey = (NSDictionary *)[dictionary objectForKey:@"DictionaryKey"];
-    if (![m_DictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_DictionaryKey isKindOfClass:IPC::getClass<NSDictionary>()])
         m_DictionaryKey = nullptr;
 
 }
@@ -270,15 +270,15 @@ CoreIPCDDScannerResult::CoreIPCDDScannerResult(
     Vector<RetainPtr<NSData>>&& DataArrayKey,
     Vector<RetainPtr<SecTrustRef>>&& SecTrustArrayKey
 )
-    : m_StringKey(WTFMove(StringKey))
-    , m_NumberKey(WTFMove(NumberKey))
-    , m_OptionalNumberKey(WTFMove(OptionalNumberKey))
-    , m_ArrayKey(WTFMove(ArrayKey))
-    , m_OptionalArrayKey(WTFMove(OptionalArrayKey))
-    , m_DictionaryKey(WTFMove(DictionaryKey))
-    , m_OptionalDictionaryKey(WTFMove(OptionalDictionaryKey))
-    , m_DataArrayKey(WTFMove(DataArrayKey))
-    , m_SecTrustArrayKey(WTFMove(SecTrustArrayKey))
+    : m_StringKey(WTF::move(StringKey))
+    , m_NumberKey(WTF::move(NumberKey))
+    , m_OptionalNumberKey(WTF::move(OptionalNumberKey))
+    , m_ArrayKey(WTF::move(ArrayKey))
+    , m_OptionalArrayKey(WTF::move(OptionalArrayKey))
+    , m_DictionaryKey(WTF::move(DictionaryKey))
+    , m_OptionalDictionaryKey(WTF::move(OptionalDictionaryKey))
+    , m_DataArrayKey(WTF::move(DataArrayKey))
+    , m_SecTrustArrayKey(WTF::move(SecTrustArrayKey))
 {
 }
 
@@ -286,23 +286,23 @@ CoreIPCDDScannerResult::CoreIPCDDScannerResult(DDScannerResult *object)
 {
     auto dictionary = dictionaryForWebKitSecureCodingType(object);
     m_StringKey = (NSString *)[dictionary objectForKey:@"StringKey"];
-    if (![m_StringKey isKindOfClass:IPC::getClass<NSString>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_StringKey isKindOfClass:IPC::getClass<NSString>()])
         m_StringKey = nullptr;
 
     m_NumberKey = (NSNumber *)[dictionary objectForKey:@"NumberKey"];
-    if (![m_NumberKey isKindOfClass:IPC::getClass<NSNumber>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_NumberKey isKindOfClass:IPC::getClass<NSNumber>()])
         m_NumberKey = nullptr;
 
     m_OptionalNumberKey = (NSNumber *)[dictionary objectForKey:@"OptionalNumberKey"];
-    if (![m_OptionalNumberKey isKindOfClass:IPC::getClass<NSNumber>()])
+    SUPPRESS_UNRETAINED_ARG if (![m_OptionalNumberKey isKindOfClass:IPC::getClass<NSNumber>()])
         m_OptionalNumberKey = nullptr;
 
-    m_ArrayKey = vectorFromArray<DDScannerResult>((NSArray *)[dictionary objectForKey:@"ArrayKey"]);
-    m_OptionalArrayKey = optionalVectorFromArray<DDScannerResult>((NSArray *)[dictionary objectForKey:@"OptionalArrayKey"]);
-    m_DictionaryKey = vectorFromDictionary<Number>((NSDictionary *)[dictionary objectForKey:@"DictionaryKey"]);
-    m_OptionalDictionaryKey = optionalVectorFromDictionary<DDScannerResult>((NSDictionary *)[dictionary objectForKey:@"OptionalDictionaryKey"]);
-    m_DataArrayKey = vectorFromArray<NSData>((NSArray *)[dictionary objectForKey:@"DataArrayKey"]);
-    m_SecTrustArrayKey = vectorFromArray<SecTrustRef>((NSArray *)[dictionary objectForKey:@"SecTrustArrayKey"]);
+    m_ArrayKey = vectorFromArray<DDScannerResult>((NSArray *)retainPtr([dictionary objectForKey:@"ArrayKey"]).get());
+    m_OptionalArrayKey = optionalVectorFromArray<DDScannerResult>((NSArray *)retainPtr([dictionary objectForKey:@"OptionalArrayKey"]).get());
+    m_DictionaryKey = vectorFromDictionary<Number>((NSDictionary *)retainPtr([dictionary objectForKey:@"DictionaryKey"]).get());
+    m_OptionalDictionaryKey = optionalVectorFromDictionary<DDScannerResult>((NSDictionary *)retainPtr([dictionary objectForKey:@"OptionalDictionaryKey"]).get());
+    m_DataArrayKey = vectorFromArray<NSData>((NSArray *)retainPtr([dictionary objectForKey:@"DataArrayKey"]).get());
+    m_SecTrustArrayKey = vectorFromArray<SecTrustRef>((NSArray *)retainPtr([dictionary objectForKey:@"SecTrustArrayKey"]).get());
 }
 
 RetainPtr<id> CoreIPCDDScannerResult::toID() const

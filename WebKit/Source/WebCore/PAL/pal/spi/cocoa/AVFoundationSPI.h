@@ -61,13 +61,6 @@ IGNORE_WARNINGS_END
 #endif
 #endif
 
-NS_ASSUME_NONNULL_BEGIN
-@interface AVOutputContext(WKSecureCoding)
-- (NSDictionary *)_webKitPropertyListData;
-- (instancetype)_initWithWebKitPropertyListData:(NSDictionary *)plist;
-@end
-NS_ASSUME_NONNULL_END
-
 #import <AVFoundation/AVAudioSession_Private.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -492,3 +485,10 @@ NS_ASSUME_NONNULL_END
 @property (nonatomic, copy, nullable, getter=_STSLabel) NSString *STSLabel SPI_AVAILABLE(ios(15.0)) API_UNAVAILABLE(macos, tvos, watchos);
 @end
 #endif
+
+NS_ASSUME_NONNULL_BEGIN
+@interface AVOutputContext(WKSecureCoding)
+- (NSDictionary *)_webKitPropertyListData;
+- (instancetype)_initWithWebKitPropertyListData:(NSDictionary *)plist;
+@end
+NS_ASSUME_NONNULL_END

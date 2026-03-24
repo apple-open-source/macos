@@ -51,18 +51,18 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MutationObserver);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MutationObserver);
 
 static unsigned s_observerPriority = 0;
 
 Ref<MutationObserver> MutationObserver::create(Ref<MutationCallback>&& callback)
 {
     ASSERT(isMainThread());
-    return adoptRef(*new MutationObserver(WTFMove(callback)));
+    return adoptRef(*new MutationObserver(WTF::move(callback)));
 }
 
 MutationObserver::MutationObserver(Ref<MutationCallback>&& callback)
-    : m_callback(WTFMove(callback))
+    : m_callback(WTF::move(callback))
     , m_priority(s_observerPriority++)
 {
 }
@@ -116,7 +116,7 @@ ExceptionOr<void> MutationObserver::observe(Node& node, const Init& init)
 
 auto MutationObserver::takeRecords() -> TakenRecords
 {
-    return { WTFMove(m_records), WTFMove(m_pendingTargets) };
+    return { WTF::move(m_records), WTF::move(m_pendingTargets) };
 }
 
 void MutationObserver::disconnect()
@@ -124,10 +124,8 @@ void MutationObserver::disconnect()
     m_pendingTargets.clear();
     m_records.clear();
     WeakHashSet registrations { m_registrations };
-    for (auto& registration : registrations) {
-        Ref nodeRef { registration.node() };
-        nodeRef->unregisterMutationObserver(registration);
-    }
+    for (Ref registration : registrations)
+        registration->protectedNode()->unregisterMutationObserver(registration.get());
 }
 
 void MutationObserver::observationStarted(MutationObserverRegistration& registration)
@@ -149,10 +147,10 @@ void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
     Ref document = mutation->target()->document();
 
     m_pendingTargets.add(*mutation->target());
-    m_records.append(WTFMove(mutation));
+    m_records.append(WTF::move(mutation));
 
     Ref eventLoop = document->windowEventLoop();
-    eventLoop->activeMutationObservers().add(this);
+    eventLoop->activeMutationObservers().add(*this);
     eventLoop->queueMutationObserverCompoundMicrotask();
 }
 
@@ -181,13 +179,14 @@ void MutationObserver::enqueueShadowRootAttachedEvent(Element& element)
 void MutationObserver::setHasTransientRegistration(Document& document)
 {
     Ref eventLoop = document.windowEventLoop();
-    eventLoop->activeMutationObservers().add(this);
+    eventLoop->activeMutationObservers().add(*this);
     eventLoop->queueMutationObserverCompoundMicrotask();
 }
 
 bool MutationObserver::isReachableFromOpaqueRoots(JSC::AbstractSlotVisitor& visitor) const
 {
-    for (auto& registration : m_registrations) {
+    // We cannot use Ref here since this gets called on the GC thread.
+    SUPPRESS_UNCOUNTED_LOCAL for (auto& registration : m_registrations) {
         if (registration.isReachableFromOpaqueRoots(visitor))
             return true;
     }
@@ -205,13 +204,13 @@ void MutationObserver::deliver()
 
     // Calling takeTransientRegistrations() can modify m_registrations, so it's necessary
     // to make a copy of the transient registrations before operating on them.
-    Vector<WeakPtr<MutationObserverRegistration>, 1> transientRegistrations;
+    Vector<Ref<MutationObserverRegistration>, 1> transientRegistrations;
     Vector<HashSet<GCReachableRef<Node>>, 1> nodesToKeepAlive;
     HashSet<GCReachableRef<Node>> pendingTargets;
     pendingTargets.swap(m_pendingTargets);
-    for (auto& registration : m_registrations) {
-        if (registration.hasTransientRegistrations())
-            transientRegistrations.append(registration);
+    for (Ref registration : m_registrations) {
+        if (registration->hasTransientRegistrations())
+            transientRegistrations.append(WTF::move(registration));
     }
     for (auto& registration : transientRegistrations)
         nodesToKeepAlive.append(registration->takeTransientRegistrations());

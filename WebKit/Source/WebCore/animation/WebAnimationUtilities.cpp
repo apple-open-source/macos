@@ -40,7 +40,7 @@
 #include "KeyframeEffectStack.h"
 #include "NodeDocument.h"
 #include "RenderStyle.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "ScriptExecutionContext.h"
 #include "StyleAnimations.h"
 #include "StyleOriginatedAnimation.h"
@@ -169,11 +169,11 @@ static bool compareCSSAnimations(const CSSAnimation& a, const CSSAnimation& b)
     // Sort A and B based on their position in the computed value of the animation-name property of the (common) owning element.
     auto& cssAnimationList = aOwningElement->ensureKeyframeEffectStack().cssAnimationList();
     ASSERT(cssAnimationList);
-    ASSERT(!cssAnimationList->isNone());
+    ASSERT(!cssAnimationList->isInitial());
 
     auto& aBackingAnimation = a.backingStyleAnimation();
     auto& bBackingAnimation = b.backingStyleAnimation();
-    for (auto& animation : *cssAnimationList) {
+    for (auto& animation : cssAnimationList->usedValues()) {
         if (animation.sortingIdentity() == aBackingAnimation.sortingIdentity())
             return true;
         if (animation.sortingIdentity() == bBackingAnimation.sortingIdentity())
@@ -397,7 +397,7 @@ bool styleHasDisplayTransition(const RenderStyle& style)
     if (!style.hasTransitions())
         return false;
 
-    for (auto& transition : style.transitions()) {
+    for (auto& transition : style.transitions().usedValues()) {
         auto result = WTF::switchOn(transition.property(),
             [&](const CSS::Keyword::All&) {
                 return transition.behavior() == TransitionBehavior::AllowDiscrete;
@@ -420,6 +420,14 @@ bool styleHasDisplayTransition(const RenderStyle& style)
     }
 
     return false;
+}
+
+bool animatablePropertiesContainTransformRelatedProperty(const HashSet<AnimatableCSSProperty>& properties)
+{
+    return properties.contains(CSSPropertyTranslate)
+        || properties.contains(CSSPropertyScale)
+        || properties.contains(CSSPropertyRotate)
+        || properties.contains(CSSPropertyTransform);
 }
 
 } // namespace WebCore

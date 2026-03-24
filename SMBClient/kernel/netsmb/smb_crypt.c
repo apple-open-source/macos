@@ -4245,6 +4245,22 @@ smb2_rq_decompress_read(struct smb_session *sessionp, mbuf_t *mpp)
                     original_payload_size = originalCompressedSegmentSize;
                 }
 
+                /*
+                 * Non chained compression sanity check
+                 * compress_len is the amount of compressed data to read in from the reply packet
+                 * originalCompressedSegmentSize is from the reply packet and was used for buffer allocation size
+                 * compress_startp is pointing to the start of the allocated buffer
+                 *
+                 * Check compress_len is less than originalCompressedSegmentSize so that we do not copy data
+                 * using md_get_mem() from the reply packet past the end of the allocated buffer.
+                 */
+                if (compress_len > originalCompressedSegmentSize) {
+                    SMBERROR("compress_len %u > originalCompressedSegmentSize %u \n",
+                             compress_len, originalCompressedSegmentSize);
+                    error = EINVAL;
+                    goto bad;
+                }
+
                 /* Copy compressed data to preallocated buffer in compress_startp */
                 error = md_get_mem(&compressed_mdp, (caddr_t) compress_startp, compress_len,
                                    MB_MSYSTEM);

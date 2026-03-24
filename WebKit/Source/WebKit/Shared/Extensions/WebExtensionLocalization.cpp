@@ -207,7 +207,7 @@ RefPtr<JSON::Array> WebExtensionLocalization::localizedArrayForArray(RefPtr<JSON
         else if (valueType == JSON::Value::Type::Object)
             newArray->pushObject(*localizedJSONforJSON(value->asObject()));
         else
-            newArray->pushValue(WTFMove(value));
+            newArray->pushValue(WTF::move(value));
     }
 
     return newArray;

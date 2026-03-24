@@ -74,12 +74,24 @@ void RemoteMediaPlayerManagerProxy::clear()
 {
     auto proxies = std::exchange(m_proxies, { });
 
-    for (auto& proxy : proxies.values())
+    for (Ref proxy : proxies.values())
         proxy->invalidate();
 
 #if ENABLE(MEDIA_SOURCE)
     m_pendingMediaSources.clear();
 #endif
+}
+
+void RemoteMediaPlayerManagerProxy::connectionToWebProcessClosed()
+{
+    for (Ref proxy : m_proxies.values())
+        proxy->connectionToWebProcessClosed();
+
+#if ENABLE(MEDIA_SOURCE)
+    for (auto keyValuePair : m_pendingMediaSources)
+        Ref { keyValuePair.value }->connectionToWebProcessClosed();
+#endif
+    clear();
 }
 
 void RemoteMediaPlayerManagerProxy::createMediaPlayer(MediaPlayerIdentifier identifier, MediaPlayerClientIdentifier clientIdentifier, MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, RemoteMediaPlayerProxyConfiguration&& proxyConfiguration)
@@ -90,8 +102,8 @@ void RemoteMediaPlayerManagerProxy::createMediaPlayer(MediaPlayerIdentifier iden
     ASSERT(RunLoop::isMain());
     ASSERT(!m_proxies.contains(identifier));
 
-    auto proxy = RemoteMediaPlayerProxy::create(*this, identifier, clientIdentifier, connection->connection(), engineIdentifier, WTFMove(proxyConfiguration), Ref { connection->videoFrameObjectHeap() }, connection->webProcessIdentity());
-    m_proxies.add(identifier, WTFMove(proxy));
+    auto proxy = RemoteMediaPlayerProxy::create(*this, identifier, clientIdentifier, connection->connection(), engineIdentifier, WTF::move(proxyConfiguration), Ref { connection->videoFrameObjectHeap() }, connection->webProcessIdentity());
+    m_proxies.add(identifier, WTF::move(proxy));
 }
 
 void RemoteMediaPlayerManagerProxy::deleteMediaPlayer(MediaPlayerIdentifier identifier)
@@ -111,7 +123,7 @@ void RemoteMediaPlayerManagerProxy::deleteMediaPlayer(MediaPlayerIdentifier iden
 
 void RemoteMediaPlayerManagerProxy::getSupportedTypes(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
 {
-    auto engine = MediaPlayer::mediaEngine(engineIdentifier);
+    CheckedPtr engine = MediaPlayer::mediaEngine(engineIdentifier);
     if (!engine) {
         WTFLogAlways("Failed to find media engine.");
         completionHandler({ });
@@ -125,12 +137,12 @@ void RemoteMediaPlayerManagerProxy::getSupportedTypes(MediaPlayerEnums::MediaEng
         return type;
     });
 
-    completionHandler(WTFMove(result));
+    completionHandler(WTF::move(result));
 }
 
 void RemoteMediaPlayerManagerProxy::supportsTypeAndCodecs(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const MediaEngineSupportParameters&& parameters, CompletionHandler<void(MediaPlayer::SupportsType)>&& completionHandler)
 {
-    auto engine = MediaPlayer::mediaEngine(engineIdentifier);
+    CheckedPtr engine = MediaPlayer::mediaEngine(engineIdentifier);
     if (!engine) {
         WTFLogAlways("Failed to find media engine.");
         completionHandler(MediaPlayer::SupportsType::IsNotSupported);
@@ -143,7 +155,7 @@ void RemoteMediaPlayerManagerProxy::supportsTypeAndCodecs(MediaPlayerEnums::Medi
 
 void RemoteMediaPlayerManagerProxy::supportsKeySystem(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const String&& keySystem, const String&& mimeType, CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto engine = MediaPlayer::mediaEngine(engineIdentifier);
+    CheckedPtr engine = MediaPlayer::mediaEngine(engineIdentifier);
     if (!engine) {
         WTFLogAlways("Failed to find media engine.");
         return;
@@ -221,7 +233,7 @@ void RemoteMediaPlayerManagerProxy::registerMediaSource(RemoteMediaSourceIdentif
     ASSERT(RunLoop::isMain());
 
     ASSERT(!m_pendingMediaSources.contains(identifier));
-    m_pendingMediaSources.add(identifier, &mediaSource);
+    m_pendingMediaSources.add(identifier, mediaSource);
 }
 
 void RemoteMediaPlayerManagerProxy::invalidateMediaSource(RemoteMediaSourceIdentifier identifier)
@@ -239,7 +251,7 @@ RefPtr<RemoteMediaSourceProxy> RemoteMediaPlayerManagerProxy::pendingMediaSource
     auto iterator = m_pendingMediaSources.find(identifier);
     if (iterator == m_pendingMediaSources.end())
         return nullptr;
-    return iterator->value;
+    return iterator->value.copyRef();
 }
 #endif
 

@@ -27,6 +27,7 @@
 #include "AXCoreObject.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -78,8 +79,8 @@ enum class AccessibilitySearchKey {
 
 struct AccessibilitySearchCriteria {
     // FIXME: change the object pointers to object IDs.
-    AXCoreObject* anchorObject { nullptr };
-    AXCoreObject* startObject { nullptr };
+    WeakPtr<AXCoreObject> anchorObject { nullptr };
+    WeakPtr<AXCoreObject> startObject { nullptr };
     CharacterRange startRange;
     AccessibilitySearchDirection searchDirection { AccessibilitySearchDirection::Next };
     Vector<AccessibilitySearchKey> searchKeys;

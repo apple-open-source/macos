@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WeakMapPrototype.h"
 
-#include "CachedCall.h"
+#include "CachedCallInlines.h"
 #include "InterpreterInlines.h"
 #include "JSCInlines.h"
 #include "JSWeakMapInlines.h"

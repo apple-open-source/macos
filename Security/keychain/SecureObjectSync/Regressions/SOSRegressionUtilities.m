@@ -82,13 +82,13 @@ const char *cfabsoluteTimeToStringLocal(CFAbsoluteTime abstime)
     char buffer[1024] = {0,};
     size_t sz;
     
-    require(tz = CFTimeZoneCopySystem(), xit);
-    require(locale = CFLocaleCreate(NULL, CFSTR("en_US")), xit);
+    __Require(tz = CFTimeZoneCopySystem(), xit);
+    __Require(locale = CFLocaleCreate(NULL, CFSTR("en_US")), xit);
     
-    require(formatter = CFDateFormatterCreate(kCFAllocatorDefault, locale, kCFDateFormatterShortStyle, kCFDateFormatterShortStyle), xit);
+    __Require(formatter = CFDateFormatterCreate(kCFAllocatorDefault, locale, kCFDateFormatterShortStyle, kCFDateFormatterShortStyle), xit);
     CFDateFormatterSetFormat(formatter, CFSTR("MM/dd/yy HH:mm:ss.SSS zzz"));
-    require(date = CFDateCreate(kCFAllocatorDefault, abstime), xit);
-    require(cftime_string = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault, formatter, date), xit);
+    __Require(date = CFDateCreate(kCFAllocatorDefault, abstime), xit);
+    __Require(cftime_string = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault, formatter, date), xit);
 
     CFStringGetCString(cftime_string, buffer, 1024, kCFStringEncodingUTF8);
     sz = strnlen(buffer, 1024);
@@ -307,14 +307,14 @@ SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name,
     SecKeyRef octagonEncryptionPublicKey = NULL;
     CFDictionaryRef gestalt = NULL;
 
-    require(outSigningKey, exit);
+    __Require(outSigningKey, exit);
 
-    require_quiet(SecError(GeneratePermanentECPair(256, &publicKey, outSigningKey), error, CFSTR("Failed To Create Key")), exit);
-    require_quiet(SecError(GeneratePermanentECPair(384, &octagonSigningPublicKey, outOctagonSigningKey), error, CFSTR("Failed to Create Octagon Signing Key")), exit);
-    require_quiet(SecError(GeneratePermanentECPair(384, &octagonEncryptionPublicKey, outOctagonEncryptionKey), error, CFSTR("Failed to Create Octagon Encryption Key")), exit);
+    __Require_Quiet(SecError(GeneratePermanentECPair(256, &publicKey, outSigningKey), error, CFSTR("Failed To Create Key")), exit);
+    __Require_Quiet(SecError(GeneratePermanentECPair(384, &octagonSigningPublicKey, outOctagonSigningKey), error, CFSTR("Failed to Create Octagon Signing Key")), exit);
+    __Require_Quiet(SecError(GeneratePermanentECPair(384, &octagonEncryptionPublicKey, outOctagonEncryptionKey), error, CFSTR("Failed to Create Octagon Encryption Key")), exit);
 
     gestalt = SOSCreatePeerGestaltFromName(name);
-    require(gestalt, exit);
+    __Require(gestalt, exit);
 
     result = SOSPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey,
                                *outOctagonSigningKey, *outOctagonEncryptionKey,
@@ -342,20 +342,20 @@ SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name,
     CFDictionaryRef gestalt = NULL;
 
     gestalt = SOSCreatePeerGestaltFromName(name);
-    require(gestalt, exit);
+    __Require(gestalt, exit);
 
-    require(outSigningKey, exit);
+    __Require(outSigningKey, exit);
     *outSigningKey = GeneratePermanentFullECKey(256, name, error);
-    require(*outSigningKey, exit);
+    __Require(*outSigningKey, exit);
         
     if(outOctagonSigningKey && outOctagonEncryptionKey) {
-        require(outOctagonSigningKey, exit);
+        __Require(outOctagonSigningKey, exit);
         *outOctagonSigningKey = GeneratePermanentFullECKey(384, name, error);
-        require(*outOctagonSigningKey, exit);
+        __Require(*outOctagonSigningKey, exit);
 
-        require(outOctagonEncryptionKey, exit);
+        __Require(outOctagonEncryptionKey, exit);
         *outOctagonEncryptionKey = GeneratePermanentFullECKey(384, name, error);
-        require(*outOctagonEncryptionKey, exit);
+        __Require(*outOctagonEncryptionKey, exit);
         result = SOSFullPeerInfoCreate(NULL, gestalt, name,
                                        NULL,
                                        *outSigningKey,
@@ -502,13 +502,13 @@ static int getHardwareAddress(const char *interfaceName, size_t maxLenAllowed, s
 	buf = 0;
 	*outActualLength = 0;
 	//	see how much space is needed
-	require_noerr(result = sysctl(mib, 6, NULL, &buffSize, NULL, 0), xit);
+	__Require_noErr(result = sysctl(mib, 6, NULL, &buffSize, NULL, 0), xit);
 
 	//	allocate the buffer
-	require(buf = malloc(buffSize), xit);
+	__Require(buf = malloc(buffSize), xit);
 		
 	//	get the interface info	
-	require_noerr(result = sysctl(mib, 6, buf, &buffSize, NULL, 0), xit);
+	__Require_noErr(result = sysctl(mib, 6, buf, &buffSize, NULL, 0), xit);
     
 	ifm = (struct if_msghdr *) buf;
 	end = buf + buffSize;
@@ -558,8 +558,8 @@ CFStringRef myMacAddress(void)
     size_t outActualLength = 0;
     char outHardwareAddress[1024];
     
-    require_noerr(getHardwareAddress(interfaceName, maxLenAllowed, &outActualLength, outHardwareAddress), xit);
-    require(outActualLength==6, xit);
+    __Require_noErr(getHardwareAddress(interfaceName, maxLenAllowed, &outActualLength, outHardwareAddress), xit);
+    __Require(outActualLength==6, xit);
     unsigned char buf[32]={0,};
     
     unsigned char *ps = (unsigned char *)buf;

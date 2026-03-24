@@ -26,7 +26,8 @@
 #include <CoreUtils/CoreUtils.h>
 
 #define HID_TELEMETRY_LOG_INTERVAL 43200 //sec
-
+#define APPLE_VENDOR_ID 0x5AC
+#define APPLE_BT_VENDOR_ID 0x4C
 
 @interface HIDEventServiceTelemetry : NSObject {
     uint64_t _eventCount;
@@ -54,8 +55,9 @@
     
     _properties = [[NSMutableDictionary alloc] init];
     
+    // Always populate these basic properties
     property = (__bridge id)IOHIDServiceGetRegistryID((__bridge IOHIDServiceRef)service);
-    _properties[@"serviceid"] = property ? property : 0;
+    _properties[@"serviceid"] = property ? property : @0;
     
     property = [service propertyForKey:@kIOHIDServiceDeviceUsagePairsKey];
     _properties[@"usagepairs"] = property ? property : @"None";
@@ -63,20 +65,28 @@
     property = [service propertyForKey:@kIOHIDTransportKey];
     _properties[@"transport"] = property ? property : @"None";
     
-    property = [service propertyForKey:@kIOHIDServiceProductIDKey];
-    _properties[@"productid"] = property ? property : 0;
-    
     property = [service propertyForKey:@kIOHIDProductKey];
     _properties[@"productdescription"] = property ? property : @"None";
     
-    property = [service propertyForKey:@kIOHIDServiceVendorIDKey];
-    _properties[@"vendorid"] = property ? property : 0;
-   
-    property = [service propertyForKey:@kIOHIDManufacturerKey];
-    _properties[@"manufacturer"] = property ? property : @"None";
-   
     property = [service propertyForKey:@kIOHIDBuiltInKey];
     _properties[@"builtin"] = [property boolValue] ? @(YES) : @(NO);
+    
+    property = [service propertyForKey:@kIOHIDServiceVendorIDKey];
+    NSNumber *vendorID = property ? property : @0;
+    _properties[@"vendorid"] = vendorID;
+    
+    // Check if vendor ID equals Apple vendor ID
+    if ([vendorID intValue] == APPLE_VENDOR_ID || [vendorID intValue] == APPLE_BT_VENDOR_ID) {
+        // Populate productID and manufacturer normally for 1st party devices
+        property = [service propertyForKey:@kIOHIDServiceProductIDKey];
+        _properties[@"productid"] = property ? property : @0;
+        
+        _properties[@"thirdpartydevice"] = @(NO);
+    } else {
+        // For 3rd party, don't populate productID or manufacturer
+        // Instead, set thirdpartydevice to true
+        _properties[@"thirdpartydevice"] = @(YES);
+    }
    
     return self;
 }

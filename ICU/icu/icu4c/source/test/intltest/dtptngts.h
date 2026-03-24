@@ -43,10 +43,14 @@ private:
     void testDateTimePatterns();
     void testISO8601();
     void testRegionOverride();
+    void testAlphabeticSubstitution23114();
 #if APPLE_ICU_CHANGES
 // rdar://
    void testHorizontalInheritance();   // rdar://78420184
     void testPunjabiPattern(); // rdar://139506314
+#if U_PLATFORM_IS_DARWIN_BASED
+    void checkForUninitializedMemory(); // rdar://162810290
+#endif // U_PLATFORM_IS_DARWIN_BASED
 #endif  // APPLE_ICU_CHANGES
 
     // items for testDateTimePatterns();

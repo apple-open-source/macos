@@ -362,6 +362,9 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestBug20321UnicodeLocaleKey);
     TESTCASE(TestUsingDefaultWarning);
     TESTCASE(TestBug21449InfiniteLoop);
+    TESTCASE(TestBug23031VaPosix);
+    TESTCASE(TestBug23031VaPosixManyExtensions);
+    TESTCASE(TestBug23031VaPosixManyVariants);
     TESTCASE(TestExcessivelyLongIDs);
 #if !UCONFIG_NO_FORMATTING
     TESTCASE(TestUldnNameVariants);
@@ -1369,7 +1372,7 @@ typedef struct {
 static const DisplayNameBracketsItem displayNameBracketsItems[] = {
 #if APPLE_ICU_CHANGES
 // rdar://
-    { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)",  "English (Cocos [Keeling] Islands)" },
+    { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)",  "English (Cocos Islands)" },
     { "en", "MM", "my_MM",      "Myanmar (Burma)",          "Burmese (Myanmar [Burma])",          "Burmese (Myanmar)"                 },
     { "en", "MM", "my_Mymr_MM", "Myanmar (Burma)",          "Burmese (Myanmar, Myanmar [Burma])", "Burmese (Myanmar, Myanmar)"        },
     { "zh", "CC", "en_CC",      "\\u79D1\\u79D1\\u65AF\\uFF08\\u57FA\\u6797\\uFF09\\u7FA4\\u5C9B",
@@ -1687,10 +1690,10 @@ static void TestISOFunctions(void)
 static void setUpDataTable(void)
 {
     int32_t i,j;
-    dataTable = (UChar***)(calloc(sizeof(UChar**),LOCALE_INFO_SIZE));
+    dataTable = (UChar***)(calloc(LOCALE_INFO_SIZE, sizeof(UChar**)));
 
     for (i = 0; i < LOCALE_INFO_SIZE; i++) {
-        dataTable[i] = (UChar**)(calloc(sizeof(UChar*),LOCALE_SIZE));
+        dataTable[i] = (UChar**)(calloc(LOCALE_SIZE, sizeof(UChar*)));
         for (j = 0; j < LOCALE_SIZE; j++){
             dataTable[i][j] = CharsToUChars(rawData2[i][j]);
         }
@@ -2795,7 +2798,7 @@ static void TestCanonicalizationBuffer(void)
         return;
     }
 
-    if (reslen != len) {
+    if (reslen != (int32_t)len) {
         log_err("FAIL: uloc_canonicalize(%s) => \"%i\", expected \"%u\"\n",
                 name, reslen, len);
         return;
@@ -3221,7 +3224,7 @@ static void TestDisplayNameWarning(void) {
  * starts with `prefix' plus an additional element, that is, string ==
  * prefix + '_' + x, then return 1.  Otherwise return a value < 0.
  */
-static UBool _loccmp(const char* string, const char* prefix) {
+static int32_t _loccmp(const char* string, const char* prefix) {
     int32_t slen = (int32_t)uprv_strlen(string),
             plen = (int32_t)uprv_strlen(prefix);
     int32_t c = uprv_strncmp(string, prefix, plen);
@@ -4301,6 +4304,13 @@ const char* const basic_maximize_data[][2] = {
     // ICU-22545 & ICU-22742
     "ru_XC",
     "ru_Cyrl_XC"
+  }, {
+    // ICU-22765
+    "und@x=private",
+    "en_Latn_US@x=private",
+  }, {
+    "th@x=private",
+    "th_Thai_TH@x=private",
 #if APPLE_ICU_CHANGES
 // rdar://
   }, { // start Apple tests for rdar://47494884
@@ -5095,8 +5105,8 @@ const char* const full_data[][3] = {
     "dz"
   }, {
     "und_BY",
-    "be_Cyrl_BY",
-    "be"
+    "ru_Cyrl_BY",
+    "ru_BY"
   }, {
     "und_Beng",
     "bn_Beng_BD",
@@ -5107,12 +5117,12 @@ const char* const full_data[][3] = {
     "bn_IN"
   }, {
     "und_CD",
-    "sw_Latn_CD",
-    "sw_CD"
+    "fr_Latn_CD",
+    "fr_CD"
   }, {
     "und_CF",
-    "fr_Latn_CF",
-    "fr_CF"
+    "sg_Latn_CF",
+    "sg"
   }, {
     "und_CG",
     "fr_Latn_CG",
@@ -5179,8 +5189,8 @@ const char* const full_data[][3] = {
     "de"
   }, {
     "und_DJ",
-    "aa_Latn_DJ",
-    "aa_DJ"
+    "fr_Latn_DJ",
+    "fr_DJ"
   }, {
     "und_DK",
     "da_Latn_DK",
@@ -5731,8 +5741,8 @@ const char* const full_data[][3] = {
     "it_SM"
   }, {
     "und_SN",
-    "fr_Latn_SN",
-    "fr_SN"
+    "wo_Latn_SN",
+    "wo"
   }, {
     "und_SO",
     "so_Latn_SO",
@@ -5759,8 +5769,8 @@ const char* const full_data[][3] = {
     "si"
   }, {
     "und_TD",
-    "fr_Latn_TD",
-    "fr_TD"
+    "ar_Arab_TD",
+    "ar_TD"
   }, {
     "und_TG",
     "fr_Latn_TG",
@@ -6849,6 +6859,18 @@ const char* const locale_to_langtag[][3] = {
     {"zh_Hant__VAR",    "zh-Hant-x-lvariant-var", NULL},
     {"es__BADVARIANT_GOODVAR",  "es-goodvar",   NULL},
     {"en@calendar=gregorian",   "en-u-ca-gregory",  "en-u-ca-gregory"},
+
+    // rdar://150697102 Test new BCP47 aliases for Hindu calendars
+    {"en@calendar=malayalam",   "en-u-ca-malayalm", "en-u-ca-malayalm"},
+    {"hi@calendar=malayalam",   "hi-u-ca-malayalm", "hi-u-ca-malayalm"},
+    {"ml_IN@calendar=malayalam", "ml-IN-u-ca-malayalm", "ml-IN-u-ca-malayalm"},
+    {"en@calendar=vikram",       "en-u-ca-vikram",   "en-u-ca-vikram"},
+    {"en@calendar=bangla",       "en-u-ca-bangla",   "en-u-ca-bangla"},
+
+#if APPLE_ICU_CHANGES // rdar://168163977
+    {"en@calendar=vietnamese",   "en-u-ca-vietnam",  "en-u-ca-vietnam"},
+#endif  // APPLE_ICU_CHANGES
+
     {"de@collation=phonebook;calendar=gregorian",   "de-u-ca-gregory-co-phonebk",   "de-u-ca-gregory-co-phonebk"},
     {"th@numbers=thai;z=extz;x=priv-use;a=exta",   "th-a-exta-u-nu-thai-z-extz-x-priv-use", "th-a-exta-u-nu-thai-z-extz-x-priv-use"},
     {"en@timezone=America/New_York;calendar=japanese",    "en-u-ca-japanese-tz-usnyc",    "en-u-ca-japanese-tz-usnyc"},
@@ -7023,6 +7045,18 @@ static const struct {
     {"en-scouse-fonipa",    "en__FONIPA_SCOUSE",       FULL_LENGTH}, /* ICU-20478 */
     {"und-varzero-var1-vartwo", "__VARZERO",        11},
     {"en-u-ca-gregory",     "en@calendar=gregorian",    FULL_LENGTH},
+
+    // rdar://150697102 Test new BCP47 aliases for Hindu calendars
+    {"en-u-ca-malayalm",    "en@calendar=malayalam",    FULL_LENGTH},
+    {"hi-u-ca-malayalm",    "hi@calendar=malayalam",    FULL_LENGTH},
+    {"ml-IN-u-ca-malayalm", "ml_IN@calendar=malayalam", FULL_LENGTH},
+    {"en-u-ca-vikram",      "en@calendar=vikram",       FULL_LENGTH},
+    {"en-u-ca-bangla",      "en@calendar=bangla",       FULL_LENGTH},
+
+#if APPLE_ICU_CHANGES // rdar://168163977
+    {"en-u-ca-vietnam",     "en@calendar=vietnamese",   FULL_LENGTH},
+#endif  // APPLE_ICU_CHANGES
+
     {"en-U-cu-USD",         "en@currency=usd",      FULL_LENGTH},
     {"en-US-u-va-posix",    "en_US_POSIX",          FULL_LENGTH},
     {"en-us-u-ca-gregory-va-posix", "en_US_POSIX@calendar=gregorian",   FULL_LENGTH},
@@ -9041,6 +9075,63 @@ static void TestBug21449InfiniteLoop(void) {
     uloc_getDisplayLanguage(invalidLocaleId, invalidLocaleId, NULL, 0, &status);
 }
 
+// Test case for ICU-23031
+static void TestBug23031VaPosix(void) {
+    static const char tag[] = "en-US-u-va-posIX";
+    static const char expected[] = "POSIX";
+
+    UErrorCode status = U_ZERO_ERROR;
+    char actual[32];
+    int32_t len = uloc_getVariant(tag, actual, UPRV_LENGTHOF(actual), &status);
+    if (U_FAILURE(status)) {
+        log_err("ERROR: in uloc_getVariant  %s\n", myErrorName(status));
+    }
+    if (len < 1) {
+        log_err("FAIL: uloc_getVariant() returned %d\n", len);
+    }
+    if (uprv_strcmp(actual, expected) != 0) {
+        log_err("FAIL: uloc_getVariant() Wanted %s, got %s\n", expected, actual);
+    }
+}
+
+// Test case for ICU-23031
+static void TestBug23031VaPosixManyExtensions(void) {
+    static const char tag[] = "en-US-u-co-search-va-posIX-kc";
+    static const char expected[] = "POSIX";
+
+    UErrorCode status = U_ZERO_ERROR;
+    char actual[32];
+    int32_t len = uloc_getVariant(tag, actual, UPRV_LENGTHOF(actual), &status);
+    if (U_FAILURE(status)) {
+        log_err("ERROR: in uloc_getVariant  %s\n", myErrorName(status));
+    }
+    if (len < 1) {
+        log_err("FAIL: uloc_getVariant() returned %d\n", len);
+    }
+    if (uprv_strcmp(actual, expected) != 0) {
+        log_err("FAIL: uloc_getVariant() Wanted %s, got %s\n", expected, actual);
+    }
+}
+
+// Test case for ICU-23031
+static void TestBug23031VaPosixManyVariants(void) {
+    static const char tag[] = "en-US-fonIPA-u-va-posIX";
+    static const char expected[] = "FONIPA_POSIX";
+
+    UErrorCode status = U_ZERO_ERROR;
+    char actual[32];
+    int32_t len = uloc_getVariant(tag, actual, UPRV_LENGTHOF(actual), &status);
+    if (U_FAILURE(status)) {
+        log_err("ERROR: in uloc_getVariant  %s\n", myErrorName(status));
+    }
+    if (len < 1) {
+        log_err("FAIL: uloc_getVariant() returned %d\n", len);
+    }
+    if (uprv_strcmp(actual, expected) != 0) {
+        log_err("FAIL: uloc_getVariant() Wanted %s, got %s\n", expected, actual);
+    }
+}
+
 // rdar://79296849 and https://unicode-org.atlassian.net/browse/ICU-21639
 static void TestExcessivelyLongIDs(void) {
     const char* reallyLongID =
@@ -9337,6 +9428,8 @@ static const char* localesAndAppleParent[] = {
     "yue",              "yue_HK",
     "yue_Hans",         "yue_CN",
     "yue_Hant",         "yue_HK",
+    "yue_CN",           "zh_Hans_CN", // rdar://151735904
+    "yue_HK",           "zh_Hant_HK", // rdar://151735904
     "zh_CN",            "root",
     "zh-CN",            "root",
     "zh",               "zh_CN",
@@ -9759,8 +9852,13 @@ static void TestAppleLocalizationsToUsePerf() { // rdar://62458844&63471438
     mach_timebase_info(&info);
 #endif
 
-    log_info("sleeping 10 sec to check heap before...\n");
-    sleep(10);
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (getTestOption(SLEEP_OPTION)) {
+        log_info("sleeping 10 sec to check heap before...\n");
+        sleep(10);
+    }
+#endif  // APPLE_ICU_CHANGES
+
     status = U_ZERO_ERROR;
     start = GET_START();
     numLocsToUse = ualoc_localizationsToUse(preferredLangs, UPRV_LENGTHOF(preferredLangs),
@@ -9769,8 +9867,12 @@ static void TestAppleLocalizationsToUsePerf() { // rdar://62458844&63471438
     duration = GET_DURATION(start, info);
     log_info("ualoc_localizationsToUse first  use nsec %llu; status %s, numLocsToUse %d: %s ...\n",
                                                 duration, u_errorName(status), numLocsToUse, (numLocsToUse>=0)? locsToUse[0]: "");
-    log_info("sleeping 10 sec to check heap after...\n");
-    sleep(10);
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (getTestOption(SLEEP_OPTION)) {
+        log_info("sleeping 10 sec to check heap after...\n");
+        sleep(10);
+    }
+#endif  // APPLE_ICU_CHANGES
 
     status = U_ZERO_ERROR;
     start = GET_START();
@@ -10583,6 +10685,12 @@ static const char * appleLocsMAO[]    = { "zxx", "Bali", "Buhd", "Hano", "Ital",
  };
 static const char * prefLangsMAO[]    = { "en-US", };
 static const char * locsToUseMAO[]    = { "en" };
+// For rdar://151735904
+static const char * appleLocsMAP[]    = { "zh-Hans_CN", "zh-Hant_HK" };
+static const char * prefLangsMAP1[]   = { "yue_CN" };
+static const char * locsToUseMAP1[]   = { "zh-Hans_CN" };
+static const char * prefLangsMAP2[]   = { "yue_HK" };
+static const char * locsToUseMAP2[]   = { "zh-Hant_HK" };
 
 
 typedef struct {
@@ -10729,7 +10837,9 @@ static const MultiPrefTest multiTestSets[] = {
     { "MAMa",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMa,  UPRV_LENGTHOF(prefLangsMAMa),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
     { "MAMb",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMb,  UPRV_LENGTHOF(prefLangsMAMb),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
     { "MAN" ,    appleLocsMAN,   UPRV_LENGTHOF(appleLocsMAN),  prefLangsMAN,  UPRV_LENGTHOF(prefLangsMAN),  locsToUseMAN,     UPRV_LENGTHOF(locsToUseMAN)  },  // rdar://120006679
-    { "MAO" ,    appleLocsMAO,   UPRV_LENGTHOF(appleLocsMAO),  prefLangsMAO,  UPRV_LENGTHOF(prefLangsMA),  locsToUseMAO,     UPRV_LENGTHOF(locsToUseMAO)  },  // rdar://143084229
+    { "MAO" ,    appleLocsMAO,   UPRV_LENGTHOF(appleLocsMAO),  prefLangsMAO,  UPRV_LENGTHOF(prefLangsMAO),  locsToUseMAO,     UPRV_LENGTHOF(locsToUseMAO)  },  // rdar://143084229
+    { "MAP1" ,   appleLocsMAP,   UPRV_LENGTHOF(appleLocsMAP),  prefLangsMAP1, UPRV_LENGTHOF(prefLangsMAP1), locsToUseMAP1,    UPRV_LENGTHOF(locsToUseMAP1) },  // rrdar://151735904
+    { "MAP2" ,   appleLocsMAP,   UPRV_LENGTHOF(appleLocsMAP),  prefLangsMAP2, UPRV_LENGTHOF(prefLangsMAP2), locsToUseMAP2,    UPRV_LENGTHOF(locsToUseMAP2) },  // rdar://151735904
 
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };
@@ -10883,6 +10993,15 @@ static void TestSpecificDisplayNames(void) {
         "ii",    "yue",     "涼山彝文",            // rdar://108460253
         "ii",    "zh-Hant", "涼山彝文",            // rdar://108460253
         "gu",    "ms",      "Gujarat",            // rdar://105577613
+        "kn",    "ur",      "کنڑ",               // rdar://163471227
+        "kri",   "gu",      "ક્રિઓ",              // rdar://167333784
+        "kri",   "ta",      "கிரியோ",             // rdar://167333784
+        "guc",   "pa",      "ਵੇਯੂ",               // rdar://167333784
+        "guc",   "mr",      "वेयू",               // rdar://167333784
+        "nan",   "ml",      "മിൻ നാൻ ചൈനീസ്",    // rdar://167333784
+        "nan",   "te",      "మిన్ నాన్ చైనీస్",   // rdar://167333784
+        "vls",   "ur",      "مغربی فلیمش",        // rdar://167333784
+        "vls",   "bn",      "ওয়েস্ট ফ্লেমিশ",    // rdar://167333784
     };
     int32_t testLanguagesLength = UPRV_LENGTHOF(testLanguages);
     

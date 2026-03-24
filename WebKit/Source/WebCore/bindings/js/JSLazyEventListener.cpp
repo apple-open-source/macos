@@ -77,7 +77,7 @@ JSLazyEventListener::JSLazyEventListener(CreationArguments&& arguments, const UR
     , m_code(arguments.attributeValue)
     , m_sourceURL(sourceURL)
     , m_sourcePosition(convertZeroToOne(sourcePosition))
-    , m_originalNode(WTFMove(arguments.node))
+    , m_originalNode(WTF::move(arguments.node))
     , m_sourceTaintedOrigin(JSC::computeNewSourceTaintedOriginFromStack(arguments.document.vm(), arguments.document.vm().topCallFrame))
 {
 }
@@ -161,7 +161,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext& exec
     int overrideLineNumber = m_sourcePosition.m_line.oneBasedInt();
 
     JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(
-        lexicalGlobalObject, WTFMove(code), lexicallyScopedFeatures, Identifier::fromString(vm, m_functionName),
+        lexicalGlobalObject, WTF::move(code), lexicallyScopedFeatures, Identifier::fromString(vm, m_functionName),
         SourceOrigin { m_sourceURL, CachedScriptFetcher::create(document->charset()) },
         m_sourceURL.string(), m_sourceTaintedOrigin, m_sourcePosition, overrideLineNumber, functionConstructorParametersEndPosition);
     if (scope.exception()) [[unlikely]] {
@@ -204,7 +204,7 @@ RefPtr<JSLazyEventListener> JSLazyEventListener::create(CreationArguments&& argu
     }
 
     JSLockHolder locker(arguments.document.vm());
-    return adoptRef(*new JSLazyEventListener(WTFMove(arguments), sourceURL, position));
+    return adoptRef(*new JSLazyEventListener(WTF::move(arguments), sourceURL, position));
 }
 
 RefPtr<JSLazyEventListener> JSLazyEventListener::create(Element& element, const QualifiedName& attributeName, const AtomString& attributeValue)

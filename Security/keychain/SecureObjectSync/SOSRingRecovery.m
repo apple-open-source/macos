@@ -81,7 +81,7 @@ ringFuncStruct recovery = {
 
 static bool isRecoveryRing(SOSRingRef ring, CFErrorRef *error) {
     SOSRingType type = SOSRingGetType(ring);
-    require_quiet(kSOSRingRecovery == type, errOut);
+    __Require_Quiet(kSOSRingRecovery == type, errOut);
     return true;
 errOut:
     SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Not recovery ring type"), NULL, error);
@@ -92,7 +92,7 @@ bool SOSRingSetRecoveryKeyBag(SOSRingRef ring, SOSFullPeerInfoRef fpi, SOSRecove
     SOSRingAssertStable(ring);
     CFDataRef rkbg_as_data = NULL;
     bool result = false;
-    require_quiet(isRecoveryRing(ring, error), errOut);
+    __Require_Quiet(isRecoveryRing(ring, error), errOut);
     
     rkbg_as_data = SOSRecoveryKeyBagCopyEncoded(rkbg, error);
     result = rkbg_as_data &&
@@ -107,10 +107,10 @@ SOSRecoveryKeyBagRef SOSRingCopyRecoveryKeyBag(SOSRingRef ring, CFErrorRef *erro
     
     CFDataRef rkbg_as_data = NULL;
     SOSRecoveryKeyBagRef result = NULL;
-    require_quiet(isRecoveryRing(ring, error), errOut);
+    __Require_Quiet(isRecoveryRing(ring, error), errOut);
     
     rkbg_as_data = SOSRingGetPayload(ring, error);
-    require_quiet(rkbg_as_data, errOut);
+    __Require_Quiet(rkbg_as_data, errOut);
     
     result = SOSRecoveryKeyBagCreateFromData(kCFAllocatorDefault, rkbg_as_data, error);
     

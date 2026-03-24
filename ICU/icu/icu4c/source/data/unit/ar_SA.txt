@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ar_SA{
     units{
         acceleration{
@@ -72,7 +72,7 @@ ar_SA{
             }
         }
         concentr{
-            permillion{
+            part-per-1e6{
                 few{"{0} أجزاء في المليون"}
                 many{"{0} جزءًا في المليون"}
                 one{"{0} جزء في المليون"}
@@ -363,7 +363,7 @@ ar_SA{
                 two{"قيراطان"}
                 zero{"{0} قيراط"}
             }
-            permillion{
+            part-per-1e6{
                 few{"{0} أجزاء/مليون"}
                 many{"{0} جزءًا/مليون"}
                 one{"{0} جزء/مليون"}

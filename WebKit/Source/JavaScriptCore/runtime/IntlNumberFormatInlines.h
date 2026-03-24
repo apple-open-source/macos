@@ -29,6 +29,7 @@
 #include "IntlNumberFormat.h"
 #include "IntlPluralRules.h"
 #include "IntlObjectInlines.h"
+#include "JSBigIntInlines.h"
 #include "JSGlobalObject.h"
 #include "JSGlobalObjectFunctions.h"
 
@@ -378,7 +379,7 @@ inline IntlMathematicalValue toIntlMathematicalValue(JSGlobalObject* globalObjec
     auto string = asString(primitive)->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    RELEASE_AND_RETURN(scope, IntlMathematicalValue::parseString(globalObject, WTFMove(string)));
+    RELEASE_AND_RETURN(scope, IntlMathematicalValue::parseString(globalObject, WTF::move(string)));
 }
 
 } // namespace JSC

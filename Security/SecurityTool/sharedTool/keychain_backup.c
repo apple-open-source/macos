@@ -49,10 +49,10 @@ do_keychain_import(const char *backupPath, const char *keybagPath, const char *p
     bool ok=false;
 
     if(passwordString) {
-        require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
+        __Require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
     }
-    require(keybag=copyFileContents(keybagPath), out);
-    require(backup=copyFileContents(backupPath), out);
+    __Require(keybag=copyFileContents(keybagPath), out);
+    __Require(backup=copyFileContents(backupPath), out);
 
     ok=_SecKeychainRestoreBackup(backup, keybag, password);
 
@@ -73,14 +73,14 @@ do_keychain_export(const char *backupPath, const char *keybagPath, const char *p
     bool ok=false;
 
     if (keybagPath) {
-        require(keybag=copyFileContents(keybagPath), out);
+        __Require(keybag=copyFileContents(keybagPath), out);
     }
     if(passwordString) {
-        require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
+        __Require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
     }
 
     if (keybagPath && !useFd) {
-        require(backup=_SecKeychainCopyBackup(keybag, password), out);
+        __Require(backup=_SecKeychainCopyBackup(keybag, password), out);
         ok=writeFileContents(backupPath, backup);
     } else {
         mode_t mode = 0644; // octal!

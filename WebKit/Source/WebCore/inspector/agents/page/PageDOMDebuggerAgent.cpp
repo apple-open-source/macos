@@ -78,7 +78,7 @@ Inspector::Protocol::ErrorStringOr<void> PageDOMDebuggerAgent::setDOMBreakpoint(
     if (!node)
         return makeUnexpected(errorString);
 
-    auto breakpoint = InspectorDebuggerAgent::debuggerBreakpointFromPayload(errorString, WTFMove(options));
+    auto breakpoint = InspectorDebuggerAgent::debuggerBreakpointFromPayload(errorString, WTF::move(options));
     if (!breakpoint)
         return makeUnexpected(errorString);
 
@@ -201,7 +201,7 @@ void PageDOMDebuggerAgent::willInsertDOMNode(Node& parent)
     pauseData->setBoolean("insertion"_s, true);
     // FIXME: <https://webkit.org/b/213499> Web Inspector: allow DOM nodes to be instrumented at any point, regardless of whether the main document has also been instrumented
     // Include the new child node ID so the frontend can show the node that's about to be inserted.
-    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTFMove(pauseData), WTFMove(closestBreakpoint));
+    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTF::move(pauseData), WTF::move(closestBreakpoint));
 }
 
 void PageDOMDebuggerAgent::willRemoveDOMNode(Node& node)
@@ -258,7 +258,7 @@ void PageDOMDebuggerAgent::willRemoveDOMNode(Node& node)
                 pauseData->setInteger("targetNodeId"_s, targetNodeId);
         }
     }
-    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTFMove(pauseData), WTFMove(closestBreakpoint));
+    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTF::move(pauseData), WTF::move(closestBreakpoint));
 }
 
 void PageDOMDebuggerAgent::didRemoveDOMNode(Node& node)
@@ -288,7 +288,7 @@ void PageDOMDebuggerAgent::willModifyDOMAttr(Element& element)
         return;
 
     auto pauseData = buildPauseDataForDOMBreakpoint(Inspector::Protocol::DOMDebugger::DOMBreakpointType::AttributeModified, element);
-    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTFMove(pauseData), it->value.copyRef());
+    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTF::move(pauseData), it->value.copyRef());
 }
 
 void PageDOMDebuggerAgent::willInvalidateStyleAttr(Element& element)
@@ -301,7 +301,7 @@ void PageDOMDebuggerAgent::willInvalidateStyleAttr(Element& element)
         return;
 
     auto pauseData = buildPauseDataForDOMBreakpoint(Inspector::Protocol::DOMDebugger::DOMBreakpointType::AttributeModified, element);
-    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTFMove(pauseData), it->value.copyRef());
+    m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::DOM, WTF::move(pauseData), it->value.copyRef());
 }
 
 Ref<JSON::Object> PageDOMDebuggerAgent::buildPauseDataForDOMBreakpoint(Inspector::Protocol::DOMDebugger::DOMBreakpointType breakpointType, Node& breakpointOwner)

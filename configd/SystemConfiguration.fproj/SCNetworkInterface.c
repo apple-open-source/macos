@@ -1971,7 +1971,11 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 				io_registry_entry_t	node;
 				CFStringRef		provider;
 
-				// get provider
+				/*
+				 * Find the provider node that is not `IOSkywalkEthernetInterface` or
+				 * `AppleSkywalkAVBEEthernetInterface`. Skipping these provider classes
+				 * makes it possible to derive a more meaningful/descriptive name.
+				 */
 				node = interface;
 				while (TRUE) {
 					io_registry_entry_t	parent;
@@ -1983,8 +1987,8 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 										   NULL,
 										   kIORegistryIterateRecursively | kIORegistryIterateParents);
 					if ((provider == NULL) ||
-					    !CFEqual(provider, CFSTR("IOSkywalkEthernetInterface"))) {
-						// if not "IOSkywalkEthernetInterface" provider
+					    (!CFEqual(provider, CFSTR("IOSkywalkEthernetInterface")) &&
+					     !CFEqual(provider, CFSTR("AppleSkywalkAVBEthernetInterface")))) {
 						break;
 					}
 
@@ -1997,6 +2001,9 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 									       &parent);
 					if (status != kIOReturnSuccess) {
 						break;
+					}
+					if (node != interface) {
+						IOObjectRelease(node);
 					}
 					node = parent;
 				}

@@ -49,7 +49,7 @@ template<typename> class ExceptionOr;
 
 class DataTransferItemList final : public ScriptWrappable, public ContextDestructionObserver {
     WTF_MAKE_NONCOPYABLE(DataTransferItemList);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DataTransferItemList);
+    WTF_MAKE_TZONE_ALLOCATED(DataTransferItemList);
 public:
     DataTransferItemList(Document&, DataTransfer&);
     ~DataTransferItemList();

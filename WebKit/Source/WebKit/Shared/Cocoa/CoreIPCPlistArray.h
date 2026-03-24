@@ -45,7 +45,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCPlistArray, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCPlistArray>;
 
     CoreIPCPlistArray(Vector<CoreIPCPlistObject>&&);
 

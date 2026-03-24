@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +30,8 @@
 
 #import "SceneKitModelPlayer.h"
 
+#import "GraphicsLayer.h"
+#import "ModelPlayerGraphicsLayerConfiguration.h"
 #import "SceneKitModel.h"
 #import "SceneKitModelLoader.h"
 #import <pal/spi/cocoa/SceneKitSPI.h>
@@ -83,14 +86,9 @@ void SceneKitModelPlayer::sizeDidChange(LayoutSize)
 {
 }
 
-PlatformLayer* SceneKitModelPlayer::layer()
+void SceneKitModelPlayer::configureGraphicsLayer(GraphicsLayer& graphicsLayer, ModelPlayerGraphicsLayerConfiguration&&)
 {
-    return m_layer.get();
-}
-
-std::optional<LayerHostingContextIdentifier> SceneKitModelPlayer::layerHostingContextIdentifier()
-{
-    return std::nullopt;
+    graphicsLayer.setContentsToPlatformLayer(m_layer.get(), GraphicsLayer::ContentsLayerPurpose::Model);
 }
 
 void SceneKitModelPlayer::enterFullscreen()
@@ -160,13 +158,13 @@ void SceneKitModelPlayer::setIsMuted(bool, CompletionHandler<void(bool success)>
 ModelPlayerAccessibilityChildren SceneKitModelPlayer::accessibilityChildren()
 {
 #if PLATFORM(IOS_FAMILY)
-    NSArray *children = [m_model->defaultScene() accessibilityElements];
+    RetainPtr<NSArray> children = [m_model->defaultScene() accessibilityElements];
 #else
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSArray *children = [m_model->defaultScene() accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
+    RetainPtr<NSArray> children = [m_model->defaultScene() accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
 ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
-    return { makeVector<RetainPtr<id>>(children) };
+    return { makeVector<RetainPtr<id>>(children.get()) };
 }
 
 // MARK: - SceneKitModelLoaderClient overrides.
@@ -177,7 +175,7 @@ void SceneKitModelPlayer::didFinishLoading(SceneKitModelLoader& loader, Ref<Scen
     ASSERT_UNUSED(loader, &loader == m_loader.get());
 
     m_loader = nullptr;
-    m_model = WTFMove(model);
+    m_model = WTF::move(model);
 
     updateScene();
 

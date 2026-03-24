@@ -296,15 +296,15 @@ do { \
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:561540800.0]; // October 18, 2018 at 12:33:20 AM PDT
     CFErrorRef error = NULL;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(precert = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"precert"],
+    __Require_Action(precert = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"precert"],
                    errOut, fail("failed to create precert"));
 
     precert_anchors = @[(__bridge id)system_root];
-    require_noerr_action(SecTrustCreateWithCertificates(precert, NULL, &trust), errOut, fail("failed to create trust object"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)precert_anchors), errOut, fail("failed to set anchor certificate"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(precert, NULL, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)precert_anchors), errOut, fail("failed to set anchor certificate"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     is(SecTrustEvaluateWithError(trust, &error), false, "SECURITY: trust evaluation of precert succeeded");
     if (error) {
@@ -704,18 +704,18 @@ fail("expected failure to set NULL exceptions"); \
     CFErrorRef error = nil;
     NSDictionary *exceptions = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
-    require_action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert issued after flag day with SCTs"));
 
     exceptions_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
 
     /* superdomain exception without CT fails */
     exceptions = @{ (__bridge NSString*)kSecCTExceptionsDomainsKey : @[@"test.apple.com"] };
@@ -742,10 +742,10 @@ fail("expected failure to set NULL exceptions"); \
 
     /* matching domain with CT succeeds */
     CFReleaseNull(trust);
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
     is(SecTrustEvaluateWithError(trust, &error), true, "ct cert should always pass");
 
     ok(SecTrustStoreSetCTExceptions(NULL, NULL, &error), "failed to reset exceptions: %@", error);
@@ -772,18 +772,18 @@ errOut:
     CFErrorRef error = nil;
     NSDictionary *exceptions = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
-    require_action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert issued after flag day with SCTs"));
 
     exceptions_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
 
     /* superdomain exception without CT succeeds */
     exceptions = @{ (__bridge NSString*)kSecCTExceptionsDomainsKey : @[@".test.apple.com"] };
@@ -832,18 +832,18 @@ errOut:
     CFErrorRef error = nil;
     NSDictionary *exceptions = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
-    require_action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert issued after flag day with SCTs"));
 
     exceptions_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
 
     /* specific domain exception without CT succeeds */
     exceptions = @{ (__bridge NSString*)kSecCTExceptionsDomainsKey : @[@"ct.test.apple.com", @".example.com" ] };
@@ -893,18 +893,18 @@ errOut:
     NSDictionary *leafException = nil, *exceptions = nil;
     NSData *leafHash = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
-    require_action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert issued after flag day with SCTs"));
 
     exceptions_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
 
     /* set exception on leaf cert without CT */
     leafHash = CFBridgingRelease(SecCertificateCopySubjectPublicKeyInfoSHA256Digest(system_server_after));
@@ -929,10 +929,10 @@ errOut:
 
     /* matching public key with CT succeeds */
     CFReleaseNull(trust);
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs")); // set trusted logs to trigger enforcing behavior
     is(SecTrustEvaluateWithError(trust, &error), true, "ct cert should always pass");
 
     ok(SecTrustStoreSetCTExceptions(NULL, NULL, &error), "failed to reset exceptions: %@", error);
@@ -961,29 +961,29 @@ errOut:
     NSDictionary *caException = nil, *exceptions = nil;
     NSData *caHash = nil;
 
-    require_action(root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_unconstrained_subca"],
+    __Require_Action(subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_unconstrained_subca"],
                    errOut, fail("failed to create subca"));
-    require_action(server_matching = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_matching_orgs"],
+    __Require_Action(server_matching = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_matching_orgs"],
                    errOut, fail("failed to create server cert with matching orgs"));
-    require_action(server_matching_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_matching_orgs_scts"],
+    __Require_Action(server_matching_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_matching_orgs_scts"],
                    errOut, fail("failed to create server cert with matching orgs and scts"));
-    require_action(server_partial = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_partial_orgs"],
+    __Require_Action(server_partial = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_partial_orgs"],
                    errOut, fail("failed to create server cert with partial orgs"));
-    require_action(server_no_match = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_nonmatching_orgs"],
+    __Require_Action(server_no_match = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_nonmatching_orgs"],
                    errOut, fail("failed to create server cert with non-matching orgs"));
-    require_action(server_no_org = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_no_orgs"],
+    __Require_Action(server_no_org = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_no_orgs"],
                    errOut, fail("failed to create server cert with no orgs"));
 
     exceptions_anchors = @[ (__bridge id)root ];
 
 #define createTrust(certs) \
 CFReleaseNull(trust); \
-require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust")); \
-require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors")); \
-require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date")); \
-require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+__Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust")); \
+__Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors")); \
+__Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date")); \
+__Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     /* Set exception on the subCA */
     caHash = CFBridgingRelease(SecCertificateCopySubjectPublicKeyInfoSHA256Digest(subca));
@@ -1054,27 +1054,27 @@ errOut:
     NSMutableArray *caExceptions = [NSMutableArray array];
     NSData *caHash = nil;
 
-    require_action(root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(org_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_subca"],
+    __Require_Action(org_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_subca"],
                    errOut, fail("failed to create org-constrained subca"));
-    require_action(constraint_pass_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_server"],
+    __Require_Action(constraint_pass_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_server"],
                    errOut, fail("failed to create constrained non-CT leaf"));
-    require_action(constraint_pass_server_ct = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_server_scts"],
+    __Require_Action(constraint_pass_server_ct = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_server_scts"],
                    errOut, fail("failed to create constrained CT leaf"));
-    require_action(constraint_fail_server= (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_fail_server"],
+    __Require_Action(constraint_fail_server= (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_fail_server"],
                    errOut, fail("failed to create constraint failure leaf"));
-    require_action(dn_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_subca"],
+    __Require_Action(dn_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_subca"],
                    errOut, fail("failed to create dn-constrained subca"));
-    require_action(dn_constrained_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_server"],
+    __Require_Action(dn_constrained_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_server"],
                    errOut, fail("failed to create dn-constrained leaf"));
-    require_action(dn_constrained_server_mismatch = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_server_mismatch"],
+    __Require_Action(dn_constrained_server_mismatch = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_org_server_mismatch"],
                    errOut, fail("failed to create dn-constrained leaf with mismatched orgs"));
-    require_action(dns_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_subca"],
+    __Require_Action(dns_constrained_subca = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_subca"],
                    errOut, fail("failed to create dns-constrained subca"));
-    require_action(dns_constrained_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_server"],
+    __Require_Action(dns_constrained_server = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_server"],
                    errOut, fail("failed to create dns-constrained leaf"));
-    require_action(dns_constrained_server_mismatch = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_server_mismatch"],
+    __Require_Action(dns_constrained_server_mismatch = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_constrained_no_dn_server_mismatch"],
                    errOut, fail("failed to create dns-constrained leaf with mismatched orgs"));
 
     exceptions_anchors = @[ (__bridge id)root ];
@@ -1103,10 +1103,10 @@ errOut:
 
 #define createTrust(certs) \
 CFReleaseNull(trust); \
-require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust")); \
-require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors")); \
-require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date")); \
-require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+__Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust")); \
+__Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)exceptions_anchors), errOut, fail("failed to set anchors")); \
+__Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date")); \
+__Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     /* Verify org-constrained non-CT leaf passes */
     certs = @[ (__bridge id)constraint_pass_server, (__bridge id)org_constrained_subca ];
@@ -1215,15 +1215,15 @@ id mockFailedMA = nil;
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test system cert after date without CT passes
     SecOTAPKIResetCurrentSupplementalsAssetVersion(NULL);
@@ -1251,15 +1251,15 @@ errOut:
     /* Mock setting a kill switch */
     UpdateKillSwitch((__bridge NSString *)kOTAPKIKillSwitchCT, true);
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // CT kill switch enabled so test system cert after date without CT passes
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with out-of-date asset");
@@ -1289,15 +1289,15 @@ errOut:
     /* Mock a successful mobile asset check-in so that we enforce CT */
     XCTAssertTrue(UpdateOTACheckInDate(), "failed to set check-in date as now");
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // test system cert after date without CT fails (with check-in)
     is(SecTrustEvaluateWithError(trust, &error), false, "system post-flag-date non-CT cert with in-date asset succeeded");
@@ -1324,18 +1324,18 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     CFErrorRef error = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test system cert after date without CT fails (with trusted logs)
 #if !TARGET_OS_BRIDGE
@@ -1367,18 +1367,18 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:570000000.0]; // January 24, 2019 at 12:20:00 AM EST
     CFErrorRef error = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test expired system cert after date without CT passes with only expired error
     ok(SecTrustIsExpiredOnly(trust), "expired non-CT cert had non-expiration errors");
@@ -1400,18 +1400,18 @@ errOut:
     CFErrorRef error = nil;
     CFDataRef exceptions = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test system cert after date without CT fails (with check-in)
 #if !TARGET_OS_BRIDGE
@@ -1454,19 +1454,19 @@ errOut:
     CFErrorRef error = nil;
     id persistentRef = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
 #if TARGET_OS_BRIDGE
     enforce_anchors = @[ (__bridge id)system_root ];
 #endif
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test system cert + enterprise anchor after date without CT fails
 #if !TARGET_OS_BRIDGE
@@ -1481,7 +1481,7 @@ errOut:
     [self removeTrustSettingsForCert:system_root persistentRef:persistentRef];
 #else
     /* BridgeOS doesn't enforce (and doesn't use trust settings) */
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert with trusted logs failed");
 #endif
 
@@ -1501,22 +1501,22 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     CFErrorRef error = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test app anchor for failing cert passes
     enforce_anchors = @[ (__bridge id)system_server_after ];
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with server cert app anchor");
 errOut:
     CFReleaseNull(system_root);
@@ -1539,16 +1539,16 @@ errOut:
     CFErrorRef error = nil;
     id persistentRef = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test trust settings for failing cert passes
     persistentRef = [self addTrustSettingsForCert:system_server_after];
@@ -1570,18 +1570,18 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // EAP, test system cert after date without CT passes
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with EAP cert");
@@ -1601,21 +1601,21 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set policy name
-    require_noerr_action(SecTrustSetPinningPolicyName(trust, CFSTR("a-policy-name")), errOut, fail("failed to set policy name"));
+    __Require_noErr_Action(SecTrustSetPinningPolicyName(trust, CFSTR("a-policy-name")), errOut, fail("failed to set policy name"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // pinning policy, test system cert after date without CT passes
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with EAP cert");
@@ -1635,16 +1635,16 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(system_server_after_with_CT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert issued after flag day with SCTs"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after_with_CT, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date CT cert failed");
 
 errOut:
@@ -1662,16 +1662,16 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_before = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_before"],
+    __Require_Action(system_server_before = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_before"],
                    errOut, fail("failed to create system server cert issued before flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_before, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_before, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "system pre-flag-date non-CT cert failed");
 
 errOut:
@@ -1693,15 +1693,15 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     id persistentRef = nil;
 
-    require_action(user_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_root"],
+    __Require_Action(user_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_root"],
                    errOut, fail("failed to create user root"));
-    require_action(user_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_server_after"],
+    __Require_Action(user_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_server_after"],
                    errOut, fail("failed to create user server cert issued after flag day"));
 
     persistentRef = [self addTrustSettingsForCert:user_root];
-    require_noerr_action(SecTrustCreateWithCertificates(user_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust,(__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(user_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust,(__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "non-system post-flag-date non-CT cert failed with enterprise anchor");
     [self removeTrustSettingsForCert:user_root persistentRef:persistentRef];
 
@@ -1720,16 +1720,16 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     NSArray *enforce_anchors = nil;
 
-    require_action(user_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_root"],
+    __Require_Action(user_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_root"],
                    errOut, fail("failed to create user root"));
-    require_action(user_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_server_after"],
+    __Require_Action(user_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_user_server_after"],
                    errOut, fail("failed to create user server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)user_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(user_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust,(__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(user_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust,(__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "non-system post-flag-date non-CT cert failed with enterprise anchor");
 
 errOut:
@@ -1747,15 +1747,15 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     NSArray *certs = nil;
 
-    require_action(appleServerAuthCA = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_apple_ca"],
+    __Require_Action(appleServerAuthCA = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_apple_ca"],
                    errOut, fail("failed to create apple server auth CA"));
-    require_action(apple_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_apple_server_after"],
+    __Require_Action(apple_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_apple_server_after"],
                    errOut, fail("failed to create apple server cert issued after flag day"));
 
     certs = @[ (__bridge id)apple_server_after, (__bridge id)appleServerAuthCA ];
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "apple post-flag-date non-CT cert failed");
 
 errOut:
@@ -1773,19 +1773,19 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:576000000.0]; // April 3, 2019 at 9:00:00 AM PDT
     NSArray *certs = nil, *enforcement_anchors = nil;
 
-    require_action(geoTrustRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"GeoTrustPrimaryCAG2"],
+    __Require_Action(geoTrustRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"GeoTrustPrimaryCAG2"],
                    errOut, fail("failed to create geotrust root"));
-    require_action(appleISTCA8G1 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA8G1"],
+    __Require_Action(appleISTCA8G1 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA8G1"],
                    errOut, fail("failed to create apple IST CA"));
-    require_action(deprecatedSSLServer = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"deprecatedSSLServer"],
+    __Require_Action(deprecatedSSLServer = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"deprecatedSSLServer"],
                    errOut, fail("failed to create deprecated SSL Server cert"));
 
     certs = @[ (__bridge id)deprecatedSSLServer, (__bridge id)appleISTCA8G1 ];
     enforcement_anchors = @[ (__bridge id)geoTrustRoot ];
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 #if !TARGET_OS_BRIDGE
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert passed");
 #endif
@@ -1807,19 +1807,19 @@ errOut:
     NSArray *certs = nil, *enforcement_anchors = nil;
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
 
-    require_action(root = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AAACertificateServices" subdirectory:@"si-20-sectrust-policies-data"],
+    __Require_Action(root = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AAACertificateServices" subdirectory:@"si-20-sectrust-policies-data"],
                    errOut, fail("failed to create root"));
-    require_action(subCA = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePublicServerRSA12-G1" subdirectory:@"si-20-sectrust-policies-data"],
+    __Require_Action(subCA = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePublicServerRSA12-G1" subdirectory:@"si-20-sectrust-policies-data"],
                    errOut, fail("failed to create apple sub CA"));
-    require_action(pinnedNonCT = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"api-smoot" subdirectory:@"si-20-sectrust-policies-data"],
+    __Require_Action(pinnedNonCT = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"api-smoot" subdirectory:@"si-20-sectrust-policies-data"],
                    errOut, fail("failed to create pinned SSL Server cert"));
 
     certs = @[ (__bridge id)pinnedNonCT, (__bridge id)subCA ];
     enforcement_anchors = @[ (__bridge id)root ];
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "pinned non-CT cert failed");
 
     // Test with pinning disabled
@@ -1852,17 +1852,17 @@ errOut:
     SecPolicySetOptionsValue(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
 #pragma clang diagnostic pop
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert issued after flag day"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test system cert without CT fails (with trusted logs)
 #if !TARGET_OS_BRIDGE
@@ -2012,15 +2012,15 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create server cert"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test cert without CT passes
     SecOTAPKIResetCurrentSupplementalsAssetVersion(NULL);
@@ -2048,15 +2048,15 @@ errOut:
     /* Mock setting a kill switch */
     UpdateKillSwitch((__bridge NSString *)kOTAPKIKillSwitchNonTLSCT, true);
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // CT kill switch enabled so test cert without CT passes
     ok(SecTrustEvaluateWithError(trust, NULL), "non-CT cert failed with kill switch enabled");
@@ -2086,15 +2086,15 @@ errOut:
     /* Mock a successful mobile asset check-in so that we enforce CT */
     XCTAssertTrue(UpdateOTACheckInDate(), "failed to set check-in date as now");
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // test system cert after date without CT fails (with check-in)
     is(SecTrustEvaluateWithError(trust, &error), false, "non-CT cert with in-date asset succeeded");
@@ -2125,18 +2125,18 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
     CFErrorRef error = nil;
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+    __Require_Action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
                    errOut, fail("failed to create system server cert"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // set trusted logs to trigger enforcing behavior
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
 
     // test system cert without CT fails (with trusted logs)
     is(SecTrustEvaluateWithError(trust, &error), false, "non-CT cert with trusted logs succeeded");
@@ -2162,16 +2162,16 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+    __Require_Action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
-    require_action(leaf = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
+    __Require_Action(leaf = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after_scts"],
                    errOut, fail("failed to create system server cert"));
 
     enforce_anchors = @[ (__bridge id)system_root ];
-    require_noerr_action(SecTrustCreateWithCertificates(leaf, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(leaf, policy, &trust), errOut, fail("failed to create trust"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "CT cert failed");
 
 errOut:

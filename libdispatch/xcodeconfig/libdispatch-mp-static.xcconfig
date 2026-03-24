@@ -18,6 +18,8 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 
+#include "libdispatch.xcconfig"
+
 // skip simulator
 SUPPORTED_PLATFORMS = macosx iphoneos appletvos watchos
 PRODUCT_NAME = libdispatch

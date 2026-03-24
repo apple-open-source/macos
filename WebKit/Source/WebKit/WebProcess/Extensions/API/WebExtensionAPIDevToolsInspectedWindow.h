@@ -53,4 +53,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIDevToolsInspectedWindow, devToolsInspectedWindow);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS) && ENABLE(INSPECTOR_EXTENSIONS)

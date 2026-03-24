@@ -53,6 +53,10 @@
 #include <xpc/private.h>
 #include <os/variant_private.h>
 
+#if TARGET_OS_OSX
+#include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#endif
 
 static const CFStringRef __kDABundlePath = CFSTR( "/System/Library/Frameworks/DiskArbitration.framework" );
 
@@ -63,6 +67,10 @@ static dispatch_mach_t       __gDAVolumeUnmountedChannel = NULL;
 static dispatch_mach_t       __gDAVolumeUpdatedChannel   = NULL;
 
 #if TARGET_OS_OSX
+static struct __DAPowerContext __gDAPowerContext = { NULL };
+static IONotificationPortRef   __gDAPowerPort = NULL;
+static io_object_t             __gDAPowerNotifierObject = NULL;
+
 const char * kDAMainMountPointFolder           = "/Volumes";
 #endif
 
@@ -90,6 +98,7 @@ CFMutableArrayRef      gDAMountMapList2                = NULL;
 CFMutableDictionaryRef gDAPreferenceList               = NULL;
 CFMutableArrayRef      gDAMountPointList               = NULL;
 CFMutableDictionaryRef gDADanglingVolumeList           = NULL;
+CFMutableSetRef        gDAHibernateVolumes             = NULL;
 pid_t                  gDAProcessID                    = 0;
 char *                 gDAProcessName                  = NULL;
 char *                 gDAProcessNameID                = NULL;
@@ -406,6 +415,11 @@ static void __DAMain( void *__unused context )
     assert( gDAMountPointList );
     assert( gDADanglingVolumeList );
 
+#if TARGET_OS_OSX
+    gDAHibernateVolumes = CFSetCreateMutable( kCFAllocatorDefault, 0,  &kCFTypeSetCallBacks );
+    assert( gDAHibernateVolumes );
+#endif
+    
     /*
      * Create the request list.
      */
@@ -474,6 +488,26 @@ static void __DAMain( void *__unused context )
 
     SCDynamicStoreSetDispatchQueue(__gDAConfigurationPort, DAServerWorkLoop() );
 
+#endif
+    
+#if TARGET_OS_OSX
+    
+    /*
+     * Set up Power notification for Hibernation events.
+     */
+    __gDAPowerContext.power_session = IORegisterForSystemPower( &__gDAPowerContext,
+                                                                &__gDAPowerPort,
+                                                                __DAPowerNotificationCallback ,
+                                                                &__gDAPowerNotifierObject );
+    
+    if ( __gDAPowerContext.power_session == IO_OBJECT_NULL )
+    {
+        DALogError( "could not register for system power notifications" );
+        exit( EX_SOFTWARE );
+    }
+    
+    IONotificationPortSetDispatchQueue( __gDAPowerPort , DAServerWorkLoop() );
+    
 #endif
     /*
      * Create the file system run loop source.
@@ -557,10 +591,23 @@ static void __DAMain( void *__unused context )
     CFRelease( keys );
 #endif
     
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_OSX
     if ( os_variant_has_factory_content( "com.apple.diskarbitrationd" ) == false )
     {
         DARegisterForUnlockNotification();
+    }
+#if TARGET_OS_IOS
+    gDAUnlockedState = DADeviceIsUnlocked();
+#elif TARGET_OS_OSX
+    gDAUnlockedState = __DAIsScreenUnlocked();
+#endif
+    if ( gDAUnlockedState == FALSE )
+    {
+        DALogInfo(" Device is locked" );
+    }
+    else
+    {
+        DALogInfo(" Device is unlocked" );
     }
 #endif
     
@@ -786,5 +833,14 @@ int main( int argc, char * argv[], char * envp[] )
     dispatch_async_and_wait_f(DAServerWorkLoop(), NULL, __DAMain);
     dispatch_main();
 
+#if TARGET_OS_OSX
+    if ( __gDAPowerContext.power_session )
+    {
+        IODeregisterForSystemPower( &__gDAPowerNotifierObject );
+        IOServiceClose( __gDAPowerContext.power_session );
+        IONotificationPortDestroy( __gDAPowerPort );
+    }
+#endif
+    
     exit( EX_OK );
 }

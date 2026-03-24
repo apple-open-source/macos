@@ -1916,7 +1916,7 @@ static void test_key_usage_enveloped_data(void) {
     const uint8_t test[] = "hoi joh";
     CFDataRef test_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (unsigned char *)test, sizeof(test), kCFAllocatorNull);
     CFArrayRef recipients = CFArrayCreate(kCFAllocatorDefault, (const void **)&cacert, 1, &kCFTypeArrayCallBacks);
-    require_action(cacert && message_data && test_data && recipients, out, fail("failed to create necessary data for test"));
+    __Require_Action(cacert && message_data && test_data && recipients, out, fail("failed to create necessary data for test"));
 
     ok_status(SecCMSCreateEnvelopedData(recipients, NULL, test_data, message_data), "encrypt for bad key usage recip");
 

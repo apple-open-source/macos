@@ -31,7 +31,6 @@
 namespace WebCore {
 
 class Exception;
-class ReadableStreamSink;
 template<typename> class ExceptionOr;
 
 class InternalReadableStream final : public DOMGuarded<JSC::JSObject> {
@@ -45,11 +44,7 @@ public:
     bool isLocked() const;
     WEBCORE_EXPORT bool isDisturbed() const;
     void cancel(Exception&&);
-    void pipeTo(ReadableStreamSink&);
     ExceptionOr<std::pair<Ref<InternalReadableStream>, Ref<InternalReadableStream>>> tee(bool shouldClone);
-
-    JSC::JSValue pipeTo(JSC::JSGlobalObject&, JSC::JSValue, JSC::JSValue);
-    JSC::JSValue pipeThrough(JSC::JSGlobalObject&, JSC::JSValue, JSC::JSValue);
 
     JSC::JSValue cancel(JSC::JSGlobalObject&, JSC::JSValue);
 

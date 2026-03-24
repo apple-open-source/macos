@@ -1502,6 +1502,9 @@
         SYS_psynch_cvwait
         SYS_psynch_mutexdrop
         SYS_psynch_mutexwait
+        SYS_psynch_rw_rdlock
+        SYS_psynch_rw_unlock
+        SYS_psynch_rw_wrlock
         SYS_read
         SYS_read_nocancel
         SYS_readlink
@@ -1542,7 +1545,6 @@
     (syscall-number
         SYS___pthread_kill
         SYS_openat_nocancel ;; Used when dumping the GC heap.
-        SYS_psynch_rw_rdlock
 #if !PLATFORM(MAC)
         SYS_rmdir
         SYS_abort_with_payload
@@ -1565,8 +1567,6 @@
     SYS_kqueue ;; See <rdar://problem/88241768>. Remove after <rdar://56634240> is resolved.
     SYS_kqueue_workloop_ctl ;; <rdar://problem/50999499>
     SYS_listxattr
-    SYS_psynch_rw_unlock
-    SYS_psynch_rw_wrlock
     SYS_sigprocmask
     SYS_sysctlbyname
     SYS_umask
@@ -1697,6 +1697,10 @@
 
 (define (kernel-mig-routines-in-use) (kernel-mig-routine
     _mach_make_memory_entry
+#if USE(CLOCK_GET_TIME_SYSCALL)
+    ;; rdar://131735906 - we should see if we can modify the dependent library to remove the clock_get_time call
+    clock_get_time
+#endif
     host_get_io_master
     host_info
     io_iterator_is_valid

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include <WebCore/FloatPoint.h>
 #include <wtf/Variant.h>
@@ -50,4 +50,4 @@ AcceleratedEffectOffsetPosition blend(const AcceleratedEffectOffsetPosition&, co
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

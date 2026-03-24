@@ -40,25 +40,26 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CanvasCaptureMediaStreamTrack);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CanvasCaptureMediaStreamTrack);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CanvasCaptureMediaStreamTrack::Source);
 
 Ref<CanvasCaptureMediaStreamTrack> CanvasCaptureMediaStreamTrack::create(Document& document, Ref<HTMLCanvasElement>&& canvas, std::optional<double>&& frameRequestRate)
 {
-    auto source = CanvasCaptureMediaStreamTrack::Source::create(canvas.get(), WTFMove(frameRequestRate));
-    auto track = adoptRef(*new CanvasCaptureMediaStreamTrack(document, WTFMove(canvas), WTFMove(source)));
+    auto source = CanvasCaptureMediaStreamTrack::Source::create(canvas.get(), WTF::move(frameRequestRate));
+    auto track = adoptRef(*new CanvasCaptureMediaStreamTrack(document, WTF::move(canvas), WTF::move(source)));
     track->suspendIfNeeded();
     return track;
 }
 
 CanvasCaptureMediaStreamTrack::CanvasCaptureMediaStreamTrack(Document& document, Ref<HTMLCanvasElement>&& canvas, Ref<CanvasCaptureMediaStreamTrack::Source>&& source)
     : MediaStreamTrack(document, MediaStreamTrackPrivate::create(document.logger(), source.copyRef()))
-    , m_canvas(WTFMove(canvas))
+    , m_canvas(WTF::move(canvas))
 {
 }
 
 CanvasCaptureMediaStreamTrack::CanvasCaptureMediaStreamTrack(Document& document, Ref<HTMLCanvasElement>&& canvas, Ref<MediaStreamTrackPrivate>&& privateTrack)
-    : MediaStreamTrack(document, WTFMove(privateTrack))
-    , m_canvas(WTFMove(canvas))
+    : MediaStreamTrack(document, WTF::move(privateTrack))
+    , m_canvas(WTF::move(canvas))
 {
 }
 
@@ -70,7 +71,7 @@ RefPtr<VideoFrame> CanvasCaptureMediaStreamTrack::grabFrame()
 
 Ref<CanvasCaptureMediaStreamTrack::Source> CanvasCaptureMediaStreamTrack::Source::create(HTMLCanvasElement& canvas, std::optional<double>&& frameRequestRate)
 {
-    auto source = adoptRef(*new Source(canvas, WTFMove(frameRequestRate)));
+    auto source = adoptRef(*new Source(canvas, WTF::move(frameRequestRate)));
     source->start();
 
     callOnMainThread([source] {
@@ -84,7 +85,7 @@ Ref<CanvasCaptureMediaStreamTrack::Source> CanvasCaptureMediaStreamTrack::Source
 // FIXME: Give source id and name
 CanvasCaptureMediaStreamTrack::Source::Source(HTMLCanvasElement& canvas, std::optional<double>&& frameRequestRate)
     : RealtimeMediaSource(CaptureDevice { { }, CaptureDevice::DeviceType::Camera, "CanvasCaptureMediaStreamTrack"_s })
-    , m_frameRequestRate(WTFMove(frameRequestRate))
+    , m_frameRequestRate(WTF::move(frameRequestRate))
     , m_requestFrameTimer(*this, &Source::requestFrameTimerFired)
     , m_captureCanvasTimer(*this, &Source::captureCanvas)
     , m_canvas(&canvas)
@@ -151,7 +152,7 @@ const RealtimeMediaSourceSettings& CanvasCaptureMediaStreamTrack::Source::settin
     }
     settings.setSupportedConstraints(constraints);
 
-    m_currentSettings = WTFMove(settings);
+    m_currentSettings = WTF::move(settings);
     return m_currentSettings.value();
 }
 

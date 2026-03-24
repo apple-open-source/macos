@@ -33,7 +33,7 @@
 #include "NodeName.h"
 #include "Page.h"
 #include "RenderMeter.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
 #include "UserAgentParts.h"
@@ -42,7 +42,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLMeterElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLMeterElement);
 
 using namespace HTMLNames;
 
@@ -64,9 +64,9 @@ Ref<HTMLMeterElement> HTMLMeterElement::create(const QualifiedName& tagName, Doc
 RenderPtr<RenderElement> HTMLMeterElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (!RenderTheme::singleton().supportsMeter(style.usedAppearance()))
-        return RenderElement::createFor(*this, WTFMove(style));
+        return RenderElement::createFor(*this, WTF::move(style));
 
-    return createRenderer<RenderMeter>(*this, WTFMove(style));
+    return createRenderer<RenderMeter>(*this, WTF::move(style));
 }
 
 bool HTMLMeterElement::childShouldCreateRenderer(const Node& child) const
@@ -213,7 +213,7 @@ void HTMLMeterElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     Ref document = this->document();
     Ref style = HTMLStyleElement::create(HTMLNames::styleTag, document, false);
     style->setTextContent(String { shadowStyle });
-    root.appendChild(WTFMove(style));
+    root.appendChild(WTF::move(style));
 
     // Pseudos are set to allow author styling.
     Ref inner = HTMLDivElement::create(document);
@@ -229,7 +229,7 @@ void HTMLMeterElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     Ref valueElement = HTMLDivElement::create(document);
     valueElement->setIdAttribute("value"_s);
     bar->appendChild(valueElement);
-    m_valueElement = WTFMove(valueElement);
+    m_valueElement = WTF::move(valueElement);
 
     didElementStateChange();
 }

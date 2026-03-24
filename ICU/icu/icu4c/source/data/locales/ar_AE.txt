@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ar_AE{
     NumberElements{
         default{"latn"}
@@ -10,12 +10,10 @@ ar_AE{
         gregorian{
             eras{
                 abbreviated%variant{
-                    "ق.م",
-                    "ب.م",
+                    0{"ق.م"}
                 }
                 wide%variant{
-                    "قبل الميلاد",
-                    "بعد الميلاد",
+                    0{"قبل الميلاد"}
                 }
             }
         }

@@ -42,7 +42,7 @@ class BufferImpl final : public Buffer {
 public:
     static Ref<BufferImpl> create(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new BufferImpl(WTFMove(buffer), convertToBackingContext));
+        return adoptRef(*new BufferImpl(WTF::move(buffer), convertToBackingContext));
     }
 
     virtual ~BufferImpl();

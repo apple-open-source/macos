@@ -396,7 +396,7 @@ static void webkitPrintOperationPrintPagesForFrame(WebKitPrintOperation* printOp
 
         if (!data || !error.isNull()) {
             if (!error.isNull())
-                webkitPrintOperationFailed(printOperation.get(), WTFMove(error));
+                webkitPrintOperationFailed(printOperation.get(), WTF::move(error));
             else
                 webkitPrintOperationFinished(printOperation.get());
             return;
@@ -471,14 +471,14 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
     GUniqueOutPtr<GError> error;
     auto fd = UnixFileDescriptor { g_file_open_tmp("webkitgtkprintXXXXXX", &filename.outPtr(), &error.outPtr()), UnixFileDescriptor::Adopt };
     if (error) {
-        webkitPrintOperationFailed(printOperation, WTFMove(error));
+        webkitPrintOperationFailed(printOperation, WTF::move(error));
         return;
     }
     RELEASE_ASSERT(fd);
 
     GUniquePtr<char> uri(g_filename_to_uri(filename.get(), nullptr, &error.outPtr()));
     if (error) {
-        webkitPrintOperationFailed(printOperation, WTFMove(error));
+        webkitPrintOperationFailed(printOperation, WTF::move(error));
         return;
     }
 
@@ -497,7 +497,7 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
 
         if (!data || !error.isNull()) {
             if (!error.isNull())
-                webkitPrintOperationFailed(printOperation.get(), WTFMove(error));
+                webkitPrintOperationFailed(printOperation.get(), WTF::move(error));
             else
                 webkitPrintOperationFinished(printOperation.get());
             return;
@@ -512,7 +512,7 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
         }
 
         PrintPortalJobData* callbackData = createPrintPortalJobData();
-        callbackData->printOperation = WTFMove(printOperation);
+        callbackData->printOperation = WTF::move(printOperation);
         callbackData->token = token;
 
         // "Print" the memory buffer into a temporary file, since the Print portal may take an
@@ -533,7 +533,7 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
             GUniqueOutPtr<GError> localError;
             GUniquePtr<char> filename(g_filename_from_uri(gtk_print_settings_get(printSettings, GTK_PRINT_SETTINGS_OUTPUT_URI), nullptr, &localError.outPtr()));
             if (localError) {
-                webkitPrintOperationFailed(printOperation.get(), WTFMove(localError));
+                webkitPrintOperationFailed(printOperation.get(), WTF::move(localError));
                 return;
             }
 
@@ -546,7 +546,7 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
             GRefPtr<GUnixFDList> fdList(g_unix_fd_list_new());
             int fdIndex = g_unix_fd_list_append(fdList.get(), fd.value(), &localError.outPtr());
             if (localError) {
-                webkitPrintOperationFailed(printOperation.get(), WTFMove(localError));
+                webkitPrintOperationFailed(printOperation.get(), WTF::move(localError));
                 return;
             }
 
@@ -563,7 +563,7 @@ static void webkitPrintOperationSendPagesToPrintPortal(WebKitPrintOperation* pri
                     GUniqueOutPtr<GError> error;
                     GRefPtr<GVariant> returnValue = adoptGRef(g_dbus_proxy_call_finish(G_DBUS_PROXY(proxy), result, &error.outPtr()));
                     if (error)
-                        webkitPrintOperationFailed(printOperation.get(), WTFMove(error));
+                        webkitPrintOperationFailed(printOperation.get(), WTF::move(error));
                     else
                         webkitPrintOperationFinished(printOperation.get());
                 }, printOperation.leakRef());

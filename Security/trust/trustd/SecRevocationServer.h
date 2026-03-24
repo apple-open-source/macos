@@ -63,6 +63,7 @@ struct OpaqueSecRVC {
 typedef struct OpaqueSecRVC *SecRVCRef;
 
 CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX);
+CF_RETURNS_RETAINED CFDictionaryRef SecORVCCopyInfo(SecORVCRef rvc);
 
 /* OCSP Revocation verification context. */
 struct OpaqueSecORVC {
@@ -92,6 +93,12 @@ struct OpaqueSecORVC {
 
     /* URL of current responder. For logging purposes. */
     CFURLRef responder;
+    
+    // Revocation status (if evaluated)
+    CFBooleanRef isRevoked;
+    
+    // If this OCSP is evaluated (CS_Good, CS_Revoked), or unknown status
+    CFBooleanRef isProcessed;
 
     bool done;
 };

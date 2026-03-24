@@ -46,6 +46,8 @@ struct _WebKitVideoEncoderClass {
 
 GType webkit_video_encoder_get_type(void);
 
+namespace WebCore {
+
 class WebKitVideoEncoderBitRateAllocation : public RefCounted<WebKitVideoEncoderBitRateAllocation> {
     WTF_MAKE_TZONE_ALLOCATED(WebKitVideoEncoderBitRateAllocation);
     WTF_MAKE_NONCOPYABLE(WebKitVideoEncoderBitRateAllocation);
@@ -86,7 +88,15 @@ private:
     std::array<std::array<std::optional<uint32_t>, MaxSpatialLayers>, MaxTemporalLayers> m_bitRates;
 };
 
+struct CodecConfig {
+    String name;
+    bool useAnnexB;
+};
+
+} // namespace WebCore
+
 bool videoEncoderSupportsCodec(WebKitVideoEncoder*, const String&);
-bool videoEncoderSetCodec(WebKitVideoEncoder*, const String&, const WebCore::IntSize&, std::optional<double> frameRate = std::nullopt, bool enableVideoFlip = false);
-void videoEncoderSetBitRateAllocation(WebKitVideoEncoder*, RefPtr<WebKitVideoEncoderBitRateAllocation>&&);
+bool videoEncoderSetCodec(WebKitVideoEncoder*, const WebCore::CodecConfig&, const WebCore::IntSize&, std::optional<double> frameRate = std::nullopt, bool enableVideoFlip = false);
+void videoEncoderSetBitRateAllocation(WebKitVideoEncoder*, RefPtr<WebCore::WebKitVideoEncoderBitRateAllocation>&&);
+void videoEncoderSetFrameRate(WebKitVideoEncoder*, double frameRate);
 void teardownVideoEncoderSingleton();

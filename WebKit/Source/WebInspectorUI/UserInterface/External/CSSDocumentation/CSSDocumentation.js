@@ -2734,7 +2734,7 @@ CSSDocumentation = {
     },
     "text-transform": {
         "description": "Controls capitalization effects of an element's text.",
-        "syntax": "none | capitalize | uppercase | lowercase | full-width | full-size-kana",
+        "syntax": "none | [ [ capitalize | uppercase | lowercase ] || full-width || full-size-kana ] | math-auto",
         "url": "https://developer.mozilla.org/docs/Web/CSS/text-transform"
     },
     "text-underline-offset": {

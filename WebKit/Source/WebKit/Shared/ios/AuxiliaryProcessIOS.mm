@@ -57,7 +57,7 @@ void AuxiliaryProcess::populateMobileGestaltCache(std::optional<SandboxExtension
     if (!mobileGestaltExtensionHandle)
         return;
 
-    if (auto extension = SandboxExtension::create(WTFMove(*mobileGestaltExtensionHandle))) {
+    if (auto extension = SandboxExtension::create(WTF::move(*mobileGestaltExtensionHandle))) {
         bool ok = extension->consume();
         ASSERT_UNUSED(ok, ok);
         // If we have an extension handle for MobileGestalt, it means the MobileGestalt cache is invalid.

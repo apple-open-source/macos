@@ -36,14 +36,28 @@
 #include <wtf/WeakRef.h>
 #include <wtf/unix/UnixFileDescriptor.h>
 
-#if USE(GBM)
+#if USE(GBM) || OS(ANDROID)
 #include "RendererBufferFormat.h"
-#include <WebCore/DRMDevice.h>
-#include <WebCore/GBMDevice.h>
 #include <atomic>
 #include <wtf/Lock.h>
-typedef void *EGLImage;
+#endif
+
+#if USE(GBM)
+#include <WebCore/DRMDevice.h>
+#include <WebCore/GBMDevice.h>
 struct gbm_bo;
+#endif
+
+#if OS(ANDROID)
+typedef struct AHardwareBuffer AHardwareBuffer;
+#endif
+
+#if USE(GBM) || OS(ANDROID)
+typedef void *EGLImage;
+#endif
+
+#if USE(SKIA)
+#include <WebCore/GraphicsContextSkia.h>
 #endif
 
 #if USE(WPE_RENDERER)
@@ -56,6 +70,7 @@ class RunLoop;
 
 namespace WebCore {
 class GLFence;
+class GraphicsContext;
 class ShareableBitmap;
 class ShareableBitmapHandle;
 }
@@ -67,7 +82,7 @@ class AcceleratedSurface;
 namespace WebKit {
 class WebPage;
 
-class AcceleratedSurface final : public ThreadSafeRefCounted<AcceleratedSurface, WTF::DestructionThread::MainRunLoop>
+class AcceleratedSurface final : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<AcceleratedSurface, WTF::DestructionThread::MainRunLoop>
 #if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
     , public IPC::MessageReceiver
 #endif
@@ -78,8 +93,8 @@ public:
     ~AcceleratedSurface();
 
 #if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
-    void ref() const final { ThreadSafeRefCounted::ref(); }
-    void deref() const final { ThreadSafeRefCounted::deref(); }
+    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
+    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 #endif
 
 public:
@@ -94,6 +109,8 @@ public:
 #endif
     }
 
+    WebCore::GraphicsContext* graphicsContext();
+
     void willDestroyGLContext();
     void willRenderFrame(const WebCore::IntSize&);
     void didRenderFrame();
@@ -107,7 +124,7 @@ public:
     void didCreateCompositingRunLoop(WTF::RunLoop&);
     void willDestroyCompositingRunLoop();
 
-#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM) && (USE(GBM) || OS(ANDROID))
     void preferredBufferFormatsDidChange();
 #endif
 
@@ -133,6 +150,8 @@ private:
 
         uint64_t id() const { return m_id; }
 
+        virtual WebCore::GraphicsContext* graphicsContext() { RELEASE_ASSERT_NOT_REACHED(); }
+
         virtual void willRenderFrame() { }
         virtual void didRenderFrame(Vector<WebCore::IntRect, 1>&&) { }
 
@@ -140,7 +159,7 @@ private:
         virtual void setReleaseFenceFD(UnixFileDescriptor&&) { }
 
 #if ENABLE(DAMAGE_TRACKING)
-        void setDamage(WebCore::Damage&& damage) { m_damage = WTFMove(damage); }
+        void setDamage(WebCore::Damage&& damage) { m_damage = WTF::move(damage); }
         const std::optional<WebCore::Damage>& damage() { return m_damage; }
         void addDamage(const std::optional<WebCore::Damage>&);
 #endif
@@ -167,6 +186,8 @@ private:
     protected:
         RenderTargetShareableBuffer(uint64_t, const WebCore::IntSize&);
 
+        WebCore::GraphicsContext* graphicsContext() override;
+
         void willRenderFrame() override;
         void didRenderFrame(Vector<WebCore::IntRect, 1>&&) override;
 
@@ -178,52 +199,73 @@ private:
         unsigned m_depthStencilBuffer { 0 };
         UnixFileDescriptor m_renderingFenceFD;
         UnixFileDescriptor m_releaseFenceFD;
+#if USE(SKIA)
+        struct {
+            sk_sp<SkSurface> surface;
+            std::unique_ptr<WebCore::GraphicsContextSkia> context;
+        } m_graphicsContext;
+#endif
+        WebCore::IntSize m_initialSize;
     };
 
-#if USE(GBM)
+#if USE(GBM) || OS(ANDROID)
     struct BufferFormat {
         BufferFormat() = default;
         BufferFormat(const BufferFormat&) = delete;
         BufferFormat& operator=(const BufferFormat&) = delete;
         BufferFormat(BufferFormat&& other)
         {
-            *this = WTFMove(other);
+            *this = WTF::move(other);
         }
         BufferFormat& operator=(BufferFormat&& other)
         {
             usage = std::exchange(other.usage, RendererBufferFormat::Usage::Rendering);
-            drmDevice = WTFMove(other.drmDevice);
             fourcc = std::exchange(other.fourcc, 0);
-            modifiers = WTFMove(other.modifiers);
-            gbmDevice = WTFMove(other.gbmDevice);
+#if USE(GBM)
+            modifiers = WTF::move(other.modifiers);
+            gbmDevice = WTF::move(other.gbmDevice);
+#endif
             return *this;
         }
 
         bool operator==(const BufferFormat& other) const
         {
-            return usage == other.usage && drmDevice == other.drmDevice && fourcc == other.fourcc && modifiers == other.modifiers;
+            return usage == other.usage
+#if USE(GBM)
+                && gbmDevice == other.gbmDevice
+                && drmDevice == other.drmDevice
+                && modifiers == other.modifiers
+#endif
+                && fourcc == other.fourcc;
         }
 
         RendererBufferFormat::Usage usage { RendererBufferFormat::Usage::Rendering };
-        WebCore::DRMDevice drmDevice;
         uint32_t fourcc { 0 };
+
+#if USE(GBM)
+        WebCore::DRMDevice drmDevice;
         Vector<uint64_t, 1> modifiers;
         RefPtr<WebCore::GBMDevice> gbmDevice;
+#endif
     };
 
     class RenderTargetEGLImage final : public RenderTargetShareableBuffer {
     public:
         static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&, const BufferFormat&);
         RenderTargetEGLImage(uint64_t, const WebCore::IntSize&, EGLImage, uint32_t format, Vector<WTF::UnixFileDescriptor>&&, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, RendererBufferFormat::Usage);
+#if OS(ANDROID)
+        RenderTargetEGLImage(uint64_t, const WebCore::IntSize&, EGLImage, RefPtr<AHardwareBuffer>&&);
+#endif
         ~RenderTargetEGLImage();
 
     private:
         bool supportsExplicitSync() const override { return true; }
+        void initializeColorBuffer();
 
         unsigned m_colorBuffer { 0 };
         EGLImage m_image { nullptr };
     };
-#endif
+#endif // USE(GBM) || OS(ANDROID)
 
     class RenderTargetSHMImage final : public RenderTargetShareableBuffer {
     public:
@@ -278,7 +320,7 @@ private:
         enum class Type {
             Invalid,
 #if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
-#if USE(GBM)
+#if USE(GBM) || OS(ANDROID)
             EGLImage,
 #endif
             SharedMemory,
@@ -301,7 +343,7 @@ private:
         void addDamage(const std::optional<WebCore::Damage>&);
 #endif
 
-#if USE(GBM) && (PLATFORM(GTK) || ENABLE(WPE_PLATFORM))
+#if (PLATFORM(GTK) || ENABLE(WPE_PLATFORM)) && (USE(GBM) || OS(ANDROID))
         void setupBufferFormat(const Vector<RendererBufferFormat>&, bool);
 #endif
 
@@ -311,7 +353,7 @@ private:
 #endif
 
     private:
-        static constexpr unsigned s_maximumBuffers = 3;
+        static constexpr unsigned s_maximumBuffers = 4;
 
         std::unique_ptr<RenderTarget> createTarget() const;
 
@@ -320,7 +362,7 @@ private:
         WebCore::IntSize m_size;
         Vector<std::unique_ptr<RenderTarget>, s_maximumBuffers> m_freeTargets;
         Vector<std::unique_ptr<RenderTarget>, s_maximumBuffers> m_lockedTargets;
-#if USE(GBM) && (PLATFORM(GTK) || ENABLE(WPE_PLATFORM))
+#if (PLATFORM(GTK) || ENABLE(WPE_PLATFORM)) && (USE(GBM) || OS(ANDROID))
         Lock m_bufferFormatLock;
         BufferFormat m_bufferFormat WTF_GUARDED_BY_LOCK(m_bufferFormatLock);
         bool m_bufferFormatChanged WTF_GUARDED_BY_LOCK(m_bufferFormatLock) { false };

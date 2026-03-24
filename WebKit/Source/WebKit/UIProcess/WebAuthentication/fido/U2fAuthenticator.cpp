@@ -50,7 +50,7 @@ const unsigned retryTimeOutValueMs = 200;
 }
 
 U2fAuthenticator::U2fAuthenticator(Ref<CtapDriver>&& driver)
-    : FidoAuthenticator(WTFMove(driver))
+    : FidoAuthenticator(WTF::move(driver))
     , m_retryTimer(RunLoop::mainSingleton(), "U2fAuthenticator::RetryTimer"_s, this, &U2fAuthenticator::retryLastCommand)
 {
 }
@@ -79,7 +79,7 @@ void U2fAuthenticator::checkExcludeList(size_t index)
     }
     auto u2fCmd = convertToU2fCheckOnlySignCommand(requestData().hash, creationOptions, creationOptions.excludeCredentials[index]);
     ASSERT(u2fCmd);
-    issueNewCommand(WTFMove(*u2fCmd), CommandType::CheckOnlyCommand);
+    issueNewCommand(WTF::move(*u2fCmd), CommandType::CheckOnlyCommand);
 }
 
 void U2fAuthenticator::issueRegisterCommand()
@@ -90,7 +90,7 @@ void U2fAuthenticator::issueRegisterCommand()
         return;
     }
     U2F_RELEASE_LOG("issueRegisterCommand: Sending %s", base64EncodeToString(*u2fCmd).utf8().data());
-    issueNewCommand(WTFMove(*u2fCmd), CommandType::RegisterCommand);
+    issueNewCommand(WTF::move(*u2fCmd), CommandType::RegisterCommand);
 }
 
 void U2fAuthenticator::getAssertion()
@@ -118,13 +118,13 @@ void U2fAuthenticator::issueSignCommand(size_t index)
         return;
     }
     U2F_RELEASE_LOG("issueSignCommand: index: %lu Sending %s", index, base64EncodeToString(*u2fCmd).utf8().data());
-    issueNewCommand(WTFMove(*u2fCmd), CommandType::SignCommand);
+    issueNewCommand(WTF::move(*u2fCmd), CommandType::SignCommand);
 }
 
 void U2fAuthenticator::issueNewCommand(Vector<uint8_t>&& command, CommandType type)
 {
     U2F_RELEASE_LOG("issueNewCommand, type=%hhu", type);
-    m_lastCommand = WTFMove(command);
+    m_lastCommand = WTF::move(command);
     m_lastCommandType = type;
     issueCommand(m_lastCommand, m_lastCommandType);
 }
@@ -136,13 +136,13 @@ void U2fAuthenticator::issueCommand(const Vector<uint8_t>& command, CommandType 
         ASSERT(RunLoop::isMain());
         if (!weakThis)
             return;
-        weakThis->responseReceived(WTFMove(data), type);
+        weakThis->responseReceived(WTF::move(data), type);
     });
 }
 
 void U2fAuthenticator::responseReceived(Vector<uint8_t>&& response, CommandType type)
 {
-    auto apduResponse = ApduResponse::createFromMessage(WTFMove(response));
+    auto apduResponse = ApduResponse::createFromMessage(WTF::move(response));
     if (!apduResponse) {
         U2F_RELEASE_LOG("responseReceived: Failed to parse response.");
         receiveRespond(ExceptionData { ExceptionCode::UnknownError, "Couldn't parse the APDU response."_s });
@@ -152,19 +152,19 @@ void U2fAuthenticator::responseReceived(Vector<uint8_t>&& response, CommandType 
 
     switch (type) {
     case CommandType::RegisterCommand:
-        continueRegisterCommandAfterResponseReceived(WTFMove(*apduResponse));
+        continueRegisterCommandAfterResponseReceived(WTF::move(*apduResponse));
         return;
     case CommandType::CheckOnlyCommand:
-        continueCheckOnlyCommandAfterResponseReceived(WTFMove(*apduResponse));
+        continueCheckOnlyCommandAfterResponseReceived(WTF::move(*apduResponse));
         return;
     case CommandType::BogusCommandExcludeCredentialsMatch:
-        continueBogusCommandExcludeCredentialsMatchAfterResponseReceived(WTFMove(*apduResponse));
+        continueBogusCommandExcludeCredentialsMatchAfterResponseReceived(WTF::move(*apduResponse));
         return;
     case CommandType::BogusCommandNoCredentials:
-        continueBogusCommandNoCredentialsAfterResponseReceived(WTFMove(*apduResponse));
+        continueBogusCommandNoCredentialsAfterResponseReceived(WTF::move(*apduResponse));
         return;
     case CommandType::SignCommand:
-        continueSignCommandAfterResponseReceived(WTFMove(*apduResponse));
+        continueSignCommandAfterResponseReceived(WTF::move(*apduResponse));
         return;
     }
     ASSERT_NOT_REACHED();
@@ -180,7 +180,7 @@ void U2fAuthenticator::continueRegisterCommandAfterResponseReceived(ApduResponse
             U2F_RELEASE_LOG("continueRegisterCommandAfterResponseReceived: rp.id empty. Should not be.");
             ASSERT(false);
         }
-        auto response = readU2fRegisterResponse(options.rp.id, apduResponse.data(), AuthenticatorAttachment::CrossPlatform, { driver().transport() }, options.attestation());
+        auto response = readU2fRegisterResponse(options.rp.id, apduResponse.data(), AuthenticatorAttachment::CrossPlatform, { driver().transport() }, options.attestation);
         if (!response) {
             receiveRespond(ExceptionData { ExceptionCode::UnknownError, "Couldn't parse the U2F register response."_s });
             return;

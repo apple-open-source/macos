@@ -38,10 +38,6 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/TZoneMallocInlines.h>
 
-#if ENABLE(WEBGPU_SWIFT)
-#import "WebGPUSwiftInternal.h"
-#endif
-
 namespace WebGPU {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Instance);
@@ -67,12 +63,12 @@ Ref<Instance> Instance::create(const WGPUInstanceDescriptor& descriptor)
 
 Instance::Instance(WGPUScheduleWorkBlock scheduleWorkBlock, const MachSendRight* webProcessResourceOwner)
     : m_webProcessID(webProcessResourceOwner ? std::optional<MachSendRight>(*webProcessResourceOwner) : std::nullopt)
-    , m_scheduleWorkBlock(scheduleWorkBlock ? WTFMove(scheduleWorkBlock) : ^(WGPUWorkItem workItem) { defaultScheduleWork(WTFMove(workItem)); })
+    , m_scheduleWorkBlock(scheduleWorkBlock ? WTF::move(scheduleWorkBlock) : ^(WGPUWorkItem workItem) { defaultScheduleWork(WTF::move(workItem)); })
 {
 }
 
 Instance::Instance()
-    : m_scheduleWorkBlock(^(WGPUWorkItem workItem) { defaultScheduleWork(WTFMove(workItem)); })
+    : m_scheduleWorkBlock(^(WGPUWorkItem workItem) { defaultScheduleWork(WTF::move(workItem)); })
     , m_isValid(false)
 {
 }
@@ -86,7 +82,7 @@ Ref<PresentationContext> Instance::createSurface(const WGPUSurfaceDescriptor& de
 
 void Instance::scheduleWork(WorkItem&& workItem)
 {
-    m_scheduleWorkBlock(makeBlockPtr(WTFMove(workItem)).get());
+    m_scheduleWorkBlock(makeBlockPtr(WTF::move(workItem)).get());
 }
 
 const std::optional<const MachSendRight>& Instance::webProcessID() const
@@ -97,7 +93,7 @@ const std::optional<const MachSendRight>& Instance::webProcessID() const
 void Instance::defaultScheduleWork(WGPUWorkItem&& workItem)
 {
     Locker locker(m_lock);
-    m_pendingWork.append(WTFMove(workItem));
+    m_pendingWork.append(WTF::move(workItem));
 }
 
 void Instance::processEvents()
@@ -190,7 +186,7 @@ void Instance::requestAdapter(const WGPURequestAdapterOptions& options, Completi
     }
 
     // FIXME: this should be asynchronous
-    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0], *this, options.xrCompatible, WTFMove(*deviceCapabilities)), { });
+    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0], *this, options.xrCompatible, WTF::move(*deviceCapabilities)), { });
 }
 
 void Instance::retainDevice(Device& device, id<MTLCommandBuffer> commandBuffer)
@@ -261,19 +257,19 @@ void wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterO
             return;
         }
 
-        callback(status, WebGPU::releaseToAPI(WTFMove(adapter)), message.utf8().data(), userdata);
+        callback(status, WebGPU::releaseToAPI(WTF::move(adapter)), message.utf8().data(), userdata);
     });
 }
 
 void wgpuInstanceRequestAdapterWithBlock(WGPUInstance instance, WGPURequestAdapterOptions const * options, WGPURequestAdapterBlockCallback callback)
 {
-    WebGPU::protectedFromAPI(instance)->requestAdapter(*options, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPURequestAdapterStatus status, Ref<WebGPU::Adapter>&& adapter, String&& message) {
+    WebGPU::protectedFromAPI(instance)->requestAdapter(*options, [callback = WebGPU::fromAPI(WTF::move(callback))](WGPURequestAdapterStatus status, Ref<WebGPU::Adapter>&& adapter, String&& message) {
         if (status != WGPURequestAdapterStatus_Success) {
             callback(status, nullptr, message.utf8().data());
             return;
         }
 
-        callback(status, WebGPU::releaseToAPI(WTFMove(adapter)), message.utf8().data());
+        callback(status, WebGPU::releaseToAPI(WTF::move(adapter)), message.utf8().data());
     });
 }
 

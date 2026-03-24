@@ -83,7 +83,7 @@ using namespace HTMLNames;
 
 Chrome::Chrome(Page& page, UniqueRef<ChromeClient>&& client)
     : m_page(page)
-    , m_client(WTFMove(client))
+    , m_client(WTF::move(client))
 {
 }
 
@@ -146,7 +146,17 @@ IntRect Chrome::rootViewToAccessibilityScreen(const IntRect& rect) const
 #if PLATFORM(IOS_FAMILY)
 void Chrome::relayAccessibilityNotification(String&& notificationName, RetainPtr<NSData>&& notificationData) const
 {
-    return m_client->relayAccessibilityNotification(WTFMove(notificationName), WTFMove(notificationData));
+    return m_client->relayAccessibilityNotification(WTF::move(notificationName), WTF::move(notificationData));
+}
+
+void Chrome::relayAriaNotifyNotification(AriaNotifyData&& notificationData) const
+{
+    return m_client->relayAriaNotifyNotification(WTF::move(notificationData));
+}
+
+void Chrome::relayLiveRegionNotification(LiveRegionAnnouncementData&& notificationData) const
+{
+    return m_client->relayLiveRegionNotification(WTF::move(notificationData));
 }
 #endif
 
@@ -289,7 +299,7 @@ bool Chrome::runBeforeUnloadConfirmPanel(String&& message, LocalFrame& frame)
     // otherwise cause the load to continue while we're in the middle of executing JavaScript.
     PageGroupLoadDeferrer deferrer(m_page, true);
 
-    return m_client->runBeforeUnloadConfirmPanel(WTFMove(message), frame);
+    return m_client->runBeforeUnloadConfirmPanel(WTF::move(message), frame);
 }
 
 void Chrome::closeWindow()
@@ -460,23 +470,23 @@ void Chrome::runOpenPanel(LocalFrame& frame, FileChooser& fileChooser)
 
 void Chrome::showShareSheet(ShareDataWithParsedURL&& shareData, CompletionHandler<void(bool)>&& callback)
 {
-    m_client->showShareSheet(WTFMove(shareData), WTFMove(callback));
+    m_client->showShareSheet(WTF::move(shareData), WTF::move(callback));
 }
 
 void Chrome::showContactPicker(ContactsRequestData&& requestData, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&& callback)
 {
-    m_client->showContactPicker(WTFMove(requestData), WTFMove(callback));
+    m_client->showContactPicker(WTF::move(requestData), WTF::move(callback));
 }
 
 #if HAVE(DIGITAL_CREDENTIALS_UI)
 void Chrome::showDigitalCredentialsPicker(const DigitalCredentialsRequestData& requestData, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& callback)
 {
-    m_client->showDigitalCredentialsPicker(requestData, WTFMove(callback));
+    m_client->showDigitalCredentialsPicker(requestData, WTF::move(callback));
 }
 
 void Chrome::dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&& callback)
 {
-    m_client->dismissDigitalCredentialsPicker(WTFMove(callback));
+    m_client->dismissDigitalCredentialsPicker(WTF::move(callback));
 }
 #endif
 
@@ -536,7 +546,7 @@ RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMo
 
 RefPtr<ImageBuffer> Chrome::sinkIntoImageBuffer(std::unique_ptr<SerializedImageBuffer> imageBuffer)
 {
-    return m_client->sinkIntoImageBuffer(WTFMove(imageBuffer));
+    return m_client->sinkIntoImageBuffer(WTF::move(imageBuffer));
 }
 
 std::unique_ptr<WorkerClient> Chrome::createWorkerClient(SerialFunctionDispatcher& dispatcher)
@@ -564,7 +574,7 @@ RefPtr<ShapeDetection::BarcodeDetector> Chrome::createBarcodeDetector(const Shap
 
 void Chrome::getBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<ShapeDetection::BarcodeFormat>&&)>&& completionHandler) const
 {
-    return m_client->getBarcodeDetectorSupportedFormats(WTFMove(completionHandler));
+    return m_client->getBarcodeDetectorSupportedFormats(WTF::move(completionHandler));
 }
 
 RefPtr<ShapeDetection::FaceDetector> Chrome::createFaceDetector(const ShapeDetection::FaceDetectorOptions& faceDetectorOptions) const
@@ -641,8 +651,10 @@ void Chrome::unregisterPopupOpeningObserver(PopupOpeningObserver& observer)
 void Chrome::notifyPopupOpeningObservers() const
 {
     auto observers = m_popupOpeningObservers;
-    for (auto& observer : observers)
-        observer->willOpenPopup();
+    for (auto& weakObserver : observers) {
+        if (RefPtr observer = weakObserver.get())
+            observer->willOpenPopup();
+    }
 }
 
 } // namespace WebCore

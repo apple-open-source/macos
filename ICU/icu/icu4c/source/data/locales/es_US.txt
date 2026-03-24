@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_US{
     %%Parent{"es_419"}
     MoreInformation{"[...]"}
@@ -8,47 +8,23 @@ es_US{
         latn{
             patternsShort{
                 currencyFormat{
-                    10000000000{
-                        one{"¤00 B"}
-                        other{"¤00 B"}
+                    10000{
+                        one{"¤00 K"}
+                        other{"¤00 K"}
                     }
-                    100000000000{
-                        one{"¤000 B"}
-                        other{"¤000 B"}
-                    }
-                    1000000000000{
-                        one{"¤0 T"}
-                        other{"¤0 T"}
-                    }
-                    10000000000000{
-                        one{"¤00 T"}
-                        other{"¤00 T"}
-                    }
-                    100000000000000{
-                        one{"¤000 T"}
-                        other{"¤000 T"}
+                    100000{
+                        one{"¤000 K"}
+                        other{"¤000 K"}
                     }
                 }
                 currencyFormat%alphaNextToNumber{
-                    10000000000{
-                        one{"¤ 00 B"}
-                        other{"¤ 00 B"}
+                    10000{
+                        one{"¤ 00 K"}
+                        other{"¤ 00 K"}
                     }
-                    100000000000{
-                        one{"¤ 000 B"}
-                        other{"¤ 000 B"}
-                    }
-                    1000000000000{
-                        one{"¤ 0 T"}
-                        other{"¤ 0 T"}
-                    }
-                    10000000000000{
-                        one{"¤ 00 T"}
-                        other{"¤ 00 T"}
-                    }
-                    100000000000000{
-                        one{"¤ 000 T"}
-                        other{"¤ 000 T"}
+                    100000{
+                        one{"¤ 000 K"}
+                        other{"¤ 000 K"}
                     }
                 }
                 decimalFormat{
@@ -102,6 +78,8 @@ es_US{
                 "GGGGGyyMd",
             }
             availableFormats{
+                GyM{"MM-y G"}
+                GyMEd{"E, dd-MM-y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, MMM d, y G"}
                 GyMMMd{"MMM d, y G"}
@@ -165,8 +143,8 @@ es_US{
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, d 'de' MMMM 'de' y",
-                "d 'de' MMMM 'de' y",
+                "EEEE, MMMM d, y",
+                "MMMM d, y",
                 "MMM d, y",
                 "M/d/yy",
                 "{1}, {0}",
@@ -180,6 +158,8 @@ es_US{
                 EHms{"E HH:mm:ss"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
+                GyM{"MM-y G"}
+                GyMEd{"E, dd-MM-y G"}
                 GyMMMEd{"E, MMM d, y G"}
                 GyMMMd{"MMM d, y G"}
                 Hmsvvvv{"HH:mm:ss (vvvv)"}
@@ -242,12 +222,6 @@ es_US{
                     M{"M/d – M/d"}
                     d{"M/d – M/d"}
                 }
-                h{
-                    a{"h a – h a"}
-                }
-                hmv{
-                    a{"h:mm a – h:mm a v"}
-                }
                 hv{
                     a{"h a – h a v"}
                 }
@@ -280,7 +254,7 @@ es_US{
                     wide{
                         "1er trimestre",
                         "2.º trimestre",
-                        "3.º trimestre",
+                        "3er trimestre",
                         "4.º trimestre",
                     }
                 }
@@ -407,12 +381,6 @@ es_US{
                 "0"{"este domingo"}
                 "1"{"el domingo próximo"}
             }
-            relativeTime{
-                future{
-                    one{"dentro de {0} domingo"}
-                    other{"dentro de {0} domingos"}
-                }
-            }
         }
         thu{
             relative{
@@ -469,7 +437,7 @@ es_US{
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-long-referring-informal{
-                "{surname} {surname2}, {given-informal}",
+                "{surname}, {given-informal}",
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-medium-referring-formal{

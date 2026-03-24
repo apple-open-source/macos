@@ -180,59 +180,59 @@ static DERReturn SecOCSPRequestParse(SecOCSPRequestRef request, bool strict) {
     drtn = DERParseSequence(&derRequest,
                             DERNumOCSPRequestItemSpecs, DER_OCSPRequestItemSpecs,
                             &signedRequest, sizeof(signedRequest));
-    require_noerr(drtn, badRequest);
+    __Require_noErr(drtn, badRequest);
 
     /* Explicitly disallow signatures, since adding these would cause Internet chaos. */
-    require_action(!signedRequest.sig.data && signedRequest.sig.length == 0, badRequest, drtn = DR_Unimplemented);
+    __Require_Action(!signedRequest.sig.data && signedRequest.sig.length == 0, badRequest, drtn = DR_Unimplemented);
 
     DER_TBS_OCSPRequest tbsRequest;
     drtn = DERParseSequenceContent(&signedRequest.tbs,
                                    DERNumTBS_OCSPRequestItemSpecs, DER_TBS_OCSPRequestItemSpecs,
                                    &tbsRequest, sizeof(tbsRequest));
-    require_noerr(drtn, badRequest);
+    __Require_noErr(drtn, badRequest);
 
     /* DEFAULT 0, so should not be specified, but if specified (non-strict mode), must be 0 */
     if (strict) {
-        require_action(tbsRequest.version.length == 0, badRequest, drtn = DR_DecodeError);
+        __Require_Action(tbsRequest.version.length == 0, badRequest, drtn = DR_DecodeError);
     } else if (tbsRequest.version.length) {
         DERLong version = 0;
         drtn = DERParseInteger64(&tbsRequest.version, &version);
-        require_noerr(drtn, badRequest);
-        require_action(version == 0, badRequest, drtn = DR_Unimplemented);
+        __Require_noErr(drtn, badRequest);
+        __Require_Action(version == 0, badRequest, drtn = DR_Unimplemented);
     }
 
     /* Explicitly disallow requestorName */
-    require_action(!tbsRequest.requestorName.data && tbsRequest.requestorName.length == 0, badRequest, drtn = DR_Unimplemented);
+    __Require_Action(!tbsRequest.requestorName.data && tbsRequest.requestorName.length == 0, badRequest, drtn = DR_Unimplemented);
 
     /* Decode the list of requests */
     drtn = DERDecodeSequenceContentWithBlock(&tbsRequest.requestList, ^DERReturn(DERDecodedInfo *content, bool *stop) {
         DERReturn blockDrtn = DR_UnexpectedTag;
 
-        require(content->tag == ASN1_CONSTR_SEQUENCE, badSingleRequest);
+        __Require(content->tag == ASN1_CONSTR_SEQUENCE, badSingleRequest);
         DER_OCSPSingleRequest singleRequest;
         blockDrtn = DERParseSequenceContent(&content->content,
                                             DERNumOCSPSingleRequestItemSpecs, DER_OCSPSingleRequestItemSpecs,
                                             &singleRequest, sizeof(singleRequest));
-        require_noerr(blockDrtn, badSingleRequest);
+        __Require_noErr(blockDrtn, badSingleRequest);
 
         DER_OCSPCertID certId;
         blockDrtn = DERParseSequenceContent(&singleRequest.reqCert,
                                             DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
                                             &certId, sizeof(certId));
-        require_noerr(blockDrtn, badSingleRequest);
+        __Require_noErr(blockDrtn, badSingleRequest);
 
         DERAlgorithmId algId;
         blockDrtn = DERParseSequenceContent(&certId.hashAlgorithm,
                                      DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                      &algId, sizeof(algId));
-        require_noerr(blockDrtn, badSingleRequest);
+        __Require_noErr(blockDrtn, badSingleRequest);
 
         if (DEROidCompare(&oidSha1, &algId.oid)) {
-            require_action(certId.issuerNameHash.length == CC_SHA1_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
-            require_action(certId.issuerKeyHash.length == CC_SHA1_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
+            __Require_Action(certId.issuerNameHash.length == CC_SHA1_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
+            __Require_Action(certId.issuerKeyHash.length == CC_SHA1_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
         } else if (DEROidCompare(&oidSha256, &algId.oid)) {
-            require_action(certId.issuerNameHash.length == CC_SHA256_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
-            require_action(certId.issuerKeyHash.length == CC_SHA256_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
+            __Require_Action(certId.issuerNameHash.length == CC_SHA256_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
+            __Require_Action(certId.issuerKeyHash.length == CC_SHA256_DIGEST_LENGTH, badSingleRequest, blockDrtn = DR_GenericErr);
         } else {
             return DR_Unimplemented;
         }
@@ -245,18 +245,18 @@ static DERReturn SecOCSPRequestParse(SecOCSPRequestRef request, bool strict) {
 
         /* The hash algorithms supported are supposed to use absent parameters */
         if (strict) {
-            require_action(!algId.params.data && algId.params.length == 0, badSingleRequest, blockDrtn = DR_DecodeError);
+            __Require_Action(!algId.params.data && algId.params.length == 0, badSingleRequest, blockDrtn = DR_DecodeError);
         }
 
         /* Disallow extensions for now */
-        require_action(!singleRequest.singleRequestExtensions.data &&
+        __Require_Action(!singleRequest.singleRequestExtensions.data &&
                       singleRequest.singleRequestExtensions.length == 0,
                       badSingleRequest, blockDrtn = DR_Unimplemented);
 
     badSingleRequest:
         return blockDrtn;
     });
-    require_noerr(drtn, badRequest);
+    __Require_noErr(drtn, badRequest);
 
     // Skip extensions
 
@@ -297,15 +297,15 @@ static CF_RETURNS_RETAINED CFDataRef _SecOCSPRequestEncodeHashAlgorithm(void) {
     hashAlg.oid.data = oidSha1.data;
     hashAlg.oid.length = oidSha1.length;
     size_t hashAlgSize = 0;
-    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &hashAlg, sizeof(hashAlg),
+    __Require_noErr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &hashAlg, sizeof(hashAlg),
                                                        (DERShort)DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                                        &hashAlgSize),
                   errOut);
-    require(hashAlgSize < LONG_MAX, errOut);
+    __Require(hashAlgSize < LONG_MAX, errOut);
     result = CFDataCreateMutable(NULL, (CFIndex)hashAlgSize);
-    require(result, errOut);
+    __Require(result, errOut);
     CFDataSetLength(result, (CFIndex)hashAlgSize);
-    require_noerr(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &hashAlg, sizeof(hashAlg),
+    __Require_noErr(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &hashAlg, sizeof(hashAlg),
                                               (DERShort)DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                               CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &hashAlgSize),
                   errOut);
@@ -327,13 +327,13 @@ static CF_RETURNS_RETAINED CFDataRef _SecOCSPRequestEncodeCertId(SecOCSPRequestR
     memset(&certId, 0, sizeof(certId));
 
     hashAlg = _SecOCSPRequestEncodeHashAlgorithm();
-    require(hashAlg && (CFDataGetLength(hashAlg) > 0), errOut);
+    __Require(hashAlg && (CFDataGetLength(hashAlg) > 0), errOut);
     issuerNameDigest = SecCertificateCopyIssuerSHA1Digest(request->certificate);
-    require(issuerNameDigest && (CFDataGetLength(issuerNameDigest) > 0), errOut);
+    __Require(issuerNameDigest && (CFDataGetLength(issuerNameDigest) > 0), errOut);
     issuerPubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(request->issuer);
-    require(issuerPubKeyDigest && (CFDataGetLength(issuerPubKeyDigest) > 0), errOut);
+    __Require(issuerPubKeyDigest && (CFDataGetLength(issuerPubKeyDigest) > 0), errOut);
     serial = SecCertificateCopySerialNumberData(request->certificate, NULL);
-    require(serial && CFDataGetLength(serial) > 0, errOut);
+    __Require(serial && CFDataGetLength(serial) > 0, errOut);
 
     request->issuerNameDigest = CFRetainSafe(issuerNameDigest);
     request->issuerPubKeyDigest = CFRetainSafe(issuerPubKeyDigest);
@@ -349,12 +349,12 @@ static CF_RETURNS_RETAINED CFDataRef _SecOCSPRequestEncodeCertId(SecOCSPRequestR
     certId.serialNumber.length = (size_t)CFDataGetLength(serial);
 
     size_t certIdLen = 0;
-    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &certId, sizeof(certId), (DERShort)DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs, &certIdLen), errOut);
-    require(certIdLen < LONG_MAX, errOut);
+    __Require_noErr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &certId, sizeof(certId), (DERShort)DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs, &certIdLen), errOut);
+    __Require(certIdLen < LONG_MAX, errOut);
     result = CFDataCreateMutable(NULL, (CFIndex)certIdLen);
-    require(result, errOut);
+    __Require(result, errOut);
     CFDataSetLength(result, (CFIndex)certIdLen);
-    require_noerr_action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &certId, sizeof(certId),
+    __Require_noErr_Action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &certId, sizeof(certId),
                                                      (DERShort)DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
                                                      CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &certIdLen),
                          errOut, CFReleaseNull(result));
@@ -373,17 +373,17 @@ static CF_RETURNS_RETAINED CFDataRef _SecOCSPRequestEncodeSingleRequest(SecOCSPR
     memset(&singleRequest, 0, sizeof(singleRequest));
 
     CFDataRef certId = _SecOCSPRequestEncodeCertId(request);
-    require(certId && (CFDataGetLength(certId) > 0), errOut);
+    __Require(certId && (CFDataGetLength(certId) > 0), errOut);
     singleRequest.reqCert.data = (DERByte *)CFDataGetBytePtr(certId);
     singleRequest.reqCert.length = (size_t)CFDataGetLength(certId);
 
     size_t reqLen = 0;
-    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &singleRequest, sizeof(singleRequest), (DERShort)DERNumOCSPSingleRequestItemSpecs, DER_OCSPSingleRequestItemSpecs, &reqLen), errOut);
-    require(reqLen < LONG_MAX, errOut);
+    __Require_noErr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &singleRequest, sizeof(singleRequest), (DERShort)DERNumOCSPSingleRequestItemSpecs, DER_OCSPSingleRequestItemSpecs, &reqLen), errOut);
+    __Require(reqLen < LONG_MAX, errOut);
     result = CFDataCreateMutable(NULL, (CFIndex)reqLen);
-    require(result, errOut);
+    __Require(result, errOut);
     CFDataSetLength(result, (CFIndex)reqLen);
-    require_noerr_action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &singleRequest, sizeof(singleRequest),
+    __Require_noErr_Action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &singleRequest, sizeof(singleRequest),
                                                      (DERShort)DERNumOCSPSingleRequestItemSpecs, DER_OCSPSingleRequestItemSpecs,
                                                      CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &reqLen),
                          errOut, CFReleaseNull(result));
@@ -400,17 +400,17 @@ static CF_RETURNS_RETAINED CFDataRef _SecOCSPRequestEncodeTBSRequest(SecOCSPRequ
     memset(&tbsRequest, 0, sizeof(tbsRequest));
 
     CFDataRef requestList = _SecOCSPRequestEncodeSingleRequest(request);
-    require(requestList && (CFDataGetLength(requestList) > 0), errOut);
+    __Require(requestList && (CFDataGetLength(requestList) > 0), errOut);
     tbsRequest.requestList.data = (DERByte *)CFDataGetBytePtr(requestList);
     tbsRequest.requestList.length = (size_t)CFDataGetLength(requestList);
 
     size_t tbsLen = 0;
-    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &tbsRequest, sizeof(tbsRequest), (DERShort)DERNumTBS_OCSPRequestItemSpecs, DER_TBS_OCSPRequestItemSpecs, &tbsLen), errOut);
-    require(tbsLen < LONG_MAX, errOut);
+    __Require_noErr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &tbsRequest, sizeof(tbsRequest), (DERShort)DERNumTBS_OCSPRequestItemSpecs, DER_TBS_OCSPRequestItemSpecs, &tbsLen), errOut);
+    __Require(tbsLen < LONG_MAX, errOut);
     result = CFDataCreateMutable(NULL, (CFIndex)tbsLen);
-    require(result, errOut);
+    __Require(result, errOut);
     CFDataSetLength(result, (CFIndex)tbsLen);
-    require_noerr_action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &tbsRequest, sizeof(tbsRequest),
+    __Require_noErr_Action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &tbsRequest, sizeof(tbsRequest),
                                                         (DERShort)DERNumTBS_OCSPRequestItemSpecs, DER_TBS_OCSPRequestItemSpecs,
                                                      CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &tbsLen),
                          errOut, CFReleaseNull(result));
@@ -426,17 +426,17 @@ static CFDataRef _SecOCSPRequestCopyDEREncoding(SecOCSPRequestRef request) {
     memset(&ocspRequestStr, 0, sizeof(ocspRequestStr));
 
     CFDataRef tbsRequest = _SecOCSPRequestEncodeTBSRequest(request);
-    require(tbsRequest && CFDataGetLength(tbsRequest) > 0, errOut);
+    __Require(tbsRequest && CFDataGetLength(tbsRequest) > 0, errOut);
     ocspRequestStr.tbs.data = (DERByte *)CFDataGetBytePtr(tbsRequest);
     ocspRequestStr.tbs.length = (size_t)CFDataGetLength(tbsRequest);
 
     size_t reqLen = 0;
-    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ocspRequestStr, sizeof(ocspRequestStr), (DERShort)DERNumOCSPRequestItemSpecs, DER_OCSPRequestItemSpecs, &reqLen), errOut);
-    require(reqLen < LONG_MAX, errOut);
+    __Require_noErr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ocspRequestStr, sizeof(ocspRequestStr), (DERShort)DERNumOCSPRequestItemSpecs, DER_OCSPRequestItemSpecs, &reqLen), errOut);
+    __Require(reqLen < LONG_MAX, errOut);
     result = CFDataCreateMutable(NULL, (CFIndex)reqLen);
-    require(result, errOut);
+    __Require(result, errOut);
     CFDataSetLength(result, (CFIndex)reqLen);
-    require_noerr_action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ocspRequestStr, sizeof(ocspRequestStr),
+    __Require_noErr_Action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ocspRequestStr, sizeof(ocspRequestStr),
                                                      (DERShort)DERNumOCSPRequestItemSpecs, DER_OCSPRequestItemSpecs,
                                                      CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &reqLen),
                          errOut, CFReleaseNull(result));
@@ -454,7 +454,7 @@ errOut:
 SecOCSPRequestRef SecOCSPRequestCreate(SecCertificateRef certificate,
     SecCertificateRef issuer) {
     SecOCSPRequestRef this;
-    require(this = (SecOCSPRequestRef)calloc(1, sizeof(struct __SecOCSPRequest)),
+    __Require(this = (SecOCSPRequestRef)calloc(1, sizeof(struct __SecOCSPRequest)),
         errOut);
     this->certificate = CFRetainSafe(certificate);
     this->issuer = CFRetainSafe(issuer);

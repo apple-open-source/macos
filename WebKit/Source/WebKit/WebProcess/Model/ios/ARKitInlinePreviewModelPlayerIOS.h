@@ -49,6 +49,7 @@ private:
     static ARKitInlinePreviewModelPlayerIOS* modelPlayerForPageAndLayerID(WebPage&, WebCore::PlatformLayerIdentifier);
 
     // WebCore::ModelPlayer overrides.
+    void configureGraphicsLayer(WebCore::GraphicsLayer&, WebCore::ModelPlayerGraphicsLayerConfiguration&&) override;
     void enterFullscreen() override;
     void setInteractionEnabled(bool) override;
     void handleMouseDown(const WebCore::LayoutPoint&, MonotonicTime) override;

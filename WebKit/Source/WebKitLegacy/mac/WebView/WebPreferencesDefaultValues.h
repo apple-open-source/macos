@@ -42,7 +42,6 @@ bool defaultAllowsPictureInPictureMediaPlayback();
 bool defaultInlineMediaPlaybackRequiresPlaysInlineAttribute();
 bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultRequiresUserGestureToLoadVideo();
-bool defaultShowModalDialogEnabled();
 bool defaultWebSQLEnabled();
 bool defaultAllowContentSecurityPolicySourceStarToMatchAnyProtocol();
 #endif
@@ -63,6 +62,8 @@ bool defaultAttachmentElementEnabled();
 bool defaultShouldRestrictBaseURLSchemes();
 bool defaultShouldConvertInvalidURLsToBlank();
 bool defaultPopoverAttributeEnabled();
+bool defaultShowModalDialogEnabled();
+bool defaultFontFaceSetConstructorEnabled();
 
 #if PLATFORM(MAC)
 bool defaultPassiveWheelListenersAsDefaultOnDocument();

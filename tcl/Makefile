@@ -54,17 +54,6 @@ include tcl_ext/SubprojActions.make
 core                 := install-tcl install-tk ext ext_puretcl
 ext                  := install-tcl_ext cleanup-generated-metadata
 
-install_source:: install_temp_autoconf extract remove_temp_autoconf
-
-AUTOCONFARCHIVE = $(SRCROOT)/autoconf-18-root.cpio.gz
-install_temp_autoconf:
-	$(_v) $(MKDIR) $(TEMPROOT)
-	$(_v) ditto -x -z $(AUTOCONFARCHIVE) $(TEMPROOT)
-	$(_v) $(RM) $(AUTOCONFARCHIVE)
-
-remove_temp_autoconf:
-	$(_v) $(RMDIR) $(TEMPROOT)
-
 build::
 	$(_v) $(MKDIR) $(TCL_CONFIG_DIR)
 	$(_v) echo "cache_file=$(TCL_CONFIG_DIR)/config.cache" > "$(TCL_CONFIG_DIR)/config.site"

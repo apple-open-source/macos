@@ -162,7 +162,6 @@ __voucher_task_mach_voucher
 # byte-sized
 __dispatch_is_daemon
 __dispatch_memory_warn
-__dispatch_thread_bound_kqwl_enabled
 __dispatch_mode
 __dispatch_program_is_probably_callback_driven
 __dispatch_unsafe_fork

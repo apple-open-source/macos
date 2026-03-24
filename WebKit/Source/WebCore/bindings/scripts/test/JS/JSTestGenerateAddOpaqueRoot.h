@@ -32,7 +32,7 @@ public:
     static JSTestGenerateAddOpaqueRoot* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestGenerateAddOpaqueRoot* ptr = new (NotNull, JSC::allocateCell<JSTestGenerateAddOpaqueRoot>(vm)) JSTestGenerateAddOpaqueRoot(structure, *globalObject, WTFMove(impl));
+        JSTestGenerateAddOpaqueRoot* ptr = new (NotNull, JSC::allocateCell<JSTestGenerateAddOpaqueRoot>(vm)) JSTestGenerateAddOpaqueRoot(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

@@ -45,7 +45,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, { }, { }, { }, API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames }, *contentWorld->_contentWorld);
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, { }, { }, { }, API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames }, Ref { *contentWorld->_contentWorld });
 
     return self;
 }
@@ -94,7 +94,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (_WKUserContentWorld *)_userContentWorld
 {
-    return adoptNS([[_WKUserContentWorld alloc] _initWithContentWorld:wrapper(_userScript->contentWorld())]).autorelease();
+    return adoptNS([[_WKUserContentWorld alloc] _initWithContentWorld:protectedWrapper(_userScript->contentWorld()).get()]).autorelease();
 }
 ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -111,7 +111,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(includeMatchPatternStrings), makeVector<String>(excludeMatchPatternStrings), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames }, contentWorld ? *contentWorld->_contentWorld : API::ContentWorld::pageContentWorldSingleton());
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(includeMatchPatternStrings), makeVector<String>(excludeMatchPatternStrings), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames }, Ref { contentWorld ? *contentWorld->_contentWorld : API::ContentWorld::pageContentWorldSingleton() });
 
     return self;
 }

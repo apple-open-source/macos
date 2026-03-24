@@ -152,6 +152,7 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorViewZoneDeletionFailed = 1040,
     CuttlefishErrorAddCustodianRecoveryKeyFailed = 1041,
     CuttlefishErrorResultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey = 1042,
+    CuttlefishErrorInvalidWalrusState = 1056,
 
     // For testing error handling. Never returned from actual cuttlefish.
     // Should not be retried.

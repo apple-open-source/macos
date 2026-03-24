@@ -50,7 +50,7 @@ public:
     static RefPtr<WebExtensionMatchPattern> create(Args&&... args)
     {
         auto result = adoptRef(new WebExtensionMatchPattern(std::forward<Args>(args)...));
-        return result && result->isValid() ? WTFMove(result) : nullptr;
+        return result && result->isValid() ? WTF::move(result) : nullptr;
     }
 
     using URLSchemeSet = HashSet<String>;
@@ -154,15 +154,6 @@ HashSet<String> toStrings(const WebExtensionMatchPattern::MatchPatternSet&);
 } // namespace WebKit
 
 namespace WTF {
-
-struct WebExtensionMatchPatternHash {
-    static unsigned hash(const WebKit::WebExtensionMatchPattern& pattern) { return pattern.hash(); }
-    static bool equal(const WebKit::WebExtensionMatchPattern& a, const WebKit::WebExtensionMatchPattern& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<WebKit::WebExtensionMatchPattern> : WebExtensionMatchPatternHash { };
 
 template<> struct HashTraits<WebKit::WebExtensionMatchPattern> : SimpleClassHashTraits<WebKit::WebExtensionMatchPattern> {
     static const bool emptyValueIsZero = false;

@@ -68,9 +68,9 @@
 - (void)addOneToOutGoing{
     
 }
-- (BOOL) pullUpdates:(NSError **)failure
+- (void)pullUpdates:(void (^)(BOOL success, NSError* error))reply
 {
-    return true;
+    reply(YES, nil);
 }
 
 - (void)remoteSetObject:(id)obj forKey:(NSString*)key

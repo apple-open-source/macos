@@ -151,12 +151,12 @@ bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *
     bool result = false;
     OSStatus errorCode = errSecParam;
     CFDataRef data = NULL, signature = NULL;
-    require(amountToHash < LONG_MAX && signatureSize < LONG_MAX, fail);
+    __Require(amountToHash < LONG_MAX && signatureSize < LONG_MAX, fail);
 
     SecKeyAlgorithm alg = SecKeyAlgorithmFromDERAlgorithmId(publicKey, sigAlgId);
     data = CFDataCreate(NULL, dataToHash, (CFIndex)amountToHash);
     signature = CFDataCreate(NULL, signatureStart, (CFIndex)signatureSize);
-    require_quiet(alg && data && signature, fail);
+    __Require_Quiet(alg && data && signature, fail);
 
     result = SecKeyVerifySignature(publicKey, alg, data, signature, error);
 
@@ -164,7 +164,7 @@ bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *
         // fallback to potentially fix signatures with missing zero-byte padding.
         CFReleaseNull(signature);
         signature = SecRecreateSignatureWithDERAlgorithmId(publicKey, sigAlgId, signatureStart, signatureSize);
-        require_quiet(signature, fail);
+        __Require_Quiet(signature, fail);
 
         if (error) {
             CFReleaseNull(*error);

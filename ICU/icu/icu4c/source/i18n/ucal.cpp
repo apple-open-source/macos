@@ -733,6 +733,9 @@ static const char * const CAL_TYPES[] = {
         "ethiopic-amete-alem",
         "iso8601",
         "dangi",
+#if APPLE_ICU_CHANGES // rdar://168163977
+        "vietnamese",
+#endif  // APPLE_ICU_CHANGES
         "islamic-umalqura",
         "islamic-tbla",
         "islamic-rgsa",

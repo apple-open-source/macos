@@ -31,7 +31,7 @@
 namespace WebCore {
 
 class CharacterData : public Node {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CharacterData);
+    WTF_MAKE_TZONE_ALLOCATED(CharacterData);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CharacterData);
 public:
     const String& data() const { return m_data; }
@@ -53,7 +53,7 @@ public:
 protected:
     CharacterData(Document& document, String&& text, NodeType type, OptionSet<TypeFlag> typeFlags = { })
         : Node(document, type, typeFlags | TypeFlag::IsCharacterData)
-        , m_data(WTFMove(text))
+        , m_data(WTF::move(text))
     {
         if (m_data.isNull())
             m_data = emptyString();

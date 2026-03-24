@@ -45,7 +45,7 @@ AudioTrackPrivateRemote::AudioTrackPrivateRemote(GPUProcessConnection& gpuProces
     , m_id(configuration.trackId)
     , m_playerIdentifier(playerIdentifier)
 {
-    updateConfiguration(WTFMove(configuration));
+    updateConfiguration(WTF::move(configuration));
 }
 
 void AudioTrackPrivateRemote::setEnabled(bool enabled)
@@ -74,7 +74,7 @@ void AudioTrackPrivateRemote::updateConfiguration(AudioTrackPrivateRemoteConfigu
         m_label = configuration.label;
         if (changed) {
             notifyClients([label = crossThreadCopy(m_label)](auto& client) {
-                client.labelChanged(AtomString { label.isolatedCopy() });
+                client.labelChanged(label);
             });
         };
     }
@@ -84,7 +84,7 @@ void AudioTrackPrivateRemote::updateConfiguration(AudioTrackPrivateRemoteConfigu
         m_language = configuration.language;
         if (changed) {
             notifyClients([language = crossThreadCopy(m_language)](auto& client) {
-                client.languageChanged(AtomString { language.isolatedCopy() });
+                client.languageChanged(language);
             });
         };
     }
@@ -92,7 +92,7 @@ void AudioTrackPrivateRemote::updateConfiguration(AudioTrackPrivateRemoteConfigu
     m_trackIndex = configuration.trackIndex;
     m_startTimeVariance = configuration.startTimeVariance;
     m_kind = configuration.kind;
-    setConfiguration(WTFMove(configuration.trackConfiguration));
+    setConfiguration(WTF::move(configuration.trackConfiguration));
     
     AudioTrackPrivate::setEnabled(configuration.enabled);
 }

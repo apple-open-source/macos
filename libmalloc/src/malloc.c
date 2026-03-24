@@ -57,8 +57,8 @@ int32_t malloc_num_zones_allocated = 0;
 malloc_zone_t **malloc_zones = (malloc_zone_t **)0xdeaddeaddeaddead;
 
 // TODO: getter and setter rather than direct export so that this can be baked
-// into the cached fastpath checks
-malloc_logger_t *malloc_logger = NULL;
+// into the cached fastpath checks (rdar://164281164)
+__attribute__((deprecated)) malloc_logger_t *malloc_logger = NULL;
 
 static uint32_t initial_num_zones;
 static malloc_zone_t *initial_scalable_zone;
@@ -68,19 +68,6 @@ static malloc_zone_t *initial_nano_zone;
 malloc_zone_t *initial_xzone_zone;
 static malloc_zone_t *default_purgeable_zone;
 static bool has_injected_zone0;
-static bool malloc_xzone_enabled = MALLOC_XZONE_ENABLED_DEFAULT;
-#if CONFIG_XZONE_MALLOC && CONFIG_NANOZONE
-static bool malloc_nano_on_xzone = false;
-#endif // CONFIG_XZONE_MALLOC && CONFIG_NANOZONE
-
-typedef enum {
-	MALLOC_XZONE_OVERRIDE_DEFAULT,
-	MALLOC_XZONE_OVERRIDE_DISABLED,
-	MALLOC_XZONE_OVERRIDE_ENABLED,
-} malloc_xzone_override_t;
-
-static malloc_xzone_override_t malloc_xzone_nano_override;
-static malloc_xzone_override_t malloc_nano_on_xzone_override;
 
 unsigned malloc_debug_flags = 0;
 bool malloc_tracing_enabled = false;
@@ -197,16 +184,6 @@ malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 static const char zero_on_free_enabled_boot_arg[] = "malloc_zero_on_free_enabled";
 
-#if CONFIG_XZONE_MALLOC
-static const char secure_allocator_boot_arg[] = "malloc_secure_allocator";
-
-static
-bool xzm_create_mzones = true;
-
-static
-bool purgeable_zone_use_xzm = true;
-#endif // CONFIG_XZONE_MALLOC
-
 #if CONFIG_MEDIUM_ALLOCATOR
 static const char medium_enabled_boot_arg[] = "malloc_medium_zone";
 static const char max_medium_magazines_boot_arg[] = "malloc_max_medium_magazines";
@@ -233,6 +210,25 @@ static dlsym_t LIBMALLOC_FUNCTION_PTRAUTH(_dlsym) = NULL;
 #define _dlopen(...) NULL
 #define _dlsym(...) NULL
 #endif // TARGET_OS_DRIVERKIT
+
+MALLOC_ALWAYS_INLINE
+static inline malloc_logger_t *
+_malloc_logger_get(void)
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+	return os_atomic_load(&malloc_logger, relaxed);
+#pragma GCC diagnostic pop
+}
+
+// TODO: Getter/setter for logger and fold into malloc_slowpath computation,
+// then remove this function. (rdar://164281164)
+MALLOC_ALWAYS_INLINE
+static inline bool
+_malloc_has_logger(void)
+{
+	return _malloc_logger_get();
+}
 
 void
 malloc_slowpath_update(void)
@@ -371,21 +367,6 @@ __malloc_init_from_bootargs(const char *bootargs)
 		}
 	}
 
-#if CONFIG_XZONE_MALLOC
-	flag = malloc_common_value_for_key_copy(bootargs,
-			secure_allocator_boot_arg, value_buf, sizeof(value_buf));
-	if (flag) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && (value == 0 || value == 1)) {
-			malloc_xzone_enabled = (bool)value;
-		} else {
-			malloc_report(ASL_LEVEL_ERR,
-					"malloc_secure_allocator must be 0 or 1 - ignored.\n");
-		}
-	}
-#endif // CONFIG_XZONE_MALLOC
-
 #if CONFIG_MEDIUM_ALLOCATOR
 #if TARGET_OS_OSX
 #if defined(__x86_64__)
@@ -457,297 +438,6 @@ __malloc_init_from_bootargs(const char *bootargs)
 #endif // CONFIG_MEDIUM_ALLOCATOR
 }
 
-#if CONFIG_MALLOC_PROCESS_IDENTITY
-
-static void
-_malloc_check_process_identity(const char *apple[])
-{
-	static const struct {
-		const char *name;
-		malloc_process_identity_t identity;
-	} name_identity_mapping[] = {
-#if TARGET_OS_SIMULATOR
-		{ "launchd_sim",             MALLOC_PROCESS_LAUNCHD, },
-		{ "launchd_sim.development", MALLOC_PROCESS_LAUNCHD, },
-		{ "launchd_sim.debug",       MALLOC_PROCESS_LAUNCHD, },
-#else // TARGET_OS_SIMULATOR
-		{ "launchd",             MALLOC_PROCESS_LAUNCHD, },
-		{ "launchd.development", MALLOC_PROCESS_LAUNCHD, },
-		{ "launchd.debug",       MALLOC_PROCESS_LAUNCHD, },
-		{ "launchd.testing",     MALLOC_PROCESS_LAUNCHD, },
-#endif // TARGET_OS_SIMULATOR
-		{ "logd",                MALLOC_PROCESS_LOGD, },
-		{ "notifyd",             MALLOC_PROCESS_NOTIFYD, },
-
-		{ "mediaparserd",        MALLOC_PROCESS_MEDIAPARSERD, },
-		{ "videocodecd",         MALLOC_PROCESS_VIDEOCODECD, },
-		{ "mediaplaybackd",      MALLOC_PROCESS_MEDIAPLAYBACKD },
-		{ "audiomxd",            MALLOC_PROCESS_AUDIOMXD, },
-		{ "avconferenced",       MALLOC_PROCESS_AVCONFERENCED, },
-		{ "mediaserverd",        MALLOC_PROCESS_MEDIASERVERD, },
-		{ "cameracaptured",      MALLOC_PROCESS_CAMERACAPTURED, },
-
-		{ "MessagesBlastDoorService", MALLOC_PROCESS_BLASTDOOR_MESSAGES, },
-		{ "MessagesAirlockService",   MALLOC_PROCESS_BLASTDOOR_MESSAGES, },
-		{ "IDSBlastDoorService",      MALLOC_PROCESS_BLASTDOOR_IDS, },
-		{ "IMDPersistenceAgent",      MALLOC_PROCESS_IMDPERSISTENCEAGENT },
-		{ "imagent",                  MALLOC_PROCESS_IMAGENT, },
-
-		{ "ThumbnailExtensionSecure", MALLOC_PROCESS_QUICKLOOK_THUMBNAIL_SECURE, },
-		{ "com.apple.quicklook.extension.previewUI", MALLOC_PROCESS_QUICKLOOK_PREVIEW, },
-		{ "QuickLookUIExtension",     MALLOC_PROCESS_QUICKLOOK_PREVIEW, },
-		{ "ThumbnailExtension",       MALLOC_PROCESS_QUICKLOOK_THUMBNAIL },
-#if TARGET_OS_OSX
-		// Load-bearing: not already MallocSpaceEfficient
-		{ "QuickLookUIService",       MALLOC_PROCESS_QUICKLOOK_UISERVICE },
-		// Already MallocSpaceEfficient, but valuable to identify as
-		// security-relevant for other special treatment
-		{ "ThumbnailExtension_macOS", MALLOC_PROCESS_QUICKLOOK_THUMBNAIL },
-		{ "QuickLookSatellite",       MALLOC_PROCESS_QUICKLOOK_MACOS },
-		{ "quicklookd",               MALLOC_PROCESS_QUICKLOOK_MACOS },
-		{ "com.apple.quicklook.ThumbnailsAgent", MALLOC_PROCESS_QUICKLOOK_MACOS },
-		{ "ExternalQuickLookSatellite-arm64",    MALLOC_PROCESS_QUICKLOOK_MACOS },
-		{ "ExternalQuickLookSatellite-x86_64",   MALLOC_PROCESS_QUICKLOOK_MACOS },
-#endif // TARGET_OS_OSX
-
-		{ "MobileSafari",                                          MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.Networking",                           MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.Networking.Development",               MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.GPU",                                  MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.GPU.Development",                      MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent",                           MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent.Development",               MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent.CaptivePortal",             MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent.CaptivePortal.Development", MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent.EnhancedSecurity",             MALLOC_PROCESS_BROWSER, },
-		{ "com.apple.WebKit.WebContent.EnhancedSecurity.Development", MALLOC_PROCESS_BROWSER, },
-
-		{ "MTLCompilerService",          MALLOC_PROCESS_MTLCOMPILERSERVICE },
-
-#if TARGET_OS_OSX
-		{ "Safari",                                      MALLOC_PROCESS_SAFARI, },
-		{ "com.apple.Safari.CredentialExtractionHelper", MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.Safari.History",                    MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.Safari.SandboxBroker",              MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.Safari.SearchHelper",               MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.SafariFoundation.CredentialProviderExtensionHelper", MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.SafariPlatformSupport.Helper",      MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.SafariServices.ExtensionHelper",    MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "com.apple.SafariServices",                    MALLOC_PROCESS_SAFARI_SUPPORT, },
-		{ "VTDecoderXPCService",                         MALLOC_PROCESS_VTDECODERXPCSERVICE, },
-#endif // TARGET_OS_OSX
-
-		{ "callservicesd",       MALLOC_PROCESS_CALLSERVICESD, },
-		{ "maild",               MALLOC_PROCESS_MAILD, },
-		{ "mDNSResponder",       MALLOC_PROCESS_MDNSRESPONDER, },
-		{ "ASVAssetViewer",      MALLOC_PROCESS_ASVASSETVIEWER },
-		{ "identityservicesd",   MALLOC_PROCESS_IDENTITYSERVICESD, },
-		{ "wifid",               MALLOC_PROCESS_WIFID, },
-		{ "fmfd",                MALLOC_PROCESS_FMFD, },
-		{ "searchpartyd",        MALLOC_PROCESS_SEARCHPARTYD, },
-		{ "vmd",                 MALLOC_PROCESS_VMD, },
-		{ "CommCenter",          MALLOC_PROCESS_COMMCENTER, },
-		{ "wifip2pd",            MALLOC_PROCESS_WIFIP2PD, },
-		{ "wifianalyticsd",      MALLOC_PROCESS_WIFIANALYTICSD, },
-
-#if TARGET_OS_VISION
-		{ "presenced",           MALLOC_PROCESS_PRESENCED, },
-		{ "FaceTime",            MALLOC_PROCESS_FACETIME, },
-		{ "managedassetsd",      MALLOC_PROCESS_MANAGEDASSETSD },
-		{ "polarisd",            MALLOC_PROCESS_POLARISD },
-		{ "arkitd",              MALLOC_PROCESS_ARKITD, },
-		{ "backboardd",          MALLOC_PROCESS_BACKBOARDD, },
-		{ "wakeboardd",          MALLOC_PROCESS_WAKEBOARDD, },
-		{ "realitycamerad",      MALLOC_PROCESS_REALITYCAMERAD, },
-#endif // TARGET_OS_VISION
-
-		{ "AegirPoster",         MALLOC_PROCESS_AEGIRPOSTER, },
-		{ "CollectionsPoster",   MALLOC_PROCESS_COLLECTIONSPOSTER, },
-
-#if TARGET_OS_WATCH
-		{ "backboardd",          MALLOC_PROCESS_BACKBOARDD, },
-		{ "ClockFace",           MALLOC_PROCESS_CLOCKFACE, },
-#endif // TARGET_OS_WATCH
-
-#if TARGET_OS_OSX
-		{ "GroupSessionService", MALLOC_PROCESS_GROUPSESSIONSERVICE, },
-		{ "IMTranscoderAgent", MALLOC_PROCESS_IMTRANSCODERAGENT, },
-		{ "Messages", MALLOC_PROCESS_MESSAGES, },
-		{ "Screen Sharing", MALLOC_PROCESS_SCREENSHARING, },
-		{ "keychainsharingmessagingd", MALLOC_PROCESS_KEYCHAINSHARINGMESSAGINGD, },
-
-		{ "VTEncoderXPCService", MALLOC_PROCESS_VTENCODERXPCSERVICE, },
-#endif // TARGET_OS_OSX
-
-		{ "ReportCrash", MALLOC_PROCESS_REPORTCRASH, },
-		{ "AudioConverterService", MALLOC_PROCESS_AUDIOCONVERTERSERVICE, },
-
-	};
-
-	if (getpid() == 1) {
-		malloc_process_identity = MALLOC_PROCESS_LAUNCHD;
-		return;
-	}
-
-	const char *flag = _simple_getenv(apple, "HardenedRuntime");
-	if (flag) {
-		unsigned long long value = strtoull(flag, NULL, 0);
-		if (value) {
-			// reproduced from xnu
-			enum {
-				MallocBrowserHostEntitlementMask       = 0x01,
-				MallocBrowserGPUEntitlementMask        = 0x02,
-				MallocBrowserNetworkEntitlementMask    = 0x04,
-				MallocBrowserWebContentEntitlementMask = 0x08,
-			};
-
-			long enablement_mask = MallocBrowserHostEntitlementMask |
-					MallocBrowserGPUEntitlementMask |
-					MallocBrowserNetworkEntitlementMask |
-					MallocBrowserWebContentEntitlementMask;
-			if (value & enablement_mask) {
-				malloc_process_identity = MALLOC_PROCESS_BROWSER;
-				return;
-			}
-		}
-	}
-
-	const char *name = getprogname();
-	for (size_t i = 0; i < countof(name_identity_mapping); i++) {
-		if (!strcmp(name, name_identity_mapping[i].name)) {
-			malloc_process_identity = name_identity_mapping[i].identity;
-			return;
-		}
-	}
-
-	if (os_security_config_get() & OS_SECURITY_CONFIG_HARDENED_HEAP) {
-		malloc_process_identity = MALLOC_PROCESS_HARDENED_HEAP_CONFIG;
-	}
-}
-
-#if !CONFIG_FEATUREFLAGS_SIMPLE
-#error "must have feature flags"
-#endif
-
-static bool
-_malloc_check_secure_allocator_process_enablement(
-		malloc_process_identity_t identity)
-{
-	// launchd is special because the feature flag check can't work for it
-	if (identity == MALLOC_PROCESS_LAUNCHD) {
-		return MALLOC_SECURE_ALLOCATOR_LAUNCHD_ENABLED_DEFAULT;
-	}
-
-#define ENABLEMENT_CASE(id, enable_status) \
-		case MALLOC_PROCESS_##id: \
-			return (enable_status);
-#define ENABLEMENT_CASE_FF(id, name, darwin_default, simulator_default) \
-		case MALLOC_PROCESS_##id: \
-			return malloc_secure_feature_enabled(SecureAllocator_process_##name, \
-					(darwin_default), (simulator_default))
-
-
-	switch (identity) {
-	ENABLEMENT_CASE(LOGD, true);
-	ENABLEMENT_CASE(NOTIFYD, true);
-
-	ENABLEMENT_CASE(MEDIAPARSERD, true);
-	ENABLEMENT_CASE(VIDEOCODECD, true);
-	ENABLEMENT_CASE(MEDIAPLAYBACKD, true);
-	ENABLEMENT_CASE(AVCONFERENCED, true);
-	ENABLEMENT_CASE(MEDIASERVERD, true);
-	ENABLEMENT_CASE(AUDIOMXD, true);
-	ENABLEMENT_CASE(CAMERACAPTURED, true);
-
-	ENABLEMENT_CASE(BLASTDOOR_MESSAGES, true);
-	ENABLEMENT_CASE(BLASTDOOR_IDS, true);
-	ENABLEMENT_CASE(IMDPERSISTENCEAGENT, true);
-	ENABLEMENT_CASE(IMAGENT, true);
-
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE(QUICKLOOK_MACOS, true);
-	ENABLEMENT_CASE(QUICKLOOK_UISERVICE, true);
-#endif
-	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL_SECURE, true);
-	ENABLEMENT_CASE(QUICKLOOK_PREVIEW, true);
-	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL, true);
-
-	ENABLEMENT_CASE(MTLCOMPILERSERVICE, true);
-
-	ENABLEMENT_CASE(CALLSERVICESD, true);
-	ENABLEMENT_CASE(MAILD, true);
-	ENABLEMENT_CASE(MDNSRESPONDER, true);
-	ENABLEMENT_CASE(ASVASSETVIEWER, true);
-	ENABLEMENT_CASE(IDENTITYSERVICESD, true);
-	ENABLEMENT_CASE(WIFID, true);
-	ENABLEMENT_CASE(FMFD, true);
-	ENABLEMENT_CASE(SEARCHPARTYD, true);
-	ENABLEMENT_CASE(VMD, true);
-	ENABLEMENT_CASE(WIFIP2PD, true);
-	ENABLEMENT_CASE(WIFIANALYTICSD, true);
-
-	ENABLEMENT_CASE(COMMCENTER, true);
-
-#if TARGET_OS_SIMULATOR
-	ENABLEMENT_CASE(BROWSER, false);
-#else
-	ENABLEMENT_CASE(BROWSER, true);
-#endif // TARGET_OS_SIMULATOR
-
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE(SAFARI, true);
-	ENABLEMENT_CASE(SAFARI_SUPPORT, true);
-#endif
-
-#if TARGET_OS_VISION
-	ENABLEMENT_CASE(PRESENCED, true);
-	ENABLEMENT_CASE(FACETIME, true);
-	ENABLEMENT_CASE(MANAGEDASSETSD, true);
-	ENABLEMENT_CASE(POLARISD, true);
-
-	ENABLEMENT_CASE_FF(ARKITD, arkitd, true, true);
-	ENABLEMENT_CASE_FF(BACKBOARDD, backboardd, true, true);
-	ENABLEMENT_CASE_FF(WAKEBOARDD, wakeboardd, true, true);
-	ENABLEMENT_CASE_FF(REALITYCAMERAD, realitycamerad, true, true);
-#endif
-
-	ENABLEMENT_CASE_FF(AEGIRPOSTER, aegirposter, false, false);
-	ENABLEMENT_CASE_FF(COLLECTIONSPOSTER, CollectionsPoster, false, false);
-
-#if TARGET_OS_WATCH
-	ENABLEMENT_CASE_FF(BACKBOARDD, backboardd, false, false);
-	ENABLEMENT_CASE_FF(CLOCKFACE, ClockFace, false, false);
-#endif
-
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE(GROUPSESSIONSERVICE, true);
-	ENABLEMENT_CASE(IMTRANSCODERAGENT, true);
-	ENABLEMENT_CASE(KEYCHAINSHARINGMESSAGINGD, true);
-	ENABLEMENT_CASE(MESSAGES, true);
-	ENABLEMENT_CASE(SCREENSHARING, true);
-#endif
-
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE(VTDECODERXPCSERVICE, true);
-#endif
-
-#if TARGET_OS_OSX
-	ENABLEMENT_CASE_FF(VTENCODERXPCSERVICE, VTEncoderXPCService, false, false);
-#endif
-
-	ENABLEMENT_CASE(REPORTCRASH, true);
-	ENABLEMENT_CASE(AUDIOCONVERTERSERVICE, true);
-
-
-	ENABLEMENT_CASE(HARDENED_HEAP_CONFIG, true);
-
-	default:
-		return false;
-	}
-}
-
-#endif // CONFIG_MALLOC_PROCESS_IDENTITY
-
 static void
 _malloc_init_featureflags(void)
 {
@@ -758,34 +448,6 @@ _malloc_init_featureflags(void)
 	if (zero_on_free_feature_enabled != policy_is_zero_on_free) {
 		malloc_zero_policy = zero_on_free_feature_enabled ?
 				MALLOC_ZERO_ON_FREE : MALLOC_ZERO_NONE;
-	}
-
-	bool secure_allocator = false;
-#if CONFIG_MALLOC_PROCESS_IDENTITY
-	if (malloc_process_identity != MALLOC_PROCESS_NONE) {
-		secure_allocator =
-				_malloc_check_secure_allocator_process_enablement(malloc_process_identity);
-	} else
-#endif // CONFIG_MALLOC_PROCESS_IDENTITY
-	{
-#if MALLOC_TARGET_IOS_ONLY || TARGET_OS_VISION || TARGET_OS_OSX || \
-		TARGET_OS_WATCH
-		secure_allocator = malloc_secure_feature_enabled(
-				SecureAllocator_SystemWide, true, true);
-#else
-		secure_allocator = malloc_secure_feature_enabled(
-				SecureAllocator_SystemWide, false, false);
-#endif	// MALLOC_TARGET_IOS_ONLY || TARGET_OS_VISION || TARGET_OS_OSX
-	}
-
-#if TARGET_OS_OSX && !TARGET_CPU_ARM64
-	if (!os_feature_enabled_simple(libmalloc, SecureAllocator_Intel, false)) {
-		secure_allocator = false;
-	}
-#endif // TARGET_OS_OSX && !TARGET_CPU_ARM64
-
-	if (secure_allocator != malloc_xzone_enabled) {
-		malloc_xzone_enabled = secure_allocator;
 	}
 #endif // CONFIG_FEATUREFLAGS_SIMPLE
 }
@@ -838,10 +500,6 @@ __malloc_init(const char *apple[])
 	if (allow_internal_security != malloc_internal_security_policy) {
 		malloc_internal_security_policy = allow_internal_security;
 	}
-
-#if CONFIG_MALLOC_PROCESS_IDENTITY
-	_malloc_check_process_identity(apple);
-#endif
 
 	_malloc_init_featureflags();
 
@@ -1325,9 +983,8 @@ malloc_gdb_po_unsafe(void)
 
 /*********	Creation and destruction	************/
 
-static void set_flags_from_environment(void);
+static bool set_flags_from_environment(void);
 #if CONFIG_MTE
-static bool _malloc_check_has_sec_transition(const char *apple[]);
 static uint32_t _malloc_get_sec_transition_policy(const char *apple[]);
 #endif
 
@@ -1426,7 +1083,7 @@ malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default)
 	// malloc_num_zones, protect_size);
 }
 
-// This used to be called lazyily because it is using
+// This used to be called lazily because it is using
 // dyld_process_is_restricted() before dyld_init() has run.
 //
 // However this function is safe to use, we keep this function separate
@@ -1477,43 +1134,17 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 		max_medium_magazines = max_magazines;
 	}
 
-	// Don't enable for pre-AMP iOS hardware, which we identify as "iOS, plain
-	// arm64"
-#if CONFIG_XZM_CLUSTER_AWARE && \
-		(MALLOC_TARGET_IOS_ONLY || MALLOC_TARGET_DK_IOS) && \
-		defined(__arm64__) && !defined(__arm64e__)
-	if (ncpuclusters == 1) {
-#if CONFIG_FEATUREFLAGS_SIMPLE
-		// Not with the other feature flag checks because ncpuclusters needs to
-		// be initialized first
-		bool secure_allocator_single_cluster = os_feature_enabled_simple(
-				libmalloc, SecureAllocator_SingleCluster, false);
-#else // CONFIG_FEATUREFLAGS_SIMPLE
-		bool secure_allocator_single_cluster = false;
-#endif // CONFIG_FEATUREFLAGS_SIMPLE
-		if (malloc_xzone_enabled && !secure_allocator_single_cluster) {
-			malloc_xzone_enabled = false;
-		}
-	}
-#endif
-
 	_malloc_detect_interposition();
 
 #if CONFIG_MTE
-	malloc_has_sec_transition = _malloc_check_has_sec_transition(apple);
-	// If the process has been spawned by setting has_sec_transition=1,
-	// enable the usage of xzone and the nano override by default.
-	// Note that we still allow overriding this behaviour through
-	// environment variables (whose values are loaded afterwards).
-	if (malloc_has_sec_transition) {
-		malloc_xzone_enabled = true;
-		malloc_xzone_nano_override = MALLOC_XZONE_OVERRIDE_ENABLED;
+	if ((os_security_config_get() & OS_SECURITY_CONFIG_MTE)) {
+		malloc_has_sec_transition = true;
 		malloc_sec_transition_early_malloc_support = true;
 		malloc_sec_transition_policy = _malloc_get_sec_transition_policy(apple);
 	}
 #endif
 
-	set_flags_from_environment();
+	bool malloc_envvars_present = set_flags_from_environment();
 	
 	// Add-in mask bits that can be set via env var MallocEnableMSLAtLimitWarning, for libdispatch to setup the desired handlers
 	malloc_memorypressure_mask_default_4libdispatch |= malloc_memorystatus_mask_resource_exception_handling;
@@ -1523,7 +1154,6 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 		malloc_report(ASL_LEVEL_INFO, "Internal Security Policy: %d\n",
 				malloc_internal_security_policy);
 	}
-
 
 #if CONFIG_SANITIZER
 	malloc_sanitizer_enabled = sanitizer_should_enable();
@@ -1548,80 +1178,132 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	(void)envp;
 #endif // CONFIG_NANOZONE
 
-	bool nano_on_xzone = false;
-
-#if CONFIG_XZONE_MALLOC
+	malloc_config_input_s malloc_config_input = {
+		.mci_envp = malloc_envvars_present ? envp : NULL,
+		.mci_apple_array = apple,
+		.mci_progname = getprogname(),
+		.mci_is_pid_1 = (getpid() == 1),
+		.mci_target_platform =
+#if TARGET_OS_OSX || MALLOC_TARGET_DK_OSX
+				MALLOC_TARGET_PLATFORM_MAC
+#elif TARGET_OS_VISION || MALLOC_TARGET_DK_VISIONOS
+				MALLOC_TARGET_PLATFORM_VISION
+#elif TARGET_OS_IOS || MALLOC_TARGET_DK_IOS
+				MALLOC_TARGET_PLATFORM_IOS
+#elif TARGET_OS_TV || MALLOC_TARGET_DK_TV
+				MALLOC_TARGET_PLATFORM_TV
+#elif TARGET_OS_WATCH || MALLOC_TARGET_DK_WATCH
+				MALLOC_TARGET_PLATFORM_WATCH
+#elif TARGET_OS_BRIDGE
+				MALLOC_TARGET_PLATFORM_BRIDGE
+#else
+#error "unknown target platform"
+#endif
+				,
+		.mci_target_platform_variant =
+#if TARGET_OS_SIMULATOR
+				MALLOC_TARGET_PLATFORM_VARIANT_SIMULATOR
+#elif TARGET_OS_DRIVERKIT
+				MALLOC_TARGET_PLATFORM_VARIANT_DRIVERKIT
+#elif TARGET_OS_OSX
+				MALLOC_TARGET_PLATFORM_VARIANT_NORMAL
+#else
+				MALLOC_TARGET_PLATFORM_VARIANT_NORMAL
+#endif
+				,
+		.mci_os_security_config = os_security_config_get(),
+		.mci_dyld_active_platform = dyld_get_active_platform(),
+		.mci_dyld_program_version_token = dyld_get_program_sdk_version_token(),
+		.mci_nano_version =
 #if CONFIG_NANOZONE
-	bool nano_xzone_enabled = false;
+				_malloc_engaged_nano
+#else
+				NANO_NONE
+#endif
+				,
+		.mci_allow_internal_security_policy = malloc_internal_security_policy,
+		.mci_arch_intel =
+#if defined(__x86_64__)
+				true
+#else
+				false
+#endif
+				,
+		.mci_arch_lp64 =
+#if defined(__LP64__)
+				true
+#else
+				false
+#endif
+				,
+		.mci_arch_plain_arm64 =
+#if defined(__arm64__) && !defined(__arm64e__)
+				true
+#else
+				false
+#endif
+				,
+		.mci_zero_policy = malloc_zero_policy,
+	};
+
 #if CONFIG_FEATUREFLAGS_SIMPLE
-	nano_xzone_enabled = os_feature_enabled_simple(libmalloc,
-			SecureAllocator_Nano, MALLOC_XZONE_NANO_ENABLED_DEFAULT);
-#elif MALLOC_TARGET_DK_OSX
-	nano_xzone_enabled = true;
+	if (malloc_internal_security_policy) {
+		bool *process_flags = malloc_config_input.mci_process_feature_flags;
+#if TARGET_OS_IOS
+		process_flags[MALLOC_PROCESS_AEGIRPOSTER] = os_feature_enabled_simple(
+				libmalloc, SecureAllocator_process_aegirposter, false);
+		process_flags[MALLOC_PROCESS_COLLECTIONSPOSTER] =
+				os_feature_enabled_simple(libmalloc,
+						SecureAllocator_process_CollectionsPoster, false);
+#elif TARGET_OS_OSX
+		process_flags[MALLOC_PROCESS_MAC_VTENCODERXPCSERVICE] =
+				os_feature_enabled_simple(libmalloc,
+						SecureAllocator_process_VTEncoderXPCService, false);
+#elif TARGET_OS_WATCH
+		process_flags[MALLOC_PROCESS_WATCH_BACKBOARDD] =
+				os_feature_enabled_simple(libmalloc,
+						SecureAllocator_process_backboardd, false);
+		process_flags[MALLOC_PROCESS_WATCH_CLOCKFACE] =
+				os_feature_enabled_simple(libmalloc,
+						SecureAllocator_process_ClockFace, false);
+#else
+		(void)process_flags;
+#endif
+
+		bool *general_flags = malloc_config_input.mci_feature_flags;
+#if TARGET_OS_TV
+		general_flags[MALLOC_FEATURE_FLAG_TVOS_ENABLEMENT] =
+				os_feature_enabled_simple(libmalloc,
+						SecureAllocator_SystemWide, true);
+#else
+		(void)general_flags;
+#endif
+	}
 #endif // CONFIG_FEATUREFLAGS_SIMPLE
+
+	malloc_config_result_s malloc_config_result =
+			malloc_config_from_input(&malloc_config_input);
+
+	if (malloc_report_config) {
+		malloc_report(ASL_LEVEL_INFO, "Malloc Config Outputs:\n"
+				"\tProcess Identity: %u\n"
+				"\tEnable Xzone Malloc: %d\n"
+				"\tEnable Nano On Xzone: %d\n"
+				"\tXzone Enablement Reason: %s\n",
+				malloc_config_result.mcr_process_identity,
+				malloc_config_result.mcr_enable_xzone_malloc,
+				malloc_config_result.mcr_enable_nano_on_xzone,
+				malloc_config_result.mcr_xzone_enablement_reason);
+	}
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
-	if (malloc_process_is_security_critical(malloc_process_identity)) {
-		// This is load-bearing for MTLCompilerService
-		nano_xzone_enabled = true;
+	if (malloc_config_result.mcr_process_identity != MALLOC_PROCESS_NONE) {
+		malloc_process_identity = malloc_config_result.mcr_process_identity;
 	}
-#endif // CONFIG_MALLOC_PROCESS_IDENTITY
+#endif
 
-	switch (malloc_xzone_nano_override) {
-	case MALLOC_XZONE_OVERRIDE_DISABLED:
-		nano_xzone_enabled = false;
-		break;
-	case MALLOC_XZONE_OVERRIDE_ENABLED:
-		nano_xzone_enabled = true;
-		break;
-	default:
-		break;
-	}
-
-	// If we're forcing nano-on-xzone via the environment, take that even if
-	// we'd otherwise take the nano config of xzone
-	if (malloc_nano_on_xzone_override == MALLOC_XZONE_OVERRIDE_ENABLED) {
-		nano_xzone_enabled = false;
-	}
-
-	if (malloc_xzone_enabled && _malloc_engaged_nano == NANO_V2 &&
-			!nano_xzone_enabled) {
-#if TARGET_OS_SIMULATOR
-		// Note: simulator processes get nano by default because
-		// NANOV2_DEFAULT_MODE is conditioned on MALLOC_TARGET_IOS, which
-		// excludes the simulator.  So, simulator processes will not get xzone
-		// malloc until we either adjust this policy or enable it by default
-		// under nano.
-		malloc_xzone_enabled = false;
-#else // TARGET_OS_SIMULATOR
-#if CONFIG_FEATUREFLAGS_SIMPLE
-		nano_on_xzone = os_feature_enabled_simple(libmalloc,
-				SecureAllocator_NanoOnXzone, false);
-#endif // CONFIG_FEATUREFLAGS_SIMPLE
-
-		switch (malloc_nano_on_xzone_override) {
-		case MALLOC_XZONE_OVERRIDE_DISABLED:
-			nano_on_xzone = false;
-			break;
-		case MALLOC_XZONE_OVERRIDE_ENABLED:
-			nano_on_xzone = true;
-			break;
-		default:
-			break;
-		}
-
-		if (malloc_nano_on_xzone != nano_on_xzone) {
-			malloc_nano_on_xzone = nano_on_xzone;
-		}
-
-		if (!nano_on_xzone) {
-			malloc_xzone_enabled = false;
-		}
-#endif // TARGET_OS_SIMULATOR
-	}
-#endif // CONFIG_NANOZONE
-
-	if (malloc_xzone_enabled) {
+	if (malloc_config_result.mcr_enable_xzone_malloc) {
+#if CONFIG_XZONE_MALLOC
 		mvm_guarded_range_init();
 
 		if (malloc_report_config && malloc_internal_security_policy) {
@@ -1643,10 +1325,12 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 		// the name we'll need to continue to take.
 		malloc_set_zone_name(initial_xzone_zone, DEFAULT_MALLOC_ZONE_STRING);
 		malloc_zone_register_while_locked(initial_xzone_zone, /*make_default=*/true);
-	}
+#else // CONFIG_XZONE_MALLOC
+		MALLOC_REPORT_FATAL_ERROR(0, "xzone malloc can't be enabled here");
 #endif // CONFIG_XZONE_MALLOC
+	}
 
-	if (!initial_xzone_zone || nano_on_xzone) {
+	if (!initial_xzone_zone || malloc_config_result.mcr_enable_nano_on_xzone) {
 		if (!initial_xzone_zone) {
 			initial_scalable_zone = create_scalable_zone(0, malloc_debug_flags);
 			malloc_set_zone_name(initial_scalable_zone, DEFAULT_MALLOC_ZONE_STRING);
@@ -1837,7 +1521,7 @@ malloc_engaged_secure_allocator(void)
 	return !!initial_xzone_zone;
 }
 
-static void
+static bool
 set_flags_from_environment(void)
 {
 	const char *flag;
@@ -1862,10 +1546,8 @@ set_flags_from_environment(void)
 			!dyld_program_sdk_at_least(dyld_platform_version_macOS_13_0)) {
 		if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
 			malloc_zero_policy = MALLOC_ZERO_ON_ALLOC;
-			malloc_xzone_enabled = false;
 		}
 	}
-
 #else // TARGET_OS_OSX
 #endif // TARGET_OS_OSX
 
@@ -1882,7 +1564,7 @@ set_flags_from_environment(void)
 		if (!strncmp(c, "Malloc", 6)) {
 #endif // RDAR_48993662
 			if (issetugid()) {
-				return;
+				return false;
 			}
 			break;
 		}
@@ -1897,7 +1579,7 @@ set_flags_from_environment(void)
 	malloc_print_configure(restricted);
 
 	if (c == NULL) {
-		return;
+		return false;
 	}
 
 	flag = getenv("MallocGuardEdges");
@@ -2210,66 +1892,6 @@ set_flags_from_environment(void)
 		}
 	}
 
-	flag = getenv("MallocSecureAllocator");
-	if (flag && malloc_internal_security_policy) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			malloc_xzone_enabled = value;
-		} else {
-			malloc_report(ASL_LEVEL_ERR, "MallocSecureAllocator must be 0 or 1.\n");
-		}
-	}
-
-	flag = getenv("MallocSecureAllocatorNano");
-	if (flag) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			malloc_xzone_nano_override = value ? MALLOC_XZONE_OVERRIDE_ENABLED :
-					MALLOC_XZONE_OVERRIDE_DISABLED;
-		} else {
-			malloc_report(ASL_LEVEL_ERR, "MallocSecureAllocatorNano must be 0 or 1.\n");
-		}
-	}
-
-	flag = getenv("MallocNanoOnXzone");
-	if (flag) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			malloc_nano_on_xzone_override = value ? MALLOC_XZONE_OVERRIDE_ENABLED :
-					MALLOC_XZONE_OVERRIDE_DISABLED;
-		} else {
-			malloc_report(ASL_LEVEL_ERR, "MallocNanoOnXzone must be 0 or 1.\n");
-		}
-	}
-
-#if CONFIG_XZONE_MALLOC
-	flag = getenv("MallocSecureAllocatorCreateMzones");
-	if (flag && malloc_internal_security_policy) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			xzm_create_mzones = value;
-		} else {
-			malloc_report(ASL_LEVEL_ERR,
-					"MallocSecureAllocatorCreateMzones must be 0 or 1.\n");
-		}
-	}
-	flag = getenv("MallocSecureAllocatorPurgeableZone");
-	if (flag && malloc_internal_security_policy) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			purgeable_zone_use_xzm = value;
-		} else {
-			malloc_report(ASL_LEVEL_ERR,
-					"MallocSecureAllocatorPurgeableZone must be 0 or 1.\n");
-		}
-	}
-#endif // CONFIG_XZONE_MALLOC
-
 #if CONFIG_MTE
 	flag = getenv("MallocEarlyMallocSecTransitionSupport");
 	if (flag) {
@@ -2317,23 +1939,11 @@ set_flags_from_environment(void)
 				"- MallocCheckZeroOnFreeCorruption to enable zero-on-free corruption detection\n"\
 				"- MallocHelp - this help!\n");
 	}
+
+	return true;
 }
 
 #if CONFIG_MTE
-static bool
-_malloc_check_has_sec_transition(const char *apple[])
-{
-	const char *flag = _simple_getenv(apple, "has_sec_transition");
-	if (flag) {
-		const char *endp;
-		long value = malloc_common_convert_to_long(flag, &endp);
-		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			return (bool)value;
-		}
-	}
-	return false;
-}
-
 static uint32_t
 _malloc_get_sec_transition_policy(const char *apple[])
 {
@@ -2348,7 +1958,6 @@ _malloc_get_sec_transition_policy(const char *apple[])
 	}
 	return policy;
 }
-
 #endif // CONFIG_MTE
 
 malloc_zone_t *
@@ -2362,7 +1971,7 @@ malloc_create_zone(vm_size_t start_size, unsigned flags)
 	}
 
 #if CONFIG_XZONE_MALLOC
-	if (initial_xzone_zone && xzm_create_mzones) {
+	if (initial_xzone_zone) {
 		zone = xzm_malloc_zone_create(flags | malloc_debug_flags,
 				(xzm_main_malloc_zone_t)initial_xzone_zone);
 	}
@@ -2538,8 +2147,9 @@ _malloc_zone_malloc_instrumented_or_legacy(malloc_zone_t *zone, size_t size,
 
 	ptr = zone->malloc(zone, size);
 
-	if (os_unlikely(malloc_logger)) {
-		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
+		logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
 				(uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
 	}
 
@@ -2571,7 +2181,7 @@ _malloc_zone_malloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 		zone = malloc_zones[0];
 	}
 
-	if (os_unlikely(malloc_slowpath || malloc_logger || zone->version < 13)) {
+	if (os_unlikely(malloc_slowpath || _malloc_has_logger() || zone->version < 13)) {
 		return _malloc_zone_malloc_instrumented_or_legacy(zone, size, mzo);
 	}
 
@@ -2622,10 +2232,11 @@ _malloc_zone_calloc_instrumented_or_legacy(malloc_zone_t *zone,
 
 	ptr = zone->calloc(zone, num_items, size);
 
-	if (os_unlikely(malloc_logger)) {
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
 		uint32_t logger_type = MALLOC_LOG_TYPE_ALLOCATE |
 				MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED;
-		malloc_logger(logger_type, (uintptr_t)zone,
+		logger(logger_type, (uintptr_t)zone,
 				(uintptr_t)(num_items * size), 0, (uintptr_t)ptr, 0);
 	}
 
@@ -2659,7 +2270,7 @@ _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 		zone = malloc_zones[0];
 	}
 
-	if (os_unlikely(malloc_slowpath || malloc_logger || zone->version < 13)) {
+	if (os_unlikely(malloc_slowpath || _malloc_has_logger() || zone->version < 13)) {
 		return _malloc_zone_calloc_instrumented_or_legacy(zone, num_items, size, mzo);
 	}
 
@@ -2707,8 +2318,9 @@ _malloc_zone_valloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 
 	ptr = zone->valloc(zone, size);
 
-	if (os_unlikely(malloc_logger)) {
-		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
+		logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
 				(uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
 	}
 
@@ -2771,10 +2383,11 @@ _malloc_zone_realloc(malloc_zone_t *zone, void *ptr, size_t size,
 
 	new_ptr = zone->realloc(zone, ptr, size);
 	
-	if (os_unlikely(malloc_logger)) {
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
 		uint32_t logger_type = MALLOC_LOG_TYPE_ALLOCATE |
 			MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE;
-		malloc_logger(logger_type, (uintptr_t)zone, (uintptr_t)ptr,
+		logger(logger_type, (uintptr_t)zone, (uintptr_t)ptr,
 				(uintptr_t)size, (uintptr_t)new_ptr, 0);
 	}
 
@@ -2809,8 +2422,9 @@ malloc_zone_free(malloc_zone_t *zone, void *ptr)
 {
 	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, (ptr) ? *(uintptr_t*)ptr : 0, 0);
 
-	if (os_unlikely(malloc_logger)) {
-		malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
+		logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
 	}
 	if (os_unlikely(malloc_simple_stack_logging)) {
 		malloc_report(MALLOC_SIMPLE_STACK_LOGGING_FLAGS, "malloc_zone_free (%p): ", ptr);
@@ -2827,8 +2441,9 @@ malloc_zone_free_definite_size(malloc_zone_t *zone, void *ptr, size_t size)
 {
 	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, size, (ptr && size) ? *(uintptr_t*)ptr : 0);
 
-	if (os_unlikely(malloc_logger)) {
-		malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
+		logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
 	}
 	if (os_unlikely(malloc_simple_stack_logging)) {
 		malloc_report(MALLOC_SIMPLE_STACK_LOGGING_FLAGS, "free (%p/%llu): ",
@@ -2903,8 +2518,9 @@ _malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 	}
 	ptr = zone->memalign(zone, alignment, size);
 
-	if (os_unlikely(malloc_logger)) {
-		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
+		logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE,
 				(uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
 	}
 	if (os_unlikely(malloc_simple_stack_logging)) {
@@ -3160,7 +2776,7 @@ _free(void *ptr)
 
 	malloc_zone_t *zone0 = malloc_zones[0];
 	if (os_unlikely(malloc_slowpath ||
-				malloc_logger ||
+				_malloc_has_logger() ||
 				zone0->version < 13)) {
 		find_zone_and_free(ptr, false);
 		return;
@@ -3488,12 +3104,13 @@ _malloc_zone_malloc_with_options_outlined(malloc_zone_t *zone, size_t align,
 				align, size, 0);
 		ptr = zone->malloc_with_options(zone, align, size, options);
 
-		if (os_unlikely(malloc_logger)) {
+		malloc_logger_t *logger = _malloc_logger_get();
+		if (os_unlikely(logger)) {
 			uint32_t flags = MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE;
 			if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 				flags |= MALLOC_LOG_TYPE_CLEARED;
 			}
-			malloc_logger(flags, (uintptr_t)zone, (uintptr_t)size,
+			logger(flags, (uintptr_t)zone, (uintptr_t)size,
 					0, (uintptr_t)ptr, 0);
 		}
 		if (os_unlikely(malloc_simple_stack_logging)) {
@@ -3524,7 +3141,7 @@ malloc_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
 		return NULL;
 	}
 
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(_malloc_has_logger() || malloc_slowpath)) {
 		return _malloc_zone_malloc_with_options_outlined(zone, align, size,
 				options);
 	}
@@ -3555,7 +3172,7 @@ static void
 _malloc_create_purgeable_zone(void * __unused ctx)
 {
 #if CONFIG_XZONE_MALLOC
-	if (initial_xzone_zone && purgeable_zone_use_xzm) {
+	if (initial_xzone_zone) {
 		unsigned flags = malloc_debug_flags | MALLOC_PURGEABLE;
 		default_purgeable_zone = xzm_malloc_zone_create(flags,
 				(xzm_main_malloc_zone_t)initial_xzone_zone);
@@ -3743,10 +3360,11 @@ malloc_zone_batch_malloc(malloc_zone_t *zone, size_t size, void **results, unsig
 	}
 	unsigned batched = zone->batch_malloc(zone, size, results, num_requested);
 	
-	if (os_unlikely(malloc_logger)) {
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
 		unsigned index = 0;
 		while (index < batched) {
-			malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0,
+			logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0,
 					(uintptr_t)results[index], 0);
 			index++;
 		}
@@ -3760,10 +3378,12 @@ malloc_zone_batch_free(malloc_zone_t *zone, void **to_be_freed, unsigned num)
 	if (malloc_check_start) {
 		internal_check();
 	}
-	if (os_unlikely(malloc_logger)) {
+
+	malloc_logger_t *logger = _malloc_logger_get();
+	if (os_unlikely(logger)) {
 		unsigned index = 0;
 		while (index < num) {
-			malloc_logger(
+			logger(
 					MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)to_be_freed[index], 0, 0, 0);
 			index++;
 		}

@@ -207,7 +207,7 @@ static inline void SendMessage(RetainPtr<NSInvocation>&& invocation)
     if (!WebThreadIsEnabled() || CFRunLoopGetMain() == CFRunLoopGetCurrent())
         return;
 
-    RunLoop::mainSingleton().dispatch([invocation = WTFMove(invocation)] { });
+    RunLoop::mainSingleton().dispatch([invocation = WTF::move(invocation)] { });
 }
 
 static void HandleDelegateSource(void*)
@@ -232,7 +232,7 @@ static void HandleDelegateSource(void*)
             NSLog(@"delegate receive: %@", NSStringFromSelector([delegateInvocation() selector]));
 #endif
 
-        SendMessage(WTFMove(delegateInvocation()));
+        SendMessage(WTF::move(delegateInvocation()));
 
         delegateHandled = YES;
         delegateCondition.notifyOne();
@@ -258,14 +258,14 @@ public:
 static void SendDelegateMessage(RetainPtr<NSInvocation>&& invocation)
 {
     if (!WebThreadIsCurrent()) {
-        SendMessage(WTFMove(invocation));
+        SendMessage(WTF::move(invocation));
         return;
     }
 
     ASSERT(delegateSource());
     delegateLock.lock();
 
-    delegateInvocation() = WTFMove(invocation);
+    delegateInvocation() = WTF::move(invocation);
     delegateHandled = NO;
 
 #if LOG_MESSAGES
@@ -314,7 +314,9 @@ void WebThreadRunOnMainThread(void(^delegateBlock)())
     JSC::JSLock::DropAllLocks dropAllLocks(WebCore::commonVM());
     _WebThreadUnlock();
 
-    WorkQueue::mainSingleton().dispatchSync(makeBlockPtr(delegateBlock).get());
+    WorkQueue::mainSingleton().dispatchSync([delegateBlock = makeBlockPtr(delegateBlock)] {
+        delegateBlock();
+    });
 
     _WebThreadLock();
 }
@@ -955,7 +957,7 @@ void WebThreadEnable(void)
 {
     RELEASE_ASSERT_WITH_MESSAGE(!WTF::IOSApplication::isWebProcess(), "The WebProcess should never run a Web Thread");
     if (WTF::CocoaApplication::shouldOSFaultLogForAppleApplicationUsingWebKit1())
-        os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, "WebThread enabled", 0);
+        RELEASE_LOG_FAULT_WITH_PAYLOAD(Threading, "WebThread enabled");
 
     static std::once_flag flag;
     std::call_once(flag, StartWebThread);

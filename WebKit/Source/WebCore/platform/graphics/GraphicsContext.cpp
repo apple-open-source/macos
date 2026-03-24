@@ -107,6 +107,11 @@ void GraphicsContext::unwindStateStack(unsigned count)
     }
 }
 
+void GraphicsContext::unwindStateStack()
+{
+    unwindStateStack(stackSize());
+}
+
 FloatSize GraphicsContext::platformShadowOffset(const FloatSize& shadowOffset) const
 {
 #if USE(CG)
@@ -383,7 +388,7 @@ void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const 
     if (!image)
         return;
     auto imageLogicalSize = image->logicalSize();
-    drawConsumingImageBuffer(WTFMove(image), FloatRect(destination, imageLogicalSize), FloatRect({ }, imageLogicalSize), imagePaintingOptions);
+    drawConsumingImageBuffer(WTF::move(image), FloatRect(destination, imageLogicalSize), FloatRect({ }, imageLogicalSize), imagePaintingOptions);
 }
 
 void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const FloatRect& destination, ImagePaintingOptions imagePaintingOptions)
@@ -391,7 +396,7 @@ void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const 
     if (!image)
         return;
     auto imageLogicalSize = image->logicalSize();
-    drawConsumingImageBuffer(WTFMove(image), destination, FloatRect({ }, imageLogicalSize), imagePaintingOptions);
+    drawConsumingImageBuffer(WTF::move(image), destination, FloatRect({ }, imageLogicalSize), imagePaintingOptions);
 }
 
 void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions options)
@@ -402,7 +407,7 @@ void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const 
     InterpolationQualityMaintainer interpolationQualityForThisScope(*this, options.interpolationQuality());
     FloatRect scaledSource = source;
     scaledSource.scale(image->resolutionScale());
-    if (auto nativeImage = ImageBuffer::sinkIntoNativeImage(WTFMove(image)))
+    if (auto nativeImage = ImageBuffer::sinkIntoNativeImage(WTF::move(image)))
         drawNativeImage(*nativeImage, destination, scaledSource, options);
 }
 
@@ -411,8 +416,8 @@ void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, const Fl
     auto result = filter.apply(sourceImage, sourceImageRect, results);
     if (!result)
         return;
-    
-    RefPtr imageBuffer = result->imageBuffer();
+
+    RefPtr imageBuffer = filter.filterResultBuffer(*result);
     if (!imageBuffer)
         return;
 
@@ -435,9 +440,16 @@ void GraphicsContext::drawControlPart(ControlPart& part, const FloatRoundedRect&
 }
 
 #if ENABLE(VIDEO)
-void GraphicsContext::drawVideoFrame(VideoFrame& frame, const FloatRect& destination, ImageOrientation orientation, bool shouldDiscardAlpha)
+void GraphicsContext::drawVideoFrame(const VideoFrame& frame, const FloatRect& destination, ImageOrientation orientation, bool shouldDiscardAlpha)
 {
-    frame.draw(*this, destination, orientation, shouldDiscardAlpha);
+    RefPtr image = frame.copyNativeImage();
+    if (!image)
+        return;
+    IntSize size = image->size();
+    if (orientation.usesWidthAsHeight())
+        size = size.transposedSize();
+    auto compositeOperator = !shouldDiscardAlpha && image->hasAlpha() ? CompositeOperator::SourceOver : CompositeOperator::Copy;
+    drawNativeImage(*image, destination, { { }, size }, { compositeOperator, orientation });
 }
 #endif
 

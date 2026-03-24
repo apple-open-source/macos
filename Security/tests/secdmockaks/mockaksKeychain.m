@@ -902,7 +902,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testUpgradeFromPreviousVersionWithPersonaRecord
 {
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 
     SecServerKeychainDbReset(^{
         NSLog(@"resetting database to previous schema version, in fresh location");
@@ -913,7 +913,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     [self createManyItems];
 
-    SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
 
     NSDictionary *personaItem = @{
         (__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassInternetPassword,
@@ -928,7 +928,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     status = SecItemAdd((__bridge CFDictionaryRef)personaItem, NULL);
     XCTAssertEqual(status, errSecSuccess, "failed to add edsItem item to keychain");
 
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 
     SecServerKeychainDbForceClose();
     SecServerKeychainDbReset(^{
@@ -944,14 +944,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     [mock stopMocking];
 
-    SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
 
     NSMutableDictionary* query = personaItem.mutableCopy;
     [query removeObjectForKey:(id)kSecValueData];
     status = SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
     XCTAssertEqual(status, errSecItemNotFound, @"unexpectedly found edsItem");
 
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 
     // ensure non-persona items still remain
     [self findManyItems:50];
@@ -1005,13 +1005,13 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testPersonaBasic
 {
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
     
     [self createManyItems];
     [self findManyItems:10];
     [self findManyItemsWithData:10];
     
-    SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
     
     [self findNoItems:10];
     [self createManyItems];
@@ -1021,23 +1021,23 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self deleteAllItems];
     [self findNoItems:10];
     
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
     
     [self findManyItems:10];
     [self findManyItemsWithData:10];
     [self deleteAllItems];
     [self findNoItems:10];
     
-    SecSecuritySetPersonaMusr(CFSTR("8E90C6BE-0AF6-40D6-8A4B-D46E4CF6A622"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("8E90C6BE-0AF6-40D6-8A4B-D46E4CF6A622"));
     
     [self createManyItems];
     
-    SecSecuritySetPersonaMusr(CFSTR("38B615CA-02C2-4733-A71C-1ABA46D27B13"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("38B615CA-02C2-4733-A71C-1ABA46D27B13"));
     
     [self findNoItems:10];
     [self createManyItems];
     
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
     
     XCTestExpectation *expection = [self expectationWithDescription:@"wait for deletion"];
     
@@ -1048,14 +1048,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self waitForExpectations:@[expection] timeout:10.0];
     
     /* check that delete worked ... */
-    SecSecuritySetPersonaMusr(CFSTR("8E90C6BE-0AF6-40D6-8A4B-D46E4CF6A622"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("8E90C6BE-0AF6-40D6-8A4B-D46E4CF6A622"));
     [self findNoItems:10];
     
     /* ... but didn't delete another account */
-    SecSecuritySetPersonaMusr(CFSTR("38B615CA-02C2-4733-A71C-1ABA46D27B13"));
+    SecSecuritySetPersonaMusrForTests(CFSTR("38B615CA-02C2-4733-A71C-1ABA46D27B13"));
     [self findManyItems:10];
     
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
     
     
     [self findNoItems:10];
@@ -1628,6 +1628,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 }
 
 - (void)testSecdTransactionThreading {
+    OctagonSetSOSFeatureEnabled(false);
     dispatch_queue_t asyncQueue = dispatch_queue_create("async", DISPATCH_QUEUE_CONCURRENT_WITH_AUTORELEASE_POOL);
     dispatch_group_t group = dispatch_group_create();
     dispatch_queue_t contendedQueue = dispatch_queue_create("contended", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
@@ -1639,7 +1640,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertNotEqual(keychainDb, NULL, "Should have some DB");
     
     SecDbAddNotifyPhaseBlock(keychainDb, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, CFArrayRef changes) {
-        dispatch_sync(contendedQueue, ^{
+        dispatch_async(contendedQueue, ^{
             secnotice("secdb", "On the contended queue as part of a notify!");
         });
     });
@@ -1651,6 +1652,18 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
                 (id)kSecClass : (id)kSecClassGenericPassword,
                 (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                 (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccount-%u", i],
+                (id)kSecAttrService : @"TestService",
+                (id)kSecUseDataProtectionKeychain : @(YES)
+            };
+            OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+            XCTAssertEqual(result, errSecSuccess, @"failed to add test item to keychain: %u", i);
+        });
+        
+        dispatch_group_async(group, contendedQueue, ^{
+            NSDictionary* item = @{
+                (id)kSecClass : (id)kSecClassGenericPassword,
+                (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccountContended-%u", i],
                 (id)kSecAttrService : @"TestService",
                 (id)kSecUseDataProtectionKeychain : @(YES)
             };
@@ -1675,22 +1688,301 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
         
         dispatch_group_async(group, contendedQueue, ^{
             secnotice("secdb", "On the contended queue and planning to take a read transaction!");
-            
+
             __block CFErrorRef transactionError = NULL;
             kc_with_dbt(false, NULL , &transactionError, ^bool(SecDbConnectionRef dbconn) {
                 bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
                     return true;
                 });
-                
+
                 XCTAssertTrue(ret, "Should have a positive result");
                 return ret;
             });
-            
+
             XCTAssertEqual(transactionError, NULL, "Should have been no error in transaction");
+        });
+
+        dispatch_group_async(group, contendedQueue, ^{
+            CFErrorRef backupError = NULL;
+            CFDataRef backup = SecServerKeychainCreateBackup(SecSecurityClientGet(), NULL, NULL, false, &backupError);
+            if (backup) {
+                CFRelease(backup);
+            }
+            if (backupError) {
+                CFRelease(backupError);
+            }
+        });
+        
+        dispatch_group_async(group, asyncQueue, ^{
+            CFErrorRef backupError = NULL;
+            CFDataRef backup = SecServerKeychainCreateBackup(SecSecurityClientGet(), NULL, NULL, false, &backupError);
+            if (backup) {
+                CFRelease(backup);
+            }
+            if (backupError) {
+                CFRelease(backupError);
+            }
         });
     }
     
     XCTAssertEqual(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 5 * 60 * NSEC_PER_SEC)), 0, "Should finish operation within reasonable time");
+}
+
+// Captures our idea behind `threadDbt` magic
+- (void)testNestedKcWithDbtCalls {
+    // 1: write, write - should succeed
+    {
+        __block BOOL outerBlockExecuted = NO;
+        __block BOOL innerBlockExecuted = NO;
+        __block CFErrorRef outerError = NULL;
+        __block CFErrorRef innerError = NULL;
+
+        // Outer kc_with_dbt call with write transaction (true)
+        BOOL outerSuccess = kc_with_dbt(true, NULL, &outerError, ^bool(SecDbConnectionRef outerDbt) {
+            outerBlockExecuted = YES;
+
+            // Inner kc_with_dbt call with write transaction (true)
+            BOOL innerSuccess = kc_with_dbt(true, NULL, &innerError, ^bool(SecDbConnectionRef innerDbt) {
+                innerBlockExecuted = YES;
+
+                // Verify we got a connection
+                XCTAssertNotEqual(innerDbt, NULL, @"Inner database connection should not be NULL");
+
+                return true;
+            });
+
+            XCTAssertTrue(innerSuccess, @"Inner kc_with_dbt should succeed");
+            if (innerError) {
+                XCTFail(@"Inner kc_with_dbt failed with error: %@", (__bridge NSError *)innerError);
+            }
+
+            // Verify we got a connection
+            XCTAssertNotEqual(outerDbt, NULL, @"Outer database connection should not be NULL");
+
+            return true;
+        });
+
+        XCTAssertTrue(outerSuccess, @"Outer kc_with_dbt should succeed");
+        if (outerError) {
+            XCTFail(@"Outer kc_with_dbt failed with error: %@", (__bridge NSError *)outerError);
+        }
+
+        XCTAssertTrue(outerBlockExecuted, @"Outer block should have executed");
+        XCTAssertTrue(innerBlockExecuted, @"Inner block should have executed");
+        CFReleaseNull(outerError);
+        CFReleaseNull(innerError);
+    }
+
+    // 2: read, read - should succeed
+    {
+        __block BOOL outerBlockExecuted = NO;
+        __block BOOL innerBlockExecuted = NO;
+        __block CFErrorRef outerError = NULL;
+        __block CFErrorRef innerError = NULL;
+
+        // Outer kc_with_dbt call with read transaction (false)
+        BOOL outerSuccess = kc_with_dbt(false, NULL, &outerError, ^bool(SecDbConnectionRef outerDbt) {
+            outerBlockExecuted = YES;
+
+            // Inner kc_with_dbt call with read transaction (false)
+            BOOL innerSuccess = kc_with_dbt(false, NULL, &innerError, ^bool(SecDbConnectionRef innerDbt) {
+                innerBlockExecuted = YES;
+
+                // Verify we got a connection
+                XCTAssertNotEqual(innerDbt, NULL, @"Inner database connection should not be NULL for read, read");
+
+                return true;
+            });
+
+            XCTAssertTrue(innerSuccess, @"Inner kc_with_dbt should succeed for read, read");
+            if (innerError) {
+                XCTFail(@"Inner kc_with_dbt failed with error for read, read: %@", (__bridge NSError *)innerError);
+            }
+
+            // Verify we got a connection
+            XCTAssertNotEqual(outerDbt, NULL, @"Outer database connection should not be NULL for read, read");
+
+            return true;
+        });
+
+        XCTAssertTrue(outerSuccess, @"Outer kc_with_dbt should succeed for read, read");
+        if (outerError) {
+            XCTFail(@"Outer kc_with_dbt failed with error for read, read: %@", (__bridge NSError *)outerError);
+        }
+
+        XCTAssertTrue(outerBlockExecuted, @"Outer block should have executed for read, read");
+        XCTAssertTrue(innerBlockExecuted, @"Inner block should have executed for read, read");
+        CFReleaseNull(outerError);
+        CFReleaseNull(innerError);
+    }
+
+    // 3: write, read - should succeed
+    {
+        __block BOOL outerBlockExecuted = NO;
+        __block BOOL innerBlockExecuted = NO;
+        __block CFErrorRef outerError = NULL;
+        __block CFErrorRef innerError = NULL;
+
+        // Outer kc_with_dbt call with write transaction (true)
+        BOOL outerSuccess = kc_with_dbt(true, NULL, &outerError, ^bool(SecDbConnectionRef outerDbt) {
+            outerBlockExecuted = YES;
+
+            // Inner kc_with_dbt call with read transaction (false)
+            BOOL innerSuccess = kc_with_dbt(false, NULL, &innerError, ^bool(SecDbConnectionRef innerDbt) {
+                innerBlockExecuted = YES;
+
+                // Verify we got a connection
+                XCTAssertNotEqual(innerDbt, NULL, @"Inner database connection should not be NULL for write, read");
+
+                return true;
+            });
+
+            XCTAssertTrue(innerSuccess, @"Inner kc_with_dbt should succeed for write, read");
+            if (innerError) {
+                XCTFail(@"Inner kc_with_dbt failed with error for write, read: %@", (__bridge NSError *)innerError);
+            }
+
+            // Verify we got a connection
+            XCTAssertNotEqual(outerDbt, NULL, @"Outer database connection should not be NULL for write, read");
+
+            return true;
+        });
+
+        XCTAssertTrue(outerSuccess, @"Outer kc_with_dbt should succeed for write, read");
+        if (outerError) {
+            XCTFail(@"Outer kc_with_dbt failed with error for write, read: %@", (__bridge NSError *)outerError);
+        }
+
+        XCTAssertTrue(outerBlockExecuted, @"Outer block should have executed for write, read");
+        XCTAssertTrue(innerBlockExecuted, @"Inner block should have executed for write, read");
+        CFReleaseNull(outerError);
+        CFReleaseNull(innerError);
+    }
+
+    // Test 4: read, write - should succeed
+    // NOTE: We allow this pattern because SecItemCopyMatching gets a read lock, and deep down updates the metadata key by taking a write lock. Based on this, we can't just disable read->write lock acquisition
+    {
+        __block BOOL outerBlockExecuted = NO;
+        __block BOOL innerBlockExecuted = NO;
+        __block CFErrorRef outerError = NULL;
+        __block CFErrorRef innerError = NULL;
+
+        // Outer kc_with_dbt call with read transaction (false)
+        BOOL outerSuccess = kc_with_dbt(false, NULL, &outerError, ^bool(SecDbConnectionRef outerDbt) {
+            outerBlockExecuted = YES;
+
+            // Inner kc_with_dbt call with write transaction (true)
+            BOOL innerSuccess = kc_with_dbt(true, NULL, &innerError, ^bool(SecDbConnectionRef innerDbt) {
+                innerBlockExecuted = YES;
+
+                // Verify we got a connection
+                XCTAssertNotEqual(innerDbt, NULL, @"Inner database connection should not be NULL for read, write");
+
+                return true;
+            });
+
+            XCTAssertTrue(innerSuccess, @"Inner kc_with_dbt should succeed for read, write");
+            if (innerError) {
+                XCTFail(@"Inner kc_with_dbt failed with error for read, write: %@", (__bridge NSError *)innerError);
+            }
+
+            // Verify we got a connection
+            XCTAssertNotEqual(outerDbt, NULL, @"Outer database connection should not be NULL for read, write");
+
+            return true;
+        });
+
+        XCTAssertTrue(outerSuccess, @"Outer kc_with_dbt should succeed for read, write");
+        if (outerError) {
+            XCTFail(@"Outer kc_with_dbt failed with error for read, write: %@", (__bridge NSError *)outerError);
+        }
+
+        XCTAssertTrue(outerBlockExecuted, @"Outer block should have executed for read, write");
+        XCTAssertTrue(innerBlockExecuted, @"Inner block should have executed for read, write");
+        CFReleaseNull(outerError);
+        CFReleaseNull(innerError);
+    }
+}
+
+// Test to demonstrate that kc_with_dbt(true) and kc_with_dbt(false){kc_with_dbt(true)} can progress simultaneously without blocking each other
+// NOTE: We allow this pattern because SecItemCopyMatching gets a read lock, and deep down updates the metadata key by taking a write lock. Based on this, we can't just disable read->write lock acquisition
+- (void)testSimultaneousNestedDbConnections {
+    // Semaphores to coordinate execution and prove simultaneity
+    dispatch_semaphore_t outerWriteStarted = dispatch_semaphore_create(0);
+    dispatch_semaphore_t nestedWriteInProgress = dispatch_semaphore_create(0);
+
+    dispatch_queue_t outerQueue = dispatch_queue_create("com.apple.test.outer-write", DISPATCH_QUEUE_CONCURRENT);
+
+    dispatch_group_t group = dispatch_group_create();
+
+    // Simple write connection
+    dispatch_group_enter(group);
+    dispatch_async(outerQueue, ^{
+        __block CFErrorRef outerError = NULL;
+        BOOL success = kc_with_dbt(true, NULL, &outerError, ^bool(SecDbConnectionRef dbt) {
+            NSLog(@"Outer write db connection started");
+
+            // Signal that outer write has started
+            dispatch_semaphore_signal(outerWriteStarted);
+
+            // Wait for nested write to be in progress
+            // This proves they're running simultaneously - if they blocked each other,
+            // the nested write would never start while this is running
+            long result = dispatch_semaphore_wait(nestedWriteInProgress,
+                                                   dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+            XCTAssertEqual(result, 0, @"Nested write should have started while outer write is in progress");
+
+            return true;
+        });
+
+        XCTAssertTrue(success, @"Outer write db connection should succeed");
+        if (outerError) {
+            XCTFail(@"Outer write db connection failed: %@", (__bridge NSError *)outerError);
+        }
+        CFReleaseNull(outerError);
+        dispatch_group_leave(group);
+    });
+
+    // Read connection with nested write that runs while outer write is in progress
+    dispatch_group_enter(group);
+    dispatch_async(outerQueue, ^{
+        // Wait for outer write to start first
+        long waitResult = dispatch_semaphore_wait(outerWriteStarted,
+                                                   dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+        XCTAssertEqual(waitResult, 0, @"Outer write should have started");
+
+        __block CFErrorRef nestedOuterError = NULL;
+        BOOL outerSuccess = kc_with_dbt(false, NULL, &nestedOuterError, ^bool(SecDbConnectionRef outerDbt) {
+
+            __block CFErrorRef nestedInnerError = NULL;
+            BOOL innerSuccess = kc_with_dbt(true, NULL, &nestedInnerError, ^bool(SecDbConnectionRef innerDbt) {
+                // Signal that nested write is now in progress
+                // This proves simultaneous execution with the outer write
+                dispatch_semaphore_signal(nestedWriteInProgress);
+                return true;
+            });
+
+            XCTAssertTrue(innerSuccess, @"Nested inner write should succeed");
+            if (nestedInnerError) {
+                XCTFail(@"Nested inner write failed: %@", (__bridge NSError *)nestedInnerError);
+            }
+            CFReleaseNull(nestedInnerError);
+
+            return true;
+        });
+
+        XCTAssertTrue(outerSuccess, @"Nested outer read should succeed");
+        if (nestedOuterError) {
+            XCTFail(@"Nested outer read failed: %@", (__bridge NSError *)nestedOuterError);
+        }
+        CFReleaseNull(nestedOuterError);
+        dispatch_group_leave(group);
+    });
+
+    // Wait for both db connection chains to complete
+    XCTAssertEqual(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)), 0,
+                   @"Both db connection chains should complete within timeout");
+
 }
 
 // test for case errSecInteractionNotAllowed:

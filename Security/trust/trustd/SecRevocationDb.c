@@ -41,6 +41,7 @@
 #include <Security/SecFramework.h>
 #include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/SecTrustPriv.h>
 #include <AssertMacros.h>
 #include <stdlib.h>
 #include <stdatomic.h>
@@ -95,15 +96,23 @@
 WEAK_LINK_FORCE_IMPORT(SecCRLiteCreate);
 WEAK_LINK_FORCE_IMPORT(SecCRLiteDestroy);
 WEAK_LINK_FORCE_IMPORT(SecCRLiteLoadFilter);
-WEAK_LINK_FORCE_IMPORT(SecCRLiteGetCoverageInfo);
+//WEAK_LINK_FORCE_IMPORT(SecCRLiteCopyCoverageInfo);
 WEAK_LINK_FORCE_IMPORT(SecCRLiteCertStatus);
+
+#include <SoftLinking/SoftLinking.h>
+
+// delete me once SecCRLiteCopyCoverageInfo have landed and use WeakLinking above
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, SwiftCRLite);
+SOFT_LINK_FUNCTION(SwiftCRLite, SecCRLiteCopyCoverageInfo, soft_SecCRLiteCopyCoverageInfo, CFDictionaryRef, (CRLiteRef crlite), (crlite))
+
+
 
 static bool _hasWeakLinkedSwiftCRLite() {
     return (
         (&SecCRLiteCreate != NULL) &&
         (&SecCRLiteDestroy != NULL) &&
         (&SecCRLiteLoadFilter != NULL) &&
-        (&SecCRLiteGetCoverageInfo != NULL) &&
+        (isSwiftCRLiteAvailable() && isSwiftCRLiteSecCRLiteCopyCoverageInfoAvailable()) &&
         (&SecCRLiteCertStatus != NULL)
     );
 }
@@ -810,7 +819,7 @@ static bool SecValidUpdateProcessCRLiteSection(SecRevocationDbConnectionRef dbc,
         }
 
         // Ingest the filter data
-        CFDataRef data = CFDataCreate(NULL, p, (CFIndex)crliteDataLength);
+        CFDataRef data = CFDataCreateWithBytesNoCopy(NULL, p, (CFIndex)crliteDataLength, kCFAllocatorNull);
         bool ingestOK = SecRevocationDbIngestCRLiteUpdate(dbc, (CFDictionaryRef)filterMetadataPlist, data, generation, localError);
         CFReleaseNull(data);
         CFReleaseSafe(filterMetadataPlist);
@@ -977,16 +986,17 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
     if (generation >= 8 && _SecTrustUseCRLite()) {
         #if _HAS_SWIFTCRLITE
         if (_hasWeakLinkedSwiftCRLite()) {
+            secinfo("validupdate", "processing CRLLite section");
             ok = ok && SecValidUpdateProcessCRLiteSection(dbc, &p, &bytesRemaining, generation, &localError, error);
         }
         #endif /* _HAS_SWIFTCRLITE */
     }
     
     if (ok && version > 0) {
-        secdebug("validupdate", "Update received: v%ld", (long)version);
+        secinfo("validupdate", "Update received: v%ld", (long)version);
         atomic_store(&gLastVersion, version);
         gNextUpdate = SecRevocationDbComputeNextUpdateTime(interval);
-        secdebug("validupdate", "Next update time: %f", gNextUpdate);
+        secinfo("validupdate", "Next update time: %f", gNextUpdate);
         result = true;
     }
 
@@ -1022,7 +1032,7 @@ void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServe
         ok &= SecRevocationDbPerformWrite(rdb, &localError, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
             if (fullUpdate) {
                 /* Must completely replace existing database contents */
-                secdebug("validupdate", "starting to process full update; clearing database");
+                secnotice("validupdate", "starting to process full update; clearing database");
                 ok = ok && _SecRevocationDbRemoveAllEntries(dbc, blockError);
                 ok = ok && _SecRevocationDbSetUpdateSource(dbc, updateServer, blockError);
                 dbc->precommitVersion = 0;
@@ -1447,6 +1457,64 @@ static CFStringRef SecValidInfoCopyFormatDescription(CFTypeRef cf, CFDictionaryR
     return desc;
 }
 
+CF_RETURNS_RETAINED CFDictionaryRef SecValidInfoCopyInfo(SecValidInfoRef validInfo)
+{
+    CFMutableDictionaryRef info = nil;
+    
+    __Require(info = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    
+    CFNumberRef formatNum = CFNumberCreate(NULL, kCFNumberSInt32Type, &validInfo->format);
+    if (formatNum) {
+        CFDictionarySetValue(info, CFSTR("format"), formatNum);
+        CFRelease(formatNum);
+    }
+    if (validInfo->certHash) {
+        CFDictionarySetValue(info, CFSTR("certHash"), validInfo->certHash);
+    }
+    if (validInfo->issuerHash) {
+        CFDictionarySetValue(info, CFSTR("issuerHash"), validInfo->issuerHash);
+    }
+    if (validInfo->anchorHash) {
+        CFDictionarySetValue(info, CFSTR("anchorHash"), validInfo->anchorHash);
+    }
+    
+    CFDictionarySetValue(info, CFSTR("isOnList"), validInfo->isOnList ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("valid"), validInfo->valid ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("complete"), validInfo->complete ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("checkOCSP"), validInfo->checkOCSP ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("knownOnly"), validInfo->knownOnly ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("requireCT"), validInfo->requireCT ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("noCACheck"), validInfo->noCACheck ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("overridable"), validInfo->overridable ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("hasDateConstraints"), validInfo->hasDateConstraints ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("hasNameConstraints"), validInfo->hasNameConstraints ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("hasPolicyConstraints"), validInfo->hasPolicyConstraints ? kCFBooleanTrue : kCFBooleanFalse);
+    
+    if (validInfo->notBeforeDate) {
+        CFDictionarySetValue(info, CFSTR("notBeforeDate"), validInfo->notBeforeDate);
+    }
+    if (validInfo->notAfterDate) {
+        CFDictionarySetValue(info, CFSTR("notAfterDate"), validInfo->notAfterDate);
+    }
+    if (validInfo->nameConstraints) {
+        CFDictionarySetValue(info, CFSTR("nameConstraints"), validInfo->nameConstraints);
+    }
+    if (validInfo->policyConstraints) {
+        CFDictionarySetValue(info, CFSTR("policyConstraints"), validInfo->policyConstraints);
+    }
+    
+    CFDictionarySetValue(info, CFSTR("isDefinitive"),
+                         SecValidInfoIsDefinitive(validInfo) ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(info, CFSTR("isRevoked"),
+                         SecValidInfoIsRevoked(validInfo) ? kCFBooleanTrue : kCFBooleanFalse);
+
+    return info;
+errOut:
+    CFReleaseNull(info);
+    return NULL;
+}
+
+
 static bool SecValidInfoGetPolicyConstraints(CFDataRef data, SecValidPolicy **constraints, CFIndex *count) {
     /* Check the input policy constraints data, returning pointer and
      * count values in output arguments. Function result is true if successful.
@@ -1687,7 +1755,7 @@ bool SecRevocationDbFullReset(CFErrorRef *error)
     return true;
 }
 
-bool SecRevocationDbUpdate(CFErrorRef *error)
+bool SecRevocationDbUpdate(CFIndex version, CFErrorRef *error)
 {
     // are we the db owner instance?
     if (!isDbOwner()) {
@@ -1699,10 +1767,15 @@ bool SecRevocationDbUpdate(CFErrorRef *error)
     }
 
     CFStringRef server = SecRevocationDbCopyServer();
-    CFIndex version = _SecRevocationDbGetUpdateVersion(server);
+    Boolean forceVersion = false;
+    if (version == SEC_TRUST_VALID_VERSION_DATABASE_VERSION) {
+        version = _SecRevocationDbGetUpdateVersion(server);
+    } else {
+        forceVersion = true;
+    }
 
     secdebug("validupdate", "will fetch v%lu from \"%@\" now", (unsigned long)version, server);
-    bool result = SecValidUpdateUpdateNow(SecRevocationDbGetUpdateQueue(), server, version);
+    bool result = SecValidUpdateUpdateNow(SecRevocationDbGetUpdateQueue(), server, version, forceVersion);
     CFReleaseNull(server);
     return result;
 }
@@ -2047,6 +2120,7 @@ setVersionAndExit:
     "WHERE groupid=?")
 #define deleteGroupIssuersSQL CFSTR("DELETE FROM issuers " \
     "WHERE groupid=?")
+#define checkPoliciesColumnSQL CFSTR("SELECT COUNT(*) FROM pragma_table_info('groups') WHERE name = 'policies'")
 #define addPoliciesColumnSQL CFSTR("ALTER TABLE groups " \
     "ADD COLUMN policies BLOB")
 #define updateGroupPoliciesSQL CFSTR("UPDATE OR IGNORE groups " \
@@ -2059,7 +2133,7 @@ setVersionAndExit:
     "WHERE filterid=?")
 // Given a logid and a timestamp, finds the most recently generated entry in crlitefiltercoverage that
 // has logid=logid and timestamp >= start and timestamp <= end
-#define selectCRLiteFilterCoverageForLogIDAndTimestampSQL CFSTR("SELECT * FROM crlitefiltercoverage " \
+#define selectCRLiteFilterCoverageForLogIDAndTimestampSQL CFSTR("SELECT filterid,generatedat FROM crlitefiltercoverage " \
     "WHERE logid=?1 AND ?2 >= start AND ?2 <= end ORDER BY generatedat DESC LIMIT 1")
 #define deleteAllCRLiteEntriesSQL CFSTR("" \
     "DELETE FROM crlitefiltercoverage; " \
@@ -2128,22 +2202,22 @@ static SecRevocationDbRef SecRevocationDbInit(CFStringRef db_name) {
     SecRevocationDbRef rdb;
     dispatch_queue_attr_t attr;
 
-    require(rdb = (SecRevocationDbRef)malloc(sizeof(struct __SecRevocationDb)), errOut);
+    __Require(rdb = (SecRevocationDbRef)malloc(sizeof(struct __SecRevocationDb)), errOut);
     rdb->db = NULL;
     rdb->update_queue = NULL;
     rdb->updateInProgress = false;
     rdb->unsupportedVersion = false;
     rdb->changed = false;
 
-    require(rdb->db = SecRevocationDbCreate(db_name), errOut);
+    __Require(rdb->db = SecRevocationDbCreate(db_name), errOut);
     attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_BACKGROUND, 0);
     attr = dispatch_queue_attr_make_with_autorelease_frequency(attr, DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM);
-    require(rdb->update_queue = dispatch_queue_create(NULL, attr), errOut);
-    require(rdb->info_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
-    require(rdb->info_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    __Require(rdb->update_queue = dispatch_queue_create(NULL, attr), errOut);
+    __Require(rdb->info_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require(rdb->info_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
     rdb->info_cache_lock = OS_UNFAIR_LOCK_INIT;
-    require(rdb->crlite_filter_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
-    require(rdb->crlite_filter_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    __Require(rdb->crlite_filter_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require(rdb->crlite_filter_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
     rdb->crlite_filter_cache_lock = OS_UNFAIR_LOCK_INIT;
     
     if (!isDbOwner()) {
@@ -2710,13 +2784,19 @@ static bool _SecRevocationDbSetSchemaVersion(SecRevocationDbConnectionRef dbc, C
 
 static bool _SecRevocationDbUpdateSchema(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
     __block CFErrorRef localError = NULL;
-    __block bool ok = (dbc != NULL);
-    __block int64_t db_version = (dbc) ? dbc->precommitDbVersion : 0;
+    __block bool ok = true;
+    
+    if (dbc == NULL) {
+        secerror("_SecRevocationDbUpdateSchema failed: no DBC");
+        return false;
+    }
+
+    int64_t db_version = _SecRevocationDbReadSchemaVersionFromDb(dbc, NULL);
     if (db_version >= kSecRevocationDbSchemaVersion) {
         return ok; /* schema version already up to date */
     }
-    secdebug("validupdate", "updating db schema from v%lld to v%lld",
-            (long long)db_version, (long long)kSecRevocationDbSchemaVersion);
+    secnotice("validupdate", "updating db schema from v%lld to v%lld",
+              (long long)db_version, (long long)kSecRevocationDbSchemaVersion);
 
     if (ok && db_version < 5) {
         /* apply v5 changes (add dates table and replace trigger) */
@@ -2740,11 +2820,21 @@ static bool _SecRevocationDbUpdateSchema(SecRevocationDbConnectionRef dbc, CFErr
         }
     }
     if (ok && db_version < 7) {
-        /* apply v7 changes (add policies column in groups table) */
-        ok &= SecDbWithSQL(dbc->dbconn, addPoliciesColumnSQL, &localError, ^bool(sqlite3_stmt *addPoliciesColumn) {
-            ok = SecDbStep(dbc->dbconn, addPoliciesColumn, &localError, NULL);
+        /* apply v7 changes (add policies column in groups table), if missing */
+        __block bool needPoliciesColumn = true;
+        ok &= SecDbWithSQL(dbc->dbconn, checkPoliciesColumnSQL, &localError, ^bool(sqlite3_stmt *stmt) {
+            ok = SecDbStep(dbc->dbconn, stmt, &localError, ^void(bool *stop) {
+                needPoliciesColumn = sqlite3_column_int64(stmt, 0) == 0;
+                *stop = true;
+            });
             return ok;
         });
+        if (needPoliciesColumn) {
+            ok &= SecDbWithSQL(dbc->dbconn, addPoliciesColumnSQL, &localError, ^bool(sqlite3_stmt *addPoliciesColumn) {
+                ok = SecDbStep(dbc->dbconn, addPoliciesColumn, &localError, NULL);
+                return ok;
+            });
+        }
         secdebug("validupdate", "applied schema update to v7 (%s)", (ok) ? "ok" : "failed!");
     }
 
@@ -3743,7 +3833,7 @@ static int64_t _SecRevocationDbGroupIdForIssuerHash(SecRevocationDbConnectionRef
     if (!hash) {
         secdebug("validupdate", "failed to get hash (%@)", hash);
     }
-    require(dbc && hash && CFDataGetLength(hash) > 0, errOut);
+    __Require(dbc && hash && CFDataGetLength(hash) > 0, errOut);
 
     /* This is the starting point for any lookup; find a group id for the given issuer hash.
        Before we do that, need to verify the current db_version. We cannot use results from a
@@ -3759,7 +3849,7 @@ static int64_t _SecRevocationDbGroupIdForIssuerHash(SecRevocationDbConnectionRef
             dbc->db->unsupportedVersion = true; /* only warn once for a given unsupported version */
         }
     }
-    require_quiet(db_version >= kSecRevocationDbMinSchemaVersion, errOut);
+    __Require_Quiet(db_version >= kSecRevocationDbMinSchemaVersion, errOut);
 
     /* Look up provided issuer_hash in the issuers table.
     */
@@ -3958,7 +4048,7 @@ static bool _SecRevocationDbSerialInGroup(SecRevocationDbConnectionRef dbc,
     __block CFErrorRef localError = NULL;
     __block uint8_t *serialPtr = (serial) ? (uint8_t *)CFDataGetBytePtr(serial) : NULL;
     __block size_t serialLen = (serial) ?  (size_t)CFDataGetLength(serial) : 0;
-    require(dbc && serialPtr && serialLen > 0, errOut);
+    __Require(dbc && serialPtr && serialLen > 0, errOut);
     ok &= SecDbWithSQL(dbc->dbconn, selectSerialRecordSQL, &localError, ^bool(sqlite3_stmt *selectSerial) {
         ok &= SecDbBindInt64(selectSerial, 1, groupId, &localError);
         ok &= SecDbBindBlob(selectSerial, 2, serialPtr, serialLen,
@@ -4003,7 +4093,7 @@ static bool _SecRevocationDbCertHashInGroup(SecRevocationDbConnectionRef dbc,
     __block bool result = false;
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
-    require(dbc && certHash && CFDataGetLength(certHash) > 0, errOut);
+    __Require(dbc && certHash && CFDataGetLength(certHash) > 0, errOut);
     ok &= SecDbWithSQL(dbc->dbconn, selectHashRecordSQL, &localError, ^bool(sqlite3_stmt *selectHash) {
         ok &= SecDbBindInt64(selectHash, 1, groupId, &localError);
         ok = SecDbBindBlob(selectHash, 2, CFDataGetBytePtr(certHash),
@@ -4054,7 +4144,7 @@ static bool _SecRevocationDbSerialInFilter(SecRevocationDbConnectionRef dbc,
     uint8_t *serial = (serialData) ? (uint8_t*)CFDataGetBytePtr(serialData) : NULL;
     CFIndex serialLen = (serial) ? CFDataGetLength(serialData) : 0;
 
-    require(hash && hashLen > 0 && serial && params, errOut);
+    __Require(hash && hashLen > 0 && serial && params, errOut);
 
     const uint32_t FNV_OFFSET_BASIS = 2166136261;
     const uint32_t FNV_PRIME = 16777619;
@@ -4112,9 +4202,9 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
     CFDataRef policies = NULL;
     SecValidInfoRef result = NULL;
 
-    require((serial = SecCertificateCopySerialNumberData(certificate, NULL)) != NULL, errOut);
-    require((certHash = SecCertificateCopySHA256Digest(certificate)) != NULL, errOut);
-    require_quiet((groupId = _SecRevocationDbGroupIdForIssuerHash(dbc, issuerHash, &localError)) > 0, errOut);
+    __Require((serial = SecCertificateCopySerialNumberData(certificate, NULL)) != NULL, errOut);
+    __Require((certHash = SecCertificateCopySHA256Digest(certificate)) != NULL, errOut);
+    __Require_Quiet((groupId = _SecRevocationDbGroupIdForIssuerHash(dbc, issuerHash, &localError)) > 0, errOut);
 
     /* Look up the group record to determine flags and format. */
     format = _SecRevocationDbGetGroupFormat(dbc, groupId, &flags, &data, &policies, &localError);
@@ -4191,8 +4281,8 @@ static SecValidInfoRef _SecRevocationDbCopyMatching(SecRevocationDbConnectionRef
     CFErrorRef error = NULL;
     CFDataRef issuerHash = NULL;
 
-    require_quiet(dbc && certificate && issuer, errOut);
-    require(issuerHash = SecCertificateCopySHA256Digest(issuer), errOut);
+    __Require_Quiet(dbc && certificate && issuer, errOut);
+    __Require(issuerHash = SecCertificateCopySHA256Digest(issuer), errOut);
 
     /* Check for the result in the cache. */
     result = SecRevocationDbCacheRead(dbc->db, certificate, issuerHash);
@@ -4223,8 +4313,10 @@ bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDicti
     __block bool ok = (dbc != NULL) && isDictionary(updateMetadata) && isData(updateData);
     __block CFErrorRef localError = NULL;
     __block int64_t filterId = 0;
+    CRLiteRef crlite = NULL;
+    CFDictionaryRef coverage = NULL;
 
-    require_quiet(ok, errOut);
+    __Require_Quiet(ok, errOut);
 
     // Extract CRLite filter version from metadata (key: "version")
     CFIndex filterVersion = 0;
@@ -4241,9 +4333,10 @@ bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDicti
 
     // Extract generatedAt from metadata (key: "generatedAt")
     CFAbsoluteTime generatedAt = 0.0;
-    CFTypeRef generatedAtValue = (CFDateRef)CFDictionaryGetValue(updateMetadata, CFSTR("generatedAt"));
-    if (isDate(versionValue)) {
-        generatedAt = CFDateGetAbsoluteTime((CFDateRef)generatedAtValue);
+    CFNumberRef generatedAtValue = (CFNumberRef)CFDictionaryGetValue(updateMetadata, CFSTR("generatedAt"));
+    if (isNumber(generatedAtValue)) {
+        _Static_assert(sizeof(CFAbsoluteTime) == sizeof(double));
+        CFNumberGetValue(generatedAtValue, kCFNumberDoubleType, &generatedAt);
     }
 
     // Insert into crlitefilters: (filterid, filterversion, data)
@@ -4260,18 +4353,18 @@ bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDicti
         return ok;
     });
     secdebug("validupdate", "Inserted CRLite filter %lld", filterId);
-    require_quiet(ok && filterId > 0, errOut);
+    __Require_Quiet(ok && filterId > 0, errOut);
 
     // Extract the coverage (start end, logid) for this filter
     // This requires temporarily loading the filter into a CRLiteRef object
-    CRLiteRef crlite = SecCRLiteCreate();
-    SecCRLiteLoadFilter(crlite, updateData, &localError);
-    require_quiet(ok && crlite, errOut);
+    crlite = SecCRLiteCreate();
+    __Require_Quiet(crlite, errOut);
+    ok = SecCRLiteLoadFilter(crlite, updateData, &localError);
+    __Require_Quiet(ok, errOut);
 
     // Dictionary of logid -> CFArray[CFDate]
-    CFDictionaryRef coverage = SecCRLiteGetCoverageInfo(crlite);
-    CFReleaseSafe(crlite);
-    require_quiet(ok && coverage, errOut);
+    coverage = soft_SecCRLiteCopyCoverageInfo(crlite);
+    __Require_Quiet(coverage, errOut);
 
     // Iterate over the coverage dictionary, and insert all entries into the coverage table
     CFDictionaryForEach(coverage, ^(const void *key, const void *value) {
@@ -4297,6 +4390,8 @@ bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDicti
     });
 
 errOut:
+    CFReleaseNull(coverage);
+    CFReleaseNull(crlite);
     if (!ok || localError) {
         secerror("SecRevocationDbIngestCRLiteUpdate failed: %@", localError);
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
@@ -4441,24 +4536,23 @@ static SecCRLiteInfoRef _SecRevocationDbCopyMatchingCRLite(SecRevocationDbConnec
     // The actual CT trust evaluation happens later, in the path checks, so we need to gather SCTs here
     // We can't gather OCSP SCTs here, but whatever
     CFArrayRef embeddedScts = SecCertificateCopySignedCertificateTimestamps(certificate);
-    CFArrayRef builderScts = additionalSCTs;
 
     // Combine these into a single array
     CFMutableArrayRef scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if (embeddedScts != NULL) {
         CFArrayAppendArray(scts, embeddedScts, CFRangeMake(0, CFArrayGetCount(embeddedScts)));
     }
-    if (builderScts != NULL) {
-        CFArrayAppendArray(scts, builderScts, CFRangeMake(0, CFArrayGetCount(builderScts)));
+    if (additionalSCTs != NULL) {
+        CFArrayAppendArray(scts, additionalSCTs, CFRangeMake(0, CFArrayGetCount(additionalSCTs)));
     }
     CFReleaseSafe(embeddedScts);
-    CFReleaseSafe(builderScts);
 
     secdebug("validupdate", "CRLite: found %" PRIdCFIndex " SCTs for cert", CFArrayGetCount(scts));
 
     // 2. Search crlitefiltercoverage for a filterid that has coverage for any SCT, and choose the most recently generated filter
     CFIndex filterId = _SecRevocationDbGetCRLiteFilterIdForSCTs(dbc, scts, &error);
     if (filterId == 0) {
+        CFReleaseSafe(scts);
         secdebug("validupdate", "CRLite: no filter found for cert");
         return NULL;
     }
@@ -4469,6 +4563,7 @@ static SecCRLiteInfoRef _SecRevocationDbCopyMatchingCRLite(SecRevocationDbConnec
     CRLiteRef crliteRef = _SecRevocationDbGetCRLiteFilterDataWithCache(dbc, filterId, &error);
     if (error) {
         secerror("Failed to load CRLite filter: %@", error);
+        CFReleaseSafe(scts);
         CFReleaseSafe(crliteRef);
         return NULL;
     }
@@ -4478,6 +4573,7 @@ static SecCRLiteInfoRef _SecRevocationDbCopyMatchingCRLite(SecRevocationDbConnec
     // 4. Consult the CRLite filter for revocation information using SecCRLiteCertStatus
     // This will return NULL if the certificate is not covered by the filter
     SecCRLiteStatus crliteStatus = SecCRLiteCertStatus(crliteRef, certificate, issuer, scts, &error);
+    CFReleaseSafe(scts);
     if (error) {
         secerror("Failed to evaluate CRLite certificate revocation status against filter %" PRIdCFIndex ": %@", filterId, error);
         CFReleaseSafe(crliteRef);

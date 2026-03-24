@@ -287,9 +287,9 @@ IOHIDEvent * IOHIDEvent::unicodeEvent(UInt64 timeStamp, UInt8 * payload, UInt32 
     IOHIDEvent *            result  = NULL;
     IOHIDUnicodeEventData * data    = NULL;
     
-    require(payload && length, exit);
-    require(event, exit);
-    require(event->initWithTypeTimeStamp(kIOHIDEventTypeUnicode, timeStamp, options|kIOHIDEventOptionIsAbsolute, length), exit);
+    __Require(payload && length, exit);
+    __Require(event, exit);
+    __Require(event->initWithTypeTimeStamp(kIOHIDEventTypeUnicode, timeStamp, options|kIOHIDEventOptionIsAbsolute, length), exit);
     
     data = (IOHIDUnicodeEventData *)event->_data;
     
@@ -660,12 +660,12 @@ IOHIDEvent * IOHIDEvent::buttonEvent(
     IOHIDEvent *            event   = new IOHIDEvent;
     IOHIDButtonEventData *  data    = NULL;
     
-    require(event, exit);
+    __Require(event, exit);
     
-    require(event->initWithTypeTimeStamp(kIOHIDEventTypeButton, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit);
+    __Require(event->initWithTypeTimeStamp(kIOHIDEventTypeButton, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit);
     
     data = (IOHIDButtonEventData *)event->_data;
-    require(data, exit);
+    __Require(data, exit);
         
     data->mask          = mask;
     data->number        = number;
@@ -698,10 +698,10 @@ IOHIDEvent * IOHIDEvent::buttonEvent(
     bool                    state   = (pressure>>16) & 0x1;
 
     event = buttonEvent(timeStamp, mask, number, state, options);
-    require(event, exit);
+    __Require(event, exit);
     
     data = (IOHIDButtonEventData *)event->_data;
-    require(data, exit);
+    __Require(data, exit);
     
     data->pressure = pressure;
 
@@ -726,12 +726,12 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
     UInt32                  index, delta;
     
     event = new IOHIDEvent;
-    require(event, exit);
+    __Require(event, exit);
     
-    require(event->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit);
+    __Require(event->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit);
     
     data = (IOHIDPointerEventData *)event->_data;
-    require(data, exit);
+    __Require(data, exit);
     
     data->position.x = CAST_FIXED_TO_DOUBLE(x);
     data->position.y = CAST_FIXED_TO_DOUBLE(y);
@@ -785,12 +785,12 @@ IOHIDEvent * IOHIDEvent::relativePointerEventWithFixed(
     UInt32                  index, delta;
     
     event = new IOHIDEvent;
-    require(event, exit);
+    __Require(event, exit);
 
-    require(event->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options), exit);
+    __Require(event->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options), exit);
 
     data = (IOHIDPointerEventData *)event->_data;
-    require(data, exit);
+    __Require(data, exit);
 
     data->position.x = CAST_FIXED_TO_DOUBLE(x);
     data->position.y = CAST_FIXED_TO_DOUBLE(y);
@@ -859,12 +859,12 @@ IOHIDEvent * IOHIDEvent::multiAxisPointerEvent(
     UInt32                              index, delta;
     
     event = new IOHIDEvent;
-    require(event, exit);
+    __Require(event, exit);
     
-    require(event->initWithTypeTimeStamp(kIOHIDEventTypeMultiAxisPointer, timeStamp, options | kIOHIDEventOptionIsAbsolute | kIOHIDEventOptionIsCenterOrigin), exit);
+    __Require(event->initWithTypeTimeStamp(kIOHIDEventTypeMultiAxisPointer, timeStamp, options | kIOHIDEventOptionIsAbsolute | kIOHIDEventOptionIsCenterOrigin), exit);
     
     data = (IOHIDMultiAxisPointerEventData *)event->_data;
-    require(data, exit);
+    __Require(data, exit);
 
     data->position.x    = x;
     data->position.y    = y;
@@ -985,10 +985,10 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithTiltOrientation(
     IOHIDDigitizerEventData * event = NULL;
 
     me = IOHIDEvent::digitizerEvent(timeStamp, transducerID, type, inRange, buttonState, x, y, tipPressure, auxPressure, twist, options);
-    require(me, exit);
+    __Require(me, exit);
 
     event = (IOHIDDigitizerEventData *)me->_data;
-    require(event, exit);
+    __Require(event, exit);
 
     event->orientationType = kIOHIDDigitizerOrientationTypeTilt;
     
@@ -1022,10 +1022,10 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
     IOHIDDigitizerEventData * event = NULL;
 
     me = IOHIDEvent::digitizerEvent(timeStamp, transducerID, type, inRange, buttonState, x, y, tipPressure, auxPressure, twist, options);
-    require(me, exit);
+    __Require(me, exit);
 
     event = (IOHIDDigitizerEventData *)me->_data;
-    require(event, exit);
+    __Require(event, exit);
 
     event->orientationType = kIOHIDDigitizerOrientationTypePolar;
 
@@ -1060,7 +1060,7 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
     IOHIDDigitizerEventData * event = NULL;
 
     IOHIDEvent * me = IOHIDEvent::digitizerEventWithPolarOrientation(timeStamp, transducerID, type, inRange, buttonState, x, y, z, tipPressure, auxPressure, twist, altitude, azimuth, options);
-    require(me, exit);
+    __Require(me, exit);
  
     event = (IOHIDDigitizerEventData *)me->_data;
  
@@ -1097,7 +1097,7 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
     IOHIDDigitizerEventData * event = NULL;
 
     IOHIDEvent * me = IOHIDEvent::digitizerEventWithPolarOrientation(timeStamp, transducerID, type, inRange, buttonState, x, y, z, tipPressure, auxPressure, twist, altitude, azimuth, quality, density, options);
-    require(me, exit);
+    __Require(me, exit);
 
     event = (IOHIDDigitizerEventData *)me->_data;
     
@@ -1135,10 +1135,10 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithQualityOrientation(
     IOHIDDigitizerEventData * event = NULL;
 
     me = IOHIDEvent::digitizerEvent(timeStamp, transducerID, type, inRange, buttonState, x, y, tipPressure, auxPressure, twist, options);
-    require(me, exit);
+    __Require(me, exit);
 
     event = (IOHIDDigitizerEventData *)me->_data;
-    require(event, exit);
+    __Require(event, exit);
 
     event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
     
@@ -1295,9 +1295,9 @@ IOHIDEvent * IOHIDEvent::standardGameControllerEvent(UInt64                     
     IOHIDEvent *me = new IOHIDEvent;
     IOHIDGameControllerEventData *event = NULL;
     
-    require(me, exit);
+    __Require(me, exit);
     
-    require_action(me->initWithTypeTimeStamp(kIOHIDEventTypeGameController, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit, me->release());
+    __Require_Action(me->initWithTypeTimeStamp(kIOHIDEventTypeGameController, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit, me->release());
     
     event = (IOHIDGameControllerEventData *)me->_data;
  
@@ -1340,7 +1340,7 @@ IOHIDEvent * IOHIDEvent::extendedGameControllerEvent(UInt64                     
 {
     IOHIDEvent *me = standardGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, options);
     IOHIDGameControllerEventData *event = NULL;
-    require(me, exit);
+    __Require(me, exit);
     
     event = (IOHIDGameControllerEventData *)me->_data;
     
@@ -1390,7 +1390,7 @@ IOHIDEvent * IOHIDEvent::extendedGameControllerEventWithOptionalButtons(
     IOHIDEvent *me = standardGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, options);
     IOHIDGameControllerEventData *event = NULL;
     __IOHIDGameControllerEventData *extData = NULL;
-    require(me, exit);
+    __Require(me, exit);
 
     event = (IOHIDGameControllerEventData *)me->_data;
     extData = (__IOHIDGameControllerEventData *)me->_data;
@@ -1867,7 +1867,7 @@ OSData *IOHIDEvent::createBytes()
     IOHIDSystemQueueElement queueElement = { 0 };
     
     result = OSData::withCapacity((unsigned int)getLength());
-    require(result, exit);
+    __Require(result, exit);
     
     queueElement.timeStamp         = _timeStamp;
     queueElement.options           = _options;
@@ -1878,7 +1878,7 @@ OSData *IOHIDEvent::createBytes()
     result->appendBytes(&queueElement, sizeof(queueElement));
     result->appendBytes(_data, _data->size);
     
-    require_quiet(_children, exit);
+    __Require_Quiet(_children, exit);
     
     for (unsigned int i = 0; i < _children->getCount(); i++) {
         IOHIDEvent *child = (IOHIDEvent *)_children->getObject(i);

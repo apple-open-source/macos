@@ -36,11 +36,12 @@
 #include "CSSSerializationContext.h"
 #include "CSSStyleDeclaration.h"
 #include "CommonAtomStrings.h"
+#include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
 #include "DOMWrapperWorld.h"
 #include "DataTransfer.h"
-#include "Document.h"
 #include "DocumentFragment.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "EditingBehavior.h"
 #include "EditingInlines.h"
@@ -48,6 +49,7 @@
 #include "EventNames.h"
 #include "FilterOperations.h"
 #include "FrameSelection.h"
+#include "GraphicsTypes.h"
 #include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBodyElement.h"
@@ -65,7 +67,7 @@
 #include "NodeRenderStyle.h"
 #include "Position.h"
 #include "RenderInline.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderText.h"
 #include "ScriptDisallowedScope.h"
 #include "ScriptElement.h"
@@ -80,6 +82,7 @@
 #include "UnicodeHelpers.h"
 #include "VisibleUnits.h"
 #include "markup.h"
+#include <wtf/IterationStatus.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/StdLibExtras.h>
@@ -173,7 +176,7 @@ static Position positionAvoidingPrecedingNodes(Position position)
 }
 
 ReplacementFragment::ReplacementFragment(RefPtr<DocumentFragment>&& inputFragment, const VisibleSelection& selection)
-    : m_fragment(WTFMove(inputFragment))
+    : m_fragment(WTF::move(inputFragment))
     , m_hasInterchangeNewlineAtStart(false)
     , m_hasInterchangeNewlineAtEnd(false)
 {
@@ -255,7 +258,7 @@ void ReplacementFragment::removeContentsWithSideEffects()
         Ref element = *it;
         if (isScriptElement(element) || (is<HTMLStyleElement>(element) && element->getAttribute(classAttr) != WebKitMSOListQuirksStyle)
             || is<HTMLBaseElement>(element) || is<HTMLLinkElement>(element) || is<HTMLMetaElement>(element) || is<HTMLTitleElement>(element)) {
-            elementsToRemove.append(WTFMove(element));
+            elementsToRemove.append(WTF::move(element));
             it.traverseNextSkippingChildren();
             continue;
         }
@@ -269,7 +272,7 @@ void ReplacementFragment::removeContentsWithSideEffects()
     }
 
     for (auto& element : elementsToRemove)
-        removeNode(WTFMove(element));
+        removeNode(WTF::move(element));
 
     for (auto& item : attributesToRemove)
         item.first->removeAttribute(item.second);
@@ -392,7 +395,7 @@ void ReplacementFragment::removeInterchangeNodes(Node* container)
             next = NodeTraversal::nextSkippingChildren(*node);
             removeNodePreservingChildren(*node);
         }
-        node = WTFMove(next);
+        node = WTF::move(next);
     }
 }
 
@@ -473,11 +476,11 @@ inline void ReplaceSelectionCommand::InsertedNodes::didReplaceNode(Node* node, N
 }
 
 ReplaceSelectionCommand::ReplaceSelectionCommand(Ref<Document>&& document, RefPtr<DocumentFragment>&& fragment, OptionSet<CommandOption> options, EditAction editAction)
-    : CompositeEditCommand(WTFMove(document), editAction)
+    : CompositeEditCommand(WTF::move(document), editAction)
     , m_selectReplacement(options & SelectReplacement)
     , m_smartReplace(options & SmartReplace)
     , m_matchStyle(options & MatchStyle)
-    , m_documentFragment(WTFMove(fragment))
+    , m_documentFragment(WTF::move(fragment))
     , m_preventNesting(options & PreventNesting)
     , m_movingParagraph(options & MovingParagraph)
     , m_sanitizeFragment(options & SanitizeFragment)
@@ -636,7 +639,7 @@ static bool fragmentNeedsColorTransformed(ReplacementFragment& fragment, const P
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
         CheckedPtr editableRootRenderer = editableRoot->renderer();
-        if (!editableRootRenderer || !editableRootRenderer->style().hasAppleColorFilter())
+        if (!editableRootRenderer || editableRootRenderer->style().appleColorFilter().isNone())
             return false;
 
         const auto& colorFilter = editableRootRenderer->style().appleColorFilter();
@@ -889,14 +892,14 @@ void ReplaceSelectionCommand::moveNodeOutOfAncestor(Node& node, Node& ancestor, 
         if (!ancestor.isConnected())
             return;
         if (ancestor.nextSibling())
-            insertNodeBefore(WTFMove(protectedNode), *ancestor.nextSibling());
+            insertNodeBefore(WTF::move(protectedNode), *ancestor.nextSibling());
         else
-            appendNode(WTFMove(protectedNode), *ancestor.parentNode());
+            appendNode(WTF::move(protectedNode), *ancestor.parentNode());
     } else {
         RefPtr<Node> nodeToSplitTo = splitTreeToNode(node, ancestor, true);
         removeNode(node);
         if (nodeToSplitTo)
-            insertNodeBefore(WTFMove(protectedNode), *nodeToSplitTo);
+            insertNodeBefore(WTF::move(protectedNode), *nodeToSplitTo);
     }
 
     document().updateLayoutIgnorePendingStylesheets();
@@ -1002,7 +1005,7 @@ void ReplaceSelectionCommand::handleStyleSpans(InsertedNodes& insertedNodes)
     // so search for the top level style span instead of assuming it's at the top.
     for (RefPtr node = insertedNodes.firstNodeInserted(); node; node = NodeTraversal::next(*node)) {
         if (isLegacyAppleStyleSpan(node.get())) {
-            wrappingStyleSpan = static_pointer_cast<HTMLElement>(WTFMove(node));
+            wrappingStyleSpan = downcast<HTMLElement>(WTF::move(node));
             break;
         }
     }
@@ -1400,6 +1403,12 @@ void ReplaceSelectionCommand::doApply()
     if (!insertedNodes.firstNodeInserted()->isConnected())
         return;
 
+    if (!needsColorTransformed) {
+        // In the case where color filtering is disabled, we need to separately ensure that pasting dark
+        // text into an editor that uses dark mode appearance does not result in unreadable text.
+        removeForegroundColorsInDarkModeIfNeeded(insertedNodes);
+    }
+
     VisiblePosition startOfInsertedContent = firstPositionInOrBeforeNode(insertedNodes.firstNodeInserted());
 
     // We inserted before the insertionBlock to prevent nesting, and the content before the insertionBlock wasn't in its own block and
@@ -1792,7 +1801,7 @@ static RefPtr<HTMLElement> singleChildList(HTMLElement& element)
         return nullptr;
 
     RefPtr child { element.firstChild() };
-    return isListHTMLElement(child.get()) ? downcast<HTMLElement>(WTFMove(child)) : nullptr;
+    return isListHTMLElement(child.get()) ? downcast<HTMLElement>(WTF::move(child)) : nullptr;
 }
 
 static Ref<HTMLElement> deepestSingleChildList(HTMLElement& topLevelList)
@@ -1988,6 +1997,106 @@ void ReplaceSelectionCommand::updateDirectionForStartOfInsertedContentIfNeeded(c
 
     if (restoreOriginalEndingSelection)
         setEndingSelection(originalEndingSelection);
+}
+
+using ElementToStyleProperties = HashMap<Ref<StyledElement>, Vector<CSSPropertyID, 2>>;
+WARN_UNUSED_RETURN static IterationStatus collectStylesToRemove(Node& node, const Node& lastLeaf, double backgroundLuminance, ElementToStyleProperties& stylesToRemove)
+{
+    auto addStylesToRemove = [&](StyledElement& element) {
+        RefPtr style = element.inlineStyle();
+        if (!style)
+            return;
+
+        CheckedPtr renderer = element.renderer();
+        if (!renderer)
+            return;
+
+        if (!renderer->useDarkAppearance())
+            return;
+
+        Ref document = node.document();
+        if (auto color = style->propertyAsColor(CSSPropertyBackgroundColor)) {
+            auto compositeOperator = document->compositeOperatorForBackgroundColor(*color, *renderer);
+            if (compositeOperator != CompositeOperator::DestinationIn && compositeOperator != CompositeOperator::DestinationOut)
+                return;
+        }
+
+        Vector<CSSPropertyID, 2> propertiesToRemove;
+        for (auto property : { CSSPropertyColor, CSSPropertyCaretColor }) {
+            auto color = style->propertyAsColor(property);
+            if (!color)
+                continue;
+
+            static constexpr auto minLuminanceDifference = 0.1;
+            if (std::abs(color->luminance() - backgroundLuminance) >= minLuminanceDifference)
+                continue;
+
+            propertiesToRemove.append(property);
+        }
+
+        if (propertiesToRemove.isEmpty())
+            return;
+
+        stylesToRemove.add(element, WTF::move(propertiesToRemove));
+    };
+
+    if (RefPtr element = dynamicDowncast<StyledElement>(node))
+        addStylesToRemove(*element);
+
+    if (RefPtr container = dynamicDowncast<ContainerNode>(node)) {
+        static constexpr auto inlineCapacityToAvoidExceedingStackLimit = 0;
+        for (Ref child : composedTreeChildren<inlineCapacityToAvoidExceedingStackLimit>(*container)) {
+            if (collectStylesToRemove(child, lastLeaf, backgroundLuminance, stylesToRemove) == IterationStatus::Done)
+                break;
+        }
+    }
+
+    return &node == &lastLeaf ? IterationStatus::Done : IterationStatus::Continue;
+}
+
+void ReplaceSelectionCommand::removeForegroundColorsInDarkModeIfNeeded(const InsertedNodes& nodes)
+{
+    Ref document = this->document();
+    RefPtr page = document->page();
+    if (!page)
+        return;
+
+    if (!page->isEditable())
+        return;
+
+    RefPtr view = document->view();
+    if (!view)
+        return;
+
+    document->updateLayoutIgnorePendingStylesheets();
+
+    ElementToStyleProperties stylesToRemove;
+    auto documentLuminance = view->documentBackgroundColor().luminance();
+    RefPtr lastLeafInserted = nodes.lastLeafInserted();
+
+    {
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+
+        for (RefPtr node = nodes.firstNodeInserted(); node; node = nextSiblingInComposedTreeIgnoringUserAgentShadow(*node)) {
+            if (collectStylesToRemove(*node, *lastLeafInserted, documentLuminance, stylesToRemove) == IterationStatus::Done)
+                break;
+        }
+    }
+
+    if (stylesToRemove.isEmpty())
+        return;
+
+    for (auto& [element, properties] : stylesToRemove) {
+        RefPtr inlineStyle = element->inlineStyle();
+        if (!inlineStyle)
+            continue;
+
+        Ref newStyle = inlineStyle->mutableCopy();
+        newStyle->removeProperties(properties);
+        setNodeAttribute(element, styleAttr, newStyle->asTextAtom(CSS::defaultSerializationContext()));
+    }
+
+    document->updateStyleIfNeeded();
 }
 
 } // namespace WebCore

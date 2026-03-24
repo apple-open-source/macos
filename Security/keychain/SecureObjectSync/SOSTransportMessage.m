@@ -207,7 +207,7 @@ bool SOSEngineHandleCodedMessage(SOSAccount* account, SOSEngineRef engine, CFStr
 {
     [self SOSTransportMessageUpdateRTTs:(__bridge NSString*)peer_id];
     bool result = false;
-    require_quiet(SecRequirementError(transport.engine != NULL, error, CFSTR("Missing engine")), done);
+    __Require_Quiet(SecRequirementError(transport.engine != NULL, error, CFSTR("Missing engine")), done);
     result = SOSEngineHandleCodedMessage([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, peer_id, codedMessage, error);
 done:
     return result;

@@ -31,7 +31,7 @@
 #include "RenderChildIterator.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTextControl.h"
 #include "RenderTreeBuilderMultiColumn.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -111,9 +111,9 @@ RenderTreeBuilder::Block::Block(RenderTreeBuilder& builder)
 void RenderTreeBuilder::Block::attach(RenderBlock& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild)
 {
     if (parent.continuation() && !parent.isAnonymousBlock())
-        insertChildToContinuation(parent, WTFMove(child), beforeChild);
+        insertChildToContinuation(parent, WTF::move(child), beforeChild);
     else
-        attachIgnoringContinuation(parent, WTFMove(child), beforeChild);
+        attachIgnoringContinuation(parent, WTF::move(child), beforeChild);
 }
 
 void RenderTreeBuilder::Block::insertChildToContinuation(RenderBlock& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild)
@@ -132,7 +132,7 @@ void RenderTreeBuilder::Block::insertChildToContinuation(RenderBlock& parent, Re
     }
 
     if (child->isFloatingOrOutOfFlowPositioned()) {
-        m_builder.attachIgnoringContinuation(*beforeChildParent, WTFMove(child), beforeChild);
+        m_builder.attachIgnoringContinuation(*beforeChildParent, WTF::move(child), beforeChild);
         return;
     }
 
@@ -141,21 +141,21 @@ void RenderTreeBuilder::Block::insertChildToContinuation(RenderBlock& parent, Re
     bool flowIsNormal = flow->isInline() || flow->style().columnSpan() == ColumnSpan::None;
 
     if (flow == beforeChildParent) {
-        m_builder.attachIgnoringContinuation(*flow, WTFMove(child), beforeChild);
+        m_builder.attachIgnoringContinuation(*flow, WTF::move(child), beforeChild);
         return;
     }
 
     // The goal here is to match up if we can, so that we can coalesce and create the
     // minimal # of continuations needed for the inline.
     if (childIsNormal == bcpIsNormal) {
-        m_builder.attachIgnoringContinuation(*beforeChildParent, WTFMove(child), beforeChild);
+        m_builder.attachIgnoringContinuation(*beforeChildParent, WTF::move(child), beforeChild);
         return;
     }
     if (flowIsNormal == childIsNormal) {
-        m_builder.attachIgnoringContinuation(*flow, WTFMove(child)); // Just treat like an append.
+        m_builder.attachIgnoringContinuation(*flow, WTF::move(child)); // Just treat like an append.
         return;
     }
-    m_builder.attachIgnoringContinuation(*beforeChildParent, WTFMove(child), beforeChild);
+    m_builder.attachIgnoringContinuation(*beforeChildParent, WTF::move(child), beforeChild);
 }
 
 struct ParentAndBeforeChild {
@@ -221,7 +221,7 @@ void RenderTreeBuilder::Block::attachIgnoringContinuation(RenderBlock& parent, R
     if (parentAndBeforeChildMayNeedAdjustment) {
         if (auto parentAndBeforeChild = findParentAndBeforeChildForNonSibling(parent, *child, *beforeChild)) {
             if (parentAndBeforeChild->parent) {
-                m_builder.attach(*parentAndBeforeChild->parent, WTFMove(child), parentAndBeforeChild->beforeChild);
+                m_builder.attach(*parentAndBeforeChild->parent, WTF::move(child), parentAndBeforeChild->beforeChild);
                 return;
             }
             beforeChild = m_builder.splitAnonymousBoxesAroundChild(parent, *beforeChild);
@@ -231,22 +231,22 @@ void RenderTreeBuilder::Block::attachIgnoringContinuation(RenderBlock& parent, R
 
     if (child->isFloatingOrOutOfFlowPositioned()) {
         if (parent.childrenInline() || is<RenderFlexibleBox>(parent) || parent.isRenderGrid()) {
-            m_builder.attachToRenderElement(parent, WTFMove(child), beforeChild);
+            m_builder.attachToRenderElement(parent, WTF::move(child), beforeChild);
             return;
         }
         // In case of sibling block box(es), let's check if we can add this out of flow/floating box under a previous sibling anonymous block.
         auto* previousSiblingBlock = dynamicDowncast<RenderBlock>(beforeChild ? beforeChild->previousSibling() : parent.lastChild());
         if (!previousSiblingBlock || !previousSiblingBlock->isAnonymousBlock()) {
-            m_builder.attachToRenderElement(parent, WTFMove(child), beforeChild);
+            m_builder.attachToRenderElement(parent, WTF::move(child), beforeChild);
             return;
         }
-        m_builder.attach(*previousSiblingBlock, WTFMove(child));
+        m_builder.attach(*previousSiblingBlock, WTF::move(child));
         return;
     }
 
     // Parent and inflow child match.
     if ((parent.childrenInline() && child->isInline()) || (!parent.childrenInline() && !child->isInline()))
-        return m_builder.attachToRenderElement(parent, WTFMove(child), beforeChild);
+        return m_builder.attachToRenderElement(parent, WTF::move(child), beforeChild);
 
     // Inline parent with block child.
     if (parent.childrenInline()) {
@@ -261,7 +261,7 @@ void RenderTreeBuilder::Block::attachIgnoringContinuation(RenderBlock& parent, R
             ASSERT(is<RenderBlock>(*beforeChild) && downcast<RenderBlock>(*beforeChild).isAnonymousBlock());
             ASSERT(beforeChild->parent() == &parent);
         }
-        m_builder.attachToRenderElement(parent, WTFMove(child), beforeChild);
+        m_builder.attachToRenderElement(parent, WTF::move(child), beforeChild);
 
         if (is<RenderBlock>(parent.parent()) && parent.isAnonymousBlock())
             removeLeftoverAnonymousBlock(parent);
@@ -274,15 +274,15 @@ void RenderTreeBuilder::Block::attachIgnoringContinuation(RenderBlock& parent, R
     // a new one is created and inserted into our list of children in the appropriate position.
     auto* previousSibling = beforeChild ? beforeChild->previousSibling() : parent.lastChild();
     if (auto* previousBlock = dynamicDowncast<RenderBlock>(previousSibling); previousBlock && previousBlock->isAnonymousBlock()) {
-        m_builder.attach(*previousBlock, WTFMove(child));
+        m_builder.attach(*previousBlock, WTF::move(child));
         return;
     }
 
     // No suitable existing anonymous box - create a new one.
     auto newBox = Block::createAnonymousBlockWithStyle(parent.protectedDocument(), parent.style());
     auto& box = *newBox;
-    m_builder.attachToRenderElement(parent, WTFMove(newBox), beforeChild);
-    m_builder.attach(box, WTFMove(child));
+    m_builder.attachToRenderElement(parent, WTF::move(newBox), beforeChild);
+    m_builder.attach(box, WTF::move(child));
 }
 
 void RenderTreeBuilder::Block::childBecameNonInline(RenderBlock& parent, RenderElement&)
@@ -348,7 +348,7 @@ RenderPtr<RenderObject> RenderTreeBuilder::Block::detach(RenderBlock& parent, Re
 
             // Now just put the inlineChildrenBlock inside the blockChildrenBlock.
             RenderObject* beforeChild = &previousBlock == &inlineChildrenBlock ? blockChildrenBlock.firstChild() : nullptr;
-            m_builder.attachToRenderElementInternal(blockChildrenBlock, WTFMove(blockToMove), beforeChild);
+            m_builder.attachToRenderElementInternal(blockChildrenBlock, WTF::move(blockToMove), beforeChild);
             nextBlock.setNeedsLayoutAndPreferredWidthsUpdate();
 
             // inlineChildrenBlock got reparented to blockChildrenBlock, so it is no longer a child
@@ -434,9 +434,9 @@ RenderPtr<RenderObject> RenderTreeBuilder::Block::detach(RenderBlockFlow& parent
     return detach(static_cast<RenderBlock&>(parent), child, willBeDestroyed, canCollapseAnonymousBlock);
 }
 
-RenderPtr<RenderBlock> RenderTreeBuilder::Block::createAnonymousBlockWithStyle(Document& document, const RenderStyle& style)
+RenderPtr<RenderBlockFlow> RenderTreeBuilder::Block::createAnonymousBlockWithStyle(Document& document, const RenderStyle& style)
 {
-    RenderPtr<RenderBlock> newBox = createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, document, RenderStyle::createAnonymousStyleWithDisplay(style, DisplayType::Block));
+    RenderPtr<RenderBlockFlow> newBox = createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, document, RenderStyle::createAnonymousStyleWithDisplay(style, DisplayType::Block));
     newBox->initializeStyle();
     return newBox;
 }

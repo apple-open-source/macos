@@ -57,13 +57,18 @@ UIViewController *NetworkConnectionToWebProcess::paymentCoordinatorPresentingVie
 #if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
 void NetworkConnectionToWebProcess::getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier webPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&& completionHandler)
 {
-    networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::GetWindowSceneAndBundleIdentifierForPaymentPresentation(webPageProxyIdentifier), WTFMove(completionHandler));
+    networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::GetWindowSceneAndBundleIdentifierForPaymentPresentation(webPageProxyIdentifier), WTF::move(completionHandler));
+}
+
+void NetworkConnectionToWebProcess::notifyWillPresentPaymentUI(WebPageProxyIdentifier webPageProxyIdentifier)
+{
+    networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::NotifyWillPresentPaymentUI(webPageProxyIdentifier), 0);
 }
 #endif
 
 void NetworkConnectionToWebProcess::getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier webPageProxyIdentifier, CompletionHandler<void(const String&)>&& completionHandler)
 {
-    networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::GetPaymentCoordinatorEmbeddingUserAgent { webPageProxyIdentifier }, WTFMove(completionHandler));
+    networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::GetPaymentCoordinatorEmbeddingUserAgent { webPageProxyIdentifier }, WTF::move(completionHandler));
 }
 
 CocoaWindow *NetworkConnectionToWebProcess::paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) const

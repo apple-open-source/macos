@@ -137,7 +137,7 @@ JSValue IntlSegmenter::segment(JSGlobalObject* globalObject, JSValue stringValue
         return { };
     }
 
-    return IntlSegments::create(vm, globalObject->segmentsStructure(), WTFMove(segmenter), WTFMove(upconvertedCharacters), jsString, m_granularity);
+    return IntlSegments::create(vm, globalObject->segmentsStructure(), WTF::move(segmenter), WTF::move(upconvertedCharacters), jsString, m_granularity);
 }
 
 // https://tc39.es/proposal-intl-segmenter/#sec-intl.segmenter.prototype.resolvedoptions

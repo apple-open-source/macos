@@ -210,7 +210,7 @@ public:
     bool isHTTPFamily() const { return m_data.protocol() == "http"_s || m_data.protocol() == "https"_s; }
 
 private:
-    friend struct IPC::ArgumentCoder<SecurityOrigin, void>;
+    friend struct IPC::ArgumentCoder<SecurityOrigin>;
     WEBCORE_EXPORT SecurityOrigin();
     explicit SecurityOrigin(const URL&);
     explicit SecurityOrigin(const SecurityOrigin*);

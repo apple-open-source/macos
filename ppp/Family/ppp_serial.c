@@ -964,6 +964,7 @@ int pppserial_ouput(struct pppserial *ld)
          * If not, get a new packet and start sending it.
          */
         m = ld->outm;
+        ld->outm = NULL;
         if (m == NULL) {
             /*
              * Get another packet to be sent.

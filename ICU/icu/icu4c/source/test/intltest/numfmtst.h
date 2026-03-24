@@ -58,6 +58,12 @@ class NumberFormatDataDrivenTest : public DataDrivenNumberFormatTestSuite {
             const NumberFormatTestTuple &tuple,
             UnicodeString &appendErrorMessage,
             UErrorCode &status) override;
+
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    NumberFormatTestTuple fTuple;
+#endif // APPLE_ICU_CHANGES
 };
 
 /**
@@ -206,6 +212,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestLenientParse();
 
     void TestDecimal();
+    void TestDecimalFormatParse7E();
     void TestCurrencyFractionDigits();
 
     void TestExponentParse();
@@ -288,6 +295,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void Test11649_DecFmtCurrencies();
     void Test13148_ParseGroupingSeparators();
     void Test12753_PatternDecimalPoint();
+    void Test22303_PatternDecimalPoint_InfNaN();
     void Test11647_PatternCurrencySymbols();
     void Test11913_BigDecimal();
     void Test11020_RoundingInScientificNotation();
@@ -314,6 +322,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void Test10997_FormatCurrency();
     void Test21556_CurrencyAsDecimal();
     void Test22088_Ethiopic();
+    void Test22983_LongFraction();
 
  private:
     UBool testFormattableAsUFormattable(const char *file, int line, Formattable &f);

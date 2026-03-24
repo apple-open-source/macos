@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_PR{
     %%Parent{"es_419"}
     calendar{
@@ -82,6 +82,7 @@ es_PR{
                 Ehms{"E h:mm:ss a"}
                 MEd{"E, MM/dd"}
                 Md{"MM/dd"}
+                h{"h a"}
                 yM{"MM/y"}
                 yMEd{"E MM/dd/y"}
                 yMd{"MM/dd/y"}
@@ -89,10 +90,6 @@ es_PR{
             dayPeriod{
                 stand-alone{
                     abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
-                    }
-                    narrow{
                         am{"a. m."}
                         pm{"p. m."}
                     }

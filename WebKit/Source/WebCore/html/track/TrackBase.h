@@ -71,8 +71,8 @@ public:
     virtual int uniqueId() const { return m_uniqueId; }
 
 #if ENABLE(MEDIA_SOURCE)
-    SourceBuffer* sourceBuffer() const { return m_sourceBuffer; }
-    void setSourceBuffer(SourceBuffer* buffer) { m_sourceBuffer = buffer; }
+    SourceBuffer* sourceBuffer() const;
+    void setSourceBuffer(SourceBuffer*);
 #endif
 
     void setTrackList(TrackListBase&);
@@ -85,6 +85,7 @@ public:
 #if !RELEASE_LOG_DISABLED
     virtual void setLogger(const Logger&, uint64_t);
     const Logger& logger() const final { ASSERT(m_logger); return *m_logger.get(); }
+    Ref<const Logger> protectedLogger() const { return logger(); }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;
 #endif
@@ -101,7 +102,7 @@ protected:
     virtual void setLanguage(const AtomString&);
 
 #if ENABLE(MEDIA_SOURCE)
-    SourceBuffer* m_sourceBuffer { nullptr };
+    WeakPtr<SourceBuffer> m_sourceBuffer;
 #endif
 
     void addClientToTrackPrivateBase(TrackPrivateBaseClient&, TrackPrivateBase&);
@@ -130,7 +131,7 @@ public:
     virtual void setKind(const AtomString&);
 
 protected:
-    MediaTrackBase(ScriptExecutionContext*, Type, const std::optional<AtomString>& id, TrackID, const AtomString& label, const AtomString& language);
+    MediaTrackBase(ScriptExecutionContext*, Type, const std::optional<String>& id, TrackID, const String& label, const String& language);
 
     void setKindInternal(const AtomString&);
 

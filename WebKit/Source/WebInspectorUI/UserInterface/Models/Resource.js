@@ -1245,7 +1245,7 @@ WI.Resource = class Resource extends WI.SourceCode
         return command.join(" \\\n");
     }
 
-    stringifyHTTPRequest()
+    stringifyHTTPRequestHeaders()
     {
         let lines = [];
 
@@ -1269,7 +1269,7 @@ WI.Resource = class Resource extends WI.SourceCode
         return lines.join("\n") + "\n";
     }
 
-    stringifyHTTPResponse()
+    stringifyHTTPResponseHeaders()
     {
         let lines = [];
 

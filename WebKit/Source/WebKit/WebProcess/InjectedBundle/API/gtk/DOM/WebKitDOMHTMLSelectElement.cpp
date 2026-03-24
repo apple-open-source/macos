@@ -373,7 +373,7 @@ void webkit_dom_html_select_element_add(WebKitDOMHTMLSelectElement* self, WebKit
         return;
     }
 
-    auto exception = item->add(WTFMove(variantElement), WebCore::HTMLSelectElement::HTMLElementOrInt(convertedBefore));
+    auto exception = item->add(WTF::move(variantElement), WebCore::HTMLSelectElement::HTMLElementOrInt(convertedBefore));
     if (exception.hasException()) {
         auto description = WebCore::DOMException::description(exception.releaseException().code());
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);

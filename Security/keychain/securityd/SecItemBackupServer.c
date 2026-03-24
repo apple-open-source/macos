@@ -132,8 +132,8 @@ bool SecServerItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDa
     SOSBackupSliceKeyBagRef backupSliceKeyBag = NULL;
     keybag_handle_t bag_handle = bad_keybag_handle;
 
-    require(asData(secret, error), xit);
-    require(backupSliceKeyBag = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, keybag, error), xit);
+    __Require(asData(secret, error), xit);
+    __Require(backupSliceKeyBag = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, keybag, error), xit);
 
     if (peerID) {
         bag_handle = SOSBSKBLoadAndUnlockWithPeerIDAndSecret(backupSliceKeyBag, peerID, secret, error);
@@ -144,7 +144,7 @@ bool SecServerItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDa
             bag_handle = SOSBSKBLoadAndUnlockWithWrappingSecret(backupSliceKeyBag, secret, error);
         }
     }
-    require(bag_handle != bad_keybag_handle, xit);
+    __Require(bag_handle != bad_keybag_handle, xit);
 
     // TODO: How do we know which views we are allow to restore
     //viewSet = SOSAccountCopyRestorableViews();

@@ -22,6 +22,14 @@
 
 #if ENABLE(WEBXR)
 
+enum class PlatformXR::ReferenceSpaceType : uint8_t {
+    Viewer,
+    Local,
+    LocalFloor,
+    BoundedFloor,
+    Unbounded,
+};
+
 enum class PlatformXR::SessionFeature : uint8_t {
     ReferenceSpaceTypeViewer,
     ReferenceSpaceTypeLocal,
@@ -31,7 +39,13 @@ enum class PlatformXR::SessionFeature : uint8_t {
 #if ENABLE(WEBXR_HANDS)
     HandTracking,
 #endif
+#if ENABLE(WEBXR_HIT_TEST)
+    HitTest,
+#endif
     WebGPU,
+#if ENABLE(WEBXR_LAYERS)
+    Layers,
+#endif
 };
 
 enum class PlatformXR::SessionMode : uint8_t {
@@ -57,6 +71,12 @@ enum class PlatformXR::XRTargetRayMode : uint8_t {
     TrackedPointer,
     Screen,
     TransientPointer,
+};
+
+enum class PlatformXR::XREnvironmentBlendMode : uint8_t {
+    Opaque,
+    AlphaBlend,
+    Additive,
 };
 
 [Nested] struct PlatformXR::DepthRange {
@@ -183,6 +203,53 @@ header: <WebCore/PlatformXR.h>
 #endif
 };
 
+#if ENABLE(WEBXR_HIT_TEST)
+header: <WebCore/XRHitTestTrackableType.h>
+enum class WebCore::XRHitTestTrackableType : uint8_t {
+    Point,
+    Plane,
+    Mesh
+};
+
+[CustomHeader] struct PlatformXR::Ray {
+    WebCore::FloatPoint3D origin;
+    WebCore::FloatPoint3D direction;
+};
+
+enum class PlatformXR::InputSourceSpaceType : uint8_t {
+    TargetRay,
+    Grip,
+};
+
+[CustomHeader] struct PlatformXR::InputSourceSpaceInfo {
+    PlatformXR::InputSourceHandle handle;
+    PlatformXR::InputSourceSpaceType type;
+};
+
+using PlatformXR::NativeOriginInformation = Variant<PlatformXR::ReferenceSpaceType, PlatformXR::InputSourceSpaceInfo>;
+
+[CustomHeader] struct PlatformXR::HitTestOptions {
+    PlatformXR::NativeOriginInformation nativeOrigin;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    PlatformXR::Ray offsetRay;
+};
+
+[Nested] struct PlatformXR::FrameData::HitTestResult {
+    PlatformXR::FrameData::Pose pose;
+};
+
+[CustomHeader] struct PlatformXR::TransientInputHitTestOptions {
+    String profile;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    PlatformXR::Ray offsetRay;
+};
+
+[Nested] struct PlatformXR::FrameData::TransientInputHitTestResult {
+    PlatformXR::InputSourceHandle inputSource;
+    Vector<PlatformXR::FrameData::HitTestResult> results;
+};
+#endif
+
 header: <WebCore/PlatformXR.h>
 [CustomHeader, RValue] struct PlatformXR::FrameData {
     bool isTrackingValid;
@@ -195,7 +262,12 @@ header: <WebCore/PlatformXR.h>
     PlatformXR::FrameData::StageParameters stageParameters;
     Vector<PlatformXR::FrameData::View> views;
     HashMap<PlatformXR::LayerHandle, UniqueRef<PlatformXR::FrameData::LayerData>> layers;
+#if ENABLE(WEBXR_HIT_TEST)
+    HashMap<PlatformXR::HitTestSource, Vector<PlatformXR::FrameData::HitTestResult>> hitTestResults;
+    HashMap<PlatformXR::TransientInputHitTestSource, Vector<PlatformXR::FrameData::TransientInputHitTestResult>> transientInputHitTestResults;
+#endif
     Vector<PlatformXR::FrameData::InputSource> inputSources;
+    PlatformXR::XREnvironmentBlendMode environmentBlendMode;
 };
 
 #if USE(OPENXR)

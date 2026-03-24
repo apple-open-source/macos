@@ -32,7 +32,7 @@ public:
     static JSTestConditional* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestConditional>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestConditional* ptr = new (NotNull, JSC::allocateCell<JSTestConditional>(vm)) JSTestConditional(structure, *globalObject, WTFMove(impl));
+        JSTestConditional* ptr = new (NotNull, JSC::allocateCell<JSTestConditional>(vm)) JSTestConditional(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

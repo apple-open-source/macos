@@ -146,7 +146,7 @@
 {
     if (RefPtr plugin = _pdfPlugin.get()) {
         if (auto coreObject = plugin->accessibilityCoreObject())
-            [coreObject->wrapper() accessibilityScroll:direction];
+            [coreObject->protectedWrapper() accessibilityScroll:direction];
     }
     return YES;
 }
@@ -165,7 +165,7 @@
             if (CheckedPtr existingCache = plugin->axObjectCache()) {
                 if (RefPtr object = existingCache->exportedGetOrCreate(activeAnnotation->protectedElement().get())) {
                 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-                    return [object->wrapper() accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
+                    return [object->protectedWrapper() accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
                 ALLOW_DEPRECATED_DECLARATIONS_END
                 }
             }
@@ -197,8 +197,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     RetainPtr<NSMutableArray> visiblePageElements = adoptNS([[NSMutableArray alloc] init]);
     for (id page in [self accessibilityChildren]) {
-        id focusedElement = [page accessibilityFocusedUIElement];
-        if (focusedElement)
+        if ([page accessibilityFocusedUIElement])
             [visiblePageElements addObject:page];
     }
     return visiblePageElements.autorelease();
@@ -212,7 +211,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (NSRect)accessibilityFrame
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    id accessibilityParent = [self accessibilityParent];
+    RetainPtr<id> accessibilityParent = [self accessibilityParent];
     NSSize size = [[accessibilityParent accessibilityAttributeValue:NSAccessibilitySizeAttribute] sizeValue];
     NSPoint origin = [[accessibilityParent accessibilityAttributeValue:NSAccessibilityPositionAttribute] pointValue];
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -226,11 +225,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         callOnMainRunLoopAndWait([protectedSelf] {
             if (CheckedPtr axObjectCache = protectedSelf->_pdfPlugin.get()->axObjectCache()) {
                 if (RefPtr pluginAxObject = axObjectCache->exportedGetOrCreate(RefPtr { protectedSelf->_pluginElement.get() }.get()))
-                    protectedSelf->_parent = pluginAxObject->wrapper();
+                    protectedSelf->_parent = pluginAxObject->protectedWrapper().get();
             }
         });
     }
-    return protectedSelf->_parent.get().unsafeGet();
+    return protectedSelf->_parent.getAutoreleased();
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -336,15 +335,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)setActiveAnnotation:(PDFAnnotation *)annotation
 {
     RefPtr plugin = _pdfPlugin.get();
-    plugin->setActiveAnnotation({ WTFMove(annotation) });
+    plugin->setActiveAnnotation({ WTF::move(annotation) });
 }
 
 - (id)accessibilityHitTest:(NSPoint)point
 {
     for (id element in [self accessibilityChildren]) {
-        id result = [element accessibilityHitTest:point];
-        if (result)
-            return result;
+        if (RetainPtr<id> result = [element accessibilityHitTest:point])
+            return result.autorelease();
     }
     return self;
 }

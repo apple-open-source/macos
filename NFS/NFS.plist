@@ -8,7 +8,7 @@
 	<string>600</string>
 	<key>TestSpecificLogs</key>
 	<array>
-		<string>/tmp/.*profraw</string>
+		<string>/tmp/coverage/.*profraw</string>
 	</array>
 	<key>Project</key>
 	<string>NFS</string>

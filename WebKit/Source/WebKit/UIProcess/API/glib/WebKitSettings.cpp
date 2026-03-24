@@ -4447,13 +4447,13 @@ gboolean webkit_settings_apply_from_key_file(WebKitSettings* settings, GKeyFile*
     }
 
     GUniqueOutPtr<GError> getKeysError;
-    auto allKeys = gKeyFileGetKeys(keyFile, groupName, getKeysError);
-    if (getKeysError) [[unlikely]] {
-        g_propagate_error(error, getKeysError.release());
+    auto allKeys = gKeyFileGetKeys(keyFile, CStringView::unsafeFromUTF8(groupName));
+    if (!allKeys) [[unlikely]] {
+        g_propagate_error(error, allKeys.error().release());
         return FALSE;
     }
 
-    for (const char* key : allKeys.span()) {
+    for (const char* key : allKeys->span()) {
         if (!g_ptr_array_find_with_equal_func(propertyNames.get(), static_cast<gconstpointer>(key), g_str_equal, nullptr)) {
             g_set_error(error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE, "The %s group contains an invalid setting: %s", groupName, key);
             return FALSE;

@@ -134,7 +134,7 @@ void JSTestGenerateIsReachablePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestGenerateIsReachable::s_info = { "TestGenerateIsReachable"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateIsReachable) };
 
 JSTestGenerateIsReachable::JSTestGenerateIsReachable(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestGenerateIsReachable>&& impl)
-    : JSDOMWrapper<TestGenerateIsReachable>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestGenerateIsReachable>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -256,7 +256,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestGenerateIsReachable>(impl.ptr());
 #endif
-    return createWrapper<TestGenerateIsReachable>(globalObject, WTFMove(impl));
+    return createWrapper<TestGenerateIsReachable>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestGenerateIsReachable& impl)

@@ -104,7 +104,7 @@ void WebExtensionAPITest::sendMessage(JSContextRef context, NSString *message, J
     if (!webExtensionControllerProxy)
         return;
 
-    WebProcess::singleton().send(Messages::WebExtensionController::TestSentMessage(message, argument._toSortedJSONString, location.first, location.second), webExtensionControllerProxy->identifier());
+    WebProcess::singleton().send(Messages::WebExtensionController::TestSentMessage(message, toSortedJSONString(context, argument.JSValueRef), location.first, location.second), webExtensionControllerProxy->identifier());
 }
 
 WebExtensionAPIEvent& WebExtensionAPITest::onMessage()
@@ -146,9 +146,15 @@ bool WebExtensionAPITest::isProcessingUserGesture()
 
 inline NSString *debugString(JSValue *value)
 {
-    if (value._isRegularExpression || value._isFunction)
-        return value.toString;
-    return value._toSortedJSONString ?: @"undefined";
+    JSGlobalContextRef contextRef = value.context.JSGlobalContextRef;
+    JSValueRef valueRef = value.JSValueRef;
+
+    if (isRegularExpression(contextRef, valueRef) || isFunction(contextRef, valueRef))
+        return toString(contextRef, valueRef).createNSString().get();
+    auto sortedJSON = toSortedJSONString(contextRef, valueRef);
+    if (!sortedJSON.isEmpty())
+        return sortedJSON.createNSString().get();
+    return @"undefined";
 }
 
 void WebExtensionAPITest::log(JSContextRef context, JSValue *value)
@@ -273,7 +279,10 @@ JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promi
     // Wrap in a native promise for consistency.
     promise = [JSValue valueWithNewPromiseResolvedWithResult:promise inContext:promise.context];
 
-    [promise _awaitThenableResolutionWithCompletionHandler:^(JSValue *result, JSValue *error) {
+    if (!isThenable(context, promise.JSValueRef))
+        return nil;
+
+    auto promiseHandler = ^(JSValue *result, JSValue *error) {
         if (result || !error) {
             assertEquals(context, false, expectedError ? debugString(expectedError) : @"(any error)", result ? debugString(result) : @"(no error)", combineMessages(message, @"Promise did not reject with an error"), nil);
             [rejectCallback callWithArguments:nil];
@@ -288,7 +297,7 @@ JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promi
             return;
         }
 
-        if (expectedError._isRegularExpression) {
+        if (isRegularExpression(context, expectedError.JSValueRef)) {
             JSValue *testResult = [expectedError invokeMethod:@"test" withArguments:@[ errorMessageValue ]];
             assertEquals(context, testResult.toBool, debugString(expectedError), debugString(errorMessageValue), combineMessages(message, @"Promise rejected with an error that didn't match the regular expression"), nil);
             [resolveCallback callWithArguments:nil];
@@ -297,7 +306,17 @@ JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promi
 
         assertEquals(context, [expectedError isEqualWithTypeCoercionToObject:errorMessageValue], debugString(expectedError), debugString(errorMessageValue), combineMessages(message, @"Promise rejected with an error that didn't equal"), nil);
         [resolveCallback callWithArguments:nil];
-    }];
+    };
+
+    [promise invokeMethod:@"then" withArguments:@[
+        ^(JSValue *result) {
+            promiseHandler(result, nil);
+        },
+
+        ^(JSValue *error) {
+            promiseHandler(nil, error);
+        },
+    ]];
 
     return resultPromise;
 }
@@ -312,7 +331,10 @@ JSValue *WebExtensionAPITest::assertResolves(JSContextRef context, JSValue *prom
     // Wrap in a native promise for consistency.
     promise = [JSValue valueWithNewPromiseResolvedWithResult:promise inContext:promise.context];
 
-    [promise _awaitThenableResolutionWithCompletionHandler:^(JSValue *result, JSValue *error) {
+    if (!isThenable(context, promise.JSValueRef))
+        return nil;
+
+    auto promiseHandler = ^(JSValue *result, JSValue *error) {
         if (!error) {
             succeed(context, @"Promise resolved without an error");
             [resolveCallback callWithArguments:@[ result ]];
@@ -323,7 +345,17 @@ JSValue *WebExtensionAPITest::assertResolves(JSContextRef context, JSValue *prom
         fail(context, combineMessages(message, adoptNS([[NSString alloc] initWithFormat:@"Promise rejected with an error: %@", debugString(errorMessageValue)]).get()));
 
         [resolveCallback callWithArguments:nil];
-    }];
+    };
+
+    [promise invokeMethod:@"then" withArguments:@[
+        ^(JSValue *result) {
+            promiseHandler(result, nil);
+        },
+
+        ^(JSValue *error) {
+            promiseHandler(nil, error);
+        },
+    ]];
 
     return resultPromise;
 }
@@ -348,7 +380,7 @@ void WebExtensionAPITest::assertThrows(JSContextRef context, JSValue *function, 
         return;
     }
 
-    if (expectedError._isRegularExpression) {
+    if (isRegularExpression(context, expectedError.JSValueRef)) {
         JSValue *testResult = [expectedError invokeMethod:@"test" withArguments:@[ exceptionMessageValue ]];
         assertEquals(context, testResult.toBool, debugString(expectedError), debugString(exceptionMessageValue), combineMessages(message, @"Function threw an exception that didn't match the regular expression"), outExceptionString);
         return;
@@ -379,7 +411,7 @@ JSValue *WebExtensionAPITest::assertSafe(JSContextRef context, JSValue *function
 JSValue *WebExtensionAPITest::assertSafeResolve(JSContextRef context, JSValue *function, NSString *message)
 {
     JSValue *result = assertSafe(context, function, message);
-    if (!result._isThenable)
+    if (!isThenable(context, function.JSValueRef))
         return result;
 
     return assertResolves(context, result, message);
@@ -484,10 +516,16 @@ void WebExtensionAPITest::startNextTest()
             m_runningTest = false;
     };
 
-    if (result._isThenable) {
-        [result _awaitThenableResolutionWithCompletionHandler:^(JSValue *result, JSValue *error) {
-            testComplete(result, error);
-        }];
+    if (isThenable(result.context.JSGlobalContextRef, result.JSValueRef)) {
+        auto resolveBlock = ^(JSValue *result) {
+            testComplete(result, nil);
+        };
+
+        auto rejectBlock = ^(JSValue *error) {
+            testComplete(nil, error);
+        };
+
+        [result invokeMethod:@"then" withArguments:@[ resolveBlock, rejectBlock ]];
     } else
         testComplete(result, test.testFunction.get().context.exception);
 }

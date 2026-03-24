@@ -41,8 +41,8 @@
 
 namespace WebKit {
 
-XPCServiceInitializerDelegate::XPCServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
-    : m_connection(WTFMove(connection))
+XPCServiceInitializerDelegate::XPCServiceInitializerDelegate(XPCObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+    : m_connection(WTF::move(connection))
     , m_initializerMessage(initializerMessage)
 {
 }
@@ -125,7 +125,7 @@ bool XPCServiceInitializerDelegate::getClientProcessName(String& clientProcessNa
 
 bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, String>& extraInitializationData)
 {
-    RetainPtr extraDataInitializationDataObject = xpc_dictionary_get_value(m_initializerMessage.get(), "extra-initialization-data");
+    XPCObjectPtr<xpc_object_t> extraDataInitializationDataObject = xpc_dictionary_get_value(m_initializerMessage.get(), "extra-initialization-data");
 
     auto inspectorProcess = xpcDictionaryGetString(extraDataInitializationDataObject.get(), "inspector-process"_s);
     if (!inspectorProcess.isEmpty())
@@ -133,10 +133,10 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
 
     auto serviceWorkerProcess = xpcDictionaryGetString(extraDataInitializationDataObject.get(), "service-worker-process"_s);
     if (!serviceWorkerProcess.isEmpty())
-        extraInitializationData.add("service-worker-process"_s, WTFMove(serviceWorkerProcess));
+        extraInitializationData.add("service-worker-process"_s, WTF::move(serviceWorkerProcess));
     auto registrableDomain = xpcDictionaryGetString(extraDataInitializationDataObject.get(), "registrable-domain"_s);
     if (!registrableDomain.isEmpty())
-        extraInitializationData.add("registrable-domain"_s, WTFMove(registrableDomain));
+        extraInitializationData.add("registrable-domain"_s, WTF::move(registrableDomain));
 
     auto isPrewarmedProcess = xpcDictionaryGetString(extraDataInitializationDataObject.get(), "is-prewarmed"_s);
     if (!isPrewarmedProcess.isEmpty())
@@ -178,7 +178,6 @@ bool XPCServiceInitializerDelegate::isClientSandboxed()
 void setOSTransaction(OSObjectPtr<os_transaction_t>&& transaction)
 {
     static NeverDestroyed<OSObjectPtr<os_transaction_t>> globalTransaction;
-    static NeverDestroyed<OSObjectPtr<dispatch_source_t>> globalSource;
 
     // Because we don't use RunningBoard on macOS, we leak an OS transaction to control the lifetime of our XPC
     // services ourselves. However, one of the side effects of leaking this transaction is that the default SIGTERM
@@ -186,16 +185,17 @@ void setOSTransaction(OSObjectPtr<os_transaction_t>&& transaction)
     // XPC_EXIT_REASON_SIGTERM_TIMEOUT as termination reason (rdar://88940229). To address the issue, we now set our
     // own SIGTERM handler that calls exitProcess(0). In the future, we should likely adopt RunningBoard on macOS and
     // control our lifetime via process assertions instead of leaking this OS transaction.
-    static dispatch_once_t flag;
-    dispatch_once(&flag, ^{
-        globalSource.get() = adoptOSObject(dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, mainDispatchQueueSingleton()));
-        dispatch_source_set_event_handler(globalSource.get().get(), ^{
+    static NeverDestroyed<OSObjectPtr<dispatch_source_t>> globalSource = [] {
+        auto globalSource = adoptOSObject(dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, mainDispatchQueueSingleton()));
+        dispatch_source_set_event_handler(globalSource.get(), ^{
             exitProcess(0);
         });
-        dispatch_resume(globalSource.get().get());
-    });
+        dispatch_resume(globalSource.get());
+        return globalSource;
+    }();
+    UNUSED_PARAM(globalSource);
 
-    globalTransaction.get() = WTFMove(transaction);
+    globalTransaction.get() = WTF::move(transaction);
 }
 #endif
 

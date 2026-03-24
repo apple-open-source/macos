@@ -100,7 +100,7 @@ auto Blending<OffsetRotate>::blend(const OffsetRotate& from, const OffsetRotate&
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 auto Evaluation<OffsetRotate, AcceleratedEffectOffsetRotate>::operator()(const OffsetRotate& value) -> AcceleratedEffectOffsetRotate
 {

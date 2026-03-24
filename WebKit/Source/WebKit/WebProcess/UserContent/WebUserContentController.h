@@ -67,6 +67,9 @@ public:
     void removeUserStyleSheets(InjectedBundleScriptWorld&);
     void removeAllUserContent();
 
+    bool hasBuffersForWorld(const WebCore::DOMWrapperWorld&) const final;
+    WebCore::WebKitBuffer* buffer(const WebCore::DOMWrapperWorld&, const String&) const final;
+
     InjectedBundleScriptWorld* worldForIdentifier(ContentWorldIdentifier);
 
     void addContentWorldIfNecessary(const ContentWorldData&);
@@ -105,6 +108,9 @@ private:
     void removeAllUserScriptMessageHandlersForWorlds(const Vector<ContentWorldIdentifier>&);
     void removeAllUserScriptMessageHandlers();
 
+    void addJSBuffer(WebJSBufferData&&);
+    void removeJSBuffer(ContentWorldIdentifier, const String&);
+
 #if ENABLE(CONTENT_EXTENSIONS)
     void removeContentRuleList(const String& name);
     void removeAllContentRuleLists();
@@ -134,6 +140,7 @@ private:
 #if ENABLE(CONTENT_EXTENSIONS)
     WebCore::ContentExtensions::ContentExtensionsBackend m_contentExtensionBackend;
 #endif
+    HashMap<ContentWorldIdentifier, HashMap<String, RefPtr<WebCore::WebKitBuffer>>> m_buffers;
 };
 
 } // namespace WebKit

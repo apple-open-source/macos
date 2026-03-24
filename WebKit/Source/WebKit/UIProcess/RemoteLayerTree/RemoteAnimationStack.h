@@ -25,38 +25,51 @@
 
 #pragma once
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include "RemoteAnimation.h"
 #include <WebCore/AcceleratedEffectValues.h>
 #include <WebCore/PlatformCAFilters.h>
 #include <WebCore/PlatformLayer.h>
+#include <WebCore/ScrollingNodeID.h>
+#include <wtf/JSONValues.h>
 #include <wtf/OptionSet.h>
-#include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
+
+#if PLATFORM(MAC)
+#include <wtf/RetainPtr.h>
 
 OBJC_CLASS CAPresentationModifierGroup;
 OBJC_CLASS CAPresentationModifier;
+#endif
 
 namespace WebKit {
 
 using RemoteAnimations = Vector<Ref<RemoteAnimation>>;
 
 class RemoteAnimationStack final : public RefCounted<RemoteAnimationStack> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RemoteAnimationStack);
+    WTF_MAKE_TZONE_ALLOCATED(RemoteAnimationStack);
 public:
     static Ref<RemoteAnimationStack> create(RemoteAnimations&&, WebCore::AcceleratedEffectValues&&, WebCore::FloatRect);
 
     bool isEmpty() const { return m_animations.isEmpty(); }
 
+    auto begin() const LIFETIME_BOUND { return m_animations.begin(); }
+    auto end() const LIFETIME_BOUND { return m_animations.end(); }
+
 #if PLATFORM(MAC)
     void initEffectsFromMainThread(PlatformLayer*);
-    void applyEffectsFromScrollingThread() const;
+    void applyEffects() const;
 #endif
 
     void applyEffectsFromMainThread(PlatformLayer*, bool backdropRootIsOpaque) const;
 
+    bool isDependentOnScrollingNodeWithID(WebCore::ScrollingNodeID) const;
+    bool isTimeDependent() const;
+
     void clear(PlatformLayer*);
+
+    Ref<JSON::Object> toJSONForTesting() const;
 
 private:
     explicit RemoteAnimationStack(RemoteAnimations&&, WebCore::AcceleratedEffectValues&&, WebCore::FloatRect);
@@ -89,4 +102,4 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

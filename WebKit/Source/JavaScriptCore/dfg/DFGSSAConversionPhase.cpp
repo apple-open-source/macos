@@ -459,7 +459,7 @@ public:
                 return node->stackAccessData()->format;
             });
 
-            m_graph.m_argumentFormats[entrypointIndex] = WTFMove(argumentFormats);
+            m_graph.m_argumentFormats[entrypointIndex] = WTF::move(argumentFormats);
         }
 
         m_graph.m_rootToArguments.clear();

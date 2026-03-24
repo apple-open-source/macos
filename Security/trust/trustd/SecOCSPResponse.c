@@ -259,19 +259,19 @@ static bool SecOCSPRevokedInfoParse(DERItem *revokedInfoBytes, SecOCSPSingleResp
     DERRevokedInfo revokedInfo;
 
     drtn = DERParseSequenceContentToObject(revokedInfoBytes, DERNumRevokedInfoItemSpecs, DERRevokedInfoItemSpecs, &revokedInfo, sizeof(revokedInfo), sizeof(revokedInfo));
-    require_noerr_action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse RevokedInfo"));
+    __Require_noErr_Action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse RevokedInfo"));
 
-    require_action(revokedInfo.revocationTime.data && revokedInfo.revocationTime.length > 0, badRevokedInfo,
+    __Require_Action(revokedInfo.revocationTime.data && revokedInfo.revocationTime.length > 0, badRevokedInfo,
                    ocspdErrorLog("RevokedInfo missing revocationTime"));
     CFErrorRef dateError = NULL;
     singleResponseObj->revokedTime = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, revokedInfo.revocationTime.data, revokedInfo.revocationTime.length, &dateError);
-    require_action(dateError == NULL, badRevokedInfo, ocspdErrorLog("failed to decode revocationTime: %@", dateError));
+    __Require_Action(dateError == NULL, badRevokedInfo, ocspdErrorLog("failed to decode revocationTime: %@", dateError));
 
     if (revokedInfo.revocationReason.data && revokedInfo.revocationReason.length > 0) {
         DERDecodedInfo revocationReason;
         drtn = DERDecodeItem(&revokedInfo.revocationReason, &revocationReason);
-        require_noerr_action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse revocation reason"));
-        require_action(revocationReason.tag == ASN1_ENUMERATED && revocationReason.content.length == 1, badRevokedInfo,
+        __Require_noErr_Action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse revocation reason"));
+        __Require_Action(revocationReason.tag == ASN1_ENUMERATED && revocationReason.content.length == 1, badRevokedInfo,
                        ocspdErrorLog("failed to parse revocation reason"));
         singleResponseObj->crlReason = revocationReason.content.data[0];
     }
@@ -293,23 +293,23 @@ badRevokedInfo:
 static bool SecOCSPCertStatusParse(DERItem *certStatusBytes, SecOCSPSingleResponseRef singleResponseObj)
 {
     bool result = false;
-    require_action(certStatusBytes->data && certStatusBytes->length > 0, badCertStatus, ocspdErrorLog("missing certStatus in SingleResponse"));
+    __Require_Action(certStatusBytes->data && certStatusBytes->length > 0, badCertStatus, ocspdErrorLog("missing certStatus in SingleResponse"));
 
     DERDecodedInfo decodedCertStatus;
     DERReturn drtn = DERDecodeItem(certStatusBytes, &decodedCertStatus);
-    require_noerr_action(drtn, badCertStatus, ocspdErrorLog("failed to decode certStatus in SingleResponse"));
+    __Require_noErr_Action(drtn, badCertStatus, ocspdErrorLog("failed to decode certStatus in SingleResponse"));
     switch (decodedCertStatus.tag) {
         case ASN1_CONTEXT_SPECIFIC | 0:
             singleResponseObj->certStatus = OCSPCertStatusGood;
-            require_action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Good certStatus content"));
+            __Require_Action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Good certStatus content"));
             break;
         case ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1:
             singleResponseObj->certStatus = OCSPCertStatusRevoked;
-            require(SecOCSPRevokedInfoParse(&decodedCertStatus.content, singleResponseObj), badCertStatus);
+            __Require(SecOCSPRevokedInfoParse(&decodedCertStatus.content, singleResponseObj), badCertStatus);
             break;
         case ASN1_CONTEXT_SPECIFIC | 2:
             singleResponseObj->certStatus = OCSPCertStatusUnknown;
-            require_action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Unknown certStatus content"));
+            __Require_Action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Unknown certStatus content"));
             break;
         default:
             ocspdErrorLog("Unknown cert status: %llu", decodedCertStatus.tag);
@@ -330,10 +330,10 @@ static bool SecOCSPNextUpdateParse(DERItem *nextUpdateBytes, SecOCSPSingleRespon
     DERReturn drtn = DR_GenericErr;
 
     drtn = DERDecodeItem(nextUpdateBytes, &decodedNextUpdate);
-    require_noerr(drtn, badNextUpdate);
-    require(decodedNextUpdate.tag == ASN1_GENERALIZED_TIME, badNextUpdate);
+    __Require_noErr(drtn, badNextUpdate);
+    __Require(decodedNextUpdate.tag == ASN1_GENERALIZED_TIME, badNextUpdate);
     singleResponseObj->nextUpdate = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, decodedNextUpdate.content.data, decodedNextUpdate.content.length, &dateError);
-    require(dateError == NULL, badNextUpdate);
+    __Require(dateError == NULL, badNextUpdate);
     return true;
 
 badNextUpdate:
@@ -383,7 +383,7 @@ static bool SecOCSPSingleExtensionsParse(DERItem *singleExtensionsBytes, SecOCSP
 static SecOCSPSingleResponseRef SecOCSPSingleResponseCreate(DER_OCSPSingleResponse *resp) {
 	assert(resp != NULL);
     SecOCSPSingleResponseRef this;
-    require(this = (SecOCSPSingleResponseRef)
+    __Require(this = (SecOCSPSingleResponseRef)
         calloc(1, sizeof(struct __SecOCSPSingleResponse)), badSingleResponse);
     this->certStatus = CS_NotParsed;
 	this->thisUpdate = NULL_TIME;
@@ -392,20 +392,20 @@ static SecOCSPSingleResponseRef SecOCSPSingleResponseCreate(DER_OCSPSingleRespon
 	this->crlReason = kSecRevocationReasonUndetermined;
     this->scts = NULL;
 
-    require(SecOCSPCertStatusParse(&resp->certStatus, this), badSingleResponse);
+    __Require(SecOCSPCertStatusParse(&resp->certStatus, this), badSingleResponse);
 
-    require_action(resp->thisUpdate.data && resp->thisUpdate.length > 0, badSingleResponse,
+    __Require_Action(resp->thisUpdate.data && resp->thisUpdate.length > 0, badSingleResponse,
                    ocspdErrorLog("SingleResponse missing thisUpdate"));
     CFErrorRef dateError = NULL;
     this->thisUpdate = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, resp->thisUpdate.data, resp->thisUpdate.length, &dateError);
-    require_action(dateError == NULL, badSingleResponse, ocspdErrorLog("failed to decode thisUpdate: %@", dateError));
+    __Require_Action(dateError == NULL, badSingleResponse, ocspdErrorLog("failed to decode thisUpdate: %@", dateError));
 
     if (resp->nextUpdate.data && resp->nextUpdate.length > 0) {
-        require(SecOCSPNextUpdateParse(&resp->nextUpdate, this), badSingleResponse);
+        __Require(SecOCSPNextUpdateParse(&resp->nextUpdate, this), badSingleResponse);
     }
 
     if (resp->singleExtensions.data && resp->singleExtensions.length > 0) {
-        require(SecOCSPSingleExtensionsParse(&resp->singleExtensions, this), badSingleResponse);
+        __Require(SecOCSPSingleExtensionsParse(&resp->singleExtensions, this), badSingleResponse);
     }
 
     ocspdDebug("status %d reason %d", (int)this->certStatus,
@@ -452,15 +452,15 @@ bool SecOCSPResponseForSingleResponse(SecOCSPResponseRef response, DERReturn (^o
         DERReturn innerDrtn = DERParseSequenceContentToObject(&singleResponse->certId,
                                                               DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
                                                               &certId, sizeof(certId), sizeof(certId));
-        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
+        __Require_noErr_Action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
 
         innerDrtn = DERParseSequenceContent(&certId.hashAlgorithm,
                                      DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                      &algId, sizeof(algId));
-        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
+        __Require_noErr_Action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
 
         if (singleResponse->singleExtensions.data && singleResponse->singleExtensions.length > 0) {
-            require_action(SecOCSPSingleExtensionsParse(&singleResponse->singleExtensions, sr), singleResponseCleanup, innerDrtn = DR_DecodeError; ocspdErrorLog("failed to parse single extensions"));
+            __Require_Action(SecOCSPSingleExtensionsParse(&singleResponse->singleExtensions, sr), singleResponseCleanup, innerDrtn = DR_DecodeError; ocspdErrorLog("failed to parse single extensions"));
         }
 
         innerDrtn = operation(sr, &certId, &algId, stop);
@@ -476,10 +476,16 @@ bool SecOCSPResponseForSingleResponse(SecOCSPResponseRef response, DERReturn (^o
 /* Calculate temporal validity; set latestNextUpdate and expireTime.
    Returns true if valid, else returns false. */
 bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
-    CFTimeInterval maxAge, CFTimeInterval defaultTTL, CFAbsoluteTime verifyTime)
+                                      CFTimeInterval maxAge,
+                                      CFTimeInterval defaultTTL,
+                                      CFAbsoluteTime verifyTime,
+                                      CFAbsoluteTime *thisThisUpdate)
 {
     bool ok = false;
 	this->latestNextUpdate = NULL_TIME;
+    if (thisThisUpdate) {
+        *thisThisUpdate = NULL_TIME;
+    }
 
     if (this->producedAt > verifyTime + TRUST_TIME_LEEWAY) {
         secnotice("ocsp", "OCSPResponse: producedAt more than 1:15 from now");
@@ -499,6 +505,9 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
             secnotice("ocsp","OCSPResponse: thisUpdate more than 1:15 from now");
             goto singleResponseCleanup;
         }
+        if (thisThisUpdate) {
+            *thisThisUpdate = sr->thisUpdate;
+        }
         if (singleResponse->nextUpdate.data && singleResponse->nextUpdate.length > 0) {
             if (sr->nextUpdate > this->latestNextUpdate) {
                 this->latestNextUpdate = sr->nextUpdate;
@@ -512,7 +521,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
         }
         return innerDrtn;
     });
-    require_action(ok, exit, ocspdErrorLog("failed to parse single responses"));
+    __Require_Action(ok, exit, ocspdErrorLog("failed to parse single responses"));
     ok = false;
 
     /* Now that we have this->latestNextUpdate, we figure out the latest
@@ -605,7 +614,7 @@ static bool SecOCSPResponseDataParseResponderId(DERItem *responderIdBytes, SecOC
     DERDecodedInfo responderId;
 
     drtn = DERDecodeItem(responderIdBytes, &responderId);
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId"));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId"));
     switch (responderId.tag) {
         case ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1: // byName
             responseObj->responderId.tag = responderId.tag;
@@ -617,9 +626,9 @@ static bool SecOCSPResponseDataParseResponderId(DERItem *responderIdBytes, SecOC
             responseObj->responderId.tag = responderId.tag;
             DERDecodedInfo key;
             drtn = DERDecodeItem(&responderId.content, &key);
-            require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId byKey"));
-            require_action(key.tag == ASN1_OCTET_STRING, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, wrong type"));
-            require_action(DERLengthOfItem(key.tag, key.content.length) == responderId.content.length, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, extra data"));
+            __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId byKey"));
+            __Require_Action(key.tag == ASN1_OCTET_STRING, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, wrong type"));
+            __Require_Action(DERLengthOfItem(key.tag, key.content.length) == responderId.content.length, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, extra data"));
             responseObj->responderId.content.data = key.content.data;
             responseObj->responderId.content.length = key.content.length;
             result = true;
@@ -639,33 +648,33 @@ static bool SecOCSPResponseDataParse(DERItem *responseDataBytes, SecOCSPResponse
     DER_OCSPResponseData *responseData = &responseObj->responseData;
 
     drtn = DERParseSequence(responseDataBytes, DERNumOCSPResponseDataItemSpecs, DER_OCSPResponseDataItemSpecs, responseData, sizeof(*responseData));
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponseData: %d", drtn));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse ResponseData: %d", drtn));
 
     // Version should not be present, but if present must be v1
     if (responseData->version.data && responseData->version.length > 0) {
         uint64_t version = 0;
         DERDecodedInfo decodedVersion;
         drtn = DERDecodeItem(&responseData->version, &decodedVersion);
-        require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
-        require_action(decodedVersion.tag == ASN1_INTEGER, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", DR_UnexpectedTag));
+        __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
+        __Require_Action(decodedVersion.tag == ASN1_INTEGER, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", DR_UnexpectedTag));
         drtn = DERParseInteger64(&decodedVersion.content, &version);
-        require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
-        require_action(version == 0, badResponse, ocspdErrorLog("ResponseData has unknown version: %llu", version));
+        __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
+        __Require_Action(version == 0, badResponse, ocspdErrorLog("ResponseData has unknown version: %llu", version));
     }
 
-    require(SecOCSPResponseDataParseResponderId(&responseData->responderId, responseObj), badResponse);
+    __Require(SecOCSPResponseDataParseResponderId(&responseData->responderId, responseObj), badResponse);
 
-    require_action(responseData->producedAt.data && responseData->producedAt.length > 0, badResponse,
+    __Require_Action(responseData->producedAt.data && responseData->producedAt.length > 0, badResponse,
                    ocspdErrorLog("ResponseData with missing producedAt"));
     CFErrorRef dateError = NULL;
     responseObj->producedAt = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, responseData->producedAt.data, responseData->producedAt.length, &dateError);
-    require_action(dateError == NULL, badResponse, ocspdErrorLog("failed to decode producedAt time: %@", dateError));
+    __Require_Action(dateError == NULL, badResponse, ocspdErrorLog("failed to decode producedAt time: %@", dateError));
 
     result = SecOCSPResponseForSingleResponse(responseObj, ^DERReturn(SecOCSPSingleResponseRef singleResponse, DER_OCSPCertID *certId, DERAlgorithmId *hashAlgorithm, bool *stop) {
         // Let the wrapper do the parsing and return a failure
         return DR_Success;
     });
-    require(result, badResponse);
+    __Require(result, badResponse);
 
     if (responseData->extensions.data && responseData->extensions.length > 0) {
         // We can use the single response extensions parser because we only care that a generic seq of extensions correctly parses
@@ -683,33 +692,33 @@ static bool SecBasicOCSPResponseParse(DERItem *basicResponseBytes, SecOCSPRespon
     DERBasicOCSPResponse *basicResponse = &responseObj->basicResponse;
 
     drtn = DERParseSequence(basicResponseBytes, DERNumBasicOCSPResponseItemSpecs, DERBasicOCSPResponseItemSpecs, basicResponse, sizeof(*basicResponse));
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse: %d", drtn));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse: %d", drtn));
 
     /* responseData */
-    require_action(basicResponse->responseData.data && basicResponse->responseData.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad responseData"));
+    __Require_Action(basicResponse->responseData.data && basicResponse->responseData.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad responseData"));
     result = SecOCSPResponseDataParse(&responseObj->basicResponse.responseData, responseObj);
-    require(result, badResponse);
+    __Require(result, badResponse);
 
     /* signatureAlgorithm */
     result = false;
-    require_action(basicResponse->signatureAlgorithm.data && basicResponse->signatureAlgorithm.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signatureAlgorithm"));
+    __Require_Action(basicResponse->signatureAlgorithm.data && basicResponse->signatureAlgorithm.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signatureAlgorithm"));
     DERAlgorithmId algorithm;
     drtn = DERParseSequenceContent(&basicResponse->signatureAlgorithm,
                                    DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                    &algorithm, sizeof(algorithm));
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signatureAlgorithm: %d", drtn));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signatureAlgorithm: %d", drtn));
 
     /* Signature */
-    require_action(basicResponse->signature.data && basicResponse->signature.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signature"));
+    __Require_Action(basicResponse->signature.data && basicResponse->signature.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signature"));
     DERItem signature;
     DERByte numUnusedBits;
     drtn = DERParseBitString(&basicResponse->signature, &signature, &numUnusedBits);
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signature: %d", drtn));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signature: %d", drtn));
 
     /* Certs */
     if (basicResponse->certs.data && basicResponse->certs.length > 0) {
         CFArrayRef certs = SecOCSPResponseCopySigners(responseObj);
-        require_action(certs, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse certs"));
+        __Require_Action(certs, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse certs"));
         CFReleaseNull(certs);
     }
 
@@ -726,10 +735,10 @@ static bool SecOCSPResponseBytesParse(DERItem *responseBytes, SecOCSPResponseRef
     DERReturn drtn = DR_GenericErr;
 
     drtn = DERParseSequence(responseBytes, DERNumOCSPResponseBytesItemSpecs, DER_OCSPResponseBytesItemSpecs, &responseBytesStr, sizeof(responseBytesStr));
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponseBytes: %d", drtn));
-    require_action(DEROidCompare(&responseBytesStr.responseType, &BasicOCSPResponse), badResponse,
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponseBytes: %d", drtn));
+    __Require_Action(DEROidCompare(&responseBytesStr.responseType, &BasicOCSPResponse), badResponse,
                    ocspdErrorLog("unknown responseType"));
-    require_action(responseBytesStr.response.data && responseBytesStr.response.length > 0, badResponse,
+    __Require_Action(responseBytesStr.response.data && responseBytesStr.response.length > 0, badResponse,
                    ocspdErrorLog("OCSPResponseBytes with missing response"));
     result = SecBasicOCSPResponseParse(&responseBytesStr.response, responseObj);
 
@@ -748,12 +757,12 @@ static bool SecOCSPResponseParse(CFDataRef ocspResponse, SecOCSPResponseRef resp
         .length = (DERSize)CFDataGetLength(ocspResponse)
     };
     drtn = DERParseSequence(&derResponse, DERNumOCSPResponseItemSpecs, DER_OCSPResponseItemSpecs, &responseStr, sizeof(responseStr));
-    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponse: %d", drtn));
-    require_action(responseStr.responseStatus.data && responseStr.responseStatus.length == 1, badResponse, ocspdErrorLog("OCSPResponse has missing/bad responseStatus"));
+    __Require_noErr_Action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponse: %d", drtn));
+    __Require_Action(responseStr.responseStatus.data && responseStr.responseStatus.length == 1, badResponse, ocspdErrorLog("OCSPResponse has missing/bad responseStatus"));
 
     responseObj->responseStatus = responseStr.responseStatus.data[0];
     if (responseObj->responseStatus == OCSPResponseStatusSuccessful) {
-        require_action(responseStr.responseBytes.data && responseStr.responseBytes.length > 0, badResponse, ocspdErrorLog("Successful OCSPResponse has missing/bad responseBytes"));
+        __Require_Action(responseStr.responseBytes.data && responseStr.responseBytes.length > 0, badResponse, ocspdErrorLog("Successful OCSPResponse has missing/bad responseBytes"));
         result = SecOCSPResponseBytesParse(&responseStr.responseBytes, responseObj);
     } else {
         // This is a useful object but only for the top-level status
@@ -768,15 +777,15 @@ badResponse:
 SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t responseID) {
     SecOCSPResponseRef this = NULL;
 
-    require(ocspResponse, errOut);
-    require(CFDataGetLength(ocspResponse) > 0, errOut);
-    require(this = (SecOCSPResponseRef)calloc(1, sizeof(struct __SecOCSPResponse)),
+    __Require(ocspResponse, errOut);
+    __Require(CFDataGetLength(ocspResponse) > 0, errOut);
+    __Require(this = (SecOCSPResponseRef)calloc(1, sizeof(struct __SecOCSPResponse)),
         errOut);
 
     this->data = CFRetainSafe(ocspResponse);
     this->responseID = responseID;
 
-    require(SecOCSPResponseParse(ocspResponse, this), errOut);
+    __Require(SecOCSPResponseParse(ocspResponse, this), errOut);
     return this;
 
 errOut:
@@ -829,8 +838,8 @@ CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef response) {
 
     DERDecodedInfo certsSeq;
     DERReturn drtn = DERDecodeItem(&response->basicResponse.certs, &certsSeq);
-    require_noerr_action(drtn, errOut, CFReleaseNull(result));
-    require_action(certsSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
+    __Require_noErr_Action(drtn, errOut, CFReleaseNull(result));
+    __Require_Action(certsSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
     if (certsSeq.content.length == 0) {
         // return an empty array if we received an empty sequence
         return result;
@@ -839,9 +848,9 @@ CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef response) {
         DERDecodedInfo certSeq;
         size_t certLen = 0;
         drtn = DERDecodeItemPartialBufferGetLength(&certsSeq.content, &certSeq, &certLen);
-        require_noerr_action(drtn, errOut, CFReleaseNull(result));
-        require_action(certSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
-        require_action(certsSeq.content.length >= DERLengthOfItem(ASN1_CONSTR_SEQUENCE, certLen), errOut, CFReleaseNull(result));
+        __Require_noErr_Action(drtn, errOut, CFReleaseNull(result));
+        __Require_Action(certSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
+        __Require_Action(certsSeq.content.length >= DERLengthOfItem(ASN1_CONSTR_SEQUENCE, certLen), errOut, CFReleaseNull(result));
         SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, certsSeq.content.data, (CFIndex)DERLengthOfItem(ASN1_CONSTR_SEQUENCE, certLen));
         if (!cert) {
             CFReleaseNull(result);
@@ -960,7 +969,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
         DERReturn innerDrtn = DERParseSequenceContentToObject(&singleResponse->certId,
                                                               DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
                                                               &certId, sizeof(certId), sizeof(certId));
-        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
+        __Require_noErr_Action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
 
         if (!serial || certId.serialNumber.length != (size_t)CFDataGetLength(serial) ||
             memcmp(CFDataGetBytePtr(serial), certId.serialNumber.data,
@@ -976,7 +985,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
             innerDrtn = DERParseSequenceContent(&certId.hashAlgorithm,
                                          DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                          &algId, sizeof(algId));
-            require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
+            __Require_noErr_Action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
 
             if (!DEROidCompare(&algId.oid, algorithm)) {
                 algorithm = &algId.oid;

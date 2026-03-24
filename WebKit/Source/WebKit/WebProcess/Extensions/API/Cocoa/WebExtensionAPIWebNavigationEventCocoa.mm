@@ -52,7 +52,9 @@ void WebExtensionAPIWebNavigationEvent::invokeListenersWithArgument(id argument,
         if (filter && ![filter matchesURL:targetURL])
             continue;
 
-        listener.first->call(argument);
+        Ref listenerRef = Ref { *listener.first };
+        auto globalContext = listenerRef->globalContext();
+        listenerRef->call(toJSValueRef(globalContext, argument));
     }
 }
 

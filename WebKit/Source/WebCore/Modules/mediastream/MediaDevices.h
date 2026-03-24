@@ -58,7 +58,7 @@ struct MediaTrackSupportedConstraints;
 template<typename IDLType> class DOMPromiseDeferred;
 
 class MediaDevices final : public RefCounted<MediaDevices>, public ActiveDOMObject, public EventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaDevices);
+    WTF_MAKE_TZONE_ALLOCATED(MediaDevices);
 public:
     static Ref<MediaDevices> create(Document&);
 
@@ -147,5 +147,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaDevices)
 
 #endif // ENABLE(MEDIA_STREAM)

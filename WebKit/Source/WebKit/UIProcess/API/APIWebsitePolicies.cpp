@@ -51,7 +51,7 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
     policies->setWebsiteDataStore(m_websiteDataStore.get());
     policies->setUserContentController(m_userContentController.get());
     policies->setLockdownModeEnabled(m_lockdownModeEnabled);
-    policies->setEnhancedSecurityEnabled(m_enhancedSecurityEnabled);
+    policies->setIsEnhancedSecurityEnabled(m_isEnhancedSecurityEnabled);
     return policies;
 }
 
@@ -64,12 +64,12 @@ RefPtr<WebKit::WebsiteDataStore> WebsitePolicies::protectedWebsiteDataStore() co
 
 void WebsitePolicies::setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&& websiteDataStore)
 {
-    m_websiteDataStore = WTFMove(websiteDataStore);
+    m_websiteDataStore = WTF::move(websiteDataStore);
 }
 
 void WebsitePolicies::setUserContentController(RefPtr<WebKit::WebUserContentControllerProxy>&& controller)
 {
-    m_userContentController = WTFMove(controller);
+    m_userContentController = WTF::move(controller);
 }
 
 WebKit::WebsitePoliciesData WebsitePolicies::dataForProcess(WebKit::WebProcessProxy& process) const
@@ -92,7 +92,7 @@ const WebCore::ResourceRequest& WebsitePolicies::alternateRequest() const
 
 void WebsitePolicies::setAlternateRequest(WebCore::ResourceRequest&& request)
 {
-    m_data.alternateRequest = WTFMove(request);
+    m_data.alternateRequest = WTF::move(request);
 }
 
 }

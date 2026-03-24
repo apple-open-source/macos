@@ -82,7 +82,7 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
         case GesturedEvent::Axis:
         {
             AxisEvent generatedEvent;
-            generatedEvent.phase = WebWheelEvent::Phase::PhaseChanged;
+            generatedEvent.phase = WebWheelEvent::Phase::Changed;
 
 #if WPE_CHECK_VERSION(1, 5, 0)
             generatedEvent.event.base = {
@@ -162,7 +162,7 @@ TouchGestureController::EventVariant TouchGestureController::handleEvent(const s
             m_gesturedEvent = GesturedEvent::None;
 
             AxisEvent generatedEvent;
-            generatedEvent.phase = WebWheelEvent::Phase::PhaseEnded;
+            generatedEvent.phase = WebWheelEvent::Phase::Ended;
 
 #if WPE_CHECK_VERSION(1, 5, 0)
             generatedEvent.event.base = {

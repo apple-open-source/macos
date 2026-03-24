@@ -27,7 +27,7 @@ index 98a8e84..538be23 100644
  # audio/mpa
  # audio/mpa-robust
  audio/mpeg					mpga mp2 mp2a mp3 m2a m3a
-@@ -1550,11 +1552,13 @@ image/gif					gif
+@@ -1550,12 +1552,14 @@ image/gif					gif
  image/ief					ief
  # image/jls
  # image/jp2
@@ -35,6 +35,7 @@ index 98a8e84..538be23 100644
  image/jpeg					jpeg jpg jpe
  # image/jpm
  # image/jpx
+ image/jxl					jxl
  image/ktx					ktx
  # image/naplps
 +image/pict					pict pic pct

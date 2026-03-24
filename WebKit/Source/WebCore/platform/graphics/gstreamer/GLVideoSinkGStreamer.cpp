@@ -69,11 +69,11 @@ static void initializeDMABufAvailability()
 {
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
-        if (!webkitGstCheckVersion(1, 20, 0))
+        if (!gst_check_version(1, 20, 0))
             return;
 
-        auto value = unsafeSpan(g_getenv("WEBKIT_GST_DMABUF_SINK_DISABLED"));
-        s_isDMABufDisabled = value.data() && (equalLettersIgnoringASCIICase(value, "true"_s) || equalLettersIgnoringASCIICase(value, "1"_s));
+        auto value = CStringView::unsafeFromUTF8(g_getenv("WEBKIT_GST_DMABUF_SINK_DISABLED"));
+        s_isDMABufDisabled = !value.isEmpty() && (equalLettersIgnoringASCIICase(value.span(), "true"_s) || equalLettersIgnoringASCIICase(value.span(), "1"_s));
         if (!s_isDMABufDisabled && !DRMDeviceManager::singleton().mainGBMDevice(DRMDeviceManager::NodeType::Render))
             s_isDMABufDisabled = true;
     });

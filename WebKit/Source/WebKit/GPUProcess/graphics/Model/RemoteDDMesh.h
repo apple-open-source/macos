@@ -63,7 +63,7 @@ class RemoteDDMesh final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteDDMesh> create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteGPU& gpu, WebCore::DDModel::DDMesh& mesh, DDModel::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, DDModelIdentifier identifier)
     {
-        return adoptRef(*new RemoteDDMesh(gpuConnectionToWebProcess, gpu, mesh, objectHeap, WTFMove(streamConnection), identifier));
+        return adoptRef(*new RemoteDDMesh(gpuConnectionToWebProcess, gpu, mesh, objectHeap, WTF::move(streamConnection), identifier));
     }
 
     virtual ~RemoteDDMesh();
@@ -91,12 +91,12 @@ private:
     void destruct();
 
     void setLabel(String&&);
-    void addMesh(const WebCore::DDModel::DDMeshDescriptor&);
     void update(const WebCore::DDModel::DDUpdateMeshDescriptor&);
-    void addTexture(const WebCore::DDModel::DDTextureDescriptor&);
     void updateTexture(const WebCore::DDModel::DDUpdateTextureDescriptor&);
-    void addMaterial(const WebCore::DDModel::DDMaterialDescriptor&);
     void updateMaterial(const WebCore::DDModel::DDUpdateMaterialDescriptor&);
+    void updateTransform(const WebCore::DDModel::DDFloat4x4& transform);
+    void setCameraDistance(float);
+    void play(bool);
 
     void render();
 

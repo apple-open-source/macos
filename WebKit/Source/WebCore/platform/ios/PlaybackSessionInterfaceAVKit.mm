@@ -214,14 +214,14 @@ Ref<PlaybackSessionInterfaceAVKit> PlaybackSessionInterfaceAVKit::create(Playbac
     return interface;
 }
 
-static NowPlayingMetadataObserver nowPlayingMetadataObserver(PlaybackSessionInterfaceAVKit& interface)
+static Ref<NowPlayingMetadataObserver> nowPlayingMetadataObserver(PlaybackSessionInterfaceAVKit& interface)
 {
-    return {
+    return NowPlayingMetadataObserver::create({
         [weakInterface = WeakPtr { interface }](auto& metadata) {
             if (RefPtr interface = weakInterface.get())
                 interface->nowPlayingMetadataChanged(metadata);
         }
-    };
+    });
 }
 
 PlaybackSessionInterfaceAVKit::PlaybackSessionInterfaceAVKit(PlaybackSessionModel& model)

@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 BALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -268,7 +270,7 @@ BEXPORT void forceEnablePGM(uint16_t guardMallocRate);
 #if BENABLE(MALLOC_SIZE)
 inline size_t mallocSize(const void* object)
 {
-    if (auto* systemHeap = SystemHeap::tryGet())
+    if (auto* systemHeap = SystemHeap::tryGetIfShouldSupplantBmalloc())
         return systemHeap->mallocSize(object);
     return bmalloc_get_allocation_size(const_cast<void*>(object));
 }
@@ -277,7 +279,7 @@ inline size_t mallocSize(const void* object)
 #if BENABLE(MALLOC_GOOD_SIZE)
 inline size_t mallocGoodSize(size_t size)
 {
-    if (auto* systemHeap = SystemHeap::tryGet())
+    if (auto* systemHeap = SystemHeap::tryGetIfShouldSupplantBmalloc())
         return systemHeap->mallocGoodSize(size);
     return size;
 }
@@ -287,3 +289,5 @@ inline size_t mallocGoodSize(size_t size)
 } // namespace bmalloc
 
 BALLOW_UNSAFE_BUFFER_USAGE_END
+
+#endif // __cplusplus

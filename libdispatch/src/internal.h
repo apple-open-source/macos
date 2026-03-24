@@ -219,10 +219,12 @@ upcast(dispatch_object_t dou)
 #endif // __OBJC__
 
 #include <os/object.h>
+#if HAVE_MACH
 #include <os/workgroup_base.h>
 #include <os/workgroup_object.h>
 #include <os/workgroup_interval.h>
 #include <os/workgroup_parallel.h>
+#endif
 #include <dispatch/time.h>
 #include <dispatch/object.h>
 #include <dispatch/queue.h>
@@ -240,15 +242,19 @@ upcast(dispatch_object_t dou)
 #include <pthread.h>
 #endif
 #include "os/object_private.h"
+#if HAVE_MACH
 #include "os/eventlink_private.h"
 #include "os/workgroup_object_private.h"
 #include "os/workgroup_interval_private.h"
+#endif
 #include "apply_private.h"
 #include "queue_private.h"
 #include "channel_private.h"
 #include "workloop_private.h"
 #include "source_private.h"
+#if HAVE_MACH
 #include "mach_private.h"
+#endif
 #include "data_private.h"
 #include "time_private.h"
 #include "swift_concurrency_private.h"
@@ -667,10 +673,14 @@ void _dispatch_call_block_and_release(void *block);
 bool _dispatch_parse_bool(const char *v);
 bool _dispatch_getenv_bool(const char *env, bool default_v);
 void _dispatch_temporary_resource_shortage(void);
+#ifdef __APPLE__
 #if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 void *_dispatch_calloc_typed(size_t num_items, size_t size, malloc_type_id_t type_id);
 #endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 void *_dispatch_calloc(size_t num_items, size_t size) _MALLOC_TYPED(_dispatch_calloc_typed, 2);
+#else
+void *_dispatch_calloc(size_t num_items, size_t size);
+#endif
 const char *_dispatch_strdup_if_mutable(const char *str);
 void _dispatch_vtable_init(void);
 char *_dispatch_get_build(void);
@@ -765,6 +775,7 @@ _dispatch_fork_becomes_unsafe(void)
 #ifndef DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
 #if DISPATCH_MIN_REQUIRED_OSX_AT_LEAST(150000)
 #define DISPATCH_SUPPORTS_THREAD_BOUND_KQWL 1
+#define DISPATCH_MAX_THREAD_BOUND_KQWL 4
 #else
 #define DISPATCH_SUPPORTS_THREAD_BOUND_KQWL 0
 #endif
@@ -1181,9 +1192,7 @@ extern bool _dispatch_kevent_workqueue_enabled;
 #endif // DISPATCH_USE_KEVENT_WORKQUEUE
 
 #if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
-extern bool _dispatch_thread_bound_kqwl_enabled;
-#else
-#define _dispatch_thread_bound_kqwl_enabled (0)
+extern int _dispatch_thread_bound_kqwl_count;
 #endif // DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
 
 #if DISPATCH_USE_KEVENT_WORKLOOP
@@ -1194,8 +1203,10 @@ extern bool _dispatch_thread_bound_kqwl_enabled;
 
 /* #includes dependent on internal.h */
 #include "object_internal.h"
+#if HAVE_MACH
 #include "workgroup_internal.h"
 #include "eventlink_internal.h"
+#endif
 #include "semaphore_internal.h"
 #include "introspection_internal.h"
 #include "queue_internal.h"

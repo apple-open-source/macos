@@ -113,18 +113,18 @@ readboot(struct bootblock *boot, check_context *context)
 	boot->ValidFat = -1;
 
 	/* decode bios parameter block */
-	boot->BytesPerSec = block[11] + (block[12] << 8);
+	boot->BytesPerSec = block[11] + ((uint32_t)block[12] << 8);
 	boot->SecPerClust = block[13];
-	boot->ResSectors = block[14] + (block[15] << 8);
+	boot->ResSectors = block[14] + ((uint32_t)block[15] << 8);
 	boot->FATs = block[16];
-	boot->RootDirEnts = block[17] + (block[18] << 8);
-	boot->Sectors = block[19] + (block[20] << 8);
+	boot->RootDirEnts = block[17] + ((uint32_t)block[18] << 8);
+	boot->Sectors = block[19] + ((uint32_t)block[20] << 8);
 	boot->Media = block[21];
-	boot->FATsmall = block[22] + (block[23] << 8);
-	boot->SecPerTrack = block[24] + (block[25] << 8);
-	boot->Heads = block[26] + (block[27] << 8);
-	boot->HiddenSecs = block[28] + (block[29] << 8) + (block[30] << 16) + (block[31] << 24);
-	boot->HugeSectors = block[32] + (block[33] << 8) + (block[34] << 16) + (block[35] << 24);
+	boot->FATsmall = block[22] + ((uint32_t)block[23] << 8);
+	boot->SecPerTrack = block[24] + ((uint32_t)block[25] << 8);
+	boot->Heads = block[26] + ((uint32_t)block[27] << 8);
+	boot->HiddenSecs = block[28] + ((uint32_t)block[29] << 8) + ((uint32_t)block[30] << 16) + ((uint32_t)block[31] << 24);
+	boot->HugeSectors = block[32] + ((uint32_t)block[33] << 8) + ((uint32_t)block[34] << 16) + ((uint32_t)block[35] << 24);
 
 	boot->FATsecs = boot->FATsmall;
 	boot->ClusterSize = boot->BytesPerSec * boot->SecPerClust;
@@ -157,8 +157,8 @@ readboot(struct bootblock *boot, check_context *context)
         boot->flags |= FAT32;
     }
 	if (boot->flags & FAT32) {
-		boot->FATsecs = block[36] + (block[37] << 8)
-				+ (block[38] << 16) + (block[39] << 24);
+		boot->FATsecs = block[36] + ((uint32_t)block[37] << 8)
+				+ ((uint32_t)block[38] << 16) + ((uint32_t)block[39] << 24);
 
 		if (block[40] & 0x80)
 			boot->ValidFat = block[40] & 0x0f;
@@ -170,10 +170,10 @@ readboot(struct bootblock *boot, check_context *context)
 			       block[43], block[42]);
 			return FSFATAL;
 		}
-		boot->RootCl = block[44] + (block[45] << 8)
-			       + (block[46] << 16) + (block[47] << 24);
-		boot->FSInfo = block[48] + (block[49] << 8);
-		boot->Backup = block[50] + (block[51] << 8);
+		boot->RootCl = block[44] + ((uint32_t)block[45] << 8)
+			       + ((uint32_t)block[46] << 16) + ((uint32_t)block[47] << 24);
+		boot->FSInfo = block[48] + ((uint32_t)block[49] << 8);
+		boot->Backup = block[50] + ((uint32_t)block[51] << 8);
 
         if (context->readHelper(context->resource, fsinfo, boot->BytesPerSec, boot->FSInfo * boot->BytesPerSec) != boot->BytesPerSec) {
             fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read fsinfo block", strerror(errno));
@@ -212,12 +212,12 @@ readboot(struct bootblock *boot, check_context *context)
 			}
 		}
 		if (boot->FSInfo) {
-			boot->FSFree = fsinfo[0x1e8] + (fsinfo[0x1e9] << 8)
-				       + (fsinfo[0x1ea] << 16)
-				       + (fsinfo[0x1eb] << 24);
-			boot->FSNext = fsinfo[0x1ec] + (fsinfo[0x1ed] << 8)
-				       + (fsinfo[0x1ee] << 16)
-				       + (fsinfo[0x1ef] << 24);
+			boot->FSFree = fsinfo[0x1e8] + ((uint32_t)fsinfo[0x1e9] << 8)
+				       + ((uint32_t)fsinfo[0x1ea] << 16)
+				       + ((uint32_t)fsinfo[0x1eb] << 24);
+			boot->FSNext = fsinfo[0x1ec] + ((uint32_t)fsinfo[0x1ed] << 8)
+				       + ((uint32_t)fsinfo[0x1ee] << 16)
+				       + ((uint32_t)fsinfo[0x1ef] << 24);
 		}
 	}
 
@@ -239,7 +239,7 @@ readboot(struct bootblock *boot, check_context *context)
 		boot->NumSectors = boot->HugeSectors;
 	} else {
 		boot->NumSectors = 0;
-		u_int64_t SuperHugeSectors = (block[66] != 0x29)? 0 : (uint64_t) block[82] + ((uint64_t) block[83] << 8) + ((uint64_t) block[84] << 16) + ((uint64_t) block[85] << 24) + ((uint64_t) block[86]<<32) + ((uint64_t) block[87] << 40) + ((uint64_t) block[88] << 48) + ((uint64_t) block[89] << 54);
+		u_int64_t SuperHugeSectors = (block[66] != 0x29)? 0 : (uint64_t) block[82] + ((uint64_t) block[83] << 8) + ((uint64_t) block[84] << 16) + ((uint64_t) block[85] << 24) + ((uint64_t) block[86]<<32) + ((uint64_t) block[87] << 40) + ((uint64_t) block[88] << 48) + ((uint64_t) block[89] << 56);
 		if (SuperHugeSectors != 0) {
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: Encountered special FAT where total sector location is 64bit. Not Supported \n");
 		} else {

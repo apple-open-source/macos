@@ -12,6 +12,7 @@
 /Volumes	Volumes
 /cores	cores
 /opt	opt
+/pkg	pkg
 /private	private
 /usr/local	usr/local
 /usr/libexec/cups	usr/libexec/cups

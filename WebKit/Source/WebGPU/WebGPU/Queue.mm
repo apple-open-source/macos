@@ -36,7 +36,10 @@
 #import "Texture.h"
 #import "TextureView.h"
 #if ENABLE(WEBGPU_SWIFT)
-#import "WebGPUSwiftInternal.h"
+#import "CxxBridging.h"
+#import <WebGPU/CxxBridgingPublic.h>
+#import <WebGPU/WGPUTextureImpl.h>
+#import "WebGPUSwift-Generated.h"
 #endif
 #import <simd/simd.h>
 #import <wtf/CheckedArithmetic.h>
@@ -191,14 +194,14 @@ void Queue::onSubmittedWorkDone(CompletionHandler<void(WGPUQueueWorkDoneStatus)>
     finalizeBlitCommandEncoder();
 
     if (isIdle()) {
-        scheduleWork([callback = WTFMove(callback)]() mutable {
+        scheduleWork([callback = WTF::move(callback)]() mutable {
             callback(WGPUQueueWorkDoneStatus_Success);
         });
         return;
     }
 
     auto& callbacks = m_onSubmittedWorkDoneCallbacks.add(m_submittedCommandBufferCount, OnSubmittedWorkDoneCallbacks()).iterator->value;
-    callbacks.append(WTFMove(callback));
+    callbacks.append(WTF::move(callback));
 }
 
 void Queue::onSubmittedWorkScheduled(Function<void()>&& completionHandler)
@@ -213,14 +216,14 @@ void Queue::onSubmittedWorkScheduled(Function<void()>&& completionHandler)
     finalizeBlitCommandEncoder();
 
     if (isSchedulingIdle()) {
-        scheduleWork([completionHandler = WTFMove(completionHandler)]() mutable {
+        scheduleWork([completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler();
         });
         return;
     }
 
     auto& callbacks = m_onSubmittedWorkScheduledCallbacks.add(m_submittedCommandBufferCount, OnSubmittedWorkScheduledCallbacks()).iterator->value;
-    callbacks.append(WTFMove(completionHandler));
+    callbacks.append(WTF::move(completionHandler));
 }
 
 NSString* Queue::errorValidatingSubmit(const Vector<Ref<WebGPU::CommandBuffer>>& commands) const
@@ -356,7 +359,7 @@ void Queue::submit(Vector<Ref<WebGPU::CommandBuffer>>&& commands)
     // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-submit
     if (NSString* error = errorValidatingSubmit(commands)) {
         device->generateAValidationError(error ?: @"Validation failure.");
-        return invalidateCommandBuffers(WTFMove(commands), ^(CommandBuffer& command) {
+        return invalidateCommandBuffers(WTF::move(commands), ^(CommandBuffer& command) {
             command.makeInvalid(command.lastError() ?: error);
         });
     }
@@ -376,7 +379,7 @@ void Queue::submit(Vector<Ref<WebGPU::CommandBuffer>>&& commands)
         }
     }
 
-    invalidateCommandBuffers(WTFMove(commands), ^(CommandBuffer& command) {
+    invalidateCommandBuffers(WTF::move(commands), ^(CommandBuffer& command) {
         validationError ? command.makeInvalid(command.lastError() ?: validationError) : command.makeInvalidDueToCommit(@"command buffer was submitted");
     });
     if (validationError) {
@@ -1234,7 +1237,7 @@ void Queue::setLabel(String&& label)
 void Queue::scheduleWork(Instance::WorkItem&& workItem)
 {
     if (auto instance = m_instance.get())
-        instance->scheduleWork(WTFMove(workItem));
+        instance->scheduleWork(WTF::move(workItem));
 }
 
 void Queue::clearTextureViewIfNeeded(TextureView& textureView)
@@ -1299,7 +1302,7 @@ void wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, WGPUQueueWorkDoneCallback cal
 
 void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, WGPUQueueWorkDoneBlockCallback callback)
 {
-    WebGPU::protectedFromAPI(queue)->onSubmittedWorkDone([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUQueueWorkDoneStatus status) {
+    WebGPU::protectedFromAPI(queue)->onSubmittedWorkDone([callback = WebGPU::fromAPI(WTF::move(callback))](WGPUQueueWorkDoneStatus status) {
         callback(status);
     });
 }
@@ -1309,7 +1312,7 @@ void wgpuQueueSubmit(WGPUQueue queue, size_t commandCount, const WGPUCommandBuff
     Vector<Ref<WebGPU::CommandBuffer>> commandsToForward;
     for (auto& command : unsafeMakeSpan(commands, commandCount))
         commandsToForward.append(WebGPU::protectedFromAPI(command));
-    WebGPU::protectedFromAPI(queue)->submit(WTFMove(commandsToForward));
+    WebGPU::protectedFromAPI(queue)->submit(WTF::move(commandsToForward));
 }
 
 void wgpuQueueWriteBuffer(WGPUQueue queue, WGPUBuffer buffer, uint64_t bufferOffset, std::span<uint8_t> data)

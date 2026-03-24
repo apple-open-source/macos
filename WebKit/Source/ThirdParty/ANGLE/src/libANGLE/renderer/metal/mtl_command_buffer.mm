@@ -1898,8 +1898,10 @@ RenderCommandEncoder &RenderCommandEncoder::setScissorRect(const MTLScissorRect 
         clampedRect.x      = (NSUInteger)roundf(adjustedOrigin.x);
         clampedRect.y      = (NSUInteger)roundf(adjustedOrigin.y);
         MTLSize screenSize = [map screenSize];
-        clampedRect.width  = std::min(screenSize.width, static_cast<NSUInteger>(roundf(adjustedSize.x)));
-        clampedRect.height = std::min(screenSize.height, static_cast<NSUInteger>(roundf(adjustedSize.y)));
+        clampedRect.width =
+            std::min(screenSize.width, static_cast<NSUInteger>(roundf(adjustedSize.x)));
+        clampedRect.height =
+            std::min(screenSize.height, static_cast<NSUInteger>(roundf(adjustedSize.y)));
     }
 
     mCommands.push(CmdType::SetScissorRect).push(clampedRect);

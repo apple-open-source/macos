@@ -79,16 +79,16 @@ const Vector<FourCC>& CDMPrivateFairPlayStreaming::validFairPlayStreamingSchemes
     return validSchemes;
 }
 
-const AtomString& CDMPrivateFairPlayStreaming::sinfName()
+const String& CDMPrivateFairPlayStreaming::sinfName()
 {
-    static MainThreadNeverDestroyed<const AtomString> sinf { MAKE_STATIC_STRING_IMPL("sinf") };
-    return sinf;
+    static NeverDestroyed<const String> staticSinfName(MAKE_STATIC_STRING_IMPL("sinf"));
+    return staticSinfName;
 }
 
-const AtomString& CDMPrivateFairPlayStreaming::skdName()
+const String& CDMPrivateFairPlayStreaming::skdName()
 {
-    static MainThreadNeverDestroyed<const AtomString> skd { MAKE_STATIC_STRING_IMPL("skd") };
-    return skd;
+    static NeverDestroyed<const String> staticSkdName(MAKE_STATIC_STRING_IMPL("skd"));
+    return staticSkdName;
 }
 
 static Vector<Ref<SharedBuffer>> extractSinfData(const SharedBuffer& buffer)
@@ -118,7 +118,7 @@ static Vector<Ref<SharedBuffer>> extractSinfData(const SharedBuffer& buffer)
         if (!sinfData)
             return nullptr;
 
-        return SharedBuffer::create(WTFMove(*sinfData));
+        return SharedBuffer::create(WTF::move(*sinfData));
     });
 }
 
@@ -163,7 +163,7 @@ static SchemeAndKeyResult extractSchemeAndKeyIdFromSinf(const SharedBuffer& buff
             offset += boxSize;
         }
         if (scheme && keyID)
-            result.append(std::make_pair(scheme.value(), WTFMove(keyID.value())));
+            result.append(std::make_pair(scheme.value(), WTF::move(keyID.value())));
     }
 
     return result;
@@ -178,7 +178,7 @@ std::optional<Vector<Ref<SharedBuffer>>> CDMPrivateFairPlayStreaming::extractKey
 
     for (auto& result : results) {
         if (validFairPlayStreamingSchemes().contains(result.first))
-            keyIDs.append(SharedBuffer::create(WTFMove(result.second)));
+            keyIDs.append(SharedBuffer::create(WTF::move(result.second)));
     }
 
     return keyIDs;
@@ -206,10 +206,10 @@ std::optional<Vector<Ref<SharedBuffer>>> CDMPrivateFairPlayStreaming::extractKey
 }
 
 #if HAVE(FAIRPLAYSTREAMING_MTPS_INITDATA)
-const AtomString& CDMPrivateFairPlayStreaming::mptsName()
+const String& CDMPrivateFairPlayStreaming::mptsName()
 {
-    static MainThreadNeverDestroyed<const AtomString> mpts { MAKE_STATIC_STRING_IMPL("mpts") };
-    return mpts;
+    static NeverDestroyed<const String> staticMptsName(MAKE_STATIC_STRING_IMPL("mpts"));
+    return staticMptsName;
 }
 
 std::optional<Vector<Ref<SharedBuffer>>> CDMPrivateFairPlayStreaming::extractKeyIDsMpts(const SharedBuffer& buffer)
@@ -256,9 +256,9 @@ const Vector<Ref<SharedBuffer>>& CDMPrivateFairPlayStreaming::mptsKeyIDs() {
 }
 #endif
 
-static const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& validInitDataTypes()
+static const MemoryCompactLookupOnlyRobinHoodHashSet<String>& validInitDataTypes()
 {
-    static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>> validTypes(std::initializer_list<AtomString> {
+    static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<String>> validTypes(std::initializer_list<String> {
         CDMPrivateFairPlayStreaming::sinfName(),
         CDMPrivateFairPlayStreaming::skdName(),
 #if HAVE(FAIRPLAYSTREAMING_CENC_INITDATA)
@@ -271,10 +271,10 @@ static const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& validInitDataT
     return validTypes;
 }
 
-void CDMFactory::platformRegisterFactories(Vector<CDMFactory*>& factories)
+void CDMFactory::platformRegisterFactories(Vector<WeakRef<CDMFactory>>& factories)
 {
-    factories.append(&CDMFactoryClearKey::singleton());
-    factories.append(&CDMFactoryFairPlayStreaming::singleton());
+    factories.append(CDMFactoryClearKey::singleton());
+    factories.append(CDMFactoryFairPlayStreaming::singleton());
 
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
@@ -320,14 +320,14 @@ CDMPrivateFairPlayStreaming::CDMPrivateFairPlayStreaming(const String& mediaKeys
 
 CDMPrivateFairPlayStreaming::~CDMPrivateFairPlayStreaming() = default;
 
-Vector<AtomString> CDMPrivateFairPlayStreaming::supportedInitDataTypes() const
+Vector<String> CDMPrivateFairPlayStreaming::supportedInitDataTypes() const
 {
     return copyToVector(validInitDataTypes());
 }
 
 bool CDMPrivateFairPlayStreaming::supportsConfiguration(const CDMKeySystemConfiguration& configuration) const
 {
-    if (!std::ranges::any_of(configuration.initDataTypes, [](auto& initDataType) { return validInitDataTypes().contains(initDataType); })) {
+    if (std::ranges::none_of(configuration.initDataTypes, [](auto& initDataType) { return validInitDataTypes().contains(initDataType); })) {
         INFO_LOG(LOGIDENTIFIER, " false, no initDataType supported");
         return false;
     }
@@ -352,13 +352,13 @@ bool CDMPrivateFairPlayStreaming::supportsConfiguration(const CDMKeySystemConfig
     }
 
     if (!configuration.audioCapabilities.isEmpty()
-        && !std::ranges::any_of(configuration.audioCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
+        && std::ranges::none_of(configuration.audioCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
         INFO_LOG(LOGIDENTIFIER, "false, no audio configuration supported");
         return false;
     }
 
     if (!configuration.videoCapabilities.isEmpty()
-        && !std::ranges::any_of(configuration.videoCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
+        && std::ranges::none_of(configuration.videoCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
             INFO_LOG(LOGIDENTIFIER, "false, no video configuration supported");
         return false;
     }
@@ -399,10 +399,10 @@ bool CDMPrivateFairPlayStreaming::supportsSessionTypeWithConfiguration(const CDM
     return supportsConfiguration(configuration);
 }
 
-Vector<AtomString> CDMPrivateFairPlayStreaming::supportedRobustnesses() const
+Vector<String> CDMPrivateFairPlayStreaming::supportedRobustnesses() const
 {
     // FIXME: Determine an enumerated list of robustness values supported by FPS.
-    return { emptyAtom() };
+    return { emptyString() };
 }
 
 CDMRequirement CDMPrivateFairPlayStreaming::distinctiveIdentifiersRequirement(const CDMKeySystemConfiguration&, const CDMRestrictions&) const
@@ -424,7 +424,7 @@ bool CDMPrivateFairPlayStreaming::distinctiveIdentifiersAreUniquePerOriginAndCle
 RefPtr<CDMInstance> CDMPrivateFairPlayStreaming::createInstance()
 {
 #if HAVE(AVCONTENTKEYSESSION)
-    auto instance = adoptRef(new CDMInstanceFairPlayStreamingAVFObjC(*this));
+    auto instance = CDMInstanceFairPlayStreamingAVFObjC::create(*this);
 #if !RELEASE_LOG_DISABLED
     instance->setLogIdentifier(m_logIdentifier);
 #endif
@@ -448,7 +448,7 @@ bool CDMPrivateFairPlayStreaming::supportsSessions() const
     return true;
 }
 
-bool CDMPrivateFairPlayStreaming::supportsInitData(const AtomString& initDataType, const SharedBuffer& initData) const
+bool CDMPrivateFairPlayStreaming::supportsInitData(const String& initDataType, const SharedBuffer& initData) const
 {
     if (!validInitDataTypes().contains(initDataType))
         return false;

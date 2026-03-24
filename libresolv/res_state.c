@@ -63,6 +63,8 @@
 #undef _res
 
 #ifdef __APPLE__
+#include "dns_private.h"
+
 /*
  * On Apple systems, the main thread's __res_state should come from libSystem to
  * avoid breaking compatibility with older binaries.
@@ -121,28 +123,36 @@ res_check_reload(res_state statp)
 	}
 
 	ext = statp->_u._ext.ext;
+#ifdef __APPLE__
+	if (ext != NULL && ext->conf_sys_notify_token != -1) {
+		/*
+		 * If we pulled our configuration from System Configuration,
+		 * then we listen for notifications of state change for reloads
+		 * rather than checking the mtime of /etc/resolv.conf.  We close
+		 * the token as soon as we noticed that it changed to simplify
+		 * reinit logic.
+		 */
+		if (_dns_check_sys_config_notify(ext->conf_sys_notify_token) > 0) {
+			_dns_close_sys_config_notify(&ext->conf_sys_notify_token);
+			statp->options &= ~RES_INIT;
+		}
+
+		return (statp);
+	}
+#endif
 	if (ext == NULL || ext->reload_period == 0) {
 		return (statp);
 	}
 
-#ifdef __APPLE__
-	if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 ||
-#else
 	if (clock_gettime(CLOCK_MONOTONIC_FAST, &now) != 0 ||
-#endif	/* __APPLE__ */
 	    (now.tv_sec - ext->conf_stat) < ext->reload_period) {
 		return (statp);
 	}
 
 	ext->conf_stat = now.tv_sec;
 	if (stat(_PATH_RESCONF, &sb) == 0 &&
-#ifdef __APPLE__
-	    (sb.st_mtimespec.tv_sec  != ext->conf_mtim.tv_sec ||
-	     sb.st_mtimespec.tv_nsec != ext->conf_mtim.tv_nsec)) {
-#else
 	    (sb.st_mtim.tv_sec  != ext->conf_mtim.tv_sec ||
 	     sb.st_mtim.tv_nsec != ext->conf_mtim.tv_nsec)) {
-#endif	/* __APPLE__ */
 		statp->options &= ~RES_INIT;
 	}
 

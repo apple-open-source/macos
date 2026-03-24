@@ -62,7 +62,7 @@ private:
 };
 
 class PlaceholderRenderingContext final : public CanvasRenderingContext {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PlaceholderRenderingContext);
+    WTF_MAKE_TZONE_ALLOCATED(PlaceholderRenderingContext);
 public:
     static std::unique_ptr<PlaceholderRenderingContext> create(HTMLCanvasElement&);
 

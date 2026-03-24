@@ -135,7 +135,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription&
     getFontPropertiesFromPattern(resultPattern.get(), description, { }, fixedWidth, syntheticBold, syntheticOblique);
 
     RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
-    FontPlatformData alternateFontData(fontFace.get(), WTFMove(resultPattern), description.computedSize(), fixedWidth, syntheticBold, syntheticOblique, description.orientation());
+    FontPlatformData alternateFontData(fontFace.get(), WTF::move(resultPattern), description.computedSize(), fixedWidth, syntheticBold, syntheticOblique, description.orientation());
     return fontForPlatformData(alternateFontData);
 }
 
@@ -201,21 +201,21 @@ static String getFamilyNameStringFromFamily(const String& family)
     if (family.length() && !family.startsWith("-webkit-"_s))
         return family;
 
-    if (family == familyNamesData->at(FamilyNamesIndex::StandardFamily) || family == familyNamesData->at(FamilyNamesIndex::SerifFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::StandardFamily) || family == *familyNamesData->at(FamilyNamesIndex::SerifFamily))
         return "serif"_s;
-    if (family == familyNamesData->at(FamilyNamesIndex::SansSerifFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::SansSerifFamily))
         return "sans-serif"_s;
-    if (family == familyNamesData->at(FamilyNamesIndex::MonospaceFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::MonospaceFamily))
         return "monospace"_s;
-    if (family == familyNamesData->at(FamilyNamesIndex::CursiveFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::CursiveFamily))
         return "cursive"_s;
-    if (family == familyNamesData->at(FamilyNamesIndex::FantasyFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::FantasyFamily))
         return "fantasy"_s;
-    if (family == familyNamesData->at(FamilyNamesIndex::MathFamily))
+    if (family == *familyNamesData->at(FamilyNamesIndex::MathFamily))
         return "math"_s;
 
 #if PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
-    if (family == familyNamesData->at(FamilyNamesIndex::SystemUiFamily) || family == "-webkit-system-font"_s)
+    if (family == *familyNamesData->at(FamilyNamesIndex::SystemUiFamily) || family == "-webkit-system-font"_s)
         return SystemSettings::singleton().defaultSystemFont();
 #endif
 
@@ -466,7 +466,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
 #endif
 
     auto size = fontDescription.adjustedSizeForFontFace(fontCreationContext.sizeAdjust());
-    FontPlatformData platformData(fontFace.get(), WTFMove(resultPattern), size, fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
+    FontPlatformData platformData(fontFace.get(), WTF::move(resultPattern), size, fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
 
     platformData.updateSizeWithFontSizeAdjust(fontDescription.fontSizeAdjust(), fontDescription.computedSize());
     auto platformDataUniquePtr = makeUnique<FontPlatformData>(platformData);
@@ -544,7 +544,7 @@ VariationDefaultsMap defaultVariationValues(FT_Face face, ShouldLocalizeAxisName
         if (axisName.isEmpty())
             axisName = String::fromUTF8(ftMMVar->axis[i].name);
 
-        VariationDefaults resultValues = { WTFMove(axisName), narrowPrecisionToFloat(ftMMVar->axis[i].def / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].minimum / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].maximum / 65536.) };
+        VariationDefaults resultValues = { WTF::move(axisName), narrowPrecisionToFloat(ftMMVar->axis[i].def / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].minimum / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].maximum / 65536.) };
         result.set(resultKey, resultValues);
     }
     FT_Done_MM_Var(face->glyph->library, ftMMVar);

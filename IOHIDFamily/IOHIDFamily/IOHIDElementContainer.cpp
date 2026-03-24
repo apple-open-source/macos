@@ -70,20 +70,20 @@ bool IOHIDElementContainer::init(void *descriptor,
     IOReturn ret = kIOReturnError;
     bool result = false;
     
-    require(super::init(), exit);
+    __Require(super::init(), exit);
     
     _reserved = IOMallocType(ExpansionData);
-    require(_reserved, exit);
+    __Require(_reserved, exit);
 
     status = HIDOpenReportDescriptor(descriptor, length, &parseData, 0);
-    require_noerr_action(status, exit, {
+    __Require_noErr_Action(status, exit, {
         // This usually indicates a malformed descriptor was passed in.
         DescriptorLog("Failed to open report descriptor: 0x%x", (unsigned int)status);
         printDescriptor(descriptor, length);
     });
     
     ret = createElementHierarchy(parseData);
-    require_noerr_action(ret, exit, {
+    __Require_noErr_Action(ret, exit, {
         DescriptorLog("Failed to create element hierarchy: 0x%x", ret);
     });
     
@@ -92,10 +92,10 @@ bool IOHIDElementContainer::init(void *descriptor,
     HIDCloseReportDescriptor(parseData);
     
     _flattenedElements = createFlattenedElements((IOHIDElement *)_elements->getObject(0));
-    require(_flattenedElements, exit);
+    __Require(_flattenedElements, exit);
     
     _flattenedCollections = createFlattenedCollections((IOHIDElement *)_elements->getObject(0));
-    require(_flattenedCollections, exit);
+    __Require(_flattenedCollections, exit);
     
     result = true;
     
@@ -140,7 +140,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
     
     // Get a summary of device capabilities.
     status = HIDGetCapabilities(parseData, &caps);
-    require_noerr_action(status, exit, {
+    __Require_noErr_Action(status, exit, {
         DescriptorLog("createElementHierarchy HIDGetCapabilities failed: 0x%x", (unsigned int)status);
     });
     
@@ -156,7 +156,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                       caps.numberFeatureButtonCaps +
                                       caps.numberFeatureValueCaps +
                                       10);
-    require(_elements, exit);
+    __Require(_elements, exit);
     
     _elements->setCapacityIncrement(10);
     
@@ -164,7 +164,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
     result = createCollectionElements(parseData,
                                       _elements,
                                       caps.numberCollectionNodes);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createCollectionElements failed");
     });
     
@@ -182,7 +182,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                   kHIDInputReport,
                                   kIOHIDElementTypeInput_Button,
                                   caps.numberInputButtonCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createButtonElements (input) failed");
     });
     
@@ -192,7 +192,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                   kHIDOutputReport,
                                   kIOHIDElementTypeOutput,
                                   caps.numberOutputButtonCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createButtonElements (output) failed");
     });
     
@@ -202,7 +202,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                   kHIDFeatureReport,
                                   kIOHIDElementTypeFeature,
                                   caps.numberFeatureButtonCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createButtonElements (feature) failed");
     });
     
@@ -212,7 +212,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                  kHIDInputReport,
                                  kIOHIDElementTypeInput_Misc,
                                  caps.numberInputValueCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createValueElements (input) failed");
     });
     
@@ -222,7 +222,7 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                  kHIDOutputReport,
                                  kIOHIDElementTypeOutput,
                                  caps.numberOutputValueCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createValueElements (output) failed");
     });
     
@@ -232,18 +232,18 @@ IOReturn IOHIDElementContainer::createElementHierarchy(HIDPreparsedDataRef parse
                                  kHIDFeatureReport,
                                  kIOHIDElementTypeFeature,
                                  caps.numberFeatureValueCaps);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createValueElements (feature) failed");
     });
     
     result = createReportHandlerElements(parseData);
-    require_action(result, exit, {
+    __Require_Action(result, exit, {
         DescriptorLog("createElementHierarchy createReportHandlerElements failed");
     });
     
     // Create a memory to store current element values.
     _elementValuesDescriptor = createElementValuesMemory();
-    require_action(_elementValuesDescriptor, exit, {
+    __Require_Action(_elementValuesDescriptor, exit, {
         DescriptorLog("createElementHierarchy createElementValuesMemory failed");
     });
     
@@ -258,13 +258,13 @@ OSArray *IOHIDElementContainer::createFlattenedElements(IOHIDElement *collection
     OSArray *result = NULL;
     OSArray *elements = NULL;
     
-    require(collection, exit);
+    __Require(collection, exit);
     
     elements = collection->getChildElements();
-    require(elements, exit);
+    __Require(elements, exit);
     
     result = OSArray::withCapacity(elements->getCount());
-    require(result, exit);
+    __Require(result, exit);
     
     for (unsigned int i = 0; i < elements->getCount(); i++) {
         OSArray *subElements = NULL;
@@ -294,13 +294,13 @@ OSArray *IOHIDElementContainer::createFlattenedCollections(IOHIDElement *root)
     OSArray *result = NULL;
     OSArray *elements = NULL;
     
-    require(root, exit);
+    __Require(root, exit);
     
     elements = root->getChildElements();
-    require(elements, exit);
+    __Require(elements, exit);
     
     result = OSArray::withCapacity(elements->getCount());
-    require(result, exit);
+    __Require(result, exit);
     
     for (unsigned int i = 0; i < elements->getCount(); i++) {
         OSArray *subContainer = NULL;
@@ -344,13 +344,13 @@ bool IOHIDElementContainer::createCollectionElements(HIDPreparsedDataRef parseDa
     bool result = false;
     UInt32 index;
 
-    require(!os_mul_overflow(maxCount, sizeof(HIDCollectionExtendedNode), &index), exit);
+    __Require(!os_mul_overflow(maxCount, sizeof(HIDCollectionExtendedNode), &index), exit);
 
     collections = (HIDCollectionExtendedNodePtr)IONewData(HIDCollectionExtendedNode, maxCount);
-    require(collections, exit);
+    __Require(collections, exit);
     
     status = HIDGetCollectionExtendedNodes(collections, &count, parseData);
-    require_noerr(status, exit);
+    __Require_noErr(status, exit);
     
     // Create an IOHIDElementPrivate for each collection.
     for (index = 0; index < count; index++) {
@@ -359,7 +359,7 @@ bool IOHIDElementContainer::createCollectionElements(HIDPreparsedDataRef parseDa
         element = IOHIDElementPrivate::collectionElement(this,
                                                          kIOHIDElementTypeCollection,
                                                          &collections[index]);
-        require(element, exit);
+        __Require(element, exit);
         
         element->release();
     }
@@ -374,7 +374,7 @@ bool IOHIDElementContainer::createCollectionElements(HIDPreparsedDataRef parseDa
         child = OSDynamicCast(IOHIDElementPrivate, array->getObject(index));
         parent = OSDynamicCast(IOHIDElementPrivate, array->getObject(parentIdx));
         
-        require(parent && parent->addChildElement(child), exit);
+        __Require(parent && parent->addChildElement(child), exit);
     }
     
     result = true;
@@ -418,15 +418,15 @@ bool IOHIDElementContainer::createButtonElements(HIDPreparsedDataRef parseData,
     UInt32 count;
     bool result = false;
 
-    require(!os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &count), exit);
+    __Require(!os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &count), exit);
 
-    require_action(count = maxCount, exit, result = true);
+    __Require_Action(count = maxCount, exit, result = true);
 
     buttons = (HIDButtonCapabilitiesPtr)IONewData(HIDButtonCapabilities, maxCount);
-    require(buttons, exit);
+    __Require(buttons, exit);
     
     status = HIDGetButtonCapabilities(hidReportType, buttons, &count, parseData);
-    require_noerr(status, exit);
+    __Require_noErr(status, exit);
     
     for (UInt32 i = 0; i < count; i++) {
         IOHIDElementPrivate *element = NULL;
@@ -439,7 +439,7 @@ bool IOHIDElementContainer::createButtonElements(HIDPreparsedDataRef parseData,
                                                      elementType,
                                                      &buttons[i],
                                                      parent);
-        require(element, exit);
+        __Require(element, exit);
         element->release();
     }
     
@@ -464,15 +464,15 @@ bool IOHIDElementContainer::createValueElements(HIDPreparsedDataRef parseData,
     UInt32 count;
     bool result = false;
 
-    require(!os_mul_overflow(maxCount, sizeof(HIDValueCapabilities), &count), exit);
+    __Require(!os_mul_overflow(maxCount, sizeof(HIDValueCapabilities), &count), exit);
 
-    require_action(count = maxCount, exit, result = true);
+    __Require_Action(count = maxCount, exit, result = true);
         
     values = (HIDValueCapabilitiesPtr)IONewData(HIDValueCapabilities, maxCount);
-    require(values, exit);
+    __Require(values, exit);
     
     status = HIDGetValueCapabilities(hidReportType, values, &count, parseData);
-    require_noerr(status, exit);
+    __Require_noErr(status, exit);
     
     for (UInt32 i = 0; i < count; i++) {
         IOHIDElementPrivate *element = NULL;
@@ -485,7 +485,7 @@ bool IOHIDElementContainer::createValueElements(HIDPreparsedDataRef parseData,
                                                     elementType,
                                                     &values[i],
                                                     parent);
-        require(element, exit);
+        __Require(element, exit);
         element->release();
     }
     
@@ -506,7 +506,7 @@ bool IOHIDElementContainer::createReportHandlerElements(HIDPreparsedDataRef pars
     bool result = false;
     
     _inputReportElements = OSArray::withCapacity(data->reportCount);
-    require(_inputReportElements, exit);
+    __Require(_inputReportElements, exit);
     
     for (UInt32 i = 0; i < data->reportCount; i++, report++)
     {
@@ -539,7 +539,7 @@ bool IOHIDElementContainer::registerElement(IOHIDElementPrivate *element,
     bool result = false;
     
     // Add the element to the elements array.
-    require(_elements->setObject(index, element), exit);
+    __Require(_elements->setObject(index, element), exit);
     
     // If the element can contribute to an Input, Output, or Feature
     // report, then add it to the chain of report handlers.
@@ -597,7 +597,7 @@ IOBufferMemoryDescriptor *IOHIDElementContainer::createElementValuesMemory()
             while (element) {
                 UInt32 remaining = (UInt32)ULONG_MAX - capacity;
                 
-                require(element->getElementValueSize() <= remaining, exit);
+                __Require(element->getElementValueSize() <= remaining, exit);
                 
                 capacity += element->getElementValueSize();
                 element = element->getNextReportHandler();
@@ -609,7 +609,7 @@ IOBufferMemoryDescriptor *IOHIDElementContainer::createElementValuesMemory()
     
     descriptor = IOBufferMemoryDescriptor::withOptions(kIOMemoryUnshared,
                                                        capacity);
-    require(descriptor, exit);
+    __Require(descriptor, exit);
     
     // Now assign the update memory area for each report element.
     beginning = buffer = (UInt8 *)descriptor->getBytesNoCopy();

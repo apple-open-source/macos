@@ -27,15 +27,15 @@ namespace WTF {
 NumberToStringSpan numberToStringAndSize(float number, NumberToStringBuffer& buffer)
 {
     static_assert(sizeof(buffer) >= (dragonbox::max_string_length<dragonbox::ieee754_binary32>() + 1));
-    auto* result = dragonbox::detail::to_chars_n<WTF::dragonbox::Mode::ToShortest>(number, buffer.data());
-    return std::span { buffer }.first(result - buffer.data());
+    auto result = dragonbox::detail::to_chars_n<WTF::dragonbox::Mode::ToShortest>(number, std::span { buffer });
+    return std::span { buffer }.first(result.data() - buffer.data());
 }
 
 NumberToStringSpan numberToStringAndSize(double number, NumberToStringBuffer& buffer)
 {
     static_assert(sizeof(buffer) >= (dragonbox::max_string_length<dragonbox::ieee754_binary64>() + 1));
-    auto* result = dragonbox::detail::to_chars_n<WTF::dragonbox::Mode::ToShortest>(number, buffer.data());
-    return std::span { buffer }.first(result - buffer.data());
+    auto result = dragonbox::detail::to_chars_n<WTF::dragonbox::Mode::ToShortest>(number, std::span { buffer });
+    return std::span { buffer }.first(result.data() - buffer.data());
 }
 
 NumberToStringSpan numberToStringWithTrailingPoint(double d, NumberToStringBuffer& buffer)

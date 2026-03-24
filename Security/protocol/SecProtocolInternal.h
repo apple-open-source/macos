@@ -13,11 +13,13 @@
 #define kAllowsArbitraryLoadsForMedia "NSAllowsArbitraryLoadsForMedia"
 #define kAllowsArbitraryLoadsInWebContent "NSAllowsArbitraryLoadsInWebContent"
 #define kAllowsLocalNetworking "NSAllowsLocalNetworking"
+#define kRequiresNIAPTLSPackageVersion "NSRequiresNIAPTLSPackageVersion"
 #define kExceptionDomains "NSExceptionDomains"
 #define kIncludesSubdomains "NSIncludesSubdomains"
 #define kExceptionAllowsInsecureHTTPLoads "NSExceptionAllowsInsecureHTTPLoads"
 #define kExceptionMinimumTLSVersion "NSExceptionMinimumTLSVersion"
 #define kExceptionRequiresForwardSecrecy "NSExceptionRequiresForwardSecrecy"
+#define kExceptionRequiresNIAPTLSPackageVersion "NSExceptionRequiresNIAPTLSPackageVersion"
 #define _kCIDRExceptions "NSCIDRExceptions"
 #define _kATSParsedCIDRAddressKey "NSParsedCIDRAddressKey"
 #define _kATSParsedCIDRMaskKey "NSParsedCIDRMaskKey"
@@ -84,6 +86,8 @@
     SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA
 
 SEC_ASSUME_NONNULL_BEGIN
+
+#define kATSGlobalKeyIntegerNotPresent -1
 
 typedef CF_ENUM(uint16_t, kATSGlobalKey) {
     kATSGlobalKeyNotPresent = 0,

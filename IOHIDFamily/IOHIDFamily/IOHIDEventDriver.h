@@ -65,6 +65,7 @@ private:
     struct ExpansionData {
         SInt32  absoluteAxisRemovalPercentage;
         SInt32  preferredAxisRemovalPercentage;
+        UInt64  supportedEventsTypeMask;
         bool    appleVendorSupported;
         
         struct {
@@ -224,6 +225,9 @@ private:
             OSArray * elements;
         } proximity;
 
+        OSArray *               keyboardUsages;
+        OSArray *               vendorUsages;
+
         UInt64  lastReportTime;
 
         IOWorkLoop *            workLoop;
@@ -323,7 +327,7 @@ private:
 protected:
 
     virtual void            free(void) APPLE_KEXT_OVERRIDE;
-    
+
     virtual OSArray *       getReportElements(void) APPLE_KEXT_OVERRIDE;
     
     virtual bool            handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;

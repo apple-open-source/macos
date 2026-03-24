@@ -71,7 +71,7 @@ void SearchFieldCancelButtonMac::updateCellStates(const FloatRect& rect, const C
     bool readOnly = style.states.contains(ControlStyle::State::ReadOnly);
 
     if (!enabled && !readOnly)
-        updatePressedState([m_searchFieldCell cancelButtonCell], style);
+        updatePressedState(retainPtr([m_searchFieldCell cancelButtonCell]).get(), style);
     else if ([[m_searchFieldCell cancelButtonCell] isHighlighted])
         [[m_searchFieldCell cancelButtonCell] setHighlighted:NO];
 
@@ -94,7 +94,7 @@ void SearchFieldCancelButtonMac::draw(GraphicsContext& context, const FloatRound
     auto styleForDrawing = style;
     styleForDrawing.states.remove(ControlStyle::State::Focused);
 
-    drawCell(context, logicalRect, deviceScaleFactor, styleForDrawing, [m_searchFieldCell cancelButtonCell], true);
+    drawCell(context, logicalRect, deviceScaleFactor, styleForDrawing, retainPtr([m_searchFieldCell cancelButtonCell]).get(), true);
 }
 
 } // namespace WebCore

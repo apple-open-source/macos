@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/CachedCall.h>
+#include <JavaScriptCore/CachedCallInlines.h>
 #include <JavaScriptCore/IterationModeMetadata.h>
 #include <JavaScriptCore/JSArrayIterator.h>
 #include <JavaScriptCore/JSCJSValue.h>
@@ -111,7 +111,7 @@ static ALWAYS_INLINE void forEachInMapStorage(VM& vm, JSGlobalObject* globalObje
             JSValue entryKey = JSMap::Helper::getIterationEntryKey(*storage);
             JSValue entryValue = JSMap::Helper::getIterationEntryValue(*storage);
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=298574
-            value = createTuple(globalObject, entryKey, entryValue);
+            value = constructArrayPair(globalObject, entryKey, entryValue);
             RETURN_IF_EXCEPTION(scope, void());
             break;
         }

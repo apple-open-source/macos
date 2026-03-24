@@ -239,6 +239,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return *_preferences;
 }
 
+#if PLATFORM(VISION)
+- (void)setIsLookToScrollEnabled:(BOOL)enabled
+{
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    protectedPreferences(self)->setOverlayRegionsEnabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+- (BOOL)isLookToScrollEnabled
+{
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    return protectedPreferences(self)->overlayRegionsEnabled();
+#else
+    return NO;
+#endif
+}
+#endif
+
 @end
 
 @implementation WKPreferences (WKPrivate)
@@ -556,13 +576,13 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 + (NSArray<_WKFeature *> *)_features
 {
     auto features = WebKit::WebPreferences::features();
-    return wrapper(API::Array::create(WTFMove(features))).autorelease();
+    return wrapper(API::Array::create(WTF::move(features))).autorelease();
 }
 
 + (NSArray<_WKFeature *> *)_internalDebugFeatures
 {
     auto features = WebKit::WebPreferences::internalDebugFeatures();
-    return wrapper(API::Array::create(WTFMove(features))).autorelease();
+    return wrapper(API::Array::create(WTF::move(features))).autorelease();
 }
 
 - (BOOL)_isEnabledForInternalDebugFeature:(_WKFeature *)feature
@@ -578,7 +598,7 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 + (NSArray<_WKExperimentalFeature *> *)_experimentalFeatures
 {
     auto features = WebKit::WebPreferences::experimentalFeatures();
-    return wrapper(API::Array::create(WTFMove(features))).autorelease();
+    return wrapper(API::Array::create(WTF::move(features))).autorelease();
 }
 
 - (BOOL)_isEnabledForFeature:(_WKFeature *)feature
@@ -1720,6 +1740,16 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return protectedPreferences(self)->modelNoPortalAttributeEnabled();
 }
 
+- (void)_setUpdateSceneGeometryEnabled:(BOOL)enabled
+{
+    protectedPreferences(self)->setUpdateSceneGeometryEnabled(enabled);
+}
+
+- (BOOL)_updateSceneGeometryEnabled
+{
+    return protectedPreferences(self)->updateSceneGeometryEnabled();
+}
+
 - (void)_setRequiresPageVisibilityForVideoToBeNowPlayingForTesting:(BOOL)enabled
 {
 #if ENABLE(REQUIRES_PAGE_VISIBILITY_FOR_NOW_PLAYING)
@@ -1933,9 +1963,5 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 {
     WebKit::WebPreferences::forceSiteIsolationAlwaysOnForTesting();
 }
-
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKPreferencesAdditions.mm>)
-#import <WebKitAdditions/WKPreferencesAdditions.mm>
-#endif
 
 @end

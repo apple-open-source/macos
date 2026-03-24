@@ -57,7 +57,7 @@ public:
         for (unsigned i = 0; i < *m_numLiveValues; ++i)
             values[i] = OSREntryValue(params[i + m_firstStackmapParamOffset], params.value()->child(i + m_firstStackmapChildOffset)->type());
 
-        generator->addStackMap(m_callSiteIndex, WTFMove(values));
+        generator->addStackMap(m_callSiteIndex, WTF::move(values));
     }
 
     static Ref<PatchpointExceptionHandle> create(bool hasExceptionHandlers, unsigned callSiteIndex, unsigned numLiveValues, unsigned firstStackmapParamOffset, unsigned firstStackmapChildOffset)

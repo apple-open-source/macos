@@ -104,7 +104,7 @@ void GPUConnectionToWebProcess::setTCCIdentity()
         return;
     }
 
-    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(WTFMove(identity));
+    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(WTF::move(identity));
 #endif // !PLATFORM(MACCATALYST)
 }
 #endif // ENABLE(APP_PRIVACY_REPORT)

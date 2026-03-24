@@ -1,6 +1,6 @@
 #include <../src/platform.h>
 
-#if defined(__arm64__) && defined(__LP64__) && CONFIG_MTE && !MALLOC_TARGET_EXCLAVES
+#if defined(__arm64__) && defined(__LP64__) && !MALLOC_TARGET_EXCLAVES
 #define MALLOC_MTE_TESTING_SUPPORTED 1
 #else
 #define MALLOC_MTE_TESTING_SUPPORTED 0

@@ -83,8 +83,8 @@ private:
 inline CrossOriginPreflightResultCacheItem::CrossOriginPreflightResultCacheItem(MonotonicTime absoluteExpiryTime, StoredCredentialsPolicy  storedCredentialsPolicy, HashSet<String>&& methods, HashSet<String, ASCIICaseInsensitiveHash>&& headers)
     : m_absoluteExpiryTime(absoluteExpiryTime)
     , m_storedCredentialsPolicy(storedCredentialsPolicy)
-    , m_methods(WTFMove(methods))
-    , m_headers(WTFMove(headers))
+    , m_methods(WTF::move(methods))
+    , m_headers(WTF::move(headers))
 {
 }
 

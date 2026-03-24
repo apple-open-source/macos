@@ -39,8 +39,8 @@ namespace WebCore {
 static void finishConverting(PKPayment *payment, ApplePayPayment& result)
 {
 #if HAVE(PASSKIT_INSTALLMENTS)
-    if (NSString *installmentAuthorizationToken = payment.installmentAuthorizationToken)
-        result.installmentAuthorizationToken = installmentAuthorizationToken;
+    if (RetainPtr<NSString> installmentAuthorizationToken = payment.installmentAuthorizationToken)
+        result.installmentAuthorizationToken = installmentAuthorizationToken.get();
 #else
     UNUSED_PARAM(payment);
     UNUSED_PARAM(result);
@@ -69,7 +69,7 @@ static ApplePayPayment convert(unsigned version, PKPayment *payment)
 
     ApplePayPayment result;
 
-    result.token = convert(payment.token);
+    result.token = convert(retainPtr(payment.token).get());
 
     if (payment.billingContact)
         result.billingContact = PaymentContact(payment.billingContact).toApplePayPaymentContact(version);
@@ -84,7 +84,7 @@ static ApplePayPayment convert(unsigned version, PKPayment *payment)
 Payment::Payment() = default;
 
 Payment::Payment(RetainPtr<PKPayment>&& pkPayment)
-    : m_pkPayment { WTFMove(pkPayment) }
+    : m_pkPayment { WTF::move(pkPayment) }
 {
 }
 

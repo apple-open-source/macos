@@ -78,8 +78,8 @@ void DrawingAreaProxyWC::sizeDidChange()
 void DrawingAreaProxyWC::update(uint64_t backingStoreStateID, UpdateInfo&& updateInfo)
 {
     if (backingStoreStateID == m_currentBackingStoreStateID)
-        incorporateUpdate(WTFMove(updateInfo));
-    send(Messages::DrawingArea::DisplayDidRefresh());
+        incorporateUpdate(WTF::move(updateInfo));
+    send(Messages::DrawingArea::DisplayDidRefresh(MonotonicTime::now()));
 }
 
 void DrawingAreaProxyWC::enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&)
@@ -106,7 +106,7 @@ void DrawingAreaProxyWC::incorporateUpdate(UpdateInfo&& updateInfo)
     } else
         damageRegion = WebCore::IntRect({ }, page->viewSize());
 
-    m_backingStore->incorporateUpdate(WTFMove(updateInfo));
+    m_backingStore->incorporateUpdate(WTF::move(updateInfo));
 
     page->setViewNeedsDisplay(damageRegion);
 }

@@ -75,6 +75,11 @@
 #include <WebCore/SharedBuffer.h>
 #include <pal/SessionID.h>
 
+#if USE(LIBRICE)
+#include "RiceBackendProxy.h"
+#include "RiceBackendProxyMessages.h"
+#endif
+
 #if ENABLE(APPLE_PAY_REMOTE_UI)
 #include "WebPaymentCoordinatorMessages.h"
 #endif
@@ -83,7 +88,7 @@ namespace WebKit {
 using namespace WebCore;
 
 NetworkProcessConnection::NetworkProcessConnection(IPC::Connection::Identifier&& connectionIdentifier, HTTPCookieAcceptPolicy cookieAcceptPolicy)
-    : m_connection(IPC::Connection::createClientConnection(WTFMove(connectionIdentifier)))
+    : m_connection(IPC::Connection::createClientConnection(WTF::move(connectionIdentifier)))
     , m_cookieAcceptPolicy(cookieAcceptPolicy)
 {
     m_connection->open(*this);
@@ -128,7 +133,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
         WebProcess::singleton().protectedFileSystemStorageConnection()->didReceiveMessage(connection, decoder);
         return true;
     }
-    if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName() && WebProcess::singleton().isWebTransportEnabled()) {
+    if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName()) {
         if (RefPtr webTransportSession = WebProcess::singleton().webTransportSession(WebTransportSessionIdentifier(decoder.destinationID())))
             webTransportSession->didReceiveMessage(connection, decoder);
         return true;
@@ -149,6 +154,14 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
             network->resolver(AtomicObjectIdentifier<LibWebRTCResolverIdentifierType>(decoder.destinationID()))->didReceiveMessage(connection, decoder);
         else
             RELEASE_LOG_ERROR(WebRTC, "Received WebRTCResolver message while libWebRTCNetwork is not active");
+        return true;
+    }
+#endif
+
+#if USE(LIBRICE)
+    if (decoder.messageReceiverName() == Messages::RiceBackendProxy::messageReceiverName()) {
+        if (RefPtr agent = WebProcess::singleton().gstreamerIceBackend(RiceBackendIdentifier(decoder.destinationID())))
+            agent->didReceiveMessage(connection, decoder);
         return true;
     }
 #endif
@@ -182,8 +195,8 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
-        if (auto webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
-            webPage->paymentCoordinator()->didReceiveMessage(connection, decoder);
+        if (RefPtr webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
+            RefPtr { webPage->paymentCoordinator() }->didReceiveMessage(connection, decoder);
         return true;
     }
 #endif
@@ -194,8 +207,8 @@ bool NetworkProcessConnection::dispatchSyncMessage(IPC::Connection& connection, 
 {
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
-        if (auto webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID()))) {
-            webPage->paymentCoordinator()->didReceiveSyncMessage(connection, decoder, replyEncoder);
+        if (RefPtr webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID()))) {
+            RefPtr { webPage->paymentCoordinator() }->didReceiveSyncMessage(connection, decoder, replyEncoder);
             return true;
         }
         return false;
@@ -223,17 +236,17 @@ void NetworkProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::M
 
 void NetworkProcessConnection::writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&& filePaths)>&& completionHandler)
 {
-    m_connection->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::WriteBlobsToTemporaryFilesForIndexedDB(blobURLs), WTFMove(completionHandler));
+    m_connection->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::WriteBlobsToTemporaryFilesForIndexedDB(blobURLs), WTF::move(completionHandler));
 }
 
 void NetworkProcessConnection::didFinishPingLoad(WebCore::ResourceLoaderIdentifier pingLoadIdentifier, ResourceError&& error, ResourceResponse&& response)
 {
-    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPingLoad(pingLoadIdentifier, WTFMove(error), WTFMove(response));
+    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPingLoad(pingLoadIdentifier, WTF::move(error), WTF::move(response));
 }
 
 void NetworkProcessConnection::didFinishPreconnection(WebCore::ResourceLoaderIdentifier preconnectionIdentifier, ResourceError&& error)
 {
-    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPreconnection(preconnectionIdentifier, WTFMove(error));
+    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPreconnection(preconnectionIdentifier, WTF::move(error));
 }
 
 void NetworkProcessConnection::setOnLineState(bool isOnLine)
@@ -258,12 +271,12 @@ void NetworkProcessConnection::cookieAcceptPolicyChanged(HTTPCookieAcceptPolicy 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
 void NetworkProcessConnection::cookiesAdded(const String& host, Vector<WebCore::Cookie>&& cookies)
 {
-    WebProcess::singleton().cookieJar().cookiesAdded(host, WTFMove(cookies));
+    WebProcess::singleton().cookieJar().cookiesAdded(host, WTF::move(cookies));
 }
 
 void NetworkProcessConnection::cookiesDeleted(const String& host, Vector<WebCore::Cookie>&& cookies)
 {
-    WebProcess::singleton().cookieJar().cookiesDeleted(host, WTFMove(cookies));
+    WebProcess::singleton().cookieJar().cookiesDeleted(host, WTF::move(cookies));
 }
 
 void NetworkProcessConnection::allCookiesDeleted()
@@ -284,7 +297,7 @@ void NetworkProcessConnection::didCacheResource(const ResourceRequest& request, 
     if (!resource)
         return;
     
-    auto buffer = WTFMove(handle).tryWrapInSharedBuffer();
+    auto buffer = WTF::move(handle).tryWrapInSharedBuffer();
     if (!buffer) {
         LOG_ERROR("Unable to create FragmentedSharedBuffer from ShareableResource handle for resource url %s", request.url().string().utf8().data());
         return;
@@ -347,7 +360,7 @@ void NetworkProcessConnection::loadCancelledDownloadRedirectRequestInFrame(WebCo
         LoadParameters loadParameters;
         loadParameters.frameIdentifier = frameID;
         loadParameters.request = request;
-        webPage->loadRequest(WTFMove(loadParameters));
+        webPage->loadRequest(WTF::move(loadParameters));
     } else
         RELEASE_LOG_ERROR(Process, "Trying to load Invalid page or frame for %s", request.url().string().utf8().data());
 }

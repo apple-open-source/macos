@@ -36,7 +36,7 @@ class ImageGStreamer : public RefCounted<ImageGStreamer> {
 public:
     static Ref<ImageGStreamer> create(GRefPtr<GstSample>&& sample)
     {
-        return adoptRef(*new ImageGStreamer(WTFMove(sample)));
+        return adoptRef(*new ImageGStreamer(WTF::move(sample)));
     }
     ~ImageGStreamer();
 

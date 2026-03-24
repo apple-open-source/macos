@@ -78,7 +78,7 @@ void LoadableModuleScript::notifyLoadCompleted(UniquedStringImpl& moduleKey)
 
 void LoadableModuleScript::notifyLoadFailed(LoadableScript::Error&& error)
 {
-    m_error = WTFMove(error);
+    m_error = WTF::move(error);
     m_isLoaded = true;
     notifyClientFinished();
 }

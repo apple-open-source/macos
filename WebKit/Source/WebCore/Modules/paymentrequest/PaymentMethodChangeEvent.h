@@ -39,7 +39,7 @@ class JSObject;
 namespace WebCore {
 
 class PaymentMethodChangeEvent final : public PaymentRequestUpdateEvent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PaymentMethodChangeEvent);
+    WTF_MAKE_TZONE_ALLOCATED(PaymentMethodChangeEvent);
 public:
     template<typename... Args> static Ref<PaymentMethodChangeEvent> create(Args&&... args)
     {
@@ -61,8 +61,6 @@ public:
 private:
     PaymentMethodChangeEvent(const AtomString& type, Init&&);
     PaymentMethodChangeEvent(const AtomString& type, const String& methodName, MethodDetailsFunction&&);
-
-    bool isPaymentMethodChangeEvent() const final { return true; }
 
     String m_methodName;
     MethodDetailsType m_methodDetails;

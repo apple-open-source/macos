@@ -66,7 +66,7 @@ def genCertDetails(cert):
 def getUpdateDetails():
     questions = [
         inquirer.List('type', message="What change type?", choices=["Removal","Addition","Modification"],  default="Addition"),
-        inquirer.List('anchor_type', message="What anchor type?", choices=["System","Custom","Platform","Test-System","Test-Platform"],  default="System"),
+        inquirer.List('anchor_type', message="What anchor type?", choices=["System","Custom","Platform","Test-System","Test-Platform","Test-Custom"],  default="System"),
         inquirer.Text('reason', message="What is the change reason"),
         inquirer.Text('constraints', message="Policy constraints (oids separated by ',')?", default=None),
         inquirer.Checkbox('valid_policies',

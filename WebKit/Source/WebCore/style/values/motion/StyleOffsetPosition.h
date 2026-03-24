@@ -36,10 +36,10 @@ namespace Style {
 struct OffsetPosition {
     OffsetPosition(CSS::Keyword::Auto keyword) : m_value { keyword} { }
     OffsetPosition(CSS::Keyword::Normal keyword) : m_value { keyword} { }
-    OffsetPosition(Position&& position) : m_value { WTFMove(position) } { }
+    OffsetPosition(Position&& position) : m_value { WTF::move(position) } { }
     OffsetPosition(const Position& position) : m_value { position } { }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     explicit OffsetPosition(AcceleratedEffectOffsetPosition&& point) : m_value { convert(point) } { }
     explicit OffsetPosition(const AcceleratedEffectOffsetPosition& point) : m_value { convert(point) } { }
 #endif
@@ -55,7 +55,7 @@ struct OffsetPosition {
     bool operator==(const OffsetPosition&) const = default;
 
 private:
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     static auto convert(const AcceleratedEffectOffsetPosition&) -> Variant<CSS::Keyword::Auto, CSS::Keyword::Normal, Position>;
 #endif
 
@@ -86,7 +86,7 @@ template<> struct Blending<OffsetPosition> {
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 template<> struct Evaluation<OffsetPosition, AcceleratedEffectOffsetPosition> {
     auto operator()(const OffsetPosition&, FloatSize, ZoomNeeded) -> AcceleratedEffectOffsetPosition;

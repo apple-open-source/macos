@@ -102,7 +102,7 @@ static void jscContextSetVirtualMachine(JSCContext* context, GRefPtr<JSCVirtualM
     JSCContextPrivate* priv = context->priv;
     if (vm) {
         ASSERT(!priv->vm);
-        priv->vm = WTFMove(vm);
+        priv->vm = WTF::move(vm);
         ASSERT(!priv->jsContext);
         GUniquePtr<char> name(g_strdup_printf("%p-jsContext", &Thread::currentSingleton()));
         if (auto* data = g_object_get_data(G_OBJECT(priv->vm.get()), name.get())) {
@@ -260,7 +260,7 @@ CallbackData jscContextPushCallback(JSCContext* context, JSValueRef calleeValue,
 {
     auto& thread = Thread::currentSingleton();
     auto* previousStack = static_cast<CallbackData*>(thread.m_apiData);
-    CallbackData data = { context, WTFMove(context->priv->exception), calleeValue, thisValue, argumentCount, arguments, previousStack };
+    CallbackData data = { context, WTF::move(context->priv->exception), calleeValue, thisValue, argumentCount, arguments, previousStack };
     thread.m_apiData = &data;
     return data;
 }
@@ -268,7 +268,7 @@ CallbackData jscContextPushCallback(JSCContext* context, JSValueRef calleeValue,
 void jscContextPopCallback(JSCContext* context, CallbackData&& data)
 {
     auto& thread = Thread::currentSingleton();
-    context->priv->exception = WTFMove(data.preservedException);
+    context->priv->exception = WTF::move(data.preservedException);
     thread.m_apiData = data.next;
 }
 
@@ -855,7 +855,7 @@ JSCValue* jsc_context_evaluate(JSCContext* context, const char* code, gssize len
 
 static JSValueRef evaluateScriptInContext(JSGlobalContextRef jsContext, String&& script, const char* uri, unsigned lineNumber, JSValueRef* exception)
 {
-    JSRetainPtr<JSStringRef> scriptJS(Adopt, OpaqueJSString::tryCreate(WTFMove(script)).leakRef());
+    JSRetainPtr<JSStringRef> scriptJS(Adopt, OpaqueJSString::tryCreate(WTF::move(script)).leakRef());
     JSRetainPtr<JSStringRef> sourceURI = uri ? adopt(JSStringCreateWithUTF8CString(uri)) : nullptr;
     return JSEvaluateScript(jsContext, scriptJS.get(), nullptr, sourceURI.get(), lineNumber, exception);
 }

@@ -62,11 +62,11 @@
     }
 
     _caretType = WebCore::CaretAnimatorType::Dictation;
-    if (_webView) {
-        if (RetainPtr context = _webView->inputContext())
+    if (CheckedPtr webView = _webView.get()) {
+        if (RetainPtr context = webView->inputContext())
             context.get().showsCursorAccessories = YES;
 
-        _webView->page().setCaretAnimatorType(WebCore::CaretAnimatorType::Dictation);
+        webView->page().setCaretAnimatorType(WebCore::CaretAnimatorType::Dictation);
     }
 }
 

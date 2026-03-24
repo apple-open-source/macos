@@ -1055,6 +1055,28 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
     return [OTControl controlObject:false error:error];
 }
 
+- (void)enableWalrus:(OTControlArguments*)arguments
+          preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+               reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] enableWalrus:arguments
+         preRecords:preRecords
+              reply:reply];
+}
+
+- (void)disableWalrus:(OTControlArguments*)arguments
+           preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+                reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] disableWalrus:arguments
+          preRecords:preRecords
+               reply:reply];
+}
+
 + (OTControl*)controlObject:(bool)sync error:(NSError**)error
 {
     NSXPCConnection* connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydOctagonServiceName) options:0];

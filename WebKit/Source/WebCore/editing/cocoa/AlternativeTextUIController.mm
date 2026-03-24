@@ -77,7 +77,7 @@ void AlternativeTextUIController::showAlternatives(NSView *view, const FloatRect
     if (!alternatives)
         return;
 
-    [[NSSpellChecker sharedSpellChecker] showCorrectionIndicatorOfType:NSCorrectionIndicatorTypeGuesses primaryString:alternatives.primaryString alternativeStrings:alternatives.alternativeStrings forStringInRect:boundingBoxOfPrimaryString view:m_view.get() completionHandler:^(NSString *acceptedString) {
+    [[NSSpellChecker sharedSpellChecker] showCorrectionIndicatorOfType:NSCorrectionIndicatorTypeGuesses primaryString:retainPtr(alternatives.primaryString).get() alternativeStrings:retainPtr(alternatives.alternativeStrings).get() forStringInRect:boundingBoxOfPrimaryString view:m_view.get() completionHandler:^(NSString *acceptedString) {
         if (acceptedString) {
             handleAcceptedAlternative(acceptedString, context, alternatives);
             acceptanceHandler(acceptedString);

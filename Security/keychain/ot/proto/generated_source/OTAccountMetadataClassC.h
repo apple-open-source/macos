@@ -176,6 +176,7 @@ __attribute__((visibility("hidden")))
     NSData *_voucher;
     NSData *_voucherSignature;
     BOOL _isInheritedAccount;
+    BOOL _peerSecretsAccessibilityFixUpPerformed;
     BOOL _warmedEscrowCache;
     BOOL _warnedTooManyPeers;
     struct {
@@ -190,6 +191,7 @@ __attribute__((visibility("hidden")))
         uint sendingMetricsPermitted:1;
         uint trustState:1;
         uint isInheritedAccount:1;
+        uint peerSecretsAccessibilityFixUpPerformed:1;
         uint warmedEscrowCache:1;
         uint warnedTooManyPeers:1;
     } _has;
@@ -292,6 +294,10 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) BOOL hasEscrowRepairAttemptVersion;
 /** Escrow repair "version" for the most recent repair attempt. */
 @property (nonatomic) int64_t escrowRepairAttemptVersion;
+
+@property (nonatomic) BOOL hasPeerSecretsAccessibilityFixUpPerformed;
+/** fixup for changing `kSecAttrAccessible`: "kSecAttrAccessibleWhenUnlocked" -> "kSecAttrAccessibleWhenUnlockedThisDeviceOnly" for (escrowKeys + RecoveryKeys + secrets) */
+@property (nonatomic) BOOL peerSecretsAccessibilityFixUpPerformed;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

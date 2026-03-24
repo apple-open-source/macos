@@ -31,7 +31,7 @@
  		4D9CE47A15007F7000186084 /* executables */ = {
  			isa = PBXAggregateTarget;
  			buildConfigurationList = 4D9CE47B15007F7000186084 /* Build configuration list for PBXAggregateTarget "executables" */;
-@@ -102,81 +68,12 @@
+@@ -128,81 +94,12 @@
  		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
  		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
  		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
@@ -119,7 +119,7 @@
  /* End PBXBuildFile section */
  
  /* Begin PBXContainerItemProxy section */
-@@ -331,90 +221,6 @@
+@@ -375,90 +265,6 @@
  			remoteGlobalIDString = 4D9CE47A15007F7000186084;
  			remoteInfo = executables;
  		};
@@ -210,7 +210,7 @@
  /* End PBXContainerItemProxy section */
  
  /* Begin PBXCopyFilesBuildPhase section */
-@@ -458,24 +264,6 @@
+@@ -502,24 +308,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 1;
  		};
@@ -235,7 +235,7 @@
  /* End PBXCopyFilesBuildPhase section */
  
  /* Begin PBXFileReference section */
-@@ -525,80 +313,15 @@
+@@ -569,80 +357,15 @@
  		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
  		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
  		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
@@ -318,7 +318,7 @@
  /* End PBXFileReference section */
  
  /* Begin PBXFrameworksBuildPhase section */
-@@ -627,59 +351,6 @@
+@@ -732,59 +456,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -378,7 +378,7 @@
  /* End PBXFrameworksBuildPhase section */
  
  /* Begin PBXGroup section */
-@@ -758,7 +429,6 @@
+@@ -863,7 +534,6 @@
  		7D8BA341010E490C02CA2964 /* msdosfs */ = {
  			isa = PBXGroup;
  			children = (
@@ -386,7 +386,7 @@
  				4D71368E112F748200BC4A72 /* msdosfs.xcconfig */,
  				4D8BCB260A0278BC008334F3 /* Locking.rtf */,
  				4D3DCC0808E0B48600C78A0B /* msdosfs.kext */,
-@@ -766,11 +436,7 @@
+@@ -871,11 +541,7 @@
  				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
  				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
  				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
@@ -398,7 +398,7 @@
  				4D027E2513B91F1400B48B76 /* libutil1.0.dylib */,
  				4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */,
  				4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */,
-@@ -794,132 +460,16 @@
+@@ -899,132 +565,16 @@
  				4D3DCB7408E084D400C78A0B /* msdos.util */,
  				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
  				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
@@ -533,7 +533,7 @@
  				D12A83A11FFCC4CE00A02A42 /* Foundation.framework */,
  			);
  			name = Frameworks;
-@@ -980,26 +530,6 @@
+@@ -1085,26 +635,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -560,7 +560,7 @@
  /* End PBXHeadersBuildPhase section */
  
  /* Begin PBXNativeTarget section */
-@@ -1125,111 +655,6 @@
+@@ -1230,111 +760,6 @@
  			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
  			productType = "com.apple.product-type.tool";
  		};
@@ -672,7 +672,7 @@
  /* End PBXNativeTarget section */
  
  /* Begin PBXProject section */
-@@ -1245,32 +670,6 @@
+@@ -1350,32 +775,6 @@
  					4D3DCB2B08E084D300C78A0B = {
  						LastSwiftMigration = 0900;
  					};
@@ -705,7 +705,16 @@
  				};
  			};
  			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
-@@ -1485,12 +882,6 @@
+@@ -1391,8 +790,6 @@
+ 			projectRoot = "";
+ 			targets = (
+ 				4D3DCB2008E084D300C78A0B /* msdosfs OSX */,
+-				4D5A7D0C1816FB7E00D5FE60 /* msdosfs iOS */,
+-				DB1AAB73204727B30036167F /* Swift_iOS */,
+ 				4D9CE47A15007F7000186084 /* executables */,
+ 				4D3DCB2B08E084D300C78A0B /* msdosfs.kext */,
+ 				4D3DCB5608E084D400C78A0B /* msdos.fs */,
+@@ -1400,12 +797,6 @@
  				4D3DCB4708E084D400C78A0B /* mount_msdos */,
  				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
  				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
@@ -718,7 +727,7 @@
  			);
  		};
  /* End PBXProject section */
-@@ -1511,20 +902,6 @@
+@@ -1426,20 +817,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -739,7 +748,7 @@
  /* End PBXResourcesBuildPhase section */
  
  /* Begin PBXRezBuildPhase section */
-@@ -1640,19 +1017,6 @@
+@@ -1555,19 +932,6 @@
  			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos \"${DSTROOT}/sbin/fsck_msdos\"\nchgrp -h wheel \"${DSTROOT}/sbin/fsck_msdos\"\n";
  			showEnvVarsInLog = 0;
  		};
@@ -759,7 +768,7 @@
  /* End PBXShellScriptBuildPhase section */
  
  /* Begin PBXSourcesBuildPhase section */
-@@ -1713,98 +1077,6 @@
+@@ -1628,98 +992,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -858,7 +867,7 @@
  /* End PBXSourcesBuildPhase section */
  
  /* Begin PBXTargetDependency section */
-@@ -1785,66 +1052,6 @@
+@@ -2245,66 +1512,6 @@
  			target = 4D9CE47A15007F7000186084 /* executables */;
  			targetProxy = 4D9CE48A150080EE00186084 /* PBXContainerItemProxy */;
  		};
@@ -925,7 +934,7 @@
  /* End PBXTargetDependency section */
  
  /* Begin PBXVariantGroup section */
-@@ -2477,835 +1651,6 @@
+@@ -2454,835 +1628,6 @@
  			};
  			name = CodeCoverage;
  		};
@@ -1761,7 +1770,7 @@
  /* End XCBuildConfiguration section */
  
  /* Begin XCConfigurationList section */
-@@ -3564,76 +1899,6 @@
+@@ -4618,76 +2953,6 @@
  				4DAA598F08D79EF4007BE920 /* Debug */,
  				4DD699530D6A5A24007E8D14 /* CodeCoverage */,
  				4DAA599008D79EF4007BE920 /* Release */,

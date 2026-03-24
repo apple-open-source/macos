@@ -178,10 +178,17 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function   IOHIDTransactionScheduleWithRunLoop
-	@abstract   Schedules transaction with run loop.
-    @discussion Formally associates transaction with client's run loop. 
-                Scheduling this transaction with the run loop is necessary 
-                before making use of any asynchronous APIs.
+	@abstract   DEPRECATED - Schedules transaction with run loop.
+    @discussion This function is deprecated and should no longer be used. 
+                Formally associates transaction with client's run loop. 
+                Scheduling the transaction with a run loop is not required for 
+                asynchronous behavior, however the underlying IOHIDDevice must 
+                be properly scheduled for the transaction to function correctly.
+                The transaction will inherit the same run loop configuration as 
+                its associated device. If a different run loop is explicitly 
+                specified for the transaction, transaction callbacks may fire on
+                either the specified run loop or the device's run loop, which
+                can lead to unpredictable behavior.
     @param      transaction IOHIDTransaction object to be modified.
     @param      runLoop RunLoop to be used when scheduling any asynchronous 
                 activity.
@@ -193,11 +200,11 @@ void IOHIDTransactionScheduleWithRunLoop(
                                 IOHIDTransactionRef             transaction, 
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+__deprecated_msg("Avoid - inherits device's scheduling context, explicit scheduling causes unpredictable behavior");
 
 /*!
 	@function   IOHIDTransactionUnscheduleFromRunLoop
-	@abstract   Unschedules transaction with run loop.
+	@abstract   DEPRECATED Unschedules transaction with run loop.
     @discussion Formally disassociates transaction with client's run loop.
     @param      transaction IOHIDTransaction object to be modified.
     @param      runLoop RunLoop to be used when scheduling any asynchronous 
@@ -210,7 +217,7 @@ void IOHIDTransactionUnscheduleFromRunLoop(
                                 IOHIDTransactionRef             transaction, 
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+__deprecated_msg("Avoid - inherits device's scheduling context, explicit scheduling causes unpredictable behavior");
 
 /*!
 	@function   IOHIDTransactionSetValue

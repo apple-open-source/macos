@@ -270,16 +270,16 @@ tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
       if (type == STR_WIDE) offset *= sizeof(wchar_t);
     }
 
-	if (tnfa->num_tags > 0 && nmatch > 0)
-	{
+  if (tnfa->num_tags > 0 && nmatch > 0)
+    {
 #ifdef TRE_USE_ALLOCA
-		tags = alloca(sizeof(*tags) * tnfa->num_tags);
+      tags = alloca(sizeof(*tags) * tnfa->num_tags);
 #else /* !TRE_USE_ALLOCA */
-		tags = xmalloc(sizeof(*tags) * tnfa->num_tags);
+      tags = xmalloc(sizeof(*tags) * tnfa->num_tags);
 #endif /* !TRE_USE_ALLOCA */
-		if (tags == NULL)
-			return REG_ESPACE;
-	}
+      if (tags == NULL)
+	return REG_ESPACE;
+    }
 
   /* Dispatch to the appropriate matcher. */
   if (tnfa->have_backrefs || eflags & REG_BACKTRACKING_MATCHER)
@@ -290,9 +290,15 @@ tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
 	{
 	  const tre_str_source *source = string;
 	  if (source->rewind == NULL || source->compare == NULL)
-	    /* The backtracking matcher requires rewind and compare
-	       capabilities from the input stream. */
-	    status = REG_BADPAT;
+	    {
+	      /* The backtracking matcher requires rewind and compare
+		 capabilities from the input stream. */
+#ifndef TRE_USE_ALLOCA
+	      if (tags)
+		xfree(tags);
+#endif /* !TRE_USE_ALLOCA */
+	      return REG_BADPAT;
+	    }
 	} else
 #endif /* TRE_STR_USER */
       status = tre_tnfa_run_backtrack(tnfa, string + offset, (int)len, type,
@@ -367,6 +373,26 @@ tre_regexec(const regex_t *preg, const char *str,
 {
   return tre_regnexec(preg, str, (size_t)-1, nmatch, pmatch, eflags);
 }
+
+#ifndef __APPLE__
+int
+tre_regexecb(const regex_t *preg, const char *str,
+        size_t nmatch, regmatch_t pmatch[], int eflags)
+{
+  tre_tnfa_t *tnfa = (void *)preg->TRE_REGEX_T_FIELD;
+
+  return tre_match(tnfa, str, (unsigned)-1, STR_BYTE, nmatch, pmatch, eflags);
+}
+
+int
+tre_regnexecb(const regex_t *preg, const char *str, size_t len,
+        size_t nmatch, regmatch_t pmatch[], int eflags)
+{
+  tre_tnfa_t *tnfa = (void *)preg->TRE_REGEX_T_FIELD;
+
+  return tre_match(tnfa, str, len, STR_BYTE, nmatch, pmatch, eflags);
+}
+#endif /* !__APPLE__ */
 
 
 #ifdef TRE_WCHAR
@@ -518,6 +544,18 @@ tre_regaexec(const regex_t *preg, const char *str,
 {
   return tre_reganexec(preg, str, (size_t)-1, match, params, eflags);
 }
+
+#ifndef __APPLE__
+int
+tre_regaexecb(const regex_t *preg, const char *str,
+          regamatch_t *match, regaparams_t params, int eflags)
+{
+  tre_tnfa_t *tnfa = (void *)preg->TRE_REGEX_T_FIELD;
+
+  return tre_match_approx(tnfa, str, (unsigned)-1, STR_BYTE,
+                          match, params, eflags);
+}
+#endif /* !__APPLE__ */
 
 #ifdef TRE_WCHAR
 

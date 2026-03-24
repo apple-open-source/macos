@@ -153,9 +153,9 @@ typedef union client_delivery_u
 
 typedef struct client_s
 {
-	LIST_ENTRY(client_s) client_subscription_entry;
-	LIST_ENTRY(client_s) client_pid_entry;
-	LIST_ENTRY(client_s) client_port_entry;
+	LIST_ENTRY(client_s) client_subscription_entry; // name_info->subscriptions
+	LIST_ENTRY(client_s) client_pid_entry; // proc_data->clients
+	LIST_ENTRY(client_s) client_port_entry; // port_data->clients (incl. common_port)
 	name_info_t *name_info;
 	client_delivery_t deliver;
 	union client_id {

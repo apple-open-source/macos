@@ -53,7 +53,7 @@ public:
     bool hasFilenames() const { return !m_filenames.isEmpty(); }
     void clearURIList() { m_uriList = emptyString(); }
 
-    void setImage(RefPtr<Image>&& newImage) { m_image = WTFMove(newImage); }
+    void setImage(RefPtr<Image>&& newImage) { m_image = WTF::move(newImage); }
     const RefPtr<Image>& image() const { return m_image; }
     bool hasImage() const { return m_image; }
     void clearImage() { m_image = nullptr; }
@@ -66,7 +66,7 @@ public:
     SharedBuffer* buffer(const String& type) { return m_buffers.get(type); }
     void clearBuffers() { m_buffers.clear(); }
 
-    void setCustomData(Ref<SharedBuffer>&& buffer) { m_customData = WTFMove(buffer); }
+    void setCustomData(Ref<SharedBuffer>&& buffer) { m_customData = WTF::move(buffer); }
     const RefPtr<SharedBuffer>& customData() const { return m_customData; }
     bool hasCustomData() const { return !!m_customData; }
     void clearCustomData() { m_customData = nullptr; }

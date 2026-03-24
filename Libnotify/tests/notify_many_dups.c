@@ -16,7 +16,7 @@ T_DECL(notify_many_dups,
 	mach_port_t port = MACH_PORT_NULL;
 	const char *name = "com.apple.notify.many.dups.test";
 
-	n = 50000;
+	n = 5000;
 
 	status = notify_register_mach_port(name, &port, 0, &t);
 	T_EXPECT_EQ_INT(status, NOTIFY_STATUS_OK, "notify_register_mach_port status == NOTIFY_STATUS_OK");

@@ -135,7 +135,7 @@ void MediaKeySystemPermissionRequestManager::mediaKeySystemWasGranted(MediaKeySy
     if (!request)
         return;
 
-    request->allow(WTFMove(mediaKeysHashSalt));
+    request->allow(WTF::move(mediaKeysHashSalt));
 }
 
 void MediaKeySystemPermissionRequestManager::mediaKeySystemWasDenied(MediaKeySystemRequestIdentifier requestID, String&& message)
@@ -144,7 +144,7 @@ void MediaKeySystemPermissionRequestManager::mediaKeySystemWasDenied(MediaKeySys
     if (!request)
         return;
 
-    request->deny(WTFMove(message));
+    request->deny(WTF::move(message));
 }
 
 void MediaKeySystemPermissionRequestManager::ref() const

@@ -406,10 +406,10 @@ void ClientSession::unlock(DbHandle db, const KeyHandle kh)
 	UCSP_CLIENT_IPC(unlockDbWithHandle, db, kh);
 }
 
-KeyHandle ClientSession::generateDerivedEntropy(const CssmData &salt, const CssmData &passphrase)
+KeyHandle ClientSession::generateDerivedEntropy(DbHandle db, const CssmData &salt, const CssmData &passphrase)
 {
     KeyHandle kh = noKey;
-    UCSP_CLIENT_IPC(generateDerivedEntropy, &kh, DATA(salt), DATA(passphrase));
+    UCSP_CLIENT_IPC(generateDerivedEntropy, &kh, db, DATA(salt), DATA(passphrase));
     return kh;
 }
 
@@ -795,8 +795,13 @@ void ClientSession::getAcl(AclKind kind, GenericHandle key, const char *tag,
 
 	CSSM_ACL_ENTRY_INFO_ARRAY_PTR aclsArray;
 	if (!::copyout_chunked(info, infoLength, reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_ENTRY_INFO_ARRAY_PTR), reinterpret_cast<void**>(&aclsArray)))
-			CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR); 	
-	
+    {
+        MachPlusPlus::deallocate(info, infoLength); // Free the MIG-allocated memory
+        CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+    }
+
+    MachPlusPlus::deallocate(info, infoLength); // Free the MIG-allocated memory
+
 	infoCount = aclsArray->count;
 	infoArray = reinterpret_cast<AclEntryInfo*>(aclsArray->acls);
     free(aclsArray);
@@ -821,7 +826,14 @@ void ClientSession::getOwner(AclKind kind, GenericHandle key, AclOwnerPrototype 
     
     CSSM_ACL_OWNER_PROTOTYPE_PTR tmpOwner;
 	if (!::copyout_chunked(proto, protoLength, reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_OWNER_PROTOTYPE_PTR), reinterpret_cast<void **>(&tmpOwner)))
-		CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+    {
+        MachPlusPlus::deallocate(proto, protoLength); // Free the MIG-allocated memory
+        CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+    }
+
+    MachPlusPlus::deallocate(proto, protoLength); // Free the MIG-allocated memory
+
+
     owner = *static_cast<AclOwnerPrototypePtr>(tmpOwner);
     free(tmpOwner);
 }

@@ -46,6 +46,7 @@
 #include "notifyServer.h"
 #include <sandbox.h>
 
+static void proc_add_client(proc_data_t *pdata, client_t *c, pid_t pid);
 static inline void proc_cancel(proc_data_t *pdata);
 
 static uint32_t _notify_internal_register_common_port
@@ -87,11 +88,8 @@ port_arm_mach_notifications(mach_port_t port)
 }
 
 static void
-port_free(void *_pp)
+_port_free(notify_state_t *ns, port_data_t *pdata)
 {
-	notify_state_t *ns = &global.notify_state;
-	port_data_t *pdata = _pp;
-
 	if (!LIST_EMPTY(&pdata->clients)) {
 		NOTIFY_INTERNAL_CRASH(0, "port_proc still had clients");
 	}
@@ -101,6 +99,15 @@ port_free(void *_pp)
 
 	ns->stat_portproc_free++;
 	free(pdata);
+}
+
+static void
+port_free(void *_pp)
+{
+	notify_state_t *ns = &global.notify_state;
+	port_data_t *pdata = _pp;
+
+	_port_free(ns, pdata);
 }
 
 // This should be called either when the process cleans up, or when the process
@@ -151,13 +158,16 @@ proc_event(void *_pp)
 	proc_cancel(pdata);
 }
 
-static proc_data_t *
-proc_create(notify_state_t *ns, client_t *c, pid_t pid)
+/// Allocate `proc_data` without dispatch dependency.
+///
+/// Used by proc_create() and exposed for testing.
+///
+/// > Note:
+/// > 1. Does NOT insert client into pdata->clients - caller must do that.
+/// > 2. Does NOT set up dispatch source - caller must do that for production use.
+NOTIFY_TESTSTATIC proc_data_t *
+_proc_data_alloc(notify_state_t *ns, pid_t pid)
 {
-	dispatch_source_t src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
-			DISPATCH_PROC_EXIT, global.workloop);
-	dispatch_source_set_event_handler_f(src, proc_event);
-
 	proc_data_t *pdata = malloc(sizeof(proc_data_t));
 
 	if (pdata == NULL) {
@@ -169,13 +179,27 @@ proc_create(notify_state_t *ns, client_t *c, pid_t pid)
 	ns->stat_portproc_alloc++;
 
 	LIST_INIT(&pdata->clients);
-	pdata->src = src;
+	pdata->src = NULL;  // Caller sets dispatch source if needed
 	pdata->flags = PORT_PROC_FLAGS_NONE;
 	pdata->pid = (uint32_t)pid;
 	pdata->common_port_data = NULL;
 	_nc_table_insert_n(&ns->proc_table, &pdata->pid);
-	if(c) {
-		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+
+	return pdata;
+}
+
+static proc_data_t *
+proc_create(notify_state_t *ns, client_t *c, pid_t pid)
+{
+	dispatch_source_t src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
+			DISPATCH_PROC_EXIT, global.workloop);
+	dispatch_source_set_event_handler_f(src, proc_event);
+
+	proc_data_t *pdata = _proc_data_alloc(ns, pid);
+	pdata->src = src;
+
+	if (c) {
+		proc_add_client(pdata, c, pid);
 	}
 
 	dispatch_set_context(src, pdata);
@@ -217,8 +241,14 @@ port_create(notify_state_t *ns, client_t *c, mach_port_t port)
 	return true;
 }
 
-static port_data_t *
-common_port_create(notify_state_t *ns, mach_port_t port)
+/// Allocate common port data without Mach dependency.
+///
+/// Used by common_port_create() and exposed for testing.
+///
+/// - Parameters:
+///   - port: Pass MACH_PORT_NULL to avoid inserting into port_table.
+NOTIFY_TESTSTATIC port_data_t *
+_common_port_data_alloc(notify_state_t *ns, mach_port_t port)
 {
 	port_data_t *pdata = calloc(1, sizeof(port_data_t));
 
@@ -233,7 +263,23 @@ common_port_create(notify_state_t *ns, mach_port_t port)
 	LIST_INIT(&pdata->clients);
 	pdata->port = port;
 	pdata->flags = NOTIFY_PORT_FLAG_COMMON;
-	_nc_table_insert_n(&ns->port_table, &pdata->port);
+
+	// Only insert into port_table if we have a valid port
+	// (allows testing with MACH_PORT_NULL)
+	if (port != MACH_PORT_NULL) {
+		_nc_table_insert_n(&ns->port_table, &pdata->port);
+	}
+
+	return pdata;
+}
+
+static port_data_t *
+common_port_create(notify_state_t *ns, mach_port_t port)
+{
+	port_data_t *pdata;
+
+	os_assert(port);
+	pdata = _common_port_data_alloc(ns, port);
 
 	/* arming SEND_POSSIBLE must be done before we attempt any send */
 	port_arm_mach_notifications(port);
@@ -246,7 +292,7 @@ proc_register(notify_state_t *ns, client_t *c, pid_t pid)
 {
 	proc_data_t *pdata = _nc_table_find_n(&ns->proc_table, pid);
 	if (pdata && c) {
-		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+		proc_add_client(pdata, c, pid);
 	}
 	return pdata;
 }
@@ -314,12 +360,13 @@ do_mach_notify_send_possible(mach_port_t notify, mach_port_name_t port)
 }
 
 
-static void
-port_proc_cancel_client(client_t *c)
+/// Impl of `port_proc_cancel_client`. Inject `global` for testability.
+NOTIFY_TESTSTATIC void
+_port_proc_cancel_client(struct global_s *g, client_t *c)
 {
 	name_info_t *n;
 
-	call_statistics.cleanup++;
+	g->call_stats->cleanup++;
 
 	if (c->service_index != 0)
 	{
@@ -332,7 +379,7 @@ port_proc_cancel_client(client_t *c)
 
 	if (notify_is_type(c->state_and_type, NOTIFY_TYPE_MEMORY))
 	{
-		global.shared_memory_refcount[n->slot]--;
+		g->shared_memory_refcount[n->slot]--;
 	}
 	else if (notify_is_type(c->state_and_type, NOTIFY_TYPE_PORT) || notify_is_type(c->state_and_type, NOTIFY_TYPE_COMMON_PORT))
 	{
@@ -340,7 +387,32 @@ port_proc_cancel_client(client_t *c)
 	}
 	LIST_REMOVE(c, client_pid_entry);
 
-	_notify_lib_cancel_client(&global.notify_state, c);
+	_notify_lib_cancel_client(&g->notify_state, c);
+}
+
+// Production wrapper using global state
+static void
+port_proc_cancel_client(client_t *c)
+{
+	_port_proc_cancel_client(&global, c);
+}
+
+/**
+ * Cleanup all clients registered with a common port.
+ * Called when regenerating a common port (e.g., after exec()).
+ *
+ * This function iterates through common_port_data->clients and cancels each client.
+ * Clients are added to this list via client_port_entry (see _notify_internal_register_common_port).
+ */
+NOTIFY_TESTSTATIC void
+_cleanup_common_port_clients(struct global_s *g, port_data_t *common_port_data)
+{
+	client_t *c, *tmp;
+
+	// Clients are added via LIST_INSERT_HEAD(..., client_port_entry)
+	LIST_FOREACH_SAFE(c, &common_port_data->clients, client_port_entry, tmp) {
+		_port_proc_cancel_client(g, c);
+	}
 }
 
 static inline void
@@ -453,6 +525,30 @@ string_validate(caddr_t path, mach_msg_type_number_t pathCnt)
 	return NOTIFY_STATUS_OK;
 }
 
+/**
+ * Preflight checks for incoming MIG RPC calls from clients.
+ *
+ * This function serves multiple purposes:
+ * 1. Extracts credentials (uid, gid, pid) from the audit token
+ * 2. Computes the client ID (cid) from pid and token for quick lookup
+ * 3. IMPORTANT: Handles duplicate token cleanup after exec()
+ *
+ * About duplicate token handling:
+ * When a process exec()s, it may re-use the same token values in its new
+ * address space. The OLD client registration (from before exec) still exists
+ * in notifyd's tables with that token. This function detects and cancels the
+ * stale registration before the new registration proceeds.
+ *
+ * This is why most registration functions follow this pattern:
+ *   1. Call server_preflight() to get credentials AND clean up stale clients
+ *   2. Call _notify_lib_register_*() to create NEW client
+ *   3. Use the returned cid to look up the newly-created client
+ *
+ * - Parameters:
+ *   - token: Client-provided token (unique within a process)
+ *
+ * > Side effects: If a client with the same (pid, token) already exists, it is cancelled.
+ */
 static void
 server_preflight(audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *pid, uint64_t *cid)
 {
@@ -1734,10 +1830,7 @@ kern_return_t __notify_generate_common_port
 	// such as if the process calls exec.
 	if(pdata->common_port_data != NULL)
 	{
-		client_t *c, *tmp;
-		LIST_FOREACH_SAFE(c, &pdata->common_port_data->clients, client_pid_entry, tmp) {
-			port_proc_cancel_client(c);
-		}
+		_cleanup_common_port_clients(&global, pdata->common_port_data);
 		common_port_free(pdata->common_port_data);
 		pdata->common_port_data = NULL;
 	}
@@ -1760,6 +1853,46 @@ kern_return_t __notify_generate_common_port
 	return KERN_SUCCESS;
 }
 
+/// Core registration logic for common port clients.
+///
+/// Registers a client for a notification name and adds it to proc/port lists.
+///
+/// - Parameters:
+///   - proc: the proc_data (must have common_port_data set up)
+///
+/// - Returns: the created client, or NULL on failure (check `out_status` for reason)
+NOTIFY_TESTSTATIC client_t *
+_register_common_port_client(
+	notify_state_t *ns, proc_data_t *proc,
+	const char *name, pid_t pid, int token, uid_t uid, gid_t gid,
+	uint32_t *out_status
+) {
+	client_t *c;
+	uint64_t name_id;
+	uint32_t status;
+
+	status = _notify_lib_register_common_port(ns, name, pid, token, uid, gid, &name_id);
+	if (status != NOTIFY_STATUS_OK) {
+		if (out_status) *out_status = status;
+		return NULL;
+	}
+
+	uint64_t cid = make_client_id(pid, token);
+	c = _nc_table_find_64(&ns->client_table, cid);
+
+	// Add to proc's client list (via client_pid_entry)
+	proc_add_client(proc, c, pid);
+
+	// Add to common port's client list (via client_port_entry)
+	LIST_INSERT_HEAD(&proc->common_port_data->clients, c, client_port_entry);
+
+	if (out_status) {
+		*out_status = NOTIFY_STATUS_OK;
+	}
+
+	return c;
+}
+
 static uint32_t _notify_internal_register_common_port
 (
 	caddr_t name,
@@ -1768,13 +1901,12 @@ static uint32_t _notify_internal_register_common_port
 )
 {
 	client_t *c;
-	uint64_t name_id, cid = 0;
 	uint32_t status;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
-	server_preflight(audit, token, &uid, &gid, &pid, &cid);
+	server_preflight(audit, token, &uid, &gid, &pid, NULL);
 
 	call_statistics.reg++;
 	call_statistics.reg_common++;
@@ -1790,19 +1922,14 @@ static uint32_t _notify_internal_register_common_port
 		return NOTIFY_STATUS_INVALID_PORT_INTERNAL;
 	}
 
-
-	status = _notify_lib_register_common_port(ns, name, pid, token, uid, gid, &name_id);
-	if (status != NOTIFY_STATUS_OK)
-	{
+	c = _register_common_port_client(ns, proc, name, pid, token, uid, gid, &status);
+	if (c == NULL) {
 		return status;
 	}
 
-	c = _nc_table_find_64(&ns->client_table, cid);
-
-	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, audit);
-
-	proc_add_client(proc, c, pid);
-	LIST_INSERT_HEAD(&proc->common_port_data->clients, c, client_port_entry);
+	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) {
+		service_open(name, c, audit);
+	}
 
 	return NOTIFY_STATUS_OK;
 }

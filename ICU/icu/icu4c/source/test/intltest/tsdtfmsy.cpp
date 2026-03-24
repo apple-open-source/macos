@@ -13,6 +13,12 @@
 
 #include "unicode/dtfmtsym.h"
 
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include "testutil.h" // rdar://162810290
+#include "shareddateformatsymbols.h" // rdar://162810290
+#include <malloc/malloc.h>  // rdar://165873670
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+
 
 //--------------------------------------------------------------------
 // Time bomb - allows temporary behavior that expires at a given
@@ -29,6 +35,10 @@ void IntlTestDateFormatSymbols::runIndexedTest( int32_t index, UBool exec, const
         TESTCASE(3,TestGetWeekdays2);
         TESTCASE(4,TestGetEraNames);
         TESTCASE(5,TestGetSetSpecificItems);
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+        TESTCASE(6,checkForUninitializedMemoryInDateFormatSymbols); // rdar://162810290
+        TESTCASE(7,checkForUninitializedMemoryInSharedDateFormatSymbols); // rdar://162810290
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
         default: name = ""; break;
     }
 }
@@ -415,5 +425,53 @@ void IntlTestDateFormatSymbols::TestSymbols(/* char *par */)
         errln("ERROR: Copy Constructor failed");
     }
 }
+
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290 and rdar://165873670
+void IntlTestDateFormatSymbols::checkForUninitializedMemoryInDateFormatSymbols() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<DateFormatSymbols> dfs(new DateFormatSymbols(Locale::getUS(), status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create DateFormatSymbols - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = dfs.getAlias();
+
+    // Before any changes to reduce uninitialized memory, this test was showing that
+    // over 31% of DateFormatSymbols was uninitialized.
+
+    // The uninitialized memory was causing problems for our memory analysis tools as
+    // the DateFormatSymbols object appeared to have references to other objects
+    // due to data picked up from the heap in the uninitialized areas.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "DateFormatSymbols",
+        sizeof(DateFormatSymbols));
+}
+
+// rdar://162810290 and rdar://165873670
+void IntlTestDateFormatSymbols::checkForUninitializedMemoryInSharedDateFormatSymbols() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<SharedDateFormatSymbols> sdfs(new SharedDateFormatSymbols(Locale::getUS(), nullptr, status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create SharedDateFormatSymbols - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = sdfs.getAlias();
+
+    // SharedDateFormatSymbols is a wrapper around DateFormatSymbols with SharedObject overhead.
+    // So, see comments in checkForUninitializedMemory() above.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "SharedDateFormatSymbols",
+        sizeof(SharedDateFormatSymbols));
+}
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

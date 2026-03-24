@@ -14,7 +14,7 @@
 <script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
-<link href="./images/favicon.ico" rel="shortcut icon" /></head>
+<link href="./images/favicon.png" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur HTTP Apache Version 2.4</p>
@@ -69,26 +69,29 @@ le Serveur HTTP Apache.</p>
 <h2><a name="syntax" id="syntax">Syntaxe des fichiers de configuration</a></h2>
     
 
-    <p>Les fichiers de configuration de httpd contiennent une directive
-    par ligne.
-    On peut utiliser l'anti-slash "\" comme dernier caractère d'une ligne
-    pour indiquer que la directive continue à la ligne suivante.
-    Il ne doit y avoir aucun caractère ni espace entre l'anti-slash et
-    la fin de la ligne.</p>
+    <p>Les fichiers de configuration de httpd contiennent une directive par
+    ligne.  On peut utiliser l'anti-slash "\" comme dernier caractère d'une
+    ligne pour indiquer que la directive continue à la ligne suivante ; pour que
+    cette continuation soit prise en compte, il ne doit y avoir aucun caractère
+    ni blanc entre l'anti-slash et la fin de la ligne.</p>
 
-    <p>Les arguments des directives sont séparés les uns des autres par
-    des espaces. Si un argument contient des espaces, il doit être
-    entouré de guillemets.</p>
+    <p>Les lignes qui commencent par un croisillon «&nbsp;#&nbsp;» sont interprétées comme
+    des commentaires et sont ignorées. Les commentaires <strong>ne doivent
+    pas</strong> se trouver sur la même ligne qu’une directive de configuration,
+    y compris au début de la continuation d’une ligne comme décrit dans le
+    paragraphe précédent. Les commentaires peuvent aussi continuer sur la ligne
+    suivante, ce qui signifie que la prochaine ligne physique est aussi
+    interprétée comme un commentaire car la ligne logique commence par un
+    croisillon.
+    </p>
+
+    <p>Les blancs apparaissant avant une directive sont ignorés ; vous pouvez
+    donc indenter ces dernières pour améliorer la lisibilité. Les lignes vides
+    sont aussi ignorées. les arguments de directive sont séparés par des blancs.
+    Si un argument contient des espaces, il doit être entouré de guillemets.</p>
 
     <p>Les directives dans les fichiers de configuration ne sont pas
-    sensibles à la casse, mais leurs arguments le sont souvent. Les lignes
-    qui débutent par le caractère "#" sont interprétées comme des
-    commentaires, et sont ignorées. Les commentaires ne doivent
-    <strong>pas</strong> apparaître sur la même ligne qu'une directive
-    de configuration. Les espaces précédant une directive
-    sont ignorés&nbsp;; vous pouvez par conséquent indenter les directives
-    afin d'améliorer la lisibilité. Les lignes vides sont
-    aussi ignorées.</p>
+    sensibles à la casse, mais leurs arguments le sont souvent.</p>
 
     <p>Les valeurs des variables d'environnement ou des variables définies via
     la directive <code class="directive"><a href="./mod/core.html#define">Define</a></code> peuvent être
@@ -240,7 +243,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/configuring.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2024 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2025 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

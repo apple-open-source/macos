@@ -8,6 +8,8 @@
 #include "engine.h"
 #include "authd_private.h"
 #include "connection.h"
+#include "PluginSafePath.h"
+#include "authutilities.h"
 
 #include <Security/Authorization.h>
 
@@ -23,6 +25,8 @@
 
 AUTHD_DEFINE_LOG
 
+os_log_type_t gDebugOrDefaultInRecovery = OS_LOG_TYPE_DEBUG;
+
 static dispatch_queue_t
 _get_server_xpc_queue(void)
 {
@@ -35,7 +39,7 @@ _get_server_xpc_queue(void)
             os_log_error(AUTHD_LOG, "Failed to create high-priority attribute");
         }
         xpc_queue = dispatch_queue_create("com.apple.security.auth.xpc", attribute);
-        check(xpc_queue != NULL);
+        __Check(xpc_queue != NULL);
     });
     
     return xpc_queue;
@@ -88,7 +92,7 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
     __block OSStatus status = errAuthorizationDenied;
     
     connection_t conn = (connection_t)xpc_connection_get_context(connection);
-    require_action(conn != NULL, done, os_log_error(AUTHD_LOG, "xpc: process context not found"));
+    __Require_Action(conn != NULL, done, os_log_error(AUTHD_LOG, "xpc: process context not found"));
 
     CFRetainSafe(conn);
 
@@ -111,7 +115,7 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
 		assert(type == XPC_TYPE_DICTIONARY);
         
         xpc_object_t reply = xpc_dictionary_create_reply(event);
-        require(reply != NULL, done);
+        __Require(reply != NULL, done);
         
         uint64_t auth_type = xpc_dictionary_get_uint64(event, AUTH_XPC_TYPE);
         char buffer[16];
@@ -262,6 +266,13 @@ int main(int argc AUTH_UNUSED, const char *argv[] AUTH_UNUSED)
 //    malloc_zone_print(malloc_default_zone(), false);
 //#endif
 
+    // In FVUnlock/Recovery mode, debug logs are not captured by default.
+    // Elevate AIR (Authorization In Recovery) database logs to default level
+    // so they are available for diagnostics.
+    if (isInFVUnlockOrRecovery()) {
+        gDebugOrDefaultInRecovery = OS_LOG_TYPE_DEFAULT;
+    }
+    
 	os_log_debug(AUTHD_LOG, "starting");
 
 	// <rdar://problem/20900280> authd needs to provide a writeable temp dir for SQLite
@@ -282,6 +293,10 @@ int main(int argc AUTH_UNUSED, const char *argv[] AUTH_UNUSED)
 	setenv("SQLITE_TMPDIR", real_tmp, 1);
     sandbox(real_tmp);
 	free(real_tmp);
+    
+    if (plugin_stagedir_clean()) {
+        os_log_error(AUTHD_LOG, "Non-fatal error: failed to fully clean stage dir");
+    }
 
     if (server_init() != errAuthorizationSuccess) {
         os_log_error(AUTHD_LOG, "auth: server_init() failed");

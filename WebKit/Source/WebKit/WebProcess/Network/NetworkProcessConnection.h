@@ -65,7 +65,7 @@ class NetworkProcessConnection final : public RefCounted<NetworkProcessConnectio
 public:
     static Ref<NetworkProcessConnection> create(IPC::Connection::Identifier&& connectionIdentifier, WebCore::HTTPCookieAcceptPolicy httpCookieAcceptPolicy)
     {
-        return adoptRef(*new NetworkProcessConnection(WTFMove(connectionIdentifier), httpCookieAcceptPolicy));
+        return adoptRef(*new NetworkProcessConnection(WTF::move(connectionIdentifier), httpCookieAcceptPolicy));
     }
     ~NetworkProcessConnection();
 

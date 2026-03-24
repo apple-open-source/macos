@@ -220,7 +220,7 @@ bool addErrorInfo(VM& vm, Vector<StackFrame>* stackTrace, JSObject* obj)
         obj->putDirect(vm, vm.propertyNames->line, jsNumber(lineColumn.line));
         obj->putDirect(vm, vm.propertyNames->column, jsNumber(lineColumn.column));
         if (!sourceURL.isEmpty())
-            obj->putDirect(vm, vm.propertyNames->sourceURL, jsString(vm, WTFMove(sourceURL)));
+            obj->putDirect(vm, vm.propertyNames->sourceURL, jsString(vm, WTF::move(sourceURL)));
 
         obj->putDirect(vm, vm.propertyNames->stack, jsString(vm, Interpreter::stackTraceAsString(vm, *stackTrace)), static_cast<unsigned>(PropertyAttribute::DontEnum));
 

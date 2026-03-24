@@ -26,14 +26,18 @@
 #ifndef PowerObserverMac_h
 #define PowerObserverMac_h
 
+#import <wtf/Platform.h>
+
+#if PLATFORM(MAC)
+
 #import <IOKit/IOMessage.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #import <wtf/CheckedRef.h>
 #import <wtf/Function.h>
 #import <wtf/Noncopyable.h>
-#import <wtf/OSObjectPtr.h>
 #import <wtf/TZoneMalloc.h>
 #import <wtf/WeakPtr.h>
+#import <wtf/darwin/DispatchOSObject.h>
 
 namespace WebCore {
 
@@ -56,6 +60,8 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // PLATFORM(MAC)
 
 #endif // PowerObserverMac_h
 

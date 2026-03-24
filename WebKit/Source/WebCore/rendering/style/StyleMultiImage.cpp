@@ -79,7 +79,7 @@ void StyleMultiImage::load(CachedResourceLoader& loader, const ResourceLoaderOpt
     
     if (RefPtr styleCachedImage = dynamicDowncast<StyleCachedImage>(bestFitImage.image)) {
         if (styleCachedImage->imageScaleFactor() == bestFitImage.scaleFactor)
-            m_selectedImage = WTFMove(styleCachedImage);
+            m_selectedImage = WTF::move(styleCachedImage);
         else
             m_selectedImage = StyleCachedImage::copyOverridingScaleFactor(*styleCachedImage, bestFitImage.scaleFactor);
 

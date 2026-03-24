@@ -218,6 +218,7 @@ SECURITY_COMMAND("verify-cert", verify_cert,
                  "   -L              Local certs only.\n"
                  "   -n name         Name to be verified. (ssl, IPSec, smime)\n"
                  "   -q              Quiet.\n"
+                 "   -j              Print result as JSON, suppress all other printing, will set exit code.\n"
                  "   -R revOption    Perform revocation checking with one of the following options:\n"
                  "                       ocsp     Check revocation status using OCSP method.\n"
                  "                       require  Require a positive response for successful verification.\n"
@@ -254,9 +255,11 @@ SECURITY_COMMAND("system-trust-store", trust_store_show_pki_certificates,
                  "Display system trust store certificates and trust settings.")
 
 SECURITY_COMMAND("check-trust-update", check_trust_update,
-                 "[-s][-e]\n"
+                 "[-s][-e][-r][-v version]\n"
                  "    -s Check for Supplementals (Pinning DB and Trusted CT Logs) update\n"
-                 "    -e Check for SecExperiment update\n",
+                 "    -e Check for SecExperiment update\n"
+                 "    -v Valid version\n"
+                 "    -r Force valid update\n",
                  "Check for data updates for trust and return current version.")
 
 SECURITY_COMMAND("add-ct-exceptions", add_ct_exceptions,

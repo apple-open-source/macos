@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class Document;
+class Settings;
 
 struct CSSParserContext {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(CSSParserContext);
@@ -60,11 +61,10 @@ struct CSSParserContext {
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     bool cssTransformStyleSeparatedEnabled : 1 { false };
 #endif
-    bool itemPackCollapseDisplayGridEnabled : 1 { false };
+    bool gridLanesEnabled : 1 { false };
     bool cssAppearanceBaseEnabled : 1 { false };
     bool cssPaintingAPIEnabled : 1 { false };
     bool cssShapeFunctionEnabled : 1 { false };
-    bool cssTextUnderlinePositionLeftRightEnabled : 1 { false };
     bool cssTextDecorationLineErrorValues : 1 { false };
     bool cssBackgroundClipBorderAreaEnabled : 1 { false };
     bool cssWordBreakAutoPhraseEnabled : 1 { false };
@@ -78,7 +78,6 @@ struct CSSParserContext {
     bool colorLayersEnabled : 1 { false };
     bool contrastColorEnabled : 1 { false };
     bool targetTextPseudoElementEnabled : 1 { false };
-    bool viewTransitionTypesEnabled : 1 { false };
     bool cssProgressFunctionEnabled : 1 { false };
     bool cssRandomFunctionEnabled : 1 { false };
     bool cssTreeCountingFunctionsEnabled : 1 { false };
@@ -87,7 +86,10 @@ struct CSSParserContext {
     bool cssAxisRelativePositionKeywordsEnabled : 1 { false };
     bool cssDynamicRangeLimitMixEnabled : 1 { false };
     bool cssConstrainedDynamicRangeLimitEnabled : 1 { false };
+    bool cssTextTransformMathAutoEnabled : 1 { false };
+    bool cssInternalAutoBaseParsingEnabled : 1 { false };
     bool webkitMediaTextTrackDisplayQuirkEnabled : 1 { false };
+    bool cssMathDepthEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;
@@ -95,6 +97,7 @@ struct CSSParserContext {
     CSSParserContext(CSSParserMode, const URL& baseURL = URL());
     WEBCORE_EXPORT CSSParserContext(const Document&);
     CSSParserContext(const Document&, const URL& baseURL, ASCIILiteral charset = ""_s);
+    CSSParserContext(const Settings&);
 
     void setUASheetMode();
 
@@ -105,12 +108,6 @@ void add(Hasher&, const CSSParserContext&);
 
 WEBCORE_EXPORT const CSSParserContext& strictCSSParserContext();
 
-struct CSSParserContextHash {
-    static unsigned hash(const CSSParserContext& context) { return computeHash(context); }
-    static bool equal(const CSSParserContext& a, const CSSParserContext& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
-
 } // namespace WebCore
 
 namespace WTF {
@@ -120,7 +117,5 @@ template<> struct HashTraits<WebCore::CSSParserContext> : GenericHashTraits<WebC
     static bool isDeletedValue(const WebCore::CSSParserContext& value) { return value.baseURL.isHashTableDeletedValue(); }
     static WebCore::CSSParserContext emptyValue() { return WebCore::CSSParserContext(WebCore::HTMLStandardMode); }
 };
-
-template<> struct DefaultHash<WebCore::CSSParserContext> : WebCore::CSSParserContextHash { };
 
 } // namespace WTF

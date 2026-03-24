@@ -28,7 +28,7 @@ struct _WebKitScriptDialog {
         : type(type)
         , message(message)
         , defaultText(defaultText)
-        , completionHandler(WTFMove(completionHandler))
+        , completionHandler(WTF::move(completionHandler))
     {
     }
 

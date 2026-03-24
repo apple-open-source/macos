@@ -59,10 +59,12 @@ public:
     StackShot& operator=(const StackShot& other)
     {
         auto newArray = makeUniqueArray<void*>(other.m_size);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         for (size_t i = other.m_size; i--;)
             newArray[i] = other.m_array[i];
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_size = other.m_size;
-        m_array = WTFMove(newArray);
+        m_array = WTF::move(newArray);
         return *this;
     }
     
@@ -82,22 +84,26 @@ public:
     {
         if (m_size != other.m_size)
             return false;
-        
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         for (size_t i = m_size; i--;) {
             if (m_array[i] != other.m_array[i])
                 return false;
         }
-        
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
         return true;
     }
     
     unsigned hash() const
     {
         unsigned result = m_size;
-        
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         for (size_t i = m_size; i--;)
             result ^= PtrHash<void*>::hash(m_array[i]);
-        
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
         return result;
     }
     

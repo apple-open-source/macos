@@ -106,25 +106,25 @@ ssl_client_handle_create(int comm, bool anyRoot, CFArrayRef trustedCA, bool trus
     ssl_client_handle *handle = calloc(1, sizeof(ssl_client_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
         (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
     static const char *peer_domain_name = "localhost";
-    require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
+    __Require_noErr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
-    require_noerr(SSLSetAllowsAnyRoot(ctx, anyRoot), out);
-    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, trustedCAOnly), out);
+    __Require_noErr(SSLSetAllowsAnyRoot(ctx, anyRoot), out);
+    __Require_noErr(SSLSetTrustedRoots(ctx, trustedCA, trustedCAOnly), out);
 #if !TARGET_OS_IPHONE
-    require_noerr(SSLSetTrustedLeafCertificates(ctx, trustedLeafs), out);
+    __Require_noErr(SSLSetTrustedLeafCertificates(ctx, trustedLeafs), out);
 #endif
 
-    require_noerr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
+    __Require_noErr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
 
-    require_noerr(SSLSetPeerID(ctx, &peerID, sizeof(peerID)), out);
+    __Require_noErr(SSLSetPeerID(ctx, &peerID, sizeof(peerID)), out);
 
     handle->comm = comm;
     handle->st = ctx;
@@ -159,15 +159,15 @@ static void *securetransport_ssl_client_thread(void *arg)
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            __Require_String(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock);
 
@@ -194,20 +194,20 @@ ssl_server_handle_create(int comm, CFArrayRef certs, uint32_t cache_ttl)
     SSLCipherSuite cipher = TLS_RSA_WITH_AES_256_CBC_SHA256;
     uintptr_t peerID = 0xdeadbeef;
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
 
-    require_noerr(SSLSetCertificate(ctx, certs), out);
+    __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
-    require_noerr(SSLSetEnabledCiphers(ctx, &cipher, 1), out);
+    __Require_noErr(SSLSetEnabledCiphers(ctx, &cipher, 1), out);
 
-    require_noerr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
+    __Require_noErr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
 
-    require_noerr(SSLSetPeerID(ctx, &peerID, sizeof(peerID)), out);
+    __Require_noErr(SSLSetPeerID(ctx, &peerID, sizeof(peerID)), out);
 
     handle->comm = comm;
     handle->certs = certs;
@@ -243,21 +243,21 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            __Require_Action(ssl_state==kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock);
 
-    require_noerr_quiet(ortn, out);
+    __Require_noErr_Quiet(ortn, out);
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
 
 out:
     SSLClose(ssl->st);
@@ -292,11 +292,11 @@ tests_cache_ttl(void)
 
                 client = ssl_client_handle_create(sp[0], false, trusted_ca, true, NULL, i, (i<<8)|(j+1));
                 ok(client!=NULL, "ttl: could not create client handle (%d:%d:%d)", i, j, k);
-                require(client, errOut);
+                __Require(client, errOut);
 
                 server = ssl_server_handle_create(sp[1], server_certs, j);
                 ok(server!=NULL, "ttl: could not create server handle (%d:%d:%d)", i, j, k);
-                require(server, errOut);
+                __Require(server, errOut);
                 pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
                 pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);
 
@@ -369,11 +369,11 @@ tests_cache_trust(void)
 
             client = ssl_client_handle_create(sp[0], any, ca?trusted_ca:trusted_ca2, caonly, leaf?NULL:trusted_ca, 300, 0xdeadbeef);
             ok(client!=NULL, "trust: could not create client handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
-            require(client, errOut);
+            __Require(client, errOut);
 
             server = ssl_server_handle_create(sp[1], server_certs, 300);
             ok(server!=NULL, "trust: could not create server handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
-            require(server, errOut);
+            __Require(server, errOut);
 
             pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
             pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);

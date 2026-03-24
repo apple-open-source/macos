@@ -85,7 +85,7 @@ static OSStatus SecCurve25519PublicKeyInit(SecKeyRef key,
     switch (encoding) {
     case kSecKeyEncodingBytes:
     {
-        require_action_quiet(keyDataLength == sizeof(ccec25519pubkey), errOut, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == sizeof(ccec25519pubkey), errOut, err = errSecDecode);
         memcpy(pubkey, keyData, keyDataLength);
         err = errSecSuccess;
         break;
@@ -93,19 +93,19 @@ static OSStatus SecCurve25519PublicKeyInit(SecKeyRef key,
     case kSecExtractPublicFromPrivate:
     {
         const uint8_t *privatekey = keyData;
-        require_action_quiet(keyDataLength == sizeof(ccec25519secretkey), errOut, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == sizeof(ccec25519secretkey), errOut, err = errSecDecode);
         if (isEd25519Key(key)) {
             int errcc = cced25519_make_pub_with_rng(ccsha512_di(), ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cced25519_make_pub_with_rng() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cced25519_make_pub_with_rng() failed, error %d", (int)errcc););
         } else {
             int errcc = cccurve25519_make_pub_with_rng(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve25519_make_pub_with_rng() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve25519_make_pub_with_rng() failed, error %d", (int)errcc););
         }
         err = errSecSuccess;
         break;
     }
     default:
-        require_action_quiet(0, errOut, err = errSecParam);
+        __Require_Action_Quiet(0, errOut, err = errSecParam);
         break;
     }
 
@@ -275,7 +275,7 @@ static OSStatus SecCurve25519PrivateKeyInit(SecKeyRef key,
     switch (encoding) {
     case kSecKeyEncodingBytes:
     {
-        require_action_quiet(keyDataLength == sizeof(ccec25519secretkey), exit, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == sizeof(ccec25519secretkey), exit, err = errSecDecode);
         memcpy(privatekey, keyData, keyDataLength);
         err = errSecSuccess;
         break;
@@ -285,10 +285,10 @@ static OSStatus SecCurve25519PrivateKeyInit(SecKeyRef key,
         ccec25519pubkey pubkey = {};
         if (isEd25519Key(key)) {
             int errcc = cced25519_make_key_pair(ccsha512_di(), ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cced25519_make_key_pair() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cced25519_make_key_pair() failed, error %d", (int)errcc););
         } else {
             int errcc = cccurve25519_make_key_pair(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve25519_make_key_pair() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve25519_make_key_pair() failed, error %d", (int)errcc););
         }
         cc_clear(sizeof(pubkey), pubkey);
         err = errSecSuccess;
@@ -317,17 +317,17 @@ static CFTypeRef SecCurve25519PrivateKeyCopyOperationResult(SecKeyRef key, SecKe
                     int err = 0;
                     ccec25519pubkey pubkey = {};
                     err = cced25519_make_pub_with_rng(ccsha512_di(), ccrng_seckey(), pubkey, privatekey);
-                    require_noerr_action_quiet(err, out, SecError(errSecInternalComponent, error, CFSTR("%@: Failed to get public key from private key"), key));
+                    __Require_noErr_Action_Quiet(err, out, SecError(errSecInternalComponent, error, CFSTR("%@: Failed to get public key from private key"), key));
                     size_t size = sizeof(ccec25519signature);
                     result = CFDataCreateMutableWithScratch(NULL, size);
-                    require_action_quiet(result, out, SecError(errSecAllocate, error, CFSTR("%@: Failed to create buffer for a signature"), key));
+                    __Require_Action_Quiet(result, out, SecError(errSecAllocate, error, CFSTR("%@: Failed to create buffer for a signature"), key));
                     size_t msgLen = CFDataGetLength(in1);
                     const uint8_t *msg = CFDataGetBytePtr(in1);
                     uint8_t *signaturePtr = CFDataGetMutableBytePtr((CFMutableDataRef)result);
                     
                     err = cced25519_sign_with_rng(ccsha512_di(), ccrng_seckey(), signaturePtr, msgLen, msg, pubkey, privatekey);
                     cc_clear(sizeof(pubkey), pubkey);
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
+                    __Require_Action_Quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: Ed25519 signing failed (ccerr %d)"),
                                                                   key, err)));
                 } else {
@@ -343,13 +343,13 @@ static CFTypeRef SecCurve25519PrivateKeyCopyOperationResult(SecKeyRef key, SecKe
                 if (mode == kSecKeyOperationModePerform) {
                     const uint8_t *hispub = CFDataGetBytePtr(in1);
                     size_t hislen = CFDataGetLength(in1);
-                    require_action_quiet(hislen == sizeof(ccec25519pubkey), out,
+                    __Require_Action_Quiet(hislen == sizeof(ccec25519pubkey), out,
                                          SecError(errSecParam, error, CFSTR("X25519priv sharedsecret: bad public key")));
                     
                     size_t size = sizeof(ccec25519key);
                     result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
                     int err = cccurve25519_with_rng(ccrng_seckey(), CFDataGetMutableBytePtr((CFMutableDataRef)result), privatekey, hispub);
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
+                    __Require_Action_Quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: X25519 DH failed (ccerr %d)"),
                                                                   key, err)));
                     CFDataSetLength((CFMutableDataRef)result, size);
@@ -484,13 +484,13 @@ static OSStatus curve25519KeyGeneratePair(CFDictionaryRef parameters,
     const SecKeyDescriptor *pubKeyDescriptor = (algorithm == kSecEd25519AlgorithmID) ? &kSecEd25519PublicKeyDescriptor : &kSecX25519PublicKeyDescriptor;
 
     SecKeyRef privKey = SecKeyCreate(allocator, privKeyDescriptor, (const void*) parameters, 0, kSecGenerateKey);
-    require_quiet(privKey, errOut);
+    __Require_Quiet(privKey, errOut);
 
     /* Create SecKeyRef's from the private key. */
     pubKey = SecKeyCreate(allocator, pubKeyDescriptor,
                           privKey->key, sizeof(ccec25519secretkey), kSecExtractPublicFromPrivate);
 
-    require_quiet(pubKey, errOut);
+    __Require_Quiet(pubKey, errOut);
 
     if (publicKey) {
         *publicKey = pubKey;

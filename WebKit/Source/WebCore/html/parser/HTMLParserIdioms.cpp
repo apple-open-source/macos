@@ -181,7 +181,7 @@ Expected<unsigned, HTMLIntegerParsingError> parseHTMLNonNegativeInteger(StringVi
 {
     auto optionalSignedResult = parseHTMLInteger(input);
     if (!optionalSignedResult)
-        return makeUnexpected(WTFMove(optionalSignedResult.error()));
+        return makeUnexpected(WTF::move(optionalSignedResult.error()));
 
     if (optionalSignedResult.value() < 0)
         return makeUnexpected(HTMLIntegerParsingError::NegativeOverflow);

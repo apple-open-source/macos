@@ -149,12 +149,13 @@ endif
 	$(_v) $(CHMOD) 0 "$(Destination)/.file"
 
 	# $(SYMROOT)/bsd.sb is created by usr/share/sandbox/Makefile
-	# rdar://problem/8207011
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports"
-	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports/bsd.sb"
 ifeq "$(CONTENT_PLATFORM)" "osx"
 	# rdar://problem/11108634
 	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/System/Library/Sandbox/Profiles/bsd.sb"
+else
+	# rdar://problem/8207011
+	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports"
+	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports/bsd.sb"
 endif
 endif
 ifeq "$(CONTENT_PLATFORM)" "ios"

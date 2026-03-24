@@ -274,7 +274,7 @@ inline EncodedJSValue arrayNewElem(JSWebAssemblyInstance* instance, uint32_t typ
 
     VM& vm = instance->vm();
     StorageType arrayType = structure->typeDefinition().as<ArrayType>()->elementType().type;
-    ASSERT_UNUSED(arrayType, isSubtype(StorageType(element->elementType), arrayType));
+    ASSERT_UNUSED(arrayType, !arraySize || isSubtype(StorageType(element->elementType), arrayType));
     auto* array = JSWebAssemblyArray::tryCreate(vm, structure, arraySize);
     if (!array) [[unlikely]]
         return JSValue::encode(jsNull());
@@ -287,7 +287,7 @@ inline EncodedJSValue arrayNewElem(JSWebAssemblyInstance* instance, uint32_t typ
     WTF::storeStoreFence();
     array->setIsUnpopulated(false);
 #endif
-    ASSERT(Wasm::isRefType(element->elementType));
+    ASSERT(!arraySize || Wasm::isRefType(element->elementType));
     vm.writeBarrier(array);
     return JSValue::encode(array);
 }
@@ -677,7 +677,7 @@ inline int32_t growMemory(JSWebAssemblyInstance* instance, int32_t delta)
     return grown.value().pageCount();
 }
 
-inline bool memoryInit(JSWebAssemblyInstance* instance, unsigned dataSegmentIndex, uint32_t dstAddress, uint32_t srcAddress, uint32_t length)
+inline bool memoryInit(JSWebAssemblyInstance* instance, unsigned dataSegmentIndex, uint64_t dstAddress, uint32_t srcAddress, uint32_t length)
 {
     ASSERT(dataSegmentIndex < instance->module().moduleInformation().dataSegmentsCount());
     return instance->memoryInit(dstAddress, srcAddress, length, dataSegmentIndex);

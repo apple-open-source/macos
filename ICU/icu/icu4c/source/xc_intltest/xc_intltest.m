@@ -7,13 +7,15 @@
 //
 
 #import <XCTest/XCTest.h>
+#import "ctest.h"
+#import "unicode/uclean.h"
 
 extern int main(int argc, char* argv[]);
 
-int call_main(char *argv1) {
+int call_main(char *testname) {
     char argv0[] = "intltest";
-    int argc = 2;
-    char* argv[] = {argv0, argv1, NULL};
+    char* argv[4];
+    int argc = ctest_setup_xctest_argv(argv0, (const char **)argv, testname);
     int result = main(argc, argv);
     return result;
 }
@@ -24,114 +26,130 @@ int call_main(char *argv1) {
 
 @implementation xc_intltest
 
-- (void)setUp {
-    // Put setup code here. This method is called before the invocation of each test method in the class.
+//+ (void)setUp {
+//    // This method is called only once before any of the test methods begin.
+//}
+
++ (void)tearDown {
+    //This method is called only once after all of the test methods are done.
+
+    // rdar://163964842
+    // Do one last init to ensure we're leaving ICU in a good state
+    // because XCTest uses the libicucore.A.dylib we built and it calls
+    // udat_format() via CFDateFormatterCreateStringWithAbsoluteTime()
+    // after the tests complete, which will get an EXC_BAD_ACCESS
+    // if we've already cleaned up the timezone resource data.
+    UErrorCode errorCode = U_ZERO_ERROR;
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode)) {
+        fprintf(stderr, "u_init() failed with status: %s.\n",
+                u_errorName(errorCode));
+    }
 }
 
-- (void)tearDown {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
-}
+//- (void)setUp {
+    // This method is called before each test method in the class.
+//}
+
+//- (void)tearDown {
+    // This method is called after each test method in the class.
+//}
 
 - (void)test_utility {
-    char argv1[] = "utility";
-    int result = call_main(argv1);
+    char testname[] = "utility";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_normalize {
-    char argv1[] = "normalize";
-    int result = call_main(argv1);
+    char testname[] = "normalize";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_collate {
-    char argv1[] = "collate";
-    int result = call_main(argv1);
+    char testname[] = "collate";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_regex {
-    char argv1[] = "regex";
-    int result = call_main(argv1);
+    char testname[] = "regex";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_format {
-    char argv1[] = "format";
-    int result = call_main(argv1);
+    char testname[] = "format";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_translit {
-    char argv1[] = "translit";
-    int result = call_main(argv1);
+    char testname[] = "translit";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_rbbi {
-    char argv1[] = "rbbi";
-    int result = call_main(argv1);
+    char testname[] = "rbbi";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_rbnf {
-    char argv1[] = "rbnf";
-    int result = call_main(argv1);
+    char testname[] = "rbnf";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_rbnfrt {
-    char argv1[] = "rbnfrt";
-    int result = call_main(argv1);
+    char testname[] = "rbnfrt";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_icuserv {
-    char argv1[] = "icuserv";
-    int result = call_main(argv1);
+    char testname[] = "icuserv";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_idna {
-    char argv1[] = "idna";
-    int result = call_main(argv1);
+    char testname[] = "idna";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_convert {
-    char argv1[] = "convert";
-    int result = call_main(argv1);
+    char testname[] = "convert";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_rbnfp {
-    char argv1[] = "rbnfp";
-    int result = call_main(argv1);
+    char testname[] = "rbnfp";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_csdet {
-    char argv1[] = "csdet";
-    int result = call_main(argv1);
+    char testname[] = "csdet";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_spoof {
-    char argv1[] = "spoof";
-    int result = call_main(argv1);
+    char testname[] = "spoof";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
+
 - (void)test_bidi {
-    char argv1[] = "bidi";
-    int result = call_main(argv1);
+    char testname[] = "bidi";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
-
-// - (void)testExample {
-//     // This is an example of a functional test case.
-//     // Use XCTAssert and related functions to verify your tests produce the correct results.
-//     char argv0[] = "intltest";
-//     char argv1[] = "LIST";
-//     int argc = 2;
-//     const char* const argv[] = {argv0, argv1, NULL};
-//     int result = main(argc, argv);
-//     printf("result: %d\n", result);
-
-//     XCTAssertEqual(result, 0);
-
-// }
 
 //- (void)testPerformanceExample {
 //    // This is an example of a performance test case.

@@ -58,4 +58,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIAlarms, alarms);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

@@ -314,6 +314,30 @@ SECDB_ATTR(v12_10alis, "alis", Blob,           SecDbFlags( ,L,I,S,A, , ,C,H, , ,
 /* Tracks whether initial sync has happened */
 SECDB_ATTR(v12_11initialSyncFinished,    "initialSyncFinished",    Number,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
+/* Keeps track of the account's altDSID */
+SECDB_ATTR(v12_12ckstatealtdsid,    "altDSID",    String,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
+const SecDbClass v12_12_ckstate_class = {
+    .name = CFSTR("ckstate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10ckzonecreated,
+        &v10ckzonesubscribed,
+        &v10lastfetchtime,
+        &v10changetoken,
+        &v10ratelimiter,
+        &v10_4lastFixup,
+        &v11_6moreComing,
+        &v11_9_lastscan,
+        &v11_9_extra,
+        &v12_2contextID,
+        &v12_9fetchNewestChangesFirst,
+        &v12_11initialSyncFinished,
+        &v12_12ckstatealtdsid,
+        0
+    }
+};
 
 const SecDbClass v12_11_ckstate_class = {
     .name = CFSTR("ckstate"),
@@ -2300,6 +2324,47 @@ const SecDbClass v12_1_sharing_outgoing_queue_class = {
         0
     }
 };
+
+/*
+ * Version 12.12
+ * Add the altDSID attribute to ckstate
+*/
+
+const SecDbSchema v12_12_schema = {
+    .majorVersion = 12,
+    .minorVersion = 12,
+    .classes = {
+        &v12_genp_class,
+        &v12_10_inet_class,
+        &v12_cert_class,
+        &v12_10_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_8_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_12_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        &v12_8_sharing_incoming_queue_class,
+        &v12_8_sharing_mirror_class,
+        &v12_8_sharing_outgoing_queue_class,
+        0
+    }
+};
+
 
 /*
  * Version 12.11
@@ -4520,6 +4585,7 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v12_12_schema,
     &v12_11_schema,
     &v12_10_schema,
     &v12_9_schema,

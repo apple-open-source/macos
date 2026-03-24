@@ -130,7 +130,7 @@ public:
     static bool attributeSelectorMatches(const Element&, const QualifiedName&, const AtomString& attributeValue, const CSSSelector&);
 
     enum LinkMatchMask { MatchDefault = 0, MatchLink = 1, MatchVisited = 2, MatchAll = MatchLink | MatchVisited };
-    static unsigned determineLinkMatchType(const CSSSelector*, const StyleRuleScope* = nullptr);
+    static unsigned determineLinkMatchType(const CSSSelector&, const StyleRuleScope* = nullptr);
 
     struct LocalContext;
     

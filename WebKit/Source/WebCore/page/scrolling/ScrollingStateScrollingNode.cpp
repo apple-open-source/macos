@@ -75,26 +75,26 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(
     ScrollbarWidth scrollbarWidth,
     bool useDarkAppearanceForScrollbars,
     RequestedKeyboardScrollData&& keyboardScrollData
-) : ScrollingStateNode(nodeType, nodeID, WTFMove(children), changedProperties, layerID)
+) : ScrollingStateNode(nodeType, nodeID, WTF::move(children), changedProperties, layerID)
     , m_scrollableAreaSize(scrollableAreaSize)
     , m_totalContentsSize(totalContentsSize)
     , m_reachableContentsSize(reachableContentsSize)
     , m_scrollPosition(scrollPosition)
     , m_scrollOrigin(scrollOrigin)
-    , m_snapOffsetsInfo(WTFMove(snapOffsetsInfo))
+    , m_snapOffsetsInfo(WTF::move(snapOffsetsInfo))
     , m_currentHorizontalSnapPointIndex(currentHorizontalSnapPointIndex)
     , m_currentVerticalSnapPointIndex(currentVerticalSnapPointIndex)
     , m_scrollContainerLayer(scrollContainerLayer)
     , m_scrolledContentsLayer(scrolledContentsLayer)
     , m_horizontalScrollbarLayer(horizontalScrollbarLayer)
     , m_verticalScrollbarLayer(verticalScrollbarLayer)
-    , m_scrollbarHoverState(WTFMove(scrollbarHoverState))
-    , m_mouseLocationState(WTFMove(mouseLocationState))
-    , m_scrollbarEnabledState(WTFMove(scrollbarEnabledState))
-    , m_scrollbarColor(WTFMove(scrollbarColor))
-    , m_scrollableAreaParameters(WTFMove(scrollableAreaParameters))
-    , m_requestedScrollData(WTFMove(requestedScrollData))
-    , m_keyboardScrollData(WTFMove(keyboardScrollData))
+    , m_scrollbarHoverState(WTF::move(scrollbarHoverState))
+    , m_mouseLocationState(WTF::move(mouseLocationState))
+    , m_scrollbarEnabledState(WTF::move(scrollbarEnabledState))
+    , m_scrollbarColor(WTF::move(scrollbarColor))
+    , m_scrollableAreaParameters(WTF::move(scrollableAreaParameters))
+    , m_requestedScrollData(WTF::move(requestedScrollData))
+    , m_keyboardScrollData(WTF::move(keyboardScrollData))
 #if ENABLE(SCROLLING_THREAD)
     , m_synchronousScrollingReasons(synchronousScrollingReasons)
 #endif
@@ -290,11 +290,11 @@ void ScrollingStateScrollingNode::setRequestedScrollData(RequestedScrollData&& s
 {
     // Scroll position requests are imperative, not stateful, so we can't early return here.
     if (hasChangedProperty(Property::RequestedScrollPosition) && canMergeScrollData == CanMergeScrollData::Yes) {
-        m_requestedScrollData.merge(WTFMove(scrollData));
+        m_requestedScrollData.merge(WTF::move(scrollData));
         return;
     }
 
-    m_requestedScrollData = WTFMove(scrollData);
+    m_requestedScrollData = WTF::move(scrollData);
     setPropertyChanged(Property::RequestedScrollPosition);
 }
 

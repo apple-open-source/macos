@@ -13,24 +13,24 @@ cmp/tests/t_cmp.sh	freebsd	contrib/netbsd-tests/usr.bin/cmp/t_cmp.sh	57718be8fa0
 
 diff/TODO	freebsd	usr.bin/diff/TODO	89fd163c4edb8b2a0aca00bec4144116080ab78f
 diff/arraylist.h	freebsd	contrib/libdiff/include/arraylist.h	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
-diff/diff.1	freebsd	usr.bin/diff/diff.1	d9a9f23d0b3f1676d5656b76301341c0037d15b7
-diff/diff.c	freebsd	usr.bin/diff/diff.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
-diff/diff.h	freebsd	usr.bin/diff/diff.h	d9a9f23d0b3f1676d5656b76301341c0037d15b7
+diff/diff.1	freebsd	usr.bin/diff/diff.1	e945411697cfaf9e57ef9ffdf9d35dfd9778612b
+diff/diff.c	freebsd	usr.bin/diff/diff.c	ab830de9f58c1b257e42b4fbdd46b3ca6a837ee6
+diff/diff.h	freebsd	usr.bin/diff/diff.h	9f1e4ea64ab541e51df0440b43ee35a98ba63d73
 diff/diff_atomize_text.c	freebsd	contrib/libdiff/lib/diff_atomize_text.c	974ea6b297f8f9821bbb60670e2b90ba9989b283
 diff/diff_debug.h	freebsd	contrib/libdiff/lib/diff_debug.h	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
 diff/diff_internal.h	freebsd	contrib/libdiff/lib/diff_internal.h	5fbe8912d6a2d1178468d1994c301d4c7cd4f975
 diff/diff_main.c	freebsd	contrib/libdiff/lib/diff_main.c	0549218b43f028bb5bde430d7fcc6ead6843aa61
 diff/diff_main.h	freebsd	contrib/libdiff/include/diff_main.h	974ea6b297f8f9821bbb60670e2b90ba9989b283
 diff/diff_myers.c	freebsd	contrib/libdiff/lib/diff_myers.c	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
-diff/diff_output.c	freebsd	contrib/libdiff/lib/diff_output.c	b95e96028e5a53116462151aee8fda7523a68d09
-diff/diff_output.h	freebsd	contrib/libdiff/include/diff_output.h	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
+diff/diff_output.c	freebsd	contrib/libdiff/lib/diff_output.c	4e859e67dde2cb4a583d340b27793a255f62f53e
+diff/diff_output.h	freebsd	contrib/libdiff/include/diff_output.h	4e859e67dde2cb4a583d340b27793a255f62f53e
 diff/diff_output_edscript.c	freebsd	contrib/libdiff/lib/diff_output_edscript.c	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
 diff/diff_output_plain.c	freebsd	contrib/libdiff/lib/diff_output_plain.c	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
 diff/diff_output_unidiff.c	freebsd	contrib/libdiff/lib/diff_output_unidiff.c	5fbe8912d6a2d1178468d1994c301d4c7cd4f975
 diff/diff_patience.c	freebsd	contrib/libdiff/lib/diff_patience.c	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
-diff/diffdir.c	freebsd	usr.bin/diff/diffdir.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
-diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
-diff/diffreg_new.c	freebsd	usr.bin/diff/diffreg_new.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
+diff/diffdir.c	freebsd	usr.bin/diff/diffdir.c	42092e1b6625b8226de5f34d22b9a96c713626cb
+diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	9317242469f1ca682626d9806f8caf65d143c09a
+diff/diffreg_new.c	freebsd	usr.bin/diff/diffreg_new.c	893839b119880d3fe8ab18aba4563af6c80cb875
 diff/pr.c	freebsd	usr.bin/diff/pr.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
 diff/pr.h	freebsd	usr.bin/diff/pr.h	b3e7694832e81d7a904a10f525f8797b753bf0d3
 diff/recallocarray.c	freebsd	contrib/libdiff/compat/recallocarray.c	59c8e88e72633afbc47a4ace0d2170d00d51f7dc
@@ -40,7 +40,7 @@ diff/tests/Bflag_D.out	freebsd	usr.bin/diff/tests/Bflag_D.out	e68edb8cf06a796453
 diff/tests/Bflag_F.out	freebsd	usr.bin/diff/tests/Bflag_F.out	e68edb8cf06a796453378b98d963692c838c400f
 diff/tests/d_mallocv1.in	freebsd	contrib/netbsd-tests/usr.bin/diff/d_mallocv1.in	57718be8fa0bd5edc11ab9a72e68cc71982939a6
 diff/tests/d_mallocv2.in	freebsd	contrib/netbsd-tests/usr.bin/diff/d_mallocv2.in	57718be8fa0bd5edc11ab9a72e68cc71982939a6
-diff/tests/diff_test.sh	freebsd	usr.bin/diff/tests/diff_test.sh	9c7f83bbb4cd8c1241ca1d8a0742bbfec0ddb068
+diff/tests/diff_test.sh	freebsd	usr.bin/diff/tests/diff_test.sh	42092e1b6625b8226de5f34d22b9a96c713626cb
 diff/tests/functionname.in	freebsd	usr.bin/diff/tests/functionname.in	8f79bd9b85716c495c2741ac25db37e8d71f22f7
 diff/tests/functionname_c.in	freebsd	usr.bin/diff/tests/functionname_c.in	8f79bd9b85716c495c2741ac25db37e8d71f22f7
 diff/tests/functionname_c.out	freebsd	usr.bin/diff/tests/functionname_c.out	8f79bd9b85716c495c2741ac25db37e8d71f22f7
@@ -72,6 +72,7 @@ diff/tests/t_diff.sh	freebsd	contrib/netbsd-tests/usr.bin/diff/t_diff.sh	57718be
 diff/tests/unified_9999.out	freebsd	usr.bin/diff/tests/unified_9999.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/unified_c9999.out	freebsd	usr.bin/diff/tests/unified_c9999.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 diff/tests/unified_p.out	freebsd	usr.bin/diff/tests/unified_p.out	3bbe3f672e37e4f609adb3be3a6476edce2243ec
+diff/tree.h	freebsd	sys/sys/tree.h	71625ec9ad2a9bc8c09784fbd23b759830e0ee5f
 diff/xmalloc.c	freebsd	usr.bin/diff/xmalloc.c	d9a9f23d0b3f1676d5656b76301341c0037d15b7
 diff/xmalloc.h	freebsd	usr.bin/diff/xmalloc.h	b3e7694832e81d7a904a10f525f8797b753bf0d3
 

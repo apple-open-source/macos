@@ -45,6 +45,7 @@ public:
     bool isPropertyAllowed(const ASCIILiteral& propertyName, WebPage*);
 
     WebExtensionAPIWebPageRuntime& runtime() const;
+    Ref<WebExtensionAPIWebPageRuntime> protectedRuntime() const;
     WebExtensionAPITest& test();
 
 private:
@@ -54,5 +55,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIWebPageNamespace, webPageNamespace);
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

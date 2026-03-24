@@ -530,9 +530,30 @@ T_DECL(malloc_create_zone_stress,
 	create_zone_stress();
 }
 
-T_DECL(malloc_create_zone_stress_guarded,
+T_DECL(malloc_create_zone_stress_guard_pages,
 		"Create and destroy zones while stressing main zone, guard pages enabled",
 		T_META_ENVVAR("MallocXzoneGuarded=1"),
+		T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
+{
+	create_zone_stress();
+}
+
+T_DECL(malloc_create_zone_stress_guard_objects,
+		"Create and destroy zones while stressing main zone, large guard objects enabled",
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
+		T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
+{
+	create_zone_stress();
+}
+
+T_DECL(malloc_create_zone_stress_guard_objects_data_only,
+		"Create and destroy zones while stressing main zone, data only, large guard objects enabled",
+		T_META_ENVVAR("MallocXzoneDataOnly=1"),
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
 		T_META_ENVVAR("MallocProbGuard=0"),
 		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {

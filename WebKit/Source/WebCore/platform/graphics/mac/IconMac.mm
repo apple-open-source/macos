@@ -65,7 +65,7 @@ RefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
 RefPtr<Icon> Icon::createIconForFileExtension(const String& fileExtension)
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    RetainPtr image = [[NSWorkspace sharedWorkspace] iconForFileType:[@"." stringByAppendingString:fileExtension.createNSString().get()]];
+    RetainPtr image = [[NSWorkspace sharedWorkspace] iconForFileType:retainPtr([@"." stringByAppendingString:fileExtension.createNSString().get()]).get()];
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (!image)
         return nullptr;

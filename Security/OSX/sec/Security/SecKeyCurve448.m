@@ -87,7 +87,7 @@ static OSStatus SecCurve448PublicKeyInit(SecKeyRef key,
     case kSecKeyEncodingBytes:
     {
         const CFIndex expectedKeyLength = isEd448Key(key) ? sizeof(cced448pubkey) : sizeof(ccec448pubkey);
-        require_action_quiet(keyDataLength == expectedKeyLength, errOut, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == expectedKeyLength, errOut, err = errSecDecode);
         memcpy(pubkey, keyData, keyDataLength);
         err = errSecSuccess;
         break;
@@ -96,19 +96,19 @@ static OSStatus SecCurve448PublicKeyInit(SecKeyRef key,
     {
         const uint8_t *privatekey = keyData;
         const CFIndex expectedKeyLength = isEd448Key(key) ? sizeof(cced448secretkey) : sizeof(ccec448secretkey);
-        require_action_quiet(keyDataLength == expectedKeyLength, errOut, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == expectedKeyLength, errOut, err = errSecDecode);
         if (isEd448Key(key)) {
             int errcc = cced448_make_pub(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cced448_make_pub() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cced448_make_pub() failed, error %d", (int)errcc););
         } else {
             int errcc = cccurve448_make_pub(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve448_make_pub() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, errOut, err = errSecDecode; os_log_error(SECKEY_LOG, "cccurve448_make_pub() failed, error %d", (int)errcc););
         }
         err = errSecSuccess;
         break;
     }
     default:
-        require_action_quiet(0, errOut, err = errSecParam);
+        __Require_Action_Quiet(0, errOut, err = errSecParam);
         break;
     }
 
@@ -268,7 +268,7 @@ static OSStatus SecCurve448PrivateKeyInit(SecKeyRef key,
     case kSecKeyEncodingBytes:
     {
         const CFIndex expectKeyLength = isEd448Key(key) ? sizeof(cced448secretkey) : sizeof(ccec448secretkey);
-        require_action_quiet(keyDataLength == expectKeyLength, exit, err = errSecDecode);
+        __Require_Action_Quiet(keyDataLength == expectKeyLength, exit, err = errSecDecode);
         memcpy(privatekey, keyData, keyDataLength);
         err = errSecSuccess;
         break;
@@ -278,12 +278,12 @@ static OSStatus SecCurve448PrivateKeyInit(SecKeyRef key,
         if (isEd448Key(key)) {
             cced448pubkey pubkey = {};
             int errcc = cced448_make_key_pair(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cced448_make_key_pair() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "cced448_make_key_pair() failed, error %d", (int)errcc););
             cc_clear(sizeof(pubkey), pubkey);
         } else {
             ccec448pubkey pubkey = {};
             int errcc = cccurve448_make_key_pair(ccrng_seckey(), pubkey, privatekey);
-            require_noerr_action_quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "ccec448_make_key_pair() failed, error %d", (int)errcc););
+            __Require_noErr_Action_Quiet(errcc, exit, err = errSecDecode; os_log_error(SECKEY_LOG, "ccec448_make_key_pair() failed, error %d", (int)errcc););
             cc_clear(sizeof(pubkey), pubkey);
         }
         err = errSecSuccess;
@@ -312,17 +312,17 @@ static CFTypeRef SecCurve448PrivateKeyCopyOperationResult(SecKeyRef key, SecKeyO
                     int err = 0;
                     cced448pubkey pubkey = {};
                     err = cced448_make_pub(ccrng_seckey(), pubkey, privatekey);
-                    require_noerr_action_quiet(err, out, SecError(errSecInternalComponent, error, CFSTR("%@: Failed to get public key from private key"), key));
+                    __Require_noErr_Action_Quiet(err, out, SecError(errSecInternalComponent, error, CFSTR("%@: Failed to get public key from private key"), key));
                     size_t size = sizeof(cced448signature);
                     result = CFDataCreateMutableWithScratch(NULL, size);
-                    require_action_quiet(result, out, SecError(errSecAllocate, error, CFSTR("%@: Failed to create buffer for a signature"), key));
+                    __Require_Action_Quiet(result, out, SecError(errSecAllocate, error, CFSTR("%@: Failed to create buffer for a signature"), key));
                     size_t msgLen = CFDataGetLength(in1);
                     const uint8_t *msg = CFDataGetBytePtr(in1);
                     uint8_t *signaturePtr = CFDataGetMutableBytePtr((CFMutableDataRef)result);
                     
                     err = cced448_sign(ccrng_seckey(), signaturePtr, msgLen, msg, pubkey, privatekey);
                     cc_clear(sizeof(pubkey), pubkey);
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
+                    __Require_Action_Quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: Ed448 signing failed (ccerr %d)"),
                                                                   key, err)));
                 } else {
@@ -338,14 +338,14 @@ static CFTypeRef SecCurve448PrivateKeyCopyOperationResult(SecKeyRef key, SecKeyO
                 if (mode == kSecKeyOperationModePerform) {
                     const uint8_t *hispub = CFDataGetBytePtr(in1);
                     size_t hislen = CFDataGetLength(in1);
-                    require_action_quiet(hislen == sizeof(ccec448pubkey), out,
+                    __Require_Action_Quiet(hislen == sizeof(ccec448pubkey), out,
                                          SecError(errSecParam, error, CFSTR("X448priv sharedsecret: bad public key")));
                     
                     size_t size = sizeof(ccec448key);
                     result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
                     CFDataSetLength((CFMutableDataRef)result, size);
                     int err = cccurve448(ccrng_seckey(), CFDataGetMutableBytePtr((CFMutableDataRef)result), privatekey, hispub);
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
+                    __Require_Action_Quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: X448 DH failed (ccerr %d)"),
                                                                   key, err)));
                 } else {
@@ -480,13 +480,13 @@ static OSStatus curve448KeyGeneratePair(CFDictionaryRef parameters,
     const SecKeyDescriptor *pubKeyDescriptor = (algorithm == kSecEd448AlgorithmID) ? &kSecEd448PublicKeyDescriptor : &kSecX448PublicKeyDescriptor;
 
     SecKeyRef privKey = SecKeyCreate(allocator, privKeyDescriptor, (const void*) parameters, 0, kSecGenerateKey);
-    require_quiet(privKey, errOut);
+    __Require_Quiet(privKey, errOut);
 
     /* Create SecKeyRef's from the private key. */
     pubKey = SecKeyCreate(allocator, pubKeyDescriptor,
                           privKey->key, (algorithm == kSecEd448AlgorithmID) ? sizeof(cced448secretkey) : sizeof(ccec448secretkey), kSecExtractPublicFromPrivate);
 
-    require_quiet(pubKey, errOut);
+    __Require_Quiet(pubKey, errOut);
 
     if (publicKey) {
         *publicKey = pubKey;

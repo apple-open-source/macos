@@ -38,6 +38,7 @@ namespace WebCore {
 struct MockMicrophoneProperties {
     int defaultSampleRate { 44100 };
     std::optional<bool> echoCancellation;
+    uint32_t deviceID { 0 };
 };
 
 struct MockSpeakerProperties {

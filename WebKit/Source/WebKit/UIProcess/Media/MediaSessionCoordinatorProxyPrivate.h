@@ -65,7 +65,7 @@ public:
 protected:
     explicit MediaSessionCoordinatorProxyPrivate() = default;
 
-    WeakPtr<WebCore::MediaSessionCoordinatorClient> client() const { return m_client; }
+    WebCore::MediaSessionCoordinatorClient* client() const { return m_client.get(); }
 
 private:
     WeakPtr<WebCore::MediaSessionCoordinatorClient> m_client;

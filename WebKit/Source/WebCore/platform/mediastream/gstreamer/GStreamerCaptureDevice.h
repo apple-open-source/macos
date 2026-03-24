@@ -32,7 +32,7 @@ class GStreamerCaptureDevice : public CaptureDevice {
 public:
     GStreamerCaptureDevice(GRefPtr<GstDevice>&& device, const String& persistentId, DeviceType type, const String& label, const String& groupId = emptyString())
         : CaptureDevice(persistentId, type, label, groupId)
-        , m_device(WTFMove(device))
+        , m_device(WTF::move(device))
     {
     }
 

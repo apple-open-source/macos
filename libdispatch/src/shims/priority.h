@@ -92,10 +92,11 @@ typedef unsigned long pthread_priority_t;
 
 // Mask values
 #if !TARGET_OS_SIMULATOR
-#define _PTHREAD_PRIORITY_FLAGS_MASK (~0xffffff)
+#define _PTHREAD_PRIORITY_FLAGS_MASK (~0xffffffu)
 #define _PTHREAD_PRIORITY_QOS_CLASS_MASK 0x00ffff00
 #define _PTHREAD_PRIORITY_QOS_CLASS_SHIFT (8ull)
-#define _PTHREAD_PRIORITY_PRIORITY_MASK 0x000000ff
+#define _PTHREAD_PRIORITY_PRIORITY_MASK 0x000000ffu
+#define _PTHREAD_PRIORITY_PRIORITY_SHIFT 0
 #endif
 
 #endif // HAVE_PTHREAD_QOS_H
@@ -332,6 +333,13 @@ _pthread_priority_relpri(pthread_priority_t pp)
 	int relpri;
 	(void) _pthread_qos_class_decode(pp, &relpri, NULL);
 	return relpri;
+}
+#elif !defined(__APPLE__)
+DISPATCH_ALWAYS_INLINE
+static inline bool
+_pthread_priority_has_qos(pthread_priority_t pp)
+{
+	return pp & _PTHREAD_PRIORITY_QOS_CLASS_MASK;
 }
 #endif
 

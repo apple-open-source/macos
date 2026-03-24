@@ -47,14 +47,14 @@ public:
     CoreIPCNSShadow(WebCore::DoubleSize shadowOffset, double shadowBlurRadius, RetainPtr<WebCore::CocoaColor>&& shadowColor)
         : m_shadowOffset(shadowOffset)
         , m_shadowBlurRadius(shadowBlurRadius)
-        , m_shadowColor(WTFMove(shadowColor))
+        , m_shadowColor(WTF::move(shadowColor))
     {
     }
 
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSShadow, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSShadow>;
 
     WebCore::DoubleSize m_shadowOffset;
     double m_shadowBlurRadius;

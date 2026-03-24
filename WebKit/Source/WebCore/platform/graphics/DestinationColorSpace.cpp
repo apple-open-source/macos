@@ -47,11 +47,7 @@ using KnownColorSpaceAccessor = sk_sp<SkColorSpace>();
 #endif
 template<KnownColorSpaceAccessor accessor> static const DestinationColorSpace& knownColorSpace()
 {
-    static LazyNeverDestroyed<DestinationColorSpace> colorSpace;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        colorSpace.construct(accessor());
-    });
+    static NeverDestroyed<DestinationColorSpace> colorSpace { accessor() };
     return colorSpace.get();
 }
 #else
@@ -169,7 +165,7 @@ std::optional<DestinationColorSpace> DestinationColorSpace::asExtended() const
 #if USE(CG)
     // Avoid refing color space here as this is performance-sensitive.
     SUPPRESS_UNRETAINED_ARG if (RetainPtr colorSpace = adoptCF(CGColorSpaceCreateExtended(platformColorSpace())))
-        return DestinationColorSpace(WTFMove(colorSpace));
+        return DestinationColorSpace(WTF::move(colorSpace));
 #endif
     return std::nullopt;
 }

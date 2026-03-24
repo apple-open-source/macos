@@ -38,13 +38,14 @@
 #include "StyledElement.h"
 #include "TextNodeTraversal.h"
 #include "TreeScopeInlines.h"
+#include "TrustedType.h"
 #include "XMLNSNames.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Attr);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Attr);
 
 using namespace HTMLNames;
 
@@ -101,9 +102,29 @@ ExceptionOr<void> Attr::setPrefix(const AtomString& prefix)
 
 ExceptionOr<void> Attr::setValue(const AtomString& value)
 {
-    if (RefPtr element = m_element.get())
-        return element->setAttribute(qualifiedName(), value, true);
-    else
+    if (RefPtr element = m_element.get()) {
+        auto verifiedValue = value;
+        if (document().contextDocument().requiresTrustedTypes()) {
+            auto type = trustedTypeForAttribute(element->nodeName(), qualifiedName().localName(),
+                element->namespaceURI(), qualifiedName().namespaceURI());
+            if (!type.attributeType.isNull()) {
+                auto compliantValue = trustedTypesCompliantAttributeValue(document().contextDocument(), type.attributeType, value,
+                    type.sink);
+                if (compliantValue.hasException())
+                    return compliantValue.releaseException();
+
+                verifiedValue = compliantValue.releaseReturnValue();
+
+                element = m_element.get();
+                if (!element) {
+                    m_standaloneValue = WTF::move(verifiedValue);
+                    return { };
+                }
+            }
+        }
+
+        element->setAttribute(qualifiedName(), verifiedValue);
+    } else
         m_standaloneValue = value;
 
     return { };

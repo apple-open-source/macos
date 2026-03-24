@@ -6,7 +6,9 @@
 	<true/>
 	<key>com.apple.private.CoreAuthentication.SPI</key>
 	<true/>
-    <key>com.apple.private.platformsso.security</key>
-    <true/>
+	<key>com.apple.private.platformsso.security</key>
+	<true/>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
 </dict>
 </plist>

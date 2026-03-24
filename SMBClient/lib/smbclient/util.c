@@ -173,13 +173,11 @@ SMBConvertFromUTF16ToUTF8(const uint16_t *utf16str, size_t maxLen, uint64_t opti
 
 }
 
-/* Convert UTF16 to UTF8 string */
+/* Convert UTF8 to UTF16 string */
 uint16_t *
 SMBConvertFromUTF8ToUTF16(const char *utf8str, size_t maxLen, uint64_t options)
 {
-#pragma unused(options)
-	return convert_utf8_to_leunicode(utf8str, maxLen);
-	
+	return convert_utf8_to_leunicode_normalize(utf8str, maxLen, options);
 }
 
 /* Find all the NetBIOS names associated using supplied host name */

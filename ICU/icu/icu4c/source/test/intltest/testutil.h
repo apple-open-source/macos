@@ -46,6 +46,16 @@ public:
         const EditChange expected[], int32_t expLength, UBool withUnchanged,
         UErrorCode &errorCode);
 
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    // rdar://162810290
+    // Helper function to check for uninitialized memory in objects
+    static void checkObjectForUninitializedMemory(
+        IntlTest &test,
+        const void* objPtr,
+        const char* objName,
+        size_t objSizeOf);
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+
 private:
     TestUtility() = delete;  // Prevent instantiation
 };

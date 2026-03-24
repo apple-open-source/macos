@@ -83,7 +83,7 @@ SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandl
     , m_sentStoredCredentials(false)
     , m_shouldAcceptInsecureCertificates(acceptInsecureCertificates)
     , m_credentialPartition(credentialPartition)
-    , m_auditData(WTFMove(auditData))
+    , m_auditData(WTF::move(auditData))
     , m_storageSessionProvider(provider)
 {
     LOG(Network, "SocketStreamHandle %p new client %p", this, &m_client);

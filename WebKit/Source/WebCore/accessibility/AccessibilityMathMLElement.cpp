@@ -83,7 +83,7 @@ void AccessibilityMathMLElement::addChildren()
     // browsers, so it's already unlikely to be used by web developers, even more so with `display:contents` mixed in.
     m_childrenInitialized = true;
     for (Ref object : AXChildIterator(*this))
-        addChild(WTFMove(object));
+        addChild(WTF::move(object));
 
     m_subtreeDirty = false;
 

@@ -43,7 +43,7 @@ class IDBTransaction;
 template<typename> class ExceptionOr;
 
 class IDBCursor : public ScriptWrappable, public RefCounted<IDBCursor> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(IDBCursor);
+    WTF_MAKE_TZONE_ALLOCATED(IDBCursor);
 public:
     static Ref<IDBCursor> create(IDBObjectStore&, const IDBCursorInfo&);
     static Ref<IDBCursor> create(IDBIndex&, const IDBCursorInfo&);

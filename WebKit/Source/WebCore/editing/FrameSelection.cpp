@@ -75,7 +75,7 @@
 #include "Range.h"
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderTheme.h"
@@ -150,7 +150,7 @@ IntRect DragCaretController::editableElementRectInRootViewCoordinates() const
 
     RefPtr<ContainerNode> editableContainer;
     if (RefPtr formControl = enclosingTextFormControl(m_position.deepEquivalent()))
-        editableContainer = WTFMove(formControl);
+        editableContainer = WTF::move(formControl);
     else
         editableContainer = highestEditableRoot(m_position.deepEquivalent());
 
@@ -1509,15 +1509,15 @@ static AXTextSelection textSelectionWithDirectionAndGranularity(SelectionDirecti
 bool FrameSelection::modify(Alteration alter, SelectionDirection direction, TextGranularity granularity, UserTriggered userTriggered)
 {
     if (userTriggered == UserTriggered::Yes) {
-        FrameSelection trialFrameSelection;
-        trialFrameSelection.setSelection(m_selection);
-        trialFrameSelection.modify(alter, direction, granularity, UserTriggered::No);
+        auto trialFrameSelection = makeUniqueRef<FrameSelection>();
+        trialFrameSelection->setSelection(m_selection);
+        trialFrameSelection->modify(alter, direction, granularity, UserTriggered::No);
 
-        bool change = shouldChangeSelection(trialFrameSelection.selection());
+        bool change = shouldChangeSelection(trialFrameSelection->selection());
         if (!change)
             return false;
 
-        if (trialFrameSelection.selection().isRange() && m_selection.isCaret() && !dispatchSelectStart())
+        if (trialFrameSelection->selection().isRange() && m_selection.isCaret() && !dispatchSelectStart())
             return false;
     }
 
@@ -1648,11 +1648,11 @@ bool FrameSelection::modify(Alteration alter, unsigned verticalDistance, Vertica
         return false;
 
     if (userTriggered == UserTriggered::Yes) {
-        FrameSelection trialFrameSelection;
-        trialFrameSelection.setSelection(m_selection);
-        trialFrameSelection.modify(alter, verticalDistance, direction, UserTriggered::No);
+        auto trialFrameSelection = makeUniqueRef<FrameSelection>();
+        trialFrameSelection->setSelection(m_selection);
+        trialFrameSelection->modify(alter, verticalDistance, direction, UserTriggered::No);
 
-        bool change = shouldChangeSelection(trialFrameSelection.selection());
+        bool change = shouldChangeSelection(trialFrameSelection->selection());
         if (!change)
             return false;
     }
@@ -1992,9 +1992,9 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
     // On iOS, we want to fall back to the tintColor, and only override if CSS has explicitly specified a custom color.
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     UNUSED_PARAM(node);
-    if (elementStyle.hasAutoCaretColor())
+    if (elementStyle.caretColor().isAuto())
         return { };
-    return elementStyle.colorResolvingCurrentColor(elementStyle.caretColor());
+    return elementStyle.caretColorResolvingCurrentColor();
 #elif HAVE(REDESIGNED_TEXT_CURSOR)
 #if HAVE(APP_ACCENT_COLORS) && PLATFORM(MAC)
     auto appUsesCustomAccentColor = node && node->document().page() && node->document().page()->appUsesCustomAccentColor();
@@ -2002,7 +2002,7 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
     auto appUsesCustomAccentColor = false;
 #endif
 
-    if (elementStyle.hasAutoCaretColor() && (!elementStyle.hasExplicitlySetColor() || appUsesCustomAccentColor)) {
+    if (elementStyle.caretColor().isAuto() && (!elementStyle.hasExplicitlySetColor() || appUsesCustomAccentColor)) {
 #if PLATFORM(MAC)
         auto cssColorValue = CSSValueAppleSystemControlAccent;
 #else
@@ -2010,22 +2010,24 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
 #endif
         auto styleColorOptions = node->protectedDocument()->styleColorOptions(&elementStyle);
         auto systemAccentColor = RenderTheme::singleton().systemColor(cssColorValue, styleColorOptions | StyleColorOptions::UseSystemAppearance);
-        return elementStyle.colorByApplyingColorFilter(systemAccentColor);
+
+        Style::ColorResolver colorResolver { elementStyle };
+        return colorResolver.colorApplyingColorFilter(systemAccentColor);
     }
 
-    return elementStyle.visitedDependentColorWithColorFilter(CSSPropertyCaretColor);
+    return elementStyle.visitedDependentCaretColorApplyingColorFilter();
 #else
     RefPtr parentElement = node ? node->parentElement() : nullptr;
     auto* parentStyle = parentElement && parentElement->renderer() ? &parentElement->renderer()->style() : nullptr;
     // CSS value "auto" is treated as an invalid color.
-    if (elementStyle.hasAutoCaretColor() && parentStyle) {
-        auto parentBackgroundColor = parentStyle->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
-        auto elementBackgroundColor = elementStyle.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+    if (elementStyle.caretColor().isAuto() && parentStyle) {
+        auto parentBackgroundColor = parentStyle->visitedDependentBackgroundColorApplyingColorFilter();
+        auto elementBackgroundColor = elementStyle.visitedDependentBackgroundColorApplyingColorFilter();
         auto disappearsIntoBackground = blendSourceOver(parentBackgroundColor, elementBackgroundColor) == parentBackgroundColor;
         if (disappearsIntoBackground)
-            return parentStyle->visitedDependentColorWithColorFilter(CSSPropertyCaretColor);
+            return parentStyle->visitedDependentCaretColorApplyingColorFilter();
     }
-    return elementStyle.visitedDependentColorWithColorFilter(CSSPropertyCaretColor);
+    return elementStyle.visitedDependentCaretColorApplyingColorFilter();
 #endif
 }
 
@@ -2266,11 +2268,11 @@ bool FrameSelection::setSelectedRange(const std::optional<SimpleRange>& range, A
         selectionOptions.add(SetSelectionOption::CloseTyping);
 
     if (userTriggered == UserTriggered::Yes) {
-        FrameSelection trialFrameSelection;
+        auto trialFrameSelection = makeUniqueRef<FrameSelection>();
 
-        trialFrameSelection.setSelection(newSelection, selectionOptions);
+        trialFrameSelection->setSelection(newSelection, selectionOptions);
 
-        if (!shouldChangeSelection(trialFrameSelection.selection()))
+        if (!shouldChangeSelection(trialFrameSelection->selection()))
             return false;
 
         selectionOptions.add(SetSelectionOption::IsUserTriggered);
@@ -2538,7 +2540,7 @@ RefPtr<MutableStyleProperties> FrameSelection::copyTypingStyle() const
 
 void FrameSelection::setTypingStyle(RefPtr<EditingStyle>&& style)
 {
-    m_typingStyle = WTFMove(style);
+    m_typingStyle = WTF::move(style);
 }
 
 void FrameSelection::clearTypingStyle()
@@ -2684,6 +2686,8 @@ void FrameSelection::revealSelection(const RevealSelectionOptions& revealSelecti
         return;
 #endif
 
+    m_selectionRevealMode = SelectionRevealMode::DoNotReveal;
+
     // FIXME: This code only handles scrolling the startContainer's layer, but
     // the selection rect could intersect more than just that.
     // See <rdar://problem/4799899>.
@@ -2768,13 +2772,13 @@ std::optional<SimpleRange> FrameSelection::rangeByExtendingCurrentSelection(Text
     if (m_selection.isNone())
         return std::nullopt;
 
-    FrameSelection frameSelection;
-    frameSelection.setSelection(m_selection);
+    auto frameSelection = makeUniqueRef<FrameSelection>();
+    frameSelection->setSelection(m_selection);
 
-    frameSelection.modify(Alteration::Move, SelectionDirection::Backward, granularity);
-    frameSelection.modify(Alteration::Extend, SelectionDirection::Forward, granularity);
+    frameSelection->modify(Alteration::Move, SelectionDirection::Backward, granularity);
+    frameSelection->modify(Alteration::Extend, SelectionDirection::Forward, granularity);
 
-    return frameSelection.selection().toNormalizedRange();
+    return frameSelection->selection().toNormalizedRange();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -2881,8 +2885,8 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
         return VisibleSelection();
 
     ASSERT(selection.isCaretOrRange());
-    FrameSelection frameSelection;
-    frameSelection.setSelection(selection);
+    auto frameSelection = makeUniqueRef<FrameSelection>();
+    frameSelection->setSelection(selection);
 
     Position startPosBeforeExpansion(selection.start());
     Position endPosBeforeExpansion(selection.end());
@@ -2903,14 +2907,14 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
     // This has the effect of selecting the word on the line (which is
     // what we want, rather than selecting past the end of the line).
     if (isEndOfParagraph(endVisiblePosBeforeExpansion) && !isStartOfParagraph(endVisiblePosBeforeExpansion))
-        frameSelection.modify(FrameSelection::Alteration::Move, SelectionDirection::Backward, TextGranularity::CharacterGranularity);
+        frameSelection->modify(FrameSelection::Alteration::Move, SelectionDirection::Backward, TextGranularity::CharacterGranularity);
 
-    VisibleSelection newSelection = frameSelection.selection();
+    VisibleSelection newSelection = frameSelection->selection();
     newSelection.expandUsingGranularity(TextGranularity::WordGranularity);
-    frameSelection.setSelection(newSelection, defaultSetSelectionOptions(), AXTextStateChangeIntent(), CursorAlignOnScroll::IfNeeded, frameSelection.granularity());
+    frameSelection->setSelection(newSelection, defaultSetSelectionOptions(), AXTextStateChangeIntent(), CursorAlignOnScroll::IfNeeded, frameSelection->granularity());
 
-    Position startPos(frameSelection.selection().start());
-    Position endPos(frameSelection.selection().end());
+    Position startPos(frameSelection->selection().start());
+    Position endPos(frameSelection->selection().end());
 
     // Expansion cannot be allowed to change selection so that it is no longer
     // touches (or contains) the original, unexpanded selection.
@@ -2955,10 +2959,10 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
             // Space at end of line
             return VisibleSelection();
         }
-        frameSelection.moveTo(startVisiblePos);
-        frameSelection.modify(FrameSelection::Alteration::Extend, SelectionDirection::Backward, TextGranularity::WordGranularity);
-        startPos = frameSelection.selection().start();
-        endPos = frameSelection.selection().end();
+        frameSelection->moveTo(startVisiblePos);
+        frameSelection->modify(FrameSelection::Alteration::Extend, SelectionDirection::Backward, TextGranularity::WordGranularity);
+        startPos = frameSelection->selection().start();
+        endPos = frameSelection->selection().end();
         startVisiblePos = VisiblePosition(startPos);
         endVisiblePos = VisiblePosition(endPos);
         if (startVisiblePos.isNull() || endVisiblePos.isNull()) {
@@ -3020,12 +3024,12 @@ std::optional<SimpleRange> FrameSelection::rangeByAlteringCurrentSelection(Alter
     if (!amount)
         return m_selection.toNormalizedRange();
 
-    FrameSelection frameSelection;
-    frameSelection.setSelection(m_selection);
+    auto frameSelection = makeUniqueRef<FrameSelection>();
+    frameSelection->setSelection(m_selection);
     SelectionDirection direction = amount > 0 ? SelectionDirection::Forward : SelectionDirection::Backward;
     for (int i = 0; i < std::abs(amount); i++)
-        frameSelection.modify(alteration, direction, TextGranularity::CharacterGranularity);
-    return frameSelection.selection().toNormalizedRange();
+        frameSelection->modify(alteration, direction, TextGranularity::CharacterGranularity);
+    return frameSelection->selection().toNormalizedRange();
 }
 
 void FrameSelection::clearCurrentSelection()

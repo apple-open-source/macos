@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ce{
     ExemplarCharacters{
         "[а {аь} б в г {гӏ} д её ж з и {ий} й к {кк} {ккх} {кх} {кь} {кӏ} л м н о {ов"
@@ -15,7 +15,9 @@ ce{
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
             patternsLong{
@@ -223,20 +225,19 @@ ce{
             }
             eras{
                 abbreviated{
-                    "в. э. тӀ. я",
-                    "в. э",
+                    0{"в. э. тӀ. я"}
+                    1{"в. э"}
                 }
                 abbreviated%variant{
-                    "МАССО",
-                    "в. э",
+                    0{"МАССО"}
                 }
                 wide{
-                    "Ӏийса пайхамар вина де кхачале",
-                    "Ӏийса пайхамар вина дийнахь дуьйна",
+                    0{"Ӏийса пайхамар вина де кхачале"}
+                    1{"Ӏийса пайхамар вина дийнахь дуьйна"}
                 }
                 wide%variant{
-                    "вайн эра тӀеяле",
-                    "вайн эрехь",
+                    0{"вайн эра тӀеяле"}
+                    1{"вайн эрехь"}
                 }
             }
             monthNames{

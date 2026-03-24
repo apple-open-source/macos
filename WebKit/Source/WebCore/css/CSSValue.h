@@ -81,7 +81,6 @@ public:
 #if ENABLE(DARK_MODE_CSS)
     bool isColorScheme() const { return m_classType == ClassType::ColorScheme; }
 #endif
-    bool isContentDistributionValue() const { return m_classType == ClassType::ContentDistribution; }
     bool isCounter() const { return m_classType == ClassType::Counter; }
     bool isCrossfadeValue() const { return m_classType == ClassType::Crossfade; }
     bool isCursorImageValue() const { return m_classType == ClassType::CursorImage; }
@@ -226,7 +225,6 @@ protected:
 #if ENABLE(DARK_MODE_CSS)
         ColorScheme,
 #endif
-        ContentDistribution,
         Counter,
         CustomProperty,
         DynamicRangeLimit,

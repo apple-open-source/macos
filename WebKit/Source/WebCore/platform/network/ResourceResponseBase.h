@@ -32,11 +32,13 @@
 #include <WebCore/IPAddressSpace.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/ParsedContentRange.h>
+#include <optional>
 #include <span>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Box.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/Markable.h>
+#include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
@@ -144,13 +146,13 @@ public:
     bool isNosniff() const;
 
     WEBCORE_EXPORT void includeCertificateInfo(std::span<const std::byte> = { }) const;
-    void setCertificateInfo(CertificateInfo&& info) { m_certificateInfo = WTFMove(info); }
+    void setCertificateInfo(CertificateInfo&& info) { m_certificateInfo = WTF::move(info); }
     const std::optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
     bool usedLegacyTLS() const { return m_usedLegacyTLS == UsedLegacyTLS::Yes; }
     void setUsedLegacyTLS(UsedLegacyTLS used) { m_usedLegacyTLS = used; }
     bool wasPrivateRelayed() const { return m_wasPrivateRelayed == WasPrivateRelayed::Yes; }
     void setWasPrivateRelayed(WasPrivateRelayed privateRelayed) { m_wasPrivateRelayed = privateRelayed; }
-    void setProxyName(String&& proxyName) { m_proxyName = WTFMove(proxyName); }
+    void setProxyName(String&& proxyName) { m_proxyName = WTF::move(proxyName); }
     const String& proxyName() const { return m_proxyName; }
 
     IPAddressSpace ipAddressSpace() { return m_ipAddressSpace; }
@@ -190,7 +192,7 @@ public:
     }
     void setDeprecatedNetworkLoadMetrics(Box<NetworkLoadMetrics>&& metrics)
     {
-        m_networkLoadMetrics = WTFMove(metrics);
+        m_networkLoadMetrics = WTF::move(metrics);
     }
     Box<NetworkLoadMetrics> takeNetworkLoadMetrics()
     {
@@ -307,22 +309,22 @@ struct ResourceResponseData {
     ResourceResponseData(ResourceResponseData&&) = default;
     ResourceResponseData& operator=(ResourceResponseData&&) = default;
     ResourceResponseData(URL&& url, String&& mimeType, long long expectedContentLength, String&& textEncodingName, int httpStatusCode, String&& httpStatusText, String&& httpVersion, HTTPHeaderMap&& httpHeaderFields, std::optional<NetworkLoadMetrics>&& networkLoadMetrics, ResourceResponseSource source, ResourceResponseBaseType type, ResourceResponseBaseTainting tainting, bool isRedirected, UsedLegacyTLS usedLegacyTLS, WasPrivateRelayed wasPrivateRelayed, String&& proxyName, bool isRangeRequested, std::optional<CertificateInfo> certificateInfo, IPAddressSpace ipAddressSpace)
-        : url(WTFMove(url))
-        , mimeType(WTFMove(mimeType))
+        : url(WTF::move(url))
+        , mimeType(WTF::move(mimeType))
         , expectedContentLength(expectedContentLength)
-        , textEncodingName(WTFMove(textEncodingName))
+        , textEncodingName(WTF::move(textEncodingName))
         , httpStatusCode(httpStatusCode)
-        , httpStatusText(WTFMove(httpStatusText))
-        , httpVersion(WTFMove(httpVersion))
-        , httpHeaderFields(WTFMove(httpHeaderFields))
-        , networkLoadMetrics(WTFMove(networkLoadMetrics))
+        , httpStatusText(WTF::move(httpStatusText))
+        , httpVersion(WTF::move(httpVersion))
+        , httpHeaderFields(WTF::move(httpHeaderFields))
+        , networkLoadMetrics(WTF::move(networkLoadMetrics))
         , source(source)
         , type(type)
         , tainting(tainting)
         , isRedirected(isRedirected)
         , usedLegacyTLS(usedLegacyTLS)
         , wasPrivateRelayed(wasPrivateRelayed)
-        , proxyName(WTFMove(proxyName))
+        , proxyName(WTF::move(proxyName))
         , isRangeRequested(isRangeRequested)
         , certificateInfo(certificateInfo)
         , ipAddressSpace(ipAddressSpace)

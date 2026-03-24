@@ -26,7 +26,7 @@
 #include "config.h"
 #include "NativeWebTouchEvent.h"
 
-#if ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_EVENTS) && USE(LIBWPE)
 
 #include "WebEventFactory.h"
 
@@ -49,4 +49,4 @@ NativeWebTouchEvent::NativeWebTouchEvent(struct wpe_input_touch_event* event, fl
 
 } // namespace WebKit
 
-#endif // PLATFORM(TOUCH_EVENTS)
+#endif // PLATFORM(TOUCH_EVENTS) && USE(LIBWPE)

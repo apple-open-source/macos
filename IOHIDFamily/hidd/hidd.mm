@@ -78,7 +78,7 @@ static bool setQos(void) {
     qosinfo.task_latency_qos_tier = LATENCY_QOS_TIER_0;
     qosinfo.task_throughput_qos_tier = THROUGHPUT_QOS_TIER_0;
     kr = task_policy_set(mach_task_self(), TASK_BASE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
-    require_action(kr == kIOReturnSuccess, exit, HIDLogError("Failed to set HIDEventSystem QOS"));
+    __Require_Action(kr == kIOReturnSuccess, exit, HIDLogError("Failed to set HIDEventSystem QOS"));
     
     ret = true;
 exit:
@@ -91,15 +91,15 @@ static bool initHIDSystem(void) {
     bool ret = false;
     
     IOHIDEventSystemRef eventSystem = IOHIDEventSystemCreate(kCFAllocatorDefault);
-    require_action(eventSystem, exit, HIDLogError("Failed to create HIDEventSystem"));
+    __Require_Action(eventSystem, exit, HIDLogError("Failed to create HIDEventSystem"));
    
     ret = IOHIDEventSystemOpen(eventSystem, NULL, NULL, NULL, 0);
-    require_action(ret == true, exit, HIDLogError("Failed to open HIDEventSystem"));
+    __Require_Action(ret == true, exit, HIDLogError("Failed to open HIDEventSystem"));
     
     IOHIDEventSystemLoadDefaultParameters (eventSystem);
     
     ret = setQos();
-    require(ret == true, exit);
+    __Require(ret == true, exit);
     
     ret = true;
 exit:

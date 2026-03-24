@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ta{
     units{
         acceleration{
@@ -136,6 +136,11 @@ ta{
                 dnam{"சுழற்சிகள்"}
                 one{"{0} சுழற்சி"}
                 other{"{0} சுழற்சிகள்"}
+            }
+            steradian{
+                dnam{"ஸ்டெரேடியன்"}
+                one{"{0} ஸ்டெரேடியன்"}
+                other{"{0} ஸ்டெரேடியன்"}
             }
         }
         area{
@@ -338,6 +343,11 @@ ta{
                 one{"{0} காரட்"}
                 other{"{0} காரட்கள்"}
             }
+            katal{
+                dnam{"கட்டல்கள்"}
+                one{"{0} கட்டல்"}
+                other{"{0} கட்டல்கள்"}
+            }
             milligram-ofglucose-per-deciliter{
                 case{
                     ablative{
@@ -395,6 +405,54 @@ ta{
                 one{"{0} மோல்"}
                 other{"{0} மோல்ஸ்"}
             }
+            ofglucose{
+                dnam{"குளுக்கோஸ்"}
+                one{"{0} குளுக்கோஸ்"}
+                other{"{0} குளுக்கோஸ்"}
+            }
+            part{
+                dnam{"பகுதிகள்"}
+                one{"{0} பகுதி"}
+                other{"{0} பகுதிகள்"}
+            }
+            part-per-1e6{
+                case{
+                    ablative{
+                        one{"{0} பகுதி/மில்லியனில்"}
+                        other{"{0} பகுதிகள்/மில்லியனில்"}
+                    }
+                    accusative{
+                        one{"{0} பகுதி/மில்லியனை"}
+                        other{"{0} பகுதிகள்/மில்லியனை"}
+                    }
+                    dative{
+                        one{"{0} பகுதி/மில்லியனுக்கு"}
+                        other{"{0} பகுதிகள்/மில்லியனுக்கு"}
+                    }
+                }
+                dnam{"பகுதிகள்/மில்லியன்"}
+                one{"{0} பகுதி/மில்லியன்"}
+                other{"{0} பகுதிகள்/மில்லியன்"}
+            }
+            part-per-1e9{
+                case{
+                    ablative{
+                        one{"{0} பார்ட்ஸ்/பில்லியனில்"}
+                        other{"{0} பார்ட்ஸ்/பில்லியனில்"}
+                    }
+                    accusative{
+                        one{"{0} பார்ட்ஸ்/பில்லியனை"}
+                        other{"{0} பார்ட்ஸ்/பில்லியனை"}
+                    }
+                    dative{
+                        one{"{0} பார்ட்ஸ்/பில்லியனுக்கு"}
+                        other{"{0} பார்ட்ஸ்/பில்லியனுக்கு"}
+                    }
+                }
+                dnam{"பார்ட்ஸ்/பில்லியன்"}
+                one{"{0} பார்ட்ஸ்/பில்லியன்"}
+                other{"{0} பார்ட்ஸ்/பில்லியன்"}
+            }
             percent{
                 case{
                     ablative{
@@ -430,25 +488,6 @@ ta{
                 }
                 one{"மில்லி ஒன்றுக்கு {0}"}
                 other{"மில்லி ஒன்றுக்கு {0}"}
-            }
-            permillion{
-                case{
-                    ablative{
-                        one{"{0} பகுதி/மில்லியனில்"}
-                        other{"{0} பகுதிகள்/மில்லியனில்"}
-                    }
-                    accusative{
-                        one{"{0} பகுதி/மில்லியனை"}
-                        other{"{0} பகுதிகள்/மில்லியனை"}
-                    }
-                    dative{
-                        one{"{0} பகுதி/மில்லியனுக்கு"}
-                        other{"{0} பகுதிகள்/மில்லியனுக்கு"}
-                    }
-                }
-                dnam{"பகுதிகள்/மில்லியன்"}
-                one{"{0} பகுதி/மில்லியன்"}
-                other{"{0} பகுதிகள்/மில்லியன்"}
             }
             permyriad{
                 case{
@@ -817,15 +856,15 @@ ta{
                 case{
                     ablative{
                         one{"{0} மணிநேரத்தில்"}
-                        other{"{0} மணிநேரங்களில்"}
+                        other{"{0} மணிநேரத்தில்"}
                     }
                     accusative{
                         one{"{0} மணிநேரத்தை"}
-                        other{"{0} மணிநேரங்களை"}
+                        other{"{0} மணிநேரத்தை"}
                     }
                     dative{
                         one{"{0} மணிநேரத்திற்கு"}
-                        other{"{0} மணிநேரங்களுக்கு"}
+                        other{"{0} மணிநேரத்திற்கு"}
                     }
                 }
                 dnam{"மணிநேரம்"}
@@ -944,10 +983,8 @@ ta{
                         other{"{0} இரவுகளுக்கு"}
                     }
                 }
-                dnam{"இரவுகள்"}
                 one{"{0} இரவு"}
                 other{"{0} இரவுகள்"}
-                per{"{0}/இரவு"}
             }
             quarter{
                 case{
@@ -1049,6 +1086,21 @@ ta{
                 one{"{0} ஆம்பியர்"}
                 other{"{0} ஆம்பியர்கள்"}
             }
+            coulomb{
+                dnam{"கூலும்"}
+                one{"{0} கூலும்"}
+                other{"{0} கூலும்"}
+            }
+            farad{
+                dnam{"ஃபாரட்"}
+                one{"{0} ஃபாரட்"}
+                other{"{0} ஃபாரட்"}
+            }
+            henry{
+                dnam{"ஹென்றி"}
+                one{"{0} ஹென்றி"}
+                other{"{0} ஹென்றி"}
+            }
             milliampere{
                 case{
                     ablative{
@@ -1086,6 +1138,11 @@ ta{
                 one{"{0} ஓம்"}
                 other{"{0} ஓம்ஸ்"}
             }
+            siemens{
+                dnam{"சீமென்"}
+                one{"{0} சீமென்"}
+                other{"{0} சீமென்"}
+            }
             volt{
                 case{
                     ablative{
@@ -1107,6 +1164,11 @@ ta{
             }
         }
         energy{
+            becquerel{
+                dnam{"பெக்கொரல்"}
+                one{"{0} பெக்கொரல்"}
+                other{"{0} பெக்கொரல்"}
+            }
             british-thermal-unit{
                 dnam{"பிரிட்டிஷ் வெப்ப அலகுகள்"}
                 one{"{0} பிரிட்டிஷ் வெப்ப அலகு"}
@@ -1131,6 +1193,11 @@ ta{
                 one{"{0} கலோரி"}
                 other{"{0} கலோரிகள்"}
             }
+            calorie-it{
+                dnam{"கலோரி [IT]"}
+                one{"{0} கலோரி [IT]"}
+                other{"{0} கலோரி-IT"}
+            }
             electronvolt{
                 dnam{"எலக்ட்ரான்வோல்ட்ஸ்"}
                 one{"{0} எலக்ட்ரான்வோல்ட்"}
@@ -1140,6 +1207,11 @@ ta{
                 dnam{"கலோரிகள்"}
                 one{"{0} கலோரி"}
                 other{"{0} கலோரிகள்"}
+            }
+            gray{
+                dnam{"கிரே"}
+                one{"{0} கிரே"}
+                other{"{0} கிரே"}
             }
             joule{
                 case{
@@ -1217,6 +1289,11 @@ ta{
                 one{"{0} கிலோவாட் மணிநேரம்"}
                 other{"{0} கிலோவாட் மணிநேரம்"}
             }
+            sievert{
+                dnam{"சீவர்ட்"}
+                one{"{0} சீவர்ட்"}
+                other{"{0} சீவர்ட்"}
+            }
             therm-us{
                 dnam{"அமெரிக்க வெப்ப அலகுகள்"}
                 one{"{0} அமெரிக்க வெப்ப அலகு"}
@@ -1224,6 +1301,11 @@ ta{
             }
         }
         force{
+            kilogram-force{
+                dnam{"கிலோகிராம் விசை"}
+                one{"{0} கிலோகிராம் விசை"}
+                other{"{0} கிலோகிராம் விசை"}
+            }
             kilowatt-hour-per-100-kilometer{
                 case{
                     ablative{
@@ -1751,6 +1833,18 @@ ta{
                 other{"{0} சூரிய ஒளிர்வுத்தன்மை"}
             }
         }
+        magnetic{
+            tesla{
+                dnam{"டெஸ்லா"}
+                one{"{0} டெஸ்லா"}
+                other{"{0} டெஸ்லா"}
+            }
+            weber{
+                dnam{"வெபர்"}
+                one{"வெபர்"}
+                other{"{0} வெபர்"}
+            }
+        }
         mass{
             carat{
                 case{
@@ -2153,6 +2247,11 @@ ta{
                 one{"{0} பாதரச மில்லிமீட்டர்"}
                 other{"{0} பாதரச மில்லிமீட்டர்கள்"}
             }
+            ofhg{
+                dnam{"பாதரசம்"}
+                one{"{0} பாதரசம்"}
+                other{"{0} பாதரசம்"}
+            }
             pascal{
                 case{
                     ablative{
@@ -2223,7 +2322,6 @@ ta{
                         other{"{0} ஒளிவேகத்திற்கு"}
                     }
                 }
-                dnam{"ஒளிவேகம்"}
                 one{"{0} ஒளிவேகம்"}
                 other{"{0} ஒளிவேகம்"}
             }
@@ -2281,19 +2379,19 @@ ta{
                 case{
                     ablative{
                         one{"{0} டிகிரியில்"}
-                        other{"{0} டிகிரீஸில்"}
+                        other{"{0} டிகிரியில்"}
                     }
                     accusative{
                         one{"{0} டிகிரியை"}
-                        other{"{0} டிகிரீஸை"}
+                        other{"{0} டிகிரியை"}
                     }
                     dative{
                         one{"{0} டிகிரிக்கு"}
-                        other{"{0} டிகிரீஸுக்கு"}
+                        other{"{0} டிகிரிக்கு"}
                     }
                 }
-                one{"{0} டிகிரி"}
-                other{"{0} டிகிரீஸ்"}
+                one{"{0} டிகிரி வெப்பநிலை"}
+                other{"{0} டிகிரி"}
             }
             kelvin{
                 case{
@@ -2527,6 +2625,11 @@ ta{
                 one{"{0} இம்பீரியல் திரவ அவுன்ஸ்"}
                 other{"{0} இம்பீரியல் திரவ அவுன்ஸ்கள்"}
             }
+            fluid-ounce-metric{
+                dnam{"மெட்ரிக் திரவ அவுன்ஸ்"}
+                one{"{0} மெட்ரிக் திரவ அவுன்ஸ்"}
+                other{"{0} மெட்ரிக் திரவ அவுன்ஸ்"}
+            }
             gallon{
                 dnam{"கேலன்கள்"}
                 one{"{0} கேலன்"}
@@ -2706,25 +2809,39 @@ ta{
                 one{"{0}ட்யூனம்"}
                 other{"{0}ட்யூனம்"}
             }
+            hectare{
+                one{"{0} ha"}
+                other{"{0} ha"}
+            }
             square-centimeter{
                 one{"{0}செ.மீ.²"}
                 other{"{0}செ.மீ.²"}
             }
             square-foot{
-                dnam{"ச.அ."}
+                dnam{"ft²"}
+                one{"{0} ft²"}
+                other{"{0} ft²"}
             }
             square-inch{
                 dnam{"அங்.²"}
-                one{"{0}அங்.²"}
-                other{"{0}அங்.²"}
+                one{"{0} in²"}
+                other{"{0} in²"}
             }
             square-kilometer{
-                one{"{0} ச.கிமீ."}
-                other{"{0} ச.கிமீ."}
+                dnam{"km²"}
+                one{"{0} km²"}
+                other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
-                one{"{0} ச.மீ."}
-                other{"{0} ச.மீ."}
+                one{"{0} m²"}
+                other{"{0} m²"}
+            }
+            square-mile{
+                dnam{"mi²"}
+                one{"{0} mi²"}
+                other{"{0} mi²"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"யா²"}
@@ -2745,6 +2862,9 @@ ta{
                 one{"{0}கார."}
                 other{"{0}கார."}
             }
+            katal{
+                dnam{"கட்"}
+            }
             milligram-ofglucose-per-deciliter{
                 one{"{0}மிகி/டெ"}
                 other{"{0}மிகி/டெ"}
@@ -2757,15 +2877,28 @@ ta{
                 one{"{0}மோல்"}
                 other{"{0}மோல்"}
             }
+            ofglucose{
+                dnam{"Glc"}
+            }
+            part{
+                dnam{"பகுதி"}
+                one{"{0} பகுதி"}
+                other{"{0} பகுதி"}
+            }
+            part-per-1e6{
+                one{"{0}ப./மி."}
+                other{"{0}ப./மி."}
+            }
+            part-per-1e9{
+                dnam{"பா/பி"}
+                one{"{0} பா/பி"}
+                other{"{0} பா/பி"}
+            }
             percent{
                 dnam{"%"}
             }
             permille{
                 dnam{"‰"}
-            }
-            permillion{
-                one{"{0}ப./மி."}
-                other{"{0}ப./மி."}
             }
             permyriad{
                 dnam{"‱"}
@@ -2889,10 +3022,8 @@ ta{
                 other{"{0}நா.செ."}
             }
             night{
-                dnam{"இரவுகள்"}
                 one{"{0} இ"}
                 other{"{0} இ"}
-                per{"{0}/இரவு"}
             }
             quarter{
                 dnam{"கா."}
@@ -2922,7 +3053,7 @@ ta{
                 other{"{0}ஆம்."}
             }
             milliampere{
-                dnam{"மி.ஆ."}
+                dnam{"mA"}
                 one{"{0}மி.ஆ."}
                 other{"{0}மி.ஆ."}
             }
@@ -2946,6 +3077,9 @@ ta{
                 one{"{0}கலோ."}
                 other{"{0}கலோ."}
             }
+            calorie-it{
+                dnam{"கலோரி-IT"}
+            }
             electronvolt{
                 dnam{"eV"}
                 one{"{0}eV"}
@@ -2956,20 +3090,23 @@ ta{
                 other{"{0}கலோ."}
             }
             joule{
-                one{"{0}ஜூ."}
-                other{"{0}ஜூ."}
+                one{"{0} J"}
+                other{"{0} J"}
             }
             kilocalorie{
-                one{"{0}கி.கலோ."}
-                other{"{0}கி.கலோ."}
+                dnam{"kcal"}
+                one{"{0} kcal"}
+                other{"{0} kcal"}
             }
             kilojoule{
-                one{"{0}கி.ஜூ."}
-                other{"{0}கி.ஜூ."}
+                dnam{"kJ"}
+                one{"{0} kJ"}
+                other{"{0} kJ"}
             }
             kilowatt-hour{
-                one{"{0}கி.வா.ம."}
-                other{"{0}கி.வா.ம."}
+                dnam{"kWh"}
+                one{"{0} kWh"}
+                other{"{0} kWh"}
             }
             therm-us{
                 one{"{0}யூஎஸ் தெ."}
@@ -2983,9 +3120,9 @@ ta{
                 other{"{0}கி.வா.ம./100கி.மி."}
             }
             newton{
-                dnam{"நியூ."}
-                one{"{0}நியூ."}
-                other{"{0}நியூ."}
+                dnam{"N"}
+                one{"{0}N"}
+                other{"{0}N"}
             }
             pound-force{
                 dnam{"ப.வி"}
@@ -2995,20 +3132,24 @@ ta{
         }
         frequency{
             gigahertz{
-                one{"{0}ஜி.ஹெ."}
-                other{"{0}ஜி.ஹெ."}
+                dnam{"GHz"}
+                one{"{0} GHz"}
+                other{"{0} GHz"}
             }
             hertz{
-                one{"{0}ஹெ."}
-                other{"{0}ஹெ."}
+                dnam{"Hz"}
+                one{"{0} Hz"}
+                other{"{0} Hz"}
             }
             kilohertz{
-                one{"{0}கி.ஹெ."}
-                other{"{0}கி.ஹெ."}
+                dnam{"kHz"}
+                one{"{0} kHz"}
+                other{"{0} kHz"}
             }
             megahertz{
-                one{"{0}மெ.ஹெ."}
-                other{"{0}மெ.ஹெ."}
+                dnam{"MHz"}
+                one{"{0} MHz"}
+                other{"{0} MHz"}
             }
         }
         graphics{
@@ -3021,35 +3162,39 @@ ta{
                 other{"{0}பு/செ.மீ"}
             }
             dot-per-inch{
-                one{"{0}பு/அங்."}
-                other{"{0}பு/அங்."}
+                dnam{"dpi"}
+                one{"{0} dpi"}
+                other{"{0} dpi"}
             }
             em{
                 one{"{0}எம்"}
                 other{"{0}எம்"}
             }
             megapixel{
-                dnam{"மெ.பிக்."}
-                one{"{0}எம்.பி"}
-                other{"{0}எம்.பி"}
+                dnam{"MP"}
+                one{"{0} MP"}
+                other{"{0} MP"}
             }
             pixel{
                 one{"{0}பிக்"}
                 other{"{0}பிக்"}
             }
             pixel-per-centimeter{
-                one{"{0}பி/செ.மீ"}
-                other{"{0}பி/செ.மீ"}
+                dnam{"ppcm"}
+                one{"{0} ppcm"}
+                other{"{0} ppcm"}
             }
             pixel-per-inch{
-                one{"{0}பி/அங்."}
-                other{"{0}பி/அங்."}
+                dnam{"ppi"}
+                one{"{0} ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
             astronomical-unit{
-                one{"{0}வா.அ."}
-                other{"{0}வா.அ."}
+                dnam{"au"}
+                one{"{0} au"}
+                other{"{0} au"}
             }
             centimeter{
                 one{"{0}செ.மீ."}
@@ -3069,6 +3214,8 @@ ta{
             }
             inch{
                 dnam{"அங்."}
+                one{"{0}″"}
+                other{"{0}″"}
             }
             kilometer{
                 one{"{0}கி.மீ."}
@@ -3082,12 +3229,14 @@ ta{
                 other{"{0}மீ."}
             }
             micrometer{
-                dnam{"மை.மீ."}
-                one{"{0}μமீ."}
-                other{"{0}μமீ."}
+                dnam{"μm"}
+                one{"{0} μm"}
+                other{"{0} μm"}
             }
             mile{
-                dnam{"மை."}
+                dnam{"mi"}
+                one{"{0} mi"}
+                other{"{0} mi"}
             }
             millimeter{
                 one{"{0}மி.மீ."}
@@ -3098,12 +3247,13 @@ ta{
                 other{"{0}நா.மீ."}
             }
             nautical-mile{
-                one{"{0}க.மை."}
-                other{"{0}க.மை."}
+                dnam{"nmi"}
+                one{"{0} nmi"}
+                other{"{0} nmi"}
             }
             parsec{
-                one{"{0}பு.நொ."}
-                other{"{0}பு.நொ."}
+                one{"{0} pc"}
+                other{"{0} pc"}
             }
             point{
                 one{"{0}அ.பு."}
@@ -3120,8 +3270,9 @@ ta{
                 dnam{"கே."}
             }
             lumen{
-                one{"{0}லூம."}
-                other{"{0}லூம."}
+                dnam{"lm"}
+                one{"{0} lm"}
+                other{"{0} lm"}
             }
             lux{
                 dnam{"லக்."}
@@ -3157,20 +3308,32 @@ ta{
                 dnam{"கிராம்"}
             }
             kilogram{
+                dnam{"kg"}
                 one{"{0}கி.கி."}
                 other{"{0}கி.கி."}
+                per{"{0}/kg"}
             }
             microgram{
-                one{"{0}μகி"}
-                other{"{0}μகி"}
+                dnam{"μg"}
+                one{"{0} μg"}
+                other{"{0} μg"}
             }
             milligram{
-                one{"{0}மி.கி."}
-                other{"{0}மி.கி."}
+                dnam{"mg"}
+                one{"{0} mg"}
+                other{"{0} mg"}
+            }
+            ounce{
+                one{"{0} oz"}
+                other{"{0} oz"}
             }
             ounce-troy{
                 one{"{0}அவு. டி."}
                 other{"{0}அவு. டி."}
+            }
+            pound{
+                dnam{"lb"}
+                per{"{0}/lb"}
             }
             solar-mass{
                 dnam{"M☉"}
@@ -3188,20 +3351,33 @@ ta{
         }
         power{
             gigawatt{
-                one{"{0}கி.வாட்."}
-                other{"{0}கி.வாட்."}
+                dnam{"GW"}
+                one{"{0} GW"}
+                other{"{0} GW"}
             }
             horsepower{
-                one{"{0} கு.வே."}
-                other{"{0} கு.வே."}
+                dnam{"hp"}
+                one{"{0} hp"}
+                other{"{0} hp"}
+            }
+            kilowatt{
+                dnam{"kW"}
+                one{"{0} kW"}
+                other{"{0} kW"}
             }
             megawatt{
-                one{"{0}மெ.வா."}
-                other{"{0}மெ.வா."}
+                dnam{"MW"}
+                one{"{0} MW"}
+                other{"{0} MW"}
             }
             milliwatt{
-                one{"{0}மி.வா."}
-                other{"{0}மி.வா."}
+                dnam{"mW"}
+                one{"{0} mW"}
+                other{"{0} mW"}
+            }
+            watt{
+                one{"{0} W"}
+                other{"{0} W"}
             }
         }
         pressure{
@@ -3214,31 +3390,45 @@ ta{
                 other{"{0}பார்"}
             }
             hectopascal{
-                one{"{0} ஹெ.பா."}
-                other{"{0} ஹெ.பா."}
+                dnam{"hPa"}
+                one{"{0} hPa"}
+                other{"{0} hPa"}
             }
             inch-ofhg{
                 dnam{"பா. அங்."}
-                one{"{0} பா.அங்."}
-                other{"{0} பா.அங்."}
+                one{"{0}″ Hg"}
+                other{"{0}″ Hg"}
             }
             kilopascal{
-                one{"{0}கிபா"}
-                other{"{0}கிபா"}
+                dnam{"kPa"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
             }
             megapascal{
-                one{"{0}மெபா"}
-                other{"{0}மெபா"}
+                dnam{"MPa"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
+            }
+            millibar{
+                one{"{0} mb"}
+                other{"{0} mb"}
+            }
+            millimeter-ofhg{
+                dnam{"mmHg"}
+                one{"{0} mmHg"}
+                other{"{0} mmHg"}
             }
             pascal{
-                one{"{0}பா."}
-                other{"{0}பா."}
+                dnam{"Pa"}
+                one{"{0} Pa"}
+                other{"{0} Pa"}
             }
         }
         speed{
             beaufort{
-                one{"பியூ.{0}"}
-                other{"பியூ.{0}"}
+                dnam{"Bft"}
+                one{"B {0}"}
+                other{"B {0}"}
             }
             kilometer-per-hour{
                 dnam{"கி.மீ./ம."}
@@ -3250,23 +3440,32 @@ ta{
                 other{"{0}நா."}
             }
             light-speed{
-                dnam{"ஒளிவேகம்"}
                 one{"{0}ஒ.வே"}
                 other{"{0}ஒ.வே"}
             }
         }
         temperature{
             celsius{
-                dnam{"°செ"}
+                dnam{"°C"}
+                one{"{0}°C"}
+                other{"{0}°C"}
             }
             fahrenheit{
-                dnam{"°ஃபா"}
+                dnam{"°F"}
+                one{"{0}°"}
+                other{"{0}°"}
+            }
+            kelvin{
+                dnam{"K"}
+                one{"{0} K"}
+                other{"{0} K"}
             }
         }
         torque{
             newton-meter{
-                one{"{0}நியூ.மீ"}
-                other{"{0}நியூ.மீ"}
+                dnam{"N⋅m"}
+                one{"{0}N⋅m"}
+                other{"{0}N⋅m"}
             }
             pound-force-foot{
                 one{"{0}ப.அடி"}
@@ -3313,8 +3512,9 @@ ta{
                 other{"{0}மீ³"}
             }
             cubic-mile{
-                one{"{0} க.மை."}
-                other{"{0} க.மை."}
+                dnam{"mi³"}
+                one{"{0} mi³"}
+                other{"{0} mi³"}
             }
             cubic-yard{
                 one{"{0}யா.³"}
@@ -3325,8 +3525,8 @@ ta{
                 other{"{0}கோ."}
             }
             cup-metric{
-                one{"{0}மெ.கோ."}
-                other{"{0}மெ.கோ."}
+                one{"{0} mc"}
+                other{"{0} mc"}
             }
             deciliter{
                 one{"{0}டெ.லி."}
@@ -3470,8 +3670,8 @@ ta{
             }
             hectare{
                 dnam{"ஹெக்டேர்"}
-                one{"{0} ஹெக்."}
-                other{"{0} ஹெக்."}
+                one{"{0} ha"}
+                other{"{0} ha"}
             }
             square-centimeter{
                 dnam{"செ.மீ.²"}
@@ -3491,22 +3691,19 @@ ta{
                 per{"{0}/அங்.²"}
             }
             square-kilometer{
-                dnam{"கி.மீ.²"}
-                one{"{0} கி.மீ.²"}
-                other{"{0} கி.மீ.²"}
-                per{"{0}/கி.மீ.²"}
+                one{"{0} km²"}
+                other{"{0} km²"}
             }
             square-meter{
                 dnam{"மீட்டர்கள்²"}
-                one{"{0} மீ²"}
-                other{"{0} மீ²"}
+                one{"{0} m²"}
+                other{"{0} m²"}
                 per{"{0}/மீ²"}
             }
             square-mile{
                 dnam{"சதுர மைல்கள்"}
                 one{"{0} ச. மை."}
                 other{"{0} ச. மை."}
-                per{"{0}/மை.²"}
             }
             square-yard{
                 dnam{"யார்டுகள்²"}
@@ -3558,6 +3755,11 @@ ta{
                 one{"{0} கார."}
                 other{"{0} கார."}
             }
+            katal{
+                dnam{"கட்"}
+                one{"{0} kat"}
+                other{"{0} kat"}
+            }
             milligram-ofglucose-per-deciliter{
                 dnam{"மி.கி./டெ.லி."}
                 one{"{0} மி.கி./டெ.லி."}
@@ -3573,16 +3775,31 @@ ta{
                 one{"{0} மோல்"}
                 other{"{0} மோல்"}
             }
+            ofglucose{
+                dnam{"Glc"}
+                one{"{0} Glc"}
+                other{"{0} Glc"}
+            }
+            part{
+                dnam{"பகுதி"}
+                one{"{0} பகுதி"}
+                other{"{0} பகுதி"}
+            }
+            part-per-1e6{
+                dnam{"ப./மி."}
+                one{"{0} ப./மி."}
+                other{"{0} ப./மி."}
+            }
+            part-per-1e9{
+                dnam{"பார்ட்ஸ்/பில்லியன்"}
+                one{"{0} பார்ட்ஸ்/பில்லியன்"}
+                other{"{0} ppb"}
+            }
             percent{
                 dnam{"சதவீதம்"}
             }
             permille{
                 dnam{"மில்லி ஒன்றுக்கு"}
-            }
-            permillion{
-                dnam{"ப./மி."}
-                one{"{0} ப./மி."}
-                other{"{0} ப./மி."}
             }
             permyriad{
                 dnam{"பெர்மிரியட்"}
@@ -3760,6 +3977,11 @@ ta{
                 one{"{0} கலோ."}
                 other{"{0} கலோ."}
             }
+            calorie-it{
+                dnam{"கலோரி-IT"}
+                one{"{0} கலோரி [IT]"}
+                other{"{0} கலோரி-IT"}
+            }
             electronvolt{
                 dnam{"எலக்ட்ரான்வோல்ட்"}
             }
@@ -3770,23 +3992,22 @@ ta{
             }
             joule{
                 dnam{"ஜூல்"}
-                one{"{0} ஜூ."}
-                other{"{0} ஜூ."}
+                one{"{0} J"}
+                other{"{0} J"}
             }
             kilocalorie{
-                dnam{"கி.கலோ."}
-                one{"{0} கி.கலோ."}
-                other{"{0} கி.கலோ."}
+                one{"{0} kcal"}
+                other{"{0} kcal"}
             }
             kilojoule{
-                dnam{"கி.ஜூ."}
-                one{"{0} கி.ஜூ."}
-                other{"{0} கி.ஜூ."}
+                dnam{"கிலோஜூல்"}
+                one{"{0} kJ"}
+                other{"{0} kJ"}
             }
             kilowatt-hour{
                 dnam{"கி.வா-ம.நே."}
-                one{"{0} கி.வா.ம.நே."}
-                other{"{0} கி.வா.ம.நே."}
+                one{"{0} kWh"}
+                other{"{0} kWh"}
             }
             therm-us{
                 dnam{"யூஎஸ் தெர்ம்"}
@@ -3802,8 +4023,8 @@ ta{
             }
             newton{
                 dnam{"நியூட்டன்"}
-                one{"{0} நியூ"}
-                other{"{0} நியூ"}
+                one{"{0} N"}
+                other{"{0} N"}
             }
             pound-force{
                 dnam{"பவுண்ட் விசை"}
@@ -3813,24 +4034,20 @@ ta{
         }
         frequency{
             gigahertz{
-                dnam{"ஜி.ஹெஸ்."}
-                one{"{0} ஜி.ஹெஸ்."}
-                other{"{0} ஜி.ஹெஸ்."}
+                one{"{0} GHz"}
+                other{"{0} GHz"}
             }
             hertz{
-                dnam{"ஹெஸ்."}
-                one{"{0} ஹெஸ்."}
-                other{"{0} ஹெஸ்."}
+                one{"{0} Hz"}
+                other{"{0} Hz"}
             }
             kilohertz{
-                dnam{"கி.ஹெஸ்."}
-                one{"{0} கி.ஹெஸ்."}
-                other{"{0} கி.ஹெஸ்."}
+                one{"{0} kHz"}
+                other{"{0} kHz"}
             }
             megahertz{
-                dnam{"மெ.ஹெஸ்."}
-                one{"{0} மெ.ஹெஸ்."}
-                other{"{0} மெ.ஹெஸ்."}
+                one{"{0} MHz"}
+                other{"{0} MHz"}
             }
         }
         graphics{
@@ -3845,9 +4062,9 @@ ta{
                 other{"{0} பு / செ.மீ"}
             }
             dot-per-inch{
-                dnam{"பு / அங்."}
-                one{"{0} பு / அங்."}
-                other{"{0} பு / அங்."}
+                dnam{"dpi"}
+                one{"{0} dpi"}
+                other{"{0} dpi"}
             }
             em{
                 dnam{"எம்"}
@@ -3856,8 +4073,8 @@ ta{
             }
             megapixel{
                 dnam{"மெகாபிக்சல்கள்"}
-                one{"{0} எம்.பி"}
-                other{"{0} எம்.பி"}
+                one{"{0} MP"}
+                other{"{0} MP"}
             }
             pixel{
                 dnam{"பிக்"}
@@ -3865,21 +4082,18 @@ ta{
                 other{"{0} பிக்"}
             }
             pixel-per-centimeter{
-                dnam{"பிக். / செ.மீ"}
-                one{"{0} பிக். / செ.மீ"}
-                other{"{0} பிக். / செ.மீ"}
+                one{"{0} ppcm"}
+                other{"{0} ppcm"}
             }
             pixel-per-inch{
-                dnam{"பிக். / அங்."}
-                one{"{0} பிக். / அங்."}
-                other{"{0} பிக். / அங்."}
+                one{"{0} ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
             astronomical-unit{
-                dnam{"வா.அ."}
-                one{"{0} வா.அ."}
-                other{"{0} வா.அ."}
+                one{"{0} au"}
+                other{"{0} au"}
             }
             centimeter{
                 dnam{"செ.மீ."}
@@ -3910,8 +4124,6 @@ ta{
             }
             inch{
                 dnam{"அங்குலங்கள்"}
-                one{"{0} அங்."}
-                other{"{0} அங்."}
                 per{"{0}/அங்."}
             }
             kilometer{
@@ -3932,14 +4144,13 @@ ta{
                 per{"{0}/மீ."}
             }
             micrometer{
-                dnam{"μமீ."}
-                one{"{0} μமீ."}
-                other{"{0} μமீ."}
+                one{"{0} μm"}
+                other{"{0} μm"}
             }
             mile{
                 dnam{"மைல்கள்"}
-                one{"{0} மை."}
-                other{"{0} மை."}
+                one{"{0} mi"}
+                other{"{0} mi"}
             }
             mile-scandinavian{
                 dnam{"ஸ்.மை."}
@@ -3957,14 +4168,13 @@ ta{
                 other{"{0} நா.மீ."}
             }
             nautical-mile{
-                dnam{"க.மை."}
-                one{"{0} க.மை."}
-                other{"{0} க.மை."}
+                one{"{0} nmi"}
+                other{"{0} nmi"}
             }
             parsec{
                 dnam{"பு.நொ."}
-                one{"{0} பு.நொ."}
-                other{"{0} பு.நொ."}
+                one{"{0} pc"}
+                other{"{0} pc"}
             }
             picometer{
                 dnam{"பை.மீ"}
@@ -3993,8 +4203,8 @@ ta{
             }
             lumen{
                 dnam{"லூம."}
-                one{"{0} லூம."}
-                other{"{0} லூம."}
+                one{"{0} lm"}
+                other{"{0} lm"}
             }
             lux{
                 dnam{"லக்ஸ்"}
@@ -4031,25 +4241,21 @@ ta{
                 per{"{0}/கி."}
             }
             kilogram{
-                dnam{"கி.கி."}
-                one{"{0} கி.கி."}
-                other{"{0} கி.கி."}
-                per{"{0}/கி.கி."}
+                one{"{0} kg"}
+                other{"{0} kg"}
             }
             microgram{
-                dnam{"μகி"}
-                one{"{0} μகி"}
-                other{"{0} μகி"}
+                one{"{0} μg"}
+                other{"{0} μg"}
             }
             milligram{
-                dnam{"மி.கி."}
-                one{"{0} மி.கி."}
-                other{"{0} மி.கி."}
+                one{"{0} mg"}
+                other{"{0} mg"}
             }
             ounce{
                 dnam{"அவு."}
-                one{"{0} அவு."}
-                other{"{0} அவு."}
+                one{"{0} oz"}
+                other{"{0} oz"}
                 per{"{0}/அவு."}
             }
             ounce-troy{
@@ -4059,9 +4265,8 @@ ta{
             }
             pound{
                 dnam{"பவு."}
-                one{"{0} பவு."}
+                one{"{0} lb"}
                 other{"{0} பவு."}
-                per{"{0}/பவு."}
             }
             solar-mass{
                 dnam{"சூரியத் திணிவுகள்"}
@@ -4084,34 +4289,29 @@ ta{
         }
         power{
             gigawatt{
-                dnam{"கி.வாட்."}
-                one{"{0} கி.வாட்."}
-                other{"{0} கி.வாட்."}
+                one{"{0} GW"}
+                other{"{0} GW"}
             }
             horsepower{
-                dnam{"கு.தி."}
-                one{"{0} கு.தி."}
-                other{"{0} கு.தி."}
+                one{"{0} hp"}
+                other{"{0} hp"}
             }
             kilowatt{
-                dnam{"கி.வா."}
-                one{"{0} கி.வா."}
-                other{"{0} கி.வா."}
+                one{"{0} kW"}
+                other{"{0} kW"}
             }
             megawatt{
-                dnam{"மெ.வா."}
-                one{"{0} மெ.வா."}
-                other{"{0} மெ.வா."}
+                one{"{0} MW"}
+                other{"{0} MW"}
             }
             milliwatt{
-                dnam{"மி.வா."}
-                one{"{0} மி.வா."}
-                other{"{0} மி.வா."}
+                one{"{0} mW"}
+                other{"{0} mW"}
             }
             watt{
                 dnam{"வா."}
-                one{"{0} வா."}
-                other{"{0} வா."}
+                one{"{0} W"}
+                other{"{0} W"}
             }
         }
         pressure{
@@ -4121,46 +4321,40 @@ ta{
                 other{"{0} பார்"}
             }
             hectopascal{
-                dnam{"ஹெ.பாஸ்."}
-                one{"{0} ஹெ.பாஸ்."}
-                other{"{0} ஹெ.பாஸ்."}
+                one{"{0} hPa"}
+                other{"{0} hPa"}
             }
             inch-ofhg{
-                dnam{"பாத. அங்."}
-                one{"{0} பாத. அங்."}
-                other{"{0} பாத. அங்."}
+                one{"{0} inHg"}
+                other{"{0} inHg"}
             }
             kilopascal{
-                dnam{"கிபா"}
-                one{"{0} கிபா"}
-                other{"{0} கிபா"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
             }
             megapascal{
-                dnam{"மெபா"}
-                one{"{0} மெபா"}
-                other{"{0} மெபா"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
             }
             millibar{
                 dnam{"மி.பா."}
-                one{"{0} மி.பா."}
-                other{"{0} மி.பா."}
+                one{"{0} mbar"}
+                other{"{0} mbar"}
             }
             millimeter-ofhg{
-                dnam{"பாத. மி.மீ."}
-                one{"{0} பாத. மி.மீ."}
-                other{"{0} பாத. மி.மீ."}
+                dnam{"mmHg"}
+                one{"{0} mmHg"}
+                other{"{0} mmHg"}
             }
             pascal{
-                dnam{"பா."}
-                one{"{0} பா."}
-                other{"{0} பா."}
+                one{"{0} Pa"}
+                other{"{0} Pa"}
             }
         }
         speed{
             beaufort{
-                dnam{"பியூ."}
-                one{"பியூ. {0}"}
-                other{"பியூ. {0}"}
+                one{"B {0}"}
+                other{"B {0}"}
             }
             kilometer-per-hour{
                 dnam{"கி.மீ./மணிநேரம்"}
@@ -4190,26 +4384,22 @@ ta{
         }
         temperature{
             celsius{
-                dnam{"டிகிரி செ."}
-                one{"{0}°செ."}
-                other{"{0}°செ."}
+                one{"{0}°C"}
+                other{"{0}°C"}
             }
             fahrenheit{
-                dnam{"டி. ஃபா."}
-                one{"{0}°ஃபா."}
-                other{"{0}°ஃபா."}
+                one{"{0}°F"}
+                other{"{0}°F"}
             }
             kelvin{
-                dnam{"கெல்."}
-                one{"{0} கெல்."}
-                other{"{0} கெல்."}
+                one{"{0} K"}
+                other{"{0} K"}
             }
         }
         torque{
             newton-meter{
-                dnam{"நியூ.மீ"}
-                one{"{0} நியூ.மீ"}
-                other{"{0} நியூ.மீ"}
+                one{"{0} N⋅m"}
+                other{"{0} N⋅m"}
             }
             pound-force-foot{
                 dnam{"ப.அடி"}
@@ -4266,9 +4456,8 @@ ta{
                 per{"{0}/மீ³"}
             }
             cubic-mile{
-                dnam{"மை³"}
-                one{"{0} மை³"}
-                other{"{0} மை³"}
+                one{"{0} mi³"}
+                other{"{0} mi³"}
             }
             cubic-yard{
                 dnam{"யா.³"}
@@ -4282,8 +4471,8 @@ ta{
             }
             cup-metric{
                 dnam{"மெ.கோப்பை"}
-                one{"{0} மெ.கோ."}
-                other{"{0} மெ.கோ."}
+                one{"{0} mc"}
+                other{"{0} mc"}
             }
             deciliter{
                 dnam{"டெ.லி."}

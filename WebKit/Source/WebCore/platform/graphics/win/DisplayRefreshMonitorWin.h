@@ -26,11 +26,12 @@
 #pragma once
 
 #include "DisplayRefreshMonitor.h"
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 
 namespace WebCore {
 
-class DisplayRefreshMonitorWin : public DisplayRefreshMonitor {
+class DisplayRefreshMonitorWin : public DisplayRefreshMonitor, public CanMakeWeakPtr<DisplayRefreshMonitorWin> {
 public:
     static RefPtr<DisplayRefreshMonitorWin> create(PlatformDisplayID);
 

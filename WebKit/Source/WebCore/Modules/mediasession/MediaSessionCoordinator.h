@@ -76,7 +76,7 @@ public:
         std::optional<double> atTime;
         std::optional<MonotonicTime> hostTime;
     };
-    std::optional<PlaySessionCommand> takeCurrentPlaySessionCommand() { return WTFMove(m_currentPlaySessionCommand); }
+    std::optional<PlaySessionCommand> takeCurrentPlaySessionCommand() { return WTF::move(m_currentPlaySessionCommand); }
 
 private:
     MediaSessionCoordinator(ScriptExecutionContext*);
@@ -121,6 +121,8 @@ private:
     std::optional<PlaySessionCommand> m_currentPlaySessionCommand;
 };
 
-}
+} // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaSessionCoordinator)
 
 #endif // ENABLE(MEDIA_SESSION_COORDINATOR)

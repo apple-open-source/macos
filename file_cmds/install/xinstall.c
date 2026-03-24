@@ -31,7 +31,8 @@
  */
 
 #ifdef __APPLE__
-#ifdef TARGET_OS_OSX
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
 #define	WITH_DIGESTS
 #endif
 #include <sys/param.h>
@@ -70,7 +71,6 @@
 #include <vis.h>
 
 #ifdef __APPLE__
-#include <TargetConditionals.h>
 #include <copyfile.h>
 #include "pathnames.h"
 

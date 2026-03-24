@@ -25,9 +25,7 @@
 #ifndef _TCLUNIXPORT
 #define _TCLUNIXPORT
 
-#ifndef MODULE_SCOPE
-#define MODULE_SCOPE extern
-#endif
+#define MODULE_SCOPE extern __attribute__((__visibility__("hidden")))
 
 /*
  *---------------------------------------------------------------------------

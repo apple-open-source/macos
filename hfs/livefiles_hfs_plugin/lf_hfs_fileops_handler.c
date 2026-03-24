@@ -99,7 +99,7 @@ int LFHFS_Write ( UVFSFileNode psNode, uint64_t uOffset, size_t iLength, const v
     off_t bytesToAdd = 0;
     off_t actualBytesAdded;
     off_t filebytes;
-    int eflags = kEFReserveMask;
+    int eflags = kEFReserveMask | kEFNoClumpMask;
     int retval = 0;
     int lockflags;
     int cnode_locked = 0;

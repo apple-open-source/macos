@@ -10,6 +10,7 @@
 #include <notify.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <tzfile.h>
 #include <mach/mach.h>
 #include <darwintest_multiprocess.h>
 #include "notify_private.h"
@@ -184,4 +185,100 @@ T_HELPER_DECL(notify_pathwatch_helper,
 	T_PASS("Helper passed");
 	T_END;
 	exit(0);
+}
+
+#pragma mark - rdar://167445250
+
+static pid_t
+get_notifyd_pid(void)
+{
+	FILE *fp;
+	char buf[32];
+	pid_t pid = 0;
+
+	fp = popen("pgrep -x notifyd", "r");
+	if (fp == NULL) {
+		return 0;
+	}
+	if (fgets(buf, sizeof(buf), fp) != NULL) {
+		pid = (pid_t)strtol(buf, NULL, 10);
+	}
+	pclose(fp);
+	return pid;
+}
+
+T_DECL(notify_pathwatch_interesting_paths,
+       "notifyd should not crash when handling pathwatch on paths")
+{
+	static const char *protected_paths[] = {
+		"/var/Keychains/keychain-2.db",
+		"/var/Keychains/ocspcache.sqlite3",
+		"/var/mobile/Library/SMS/sms.db",
+		"/var/mobile/Library/SMS/sms.db-wal",
+		"/var/mobile/Library/Health/healthdb.sqlite",
+		"/var/mobile/Library/Health/healthdb_secure.sqlite",
+		"/var/mobile/Library/AddressBook/AddressBook.sqlitedb",
+		"/var/mobile/Library/CallHistoryDB/CallHistory.storedata",
+		"/var/mobile/Library/Safari/History.db",
+		"/var/mobile/Library/Safari/Bookmarks.db",
+		"/var/mobile/Library/Notes/notes.sqlite",
+		"/var/mobile/Library/Voicemail/voicemail.db",
+		"/var/mobile/Media/PhotoData/Photos.sqlite",
+		"/var/mobile/Library/Mail/Envelope Index",
+		"/var/mobile/Library/Caches/locationd/clients.plist",
+		"/var/run/utmpx",
+		"/private/var/db/dhcpclient/leases",
+	};
+
+	static const char *good_paths[] = {
+		TZDIR
+	};
+
+	static const char *pathwatch_prefix = "com.apple.system.notify.service.path:1023:";
+	char name_buf[256];
+	int check_token;
+	int protected_tokens[sizeof(protected_paths) / sizeof(protected_paths[0])];
+	uint32_t rc;
+	size_t i;
+	pid_t notifyd_pid_before, notifyd_pid_after;
+
+	// Get notifyd PID before test
+	notifyd_pid_before = get_notifyd_pid();
+	T_ASSERT_GT(notifyd_pid_before, 0, "notifyd (%d) should be running", notifyd_pid_before);
+
+	// Register for pathwatch on protected paths (may fail due to permissions)
+	for (i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); i++) {
+		protected_tokens[i] = NOTIFY_TOKEN_INVALID;
+		snprintf(name_buf, sizeof(name_buf), "%s%s", pathwatch_prefix, protected_paths[i]);
+		(void)notify_register_check(name_buf, &protected_tokens[i]);
+	}
+
+	sleep(1);
+
+	// Verify notifyd did not crash
+	notifyd_pid_after = get_notifyd_pid();
+	T_ASSERT_EQ(notifyd_pid_before, notifyd_pid_after,
+	    "notifyd should not have crashed after protected path registrations");
+
+	// Cancel protected path registrations
+	for (i = 0; i < sizeof(protected_paths) / sizeof(protected_paths[0]); i++) {
+		if (protected_tokens[i] != NOTIFY_TOKEN_INVALID) {
+			notify_cancel(protected_tokens[i]);
+		}
+	}
+
+	// Register for pathwatch on good paths
+	for (i = 0; i < sizeof(good_paths) / sizeof(good_paths[0]); i++) {
+		snprintf(name_buf, sizeof(name_buf), "%s%s", pathwatch_prefix, good_paths[i]);
+		rc = notify_register_check(name_buf, &check_token);
+		T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_register_check for %s should succeed", good_paths[i]);
+		if (check_token != NOTIFY_TOKEN_INVALID) {
+			notify_cancel(check_token);
+		}
+	}
+
+	// Verify notifyd did not crash
+	notifyd_pid_after = get_notifyd_pid();
+	T_ASSERT_EQ(notifyd_pid_before, notifyd_pid_after,
+	    "notifyd should not have crashed after good path registrations");
 }

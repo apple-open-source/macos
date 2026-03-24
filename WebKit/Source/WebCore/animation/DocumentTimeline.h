@@ -81,12 +81,15 @@ public:
     void suspendAnimations() override;
     void resumeAnimations() override;
     WEBCORE_EXPORT unsigned numberOfActiveAnimationsForTesting() const;
-    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForElement(Element&) const;    
     WEBCORE_EXPORT unsigned numberOfAnimationTimelineInvalidationsForTesting() const;
 
     Seconds convertTimelineTimeToOriginRelativeTime(Seconds) const;
 
     std::optional<FramesPerSecond> maximumFrameRate() const;
+
+#if ENABLE(THREADED_ANIMATIONS)
+    void scheduleAcceleratedEffectStackUpdate();
+#endif
 
 private:
     DocumentTimeline(Document&, Seconds);
@@ -94,6 +97,11 @@ private:
     bool isDocumentTimeline() const final { return true; }
 
     AnimationTimelinesController* controller() const override;
+#if ENABLE(THREADED_ANIMATIONS)
+    bool canBeAccelerated() const final { return true; }
+    Ref<AcceleratedTimeline> createAcceleratedRepresentation() const final;
+#endif
+
     void applyPendingAcceleratedAnimations();
     void scheduleInvalidationTaskIfNeeded();
     void scheduleAnimationResolution();

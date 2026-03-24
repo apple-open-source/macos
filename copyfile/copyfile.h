@@ -98,6 +98,7 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *__uns
 #define COPYFILE_METADATA   (COPYFILE_SECURITY | COPYFILE_XATTR)
 #define COPYFILE_ALL	    (COPYFILE_METADATA | COPYFILE_DATA)
 
+#define COPYFILE_NOCACHE	(1<<14) /* when using fcopyfile() force the fd to turn caching off */
 #define	COPYFILE_RECURSIVE	(1<<15)	/* Descend into hierarchies */
 #define COPYFILE_CHECK		(1<<16) /* return flags for xattr or acls if set */
 #define COPYFILE_EXCL		(1<<17) /* fail if destination exists */

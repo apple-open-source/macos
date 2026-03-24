@@ -34,23 +34,23 @@ namespace WebKit {
 static void initializeFilterRules(Vector<ScriptTrackingPrivacyHost>&& source, HostToAllowedCategoriesMap& target, WebCore::ScriptTrackingPrivacyFlags& categoriesWithAllowedHosts)
 {
     target.reserveInitialCapacity(source.size());
-    for (auto&& [host, allowedCategories] : WTFMove(source)) {
+    for (auto&& [host, allowedCategories] : WTF::move(source)) {
         if (host.isEmpty()) {
             ASSERT_NOT_REACHED();
             continue;
         }
 
         categoriesWithAllowedHosts.add(allowedCategories);
-        target.add(WTFMove(host), WTFMove(allowedCategories));
+        target.add(WTF::move(host), WTF::move(allowedCategories));
     }
 }
 
 ScriptTrackingPrivacyFilter::ScriptTrackingPrivacyFilter(ScriptTrackingPrivacyRules&& rules)
 {
-    initializeFilterRules(WTFMove(rules.thirdPartyHosts), m_thirdPartyHosts, m_categoriesWithAllowedHosts);
-    initializeFilterRules(WTFMove(rules.thirdPartyTopDomains), m_thirdPartyTopDomains, m_categoriesWithAllowedHosts);
-    initializeFilterRules(WTFMove(rules.firstPartyHosts), m_firstPartyHosts, m_categoriesWithAllowedHosts);
-    initializeFilterRules(WTFMove(rules.firstPartyTopDomains), m_firstPartyTopDomains, m_categoriesWithAllowedHosts);
+    initializeFilterRules(WTF::move(rules.thirdPartyHosts), m_thirdPartyHosts, m_categoriesWithAllowedHosts);
+    initializeFilterRules(WTF::move(rules.thirdPartyTopDomains), m_thirdPartyTopDomains, m_categoriesWithAllowedHosts);
+    initializeFilterRules(WTF::move(rules.firstPartyHosts), m_firstPartyHosts, m_categoriesWithAllowedHosts);
+    initializeFilterRules(WTF::move(rules.firstPartyTopDomains), m_firstPartyTopDomains, m_categoriesWithAllowedHosts);
 }
 
 auto ScriptTrackingPrivacyFilter::lookup(const URL& url, const WebCore::SecurityOrigin& topOrigin) -> LookupResult

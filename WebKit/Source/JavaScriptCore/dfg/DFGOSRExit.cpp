@@ -119,7 +119,7 @@ void OSRExit::emitRestoreArguments(CCallHelpers& jit, VM& vm, const Operands<Val
                 GPRInfo::regT1);
         }
 
-        static_assert(std::is_same<decltype(operationCreateDirectArgumentsDuringExit), decltype(operationCreateClonedArgumentsDuringExit)>::value, "We assume these functions have the same signature below.");
+        static_assert(std::same_as<decltype(operationCreateDirectArgumentsDuringExit), decltype(operationCreateClonedArgumentsDuringExit)>, "We assume these functions have the same signature below.");
         jit.setupArguments<decltype(operationCreateDirectArgumentsDuringExit)>(
             AssemblyHelpers::TrustedImmPtr(&vm), AssemblyHelpers::TrustedImmPtr(inlineCallFrame), GPRInfo::regT0, GPRInfo::regT1);
         jit.prepareCallOperation(vm);
@@ -235,7 +235,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeOSRExitSideState, void, (V
     sideStates.reserveInitialCapacity(exit.m_codeOrigin.inlineDepth());
     auto sideStateCommitter = makeScopeExit([&] {
         for (size_t i = sideStates.size(); i--;)
-            vm.pushCheckpointOSRSideState(WTFMove(sideStates[i]));
+            vm.pushCheckpointOSRSideState(WTF::move(sideStates[i]));
     });
 
     auto addSideState = [&] (CallFrame* frame, BytecodeIndex index, size_t tmpOffset) {
@@ -245,7 +245,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeOSRExitSideState, void, (V
         for (size_t i = 0; i < maxNumCheckpointTmps; ++i)
             sideState->tmps[i] = JSValue::decode(tmpScratch[i + tmpOffset]);
 
-        sideStates.append(WTFMove(sideState));
+        sideStates.append(WTF::move(sideState));
     };
 
     const CodeOrigin* codeOrigin;

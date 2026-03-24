@@ -39,10 +39,10 @@
 
 namespace WebCore {
 
-void CDMFactory::platformRegisterFactories(Vector<CDMFactory*>& factories)
+void CDMFactory::platformRegisterFactories(Vector<WeakRef<CDMFactory>>& factories)
 {
 #if ENABLE(THUNDER)
-    factories.append(&CDMFactoryThunder::singleton());
+    factories.append(CDMFactoryThunder::singleton());
 #else
     UNUSED_PARAM(factories);
 #endif

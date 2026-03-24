@@ -32,7 +32,7 @@
 #include "RenderElementInlines.h"
 #include "RenderInline.h"
 #include "RenderObject.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "ShadowRoot.h"
 
 namespace WebCore {

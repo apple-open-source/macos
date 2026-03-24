@@ -234,6 +234,33 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
         result.partialUnsignedLongMember = partialUnsignedLongMemberConversionResult.releaseReturnValue();
     }
 #endif
+    JSValue permissiveEnumMemberValue;
+    if (isNullOrUndefined)
+        permissiveEnumMemberValue = jsUndefined();
+    else {
+        permissiveEnumMemberValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "permissiveEnumMember"_s));
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+    }
+    if (!permissiveEnumMemberValue.isUndefined()) {
+        auto permissiveEnumMemberParseResult = parseEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>(lexicalGlobalObject, permissiveEnumMemberValue);
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+        if (permissiveEnumMemberParseResult)
+            result.permissiveEnumMember = *permissiveEnumMemberParseResult;
+    }
+    JSValue permissiveEnumMemberWithDefaultValue;
+    if (isNullOrUndefined)
+        permissiveEnumMemberWithDefaultValue = jsUndefined();
+    else {
+        permissiveEnumMemberWithDefaultValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "permissiveEnumMemberWithDefault"_s));
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+    }
+    if (permissiveEnumMemberWithDefaultValue.isUndefined())
+        result.permissiveEnumMemberWithDefault = TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue1;
+    else {
+        auto permissiveEnumMemberWithDefaultParseResult = parseEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>(lexicalGlobalObject, permissiveEnumMemberWithDefaultValue);
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+        result.permissiveEnumMemberWithDefault = permissiveEnumMemberWithDefaultParseResult.value_or(TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue1);
+    }
     JSValue stringMemberValue;
     if (isNullOrUndefined)
         stringMemberValue = jsUndefined();
@@ -342,6 +369,14 @@ JSC::JSObject* convertDictionaryToJS(JSC::JSGlobalObject& lexicalGlobalObject, J
         result->putDirect(vm, JSC::Identifier::fromString(vm, "partialUnsignedLongMemberWithImplementedAs"_s), partialUnsignedLongMemberWithImplementedAsValue);
     }
 #endif
+    if (!IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>::isNullValue(dictionary.permissiveEnumMember)) {
+        auto permissiveEnumMemberValue = toJS<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>>(lexicalGlobalObject, throwScope, IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>::extractValueFromNullable(dictionary.permissiveEnumMember));
+        RETURN_IF_EXCEPTION(throwScope, { });
+        result->putDirect(vm, JSC::Identifier::fromString(vm, "permissiveEnumMember"_s), permissiveEnumMemberValue);
+    }
+    auto permissiveEnumMemberWithDefaultValue = toJS<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>>(lexicalGlobalObject, throwScope, dictionary.permissiveEnumMemberWithDefault);
+    RETURN_IF_EXCEPTION(throwScope, { });
+    result->putDirect(vm, JSC::Identifier::fromString(vm, "permissiveEnumMemberWithDefault"_s), permissiveEnumMemberWithDefaultValue);
     if (!IDLDOMString::isNullValue(dictionary.stringMember)) {
         auto stringMemberValue = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, IDLDOMString::extractValueFromNullable(dictionary.stringMember));
         RETURN_IF_EXCEPTION(throwScope, { });
@@ -374,11 +409,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestStandaloneDictionary::En
 
 template<> std::optional<TestStandaloneDictionary::EnumInStandaloneDictionaryFile> parseEnumerationFromString<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestStandaloneDictionary::EnumInStandaloneDictionaryFile>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestStandaloneDictionary::EnumInStandaloneDictionaryFile> { "enumValue1"_s, TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue1 },
-        std::pair<ComparableASCIILiteral, TestStandaloneDictionary::EnumInStandaloneDictionaryFile> { "enumValue2"_s, TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue2 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestStandaloneDictionary::EnumInStandaloneDictionaryFile>>({
+        { "enumValue1"_s, TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue1 },
+        { "enumValue2"_s, TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue2 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;

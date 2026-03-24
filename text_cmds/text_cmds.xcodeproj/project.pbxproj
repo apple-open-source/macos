@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 73;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -1664,6 +1664,16 @@
 			name = "Copy Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		2A9F750D2F05804E00D421E7 /* Copy Teset Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/lam;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Copy Teset Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		CBBD76EB2BACAC0E008CD52C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -2838,6 +2848,20 @@
 		FDF2836E1DAED24800CF8C36 /* sort.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = sort.xcconfig; sourceTree = "<group>"; };
 		FDF283701DAED7C700CF8C36 /* commoncrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = commoncrypto.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		2A9F750F2F05805F00D421E7 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 2A9F750D2F05804E00D421E7 /* Copy Teset Files */;
+			membershipExceptions = (
+				lam_test.sh,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		2A9F750B2F057FED00D421E7 /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (2A9F750F2F05805F00D421E7 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		2A15131C2946F9A20051ED9C /* Frameworks */ = {
@@ -4296,6 +4320,7 @@
 		FC7A7C33149866AF0086576A /* lam */ = {
 			isa = PBXGroup;
 			children = (
+				2A9F750B2F057FED00D421E7 /* tests */,
 				FC7A7C34149866AF0086576A /* lam.1 */,
 				FC7A7C35149866AF0086576A /* lam.c */,
 			);
@@ -4902,10 +4927,14 @@
 				FC7A7D4D14986A340086576A /* Sources */,
 				FC7A7D4E14986A340086576A /* Frameworks */,
 				FC7A7D4F14986A340086576A /* CopyFiles */,
+				2A9F750D2F05804E00D421E7 /* Copy Teset Files */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2A9F750B2F057FED00D421E7 /* tests */,
 			);
 			name = lam;
 			productName = text_cmds;
@@ -5272,7 +5301,6 @@
 				};
 			};
 			buildConfigurationList = FC7A7B33149865C80086576A /* Build configuration list for PBXProject "text_cmds" */;
-			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -5280,6 +5308,7 @@
 				Base,
 			);
 			mainGroup = FC7A7B2E149865C70086576A;
+			preferredProjectObjectVersion = 55;
 			productRefGroup = FC7A7B3A149865C80086576A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -6360,7 +6389,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
-					"_REENTRANT",
+					_REENTRANT,
 				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -6371,7 +6400,10 @@
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "--include src/config_apple.h";
+				OTHER_CFLAGS = (
+					"--include",
+					src/config_apple.h,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				WARNING_CFLAGS = "-Werror=format";

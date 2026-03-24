@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "Algorithm.h"
 #include "BInline.h"
 #include <climits>
@@ -501,3 +503,5 @@ public:
 } // namespace bmalloc
 
 #endif
+
+#endif // __cplusplus

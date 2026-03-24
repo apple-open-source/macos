@@ -80,7 +80,7 @@ static bool SecURIMatch(CFStringRef URI, CFStringRef hostname) {
     CFCharacterSetRef port_or_path_separator = NULL;
     /* URI must have scheme specified */
     CFRange URI_scheme = CFStringFind(URI, CFSTR("://"), 0);
-    require_quiet(URI_scheme.location != kCFNotFound, out);
+    __Require_Quiet(URI_scheme.location != kCFNotFound, out);
     
     /* Remove scheme prefix and port or resource path suffix */
     CFRange URI_hostname_range = { URI_scheme.location + URI_scheme.length,
@@ -93,11 +93,11 @@ static bool SecURIMatch(CFStringRef URI, CFStringRef hostname) {
     URI_hostname = CFStringCreateWithSubstring(kCFAllocatorDefault, URI, URI_hostname_range);
     
     /* Hostname in URI must not begin with '.' */
-    require_quiet('.' != CFStringGetCharacterAtIndex(URI_hostname, 0), out);
+    __Require_Quiet('.' != CFStringGetCharacterAtIndex(URI_hostname, 0), out);
     
     CFIndex ulength = CFStringGetLength(URI_hostname);
     CFIndex hlength = CFStringGetLength(hostname);
-    require_quiet(ulength >= hlength, out);
+    __Require_Quiet(ulength >= hlength, out);
     CFRange compare_range = { 0, hlength };
     
     /* Allow one or more preceding labels */
@@ -143,7 +143,7 @@ static bool SecRFC822NameMatch(CFStringRef emailAddress, CFStringRef constraint)
     }
 
     mailbox_range = CFStringFind(emailAddress, CFSTR("@"), 0);
-    require_quiet(mailbox_range.location != kCFNotFound, out);
+    __Require_Quiet(mailbox_range.location != kCFNotFound, out);
     CFRange hostname_range = {mailbox_range.location + 1,
         CFStringGetLength(emailAddress) - mailbox_range.location - 1 };
 
@@ -156,7 +156,7 @@ static bool SecRFC822NameMatch(CFStringRef emailAddress, CFStringRef constraint)
     }
 
     /* Constraint specificies a domain. Match hostname of address to domain name. */
-    require_quiet('.' != CFStringGetCharacterAtIndex(emailAddress, mailbox_range.location +1), out);
+    __Require_Quiet('.' != CFStringGetCharacterAtIndex(emailAddress, mailbox_range.location +1), out);
     if (CFStringHasSuffix(emailAddress, constraint)) {
         return true;
     }
@@ -168,10 +168,10 @@ out:
 static bool nc_compare_directoryNames(const DERItem *certName, const DERItem *subtreeName) {
     /* Get content of certificate name and subtree name */
     DERDecodedInfo certName_content;
-    require_noerr_quiet(DERDecodeItem(certName, &certName_content), out);
+    __Require_noErr_Quiet(DERDecodeItem(certName, &certName_content), out);
     
     DERDecodedInfo subtreeName_content;
-    require_noerr_quiet(DERDecodeItem(subtreeName, &subtreeName_content), out);
+    __Require_noErr_Quiet(DERDecodeItem(subtreeName, &subtreeName_content), out);
     
     if (certName->length > subtreeName->length) {
         if(0 == memcmp(certName_content.content.data,
@@ -188,16 +188,16 @@ out:
 static bool nc_compare_DNSNames(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
     CFStringRef certName_str = NULL, subtreeName_str = NULL;
-    require_quiet(certName->length < LONG_MAX, out);
-    require_quiet(subtreeName->length < LONG_MAX, out);
+    __Require_Quiet(certName->length < LONG_MAX, out);
+    __Require_Quiet(subtreeName->length < LONG_MAX, out);
     certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                            certName->data, (CFIndex)certName->length,
                                            kCFStringEncodingUTF8, FALSE);
     subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                               subtreeName->data, (CFIndex)subtreeName->length,
                                               kCFStringEncodingUTF8, FALSE);
-    require_quiet(certName_str, out);
-    require_quiet(subtreeName_str, out);
+    __Require_Quiet(certName_str, out);
+    __Require_Quiet(subtreeName_str, out);
 
     if (SecDNSNameConstraintsMatch(certName_str, subtreeName_str)) {
         result = true;
@@ -212,16 +212,16 @@ out:
 static bool nc_compare_URIs(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
     CFStringRef certName_str = NULL, subtreeName_str = NULL;
-    require_quiet(certName->length < LONG_MAX, out);
-    require_quiet(subtreeName->length < LONG_MAX, out);
+    __Require_Quiet(certName->length < LONG_MAX, out);
+    __Require_Quiet(subtreeName->length < LONG_MAX, out);
     certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                            certName->data, (CFIndex)certName->length,
                                            kCFStringEncodingUTF8, FALSE);
     subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                               subtreeName->data, (CFIndex)subtreeName->length,
                                               kCFStringEncodingUTF8, FALSE);
-    require_quiet(certName_str, out);
-    require_quiet(subtreeName_str, out);
+    __Require_Quiet(certName_str, out);
+    __Require_Quiet(subtreeName_str, out);
     
     if (SecURIMatch(certName_str, subtreeName_str)) {
         result = true;
@@ -236,16 +236,16 @@ out:
 static bool nc_compare_RFC822Names(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
     CFStringRef certName_str = NULL, subtreeName_str = NULL;
-    require_quiet(certName->length < LONG_MAX, out);
-    require_quiet(subtreeName->length < LONG_MAX, out);
+    __Require_Quiet(certName->length < LONG_MAX, out);
+    __Require_Quiet(subtreeName->length < LONG_MAX, out);
     certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                            certName->data, (CFIndex)certName->length,
                                            kCFStringEncodingUTF8, FALSE);
     subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                               subtreeName->data, (CFIndex)subtreeName->length,
                                               kCFStringEncodingUTF8, FALSE);
-    require_quiet(certName_str, out);
-    require_quiet(subtreeName_str, out);
+    __Require_Quiet(certName_str, out);
+    __Require_Quiet(subtreeName_str, out);
     
     if (SecRFC822NameMatch(certName_str, subtreeName_str)) {
         result = true;
@@ -261,11 +261,11 @@ static bool nc_compare_IPAddresses(const DERItem *certAddr, const DERItem *subtr
     bool result = false;
     
     /* Verify Subtree Address has correct number of bytes for IP and mask */
-    require_quiet((subtreeAddr->length == 8) || (subtreeAddr->length == 32), out);
+    __Require_Quiet((subtreeAddr->length == 8) || (subtreeAddr->length == 32), out);
     /* Verify Cert Address has correct number of bytes for IP */
-    require_quiet((certAddr->length == 4) || (certAddr->length ==16), out);
+    __Require_Quiet((certAddr->length == 4) || (certAddr->length ==16), out);
     /* Verify Subtree Address and Cert Address are the same version */
-    require_quiet(subtreeAddr->length == 2*certAddr->length, out);
+    __Require_Quiet(subtreeAddr->length == 2*certAddr->length, out);
     
     DERByte * mask = subtreeAddr->data + certAddr->length;
     for (DERSize i = 0; i < certAddr->length; i++) {
@@ -344,7 +344,7 @@ static void nc_decode_and_compare_subtree(const void *value, void *context) {
         /* convert subtree to DERItem */
         const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), (size_t)CFDataGetLength(subtree) };
         DERDecodedInfo general_name_content;
-        require_noerr_quiet(DERDecodeItem(&general_name, &general_name_content),out);
+        __Require_noErr_Quiet(DERDecodeItem(&general_name, &general_name_content),out);
         
         OSStatus status = SecCertificateParseGeneralNameContentProperty(general_name_content.tag,
                                                                         &general_name_content.content,
@@ -359,12 +359,12 @@ out:
 }
 
 static bool isEmptySubject(CFDataRef subject) {
-    require_quiet(CFDataGetLength(subject) > 0, out);
+    __Require_Quiet(CFDataGetLength(subject) > 0, out);
     const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), (size_t)CFDataGetLength(subject) };
     
     /* Get content of certificate name */
     DERDecodedInfo subject_content;
-    require_noerr_quiet(DERDecodeItem(&subject_der, &subject_content), out);
+    __Require_noErr_Quiet(DERDecodeItem(&subject_der, &subject_content), out);
     if (subject_content.content.length) return false;
     
 out:
@@ -471,13 +471,13 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
     CFDataRef subject = NULL;
     OSStatus status = errSecSuccess;
     
-    require_action_quiet(subject = SecCertificateCopySubjectSequence(certificate),
+    __Require_Action_Quiet(subject = SecCertificateCopySubjectSequence(certificate),
                          out,
                          status = errSecInvalidCertificate);
     const DERItem *subjectAltNames = SecCertificateGetSubjectAltName(certificate);
 
     /* Reject certificates with neither Subject Name nor SubjectAltName */
-    require_action_quiet(!isEmptySubject(subject) || subjectAltNames, out, status = errSecInvalidCertificate);
+    __Require_Action_Quiet(!isEmptySubject(subject) || subjectAltNames, out, status = errSecInvalidCertificate);
     
     /* Verify that the subject name is within all of the subtrees */
     match_t subject_match = { false, permit };
@@ -497,7 +497,7 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
                                                  &san_context,
                                                  nc_compare_subjectAltName_to_subtrees);
         /* If failed to parse */
-        require_action_quiet(status == errSecSuccess, out, *matched = false);
+        __Require_Action_Quiet(status == errSecSuccess, out, *matched = false);
     }
 
     /* If we are excluding based on the subtrees, lack of names of the

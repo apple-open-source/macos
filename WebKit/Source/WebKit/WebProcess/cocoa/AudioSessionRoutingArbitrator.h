@@ -43,17 +43,21 @@ public:
     explicit AudioSessionRoutingArbitrator(WebProcess&);
     virtual ~AudioSessionRoutingArbitrator();
 
+    // WebCore::AudioSessionRoutingArbitrationClient.
+    void ref() const final;
+    void deref() const final;
+
     static ASCIILiteral supplementName();
 
     // AudioSessionRoutingAbritrator
     void beginRoutingArbitrationWithCategory(WebCore::AudioSession::CategoryType, CompletionHandler<void(RoutingArbitrationError, DefaultRouteChanged)>&&) final;
-    void leaveRoutingAbritration() final;
+    void leaveRoutingArbitration() final;
 
 private:
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     bool canLog() const final;
 
-    WebCore::AudioSession::ChangedObserver m_observer;
+    const Ref<WebCore::AudioSession::ChangedObserver> m_observer;
     const uint64_t m_logIdentifier;
 };
 

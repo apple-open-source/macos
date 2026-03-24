@@ -56,8 +56,11 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/glib/SelectionData.h
     platform/glib/SystemSettings.h
 
+    platform/graphics/android/BufferFormatAndroid.h
     platform/graphics/android/GraphicsContextGLTextureMapperAndroid.h
+    platform/graphics/android/PlatformDisplayAndroid.h
 
+    platform/graphics/egl/PlatformDisplayDefault.h
     platform/graphics/egl/PlatformDisplaySurfaceless.h
 
     platform/graphics/gbm/GBMVersioning.h
@@ -68,15 +71,20 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/wpe/RenderThemeWPE.cpp)
 
+list(APPEND WebCore_PRIVATE_LIBRARIES
+    Tasn1::Tasn1
+)
+
 list(APPEND WebCore_LIBRARIES
     GLib::Module
-    WPE::libwpe
-    ${LIBTASN1_LIBRARIES}
     ${UPOWERGLIB_LIBRARIES}
 )
 
+if (ENABLE_WPE_LEGACY_API)
+    list(APPEND WebCore_LIBRARIES WPE::libwpe)
+endif ()
+
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-    ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
 

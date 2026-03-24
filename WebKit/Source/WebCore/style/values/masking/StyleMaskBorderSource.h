@@ -39,7 +39,7 @@ struct MaskBorderSource {
     }
 
     MaskBorderSource(ImageWrapper&& image)
-        : m_image { WTFMove(image.value) }
+        : m_image { WTF::move(image.value) }
     {
     }
 

@@ -37,6 +37,7 @@ class RemoteResourceCacheProxy;
 
 class RemoteNativeImageProxy final : public WebCore::NativeImage {
     WTF_MAKE_TZONE_ALLOCATED(RemoteNativeImageProxy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteNativeImageProxy);
 public:
     static Ref<RemoteNativeImageProxy> create(const WebCore::IntSize&, WebCore::PlatformColorSpace&&, bool hasAlpha, WeakRef<RemoteResourceCacheProxy>&&);
     ~RemoteNativeImageProxy() override;

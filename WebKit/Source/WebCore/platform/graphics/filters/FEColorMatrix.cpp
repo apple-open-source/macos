@@ -41,13 +41,13 @@ namespace WebCore {
 
 Ref<FEColorMatrix> FEColorMatrix::create(ColorMatrixType type, Vector<float>&& values, DestinationColorSpace colorSpace)
 {
-    return adoptRef(*new FEColorMatrix(type, WTFMove(values), colorSpace));
+    return adoptRef(*new FEColorMatrix(type, WTF::move(values), colorSpace));
 }
 
 FEColorMatrix::FEColorMatrix(ColorMatrixType type, Vector<float>&& values, DestinationColorSpace colorSpace)
     : FilterEffect(FilterEffect::Type::FEColorMatrix, colorSpace)
     , m_type(type)
-    , m_values(WTFMove(values))
+    , m_values(WTF::move(values))
 {
 }
 
@@ -110,10 +110,7 @@ void FEColorMatrix::calculateHueRotateComponents(std::span<float, 9> components,
 
 Vector<float> FEColorMatrix::normalizedFloats(const Vector<float>& values)
 {
-    Vector<float> normalizedValues(values.size());
-    for (size_t i = 0; i < values.size(); ++i)
-        normalizedValues[i] = normalizedFloat(values[i]);
-    return normalizedValues;
+    return values.map([](float value) { return normalizedFloat(value); });
 }
 
 bool FEColorMatrix::resultIsAlphaImage(std::span<const Ref<FilterImage>>) const

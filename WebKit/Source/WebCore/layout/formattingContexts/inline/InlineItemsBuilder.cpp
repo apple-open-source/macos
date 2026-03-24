@@ -28,7 +28,9 @@
 
 #include "FontCascade.h"
 #include "InlineSoftLineBreakItem.h"
-#include "RenderStyleInlines.h"
+#include "RenderObjectInlines.h"
+#include "RenderStyle+GettersInlines.h"
+#include "Settings.h"
 #include "StyleResolver.h"
 #include "TextBreakingPositionCache.h"
 #include "TextUtil.h"
@@ -104,8 +106,8 @@ void InlineItemsBuilder::build(InlineItemPosition startPosition)
         ASSERT(!startPosition || startPosition.index < inlineItemCache.content().size());
         auto isPopulatedFromCache = m_textContentPopulatedFromCache && *m_textContentPopulatedFromCache ? InlineContentCache::InlineItems::IsPopulatedFromCache::Yes : InlineContentCache::InlineItems::IsPopulatedFromCache::No;
         if (!startPosition || startPosition.index >= inlineItemCache.content().size())
-            return inlineItemCache.set(WTFMove(inlineItemList), contentAttributes, isPopulatedFromCache);
-        inlineItemCache.replace(startPosition.index, WTFMove(inlineItemList), contentAttributes, isPopulatedFromCache);
+            return inlineItemCache.set(WTF::move(inlineItemList), contentAttributes, isPopulatedFromCache);
+        inlineItemCache.replace(startPosition.index, WTF::move(inlineItemList), contentAttributes, isPopulatedFromCache);
     };
     adjustInlineContentCacheWithNewInlineItems();
 
@@ -175,7 +177,7 @@ void InlineItemsBuilder::computeInlineBoxBoundaryTextSpacings(const InlineItemLi
         size_t inlineBoxStartOnBoundaryIndex = inlineBoxStartIndexesOnInlineItemsList.size() - 1 - (currentCharacterDepth - boundaryDepth);
         size_t boundaryIndex = inlineBoxStartIndexesOnInlineItemsList[inlineBoxStartOnBoundaryIndex];
         const RenderStyle& boundaryOwnerStyle = inlineItemList[boundaryIndex].layoutBox().parent().style();
-        const TextAutospace& boundaryTextAutospace = boundaryOwnerStyle.textAutospace();
+        auto boundaryTextAutospace = boundaryOwnerStyle.textAutospace();
         if (!boundaryTextAutospace.isNoAutospace() && boundaryTextAutospace.shouldApplySpacing(inlineTextBox.content().characterAt(start), lastCharacterFromPreviousRun))
             spacings.add(boundaryIndex, TextAutospace::textAutospaceSize(boundaryOwnerStyle.fontCascade().primaryFont()));
 
@@ -184,7 +186,7 @@ void InlineItemsBuilder::computeInlineBoxBoundaryTextSpacings(const InlineItemLi
         processInlineBoxBoundary = false;
     }
     if (!spacings.isEmpty())
-        inlineContentCache().setInlineBoxBoundaryTextSpacings(WTFMove(spacings));
+        inlineContentCache().setInlineBoxBoundaryTextSpacings(WTF::move(spacings));
 }
 
 static inline bool isTextOrLineBreak(const Box& layoutBox)
@@ -325,7 +327,10 @@ void InlineItemsBuilder::collectInlineItems(InlineItemList& inlineItemList, Inli
                 handleInlineBoxEnd(layoutBox, inlineItemList);
             else if (layoutBox->isFloatingPositioned())
                 inlineItemList.append({ layoutBox, InlineItem::Type::Float });
-            else
+            else if (layoutBox->isBlockLevelBox()) {
+                ASSERT(m_root.rendererForIntegration()->settings().blocksInInlineLayoutEnabled());
+                inlineItemList.append({ layoutBox, InlineItem::Type::Block });
+            } else
                 ASSERT_NOT_REACHED();
 
             if (auto* nextSibling = layoutBox->nextSibling()) {
@@ -572,7 +577,9 @@ static inline void buildBidiParagraph(const RenderStyle& rootStyle, const Inline
                 // truly opaque items are also opaque to bidi.
                 inlineItemOffsetList.append({ });
             }
-        } else
+        } else if (inlineItem.isBlock())
+            handleBidiParagraphStart(paragraphContentBuilder, inlineItemOffsetList, bidiContextStack);
+        else
             ASSERT_NOT_IMPLEMENTED_YET();
 
     }
@@ -732,12 +739,12 @@ static inline bool canCacheMeasuredWidthOnInlineTextItem(const InlineTextBox& in
 
 static void handleTextSpacing(TextSpacing::SpacingState& spacingState, TrimmableTextSpacings& trimmableTextSpacings, const InlineTextItem& inlineTextItem, size_t inlineItemIndex)
 {
-    const auto& autospace = inlineTextItem.style().textAutospace();
+    auto autospace = inlineTextItem.style().textAutospace();
     if (!autospace.isNoAutospace()) {
         // We need to store information about spacing added between inline text items since it needs to be trimmed during line breaking if the consecutive items are placed on different lines
         auto characterClass = TextSpacing::characterClass(inlineTextItem.content().characterAt(0));
         if (autospace.shouldApplySpacing(spacingState.lastCharacterClassFromPreviousRun, characterClass))
-            trimmableTextSpacings.add(inlineItemIndex, autospace.textAutospaceSize(inlineTextItem.style().fontCascade().primaryFont()));
+            trimmableTextSpacings.add(inlineItemIndex, TextAutospace::textAutospaceSize(inlineTextItem.style().fontCascade().primaryFont()));
 
         auto lastCharacterFromPreviousRun = TextUtil::lastBaseCharacterFromText(inlineTextItem.content());
         spacingState.lastCharacterClassFromPreviousRun = TextSpacing::characterClass(lastCharacterFromPreviousRun);
@@ -809,7 +816,7 @@ InlineContentCache::InlineItems::ContentAttributes InlineItemsBuilder::computeCo
         if (!inlineItem.isInlineBoxEnd())
             isTextAndForcedLineBreakOnlyContent = isTextAndForcedLineBreakOnlyContent && isTextOrLineBreak(inlineItem.layoutBox());
     }
-    inlineContentCache().setTrimmableTextSpacings(WTFMove(trimmableTextSpacings));
+    inlineContentCache().setTrimmableTextSpacings(WTF::move(trimmableTextSpacings));
 
     return { m_contentRequiresVisualReordering, isTextAndForcedLineBreakOnlyContent, m_hasTextAutospace, inlineBoxCount };
 }
@@ -883,7 +890,7 @@ void InlineItemsBuilder::handleTextContent(const InlineTextBox& inlineTextBox, I
     auto& style = inlineTextBox.style();
     auto shouldPreserveSpacesAndTabs = TextUtil::shouldPreserveSpacesAndTabs(inlineTextBox);
     auto shouldPreserveNewline = TextUtil::shouldPreserveNewline(inlineTextBox);
-    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { text, style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()), TextUtil::contentAnalysis(style.wordBreak()) };
+    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { text, Style::toPlatform(style.computedLocale()), TextUtil::lineBreakIteratorMode(style.lineBreak()), TextUtil::contentAnalysis(style.wordBreak()) };
     auto currentPosition = partialContentOffset.value_or(0lu);
     ASSERT(currentPosition <= contentLength);
 
@@ -1061,7 +1068,7 @@ void InlineItemsBuilder::populateBreakingPositionCache(const InlineItemList& inl
 
         ASSERT(!breakingPositionList.isEmpty());
         if (breakingPositionList.size() >= TextBreakingPositionCache::minimumRequiredContentBreaks)
-            breakingPositionCache.set({ inlineTextBox->content(), context, securityOrigin.data() }, WTFMove(breakingPositionList));
+            breakingPositionCache.set({ inlineTextBox->content(), context, securityOrigin.data() }, WTF::move(breakingPositionList));
         index += span.size();
     }
 }

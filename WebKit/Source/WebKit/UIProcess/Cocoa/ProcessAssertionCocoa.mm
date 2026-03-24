@@ -389,24 +389,24 @@ ProcessAssertion::ProcessAssertion(pid_t pid, const String& reason, ProcessAsser
     if (extensionProcess) {
         ASCIILiteral runningBoardAssertionName = runningBoardNameForAssertionType(m_assertionType);
         ASCIILiteral runningBoardDomain = runningBoardDomainForAssertionType(m_assertionType);
-        auto didInvalidateBlock = [weakThis = ThreadSafeWeakPtr { *this }, runningBoardAssertionName] () {
-            RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), runningBoardAssertionName = WTFMove(runningBoardAssertionName)] {
+        auto didInvalidateBlock = [weakThis = ThreadSafeWeakPtr { *this }, runningBoardAssertionName]() mutable {
+            RunLoop::mainSingleton().dispatch([weakThis = WTF::move(weakThis), runningBoardAssertionName = WTF::move(runningBoardAssertionName)] {
                 auto strongThis = weakThis.get();
                 RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion: RBS %{public}s assertion for process with PID=%d was invalidated", strongThis.get(), runningBoardAssertionName.characters(), strongThis ? strongThis->m_pid : 0);
                 if (strongThis)
                     strongThis->processAssertionWasInvalidated();
             });
         };
-        auto willInvalidateBlock = [weakThis = ThreadSafeWeakPtr { *this }, runningBoardAssertionName] () {
-            RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), runningBoardAssertionName = WTFMove(runningBoardAssertionName)] {
+        auto willInvalidateBlock = [weakThis = ThreadSafeWeakPtr { *this }, runningBoardAssertionName]() mutable {
+            RunLoop::mainSingleton().dispatch([weakThis = WTF::move(weakThis), runningBoardAssertionName = WTF::move(runningBoardAssertionName)] {
                 auto strongThis = weakThis.get();
                 RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() RBS %{public}s assertion for process with PID=%d will be invalidated", strongThis.get(), runningBoardAssertionName.characters(), strongThis ? strongThis->m_pid : 0);
                 if (strongThis)
                     strongThis->processAssertionWillBeInvalidated();
             });
         };
-        m_capability = AssertionCapability { environmentIdentifier, runningBoardDomain, runningBoardAssertionName, WTFMove(willInvalidateBlock), WTFMove(didInvalidateBlock) };
-        m_process = WTFMove(extensionProcess);
+        m_capability = AssertionCapability { environmentIdentifier, runningBoardDomain, runningBoardAssertionName, WTF::move(willInvalidateBlock), WTF::move(didInvalidateBlock) };
+        m_process = WTF::move(extensionProcess);
         if (m_capability && m_capability->hasPlatformCapability())
             return;
         RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Failed to create capability %s", this, runningBoardAssertionName.characters());
@@ -467,9 +467,9 @@ double ProcessAssertion::remainingRunTimeInSeconds(ProcessID pid)
 void ProcessAssertion::acquireAsync(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(isMainRunLoop());
-    assertionsWorkQueue().dispatch([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+    assertionsWorkQueue().dispatch([protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)]() mutable {
         protectedThis->acquireSync();
-        RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)]() mutable {
+        RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), completionHandler = WTF::move(completionHandler)]() mutable {
             if (completionHandler)
                 completionHandler();
         });
@@ -483,7 +483,7 @@ void ProcessAssertion::acquireSync()
     if (m_process && m_capability && m_capability->hasPlatformCapability()) {
         Locker locker { s_capabilityLock };
         auto grant = m_process->grantCapability(m_capability->platformCapability(), m_capability->didInvalidateBlock());
-        m_grant.setPlatformGrant(WTFMove(grant));
+        m_grant.setPlatformGrant(WTF::move(grant));
         if (m_grant.isValid()) {
             RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Successfully granted capability", this);
             return;
@@ -540,13 +540,6 @@ void ProcessAssertion::processAssertionWasInvalidated()
         m_invalidationHandler();
 }
 
-bool ProcessAssertion::isValid() const
-{
-    return !m_wasInvalidated;
-}
-
-
-
 #if !USE(EXTENSIONKIT)
 
 ProcessAndUIAssertion::ProcessAndUIAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier)
@@ -560,7 +553,7 @@ ProcessAndUIAssertion::ProcessAndUIAssertion(pid_t pid, const String& reason, Pr
 #else
 
 ProcessAndUIAssertion::ProcessAndUIAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier, std::optional<ExtensionProcess>&& extensionProcess)
-    : ProcessAssertion(pid, reason, assertionType, environmentIdentifier, WTFMove(extensionProcess))
+    : ProcessAssertion(pid, reason, assertionType, environmentIdentifier, WTF::move(extensionProcess))
 {
 #if PLATFORM(IOS_FAMILY)
     updateRunInBackgroundCount();

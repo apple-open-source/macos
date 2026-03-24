@@ -30,23 +30,22 @@
 
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
-#include "ShapeDetectionObjectHeap.h"
 #include "SharedPreferencesForWebProcess.h"
 #include <WebCore/DetectedFaceInterface.h>
 #include <WebCore/FaceDetectorInterface.h>
-#include <WebCore/ImageBuffer.h>
+#include <WebCore/NativeImage.h>
 #include <wtf/TZoneMallocInlines.h>
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_renderingBackend.get().streamConnection());
 
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteFaceDetector);
 
-RemoteFaceDetector::RemoteFaceDetector(Ref<WebCore::ShapeDetection::FaceDetector>&& faceDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
-    : m_backing(WTFMove(faceDetector))
-    , m_objectHeap(objectHeap)
-    , m_backend(backend)
+RemoteFaceDetector::RemoteFaceDetector(Ref<WebCore::ShapeDetection::FaceDetector>&& faceDetector, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier)
+    : m_backing(WTF::move(faceDetector))
+    , m_renderingBackend(backend)
     , m_identifier(identifier)
-    , m_webProcessIdentifier(webProcessIdentifier)
 {
 }
 
@@ -54,20 +53,18 @@ RemoteFaceDetector::~RemoteFaceDetector() = default;
 
 std::optional<SharedPreferencesForWebProcess> RemoteFaceDetector::sharedPreferencesForWebProcess() const
 {
-    return protectedBackend()->sharedPreferencesForWebProcess();
+    return Ref { m_renderingBackend.get() }->sharedPreferencesForWebProcess();
 }
 
 void RemoteFaceDetector::detect(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedFace>&&)>&& completionHandler)
 {
-    auto sourceImage = protectedBackend()->imageBuffer(renderingResourceIdentifier);
-    if (!sourceImage) {
-        completionHandler({ });
-        return;
-    }
-
-    Ref { m_backing }->detect(*sourceImage, WTFMove(completionHandler));
+    RefPtr sourceImage = m_renderingBackend.get().remoteResourceCache().cachedNativeImage(renderingResourceIdentifier);
+    MESSAGE_CHECK(sourceImage);
+    m_backing->detect(*sourceImage, WTF::move(completionHandler));
 }
 
 } // namespace WebKit
+
+#undef MESSAGE_CHECK
 
 #endif // ENABLE(GPU_PROCESS)

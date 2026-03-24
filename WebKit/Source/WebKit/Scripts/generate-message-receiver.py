@@ -57,6 +57,7 @@ def main(argv):
                 receiver = webkit.parser.parse(source_file)
 
         receiver.enforce_attribute_constraints()
+        receiver.enforce_opaque_ipc_types_usage()
 
         receivers.append(receiver)
         if receiver_name != receiver.name:
@@ -76,6 +77,9 @@ def main(argv):
             continue
         with open('%sMessageReceiver.cpp' % receiver.name, "w+") as implementation_output:
             implementation_output.write(webkit.messages.generate_message_handler(receiver))
+        if receiver.swift_receiver:
+            with open('%sMessageReceiver.swift' % receiver.name, "w+") as swift_implementation_output:
+                swift_implementation_output.write(webkit.messages.generate_swift_message_handler(receiver))
 
         receiver_message_header = '%sMessages.h' % receiver.name
         receiver_header_files.append(receiver_message_header)

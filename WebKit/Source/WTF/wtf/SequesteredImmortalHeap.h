@@ -279,7 +279,6 @@ public:
                 return nullptr;
             RELEASE_ASSERT_NOT_REACHED();
         }
-        RELEASE_ASSERT_DATA_ADDRESS_IS_SANE(p);
         auto* gran = reinterpret_cast<GranuleHeader*>(p);
         gran->additionalPageCount = bytes / pageSize() - 1;
         return gran;

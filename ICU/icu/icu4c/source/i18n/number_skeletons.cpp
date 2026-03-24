@@ -1015,6 +1015,12 @@ blueprint_helpers::parseExponentSignOption(const StringSegment& segment, MacroPr
     return true;
 }
 
+// The function is called by skeleton::parseOption which called by skeleton::parseSkeleton
+// the data pointed in the return macros.unit is stack allocated in the parseSkeleton function.
+#if U_GCC_MAJOR_MINOR >= 1204
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-pointer"
+#endif
 void blueprint_helpers::parseCurrencyOption(const StringSegment& segment, MacroProps& macros,
                                             UErrorCode& status) {
     // Unlike ICU4J, have to check length manually because ICU4C CurrencyUnit does not check it for us
@@ -1034,6 +1040,9 @@ void blueprint_helpers::parseCurrencyOption(const StringSegment& segment, MacroP
     // Slicing is OK
     macros.unit = currency; // NOLINT
 }
+#if U_GCC_MAJOR_MINOR >= 1204
+#pragma GCC diagnostic pop
+#endif
 
 void
 blueprint_helpers::generateCurrencyOption(const CurrencyUnit& currency, UnicodeString& sb, UErrorCode&) {
@@ -1063,16 +1072,39 @@ void blueprint_helpers::parseMeasureUnitOption(const StringSegment& segment, Mac
     CharString subType;
     SKELETON_UCHAR_TO_CHAR(subType, stemString, firstHyphen + 1, stemString.length(), status);
 
+#if APPLE_ICU_CHANGES
+// Filed https://unicode-org.atlassian.net/browse/ICU-23264 for this problem
+    // Note: the largest type as of this writing (Nov 2025) is "volume", which has 44 units.
+    static constexpr int32_t CAPACITY = 50;
+#else
     // Note: the largest type as of this writing (Aug 2020) is "volume", which has 33 units.
     static constexpr int32_t CAPACITY = 40;
+#endif // APPLE_ICU_CHANGES
     MeasureUnit units[CAPACITY];
     UErrorCode localStatus = U_ZERO_ERROR;
     int32_t numUnits = MeasureUnit::getAvailable(type.data(), units, CAPACITY, localStatus);
     if (U_FAILURE(localStatus)) {
+#if APPLE_ICU_CHANGES
+// Filed https://unicode-org.atlassian.net/browse/ICU-23264 for this problem
+        // More than 50 units in this type?
+#else
         // More than 30 units in this type?
+#endif // APPLE_ICU_CHANGES
         status = U_INTERNAL_PROGRAM_ERROR;
         return;
     }
+#if APPLE_ICU_CHANGES
+// Filed https://unicode-org.atlassian.net/browse/ICU-23265 for this problem
+    if (numUnits != 0) {
+        auto unit = MeasureUnit::forIdentifier(subType.data(), localStatus);
+        if (U_SUCCESS(localStatus)){
+            macros.unit = unit;
+            return;
+        }
+    }
+    // if that didn't work,
+    // then fall through to the OSICU version
+#endif
     for (int32_t i = 0; i < numUnits; i++) {
         auto& unit = units[i];
         if (uprv_strcmp(subType.data(), unit.getSubtype()) == 0) {

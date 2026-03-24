@@ -27,7 +27,6 @@
 #include "DeprecatedGlobalSettings.h"
 
 #include "AudioSession.h"
-#include "HTMLMediaElement.h"
 #include "MediaPlayer.h"
 #include "MediaStrategy.h"
 #include "PlatformMediaSessionManager.h"

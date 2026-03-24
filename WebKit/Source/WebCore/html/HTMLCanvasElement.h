@@ -64,7 +64,7 @@ struct ImageBitmapRenderingContextSettings;
 struct UncachedString;
 
 class HTMLCanvasElement final : public HTMLElement, public ActiveDOMObject, public CanvasBase {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLCanvasElement);
+    WTF_MAKE_TZONE_ALLOCATED(HTMLCanvasElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLCanvasElement);
 public:
     USING_CAN_MAKE_WEAKPTR(HTMLElement);
@@ -77,13 +77,12 @@ public:
 
     WEBCORE_EXPORT ExceptionOr<void> setWidth(unsigned);
     WEBCORE_EXPORT ExceptionOr<void> setHeight(unsigned);
-
-    void setSize(const IntSize& newSize) override;
+    void setCSSCanvasContextSize(const IntSize& newSize);
 
     CanvasRenderingContext* renderingContext() const final { return m_context.get(); }
     ExceptionOr<std::optional<RenderingContext>> getContext(JSC::JSGlobalObject&, const String& contextId, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments);
 
-    CanvasRenderingContext* getContext(const String&);
+    RefPtr<CanvasRenderingContext> getContext(const String&);
 
     static bool is2dType(const String&);
     CanvasRenderingContext2D* createContext2d(const String&, CanvasRenderingContext2DSettings&&);
@@ -93,7 +92,7 @@ public:
     static bool isWebGLType(const String&);
     static WebGLVersion toWebGLVersion(const String&);
     WebGLRenderingContextBase* createContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
-    WebGLRenderingContextBase* getContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
+    RefPtr<WebGLRenderingContextBase> getContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
 #endif
 
     static bool isBitmapRendererType(const String&);
@@ -175,12 +174,10 @@ private:
     bool canContainRangeEndPoint() const final;
     bool canStartSelection() const final;
 
-    void reset();
+    void didUpdateSizeProperties();
 
     void createImageBuffer() const final;
     void clearImageBuffer() const;
-
-    void setSurfaceSize(const IntSize&);
 
     bool usesContentsAsLayerContents() const;
 
@@ -191,7 +188,7 @@ private:
 
     std::optional<FloatRect> computeDirtyRectangleIfNeeded(const std::optional<FloatRect>&) const;
 
-    bool m_ignoreReset { false };
+    bool m_ignoreDidUpdateSizeProperties { false };
     mutable bool m_didClearImageBuffer { false };
 #if ENABLE(WEBGL)
     bool m_hasRelevantWebGLEventListener { false };

@@ -115,13 +115,12 @@ protected:
 // if (isContextLost())
 //     return;
 //
-// followed by `Ref context = this->context();` or `protectedContext()->drawSomething(...);`.
+// followed by `Ref context = this->context();` or `context()->drawSomething(...);`.
 template<typename T>
 class WebGLExtension : public WebGLExtensionBase {
 public:
     void loseParentContext() { m_context = nullptr; }
-    T& context() { ASSERT(!isContextLost()); return *m_context.load(std::memory_order::relaxed); }
-    Ref<T> protectedContext() { return context(); }
+    Ref<T> context() { ASSERT(!isContextLost()); return *m_context.load(std::memory_order::relaxed); }
 
     // Only to be used by friend WebCoreOpaqueRoot root(const WebGLExtension<T>*) that cannot be a friend
     // due to C++ warning on some compilers.

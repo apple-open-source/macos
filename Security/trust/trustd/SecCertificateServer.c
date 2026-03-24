@@ -117,7 +117,7 @@ static bool SecCertificateVCCouldBeEV(SecCertificateRef certificate) {
     /* (a) certificate Policies */
     const SecCECertificatePolicies *cp;
     cp = SecCertificateGetCertificatePolicies(certificate);
-    require_quiet(cp && cp->numPolicies > 0, notEV);
+    __Require_Quiet(cp && cp->numPolicies > 0, notEV);
     /* Now find at least one policy in here that has a qualifierID of id-qt 2
      and a policyQualifier that is a URI to the CPS and an EV policy OID. */
     uint32_t ix = 0;
@@ -127,7 +127,7 @@ static bool SecCertificateVCCouldBeEV(SecCertificateRef certificate) {
             found_ev_anchor_for_leaf_policy = true;
         }
     }
-    require_quiet(found_ev_anchor_for_leaf_policy, notEV);
+    __Require_Quiet(found_ev_anchor_for_leaf_policy, notEV);
 
     /* (b) cRLDistributionPoint
      (c) authorityInformationAccess
@@ -138,14 +138,14 @@ static bool SecCertificateVCCouldBeEV(SecCertificateRef certificate) {
      If present, the cA field MUST be set false. */
     const SecCEBasicConstraints *bc = SecCertificateGetBasicConstraints(certificate);
     if (bc) {
-        require_action_quiet(bc->isCA == false, notEV,
+        __Require_Action_Quiet(bc->isCA == false, notEV,
                              secnotice("ev", "Leaf has invalid basic constraints"));
     }
 
     /* (e) keyUsage. */
     SecKeyUsage ku = SecCertificateGetKeyUsage(certificate);
     if (ku) {
-        require_action_quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign)) == 0, notEV,
+        __Require_Action_Quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign)) == 0, notEV,
                              secnotice("ev", "Leaf has invalid key usage %u", ku));
     }
 
@@ -161,21 +161,21 @@ static bool SecCertificateVCCouldBeEV(SecCertificateRef certificate) {
 
     /* 6.1.5 Key Sizes */
     CFAbsoluteTime jan2014 = 410227200;
-    require_quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
-    require_quiet(keySizes = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks,
+    __Require_Quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
+    __Require_Quiet(keySizes = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks,
                                                        &kCFTypeDictionaryValueCallBacks), notEV);
     CFDictionaryAddValue(keySizes, kSecAttrKeyTypeEC, ecSize);
     if (SecCertificateNotValidBefore(certificate) < jan2014) {
         /* At least RSA 1024 or ECC NIST P-256. */
-        require_quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 1024), notEV);
+        __Require_Quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 1024), notEV);
         CFDictionaryAddValue(keySizes, kSecAttrKeyTypeRSA, rsaSize);
-        require_action_quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
+        __Require_Action_Quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
                              secnotice("ev", "Leaf's public key is too small for issuance before 2014"));
     } else {
         /* At least RSA 2028 or ECC NIST P-256. */
-        require_quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
+        __Require_Quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
         CFDictionaryAddValue(keySizes, kSecAttrKeyTypeRSA, rsaSize);
-        require_action_quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
+        __Require_Action_Quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
                              secnotice("ev", "Leaf's public key is too small for issuance after 2013"));
     }
 
@@ -186,7 +186,7 @@ static bool SecCertificateVCCouldBeEV(SecCertificateRef certificate) {
     CFAbsoluteTime jan2016 = 473299200;
     if (SecCertificateNotValidBefore(certificate) > jan2016) {
         /* SHA-2 only */
-        require_action_quiet(SecCertificateGetSignatureHashAlgorithm(certificate) > kSecSignatureHashAlgorithmSHA1,
+        __Require_Action_Quiet(SecCertificateGetSignatureHashAlgorithm(certificate) > kSecSignatureHashAlgorithmSHA1,
                              notEV, secnotice("ev", "Leaf was issued with SHA-1 after 2015"));
     }
 
@@ -203,9 +203,9 @@ static bool SecCertificateVCCouldBeQWAC(SecCertificateRef certificate) {
     bool hasQC = false;
     CFDictionaryRef qcData = SecCertificateCopyQualifiedCertificateStatements(certificate);
     if (qcData && _SecTrustQWACValidationEnabled()) {
-        require_quiet(CFDictionaryContainsKey(qcData, kSecQCStatementCompliance), exit);
+        __Require_Quiet(CFDictionaryContainsKey(qcData, kSecQCStatementCompliance), exit);
         CFSetRef types = CFDictionaryGetValue(qcData, kSecQCStatementType);
-        require_quiet(types, exit);
+        __Require_Quiet(types, exit);
         hasQC = CFSetContainsValue(types, kSecQCStatementTypeWeb);
     }
 exit:
@@ -228,7 +228,7 @@ SecCertificateVCRef SecCertificateVCCreate(SecCertificateRef certificate, CFArra
 
     CFArrayRef emptyArray = NULL;
     if (!usageConstraints) {
-        require_action_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
+        __Require_Action_Quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
         usageConstraints = emptyArray;
     }
     result->usageConstraints = CFRetainSafe(usageConstraints);
@@ -266,6 +266,7 @@ struct SecCertificatePathVC {
     bool                isAnchored;
 
     policy_tree_t       policy_tree;
+    policy_graph_t      policy_graph;
     uint8_t             policy_tree_verification_result;
 
     bool                isEV;
@@ -308,6 +309,10 @@ CFGiblisWithHashFor(SecCertificatePathVC)
 static void SecCertificatePathVCPrunePolicyTree(SecCertificatePathVCRef certificatePath) {
     if (certificatePath->policy_tree) {
         policy_tree_prune(&certificatePath->policy_tree);
+    }
+    if (certificatePath->policy_graph) {
+        policy_graph_free(certificatePath->policy_graph);
+        certificatePath->policy_graph = NULL;
     }
 }
 
@@ -382,7 +387,7 @@ static CFStringRef SecCertificatePathVCCopyFormatDescription(CFTypeRef cf, CFDic
 SecCertificatePathVCRef SecCertificatePathVCCreate(SecCertificatePathVCRef path,
                                                SecCertificateRef certificate, CFArrayRef usageConstraints) {
     CFAllocatorRef allocator = kCFAllocatorDefault;
-    check(certificate);
+    __Check(certificate);
     CFIndex count;
     CFIndex selfIssued, lastVerifiedSigner;
     bool isSelfSigned;
@@ -512,7 +517,7 @@ SecCertificatePathVCRef SecCertificatePathVCCopyAddingLeaf(SecCertificatePathVCR
 CFArrayRef SecCertificatePathVCCopyCertificates(SecCertificatePathVCRef path) {
     CFMutableArrayRef outCerts = NULL;
     CFIndex count = path->count;
-    require_quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
+    __Require_Quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
     SecCertificatePathVCForEachCertificate(path, ^(SecCertificateRef cert, bool * __unused stop) {
         CFArrayAppendValue(outCerts, cert);
     });
@@ -522,9 +527,9 @@ exit:
 
 CFArrayRef SecCertificatePathVCCreateSerialized(SecCertificatePathVCRef path) {
     CFMutableArrayRef serializedCerts = NULL;
-    require_quiet(path, exit);
+    __Require_Quiet(path, exit);
     CFIndex count = path->count;
-    require_quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
+    __Require_Quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
     SecCertificatePathVCForEachCertificate(path, ^(SecCertificateRef cert, bool * __unused stop) {
         CFDataRef certData = SecCertificateCopyData(cert);
         if (certData) {
@@ -612,7 +617,7 @@ CFIndex SecCertificatePathVCGetNextSourceIndex(
 
 CFIndex SecCertificatePathVCGetCount(
                                    SecCertificatePathVCRef certificatePath) {
-    check(certificatePath);
+    __Check(certificatePath);
     return certificatePath ? certificatePath->count : 0;
 }
 
@@ -672,7 +677,7 @@ void SecCertificatePathVCSetUsageConstraintsAtIndex(SecCertificatePathVCRef cert
                                                   CFArrayRef newConstraints, CFIndex ix) {
     CFArrayRef emptyArray = NULL;
     if (!newConstraints) {
-        require_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit);
+        __Require_Quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit);
         newConstraints = emptyArray;
     }
 
@@ -684,7 +689,7 @@ exit:
 }
 
 SecPathVerifyStatus SecCertificatePathVCVerify(SecCertificatePathVCRef certificatePath) {
-    check(certificatePath);
+    __Check(certificatePath);
     if (!certificatePath)
         return kSecPathVerifyFailed;
     for (;
@@ -785,11 +790,11 @@ bool SecCertificatePathVCHasWeakKeySize(SecCertificatePathVCRef certificatePath)
     __block bool result = false;
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-224 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 224), errOut);
+    __Require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
+    __Require(ecSize = CFNumberCreateWithCFIndex(NULL, 224), errOut);
     const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
     const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
+    __Require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
                                           &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
     SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {
         if (!SecCertificateIsAtLeastMinKeySize(certificate, keySizes)) {
@@ -876,6 +881,42 @@ void *SecCertificatePathVCGetRVCAtIndex(SecCertificatePathVCRef certificatePath,
 bool SecCertificatePathVCIsRevocationDone(SecCertificatePathVCRef certificatePath) {
     return (bool)certificatePath->rvcs;
 }
+
+CF_RETURNS_RETAINED CFArrayRef
+SecCertificatePathVCCopyRevocationInfo(SecCertificatePathVCRef path) {
+    CFMutableArrayRef result = CFArrayCreateMutable(NULL, path->rvcCount, &kCFTypeArrayCallBacks);
+    __Require(result != NULL, errOut);
+
+    CFIndex rvcIX;
+    for (rvcIX = 0; rvcIX < path->rvcCount; ++rvcIX) {
+        SecRVCRef rvc = &((SecRVCRef)path->rvcs)[rvcIX];
+        CFMutableDictionaryRef info = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        __Require(info != NULL, errOut);
+        if (rvc->valid_info) {
+            CFDictionaryRef valid = SecValidInfoCopyInfo(rvc->valid_info);
+            CFDictionarySetValue(info, CFSTR("valid"), valid);
+            CFReleaseNull(valid);
+        }
+        if (rvc->crlite_info) {
+            CFDictionaryRef crlite = SecCRLiteInfoCopyInfo(rvc->crlite_info);
+            CFDictionarySetValue(info, CFSTR("crlite"), crlite);
+            CFReleaseNull(crlite);
+        }
+        if (rvc->orvc) {
+            CFDictionaryRef ocsp = SecORVCCopyInfo(rvc->orvc);
+            CFDictionarySetValue(info, CFSTR("ocsp"), ocsp);
+            CFReleaseNull(ocsp);
+        }
+        CFArrayAppendValue(result, info);
+        CFReleaseNull(info);
+    }
+    
+    return result;
+errOut:
+    CFReleaseNull(result);
+    return NULL;
+}
+
 
 void SecCertificatePathVCAllocateRVCs(SecCertificatePathVCRef certificatePath, CFIndex certCount) {
     if (certCount < 0) {
@@ -1274,7 +1315,7 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
     CFDataRef idp = NULL;
     CFDataRef sdp = NULL;
     __block bool node_added = true;
-    require_quiet(mappings = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
+    __Require_Quiet(mappings = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                                        &kCFTypeDictionaryValueCallBacks),
                   errOut);
     /* First we need to walk the mappings to generate the dictionary idp->sdps */
@@ -1290,7 +1331,7 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
         if (sdps) {
             CFArrayAppendValue(sdps, sdp);
         } else {
-            require_quiet(sdps = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+            __Require_Quiet(sdps = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                       &kCFTypeArrayCallBacks), errOut);
             CFArrayAppendValue(sdps, sdp);
             CFDictionarySetValue(mappings, idp, sdps);
@@ -1386,8 +1427,91 @@ enum {
     kSecPolicyTreeVerificationTrue,
 };
 
+/* RFC 9618 policy graph processing */
+bool SecCertificatePathVCVerifyPolicyGraph(SecCertificatePathVCRef path, bool anchor_trusted) {
+    if (!path) { return false; }
+    if (path->policy_tree_verification_result != kSecPolicyTreeVerificationUnknown) {
+        return (path->policy_tree_verification_result == kSecPolicyTreeVerificationTrue);
+    }
+
+    /* Check path count before we cast it below */
+    assert((unsigned long)path->count<=INT32_MAX); /* Debug check. Correct as long as CFIndex is long */
+    if (path->count > INT32_MAX || path->count < 0) {
+        return false;
+    }
+
+    /* Path Validation initialization */
+    bool result = false;
+    path->policy_tree_verification_result = kSecPolicyTreeVerificationFalse;
+    
+    // Initialize state variables according to RFC 9618
+    bool initial_policy_mapping_inhibit = false;
+    bool initial_explicit_policy = false;
+    bool initial_any_policy_inhibit = false;
+    
+    uint32_t explicit_policy = initial_explicit_policy ? 0 : (uint32_t)path->count + 1;
+    uint32_t inhibit_any_policy = initial_any_policy_inhibit ? 0 : (uint32_t)path->count + 1;
+    uint32_t policy_mapping = initial_policy_mapping_inhibit ? 0 : (uint32_t)path->count + 1;
+    
+    if (anchor_trusted && explicit_policy > 0) {
+        explicit_policy--;
+    }
+    if (anchor_trusted && inhibit_any_policy > 0) {
+        inhibit_any_policy--;
+    }
+    if (anchor_trusted && policy_mapping > 0) {
+        policy_mapping--;
+    }
+
+    // Create policy graph
+    SecCertificatePathVCPrunePolicyTree(path);
+    path->policy_graph = policy_graph_create();
+    
+    // Verify the path using RFC 9618 policy graph algorithm
+    result = policy_graph_verify_path(path->policy_graph, path, anchor_trusted,
+                                      &explicit_policy, &inhibit_any_policy, &policy_mapping);
+    policy_graph_dump(path->policy_graph);
+
+    /* RFC 5280 6.1.5 Wrap up*/
+    SecCertificateRef cert = SecCertificatePathVCGetCertificateAtIndex(path, 0);
+    /* (a) If explicit_policy is not 0, decrement explicit_policy by 1. */
+    if (explicit_policy > 0) explicit_policy--;
+    /* (b) If a policy constraints extension is included in the certificate and requireExplicitPolicy is present and has a value of 0, set the explicit_policy state variable to 0. */
+    const SecCEPolicyConstraints *pc = SecCertificateGetPolicyConstraints(cert);
+    if (pc) {
+        if (pc->requireExplicitPolicyPresent
+            && pc->requireExplicitPolicy == 0) {
+            explicit_policy = 0;
+        }
+    }
+
+    /* RFC 9618 Section 5.5 replaces RFC 5280 6.1.5 g */
+    if (result) {
+        // (g)
+        CFArrayRef constrained_policy_set = policy_graph_copy_constrained_policy_set(path->policy_graph,
+                                                                                     (int32_t)path->count - 1);
+        /* If either (1) the value of explicit_policy is greater than zero, or (2) the user_constrained_policy_set is not empty, then path processing has succeeded. */
+        if (explicit_policy > 0 || CFArrayGetCount(constrained_policy_set) > 0) {
+            result = true;
+        } else{
+            result = false;
+        }
+        CFReleaseNull(constrained_policy_set);
+    }
+    
+    path->policy_tree_verification_result = result ? kSecPolicyTreeVerificationTrue : kSecPolicyTreeVerificationFalse;
+
+    return result;
+}
+
 /* RFC 5280 policy tree processing */
 bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anchor_trusted) {
+    /* If feature flag enabled, use RFC 9618 Policy Graph Verifier */
+    if (_SecTrustUsePolicyGraphVerifier()) {
+        return SecCertificatePathVCVerifyPolicyGraph(path, anchor_trusted);
+    }
+    
+    // Fall back to original RFC 5280 implementation
     if (!path) { return false; }
     if (path->policy_tree_verification_result != kSecPolicyTreeVerificationUnknown) {
         return (path->policy_tree_verification_result == kSecPolicyTreeVerificationTrue);
@@ -1425,8 +1549,7 @@ bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anc
 
         /* (d) */
         if (path->policy_tree) {
-            const SecCECertificatePolicies *cp =
-            SecCertificateGetCertificatePolicies(cert);
+            const SecCECertificatePolicies *cp = SecCertificateGetCertificatePolicies(cert);
             size_t policy_ix, policy_count = cp ? cp->numPolicies : 0;
             for (policy_ix = 0; policy_ix < policy_count; ++policy_ix) {
                 const SecCEPolicyInformation *policy = &cp->policies[policy_ix];

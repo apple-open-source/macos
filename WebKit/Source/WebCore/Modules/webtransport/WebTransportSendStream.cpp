@@ -31,6 +31,8 @@
 #include "JSWebTransportSendStreamStats.h"
 #include "ScriptExecutionContextInlines.h"
 #include "TaskSource.h"
+#include "WebTransport.h"
+#include "WebTransportSendGroup.h"
 #include "WebTransportSendStreamSink.h"
 #include "WebTransportSendStreamStats.h"
 #include "WebTransportSession.h"
@@ -38,33 +40,51 @@
 
 namespace WebCore {
 
-ExceptionOr<Ref<WebTransportSendStream>> WebTransportSendStream::create(WebTransportSession& session, JSDOMGlobalObject& globalObject, Ref<WebTransportSendStreamSink>&& sink)
+// FIXME: use this to implement the check in the setter of https://www.w3.org/TR/webtransport/#dom-webtransportsendstream-sendgroup
+
+ExceptionOr<Ref<WebTransportSendStream>> WebTransportSendStream::create(WebTransport& transport, JSDOMGlobalObject& globalObject, Ref<WebTransportSendStreamSink>&& sink)
 {
     auto identifier = sink->identifier();
-    auto result = createInternalWritableStream(globalObject, WTFMove(sink));
+    auto result = createInternalWritableStream(globalObject, WTF::move(sink));
     if (result.hasException())
         return result.releaseException();
 
-    return adoptRef(*new WebTransportSendStream(identifier, session, result.releaseReturnValue()));
+    return adoptRef(*new WebTransportSendStream(identifier, transport, result.releaseReturnValue()));
 }
 
-WebTransportSendStream::WebTransportSendStream(WebTransportStreamIdentifier identifier, WebTransportSession& session, Ref<InternalWritableStream>&& stream)
-    : WritableStream(WTFMove(stream))
+WebTransportSendStream::WebTransportSendStream(WebTransportStreamIdentifier identifier, WebTransport& transport, Ref<InternalWritableStream>&& stream)
+    : WritableStream(WTF::move(stream))
     , m_identifier(identifier)
-    , m_session(session) { }
+    , m_transport(transport) { }
 
 WebTransportSendStream::~WebTransportSendStream() = default;
 
 void WebTransportSendStream::getStats(ScriptExecutionContext& context, Ref<DeferredPromise>&& promise)
 {
-    RefPtr session = m_session.get();
+    RefPtr transport = m_transport.get();
+    if (!transport)
+        return promise->reject(ExceptionCode::InvalidStateError);
+    RefPtr session = transport->session();
     if (!session)
         return promise->reject(ExceptionCode::InvalidStateError);
-    context.enqueueTaskWhenSettled(session->getSendStreamStats(m_identifier), WebCore::TaskSource::Networking, [promise = WTFMove(promise)] (auto&& stats) mutable {
+    context.enqueueTaskWhenSettled(session->getSendStreamStats(m_identifier), WebCore::TaskSource::Networking, [promise = WTF::move(promise)] (auto&& stats) mutable {
         if (!stats)
             return promise->reject(ExceptionCode::InvalidStateError);
         promise->resolve<IDLDictionary<WebTransportSendStreamStats>>(*stats);
     });
+}
+
+WebTransportSendGroup* WebTransportSendStream::sendGroup()
+{
+    return m_sendGroup.get();
+}
+
+ExceptionOr<void> WebTransportSendStream::setSendGroup(WebTransportSendGroup* group)
+{
+    if (group && group->transport() != m_transport.get())
+        return Exception { ExceptionCode::InvalidStateError };
+    m_sendGroup = group;
+    return { };
 }
 
 }

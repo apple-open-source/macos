@@ -49,7 +49,7 @@ struct SVGPropertyTraits<EdgeModeType> {
         return emptyString();
     }
 
-    static EdgeModeType fromString(const String& value)
+    static EdgeModeType fromString(SVGElement&, const String& value)
     {
         if (value == "duplicate"_s)
             return EdgeModeType::Duplicate;
@@ -62,7 +62,7 @@ struct SVGPropertyTraits<EdgeModeType> {
 };
 
 class SVGFEConvolveMatrixElement final : public SVGFilterPrimitiveStandardAttributes {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGFEConvolveMatrixElement);
+    WTF_MAKE_TZONE_ALLOCATED(SVGFEConvolveMatrixElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGFEConvolveMatrixElement);
 public:
     static Ref<SVGFEConvolveMatrixElement> create(const QualifiedName&, Document&);

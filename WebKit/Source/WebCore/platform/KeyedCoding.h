@@ -41,15 +41,15 @@ public:
 
     virtual ~KeyedDecoder() = default;
 
-    virtual WARN_UNUSED_RETURN bool decodeBytes(const String& key, std::span<const uint8_t>&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeBool(const String& key, bool&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeUInt32(const String& key, uint32_t&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeUInt64(const String& key, uint64_t&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeInt32(const String& key, int32_t&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeInt64(const String& key, int64_t&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeFloat(const String& key, float&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeDouble(const String& key, double&) = 0;
-    virtual WARN_UNUSED_RETURN bool decodeString(const String& key, String&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeBytes(const String& key, std::span<const uint8_t>&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeBool(const String& key, bool&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeUInt32(const String& key, uint32_t&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeUInt64(const String& key, uint64_t&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeInt32(const String& key, int32_t&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeInt64(const String& key, int64_t&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeFloat(const String& key, float&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeDouble(const String& key, double&) = 0;
+    WARN_UNUSED_RETURN virtual bool decodeString(const String& key, String&) = 0;
 
     template<typename T> WARN_UNUSED_RETURN
     bool decodeBytes(const String& key, Vector<T>& vector)
@@ -119,7 +119,7 @@ public:
                 endArrayElement();
                 break;
             }
-            objects.append(WTFMove(element));
+            objects.append(WTF::move(element));
             endArrayElement();
         }
 

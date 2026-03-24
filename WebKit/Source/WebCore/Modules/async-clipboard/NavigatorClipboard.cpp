@@ -60,7 +60,7 @@ NavigatorClipboard* NavigatorClipboard::from(Navigator& navigator)
     if (!supplement) {
         auto newSupplement = makeUnique<NavigatorClipboard>(navigator);
         supplement = newSupplement.get();
-        provideTo(&navigator, supplementName(), WTFMove(newSupplement));
+        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
     }
     return supplement;
 }

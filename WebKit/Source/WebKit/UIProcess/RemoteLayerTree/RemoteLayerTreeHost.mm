@@ -29,6 +29,7 @@
 #import "AuxiliaryProcessProxy.h"
 #import "LayerProperties.h"
 #import "Logging.h"
+#import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreePropertyApplier.h"
 #import "RemoteLayerTreeTransaction.h"
@@ -102,10 +103,13 @@ bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStor
 #endif
 }
 
-bool RemoteLayerTreeHost::threadedAnimationResolutionEnabled() const
+bool RemoteLayerTreeHost::threadedAnimationsEnabled() const
 {
-    RefPtr page = protectedDrawingArea()->page();
-    return page && page->protectedPreferences()->threadedAnimationResolutionEnabled();
+    if (RefPtr page = protectedDrawingArea()->page()) {
+        Ref preferences = page->preferences();
+        return preferences->threadedScrollDrivenAnimationsEnabled() || preferences->threadedTimeBasedAnimationsEnabled();
+    }
+    return false;
 }
 
 bool RemoteLayerTreeHost::cssUnprefixedBackdropFilterEnabled() const
@@ -115,9 +119,12 @@ bool RemoteLayerTreeHost::cssUnprefixedBackdropFilterEnabled() const
 }
 
 #if PLATFORM(MAC)
-bool RemoteLayerTreeHost::updateBannerLayers(const RemoteLayerTreeTransaction& transaction)
+bool RemoteLayerTreeHost::updateBannerLayers(const std::optional<MainFrameData>& mainFrameData)
 {
-    RetainPtr scrolledContentsLayer = layerForID(transaction.scrolledContentsLayerID());
+    if (!mainFrameData)
+        return false;
+
+    RetainPtr scrolledContentsLayer = layerForID(mainFrameData->scrolledContentsLayerID);
     if (!scrolledContentsLayer)
         return false;
 
@@ -142,7 +149,7 @@ bool RemoteLayerTreeHost::updateBannerLayers(const RemoteLayerTreeTransaction& t
 }
 #endif
 
-bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, const RemoteLayerTreeTransaction& transaction, float indicatorScaleFactor)
+bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, const RemoteLayerTreeTransaction& transaction, const std::optional<MainFrameData>& mainFrameData, float indicatorScaleFactor)
 {
     if (!m_drawingArea)
         return false;
@@ -163,7 +170,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
     if (!rootNode)
         REMOTE_LAYER_TREE_HOST_RELEASE_LOG("%p RemoteLayerTreeHost::updateLayerTree - failed to find root layer with ID %llu", this, transaction.rootLayerID() ? transaction.rootLayerID()->object().toUInt64() : 0);
 
-    if (m_rootNode.get() != rootNode.get() && transaction.isMainFrameProcessTransaction()) {
+    if (m_rootNode.get() != rootNode.get() && mainFrameData) {
         m_rootNode = rootNode;
         rootLayerChanged = true;
     }
@@ -197,8 +204,11 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
             rootNode->addToHostingNode(*remoteRootNode);
     }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    Ref { *m_drawingArea }->registerTimelineIfNecessary(processIdentifier, transaction.acceleratedTimelineTimeOrigin(), MonotonicTime::now());
+#if ENABLE(THREADED_ANIMATIONS)
+    // FIXME: with site isolation, a single process can send multiple transactions.
+    // https://bugs.webkit.org/show_bug.cgi?id=301261
+    if (threadedAnimationsEnabled() && !transaction.timelinesUpdate().isEmpty())
+        Ref { *m_drawingArea }->updateTimelinesRegistration(processIdentifier, transaction.timelinesUpdate(), MonotonicTime::now());
 #endif
 
     for (auto& changedLayer : transaction.changedLayerProperties()) {
@@ -245,7 +255,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
     }
 
 #if PLATFORM(MAC)
-    if (updateBannerLayers(transaction))
+    if (updateBannerLayers(mainFrameData))
         rootLayerChanged = true;
 #endif
 
@@ -278,7 +288,7 @@ void RemoteLayerTreeHost::layerWillBeRemoved(WebCore::ProcessIdentifier processI
     }
 
     if (auto node = m_nodes.take(layerID)) {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
         animationsWereRemovedFromNode(*node);
 #endif
         if (auto hostingIdentifier = node->remoteContextHostingIdentifier())
@@ -428,7 +438,7 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
 RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
 {
     auto makeWithLayer = [&] (RetainPtr<CALayer>&& layer) {
-        return RemoteLayerTreeNode::create(*properties.layerID, properties.hostIdentifier(), WTFMove(layer));
+        return RemoteLayerTreeNode::create(*properties.layerID, properties.hostIdentifier(), WTF::move(layer));
     };
 
     switch (properties.type) {
@@ -506,7 +516,7 @@ void RemoteLayerTreeHost::detachRootLayer()
         rootNode->detachFromParent();
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void RemoteLayerTreeHost::animationsWereAddedToNode(RemoteLayerTreeNode& node)
 {
     protectedDrawingArea()->animationsWereAddedToNode(node);
@@ -517,9 +527,16 @@ void RemoteLayerTreeHost::animationsWereRemovedFromNode(RemoteLayerTreeNode& nod
     protectedDrawingArea()->animationsWereRemovedFromNode(node);
 }
 
-const RemoteAnimationTimeline* RemoteLayerTreeHost::timeline(WebCore::ProcessIdentifier processIdentifier) const
+RefPtr<const RemoteAnimationTimeline> RemoteLayerTreeHost::timeline(const TimelineID& timelineID) const
 {
-    return protectedDrawingArea()->timeline(processIdentifier);
+    return protectedDrawingArea()->timeline(timelineID);
+}
+
+RefPtr<const RemoteAnimationStack> RemoteLayerTreeHost::animationStackForNodeWithIDForTesting(WebCore::PlatformLayerIdentifier layerID) const
+{
+    if (RefPtr node = nodeForID(layerID))
+        return node->animationStack();
+    return nullptr;
 }
 #endif
 

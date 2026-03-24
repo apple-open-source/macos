@@ -291,6 +291,11 @@ static char *getInvariantString(ParseState* state, uint32_t *line, struct UStrin
     struct UString *tokenValue;
     char           *result;
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    stringLength = 0;
+#endif // APPLE_ICU_CHANGES
     expect(state, TOK_STRING, &tokenValue, comment, line, status);
 
     if (U_FAILURE(*status))
@@ -323,13 +328,8 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     struct SResource *result = nullptr;
     struct UString   *tokenValue;
     FileStream       *file          = nullptr;
-#if APPLE_ICU_CHANGES // rdar://146688341
-    char              filename[PATH_MAX] = { '\0' };
-#else
-    char              filename[256] = { '\0' };
-#endif
-    char              cs[128]       = { '\0' };
-    uint32_t          line;
+    CharString       filename;
+    uint32_t         line;
     UBool quoted = false;
     UCHARBUF *ucbuf=nullptr;
     UChar32   c     = 0;
@@ -352,29 +352,15 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     /* make the filename including the directory */
     if (state->inputdir != nullptr)
     {
-#if APPLE_ICU_CHANGES // rdar://146688341
-        if ((uprv_strlen(filename) + uprv_strlen(state->inputdir) + 1) > PATH_MAX) {
-            *status = U_BUFFER_OVERFLOW_ERROR;
-            error(line, "Path length too long.");
-            return nullptr;
-        }
-#endif
-        uprv_strcat(filename, state->inputdir);
+        filename.append(state->inputdir, -1, *status);
 
         if (state->inputdir[state->inputdirLength - 1] != U_FILE_SEP_CHAR)
         {
-#if APPLE_ICU_CHANGES // rdar://146688341
-            if ((uprv_strlen(filename) + uprv_strlen(U_FILE_SEP_STRING) + 1) > PATH_MAX) {
-                *status = U_BUFFER_OVERFLOW_ERROR;
-                error(line, "Path length too long.");
-                return nullptr;
-            }
-#endif
-            uprv_strcat(filename, U_FILE_SEP_STRING);
+            filename.append(U_FILE_SEP_CHAR, *status);
         }
     }
 
-    u_UCharsToChars(tokenValue->fChars, cs, tokenValue->fLength);
+    filename.appendInvariantChars(tokenValue->fChars, tokenValue->fLength, *status);
 
     expect(state, TOK_CLOSE_BRACE, nullptr, nullptr, nullptr, status);
 
@@ -382,23 +368,15 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     {
         return nullptr;
     }
-#if APPLE_ICU_CHANGES // rdar://146688341
-    if ((uprv_strlen(filename) + uprv_strlen(cs) + 1) > PATH_MAX) {
-        *status = U_BUFFER_OVERFLOW_ERROR;
-        error(line, "Path length too long.");
-        return nullptr;
-    }
-#endif
-    uprv_strcat(filename, cs);
 
     if(state->omitCollationRules) {
         return res_none();
     }
 
-    ucbuf = ucbuf_open(filename, &cp, getShowWarning(),false, status);
+    ucbuf = ucbuf_open(filename.data(), &cp, getShowWarning(),false, status);
 
     if (U_FAILURE(*status)) {
-        error(line, "An error occurred while opening the input file %s\n", filename);
+        error(line, "An error occurred while opening the input file %s\n", filename.data());
         return nullptr;
     }
 
@@ -1091,6 +1069,7 @@ writeCollationSpecialPrimariesTOML(const char* outputdir, const char* name, cons
     }
 
     usrc_writeArray(f, "last_primaries = [\n  ", lastPrimaries, 16, 4, "  ", "\n]\n");
+    usrc_writeArray(f, "compressible_bytes = [\n  ", data->compressibleBytes, 1, 256, "  ", "\n]\n");
     fprintf(f, "numeric_primary = 0x%X\n", numericPrimary >> 24);
     fclose(f);
 }
@@ -1210,7 +1189,7 @@ addCollation(ParseState* state, TableResource  *result, const char *collationTyp
     struct UString    *tokenValue;
     struct UString     comment;
     enum   ETokenType  token;
-    char               subtag[1024];
+    CharString         subtag;
     UnicodeString      rules;
     UBool              haveRules = false;
     UVersionInfo       version;
@@ -1246,15 +1225,15 @@ addCollation(ParseState* state, TableResource  *result, const char *collationTyp
             return nullptr;
         }
 
-        u_UCharsToChars(tokenValue->fChars, subtag, u_strlen(tokenValue->fChars) + 1);
-
+        subtag.clear();
+        subtag.appendInvariantChars(tokenValue->fChars, u_strlen(tokenValue->fChars), *status);
         if (U_FAILURE(*status))
         {
             res_close(result);
             return nullptr;
         }
 
-        member = parseResource(state, subtag, nullptr, status);
+        member = parseResource(state, subtag.data(), nullptr, status);
 
         if (U_FAILURE(*status))
         {
@@ -1265,7 +1244,7 @@ addCollation(ParseState* state, TableResource  *result, const char *collationTyp
         {
             // Ignore the parsed resources, continue parsing.
         }
-        else if (uprv_strcmp(subtag, "Version") == 0 && member->isString())
+        else if (uprv_strcmp(subtag.data(), "Version") == 0 && member->isString())
         {
             StringResource *sr = static_cast<StringResource *>(member);
             char     ver[40];
@@ -1282,11 +1261,11 @@ addCollation(ParseState* state, TableResource  *result, const char *collationTyp
             result->add(member, line, *status);
             member = nullptr;
         }
-        else if(uprv_strcmp(subtag, "%%CollationBin")==0)
+        else if(uprv_strcmp(subtag.data(), "%%CollationBin")==0)
         {
             /* discard duplicate %%CollationBin if any*/
         }
-        else if (uprv_strcmp(subtag, "Sequence") == 0 && member->isString())
+        else if (uprv_strcmp(subtag.data(), "Sequence") == 0 && member->isString())
         {
             StringResource *sr = static_cast<StringResource *>(member);
             rules = sr->fString;
@@ -1452,7 +1431,7 @@ parseCollationElements(ParseState* state, char *tag, uint32_t startline, UBool n
     struct UString    *tokenValue;
     struct UString     comment;
     enum   ETokenType  token;
-    char               subtag[1024], typeKeyword[1024];
+    CharString         subtag, typeKeyword;
     uint32_t           line;
 
     result = table_open(state->bundle, tag, nullptr, status);
@@ -1494,7 +1473,8 @@ parseCollationElements(ParseState* state, char *tag, uint32_t startline, UBool n
                 return nullptr;
             }
 
-            u_UCharsToChars(tokenValue->fChars, subtag, u_strlen(tokenValue->fChars) + 1);
+            subtag.clear();
+            subtag.appendInvariantChars(tokenValue->fChars, u_strlen(tokenValue->fChars), *status);
 
             if (U_FAILURE(*status))
             {
@@ -1502,9 +1482,9 @@ parseCollationElements(ParseState* state, char *tag, uint32_t startline, UBool n
                 return nullptr;
             }
 
-            if (uprv_strcmp(subtag, "default") == 0)
+            if (uprv_strcmp(subtag.data(), "default") == 0)
             {
-                member = parseResource(state, subtag, nullptr, status);
+                member = parseResource(state, subtag.data(), nullptr, status);
 
                 if (U_FAILURE(*status))
                 {
@@ -1523,22 +1503,29 @@ parseCollationElements(ParseState* state, char *tag, uint32_t startline, UBool n
                 if(token == TOK_OPEN_BRACE) {
                     token = getToken(state, &tokenValue, &comment, &line, status);
                     TableResource *collationRes;
-                    if (keepCollationType(subtag)) {
-                        collationRes = table_open(state->bundle, subtag, nullptr, status);
+                    if (keepCollationType(subtag.data())) {
+                        collationRes = table_open(state->bundle, subtag.data(), nullptr, status);
                     } else {
                         collationRes = nullptr;
                     }
                     // need to parse the collation data regardless
-                    collationRes = addCollation(state, collationRes, subtag, startline, status);
+                    collationRes = addCollation(state, collationRes, subtag.data(), startline, status);
                     if (collationRes != nullptr) {
                         result->add(collationRes, startline, *status);
                     }
                 } else if(token == TOK_COLON) { /* right now, we'll just try to see if we have aliases */
                     /* we could have a table too */
                     token = peekToken(state, 1, &tokenValue, &line, &comment, status);
-                    u_UCharsToChars(tokenValue->fChars, typeKeyword, u_strlen(tokenValue->fChars) + 1);
-                    if(uprv_strcmp(typeKeyword, "alias") == 0) {
-                        member = parseResource(state, subtag, nullptr, status);
+                    typeKeyword.clear();
+                    typeKeyword.appendInvariantChars(tokenValue->fChars, u_strlen(tokenValue->fChars), *status);
+                    if (U_FAILURE(*status))
+                    {
+                        res_close(result);
+                        return nullptr;
+                    }
+
+                    if(uprv_strcmp(typeKeyword.data(), "alias") == 0) {
+                        member = parseResource(state, subtag.data(), nullptr, status);
                         if (U_FAILURE(*status))
                         {
                             res_close(result);
@@ -1580,7 +1567,7 @@ realParseTable(ParseState* state, TableResource *table, char *tag, uint32_t star
     struct UString    *tokenValue=nullptr;
     struct UString    comment;
     enum   ETokenType token;
-    char              subtag[1024];
+    CharString        subtag;
     uint32_t          line;
     UBool             readToken = false;
 
@@ -1619,7 +1606,8 @@ realParseTable(ParseState* state, TableResource *table, char *tag, uint32_t star
         }
 
         if(uprv_isInvariantUString(tokenValue->fChars, -1)) {
-            u_UCharsToChars(tokenValue->fChars, subtag, u_strlen(tokenValue->fChars) + 1);
+            subtag.clear();
+            subtag.appendInvariantChars(tokenValue->fChars, u_strlen(tokenValue->fChars), *status);
         } else {
             *status = U_INVALID_FORMAT_ERROR;
             error(line, "invariant characters required for table keys");
@@ -1632,7 +1620,7 @@ realParseTable(ParseState* state, TableResource *table, char *tag, uint32_t star
             return nullptr;
         }
 
-        member = parseResource(state, subtag, &comment, status);
+        member = parseResource(state, subtag.data(), &comment, status);
 
         if (member == nullptr || U_FAILURE(*status))
         {
@@ -2110,6 +2098,12 @@ parseInclude(ParseState* state, char *tag, uint32_t startline, const struct UStr
 
 
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+U_STRING_DECL(k_type_bin,       "bin",       3);
+U_STRING_DECL(k_type_int,       "int",       3);
+#else
 U_STRING_DECL(k_type_string,    "string",    6);
 U_STRING_DECL(k_type_binary,    "binary",    6);
 U_STRING_DECL(k_type_bin,       "bin",       3);
@@ -2128,6 +2122,7 @@ U_STRING_DECL(k_type_plugin_uca_rules,      "process(uca_rules)",        18);
 U_STRING_DECL(k_type_plugin_collation,      "process(collation)",        18);
 U_STRING_DECL(k_type_plugin_transliterator, "process(transliterator)",   23);
 U_STRING_DECL(k_type_plugin_dependency,     "process(dependency)",       19);
+#endif // APPLE_ICU_CHANGES
 
 typedef enum EResourceType
 {
@@ -2149,6 +2144,33 @@ typedef enum EResourceType
     RESTYPE_RESERVED
 } EResourceType;
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static const struct {
+    const char *nameChars;   /* only used for debugging */
+    const char16_t *nameUChars;
+    ParseResourceFunction *parseFunction;
+} gResourceTypes[] = {
+    {"Unknown", nullptr, nullptr},
+    {"string", u"string", parseString},
+    {"binary", u"binary", parseBinary},
+    {"table", u"table", parseTable},
+    {"table(nofallback)", u"table(nofallback)", nullptr}, /* parseFunction will never be called */
+    {"integer", u"integer", parseInteger},
+    {"array", u"array", parseArray},
+    {"alias", u"alias", parseAlias},
+    {"intvector", u"intvector", parseIntVector},
+    {"import", u"import", parseImport},
+    {"include", u"include", parseInclude},
+    /* Various non-standard processing plugins that create one or more special resources. */
+    {"process(uca_rules)", u"process(uca_rules)", parseUCARules},
+    {"process(collation)", u"process(collation)", nullptr /* not implemented yet */},
+    {"process(transliterator)", u"process(transliterator)", parseTransliterator},
+    {"process(dependency)", u"process(dependency)", parseDependency},
+    {"reserved", nullptr, nullptr}
+};
+#else
 static struct {
     const char *nameChars;   /* only used for debugging */
     const char16_t *nameUChars;
@@ -2171,7 +2193,17 @@ static struct {
     {"process(dependency)", k_type_plugin_dependency, parseDependency},
     {"reserved", nullptr, nullptr}
 };
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void initParser()
+{
+    U_STRING_INIT(k_type_bin,       "bin",       3);
+    U_STRING_INIT(k_type_int,       "int",       3);
+}
+#else
 void initParser()
 {
     U_STRING_INIT(k_type_string,    "string",    6);
@@ -2192,6 +2224,7 @@ void initParser()
     U_STRING_INIT(k_type_plugin_transliterator, "process(transliterator)",   23);
     U_STRING_INIT(k_type_plugin_dependency,     "process(dependency)",       19);
 }
+#endif // APPLE_ICU_CHANGES
 
 static inline UBool isTable(enum EResourceType type) {
     return type == RESTYPE_TABLE || type == RESTYPE_TABLE_NO_FALLBACK;

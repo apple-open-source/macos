@@ -79,7 +79,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderListBox);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderListBox);
  
 const int itemBlockSpacing = 1;
 
@@ -89,7 +89,7 @@ const int optionsSpacingInlineStart = 2;
 const int defaultSize = 4;
 
 RenderListBox::RenderListBox(HTMLSelectElement& element, RenderStyle&& style)
-    : RenderBlockFlow(Type::ListBox, element, WTFMove(style))
+    : RenderBlockFlow(Type::ListBox, element, WTF::move(style))
 {
     view().frameView().addScrollableArea(this);
 }
@@ -113,7 +113,7 @@ static FontCascade bolder(Document& document, const FontCascade& font)
 {
     auto description = font.fontDescription();
     description.setWeight(description.bolderWeight());
-    FontCascade result(WTFMove(description), font);
+    FontCascade result(WTF::move(description), font);
     result.update(&document.fontSelector());
     return result;
 }
@@ -202,7 +202,7 @@ void RenderListBox::layout()
     }
 }
 
-void RenderListBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+void RenderListBox::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     RenderBlockFlow::styleDidChange(diff, oldStyle);
 
@@ -236,7 +236,7 @@ void RenderListBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, L
 
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, Style::ZoomNeeded { }));
+        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, style().usedZoomForLength()));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
@@ -416,30 +416,6 @@ void RenderListBox::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
     }
 }
 
-void RenderListBox::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer) const
-{
-    if (!selectElement().allowsNonContiguousSelection())
-        return RenderBlockFlow::addFocusRingRects(rects, additionalOffset, paintContainer);
-
-    // Focus the last selected item.
-    int selectedItem = selectElement().activeSelectionEndListIndex();
-    if (selectedItem >= 0) {
-        rects.append(snappedIntRect(itemBoundingBoxRect(additionalOffset, selectedItem)));
-        return;
-    }
-
-    // No selected items, find the first non-disabled item.
-    int indexOfFirstEnabledOption = 0;
-    for (auto& item : selectElement().listItems()) {
-        if (is<HTMLOptionElement>(item.get()) && !item->isDisabledFormControl()) {
-            selectElement().setActiveSelectionEndIndex(indexOfFirstEnabledOption);
-            rects.append(itemBoundingBoxRect(additionalOffset, indexOfFirstEnabledOption));
-            return;
-        }
-        indexOfFirstEnabledOption++;
-    }
-}
-
 bool RenderListBox::useDarkAppearance() const
 {
     return RenderBlockFlow::useDarkAppearance();
@@ -455,21 +431,21 @@ void RenderListBox::paintScrollbar(PaintInfo& paintInfo, const LayoutPoint& pain
 
 static LayoutSize itemOffsetForAlignment(TextRun textRun, const RenderStyle& elementStyle, const RenderStyle* itemStyle, FontCascade itemFont, LayoutRect itemBoundingBox)
 {
-    TextAlignMode actualAlignment = itemStyle->textAlign();
-    // FIXME: Firefox doesn't respect TextAlignMode::Justify. Should we?
-    // FIXME: Handle TextAlignMode::End here
-    if (actualAlignment == TextAlignMode::Start || actualAlignment == TextAlignMode::Justify)
-        actualAlignment = itemStyle->writingMode().isLogicalLeftInlineStart() ? TextAlignMode::Left : TextAlignMode::Right;
+    Style::TextAlign actualAlignment = itemStyle->textAlign();
+    // FIXME: Firefox doesn't respect Style::TextAlign::Justify. Should we?
+    // FIXME: Handle Style::TextAlign::End here
+    if (actualAlignment == Style::TextAlign::Start || actualAlignment == Style::TextAlign::Justify)
+        actualAlignment = itemStyle->writingMode().isLogicalLeftInlineStart() ? Style::TextAlign::Left : Style::TextAlign::Right;
 
     bool isHorizontalWritingMode = elementStyle.writingMode().isHorizontal();
 
     auto itemBoundingBoxLogicalWidth = isHorizontalWritingMode ? itemBoundingBox.width() : itemBoundingBox.height();
     auto itemBoundingBoxLogicalHeight = isHorizontalWritingMode ? itemBoundingBox.height() : itemBoundingBox.width();
     auto offset = LayoutSize(0, itemFont.metricsOfPrimaryFont().intAscent());
-    if (actualAlignment == TextAlignMode::Right || actualAlignment == TextAlignMode::WebKitRight) {
+    if (actualAlignment == Style::TextAlign::Right || actualAlignment == Style::TextAlign::WebKitRight) {
         float textWidth = itemFont.width(textRun);
         offset.setWidth(itemBoundingBoxLogicalWidth - textWidth - optionsSpacingInlineStart);
-    } else if (actualAlignment == TextAlignMode::Center || actualAlignment == TextAlignMode::WebKitCenter) {
+    } else if (actualAlignment == Style::TextAlign::Center || actualAlignment == Style::TextAlign::WebKitCenter) {
         float textWidth = itemFont.width(textRun);
         offset.setWidth((itemBoundingBoxLogicalWidth - textWidth) / 2);
     } else
@@ -510,7 +486,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     if (itemText.isNull())
         return;
 
-    Color textColor = itemStyle->visitedDependentColorWithColorFilter(CSSPropertyColor);
+    Color textColor = itemStyle->visitedDependentColorApplyingColorFilter();
     if (optionElement && optionElement->selected()) {
         if (frame().selection().isFocusedAndActive() && document().focusedElement() == &selectElement())
             textColor = theme().activeListBoxSelectionForegroundColor(styleColorOptions());
@@ -542,7 +518,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     if (optGroupElement) {
         auto description = itemFont.fontDescription();
         description.setWeight(description.bolderWeight());
-        itemFont = FontCascade(WTFMove(description), itemFont);
+        itemFont = FontCascade(WTF::move(description), itemFont);
         itemFont.update(&document().fontSelector());
     }
 
@@ -565,7 +541,7 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, const LayoutPoint&
         else
             backColor = theme().inactiveListBoxSelectionBackgroundColor(styleColorOptions());
     } else
-        backColor = itemStyle->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        backColor = itemStyle->visitedDependentBackgroundColorApplyingColorFilter();
 
     // Draw the background for this list box item
     if (itemStyle->usedVisibility() == Visibility::Hidden)

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <wtf/Expected.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/glib/GRefPtr.h>
@@ -35,6 +36,8 @@ void g_strfreev(char**);
 }
 
 namespace WTF {
+
+class CStringView;
 
 struct GMalloc {
     static void* malloc(size_t size) { return g_malloc(size); }
@@ -64,22 +67,16 @@ GMallocSpan<T, Malloc> adoptGMallocSpan(std::span<T> span)
     return adoptMallocSpan<T, Malloc>(span);
 }
 
-template<typename Malloc = GMalloc>
-GMallocSpan<char, Malloc> adoptGMallocString(char* str, size_t length)
+template<typename T, typename Malloc = GMalloc>
+GMallocSpan<T, Malloc> dupGMallocSpan(std::span<const T> span)
 {
-    return adoptGMallocSpan<char, Malloc>(unsafeMakeSpan(str, length));
+    auto duplicate = GMallocSpan<T, Malloc>::malloc(span.size_bytes());
+    memcpySpan(duplicate.mutableSpan(), span);
+    return duplicate;
 }
 
-template<typename Malloc = GMalloc>
-GMallocSpan<char, Malloc> adoptGMallocString(char* str)
-{
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return adoptGMallocSpan<char, Malloc>(unsafeMakeSpan(str, str ? strlen(str) : 0));
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
-}
-
-WTF_EXPORT_PRIVATE GMallocSpan<char> gFileGetContents(const char* path, GUniqueOutPtr<GError>&);
-WTF_EXPORT_PRIVATE GMallocSpan<char*, GMallocStrv> gKeyFileGetKeys(GKeyFile*, const char* groupName, GUniqueOutPtr<GError>&);
+WTF_EXPORT_PRIVATE Expected<GMallocSpan<char>, GUniquePtr<GError>> gFileGetContents(CStringView);
+WTF_EXPORT_PRIVATE Expected<GMallocSpan<char*, GMallocStrv>, GUniquePtr<GError>> gKeyFileGetKeys(GKeyFile*, CStringView groupName);
 WTF_EXPORT_PRIVATE GMallocSpan<GParamSpec*> gObjectClassGetProperties(GObjectClass*);
 WTF_EXPORT_PRIVATE GMallocSpan<const char*> gVariantGetStrv(const GRefPtr<GVariant>&);
 
@@ -123,6 +120,12 @@ static inline std::span<char*> span(char** strv)
     return unsafeMakeSpan(strv, size);
 }
 
+static inline std::span<const char* const> span(const char* const* strv)
+{
+    auto size = g_strv_length(const_cast<char**>(strv));
+    return unsafeMakeSpan(strv, size);
+}
+
 template <typename T = void*, typename = std::enable_if_t<std::is_pointer_v<T>>>
 inline std::span<T> span(GPtrArray* array)
 {
@@ -141,7 +144,7 @@ inline std::span<T> span(GRefPtr<GPtrArray>& array)
 } // namespace WTF
 
 using WTF::GMallocSpan;
-using WTF::adoptGMallocString;
+using WTF::adoptGMallocSpan;
 using WTF::gFileGetContents;
 using WTF::gKeyFileGetKeys;
 using WTF::gObjectClassGetProperties;

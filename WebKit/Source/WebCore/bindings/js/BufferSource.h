@@ -46,7 +46,7 @@ public:
 
     BufferSource() { }
     BufferSource(VariantType&& variant)
-        : m_variant(WTFMove(variant))
+        : m_variant(WTF::move(variant))
     { }
 
     BufferSource(const VariantType& variant)

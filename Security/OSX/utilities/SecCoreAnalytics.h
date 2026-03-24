@@ -32,6 +32,7 @@ void SecCoreAnalyticsSetEnabledForProcess(bool enabled);
 void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value);
 void SecCoreAnalyticsSendKernEntropyAnalytics(void);
 void SecCoreAnalyticsSendLegacyKeychainUIEvent(const char* _Nonnull dialogType, const char* _Nonnull clientPath);
+void SecCoreAnalyticsSendEventDict(CFStringRef _Nonnull eventName, CFDictionaryRef _Nonnull eventDict);
 
 #ifdef __cplusplus
 }

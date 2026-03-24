@@ -85,7 +85,7 @@ static std::optional<SecItemResponseData> sendSecItemRequest(SecItemRequestData:
 
         globalNetworkProcess()->protectedParentProcessConnection()->sendWithAsyncReply(Messages::SecItemShimProxy::SecItemRequest(SecItemRequestData(requestType, cfQuery.get(), cfAttributesToMatch.get())), [&](auto reply) {
             if (reply)
-                response = WTFMove(*reply);
+                response = WTF::move(*reply);
 
             semaphore.signal();
         });

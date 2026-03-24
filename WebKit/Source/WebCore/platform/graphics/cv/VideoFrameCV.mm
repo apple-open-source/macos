@@ -135,7 +135,7 @@ RefPtr<VideoFrame> VideoFrame::createNV12(std::span<const uint8_t> span, size_t 
         copyToCVPixelBufferPlane(pixelBuffer.get(), 1, data, height / 2, planeUV.sourceWidthBytes);
     }
 
-    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+    return VideoFrameCV::create({ }, false, Rotation::None, WTF::move(pixelBuffer), WTF::move(colorSpace));
 }
 
 RefPtr<VideoFrame> VideoFrame::createRGBA(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
@@ -163,7 +163,7 @@ RefPtr<VideoFrame> VideoFrame::createRGBA(std::span<const uint8_t> span, size_t 
     // Permutation will not fail as long as the provided arguments are valid.
     ASSERT_UNUSED(error, error == kvImageNoError);
 
-    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+    return VideoFrameCV::create({ }, false, Rotation::None, WTF::move(pixelBuffer), WTF::move(colorSpace));
 }
 
 RefPtr<VideoFrame> VideoFrame::createBGRA(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
@@ -189,7 +189,7 @@ RefPtr<VideoFrame> VideoFrame::createBGRA(std::span<const uint8_t> span, size_t 
     // Copy will not fail as long as the provided arguments are valid.
     ASSERT_UNUSED(error, error == kvImageNoError);
 
-    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+    return VideoFrameCV::create({ }, false, Rotation::None, WTF::move(pixelBuffer), WTF::move(colorSpace));
 }
 
 RefPtr<VideoFrame> VideoFrame::createI420(std::span<const uint8_t> buffer, size_t width, size_t height, const ComputedPlaneLayout& layoutY, const ComputedPlaneLayout& layoutU, const ComputedPlaneLayout& layoutV, PlatformVideoColorSpace&& colorSpace)
@@ -207,7 +207,7 @@ RefPtr<VideoFrame> VideoFrame::createI420(std::span<const uint8_t> buffer, size_
     if (!pixelBuffer)
         return nullptr;
 
-    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+    return VideoFrameCV::create({ }, false, Rotation::None, WTF::move(pixelBuffer), WTF::move(colorSpace));
 #else
     UNUSED_PARAM(buffer);
     UNUSED_PARAM(width);
@@ -239,7 +239,7 @@ RefPtr<VideoFrame> VideoFrame::createI420A(std::span<const uint8_t> buffer, size
     if (!pixelBuffer)
         return nullptr;
 
-    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+    return VideoFrameCV::create({ }, false, Rotation::None, WTF::move(pixelBuffer), WTF::move(colorSpace));
 #else
     UNUSED_PARAM(buffer);
     UNUSED_PARAM(width);
@@ -462,7 +462,7 @@ void VideoFrame::copyTo(std::span<uint8_t> span, VideoPixelFormat format, Vector
                 i += 4;
             }
         });
-        callback(WTFMove(planeLayouts));
+        callback(WTF::move(planeLayouts));
         return;
     }
 
@@ -474,29 +474,17 @@ void VideoFrame::copyTo(std::span<uint8_t> span, VideoPixelFormat format, Vector
         auto planeLayouts = copyRGBData(span, planeLayout, this->protectedPixelBuffer().get(), [](std::span<uint8_t> destination, std::span<const uint8_t> source) {
             memcpySpan(destination, source);
         });
-        callback(WTFMove(planeLayouts));
+        callback(WTF::move(planeLayouts));
         return;
     }
 
     callback({ });
 }
 
-void VideoFrame::draw(GraphicsContext& context, const FloatRect& destination, ImageOrientation destinationImageRotation, bool shouldDiscardAlpha)
+RefPtr<NativeImage> VideoFrame::copyNativeImage() const
 {
-    // FIXME: Handle alpha discarding.
-    UNUSED_PARAM(shouldDiscardAlpha);
-
-    // FIXME: destination image rotation handling.
-    UNUSED_PARAM(destinationImageRotation);
-
-    // FIXME: It is not efficient to create a conformer everytime. We might want to make it more efficient, for instance by storing it in GraphicsContext.
-    auto conformer = makeUnique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
-    auto image = NativeImage::create(conformer->createImageFromPixelBuffer(protectedPixelBuffer().get()));
-    if (!image)
-        return;
-
-    FloatRect imageRect { FloatPoint::zero(), image->size() };
-    context.drawNativeImage(*image, destination, imageRect);
+    auto conformer = makeUnique<PixelBufferConformerCV>(kCVPixelFormatType_32BGRA);
+    return NativeImage::create(conformer->createImageFromPixelBuffer(protectedPixelBuffer().get()));
 }
 
 Ref<VideoFrameCV> VideoFrameCV::create(CMSampleBufferRef sampleBuffer, bool isMirrored, Rotation rotation)
@@ -512,7 +500,7 @@ Ref<VideoFrameCV> VideoFrameCV::create(CMSampleBufferRef sampleBuffer, bool isMi
 Ref<VideoFrameCV> VideoFrameCV::create(MediaTime presentationTime, bool isMirrored, Rotation rotation, RetainPtr<CVPixelBufferRef>&& pixelBuffer, std::optional<PlatformVideoColorSpace>&& colorSpace)
 {
     ASSERT(pixelBuffer);
-    return adoptRef(*new VideoFrameCV(presentationTime, isMirrored, rotation, WTFMove(pixelBuffer), WTFMove(colorSpace)));
+    return adoptRef(*new VideoFrameCV(presentationTime, isMirrored, rotation, WTF::move(pixelBuffer), WTF::move(colorSpace)));
 }
 
 RefPtr<VideoFrame> VideoFrame::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, PlatformVideoColorSpace&& colorSpace)
@@ -538,7 +526,7 @@ RefPtr<VideoFrame> VideoFrame::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuf
     pixelBuffer->ref();
 
     ASSERT_UNUSED(status, !status);
-    return RefPtr { VideoFrameCV::create({ }, false, Rotation::None, WTFMove(cvPixelBuffer), WTFMove(colorSpace)) };
+    return RefPtr { VideoFrameCV::create({ }, false, Rotation::None, WTF::move(cvPixelBuffer), WTF::move(colorSpace)) };
 }
 
 static PlatformVideoColorSpace computeVideoFrameColorSpace(CVPixelBufferRef pixelBuffer)
@@ -592,14 +580,14 @@ static PlatformVideoColorSpace computeVideoFrameColorSpace(CVPixelBufferRef pixe
 }
 
 VideoFrameCV::VideoFrameCV(MediaTime presentationTime, bool isMirrored, Rotation rotation, RetainPtr<CVPixelBufferRef>&& pixelBuffer, std::optional<PlatformVideoColorSpace>&& colorSpace)
-    : VideoFrame(presentationTime, isMirrored, rotation, WTFMove(colorSpace).value_or(computeVideoFrameColorSpace(pixelBuffer.get())))
-    , m_pixelBuffer(WTFMove(pixelBuffer))
+    : VideoFrame(presentationTime, isMirrored, rotation, WTF::move(colorSpace).value_or(computeVideoFrameColorSpace(pixelBuffer.get())))
+    , m_pixelBuffer(WTF::move(pixelBuffer))
 {
 }
 
 VideoFrameCV::VideoFrameCV(MediaTime presentationTime, bool isMirrored, Rotation rotation, RetainPtr<CVPixelBufferRef>&& pixelBuffer, PlatformVideoColorSpace&& colorSpace)
-    : VideoFrame(presentationTime, isMirrored, rotation, WTFMove(colorSpace))
-    , m_pixelBuffer(WTFMove(pixelBuffer))
+    : VideoFrame(presentationTime, isMirrored, rotation, WTF::move(colorSpace))
+    , m_pixelBuffer(WTF::move(pixelBuffer))
 {
 }
 

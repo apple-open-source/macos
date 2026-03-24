@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTableCell.h"
 #include "StyleContentAlignmentData.h"
 
@@ -50,20 +50,24 @@ inline const BorderValue& RenderTableCell::borderAdjoiningTableStart() const
     return style().borderStart(tableWritingMode());
 }
 
-inline Style::PreferredSize RenderTableCell::styleOrColLogicalWidth() const
+inline std::pair<Style::PreferredSize, Style::ZoomFactor> RenderTableCell::styleOrColLogicalWidth() const
 {
-    auto& styleWidth = style().logicalWidth();
+    auto& style = this->style();
+    auto& styleWidth = style.logicalWidth();
     if (!styleWidth.isAuto())
-        return styleWidth;
-    if (RenderTableCol* firstColumn = table()->colElement(col()))
-        return logicalWidthFromColumns(firstColumn, styleWidth);
-    return styleWidth;
+        return { styleWidth, style.usedZoomForLength() };
+    if (RenderTableCol* firstColumn = table()->colElement(col())) {
+        // logicalWidthFromColumns will return a zoomed size so we return a zoom
+        // factor of 1.0 to avoid double zooming.
+        return { logicalWidthFromColumns(firstColumn, styleWidth), Style::ZoomFactor { 1.0f } };
+    }
+    return { styleWidth, style.usedZoomForLength() };
 }
 
 inline bool RenderTableCell::isBaselineAligned() const
 {
     if (auto alignContent = style().alignContent(); !alignContent.isNormal())
-        return alignContent.position() == ContentPosition::Baseline;
+        return alignContent.isFirstBaseline();
 
     auto& verticalAlign = style().verticalAlign();
     return WTF::holdsAlternative<CSS::Keyword::Baseline>(verticalAlign)

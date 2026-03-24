@@ -11,6 +11,7 @@ would appreciate credit if you use this file or parts of it.
 #include <signal.h>
 #include <string.h>
 //#include <pty.h>
+#include <util.h>
 //#include <utmp.h>
 
 #if defined(SIGCLD) && !defined(SIGCHLD)
@@ -490,8 +491,6 @@ exp_getptymaster()
 	slave_name[0] = 0;
 	exp_pty_slave_name = slave_name;
 	if (openpty(&master, &slave, slave_name, NULL, NULL) != 0) {
-		close(master);
-		close(slave);
 		return -1;
 	}
 	if (slave_name[0] == 0) {

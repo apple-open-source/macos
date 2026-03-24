@@ -24,7 +24,7 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace IPC {
-template<typename T, typename> struct ArgumentCoder;
+template<typename> struct ArgumentCoder;
 }
 
 namespace WebCore {
@@ -79,7 +79,7 @@ public:
     String valueAsString() const;
 
 private:
-    friend struct IPC::ArgumentCoder<SVGPreserveAspectRatioValue, void>;
+    friend struct IPC::ArgumentCoder<SVGPreserveAspectRatioValue>;
     SVGPreserveAspectRatioType m_align { SVGPreserveAspectRatioValue::SVG_PRESERVEASPECTRATIO_XMIDYMID };
     SVGMeetOrSliceType m_meetOrSlice { SVGPreserveAspectRatioValue::SVG_MEETORSLICE_MEET };
 

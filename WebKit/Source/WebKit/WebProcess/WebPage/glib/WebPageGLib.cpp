@@ -26,9 +26,11 @@
 #include "config.h"
 #include "WebPage.h"
 
+#include "DrawingAreaCoordinatedGraphics.h"
 #include "EditorState.h"
 #include "InputMethodState.h"
 #include "MessageSenderInlines.h"
+#include "RenderProcessInfo.h"
 #include "UserMessage.h"
 #include "WebKitUserMessage.h"
 #include "WebKitWebPagePrivate.h"
@@ -41,6 +43,7 @@
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/PlatformDisplay.h>
 #include <WebCore/PointerCharacteristics.h>
 #include <WebCore/Range.h>
 #include <WebCore/Settings.h>
@@ -54,6 +57,13 @@
 #include "WebKitWebProcessExtension.h"
 #else
 #include "WebKitWebExtension.h"
+#endif
+
+#if USE(GBM)
+#include <WebCore/DRMDeviceManager.h>
+#include <WebCore/GBMDevice.h>
+#include <gbm.h>
+#include <xf86drm.h>
 #endif
 
 namespace WebKit {
@@ -102,12 +112,12 @@ void WebPage::sendMessageToWebProcessExtensionWithReply(UserMessage&& message, C
         return;
     }
 
-    webkitWebPageDidReceiveUserMessage(page, WTFMove(message), WTFMove(completionHandler));
+    webkitWebPageDidReceiveUserMessage(page, WTF::move(message), WTF::move(completionHandler));
 }
 
 void WebPage::sendMessageToWebProcessExtension(UserMessage&& message)
 {
-    sendMessageToWebProcessExtensionWithReply(WTFMove(message), [](UserMessage&&) { });
+    sendMessageToWebProcessExtensionWithReply(WTF::move(message), [](UserMessage&&) { });
 }
 
 void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) const
@@ -239,6 +249,65 @@ OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailableP
     if (availableInputs.contains(AvailableInputDevices::Touchscreen))
         pointerCharacteristics.add(PointerCharacteristics::Coarse);
     return pointerCharacteristics;
+}
+
+void WebPage::getRenderProcessInfo(CompletionHandler<void(RenderProcessInfo&&)>&& completionHandler)
+{
+    RenderProcessInfo info;
+
+    auto* display = PlatformDisplay::sharedDisplayIfExists();
+    if (!display) {
+        completionHandler(WTF::move(info));
+        return;
+    }
+
+    switch (display->type()) {
+#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
+    case PlatformDisplay::Type::Surfaceless:
+        info.platform = "Surfaceless"_s;
+        break;
+#if USE(GBM)
+    case PlatformDisplay::Type::GBM:
+        info.platform = "GBM"_s;
+        if (auto device = DRMDeviceManager::singleton().mainGBMDevice(DRMDeviceManager::NodeType::Render)) {
+            if (drmVersion* version = drmGetVersion(gbm_device_get_fd(device->device()))) {
+                info.drmVersion = makeString(unsafeSpan(version->name), " ("_s, unsafeSpan(version->desc), ") "_s, version->version_major, '.', version->version_minor, '.', version->version_patchlevel, ". "_s, unsafeSpan(version->date));
+                drmFreeVersion(version);
+            }
+        }
+        break;
+#endif
+#endif
+#if OS(ANDROID)
+    case PlatformDisplay::Type::Android:
+        info.platform = "Android"_s;
+        break;
+#endif
+#if USE(WPE_RENDERER)
+    case PlatformDisplay::Type::WPE:
+        info.platform = "WPE"_s;
+        break;
+#endif
+    default:
+        break;
+    }
+
+#if USE(SKIA)
+    info.msaaSampleCount = display->msaaSampleCount();
+#endif
+
+#if USE(GBM)
+    if (info.platform != "WPE"_s) {
+        info.supportedBufferFormats = display->bufferFormats().map([](const auto& format) -> RendererBufferFormat::Format {
+            return {
+                format.fourcc.value,
+                format.modifiers,
+            };
+        });
+    }
+#endif // USE(GBM)
+
+    static_cast<DrawingAreaCoordinatedGraphics*>(m_drawingArea.get())->fillGLInformation(WTF::move(info), WTF::move(completionHandler));
 }
 
 } // namespace WebKit

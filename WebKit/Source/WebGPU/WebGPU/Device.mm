@@ -250,31 +250,19 @@ Ref<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, HardwareC
     if (!deviceLabel.isEmpty())
         commandQueue.label = [NSString stringWithFormat:@"Default queue for device %s", deviceLabel.utf8().data()];
 
-    return adoptRef(*new Device(device, commandQueue, WTFMove(capabilities), adapter));
+    return adoptRef(*new Device(device, commandQueue, WTF::move(capabilities), adapter));
 }
 
 static uint32_t computeMaxCountForDevice(id<MTLDevice> device)
 {
 #if HAVE(METAL_FAMILY_9)
     if ([device supportsFamily:MTLGPUFamilyApple9])
-        return 300 * MB;
+        return 3 * GB;
 #endif
-#if HAVE(METAL_FAMILY_8)
-    if ([device supportsFamily:MTLGPUFamilyApple8])
-        return 275 * MB;
-#endif
-    if ([device supportsFamily:MTLGPUFamilyApple7])
-        return 250 * MB;
-    if ([device supportsFamily:MTLGPUFamilyApple6])
-        return 225 * MB;
-    if ([device supportsFamily:MTLGPUFamilyApple5])
-        return 200 * MB;
-    if ([device supportsFamily:MTLGPUFamilyApple4])
-        return 200 * MB;
     if ([device supportsFamily:MTLGPUFamilyMac2])
-        return 300 * MB;
+        return 3 * GB;
 
-    return 200 * MB;
+    return 2 * GB;
 }
 
 static uint32_t computeAppleGPUFamily(id<MTLDevice> device)
@@ -302,7 +290,7 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     : m_device(device)
     , m_defaultQueue(Queue::create(defaultQueue, adapter, *this))
     , m_xrSubImage(XRSubImage::create(*this))
-    , m_capabilities(WTFMove(capabilities))
+    , m_capabilities(WTF::move(capabilities))
     , m_adapter(adapter)
     , m_instance(adapter.weakInstance())
     , m_appleGPUFamily(computeAppleGPUFamily(device))
@@ -314,7 +302,7 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
         if (!protectedThis)
             return;
         if (auto instance = protectedThis->instance(); instance.get()) {
-            instance->scheduleWork([protectedThis = WTFMove(protectedThis), device = device]() {
+            instance->scheduleWork([protectedThis = WTF::move(protectedThis), device = device]() {
                 if (![protectedThis->m_device isEqual:device])
                     return;
                 protectedThis->loseTheDevice(WGPUDeviceLostReason_Undefined);
@@ -513,12 +501,12 @@ void Device::generateAValidationError(String&& message)
     auto* scope = currentErrorScope(WGPUErrorFilter_Validation);
     if (scope) {
         if (!scope->error)
-            scope->error = Error { WGPUErrorType_Validation, WTFMove(message) };
+            scope->error = Error { WGPUErrorType_Validation, WTF::move(message) };
         return;
     }
 
     if (m_uncapturedErrorCallback) {
-        m_uncapturedErrorCallback(WGPUErrorType_Validation, WTFMove(message));
+        m_uncapturedErrorCallback(WGPUErrorType_Validation, WTF::move(message));
         m_uncapturedErrorCallback = nullptr;
     }
 }
@@ -534,12 +522,12 @@ void Device::generateAnOutOfMemoryError(String&& message)
 
     if (scope) {
         if (!scope->error)
-            scope->error = Error { WGPUErrorType_OutOfMemory, WTFMove(message) };
+            scope->error = Error { WGPUErrorType_OutOfMemory, WTF::move(message) };
         return;
     }
 
     if (m_uncapturedErrorCallback) {
-        m_uncapturedErrorCallback(WGPUErrorType_OutOfMemory, WTFMove(message));
+        m_uncapturedErrorCallback(WGPUErrorType_OutOfMemory, WTF::move(message));
         m_uncapturedErrorCallback = nullptr;
     }
 }
@@ -555,12 +543,12 @@ void Device::generateAnInternalError(String&& message)
 
     if (scope) {
         if (!scope->error)
-            scope->error = Error { WGPUErrorType_Internal, WTFMove(message) };
+            scope->error = Error { WGPUErrorType_Internal, WTF::move(message) };
         return;
     }
 
     if (m_uncapturedErrorCallback) {
-        m_uncapturedErrorCallback(WGPUErrorType_Internal, WTFMove(message));
+        m_uncapturedErrorCallback(WGPUErrorType_Internal, WTF::move(message));
         m_uncapturedErrorCallback = nullptr;
     }
 }
@@ -616,9 +604,9 @@ bool Device::popErrorScope(CompletionHandler<void(WGPUErrorType, String&&)>&& ca
     auto scope = m_errorScopeStack.takeLast();
 
     if (auto inst = instance(); inst.get()) {
-        inst->scheduleWork([scope = WTFMove(scope), callback = WTFMove(callback)]() mutable {
+        inst->scheduleWork([scope = WTF::move(scope), callback = WTF::move(callback)]() mutable {
             if (scope.error)
-                callback(scope.error->type, WTFMove(scope.error->message));
+                callback(scope.error->type, WTF::move(scope.error->message));
             else
                 callback(WGPUErrorType_NoError, { });
         });
@@ -635,7 +623,7 @@ void Device::pushErrorScope(WGPUErrorFilter filter)
 
     ErrorScope scope { std::nullopt, filter };
 
-    m_errorScopeStack.append(WTFMove(scope));
+    m_errorScopeStack.append(WTF::move(scope));
 }
 
 void Device::setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)>&& callback)
@@ -643,7 +631,7 @@ void Device::setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)
     if (m_deviceLostCallback)
         m_deviceLostCallback(WGPUDeviceLostReason_Destroyed, ""_s);
 
-    m_deviceLostCallback = WTFMove(callback);
+    m_deviceLostCallback = WTF::move(callback);
     if (m_isLost)
         loseTheDevice(WGPUDeviceLostReason_Destroyed);
     else if (!m_adapter->isValid())
@@ -654,7 +642,7 @@ void Device::setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&
 {
     if (m_uncapturedErrorCallback)
         m_uncapturedErrorCallback(WGPUErrorType_NoError, ""_s);
-    m_uncapturedErrorCallback = WTFMove(callback);
+    m_uncapturedErrorCallback = WTF::move(callback);
 }
 
 void Device::setLabel(String&&)
@@ -792,10 +780,8 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
     if (result)
         return result;
 
-    static id<MTLFunction> function = nil;
-    NSError *error = nil;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&] {
+    static id<MTLFunction> function = [&] {
+        NSError *error = nil;
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
@@ -808,7 +794,7 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
     {
         device MTLDrawPrimitivesIndirectArguments& output = wkoutput.args;
         device MTLDrawIndexedPrimitivesIndirectArguments& indexedOutput = wkindexedOutput.args;
-        bool lostCondition = input.indexCount > %u || input.instanceCount > %u || input.indexCount * input.instanceCount > %u;
+        bool lostCondition = input.indexCount > %u || input.instanceCount > %u || madsat(input.indexCount, input.instanceCount, 0u) > %u;
         bool condition = lostCondition
             || input.indexCount + input.indexStart > indexBufferCount[0]
             || input.indexStart >= indexBufferCount[0]
@@ -831,8 +817,8 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
         if (error)
             WTFLogAlways("%@", error);
 
-        function = [library newFunctionWithName:@"vsIndexedIndirect"];
-    });
+        return [library newFunctionWithName:@"vsIndexedIndirect"];
+    }();
 
     RELEASE_ASSERT(function);
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
@@ -842,6 +828,7 @@ id<MTLRenderPipelineState> Device::indexedIndirectBufferClampPipeline(NSUInteger
     mtlRenderPipelineDescriptor.fragmentFunction = nil;
     mtlRenderPipelineDescriptor.inputPrimitiveTopology = MTLPrimitiveTopologyClassPoint;
 
+    NSError *error = nil;
     if (rasterSampleCount > 1)
         result = m_indexedIndirectBufferClampPSOMS = [m_device newRenderPipelineStateWithDescriptor:mtlRenderPipelineDescriptor error:&error];
     else
@@ -877,7 +864,7 @@ id<MTLRenderPipelineState> Device::indirectBufferClampPipeline(NSUInteger raster
     [[vertex]] void vsIndirect(device const MTLDrawPrimitivesIndirectArguments& input [[buffer(0)]], device WebKitMTLDrawPrimitivesIndirectArguments& wkoutput [[buffer(1)]], const constant uint* minCounts [[buffer(2)]])
     {
         device MTLDrawPrimitivesIndirectArguments& output = wkoutput.args;
-        bool lostCondition = input.vertexCount > %u || input.instanceCount > %u || input.vertexCount * input.instanceCount > %u;
+        bool lostCondition = input.vertexCount > %u || input.instanceCount > %u || madsat(input.vertexCount, input.instanceCount, 0u) > %u;
         bool vertexCondition = lostCondition
             || input.vertexCount + input.vertexStart > minCounts[0]
             || input.vertexStart >= minCounts[0];
@@ -1069,6 +1056,12 @@ void Device::pauseErrorReporting(bool pauseReporting)
     m_supressAllErrors = pauseReporting;
 }
 
+uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex) const
+{
+    ASSERT(maxBuffersPlusVertexBuffersForVertexStage() > 0);
+    return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
+}
+
 id<MTLSharedEvent> Device::resolveTimestampsSharedEvent()
 {
     if (!m_resolveTimestampsSharedEvent)
@@ -1085,6 +1078,15 @@ void Device::trackTimestampsBuffer(id<MTLCommandBuffer> commandBuffer, id<MTLCou
         [m_sampleCounterBuffers setObject:sampleBufferArray forKey:commandBuffer];
     }
     [sampleBufferArray addObject:counterSampleBuffer];
+}
+
+void Device::makeSubmitInvalidClearingEncoders(TrackedResourceContainer& commandEncoders)
+{
+    auto encoders = std::exchange(commandEncoders, { });
+    for (auto commandEncoder : encoders) {
+        if (RefPtr ptr = commandEncoderFromIdentifier(commandEncoder))
+            ptr->makeSubmitInvalid();
+    }
 }
 
 } // namespace WebGPU
@@ -1139,14 +1141,14 @@ void wgpuDevicePauseErrorReporting(WGPUDevice device, WGPUBool pauseErrors)
 void wgpuDeviceCreateComputePipelineAsync(WGPUDevice device, const WGPUComputePipelineDescriptor* descriptor, WGPUCreateComputePipelineAsyncCallback callback, void* userdata)
 {
     WebGPU::protectedFromAPI(device)->createComputePipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
-        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message), userdata);
+        callback(status, WebGPU::releaseToAPI(WTF::move(pipeline)), WTF::move(message), userdata);
     });
 }
 
 void wgpuDeviceCreateComputePipelineAsyncWithBlock(WGPUDevice device, WGPUComputePipelineDescriptor const * descriptor, WGPUCreateComputePipelineAsyncBlockCallback callback)
 {
-    WebGPU::protectedFromAPI(device)->createComputePipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
-        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message));
+    WebGPU::protectedFromAPI(device)->createComputePipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTF::move(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTF::move(pipeline)), WTF::move(message));
     });
 }
 
@@ -1173,14 +1175,14 @@ WGPURenderPipeline wgpuDeviceCreateRenderPipeline(WGPUDevice device, const WGPUR
 void wgpuDeviceCreateRenderPipelineAsync(WGPUDevice device, const WGPURenderPipelineDescriptor* descriptor, WGPUCreateRenderPipelineAsyncCallback callback, void* userdata)
 {
     WebGPU::protectedFromAPI(device)->createRenderPipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
-        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message), userdata);
+        callback(status, WebGPU::releaseToAPI(WTF::move(pipeline)), WTF::move(message), userdata);
     });
 }
 
 void wgpuDeviceCreateRenderPipelineAsyncWithBlock(WGPUDevice device, WGPURenderPipelineDescriptor const * descriptor, WGPUCreateRenderPipelineAsyncBlockCallback callback)
 {
-    WebGPU::protectedFromAPI(device)->createRenderPipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
-        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), WTFMove(message));
+    WebGPU::protectedFromAPI(device)->createRenderPipelineAsync(*descriptor, [callback = WebGPU::fromAPI(WTF::move(callback))](WGPUCreatePipelineAsyncStatus status, Ref<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTF::move(pipeline)), WTF::move(message));
     });
 }
 
@@ -1243,7 +1245,7 @@ void wgpuDevicePopErrorScope(WGPUDevice device, WGPUErrorCallback callback, void
 
 void wgpuDevicePopErrorScopeWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    WebGPU::protectedFromAPI(device)->popErrorScope([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
+    WebGPU::protectedFromAPI(device)->popErrorScope([callback = WebGPU::fromAPI(WTF::move(callback))](WGPUErrorType type, String&& message) {
         callback(type, message.utf8().data());
     });
 }
@@ -1272,7 +1274,7 @@ void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback c
 
 void wgpuDeviceSetDeviceLostCallbackWithBlock(WGPUDevice device, WGPUDeviceLostBlockCallback callback)
 {
-    return WebGPU::protectedFromAPI(device)->setDeviceLostCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUDeviceLostReason reason, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setDeviceLostCallback([callback = WebGPU::fromAPI(WTF::move(callback))](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
             callback(reason, message.utf8().data());
     });
@@ -1288,7 +1290,7 @@ void wgpuDeviceSetUncapturedErrorCallback(WGPUDevice device, WGPUErrorCallback c
 
 void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return WebGPU::protectedFromAPI(device)->setUncapturedErrorCallback([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUErrorType type, String&& message) {
+    return WebGPU::protectedFromAPI(device)->setUncapturedErrorCallback([callback = WebGPU::fromAPI(WTF::move(callback))](WGPUErrorType type, String&& message) {
         if (callback)
             callback(type, message.utf8().data());
     });

@@ -200,7 +200,7 @@ static IOReturn _getElementValue(void *iunknown,
     IOHIDValueRef value;
     uint32_t length;
 
-    require(elementRef, exit);
+    __Require(elementRef, exit);
 
     ret = [super getValue:elementRef
                     value:&value
@@ -208,7 +208,7 @@ static IOReturn _getElementValue(void *iunknown,
                  callback:nil
                   context:nil
                   options:options];
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
     elementRef = IOHIDValueGetElement(value);
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
@@ -260,7 +260,7 @@ static IOReturn _setElementValue(void *iunknown,
                                                       elementRef,
                                                       eventStruct);
     
-    require(elementRef && value, exit);
+    __Require(elementRef && value, exit);
     
     ret = [super setValue:elementRef
                     value:value

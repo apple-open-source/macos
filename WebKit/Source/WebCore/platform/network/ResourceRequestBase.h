@@ -32,10 +32,12 @@
 #include <WebCore/HTTPHeaderMap.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/ResourceLoadPriority.h>
+#include <optional>
 #include <wtf/EnumTraits.h>
 #include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
+#include <wtf/WallTime.h>
 
 namespace WebCore {
 
@@ -72,12 +74,12 @@ public:
         RequestData() { }
 
         RequestData(URL&& url, URL&& firstPartyForCookies, double timeoutInterval, String&& httpMethod, HTTPHeaderMap&& httpHeaderFields, Vector<String>&& responseContentDispositionEncodingFallbackArray, ResourceRequestCachePolicy cachePolicy, SameSiteDisposition sameSiteDisposition, ResourceLoadPriority priority, ResourceRequestRequester requester, bool allowCookies, bool isTopSite, bool isAppInitiated = true, bool privacyProxyFailClosedForUnreachableNonMainHosts = false, bool useAdvancedPrivacyProtections = false, bool didFilterLinkDecoration = false, bool isPrivateTokenUsageByThirdPartyAllowed = false, bool wasSchemeOptimisticallyUpgraded = false, IPAddressSpace targetAddressSpace = IPAddressSpace::Public)
-            : m_url(WTFMove(url))
-            , m_firstPartyForCookies(WTFMove(firstPartyForCookies))
+            : m_url(WTF::move(url))
+            , m_firstPartyForCookies(WTF::move(firstPartyForCookies))
             , m_timeoutInterval(timeoutInterval)
-            , m_httpMethod(WTFMove(httpMethod))
-            , m_httpHeaderFields(WTFMove(httpHeaderFields))
-            , m_responseContentDispositionEncodingFallbackArray(WTFMove(responseContentDispositionEncodingFallbackArray))
+            , m_httpMethod(WTF::move(httpMethod))
+            , m_httpHeaderFields(WTF::move(httpHeaderFields))
+            , m_responseContentDispositionEncodingFallbackArray(WTF::move(responseContentDispositionEncodingFallbackArray))
             , m_cachePolicy(cachePolicy)
             , m_sameSiteDisposition(sameSiteDisposition)
             , m_priority(priority)
@@ -95,7 +97,7 @@ public:
         }
 
         RequestData(URL&& url, ResourceRequestCachePolicy cachePolicy)
-            : m_url(WTFMove(url))
+            : m_url(WTF::move(url))
             , m_cachePolicy(cachePolicy)
         {
         }
@@ -122,7 +124,7 @@ public:
     };
 
     ResourceRequestBase(RequestData&& requestData)
-        : m_requestData(WTFMove(requestData))
+        : m_requestData(WTF::move(requestData))
         , m_resourceRequestUpdated(true)
         , m_platformRequestUpdated(false)
         , m_resourceRequestBodyUpdated(true)
@@ -308,7 +310,7 @@ protected:
     }
 
     ResourceRequestBase(URL&& url, ResourceRequestCachePolicy policy)
-        : m_requestData({ WTFMove(url), policy })
+        : m_requestData({ WTF::move(url), policy })
         , m_resourceRequestUpdated(true)
         , m_platformRequestUpdated(false)
         , m_resourceRequestBodyUpdated(true)

@@ -57,15 +57,18 @@ namespace WebCore {
 // MARK: Helpers
 
 template<typename Character>
-constexpr int consumeNumber(StringParsingBuffer<Character>& input)
+constexpr std::optional<int> consumeNumber(StringParsingBuffer<Character>& input)
 {
     // Parse the digits until there is no more input left or a non-ASCII digit character has been encountered.
-    Checked<int> value;
+    Checked<int, RecordOverflow> value;
     do {
         auto c = input.consume();
         int digitValue = c - '0';
         value = (value * 10) + digitValue;
     } while (!input.atEnd() && WTF::isASCIIDigit(*input));
+
+    if (value.hasOverflowed())
+        return std::nullopt;
 
     ASSERT(value.value() > 0);
     return value.value();
@@ -122,14 +125,12 @@ std::optional<TextList> tryConsumeOrderedDecimalTextList(StringParsingBuffer<Cha
     if (input.atEnd() || !WTF::isASCIIDigit(*input) || *input == '0')
         return std::nullopt;
 
-    auto start = consumeNumber(input);
-
     // The format is valid iff there is a "." or a ")" immediately after the digits, and nothing afterwards.
-    if (WTF::skipExactly(input, '.') || WTF::skipExactly(input, ')')) {
-        if (input.atEnd())
-            return { { { CSS::Keyword::Decimal { } }, start, true } };
-
-        skipToEnd(input);
+    if (auto start = consumeNumber(input)) {
+        if (WTF::skipExactly(input, '.') || WTF::skipExactly(input, ')')) {
+            if (input.atEnd())
+                return { { { CSS::Keyword::Decimal { } }, *start, true } };
+        }
     }
 
     skipToEnd(input);
@@ -168,7 +169,7 @@ static AtomString inlineStyleForListStyleType(const StyledElement& element, Styl
     if (RefPtr existingInlineStyle = element.inlineStyle())
         inlineStyle = existingInlineStyle->mutableCopy();
 
-    inlineStyle->setProperty(CSSPropertyListStyleType, WTFMove(value));
+    inlineStyle->setProperty(CSSPropertyListStyleType, WTF::move(value));
 
     return inlineStyle->asTextAtom(CSS::defaultSerializationContext());
 }

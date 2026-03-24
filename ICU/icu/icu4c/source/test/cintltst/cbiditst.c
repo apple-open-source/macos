@@ -23,6 +23,9 @@
 #include "cbiditst.h"
 #include "cstring.h"
 #include <stdbool.h>
+#if APPLE_ICU_CHANGES
+#include <stdlib.h> // rdar://167443712
+#endif // APPLE_ICU_CHANGES
 /* the following include is needed for snprintf */
 #include <stdio.h>
 
@@ -93,6 +96,9 @@ static void doTailTest(void);
 static void testBracketOverflow(void);
 static void TestExplicitLevel0(void);
 static void testUBidiWriteReorderedBufferOverflow(void);
+#if APPLE_ICU_CHANGES
+static void testHugeBidiText(void); // rdar://167443712
+#endif  // APPLE_ICU_CHANGES
 
 /* new BIDI API */
 static void testReorderingMode(void);
@@ -143,6 +149,9 @@ addComplexTest(TestNode** root) {
     addTest(root, testBracketOverflow, "complex/bidi/TestBracketOverflow");
     addTest(root, TestExplicitLevel0, "complex/bidi/TestExplicitLevel0");
     addTest(root, testUBidiWriteReorderedBufferOverflow, "complex/bidi/writeReorderedBufferOverflow");
+#if APPLE_ICU_CHANGES
+    addTest(root, testHugeBidiText, "complex/bidi/TestHugeBidiText"); // rdar://167443712
+#endif  // APPLE_ICU_CHANGES
 
     addTest(root, doArabicShapingTest, "complex/arabic-shaping/ArabicShapingTest");
     addTest(root, doLamAlefSpecialVLTRArabicShapingTest, "complex/arabic-shaping/lamalef");
@@ -4730,6 +4739,7 @@ checkMaps(UBiDi *pBiDi, int32_t stringIndex, const char *src, const char *dest,
                 );
         testOK = false;
     }
+    memset(getIndexMap, 0, sizeof(getIndexMap));
     for (i = 0; i < srcLen; i++) {
         idx = ubidi_getVisualIndex(pBiDi, i, &rc);
         assertSuccessful("ubidi_getVisualIndex", &rc);
@@ -4979,3 +4989,96 @@ static void TestExplicitLevel0(void) {
     }
     ubidi_close(bidi);
 }
+
+#if APPLE_ICU_CHANGES
+// rdar://167443712
+static void testHugeBidiText(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UBiDi* bidi = NULL;
+    UChar* text = NULL;
+    const int32_t textLen = 200000000; /* 200 million characters */
+    int32_t i;
+    /*
+        If we called `ubidi_countRuns()` with a small text buffer,
+        it called `ubidi_getRuns`, which in turn called `ubidi_getMemory()`
+        which allocated some memory for bidi run information using the
+        `Run` structure.
+
+        If we then called `ubidi_countRuns()` with an extremely large text
+        buffer such that the length of the text buffer times the size of
+        the `Run` structure caused an `int32_t` overflow, the `sizeNeeded`
+        in `ubidi_getMemory()` was negative and compared as smaller than
+        the memory previously allocated, so the original (smaller) memory
+        allocation was reused. This lead to an `EXC_BAD_ACCESS` in
+        `ubidi_getRuns()` when ICU writes bidi run information past the
+        end of that allocation.
+     */
+
+    /* Filling the huge text buffer causes this test to take several seconds,
+       so skip it if we're not using the exhaustive testing mode. */
+    if (getTestOption(QUICK_OPTION)) {
+        log_info("Skipping testHugeBidiText in quick mode (use -e for exhaustive tests)\n");
+        return;
+    }
+    
+    log_verbose("testHugeBidiText: Testing with %d character buffer\n", textLen);
+
+    /* Allocate memory for huge text buffer */
+    text = (UChar*)malloc(textLen * sizeof(UChar));
+    if (text == NULL) {
+        log_data_err("testHugeBidiText: Could not allocate %d characters\n", textLen);
+        return;
+    }
+
+    /* Fill buffer with alternating Latin and Hebrew characters */
+    for (i = 0; i < textLen; i++) {
+        text[i] = (i % 2 == 0) ? 0x0041 : 0x05D0;  /* 'A' and Hebrew Alef */
+    }
+
+    bidi = ubidi_open();
+    if (bidi == NULL) {
+        log_err("testHugeBidiText: ubidi_open() failed\n");
+        free(text);
+        return;
+    }
+
+    /* First set a small paragraph to verify the text is valid */
+    ubidi_setPara(bidi, text, 2, UBIDI_DEFAULT_LTR, NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("testHugeBidiText: ubidi_setPara() failed for small text - %s\n", u_errorName(status));
+        ubidi_close(bidi);
+        free(text);
+        return;
+    }
+
+    ubidi_countRuns(bidi, &status);
+    if (U_FAILURE(status)) {
+        log_err("testHugeBidiText: ubidi_countRuns() failed for small text - %s\n", u_errorName(status));
+        ubidi_close(bidi);
+        free(text);
+        return;
+    }
+
+    /* Now set the huge paragraph */
+    status = U_ZERO_ERROR;
+    ubidi_setPara(bidi, text, textLen, UBIDI_DEFAULT_LTR, NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("testHugeBidiText: ubidi_setPara() failed for huge text - %s\n", u_errorName(status));
+        ubidi_close(bidi);
+        free(text);
+        return;
+    }
+
+    /* this is where the EXC_BAD_ACCESS was occurring
+       (even without ASAN or Valgrind) */
+    ubidi_countRuns(bidi, &status);
+    if (U_FAILURE(status)) {
+        log_err("testHugeBidiText: ubidi_countRuns() failed for huge text - %s\n", u_errorName(status));
+    } else {
+        log_verbose("testHugeBidiText: ubidi_countRuns() succeeded for huge text\n");
+    }
+
+    ubidi_close(bidi);
+    free(text);
+}
+#endif  // APPLE_ICU_CHANGES

@@ -29,6 +29,10 @@
 #include "simplethread.h"
 #include "uassert.h"
 #include "zonemeta.h"
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include "testutil.h" // rdar://162810290
+#include <malloc/malloc.h>  // rdar://165873670
+#endif
 
 static const char* PATTERNS[] = {
     "z",
@@ -90,12 +94,21 @@ TimeZoneFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &name
         TESTCASE(10, TestBogusLocale);
         TESTCASE(11, Test22614GetMetaZoneNamesNotCrash);
         TESTCASE(12, Test22615NonASCIIID);
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+        TESTCASE(13, checkForUninitializedMemory); // rdar://162810290
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     default: name = ""; break;
     }
 }
 
 void
 TimeZoneFormatTest::TestTimeZoneRoundTrip() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     UErrorCode status = U_ZERO_ERROR;
 
     SimpleTimeZone unknownZone(-31415, ETC_UNKNOWN);
@@ -171,14 +184,6 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip() {
 
     // Run the roundtrip test
     for (int32_t locidx = 0; locidx < nLocales; locidx++) {
-        UnicodeString localGMTString;
-        SimpleDateFormat gmtFmt(UnicodeString("ZZZZ"), LOCALES[locidx], status);
-        if (U_FAILURE(status)) {
-            dataerrln("Error creating SimpleDateFormat - %s", u_errorName(status));
-            continue;
-        }
-        gmtFmt.setTimeZone(*TimeZone::getGMT());
-        gmtFmt.format(0.0, localGMTString);
 
         for (int32_t patidx = 0; patidx < UPRV_LENGTHOF(PATTERNS); patidx++) {
             SimpleDateFormat* sdf = new SimpleDateFormat(UnicodeString(PATTERNS[patidx]), LOCALES[locidx], status);
@@ -321,7 +326,7 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip() {
                             }
                             isOffsetFormat = (numDigits > 0);
                         }
-                        if (isOffsetFormat || tzstr == localGMTString) {
+                        if (isOffsetFormat) {
                             // Localized GMT or ISO: total offset (raw + dst) must be preserved.
                             int32_t inOffset = inRaw + inDst;
                             int32_t outOffset = outRaw + outDst;
@@ -453,6 +458,12 @@ static LocaleData *gLocaleData = nullptr;
 
 void
 TimeZoneFormatTest::TestTimeRoundTrip() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     UErrorCode status = U_ZERO_ERROR;
     LocalPointer<Calendar> cal(Calendar::createInstance(TimeZone::createTimeZone(UnicodeString("UTC")), status));
     if (U_FAILURE(status)) {
@@ -570,7 +581,6 @@ void TimeZoneFormatTest::RunTimeRoundTripTests(int32_t threadNumber) {
     int32_t patidx = -1;
 
     while (gLocaleData->nextTest(locidx, patidx)) {
-
         UnicodeString pattern(BASEPATTERN);
         pattern.append(" ").append(PATTERNS[patidx]);
         logln("    Thread %d, Locale %s, Pattern %s",
@@ -592,6 +602,13 @@ void TimeZoneFormatTest::RunTimeRoundTripTests(int32_t threadNumber) {
         timer = Calendar::getNow();
 
         while ((tzid = tzids->snext(status))) {
+        	// NOTE: This test only fails in the exhaustive tests.  If you take out this check,
+        	// make sure you run the exhaustive tests!
+            if (logKnownIssue("CLDR-18924", "Time round trip issues for Pacific/Apia in various locales" ) &&
+                (tzid->compare(u"Pacific/Apia", -1) == 0)) {
+                continue;
+            }
+
             if (uprv_strcmp(PATTERNS[patidx], "V") == 0) {
                 // Some zones do not have short ID assigned, such as Asia/Riyadh87.
                 // The time roundtrip will fail for such zones with pattern "V" (short zone ID).
@@ -608,12 +625,6 @@ void TimeZoneFormatTest::RunTimeRoundTripTests(int32_t threadNumber) {
                     || tzid->indexOf(SYSTEMV_SLASH, -1, 0) >= 0 || tzid->indexOf(RIYADH8, -1, 0) >= 0) {
                     continue;
                 }
-            }
-
-            if ((*tzid == "Pacific/Apia" || *tzid == "Pacific/Midway" || *tzid == "Pacific/Pago_Pago")
-                    && uprv_strcmp(PATTERNS[patidx], "vvvv") == 0
-                    && logKnownIssue("11052", "Ambiguous zone name - Samoa Time")) {
-                continue;
             }
 
             BasicTimeZone *tz = dynamic_cast<BasicTimeZone*>(TimeZone::createTimeZone(*tzid));
@@ -1472,4 +1483,32 @@ TimeZoneFormatTest::TestBogusLocale() {
         errln(u"Failed to createInstance with bogus locale");
     }
 }
+
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290 and rdar://165873670
+void TimeZoneFormatTest::checkForUninitializedMemory() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<TimeZoneFormat> tzfmt(TimeZoneFormat::createInstance(Locale::getUS(), status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create TimeZoneFormat - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = tzfmt.getAlias();
+
+    // Before any changes to reduce uninitialized memory, this test was showing that
+    // over 69% of TimeZoneFormat was uninitialized.
+
+    // The uninitialized memory was causing problems for our memory analysis tools as
+    // the TimeZoneFormat object appeared to have references to other objects
+    // due to data picked up from the heap in the uninitialized areas.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "TimeZoneFormat",
+        sizeof(TimeZoneFormat));
+}
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -84,7 +84,7 @@ public:
 
     RetainPtr<id> toID() const;
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSURLCredential, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSURLCredential>;
     CoreIPCNSURLCredentialData m_data;
 };
 

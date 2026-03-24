@@ -158,10 +158,10 @@ static std::optional<ApplePayInstallmentItem> makeVectorElement(const ApplePayIn
     PKPaymentInstallmentItem *item = arrayElement;
     return ApplePayInstallmentItem {
         applePayItemType([item installmentItemType]),
-        fromDecimalNumber([item amount]),
+        fromDecimalNumber(retainPtr([item amount]).get()),
         [item currencyCode],
         [item programIdentifier],
-        fromDecimalNumber([item apr]),
+        fromDecimalNumber(retainPtr([item apr]).get()),
         [item programTerms],
     };
 }
@@ -193,9 +193,6 @@ static RetainPtr<PKPaymentInstallmentConfiguration> createPlatformConfiguration(
     [configuration setCurrencyCode:coreConfiguration.currencyCode.createNSString().get()];
     [configuration setInStorePurchase:coreConfiguration.isInStorePurchase];
     [configuration setOpenToBuyThresholdAmount:toProtectedDecimalNumber(coreConfiguration.openToBuyThresholdAmount).get()];
-
-    RetainPtr merchandisingImageData = adoptNS([[NSData alloc] initWithBase64EncodedString:coreConfiguration.merchandisingImageData.createNSString().get() options:0]);
-    [configuration setMerchandisingImageData:merchandisingImageData.get()];
     [configuration setInstallmentMerchantIdentifier:coreConfiguration.merchantIdentifier.createNSString().get()];
     [configuration setReferrerIdentifier:coreConfiguration.referrerIdentifier.createNSString().get()];
 
@@ -215,7 +212,7 @@ ExceptionOr<PaymentInstallmentConfiguration> PaymentInstallmentConfiguration::cr
     if (!configuration.applicationMetadata.isNull() && !dictionary)
         return Exception { ExceptionCode::TypeError, "applicationMetadata must be a JSON object"_s };
 
-    return PaymentInstallmentConfiguration(ApplePayInstallmentConfiguration(configuration), WTFMove(dictionary));
+    return PaymentInstallmentConfiguration(ApplePayInstallmentConfiguration(configuration), WTF::move(dictionary));
 }
 
 static ApplePayInstallmentConfiguration addApplicationMetadata(ApplePayInstallmentConfiguration configuration, RetainPtr<NSDictionary>&& applicationMetadata)
@@ -226,12 +223,12 @@ static ApplePayInstallmentConfiguration addApplicationMetadata(ApplePayInstallme
 }
 
 PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(const ApplePayInstallmentConfiguration& configuration, RetainPtr<NSDictionary>&& applicationMetadata)
-    : m_configuration { addApplicationMetadata(configuration, WTFMove(applicationMetadata)) }
+    : m_configuration { addApplicationMetadata(configuration, WTF::move(applicationMetadata)) }
 {
 }
 
 PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(std::optional<ApplePayInstallmentConfiguration>&& configuration)
-    : m_configuration { WTFMove(configuration) }
+    : m_configuration { WTF::move(configuration) }
 {
 }
 
@@ -264,23 +261,22 @@ std::optional<ApplePayInstallmentConfiguration> PaymentInstallmentConfiguration:
     else
         return std::nullopt;
 
-    installmentConfiguration.bindingTotalAmount = fromDecimalNumber([configuration bindingTotalAmount]);
+    installmentConfiguration.bindingTotalAmount = fromDecimalNumber(retainPtr([configuration bindingTotalAmount]).get());
     installmentConfiguration.currencyCode = [configuration currencyCode];
     installmentConfiguration.isInStorePurchase = [configuration isInStorePurchase];
-    installmentConfiguration.openToBuyThresholdAmount = fromDecimalNumber([configuration openToBuyThresholdAmount]);
+    installmentConfiguration.openToBuyThresholdAmount = fromDecimalNumber(retainPtr([configuration openToBuyThresholdAmount]).get());
 
-    installmentConfiguration.merchandisingImageData = [[configuration merchandisingImageData] base64EncodedStringWithOptions:0];
     installmentConfiguration.merchantIdentifier = [configuration installmentMerchantIdentifier];
     installmentConfiguration.referrerIdentifier = [configuration referrerIdentifier];
 
     if (!PAL::getPKPaymentInstallmentItemClassSingleton())
-        return WTFMove(installmentConfiguration);
+        return WTF::move(installmentConfiguration);
 
-    installmentConfiguration.items = makeVector<ApplePayInstallmentItem>([configuration installmentItems]);
-    installmentConfiguration.applicationMetadata = applicationMetadataString([configuration applicationMetadata]);
+    installmentConfiguration.items = makeVector<ApplePayInstallmentItem>(retainPtr([configuration installmentItems]).get());
+    installmentConfiguration.applicationMetadata = applicationMetadataString(retainPtr([configuration applicationMetadata]).get());
     installmentConfiguration.retailChannel = applePayRetailChannel([configuration retailChannel]);
 
-    return WTFMove(installmentConfiguration);
+    return WTF::move(installmentConfiguration);
 }
 
 } // namespace WebCore

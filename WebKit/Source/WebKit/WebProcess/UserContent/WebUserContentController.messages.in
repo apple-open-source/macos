@@ -41,6 +41,9 @@ messages -> WebUserContentController {
     RemoveAllUserScriptMessageHandlersForWorlds(Vector<WebKit::ContentWorldIdentifier> worldIdentifiers);
     RemoveAllUserScriptMessageHandlers();
 
+    AddJSBuffer(struct WebKit::WebJSBufferData data)
+    RemoveJSBuffer(WebKit::ContentWorldIdentifier worldIdentifier, String name);
+
 #if ENABLE(CONTENT_EXTENSIONS)
     AddContentRuleLists(Vector<std::pair<WebKit::WebCompiledContentRuleListData, URL>> contentFilters);
     RemoveContentRuleList(String name);

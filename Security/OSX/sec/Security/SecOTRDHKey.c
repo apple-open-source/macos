@@ -155,17 +155,17 @@ SecOTRFullDHKeyRef SecOTRFullDHKCreateFromBytes(CFAllocatorRef allocator, const 
     ccec_ctx_init(ccec_cp_256(), newFDHK->_key);
 
     uint32_t publicKeySize;
-    require_noerr(ReadLong(bytes, size, &publicKeySize), fail);
+    __Require_noErr(ReadLong(bytes, size, &publicKeySize), fail);
 
-    require(publicKeySize <= *size, fail);
-    require_noerr(ccec_import_pub(ccec_cp_256(), publicKeySize, *bytes, ccec_ctx_pub(newFDHK->_key)), fail);
+    __Require(publicKeySize <= *size, fail);
+    __Require_noErr(ccec_import_pub(ccec_cp_256(), publicKeySize, *bytes, ccec_ctx_pub(newFDHK->_key)), fail);
     
     *size -= publicKeySize;
     *bytes += publicKeySize;
 
-    require_noerr(ReadMPI(bytes, size, ccec_ctx_n(newFDHK->_key), ccec_ctx_k(newFDHK->_key)), fail);
+    __Require_noErr(ReadMPI(bytes, size, ccec_ctx_n(newFDHK->_key), ccec_ctx_k(newFDHK->_key)), fail);
 
-    require_noerr(SecOTRFDHKUpdateHash(newFDHK), fail);
+    __Require_noErr(SecOTRFDHKUpdateHash(newFDHK), fail);
 
     return newFDHK;
 
@@ -281,11 +281,11 @@ SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromSerialization(CFAllocatorRef alloc
     size_t publicKeySize;
     {
         uint32_t readSize = 0;
-        require_noerr(ReadLong(bytes, size, &readSize), fail);
+        __Require_noErr(ReadLong(bytes, size, &readSize), fail);
         publicKeySize = readSize;
     }
 
-    require(publicKeySize <= *size, fail);
+    __Require(publicKeySize <= *size, fail);
 
     *size -= publicKeySize;
 
@@ -300,14 +300,14 @@ SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromCompactSerialization(CFAllocatorRe
 
     size_t publicKeySize = ccec_cp_prime_size(ccec_cp_256());
 
-    require_quiet(publicKeySize <= *size, fail);
+    __Require_Quiet(publicKeySize <= *size, fail);
 
-    require_noerr_quiet(ccec_compact_import_pub(ccec_cp_256(), publicKeySize, *bytes, newPDHK->_key), fail);
+    __Require_noErr_Quiet(ccec_compact_import_pub(ccec_cp_256(), publicKeySize, *bytes, newPDHK->_key), fail);
 
     *size -= publicKeySize;
     *bytes += publicKeySize;
 
-    require_noerr(SecOTRPDHKUpdateHash(newPDHK), fail);
+    __Require_noErr(SecOTRPDHKUpdateHash(newPDHK), fail);
 
     return newPDHK;
 fail:
@@ -320,12 +320,12 @@ SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromBytes(CFAllocatorRef allocator, co
 {
     SecOTRPublicDHKeyRef newPDHK = CFTypeAllocate(SecOTRPublicDHKey, struct _SecOTRPublicDHKey, allocator);
 
-    require_noerr(ccec_import_pub(ccec_cp_256(), *size, *bytes, newPDHK->_key), fail);
+    __Require_noErr(ccec_import_pub(ccec_cp_256(), *size, *bytes, newPDHK->_key), fail);
 
     *bytes += *size;
     *size = 0;
 
-    require_noerr(SecOTRPDHKUpdateHash(newPDHK), fail);
+    __Require_noErr(SecOTRPDHKUpdateHash(newPDHK), fail);
 
     return newPDHK;
 fail:

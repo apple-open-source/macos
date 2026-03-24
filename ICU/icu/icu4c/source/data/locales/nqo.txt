@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 nqo{
     AuxExemplarCharacters{"[ߨ ߩ ߪ]"}
     ExemplarCharacters{
@@ -95,20 +95,20 @@ nqo{
             }
             eras{
                 abbreviated{
-                    "ߌߛ. ߡ. ߢߍ߫",
-                    "ߌߛ. ߡ. ߞߐ߫",
+                    0{"ߌߛ. ߡ. ߢߍ߫"}
+                    1{"ߌߛ. ߡ. ߞߐ߫"}
                 }
                 narrow{
-                    "ߌߛ. ߢߍ߫",
-                    "ߌߛ. ߞߐ߫",
+                    0{"ߌߛ. ߢߍ߫"}
+                    1{"ߌߛ. ߞߐ߫"}
                 }
                 wide{
-                    "ߌߛߊ߫ ߡߏߦߌ ߢߍ߫",
-                    "ߌߛߊ߫ ߡߏߦߌ ߞߐ߫",
+                    0{"ߌߛߊ߫ ߡߏߦߌ ߢߍ߫"}
+                    1{"ߌߛߊ߫ ߡߏߦߌ ߞߐ߫"}
                 }
                 wide%variant{
-                    "ߞߊ߬ߝߏ߬ߙߋ߲ ߥߎ߬ߛߎ ߢߍ߫",
-                    "ߞߊ߬ߝߏ߬ߙߋ߲ ߠߊ߫ ߥߎ߬ߛߎ",
+                    0{"ߞߊ߬ߝߏ߬ߙߋ߲ ߥߎ߬ߛߎ ߢߍ߫"}
+                    1{"ߞߊ߬ߝߏ߬ߙߋ߲ ߠߊ߫ ߥߎ߬ߛߎ"}
                 }
             }
             monthNames{

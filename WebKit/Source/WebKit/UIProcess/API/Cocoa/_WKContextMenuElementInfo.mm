@@ -53,14 +53,14 @@
 - (_WKHitTestResult *)hitTestResult
 {
     auto& hitTestResultData = _contextMenuElementInfoMac->hitTestResultData();
-    auto apiHitTestResult = API::HitTestResult::create(hitTestResultData, _contextMenuElementInfoMac->page());
+    auto apiHitTestResult = API::HitTestResult::create(hitTestResultData, _contextMenuElementInfoMac->protectedPage().get());
     return retainPtr(wrapper(apiHitTestResult)).autorelease();
 }
 
 - (NSString *)qrCodePayloadString
 {
     auto& qrCodePayloadString = _contextMenuElementInfoMac->qrCodePayloadString();
-    return nsStringNilIfEmpty(qrCodePayloadString);
+    return nsStringNilIfEmpty(qrCodePayloadString).autorelease();
 }
 
 - (BOOL)hasEntireImage

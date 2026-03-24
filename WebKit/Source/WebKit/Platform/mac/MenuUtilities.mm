@@ -84,6 +84,14 @@ SOFT_LINK_CLASS(TelephonyUtilities, TUCall)
 
 @end
 
+#if HAVE(DATA_DETECTORS_MAC_ACTION)
+SPECIALIZE_OBJC_TYPE_TRAITS(DDMacAction, PAL::getDDMacActionClassSingleton());
+using PlatformDDAction = DDMacAction;
+#else
+SPECIALIZE_OBJC_TYPE_TRAITS(DDAction, PAL::getDDActionClassSingleton());
+using PlatformDDAction = DDAction;
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -94,27 +102,14 @@ RetainPtr<NSString> menuItemTitleForTelephoneNumberGroup()
     return [getTUCallClassSingleton() supplementalDialTelephonyCallString];
 }
 
-#if HAVE(DATA_DETECTORS_MAC_ACTION)
-static DDMacAction *actionForMenuItem(NSMenuItem *item)
-#else
-static DDAction *actionForMenuItem(NSMenuItem *item)
-#endif
+static RetainPtr<PlatformDDAction> actionForMenuItem(NSMenuItem *item)
 {
-    auto *representedObject = dynamic_objc_cast<NSDictionary>(item.representedObject);
+    RetainPtr<NSDictionary> representedObject = dynamic_objc_cast<NSDictionary>(item.representedObject);
     if (!representedObject)
         return nil;
 
-    id action = [representedObject objectForKey:@"DDAction"];
-
-#if HAVE(DATA_DETECTORS_MAC_ACTION)
-    if (![action isKindOfClass:PAL::getDDMacActionClassSingleton()])
-        return nil;
-#else
-    if (![action isKindOfClass:PAL::getDDActionClassSingleton()])
-        return nil;
-#endif
-
-    return action;
+    RetainPtr<id> action = [representedObject objectForKey:@"DDAction"];
+    return dynamic_objc_cast<PlatformDDAction>(WTF::move(action));
 }
 
 NSMenuItem *menuItemForTelephoneNumber(const String& telephoneNumber)
@@ -122,15 +117,14 @@ NSMenuItem *menuItemForTelephoneNumber(const String& telephoneNumber)
     if (!PAL::isDataDetectorsFrameworkAvailable())
         return nil;
 
-    // FIXME: This is a safer cpp false positive (rdar://161378050).
-    SUPPRESS_UNRETAINED_ARG auto actionContext = adoptNS([PAL::allocWKDDActionContextInstance() init]);
+    auto actionContext = adoptNS([PAL::allocWKDDActionContextInstance() init]);
 
     [actionContext setAllowedActionUTIs:@[ @"com.apple.dial" ]];
 
     RetainPtr<NSArray> proposedMenuItems = [[PAL::getDDActionsManagerClassSingleton() sharedManager] menuItemsForValue:telephoneNumber.createNSString().get() type:PAL::get_DataDetectorsCore_DDBinderPhoneNumberKeySingleton() service:nil context:actionContext.get()];
     for (NSMenuItem *item in proposedMenuItems.get()) {
         RetainPtr action = actionForMenuItem(item);
-        if ([action.get().actionUTI hasPrefix:@"com.apple.dial"]) {
+        if ([retainPtr(action.get().actionUTI) hasPrefix:@"com.apple.dial"]) {
             item.title = formattedPhoneNumberString(telephoneNumber.createNSString().get()).get();
             return item;
         }
@@ -148,13 +142,13 @@ RetainPtr<NSMenu> menuForTelephoneNumber(const String& telephoneNumber, NSView *
     auto urlComponents = adoptNS([[NSURLComponents alloc] init]);
     [urlComponents setScheme:@"tel"];
     [urlComponents setPath:telephoneNumber.createNSString().get()];
-    auto item = adoptNS([PAL::allocRVItemInstance() initWithURL:[urlComponents URL] rangeInContext:NSMakeRange(0, telephoneNumber.length())]);
+    auto item = adoptNS([PAL::allocRVItemInstance() initWithURL:retainPtr([urlComponents URL]).get() rangeInContext:NSMakeRange(0, telephoneNumber.length())]);
     auto presenter = adoptNS([PAL::allocRVPresenterInstance() init]);
     auto delegate = adoptNS([[WKEmptyPresenterHighlightDelegate alloc] initWithRect:rect]);
     auto context = WebCore::createRVPresentingContextWithRetainedDelegate(NSZeroPoint, webView, delegate.get());
-    NSArray *proposedMenuItems = [presenter menuItemsForItem:item.get() documentContext:nil presentingContext:context.get() options:nil];
+    RetainPtr<NSArray> proposedMenuItems = [presenter menuItemsForItem:item.get() documentContext:nil presentingContext:context.get() options:nil];
 
-    [menu setItemArray:proposedMenuItems];
+    [menu setItemArray:proposedMenuItems.get()];
 
     return menu;
 }
@@ -376,6 +370,8 @@ static std::optional<SymbolNameWithType> symbolNameWithTypeForAction(const WebCo
         return { { SymbolType::Public, "translate"_s } };
     case WebCore::ContextMenuItemTagUnderline:
         return { { SymbolType::Public, "underline"_s } };
+    case WebCore::ContextMenuItemCaptionDisplayStyleSubmenu:
+        return { };
     }
 
     return { };

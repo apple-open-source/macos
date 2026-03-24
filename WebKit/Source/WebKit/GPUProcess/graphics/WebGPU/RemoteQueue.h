@@ -67,7 +67,7 @@ class RemoteQueue final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteQueue> create(WebCore::WebGPU::Queue& queue, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteQueue(queue, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteQueue(queue, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteQueue();

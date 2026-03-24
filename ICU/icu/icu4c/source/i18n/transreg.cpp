@@ -560,6 +560,11 @@ TransliteratorRegistry::TransliteratorRegistry(UErrorCode& status) :
         variantList.adoptElement(emptyString, status);
     }
     specDAG.setValueDeleter(uhash_deleteHashtable);
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    fBogus.setToBogus();
+#endif // APPLE_ICU_CHANGES
 }
 
 TransliteratorRegistry::~TransliteratorRegistry() {
@@ -772,10 +777,20 @@ const UnicodeString& TransliteratorRegistry::getAvailableID(int32_t index) const
         return *static_cast<UnicodeString*>(e->key.pointer);
     }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    // If the code reaches here, the hash table was likely modified during iteration,
+    // or the requested index is out of bounds.
+    // Return a bogus string due to reference return type,
+    // and inability to return a UErrorCode from this API.
+    return fBogus;
+#else
     // If the code reaches here, the hash table was likely modified during iteration.
     // Return an statically initialized empty string due to reference return type.
     static UnicodeString empty;
     return empty;
+#endif // APPLE_ICU_CHANGES
 }
 
 StringEnumeration* TransliteratorRegistry::getAvailableIDs() const {

@@ -33,7 +33,12 @@
 #include "IPCStreamTester.h"
 #include "IPCTesterMessages.h"
 #include "IPCTesterReceiverMessages.h"
+#if ENABLE(IPC_TESTING_SWIFT)
+#include "IPCTesterReceiverSwiftMessages.h"
+#endif
 #include "IPCUtilities.h"
+#include "Logging.h"
+#include "TestParameter.h"
 
 #include <WebCore/ExceptionData.h>
 #include <atomic>
@@ -81,7 +86,7 @@ static int sendTestMessage(std::span<const uint8_t> buffer, void* context)
     BinarySemaphore semaphore;
     auto decoder = IPC::Decoder::create(buffer, [&semaphore] (std::span<const uint8_t>) { semaphore.signal(); }, { }); // NOLINT
     if (decoder) {
-        testedConnection->dispatchIncomingMessageForTesting(makeUniqueRefFromNonNullUniquePtr(WTFMove(decoder)));
+        testedConnection->dispatchIncomingMessageForTesting(makeUniqueRefFromNonNullUniquePtr(WTF::move(decoder)));
         semaphore.wait();
     }
     return 0;
@@ -106,7 +111,7 @@ static void runMessageTesting(IPC::Connection& connection, std::atomic<bool>& sh
 {
     connection.setIgnoreInvalidMessageForTesting();
     SendMessageContext context { connection, shouldStop };
-    auto driver = messageTestDriver(WTFMove(driverName));
+    auto driver = messageTestDriver(WTF::move(driverName));
     driver(sendTestMessage, &context);
 }
 
@@ -126,9 +131,9 @@ void IPCTester::startMessageTesting(IPC::Connection& connection, String&& driver
 {
     if (!m_testQueue)
         m_testQueue = WorkQueue::create("IPC testing work queue"_s);
-    m_testQueue->dispatch([connection = Ref { connection }, &shouldStop = m_shouldStop, driverName = WTFMove(driverName)]() mutable {
+    m_testQueue->dispatch([connection = Ref { connection }, &shouldStop = m_shouldStop, driverName = WTF::move(driverName)]() mutable {
         IPC::startTestingIPC();
-        runMessageTesting(connection, shouldStop, WTFMove(driverName));
+        runMessageTesting(connection, shouldStop, WTF::move(driverName));
         IPC::stopTestingIPC();
     });
 }
@@ -142,7 +147,7 @@ void IPCTester::stopMessageTesting(CompletionHandler<void()>&& completionHandler
 void IPCTester::createStreamTester(IPC::Connection& connection, IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& serverConnection)
 {
     auto addResult = m_streamTesters.ensure(identifier, [&] {
-        return IPC::ScopedActiveMessageReceiveQueue<IPCStreamTester> { IPCStreamTester::create(identifier, WTFMove(serverConnection), connection.ignoreInvalidMessageForTesting()) };
+        return IPC::ScopedActiveMessageReceiveQueue<IPCStreamTester> { IPCStreamTester::create(identifier, WTF::move(serverConnection), connection.ignoreInvalidMessageForTesting()) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry || IPC::isTestingIPC());
 }
@@ -182,10 +187,24 @@ void IPCTester::sendAsyncMessageToReceiver(IPC::Connection& connection, uint32_t
     }, 0);
 }
 
+void IPCTester::sendAsyncMessageToReceiverRequestingReply(IPC::Connection& connection, uint32_t arg0, CompletionHandler<void(uint32_t, bool)>&& completionHandler)
+{
+#if ENABLE(IPC_TESTING_SWIFT)
+    constexpr bool usingSwift = true;
+    using Message = Messages::IPCTesterReceiverSwift::AsyncMessage;
+#else
+    constexpr bool usingSwift = false;
+    using Message = Messages::IPCTesterReceiver::AsyncMessage;
+#endif
+    connection.sendWithAsyncReply(Message(arg0 + 1), [completionHandler = WTF::move(completionHandler)](uint32_t newArg0) mutable {
+        completionHandler(newArg0, usingSwift);
+    }, 0);
+}
+
 void IPCTester::createConnectionTester(IPC::Connection& connection, IPCConnectionTesterIdentifier identifier, IPC::Connection::Handle&& testedConnectionIdentifier)
 {
     auto addResult = m_connectionTesters.ensure(identifier, [&] {
-        return IPC::ScopedActiveMessageReceiveQueue<IPCConnectionTester> { IPCConnectionTester::create(connection, identifier, WTFMove(testedConnectionIdentifier)) };
+        return IPC::ScopedActiveMessageReceiveQueue<IPCConnectionTester> { IPCConnectionTester::create(connection, identifier, WTF::move(testedConnectionIdentifier)) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry || IPC::isTestingIPC());
 }
@@ -193,7 +212,7 @@ void IPCTester::createConnectionTester(IPC::Connection& connection, IPCConnectio
 void IPCTester::createConnectionTesterAndSendAsyncMessages(IPC::Connection& connection, IPCConnectionTesterIdentifier identifier, IPC::Connection::Handle&& testedConnectionIdentifier, uint32_t messageCount)
 {
     auto addResult = m_connectionTesters.ensure(identifier, [&] {
-        return IPC::ScopedActiveMessageReceiveQueue<IPCConnectionTester> { IPCConnectionTester::create(connection, identifier, WTFMove(testedConnectionIdentifier)) };
+        return IPC::ScopedActiveMessageReceiveQueue<IPCConnectionTester> { IPCConnectionTester::create(connection, identifier, WTF::move(testedConnectionIdentifier)) };
     });
     if (!addResult.isNewEntry) {
         ASSERT_IS_TESTING_IPC();
@@ -245,6 +264,11 @@ void IPCTester::stopIfNeeded()
 void IPCTester::emptyMessageWithReply(CompletionHandler<void(uint64_t)>&& completionHandler)
 {
     completionHandler(0x1);
+}
+
+void IPCTester::checkTestParameter(IPC::Connection& connection, TestParameter param)
+{
+    MESSAGE_CHECK_WITH_MESSAGE_BASE(param.value < 100, connection, "Test parameter must be less than 100");
 }
 
 } // namespace WebKit

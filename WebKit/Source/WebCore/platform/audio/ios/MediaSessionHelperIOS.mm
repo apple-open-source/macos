@@ -29,7 +29,9 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "Logging.h"
+#import "MediaDeviceRoute.h"
 #import "MediaPlaybackTargetCocoa.h"
+#import "MediaPlaybackTargetWirelessPlayback.h"
 #import "PlatformMediaSessionManager.h"
 #import "WebCoreThreadRun.h"
 #import <AVFoundation/AVAudioSession.h>
@@ -85,9 +87,18 @@ class MediaSessionHelperIOS;
 
 @end
 
-class MediaSessionHelperIOS final : public MediaSessionHelper {
+class MediaSessionHelperIOS final
+    : public MediaSessionHelper
+#if HAVE(AVROUTING_FRAMEWORK)
+    , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSessionHelperIOS>
+#endif
+{
 public:
     MediaSessionHelperIOS();
+
+#if HAVE(AVROUTING_FRAMEWORK)
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
+#endif
 
     void externalOutputDeviceAvailableDidChange();
     void updateCarPlayIsConnected();
@@ -141,7 +152,7 @@ void MediaSessionHelper::resetSharedHelper()
 
 void MediaSessionHelper::setSharedHelper(Ref<MediaSessionHelper>&& helper)
 {
-    sharedHelperInstance() = WTFMove(helper);
+    sharedHelperInstance() = WTF::move(helper);
 }
 
 void MediaSessionHelper::addClient(MediaSessionHelperClient& client)
@@ -158,39 +169,45 @@ void MediaSessionHelper::removeClient(MediaSessionHelperClient& client)
 
 void MediaSessionHelper::activeAudioRouteDidChange(ShouldPause shouldPause)
 {
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.activeAudioRouteDidChange(shouldPause);
+    });
 }
 
 void MediaSessionHelper::applicationWillEnterForeground(SuspendedUnderLock suspendedUnderLock)
 {
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.uiApplicationWillEnterForeground(suspendedUnderLock);
+    });
 }
 
 void MediaSessionHelper::applicationDidEnterBackground(SuspendedUnderLock suspendedUnderLock)
 {
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.uiApplicationDidEnterBackground(suspendedUnderLock);
+    });
 }
 
 void MediaSessionHelper::applicationWillBecomeInactive()
 {
-    for (auto& client : m_clients)
+    m_clients.forEach([](auto& client) {
         client.uiApplicationWillBecomeInactive();
+    });
 }
 
 void MediaSessionHelper::applicationDidBecomeActive()
 {
-    for (auto& client : m_clients)
+    m_clients.forEach([](auto& client) {
         client.uiApplicationDidBecomeActive();
+    });
 }
 
 void MediaSessionHelper::externalOutputDeviceAvailableDidChange(HasAvailableTargets hasAvailableTargets)
 {
     m_isExternalOutputDeviceAvailable = hasAvailableTargets == HasAvailableTargets::Yes;
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.externalOutputDeviceAvailableDidChange(hasAvailableTargets);
+    });
 }
 
 void MediaSessionHelper::isPlayingToAutomotiveHeadUnitDidChange(PlayingToAutomotiveHeadUnit playingToAutomotiveHeadUnit)
@@ -200,16 +217,18 @@ void MediaSessionHelper::isPlayingToAutomotiveHeadUnitDidChange(PlayingToAutomot
         return;
 
     m_isPlayingToAutomotiveHeadUnit = newValue;
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.isPlayingToAutomotiveHeadUnitDidChange(playingToAutomotiveHeadUnit);
+    });
 }
 
 void MediaSessionHelper::activeVideoRouteDidChange(SupportsAirPlayVideo supportsAirPlayVideo, Ref<MediaPlaybackTarget>&& playbackTarget)
 {
-    m_playbackTarget = WTFMove(playbackTarget);
+    m_playbackTarget = WTF::move(playbackTarget);
     m_activeVideoRouteSupportsAirPlayVideo = supportsAirPlayVideo == SupportsAirPlayVideo::Yes;
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.activeVideoRouteDidChange(supportsAirPlayVideo, *m_playbackTarget);
+    });
 }
 
 void MediaSessionHelper::activeAudioRouteSupportsSpatialPlaybackDidChange(SupportsSpatialAudioPlayback supportsSpatialPlayback)
@@ -218,8 +237,9 @@ void MediaSessionHelper::activeAudioRouteSupportsSpatialPlaybackDidChange(Suppor
         return;
 
     m_activeAudioRouteSupportsSpatialPlayback = supportsSpatialPlayback;
-    for (auto& client : m_clients)
+    m_clients.forEach([&](auto& client) {
         client.activeAudioRouteSupportsSpatialPlaybackDidChange(supportsSpatialPlayback);
+    });
 }
 
 void MediaSessionHelper::startMonitoringWirelessRoutes()
@@ -270,6 +290,18 @@ void MediaSessionHelper::setActiveAudioRouteSupportsSpatialPlayback(bool support
     activeAudioRouteSupportsSpatialPlaybackDidChange(supports ? SupportsSpatialAudioPlayback::Yes : SupportsSpatialAudioPlayback::No);
 }
 
+#if HAVE(AVROUTING_FRAMEWORK)
+void MediaSessionHelper::activeRoutesDidChange(MediaDeviceRouteController& routeController)
+{
+    if (RefPtr mostRecentActiveRoute = routeController.mostRecentActiveRoute()) {
+        activeVideoRouteDidChange(SupportsAirPlayVideo::Yes, MediaPlaybackTargetWirelessPlayback::create(*mostRecentActiveRoute));
+        return;
+    }
+
+    // FIXME: Reset the active route for local playback
+}
+#endif // HAVE(AVROUTING_FRAMEWORK)
+
 MediaSessionHelperIOS::MediaSessionHelperIOS()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
@@ -278,6 +310,11 @@ MediaSessionHelperIOS::MediaSessionHelperIOS()
     END_BLOCK_OBJC_EXCEPTIONS
 
     updateCarPlayIsConnected();
+
+#if HAVE(AVROUTING_FRAMEWORK)
+    ASSERT(MediaDeviceRouteController::singleton().client() == nullptr);
+    MediaDeviceRouteController::singleton().setClient(this);
+#endif
 }
 
 std::optional<ProcessID> MediaSessionHelperIOS::presentedApplicationPID() const
@@ -366,9 +403,9 @@ void MediaSessionHelperIOS::activeAudioRouteDidChange(bool shouldPause)
 
 void MediaSessionHelperIOS::activeVideoRouteDidChange()
 {
-    auto target = MediaPlaybackTargetCocoa::create();
+    Ref<MediaPlaybackTarget> target = MediaPlaybackTargetCocoa::create();
     auto supportsRemoteVideoPlayback = target->supportsRemoteVideoPlayback() ? SupportsAirPlayVideo::Yes : SupportsAirPlayVideo::No;
-    MediaSessionHelper::activeVideoRouteDidChange(supportsRemoteVideoPlayback, WTFMove(target));
+    MediaSessionHelper::activeVideoRouteDidChange(supportsRemoteVideoPlayback, WTF::move(target));
 }
 #endif
 

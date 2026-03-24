@@ -31,6 +31,7 @@
 #include <WebCore/LinkLoader.h>
 #include <WebCore/LinkLoaderClient.h>
 #include <WebCore/LinkRelAttribute.h>
+#include <wtf/CheckedPtr.h>
 
 namespace WebCore {
 
@@ -46,13 +47,17 @@ template<typename T, typename Counter> class EventSender;
 using LinkEventSender = EventSender<HTMLLinkElement, WeakPtrImplWithEventTargetData>;
 
 class HTMLLinkElement final : public HTMLElement, public CachedStyleSheetClient, public LinkLoaderClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLLinkElement);
+    WTF_MAKE_TZONE_ALLOCATED(HTMLLinkElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLLinkElement);
 public:
     USING_CAN_MAKE_WEAKPTR(HTMLElement);
 
     static Ref<HTMLLinkElement> create(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLLinkElement();
+
+    // CachedResourceClient.
+    void ref() const final { HTMLElement::ref(); }
+    void deref() const final { HTMLElement::deref(); }
 
     URL href() const;
     WEBCORE_EXPORT const AtomString& rel() const;
@@ -149,7 +154,9 @@ private:
 
     void removePendingSheet();
 
-    LinkLoader m_linkLoader;
+    CheckedPtr<Style::Scope> checkedStyleScope();
+
+    const Ref<LinkLoader> m_linkLoader;
     CheckedPtr<Style::Scope> m_styleScope;
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;

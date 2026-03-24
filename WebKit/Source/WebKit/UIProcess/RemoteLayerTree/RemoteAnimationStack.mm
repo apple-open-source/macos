@@ -26,23 +26,25 @@
 #import "config.h"
 #import "RemoteAnimationStack.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
+#import "RemoteAnimationUtilities.h"
+#import "RemoteProgressBasedTimeline.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimationStack);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimationStack);
 
 Ref<RemoteAnimationStack> RemoteAnimationStack::create(RemoteAnimations&& animations, WebCore::AcceleratedEffectValues&& baseValues, WebCore::FloatRect bounds)
 {
-    return adoptRef(*new RemoteAnimationStack(WTFMove(animations), WTFMove(baseValues), bounds));
+    return adoptRef(*new RemoteAnimationStack(WTF::move(animations), WTF::move(baseValues), bounds));
 }
 
 RemoteAnimationStack::RemoteAnimationStack(RemoteAnimations&& animations, WebCore::AcceleratedEffectValues&& baseValues, WebCore::FloatRect bounds)
-    : m_animations(WTFMove(animations))
-    , m_baseValues(WTFMove(baseValues))
+    : m_animations(WTF::move(animations))
+    , m_baseValues(WTF::move(baseValues))
     , m_bounds(bounds)
 {
     bool affectsFilter = false;
@@ -71,20 +73,33 @@ RemoteAnimationStack::RemoteAnimationStack(RemoteAnimations&& animations, WebCor
 #if PLATFORM(MAC)
 const WebCore::FilterOperations* RemoteAnimationStack::longestFilterList() const
 {
-    // FIXME: this assumes there is no WebCore::AcceleratedEffectProperty::BackdropFilter anymore, only Filter.
     if (!m_affectedLayerProperties.contains(LayerProperty::Filter))
         return nullptr;
 
+    // FIXME: while m_affectedLayerProperties does not make the distinction between backdrop-filter
+    // and filter, the animations and keyframes do so we must check against both. However, it should
+    // only be either filter or backdrop-filter as a different layer will be used for those properties.
+    OptionSet<WebCore::AcceleratedEffectProperty> filterOrBackdropFilter = { WebCore::AcceleratedEffectProperty::Filter, WebCore::AcceleratedEffectProperty::BackdropFilter };
+
+    auto keyframeFilter = [](const WebCore::AcceleratedEffect::Keyframe& keyframe) -> const WebCore::FilterOperations* {
+        auto& animatedProperties = keyframe.animatedProperties();
+        if (animatedProperties.contains(WebCore::AcceleratedEffectProperty::Filter))
+            return &keyframe.values().filter;
+        if (animatedProperties.contains(WebCore::AcceleratedEffectProperty::BackdropFilter))
+            return &keyframe.values().backdropFilter;
+        return nullptr;
+    };
+
     const WebCore::FilterOperations* longestFilterList = nullptr;
     for (auto& animation : m_animations) {
-        if (!animation->animatedProperties().contains(WebCore::AcceleratedEffectProperty::Filter))
+        if (!animation->animatedProperties().containsAny(filterOrBackdropFilter))
             continue;
         for (auto& keyframe : animation->keyframes()) {
-            if (!keyframe.animatedProperties().contains(WebCore::AcceleratedEffectProperty::Filter))
+            auto* filter = keyframeFilter(keyframe);
+            if (!filter)
                 continue;
-            auto& filter = keyframe.values().filter;
-            if (!longestFilterList || longestFilterList->size() < filter.size())
-                longestFilterList = &filter;
+            if (!longestFilterList || longestFilterList->size() < filter->size())
+                longestFilterList = filter;
         }
     }
 
@@ -145,7 +160,7 @@ void RemoteAnimationStack::initEffectsFromMainThread(PlatformLayer *layer)
     [m_presentationModifierGroup flushWithTransaction];
 }
 
-void RemoteAnimationStack::applyEffectsFromScrollingThread() const
+void RemoteAnimationStack::applyEffects() const
 {
     ASSERT(m_presentationModifierGroup);
 
@@ -165,7 +180,10 @@ void RemoteAnimationStack::applyEffectsFromScrollingThread() const
         [m_transformPresentationModifier setValue:transform.get()];
     }
 
-    [m_presentationModifierGroup flush];
+    if (isMainRunLoop())
+        [m_presentationModifierGroup flushWithTransaction];
+    else
+        [m_presentationModifierGroup flush];
 }
 #endif
 
@@ -214,6 +232,37 @@ void RemoteAnimationStack::clear(PlatformLayer *layer)
 #endif
 }
 
+bool RemoteAnimationStack::isDependentOnScrollingNodeWithID(WebCore::ScrollingNodeID scrollingNodeID) const
+{
+    return m_animations.containsIf([scrollingNodeID](auto& animation) {
+        RefPtr progressBasedTimeline = dynamicDowncast<RemoteProgressBasedTimeline>(animation->timeline());
+        return progressBasedTimeline && progressBasedTimeline->source() == scrollingNodeID;
+    });
+}
+
+bool RemoteAnimationStack::isTimeDependent() const
+{
+    return m_animations.containsIf([](auto& animation) {
+        return animation->timeline().isMonotonic();
+    });
+}
+
+Ref<JSON::Object> RemoteAnimationStack::toJSONForTesting() const
+{
+    Ref convertedAnimations = JSON::Array::create();
+    OptionSet<WebCore::AcceleratedEffectProperty> animatedProperties;
+
+    for (auto& animation : m_animations) {
+        animatedProperties.add(animation->animatedProperties());
+        convertedAnimations->pushObject(animation->toJSONForTesting());
+    }
+
+    Ref object = JSON::Object::create();
+    object->setArray("animations"_s, WTF::move(convertedAnimations));
+    object->setObject("baseValues"_s, WebKit::toJSONForTesting(m_baseValues, animatedProperties));
+    return object;
+}
+
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

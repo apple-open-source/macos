@@ -119,7 +119,7 @@ class ListFormatterTest : public IntlTestWithFieldPosition {
         UListFormatterType type,
         UListFormatterWidth width,
         const char* expected,
-        IcuTestErrorCode status);
+        IcuTestErrorCode& status);
 
   private:
     // Reused test data.

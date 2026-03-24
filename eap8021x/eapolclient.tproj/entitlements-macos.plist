@@ -38,5 +38,9 @@
 	<true/>
 	<key>com.apple.private.mobileinboxupdater.eapCredentialEnabled</key>
 	<true/>
+	<key>com.apple.security.hardened-process</key>
+	<true/>
+	<key>com.apple.security.hardened-process.checked-allocations</key>
+	<true/>
 </dict>
 </plist>

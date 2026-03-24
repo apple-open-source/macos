@@ -35,7 +35,7 @@ namespace WebCore {
 class FormData;
 
 class Report : public RefCounted<Report> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(Report, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Report, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT static Ref<Report> create(const String& type, const String& url, RefPtr<ReportBody>&&);
 

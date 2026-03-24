@@ -246,7 +246,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         auto arguments = adoptNS([[NSMutableArray alloc] initWithCapacity:count]);
         for (size_t i = 0; i < count; ++i)
             [arguments setObject:[JSValue valueWithJSValueRef:entry->arguments[i] inContext:context] atIndexedSubscript:i];
-        entry->currentArguments = WTFMove(arguments);
+        entry->currentArguments = WTF::move(arguments);
     }
 
     return entry->currentArguments.get();

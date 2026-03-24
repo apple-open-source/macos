@@ -92,7 +92,7 @@ template<> void JSShadowRealmGlobalScopeDOMConstructor::initializeProperties(VM&
 const ClassInfo JSShadowRealmGlobalScope::s_info = { "ShadowRealmGlobalScope"_s, &Base::s_info, &JSShadowRealmGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSShadowRealmGlobalScope) };
 
 JSShadowRealmGlobalScope::JSShadowRealmGlobalScope(VM& vm, Structure* structure, Ref<ShadowRealmGlobalScope>&& impl)
-    : JSDOMWrapper<ShadowRealmGlobalScope>(vm, structure, WTFMove(impl))
+    : JSDOMWrapper<ShadowRealmGlobalScope>(vm, structure, WTF::move(impl))
 {
 }
 

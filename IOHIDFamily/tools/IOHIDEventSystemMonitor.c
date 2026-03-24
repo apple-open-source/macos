@@ -435,10 +435,10 @@ static void runServer()
                                                         };
     
     eventSystem = IOHIDEventSystemCreate(kCFAllocatorDefault);
-    require(eventSystem, exit);
+    __Require(eventSystem, exit);
         
     result = IOHIDEventSystemOpen(eventSystem, filterEventCallback, NULL, NULL, 0);
-    require(result, exit);
+    __Require(result, exit);
 
     if ( __virtualService ) {
         virtualService = _IOHIDServiceCreateVirtual(kCFAllocatorDefault, 0xb0b0000000000000, &virtualCallbacks, NULL, NULL); // Last 2 args target, refcon
@@ -611,10 +611,10 @@ static void listAllServicesWithSystem(IOHIDEventSystemClientRef eventSystem)
 {
     CFArrayRef  services = NULL;
     
-    require(eventSystem, exit);
+    __Require(eventSystem, exit);
     
     services = (CFArrayRef)IOHIDEventSystemClientCopyProperty(eventSystem, CFSTR(kIOHIDServiceRecordsKey));
-    require(services, exit);
+    __Require(services, exit);
     
     listServices(services, 0);
     
@@ -628,7 +628,7 @@ static void listAllServices()
 {
     IOHIDEventSystemClientRef eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeAdmin, NULL);
     
-    require(eventSystem, exit);
+    __Require(eventSystem, exit);
     
     listAllServicesWithSystem(eventSystem);
 
@@ -642,10 +642,10 @@ static void listAllClientsWithSystem(IOHIDEventSystemClientRef eventSystem)
     CFIndex     index;
     CFArrayRef  clients = NULL;
 
-    require(eventSystem, exit);
+    __Require(eventSystem, exit);
     
     clients = (CFArrayRef)IOHIDEventSystemClientCopyProperty(eventSystem, CFSTR(kIOHIDClientRecordsKey));
-    require(clients, exit);
+    __Require(clients, exit);
     
     for ( index=0, printBorder(0); index<CFArrayGetCount(clients); index++, printBorder(0) ) {
         CFDictionaryRef clientRecord    = (CFDictionaryRef)CFArrayGetValueAtIndex(clients, index);
@@ -687,7 +687,7 @@ static void listAllClients()
 {
     IOHIDEventSystemClientRef eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeAdmin, NULL);
     
-    require(eventSystem, exit);
+    __Require(eventSystem, exit);
     
     listAllClientsWithSystem(eventSystem);
     
@@ -720,10 +720,10 @@ static void runClient()
     _Static_assert(sizeof(keys) / sizeof(keys[0]) == sizeof(values) / sizeof(values[0]), "need same number of keys and values");
 
     attribs = CFDictionaryCreate(kCFAllocatorDefault, (const void **)keys, (const void **)values, keyCount, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require_action(attribs, exit, printf("Unable to create attributes\n"));
+    __Require_Action(attribs, exit, printf("Unable to create attributes\n"));
 
     eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, __clientType, attribs);
-    require_action(eventSystem, exit, printf("Unable to create client"));
+    __Require_Action(eventSystem, exit, printf("Unable to create client"));
     
     IOHIDEventSystemClientScheduleWithRunLoop(eventSystem, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
     
@@ -740,7 +740,7 @@ static void runClient()
         }
         
     } else {
-        require_action(!__dispatchOnly, exit, dispatchClientEvents(eventSystem, __dispatchEventMask));
+        __Require_Action(!__dispatchOnly, exit, dispatchClientEvents(eventSystem, __dispatchEventMask));
         
         if ( __dispatchEventMask ) {
             pthread_attr_t  attr;
@@ -764,7 +764,7 @@ static void runClient()
         
         if ( __matchingCount || __matchingDictionary ) {
             multiple = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-            require(multiple, exit);
+            __Require(multiple, exit);
             if (__matchingDictionary) {
               CFArrayAppendValue(multiple, __matchingDictionary);
               CFRelease(__matchingDictionary);

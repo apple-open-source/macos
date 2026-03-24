@@ -32,7 +32,6 @@
 #include <JavaScriptCore/TypedArrays.h>
 #include <WebCore/FetchHeaders.h>
 #include <WebCore/HTTPStatusCodes.h>
-#include <WebCore/ReadableStreamSink.h>
 #include <WebCore/ResourceResponse.h>
 #include <span>
 #include <wtf/TZoneMalloc.h>
@@ -168,8 +167,8 @@ private:
         bool hasLoader() const { return !!m_loader; }
 
         RefPtr<FragmentedSharedBuffer> startStreaming();
-        NotificationCallback takeNotificationCallback() { return WTFMove(m_responseCallback); }
-        ConsumeDataByChunkCallback takeConsumeDataCallback() { return WTFMove(m_consumeDataCallback); }
+        NotificationCallback takeNotificationCallback() { return WTF::move(m_responseCallback); }
+        ConsumeDataByChunkCallback takeConsumeDataCallback() { return WTF::move(m_consumeDataCallback); }
 
     private:
         Loader(FetchResponse&, NotificationCallback&&);

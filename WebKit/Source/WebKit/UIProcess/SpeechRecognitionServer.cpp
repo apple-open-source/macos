@@ -46,9 +46,9 @@ Ref<SpeechRecognitionServer> SpeechRecognitionServer::create(WebProcessProxy& pr
 #endif
     )
 {
-    return adoptRef(*new SpeechRecognitionServer(process, identifier, WTFMove(permissionChecker), WTFMove(checkIfEnabled)
+    return adoptRef(*new SpeechRecognitionServer(process, identifier, WTF::move(permissionChecker), WTF::move(checkIfEnabled)
 #if ENABLE(MEDIA_STREAM)
-        , WTFMove(function)
+        , WTF::move(function)
 #endif
     ));
 }
@@ -60,10 +60,10 @@ SpeechRecognitionServer::SpeechRecognitionServer(WebProcessProxy& process, Speec
     )
     : m_process(process)
     , m_identifier(identifier)
-    , m_permissionChecker(WTFMove(permissionChecker))
-    , m_checkIfMockSpeechRecognitionEnabled(WTFMove(checkIfEnabled))
+    , m_permissionChecker(WTF::move(permissionChecker))
+    , m_checkIfMockSpeechRecognitionEnabled(WTF::move(checkIfEnabled))
 #if ENABLE(MEDIA_STREAM)
-    , m_realtimeMediaSourceCreateFunction(WTFMove(function))
+    , m_realtimeMediaSourceCreateFunction(WTF::move(function))
 #endif
 {
 }
@@ -76,28 +76,28 @@ std::optional<SharedPreferencesForWebProcess> SpeechRecognitionServer::sharedPre
 void SpeechRecognitionServer::start(WebCore::SpeechRecognitionConnectionClientIdentifier clientIdentifier, String&& lang, bool continuous, bool interimResults, uint64_t maxAlternatives, WebCore::ClientOrigin&& origin, WebCore::FrameIdentifier mainFrameIdentifier, FrameInfoData&& frameInfo)
 {
     ASSERT(!m_requests.contains(clientIdentifier));
-    auto requestInfo = WebCore::SpeechRecognitionRequestInfo { clientIdentifier, WTFMove(lang), continuous, interimResults, maxAlternatives, WTFMove(origin), mainFrameIdentifier };
-    auto& newRequest = m_requests.add(clientIdentifier, makeUnique<WebCore::SpeechRecognitionRequest>(WTFMove(requestInfo))).iterator->value;
+    auto requestInfo = WebCore::SpeechRecognitionRequestInfo { clientIdentifier, WTF::move(lang), continuous, interimResults, maxAlternatives, WTF::move(origin), mainFrameIdentifier };
+    auto& newRequest = m_requests.add(clientIdentifier, WebCore::SpeechRecognitionRequest::create(WTF::move(requestInfo))).iterator->value;
 
-    requestPermissionForRequest(*newRequest, WTFMove(frameInfo));
+    requestPermissionForRequest(newRequest, WTF::move(frameInfo));
 }
 
 void SpeechRecognitionServer::requestPermissionForRequest(WebCore::SpeechRecognitionRequest& request, FrameInfoData&& frameInfo)
 {
-    m_permissionChecker(request, WTFMove(frameInfo), [weakThis = WeakPtr { *this }, weakRequest = WeakPtr { request }](auto error) mutable {
+    m_permissionChecker(request, WTF::move(frameInfo), [weakThis = WeakPtr { *this }, weakRequest = WeakPtr { request }](auto error) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !weakRequest)
             return;
 
         auto identifier = weakRequest->clientIdentifier();
-        auto request = protectedThis->m_requests.take(identifier);
+        RefPtr request = protectedThis->m_requests.take(identifier);
         if (error) {
-            protectedThis->sendUpdate(identifier, WebCore::SpeechRecognitionUpdateType::Error, WTFMove(error));
+            protectedThis->sendUpdate(identifier, WebCore::SpeechRecognitionUpdateType::Error, WTF::move(error));
             return;
         }
 
         ASSERT(request);
-        protectedThis->handleRequest(makeUniqueRefFromNonNullUniquePtr(WTFMove(request)));
+        protectedThis->handleRequest(request.releaseNonNull());
     });
 }
 
@@ -106,7 +106,7 @@ CheckedPtr<WebCore::SpeechRecognizer> SpeechRecognitionServer::checkedRecognizer
     return m_recognizer.get();
 }
 
-void SpeechRecognitionServer::handleRequest(UniqueRef<WebCore::SpeechRecognitionRequest>&& request)
+void SpeechRecognitionServer::handleRequest(Ref<WebCore::SpeechRecognitionRequest>&& request)
 {
     if (CheckedPtr recognizer = m_recognizer.get()) {
         recognizer->abort(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::Aborted, "Another request is started"_s });
@@ -121,11 +121,18 @@ void SpeechRecognitionServer::handleRequest(UniqueRef<WebCore::SpeechRecognition
 
         protectedThis->sendUpdate(update);
 
-        if (update.type() == WebCore::SpeechRecognitionUpdateType::Error)
-            protectedThis->checkedRecognizer()->abort();
-        else if (update.type() == WebCore::SpeechRecognitionUpdateType::End)
-            protectedThis->checkedRecognizer()->setInactive();
-    }, WTFMove(request));
+        if (update.type() == WebCore::SpeechRecognitionUpdateType::Error) {
+            // Do this asynchronously to as synchronous object destruction trips CheckedPtrs.
+            callOnMainRunLoop([protectedThis] {
+                protectedThis->checkedRecognizer()->abort();
+            });
+        } else if (update.type() == WebCore::SpeechRecognitionUpdateType::End) {
+            // Do this asynchronously to as synchronous object destruction trips CheckedPtrs.
+            callOnMainRunLoop([protectedThis] {
+                protectedThis->checkedRecognizer()->setInactive();
+            });
+        }
+    }, WTF::move(request));
 
 #if ENABLE(MEDIA_STREAM)
     auto sourceOrError = m_realtimeMediaSourceCreateFunction();

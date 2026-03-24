@@ -41,7 +41,7 @@ class QuerySetImpl final : public QuerySet {
 public:
     static Ref<QuerySetImpl> create(WebGPUPtr<WGPUQuerySet>&& querySet, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new QuerySetImpl(WTFMove(querySet), convertToBackingContext));
+        return adoptRef(*new QuerySetImpl(WTF::move(querySet), convertToBackingContext));
     }
 
     virtual ~QuerySetImpl();

@@ -41,7 +41,7 @@ struct MediaEncryptedEventInit : EventInit {
     MediaEncryptedEventInit(const String& initDataType, RefPtr<JSC::ArrayBuffer>&& initData)
         : EventInit()
         , initDataType(initDataType)
-        , initData(WTFMove(initData))
+        , initData(WTF::move(initData))
     { }
 
     String initDataType;

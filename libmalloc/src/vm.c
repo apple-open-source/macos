@@ -333,7 +333,7 @@ retry:
 			uintptr_t t = entropic_address;
 			uintptr_t u = t - ENTROPIC_KABILLION;
 
-			// provided we don't wrap, deallocate and retry, in theexpanded
+			// provided we don't wrap, deallocate and retry, in the expanded
 			// entropic range
 			if (u < t && u >= entropic_base) {
 				mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
@@ -390,7 +390,7 @@ retry:
 		} else if (add_prelude_guard_page) {
 			addr += large_vm_page_quanta_size;
 		}
-		mvm_protect_plat((void *)addr, size, PROT_NONE, debug_flags, map_out);
+		mvm_guard_plat((void *)addr, size, PROT_NONE, debug_flags, map_out);
 	}
 	return (void *)addr;
 #endif // MALLOC_TARGET_EXCLAVES
@@ -469,29 +469,52 @@ mvm_protect_plat(void * __sized_by(size) address, size_t size, unsigned protecti
 		((protection & PROT_EXEC) ? LIBLIBC_MAP_PERM_EXECUTE : LIBLIBC_MAP_PERM_NONE);
 	if (debug_flags & (MALLOC_ADD_GUARD_PAGE_FLAGS | MALLOC_PURGEABLE)) {
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
-			"Unsupported deallocation debug flags %u\n", debug_flags);
+				"Unsupported protect debug flags %u\n", debug_flags);
 	}
 	if (!mprotect_plat(map, address, size, perm)) {
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
-			"Unsupported deallocation address %p or size %lu: %d\n", address, size, errno);
+				"Unsupported protect address %p or size %lu: %d\n", address,
+				size, errno);
 	}
 #else
 	(void)map;
-	kern_return_t err;
+	if (debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
+		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
+				"Unsupported protect debug flags %u\n", debug_flags);
+	}
 
+	kern_return_t err = mprotect(address, size, protection);
+	if (err) {
+		malloc_zone_error(debug_flags, false,
+				"*** can't mvm_protect(%u) region at %p with size %lu\n",
+				protection, address, size);
+	}
+#endif // MALLOC_TARGET_EXCLAVES
+}
+
+void
+mvm_guard(void * __sized_by(size) address, size_t size,
+		unsigned protection, unsigned debug_flags)
+{
+	return mvm_guard_plat(address, size, protection, debug_flags, NULL);
+}
+
+void
+mvm_guard_plat(void * __sized_by(size) address, size_t size,
+		unsigned protection, unsigned debug_flags, plat_map_t *map)
+{
+#if MALLOC_TARGET_EXCLAVES
+	malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
+			"Unsupported guard protect address %p size %lu permission %x\n", address, size, protection);
+#else
+	unsigned debug_flags_new = (debug_flags & ~MALLOC_ADD_GUARD_PAGE_FLAGS);
 	if ((debug_flags & MALLOC_ADD_PRELUDE_GUARD_PAGE) && !(debug_flags & MALLOC_DONT_PROTECT_PRELUDE)) {
-		err = mprotect((void *)((uintptr_t)address - large_vm_page_quanta_size), large_vm_page_quanta_size, protection);
-		if (err) {
-			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for prelude guard page at %p\n", protection,
-					(void *)((uintptr_t)address - large_vm_page_quanta_size));
-		}
+		mvm_protect_plat((void *)((uintptr_t)address - large_vm_page_quanta_size),
+				large_vm_page_quanta_size, protection, debug_flags_new, map);
 	}
 	if ((debug_flags & MALLOC_ADD_POSTLUDE_GUARD_PAGE) && !(debug_flags & MALLOC_DONT_PROTECT_POSTLUDE)) {
-		err = mprotect((void *)(round_page_quanta(((uintptr_t)address + size))), large_vm_page_quanta_size, protection);
-		if (err) {
-			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for postlude guard page at %p\n", protection,
-					(void *)((uintptr_t)address + size));
-		}
+		mvm_protect_plat((void *)(round_page_quanta(((uintptr_t)address + size))),
+				large_vm_page_quanta_size, protection, debug_flags_new, map);
 	}
 #endif // MALLOC_TARGET_EXCLAVES
 }

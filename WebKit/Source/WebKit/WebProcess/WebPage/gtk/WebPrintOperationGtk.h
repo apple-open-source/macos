@@ -32,6 +32,7 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GSpanExtras.h>
 
 #if USE(CAIRO)
 #include <WebCore/RefPtrCairo.h>
@@ -144,8 +145,7 @@ private:
     size_t m_numberOfPagesToPrint { 0 };
     unsigned m_pagesToPrint { 0 };
     size_t m_pagePosition { 0 };
-    GtkPageRange* m_pageRanges { nullptr };
-    size_t m_pageRangesCount { 0 };
+    GMallocSpan<GtkPageRange> m_pageRanges;
     bool m_needsRotation { false };
 
     // Manual capabilities.

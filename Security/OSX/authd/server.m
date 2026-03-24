@@ -19,6 +19,7 @@
 #include "PreloginUserDb.h"
 #include "Authorization.h"
 #include "od.h"
+#include "PluginSafePath.h"
 
 #include <errno.h>
 #include <libproc.h>
@@ -62,7 +63,7 @@ get_server_dispatch_queue(void)
     
     dispatch_once(&onceToken, ^{
         server_queue = dispatch_queue_create("com.apple.security.auth.server", DISPATCH_QUEUE_SERIAL);
-        check(server_queue != NULL);
+        __Check(server_queue != NULL);
     });
     
     return server_queue;
@@ -186,19 +187,19 @@ OSStatus server_init(void)
     getaudit_addr(&info, sizeof(info));
     os_log_debug(AUTHD_LOG, "server: uid=%i, sid=%i", info.ai_auid, info.ai_asid);
     
-    require_action(get_server_dispatch_queue() != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(get_server_dispatch_queue() != NULL, done, status = errAuthorizationInternal);
     
     gProcessMap = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kProcessMapKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require_action(gProcessMap != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(gProcessMap != NULL, done, status = errAuthorizationInternal);
     
     gSessionMap = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kSessionMapKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require_action(gSessionMap != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(gSessionMap != NULL, done, status = errAuthorizationInternal);
     
     gAuthTokenMap = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kAuthTokenKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require_action(gAuthTokenMap != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(gAuthTokenMap != NULL, done, status = errAuthorizationInternal);
     
     gDatabase = authdb_create(false);
-    require_action(gDatabase != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(gDatabase != NULL, done, status = errAuthorizationInternal);
     
     // check to see if we have an updates
     authdb_connection_t dbconn = authdb_connection_acquire(gDatabase);
@@ -254,7 +255,7 @@ server_register_connection(xpc_connection_t connection)
     __block process_t proc = NULL;
     __block CFIndex conn_count = 0;
 
-    require(connection != NULL, done);
+    __Require(connection != NULL, done);
     
     audit_token_t auditToken;
     audit_info_s info;
@@ -382,121 +383,6 @@ server_find_copy_session(session_id_t sid, bool create)
     return session;
 }
 
-static OSStatus
-plugin_stage(pid_t instance, const char *originalPath, char **safePath, NSMutableDictionary *stagedPluginsList)
-{
-    OSStatus status = errAuthorizationDenied;
-    
-    // Input validation
-    if (!originalPath || strlen(originalPath) == 0) {
-        os_log_error(AUTHD_LOG, "Invalid plugin path provided");
-        return errAuthorizationInvalidPointer;
-    }
-    
-    NSString *originalPathString = [NSString stringWithUTF8String:originalPath];
-    if (!originalPathString) {
-        os_log_error(AUTHD_LOG, "Failed to create NSString from plugin path");
-        return errAuthorizationInvalidPointer;
-    }
-    
-    NSString *pluginName = [originalPathString lastPathComponent];
-    
-    // Path traversal protection - ensure plugin name doesn't contain path separators
-    if ([pluginName containsString:@"/"] || [pluginName containsString:@".."] ||
-        [pluginName isEqualToString:@"."] || [pluginName isEqualToString:@""]) {
-        os_log_error(AUTHD_LOG, "Invalid plugin name: %{public}@", pluginName);
-        return errAuthorizationDenied;
-    }
-    
-    NSString *stagingDir = @"/Library/Security/SecurityAgentPlugins/StagedPlugins";
-    NSString *safePathString = [stagingDir stringByAppendingPathComponent:pluginName];
-
-    NSMutableIndexSet *pids = [stagedPluginsList objectForKey:safePathString];
-    if (pids) {
-        [pids addIndex:instance];
-        status = errAuthorizationSuccess;
-    } else {
-        // This plugin is not yet staged for this process
-        pids = [NSMutableIndexSet new];
-        [pids addIndex:instance];
-        NSError *error = nil;
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-
-        os_log_debug(AUTHD_LOG, "Copying plugin from %{public}@ to %{public}@", originalPathString, safePathString);
-        
-        // Create staging directory if it doesn't exist
-        if (![fileManager fileExistsAtPath:stagingDir]) {
-            if (![fileManager createDirectoryAtPath:stagingDir withIntermediateDirectories:YES attributes:nil error:&error]) {
-                os_log_error(AUTHD_LOG, "Failed to create staging directory: %{public}@", error.localizedDescription);
-                return errAuthorizationInternal;
-            }
-            
-            // Set proper permissions on the staging directory
-            if (chmod([stagingDir UTF8String], S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) { // 755
-                os_log_error(AUTHD_LOG, "Failed to set permissions on staging directory");
-                return errAuthorizationInternal;
-            }
-        }
-
-        // A TOCTOU race condition is not possible here because the destination directory is
-        // protected by SIP, preventing unentitled processes from interfering with file operations.
-        // The API is also protected by entitlements, ensuring only trusted callers can invoke it.
-        if (![fileManager copyItemAtPath:originalPathString toPath:safePathString error:&error]) {
-            os_log_error(AUTHD_LOG, "Failed to move plugin to secure location: %{public}@", error.localizedDescription);
-            return errAuthorizationInternal;
-        }
-        
-        stagedPluginsList[safePathString] = pids;
-        status = errAuthorizationSuccess;
-        os_log_debug(AUTHD_LOG, "Plugin %{public}@ copied to the secure location %{public}@", pluginName, safePathString);
-    }
-    
-    if (safePath && (status == errAuthorizationSuccess)) {
-        *safePath = strndup(safePathString.UTF8String, PATH_MAX);
-    }
-    
-    return status;
-}
-
-static OSStatus
-plugin_unstage(pid_t instance, NSMutableDictionary *stagedPluginsList)
-{
-    OSStatus status = errAuthorizationSuccess;
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    
-    // All operations on stagedPluginsList must be synchronized - caller ensures this
-    NSArray *allPluginPaths = [stagedPluginsList allKeys];
-    NSMutableArray *pluginPathsToRemove = [NSMutableArray array];
-    
-    for (NSString *pluginSafePath in allPluginPaths) {
-        NSMutableIndexSet *pids = stagedPluginsList[pluginSafePath];
-        if (![pids containsIndex:instance]) {
-            continue; // This instance does not use this plugin
-        }
-        
-        [pids removeIndex:instance];
-        if (pids.count == 0) {
-            [pluginPathsToRemove addObject:pluginSafePath];
-        }
-    }
-    
-    // Remove from dictionary and filesystem atomically
-    for (NSString *pluginPath in pluginPathsToRemove) {
-        NSError *error = nil;
-        if ([fileManager removeItemAtPath:pluginPath error:&error]) {
-            [stagedPluginsList removeObjectForKey:pluginPath];
-            os_log_info(AUTHD_LOG, "Successfully removed staged plugin: %{public}@", pluginPath);
-        } else {
-            os_log_error(AUTHD_LOG, "Failed to remove plugin file at %{public}@: %{public}@",
-                       pluginPath, error.localizedDescription);
-            // Don't remove from dictionary if file removal failed
-            status = errAuthorizationInternal;
-        }
-    }
-    
-    return status;
-}
-
 #pragma mark -
 #pragma mark API
 
@@ -504,15 +390,15 @@ static OSStatus
 _process_find_copy_auth_token_from_xpc(process_t proc, xpc_object_t message, auth_token_t * auth_out)
 {
     OSStatus status = errAuthorizationSuccess;
-    require_action(auth_out != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(auth_out != NULL, done, status = errAuthorizationInternal);
     
     size_t len;
     AuthorizationBlob * blob = (AuthorizationBlob *)xpc_dictionary_get_data(message, AUTH_XPC_BLOB, &len);
-    require_action(blob != NULL, done, status = errAuthorizationInvalidRef);
-    require_action(len == sizeof(AuthorizationBlob), done, status = errAuthorizationInvalidRef);
+    __Require_Action(blob != NULL, done, status = errAuthorizationInvalidRef);
+    __Require_Action(len == sizeof(AuthorizationBlob), done, status = errAuthorizationInvalidRef);
     
     auth_token_t auth = process_find_copy_auth_token(proc, blob);
-    require_action(auth != NULL, done, status = errAuthorizationInvalidRef);
+    __Require_Action(auth != NULL, done, status = errAuthorizationInvalidRef);
    
     *auth_out = auth;
     
@@ -526,13 +412,13 @@ static OSStatus _server_get_right_properties(connection_t conn, const char *righ
     auth_token_t auth = NULL;
     engine_t engine = NULL;
 
-    require_action(conn, done, status = errAuthorizationInternal);
+    __Require_Action(conn, done, status = errAuthorizationInternal);
     
     auth = auth_token_create(connection_get_process(conn), false);
-    require_action(auth, done, status = errAuthorizationInternal);
+    __Require_Action(auth, done, status = errAuthorizationInternal);
 
     engine = engine_create(conn, auth);
-    require_action(engine, done, status = errAuthorizationInternal);
+    __Require_Action(engine, done, status = errAuthorizationInternal);
 
     status = engine_get_right_properties(engine, rightName, properties);
 
@@ -546,10 +432,10 @@ OSStatus server_authorize(connection_t conn, auth_token_t auth, AuthorizationFla
     __block OSStatus status = errAuthorizationDenied;
     engine_t engine = NULL;
     
-    require_action(conn, done, status = errAuthorizationInternal);
+    __Require_Action(conn, done, status = errAuthorizationInternal);
 
     engine = engine_create(conn, auth);
-    require_action(engine, done, status = errAuthorizationInternal);
+    __Require_Action(engine, done, status = errAuthorizationInternal);
     
     if (flags & kAuthorizationFlagInteractionAllowed) {
         dispatch_sync(connection_get_dispatch_queue(conn), ^{
@@ -588,14 +474,14 @@ authorization_create(connection_t conn, xpc_object_t message, xpc_object_t reply
     
     // Create Authorization Token
     auth_token_t auth = auth_token_create(proc, flags & kAuthorizationFlagLeastPrivileged);
-    require_action(auth != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(auth != NULL, done, status = errAuthorizationInternal);
     
     if (!(flags & kAuthorizationFlagNoData)) {
         process_add_auth_token(proc,auth);
     }
     
     status = server_authorize(conn, auth, flags, rights, environment, NULL);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
     
     //reply
     xpc_dictionary_set_data(reply, AUTH_XPC_BLOB, auth_token_get_blob(auth), sizeof(AuthorizationBlob));
@@ -615,20 +501,20 @@ OSStatus authorization_create_with_audit_token(connection_t conn, xpc_object_t m
     auth_token_t auth = NULL;
     
     process_t proc = connection_get_process(conn);
-    require(process_get_uid(proc) == 0, done);  //only root can use this call
+    __Require(process_get_uid(proc) == 0, done);  //only root can use this call
     
     // Passed in args
     size_t len = 0;
     const char * data = xpc_dictionary_get_data(message, AUTH_XPC_DATA, &len);
-    require(data != NULL, done);
-    require(len == sizeof(audit_token_t), done);
+    __Require(data != NULL, done);
+    __Require(len == sizeof(audit_token_t), done);
     
 //    auth_items_t environment = auth_items_create_with_xpc(xpc_dictionary_get_value(message, AUTH_XPC_ENVIRONMENT));
     AuthorizationFlags flags = (AuthorizationFlags)xpc_dictionary_get_uint64(message, AUTH_XPC_FLAGS);
     
     // Create Authorization Token
     auth = auth_token_create(proc, flags & kAuthorizationFlagLeastPrivileged);
-    require_action(auth != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(auth != NULL, done, status = errAuthorizationInternal);
     
     process_add_auth_token(proc, auth);
     
@@ -653,7 +539,7 @@ authorization_free(connection_t conn, xpc_object_t message, xpc_object_t reply A
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
     
     flags = (AuthorizationFlags)xpc_dictionary_get_uint64(message, AUTH_XPC_FLAGS);
     
@@ -688,10 +574,10 @@ authorization_copy_right_properties(connection_t conn, xpc_object_t message, xpc
     const char *right = xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME);
     os_log_debug(AUTHD_LOG, "server: right %s", right);
 
-    require_action(right != NULL, done, status = errAuthorizationInvalidPointer);
+    __Require_Action(right != NULL, done, status = errAuthorizationInvalidPointer);
 
     status = _server_get_right_properties(conn, right, &properties);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
   
     if (properties) {
         serializedProperties = CFPropertyListCreateData(kCFAllocatorDefault, properties, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
@@ -724,10 +610,10 @@ authorization_copy_rights(connection_t conn, xpc_object_t message, xpc_object_t 
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: no auth token"));
+    __Require_noErr_Action_Quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: no auth token"));
     
     status = server_authorize(conn, auth, flags, rights, environment, &engine);
-	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: authorization failed"));
+	__Require_noErr_Action_Quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: authorization failed"));
 
 	//reply
     outItems = auth_rights_export_xpc(engine_get_granted_rights(engine));
@@ -757,7 +643,7 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_info: no auth token"));
+	__Require_noErr_Action_Quiet(status, done, os_log_error(AUTHD_LOG, "copy_info: no auth token"));
 
     items = auth_items_create();
     
@@ -817,7 +703,7 @@ authorization_make_external_form(connection_t conn, xpc_object_t message, xpc_ob
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
     
     AuthorizationExternalForm exForm;
     AuthorizationExternalBlob * exBlob = (AuthorizationExternalBlob *)&exForm;
@@ -847,12 +733,12 @@ authorization_create_from_external_form(connection_t conn, xpc_object_t message,
     
     size_t len;
     AuthorizationExternalForm * exForm = (AuthorizationExternalForm *)xpc_dictionary_get_data(message, AUTH_XPC_EXTERNAL, &len);
-    require_action(exForm != NULL, done, status = errAuthorizationInternal);
-    require_action(len == sizeof(AuthorizationExternalForm), done, status = errAuthorizationInvalidRef);
+    __Require_Action(exForm != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(len == sizeof(AuthorizationExternalForm), done, status = errAuthorizationInvalidRef);
     
     AuthorizationExternalBlob * exBlob = (AuthorizationExternalBlob *)exForm;
     auth = server_find_copy_auth_token(&exBlob->blob);
-    require_action(auth != NULL, done, status = errAuthorizationDenied);
+    __Require_Action(auth != NULL, done, status = errAuthorizationDenied);
     
     process_add_auth_token(proc, auth);
     xpc_dictionary_set_data(reply, AUTH_XPC_BLOB, auth_token_get_blob(auth), sizeof(AuthorizationBlob));
@@ -875,14 +761,14 @@ authorization_right_get(connection_t conn AUTH_UNUSED, xpc_object_t message, xpc
     
     authdb_connection_t dbconn = authdb_connection_acquire(server_get_database());
     rule = rule_create_with_string(xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME), dbconn);
-    require(rule != NULL, done);
-    require(rule_get_id(rule) != 0, done);
+    __Require(rule != NULL, done);
+    __Require(rule_get_id(rule) != 0, done);
     
     cfdict = rule_copy_to_cfobject(rule, dbconn);
-    require(cfdict != NULL, done);
+    __Require(cfdict != NULL, done);
     
     xpcdict = _CFXPCCreateXPCObjectFromCFObject(cfdict);
-    require(xpcdict != NULL, done);
+    __Require(xpcdict != NULL, done);
     
     // reply
     xpc_dictionary_set_value(reply, AUTH_XPC_DATA, xpcdict);
@@ -995,18 +881,18 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     process_t proc = connection_get_process(conn);
     
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
     
-    require_action(xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME) != NULL, done, status = errAuthorizationInternal);
-    require_action(xpc_dictionary_get_value(message, AUTH_XPC_DATA) != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME) != NULL, done, status = errAuthorizationInternal);
+    __Require_Action(xpc_dictionary_get_value(message, AUTH_XPC_DATA) != NULL, done, status = errAuthorizationInternal);
     
     rule_name = xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME);
-    require(rule_name != NULL, done);
+    __Require(rule_name != NULL, done);
     
     rule_name_obj = [NSString stringWithUTF8String:rule_name];
-    require_action(rule_name_obj != NULL, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet unable to get rule name (denied)"));
+    __Require_Action(rule_name_obj != NULL, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet unable to get rule name (denied)"));
 
-    require_action([protectedRights containsObject:rule_name_obj] == NO, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet not allowed to update right %{public}s. (denied)", rule_name));
+    __Require_Action([protectedRights containsObject:rule_name_obj] == NO, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet not allowed to update right %{public}s. (denied)", rule_name));
 
     if (_compare_string(rule_name, "authenticate")) {
         rule_type = RT_RULE;
@@ -1014,22 +900,22 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     }
     
     cf_rule_name = CFStringCreateWithCString(kCFAllocatorDefault, rule_name, kCFStringEncodingUTF8);
-    require(cf_rule_name != NULL, done);
+    __Require(cf_rule_name != NULL, done);
     
     cf_rule_dict = _CFXPCCreateCFObjectFromXPCObject(xpc_dictionary_get_value(message, AUTH_XPC_DATA));
-    require(cf_rule_dict != NULL, done);
+    __Require(cf_rule_dict != NULL, done);
     
     dbconn = authdb_connection_acquire(server_get_database());
     
     rule = rule_create_with_plist(rule_type, cf_rule_name, cf_rule_dict, dbconn);
     if (process_get_uid(proc) != 0) {
-        require_action(rule_get_extract_password(rule) == false, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet not allowed to set extract-password. (denied)"));
+        __Require_Action(rule_get_extract_password(rule) == false, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet not allowed to set extract-password. (denied)"));
     }
     
     // if rule doesn't currently exist then we have to check to see if they are over the Max.
     if (rule_get_id(rule) == 0) {
         if (process_get_identifier(proc) == NULL) {
-            os_log_error(AUTHD_LOG, "server: AuthorizationRightSet required for process %{public}s (missing code signature). To add rights to the Authorization database, your process must have a code signature.", process_get_code_url(proc));
+            os_log_error(AUTHD_LOG, "server: A code signature is required for process %{public}s. To add rights to the Authorization database, your process must have a code signature.", process_get_code_url(proc));
             force_modify = true;
         } else {
             int64_t process_rule_count = _process_get_identifier_count(proc, dbconn);
@@ -1069,7 +955,7 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
             status = engine_verify_modification(engine, rule, false, force_modify);
             connection_set_engine(conn, NULL);
         });
-        require_noerr(status, done);
+        __Require_noErr(status, done);
         
         dbconn = authdb_connection_acquire(server_get_database());
     }
@@ -1153,12 +1039,12 @@ authorization_right_remove(connection_t conn, xpc_object_t message, xpc_object_t
 
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
+    __Require_noErr(status, done);
     
     dbconn = authdb_connection_acquire(server_get_database());
     
     rule = rule_create_with_string(xpc_dictionary_get_string(message, AUTH_XPC_RIGHT_NAME), dbconn);
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     if (_prompt_for_modifications(proc,rule)) {
         authdb_connection_release(&dbconn);
@@ -1169,7 +1055,7 @@ authorization_right_remove(connection_t conn, xpc_object_t message, xpc_object_t
             status = engine_verify_modification(engine, rule, true, false);
             connection_set_engine(conn, NULL);
         });
-        require_noerr(status, done);
+        __Require_noErr(status, done);
         
         dbconn = authdb_connection_acquire(server_get_database());
     }
@@ -1266,10 +1152,10 @@ authorization_copy_prelogin_userdb(connection_t conn, xpc_object_t message, xpc_
 
     status = preloginudb_copy_userdb(uuid, flags, &cfarray);
     xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
-    require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "authorization_copy_prelogin_userdb: database failed %d", (int)status));
+    __Require_noErr_Action_Quiet(status, done, os_log_error(AUTHD_LOG, "authorization_copy_prelogin_userdb: database failed %d", (int)status));
   
     xpcarr = _CFXPCCreateXPCObjectFromCFObject(cfarray);
-    require(xpcarr != NULL, done);
+    __Require(xpcarr != NULL, done);
     xpc_dictionary_set_value(reply, AUTH_XPC_DATA, xpcarr);
 
 done:
@@ -1295,7 +1181,7 @@ authorization_copy_prelogin_pref_value(connection_t conn, xpc_object_t message, 
     xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
   
     xpcoutput = _CFXPCCreateXPCObjectFromCFObject(output);
-    require(xpcoutput != NULL, done);
+    __Require(xpcoutput != NULL, done);
     xpc_dictionary_set_value(reply, AUTH_XPC_DATA, xpcoutput);
 
 done:
@@ -1326,7 +1212,7 @@ authorization_prelogin_smartcardonly_override(connection_t conn, xpc_object_t me
             os_log_error(AUTHD_LOG, "server: caller NOT allowed to handle override");
         }
         CFReleaseSafe(overrideEntitlement);
-        require(entitlementCheckPassed, done);
+        __Require(entitlementCheckPassed, done);
     }
 
     const char *uuid = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
@@ -1346,7 +1232,6 @@ server_verify_spi_entitlement(connection_t conn)
 {
     process_t proc = connection_get_process(conn);
     if (!proc || !process_has_entitlement(proc, kAuthorizationSPIEntitlement)) {
-        os_log_error(AUTHD_LOG, "Client missing required entitlement: %{public}s", kAuthorizationSPIEntitlement);
         return errAuthorizationDenied;
     }
     return errAuthorizationSuccess;
@@ -1357,41 +1242,31 @@ server_verify_spi_entitlement(connection_t conn)
 OSStatus
 authorization_stage_plugin(connection_t conn, xpc_object_t message, xpc_object_t reply)
 {
-    static dispatch_once_t onceToken;
-    static NSMutableDictionary *stagedPluginsList;
-    static dispatch_queue_t access_queue;
-    __block char *safePath = NULL;
-    __block OSStatus status = errAuthorizationDenied;
+    char *safePath = NULL;
+    OSStatus status = errAuthorizationDenied;
 
     status = server_verify_spi_entitlement(conn);
     if (status != errAuthorizationSuccess) {
         xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
+        os_log_error(AUTHD_LOG, "Client missing required entitlement: %{public}s", kAuthorizationSPIEntitlement);
         return status;
     }
-    
-    dispatch_once(&onceToken, ^{
-        stagedPluginsList = @{}.mutableCopy;
-        access_queue = dispatch_queue_create("com.apple.security.auth.plugin.access", DISPATCH_QUEUE_SERIAL);
-    });
     
     const char *pluginPath = xpc_dictionary_get_string(message, AUTH_XPC_PLUGIN_PATH);
     Boolean install = xpc_dictionary_get_bool(message, AUTH_XPC_BOOL);
 
     // Validate plugin path for install operations
     if (install && (!pluginPath || strlen(pluginPath) == 0)) {
-        os_log_error(AUTHD_LOG, "Plugin path required for install operation");
+        os_log_error(AUTHD_LOG, "A plugin path is required for install operation");
         status = errAuthorizationInvalidPointer;
         goto done;
     }
     
-    // Synchronize access to the static dictionary
-    dispatch_sync(access_queue, ^{
-        if (install) {
-            status = plugin_stage(connection_get_pid(conn), pluginPath, &safePath, stagedPluginsList);
-        } else {
-            status = plugin_unstage(connection_get_pid(conn), stagedPluginsList);
-        }
-    });
+    if (install) {
+        status = plugin_stage(connection_get_pid(conn), pluginPath, &safePath);
+    } else {
+        status = plugin_unstage(connection_get_pid(conn));
+    }
 
 done:
     xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);

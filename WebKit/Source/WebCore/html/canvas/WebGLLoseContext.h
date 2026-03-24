@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class WebGLLoseContext final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLLoseContext);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLLoseContext);
 public:
     explicit WebGLLoseContext(WebGLRenderingContextBase&);
     ~WebGLLoseContext();

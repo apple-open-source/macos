@@ -228,6 +228,26 @@
 		87AD50362C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
 		87AD50372C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
 		87AD50382C1A20410094EC1B /* client_callout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 87AD50312C1A20410094EC1B /* client_callout.mm */; };
+		937989852E2C24C100972F95 /* Time.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937989842E2C24C100972F95 /* Time.swift */; };
+		937989862E2C24C100972F95 /* Dispatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9379897E2E2C24C100972F95 /* Dispatch.swift */; };
+		937989872E2C24C100972F95 /* IO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9379897F2E2C24C100972F95 /* IO.swift */; };
+		937989882E2C24C100972F95 /* Block.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9379897C2E2C24C100972F95 /* Block.swift */; };
+		937989892E2C24C100972F95 /* Schedulers+DispatchQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937989822E2C24C100972F95 /* Schedulers+DispatchQueue.swift */; };
+		9379898A2E2C24C100972F95 /* Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9379897D2E2C24C100972F95 /* Data.swift */; };
+		9379898B2E2C24C100972F95 /* Queue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937989812E2C24C100972F95 /* Queue.swift */; };
+		9379898C2E2C24C100972F95 /* Private.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937989802E2C24C100972F95 /* Private.swift */; };
+		9379898D2E2C24C100972F95 /* Source.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937989832E2C24C100972F95 /* Source.swift */; };
+		937989922E2C251200972F95 /* magic-symbols-for-install-name.h in Headers */ = {isa = PBXBuildFile; fileRef = 937989902E2C251200972F95 /* magic-symbols-for-install-name.h */; };
+		937989932E2C251200972F95 /* magic-symbols-for-install-name.c in Sources */ = {isa = PBXBuildFile; fileRef = 937989912E2C251200972F95 /* magic-symbols-for-install-name.c */; };
+		937989942E2C251200972F95 /* Dispatch.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9379898F2E2C251200972F95 /* Dispatch.mm */; };
+		93F5B8BE2E2C925D009032BB /* libswiftDispatch.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 937989592E2C219100972F95 /* libswiftDispatch.dylib */; };
+		93F5B8DF2E2C93F8009032BB /* DispatchTaskExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8DC2E2C93F8009032BB /* DispatchTaskExecutor.swift */; };
+		93F5B8E02E2C93F8009032BB /* DispatchDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8D92E2C93F8009032BB /* DispatchDate.swift */; };
+		93F5B8E12E2C93F8009032BB /* DispatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8DD2E2C93F8009032BB /* DispatchTests.swift */; };
+		93F5B8E22E2C93F8009032BB /* DispatchScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8DA2E2C93F8009032BB /* DispatchScheduler.swift */; };
+		93F5B8E32E2C93F8009032BB /* DispatchSerialExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8DB2E2C93F8009032BB /* DispatchSerialExecutor.swift */; };
+		93F5B8E42E2C93F8009032BB /* DispatchTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F5B8DE2E2C93F8009032BB /* DispatchTypes.swift */; };
+		93F5B8E72E2CA024009032BB /* libdispatch_swiftoverlay.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 93F5B8E62E2C9FF3009032BB /* libdispatch_swiftoverlay.plist */; };
 		96032E4B0F5CC8C700241C5F /* time.c in Sources */ = {isa = PBXBuildFile; fileRef = 96032E4A0F5CC8C700241C5F /* time.c */; };
 		96032E4D0F5CC8D100241C5F /* time.h in Headers */ = {isa = PBXBuildFile; fileRef = 96032E4C0F5CC8D100241C5F /* time.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		961B99360F3E83980006BC96 /* benchmark.h in Headers */ = {isa = PBXBuildFile; fileRef = 961B99350F3E83980006BC96 /* benchmark.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -831,6 +851,16 @@
 			name = "Copy Public Module Maps";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		93F5B8C82E2C92AF009032BB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				93F5B8E72E2CA024009032BB /* libdispatch_swiftoverlay.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -950,6 +980,31 @@
 		924D8EAA1C116B9F002AC2BC /* dispatch_c99.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_c99.c; sourceTree = "<group>"; };
 		92F3FE8F1BEC686300025962 /* dispatch_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_api.c; sourceTree = "<group>"; };
 		92F3FE921BEC686300025962 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		937989592E2C219100972F95 /* libswiftDispatch.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libswiftDispatch.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		9379897C2E2C24C100972F95 /* Block.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Block.swift; sourceTree = "<group>"; };
+		9379897D2E2C24C100972F95 /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
+		9379897E2E2C24C100972F95 /* Dispatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dispatch.swift; sourceTree = "<group>"; };
+		9379897F2E2C24C100972F95 /* IO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IO.swift; sourceTree = "<group>"; };
+		937989802E2C24C100972F95 /* Private.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Private.swift; sourceTree = "<group>"; };
+		937989812E2C24C100972F95 /* Queue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Queue.swift; sourceTree = "<group>"; };
+		937989822E2C24C100972F95 /* Schedulers+DispatchQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Schedulers+DispatchQueue.swift"; sourceTree = "<group>"; };
+		937989832E2C24C100972F95 /* Source.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Source.swift; sourceTree = "<group>"; };
+		937989842E2C24C100972F95 /* Time.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Time.swift; sourceTree = "<group>"; };
+		9379898F2E2C251200972F95 /* Dispatch.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Dispatch.mm; sourceTree = "<group>"; };
+		937989902E2C251200972F95 /* magic-symbols-for-install-name.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "magic-symbols-for-install-name.h"; sourceTree = "<group>"; };
+		937989912E2C251200972F95 /* magic-symbols-for-install-name.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "magic-symbols-for-install-name.c"; sourceTree = "<group>"; };
+		937989962E2C296A00972F95 /* libdispatch-swiftoverlay.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "libdispatch-swiftoverlay.xcconfig"; sourceTree = "<group>"; };
+		937989982E2C2A4E00972F95 /* DispatchOverlayShims.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DispatchOverlayShims.h; sourceTree = "<group>"; };
+		937989992E2C2A4E00972F95 /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		93F5B8BA2E2C925D009032BB /* libdispatch_swiftoverlay_tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = libdispatch_swiftoverlay_tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		93F5B8D92E2C93F8009032BB /* DispatchDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchDate.swift; sourceTree = "<group>"; };
+		93F5B8DA2E2C93F8009032BB /* DispatchScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchScheduler.swift; sourceTree = "<group>"; };
+		93F5B8DB2E2C93F8009032BB /* DispatchSerialExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchSerialExecutor.swift; sourceTree = "<group>"; };
+		93F5B8DC2E2C93F8009032BB /* DispatchTaskExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchTaskExecutor.swift; sourceTree = "<group>"; };
+		93F5B8DD2E2C93F8009032BB /* DispatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchTests.swift; sourceTree = "<group>"; };
+		93F5B8DE2E2C93F8009032BB /* DispatchTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchTypes.swift; sourceTree = "<group>"; };
+		93F5B8E52E2C96DA009032BB /* libdispatch-swiftoverlay-tests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "libdispatch-swiftoverlay-tests.xcconfig"; sourceTree = "<group>"; };
+		93F5B8E62E2C9FF3009032BB /* libdispatch_swiftoverlay.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libdispatch_swiftoverlay.plist; sourceTree = "<group>"; };
 		96032E4A0F5CC8C700241C5F /* time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = time.c; sourceTree = "<group>"; };
 		96032E4C0F5CC8D100241C5F /* time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = time.h; sourceTree = "<group>"; };
 		960F0E7D0F3FB232000D88BF /* dispatch_apply.3 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = dispatch_apply.3; sourceTree = "<group>"; };
@@ -1109,6 +1164,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		937989572E2C219100972F95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		93F5B8B72E2C925D009032BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				93F5B8BE2E2C925D009032BB /* libswiftDispatch.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E49F24D5125D57FA0057C971 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1176,6 +1246,7 @@
 				6E5ACCAF1D3BF2A0007DA2B4 /* event */,
 				6EF0B2641BA8C3A0007FA4F6 /* firehose */,
 				4B3CB0FA2941DB9F005EE04B /* exclavekit */,
+				9379897B2E2C23C100972F95 /* swift */,
 			);
 			name = "Dispatch Source";
 			path = src;
@@ -1194,6 +1265,8 @@
 				6EB4E4091BA8BCAD00D7B9D2 /* libfirehose_server.a */,
 				E43B889A2241F19000215272 /* libdispatch.dylib */,
 				4B3CB0E52941D59E005EE04B /* libdispatch.dylib */,
+				937989592E2C219100972F95 /* libswiftDispatch.dylib */,
+				93F5B8BA2E2C925D009032BB /* libdispatch_swiftoverlay_tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1378,9 +1451,53 @@
 				6E8E4E6F1C1A35EE0004F5CC /* test_lib.h */,
 				01FE68822ACD2E47004A2C3C /* dispatch_workqueue_signals.c */,
 				010189B82B1BF45E007E4242 /* dispatch_workloop_with_bound_thread.c */,
+				93F5B8D82E2C93CC009032BB /* swift */,
 			);
 			name = "Darwin Tests";
 			path = tests;
+			sourceTree = "<group>";
+		};
+		9379897B2E2C23C100972F95 /* swift */ = {
+			isa = PBXGroup;
+			children = (
+				937989972E2C29FD00972F95 /* shims */,
+				9379898F2E2C251200972F95 /* Dispatch.mm */,
+				937989902E2C251200972F95 /* magic-symbols-for-install-name.h */,
+				937989912E2C251200972F95 /* magic-symbols-for-install-name.c */,
+				9379897C2E2C24C100972F95 /* Block.swift */,
+				9379897D2E2C24C100972F95 /* Data.swift */,
+				9379897E2E2C24C100972F95 /* Dispatch.swift */,
+				9379897F2E2C24C100972F95 /* IO.swift */,
+				937989802E2C24C100972F95 /* Private.swift */,
+				937989812E2C24C100972F95 /* Queue.swift */,
+				937989822E2C24C100972F95 /* Schedulers+DispatchQueue.swift */,
+				937989832E2C24C100972F95 /* Source.swift */,
+				937989842E2C24C100972F95 /* Time.swift */,
+			);
+			path = swift;
+			sourceTree = "<group>";
+		};
+		937989972E2C29FD00972F95 /* shims */ = {
+			isa = PBXGroup;
+			children = (
+				937989982E2C2A4E00972F95 /* DispatchOverlayShims.h */,
+				937989992E2C2A4E00972F95 /* module.modulemap */,
+			);
+			path = shims;
+			sourceTree = "<group>";
+		};
+		93F5B8D82E2C93CC009032BB /* swift */ = {
+			isa = PBXGroup;
+			children = (
+				93F5B8E62E2C9FF3009032BB /* libdispatch_swiftoverlay.plist */,
+				93F5B8D92E2C93F8009032BB /* DispatchDate.swift */,
+				93F5B8DA2E2C93F8009032BB /* DispatchScheduler.swift */,
+				93F5B8DB2E2C93F8009032BB /* DispatchSerialExecutor.swift */,
+				93F5B8DC2E2C93F8009032BB /* DispatchTaskExecutor.swift */,
+				93F5B8DD2E2C93F8009032BB /* DispatchTests.swift */,
+				93F5B8DE2E2C93F8009032BB /* DispatchTypes.swift */,
+			);
+			path = swift;
 			sourceTree = "<group>";
 		};
 		9BCAF77023A8544100E4F685 /* OS Project Headers */ = {
@@ -1429,12 +1546,14 @@
 		E40041E4125E71150022B135 /* xcodeconfig */ = {
 			isa = PBXGroup;
 			children = (
+				93F5B8E52E2C96DA009032BB /* libdispatch-swiftoverlay-tests.xcconfig */,
 				E43D93F11097917E004F6A62 /* libdispatch.xcconfig */,
 				E40041AA125D705F0022B135 /* libdispatch-resolver.xcconfig */,
 				E40041A9125D70590022B135 /* libdispatch-resolved.xcconfig */,
 				C01866BE1C59735B0040FC07 /* libdispatch-mp-static.xcconfig */,
 				E4B515D9164B2E9B00E003AF /* libdispatch-introspection.xcconfig */,
 				4B3CB0D42941C987005EE04B /* libdispatch-exclavekit.xcconfig */,
+				937989962E2C296A00972F95 /* libdispatch-swiftoverlay.xcconfig */,
 				6EB4E4421BA8BD7800D7B9D2 /* libfirehose.xcconfig */,
 				6E040C721C499C3600411A2E /* libfirehose_kernel.xcconfig */,
 				E422DA3614D2A7E7003C6EE4 /* libdispatch.aliases */,
@@ -1633,6 +1752,14 @@
 				6E21F2E81BBB23FA0000C6A5 /* firehose_server_internal.h in Headers */,
 				6EF0B26D1BA8C527007FA4F6 /* firehose_server_private.h in Headers */,
 				6EDF10B81BBB488A007F14BF /* firehose_buffer_private.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		937989552E2C219100972F95 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				937989922E2C251200972F95 /* magic-symbols-for-install-name.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1998,6 +2125,45 @@
 			productReference = 6EB4E4091BA8BCAD00D7B9D2 /* libfirehose_server.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		937989582E2C219100972F95 /* libdispatch_swiftoverlay */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 937989652E2C219100972F95 /* Build configuration list for PBXNativeTarget "libdispatch_swiftoverlay" */;
+			buildPhases = (
+				937989552E2C219100972F95 /* Headers */,
+				937989562E2C219100972F95 /* Sources */,
+				937989572E2C219100972F95 /* Frameworks */,
+				933A3F052E2C3B2400552D94 /* Install Swift Module */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libdispatch_swiftoverlay;
+			packageProductDependencies = (
+			);
+			productName = libdispatch_swiftoverlay;
+			productReference = 937989592E2C219100972F95 /* libswiftDispatch.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		93F5B8B92E2C925D009032BB /* libdispatch_swiftoverlay_tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 93F5B8C72E2C925D009032BB /* Build configuration list for PBXNativeTarget "libdispatch_swiftoverlay_tests" */;
+			buildPhases = (
+				93F5B8B62E2C925D009032BB /* Sources */,
+				93F5B8B72E2C925D009032BB /* Frameworks */,
+				93F5B8C82E2C92AF009032BB /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libdispatch_swiftoverlay_tests;
+			packageProductDependencies = (
+			);
+			productName = libdispatch_swiftoverlay_tests;
+			productReference = 93F5B8BA2E2C925D009032BB /* libdispatch_swiftoverlay_tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		C01866A41C5973210040FC07 /* libdispatch mp static */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C01866BA1C5973210040FC07 /* Build configuration list for PBXNativeTarget "libdispatch mp static" */;
@@ -2141,6 +2307,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
+				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					3F3C9326128E637B0042B1F7 = {
@@ -2173,6 +2340,16 @@
 					92F3FECA1BEC69E500025962 = {
 						CreatedOnToolsVersion = 7.1;
 						ProvisioningStyle = Manual;
+					};
+					937989582E2C219100972F95 = {
+						CreatedOnToolsVersion = 26.0;
+						LastSwiftMigration = 2600;
+						ProvisioningStyle = Manual;
+					};
+					93F5B8B92E2C925D009032BB = {
+						CreatedOnToolsVersion = 26.0;
+						LastSwiftMigration = 2600;
+						ProvisioningStyle = Automatic;
 					};
 					9BEBA56F20127D3300E6FD0D = {
 						CreatedOnToolsVersion = 9.3;
@@ -2242,6 +2419,8 @@
 				92F3FECA1BEC69E500025962 /* darwintests */,
 				6E040C621C499B1B00411A2E /* libfirehose_kernel */,
 				6EB4E4081BA8BCAD00D7B9D2 /* libfirehose_server */,
+				937989582E2C219100972F95 /* libdispatch_swiftoverlay */,
+				93F5B8B92E2C925D009032BB /* libdispatch_swiftoverlay_tests */,
 			);
 		};
 /* End PBXProject section */
@@ -2318,6 +2497,24 @@
 			shellPath = "/bin/bash -e";
 			shellScript = ". \"${SRCROOT}/xcodescripts/check-order.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		933A3F052E2C3B2400552D94 /* Install Swift Module */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install Swift Module";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "exec \"${SOURCE_ROOT}/xcodescripts/install-swiftmodules.sh\"\n";
 		};
 		9BE52551238748C60041C2A0 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2634,6 +2831,37 @@
 				6EF0B2781BA8C56E007FA4F6 /* firehose_reply.defs in Sources */,
 				6EF0B27A1BA8C57D007FA4F6 /* firehose_server_object.m in Sources */,
 				6E21F2E91BBB240E0000C6A5 /* firehose_server.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		937989562E2C219100972F95 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9379898A2E2C24C100972F95 /* Data.swift in Sources */,
+				937989932E2C251200972F95 /* magic-symbols-for-install-name.c in Sources */,
+				9379898B2E2C24C100972F95 /* Queue.swift in Sources */,
+				9379898D2E2C24C100972F95 /* Source.swift in Sources */,
+				937989852E2C24C100972F95 /* Time.swift in Sources */,
+				937989892E2C24C100972F95 /* Schedulers+DispatchQueue.swift in Sources */,
+				937989882E2C24C100972F95 /* Block.swift in Sources */,
+				937989872E2C24C100972F95 /* IO.swift in Sources */,
+				937989862E2C24C100972F95 /* Dispatch.swift in Sources */,
+				9379898C2E2C24C100972F95 /* Private.swift in Sources */,
+				937989942E2C251200972F95 /* Dispatch.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		93F5B8B62E2C925D009032BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				93F5B8DF2E2C93F8009032BB /* DispatchTaskExecutor.swift in Sources */,
+				93F5B8E02E2C93F8009032BB /* DispatchDate.swift in Sources */,
+				93F5B8E12E2C93F8009032BB /* DispatchTests.swift in Sources */,
+				93F5B8E22E2C93F8009032BB /* DispatchScheduler.swift in Sources */,
+				93F5B8E32E2C93F8009032BB /* DispatchSerialExecutor.swift in Sources */,
+				93F5B8E42E2C93F8009032BB /* DispatchTypes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3002,7 +3230,6 @@
 		};
 		1DEB91F108733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
@@ -3147,13 +3374,57 @@
 		};
 		92F3FECC1BEC69E500025962 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		92F3FECD1BEC69E500025962 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
+			};
+			name = Debug;
+		};
+		9379895F2E2C219100972F95 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 937989962E2C296A00972F95 /* libdispatch-swiftoverlay.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		937989602E2C219100972F95 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 937989962E2C296A00972F95 /* libdispatch-swiftoverlay.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		93F5B8C12E2C925D009032BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 93F5B8E52E2C96DA009032BB /* libdispatch-swiftoverlay-tests.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_STYLE = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_INCLUDE_PATHS = src/swift/shims;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		93F5B8C22E2C925D009032BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 93F5B8E52E2C96DA009032BB /* libdispatch-swiftoverlay-tests.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_STYLE = Automatic;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_INCLUDE_PATHS = src/swift/shims;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -3243,6 +3514,7 @@
 		};
 		E49F24D9125D57FA0057C971 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
 				WARNING_CFLAGS = (
 					"-Weverything",
@@ -3253,6 +3525,7 @@
 		};
 		E49F24DA125D57FA0057C971 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
 				ONLY_ACTIVE_ARCH = YES;
 				WARNING_CFLAGS = (
@@ -3288,7 +3561,6 @@
 		};
 		E4EB382D1089033000C33AD4 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E43D93F11097917E004F6A62 /* libdispatch.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
@@ -3437,6 +3709,24 @@
 			buildConfigurations = (
 				92F3FECC1BEC69E500025962 /* Release */,
 				92F3FECD1BEC69E500025962 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		937989652E2C219100972F95 /* Build configuration list for PBXNativeTarget "libdispatch_swiftoverlay" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9379895F2E2C219100972F95 /* Release */,
+				937989602E2C219100972F95 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		93F5B8C72E2C925D009032BB /* Build configuration list for PBXNativeTarget "libdispatch_swiftoverlay_tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				93F5B8C12E2C925D009032BB /* Release */,
+				93F5B8C22E2C925D009032BB /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

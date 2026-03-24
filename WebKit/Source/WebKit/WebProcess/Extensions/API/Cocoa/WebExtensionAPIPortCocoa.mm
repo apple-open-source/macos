@@ -159,9 +159,11 @@ void WebExtensionAPIPort::fireMessageEventIfNeeded(id message)
 
     for (auto& listener : m_onMessage->listeners()) {
         auto globalContext = listener->globalContext();
-        auto *port = toJSValue(globalContext, toJS(globalContext, this));
 
-        listener->call(message, port);
+        listener->call(
+            toJSValueRef(globalContext, message),
+            toJS(globalContext, this)
+        );
     }
 }
 
@@ -186,9 +188,8 @@ void WebExtensionAPIPort::fireDisconnectEventIfNeeded()
 
     for (auto& listener : m_onDisconnect->listeners()) {
         auto globalContext = listener->globalContext();
-        auto *port = toJSValue(globalContext, toJS(globalContext, this));
 
-        listener->call(port);
+        listener->call(toJS(globalContext, this));
     }
 
     m_onDisconnect->removeAllListeners();
@@ -199,7 +200,7 @@ WebExtensionAPIEvent& WebExtensionAPIPort::onMessage()
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/Port#onmessage
 
     if (!m_onMessage)
-        m_onMessage = WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::PortOnMessage);
+        lazyInitialize(m_onMessage, WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::PortOnMessage));
 
     return *m_onMessage;
 }
@@ -209,7 +210,7 @@ WebExtensionAPIEvent& WebExtensionAPIPort::onDisconnect()
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/Port#ondisconnect
 
     if (!m_onDisconnect)
-        m_onDisconnect = WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::PortOnDisconnect);
+        lazyInitialize(m_onDisconnect, WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::PortOnDisconnect));
 
     return *m_onDisconnect;
 }

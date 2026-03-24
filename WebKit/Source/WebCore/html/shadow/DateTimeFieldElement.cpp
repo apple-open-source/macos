@@ -35,7 +35,7 @@
 #include "LocalizedStrings.h"
 #include "NodeDocument.h"
 #include "PlatformLocale.h"
-#include "RenderStyle.h"
+#include "RenderStyle+SettersInlines.h"
 #include "RenderTheme.h"
 #include "ResolvedStyle.h"
 #include "StyleResolver.h"
@@ -47,7 +47,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DateTimeFieldElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DateTimeFieldElement);
 
 DateTimeFieldElementFieldOwner::~DateTimeFieldElementFieldOwner() = default;
 
@@ -65,8 +65,8 @@ std::optional<Style::UnadjustedStyle> DateTimeFieldElement::resolveCustomStyle(c
     adjustMinInlineSize(elementStyleStyle.get());
 
     if (!hasValue() && shadowHostStyle) {
-        auto textColor = shadowHostStyle->visitedDependentColorWithColorFilter(CSSPropertyColor);
-        auto backgroundColor = shadowHostStyle->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        auto textColor = shadowHostStyle->visitedDependentColorApplyingColorFilter();
+        auto backgroundColor = shadowHostStyle->visitedDependentBackgroundColorApplyingColorFilter();
         elementStyleStyle->setColor(RenderTheme::singleton().datePlaceholderTextColor(textColor, backgroundColor));
     }
 

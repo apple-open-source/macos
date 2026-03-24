@@ -12,7 +12,18 @@
     "addressSanitizer" : {
       "enabled" : true
     },
+    "environmentVariableEntries" : [
+      {
+        "key" : "LLVM_PROFILE_FILE",
+        "value" : "\/tmp\/%c%p_nfsclntTests.profraw"
+      }
+    ],
     "mallocScribbleEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:NFS.xcodeproj",
+      "identifier" : "D6EA4A181FB7B995002AF776",
+      "name" : "All"
+    },
     "threadSanitizerEnabled" : true,
     "undefinedBehaviorSanitizerEnabled" : true
   },

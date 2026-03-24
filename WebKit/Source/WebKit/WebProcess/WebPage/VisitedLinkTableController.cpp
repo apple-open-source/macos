@@ -85,7 +85,7 @@ void VisitedLinkTableController::addVisitedLink(Page& page, SharedStringHash lin
 
 void VisitedLinkTableController::setVisitedLinkTable(SharedMemory::Handle&& handle)
 {
-    auto sharedMemory = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemory = SharedMemory::map(WTF::move(handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemory)
         return;
 

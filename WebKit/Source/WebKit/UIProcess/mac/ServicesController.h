@@ -31,6 +31,7 @@
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/darwin/DispatchOSObject.h>
 
 namespace WebKit {
 

@@ -28,6 +28,11 @@
 
 #import <WebCore/WebCoreObjCExtras.h>
 
+static Ref<API::TargetedElementRequest> protectedRequest(_WKTargetedElementRequest *request)
+{
+    return *request->_request;
+}
+
 @implementation _WKTargetedElementRequest {
     RetainPtr<NSString> _searchText;
 }
@@ -59,7 +64,7 @@
     if (!(self = [self init]))
         return nil;
 
-    _request->setSearchText(searchText);
+    protectedRequest(self)->setSearchText(searchText);
     return self;
 }
 
@@ -68,7 +73,7 @@
     if (!(self = [self init]))
         return nil;
 
-    _request->setPoint(point);
+    protectedRequest(self)->setPoint(point);
     return self;
 }
 
@@ -84,10 +89,10 @@
         selectors.reserveInitialCapacity(nsSelectors.count);
         for (NSString *selector in nsSelectors)
             selectors.add(selector);
-        selectorsForElement.append(WTFMove(selectors));
+        selectorsForElement.append(WTF::move(selectors));
     }
 
-    _request->setSelectors(WTFMove(selectorsForElement));
+    protectedRequest(self)->setSelectors(WTF::move(selectorsForElement));
     return self;
 }
 

@@ -55,7 +55,7 @@ auto InspectorCanvasArgumentProcessor<IDLDictionary<DOMMatrix2DInit>>::operator(
     array->addItem(argument.d.value_or(1));
     array->addItem(argument.e.value_or(0));
     array->addItem(argument.f.value_or(0));
-    return {{ WTFMove(array), RecordingSwizzleType::DOMMatrix }};
+    return {{ WTF::move(array), RecordingSwizzleType::DOMMatrix }};
 }
 
 auto InspectorCanvasArgumentProcessor<IDLDictionary<ImageDataSettings>>::operator()(InspectorCanvas&, const ImageDataSettings&) -> std::optional<InspectorCanvasProcessedArgument>

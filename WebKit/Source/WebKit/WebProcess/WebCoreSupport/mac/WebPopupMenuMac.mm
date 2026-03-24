@@ -38,16 +38,18 @@ using namespace WebCore;
 void WebPopupMenu::setUpPlatformData(const IntRect&, PlatformPopupMenuData& data)
 {
 #if USE(APPKIT)
-    // FIXME: font will be nil here for custom fonts, we should fix that.
-    RetainPtr font = m_popupClient->menuStyle().font().primaryFont()->ctFont();
-    if (!font)
-        return;
+    RefPtr popupClient = m_popupClient;
+    std::optional<InstalledFont> font = popupClient->menuStyle().checkedFont()->primaryFont()->toSerializableInstalledFont();
+    if (!font) {
+        double pointSize = popupClient->menuStyle().checkedFont()->primaryFont()->platformData().size();
+        font = Font::create(FontPlatformData(bridge_cast([NSFont menuFontOfSize:pointSize]), pointSize))->toSerializableInstalledFont();
+    }
+    ASSERT(font);
 
-    data.postScriptName = font ? String(adoptCF(CTFontCopyPostScriptName(font.get())).get()) : String();
-    data.pointSize = font ? CTFontGetSize(font.get()) : 0.0;
-    data.shouldPopOver = m_popupClient->shouldPopOver();
-    data.hideArrows = !m_popupClient->menuStyle().hasDefaultAppearance();
-    data.menuSize = m_popupClient->menuStyle().menuSize();
+    data.font = *font;
+    data.shouldPopOver = popupClient->shouldPopOver();
+    data.hideArrows = !popupClient->menuStyle().hasDefaultAppearance();
+    data.menuSize = popupClient->menuStyle().menuSize();
 #else
     UNUSED_PARAM(data);
 #endif

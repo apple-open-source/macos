@@ -253,17 +253,17 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
                 // In this case, we should behave same as attr.isNull().
                 imageURL = imageElement->currentURL();
                 if (imageURL.isNull()) {
-                    didUpdateCachedImage(relevantMutation, WTFMove(newImage));
+                    didUpdateCachedImage(relevantMutation, WTF::move(newImage));
                     return;
                 }
             } else
                 imageURL = document->completeURL(attr);
             m_pendingURL = attr;
         }
-        ResourceRequest resourceRequest(WTFMove(imageURL));
+        ResourceRequest resourceRequest(WTF::move(imageURL));
         resourceRequest.setInspectorInitiatorNodeIdentifier(InspectorInstrumentation::identifierForNode(element));
 
-        auto request = createPotentialAccessControlRequest(WTFMove(resourceRequest), WTFMove(options), document, crossOriginAttribute);
+        auto request = createPotentialAccessControlRequest(WTF::move(resourceRequest), WTF::move(options), document, crossOriginAttribute);
         request.setInitiator(element);
 
         if (m_loadManually) {
@@ -272,7 +272,7 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
             cachedResourceLoader->setAutoLoadImages(false);
             RefPtr page = m_element->document().page();
             // FIXME: We shouldn't do an explicit `new` here.
-            newImage = new CachedImage(WTFMove(request), page->sessionID(), &page->cookieJar());
+            newImage = new CachedImage(WTF::move(request), page->sessionID(), &page->cookieJar());
             newImage->setStatus(CachedResource::Pending);
             newImage->setLoading(true);
             cachedResourceLoader->m_documentResources.set(newImage->url().string(), newImage.get());
@@ -288,7 +288,7 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
                 }
             }
             auto imageLoading = (m_lazyImageLoadState == LazyImageLoadState::Deferred) ? ImageLoading::DeferredUntilVisible : ImageLoading::Immediate;
-            newImage = document->protectedCachedResourceLoader()->requestImage(WTFMove(request), imageLoading).value_or(nullptr);
+            newImage = document->protectedCachedResourceLoader()->requestImage(WTF::move(request), imageLoading).value_or(nullptr);
             LOG_WITH_STREAM(LazyLoading, stream << "ImageLoader " << this << " updateFromElement " << element.get() << " - state changed from " << oldState << " to " << m_lazyImageLoadState << ", loading is " << imageLoading << " new image " << newImage.get());
         }
 
@@ -298,13 +298,13 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
         if (imageElement && imageElement->isMultiRepresentationHEIC()) {
             auto fallbackURL = imageElement->getURLAttribute(HTMLNames::srcAttr);
             if (!fallbackURL.isNull()) {
-                ResourceRequest resourceRequest(WTFMove(fallbackURL));
+                ResourceRequest resourceRequest(WTF::move(fallbackURL));
                 resourceRequest.setInspectorInitiatorNodeIdentifier(InspectorInstrumentation::identifierForNode(*imageElement));
 
-                auto request = createPotentialAccessControlRequest(WTFMove(resourceRequest), WTFMove(options), document, crossOriginAttribute);
+                auto request = createPotentialAccessControlRequest(WTF::move(resourceRequest), WTF::move(options), document, crossOriginAttribute);
                 request.setInitiator(*imageElement);
 
-                document->protectedCachedResourceLoader()->requestImage(WTFMove(request));
+                document->protectedCachedResourceLoader()->requestImage(WTF::move(request));
             }
         }
 #endif
@@ -326,7 +326,7 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
         loadEventSender().dispatchEventSoon(*this, eventNames().errorEvent);
     }
 
-    didUpdateCachedImage(relevantMutation, WTFMove(newImage));
+    didUpdateCachedImage(relevantMutation, WTF::move(newImage));
 }
 
 void ImageLoader::didUpdateCachedImage(RelevantMutation relevantMutation, CachedResourceHandle<CachedImage>&& newImage)
@@ -412,7 +412,7 @@ void ImageLoader::updateFromElementIgnoringPreviousErrorToSameValue()
     notifyFinished(*protectedImage(), NetworkLoadMetrics { });
 }
 
-static inline void resolvePromises(Vector<RefPtr<DeferredPromise>>& promises)
+static inline void resolvePromises(Vector<Ref<DeferredPromise>>& promises)
 {
     ASSERT(!promises.isEmpty());
     auto promisesToBeResolved = std::exchange(promises, { });
@@ -420,7 +420,7 @@ static inline void resolvePromises(Vector<RefPtr<DeferredPromise>>& promises)
         promise->resolve();
 }
 
-static inline void rejectPromises(Vector<RefPtr<DeferredPromise>>& promises, ASCIILiteral message)
+static inline void rejectPromises(Vector<Ref<DeferredPromise>>& promises, ASCIILiteral message)
 {
     ASSERT(!promises.isEmpty());
     auto promisesToBeRejected = std::exchange(promises, { });
@@ -587,7 +587,7 @@ void ImageLoader::updatedHasPendingEvent()
 
 void ImageLoader::decode(Ref<DeferredPromise>&& promise)
 {
-    m_decodingPromises.append(WTFMove(promise));
+    m_decodingPromises.append(WTF::move(promise));
 
     if (!element().document().window()) {
         rejectDecodePromises("Inactive document."_s);
@@ -624,7 +624,7 @@ void ImageLoader::decode()
         return;
     }
 
-    bitmapImage->decode([promises = WTFMove(m_decodingPromises)](DecodingStatus decodingStatus) mutable {
+    bitmapImage->decode([promises = WTF::move(m_decodingPromises)](DecodingStatus decodingStatus) mutable {
         ASSERT(decodingStatus != DecodingStatus::Decoding);
         if (decodingStatus == DecodingStatus::Invalid)
             rejectPromises(promises, "Decoding error."_s);

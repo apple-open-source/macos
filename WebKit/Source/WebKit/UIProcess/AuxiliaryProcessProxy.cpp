@@ -186,7 +186,7 @@ void AuxiliaryProcessProxy::connect()
     m_processStart = MonotonicTime::now();
     ProcessLauncher::LaunchOptions launchOptions { m_processIdentifier };
     getLaunchOptions(launchOptions);
-    m_processLauncher = ProcessLauncher::create(this, WTFMove(launchOptions));
+    m_processLauncher = ProcessLauncher::create(this, WTF::move(launchOptions));
 }
 
 void AuxiliaryProcessProxy::terminate()
@@ -253,15 +253,15 @@ bool AuxiliaryProcessProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, Optio
     // FIXME: We should turn this into a RELEASE_ASSERT().
     ASSERT(isMainRunLoop());
     if (!isMainRunLoop()) {
-        callOnMainRunLoop([protectedThis = Ref { *this }, encoder = WTFMove(encoder), sendOptions, asyncReplyHandler = WTFMove(asyncReplyHandler), shouldStartProcessThrottlerActivity]() mutable {
-            protectedThis->sendMessage(WTFMove(encoder), sendOptions, WTFMove(asyncReplyHandler), shouldStartProcessThrottlerActivity);
+        callOnMainRunLoop([protectedThis = Ref { *this }, encoder = WTF::move(encoder), sendOptions, asyncReplyHandler = WTF::move(asyncReplyHandler), shouldStartProcessThrottlerActivity]() mutable {
+            protectedThis->sendMessage(WTF::move(encoder), sendOptions, WTF::move(asyncReplyHandler), shouldStartProcessThrottlerActivity);
         });
         return true;
     }
 
     if (asyncReplyHandler && canSendMessage() && shouldStartProcessThrottlerActivity == ShouldStartProcessThrottlerActivity::Yes) {
-        auto completionHandler = WTFMove(asyncReplyHandler->completionHandler);
-        asyncReplyHandler->completionHandler = [activity = protectedThrottler()->quietBackgroundActivity(description(encoder->messageName())), completionHandler = WTFMove(completionHandler)](IPC::Connection* connection, IPC::Decoder* decoder) mutable {
+        auto completionHandler = WTF::move(asyncReplyHandler->completionHandler);
+        asyncReplyHandler->completionHandler = [activity = protectedThrottler()->quietBackgroundActivity(description(encoder->messageName())), completionHandler = WTF::move(completionHandler)](IPC::Connection* connection, IPC::Decoder* decoder) mutable {
             completionHandler(connection, decoder);
         };
     }
@@ -269,15 +269,15 @@ bool AuxiliaryProcessProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, Optio
     switch (state()) {
     case State::Launching:
         // If we're waiting for the child process to launch, we need to stash away the messages so we can send them once we have a connection.
-        m_pendingMessages.append({ WTFMove(encoder), sendOptions, WTFMove(asyncReplyHandler) });
+        m_pendingMessages.append({ WTF::move(encoder), sendOptions, WTF::move(asyncReplyHandler) });
         return true;
 
     case State::Running:
         if (asyncReplyHandler) {
-            if (protectedConnection()->sendMessageWithAsyncReply(WTFMove(encoder), WTFMove(*asyncReplyHandler), sendOptions) == IPC::Error::NoError)
+            if (protectedConnection()->sendMessageWithAsyncReply(WTF::move(encoder), WTF::move(*asyncReplyHandler), sendOptions) == IPC::Error::NoError)
                 return true;
         } else {
-            if (protectedConnection()->sendMessage(WTFMove(encoder), sendOptions) == IPC::Error::NoError)
+            if (protectedConnection()->sendMessage(WTF::move(encoder), sendOptions) == IPC::Error::NoError)
                 return true;
         }
         break;
@@ -287,7 +287,7 @@ bool AuxiliaryProcessProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, Optio
     }
 
     if (asyncReplyHandler && asyncReplyHandler->completionHandler) {
-        RunLoop::currentSingleton().dispatch([completionHandler = WTFMove(asyncReplyHandler->completionHandler)]() mutable {
+        RunLoop::currentSingleton().dispatch([completionHandler = WTF::move(asyncReplyHandler->completionHandler)]() mutable {
             completionHandler(nullptr, nullptr);
         });
     }
@@ -304,7 +304,7 @@ bool AuxiliaryProcessProxy::sendMessageAfterResuming(Vector<uint8_t>&& coalescin
 
     LOG(ProcessSuspension, "%p - AuxiliaryProcessProxy::sendMessageAfterResuming: deferring sending message %s to destination %" PRIu64 " in pid %i because it is suspended", this, description(encoder->messageName()).characters(), encoder->destinationID(), processID());
 
-    m_messagesToSendOnResume.set(WTFMove(coalescingKey), std::make_pair(m_messagesToSendOnResumeIndex++, encoder.moveToUniquePtr()));
+    m_messagesToSendOnResume.set(WTF::move(coalescingKey), std::make_pair(m_messagesToSendOnResumeIndex++, encoder.moveToUniquePtr()));
     return true;
 }
 
@@ -355,7 +355,7 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::C
     m_boostedJetsamAssertion = ProcessAssertion::create(*this, "Jetsam Boost"_s, ProcessAssertionType::BoostedJetsam);
 #endif
 
-    RefPtr connection = IPC::Connection::createServerConnection(WTFMove(connectionIdentifier), Thread::QOS::UserInteractive);
+    RefPtr connection = IPC::Connection::createServerConnection(WTF::move(connectionIdentifier), Thread::QOS::UserInteractive);
     m_connection = connection.copyRef();
     auto addResult = connectionToProcessMap().add(m_connection->uniqueID(), *this);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
@@ -373,13 +373,13 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::C
         if (!shouldSendPendingMessage(pendingMessage))
             continue;
         if (pendingMessage.asyncReplyHandler)
-            connection->sendMessageWithAsyncReply(WTFMove(pendingMessage.encoder), WTFMove(*pendingMessage.asyncReplyHandler), pendingMessage.sendOptions);
+            connection->sendMessageWithAsyncReply(WTF::move(pendingMessage.encoder), WTF::move(*pendingMessage.asyncReplyHandler), pendingMessage.sendOptions);
         else
-            connection->sendMessage(WTFMove(pendingMessage.encoder), pendingMessage.sendOptions);
+            connection->sendMessage(WTF::move(pendingMessage.encoder), pendingMessage.sendOptions);
     }
 
 #if USE(RUNNINGBOARD)
-    m_throttler.didConnectToProcess(*this);
+    protectedThrottler()->didConnectToProcess(*this);
 #if USE(EXTENSIONKIT)
     ASSERT(launcher);
     if (launcher)
@@ -402,9 +402,9 @@ void AuxiliaryProcessProxy::wakeUpTemporarilyForIPC()
     // in increased memory usage. To avoid this, we allow the process to stay alive for 1 second after draining
     // its message queue.
     auto completionHandler = [activity = protectedThrottler()->backgroundActivity("IPC sending due to large outgoing queue"_s)]() mutable {
-        RunLoop::mainSingleton().dispatchAfter(1_s, [activity = WTFMove(activity)]() { });
+        RunLoop::mainSingleton().dispatchAfter(1_s, [activity = WTF::move(activity)]() { });
     };
-    sendWithAsyncReply(Messages::AuxiliaryProcess::MainThreadPing(), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+    sendWithAsyncReply(Messages::AuxiliaryProcess::MainThreadPing(), WTF::move(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
 }
 #endif
 
@@ -454,7 +454,7 @@ void AuxiliaryProcessProxy::shutDownProcess()
 
 AuxiliaryProcessProxy* AuxiliaryProcessProxy::fromConnection(const IPC::Connection& connection)
 {
-    return connectionToProcessMap().get(connection.uniqueID()).get();
+    return connectionToProcessMap().get(connection.uniqueID());
 }
 
 void AuxiliaryProcessProxy::setProcessSuppressionEnabled(bool processSuppressionEnabled)
@@ -536,10 +536,10 @@ void AuxiliaryProcessProxy::didBecomeUnresponsive()
 void AuxiliaryProcessProxy::checkForResponsiveness(CompletionHandler<void()>&& responsivenessHandler, UseLazyStop useLazyStop)
 {
     startResponsivenessTimer(useLazyStop);
-    sendWithAsyncReply(Messages::AuxiliaryProcess::MainThreadPing(), [weakThis = WeakPtr { *this }, responsivenessHandler = WTFMove(responsivenessHandler)]() mutable {
+    sendWithAsyncReply(Messages::AuxiliaryProcess::MainThreadPing(), [weakThis = WeakPtr { *this }, responsivenessHandler = WTF::move(responsivenessHandler)]() mutable {
         // Schedule an asynchronous task because our completion handler may have been called as a result of the AuxiliaryProcessProxy
         // being in the middle of destruction.
-        RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), responsivenessHandler = WTFMove(responsivenessHandler)]() mutable {
+        RunLoop::mainSingleton().dispatch([weakThis = WTF::move(weakThis), responsivenessHandler = WTF::move(responsivenessHandler)]() mutable {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->stopResponsivenessTimer();
 
@@ -628,7 +628,7 @@ void AuxiliaryProcessProxy::didChangeThrottleState(ProcessThrottleState state)
         indexMessagePairs.reserveInitialCapacity(m_messagesToSendOnResume.size());
 
         for (auto& indexMessagePair : m_messagesToSendOnResume.values())
-            indexMessagePairs.append(WTFMove(indexMessagePair));
+            indexMessagePairs.append(WTF::move(indexMessagePair));
 
         // Send messages in the order that they were enqueued after coalescing.
         std::ranges::sort(indexMessagePairs, { }, &PairType::first);
@@ -636,7 +636,7 @@ void AuxiliaryProcessProxy::didChangeThrottleState(ProcessThrottleState state)
         for (auto& indexMessagePair : indexMessagePairs) {
             auto& encoder = indexMessagePair.second;
             LOG(ProcessSuspension, "%p - AuxiliaryProcessProxy::didChangeThrottleState: sending deferred message %s to destination %" PRIu64 " in pid %i because it resumed", this, description(encoder->messageName()).characters(), encoder->destinationID(), processID());
-            sendMessage(makeUniqueRefFromNonNullUniquePtr(WTFMove(encoder)), { });
+            sendMessage(makeUniqueRefFromNonNullUniquePtr(WTF::move(encoder)), { });
         }
 
         m_messagesToSendOnResume.clear();

@@ -5873,11 +5873,17 @@ zexit(int val, enum zexit_t from_where)
 	    savehistfile(NULL, 1, writeflags);
 	}
 	if (islogin && !subsh) {
+#ifdef __APPLE__
+	    if (unset(PRIVILEGED))
+		sourcehome(".zlogout");
+#else
 	    sourcehome(".zlogout");
+#endif
 #ifdef GLOBAL_ZLOGOUT
 	    if (isset(RCS) && isset(GLOBALRCS)) {
 #if defined(__APPLE__) && TARGET_OS_OSX
-		source(check_managed_config(MANAGED_GLOBAL_ZLOGOUT, GLOBAL_ZLOGOUT));
+		if (unset(PARANOID))
+			source(check_managed_config(MANAGED_GLOBAL_ZLOGOUT, GLOBAL_ZLOGOUT));
 #else
 		source(GLOBAL_ZLOGOUT);
 #endif // __APPLE__ && TARGET_OS_OSX

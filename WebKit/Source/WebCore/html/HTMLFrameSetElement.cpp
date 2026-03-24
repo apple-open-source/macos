@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLFrameSetElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLFrameSetElement);
 
 using namespace HTMLNames;
 
@@ -149,9 +149,9 @@ void HTMLFrameSetElement::attributeChanged(const QualifiedName& name, const Atom
 RenderPtr<RenderElement> HTMLFrameSetElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (style.hasContent())
-        return RenderElement::createFor(*this, WTFMove(style));
+        return RenderElement::createFor(*this, WTF::move(style));
     
-    return createRenderer<RenderFrameSet>(*this, WTFMove(style));
+    return createRenderer<RenderFrameSet>(*this, WTF::move(style));
 }
 
 RefPtr<HTMLFrameSetElement> HTMLFrameSetElement::findContaining(Element* descendant)
@@ -193,8 +193,11 @@ void HTMLFrameSetElement::defaultEventHandler(Event& event)
 
 void HTMLFrameSetElement::willRecalcStyle(OptionSet<Style::Change>)
 {
-    if (needsStyleRecalc() && renderer())
-        renderer()->setNeedsLayout();
+    if (!needsStyleRecalc())
+        return;
+
+    if (CheckedPtr renderer = this->renderer())
+        renderer->setNeedsLayout();
 }
 
 Node::InsertedIntoAncestorResult HTMLFrameSetElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)

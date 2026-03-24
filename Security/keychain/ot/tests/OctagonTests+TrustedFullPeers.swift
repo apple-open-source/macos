@@ -136,7 +136,7 @@ class OctagonTrustedFullPeersTests: OctagonTestsBase {
     }
 
     func testTrustedFullPeersWithDifferentPeersMac() throws {
-        try self._testTrustedFullPeersWithDifferentModel(model: "Mac17", fullPeer: true)
+        try self._testTrustedFullPeersWithDifferentModel(model: "MacBookAir10,1", fullPeer: true)
     }
 
     func testTrustedFullPeersWithDifferentPeersIPhone() throws {
@@ -180,6 +180,7 @@ class OctagonTrustedFullPeersTests: OctagonTestsBase {
     }
 
     func testTrustedFullPeersWithNoCred() throws {
+        self.iCloudHasValidCredentials = false
         self.startCKAccountStatusMock()
         let fakeAccount = FakeCKAccountInfo()
         fakeAccount.accountStatus = .available

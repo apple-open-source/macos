@@ -38,7 +38,7 @@ namespace WebCore {
 void appendBasePlatformProperties(AXPropertyVector& properties, OptionSet<AXPropertyFlag>& propertyFlags, const Ref<AccessibilityObject>& object)
 {
     auto setProperty = [&] (AXProperty property, AXPropertyValueVariant&& value) {
-        setPropertyIn(property, WTFMove(value), properties, propertyFlags);
+        setPropertyIn(property, WTF::move(value), properties, propertyFlags);
     };
 
     // These attributes are used to serve APIs on static text, but, we cache them on the highest-level ancestor
@@ -50,13 +50,13 @@ void appendBasePlatformProperties(AXPropertyVector& properties, OptionSet<AXProp
         setProperty(AXProperty::Font, style.font);
     std::optional<Color> parentTextColor = parent ? std::optional(parent->textColor()) : std::nullopt;
     if (!parentTextColor || *parentTextColor != style.textColor)
-        setProperty(AXProperty::TextColor, WTFMove(style.textColor));
+        setProperty(AXProperty::TextColor, WTF::move(style.textColor));
 }
 
 void appendPlatformProperties(AXPropertyVector& properties, OptionSet<AXPropertyFlag>& propertyFlags, const Ref<AccessibilityObject>& object)
 {
     auto setProperty = [&] (AXProperty property, AXPropertyValueVariant&& value) {
-        setPropertyIn(property, WTFMove(value), properties, propertyFlags);
+        setPropertyIn(property, WTF::move(value), properties, propertyFlags);
     };
 
     setProperty(AXProperty::HasApplePDFAnnotationAttribute, object->hasApplePDFAnnotationAttribute());
@@ -65,7 +65,7 @@ void appendPlatformProperties(AXPropertyVector& properties, OptionSet<AXProperty
     if (object->isStaticText()) {
         auto style = object->stylesForAttributedString();
         // Font and TextColor are handled in initializeBasePlatformProperties, since ignored objects could be "containers" where those styles are set.
-        setProperty(AXProperty::BackgroundColor, WTFMove(style.backgroundColor));
+        setProperty(AXProperty::BackgroundColor, WTF::move(style.backgroundColor));
         setProperty(AXProperty::HasLinethrough, style.hasLinethrough());
         setProperty(AXProperty::HasTextShadow, style.hasTextShadow);
         setProperty(AXProperty::IsSubscript, style.isSubscript);
@@ -141,7 +141,7 @@ AttributedStringStyle AXIsolatedObject::stylesForAttributedString() const
         boolAttributeValue(AXProperty::HasTextShadow),
         LineDecorationStyle(
             hasUnderlineColor,
-            WTFMove(underlineColor),
+            WTF::move(underlineColor),
             boolAttributeValue(AXProperty::HasLinethrough),
             colorAttributeValue(AXProperty::LinethroughColor)
         )
@@ -168,8 +168,8 @@ FloatRect AXIsolatedObject::convertRectToPlatformSpace(const FloatRect& rect, Ac
     if (space == AccessibilityConversionSpace::Screen)
         return convertFrameToSpace(rect, space);
 
-    return Accessibility::retrieveValueFromMainThread<FloatRect>([&rect, &space, this] () -> FloatRect {
-        if (RefPtr axObject = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<FloatRect>([&rect, &space, context = mainThreadContext()] () -> FloatRect {
+        if (RefPtr axObject = context.axObjectOnMainThread())
             return axObject->convertRectToPlatformSpace(rect, space);
         return { };
     });
@@ -177,7 +177,8 @@ FloatRect AXIsolatedObject::convertRectToPlatformSpace(const FloatRect& rect, Ac
 
 bool AXIsolatedObject::isDetached() const
 {
-    return !wrapper() || [wrapper() axBackingObject] != this;
+    RetainPtr retainedWrapper = wrapper();
+    return !retainedWrapper || [retainedWrapper axBackingObject] != this;
 }
 
 void AXIsolatedObject::attachPlatformWrapper(AccessibilityObjectWrapper* wrapper)
@@ -198,7 +199,8 @@ void AXIsolatedObject::attachPlatformWrapper(AccessibilityObjectWrapper* wrapper
 
 void AXIsolatedObject::detachPlatformWrapper(AccessibilityDetachmentType detachmentType)
 {
-    [wrapper() detachIsolatedObject:detachmentType];
+    RetainPtr retainedWrapper = wrapper();
+    [retainedWrapper detachIsolatedObject:detachmentType];
 }
 
 AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::allSortedLiveRegions() const
@@ -245,7 +247,7 @@ std::optional<NSRange> AXIsolatedObject::visibleCharacterRange() const
     const auto* currentRuns = textRuns();
     std::optional stopAtID = idOfNextSiblingIncludingIgnoredOrParent();
     auto advanceCurrent = [&] () {
-        current = findObjectWithRuns(*current, AXDirection::Next, stopAtID);
+        current = Accessibility::findObjectWithRuns(*current, AXDirection::Next, stopAtID);
         currentRuns = current ? current->textRuns() : nullptr;
     };
 
@@ -281,7 +283,7 @@ std::optional<NSRange> AXIsolatedObject::visibleCharacterRange() const
 
                 // Points to the last text position of the text belonging to this object that *was not* painted.
                 markerPriorToPaintedText = AXTextMarker { *current, renderedCharactersPriorToStartLine };
-                finalRange.location = AXTextMarkerRange { WTFMove(thisFirstMarker), *markerPriorToPaintedText }.toString().length();
+                finalRange.location = AXTextMarkerRange { WTF::move(thisFirstMarker), *markerPriorToPaintedText }.toString().length();
             }
             unsigned visibleCharactersUpToEndLine = currentRuns->runLengthSumTo(range.endLineIndex);
             lastVisibleMarker = AXTextMarker { *current, visibleCharactersUpToEndLine };
@@ -295,7 +297,7 @@ std::optional<NSRange> AXIsolatedObject::visibleCharacterRange() const
         return NSMakeRange(0, 0);
     }
 
-    AXTextMarkerRange visibleTextRange = AXTextMarkerRange { WTFMove(*markerPriorToPaintedText), WTFMove(*lastVisibleMarker) };
+    AXTextMarkerRange visibleTextRange = AXTextMarkerRange { WTF::move(*markerPriorToPaintedText), WTF::move(*lastVisibleMarker) };
     finalRange.length = visibleTextRange.toString().length();
     return finalRange;
 }
@@ -339,7 +341,13 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
         // {ID 5, Role Group}
         //
         // We would expect the returned range to be: {ID 2, offset 0} to {ID 4, offset 3}
-        std::optional stopAtID = idOfNextSiblingIncludingIgnoredOrParent();
+        Ref stopAfterObject = *this;
+
+        if (std::optional stitchGroup = stitchGroupIfRepresentative()) {
+            if (RefPtr lastGroupMember = tree()->objectForID(stitchGroup->members().last()))
+                stopAfterObject = lastGroupMember.releaseNonNull();
+        }
+        std::optional<AXID> stopAtID = stopAfterObject->idOfNextSiblingIncludingIgnoredOrParent();
 
         auto thisMarker = AXTextMarker { *this, 0 };
         AXTextMarkerRange range { thisMarker, thisMarker };
@@ -347,14 +355,14 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
         auto endMarker = startMarker.findLastBefore(stopAtID);
         if (endMarker.isValid() && endMarker.isInTextRun()) {
             // One or more of our descendants have text, so let's form a range from the first and last text positions.
-            range = { WTFMove(startMarker), WTFMove(endMarker) };
+            range = { WTF::move(startMarker), WTF::move(endMarker) };
         }
         return range;
     }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
-    return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([this] () {
-        RefPtr axObject = associatedAXObject();
+    return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([context = mainThreadContext()] () {
+        RefPtr axObject = context.axObjectOnMainThread();
         return axObject ? axObject->textMarkerRange() : AXTextMarkerRange();
     });
 }
@@ -373,17 +381,17 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRangeForNSRange(const NSRange& ran
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (AXObjectCache::useAXThreadTextApis()) {
-        if (std::optional markerRange = markerRangeFrom(range, *this)) {
+        if (std::optional markerRange = Accessibility::markerRangeFrom(range, *this)) {
             if (range.length > markerRange->toString().length())
                 return { };
-            return WTFMove(*markerRange);
+            return WTF::move(*markerRange);
         }
         return { };
     }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
-    return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([&range, this] () -> AXTextMarkerRange {
-        RefPtr axObject = associatedAXObject();
+    return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([&range, context = mainThreadContext()] () -> AXTextMarkerRange {
+        RefPtr axObject = context.axObjectOnMainThread();
         return axObject ? axObject->textMarkerRangeForNSRange(range) : AXTextMarkerRange();
     });
 }
@@ -437,7 +445,7 @@ RetainPtr<NSAttributedString> AXIsolatedObject::attributedStringForTextMarkerRan
         // markerRange is confined to an object different from this. That is the case when clients use the webarea to request AttributedStrings for a range obtained from an inner descendant.
         // Delegate to the inner object in this case.
         if (RefPtr object = markerRange.start().object())
-            return object->attributedStringForTextMarkerRange(WTFMove(markerRange), spellCheck);
+            return object->attributedStringForTextMarkerRange(WTF::move(markerRange), spellCheck);
     }
 
     RetainPtr<NSAttributedString> attributedText = nil;
@@ -445,9 +453,9 @@ RetainPtr<NSAttributedString> AXIsolatedObject::attributedStringForTextMarkerRan
     attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXProperty::AttributedText);
 #endif // !ENABLE(AX_THREAD_TEXT_APIS)
     if (!isConfined || !attributedText) {
-        return Accessibility::retrieveValueFromMainThread<RetainPtr<NSAttributedString>>([markerRange = WTFMove(markerRange), &spellCheck, this] () mutable -> RetainPtr<NSAttributedString> {
-            if (RefPtr axObject = associatedAXObject())
-                return axObject->attributedStringForTextMarkerRange(WTFMove(markerRange), spellCheck);
+        return Accessibility::retrieveValueFromMainThread<RetainPtr<NSAttributedString>>([markerRange = WTF::move(markerRange), &spellCheck, context = mainThreadContext()] () mutable -> RetainPtr<NSAttributedString> {
+            if (RefPtr axObject = context.axObjectOnMainThread())
+                return axObject->attributedStringForTextMarkerRange(WTF::move(markerRange), spellCheck);
             return { };
         });
     }
@@ -514,8 +522,8 @@ IntPoint AXIsolatedObject::clickPoint()
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<IntPoint>([this] () -> IntPoint {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<IntPoint>([context = mainThreadContext()] () -> IntPoint {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->clickPoint();
         return { };
     });
@@ -525,8 +533,8 @@ bool AXIsolatedObject::pressedIsPresent() const
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<bool>([this] () -> bool {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<bool>([context = mainThreadContext()] () -> bool {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->pressedIsPresent();
         return false;
     });
@@ -536,8 +544,8 @@ Vector<String> AXIsolatedObject::determineDropEffects() const
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<Vector<String>>([this] () -> Vector<String> {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<Vector<String>>([context = mainThreadContext()] () -> Vector<String> {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->determineDropEffects();
         return { };
     });
@@ -547,8 +555,8 @@ int AXIsolatedObject::layoutCount() const
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<int>([this] () -> int {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<int>([context = mainThreadContext()] () -> int {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->layoutCount();
         return { };
     });
@@ -558,8 +566,8 @@ Vector<String> AXIsolatedObject::classList() const
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<Vector<String>>([this] () -> Vector<String> {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<Vector<String>>([context = mainThreadContext()] () -> Vector<String> {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->classList();
         return { };
     });
@@ -569,8 +577,8 @@ String AXIsolatedObject::computedRoleString() const
 {
     ASSERT(_AXGetClientForCurrentRequestUntrusted() != kAXClientTypeVoiceOver);
 
-    return Accessibility::retrieveValueFromMainThread<String>([this] () -> String {
-        if (RefPtr object = associatedAXObject())
+    return Accessibility::retrieveValueFromMainThread<String>([context = mainThreadContext()] () -> String {
+        if (RefPtr object = context.axObjectOnMainThread())
             return object->computedRoleString().isolatedCopy();
         return { };
     });

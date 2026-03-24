@@ -41,7 +41,7 @@ Ref<JSON::Array> filterObjects(const JSON::Array& array, WTF::Function<bool(cons
             continue;
 
         if (lambda(value))
-            result->pushValue(WTFMove(value));
+            result->pushValue(WTF::move(value));
     }
 
     return result;
@@ -55,7 +55,7 @@ Vector<String> makeStringVector(const JSON::Array& array)
 
     for (Ref value : array) {
         if (auto string = value->asString(); !string.isNull())
-            vector.append(WTFMove(string));
+            vector.append(WTF::move(string));
     }
 
     vector.shrinkToFit();
@@ -100,68 +100,43 @@ RefPtr<JSON::Object> mergeJSON(RefPtr<JSON::Object> jsonA, RefPtr<JSON::Object> 
     return mergedObject;
 }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
-WTF_ATTRIBUTE_PRINTF(1, 0)
-static String formatString(const char* format, va_list arguments)
+void serializeToMultipleJSONStrings(Ref<JSON::Object> jsonObject, Function<void(String&&)>&& chunkCallback)
 {
-    va_list args;
-    va_copy(args, arguments);
+    // StringBuilder is limited to INT_MAX characters and JSON chars may expand up to 6x to account for escaping (\uNNNN).
+    // We can assume memoryCost() ≈ total bytes of string storage, so a threshold cap of INT_MAX / 6
+    // will ensure we don't hit the overflow when creating the JSON string.
+    static constexpr size_t memoryCostThreshold =
+        static_cast<size_t>(std::numeric_limits<int32_t>::max()) / 6;
 
-ALLOW_NONLITERAL_FORMAT_BEGIN
-
-#if PLATFORM(COCOA)
-    auto cfFormat = adoptCF(CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, format, kCFStringEncodingUTF8, kCFAllocatorNull));
-    auto cfResult = adoptCF(CFStringCreateWithFormatAndArguments(0, 0, cfFormat.get(), args));
-    va_end(args);
-    return cfResult.get();
-#endif
-
-#if PLATFORM(WIN)
-    int len = _vscwprintf(format, args);
-    Vector<wchar_t> buffer(len + 1);
-    _vsnwprintf(buffer.data(), len + 1, format, args);
-    va_end(args);
-    return { buffer.data() };
-#else
-    char ch;
-    int result = vsnprintf(&ch, 1, format, args);
-
-    if (!result) {
-        va_end(args);
-        return emptyString();
+    if (jsonObject->memoryCost() <= memoryCostThreshold) {
+        chunkCallback(jsonObject->toJSONString());
+        return;
     }
 
-    if (result < 0) {
-        va_end(args);
-        return nullString();
+    size_t currentMemoryCost = 0;
+    Ref<JSON::Object> currentJSON = JSON::Object::create();
+
+    for (auto& key : jsonObject->keys()) {
+        RefPtr value = jsonObject->getValue(key);
+        if (!value)
+            continue;
+
+        size_t entryMemoryCost = key.sizeInBytes() + value->memoryCost();
+
+        // If we've hit the threshold, then create a new JSON string to avoid an overflow.
+        if (currentMemoryCost + entryMemoryCost > memoryCostThreshold) {
+            chunkCallback(currentJSON->toJSONString());
+            currentJSON = JSON::Object::create();
+            currentMemoryCost = 0;
+        }
+
+        currentJSON->setValue(key, *value);
+        currentMemoryCost += entryMemoryCost;
     }
 
-    Vector<char, 256> buffer;
-    buffer.grow(result + 1);
-
-    vsnprintf(buffer.mutableSpan().data(), buffer.size(), format, args);
-    va_end(args);
-
-    return StringImpl::create(buffer.subspan(0, buffer.size() - 1));
-#endif
-
-ALLOW_NONLITERAL_FORMAT_END
+    if (currentJSON->size())
+        chunkCallback(currentJSON->toJSONString());
 }
-
-WTF_ATTRIBUTE_PRINTF(1, 0)
-static String formatString(const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-ALLOW_NONLITERAL_FORMAT_BEGIN
-    auto result = formatString(format, args);
-ALLOW_NONLITERAL_FORMAT_END
-    va_end(args);
-    return result;
-}
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static inline String lowercaseFirst(const String& input)
 {
@@ -173,20 +148,13 @@ static inline String uppercaseFirst(const String& input)
     return !input.isEmpty() ? makeString(input.left(1).convertToASCIIUppercase(), input.substring(1, input.length())) : input;
 }
 
-String toErrorString(const String& callingAPIName, const String& sourceKey, String underlyingErrorString, ...)
+String toErrorString(const String& callingAPIName, const String& sourceKey, const String& underlyingErrorString)
 {
     ASSERT(!underlyingErrorString.isEmpty());
 
-    va_list arguments;
-    va_start(arguments, underlyingErrorString);
-
-ALLOW_NONLITERAL_FORMAT_BEGIN
-    String formattedUnderlyingErrorString = formatString(underlyingErrorString.utf8().data(), arguments).trim([](char16_t character) -> bool {
+    String formattedUnderlyingErrorString = underlyingErrorString.trim([](char16_t character) -> bool {
         return character == '.';
     });
-ALLOW_NONLITERAL_FORMAT_END
-
-    va_end(arguments);
 
     String source = sourceKey;
 
@@ -196,13 +164,13 @@ ALLOW_NONLITERAL_FORMAT_END
     }
 
     if (!callingAPIName.isEmpty() && !source.isEmpty())
-        return formatString("Invalid call to %s. The '%s' value is invalid, because %s.", callingAPIName.utf8().data(), source.utf8().data(), lowercaseFirst(formattedUnderlyingErrorString).utf8().data());
+        return makeString("Invalid call to "_s, callingAPIName, ". The '"_s, source, "' value is invalid, because "_s, lowercaseFirst(formattedUnderlyingErrorString), "."_s);
 
     if (callingAPIName.isEmpty() && !source.isEmpty())
-        return formatString("The '%s' value is invalid, because %s.", source.utf8().data(), lowercaseFirst(formattedUnderlyingErrorString).utf8().data());
+        return makeString("The '"_s, source, "' value is invalid, because "_s, lowercaseFirst(formattedUnderlyingErrorString), "."_s);
 
     if (!callingAPIName.isEmpty())
-        return formatString("Invalid call to %s. %s.", callingAPIName.utf8().data(), uppercaseFirst(formattedUnderlyingErrorString).utf8().data());
+        return makeString("Invalid call to "_s, callingAPIName, ". "_s, uppercaseFirst(formattedUnderlyingErrorString), "."_s);
 
     return formattedUnderlyingErrorString;
 }

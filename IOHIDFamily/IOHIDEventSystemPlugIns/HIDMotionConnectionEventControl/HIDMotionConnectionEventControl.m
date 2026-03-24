@@ -138,11 +138,11 @@ static  MatchStatus matchProcess (RBSProcessHandle * process)
             break;
     }
     
-    require_quiet(status == kMatchProcessDefault, exit);
+    __Require_Quiet(status == kMatchProcessDefault, exit);
     
-    require (entitlements->entitlements == 0, exit);
+    __Require(entitlements->entitlements == 0, exit);
     
-    require (isPlatformBinary(token) == false, exit);
+    __Require(isPlatformBinary(token) == false, exit);
     
     ret = YES;
 
@@ -211,10 +211,10 @@ exit:
     HIDEventService * service = [sender isKindOfClass:[HIDEventService class]] ?  (HIDEventService *) sender : nil;
  
 
-    require (kMAAppInUseStatusImmersive != _status && kMAAppInUseStatusImmersiveDefocused != _status , exit);
+    __Require(kMAAppInUseStatusImmersive != _status && kMAAppInUseStatusImmersiveDefocused != _status , exit);
     
     // Filter only built-in services.
-    require_quiet([event integerValueForField:kIOHIDEventFieldIsBuiltIn], exit);
+    __Require_Quiet([event integerValueForField:kIOHIDEventFieldIsBuiltIn], exit);
 
     // Filter if it's a motion event.
     switch (event.type) {
@@ -226,7 +226,7 @@ exit:
             break;
     }
     
-    require_quiet (result && service, exit);
+    __Require_Quiet(result && service, exit);
 
     // Filter if the event came from a motion service.
     for ( NSUInteger i = 0; i < sizeof(usagePairs)/sizeof(usagePairs[0]); i++) {

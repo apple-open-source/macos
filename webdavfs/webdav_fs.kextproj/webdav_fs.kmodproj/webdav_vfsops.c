@@ -899,10 +899,10 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 					break;
 				}
 				
-				error = file_vnode_withvid(fd, &vp, NULL);
+				error = file_vnode_ext(fd, &vp, NULL, FREAD|FWRITE);
 				if ( error != 0 )
 				{
-					printf("webdav_sysctl: file_vnode() failed\n");
+					printf("webdav_sysctl: file_vnode_ext() failed\n");
 					break;
 				}
 				

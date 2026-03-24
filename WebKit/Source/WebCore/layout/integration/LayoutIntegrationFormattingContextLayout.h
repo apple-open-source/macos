@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "LayoutPoint.h"
 #include "LayoutUnit.h"
 #include <optional>
 
@@ -32,6 +33,7 @@ namespace WebCore {
 
 namespace Layout {
 
+class InlineLayoutState;
 class ElementBox;
 class LayoutState;
 }
@@ -52,6 +54,8 @@ enum class LogicalHeightType : uint8_t  {
     MinContent
 };
 LayoutUnit formattingContextRootLogicalHeightForType(const Layout::ElementBox&, LogicalHeightType);
+
+void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block, LayoutPoint blockLineLogicalTopLeft, Layout::InlineLayoutState&, Layout::LayoutState&);
 
 }
 }

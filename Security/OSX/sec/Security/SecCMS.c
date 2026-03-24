@@ -187,12 +187,12 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
         }
     }
     
-    require(cmsg = SecCmsMessageCreate(), out);
-	require(envd = SecCmsEnvelopedDataCreate(cmsg, algorithmTag, keySize), out);
-    require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
-    require_noerr(SecCmsContentInfoSetContentEnvelopedData(cinfo, envd), out);
-    require(cinfo = SecCmsEnvelopedDataGetContentInfo(envd), out);
-    require_noerr(SecCmsContentInfoSetContentData(cinfo, NULL, false), out);
+    __Require(cmsg = SecCmsMessageCreate(), out);
+	__Require(envd = SecCmsEnvelopedDataCreate(cmsg, algorithmTag, keySize), out);
+    __Require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
+    __Require_noErr(SecCmsContentInfoSetContentEnvelopedData(cinfo, envd), out);
+    __Require(cinfo = SecCmsEnvelopedDataGetContentInfo(envd), out);
+    __Require_noErr(SecCmsContentInfoSetContentData(cinfo, NULL, false), out);
     // == wrapper of: require(SECSuccess == SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_DATA, NULL), out);
     
     if (CFGetTypeID(recipient_or_cfarray_thereof) == CFArrayGetTypeID()) {
@@ -201,10 +201,10 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
             SecCertificateRef recip = 
                 (SecCertificateRef)CFArrayGetValueAtIndex(recipient_or_cfarray_thereof, dex);
             SecCmsRecipientInfoRef rinfo;
-            require(rinfo = SecCmsRecipientInfoCreate(envd, recip), out);
+            __Require(rinfo = SecCmsRecipientInfoCreate(envd, recip), out);
         }
     } else if (CFGetTypeID(recipient_or_cfarray_thereof) == SecCertificateGetTypeID()) {
-            require(SecCmsRecipientInfoCreate(envd, (SecCertificateRef)recipient_or_cfarray_thereof), out);
+            __Require(SecCmsRecipientInfoCreate(envd, (SecCertificateRef)recipient_or_cfarray_thereof), out);
     } else
         goto out;
     
@@ -213,7 +213,7 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
         input.Length = CFDataGetLength(data);
         input.Data = (uint8_t*)CFDataGetBytePtr(data);
     }
-    require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, enveloped_data), out);
+    __Require_noErr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, enveloped_data), out);
     
     status = errSecSuccess;
 out:
@@ -231,19 +231,19 @@ static OSStatus SecCMSDecryptEnvelopedData_legacy(CFDataRef message,
     OSStatus status = errSecParam;
     
     SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_action_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), 
+    __Require_noErr_Action_Quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), 
         out, status = errSecDecode);
-    require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
-    require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_ENVELOPED_DATA, out);
-    require_quiet(envd = (SecCmsEnvelopedDataRef)SecCmsContentInfoGetContent(cinfo), out);
+    __Require_Quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
+    __Require_Quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_ENVELOPED_DATA, out);
+    __Require_Quiet(envd = (SecCmsEnvelopedDataRef)SecCmsContentInfoGetContent(cinfo), out);
     SecCmsRecipientInfoRef *rinfo = envd->recipientInfos;
     while (!used_recipient && *rinfo) {
         used_recipient = (*rinfo)->cert;
         rinfo++;
     }
-    require_quiet(2 == SecCmsMessageContentLevelCount(cmsg), out);
-    require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 1), out);
-    require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_DATA, out);
+    __Require_Quiet(2 == SecCmsMessageContentLevelCount(cmsg), out);
+    __Require_Quiet(cinfo = SecCmsMessageContentLevel(cmsg, 1), out);
+    __Require_Quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_DATA, out);
     const SecAsn1Item *content = SecCmsMessageGetContent(cmsg);
     if (content)
         CFDataAppendBytes(data, content->Data, content->Length);
@@ -364,19 +364,19 @@ static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
     SecCmsSignerInfoRef signerinfo;
     OSStatus status = errSecParam;
     
-    require(!data_is_digest || detached /* if digest, must be detached */, out);
+    __Require(!data_is_digest || detached /* if digest, must be detached */, out);
 
-    require(cmsg = SecCmsMessageCreate(), out);
-    require(sigd = SecCmsSignedDataCreate(cmsg), out);
-    require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
-    require_noerr(SecCmsContentInfoSetContentSignedData(cinfo, sigd), out);
-    require(cinfo = SecCmsSignedDataGetContentInfo(sigd), out);
-    require_noerr(SecCmsContentInfoSetContentData(cinfo, NULL, detached), out);
-    require(signerinfo = SecCmsSignerInfoCreate(sigd, identity, sign_algorithm), out);
+    __Require(cmsg = SecCmsMessageCreate(), out);
+    __Require(sigd = SecCmsSignedDataCreate(cmsg), out);
+    __Require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
+    __Require_noErr(SecCmsContentInfoSetContentSignedData(cinfo, sigd), out);
+    __Require(cinfo = SecCmsSignedDataGetContentInfo(sigd), out);
+    __Require_noErr(SecCmsContentInfoSetContentData(cinfo, NULL, detached), out);
+    __Require(signerinfo = SecCmsSignerInfoCreate(sigd, identity, sign_algorithm), out);
     if (additional_certs)
-        require_noerr(SecCmsSignedDataAddCertList(sigd, additional_certs), out);
-    require_noerr(SecCmsSignerInfoIncludeCerts(signerinfo, chainMode, certUsageAnyCA), out);
-    require_noerr(SecCmsSignerInfoAddSigningTime(signerinfo, CFAbsoluteTimeGetCurrent()), out);
+        __Require_noErr(SecCmsSignedDataAddCertList(sigd, additional_certs), out);
+    __Require_noErr(SecCmsSignerInfoIncludeCerts(signerinfo, chainMode, certUsageAnyCA), out);
+    __Require_noErr(SecCmsSignerInfoAddSigningTime(signerinfo, CFAbsoluteTimeGetCurrent()), out);
 
     if (signed_attributes)
         CFDictionaryApplyFunction(signed_attributes, sign_all_attributes, signerinfo);
@@ -387,11 +387,11 @@ static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
         input.Data = (uint8_t*)CFDataGetBytePtr(data);
     }
     if (data_is_digest) {
-        require_noerr(SecCmsSignedDataSetDigestValue(sigd, sign_algorithm, &input), out);
-        require_noerr(SecCmsMessageEncode(cmsg, NULL, signed_data), out);
+        __Require_noErr(SecCmsSignedDataSetDigestValue(sigd, sign_algorithm, &input), out);
+        __Require_noErr(SecCmsMessageEncode(cmsg, NULL, signed_data), out);
     }
     else
-        require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, signed_data), out);
+        __Require_noErr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, signed_data), out);
     
     status = errSecSuccess;
 out:
@@ -513,18 +513,18 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     SecCmsSignedDataRef sigd = NULL;
     OSStatus status = errSecParam;
 
-    require(message, out);
+    __Require(message, out);
     SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_action_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), 
+    __Require_noErr_Action_Quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), 
         out, status = errSecDecode);
     /* expected to be a signed data message at the top level */
-    require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
-    require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
-    require_quiet(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out);
+    __Require_Quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
+    __Require_Quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
+    __Require_Quiet(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out);
 
     if (detached_contents)
     {
-        require_quiet(!SecCmsSignedDataHasDigests(sigd), out);
+        __Require_Quiet(!SecCmsSignedDataHasDigests(sigd), out);
         SECAlgorithmID **digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
         SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestalgs);
         SecCmsDigestContextUpdate(digcx, CFDataGetBytePtr(detached_contents), CFDataGetLength(detached_contents));
@@ -533,13 +533,13 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     }
 
     if (additional_certs)
-        require_noerr_quiet(SecCmsSignedDataAddCertList(sigd, additional_certs), out);
+        __Require_noErr_Quiet(SecCmsSignedDataAddCertList(sigd, additional_certs), out);
 
     if (policy) { /* if no policy is given skip verification */
         /* find out about signers */
         int nsigners = SecCmsSignedDataSignerInfoCount(sigd);
-        require_quiet(nsigners == 1, out);
-        require_noerr_action_quiet(SecCmsSignedDataVerifySigner(sigd, 0, policy, trustref),
+        __Require_Quiet(nsigners == 1, out);
+        __Require_noErr_Action_Quiet(SecCmsSignedDataVerifySigner(sigd, 0, policy, trustref),
             out, status = errSecAuthFailed);
     }
 
@@ -556,7 +556,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     if (signed_attributes) {
         CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 
             0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        require_quiet(attrs, out);
+        __Require_Quiet(attrs, out);
         SecCmsAttribute **signed_attrs = sigd->signerInfos[0]->authAttr;
         if (signed_attrs) while (*signed_attrs) {
             CFDataRef type = CFDataCreate(kCFAllocatorDefault, (*signed_attrs)->type.Data, (*signed_attrs)->type.Length);
@@ -723,15 +723,15 @@ CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
     CFMutableArrayRef certs = NULL;
 
     SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), out);
+    __Require_noErr_Quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), out);
     /* expected to be a signed data message at the top level */
-    require(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
-    require(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
-    require(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out);
+    __Require(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
+    __Require(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
+    __Require(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out);
 
     /* find out about signers */
     int nsigners = SecCmsSignedDataSignerInfoCount(sigd);
-    require(nsigners == 0, out);
+    __Require(nsigners == 0, out);
 
     SecAsn1Item **cert_datas = SecCmsSignedDataGetCertificateList(sigd);
     certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -771,15 +771,15 @@ CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
     CFIndex cert_array_count = 0;
     SecCertificateRef cert = NULL;
     
-    require(cert_or_array_thereof, out);
+    __Require(cert_or_array_thereof, out);
 
-    require(cmsg = SecCmsMessageCreate(), out);
-    require(sigd = SecCmsSignedDataCreate(cmsg), out);
-    require_noerr(SecCmsContentInfoSetContentData(&(sigd->contentInfo), NULL, PR_TRUE), out);
-    require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
-    require_noerr(SecCmsContentInfoSetContentSignedData(cinfo, sigd), out);
+    __Require(cmsg = SecCmsMessageCreate(), out);
+    __Require(sigd = SecCmsSignedDataCreate(cmsg), out);
+    __Require_noErr(SecCmsContentInfoSetContentData(&(sigd->contentInfo), NULL, PR_TRUE), out);
+    __Require(cinfo = SecCmsMessageGetContentInfo(cmsg), out);
+    __Require_noErr(SecCmsContentInfoSetContentSignedData(cinfo, sigd), out);
     long version = SEC_CMS_SIGNED_DATA_VERSION_BASIC;
-    require(SEC_ASN1EncodeInteger(cmsg->poolp, &(sigd->version), version), out);
+    __Require(SEC_ASN1EncodeInteger(cmsg->poolp, &(sigd->version), version), out);
     
     if (CFGetTypeID(cert_or_array_thereof) == SecCertificateGetTypeID()) {
         cert_array = CFArrayCreate(kCFAllocatorDefault, &cert_or_array_thereof, 1, &kCFTypeArrayCallBacks);
@@ -787,16 +787,16 @@ CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
         cert_array = CFArrayCreateCopy(kCFAllocatorDefault, (CFArrayRef)cert_or_array_thereof);
     }
 
-    require(cert_array, out);
+    __Require(cert_array, out);
     cert_array_count = CFArrayGetCount(cert_array);
-    require(cert_array_count > 0, out);
+    __Require(cert_array_count > 0, out);
 
     sigd->rawCerts = (SecAsn1Item * *)PORT_ArenaAlloc(cmsg->poolp, (cert_array_count + 1) * sizeof(SecAsn1Item *));
-    require(sigd->rawCerts, out);
+    __Require(sigd->rawCerts, out);
     CFIndex ix;
     for (ix = 0; ix < cert_array_count; ix++) {
         cert = (SecCertificateRef)CFArrayGetValueAtIndex(cert_array, ix);
-        require(cert, out);
+        __Require(cert, out);
         
         sigd->rawCerts[ix] = PORT_ArenaZAlloc(cmsg->poolp, sizeof(SecAsn1Item));
         SecAsn1Item cert_data = { SecCertificateGetLength(cert),
@@ -811,7 +811,7 @@ CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
             
     cert_only_signed_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
         SecAsn1Item cert_only_signed_data_item = {};
-        require_quiet(SEC_ASN1EncodeItem(cmsg->poolp, &cert_only_signed_data_item, 
+        __Require_Quiet(SEC_ASN1EncodeItem(cmsg->poolp, &cert_only_signed_data_item, 
             cmsg, SecCmsMessageTemplate), out);
     CFDataAppendBytes(cert_only_signed_data, cert_only_signed_data_item.Data, 
         cert_only_signed_data_item.Length);
@@ -847,15 +847,15 @@ CFDataRef SecCMSCreateCertificatesOnlyMessageIAP(SecCertificateRef cert)
     uint16_t messagelen;
 
     certdata = SecCertificateCopyData(cert);
-    require(certdata, out);
+    __Require(certdata, out);
 
     certbytes = CFDataGetBytePtr(certdata);
     certlen = CFDataGetLength(certdata);
-    require(certlen > UINT8_MAX, out);
-    require(certlen < UINT16_MAX, out);
+    __Require(certlen > UINT8_MAX, out);
+    __Require(certlen < UINT16_MAX, out);
 
     message = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require(message, out);
+    __Require(message, out);
 
     CFDataAppendBytes(message, header, sizeof(header));
     CFDataAppendBytes(message, certbytes, certlen);

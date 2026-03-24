@@ -54,7 +54,7 @@ static void SYSV_ABI stdFunctionCallback(Probe::Context& context)
     
 void MacroAssembler::probeDebug(Function<void(Probe::Context&)> func)
 {
-    probe(tagCFunction<JITProbePtrTag>(stdFunctionCallback), new Function<void(Probe::Context&)>(WTFMove(func)));
+    probe(tagCFunction<JITProbePtrTag>(stdFunctionCallback), new Function<void(Probe::Context&)>(WTF::move(func)));
 }
 
 } // namespace JSC

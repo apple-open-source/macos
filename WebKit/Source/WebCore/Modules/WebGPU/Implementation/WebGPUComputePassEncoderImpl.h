@@ -41,7 +41,7 @@ class ComputePassEncoderImpl final : public ComputePassEncoder {
 public:
     static Ref<ComputePassEncoderImpl> create(WebGPUPtr<WGPUComputePassEncoder>&& computePassEncoder, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new ComputePassEncoderImpl(WTFMove(computePassEncoder), convertToBackingContext));
+        return adoptRef(*new ComputePassEncoderImpl(WTF::move(computePassEncoder), convertToBackingContext));
     }
 
     virtual ~ComputePassEncoderImpl();

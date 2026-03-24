@@ -747,9 +747,9 @@ static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     CFDataRef derCoders = NULL;
     CFMutableDictionaryRef codersDict = NULL;
     derCoders = SOSDataSourceCopyStateWithKey(engine->dataSource, kSOSEngineCoders, kSOSEngineProtectionDomainClassA, txn, error);
-    require_quiet(derCoders, xit);
+    __Require_Quiet(derCoders, xit);
     codersDict = derStateToDictionaryCopy(derCoders, error);
-    require_quiet(codersDict, xit);
+    __Require_Quiet(codersDict, xit);
 
     /*
      * Make sure all peer have coders
@@ -1844,7 +1844,7 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
     __block bool ok = true;
     CFMutableArrayRef changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
 
-    require_action_quiet(peer, exit, ok = SOSErrorCreate(errSecParam, error, NULL, CFSTR("Couldn't create peer with Engine for %@"), peerID));
+    __Require_Action_Quiet(peer, exit, ok = SOSErrorCreate(errSecParam, error, NULL, CFSTR("Couldn't create peer with Engine for %@"), peerID));
     peerDesc = CFCopyDescription(peer);
 
     bool hadBeenInSyncAtStart = SOSPeerHasBeenInSync(peer);
@@ -1854,13 +1854,13 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
         ok = SOSErrorCreate(kSOSErrorNotReady, error, NULL, CFSTR("Unknown criticial extension in peer message"));
         *stop = true;
     });
-    require_quiet(ok, exit);
+    __Require_Quiet(ok, exit);
 
     // Merge Objects from the message into our DataSource.
     // Should we move the transaction to the SOSAccount level?
     // TODO: Filter incoming objects
     //if (!SOSDataSourceForEachObjectInViewSet(engine->dataSource, pendingObjects, SOSPeerGetViewNameSet(peer), error, ^void(CFDataRef key, SOSObjectRef object, bool *stop) {
-    require_quiet(ok &= SOSMessageWithSOSObjects(message, engine->dataSource, error, ^(SOSObjectRef peersObject, bool *stop) {
+    __Require_Quiet(ok &= SOSMessageWithSOSObjects(message, engine->dataSource, error, ^(SOSObjectRef peersObject, bool *stop) {
         CFDataRef digest = SOSObjectCopyDigest(engine->dataSource, peersObject, error);
         if (!digest) {
             *stop = true;
@@ -1925,7 +1925,7 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
     // ---- since commiting the SOSDataSourceWith transaction might change them ---
 
     // Take a snapshot of our dataSource's local manifest.
-    require_quiet(ok = localManifest = SOSEngineCopyLocalPeerManifest_locked(engine, peer, error), exit);
+    __Require_Quiet(ok = localManifest = SOSEngineCopyLocalPeerManifest_locked(engine, peer, error), exit);
 
     CFDataRef baseDigest = SOSMessageGetBaseDigest(message);
     CFDataRef proposedDigest = SOSMessageGetProposedDigest(message);
@@ -2565,10 +2565,10 @@ CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, C
             CFErrorRef localError = NULL;
             SOSPeerRef peer = NULL;
             CFStringRef peerID = asString(value, &localError);
-            require_action_quiet(peerID, done, report_handled = false);
+            __Require_Action_Quiet(peerID, done, report_handled = false);
 
             peer = SOSEngineCopyPeerWithID_locked(engine, peerID, &localError);
-            require_quiet(peerID, done);
+            __Require_Quiet(peerID, done);
 
             if (SOSPeerMapEntryIsBackup(peer)) {
                 if(forceReset) {
@@ -2926,9 +2926,9 @@ void SOSEngineLogState(SOSEngineRef engine) {
 
     secnotice(ENGINELOGSTATE, "Start");
 
-    require_action_quiet(engine, retOut, secnotice(ENGINELOGSTATE, "No Engine Available"));
+    __Require_Action_Quiet(engine, retOut, secnotice(ENGINELOGSTATE, "No Engine Available"));
     confirmedDigests = SOSEngineCopyPeerConfirmedDigests(engine, &error);
-    require_action_quiet(confirmedDigests, retOut, secnotice(ENGINELOGSTATE, "No engine peers: %@\n", error));
+    __Require_Action_Quiet(confirmedDigests, retOut, secnotice(ENGINELOGSTATE, "No engine peers: %@\n", error));
 
     SOSCCForEachEngineStateAsStringFromArray(confirmedDigests, ^(CFStringRef onePeerDescription) {
         secnotice(ENGINELOGSTATE, "%@", onePeerDescription);

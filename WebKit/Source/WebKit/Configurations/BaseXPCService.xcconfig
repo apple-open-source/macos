@@ -80,6 +80,11 @@ WK_PATH_FROM_SERVICE_EXECUTABLE_TO_FRAMEWORK_SHALLOW_BUNDLE_YES_DEPLOYMENT_YES =
 WK_PATH_FROM_SERVICE_EXECUTABLE_TO_FRAMEWORK_SHALLOW_BUNDLE_NO_DEPLOYMENT_NO = ../../..;
 WK_PATH_FROM_SERVICE_EXECUTABLE_TO_FRAMEWORK_SHALLOW_BUNDLE_YES_DEPLOYMENT_NO = ..;
 
+// In relocatable builds, dyld needs to find any Swift compatibility libraries
+// that were copied into the application bundle.
+LD_RUNPATH_SEARCH_PATHS = $(LD_RUNPATH_SEARCH_PATHS_$(WK_RELOCATABLE_FRAMEWORKS));
+LD_RUNPATH_SEARCH_PATHS_YES = @loader_path/../../../;
+
 // We want this to always be NO for non-simulator builds. If set to YES, Xcode will invoke codesign with an --entitlements parameter that points to the platform's BaseEntitlements.plist. This parameter would override any --entitlements parameter that we establish in WK_LIBRARY_VALIDATION_CODE_SIGN_FLAGS, causing our entitlements to be ignored.
 CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 CODE_SIGN_INJECT_BASE_ENTITLEMENTS[sdk=*simulator] = YES;

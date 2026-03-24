@@ -33,8 +33,8 @@ namespace WebKit {
 
 MediaDeviceSandboxExtensions::MediaDeviceSandboxExtensions(Vector<String> ids, Vector<SandboxExtension::Handle>&& handles, SandboxExtension::Handle&& machBootstrapHandle)
     : m_ids(ids)
-    , m_handles(WTFMove(handles))
-    , m_machBootstrapHandle(WTFMove(machBootstrapHandle))
+    , m_handles(WTF::move(handles))
+    , m_machBootstrapHandle(WTF::move(machBootstrapHandle))
 {
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(m_ids.size() == m_handles.size());
 }
@@ -43,7 +43,7 @@ std::pair<String, RefPtr<SandboxExtension>> MediaDeviceSandboxExtensions::operat
 {
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(m_ids.size() == m_handles.size());
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(i < m_ids.size());
-    return { m_ids[i], SandboxExtension::create(WTFMove(m_handles[i])) };
+    return { m_ids[i], SandboxExtension::create(WTF::move(m_handles[i])) };
 }
 
 size_t MediaDeviceSandboxExtensions::size() const

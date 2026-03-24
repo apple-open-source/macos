@@ -98,19 +98,19 @@ static void build_trust_chains(const void *key, const void *value,
     build_trust_chains_context * a_build_trust_chains_context = (build_trust_chains_context*)context;
 
     CFDataRef key_bytes = CFDictionaryGetValue(value, CFSTR("key"));
-    require(key_bytes, out);
+    __Require(key_bytes, out);
     CFDataRef cert_bytes = CFDictionaryGetValue(value, CFSTR("cert"));
-    require(cert_bytes, out);
+    __Require(cert_bytes, out);
     CFDataRef algoid_bytes = CFDictionaryGetValue(value, CFSTR("algid"));
 
 
     DERItem algorithm = { (DERByte *)CFDataGetBytePtr(algoid_bytes), CFDataGetLength(algoid_bytes) };
     if (DEROidCompare(&oidEcPubKey, &algorithm)) {
-        require (private_key = SecKeyCreateECPrivateKey(kCFAllocatorDefault,
+        __Require(private_key = SecKeyCreateECPrivateKey(kCFAllocatorDefault,
                                                          CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
                                                          kSecKeyEncodingPkcs1), out);
     } else if (DEROidCompare(&oidRsa, &algorithm)) {
-        require (private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault,
+        __Require(private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault,
                                                          CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
                                                          kSecKeyEncodingPkcs1), out);
     } else {
@@ -118,25 +118,25 @@ static void build_trust_chains(const void *key, const void *value,
         goto out;
     }
 
-    require_action(cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes), out,
+    __Require_Action(cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes), out,
                    *a_build_trust_chains_context->status = p12_decodeErr);
-    require_action(identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key), out,
+    __Require_Action(identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key), out,
                    *a_build_trust_chains_context->status = p12_decodeErr);
     CFDictionarySetValue(identity_dict, kSecImportItemIdentity, identity);
     
     eval_chain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    require(eval_chain, out);
+    __Require(eval_chain, out);
     CFArrayAppendValue(eval_chain, cert);
     CFRange all_certs = { 0, CFArrayGetCount(a_build_trust_chains_context->certs) };
     CFArrayAppendArray(eval_chain, a_build_trust_chains_context->certs, all_certs);
-    require(policy = SecPolicyCreateBasicX509(), out);
+    __Require(policy = SecPolicyCreateBasicX509(), out);
     SecTrustResultType result;
     SecTrustCreateWithCertificates(eval_chain, policy, &trust);
-    require(trust, out);
+    __Require(trust, out);
     SecTrustEvaluate(trust, &result);
     CFDictionarySetValue(identity_dict, kSecImportItemTrust, trust);
 
-    require(cert_chain = SecTrustCopyCertificateChain(trust), out);
+    __Require(cert_chain = SecTrustCopyCertificateChain(trust), out);
     CFDictionarySetValue(identity_dict, kSecImportItemCertChain, cert_chain);
     
     CFArrayAppendValue(a_build_trust_chains_context->identities, identity_dict);

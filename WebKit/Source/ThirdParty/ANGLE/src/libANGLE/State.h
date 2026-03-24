@@ -18,12 +18,14 @@
 #include "libANGLE/ContextMutex.h"
 #include "libANGLE/Debug.h"
 #include "libANGLE/GLES1State.h"
+#include "libANGLE/HandleAllocator.h"
 #include "libANGLE/Overlay.h"
 #include "libANGLE/Program.h"
 #include "libANGLE/ProgramExecutable.h"
 #include "libANGLE/ProgramPipeline.h"
 #include "libANGLE/RefCountObject.h"
 #include "libANGLE/Renderbuffer.h"
+#include "libANGLE/ResourceMap.h"
 #include "libANGLE/Sampler.h"
 #include "libANGLE/Texture.h"
 #include "libANGLE/TransformFeedback.h"
@@ -205,6 +207,8 @@ enum DirtyObjectType
 using DirtyObjects = angle::BitSet<DIRTY_OBJECT_MAX>;
 
 }  // namespace state
+
+using VertexArrayMap = ResourceMap<VertexArray, VertexArrayID>;
 
 // This class represents the portion of the GL context's state that is purely private to the
 // context. Manipulating this state does not affect the other contexts in any way, nor do operations
@@ -629,6 +633,36 @@ class PrivateState : angle::NonCopyable
     void setPerfMonitorActive(bool active) { mIsPerfMonitorActive = active; }
     bool isPerfMonitorActive() const { return mIsPerfMonitorActive; }
 
+    VertexArrayID allocateVertexID()
+    {
+        VertexArrayID vertexArray = {mVertexArrayHandleAllocator.allocate()};
+        mVertexArrayMap.assign(vertexArray, nullptr);
+        return vertexArray;
+    }
+    bool isVertexArrayGenerated(VertexArrayID vertexArray) const
+    {
+        ASSERT(mVertexArrayMap.contains({0}));
+        return mVertexArrayMap.contains(vertexArray);
+    }
+    VertexArray *getVertexArray(VertexArrayID handle) const
+    {
+        return mVertexArrayMap.query(handle);
+    }
+    void setVertexArray(VertexArrayID handle, VertexArray *vertexArray)
+    {
+        ASSERT(getVertexArray(handle) == nullptr);
+        ASSERT(vertexArray != nullptr);
+        return mVertexArrayMap.assign(handle, vertexArray);
+    }
+    void eraseVertexArray(VertexArrayID handle, VertexArray **vertexArrayObjectOut)
+    {
+        if (mVertexArrayMap.erase(handle, vertexArrayObjectOut))
+        {
+            mVertexArrayHandleAllocator.release(handle.value);
+        }
+    }
+    const VertexArrayMap &getVertexArrayMap() const { return mVertexArrayMap; }
+
     void setVertexAttribBinding(GLuint attribIndex, GLuint bindingIndex);
     void setVertexBindingDivisor(GLuint bindingIndex, GLuint divisor);
     void setVertexAttribDivisor(GLuint index, GLuint divisor);
@@ -801,6 +835,9 @@ class PrivateState : angle::NonCopyable
     state::ExtendedDirtyBits mExtendedDirtyBits;
     state::DirtyObjects mDirtyObjects;
     mutable AttributesMask mDirtyCurrentValues;
+
+    VertexArrayMap mVertexArrayMap;
+    HandleAllocator mVertexArrayHandleAllocator;
 };
 
 // This class represents all of the GL context's state.
@@ -920,7 +957,6 @@ class State : angle::NonCopyable
     void setVertexArrayBinding(const Context *context, VertexArray *vertexArray);
     bool removeVertexArrayBinding(const Context *context, VertexArrayID vertexArray);
     VertexArrayID getVertexArrayId() const;
-
     VertexArray *getVertexArray() const
     {
         ASSERT(mVertexArray != nullptr);

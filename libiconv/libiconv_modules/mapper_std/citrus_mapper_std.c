@@ -268,6 +268,14 @@ rowcol_parse_variable(struct _citrus_mapper_std_rowcol *rc,
 	rc->rc_src_rowcol_mask = n;
 
 	rc->rc_src_rowcol_len = be32toh(rcx->rcx_src_rowcol_len);
+#ifdef __APPLE__
+	/*
+	 * rdar://167699002 - the system does not ship with any such mapping,
+	 * but it's good defense to reject it.
+	 */
+	if (rc->rc_src_rowcol_len == 0)
+		return (EFTYPE);
+#endif
 	if (rc->rc_src_rowcol_len > _CITRUS_MAPPER_STD_ROWCOL_MAX)
 		return (EFTYPE);
 	rc->rc_src_rowcol = malloc(rc->rc_src_rowcol_len *
@@ -382,6 +390,10 @@ rowcol_init(struct _citrus_mapper_std *ms)
 
 	/* calcurate expected table size */
 	i = rc->rc_src_rowcol_len;
+#ifdef __APPLE__
+	/* rdar://167699002 */
+	assert(rc->rc_src_rowcol_len != 0);
+#endif
 	lz = &rc->rc_src_rowcol[--i];
 	table_size = lz->width;
 	while (i > 0) {

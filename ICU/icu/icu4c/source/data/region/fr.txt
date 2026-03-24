@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fr{
     Countries{
         001{"Monde"}
@@ -85,6 +85,7 @@ fr{
         CN{"Chine continentale"}
         CO{"Colombie"}
         CP{"Île Clipperton"}
+        CQ{"Sercq"}
         CR{"Costa Rica"}
         CU{"Cuba"}
         CV{"Cap-Vert"}
@@ -296,7 +297,7 @@ fr{
         ZA{"Afrique du Sud"}
         ZM{"Zambie"}
         ZW{"Zimbabwe"}
-        ZZ{"région indéterminée"}
+        ZZ{"région inconnue"}
     }
     Countries%biot{
         IO{"Territoire britannique de l’océan Indien"}

@@ -278,7 +278,7 @@ NSData* _Nullable extractStartFromInitialMessage(NSData* initialMessage, uint64_
         NSData* octagonData = nil;
 
         parse_end = decode_version2(&extraStuff, &uuidData, &octagonData, &piggy_version, error, parse_end, der_end);
-        require_action_quiet(parse_end != NULL, fail, secerror("decoding piggybacking message failed for version (%llu)", piggy_version));
+        __Require_Action_Quiet(parse_end != NULL, fail, secerror("decoding piggybacking message failed for version (%llu)", piggy_version));
 
         switch(piggy_version){
             case kPiggyV2:

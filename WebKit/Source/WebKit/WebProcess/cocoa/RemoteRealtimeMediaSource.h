@@ -51,7 +51,7 @@ public:
     void setSettings(WebCore::RealtimeMediaSourceSettings&&);
 
     void applyConstraintsSucceeded(WebCore::RealtimeMediaSourceSettings&&);
-    void applyConstraintsFailed(WebCore::MediaConstraintType invalidConstraint, String&& errorMessage) { m_proxy.applyConstraintsFailed(invalidConstraint, WTFMove(errorMessage)); }
+    void applyConstraintsFailed(WebCore::MediaConstraintType invalidConstraint, String&& errorMessage) { m_proxy.applyConstraintsFailed(invalidConstraint, WTF::move(errorMessage)); }
 
     void captureStopped(bool didFail);
     void sourceMutedChanged(bool value, bool interrupted);
@@ -88,7 +88,7 @@ private:
     void applyConstraints(const WebCore::MediaConstraints&, ApplyConstraintsHandler&&) final;
     void stopProducingData() final;
     void didEnd() final;
-    void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&& callback) final { m_proxy.whenReady(WTFMove(callback)); }
+    void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&& callback) final { m_proxy.whenReady(WTF::move(callback)); }
     WebCore::CaptureDevice::DeviceType deviceType() const final { return m_proxy.deviceType(); }
     bool interrupted() const final { return m_proxy.interrupted(); }
     bool isPowerEfficient() const final { return m_proxy.isPowerEfficient(); }

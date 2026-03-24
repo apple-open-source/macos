@@ -123,7 +123,7 @@ std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, st
     if (!surface)
         return nullptr;
 
-    return std::unique_ptr<IOSurface>(new IOSurface(surface, WTFMove(colorSpace)));
+    return std::unique_ptr<IOSurface>(new IOSurface(surface, WTF::move(colorSpace)));
 }
 
 std::unique_ptr<IOSurface> IOSurface::createFromImage(IOSurfacePool* pool, CGImageRef image)
@@ -145,7 +145,7 @@ std::unique_ptr<IOSurface> IOSurface::createFromImage(IOSurfacePool* pool, CGIma
 void IOSurface::moveToPool(std::unique_ptr<IOSurface>&& surface, IOSurfacePool* pool)
 {
     if (pool)
-        pool->addSurface(WTFMove(surface));
+        pool->addSurface(WTF::move(surface));
 }
 
 // MARK: -
@@ -419,7 +419,7 @@ static std::optional<IOSurface::UsedFormat> formatFromSurface(IOSurfaceRef surfa
 
 IOSurface::IOSurface(IOSurfaceRef surface, std::optional<DestinationColorSpace>&& colorSpace)
     : m_format(formatFromSurface(surface))
-    , m_colorSpace(WTFMove(colorSpace))
+    , m_colorSpace(WTF::move(colorSpace))
     , m_surface(surface)
 {
     m_size = IntSize(IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface));
@@ -650,7 +650,7 @@ std::optional<IOSurface::LockAndContext> IOSurface::createBitmapPlatformContext(
         RELEASE_LOG_ERROR(IOSurface, "IOSurface::createBitmapPlatformContext: Failed to create bitmap context for IOSurface %x (size %d x %d), bitsPerComponent %lu, bytesPerRow %lu", surfaceID(), size.width(), size.height(), configuration.bitsPerComponent, bytesPerRow());
         return std::nullopt;
     }
-    return LockAndContext { WTFMove(*locker), WTFMove(context) };
+    return LockAndContext { WTF::move(*locker), WTF::move(context) };
 }
 
 SetNonVolatileResult IOSurface::state() const
@@ -739,7 +739,7 @@ void IOSurface::convertToFormat(IOSurfacePool* pool, std::unique_ptr<IOSurface>&
     }
 
     if (inSurface->pixelFormat() == format) {
-        callback(WTFMove(inSurface));
+        callback(WTF::move(inSurface));
         return;
     }
 
@@ -751,13 +751,13 @@ void IOSurface::convertToFormat(IOSurfacePool* pool, std::unique_ptr<IOSurface>&
 
     IOSurfaceRef destinationIOSurfaceRef = destinationSurface->surface();
     IOSurfaceAcceleratorCompletion completion;
-    completion.completionRefCon = new WTF::Function<void(std::unique_ptr<IOSurface>)> (WTFMove(callback));
+    completion.completionRefCon = new WTF::Function<void(std::unique_ptr<IOSurface>)> (WTF::move(callback));
     completion.completionRefCon2 = destinationSurface.release();
     completion.completionCallback = [](void *completionRefCon, IOReturn, void * completionRefCon2) {
         auto* callback = static_cast<WTF::Function<void(std::unique_ptr<IOSurface>)>*>(completionRefCon);
         auto destinationSurface = std::unique_ptr<IOSurface>(static_cast<IOSurface*>(completionRefCon2));
         
-        (*callback)(WTFMove(destinationSurface));
+        (*callback)(WTF::move(destinationSurface));
         delete callback;
     };
 

@@ -59,14 +59,14 @@ void WebExtensionAPIWebRequestEvent::enumerateListeners(WebExtensionTabIdentifie
         if (filter && ![filter matchesRequestForResourceOfType:resourceType URL:resourceURL.createNSURL().get() tabID:toWebAPI(tabIdentifier) windowID:toWebAPI(windowIdentifier)])
             continue;
 
-        function(*listener.callback, listener.extraInfo);
+        function(Ref { *listener.callback }, listener.extraInfo);
     }
 }
 
 void WebExtensionAPIWebRequestEvent::invokeListenersWithArgument(NSDictionary *argument, WebExtensionTabIdentifier tabIdentifier, WebExtensionWindowIdentifier windowIdentifier, const ResourceLoadInfo& resourceLoadInfo)
 {
     enumerateListeners(tabIdentifier, windowIdentifier, resourceLoadInfo, [argument = RetainPtr { argument }](auto& listener, auto&) {
-        listener.call(argument.get());
+        listener.call(toJSValueRef(listener.globalContext(), argument.get()));
     });
 }
 
@@ -86,7 +86,7 @@ void WebExtensionAPIWebRequestEvent::addListener(WebCore::FrameIdentifier frameI
     extraInfo.shrinkToFit();
 
     m_frameIdentifier = frameIdentifier;
-    m_listeners.append({ listener, parsedFilter, WTFMove(extraInfo) });
+    m_listeners.append({ listener, parsedFilter, WTF::move(extraInfo) });
 
     WebProcess::singleton().send(Messages::WebExtensionContext::AddListener(*m_frameIdentifier, m_type, contentWorldType()), extensionContext().identifier());
 }

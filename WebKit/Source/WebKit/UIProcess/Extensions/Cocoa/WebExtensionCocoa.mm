@@ -120,7 +120,7 @@ WebExtension::WebExtension(NSBundle *appExtensionBundle, NSURL *resourceURL, Ref
 
 WebExtension::WebExtension(NSDictionary *manifest, Resources&& resources)
     : m_manifestJSON(JSON::Value::null())
-    , m_resources(WTFMove(resources))
+    , m_resources(WTF::move(resources))
 {
     RELEASE_ASSERT(manifest);
 
@@ -148,7 +148,7 @@ SecStaticCodeRef WebExtension::bundleStaticCode() const
         return m_bundleStaticCode.get();
 
     SecStaticCodeRef staticCodeRef;
-    OSStatus error = SecStaticCodeCreateWithPath(bridge_cast(m_bundle.get().bundleURL), kSecCSDefaultFlags, &staticCodeRef);
+    OSStatus error = SecStaticCodeCreateWithPath(retainPtr(bridge_cast(m_bundle.get().bundleURL)).get(), kSecCSDefaultFlags, &staticCodeRef);
     if (error != noErr || !staticCodeRef) {
         if (staticCodeRef)
             CFRelease(staticCodeRef);
@@ -307,9 +307,9 @@ Expected<Ref<WebCore::Icon>, RefPtr<API::Error>> WebExtension::iconForPath(const
             symbolName = symbolName.left(queryStringPosition);
 
 #if USE(APPKIT)
-        auto *result = [NSImage imageWithSystemSymbolName:symbolName.createNSString().get() accessibilityDescription:nil];
+        auto *result = [NSImage imageWithPrivateSystemSymbolName:symbolName.createNSString().get() accessibilityDescription:nil];
 #else
-        auto *result = [UIImage systemImageNamed:symbolName.createNSString().get()];
+        auto *result = [UIImage _systemImageNamed:symbolName.createNSString().get()];
 #endif
 
         if (RefPtr iconResult = WebCore::Icon::create(result))
@@ -418,7 +418,7 @@ RefPtr<WebCore::Icon> WebExtension::bestIcon(RefPtr<JSON::Object> icons, WebCore
             if (!resultImage)
                 resultImage = imageValue.value().get();
             else
-                [resultImage->image() addRepresentations:imageValue.value()->image().get().representations];
+                [resultImage->image() addRepresentations:imageValue.value()->image().representations];
         } else if (reportError && !imageValue && imageValue.error())
             reportError(imageValue.error().releaseNonNull());
     }
@@ -428,7 +428,7 @@ RefPtr<WebCore::Icon> WebExtension::bestIcon(RefPtr<JSON::Object> icons, WebCore
     auto *images = mapObjects<NSDictionary>(scalePaths, ^id(NSNumber *scale, NSString *path) {
         auto imageValue = iconForPath(path, idealSize, scale.doubleValue);
         if (imageValue)
-            return imageValue.value()->image().get();
+            return imageValue.value()->image();
 
         if (reportError && !imageValue && imageValue.error())
             reportError(imageValue.error().releaseNonNull());
@@ -484,8 +484,8 @@ RefPtr<WebCore::Icon> WebExtension::bestIconVariant(RefPtr<JSON::Array> variants
     if (!lightIcon || !darkIcon)
         return lightIcon ?: darkIcon;
 
-    auto *lightImage = lightIcon->image().get();
-    auto *darkImage = darkIcon->image().get();
+    auto *lightImage = lightIcon->image();
+    auto *darkImage = darkIcon->image();
 #if USE(APPKIT)
     // The images need to be the same size to draw correctly in the block.
     auto imageSize = lightImage.size.width >= darkImage.size.width ? lightImage.size : darkImage.size;

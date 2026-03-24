@@ -30,16 +30,15 @@
 #include <WebCore/PlatformExportMacros.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/Forward.h>
-#include <wtf/MallocSpan.h>
 #include <wtf/OptionSet.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
 #if OS(DARWIN)
-namespace WTF {
-struct Mmap;
-}
+#include <wtf/MmapSpan.h>
+#else
+#include <wtf/MallocSpan.h>
 #endif
 
 namespace IPC {
@@ -47,7 +46,7 @@ namespace IPC {
 enum class MessageFlags : uint8_t;
 enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t;
 
-template<typename, typename> struct ArgumentCoder;
+template<typename> struct ArgumentCoder;
 
 class Encoder final {
     WTF_MAKE_TZONE_ALLOCATED(Encoder);
@@ -82,13 +81,13 @@ public:
     template<typename T>
     Encoder& operator<<(T&& t)
     {
-        SUPPRESS_FORWARD_DECL_ARG ArgumentCoder<std::remove_cvref_t<T>, void>::encode(*this, std::forward<T>(t));
+        SUPPRESS_FORWARD_DECL_ARG ArgumentCoder<std::remove_cvref_t<T>>::encode(*this, std::forward<T>(t));
         return *this;
     }
 
     Encoder& operator<<(Attachment&& attachment)
     {
-        addAttachment(WTFMove(attachment));
+        addAttachment(WTF::move(attachment));
         return *this;
     }
 
@@ -119,10 +118,11 @@ private:
     uint64_t m_destinationID;
 
 #if OS(DARWIN)
-    MallocSpan<uint8_t, WTF::Mmap> m_outOfLineBuffer;
+    using OutOfLineBufferSpan = MmapSpan<uint8_t>;
 #else
-    MallocSpan<uint8_t> m_outOfLineBuffer;
+    using OutOfLineBufferSpan = MallocSpan<uint8_t>;
 #endif
+    OutOfLineBufferSpan m_outOfLineBuffer;
     std::array<uint8_t, 512> m_inlineBuffer;
 
     size_t m_bufferSize { 0 };

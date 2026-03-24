@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2643,6 +2643,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcpoa_t		options;
 	  dhcp_cstate_t		prev_state = dhcp->state;
 
+	  dhcp->lease.wifi_mac_is_set = FALSE;
 	  dhcp_set_state(service_p, dhcp_cstate_init_e);
 	  dhcp->allow_wake_with_short_lease = TRUE;
 	  dhcp->resolve_router_timed_out = FALSE;
@@ -2900,6 +2901,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  dhcpoa_t	 	options;
 	  struct in_addr 	our_ip;
 
+	  dhcp->lease.wifi_mac_is_set = FALSE;
 	  if (source_ip.s_addr == 0) {
 	      our_ip = *((struct in_addr *)event_data);
 	  }

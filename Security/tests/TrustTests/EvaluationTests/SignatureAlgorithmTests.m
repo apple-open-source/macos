@@ -45,19 +45,19 @@
     CFDateRef verifyDate = NULL;
     CFErrorRef error = NULL;
     
-    require_action(md5_root = SecCertificateCreateWithBytes(NULL, _md5_root, sizeof(_md5_root)), errOut,
+    __Require_Action(md5_root = SecCertificateCreateWithBytes(NULL, _md5_root, sizeof(_md5_root)), errOut,
                    fail("failed to create md5 root cert"));
     
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&md5_root, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&md5_root, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("failed to create anchors array"));
-    require_action(verifyDate = CFDateCreate(NULL, 550600000), errOut, fail("failed to make verification date")); // June 13, 2018
+    __Require_Action(verifyDate = CFDateCreate(NULL, 550600000), errOut, fail("failed to make verification date")); // June 13, 2018
     
     /* Test self-signed MD5 cert. Should work since cert is a trusted anchor - rdar://39152516 */
-    require_noerr_action(SecTrustCreateWithCertificates(md5_root, NULL, &trust), errOut,
+    __Require_noErr_Action(SecTrustCreateWithCertificates(md5_root, NULL, &trust), errOut,
                          fail("failed to create trust object"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("faild to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
                          fail("failed to set verify date"));
     ok(SecTrustEvaluateWithError(trust, &error), "self-signed MD5 cert failed");
     is(error, NULL, "got a trust error for self-signed MD5 cert: %@", error);
@@ -77,21 +77,21 @@ errOut:
     CFDateRef verifyDate = NULL;
     CFErrorRef error = NULL;
     
-    require_action(md5_leaf = SecCertificateCreateWithBytes(NULL, _md5_leaf, sizeof(_md5_leaf)), errOut,
+    __Require_Action(md5_leaf = SecCertificateCreateWithBytes(NULL, _md5_leaf, sizeof(_md5_leaf)), errOut,
                    fail("failed to create md5 leaf cert"));
-    require_action(sha256_root = SecCertificateCreateWithBytes(NULL, _sha256_root, sizeof(_sha256_root)), errOut,
+    __Require_Action(sha256_root = SecCertificateCreateWithBytes(NULL, _sha256_root, sizeof(_sha256_root)), errOut,
                    fail("failed to create sha256 root cert"));
     
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&sha256_root, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&sha256_root, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("failed to create anchors array"));
-    require_action(verifyDate = CFDateCreate(NULL, 550600000), errOut, fail("failed to make verification date")); // June 13, 2018
+    __Require_Action(verifyDate = CFDateCreate(NULL, 550600000), errOut, fail("failed to make verification date")); // June 13, 2018
     
     /* Test non-self-signed MD5 cert. Should fail. */
-    require_noerr_action(SecTrustCreateWithCertificates(md5_leaf, NULL, &trust), errOut,
+    __Require_noErr_Action(SecTrustCreateWithCertificates(md5_leaf, NULL, &trust), errOut,
                          fail("failed to create trust object"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("faild to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
                          fail("failed to set verify date"));
     is(SecTrustEvaluateWithError(trust, &error), false, "non-self-signed MD5 cert succeeded");
     if (error) {

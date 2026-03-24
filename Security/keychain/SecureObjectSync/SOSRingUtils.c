@@ -151,7 +151,7 @@ static inline bool SOSRingSetType(SOSRingRef ring, uint32_t ringtype) {
     bool retval = false;
     CFNumberRef cfrtype = NULL;
     SOSRingAssertStable(ring);
-    require_action_quiet(SOSRingCheckType(ringtype, NULL), errOut, secnotice("ring", "Bad ring type specification"));
+    __Require_Action_Quiet(SOSRingCheckType(ringtype, NULL), errOut, secnotice("ring", "Bad ring type specification"));
     cfrtype = CFNumberCreate(ALLOCATOR, kCFNumberSInt32Type, &ringtype);
     retval = setValueInDict(ring->signedInformation, sTypeKey, cfrtype);
 errOut:
@@ -166,7 +166,7 @@ uint32_t SOSRingGetVersion(SOSRingRef ring) {
     assert(ring);
     assert(ring->signedInformation);
     CFNumberRef cfversion = CFDictionaryGetValue(ring->signedInformation, sRingVersionKey);
-    require_action_quiet(cfversion, errOut, secnotice("ring", "Could not create version number"));
+    __Require_Action_Quiet(cfversion, errOut, secnotice("ring", "Could not create version number"));
     CFNumberGetValue(cfversion, kCFNumberSInt32Type, &version);
 errOut:
     return version;
@@ -177,7 +177,7 @@ static inline bool SOSRingSetVersion(SOSRingRef ring) {
     assert(ring->signedInformation);
     int32_t thisversion = RINGVERSION;
     CFNumberRef version = CFNumberCreate(ALLOCATOR, kCFNumberSInt32Type, &thisversion);
-    require_action_quiet(version, errOut, secnotice("ring", "Could not create version number"));
+    __Require_Action_Quiet(version, errOut, secnotice("ring", "Could not create version number"));
     CFDictionarySetValue(ring->signedInformation, sRingVersionKey, version);
     CFReleaseNull(version);
     return true;
@@ -199,7 +199,7 @@ static inline bool SOSRingSetIdentifier(SOSRingRef ring) {
     bool retval = false;
     CFStringRef identifier = NULL;
     CFUUIDRef uuid = CFUUIDCreate(ALLOCATOR);
-    require_action_quiet(uuid, errOut, secnotice("ring", "Could not create ring identifier"));
+    __Require_Action_Quiet(uuid, errOut, secnotice("ring", "Could not create ring identifier"));
     identifier = CFUUIDCreateString(ALLOCATOR, uuid);
     CFDictionarySetValue(ring->signedInformation, sIdentifierKey, identifier);
     retval = true;
@@ -214,17 +214,17 @@ errOut:
 bool SOSRingIsSame(SOSRingRef ring1, SOSRingRef ring2) {
     CFStringRef name1 = SOSRingGetName(ring1);
     CFStringRef name2 = SOSRingGetName(ring2);
-    require_action_quiet(name1 && name2, errOut, secnotice("ring", "Cannot get both names to consider rings the same"));
+    __Require_Action_Quiet(name1 && name2, errOut, secnotice("ring", "Cannot get both names to consider rings the same"));
     if(CFEqualSafe(name1, name2) != true) return false;
 
     uint32_t type1 = SOSRingGetType(ring1);
     uint32_t type2 = SOSRingGetVersion(ring2);
-    require_action_quiet(type1 && type2, errOut, secnotice("ring", "Cannot get both types to consider rings the same"));
+    __Require_Action_Quiet(type1 && type2, errOut, secnotice("ring", "Cannot get both types to consider rings the same"));
     if(type1 != type2) return false;
 
     CFStringRef identifier1 = SOSRingGetIdentifier(ring1);
     CFStringRef identifier2 = SOSRingGetIdentifier(ring2);
-    require_action_quiet(identifier1 && identifier2, errOut, secnotice("ring", "Cannot get both identifiers to consider rings the same"));
+    __Require_Action_Quiet(identifier1 && identifier2, errOut, secnotice("ring", "Cannot get both identifiers to consider rings the same"));
     if(CFEqualSafe(identifier1, identifier2) != true) return false;
 
     return true;
@@ -472,43 +472,43 @@ SOSRingRef SOSRingCreate_Internal(CFStringRef name, SOSRingType type, CFErrorRef
     SOSRingRef r = SOSRingAllocate();
     SOSGenCountRef gen = SOSGenerationCreate();
 
-    require_action_quiet(name, errout0,
+    __Require_Action_Quiet(name, errout0,
         SOSCreateError(kSOSErrorNoCircleName, CFSTR("No ring name"), NULL, error));
-    require_action_quiet(SOSRingCheckType(type, error), errout0,
+    __Require_Action_Quiet(SOSRingCheckType(type, error), errout0,
         SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Unknown ring type"), NULL, error));
-    require_action_quiet((r->unSignedInformation = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
+    __Require_Action_Quiet((r->unSignedInformation = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate unsigned information area"), NULL, error));
-    require_action_quiet((r->signedInformation = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
+    __Require_Action_Quiet((r->signedInformation = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate signed information area"), NULL, error));
-    require_action_quiet((r->signatures = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
+    __Require_Action_Quiet((r->signatures = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate signature area"), NULL, error));
-    require_action_quiet((r->data = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
+    __Require_Action_Quiet((r->data = CFDictionaryCreateMutableForCFTypes(ALLOCATOR)), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate data area"), NULL, error));
 
-    require_action_quiet(SOSRingSetName(r, name), errout,
+    __Require_Action_Quiet(SOSRingSetName(r, name), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate ring name area"), NULL, error));
-    require_action_quiet(SOSRingSetType(r, type), errout,
+    __Require_Action_Quiet(SOSRingSetType(r, type), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate ring type"), NULL, error));
-    require_action_quiet(SOSRingSetVersion(r), errout,
+    __Require_Action_Quiet(SOSRingSetVersion(r), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate ring version"), NULL, error));
-    require_action_quiet(SOSRingSetIdentifier(r), errout,
+    __Require_Action_Quiet(SOSRingSetIdentifier(r), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate ring identifier"), NULL, error));
     
     CFMutableSetRef peerIDs = CFSetCreateMutableForSOSPeerIDs();
-    require_action_quiet(SOSRingSetApplicants(r, peerIDs), errout,
+    __Require_Action_Quiet(SOSRingSetApplicants(r, peerIDs), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate applicant area"), NULL, error));
     CFReleaseNull(peerIDs);
     
     CFMutableSetRef rejectedIDs = CFSetCreateMutableForSOSPeerIDs();
-    require_action_quiet(SOSRingSetRejections(r, rejectedIDs), errout,
+    __Require_Action_Quiet(SOSRingSetRejections(r, rejectedIDs), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate rejection area"), NULL, error));
     CFReleaseNull(rejectedIDs);
     
-    require_action_quiet(SOSRingSetGeneration(r, gen), errout,
+    __Require_Action_Quiet(SOSRingSetGeneration(r, gen), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate generation count"), NULL, error));
     
     peerIDs = CFSetCreateMutableForSOSPeerIDs();
-    require_action_quiet(SOSRingSetPeerIDs(r, peerIDs), errout,
+    __Require_Action_Quiet(SOSRingSetPeerIDs(r, peerIDs), errout,
         SOSCreateError(kSOSErrorAllocationFailure, CFSTR("Failed to allocate PeerID"), NULL, error));
     CFReleaseNull(gen);
     CFReleaseNull(peerIDs);
@@ -620,7 +620,7 @@ static bool SOSRingSetSignature(SOSRingRef ring, SecKeyRef privKey, CFDataRef si
     bool result = false;
     SecKeyRef pubkey = SecKeyCreatePublicFromPrivate(privKey);
     CFStringRef pubKeyID = SOSCopyIDOfKey(pubkey, error);
-    require_quiet(pubKeyID, fail);
+    __Require_Quiet(pubKeyID, fail);
     CFDictionarySetValue(ring->signatures, pubKeyID, signature);
     result = true;
 fail:
@@ -681,7 +681,7 @@ bool SOSRingVerify(SOSRingRef ring, SecKeyRef pubKey, CFErrorRef *error) {
 bool SOSRingVerifyPeerSigned(SOSRingRef ring, SOSPeerInfoRef peer, CFErrorRef *error) {
     bool result = false;
     SecKeyRef pubkey = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pubkey, fail);
+    __Require_Quiet(pubkey, fail);
 
     result = SOSRingVerify(ring, pubkey, error);
 
@@ -699,9 +699,9 @@ bool SOSRingGenerationSign_Internal(SOSRingRef ring, SecKeyRef privKey, CFErrorR
     if(!privKey || !ring) return false;
     bool retval = false;
     SOSRingGenerationIncrement(ring);
-    require_quiet(SOSRingEnsureRingConsistency(ring, error), fail);
-    require_quiet(SOSRingRemoveSignatures(ring, error), fail);
-    require_quiet(SOSRingSign(ring, privKey, error), fail);
+    __Require_Quiet(SOSRingEnsureRingConsistency(ring, error), fail);
+    __Require_Quiet(SOSRingRemoveSignatures(ring, error), fail);
+    __Require_Quiet(SOSRingSign(ring, privKey, error), fail);
     retval = true;
 fail:
     return retval;
@@ -712,7 +712,7 @@ fail:
 bool SOSRingConcordanceSign_Internal(SOSRingRef ring, SecKeyRef privKey, CFErrorRef *error) {
     if(!privKey || !ring) return false;
     bool retval = false;
-    require_quiet(SOSRingSign(ring, privKey, error), fail);
+    __Require_Quiet(SOSRingSign(ring, privKey, error), fail);
     retval = true;
 fail:
     return retval;

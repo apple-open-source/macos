@@ -30,7 +30,7 @@
 #import "WebNodeHighlight.h"
 
 #import <WebCore/GraphicsContextCG.h>
-#import <WebCore/InspectorController.h>
+#import <WebCore/PageInspectorController.h>
 #import <wtf/Assertions.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -99,7 +99,8 @@ using namespace WebCore;
         ASSERT([[NSGraphicsContext currentContext] isFlipped]);
 
         GraphicsContextCG context([[NSGraphicsContext currentContext] CGContext]);
-        [_webNodeHighlight inspectorController]->drawHighlight(context);
+        if (CheckedPtr controller = [_webNodeHighlight inspectorController].get())
+            controller->drawHighlight(context);
         [NSGraphicsContext restoreGraphicsState];
     }
 }

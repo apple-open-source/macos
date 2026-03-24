@@ -325,19 +325,19 @@ enum class PIPState {
     [_videoViewContainer setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
 
     _playerLayer = adoptNS([[WebAVPlayerLayer alloc] init]);
-    [[_videoViewContainer layer] addSublayer:_playerLayer.get()];
+    [retainPtr([_videoViewContainer layer]) addSublayer:_playerLayer.get()];
     [_playerLayer setFrame:[_videoViewContainer layer].bounds];
     [_playerLayer setPresentationModel:model.get()];
     [_playerLayer setVideoSublayer:videoView.layer];
     [_playerLayer setVideoDimensions:_videoDimensions];
     [_playerLayer setAutoresizingMask:(kCALayerWidthSizable | kCALayerHeightSizable)];
 
-    [videoView.layer removeFromSuperlayer];
-    [_playerLayer addSublayer:videoView.layer];
+    [retainPtr(videoView.layer) removeFromSuperlayer];
+    [_playerLayer addSublayer:retainPtr(videoView.layer).get()];
 
     _videoViewContainerController = adoptNS([[NSViewController alloc] init]);
     [_videoViewContainerController setView:_videoViewContainer.get()];
-    [window.contentView addSubview:_videoViewContainer.get() positioned:NSWindowAbove relativeTo:nil];
+    [retainPtr(window.contentView) addSubview:_videoViewContainer.get() positioned:NSWindowAbove relativeTo:nil];
 
 #if HAVE(PIP_SKIP_PREROLL)
     [self updatePrerollAttributes];
@@ -427,7 +427,7 @@ enum class PIPState {
 
     ASSERT(videoViewContainer == _videoViewContainer);
 
-    if (![videoViewContainer isDescendantOf:[_pipViewController view]])
+    if (![videoViewContainer isDescendantOf:retainPtr([_pipViewController view]).get()])
         return;
 
     // Once the view is moved into the pip view, make sure it resizes with the pip view.
@@ -487,7 +487,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
             [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
                 context.allowsImplicitAnimation = NO;
                 [_videoViewContainer setFrame:_returningRect];
-                [[_returningWindow contentView] addSubview:_videoViewContainer.get() positioned:NSWindowAbove relativeTo:nil];
+                [retainPtr([_returningWindow contentView]) addSubview:_videoViewContainer.get() positioned:NSWindowAbove relativeTo:nil];
             } completionHandler:nil];
         }
 
@@ -796,11 +796,11 @@ void VideoPresentationInterfaceMac::requestHideAndExitPiP()
         model->requestFullscreenMode(m_mode & ~HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
         model->willExitPictureInPicture();
     } else {
-        auto callback = [model = WTFMove(model), mode = m_mode] () {
+        auto callback = [model = WTF::move(model), mode = m_mode] () {
             model->requestFullscreenMode(mode & ~HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
             model->willExitPictureInPicture();
         };
-        setDocumentBecameVisibleCallback(WTFMove(callback));
+        setDocumentBecameVisibleCallback(WTF::move(callback));
     }
 
 }

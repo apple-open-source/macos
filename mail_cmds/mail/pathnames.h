@@ -27,16 +27,16 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)pathnames.h	8.1 (Berkeley) 6/6/93
- *
- * $FreeBSD$
  */
 
 #include <paths.h>
 
+#ifndef _PATH_LOCALBASE
+#define	_PATH_LOCALBASE	"/usr/local"
+#endif
+
 #define	_PATH_EX	"/usr/bin/ex"
 #define	_PATH_HELP	"/usr/share/misc/mail.help"
 #define	_PATH_TILDE	"/usr/share/misc/mail.tildehelp"
-#define	_PATH_MASTER_RC	"/usr/share/misc/mail.rc:/usr/local/etc/mail.rc:/etc/mail.rc"
+#define	_PATH_MASTER_RC	"/usr/share/misc/mail.rc:" _PATH_LOCALBASE "/etc/mail.rc:/etc/mail.rc"
 #define	_PATH_LESS	"/usr/bin/less"

@@ -47,23 +47,23 @@ struct TransformList {
 
     TransformList() = default;
     TransformList(Container&& value)
-        : m_value { WTFMove(value) }
+        : m_value { WTF::move(value) }
     {
     }
 
     TransformList(TransformFunction&& transformFunction)
-        : m_value { WTFMove(transformFunction) }
+        : m_value { WTF::move(transformFunction) }
     {
     }
 
-    const_iterator begin() const { return m_value.begin(); }
-    const_iterator end() const { return m_value.end(); }
-    const_reverse_iterator rbegin() const { return m_value.rbegin(); }
-    const_reverse_iterator rend() const { return m_value.rend(); }
+    const_iterator begin() const LIFETIME_BOUND { return m_value.begin(); }
+    const_iterator end() const LIFETIME_BOUND { return m_value.end(); }
+    const_reverse_iterator rbegin() const LIFETIME_BOUND { return m_value.rbegin(); }
+    const_reverse_iterator rend() const LIFETIME_BOUND { return m_value.rend(); }
 
     bool isEmpty() const { return m_value.isEmpty(); }
     size_t size() const { return m_value.size(); }
-    const TransformFunction& operator[](size_t i) const { return m_value[i]; }
+    const TransformFunction& operator[](size_t i) const LIFETIME_BOUND { return m_value[i]; }
 
     bool operator==(const TransformList&) const = default;
 

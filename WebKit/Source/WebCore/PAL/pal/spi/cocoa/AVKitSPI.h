@@ -151,6 +151,7 @@ NS_ASSUME_NONNULL_END
 @end
 #else
 #import <AppKit/NSResponder.h>
+@protocol NSUserInterfaceValidations;
 @interface AVPlayerController : NSResponder <NSUserInterfaceValidations>
 @end
 #endif
@@ -362,23 +363,17 @@ NS_ASSUME_NONNULL_END
 #import <AVKit/AVRoutePickerView_Private.h>
 #import <AVKit/AVRoutePickerView_WebKitOnly.h>
 #else
+
+#import <AVKit/AVRoutePickerView.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol AVRoutePickerViewDelegate;
+@interface AVRoutePickerView (SPI)
 
-@interface AVRoutePickerView : NSView
+- (void)showRoutePickingControlsForOutputContext:(AVOutputContext *)outputContext relativeToRect:(CGRect)positioningRect ofView:(NSView *)positioningView;
 
-- (void)showRoutePickingControlsForOutputContext:(AVOutputContext *)outputContext relativeToRect:(NSRect)positioningRect ofView:(NSView *)positioningView;
-
-@property (nonatomic, nullable, weak) id<AVRoutePickerViewDelegate> delegate;
 @property (nonatomic) BOOL routeListAlwaysHasDarkAppearance;
 
-@end
-
-@protocol AVRoutePickerViewDelegate <NSObject>
-@optional
-- (void)routePickerViewWillBeginPresentingRoutes:(AVRoutePickerView *)routePickerView;
-- (void)routePickerViewDidEndPresentingRoutes:(AVRoutePickerView *)routePickerView;
 @end
 
 NS_ASSUME_NONNULL_END
@@ -408,8 +403,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) __kindof AVPictureInPictureContentViewController *activeContentViewController API_AVAILABLE(ios(16.0),tvos(16.0)) API_UNAVAILABLE(macos, watchos);
 @end
 
-NS_ASSUME_NONNULL_END
 
+NS_ASSUME_NONNULL_END
 #endif // PLATFORM(IOS_FAMILY)
 
 #endif // USE(APPLE_INTERNAL_SDK)
@@ -626,3 +621,27 @@ NS_ASSUME_NONNULL_END
 #endif // USE(APPLE_INTERNAL_SDK)
 
 #endif // HAVE(AVKIT_CONTENT_SOURCE)
+
+// CLEANUP(rdar://164667890)
+#if HAVE(AVLEGIBLEMEDIAOPTIONSMENUCONTROLLER) && USE(APPLE_INTERNAL_SDK) && !__has_feature(modules)
+#if __has_include(<AVKit/AVLegibleMediaOptionsMenuController_Private.h>)
+#import <AVKit/AVLegibleMediaOptionsMenuController_Private.h>
+#else
+// SDK does not have -menuWithContents:. Redeclare:
+#import <AVKit/AVLegibleMediaOptionsMenuController.h>
+typedef NS_OPTIONS(NSInteger, AVLegibleMediaOptionsMenuContents) {
+    AVLegibleMediaOptionsMenuContentsLegible = 1 << 0,
+    AVLegibleMediaOptionsMenuContentsCaptionAppearance = 1 << 1,
+    AVLegibleMediaOptionsMenuContentsAll = (AVLegibleMediaOptionsMenuContentsLegible | AVLegibleMediaOptionsMenuContentsCaptionAppearance)
+} API_AVAILABLE(ios(26.4), macos(26.4), visionos(26.4)) API_UNAVAILABLE(tvos, watchos);
+
+@interface AVLegibleMediaOptionsMenuController (MenuWithContents)
+#if TARGET_OS_OSX && !TARGET_OS_MACCATALYST
+- (nullable NSMenu *)menuWithContents:(AVLegibleMediaOptionsMenuContents)contents;
+#else
+- (nullable UIMenu *)menuWithContents:(AVLegibleMediaOptionsMenuContents)contents;
+#endif
+@end
+
+#endif // __has_include(<AVKit/AVLegibleMediaOptionsMenuController_Private.h>)
+#endif // HAVE(AVLEGIBLEMEDIAOPTIONSMENUCONTROLLER) && USE(APPLE_INTERNAL_SDK)

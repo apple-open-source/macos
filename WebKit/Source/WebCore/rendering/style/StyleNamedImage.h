@@ -35,7 +35,7 @@ class StyleNamedImage final : public StyleGeneratedImage {
 public:
     static Ref<StyleNamedImage> create(String name)
     {
-        return adoptRef(*new StyleNamedImage(WTFMove(name)));
+        return adoptRef(*new StyleNamedImage(WTF::move(name)));
     }
     virtual ~StyleNamedImage();
 

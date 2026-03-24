@@ -25,6 +25,10 @@
 
 #pragma once
 
+#include <cstdint>
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 namespace JSC {
 
 #if ENABLE(JIT_OPERATION_VALIDATION) || ENABLE(JIT_OPERATION_DISASSEMBLY) || CPU(ARM64E)

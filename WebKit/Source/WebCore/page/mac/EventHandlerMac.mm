@@ -334,18 +334,18 @@ static bool findViewInSubviews(NSView *superview, NSView *target)
     return false;
 }
 
-NSView *EventHandler::mouseDownViewIfStillGood()
+RetainPtr<NSView> EventHandler::mouseDownViewIfStillGood()
 {
     // Since we have no way of tracking the lifetime of m_mouseDownView, we have to assume that
     // it could be deallocated already. We search for it in our subview tree; if we don't find
     // it, we set it to nil.
-    NSView *mouseDownView = m_mouseDownView;
+    RetainPtr mouseDownView = m_mouseDownView.get();
     if (!mouseDownView) {
         return nil;
     }
     auto* topFrameView = m_frame->view();
     NSView *topView = topFrameView ? topFrameView->platformWidget() : nil;
-    if (!topView || !findViewInSubviews(topView, mouseDownView)) {
+    if (!topView || !findViewInSubviews(topView, mouseDownView.get())) {
         m_mouseDownView = nil;
         return nil;
     }
@@ -355,7 +355,7 @@ NSView *EventHandler::mouseDownViewIfStillGood()
 #if ENABLE(DRAG_SUPPORT)
 bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResults&)
 {
-    NSView *view = mouseDownViewIfStillGood();
+    RetainPtr view = mouseDownViewIfStillGood();
     
     if (!view)
         return false;
@@ -375,7 +375,7 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
 
 bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
 {
-    NSView *view = mouseDownViewIfStillGood();
+    RetainPtr view = mouseDownViewIfStillGood();
     if (!view)
         return false;
 
@@ -812,20 +812,13 @@ static ContainerNode* findEnclosingScrollableContainer(ContainerNode* node, cons
 
 static WeakPtr<ScrollableArea> scrollableAreaForEventTarget(Element* eventTarget)
 {
-    auto* widget = EventHandler::widgetForEventTarget(eventTarget);
-    if (!widget || !widget->isScrollView())
-        return { };
-
-    return static_cast<ScrollableArea&>(static_cast<ScrollView&>(*widget));
+    return dynamicDowncast<ScrollView>(EventHandler::widgetForEventTarget(eventTarget));
 }
     
 static bool eventTargetIsPlatformWidget(Element* eventTarget)
 {
-    Widget* widget = EventHandler::widgetForEventTarget(eventTarget);
-    if (!widget)
-        return false;
-    
-    return widget->platformWidget();
+    auto* widget = EventHandler::widgetForEventTarget(eventTarget);
+    return widget && widget->platformWidget();
 }
 
 static WeakPtr<ScrollableArea> scrollableAreaForContainerNode(ContainerNode& container)
@@ -858,7 +851,7 @@ void EventHandler::determineWheelEventTarget(const PlatformWheelEvent& wheelEven
         if (scrollableContainer)
             scrollableArea = scrollableAreaForContainerNode(*scrollableContainer);
         else
-            scrollableArea = static_cast<ScrollableArea&>(*view);
+            scrollableArea = *view;
     }
 
     LOG_WITH_STREAM(ScrollLatching, stream << "EventHandler::determineWheelEventTarget() - event " << wheelEvent << " found scrollableArea " << ValueOrNull(scrollableArea.get()) << ", latching state is " << page->scrollLatchingController());
@@ -923,7 +916,6 @@ bool EventHandler::processWheelEventForScrolling(const PlatformWheelEvent& wheel
 
 void EventHandler::wheelEventWasProcessedByMainThread(const PlatformWheelEvent& wheelEvent, OptionSet<EventHandling> eventHandling)
 {
-#if ENABLE(ASYNC_SCROLLING)
     if (!m_frame->page())
         return;
 
@@ -937,10 +929,6 @@ void EventHandler::wheelEventWasProcessedByMainThread(const PlatformWheelEvent& 
         if (scrollingCoordinator->coordinatesScrollingForFrameView(*view))
             scrollingCoordinator->wheelEventWasProcessedByMainThread(wheelEvent, m_wheelScrollGestureState);
     }
-#else
-    UNUSED_PARAM(wheelEvent);
-    UNUSED_PARAM(eventHandling);
-#endif
 }
 
 bool EventHandler::platformCompletePlatformWidgetWheelEvent(const PlatformWheelEvent& wheelEvent, const Widget& widget, const WeakPtr<ScrollableArea>& scrollableArea)

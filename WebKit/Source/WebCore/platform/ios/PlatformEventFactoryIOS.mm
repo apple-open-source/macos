@@ -117,7 +117,7 @@ public:
         m_globalPosition = IntPoint(globalPointForEvent(event));
         m_deltaX = event.deltaX;
         m_deltaY = event.deltaY;
-        m_granularity = ScrollByPixelWheelEvent; // iOS only supports continuous (pixel-mode) scrolling.
+        m_granularity = PlatformWheelEventGranularity::ScrollByPixelWheelEvent; // iOS only supports continuous (pixel-mode) scrolling.
     }
 };
 
@@ -592,7 +592,7 @@ static PlatformTouchPoint::TouchPhaseType touchPhaseFromPlatformEventType(Platfo
 class PlatformTouchPointBuilder : public PlatformTouchPoint {
 public:
     PlatformTouchPointBuilder(unsigned identifier, const IntPoint& locationInRootView, std::optional<IntPoint>&& locationInViewport, TouchPhaseType phase)
-        : PlatformTouchPoint(identifier, locationInRootView, WTFMove(locationInViewport), phase)
+        : PlatformTouchPoint(identifier, locationInRootView, WTF::move(locationInViewport), phase)
     {
     }
 };

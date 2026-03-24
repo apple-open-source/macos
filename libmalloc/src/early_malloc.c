@@ -720,8 +720,7 @@ mfm_initialize(void)
 	/* populate the header up to the block storage */
 	mvm_madvise_plat(arena,
 			roundup(offsetof(struct mfm_arena, mfm_blocks), PAGE_SIZE),
-			MADV_FAULTABLE, MALLOC_ABORT_ON_ERROR, mvm_plat_map(map));
-
+			MADV_WILLNEED, MALLOC_ABORT_ON_ERROR, mvm_plat_map(map));
 	arena->mfm_header.mfm_map = map;
 #else
 	/* to make clear that this region is not purely metadata, we'll now
@@ -853,11 +852,11 @@ mfm_alloc(size_t alloc_size)
 			const uintptr_t end = roundup((uintptr_t)ptr + alloc_size, PAGE_SIZE);
 			const size_t bytes = end - begin;
 			if (bytes) {
-				mvm_madvise_plat((void*)begin, bytes, MADV_FAULTABLE,
+				mvm_madvise_plat((void*)begin, bytes, MADV_WILLNEED,
 						MALLOC_ABORT_ON_ERROR,
 						mvm_plat_map(arena->mfm_header.mfm_map));
 			}
-#endif
+#endif // MALLOC_TARGET_EXCLAVES
 
 			mfm_arena->mfmh_bump_hwm = mfm_arena->mfmh_bump;
 		}
@@ -874,7 +873,7 @@ out:
 #if CONFIG_MTE
 	// Set the tag for the block we are returning to the caller.
 	if (mfm_memtag_enabled) {
-		ptr = memtag_assign_tag(ptr, size * MFM_QUANTUM);
+		ptr = memtag_assign_tag_contiguous(ptr, size * MFM_QUANTUM);
 		// Blocks from the early arena may have arbitrary 16B-alignment
 		memtag_set_tag_unaligned(ptr, size * MFM_QUANTUM);
 	}
@@ -911,7 +910,7 @@ mfm_free(void *ptr)
 #if CONFIG_MTE
 	// Retag the block we are freeing.
 	if (mfm_memtag_enabled) {
-		ptr = memtag_assign_tag(ptr, MFM_QUANTUM * size);
+		ptr = memtag_assign_tag_contiguous(ptr, MFM_QUANTUM * size);
 		// Blocks from the early arena may have arbitrary 16B-alignment
 		memtag_set_tag_unaligned(ptr, MFM_QUANTUM * size);
 	}

@@ -127,4 +127,7 @@ POLICYMACRO(QWAC,                                  120, E, C, QWAC,             
 POLICYMACRO(RCSEncryption,                         121, E, C, RCSEncryption,                         ,  , RCSEncryption)
 POLICYMACRO(3PMobileAsset,                         122, E, C, 3PMobileAsset,                         ,  , 3PMobileAsset)
 POLICYMACRO(JibeTLS,                               123, I, C, JibeTLS,                              N, Y, JibeTLS)
-POLICYMACRO(IdentityWebPresentment,                124, E, A, IdentityWebPresentment,               N, Y, IdentityWebPresentment)
+POLICYMACRO(IdentityWebPresentment,                124, E, A, IdentityWebPresentment,                ,  , IdentityWebPresentment)
+POLICYMACRO(XcodeAEASigning,                       126, E, A, XcodeAEASigning,                       , Y, XcodeAEASigning)
+POLICYMACRO(QuartzTimeStamping,                    127, E, A, AppleQuartzTimeStamping,               , Y, AppleQuartzTimeStamping)
+POLICYMACRO(ProvoloneFDRSigning,                   128, E, C, ProvoloneFDRSigning,                   , Y, ProvoloneFDRSigning)

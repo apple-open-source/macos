@@ -25,17 +25,16 @@
 
 #pragma once
 
-#import "API.h"
-#import "Adapter.h"
 #import "BindableResource.h"
 #import "HardwareCapabilities.h"
 #import "Queue.h"
-#import "WebGPU.h"
-#import "WebGPUExt.h"
+#import "WGSL.h"
 #import <CoreVideo/CVMetalTextureCache.h>
 #import <CoreVideo/CoreVideo.h>
 #import <IOSurface/IOSurfaceRef.h>
 #import <Metal/Metal.h>
+#import <WebGPU/WebGPU.h>
+#import <WebGPU/WebGPUExt.h>
 #import <simd/matrix_types.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
@@ -55,10 +54,6 @@ IGNORE_CLANG_WARNINGS_BEGIN("nullability-completeness")
 
 struct WGPUDeviceImpl {
 };
-
-namespace WGSL {
-struct PipelineLayout;
-}
 
 namespace WebGPU {
 
@@ -178,11 +173,7 @@ public:
     uint32_t maxBuffersForFragmentStage() const { return m_capabilities.limits.maxBindGroups; }
 
     uint32_t maxBuffersForComputeStage() const { return m_capabilities.limits.maxBindGroups; }
-    uint32_t vertexBufferIndexForBindGroup(uint32_t groupIndex) const
-    {
-        ASSERT(maxBuffersPlusVertexBuffersForVertexStage() > 0);
-        return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
-    }
+    uint32_t vertexBufferIndexForBindGroup(uint32_t groupIndex) const;
 
     id<MTLBuffer> newBufferWithBytes(const void*, size_t, MTLResourceOptions, bool skipMemoryAttribution = false) const;
     id<MTLBuffer> newBufferWithBytesNoCopy(void*, size_t, MTLResourceOptions, bool skipMemoryAttribution = false) const;
@@ -267,6 +258,7 @@ public:
     uint32_t appleGPUFamily() const { return m_appleGPUFamily; }
     void setRasterizationMapsForTexture(MTLResourceID, id<MTLRasterizationRateMap> left, id<MTLRasterizationRateMap> right);
     static id<MTLFunction> nopVertexFunction(id<MTLDevice>);
+    void makeSubmitInvalidClearingEncoders(TrackedResourceContainer&);
 
 private:
     Device(id<MTLDevice>, id<MTLCommandQueue> defaultQueue, HardwareCapabilities&&, Adapter&);

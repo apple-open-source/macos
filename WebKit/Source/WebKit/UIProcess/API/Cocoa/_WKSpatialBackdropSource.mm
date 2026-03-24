@@ -28,7 +28,11 @@
 
 #import <WebCore/SpatialBackdropSource.h>
 
-@implementation _WKSpatialBackdropSource
+@implementation _WKSpatialBackdropSource {
+    RetainPtr<NSURL> m_sourceURL;
+    RetainPtr<NSURL> m_modelURL;
+    RetainPtr<NSURL> m_environmentMapURL;
+}
 
 #if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
 - (instancetype)initWithSpatialBackdropSource:(const WebCore::SpatialBackdropSource&) spatialBackdropSource
@@ -36,21 +40,33 @@
     if (!(self = [super init]))
         return nil;
 
-    _sourceURL = [spatialBackdropSource.m_sourceURL.createNSURL() copy];
-    _modelURL = [spatialBackdropSource.m_modelURL.createNSURL() copy];
+    m_sourceURL = spatialBackdropSource.m_sourceURL.createNSURL();
+    m_modelURL = spatialBackdropSource.m_modelURL.createNSURL();
     if (spatialBackdropSource.m_environmentMapURL)
-        _environmentMapURL = [spatialBackdropSource.m_environmentMapURL.value().createNSURL() copy];
+        m_environmentMapURL = spatialBackdropSource.m_environmentMapURL.value().createNSURL();
 
     return self;
 }
 
 - (void)dealloc
 {
-    [_sourceURL release];
-    [_modelURL release];
-    [_environmentMapURL release];
     [super dealloc];
 }
 #endif
+
+- (NSURL *)sourceURL
+{
+    return m_sourceURL.get();
+}
+
+- (NSURL *)modelURL
+{
+    return m_modelURL.get();
+}
+
+- (NSURL *)environmentMapURL
+{
+    return m_environmentMapURL.get();
+}
 
 @end

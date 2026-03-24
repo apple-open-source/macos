@@ -216,6 +216,7 @@ private:
                 case DoubleRepUse:
                     // It is always valuable to get rid of a double multiplication by 2.
                     // We won't have half-register dependencies issues on x86 and we won't have to load the constants.
+                    m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
                     m_node->setOp(ArithAdd);
                     child2.setNode(m_node->child1().node());
                     m_changed = true;
@@ -227,6 +228,7 @@ private:
                     // For integers, we can only convert compatible modes.
                     // ArithAdd does handle do negative zero check for example.
                     if (m_node->arithMode() == Arith::CheckOverflow || m_node->arithMode() == Arith::Unchecked) {
+                        m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
                         m_node->setOp(ArithAdd);
                         child2.setNode(m_node->child1().node());
                         m_changed = true;
@@ -266,9 +268,11 @@ private:
             if (m_node->child2()->isNumberConstant()) {
                 double yOperandValue = m_node->child2()->asNumber();
                 if (yOperandValue == 1) {
+                    m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
                     convertToIdentityOverChild1();
                     m_changed = true;
                 } else if (yOperandValue == 2) {
+                    m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
                     m_node->setOp(ArithMul);
                     m_node->child2() = m_node->child1();
                     m_changed = true;
@@ -322,6 +326,30 @@ private:
                     break;
                 }
             }
+            break;
+        }
+
+        case GetUndetachedTypeArrayLength: {
+            if (m_node->child1()->op() != NewTypedArray)
+                break;
+
+            auto* typedArray = m_node->child1().node();
+            if (typedArray->child1().useKind() != UntypedUse)
+                break;
+            if (typedArray->child1()->op() != NewTypedArrayBuffer)
+                break;
+            TypedArrayType typedArrayType = typedArray->typedArrayType();
+            if (elementSize(typedArrayType) != 1)
+                break;
+
+            auto* arrayBuffer = typedArray->child1().node();
+            if (arrayBuffer->child1().useKind() != Int32Use)
+                break;
+
+            m_changed = true;
+            m_insertionSet.insertCheck(m_nodeIndex, m_node->origin, Edge(arrayBuffer->child1().node(), Int32Use));
+            m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
+            m_node->convertToIdentityOn(arrayBuffer->child1().node());
             break;
         }
 
@@ -1283,7 +1311,7 @@ private:
 
             m_changed = true;
             m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
-            m_node->convertToLazyJSConstant(m_graph, LazyJSValue::newString(m_graph, WTFMove(result)));
+            m_node->convertToLazyJSConstant(m_graph, LazyJSValue::newString(m_graph, WTF::move(result)));
             break;
         }
 
@@ -1331,6 +1359,36 @@ private:
             break;
         }
 
+        case StringIndexOf: {
+            Node* stringNode = m_node->child1().node();
+            String string = stringNode->tryGetString(m_graph);
+            if (!string)
+                break;
+
+            String searchString = m_node->child2()->tryGetString(m_graph);
+            if (!searchString)
+                break;
+
+            unsigned startPosition = 0;
+            if (m_node->child3()) {
+                if (!m_node->child3()->isInt32Constant())
+                    break;
+                int32_t pos = m_node->child3()->asInt32();
+                if (pos < 0)
+                    startPosition = 0;
+                else
+                    startPosition = std::min<unsigned>(pos, string.length());
+            }
+
+            size_t result = string.find(searchString, startPosition);
+            int32_t indexResult = (result == notFound) ? -1 : static_cast<int32_t>(result);
+
+            m_changed = true;
+            m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
+            m_graph.convertToConstant(m_node, jsNumber(indexResult));
+            break;
+        }
+
         case GetByVal:
         case GetByValMegamorphic: {
             Edge& baseEdge = m_graph.child(m_node, 0);
@@ -1346,7 +1404,7 @@ private:
 
         case PutByVal:
         case PutByValDirect:
-        case PutByValAlias:
+        case PutByValDirectResolved:
         case PutByValMegamorphic: {
             Edge& baseEdge = m_graph.child(m_node, 0);
             Edge& keyEdge = m_graph.child(m_node, 1);
@@ -1363,7 +1421,7 @@ private:
             case Array::Float16Array:
             case Array::Float32Array:
             case Array::Float64Array: {
-                if (m_node->op() == PutByVal || m_node->op() == PutByValDirect || m_node->op() == PutByValAlias) {
+                if (m_node->op() == PutByVal || m_node->op() == PutByValDirect || m_node->op() == PutByValDirectResolved) {
                     Edge& valueEdge = m_graph.child(m_node, 2);
                     if (valueEdge.useKind() == DoubleRepUse) {
                         if (foldPurifyNaN(valueEdge))
@@ -1376,7 +1434,7 @@ private:
             case Array::Uint8Array:
             case Array::Uint16Array:
             case Array::Uint32Array: {
-                if (m_node->op() == PutByVal || m_node->op() == PutByValDirect || m_node->op() == PutByValAlias) {
+                if (m_node->op() == PutByVal || m_node->op() == PutByValDirect || m_node->op() == PutByValDirectResolved) {
                     Edge& valueEdge = m_graph.child(m_node, 2);
                     if (valueEdge.useKind() == Int32Use) {
                         if (valueEdge->op() == UInt32ToNumber && valueEdge->child1().useKind() == Int32Use) {

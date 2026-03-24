@@ -1907,7 +1907,7 @@ PACurvesFillParamsFromDict(OSDictionary *parameters,
                            const IOFixed64 crsrScale,
                            IOHIPointing__PAParameters &outParams)
 {
-    require(parameters, exit_early);
+    __Require(parameters, exit_early);
 
     outParams.deviceMickysDivider = devScale;
     outParams.cursorSpeedMultiplier = crsrScale;
@@ -1950,18 +1950,18 @@ PACurvesSetupAccelParams (OSArray *parametricCurves,
 
 //  HIDLog("Called with %08x, %08x, %08x", desired.asFixed(), devScale.asFixed(), crsrScale.asFixed());
 
-    require(parametricCurves, exit_early);
-    require(crsrScale > 0LL, exit_early);
-    require(devScale > 0LL, exit_early);
-    require(desired > 0LL, exit_early);
+    __Require(parametricCurves, exit_early);
+    __Require(crsrScale > 0LL, exit_early);
+    __Require(devScale > 0LL, exit_early);
+    __Require(desired > 0LL, exit_early);
 
     itr = OSCollectionIterator::withCollection(parametricCurves);
-    require(itr, exit_early);
+    __Require(itr, exit_early);
 
     while (!success) {
         itr->reset();
         dict = OSDynamicCast(OSDictionary, itr->getNextObject());
-        require(PACurvesFillParamsFromDict(dict, devScale, crsrScale, low_curve_params),
+        __Require(PACurvesFillParamsFromDict(dict, devScale, crsrScale, low_curve_params),
                 exit_early);
 
         while (!success && (NULL != dict)) {
@@ -1977,7 +1977,7 @@ PACurvesSetupAccelParams (OSArray *parametricCurves,
             dict = OSDynamicCast(OSDictionary, itr->getNextObject());
         }
 
-        require(success || !itr->isValid(), exit_early);
+        __Require(success || !itr->isValid(), exit_early);
     };
 
     if ( high_curve_params.accelIndex > low_curve_params.accelIndex ) {
@@ -2043,7 +2043,7 @@ PACurvesDebugDictionary(IOHIPointing__PAParameters &primaryParams,
 {
     OSDictionary    *result = OSDictionary::withCapacity(20);
 
-    require(result, exit_early);
+    __Require(result, exit_early);
 
 #define ADD_NUMBER_FOR(X) \
     do { \

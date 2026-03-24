@@ -117,7 +117,7 @@ static inline const char* toFeatureCategory(API::FeatureCategory category)
  */
 struct _WebKitFeature {
     _WebKitFeature(RefPtr<API::Feature>&& feature)
-        : feature(WTFMove(feature))
+        : feature(WTF::move(feature))
     {
     }
 
@@ -139,9 +139,8 @@ G_DEFINE_BOXED_TYPE(WebKitFeature, webkit_feature, webkit_feature_ref, webkit_fe
 
 static WebKitFeature* webkitFeatureCreate(const RefPtr<API::Object>& apiFeature)
 {
-    ASSERT(apiFeature->type() == API::Object::Type::Feature);
     WebKitFeature* feature = static_cast<WebKitFeature*>(fastMalloc(sizeof(WebKitFeature)));
-    new (feature) WebKitFeature(static_pointer_cast<API::Feature>(apiFeature));
+    new (feature) WebKitFeature(downcast<API::Feature>(apiFeature));
     return feature;
 }
 

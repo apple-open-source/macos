@@ -191,6 +191,8 @@ namespace WebCore {
     macro(DecompressionStreamTransform) \
     macro(DelayNode) \
     macro(DeprecationReportBody) \
+    macro(DeviceMotionEvent) \
+    macro(DeviceOrientationEvent) \
     macro(DigitalCredential) \
     macro(DocumentTimeline) \
     macro(DynamicsCompressorNode) \
@@ -273,6 +275,7 @@ namespace WebCore {
     macro(HTMLDataListElement) \
     macro(HTMLEmbedElement) \
     macro(HTMLModelElement) \
+    macro(HTMLSelectedContentElement) \
     macro(Headers) \
     macro(IDBCursor) \
     macro(IDBCursorWithValue) \
@@ -306,6 +309,7 @@ namespace WebCore {
     macro(MediaCapabilities) \
     macro(MediaCapabilitiesInfo) \
     macro(MediaDevices) \
+    macro(MediaDeviceInfo) \
     macro(MediaElementAudioSourceNode) \
     macro(MediaEncryptedEvent) \
     macro(MediaKeyMessageEvent) \
@@ -347,6 +351,7 @@ namespace WebCore {
     macro(OfflineAudioContext) \
     macro(OffscreenCanvas) \
     macro(OffscreenCanvasRenderingContext2D) \
+    macro(Origin) \
     macro(OscillatorNode) \
     macro(PaintRenderingContext2D) \
     macro(PannerNode) \
@@ -513,8 +518,10 @@ namespace WebCore {
     macro(WebTransport) \
     macro(WebTransportBidirectionalStream) \
     macro(WebTransportDatagramDuplexStream) \
+    macro(WebTransportDatagramsWritable) \
     macro(WebTransportError) \
     macro(WebTransportReceiveStream) \
+    macro(WebTransportSendGroup) \
     macro(WebTransportSendStream) \
     macro(WindowClient) \
     macro(Worklet) \
@@ -534,6 +541,8 @@ namespace WebCore {
     macro(XRGPUProjectionLayerInit) \
     macro(XRGPUSubImage) \
     macro(XRHand) \
+    macro(XRHitTestResult) \
+    macro(XRHitTestSource) \
     macro(XRInputSource) \
     macro(XRInputSourceArray) \
     macro(XRInputSourceEvent) \
@@ -545,6 +554,7 @@ namespace WebCore {
     macro(XRPose) \
     macro(XRProjectionLayer) \
     macro(XRQuadLayer) \
+    macro(XRRay) \
     macro(XRReferenceSpace) \
     macro(XRReferenceSpaceEvent) \
     macro(XRRenderState) \
@@ -555,6 +565,9 @@ namespace WebCore {
     macro(XRSubImage) \
     macro(XRSystem) \
     macro(XRTest) \
+    macro(XRTransientInputHitTest) \
+    macro(XRTransientInputHitTestResult) \
+    macro(XRTransientInputHitTestSource) \
     macro(XRView) \
     macro(XRViewerPose) \
     macro(XRViewport) \
@@ -660,6 +673,8 @@ namespace WebCore {
     macro(onbeforematch) \
     macro(oncommand) \
     macro(oncookiechange) \
+    macro(ondevicemotion) \
+    macro(ondeviceorientation) \
     macro(onnotificationclick) \
     macro(onnotificationclose) \
     macro(onpush) \

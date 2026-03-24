@@ -72,12 +72,12 @@ static SecKeychainRef setup_keychain(const uint8_t *p12, size_t p12_len, SecIden
     unlink(TMP_KEYCHAIN_PATH);
     ok_status(SecKeychainCopySearchList(&oldSearchList),
               "Copy keychain search list");
-    require(oldSearchList, out);
+    __Require(oldSearchList, out);
     ok(newSearchList = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(oldSearchList)+1, oldSearchList),
        "Create new search list");
     ok_status(SecKeychainCreate(TMP_KEYCHAIN_PATH, 8, "password", false, NULL, &keychain),
               "Create keychain for identity");
-    require(keychain, out);
+    __Require(keychain, out);
     CFArrayAppendValue(newSearchList, keychain);
     ok_status(SecKeychainSetSearchList(newSearchList),
               "Set keychain search list");
@@ -125,40 +125,40 @@ static OSStatus outputSignature(SecIdentityRef identity, SECOidTag digestAlgTag,
     uint8_t string_to_sign[] = "This message is signed. Ain't it pretty?";
 
     /* setup the message */
-    require_action_string(cmsg = SecCmsMessageCreate(NULL), out,
+    __Require_Action_String(cmsg = SecCmsMessageCreate(NULL), out,
                           status = errSecAllocate, "Failed to create message");
-    require_action_string(sigd = SecCmsSignedDataCreate(cmsg), out,
+    __Require_Action_String(sigd = SecCmsSignedDataCreate(cmsg), out,
                           status = errSecAllocate, "Failed to create signed data");
-    require_action_string(cinfo = SecCmsMessageGetContentInfo(cmsg), out,
+    __Require_Action_String(cinfo = SecCmsMessageGetContentInfo(cmsg), out,
                           status = errSecParam, "Failed to get cms content info");
-    require_noerr_string(status = SecCmsContentInfoSetContentSignedData(cmsg, cinfo, sigd), out,
+    __Require_noErr_String(status = SecCmsContentInfoSetContentSignedData(cmsg, cinfo, sigd), out,
                          "Failed to set signed data into content info");
-    require_action_string(cinfo = SecCmsSignedDataGetContentInfo(sigd), out,
+    __Require_Action_String(cinfo = SecCmsSignedDataGetContentInfo(sigd), out,
                           status = errSecParam, "Failed to get content info from signed data");
-    require_noerr_string(status = SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), out,
+    __Require_noErr_String(status = SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), out,
                          "Failed to set signed data content info");
-    require_action_string(signerInfo = SecCmsSignerInfoCreate(cmsg, identity, digestAlgTag), out,
+    __Require_Action_String(signerInfo = SecCmsSignerInfoCreate(cmsg, identity, digestAlgTag), out,
                           status = errSecAllocate, "Failed to create signer info");
-    require_noerr_string(status = SecCmsSignerInfoIncludeCerts(signerInfo, SecCmsCMCertOnly,
+    __Require_noErr_String(status = SecCmsSignerInfoIncludeCerts(signerInfo, SecCmsCMCertOnly,
                                                                certUsageEmailSigner), out,
                          "Failed to put certs in signer info");
 
     if(withAttrs) {
-        require_noerr_string(status = SecCmsSignerInfoAddSigningTime(signerInfo, 480000000.0), out,
+        __Require_noErr_String(status = SecCmsSignerInfoAddSigningTime(signerInfo, 480000000.0), out,
                              "Couldn't add an attribute");
     }
-    require_noerr_string(status = SecCmsSignedDataAddSignerInfo(sigd, signerInfo), out,
+    __Require_noErr_String(status = SecCmsSignedDataAddSignerInfo(sigd, signerInfo), out,
                          "Couldn't add signer info to signed data");
 
     /* encode now */
-    require_noerr_string(status = SecCmsEncoderCreate(cmsg, NULL, NULL, cms_data, arena, NULL, NULL,
+    __Require_noErr_String(status = SecCmsEncoderCreate(cmsg, NULL, NULL, cms_data, arena, NULL, NULL,
                                                       NULL, NULL, NULL, NULL, &encoder), out,
                          "Failed to create encoder");
-    require_noerr_string(status = SecCmsEncoderUpdate(encoder, string_to_sign, sizeof(string_to_sign)), out,
+    __Require_noErr_String(status = SecCmsEncoderUpdate(encoder, string_to_sign, sizeof(string_to_sign)), out,
                          "Failed to add data");
     status = SecCmsEncoderFinish(encoder);
     encoder = NULL; // SecCmsEncoderFinish always frees the encoder but doesn't NULL it.
-    require_noerr_quiet(status, out);
+    __Require_noErr_Quiet(status, out);
 
 out:
     if (encoder) {
@@ -178,16 +178,16 @@ static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, boo
         .Length = 0
     };
 
-    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
+    __Require_noErr_String(status = SecArenaPoolCreate(1024, &arena), out,
                          "Failed to create arena");
-    require_noerr_string(status = outputSignature(identity, digestAlgTag, withAttrs, arena, &cms_data),
+    __Require_noErr_String(status = outputSignature(identity, digestAlgTag, withAttrs, arena, &cms_data),
                          out, "Failed to create signature");
 
     /* verify the output matches expected results */
     if (expected_output) {
-        require_action_string(expected_len == cms_data.Length, out,
+        __Require_Action_String(expected_len == cms_data.Length, out,
                               status = -1, "Output size differs from expected");
-        require_noerr_action_string(memcmp(expected_output, cms_data.Data, expected_len), out,
+        __Require_noErr_Action_String(memcmp(expected_output, cms_data.Data, expected_len), out,
                                     status = -1, "Output differs from expected");
     }
 
@@ -211,22 +211,22 @@ static OSStatus verify_please(SecKeychainRef keychain, uint8_t *data_to_verify, 
         return errSecSuccess; // reasons...
     }
 
-    require_noerr_string(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+    __Require_noErr_String(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
                                                       NULL, NULL, &decoder), out,
                          "Failed to create decoder");
-    require_noerr_string(status = SecCmsDecoderUpdate(decoder, data_to_verify, length), out,
+    __Require_noErr_String(status = SecCmsDecoderUpdate(decoder, data_to_verify, length), out,
                          "Failed to add data ");
     status = SecCmsDecoderFinish(decoder, &cmsg);
     decoder = NULL; // SecCmsDecoderFinish always frees the decoder
-    require_noerr_quiet(status, out);
+    __Require_noErr_Quiet(status, out);
 
-    require_action_string(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
+    __Require_Action_String(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
                           status = errSecDecode, "Failed to get content info");
-    require_action_string(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
+    __Require_Action_String(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
                           status = errSecDecode, "Content type was pkcs7 signed data");
-    require_action_string(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
+    __Require_Action_String(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
                           status = errSecDecode, "Failed to get signed data");
-    require_action_string(policy = SecPolicyCreateBasicX509(), out,
+    __Require_Action_String(policy = SecPolicyCreateBasicX509(), out,
                           status = errSecAllocate, "Failed to create basic policy");
     status = SecCmsSignedDataVerifySigner(sigd, 0, policy, &trust);
 
@@ -266,7 +266,7 @@ static OSStatus invalidate_and_verify(SecKeychainRef kc, uint8_t *cms_data, size
         return SECFailure; // reasons...
     }
 
-    require_action_string(invalid_cms_data = invalidate_signature(cms_data, length), out,
+    __Require_Action_String(invalid_cms_data = invalidate_signature(cms_data, length), out,
                           status = errSecAllocate, "Unable to allocate buffer for invalid cms data");
     status = verify_please(kc, invalid_cms_data, length);
 
@@ -295,36 +295,36 @@ static OSStatus encrypt_please(SecCertificateRef recipient, SECOidTag encAlg, in
     const uint8_t data_to_encrypt[] = "This data is encrypted. Is cool, no?";
 
     /* set up the message */
-    require_action_string(cmsg = SecCmsMessageCreate(NULL), out,
+    __Require_Action_String(cmsg = SecCmsMessageCreate(NULL), out,
                           status = errSecAllocate, "Failed to create message");
-    require_action_string(envd = SecCmsEnvelopedDataCreate(cmsg, encAlg, keysize), out,
+    __Require_Action_String(envd = SecCmsEnvelopedDataCreate(cmsg, encAlg, keysize), out,
                           status = errSecAllocate, "Failed to create enveloped data");
-    require_action_string(cinfo = SecCmsMessageGetContentInfo(cmsg), out,
+    __Require_Action_String(cinfo = SecCmsMessageGetContentInfo(cmsg), out,
                           status = errSecParam, "Failed to get content info from cms message");
-    require_noerr_string(status = SecCmsContentInfoSetContentEnvelopedData(cmsg, cinfo, envd), out,
+    __Require_noErr_String(status = SecCmsContentInfoSetContentEnvelopedData(cmsg, cinfo, envd), out,
                          "Failed to set enveloped data in cms message");
-    require_action_string(cinfo = SecCmsEnvelopedDataGetContentInfo(envd), out,
+    __Require_Action_String(cinfo = SecCmsEnvelopedDataGetContentInfo(envd), out,
                           status = errSecParam, "Failed to get content info from enveloped data");
-    require_noerr_string(status = SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), out,
+    __Require_noErr_String(status = SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), out,
                          "Failed to set data type in envelope");
-    require_action_string(rinfo = SecCmsRecipientInfoCreate(cmsg, recipient), out,
+    __Require_Action_String(rinfo = SecCmsRecipientInfoCreate(cmsg, recipient), out,
                           status = errSecAllocate, "Failed to create recipient info");
-    require_noerr_string(status = SecCmsEnvelopedDataAddRecipient(envd, rinfo), out,
+    __Require_noErr_String(status = SecCmsEnvelopedDataAddRecipient(envd, rinfo), out,
                          "Failed to add recipient info to envelope");
 
     /* encode the message */
-    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
+    __Require_noErr_String(status = SecArenaPoolCreate(1024, &arena), out,
                          "Failed to create arena");
-    require_noerr_string(status = SecCmsEncoderCreate(cmsg, NULL, NULL, &cms_data, arena, NULL, NULL,
+    __Require_noErr_String(status = SecCmsEncoderCreate(cmsg, NULL, NULL, &cms_data, arena, NULL, NULL,
                                                       NULL, NULL, NULL, NULL, &encoder), out,
                          "Failed to create encoder");
-    require_noerr_string(status = SecCmsEncoderUpdate(encoder, data_to_encrypt, sizeof(data_to_encrypt)), out,
+    __Require_noErr_String(status = SecCmsEncoderUpdate(encoder, data_to_encrypt, sizeof(data_to_encrypt)), out,
                          "Failed to update encoder with data");
     status = SecCmsEncoderFinish(encoder);
     encoder = NULL; // SecCmsEncoderFinish always frees the encoder but doesn't NULL it.
-    require_noerr_quiet(status, out);
+    __Require_noErr_Quiet(status, out);
 
-    require_noerr_string(status = decrypt_please(cms_data.Data, cms_data.Length), out,
+    __Require_noErr_String(status = decrypt_please(cms_data.Data, cms_data.Length), out,
                          "Failed to decrypt the data we just encrypted");
 
 out:
@@ -347,21 +347,21 @@ static OSStatus decrypt_please(uint8_t *data_to_decrypt, size_t length) {
     CSSM_DATA_PTR content = NULL;
     const uint8_t encrypted_string[] = "This data is encrypted. Is cool, no?";
 
-    require_noerr_string(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+    __Require_noErr_String(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
                                                       NULL, NULL, &decoder), out,
                          "Failed to create decoder");
-    require_noerr_string(status = SecCmsDecoderUpdate(decoder, data_to_decrypt, length), out,
+    __Require_noErr_String(status = SecCmsDecoderUpdate(decoder, data_to_decrypt, length), out,
                          "Failed to add data ");
     status = SecCmsDecoderFinish(decoder, &cmsg);
     decoder = NULL; // SecCmsDecoderFinish always frees the decoder
-    require_noerr_quiet(status, out);
-    require_action_string(content = SecCmsMessageGetContent(cmsg), out,
+    __Require_noErr_Quiet(status, out);
+    __Require_Action_String(content = SecCmsMessageGetContent(cmsg), out,
                           status = errSecDecode, "Unable to get message contents");
 
     /* verify the output matches expected results */
-    require_action_string(sizeof(encrypted_string) == content->Length, out,
+    __Require_Action_String(sizeof(encrypted_string) == content->Length, out,
                           status = -1, "Output size differs from expected");
-    require_noerr_action_string(memcmp(encrypted_string, content->Data, content->Length), out,
+    __Require_noErr_Action_String(memcmp(encrypted_string, content->Data, content->Length), out,
                                 status = -1, "Output differs from expected");
 
 out:
@@ -506,29 +506,29 @@ static void check_ec_sigalg(SecIdentityRef identity) {
     };
 
     /* Create Signature*/
-    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
+    __Require_noErr_String(status = SecArenaPoolCreate(1024, &arena), out,
                          "Failed to create arena");
-    require_noerr_string(status = outputSignature(identity, SEC_OID_SHA256, true, arena, &cms_data),
+    __Require_noErr_String(status = outputSignature(identity, SEC_OID_SHA256, true, arena, &cms_data),
                          out, "Failed to create signature");
 
     /* Decode siganture */
-    require_noerr_string(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+    __Require_noErr_String(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
                                                       NULL, NULL, &decoder), out,
                          "Failed to create decoder");
-    require_noerr_string(status = SecCmsDecoderUpdate(decoder, cms_data.Data, cms_data.Length), out,
+    __Require_noErr_String(status = SecCmsDecoderUpdate(decoder, cms_data.Data, cms_data.Length), out,
                          "Failed to add data ");
     status = SecCmsDecoderFinish(decoder, &cmsg);
     decoder = NULL; // SecCmsDecoderFinish always frees the decoder
-    require_noerr_quiet(status, out);
+    __Require_noErr_Quiet(status, out);
 
     /* Dive down into the signer info to check the sig alg oid*/
-    require_action_string(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
+    __Require_Action_String(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
                           status = errSecDecode, "Failed to get content info");
-    require_action_string(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
+    __Require_Action_String(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
                           status = errSecDecode, "Content type was pkcs7 signed data");
-    require_action_string(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
+    __Require_Action_String(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
                           status = errSecDecode, "Failed to get signed data");
-    require_action_string(sinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
+    __Require_Action_String(sinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
                           status = errSecDecode, "Failed to get signer info");
 
     is(sinfo->digestEncAlg.algorithm.Length, CSSMOID_ECDSA_WithSHA256.Length,

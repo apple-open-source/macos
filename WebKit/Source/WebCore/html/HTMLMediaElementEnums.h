@@ -45,6 +45,16 @@ public:
     } SeekType;
 };
 
+enum class HTMLMediaElementSourceType : uint8_t {
+    File,
+    HLS,
+    MediaSource,
+    ManagedMediaSource,
+    MediaStream,
+    LiveStream,
+    StoredStream,
+};
+
 String convertEnumerationToString(HTMLMediaElementEnums::ReadyState);
 String convertEnumerationToString(HTMLMediaElementEnums::NetworkState);
 String convertEnumerationToString(HTMLMediaElementEnums::TextTrackVisibilityCheckType);

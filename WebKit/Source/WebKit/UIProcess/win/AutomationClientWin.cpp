@@ -59,7 +59,7 @@ void AutomationClient::requestAutomationSession(const String& sessionIdentifier,
     auto session = adoptRef(new WebAutomationSession());
     session->setSessionIdentifier(sessionIdentifier);
     session->setClient(WTF::makeUnique<AutomationSessionClient>(sessionIdentifier, capabilities));
-    m_processPool->setAutomationSession(WTFMove(session));
+    m_processPool->setAutomationSession(WTF::move(session));
 }
 
 void AutomationClient::closeAutomationSession()

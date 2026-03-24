@@ -1547,8 +1547,8 @@ OSStatus CMSEncoderCopySignerTimestampWithPolicy(
 	SecCmsSignedDataRef signedData = NULL;
     int numContentInfos = 0;
 
-    require(cmsEncoder && timestamp, xit);
-	require_noerr(CMSEncoderGetCmsMessage(cmsEncoder, &cmsg), xit);
+    __Require(cmsEncoder && timestamp, xit);
+	__Require_noErr(CMSEncoderGetCmsMessage(cmsEncoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++)
     {

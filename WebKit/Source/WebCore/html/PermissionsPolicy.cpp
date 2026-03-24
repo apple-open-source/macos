@@ -349,7 +349,7 @@ static Allowlist parseAllowlist(StringView value, const SecurityOriginData& cont
         value = remainingValue;
     }
 
-    return Allowlist { WTFMove(allowedOrigins) };
+    return Allowlist { WTF::move(allowedOrigins) };
 }
 
 // https://w3c.github.io/webappsec-permissions-policy/#algo-parse-policy-directive

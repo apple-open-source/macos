@@ -29,6 +29,8 @@
 #include "config.h"
 #include "Location.h"
 
+#include "DocumentQuirks.h"
+#include "ExceptionOr.h"
 #include "FrameLoader.h"
 #include "LocalDOMWindow.h"
 #include "LocalDOMWindowProperty.h"
@@ -45,7 +47,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Location);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Location);
 
 Location::Location(DOMWindow& window)
     : m_window(window)

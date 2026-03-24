@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cmd2.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include <sys/wait.h>
 #include "extern.h"
@@ -76,13 +68,17 @@ next(void *v)
 		 * message list which follows dot.
 		 */
 
-		for (ip = msgvec; *ip != 0; ip++) {
+		for (ip = msgvec; *ip != 0; ip++)
+#ifdef __APPLE__
+		{
 			if (!sawcom) /* don't skip current message if first command */
 				break;
+#endif
 			if (*ip > mdot)
 				break;
+#ifdef __APPLE__
 		}
-
+#endif
 		if (*ip == 0)
 			ip = msgvec;
 		ip2 = ip;
@@ -144,16 +140,18 @@ save(void *v)
 	return (save1(str, 1, "save", saveignore));
 }
 
+#ifdef __APPLE__
 /*
  * Save a message list in a file named after author.  Mark the message as saved
  * so we can discard when the user quits.
  */
 int
-Capsave(char str[])
+Capsave(void *str)
 {
 
 	return (save1(str, 1, "Save", saveignore));
 }
+#endif
 
 /*
  * Copy a message to a file without affected its saved-ness
@@ -166,15 +164,17 @@ copycmd(void *v)
 	return (save1(str, 0, "copy", saveignore));
 }
 
+#ifdef __APPLE__
 /*
  * Copy a message to a file named after author without affected its saved-ness
  */
 int
-Capcopycmd(char str[])
+Capcopycmd(void *v __unused)
 {
 	printf("Copy command is not yet implemented\n");
 	return (1);
 }
+#endif
 
 /*
  * Save/copy the indicated messages at the end of the passed file name.
@@ -188,10 +188,16 @@ save1(char str[], int mark, const char *cmd, struct ignoretab *ignore)
 	const char *disp;
 	int f, *msgvec, *ip;
 	FILE *obuf;
+#ifdef __APPLE__
 	int doing_Save = !strcmp(cmd,"Save");
+#endif
 
 	msgvec = (int *)salloc((msgCount + 2) * sizeof(*msgvec));
+#ifdef __APPLE__
 	if ((file = snarf(str, &f, doing_Save)) == NULL)
+#else
+	if ((file = snarf(str, &f)) == NULL)
+#endif
 		return (1);
 	if (!f) {
 		*msgvec = first(0, MMNORM);
@@ -203,6 +209,7 @@ save1(char str[], int mark, const char *cmd, struct ignoretab *ignore)
 	}
 	if (f && getmsglist(str, msgvec, 0) < 0)
 		return (1);
+#ifdef __APPLE__
 	/* Save derives file name from author of first message: */
 	if (doing_Save) {
 	        char *rcv;
@@ -217,6 +224,7 @@ save1(char str[], int mark, const char *cmd, struct ignoretab *ignore)
 		}
 		file = rcv; /* use it as file name */
 	}
+#endif
 	if ((file = expand(file)) == NULL)
 		return (1);
 	printf("\"%s\" ", file);
@@ -270,7 +278,11 @@ swrite(void *v)
  */
 
 char *
+#ifdef __APPLE__
 snarf(char *linebuf, int *flag, int doing_Save)
+#else
+snarf(char *linebuf, int *flag)
+#endif
 {
 	char *cp;
 
@@ -292,17 +304,23 @@ snarf(char *linebuf, int *flag, int doing_Save)
 	while (cp > linebuf && !isspace((unsigned char)*cp))
 		cp--;
 	if (*cp == '\0') {
+#ifdef __APPLE__
 		if (!doing_Save)
 			printf("No file specified: using MBOX.\n");
 		*flag = 0;	/* no message list found either */
 		return ("&");
+#else
+		printf("No file specified.\n");
+		return (NULL);
+#endif
 	}
-		
 	if (isspace((unsigned char)*cp))
 		*cp++ = '\0';
-	else {
-		if (!doing_Save) *flag = 0;
-	}
+	else
+#ifdef __APPLE__
+	if (!doing_Save)
+#endif
+		*flag = 0;
 	return (cp);
 }
 
@@ -404,7 +422,7 @@ undeletecmd(void *v)
  * Interactively dump core on "core"
  */
 int
-core(void)
+core(void *arg __unused)
 {
 	int pid;
 
@@ -430,8 +448,9 @@ core(void)
  * Clobber as many bytes of stack as the user requests.
  */
 int
-clobber(char **argv)
+clobber(void *arg)
 {
+	char **argv = arg;
 	int times;
 
 	if (argv[0] == 0)

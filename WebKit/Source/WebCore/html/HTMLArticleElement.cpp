@@ -34,7 +34,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLArticleElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLArticleElement);
 
 Ref<HTMLArticleElement> HTMLArticleElement::create(const QualifiedName& tagName, Document& document)
 {

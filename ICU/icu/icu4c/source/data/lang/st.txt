@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 st{
     Languages{
         af{"Seburu"}
@@ -14,7 +14,7 @@ st{
         bs{"Se-bosnia"}
         ca{"Se-catalia"}
         cs{"Se-czech"}
-        cy{"Se-welsh"}
+        cy{"Sewelsh"}
         da{"Se-dutch"}
         de{"Se-jeremane"}
         el{"Se-greek"}

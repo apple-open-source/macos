@@ -30,9 +30,8 @@
 
 #include <WebCore/EventListener.h>
 #include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/ImmersiveVideoMetadata.h>
 #include <WebCore/PlaybackSessionModel.h>
-#include <WebCore/SpatialVideoMetadata.h>
-#include <WebCore/VideoProjectionMetadata.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashSet.h>
 #include <wtf/Observer.h>
@@ -60,11 +59,14 @@ public:
     }
     WEBCORE_EXPORT virtual ~PlaybackSessionModelMediaElement();
 
+    USING_CAN_MAKE_WEAKPTR(PlaybackSessionModel);
+
     // CheckedPtr interface
     uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     WEBCORE_EXPORT void setMediaElement(HTMLMediaElement*);
     HTMLMediaElement* mediaElement() const { return m_mediaElement.get(); }
@@ -102,7 +104,7 @@ public:
     WEBCORE_EXPORT void setVolume(double) final;
     WEBCORE_EXPORT void setPlayingOnSecondScreen(bool) final;
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    WEBCORE_EXPORT const String& spatialTrackingLabel() const final;
+    WEBCORE_EXPORT String spatialTrackingLabel() const final;
     WEBCORE_EXPORT void setSpatialTrackingLabel(const String&) final;
 #endif
     WEBCORE_EXPORT void sendRemoteCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument&) final;
@@ -162,13 +164,12 @@ private:
     RefPtr<HTMLMediaElement> m_mediaElement;
     bool m_isListening { false };
     HashSet<CheckedPtr<PlaybackSessionModelClient>> m_clients;
-    Vector<RefPtr<TextTrack>> m_legibleTracksForMenu;
-    Vector<RefPtr<AudioTrack>> m_audioTracksForMenu;
+    Vector<Ref<TextTrack>> m_legibleTracksForMenu;
+    Vector<Ref<AudioTrack>> m_audioTracksForMenu;
     AudioSessionSoundStageSize m_soundStageSize;
-    std::optional<SpatialVideoMetadata> m_spatialVideoMetadata;
-    std::optional<VideoProjectionMetadata> m_videoProjectionMetadata;
+    std::optional<ImmersiveVideoMetadata> m_immersiveVideoMetadata;
 
-    Observer<void()> m_videoTrackConfigurationObserver;
+    const Ref<Observer<void()>> m_videoTrackConfigurationObserver;
 };
 
 }

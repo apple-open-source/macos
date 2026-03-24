@@ -1086,7 +1086,7 @@ ALWAYS_INLINE size_t URLParser::currentPosition(const CodePointIterator<Characte
 }
 
 URLParser::URLParser(String&& input, const URL& base, const URLTextEncoding* nonUTF8QueryEncoding)
-    : m_inputString(WTFMove(input))
+    : m_inputString(WTF::move(input))
 {
     if (m_inputString.isNull()) {
         if (base.isValid() && !base.m_hasOpaquePath) {
@@ -2060,7 +2060,7 @@ void URLParser::parse(std::span<const CharacterType> input, const URL& base, con
         m_url.m_string = m_inputString;
         ASSERT(m_asciiBuffer.isEmpty());
     } else
-        m_url.m_string = String::adopt(WTFMove(m_asciiBuffer));
+        m_url.m_string = String::adopt(WTF::move(m_asciiBuffer));
     m_url.m_isValid = true;
     URL_PARSER_LOG("Parsed URL <%s>\n\n", m_url.m_string.utf8().data());
 }
@@ -2933,7 +2933,7 @@ auto URLParser::parseURLEncodedForm(StringView input) -> URLEncodedForm
     URLEncodedForm output;
     for (StringView bytes : input.split('&')) {
         if (auto nameAndValue = parseQueryNameAndValue(bytes))
-            output.append(WTFMove(*nameAndValue));
+            output.append(WTF::move(*nameAndValue));
     }
     return output;
 }
@@ -2944,12 +2944,12 @@ std::optional<KeyValuePair<String, String>> URLParser::parseQueryNameAndValue(St
     if (equalIndex == notFound) {
         auto name = formURLDecode(makeStringByReplacingAll(bytes, '+', ' '));
         if (name)
-            return { { WTFMove(*name), emptyString() } };
+            return { { WTF::move(*name), emptyString() } };
     } else {
         auto name = formURLDecode(makeStringByReplacingAll(bytes.left(equalIndex), '+', ' '));
         auto value = formURLDecode(makeStringByReplacingAll(bytes.substring(equalIndex + 1), '+', ' '));
         if (name && value)
-            return { { WTFMove(*name), WTFMove(*value) } };
+            return { { WTF::move(*name), WTF::move(*value) } };
     }
     return std::nullopt;
 }
@@ -2986,20 +2986,19 @@ String URLParser::serialize(const URLEncodedForm& tuples)
         output.append('=');
         serializeURLEncodedForm(tuple.value, output);
     }
-    return String::adopt(WTFMove(output));
+    return String::adopt(WTF::move(output));
 }
 
 const UIDNA& URLParser::internationalDomainNameTranscoder()
 {
-    static UIDNA* encoder;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
+    static UIDNA* encoder = [] {
         UErrorCode error = U_ZERO_ERROR;
-        encoder = uidna_openUTS46(UIDNA_CHECK_BIDI | UIDNA_CHECK_CONTEXTJ | UIDNA_NONTRANSITIONAL_TO_UNICODE | UIDNA_NONTRANSITIONAL_TO_ASCII, &error);
+        auto* encoder = uidna_openUTS46(UIDNA_CHECK_BIDI | UIDNA_CHECK_CONTEXTJ | UIDNA_NONTRANSITIONAL_TO_UNICODE | UIDNA_NONTRANSITIONAL_TO_ASCII, &error);
         if (U_FAILURE(error)) [[unlikely]]
             CRASH_WITH_INFO(error);
         RELEASE_ASSERT(encoder);
-    });
+        return encoder;
+    }();
     return *encoder;
 }
 

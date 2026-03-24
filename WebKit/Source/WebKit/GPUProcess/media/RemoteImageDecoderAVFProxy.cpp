@@ -68,7 +68,7 @@ void RemoteImageDecoderAVFProxy::createDecoder(const IPC::SharedBufferReference&
 
     std::optional<ImageDecoderIdentifier> imageDecoderIdentifier;
     if (!imageDecoder)
-        return completionHandler(WTFMove(imageDecoderIdentifier));
+        return completionHandler(WTF::move(imageDecoderIdentifier));
 
     auto identifier = ImageDecoderIdentifier::generate();
     m_imageDecoders.add(identifier, imageDecoder.copyRef());
@@ -79,7 +79,7 @@ void RemoteImageDecoderAVFProxy::createDecoder(const IPC::SharedBufferReference&
     });
 
     imageDecoderIdentifier = identifier;
-    completionHandler(WTFMove(imageDecoderIdentifier));
+    completionHandler(WTF::move(imageDecoderIdentifier));
 }
 
 void RemoteImageDecoderAVFProxy::deleteDecoder(ImageDecoderIdentifier identifier)
@@ -135,7 +135,7 @@ void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, cons
     if (frameCount)
         frameInfos = imageDecoder->frameInfos();
 
-    completionHandler(frameCount, imageDecoder->size(), imageDecoder->hasTrack(), WTFMove(frameInfos));
+    completionHandler(frameCount, imageDecoder->size(), imageDecoder->hasTrack(), WTF::move(frameInfos));
 }
 
 void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier identifier, uint64_t index, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&& completionHandler)
@@ -145,7 +145,7 @@ void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier 
     std::optional<ShareableBitmap::Handle> imageHandle;
 
     auto invokeCallbackAtScopeExit = makeScopeExit([&] {
-        completionHandler(WTFMove(imageHandle));
+        completionHandler(WTF::move(imageHandle));
     });
 
     RefPtr imageDecoder = m_imageDecoders.get(identifier);

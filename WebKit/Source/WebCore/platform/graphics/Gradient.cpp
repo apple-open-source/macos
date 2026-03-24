@@ -31,20 +31,23 @@
 #include <wtf/HashFunctions.h>
 #include <wtf/Hasher.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Gradient);
+
 Ref<Gradient> Gradient::create(Data&& data, ColorInterpolationMethod colorInterpolationMethod, GradientSpreadMethod spreadMethod, GradientColorStops&& stops, bool isTransient)
 {
-    return adoptRef(*new Gradient(WTFMove(data), colorInterpolationMethod, spreadMethod, WTFMove(stops), isTransient));
+    return adoptRef(*new Gradient(WTF::move(data), colorInterpolationMethod, spreadMethod, WTF::move(stops), isTransient));
 }
 
 Gradient::Gradient(Data&& data, ColorInterpolationMethod colorInterpolationMethod, GradientSpreadMethod spreadMethod, GradientColorStops&& stops, bool isTransient)
-    : m_data { WTFMove(data) }
+    : m_data { WTF::move(data) }
     , m_colorInterpolationMethod { colorInterpolationMethod }
     , m_spreadMethod { spreadMethod }
-    , m_stops { WTFMove(stops) }
+    , m_stops { WTF::move(stops) }
     , m_isTransient { isTransient }
 {
 }
@@ -102,7 +105,7 @@ bool Gradient::isZeroSize() const
 
 void Gradient::addColorStop(GradientColorStop&& stop)
 {
-    m_stops.addColorStop(WTFMove(stop));
+    m_stops.addColorStop(WTF::move(stop));
     m_cachedHash = 0;
     stopsChanged();
 }

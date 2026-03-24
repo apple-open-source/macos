@@ -30,7 +30,7 @@ class SVGLengthValue;
 class SVGTextPathElement;
 
 class RenderSVGTextPath final : public RenderSVGInline {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderSVGTextPath);
+    WTF_MAKE_TZONE_ALLOCATED(RenderSVGTextPath);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderSVGTextPath);
 public:
     RenderSVGTextPath(SVGTextPathElement&, RenderStyle&&);

@@ -274,6 +274,7 @@ static bool isValidContextMenuAction(WebCore::ContextMenuAction action)
     case ContextMenuAction::ContextMenuItemTagProofread:
     case ContextMenuAction::ContextMenuItemTagRewrite:
     case ContextMenuAction::ContextMenuItemTagSummarize:
+    case ContextMenuAction::ContextMenuItemCaptionDisplayStyleSubmenu:
     case ContextMenuAction::ContextMenuItemBaseCustomTag:
     case ContextMenuAction::ContextMenuItemLastCustomTag:
     case ContextMenuAction::ContextMenuItemBaseApplicationTag:

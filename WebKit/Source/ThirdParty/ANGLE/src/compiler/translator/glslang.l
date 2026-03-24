@@ -49,6 +49,11 @@ WHICH GENERATES THE GLSL ES LEXER (glslang_lex_autogen.cpp).
 #pragma clang diagnostic ignored "-Wextra-semi-stmt"
 #pragma clang diagnostic ignored "-Wunreachable-code"
 #endif
+
+// Rename yyalloc/yyrealloc/yyfree during flex generation to allow macro definitions.
+#define yyalloc yyalloc_FLEXGEN
+#define yyrealloc yyrealloc_FLEXGEN
+#define yyfree yyfree_FLEXGEN
 }
 
 %{
@@ -81,6 +86,14 @@ using namespace sh;
 
 #define YY_INPUT(buf, result, max_size) \
     result = string_input(buf, max_size, yyscanner);
+
+// Undefine renames and define yyalloc/yyrealloc/yyfree as macros for typed malloc support.
+#undef yyalloc
+#undef yyrealloc
+#undef yyfree
+#define yyalloc(size, yyscanner) malloc(size)
+#define yyrealloc(ptr, size, yyscanner) realloc((ptr), (size))
+#define yyfree(ptr, yyscanner) free(ptr)
 
 static yy_size_t string_input(char* buf, yy_size_t max_size, yyscan_t yyscanner);
 static int check_type(yyscan_t yyscanner);
@@ -120,6 +133,7 @@ static int floatsuffix_check(TParseContext* context);
 static int yuvcscstandardext_constant(TParseContext *context);
 %}
 
+%option noyyalloc noyyrealloc noyyfree
 %option noyywrap nounput never-interactive
 %option yylineno reentrant bison-bridge bison-locations
 %option extra-type="TParseContext*"

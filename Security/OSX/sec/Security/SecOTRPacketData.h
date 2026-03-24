@@ -128,10 +128,10 @@ static uint16_t kCurrentOTRVersion = 0x2;
     
 static inline OSStatus ReadLongLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint64_t* value)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(value != NULL, fail);
-    require(*sizePtr >= 8, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(value != NULL, fail);
+    __Require(*sizePtr >= 8, fail);
 
     *value = ((uint64_t)(*bytesPtr)[0]) << 56 |
     ((uint64_t)(*bytesPtr)[1]) << 48 |
@@ -154,9 +154,9 @@ static inline OSStatus ReadLongLongCompact(const uint8_t *_Nonnull *_Nonnull byt
 {
     bool moreBytes = true;
 
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(value != NULL, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(value != NULL, fail);
 
     *value = 0;
 
@@ -178,10 +178,10 @@ fail:
 
 static inline OSStatus ReadLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint32_t* value)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(value != NULL, fail);
-    require(*sizePtr >= 4, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(value != NULL, fail);
+    __Require(*sizePtr >= 4, fail);
     
     *value = (uint32_t)(*bytesPtr)[0] << 24 |
     (uint32_t)(*bytesPtr)[1] << 16 |
@@ -198,10 +198,10 @@ fail:
     
 static inline OSStatus ReadShort(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint16_t* value)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(value != NULL, fail);
-    require(*sizePtr >= 2, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(value != NULL, fail);
+    __Require(*sizePtr >= 2, fail);
     
     *value = (*bytesPtr)[0] << 8  |
     (*bytesPtr)[1] << 0;
@@ -216,10 +216,10 @@ fail:
 
 static inline OSStatus ReadByte(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint8_t* value)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(value != NULL, fail);
-    require(*sizePtr >= 1, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(value != NULL, fail);
+    __Require(*sizePtr >= 1, fail);
     
     *value = *bytesPtr[0];
     
@@ -248,8 +248,8 @@ static inline OSStatus ReadMessageType(const uint8_t *_Nonnull *_Nonnull bytesPt
     OSStatus result = errSecParam;
     uint8_t value;
 
-    require(type != NULL, fail);
-    require_noerr_quiet(result = ReadByte(bytesPtr, sizePtr, &value), fail);
+    __Require(type != NULL, fail);
+    __Require_noErr_Quiet(result = ReadByte(bytesPtr, sizePtr, &value), fail);
     
     *type = value;
 fail:
@@ -258,16 +258,16 @@ fail:
 
 static inline OSStatus ReadMPI(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(x != NULL, fail);
-    require_quiet(*sizePtr >= 5, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(x != NULL, fail);
+    __Require_Quiet(*sizePtr >= 5, fail);
     
     uint32_t mpiLength;
     
     ReadLong(bytesPtr, sizePtr, &mpiLength);
     
-    require_quiet(mpiLength <= *sizePtr, fail);
+    __Require_Quiet(mpiLength <= *sizePtr, fail);
     
     ccn_read_uint(n, x, mpiLength, *bytesPtr);
     
@@ -282,16 +282,16 @@ fail:
     
 static inline OSStatus ReadDATA(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(data != NULL, fail);
-    require_quiet(*sizePtr >= 5, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(data != NULL, fail);
+    __Require_Quiet(*sizePtr >= 5, fail);
     
     uint32_t dataLength;
     
     ReadLong(bytesPtr, sizePtr, &dataLength);
     
-    require_quiet(dataLength <= *sizePtr, fail);
+    __Require_Quiet(dataLength <= *sizePtr, fail);
     memmove(data, bytesPtr, dataLength);
     
     *bytesPtr += dataLength;
@@ -307,22 +307,22 @@ fail:
     
 static inline OSStatus CreatePublicKey(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, _Nonnull SecOTRPublicIdentityRef *_Nonnull publicId)
 {
-    require(bytesPtr != NULL, fail);
-    require(sizePtr != NULL, fail);
-    require(publicId != NULL, fail);
-    require(*sizePtr >= 7, fail);
+    __Require(bytesPtr != NULL, fail);
+    __Require(sizePtr != NULL, fail);
+    __Require(publicId != NULL, fail);
+    __Require(*sizePtr >= 7, fail);
 
     uint16_t type = 0;
     ReadShort(bytesPtr, sizePtr, &type);
 
-    require_quiet(type == 0xF000, fail);
-    require_quiet(*sizePtr >= 5, fail);
+    __Require_Quiet(type == 0xF000, fail);
+    __Require_Quiet(*sizePtr >= 5, fail);
     
     uint32_t serializedIDLength = 0;
     ReadLong(bytesPtr, sizePtr, &serializedIDLength);
     
-    require_quiet(*sizePtr >= serializedIDLength, fail);
-    require_quiet(((CFIndex)serializedIDLength) >= 0, fail);
+    __Require_Quiet(*sizePtr >= serializedIDLength, fail);
+    __Require_Quiet(((CFIndex)serializedIDLength) >= 0, fail);
     
     CFDataRef serializedBytes = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, *bytesPtr, (CFIndex)serializedIDLength, kCFAllocatorNull);
     
@@ -344,9 +344,9 @@ static inline CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef _Nu
 {
     CFMutableDataRef result = NULL;
     uint32_t sizeInStream;
-    require_noerr_quiet(ReadLong(bytesPtr, sizePtr, &sizeInStream), exit);
-    require_quiet(sizeInStream <= *sizePtr, exit);
-    require_quiet(((CFIndex)sizeInStream) >= 0, exit);
+    __Require_noErr_Quiet(ReadLong(bytesPtr, sizePtr, &sizeInStream), exit);
+    __Require_Quiet(sizeInStream <= *sizePtr, exit);
+    __Require_Quiet(((CFIndex)sizeInStream) >= 0, exit);
     
     result = CFDataCreateMutable(allocator, 0);
     
@@ -367,8 +367,8 @@ static inline OSStatus ReadAndVerifyByte(const uint8_t *_Nonnull *_Nonnull bytes
 {
     uint8_t found;
     OSStatus result = ReadByte(bytes, size, &found);
-    require_noerr_quiet(result, exit);
-    require_action_quiet(found == expected, exit, result = errSecDecode);
+    __Require_noErr_Quiet(result, exit);
+    __Require_Action_Quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -377,8 +377,8 @@ static inline OSStatus ReadAndVerifyShort(const uint8_t *_Nonnull *_Nonnull byte
 {
     uint16_t found;
     OSStatus result = ReadShort(bytes, size, &found);
-    require_noerr_quiet(result, exit);
-    require_action_quiet(found == expected, exit, result = errSecDecode);
+    __Require_noErr_Quiet(result, exit);
+    __Require_Action_Quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -387,8 +387,8 @@ static inline OSStatus ReadAndVerifyMessageType(const uint8_t *_Nonnull *_Nonnul
 {
     OTRMessageType found;
     OSStatus result = ReadMessageType(bytes, size, &found);
-    require_noerr_quiet(result, exit);
-    require_action_quiet(found == expected, exit, result = errSecDecode);
+    __Require_noErr_Quiet(result, exit);
+    __Require_Action_Quiet(found == expected, exit, result = errSecDecode);
 exit:
     return result;
 }
@@ -401,10 +401,10 @@ static inline OSStatus ReadAndVerifyVersion(const uint8_t *_Nonnull *_Nonnull by
 static inline OSStatus ReadAndVerifyHeader(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType expected)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
-    require_noerr_quiet(result, exit);
+    __Require_noErr_Quiet(result, exit);
     
     result = ReadAndVerifyMessageType(bytes, size, expected);
-    require_noerr_quiet(result, exit);
+    __Require_noErr_Quiet(result, exit);
     
 exit:
     return result;
@@ -413,10 +413,10 @@ exit:
 static inline OSStatus ReadHeader(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType *messageType)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
-    require_noerr_quiet(result, exit);
+    __Require_noErr_Quiet(result, exit);
     
     result = ReadMessageType(bytes, size, messageType);
-    require_noerr_quiet(result, exit);
+    __Require_noErr_Quiet(result, exit);
     
 exit:
     return result;
@@ -429,8 +429,8 @@ static inline OSStatus SizeAndSkipDATA(const uint8_t *_Nonnull *_Nonnull bytes, 
     uint32_t sizeRead;
     result = ReadLong(bytes, size, &sizeRead);
     
-    require_noerr_quiet(result, exit);
-    require_action_quiet(sizeRead <= *size, exit, result = errSecDecode);
+    __Require_noErr_Quiet(result, exit);
+    __Require_Action_Quiet(sizeRead <= *size, exit, result = errSecDecode);
     
     *dataSize = sizeRead;
     *dataBytes = *bytes;

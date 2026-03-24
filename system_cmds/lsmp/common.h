@@ -151,7 +151,8 @@ typedef struct my_per_task_info {
 #define IKOT_TASK_FATAL           51
 #define IKOT_KCDATA               52
 #define IKOT_EXCLAVES_RESOURCE    53
-#define IKOT_UNKNOWN              54	/* magic catchall	*/
+#define IKOT_THREAD_RESUME        54
+#define IKOT_UNKNOWN              55	/* magic catchall	*/
 #define IKOT_MAX_TYPE             (IKOT_UNKNOWN+1)	/* # of IKOT_ types	*/
 
 

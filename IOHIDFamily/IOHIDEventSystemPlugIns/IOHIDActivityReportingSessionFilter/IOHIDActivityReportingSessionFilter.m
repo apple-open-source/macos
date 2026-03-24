@@ -96,9 +96,9 @@ const int USER_ACTIVE_ASSERTION_TIMEOUT_SECONDS = 30;
 - (nullable HIDEvent *)filterEvent:(HIDEvent *)event
                         forService:(HIDEventService *)service
 {
-    require_quiet ([event integerValueForField:kIOHIDEventFieldIsBuiltIn] == 1, exit);
-    require_quiet (event.type == kIOHIDEventTypeKeyboard, exit);
-    require_quiet ([event integerValueForField:kIOHIDEventFieldKeyboardDown] != 0 , exit);
+    __Require_Quiet([event integerValueForField:kIOHIDEventFieldIsBuiltIn] == 1, exit);
+    __Require_Quiet(event.type == kIOHIDEventTypeKeyboard, exit);
+    __Require_Quiet([event integerValueForField:kIOHIDEventFieldKeyboardDown] != 0 , exit);
 
     [self reportActivity:event fromService:service];
     

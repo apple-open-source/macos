@@ -190,6 +190,7 @@ void CalendarTest::runIndexedTest( int32_t index, UBool exec, const char* &name,
     TESTCASE_AUTO(TestCalendarRollOrdinalMonth);
     TESTCASE_AUTO(TestLimitsOrdinalMonth);
     TESTCASE_AUTO(TestActualLimitsOrdinalMonth);
+    TESTCASE_AUTO(TestMaxActualLimitsWithoutGet23006);
     TESTCASE_AUTO(TestChineseCalendarMonthInSpecialYear);
     TESTCASE_AUTO(TestClearMonth);
 
@@ -215,6 +216,8 @@ void CalendarTest::runIndexedTest( int32_t index, UBool exec, const char* &name,
     TESTCASE_AUTO(TestFirstDayOfWeek);
 
     TESTCASE_AUTO(Test22633ChineseOverflow);
+    TESTCASE_AUTO(Test22962ChineseOverflow);
+    TESTCASE_AUTO(Test22962BuddhistOverflow);
     TESTCASE_AUTO(Test22633IndianOverflow);
     TESTCASE_AUTO(Test22633IslamicUmalquraOverflow);
     TESTCASE_AUTO(Test22633PersianOverflow);
@@ -228,14 +231,17 @@ void CalendarTest::runIndexedTest( int32_t index, UBool exec, const char* &name,
     TESTCASE_AUTO(Test22633RollTwiceGetTimeOverflow);
 
     TESTCASE_AUTO(Test22633HebrewLargeNegativeDay);
+    TESTCASE_AUTO(Test23069HebrewHanukkah);
     TESTCASE_AUTO(Test22730JapaneseOverflow);
     TESTCASE_AUTO(Test22730CopticOverflow);
+    TESTCASE_AUTO(Test22962ComputeJulianDayOverflow);
 
     TESTCASE_AUTO(TestAddOverflow);
 
     TESTCASE_AUTO(Test22750Roll);
 
     TESTCASE_AUTO(TestChineseCalendarComputeMonthStart);
+    TESTCASE_AUTO(Test22962MonthAddOneOverflow);
 
     TESTCASE_AUTO_END;
 }
@@ -2427,6 +2433,15 @@ CalFields::setTo(Calendar& cal) const {
     cal.set(UCAL_MILLISECOND, ms);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+char*
+CalFields::toString(char* buf, int32_t capacity) const {
+    snprintf(buf, capacity, "%04d-%02d-%02d %02d:%02d:%02d.%03d", year, month, day, hour, min, sec, ms);
+    return buf;
+}
+#else
 char*
 CalFields::toString(char* buf, int32_t len) const {
     char local[32];
@@ -2435,6 +2450,7 @@ CalFields::toString(char* buf, int32_t len) const {
     buf[len - 1] = 0;
     return buf;
 }
+#endif // APPLE_ICU_CHANGES
 
 bool
 CalFields::operator==(const CalFields& rhs) const {
@@ -2470,6 +2486,9 @@ typedef struct {
     const CalFields expFirstGMT;
 } RepeatedWallTimeTestData;
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static const RepeatedWallTimeTestData RPDATA[] =
 {
     // Time zone            Input wall time                 WALLTIME_LAST in GMT            WALLTIME_FIRST in GMT
@@ -2490,8 +2509,34 @@ static const RepeatedWallTimeTestData RPDATA[] =
 
     {nullptr,                  CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0),          CalFields(0,0,0,0,0,0)}
 };
+#endif // APPLE_ICU_CHANGES
 
 void CalendarTest::TestRepeatedWallTime() {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    const RepeatedWallTimeTestData RPDATA[] =
+    {
+        // Time zone            Input wall time                 WALLTIME_LAST in GMT            WALLTIME_FIRST in GMT
+        {"America/New_York",    CalFields(2011,11,6,0,59,59),   CalFields(2011,11,6,4,59,59),   CalFields(2011,11,6,4,59,59)},
+        {"America/New_York",    CalFields(2011,11,6,1,0,0),     CalFields(2011,11,6,6,0,0),     CalFields(2011,11,6,5,0,0)},
+        {"America/New_York",    CalFields(2011,11,6,1,0,1),     CalFields(2011,11,6,6,0,1),     CalFields(2011,11,6,5,0,1)},
+        {"America/New_York",    CalFields(2011,11,6,1,30,0),    CalFields(2011,11,6,6,30,0),    CalFields(2011,11,6,5,30,0)},
+        {"America/New_York",    CalFields(2011,11,6,1,59,59),   CalFields(2011,11,6,6,59,59),   CalFields(2011,11,6,5,59,59)},
+        {"America/New_York",    CalFields(2011,11,6,2,0,0),     CalFields(2011,11,6,7,0,0),     CalFields(2011,11,6,7,0,0)},
+        {"America/New_York",    CalFields(2011,11,6,2,0,1),     CalFields(2011,11,6,7,0,1),     CalFields(2011,11,6,7,0,1)},
+
+        {"Australia/Lord_Howe", CalFields(2011,4,3,1,29,59),    CalFields(2011,4,2,14,29,59),   CalFields(2011,4,2,14,29,59)},
+        {"Australia/Lord_Howe", CalFields(2011,4,3,1,30,0),     CalFields(2011,4,2,15,0,0),     CalFields(2011,4,2,14,30,0)},
+        {"Australia/Lord_Howe", CalFields(2011,4,3,1,45,0),     CalFields(2011,4,2,15,15,0),    CalFields(2011,4,2,14,45,0)},
+        {"Australia/Lord_Howe", CalFields(2011,4,3,1,59,59),    CalFields(2011,4,2,15,29,59),   CalFields(2011,4,2,14,59,59)},
+        {"Australia/Lord_Howe", CalFields(2011,4,3,2,0,0),      CalFields(2011,4,2,15,30,0),    CalFields(2011,4,2,15,30,0)},
+        {"Australia/Lord_Howe", CalFields(2011,4,3,2,0,1),      CalFields(2011,4,2,15,30,1),    CalFields(2011,4,2,15,30,1)},
+
+        {nullptr,                  CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0),          CalFields(0,0,0,0,0,0)}
+    };
+#endif // APPLE_ICU_CHANGES
+
     UErrorCode status = U_ZERO_ERROR;
     GregorianCalendar calGMT((const TimeZone&)*TimeZone::getGMT(), status);
     GregorianCalendar calDefault(status);
@@ -2570,6 +2615,9 @@ typedef struct {
     const CalFields expNextAvailGMT;
 } SkippedWallTimeTestData;
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static SkippedWallTimeTestData SKDATA[] =
 {
      // Time zone           Input wall time                 valid?  WALLTIME_LAST in GMT            WALLTIME_FIRST in GMT           WALLTIME_NEXT_VALID in GMT
@@ -2588,9 +2636,32 @@ static SkippedWallTimeTestData SKDATA[] =
 
     {nullptr,                  CalFields(0,0,0,0,0,0),         true,   CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0)}
 };
+#endif // APPLE_ICU_CHANGES
 
 
 void CalendarTest::TestSkippedWallTime() {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    const SkippedWallTimeTestData SKDATA[] =
+    {
+         // Time zone           Input wall time                 valid?  WALLTIME_LAST in GMT            WALLTIME_FIRST in GMT           WALLTIME_NEXT_VALID in GMT
+        {"America/New_York",    CalFields(2011,3,13,1,59,59),   true,   CalFields(2011,3,13,6,59,59),   CalFields(2011,3,13,6,59,59),   CalFields(2011,3,13,6,59,59)},
+        {"America/New_York",    CalFields(2011,3,13,2,0,0),     false,  CalFields(2011,3,13,7,0,0),     CalFields(2011,3,13,6,0,0),     CalFields(2011,3,13,7,0,0)},
+        {"America/New_York",    CalFields(2011,3,13,2,1,0),     false,  CalFields(2011,3,13,7,1,0),     CalFields(2011,3,13,6,1,0),     CalFields(2011,3,13,7,0,0)},
+        {"America/New_York",    CalFields(2011,3,13,2,30,0),    false,  CalFields(2011,3,13,7,30,0),    CalFields(2011,3,13,6,30,0),    CalFields(2011,3,13,7,0,0)},
+        {"America/New_York",    CalFields(2011,3,13,2,59,59),   false,  CalFields(2011,3,13,7,59,59),   CalFields(2011,3,13,6,59,59),   CalFields(2011,3,13,7,0,0)},
+        {"America/New_York",    CalFields(2011,3,13,3,0,0),     true,   CalFields(2011,3,13,7,0,0),     CalFields(2011,3,13,7,0,0),     CalFields(2011,3,13,7,0,0)},
+
+        {"Pacific/Apia",        CalFields(2011,12,29,23,59,59), true,   CalFields(2011,12,30,9,59,59),  CalFields(2011,12,30,9,59,59),  CalFields(2011,12,30,9,59,59)},
+        {"Pacific/Apia",        CalFields(2011,12,30,0,0,0),    false,  CalFields(2011,12,30,10,0,0),   CalFields(2011,12,29,10,0,0),   CalFields(2011,12,30,10,0,0)},
+        {"Pacific/Apia",        CalFields(2011,12,30,12,0,0),   false,  CalFields(2011,12,30,22,0,0),   CalFields(2011,12,29,22,0,0),   CalFields(2011,12,30,10,0,0)},
+        {"Pacific/Apia",        CalFields(2011,12,30,23,59,59), false,  CalFields(2011,12,31,9,59,59),  CalFields(2011,12,30,9,59,59),  CalFields(2011,12,30,10,0,0)},
+        {"Pacific/Apia",        CalFields(2011,12,31,0,0,0),    true,   CalFields(2011,12,30,10,0,0),   CalFields(2011,12,30,10,0,0),   CalFields(2011,12,30,10,0,0)},
+
+        {nullptr,                  CalFields(0,0,0,0,0,0),         true,   CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0),         CalFields(0,0,0,0,0,0)}
+    };
+#endif // APPLE_ICU_CHANGES
     UErrorCode status = U_ZERO_ERROR;
     GregorianCalendar calGMT((const TimeZone&)*TimeZone::getGMT(), status);
     GregorianCalendar calDefault(status);
@@ -2988,7 +3059,7 @@ void CalendarTest::TestBasicConversionChinese() {
     AsssertCalendarFieldValue(
         cal.getAlias(), test_time, "chinese",
         78, 39, 9, 40, 2, 8, 274, 3, 2, 0, 4, 4, 44, 51,
-        323, 0, 0, 4659, 3, 4659, 2459885, 17091323, 0);
+        323, 0, 0, 2022, 3, 2022, 2459885, 17091323, 0);
 }
 void CalendarTest::TestBasicConversionDangi() {
     UErrorCode status = U_ZERO_ERROR;
@@ -3001,7 +3072,7 @@ void CalendarTest::TestBasicConversionDangi() {
     AsssertCalendarFieldValue(
         cal.getAlias(), test_time, "dangi",
         78, 39, 9, 40, 2, 8, 274, 3, 2, 0, 4, 4, 44, 51,
-        323, 0, 0, 4355, 3, 4355, 2459885, 17091323, 0);
+        323, 0, 0, 2022, 3, 2022, 2459885, 17091323, 0);
 }
 void CalendarTest::TestBasicConversionIndian() {
     UErrorCode status = U_ZERO_ERROR;
@@ -3053,7 +3124,7 @@ void CalendarTest::TestBasicConversionEthiopicAmeteAlem() {
     AsssertCalendarFieldValue(
         cal.getAlias(), test_time, "ethiopic-amete-alem",
         0, 7515, 1, 8, 4, 22, 52, 3, 4, 0, 4, 4, 44, 51,
-        323, 0, 0, 2015, 3, 2015, 2459885, 17091323, 0);
+        323, 0, 0, 7515, 3, 7515, 2459885, 17091323, 0);
 }
 
 
@@ -3806,6 +3877,9 @@ typedef struct {
     const CalFields expected;
 } TestAddAcrossZoneTransitionData;
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static const TestAddAcrossZoneTransitionData AAZTDATA[] =
 {
     // Time zone                Base wall time                      day(s)  Skipped time options
@@ -3946,8 +4020,153 @@ static const TestAddAcrossZoneTransitionData AAZTDATA[] =
 
     {nullptr, CalFields(0,0,0,0,0,0,0), 0, UCAL_WALLTIME_LAST, CalFields(0,0,0,0,0,0,0)}
 };
+#endif // APPLE_ICU_CHANGES
 
 void CalendarTest::TestAddAcrossZoneTransition() {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    const TestAddAcrossZoneTransitionData AAZTDATA[] =
+    {
+        // Time zone                Base wall time                      day(s)  Skipped time options
+        //                          Expected wall time
+
+        // Add 1 day, from the date before DST transition
+        {"America/Los_Angeles",     CalFields(2014,3,8,1,59,59,999),    1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,1,59,59,999),    1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,1,59,59,999),    1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,0,0,0),        1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,0,0,0),        1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,0,0,0),        1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,30,0,0),       1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,30,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,30,0,0),       1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,30,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,2,30,0,0),       1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,3,0,0,0),        1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,3,0,0,0),        1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,8,3,0,0,0),        1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        // Subtract 1 day, from one day after DST transition
+        {"America/Los_Angeles",     CalFields(2014,3,10,1,59,59,999),   -1,     UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,1,59,59,999),   -1,     UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,1,59,59,999),   -1,     UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,1,59,59,999)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,0,0,0),       -1,     UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,0,0,0),       -1,     UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,0,0,0),       -1,     UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,30,0,0),      -1,     UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,1,30,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,30,0,0),      -1,     UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,30,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,2,30,0,0),      -1,     UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,3,0,0,0),       -1,     UCAL_WALLTIME_FIRST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,3,0,0,0),       -1,     UCAL_WALLTIME_LAST,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+        {"America/Los_Angeles",     CalFields(2014,3,10,3,0,0,0),       -1,     UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2014,3,9,3,0,0,0)},
+
+
+        // Test case for ticket#10544
+        {"America/Santiago",        CalFields(2013,4,27,0,0,0,0),       134,    UCAL_WALLTIME_FIRST,
+                                    CalFields(2013,9,7,23,0,0,0)},
+
+        {"America/Santiago",        CalFields(2013,4,27,0,0,0,0),       134,    UCAL_WALLTIME_LAST,
+                                    CalFields(2013,9,8,1,0,0,0)},
+
+        {"America/Santiago",        CalFields(2013,4,27,0,0,0,0),       134,    UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2013,9,8,1,0,0,0)},
+
+
+        {"America/Santiago",        CalFields(2013,4,27,0,30,0,0),      134,    UCAL_WALLTIME_FIRST,
+                                    CalFields(2013,9,7,23,30,0,0)},
+
+        {"America/Santiago",        CalFields(2013,4,27,0,30,0,0),      134,    UCAL_WALLTIME_LAST,
+                                    CalFields(2013,9,8,1,30,0,0)},
+
+        {"America/Santiago",        CalFields(2013,4,27,0,30,0,0),      134,    UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2013,9,8,1,0,0,0)},
+
+
+        // Extreme transition - Pacific/Apia completely skips 2011-12-30
+        {"Pacific/Apia",            CalFields(2011,12,29,0,0,0,0),      1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2011,12,31,0,0,0,0)},
+
+        {"Pacific/Apia",            CalFields(2011,12,29,0,0,0,0),      1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2011,12,31,0,0,0,0)},
+
+        {"Pacific/Apia",            CalFields(2011,12,29,0,0,0,0),      1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2011,12,31,0,0,0,0)},
+
+
+        {"Pacific/Apia",            CalFields(2011,12,31,12,0,0,0),     -1,     UCAL_WALLTIME_FIRST,
+                                    CalFields(2011,12,29,12,0,0,0)},
+
+        {"Pacific/Apia",            CalFields(2011,12,31,12,0,0,0),     -1,     UCAL_WALLTIME_LAST,
+                                    CalFields(2011,12,29,12,0,0,0)},
+
+        {"Pacific/Apia",            CalFields(2011,12,31,12,0,0,0),     -1,     UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2011,12,29,12,0,0,0)},
+
+
+        // 30 minutes DST - Australia/Lord_Howe
+        {"Australia/Lord_Howe",     CalFields(2013,10,5,2,15,0,0),      1,      UCAL_WALLTIME_FIRST,
+                                    CalFields(2013,10,6,1,45,0,0)},
+
+        {"Australia/Lord_Howe",     CalFields(2013,10,5,2,15,0,0),      1,      UCAL_WALLTIME_LAST,
+                                    CalFields(2013,10,6,2,45,0,0)},
+
+        {"Australia/Lord_Howe",     CalFields(2013,10,5,2,15,0,0),      1,      UCAL_WALLTIME_NEXT_VALID,
+                                    CalFields(2013,10,6,2,30,0,0)},
+
+        {nullptr, CalFields(0,0,0,0,0,0,0), 0, UCAL_WALLTIME_LAST, CalFields(0,0,0,0,0,0,0)}
+    };
+#endif // APPLE_ICU_CHANGES
     UErrorCode status = U_ZERO_ERROR;
     GregorianCalendar cal(status);
     TEST_CHECK_STATUS;
@@ -4089,7 +4308,7 @@ void CalendarTest::TestClearMonth() {
     if (failure(status, "Calendar::get(UCAL_MONTH)")) return;
     cal->clear(UCAL_MONTH);
     assertEquals("Calendar::isSet(UCAL_MONTH) after clear(UCAL_MONTH)", false, !!cal->isSet(UCAL_MONTH));
-    assertEquals("Calendar::get(UCAL_MONTH after clear(UCAL_MONTH))", UCAL_JANUARY, !!cal->get(UCAL_MONTH, status));
+    assertEquals("Calendar::get(UCAL_MONTH after clear(UCAL_MONTH))", UCAL_JANUARY, cal->get(UCAL_MONTH, status));
     if (failure(status, "Calendar::get(UCAL_MONTH)")) return;
 
     cal->set(UCAL_ORDINAL_MONTH, 7);
@@ -4668,62 +4887,62 @@ void CalendarTest::TestChineseCalendarSetTemporalMonthCode() {
       int32_t cOrdinalMonth;
     } cases[] = {
       // https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2022.pdf
-      { 2022, UCAL_DECEMBER, 15, 4659, UCAL_NOVEMBER, 22, "M11", false, 10},
+      { 2022, UCAL_DECEMBER, 15, 2022, UCAL_NOVEMBER, 22, "M11", false, 10},
       // M01L is very hard to find. Cannot find a year has M01L in these several
       // centuries.
       // M02L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2004.pdf
-      { 2004, UCAL_MARCH, 20, 4641, UCAL_FEBRUARY, 30, "M02", false, 1},
-      { 2004, UCAL_MARCH, 21, 4641, UCAL_FEBRUARY, 1, "M02L", true, 2},
-      { 2004, UCAL_APRIL, 18, 4641, UCAL_FEBRUARY, 29, "M02L", true, 2},
-      { 2004, UCAL_APRIL, 19, 4641, UCAL_MARCH, 1, "M03", false, 3},
+      { 2004, UCAL_MARCH, 20, 2004, UCAL_FEBRUARY, 30, "M02", false, 1},
+      { 2004, UCAL_MARCH, 21, 2004, UCAL_FEBRUARY, 1, "M02L", true, 2},
+      { 2004, UCAL_APRIL, 18, 2004, UCAL_FEBRUARY, 29, "M02L", true, 2},
+      { 2004, UCAL_APRIL, 19, 2004, UCAL_MARCH, 1, "M03", false, 3},
       // M03L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/1995.pdf
-      { 1955, UCAL_APRIL, 21, 4592, UCAL_MARCH, 29, "M03", false, 2},
-      { 1955, UCAL_APRIL, 22, 4592, UCAL_MARCH, 1, "M03L", true, 3},
-      { 1955, UCAL_MAY, 21, 4592, UCAL_MARCH, 30, "M03L", true, 3},
-      { 1955, UCAL_MAY, 22, 4592, UCAL_APRIL, 1, "M04", false, 4},
+      { 1955, UCAL_APRIL, 21, 1955, UCAL_MARCH, 29, "M03", false, 2},
+      { 1955, UCAL_APRIL, 22, 1955, UCAL_MARCH, 1, "M03L", true, 3},
+      { 1955, UCAL_MAY, 21, 1955, UCAL_MARCH, 30, "M03L", true, 3},
+      { 1955, UCAL_MAY, 22, 1955, UCAL_APRIL, 1, "M04", false, 4},
       // M12 https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/1996.pdf
-      { 1956, UCAL_FEBRUARY, 11, 4592, UCAL_DECEMBER, 30, "M12", false, 12},
+      { 1956, UCAL_FEBRUARY, 11, 1955, UCAL_DECEMBER, 30, "M12", false, 12},
       // M04L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2001.pdf
-      { 2001, UCAL_MAY, 22, 4638, UCAL_APRIL, 30, "M04", false, 3},
-      { 2001, UCAL_MAY, 23, 4638, UCAL_APRIL, 1, "M04L", true, 4},
-      { 2001, UCAL_JUNE, 20, 4638, UCAL_APRIL, 29, "M04L", true, 4},
-      { 2001, UCAL_JUNE, 21, 4638, UCAL_MAY, 1, "M05", false, 5},
+      { 2001, UCAL_MAY, 22, 2001, UCAL_APRIL, 30, "M04", false, 3},
+      { 2001, UCAL_MAY, 23, 2001, UCAL_APRIL, 1, "M04L", true, 4},
+      { 2001, UCAL_JUNE, 20, 2001, UCAL_APRIL, 29, "M04L", true, 4},
+      { 2001, UCAL_JUNE, 21, 2001, UCAL_MAY, 1, "M05", false, 5},
       // M05L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2009.pdf
-      { 2009, UCAL_JUNE, 22, 4646, UCAL_MAY, 30, "M05", false, 4},
-      { 2009, UCAL_JUNE, 23, 4646, UCAL_MAY, 1, "M05L", true, 5},
-      { 2009, UCAL_JULY, 21, 4646, UCAL_MAY, 29, "M05L", true, 5},
-      { 2009, UCAL_JULY, 22, 4646, UCAL_JUNE, 1, "M06", false, 6},
+      { 2009, UCAL_JUNE, 22, 2009, UCAL_MAY, 30, "M05", false, 4},
+      { 2009, UCAL_JUNE, 23, 2009, UCAL_MAY, 1, "M05L", true, 5},
+      { 2009, UCAL_JULY, 21, 2009, UCAL_MAY, 29, "M05L", true, 5},
+      { 2009, UCAL_JULY, 22, 2009, UCAL_JUNE, 1, "M06", false, 6},
       // M06L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2017.pdf
-      { 2017, UCAL_JULY, 22, 4654, UCAL_JUNE, 29, "M06", false, 5},
-      { 2017, UCAL_JULY, 23, 4654, UCAL_JUNE, 1, "M06L", true, 6},
-      { 2017, UCAL_AUGUST, 21, 4654, UCAL_JUNE, 30, "M06L", true, 6},
-      { 2017, UCAL_AUGUST, 22, 4654, UCAL_JULY, 1, "M07", false, 7},
+      { 2017, UCAL_JULY, 22, 2017, UCAL_JUNE, 29, "M06", false, 5},
+      { 2017, UCAL_JULY, 23, 2017, UCAL_JUNE, 1, "M06L", true, 6},
+      { 2017, UCAL_AUGUST, 21, 2017, UCAL_JUNE, 30, "M06L", true, 6},
+      { 2017, UCAL_AUGUST, 22, 2017, UCAL_JULY, 1, "M07", false, 7},
       // M07L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2006.pdf
-      { 2006, UCAL_AUGUST, 23, 4643, UCAL_JULY, 30, "M07", false, 6},
-      { 2006, UCAL_AUGUST, 24, 4643, UCAL_JULY, 1, "M07L", true, 7},
-      { 2006, UCAL_SEPTEMBER, 21, 4643, UCAL_JULY, 29, "M07L", true, 7},
-      { 2006, UCAL_SEPTEMBER, 22, 4643, UCAL_AUGUST, 1, "M08", false, 8},
+      { 2006, UCAL_AUGUST, 23, 2006, UCAL_JULY, 30, "M07", false, 6},
+      { 2006, UCAL_AUGUST, 24, 2006, UCAL_JULY, 1, "M07L", true, 7},
+      { 2006, UCAL_SEPTEMBER, 21, 2006, UCAL_JULY, 29, "M07L", true, 7},
+      { 2006, UCAL_SEPTEMBER, 22, 2006, UCAL_AUGUST, 1, "M08", false, 8},
       // M08L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/1995.pdf
-      { 1995, UCAL_SEPTEMBER, 24, 4632, UCAL_AUGUST, 30, "M08", false, 7},
-      { 1995, UCAL_SEPTEMBER, 25, 4632, UCAL_AUGUST, 1, "M08L", true, 8},
-      { 1995, UCAL_OCTOBER, 23, 4632, UCAL_AUGUST, 29, "M08L", true, 8},
-      { 1995, UCAL_OCTOBER, 24, 4632, UCAL_SEPTEMBER, 1, "M09", false, 9},
+      { 1995, UCAL_SEPTEMBER, 24, 1995, UCAL_AUGUST, 30, "M08", false, 7},
+      { 1995, UCAL_SEPTEMBER, 25, 1995, UCAL_AUGUST, 1, "M08L", true, 8},
+      { 1995, UCAL_OCTOBER, 23, 1995, UCAL_AUGUST, 29, "M08L", true, 8},
+      { 1995, UCAL_OCTOBER, 24, 1995, UCAL_SEPTEMBER, 1, "M09", false, 9},
       // M09L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2014.pdf
-      { 2014, UCAL_OCTOBER, 23, 4651, UCAL_SEPTEMBER, 30, "M09", false, 8},
-      { 2014, UCAL_OCTOBER, 24, 4651, UCAL_SEPTEMBER, 1, "M09L", true, 9},
-      { 2014, UCAL_NOVEMBER, 21, 4651, UCAL_SEPTEMBER, 29, "M09L", true, 9},
-      { 2014, UCAL_NOVEMBER, 22, 4651, UCAL_OCTOBER, 1, "M10", false, 10},
+      { 2014, UCAL_OCTOBER, 23, 2014, UCAL_SEPTEMBER, 30, "M09", false, 8},
+      { 2014, UCAL_OCTOBER, 24, 2014, UCAL_SEPTEMBER, 1, "M09L", true, 9},
+      { 2014, UCAL_NOVEMBER, 21, 2014, UCAL_SEPTEMBER, 29, "M09L", true, 9},
+      { 2014, UCAL_NOVEMBER, 22, 2014, UCAL_OCTOBER, 1, "M10", false, 10},
       // M10L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/1984.pdf
-      { 1984, UCAL_NOVEMBER, 22, 4621, UCAL_OCTOBER, 30, "M10", false, 9},
-      { 1984, UCAL_NOVEMBER, 23, 4621, UCAL_OCTOBER, 1, "M10L", true, 10},
-      { 1984, UCAL_DECEMBER, 21, 4621, UCAL_OCTOBER, 29, "M10L", true, 10},
-      { 1984, UCAL_DECEMBER, 22, 4621, UCAL_NOVEMBER, 1, "M11", false, 11},
+      { 1984, UCAL_NOVEMBER, 22, 1984, UCAL_OCTOBER, 30, "M10", false, 9},
+      { 1984, UCAL_NOVEMBER, 23, 1984, UCAL_OCTOBER, 1, "M10L", true, 10},
+      { 1984, UCAL_DECEMBER, 21, 1984, UCAL_OCTOBER, 29, "M10L", true, 10},
+      { 1984, UCAL_DECEMBER, 22, 1984, UCAL_NOVEMBER, 1, "M11", false, 11},
       // M11L https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2033.pdf
       //      https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2034.pdf
-      { 2033, UCAL_DECEMBER, 21, 4670, UCAL_NOVEMBER, 30, "M11", false, 10},
-      { 2033, UCAL_DECEMBER, 22, 4670, UCAL_NOVEMBER, 1, "M11L", true, 11},
-      { 2034, UCAL_JANUARY, 19, 4670, UCAL_NOVEMBER, 29, "M11L", true, 11},
-      { 2034, UCAL_JANUARY, 20, 4670, UCAL_DECEMBER, 1, "M12", false, 12},
+      { 2033, UCAL_DECEMBER, 21, 2033, UCAL_NOVEMBER, 30, "M11", false, 10},
+      { 2033, UCAL_DECEMBER, 22, 2033, UCAL_NOVEMBER, 1, "M11L", true, 11},
+      { 2034, UCAL_JANUARY, 19, 2033, UCAL_NOVEMBER, 29, "M11L", true, 11},
+      { 2034, UCAL_JANUARY, 20, 2033, UCAL_DECEMBER, 1, "M12", false, 12},
       // M12L is very hard to find. Cannot find a year has M01L in these several
       // centuries.
     };
@@ -5033,6 +5252,9 @@ void CalendarTest::TestMostCalendarsOrdinalMonthSet() {
         // Test these calendars differently.
         if (uprv_strcmp(name, "chinese") == 0) continue;
         if (uprv_strcmp(name, "dangi") == 0) continue;
+#if APPLE_ICU_CHANGES // rdar://168163977
+        if (uprv_strcmp(name, "vietnamese") == 0) continue;
+#endif
         if (uprv_strcmp(name, "hebrew") == 0) continue;
         if (uprv_strcmp(name, "hindu-lunar") == 0) continue;
         if (uprv_strcmp(name, "hindu-solar") == 0) continue;
@@ -5136,8 +5358,8 @@ void CalendarTest::TestChineseCalendarOrdinalMonthSet() {
     LocalPointer<Calendar> cc2(cc1->clone());
     LocalPointer<Calendar> cc3(cc1->clone());
 
-    constexpr int32_t notLeapYear = 4591;
-    constexpr int32_t leapMarchYear = 4592;
+    constexpr int32_t notLeapYear = 1954;
+    constexpr int32_t leapMarchYear = 1955;
 
     cc1->set(UCAL_EXTENDED_YEAR, leapMarchYear);
     cc2->set(UCAL_EXTENDED_YEAR, leapMarchYear);
@@ -5150,12 +5372,12 @@ void CalendarTest::TestChineseCalendarOrdinalMonthSet() {
     cc1->set(UCAL_DATE, 1);
     cc2->set(UCAL_DATE, 1);
     cc3->set(UCAL_DATE, 1);
-    assertTrue("4592 M03L cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4592 M03L cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1955 M03L cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1955 M03L cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
-    VerifyMonth(this, "4592 M03L cc1", cc1.getAlias(), UCAL_MARCH, 3, true, "M03L");
-    VerifyMonth(this, "4592 M03L cc2", cc2.getAlias(), UCAL_MARCH, 3, true, "M03L");
-    VerifyMonth(this, "4592 M03L cc3", cc3.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc1", cc1.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc2", cc2.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc3", cc3.getAlias(), UCAL_MARCH, 3, true, "M03L");
 
     cc1->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc2->set(UCAL_EXTENDED_YEAR, notLeapYear);
@@ -5164,12 +5386,12 @@ void CalendarTest::TestChineseCalendarOrdinalMonthSet() {
     cc2->setTemporalMonthCode("M06", status);
     if (failure(status, "setTemporalMonthCode failure")) return;
     cc3->set(UCAL_MONTH, UCAL_JUNE); cc3->set(UCAL_IS_LEAP_MONTH, 0);
-    assertTrue("4591 M06 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4591 M06 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1954 M06 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1954 M06 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
-    VerifyMonth(this, "4591 M06 cc1", cc1.getAlias(), UCAL_JUNE, 5, false, "M06");
-    VerifyMonth(this, "4591 M06 cc2", cc2.getAlias(), UCAL_JUNE, 5, false, "M06");
-    VerifyMonth(this, "4591 M06 cc3", cc3.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1954 M06 cc1", cc1.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1954 M06 cc2", cc2.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1954 M06 cc3", cc3.getAlias(), UCAL_JUNE, 5, false, "M06");
 
     cc1->set(UCAL_EXTENDED_YEAR, leapMarchYear);
     cc2->set(UCAL_EXTENDED_YEAR, leapMarchYear);
@@ -5178,24 +5400,24 @@ void CalendarTest::TestChineseCalendarOrdinalMonthSet() {
     if (failure(status, "setTemporalMonthCode failure")) return;
     cc2->set(UCAL_MONTH, UCAL_APRIL); cc2->set(UCAL_IS_LEAP_MONTH, 0);
     cc3->set(UCAL_ORDINAL_MONTH, 4);
-    assertTrue("4592 M04 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4592 M04 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1955 M04 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1955 M04 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
     // 4592 has leap March so April is the 5th month in that year.
-    VerifyMonth(this, "4592 M04 cc1", cc1.getAlias(), UCAL_APRIL, 4, false, "M04");
-    VerifyMonth(this, "4592 M04 cc2", cc2.getAlias(), UCAL_APRIL, 4, false, "M04");
-    VerifyMonth(this, "4592 M04 cc3", cc3.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc1", cc1.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc2", cc2.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc3", cc3.getAlias(), UCAL_APRIL, 4, false, "M04");
 
     cc1->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc2->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc3->set(UCAL_EXTENDED_YEAR, notLeapYear);
-    assertTrue("4591 M04 no leap month before cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4591 M04 no leap month before cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1954 M04 no leap month before cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1954 M04 no leap month before cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
     // 4592 has no leap month before April so April is the 4th month in that year.
-    VerifyMonth(this, "4591 M04 cc1", cc1.getAlias(), UCAL_APRIL, 3, false, "M04");
-    VerifyMonth(this, "4591 M04 cc2", cc2.getAlias(), UCAL_APRIL, 3, false, "M04");
-    VerifyMonth(this, "4591 M04 cc3", cc3.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc1", cc1.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc2", cc2.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc3", cc3.getAlias(), UCAL_APRIL, 3, false, "M04");
 
     // Out of bound monthCodes should return error.
     // These are not valid for calendar do not have a leap month
@@ -5223,8 +5445,8 @@ void CalendarTest::TestDangiCalendarOrdinalMonthSet() {
     LocalPointer<Calendar> cc2(cc1->clone());
     LocalPointer<Calendar> cc3(cc1->clone());
 
-    constexpr int32_t notLeapYear = 4287;
-    constexpr int32_t leapMarchYear = 4288;
+    constexpr int32_t notLeapYear = 1954;
+    constexpr int32_t leapMarchYear = 1955;
 
     cc1->set(UCAL_EXTENDED_YEAR, leapMarchYear);
     cc2->set(UCAL_EXTENDED_YEAR, leapMarchYear);
@@ -5237,12 +5459,12 @@ void CalendarTest::TestDangiCalendarOrdinalMonthSet() {
     cc1->set(UCAL_DATE, 1);
     cc2->set(UCAL_DATE, 1);
     cc3->set(UCAL_DATE, 1);
-    assertTrue("4288 M03L cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4288 M03L cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1955 M03L cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1955 M03L cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
-    VerifyMonth(this, "4288 M03L cc1", cc1.getAlias(), UCAL_MARCH, 3, true, "M03L");
-    VerifyMonth(this, "4288 M03L cc2", cc2.getAlias(), UCAL_MARCH, 3, true, "M03L");
-    VerifyMonth(this, "4288 M03L cc3", cc3.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc1", cc1.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc2", cc2.getAlias(), UCAL_MARCH, 3, true, "M03L");
+    VerifyMonth(this, "1955 M03L cc3", cc3.getAlias(), UCAL_MARCH, 3, true, "M03L");
 
     cc1->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc2->set(UCAL_EXTENDED_YEAR, notLeapYear);
@@ -5251,12 +5473,12 @@ void CalendarTest::TestDangiCalendarOrdinalMonthSet() {
     cc2->setTemporalMonthCode("M06", status);
     if (failure(status, "setTemporalMonthCode failure")) return;
     cc3->set(UCAL_MONTH, UCAL_JUNE); cc3->set(UCAL_IS_LEAP_MONTH, 0);
-    assertTrue("4287 M06 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4287 M06 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1955 M06 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1955 M06 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
-    VerifyMonth(this, "4287 M06 cc1", cc1.getAlias(), UCAL_JUNE, 5, false, "M06");
-    VerifyMonth(this, "4287 M06 cc2", cc2.getAlias(), UCAL_JUNE, 5, false, "M06");
-    VerifyMonth(this, "4287 M06 cc3", cc3.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1955 M06 cc1", cc1.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1955 M06 cc2", cc2.getAlias(), UCAL_JUNE, 5, false, "M06");
+    VerifyMonth(this, "1955 M06 cc3", cc3.getAlias(), UCAL_JUNE, 5, false, "M06");
 
     cc1->set(UCAL_EXTENDED_YEAR, leapMarchYear);
     cc2->set(UCAL_EXTENDED_YEAR, leapMarchYear);
@@ -5265,24 +5487,24 @@ void CalendarTest::TestDangiCalendarOrdinalMonthSet() {
     if (failure(status, "setTemporalMonthCode failure")) return;
     cc2->set(UCAL_MONTH, UCAL_APRIL); cc2->set(UCAL_IS_LEAP_MONTH, 0);
     cc3->set(UCAL_ORDINAL_MONTH, 4);
-    assertTrue("4288 M04 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4288 M04 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1955 M04 cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1955 M04 cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
     // 4592 has leap March so April is the 5th month in that year.
-    VerifyMonth(this, "4288 M04 cc1", cc1.getAlias(), UCAL_APRIL, 4, false, "M04");
-    VerifyMonth(this, "4288 M04 cc2", cc2.getAlias(), UCAL_APRIL, 4, false, "M04");
-    VerifyMonth(this, "4288 M04 cc3", cc3.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc1", cc1.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc2", cc2.getAlias(), UCAL_APRIL, 4, false, "M04");
+    VerifyMonth(this, "1955 M04 cc3", cc3.getAlias(), UCAL_APRIL, 4, false, "M04");
 
     cc1->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc2->set(UCAL_EXTENDED_YEAR, notLeapYear);
     cc3->set(UCAL_EXTENDED_YEAR, notLeapYear);
-    assertTrue("4287 M04 no leap month before cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
-    assertTrue("4287 M04 no leap month before cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
+    assertTrue("1954 M04 no leap month before cc2==cc1 set month by UCAL_MONTH and UCAL_UCAL_ORDINAL_MONTH", cc2->equals(*cc1, status));
+    assertTrue("1954 M04 no leap month before cc2==cc3 set month by UCAL_MONTH and setTemporalMonthCode", cc2->equals(*cc3, status));
     if (failure(status, "equals failure")) return;
     // 4592 has no leap month before April so April is the 4th month in that year.
-    VerifyMonth(this, "4287 M04 cc1", cc1.getAlias(), UCAL_APRIL, 3, false, "M04");
-    VerifyMonth(this, "4287 M04 cc2", cc2.getAlias(), UCAL_APRIL, 3, false, "M04");
-    VerifyMonth(this, "4287 M04 cc3", cc3.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc1", cc1.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc2", cc2.getAlias(), UCAL_APRIL, 3, false, "M04");
+    VerifyMonth(this, "1954 M04 cc3", cc3.getAlias(), UCAL_APRIL, 3, false, "M04");
 
     // Out of bound monthCodes should return error.
     // These are not valid for calendar do not have a leap month
@@ -5502,6 +5724,9 @@ void CalendarTest::TestLimitsOrdinalMonth() {
         { "ethiopic-amete-alem", 0, 12, 0, 12 },
         { "iso8601", 0, 11, 0, 11 },
         { "dangi", 0, 12, 0, 11 },
+#if APPLE_ICU_CHANGES // rdar://168163977
+        { "vietnamese", 0, 12, 0, 11 },
+#endif // APPLE_ICU_CHANGE
         { "islamic-umalqura", 0, 11, 0, 11 },
         { "islamic-tbla", 0, 11, 0, 11 },
         { "islamic-rgsa", 0, 11, 0, 11 },
@@ -5545,6 +5770,30 @@ void CalendarTest::TestLimitsOrdinalMonth() {
     }
 }
 
+void CalendarTest::TestMaxActualLimitsWithoutGet23006() {
+    UErrorCode status = U_ZERO_ERROR;
+    GregorianCalendar gc(status);
+    gc.set(2025, UCAL_AUGUST, 8);
+    LocalPointer<Calendar> cal(Calendar::createInstance(Locale("en@calendar=chinese"), status), status);
+    cal->setTime(gc.getTime(status), status);
+    int32_t beforeCallingGet = cal->getActualMaximum(UCAL_DAY_OF_MONTH, status);
+    cal->get(UCAL_DAY_OF_MONTH, status);
+    int32_t afterCallingGet = cal->getActualMaximum(UCAL_DAY_OF_MONTH, status);
+    assertEquals("getActualMaximum() should return same value before/after calling get()",
+                 beforeCallingGet, afterCallingGet);
+    assertEquals("getActualMaximum() should return 29 before calling get()",
+                 29, beforeCallingGet);
+
+    gc.set(2026, UCAL_AUGUST, 8);
+    cal->setTime(gc.getTime(status), status);
+    beforeCallingGet = cal->getActualMaximum(UCAL_DAY_OF_MONTH, status);
+    cal->get(UCAL_DAY_OF_MONTH, status);
+    afterCallingGet = cal->getActualMaximum(UCAL_DAY_OF_MONTH, status);
+    assertEquals("getActualMaximum() should return same value before/after calling get()",
+                 beforeCallingGet, afterCallingGet);
+    assertEquals("getActualMaximum() should return 29 before calling get()",
+                 30, beforeCallingGet);
+}
 void CalendarTest::TestActualLimitsOrdinalMonth() {
     UErrorCode status = U_ZERO_ERROR;
     GregorianCalendar gc(status);
@@ -5760,7 +6009,6 @@ void CalendarTest::TestRollWeekOfYear() {
     cal->set(UCAL_MONTH, UCAL_JANUARY);
     cal->set(UCAL_DATE, 1);
     cal->roll(UCAL_WEEK_OF_YEAR, 0x7fffff, status);
-    U_ASSERT(U_SUCCESS(status));
     cal->roll(UCAL_WEEK_OF_YEAR, 1, status);
 }
 void CalendarTest::TestHinduCalendar() {
@@ -6401,6 +6649,132 @@ void CalendarTest::TestIndianLunisolarCalendarsExtensive() {
         { "en_US@calendar=vikram", 2026, 5,  29,  2083, 2, 0,  30, 0 },
         { "en_US@calendar=vikram", 2026, 5,  30,  2083, 3, 0,   1, 0 },
         { "en_US@calendar=vikram", 2026, 6,  1,   2083, 3, 0,   1, 1 },
+        // rdar://157555573 Added three months covering the period oct 2028 - jan 2029
+        // This period has months off by 1
+        { "en_US@calendar=vikram", 2028, 9,  1,   2085, 6, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  2,   2085, 6, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  3,   2085, 6, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  4,   2085, 7, 0,   1, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  5,   2085, 7, 0,   2, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  6,   2085, 7, 0,   3, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  7,   2085, 7, 0,   4, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  8,   2085, 7, 0,   5, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  9,   2085, 7, 0,   6, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  10,  2085, 7, 0,   7, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  11,  2085, 7, 0,   8, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  12,  2085, 7, 0,   9, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  13,  2085, 7, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  14,  2085, 7, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  15,  2085, 7, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  16,  2085, 7, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  17,  2085, 7, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  18,  2085, 7, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  19,  2085, 7, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  20,  2085, 7, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  21,  2085, 7, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  22,  2085, 7, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  23,  2085, 7, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  24,  2085, 7, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  25,  2085, 7, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  26,  2085, 7, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  27,  2085, 7, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  28,  2085, 7, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  29,  2085, 7, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2028, 9,  30,  2085, 7, 0,  27, 1 },
+        { "en_US@calendar=vikram", 2028, 9,  31,  2085, 7, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 1,   2085, 7, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 2,   2085, 7, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 3,   2085, 8, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 4,   2085, 8, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 5,   2085, 8, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 6,   2085, 8, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 7,   2085, 8, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 8,   2085, 8, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 9,   2085, 8, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 10,  2085, 8, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 11,  2085, 8, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2028, 10, 12,  2085, 8, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 13,  2085, 8, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 14,  2085, 8, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 15,  2085, 8, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 16,  2085, 8, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 17,  2085, 8, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 18,  2085, 8, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 19,  2085, 8, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 20,  2085, 8, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 21,  2085, 8, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 22,  2085, 8, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 23,  2085, 8, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 24,  2085, 8, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 25,  2085, 8, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 26,  2085, 8, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 27,  2085, 8, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 28,  2085, 8, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 29,  2085, 8, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2028, 10, 30,  2085, 8, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 1,   2085, 8, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 2,   2085, 8, 0,  30, 1 },
+        { "en_US@calendar=vikram", 2028, 11, 3,   2085, 9, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 4,   2085, 9, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 5,   2085, 9, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 6,   2085, 9, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 7,   2085, 9, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 8,   2085, 9, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 9,   2085, 9, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 10,  2085, 9, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2028, 11, 11,  2085, 9, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 12,  2085, 9, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 13,  2085, 9, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 14,  2085, 9, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 15,  2085, 9, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 16,  2085, 9, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 17,  2085, 9, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 18,  2085, 9, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 19,  2085, 9, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 20,  2085, 9, 0,  19, 1 },
+        { "en_US@calendar=vikram", 2028, 11, 21,  2085, 9, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 22,  2085, 9, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 23,  2085, 9, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 24,  2085, 9, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 25,  2085, 9, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 26,  2085, 9, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 27,  2085, 9, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 28,  2085, 9, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 29,  2085, 9, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 30,  2085, 9, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2028, 11, 31,  2085, 9, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  1,   2085, 10, 0,  1, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  2,   2085, 10, 0,  2, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  3,   2085, 10, 0,  3, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  4,   2085, 10, 0,  4, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  5,   2085, 10, 0,  5, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  6,   2085, 10, 0,  6, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  7,   2085, 10, 0,  7, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  8,   2085, 10, 0,  8, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  9,   2085, 10, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  10,  2085, 10, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  11,  2085, 10, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  12,  2085, 10, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  13,  2085, 10, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  14,  2085, 10, 0,  15, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  15,  2085, 10, 0,  16, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  16,  2085, 10, 0,  17, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  17,  2085, 10, 0,  18, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  18,  2085, 10, 0,  19, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  19,  2085, 10, 0,  20, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  20,  2085, 10, 0,  21, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  21,  2085, 10, 0,  21, 1  },
+        { "en_US@calendar=vikram", 2029, 0,  22,  2085, 10, 0,  22, 0  },
+        { "en_US@calendar=vikram", 2029, 0,  23,  2085, 10, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  24,  2085, 10, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  25,  2085, 10, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  26,  2085, 10, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  27,  2085, 10, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  28,  2085, 10, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  29,  2085, 10, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  30,  2085, 10, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2029, 0,  31,  2085, 11, 0,   1, 0 },
+
         // tests for rdar://156472909 ([New Calendars]: GJ: Luck23A304: Incorrect date is marked as a new year in Gujarati alternative calendar)
         // TODO: Can I cut down on the number of entries here and still test what I need to test?
         { "en_US@calendar=gujarati", 2024, 9,  1,   2080, 10, 0,  29, 0 },
@@ -7006,6 +7380,30 @@ void CalendarTest::Test22633ChineseOverflow() {
     cal->add(UCAL_YEAR, 1935762034, status);
     assertTrue("Should return falure", U_FAILURE(status));
 }
+
+void CalendarTest::Test22962BuddhistOverflow() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> cal(Calendar::createInstance(Locale("en@calendar=uddhist"), status), status);
+    U_ASSERT(U_SUCCESS(status));
+    cal->clear();
+    cal->set(UCAL_WEEK_OF_YEAR, 1666136);
+    cal->set(UCAL_YEAR, -1887379272);
+    cal->fieldDifference(
+        261830011167902373443927125260580558779842815957727840993886210772873194951140935848493861585917165011373697198856398176256.000000,
+        UCAL_YEAR_WOY, status);
+    assertTrue("Should return falure", U_FAILURE(status));
+}
+
+void CalendarTest::Test22962ChineseOverflow() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> cal(Calendar::createInstance(Locale("en@calendar=chinese"), status), status);
+    U_ASSERT(U_SUCCESS(status));
+    cal->add(UCAL_DAY_OF_WEEK_IN_MONTH, 1661092210, status);
+    cal->add(UCAL_MINUTE, -1330638081, status);
+    cal->add(UCAL_MONTH, 643194, status);
+    assertTrue("Should return falure", U_FAILURE(status));
+}
+
 void CalendarTest::Test22633IndianOverflow() {
     UErrorCode status = U_ZERO_ERROR;
     LocalPointer<Calendar> cal(Calendar::createInstance(Locale("en@calendar=indian"), status), status);
@@ -7972,6 +8370,12 @@ void CalendarTest::TestMarathiYear(void) {
     HinduLunisolarTeluguCalendar telugu("en", status);
     HinduLunisolarVikramCalendar vikram("en", status);
 
+    // rdar://163068488 Set the fixed date and month to avoid randomness of the test due to the date
+    marathi.set(1900, 1, 1);
+    gujarati.set(1900, 1, 1);
+    telugu.set(1900, 1, 1);
+    vikram.set(1900, 1, 1);
+    
     for (int year = 1900; year < 2000; year++) {
         marathi.set(UCAL_YEAR, year);
         gujarati.set(UCAL_YEAR, year);
@@ -8044,6 +8448,12 @@ void CalendarTest::TestVikramAddDayFoundationStyleExtensive(void) {
 
 
 void CalendarTest::TestHinduCalendarGetMonthLength() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     // rdar://148837256 Adding unit tests for computing month length on Hindu calendars
     UErrorCode status = U_ZERO_ERROR;
 
@@ -8167,7 +8577,7 @@ void CalendarTest::TestChineseCalendarComputeMonthStart() {  // ICU-22639
     UErrorCode status = U_ZERO_ERROR;
 
     // An extended year for which hasLeapMonthBetweenWinterSolstices is true.
-    constexpr int32_t eyear = 4643;
+    constexpr int32_t eyear = 2006;
     constexpr int64_t monthStart = 2453764;
 
     LocalPointer<Calendar> calendar(
@@ -8201,6 +8611,116 @@ void CalendarTest::Test22633HebrewLargeNegativeDay() {
     calendar->get(UCAL_HOUR, status);
     assertEquals("status return without hang", status, U_ILLEGAL_ARGUMENT_ERROR);
 }
+void CalendarTest::Test23069HebrewHanukkah() {
+    // Based on Hanukkah data in
+    // https://en.wikipedia.org/wiki/Jewish_and_Israeli_holidays_2000%E2%80%932050
+    struct TestCase {
+      int32_t hebrewYear;
+      int32_t gregorianYear;
+      int32_t gregorianMonth;
+      int32_t gregorianDate;
+    } cases[] = {
+      { 5760, 1999, UCAL_DECEMBER, 4},
+      { 5761, 2000, UCAL_DECEMBER, 22},
+      { 5762, 2001, UCAL_DECEMBER, 10},
+      { 5763, 2002, UCAL_NOVEMBER, 30},
+      { 5764, 2003, UCAL_DECEMBER, 20},
+      { 5765, 2004, UCAL_DECEMBER, 8},
+      { 5766, 2005, UCAL_DECEMBER, 26},
+      { 5767, 2006, UCAL_DECEMBER, 16},
+      { 5768, 2007, UCAL_DECEMBER, 5},
+      { 5769, 2008, UCAL_DECEMBER, 22},
+      { 5770, 2009, UCAL_DECEMBER, 12},
+      { 5771, 2010, UCAL_DECEMBER, 2},
+      { 5772, 2011, UCAL_DECEMBER, 21},
+      { 5773, 2012, UCAL_DECEMBER, 9},
+      { 5774, 2013, UCAL_NOVEMBER, 28},
+      { 5775, 2014, UCAL_DECEMBER, 17},
+      { 5776, 2015, UCAL_DECEMBER, 7},
+      { 5777, 2016, UCAL_DECEMBER, 25},
+      { 5778, 2017, UCAL_DECEMBER, 13},
+      { 5779, 2018, UCAL_DECEMBER, 3},
+      { 5780, 2019, UCAL_DECEMBER, 23},
+      { 5781, 2020, UCAL_DECEMBER, 11},
+      { 5782, 2021, UCAL_NOVEMBER, 29},
+      { 5783, 2022, UCAL_DECEMBER, 19},
+      { 5784, 2023, UCAL_DECEMBER, 8},
+      { 5785, 2024, UCAL_DECEMBER, 26},
+      { 5786, 2025, UCAL_DECEMBER, 15},
+      { 5787, 2026, UCAL_DECEMBER, 5},
+      { 5788, 2027, UCAL_DECEMBER, 25},
+      { 5789, 2028, UCAL_DECEMBER, 13},
+      { 5790, 2029, UCAL_DECEMBER, 2},
+      { 5791, 2030, UCAL_DECEMBER, 21},
+      { 5792, 2031, UCAL_DECEMBER, 10},
+      { 5793, 2032, UCAL_NOVEMBER, 28},
+      { 5794, 2033, UCAL_DECEMBER, 17},
+      { 5795, 2034, UCAL_DECEMBER, 7},
+      { 5796, 2035, UCAL_DECEMBER, 26},
+      { 5797, 2036, UCAL_DECEMBER, 14},
+      { 5798, 2037, UCAL_DECEMBER, 3},
+      { 5799, 2038, UCAL_DECEMBER, 22},
+      { 5800, 2039, UCAL_DECEMBER, 12},
+      { 5801, 2040, UCAL_NOVEMBER, 30},
+      { 5802, 2041, UCAL_DECEMBER, 18},
+      { 5803, 2042, UCAL_DECEMBER, 8},
+      { 5804, 2043, UCAL_DECEMBER, 27},
+      { 5805, 2044, UCAL_DECEMBER, 15},
+      { 5806, 2045, UCAL_DECEMBER, 4},
+      { 5807, 2046, UCAL_DECEMBER, 24},
+      { 5808, 2047, UCAL_DECEMBER, 13},
+      { 5809, 2048, UCAL_NOVEMBER, 30},
+      { 5810, 2049, UCAL_DECEMBER, 20},
+      { 5811, 2050, UCAL_DECEMBER, 10},
+    };
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> hebrew(
+        Calendar::createInstance(Locale("en-u-ca-hebrew"), status),
+        status);
+        U_ASSERT(U_SUCCESS(status));
+    LocalPointer<GregorianCalendar> gregorian(
+        new GregorianCalendar(hebrew->getTimeZone(), status), status);
+        U_ASSERT(U_SUCCESS(status));
+    for (auto& cas : cases) {
+        hebrew->clear();
+        // Test Hebrew Calendar to Gregorian Calendar.
+        // Hanukkah is the 25th day of Kislev
+        hebrew->set(UCAL_YEAR, cas.hebrewYear);
+        hebrew->set(UCAL_MONTH, icu::HebrewCalendar::KISLEV);
+        hebrew->set(UCAL_DATE, 25);
+        gregorian->setTime(hebrew->getTime(status), status);
+        U_ASSERT(U_SUCCESS(status));
+        int32_t year = gregorian->get(UCAL_YEAR, status);
+        int32_t month = gregorian->get(UCAL_MONTH, status);
+        int32_t date = gregorian->get(UCAL_DATE, status);
+        assertEquals("Hebrew to Gregorian Calendar year", year, cas.gregorianYear);
+        assertEquals("Hebrew to Gregorian Calendar month", month, cas.gregorianMonth);
+        assertEquals("Hebrew to Gregorian Calendar date", date, cas.gregorianDate);
+        if (year != cas.gregorianYear || month != cas.gregorianMonth || date != cas.gregorianDate) {
+            printf("Hebrew year %d Gregorain Date(%d/%d/%d) but should be Date(%d/%d/%d)\n",
+                   cas.hebrewYear, year, 1+month, date,
+                   cas.gregorianYear, 1+cas.gregorianMonth, cas.gregorianDate);
+        }
+        // Test Gregorian Calendar to Hebrew Calendar.
+        gregorian->clear();
+        gregorian->set(UCAL_YEAR, cas.gregorianYear);
+        gregorian->set(UCAL_MONTH, cas.gregorianMonth);
+        gregorian->set(UCAL_DATE, cas.gregorianDate);
+        hebrew->setTime(gregorian->getTime(status), status);
+        U_ASSERT(U_SUCCESS(status));
+        year = hebrew->get(UCAL_YEAR, status);
+        month = hebrew->get(UCAL_MONTH, status);
+        date = hebrew->get(UCAL_DATE, status);
+        assertEquals("Gregorian to Hebrew Calendar year", year, cas.hebrewYear);
+        assertEquals("Gregorian to Hebrew Calendar month", month, icu::HebrewCalendar::KISLEV);
+        assertEquals("Gregorian to Hebrew Calendar date", date, 25);
+        if (year != cas.hebrewYear || month != icu::HebrewCalendar::KISLEV || date != 25) {
+            printf("Gregorian year %d Hebrew Date(%d/%d/%d) but should be Date(%d/%d/25)\n",
+                   cas.gregorianYear, year, 1+month, date,
+                   cas.hebrewYear, 1+icu::HebrewCalendar::KISLEV);
+        }
+    }
+}
 
 void CalendarTest::Test22730JapaneseOverflow() {
     UErrorCode status = U_ZERO_ERROR;
@@ -8223,6 +8743,17 @@ void CalendarTest::Test22730CopticOverflow() {
     assertEquals("status return without overflow", status, U_ILLEGAL_ARGUMENT_ERROR);
 }
 
+void CalendarTest::Test22962ComputeJulianDayOverflow() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> calendar(
+        Calendar::createInstance(Locale("nds-NL-u-ca-islamic-umalqura"), status),
+        status);
+    calendar->clear();
+    calendar->set(UCAL_YEAR, -2147483648);
+    calendar->set(UCAL_WEEK_OF_YEAR, 33816240);
+    calendar->get(UCAL_ERA, status);
+    assertEquals("status return without overflow", status, U_ILLEGAL_ARGUMENT_ERROR);
+}
 void CalendarTest::TestAddOverflow() {
     UErrorCode status = U_ZERO_ERROR;
 
@@ -8272,7 +8803,28 @@ void CalendarTest::TestAddOverflow() {
     }
 }
 
+void CalendarTest::Test22962MonthAddOneOverflow() {
+    Locale locale("ckb_IQ@calendar=ethiopic-amete-alem");
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> cal(Calendar::createInstance(
+            *TimeZone::getGMT(), locale, status));
+    cal->clear();
+    status = U_ZERO_ERROR;
+    cal->fieldDifference(
+        (double)115177509667085876226560460721710683457425563915331054206329829993967720136006086546037257220523631494518538798239249720325557586193565921621016454170342731307548672.0,
+        UCAL_MONTH, status);
+    status = U_ZERO_ERROR;
+    cal->set(UCAL_DAY_OF_WEEK_IN_MONTH , -2111799174);
+    cal->add(UCAL_ERA, -1426056846, status);
+    assertTrue("Should return failure", U_FAILURE(status));
+}
 void CalendarTest::Test22750Roll() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     UErrorCode status = U_ZERO_ERROR;
     Locale l(Locale::getRoot());
     std::unique_ptr<icu::StringEnumeration> enumeration(

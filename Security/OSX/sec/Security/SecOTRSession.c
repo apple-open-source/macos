@@ -553,16 +553,16 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
     bzero(session->_keyCache, sizeof(session->_keyCache));
 
     uint8_t version;
-    require_noerr(ReadByte(&bytes, &size, &version), fail);
-    require(version <= 6, fail);
+    __Require_noErr(ReadByte(&bytes, &size, &version), fail);
+    __Require(version <= 6, fail);
 
-    require_noerr(ReadLong(&bytes, &size, &session->_state), fail);
+    __Require_noErr(ReadLong(&bytes, &size, &session->_state), fail);
     session->_me = SecOTRFullIdentityCreateFromBytes(kCFAllocatorDefault, &bytes, &size, NULL);
-    require(session->_me != NULL, fail);
+    __Require(session->_me != NULL, fail);
     session->_them = SecOTRPublicIdentityCreateFromBytes(kCFAllocatorDefault, &bytes, &size, NULL);
-    require(session->_them != NULL, fail);
+    __Require(session->_them != NULL, fail);
     
-    require(size > sizeof(session->_r), fail);
+    __Require(size > sizeof(session->_r), fail);
     memcpy(session->_r, bytes, sizeof(session->_r));
     bytes += sizeof(session->_r);
     size -= sizeof(session->_r);
@@ -585,81 +585,81 @@ SecOTRSessionRef SecOTRSessionCreateFromData(CFAllocatorRef allocator, CFDataRef
     
     if (version < 3) {
         uint8_t ready;
-        require_noerr(ReadByte(&bytes, &size, &ready), fail);
+        __Require_noErr(ReadByte(&bytes, &size, &ready), fail);
         if (ready && session->_state == kIdle)
             session->_state = kDone;
     }
     
     
-    require_noerr(ReadLong(&bytes, &size, &session->_keyID), fail);
+    __Require_noErr(ReadLong(&bytes, &size, &session->_keyID), fail);
     if (session->_keyID > 0) {
         session->_myKey = SecOTRFullDHKCreateFromBytes(kCFAllocatorDefault, &bytes, &size);
-        require(session->_myKey != NULL, fail);
+        __Require(session->_myKey != NULL, fail);
         session->_myNextKey = SecOTRFullDHKCreateFromBytes(kCFAllocatorDefault, &bytes, &size);
-        require(session->_myNextKey != NULL, fail);
+        __Require(session->_myNextKey != NULL, fail);
     }
     
     
-    require_noerr(ReadByte(&bytes, &size, &numberOfKeys), fail);
+    __Require_noErr(ReadByte(&bytes, &size, &numberOfKeys), fail);
     
-    require_noerr(ReadLong(&bytes, &size, &session->_theirKeyID), fail);
+    __Require_noErr(ReadLong(&bytes, &size, &session->_theirKeyID), fail);
     if (version < 5) {
         if (session->_theirKeyID > 0) {
             if (session->_theirKeyID > 1) {
                 session->_theirPreviousKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-                require(session->_theirPreviousKey != NULL, fail);
+                __Require(session->_theirPreviousKey != NULL, fail);
             }
             session->_theirKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-            require(session->_theirKey != NULL, fail);
+            __Require(session->_theirKey != NULL, fail);
         }
     }
     else {
         if(numberOfKeys >= 1){
             if (numberOfKeys >= 2) {
                 session->_theirPreviousKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-                require(session->_theirPreviousKey != NULL, fail);
+                __Require(session->_theirPreviousKey != NULL, fail);
             }
             session->_theirKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, &bytes, &size);
-            require(session->_theirKey != NULL, fail);
+            __Require(session->_theirKey != NULL, fail);
         }
     }
     
     
     uint64_t *counter;
     SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirKey, false, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirKey, true, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirPreviousKey, false, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myKey, session->_theirPreviousKey, true, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myNextKey, session->_theirKey, false, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myNextKey, session->_theirKey, true, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myNextKey, session->_theirPreviousKey, false, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     SecOTRSFindKeysForMessage(session, session->_myNextKey, session->_theirPreviousKey, true, NULL, NULL, &counter);
-    require_noerr(ReadLongLong(&bytes, &size, counter), fail);
+    __Require_noErr(ReadLongLong(&bytes, &size, counter), fail);
     
     session->_macKeysToExpose = CFDataCreateMutableFromOTRDATA(kCFAllocatorDefault, &bytes, &size);
-    require(session->_macKeysToExpose != NULL, fail);
+    __Require(session->_macKeysToExpose != NULL, fail);
     
-    require_noerr(ReadByteAsBool(&bytes, &size, &session->_textOutput), fail);
+    __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_textOutput), fail);
 
     if (version >= 4) {
-        require_noerr(ReadByteAsBool(&bytes, &size, &session->_compactAppleMessages), fail);
+        __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_compactAppleMessages), fail);
     }
     if (version >= 5) {
-        require_noerr(ReadByteAsBool(&bytes, &size, &session->_includeHashes), fail);
+        __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_includeHashes), fail);
     }
     if (version >= 6) {
-        require_noerr(ReadLongLong(&bytes, &size, &session->_stallSeconds), fail);
-        require_noerr(ReadByteAsBool(&bytes, &size, &session->_stallingTheirRoll), fail);
-        require_noerr(ReadLongLong(&bytes, &size, &timeToRoll), fail);
-        require_noerr(ReadByteAsBool(&bytes, &size, &session->_missedAck), fail);
-        require_noerr(ReadByteAsBool(&bytes, &size, &session->_receivedAck), fail);
+        __Require_noErr(ReadLongLong(&bytes, &size, &session->_stallSeconds), fail);
+        __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_stallingTheirRoll), fail);
+        __Require_noErr(ReadLongLong(&bytes, &size, &timeToRoll), fail);
+        __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_missedAck), fail);
+        __Require_noErr(ReadByteAsBool(&bytes, &size, &session->_receivedAck), fail);
         session->_timeToRoll = timeToRoll;
     }
     result = session;
@@ -675,8 +675,8 @@ OSStatus SecOTRSAppendSerialization(SecOTRSessionRef session, CFMutableDataRef s
 {
     __block OSStatus result  = errSecParam;
 
-    require(session, abort);
-    require(serializeInto, abort);
+    __Require(session, abort);
+    __Require(serializeInto, abort);
 
     CFIndex start = CFDataGetLength(serializeInto);
     
@@ -954,13 +954,13 @@ OSStatus SecOTRSSignAndProtectMessage(SecOTRSessionRef session,
 {
     __block OSStatus result = errSecParam;
 
-    require(session, abort);
-    require(sourceMessage, abort);
-    require(protectedMessage, abort);
+    __Require(session, abort);
+    __Require(sourceMessage, abort);
+    __Require(protectedMessage, abort);
     
     if(session->_state != kDone){
         secdebug("OTR", "Cannot sign and protect messages, we are not done negotiating sesion[%p]", session);
-        require_quiet( session->_state == kDone, abort);
+        __Require_Quiet(session->_state == kDone, abort);
     }
     
     dispatch_sync(session->_queue, ^{
@@ -1078,20 +1078,20 @@ static OSStatus SecOTRVerifyAndExposeRaw_locked(SecOTRSessionRef session,
     uint32_t theirID;
     uint32_t myID;
 
-    require_noerr_quiet(result = ReadAndVerifyHeader(&bytes, &size, kDataMessage), fail);
-    require_action_quiet(size > 0, fail, result = errSecDecode);
+    __Require_noErr_Quiet(result = ReadAndVerifyHeader(&bytes, &size, kDataMessage), fail);
+    __Require_Action_Quiet(size > 0, fail, result = errSecDecode);
 
-    require_noerr_quiet(result = ReadAndVerifyByte(&bytes, &size, 0), fail); // Flags, always zero
+    __Require_noErr_Quiet(result = ReadAndVerifyByte(&bytes, &size, 0), fail); // Flags, always zero
 
-    require_noerr_quiet(result = ReadLong(&bytes, &size, &theirID), fail);
+    __Require_noErr_Quiet(result = ReadLong(&bytes, &size, &theirID), fail);
 
-    require_action_quiet(theirID == session->_theirKeyID || (theirID == (session->_theirKeyID - 1) && session->_theirPreviousKey != NULL),
+    __Require_Action_Quiet(theirID == session->_theirKeyID || (theirID == (session->_theirKeyID - 1) && session->_theirPreviousKey != NULL),
                          fail,
                          result = ((theirID + 1) < session->_theirKeyID) ? errSecOTRTooOld : errSecOTRIDTooNew);
 
-    require_noerr_quiet(result = ReadLong(&bytes, &size, &myID), fail);
+    __Require_noErr_Quiet(result = ReadLong(&bytes, &size, &myID), fail);
 
-    require_action_quiet(myID == session->_keyID || (myID == session->_keyID + 1 && session->_myNextKey != NULL),
+    __Require_Action_Quiet(myID == session->_keyID || (myID == session->_keyID + 1 && session->_myNextKey != NULL),
                          fail,
                          result = (myID < session->_keyID) ? errSecOTRTooOld : errSecOTRIDTooNew);
 
@@ -1110,26 +1110,26 @@ static OSStatus SecOTRVerifyAndExposeRaw_locked(SecOTRSessionRef session,
 
         size_t nextKeyMPISize;
         const uint8_t* nextKeyMPIBytes;
-        require_noerr_quiet(result = SizeAndSkipMPI(&bytes, &size, &nextKeyMPIBytes, &nextKeyMPISize), fail);
+        __Require_noErr_Quiet(result = SizeAndSkipMPI(&bytes, &size, &nextKeyMPIBytes, &nextKeyMPISize), fail);
 
         uint64_t counter;
-        require_noerr_quiet(result = ReadLongLong(&bytes, &size, &counter), fail);
-        require_action_quiet(counter > *theirCounter, fail, result = errSecOTRTooOld);
+        __Require_noErr_Quiet(result = ReadLongLong(&bytes, &size, &counter), fail);
+        __Require_Action_Quiet(counter > *theirCounter, fail, result = errSecOTRTooOld);
 
         size_t messageSize;
         const uint8_t* messageStart;
-        require_noerr_quiet(result = SizeAndSkipDATA(&bytes, &size, &messageStart, &messageSize), fail);
+        __Require_noErr_Quiet(result = SizeAndSkipDATA(&bytes, &size, &messageStart, &messageSize), fail);
 
         size_t macDataSize = (bytes - macDataStart) ? (size_t)(bytes - macDataStart) : 0;
         uint8_t mac[CCSHA1_OUTPUT_SIZE];
-        require_action_quiet(sizeof(mac) <= size, fail, result = errSecDecode);
+        __Require_Action_Quiet(sizeof(mac) <= size, fail, result = errSecDecode);
 
         cchmac(ccsha1_di(),
                kOTRMessageMacKeyBytes, macKey,
                macDataSize, macDataStart,
                mac);
 
-        require_noerr_action_quiet(timingsafe_bcmp(mac, bytes, sizeof(mac)), fail, result = errSecAuthFailed);
+        __Require_noErr_Action_Quiet(timingsafe_bcmp(mac, bytes, sizeof(mac)), fail, result = errSecAuthFailed);
 
         uint8_t* dataSpace = CFDataIncreaseLengthAndGetMutableBytes(exposedMessageContents, (CFIndex)messageSize);
 
@@ -1195,8 +1195,8 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
     uint64_t counter = 0;
 
     uint8_t type_byte = 0;
-    require_noerr_quiet(result = ReadByte(&bytes, &size, &type_byte), fail);
-    require_action_quiet(type_byte == kOddCompactDataMessage || type_byte == kEvenCompactDataMessage
+    __Require_noErr_Quiet(result = ReadByte(&bytes, &size, &type_byte), fail);
+    __Require_Action_Quiet(type_byte == kOddCompactDataMessage || type_byte == kEvenCompactDataMessage
                          || type_byte == kOddCompactDataMessageWithHashes || type_byte == kEvenCompactDataMessageWithHashes, fail, result = errSecDecode);
 
     useEvenKey = (type_byte == kEvenCompactDataMessage || type_byte == kEvenCompactDataMessageWithHashes);
@@ -1205,16 +1205,16 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
     useCurrentKey = useEvenKey ^ (session->_keyID & 1);
     myKeyForMessage = useCurrentKey ? session->_myKey : session->_myNextKey;
     
-    require_action_quiet(myKeyForMessage, fail, result = errSecDecode);
+    __Require_Action_Quiet(myKeyForMessage, fail, result = errSecDecode);
 
     theirProposal = SecOTRPublicDHKCreateFromCompactSerialization(kCFAllocatorDefault, &bytes, &size);
     
-    require_action_quiet(theirProposal, fail, result = errSecDecode);
+    __Require_Action_Quiet(theirProposal, fail, result = errSecDecode);
     
     bool proposalIsNew = !CFEqualSafe(theirProposal, session->_theirKey);
     theirKeyForMessage = proposalIsNew ? session->_theirKey : session->_theirPreviousKey;
     
-    require_action_quiet(theirKeyForMessage, fail, result = errSecDecode);
+    __Require_Action_Quiet(theirKeyForMessage, fail, result = errSecDecode);
     
     uint8_t *messageKey;
     uint8_t *macKey;
@@ -1223,8 +1223,8 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
 
     SecOTRSFindKeysForMessage(session, myKeyForMessage, theirKeyForMessage, false, &messageKey, &macKey, &theirCounter);
 
-    require_noerr_quiet(result = ReadLongLongCompact(&bytes, &size, &counter), fail);
-    require_action_quiet(counter > *theirCounter, fail, result = errSecOTRTooOld);
+    __Require_noErr_Quiet(result = ReadLongLongCompact(&bytes, &size, &counter), fail);
+    __Require_Action_Quiet(counter > *theirCounter, fail, result = errSecOTRTooOld);
 
     size_t messageSize = size - kCompactMessageMACSize - (sentHashes ? 2 * kSecDHKHashSize : 0); // It's all message except for the MAC and maybe hashes
     const uint8_t* messageStart = bytes;
@@ -1262,7 +1262,7 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
     }
     
     uint8_t mac[CCSHA1_OUTPUT_SIZE];
-    require_action_quiet(kCompactMessageMACSize == size, fail, result = errSecDecode); // require space for the mac and some bytes
+    __Require_Action_Quiet(kCompactMessageMACSize == size, fail, result = errSecDecode); // require space for the mac and some bytes
 
     size_t macDataSize = (size_t)(bytes - macDataStart);
 
@@ -1271,7 +1271,7 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
            macDataSize, macDataStart,
            mac);
 
-    require_noerr_action_quiet(timingsafe_bcmp(mac, bytes, kCompactMessageMACSize), fail, result = errSecAuthFailed);
+    __Require_noErr_Action_Quiet(timingsafe_bcmp(mac, bytes, kCompactMessageMACSize), fail, result = errSecAuthFailed);
 
     uint8_t* dataSpace = CFDataIncreaseLengthAndGetMutableBytes(exposedMessageContents, (CFIndex)messageSize);
 
@@ -1320,9 +1320,9 @@ OSStatus SecOTRSVerifyAndExposeMessage(SecOTRSessionRef session,
     __block OSStatus result = errSecParam;
 
     
-    require(session, abort);
-    require(incomingMessage, abort);
-    require(exposedMessageContents, abort);
+    __Require(session, abort);
+    __Require(incomingMessage, abort);
+    __Require(exposedMessageContents, abort);
     
     if(session->_state == kDone){
         dispatch_sync(session->_queue, ^{

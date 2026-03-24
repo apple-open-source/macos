@@ -62,7 +62,11 @@
 
 #include "server_security_helpers.h"
 
+#if __has_feature(ptrauth_calls)
+struct securityd* __ptrauth(ptrauth_key_process_dependent_data, 1) gSecurityd; //signed with B key which is unique per process
+#else
 struct securityd *gSecurityd;
+#endif
 struct trustd *gTrustd;
 
 //
@@ -133,7 +137,7 @@ SecSecuritySetMusrMode(bool inEduMode, uid_t uid, int activeUser)
 }
 
 void
-SecSecuritySetPersonaMusr(CFStringRef uuid)
+SecSecuritySetPersonaMusrForTests(CFStringRef uuid)
 {
     if (gClient.inEduMode) {
         abort();
@@ -141,7 +145,7 @@ SecSecuritySetPersonaMusr(CFStringRef uuid)
     SecurityClient* client = SecSecurityClientGet();
     CFReleaseNull(client->musr);
     
-    client->isMusrOverridden = uuid ? true : false;
+    client->isMusrOverriddenForTests = uuid ? true : false;
     
     if (uuid) {
         CFUUIDRef u = CFUUIDCreateFromString(NULL, uuid);
@@ -173,7 +177,7 @@ SecSecurityClientGet(void)
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
         gClient.inEduMode = false;
         gClient.musr = NULL;
-        gClient.isMusrOverridden = false;
+        gClient.isMusrOverriddenForTests = false;
 #endif
         gClient.applicationIdentifier = NULL;
         gClient.isAppClip = false;

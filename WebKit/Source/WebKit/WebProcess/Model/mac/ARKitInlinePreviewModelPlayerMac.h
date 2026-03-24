@@ -52,8 +52,8 @@ private:
 
     // WebCore::ModelPlayer overrides.
     void load(WebCore::Model&, WebCore::LayoutSize) override;
+    void configureGraphicsLayer(WebCore::GraphicsLayer&, WebCore::ModelPlayerGraphicsLayerConfiguration&&) override;
     void sizeDidChange(WebCore::LayoutSize) override;
-    PlatformLayer* layer() override;
     bool supportsMouseInteraction() override;
     bool supportsDragging() override;
     void handleMouseDown(const WebCore::LayoutPoint&, MonotonicTime) override;

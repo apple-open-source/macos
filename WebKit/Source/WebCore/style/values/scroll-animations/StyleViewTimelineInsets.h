@@ -56,7 +56,7 @@ struct ViewTimelineInsetItem {
     }
 
     ViewTimelineInsetItem(Length&& first, Length&& second)
-        : value { WTFMove(first), WTFMove(second) }
+        : value { WTF::move(first), WTF::move(second) }
     {
     }
 

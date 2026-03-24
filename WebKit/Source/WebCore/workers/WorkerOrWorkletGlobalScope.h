@@ -45,7 +45,7 @@ enum class AdvancedPrivacyProtections : uint16_t;
 enum class NoiseInjectionPolicy : uint8_t;
 
 class WorkerOrWorkletGlobalScope : public RefCounted<WorkerOrWorkletGlobalScope>, public ScriptExecutionContext, public EventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkerOrWorkletGlobalScope);
+    WTF_MAKE_TZONE_ALLOCATED(WorkerOrWorkletGlobalScope);
     WTF_MAKE_NONCOPYABLE(WorkerOrWorkletGlobalScope);
 public:
     virtual ~WorkerOrWorkletGlobalScope();
@@ -111,6 +111,7 @@ private:
     NotificationClient* notificationClient() override { return nullptr; }
 #endif
 
+    uint32_t m_contextThreadUID { 0 };
     std::unique_ptr<WorkerOrWorkletScriptController> m_script;
     const UniqueRef<ScriptModuleLoader> m_moduleLoader;
     ThreadSafeWeakPtr<WorkerOrWorkletThread> m_thread;

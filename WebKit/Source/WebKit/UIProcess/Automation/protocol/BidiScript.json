@@ -68,6 +68,27 @@
             "type": "string"
         },
         {
+            "id": "RealmInfo",
+            "description": "Contains information about a JavaScript realm.",
+            "spec": "https://w3c.github.io/webdriver-bidi/#type-script-RealmInfo",
+            "type": "object",
+            "properties": [
+                { "name": "realm", "$ref": "BidiScript.Realm", "description": "Unique identifier of the realm." },
+                { "name": "origin", "type": "string", "description": "The serialized origin of the realm." },
+                { "name": "type", "$ref": "BidiScript.RealmType", "description": "The type of the realm." },
+                { "name": "context", "$ref": "BidiBrowsingContext.BrowsingContext", "optional": true, "description": "Browsing context of the realm. Not present for worklet/worker realms." }
+            ]
+        },
+        {
+            "id": "RealmType",
+            "description": "The type of a JavaScript realm. Currently only 'window' is supported; worker and worklet types will be added in future implementations.",
+            "spec": "https://w3c.github.io/webdriver-bidi/#type-script-RealmType",
+            "type": "string",
+            "enum": [
+                "window"
+            ]
+        },
+        {
             "id": "RemoteValue",
             "description": "A mirror object that is used to introspect values accessible from the ECMAScript runtime. The fields used and their semantics depends on the value's type (<cod>BidiScript.RemoteValueType</code>)",
             "spec": "https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue",
@@ -201,6 +222,20 @@
                 { "name": "realm", "$ref": "BidiScript.Realm" },
                 { "name": "result", "$ref": "BidiScript.RemoteValue", "optional": true },
                 { "name": "exceptionDetails", "$ref": "BidiScript.ExceptionDetails", "optional": true }
+            ]
+        },
+        {
+            "name": "getRealms",
+            "description": "Returns a list of all realms.",
+            "spec": "https://w3c.github.io/webdriver-bidi/#command-script-getRealms",
+            "wpt": "https://github.com/web-platform-tests/wpt/tree/master/webdriver/tests/bidi/script/get_realms",
+            "async": true,
+            "parameters": [
+                { "name": "context", "$ref": "BidiBrowsingContext.BrowsingContext", "optional": true, "description": "If specified, only realms belonging to this browsing context will be returned." },
+                { "name": "type", "$ref": "BidiScript.RealmType", "optional": true, "description": "If specified, only realms of this type will be returned." }
+            ],
+            "returns": [
+                { "name": "realms", "type": "array", "items": { "$ref": "BidiScript.RealmInfo" }, "description": "List of realms." }
             ]
         }
     ]

@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "DataTaskIdentifier.h"
 #include <pal/SessionID.h>
+#include <wtf/Markable.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 

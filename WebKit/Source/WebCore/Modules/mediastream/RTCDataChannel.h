@@ -52,9 +52,9 @@ class RTCPeerConnectionHandler;
 template<typename> class ExceptionOr;
 
 class RTCDataChannel final : public RefCounted<RTCDataChannel>, public ActiveDOMObject, public RTCDataChannelHandlerClient, public EventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RTCDataChannel);
+    WTF_MAKE_TZONE_ALLOCATED(RTCDataChannel);
 public:
-    static Ref<RTCDataChannel> create(ScriptExecutionContext&, std::unique_ptr<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&, RTCDataChannelState);
+    static Ref<RTCDataChannel> create(ScriptExecutionContext&, std::unique_ptr<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&, RTCDataChannelState, std::optional<RTCDataChannelIdentifier> identifier = { });
     static Ref<RTCDataChannel> create(ScriptExecutionContext&, RTCDataChannelIdentifier, String&&, RTCDataChannelInit&&, RTCDataChannelState);
     WEBCORE_EXPORT virtual ~RTCDataChannel();
 
@@ -89,15 +89,15 @@ public:
 
     void close();
 
-    RTCDataChannelIdentifier identifier() const { return m_identifier; }
     bool canDetach() const;
     std::unique_ptr<DetachedRTCDataChannel> detach();
 
+    static void removeDetachedRTCDataChannel(RTCDataChannelIdentifier identifer) { handlerFromIdentifier(identifer.object()); }
     WEBCORE_EXPORT static std::unique_ptr<RTCDataChannelHandler> handlerFromIdentifier(RTCDataChannelLocalIdentifier);
     void fireOpenEventIfNeeded();
 
 private:
-    RTCDataChannel(ScriptExecutionContext&, std::unique_ptr<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&, RTCDataChannelState);
+    RTCDataChannel(ScriptExecutionContext&, RTCDataChannelIdentifier, std::unique_ptr<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&, RTCDataChannelState);
 
     static Ref<NetworkSendQueue> createMessageQueue(ScriptExecutionContext&, RTCDataChannel&);
 
@@ -121,9 +121,9 @@ private:
     void didReceiveRawData(std::span<const uint8_t>) final;
     void didDetectError(Ref<RTCError>&&) final;
     void bufferedAmountIsDecreasing(size_t) final;
+    void peerConnectionIsClosing() final { didChangeReadyState(RTCDataChannelState::Closed); }
 
     std::unique_ptr<RTCDataChannelHandler> m_handler;
-    RTCDataChannelIdentifier m_identifier;
     Markable<ScriptExecutionContextIdentifier> m_contextIdentifier;
     // FIXME: m_stopped is probably redundant with m_readyState.
     bool m_stopped { false };
@@ -141,5 +141,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(RTCDataChannel)
 
 #endif // ENABLE(WEB_RTC)

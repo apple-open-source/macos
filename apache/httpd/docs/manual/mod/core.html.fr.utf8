@@ -14,7 +14,7 @@
 <script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
-<link href="../images/favicon.ico" rel="shortcut icon" /></head>
+<link href="../images/favicon.png" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
@@ -569,9 +569,8 @@ All pour les versions antérieures</code></td></tr>
       activée.
       </p></div>
 
-      <div class="example"><p><code>
-      AllowOverride Options=Indexes,MultiViews
-      </code></p></div>
+      <pre class="prettyprint lang-config">AllowOverride Options=Indexes,MultiViews</pre>
+
       
       </dd>
     </dl>
@@ -1737,8 +1736,16 @@ ErrorLogFormat "[%t] [%l] [pid %P] %F: %E: [client %a] %M"</pre>
 <tr><td><code>%{u}t</code></td>
         <td>L'heure courante avec les microsecondes</td></tr>
 <tr class="odd"><td><code>%{cu}t</code></td>
-        <td>L'heure courante au format compact ISO 8601, avec les
+        <td>L'heure courante au format ISO 8601 étendu (compact), avec les
 	microsecondes</td></tr>
+<tr><td><code>%{cuz}t</code></td>
+        <td>L'heure actuelle au format ISO 8601 étendu (compact), avec les
+	microsecondes et la zone horaire au format standard ISO 8601:2000.
+	Disponible depuis la version 2.4.58 seulement</td></tr>
+<tr class="odd"><td><code>%{%-format}t</code></td>
+        <td>L'heure actuelle formatée selon la fonction
+	<code>strftime(3)</code>. Disponible depuis la version 2.4.58
+	seulement</td></tr>
 <tr><td><code>%v</code></td>
         <td>Le nom de serveur canonique <code class="directive"><a href="#servername">ServerName</a></code> du serveur courant.</td></tr>
 <tr class="odd"><td><code>%V</code></td>
@@ -3202,7 +3209,7 @@ XML</td></tr>
     <p>Exemple :</p>
 
     <pre class="prettyprint lang-config"># Limitation à 1 Mo
-LimitXMLRequestBody 1073741824</pre>
+LimitXMLRequestBody 1048576</pre>
 
 
 
@@ -5371,14 +5378,17 @@ serveur HTTP Apache.</td></tr>
     d’hôte dans le chemin UNC n’a pas été spécifié par cette directive. Le but
     est de limiter l’accès aux chemins dérivés d’entrées non fiables.</p>
 
-    <div class="example"><p><code>
-    UNCList example.com other.example.com
-    </code></p></div>
+    <pre class="prettyprint lang-config">UNCList example.com other.example.com</pre>
+
 
     <div class="warning"><h3>Sécurité</h3>
-    <p>Les chemins UNC accédés en dehors du traitement d’une requête, par
-    exemple au cours du démarrage, ne font pas nécessairement l’objet d’une
-    vérification par rapport aux noms d’hôte configurés avec cette directive.</p>
+        <p>Les valeurs spécifiées par cette directive ne sont vérifiées que par
+	certaines composantes du serveur, avant d’accéder à des chemins du
+	système de fichiers qui peuvent dériver par inadvertance d’entrées non
+	fiables. </p>
+        <p> Les systèmes Windows doivent être isolés au niveau de la couche
+	réseau pour éviter les appels SMB/NTLM sortants vers des destinations
+	inattendues, à titre de mesure plus complète et préventive.</p>
     </div>
 
     <div class="warning"><h3>Ordre des directives</h3>
@@ -5524,7 +5534,7 @@ détermine son propre port</td></tr>
      <ol>
       <li>Port indiqué dans <code class="directive"><a href="#servername">Servername</a></code></li>
       <li>Port physique</li>
-      <li>Port par défaut</li>
+      <li>Port par défaut pour le contexte/protocole (comme 80 ou 443)</li>
      </ol>
      </dd>
      <dt><code>UseCanonicalName Off | DNS</code></dt>
@@ -5533,7 +5543,7 @@ détermine son propre port</td></tr>
       <li>Port spécifié dans l'en-tête <code>Host:</code></li>
       <li>Port physique</li>
       <li>Port spécifié par <code class="directive"><a href="#servername">Servername</a></code></li>
-      <li>Port par défaut</li>
+      <li>Port par défaut pour le contexte/protocole (comme 80 ou 443)</li>
      </ol>
      </dd>
      </dl>
@@ -5697,7 +5707,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2024 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2025 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

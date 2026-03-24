@@ -86,7 +86,7 @@ private:
 };
 
 class WEBCORE_EXPORT EventTarget : public ScriptWrappable, public CanMakeWeakPtrWithBitField<EventTarget, WeakPtrFactoryInitialization::Lazy, WeakPtrImplWithEventTargetData> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(EventTarget);
+    WTF_MAKE_TZONE_ALLOCATED(EventTarget);
 public:
     static Ref<EventTarget> create(ScriptExecutionContext&);
 
@@ -155,6 +155,9 @@ public:
     bool hasValidQuerySelectorAllResults() const { return hasEventTargetFlag(EventTargetFlag::HasValidQuerySelectorAllResults); }
     void setHasValidQuerySelectorAllResults(bool flag) { setEventTargetFlag(EventTargetFlag::HasValidQuerySelectorAllResults, flag); }
 
+    bool hasInternalTouchEventHandling() const { return hasEventTargetFlag(EventTargetFlag::HasInternalTouchEventHandling); }
+    void setHasInternalTouchEventHandling(bool flag) { setEventTargetFlag(EventTargetFlag::HasInternalTouchEventHandling, flag); }
+
 protected:
     enum ConstructNodeTag { ConstructNode };
     EventTarget() = default;
@@ -183,7 +186,7 @@ protected:
         HasFormAssociatedCustomElementInterface = 1 << 11,
         HasShadowRootContainingSlots = 1 << 12,
         IsInTopLayer = 1 << 13,
-        // 1-bit free
+        HasInternalTouchEventHandling = 1 << 14,
         // SVGElement bits
         HasPendingResources = 1 << 15,
     };
@@ -211,3 +214,8 @@ inline void EventTarget::setEventTargetFlag(EventTargetFlag flag, bool value)
 }
 
 } // namespace WebCore
+
+#define SPECIALIZE_TYPE_TRAITS_EVENTTARGET(ClassName) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ClassName) \
+    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::EventTargetInterfaceType::ClassName; } \
+SPECIALIZE_TYPE_TRAITS_END()

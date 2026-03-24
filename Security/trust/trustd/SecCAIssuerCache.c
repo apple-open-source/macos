@@ -199,23 +199,23 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 	int s3e = SQLITE_OK;
     bool create = true;
 
-    require(this = (SecCAIssuerCacheRef)calloc(sizeof(struct __SecCAIssuerCache), 1), errOut);
-    require_action_quiet((this->queue = dispatch_queue_create("caissuercache", 0)), errOut, s3e = errSecAllocate);
-    require_noerr(s3e = sec_sqlite3_open(db_name, &this->s3h, create), errOut);
+    __Require(this = (SecCAIssuerCacheRef)calloc(sizeof(struct __SecCAIssuerCache), 1), errOut);
+    __Require_Action_Quiet((this->queue = dispatch_queue_create("caissuercache", 0)), errOut, s3e = errSecAllocate);
+    __Require_noErr(s3e = sec_sqlite3_open(db_name, &this->s3h, create), errOut);
     this->in_transaction = false;
 
 	s3e = sqlite3_prepare_v2(this->s3h, beginTxnSQL, sizeof(beginTxnSQL),
                              &this->beginTxn, NULL);
-	require_noerr(s3e, errOut);
+	__Require_noErr(s3e, errOut);
 	s3e = sqlite3_prepare_v2(this->s3h, endTxnSQL, sizeof(endTxnSQL),
                              &this->endTxn, NULL);
-	require_noerr(s3e, errOut);
+	__Require_noErr(s3e, errOut);
 
 	s3e = sqlite3_prepare_v2(this->s3h, deleteSQL, sizeof(deleteSQL),
                              &this->delete, NULL);
 	if (create && s3e == SQLITE_ERROR) {
         s3e = SecCAIssuerCacheEnsureTxn(this);
-		require_noerr(s3e, errOut);
+		__Require_noErr(s3e, errOut);
 
 		/* sqlite3_prepare returns SQLITE_ERROR if the table we are
          compiling this statement for doesn't exist. */
@@ -232,20 +232,20 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 			secerror("caissuer db CREATE TABLES: %s", errmsg);
 			sqlite3_free(errmsg);
 		}
-		require_noerr(s3e, errOut);
+		__Require_noErr(s3e, errOut);
         s3e = sqlite3_prepare_v2(this->s3h, deleteSQL, sizeof(deleteSQL),
                                  &this->delete, NULL);
 	}
-	require_noerr(s3e, errOut);
+	__Require_noErr(s3e, errOut);
 	s3e = sqlite3_prepare_v2(this->s3h, insertIssuerSQL, sizeof(insertIssuerSQL),
                              &this->insertIssuer, NULL);
-	require_noerr(s3e, errOut);
+	__Require_noErr(s3e, errOut);
 	s3e = sqlite3_prepare_v2(this->s3h, selectIssuerSQL, sizeof(selectIssuerSQL),
                              &this->selectIssuer, NULL);
-	require_noerr(s3e, errOut);
+	__Require_noErr(s3e, errOut);
     s3e = sqlite3_prepare_v2(this->s3h, selectNonExpiredIssuerSQL, sizeof(selectNonExpiredIssuerSQL),
                              &this->selectNonExpiredIssuer, NULL);
-    require_noerr(s3e, errOut);
+    __Require_noErr(s3e, errOut);
 
 
 	return this;
@@ -325,12 +325,12 @@ static void _SecCAIssuerCacheAddCertificates(SecCAIssuerCacheRef this,
     CFDataRef uriData = NULL;
 
     secdebug("caissuercache", "adding certificate from %@", uri);
-    require_noerr(s3e = SecCAIssuerCacheEnsureTxn(this), errOut);
+    __Require_noErr(s3e = SecCAIssuerCacheEnsureTxn(this), errOut);
 
     /* issuer.uri */
-    require_action(uriData = CFURLCreateData(kCFAllocatorDefault, uri,
+    __Require_Action(uriData = CFURLCreateData(kCFAllocatorDefault, uri,
         kCFStringEncodingUTF8, false), errOut, s3e = SQLITE_NOMEM);
-    require_action(CFDataGetLength(uriData) > 0, errOut, s3e = SQLITE_NOMEM);
+    __Require_Action(CFDataGetLength(uriData) > 0, errOut, s3e = SQLITE_NOMEM);
     s3e = sqlite3_bind_blob_wrapper(this->insertIssuer, 1,
         CFDataGetBytePtr(uriData), (size_t)CFDataGetLength(uriData), SQLITE_TRANSIENT);
     CFReleaseNull(uriData);
@@ -339,9 +339,9 @@ static void _SecCAIssuerCacheAddCertificates(SecCAIssuerCacheRef this,
     if (!s3e) s3e = sqlite3_bind_double(this->insertIssuer, 2, expires);
 
     /* issuer.certificate */
-    require_action(certsData = convertArrayOfCertsToData(certificates), errOut,
+    __Require_Action(certsData = convertArrayOfCertsToData(certificates), errOut,
                    s3e = SQLITE_NOMEM);
-    require_action(CFDataGetLength(certsData) > 0, errOut, s3e = SQLITE_NOMEM);
+    __Require_Action(CFDataGetLength(certsData) > 0, errOut, s3e = SQLITE_NOMEM);
     if (!s3e) {
         s3e = sqlite3_bind_blob_wrapper(this->insertIssuer, 3,
                                         CFDataGetBytePtr(certsData),
@@ -351,7 +351,7 @@ static void _SecCAIssuerCacheAddCertificates(SecCAIssuerCacheRef this,
 
     /* Execute the insert statement. */
     if (!s3e) s3e = sqlite3_step(this->insertIssuer);
-    require_noerr(s3e = sec_sqlite3_reset(this->insertIssuer, s3e), errOut);
+    __Require_noErr(s3e = sec_sqlite3_reset(this->insertIssuer, s3e), errOut);
 
 errOut:
     CFReleaseNull(uriData);
@@ -370,9 +370,9 @@ static CFArrayRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
     int s3e = SQLITE_OK;
 
     CFDataRef uriData = NULL;
-    require(uriData = CFURLCreateData(kCFAllocatorDefault, uri,
+    __Require(uriData = CFURLCreateData(kCFAllocatorDefault, uri,
                                       kCFStringEncodingUTF8, false), errOut);
-    require_action(CFDataGetLength(uriData) > 0, errOut, s3e = SQLITE_NOMEM);
+    __Require_Action(CFDataGetLength(uriData) > 0, errOut, s3e = SQLITE_NOMEM);
 
     sqlite3_stmt *stmt = NULL;
     if (expired) {
@@ -398,7 +398,7 @@ static CFArrayRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
         certificates = convertDataToArrayOfCerts((uint8_t *)respData, respLen);
     }
 
-    require_noerr(s3e = sec_sqlite3_reset(stmt, s3e), errOut);
+    __Require_noErr(s3e = sec_sqlite3_reset(stmt, s3e), errOut);
 
 errOut:
     CFReleaseNull(uriData);
@@ -423,11 +423,11 @@ static void _SecCAIssuerCacheClear(void *context) {
     SecCAIssuerCacheRef this = context;
     int s3e;
 
-    require_noerr(s3e = SecCAIssuerCacheEnsureTxn(this), errOut);
+    __Require_noErr(s3e = SecCAIssuerCacheEnsureTxn(this), errOut);
     secnotice("caissuercache", "clearing CAIssuer cache");
     if (!s3e) s3e = sqlite3_step(this->delete);
-    require_noerr(s3e = sec_sqlite3_reset(this->delete, s3e), errOut);
-    require_noerr(s3e = SecCAIssuerCacheCommitTxn(this), errOut);
+    __Require_noErr(s3e = sec_sqlite3_reset(this->delete, s3e), errOut);
+    __Require_noErr(s3e = SecCAIssuerCacheCommitTxn(this), errOut);
 
 errOut:
     if (s3e != SQLITE_OK) {

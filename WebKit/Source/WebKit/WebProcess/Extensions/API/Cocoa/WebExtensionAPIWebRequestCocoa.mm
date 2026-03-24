@@ -320,7 +320,7 @@ void WebExtensionContextProxy::resourceLoadDidSendRequest(WebExtensionTabIdentif
                     [details setObject:requestBody forKey:requestBodyKey];
             }
 
-            listener.call(details);
+            listener.call(toJSValueRef(listener.globalContext(), details));
 
             [details removeObjectForKey:requestBodyKey];
         });
@@ -336,7 +336,7 @@ void WebExtensionContextProxy::resourceLoadDidSendRequest(WebExtensionTabIdentif
                 [details setObject:requestHeaders.get() forKey:requestHeadersKey];
             }
 
-            listener.call(details);
+            listener.call(toJSValueRef(listener.globalContext(), details));
 
             [details removeObjectForKey:requestHeadersKey];
         });
@@ -361,7 +361,7 @@ void WebExtensionContextProxy::resourceLoadDidPerformHTTPRedirection(WebExtensio
                 [details setObject:responseHeaders forKey:responseHeadersKey];
             }
 
-            listener.call(details);
+            listener.call(toJSValueRef(listener.globalContext(), details));
 
             [details removeObjectForKey:responseHeadersKey];
         });
@@ -421,7 +421,7 @@ void WebExtensionContextProxy::resourceLoadDidReceiveResponse(WebExtensionTabIde
                 [details setObject:responseHeaders forKey:responseHeadersKey];
             }
 
-            listener.call(details);
+            listener.call(toJSValueRef(listener.globalContext(), details));
 
             [details removeObjectForKey:responseHeadersKey];
         });
@@ -462,7 +462,7 @@ void WebExtensionContextProxy::resourceLoadDidCompleteWithError(WebExtensionTabI
                 [details setObject:responseHeaders forKey:responseHeadersKey];
             }
 
-            listener.call(details);
+            listener.call(toJSValueRef(listener.globalContext(), details));
 
             [details removeObjectForKey:responseHeadersKey];
         });

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es{
     AuxExemplarCharacters{"[ªàăâåäãā æ ç èĕêëē ìĭîïī ºòŏôöøō œ ùŭûū ýÿ]"}
     Ellipsis{
@@ -22,7 +22,9 @@ es{
                 range{"{0}-{1}"}
             }
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
             patternsLong{
@@ -92,40 +94,40 @@ es{
                         other{"000 mil ¤"}
                     }
                     1000000{
-                        one{"0 M¤"}
-                        other{"0 M¤"}
+                        one{"0 M ¤"}
+                        other{"0 M ¤"}
                     }
                     10000000{
-                        one{"00 M¤"}
-                        other{"00 M¤"}
+                        one{"00 M ¤"}
+                        other{"00 M ¤"}
                     }
                     100000000{
-                        one{"000 M¤"}
-                        other{"000 M¤"}
+                        one{"000 M ¤"}
+                        other{"000 M ¤"}
                     }
                     1000000000{
-                        one{"0000 M¤"}
-                        other{"0000 M¤"}
+                        one{"0000 M ¤"}
+                        other{"0000 M ¤"}
                     }
                     10000000000{
-                        one{"00 mil M¤"}
-                        other{"00 mil M¤"}
+                        one{"00 mil M ¤"}
+                        other{"00 mil M ¤"}
                     }
                     100000000000{
-                        one{"000 mil M¤"}
-                        other{"000 mil M¤"}
+                        one{"000 mil M ¤"}
+                        other{"000 mil M ¤"}
                     }
                     1000000000000{
-                        one{"0 B¤"}
-                        other{"0 B¤"}
+                        one{"0 B ¤"}
+                        other{"0 B ¤"}
                     }
                     10000000000000{
-                        one{"00 B¤"}
-                        other{"00 B¤"}
+                        one{"00 B ¤"}
+                        other{"00 B ¤"}
                     }
                     100000000000000{
-                        one{"000 B¤"}
-                        other{"000 B¤"}
+                        one{"000 B ¤"}
+                        other{"000 B ¤"}
                     }
                 }
                 decimalFormat{
@@ -312,6 +314,12 @@ es{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%atTime{
+                "{1} 'a' 'las' {0}",
+                "{1} 'a' 'las' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "Hmmsszzzz",
                 "Hmmssz",
@@ -327,6 +335,8 @@ es{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMM{"MMMM 'de' y G"}
@@ -334,13 +344,13 @@ es{
                 GyMMMMd{"d 'de' MMMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
                 GyMd{"d/M/y GGGGG"}
+                Hv{"H 'h' v"}
                 MEd{"E, d/M"}
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d 'de' MMMM"}
                 MMMMd{"d 'de' MMMM"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 y{"y G"}
@@ -543,6 +553,12 @@ es{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%atTime{
+                "{1}, {0}",
+                "{1} 'a' 'las' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "Hmmsszzzz",
                 "Hmmssz",
@@ -573,19 +589,22 @@ es{
                 Ehm{"E, h:mm a"}
                 Ehms{"E, h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMM{"MMMM 'de' y G"}
                 GyMMMMEd{"E, d 'de' MMMM 'de' y G"}
                 GyMMMMd{"d 'de' MMMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
-                GyMd{"d/M/y GGGGG"}
+                GyMd{"d/M/y G"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
                 Hmsv{"H:mm:ss v"}
                 Hmsvvvv{"H:mm:ss (vvvv)"}
                 Hmv{"H:mm v"}
+                Hv{"H 'h' v"}
                 MEd{"E, d/M"}
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d 'de' MMMM"}
@@ -598,7 +617,6 @@ es{
                 MMd{"d/M"}
                 MMdd{"d/M"}
                 Md{"d/M"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a v"}
@@ -715,20 +733,20 @@ es{
             }
             eras{
                 abbreviated{
-                    "a. C.",
-                    "d. C.",
+                    0{"a. C."}
+                    1{"d. C."}
                 }
                 abbreviated%variant{
-                    "a. e. c.",
-                    "e. c.",
+                    0{"a. e. c."}
+                    1{"e. c."}
                 }
                 wide{
-                    "antes de Cristo",
-                    "después de Cristo",
+                    0{"antes de Cristo"}
+                    1{"después de Cristo"}
                 }
                 wide%variant{
-                    "antes de la era común",
-                    "era común",
+                    0{"antes de la era común"}
+                    1{"era común"}
                 }
             }
             intervalFormats{
@@ -957,6 +975,31 @@ es{
             }
         }
         hebrew{
+            DateTimePatterns{
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "EEEE, d 'de' MMMM 'de' y",
+                "d 'de' MMMM 'de' y",
+                "d 'de' MMM 'de' y",
+                "d/M/y",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "Hmmsszzzz",
+                "Hmmssz",
+                "Hmmss",
+                "Hmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMd",
+            }
             monthNames{
                 format{
                     wide{
@@ -981,7 +1024,7 @@ es{
         indian{
             eras{
                 abbreviated{
-                    "saka",
+                    0{"saka"}
                 }
             }
             monthNames{
@@ -1123,8 +1166,8 @@ es{
         roc{
             eras{
                 abbreviated{
-                    "antes de RDC",
-                    "minguo",
+                    0{"antes de RDC"}
+                    1{"minguo"}
                 }
             }
         }
@@ -1923,19 +1966,6 @@ es{
                 "[\\: ∶]",
             }
         }
-        general{
-            lenient{
-                "[.．․﹒ 。｡︒]",
-                "['＇’ ՚ ᾽᾿ ʼ]",
-                "[%％﹪ ٪]",
-                "[‰ ؉]",
-                "[\$＄﹩]",
-                "[£￡ ₤]",
-                "[¥￥]",
-                "[₩￦]",
-                "[₹ {Rp} {Rs}₨]",
-            }
-        }
         number{
             lenient{
                 "[\\-－﹣ ‑ ‒ −⁻₋ ➖]",
@@ -1991,7 +2021,7 @@ es{
                 "{surname} {surname2}, {title} {given} {given2}",
             }
             sorting-long-referring-informal{
-                "{surname} {surname2}, {given-informal}",
+                "{surname}, {given-informal}",
                 "{surname} {surname2}, {given-informal}",
             }
             sorting-medium-referring-formal{

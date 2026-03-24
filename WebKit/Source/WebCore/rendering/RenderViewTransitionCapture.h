@@ -31,7 +31,7 @@
 namespace WebCore {
 
 class RenderViewTransitionCapture final : public RenderReplaced {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderViewTransitionCapture);
+    WTF_MAKE_TZONE_ALLOCATED(RenderViewTransitionCapture);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderViewTransitionCapture);
 public:
     RenderViewTransitionCapture(Type, Document&, RenderStyle&&, bool isRootElement);
@@ -43,7 +43,7 @@ public:
     void paintReplaced(PaintInfo&, const LayoutPoint& paintOffset) override;
     void intrinsicSizeChanged() override;
 
-    void styleDidChange(StyleDifference, const RenderStyle*) override;
+    void styleDidChange(Style::Difference, const RenderStyle*) override;
 
     void layout() override;
 

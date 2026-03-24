@@ -45,7 +45,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteRenderPassEncoder);
 RemoteRenderPassEncoder::RemoteRenderPassEncoder(WebCore::WebGPU::RenderPassEncoder& renderPassEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(renderPassEncoder)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -138,7 +138,7 @@ void RemoteRenderPassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, std::
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets)
 {
     if (!bindGroup) {
-        protectedBacking()->setBindGroup(index, nullptr, WTFMove(dynamicOffsets));
+        protectedBacking()->setBindGroup(index, nullptr, WTF::move(dynamicOffsets));
         return;
     }
 
@@ -146,12 +146,12 @@ void RemoteRenderPassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, std::
     if (!convertedBindGroup)
         return;
 
-    protectedBacking()->setBindGroup(index, convertedBindGroup.get(), WTFMove(dynamicOffsets));
+    protectedBacking()->setBindGroup(index, convertedBindGroup.get(), WTF::move(dynamicOffsets));
 }
 
 void RemoteRenderPassEncoder::pushDebugGroup(String&& groupLabel)
 {
-    protectedBacking()->pushDebugGroup(WTFMove(groupLabel));
+    protectedBacking()->pushDebugGroup(WTF::move(groupLabel));
 }
 
 void RemoteRenderPassEncoder::popDebugGroup()
@@ -161,7 +161,7 @@ void RemoteRenderPassEncoder::popDebugGroup()
 
 void RemoteRenderPassEncoder::insertDebugMarker(String&& markerLabel)
 {
-    protectedBacking()->insertDebugMarker(WTFMove(markerLabel));
+    protectedBacking()->insertDebugMarker(WTF::move(markerLabel));
 }
 
 void RemoteRenderPassEncoder::setViewport(float x, float y,
@@ -213,7 +213,7 @@ void RemoteRenderPassEncoder::executeBundles(Vector<WebGPUIdentifier>&& renderBu
             return;
         convertedBundles.append(*convertedBundle);
     }
-    protectedBacking()->executeBundles(WTFMove(convertedBundles));
+    protectedBacking()->executeBundles(WTF::move(convertedBundles));
 }
 
 void RemoteRenderPassEncoder::end()
@@ -223,7 +223,7 @@ void RemoteRenderPassEncoder::end()
 
 void RemoteRenderPassEncoder::setLabel(String&& label)
 {
-    protectedBacking()->setLabel(WTFMove(label));
+    protectedBacking()->setLabel(WTF::move(label));
 }
 
 Ref<WebCore::WebGPU::RenderPassEncoder> RemoteRenderPassEncoder::protectedBacking()
@@ -233,7 +233,7 @@ Ref<WebCore::WebGPU::RenderPassEncoder> RemoteRenderPassEncoder::protectedBackin
 
 Ref<WebGPU::ObjectHeap> RemoteRenderPassEncoder::protectedObjectHeap() const
 {
-    return m_objectHeap.get();
+    return m_objectHeap;
 }
 
 } // namespace WebKit

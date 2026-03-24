@@ -53,7 +53,7 @@ enum class PixelFormat : uint8_t;
 
 class CanvasRenderingContext : public ScriptWrappable, public CanMakeWeakPtr<CanvasRenderingContext> {
     WTF_MAKE_NONCOPYABLE(CanvasRenderingContext);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CanvasRenderingContext);
+    WTF_MAKE_TZONE_ALLOCATED(CanvasRenderingContext);
 public:
     virtual ~CanvasRenderingContext();
 

@@ -202,7 +202,7 @@ bool IOBlockStorageDriver::start(IOService * provider)
                                                                        &IOBlockStorageDriver::processShutdown),
                                                   (thread_call_param_t)this);
 
-    require(_processShutdownThread != NULL, Exit);
+    __Require(_processShutdownThread != NULL, Exit);
 
     // Open the block storage device.
 
@@ -562,16 +562,16 @@ void IOBlockStorageDriver::addToBytesTransferred(UInt64 bytesTransferred,
     if (isWrite)
     {
         _statistics[kStatisticsWrites]->addValue(1);
-        _statistics[kStatisticsBytesWritten]->addValue(bytesTransferred);
-        _statistics[kStatisticsTotalWriteTime]->addValue(totalTime);
-        _statistics[kStatisticsLatentWriteTime]->addValue(latentTime);
+        _statistics[kStatisticsBytesWritten]->addValue((SInt64)bytesTransferred);
+        _statistics[kStatisticsTotalWriteTime]->addValue((SInt64)totalTime);
+        _statistics[kStatisticsLatentWriteTime]->addValue((SInt64)latentTime);
     }
     else
     {
         _statistics[kStatisticsReads]->addValue(1);
-        _statistics[kStatisticsBytesRead]->addValue(bytesTransferred);
-        _statistics[kStatisticsTotalReadTime]->addValue(totalTime);
-        _statistics[kStatisticsLatentReadTime]->addValue(latentTime);
+        _statistics[kStatisticsBytesRead]->addValue((SInt64)bytesTransferred);
+        _statistics[kStatisticsTotalReadTime]->addValue((SInt64)totalTime);
+        _statistics[kStatisticsLatentReadTime]->addValue((SInt64)latentTime);
     }
 }
 
@@ -2337,7 +2337,7 @@ bool IODeblocker::getNextStage()
     //
 
     _chunksCount = 0;
-    _flags       = (_flags & ~kIOMemoryDirectionMask) | kIODirectionNone;
+    _flags       = (_flags & ~(IOOptionBits)kIOMemoryDirectionMask) | kIODirectionNone;
     _length      = 0;
 
     switch ( _requestBuffer->getDirection() )
@@ -2350,7 +2350,7 @@ bool IODeblocker::getNextStage()
                 {
                     _stage     = kStageLast;
                     _excessBuffer->setDirection(kIODirectionIn);
-                    _flags     = (_flags & ~kIOMemoryDirectionMask) | kIODirectionIn;
+                    _flags     = (_flags & ~(IOOptionBits)kIOMemoryDirectionMask) | kIODirectionIn;
                     _byteStart = _requestStart - _excessCountStart;
 
                     if ( _excessCountStart )
@@ -2397,7 +2397,7 @@ bool IODeblocker::getNextStage()
                     {
                         _stage = kStagePrepareExcessStart;
                         _excessBuffer->setDirection(kIODirectionIn);
-                        _flags     = (_flags & ~kIOMemoryDirectionMask) | kIODirectionIn;
+                        _flags     = (_flags & ~(IOOptionBits)kIOMemoryDirectionMask) | kIODirectionIn;
                         _byteStart = _requestStart - _excessCountStart;
 
                         _chunks[_chunksCount].buffer = _excessBuffer;
@@ -2420,7 +2420,7 @@ bool IODeblocker::getNextStage()
                         {
                             _stage = kStagePrepareExcessFinal;
                             _excessBuffer->setDirection(kIODirectionIn);
-                            _flags     = (_flags & ~kIOMemoryDirectionMask) | kIODirectionIn;
+                            _flags     = (_flags & ~(IOOptionBits)kIOMemoryDirectionMask) | kIODirectionIn;
                             _byteStart = _requestStart + _requestCount +
                                          _excessCountFinal - _blockSize;
 
@@ -2441,7 +2441,7 @@ bool IODeblocker::getNextStage()
                 {
                     _stage     = kStageLast;
                     _excessBuffer->setDirection(kIODirectionOut);
-                    _flags     = (_flags & ~kIOMemoryDirectionMask) | kIODirectionOut;
+                    _flags     = (_flags & ~(IOOptionBits)kIOMemoryDirectionMask) | kIODirectionOut;
                     _byteStart = _requestStart - _excessCountStart;
 
                     if ( _excessCountStart )

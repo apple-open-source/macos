@@ -40,10 +40,10 @@
 #endif
 
 namespace WebCore {
-class InspectorController;
-class InspectorFrontendHost;
 class CertificateInfo;
 class FloatRect;
+class InspectorFrontendHost;
+class PageInspectorController;
 }
 
 namespace WebKit {
@@ -207,7 +207,7 @@ private:
 
     // Keep a pointer to the frontend's inspector controller rather than going through
     // corePage(), since we may need it after the frontend's page has started destruction.
-    WeakPtr<WebCore::InspectorController> m_frontendController;
+    WeakPtr<WebCore::PageInspectorController> m_frontendController;
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     RefPtr<WebInspectorUIExtensionController> m_extensionController;

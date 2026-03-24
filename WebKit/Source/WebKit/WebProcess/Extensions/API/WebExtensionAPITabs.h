@@ -121,4 +121,6 @@ NSDictionary *toWebAPI(const WebExtensionTabParameters&);
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPITabs, tabs);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

@@ -114,6 +114,7 @@ using PseudoClassesSet = UncheckedKeyHashSet<CSSSelector::PseudoClass, IntHash<C
     v(operationMatchesAnimatingFullscreenTransitionPseudoClass) \
     v(operationMatchesInWindowFullscreenPseudoClass) \
     v(operationMatchesPictureInPicturePseudoClass) \
+    v(operationMatchesImmersivePseudoClass) \
     v(operationMatchesFutureCuePseudoClass) \
     v(operationMatchesPastCuePseudoClass) \
     v(operationMatchesPlayingPseudoClass) \
@@ -263,6 +264,9 @@ static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesI
 #endif
 #if ENABLE(PICTURE_IN_PICTURE_API)
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesPictureInPicturePseudoClass, bool, (const Element&));
+#endif
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesImmersivePseudoClass, bool, (const Element&));
 #endif
 #if ENABLE(VIDEO)
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesFutureCuePseudoClass, bool, (const Element&));
@@ -929,6 +933,14 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMatchesPictureInPicturePseudoClass, b
 }
 #endif
 
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMatchesImmersivePseudoClass, bool, (const Element& element))
+{
+    COUNT_SELECTOR_OPERATION(operationMatchesImmersivePseudoClass);
+    return matchesImmersivePseudoClass(element);
+}
+#endif
+
 #if ENABLE(VIDEO)
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMatchesFutureCuePseudoClass, bool, (const Element& element))
 {
@@ -1131,6 +1143,12 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
 #if ENABLE(PICTURE_IN_PICTURE_API)
     case CSSSelector::PseudoClass::PictureInPicture:
         fragment.unoptimizedPseudoClasses.append(CodePtr<JSC::OperationPtrTag>(operationMatchesPictureInPicturePseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+#endif
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    case CSSSelector::PseudoClass::Immersive:
+        fragment.unoptimizedPseudoClasses.append(CodePtr<JSC::OperationPtrTag>(operationMatchesImmersivePseudoClass));
         return FunctionType::SimpleSelectorChecker;
 #endif
 
@@ -2388,7 +2406,7 @@ void SelectorCodeGenerator::generateSelectorChecker()
             } else
                 failureStack = successStack;
 
-            m_stackAllocator.merge(WTFMove(successStack), WTFMove(failureStack));
+            m_stackAllocator.merge(WTF::move(successStack), WTF::move(failureStack));
             return;
         }
     }
@@ -2423,7 +2441,7 @@ void SelectorCodeGenerator::generateSelectorChecker()
         generateReturn();
     } else
         earlyFailureStack = successStack;
-    m_stackAllocator.merge(WTFMove(successStack), WTFMove(earlyFailureStack));
+    m_stackAllocator.merge(WTF::move(successStack), WTF::move(earlyFailureStack));
 }
 
 void SelectorCodeGenerator::generateSelectorCheckerExcludingPseudoElements(Assembler::JumpList& failureCases, const SelectorFragmentList& selectorFragmentList)
@@ -2574,7 +2592,7 @@ void SelectorCodeGenerator::generateElementMatchesSelectorList(Assembler::JumpLi
 
         skipFailureCase.link(&m_assembler);
 
-        m_stackAllocator.merge(WTFMove(successStack), WTFMove(failureStack));
+        m_stackAllocator.merge(WTF::move(successStack), WTF::move(failureStack));
     }
 }
 

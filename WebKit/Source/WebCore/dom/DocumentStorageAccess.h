@@ -31,15 +31,6 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
-class DocumentStorageAccess;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::DocumentStorageAccess> : std::true_type { };
-}
-
-namespace WebCore {
 
 class DeferredPromise;
 class Document;
@@ -78,6 +69,9 @@ public:
     explicit DocumentStorageAccess(Document&);
     ~DocumentStorageAccess();
 
+    void ref() const;
+    void deref() const;
+
     static void hasStorageAccess(Document&, Ref<DeferredPromise>&&);
     static bool hasStorageAccessForDocumentQuirk(Document&);
 
@@ -97,7 +91,8 @@ private:
     void requestStorageAccessQuirk(RegistrableDomain&& requestingDomain, CompletionHandler<void(StorageAccessWasGranted)>&&);
 
     static DocumentStorageAccess* from(Document&);
-    static ASCIILiteral supplementName();
+    static ASCIILiteral supplementName() { return "DocumentStorageAccess"_s; }
+    bool isDocumentStorageAccess() const final { return true; }
     bool hasFrameSpecificStorageAccess() const;
     void setWasExplicitlyDeniedFrameSpecificStorageAccess() { ++m_numberOfTimesExplicitlyDeniedFrameSpecificStorageAccess; };
     bool isAllowedToRequestStorageAccess() { return m_numberOfTimesExplicitlyDeniedFrameSpecificStorageAccess < maxNumberOfTimesExplicitlyDeniedStorageAccess; };
@@ -116,3 +111,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DocumentStorageAccess)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isDocumentStorageAccess(); }
+SPECIALIZE_TYPE_TRAITS_END()

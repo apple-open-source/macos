@@ -309,17 +309,17 @@ RefPtr<ArchiveResource> LegacyWebArchive::createResource(CFDictionaryRef diction
 
 LegacyWebArchive::LegacyWebArchive(std::optional<FrameIdentifier> frameIdentifier, Vector<FrameIdentifier>&& subframeIdentifiers)
     : m_frameIdentifier(frameIdentifier)
-    , m_subframeIdentifiers(WTFMove(subframeIdentifiers))
+    , m_subframeIdentifiers(WTF::move(subframeIdentifiers))
 {
 }
 
 Ref<LegacyWebArchive> LegacyWebArchive::create(Ref<ArchiveResource>&& mainResource, Vector<Ref<ArchiveResource>>&& subresources, Vector<FrameIdentifier>&& subframeIdentifiers, std::optional<FrameIdentifier> mainFrameIdentifier)
 {
-    auto archive = adoptRef(*new LegacyWebArchive(mainFrameIdentifier, WTFMove(subframeIdentifiers)));
-    archive->setMainResource(WTFMove(mainResource));
+    auto archive = adoptRef(*new LegacyWebArchive(mainFrameIdentifier, WTF::move(subframeIdentifiers)));
+    archive->setMainResource(WTF::move(mainResource));
 
     for (auto& subresource : subresources)
-        archive->addSubresource(WTFMove(subresource));
+        archive->addSubresource(WTF::move(subresource));
 
     return archive;
 }
@@ -327,13 +327,13 @@ Ref<LegacyWebArchive> LegacyWebArchive::create(Ref<ArchiveResource>&& mainResour
 Ref<LegacyWebArchive> LegacyWebArchive::create(Ref<ArchiveResource>&& mainResource, Vector<Ref<ArchiveResource>>&& subresources, Vector<Ref<LegacyWebArchive>>&& subframeArchives, std::optional<FrameIdentifier> mainFrameIdentifier)
 {
     auto archive = adoptRef(*new LegacyWebArchive(mainFrameIdentifier, { }));
-    archive->setMainResource(WTFMove(mainResource));
+    archive->setMainResource(WTF::move(mainResource));
 
     for (auto& subresource : subresources)
-        archive->addSubresource(WTFMove(subresource));
+        archive->addSubresource(WTF::move(subresource));
 
     for (auto& subframeArchive : subframeArchives)
-        archive->addSubframeArchive(WTFMove(subframeArchive));
+        archive->addSubframeArchive(WTF::move(subframeArchive));
 
     return archive;
 }
@@ -444,7 +444,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(CFDictionaryRef dictionary)
         }
     }
 
-    return create(mainResource.releaseNonNull(), WTFMove(subresources), WTFMove(subframeArchives), std::nullopt);
+    return create(mainResource.releaseNonNull(), WTF::move(subresources), WTF::move(subframeArchives), std::nullopt);
 }
 
 RetainPtr<CFDataRef> LegacyWebArchive::rawDataRepresentation()
@@ -503,7 +503,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, ArchiveOptions&& o
     if (!frame)
         return nullptr;
 
-    auto currentOptions = WTFMove(options);
+    auto currentOptions = WTF::move(options);
     // If the page was loaded with JavaScript enabled, we don't want to archive <noscript> tags
     // In practice we don't actually know whether scripting was enabled when the page was originally loaded
     // but we can approximate that by checking if scripting is enabled right now.
@@ -549,10 +549,10 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(LocalFrame& frame, ArchiveOpti
 
     if (!subframeIdentifiers.isEmpty()) {
         ASSERT(subframeArchives.isEmpty());
-        return create(mainResource.releaseNonNull(), documentLoader->subresources(), WTFMove(subframeIdentifiers), frame.frameID());
+        return create(mainResource.releaseNonNull(), documentLoader->subresources(), WTF::move(subframeIdentifiers), frame.frameID());
     }
 
-    return create(mainResource.releaseNonNull(), documentLoader->subresources(), WTFMove(subframeArchives), frame.frameID());
+    return create(mainResource.releaseNonNull(), documentLoader->subresources(), WTF::move(subframeArchives), frame.frameID());
 }
 
 RefPtr<LegacyWebArchive> LegacyWebArchive::create(const SimpleRange& range)
@@ -570,7 +570,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const SimpleRange& range, Arch
     // FIXME: This is always "for interchange". Is that right?
     Vector<Ref<Node>> nodeList;
     auto markupString = makeString(documentTypeString(document), serializePreservingVisualAppearance(range, &nodeList, AnnotateForInterchange::Yes));
-    return createInternal(markupString, WTFMove(options), *frame, WTFMove(nodeList), nullptr);
+    return createInternal(markupString, WTF::move(options), *frame, WTF::move(nodeList), nullptr);
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -590,7 +590,7 @@ static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, c
         if (uniqueIdentifier.isEmpty())
             continue;
 
-        identifiers.append(WTFMove(uniqueIdentifier));
+        identifiers.append(WTF::move(uniqueIdentifier));
     }
 
     if (identifiers.isEmpty())
@@ -601,9 +601,9 @@ static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, c
         return;
 
     auto frameName = frame.tree().uniqueName();
-    for (auto& data : editorClient->serializedAttachmentDataForIdentifiers(WTFMove(identifiers))) {
+    for (auto& data : editorClient->serializedAttachmentDataForIdentifiers(WTF::move(identifiers))) {
         auto resourceURL = HTMLAttachmentElement::archiveResourceURL(data.identifier);
-        if (auto resource = ArchiveResource::create(data.data.ptr(), WTFMove(resourceURL), data.mimeType, { }, frameName))
+        if (auto resource = ArchiveResource::create(data.data.ptr(), WTF::move(resourceURL), data.mimeType, { }, frameName))
             subresources.append(resource.releaseNonNull());
     }
 }
@@ -631,8 +631,8 @@ static HashMap<Ref<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNec
         if (uniqueCSSStyleSheets.contains(*cssStyleSheet))
             continue;
 
-        HashSet<RefPtr<CSSStyleSheet>> cssStyleSheets;
-        cssStyleSheets.add(cssStyleSheet.get());
+        HashSet<Ref<CSSStyleSheet>> cssStyleSheets;
+        cssStyleSheets.add(*cssStyleSheet);
         cssStyleSheet->getChildStyleSheets(cssStyleSheets);
         for (auto& currentCSSStyleSheet : cssStyleSheets) {
             bool isExternalStyleSheet = !currentCSSStyleSheet->href().isEmpty() || currentCSSStyleSheet->ownerRule();
@@ -643,7 +643,7 @@ static HashMap<Ref<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNec
             if (url.isNull() || url.isEmpty())
                 continue;
 
-            auto addResult = uniqueCSSStyleSheets.add(*currentCSSStyleSheet, emptyString());
+            auto addResult = uniqueCSSStyleSheets.add(currentCSSStyleSheet.copyRef(), emptyString());
             if (!addResult.isNewEntry)
                 continue;
 
@@ -662,7 +662,7 @@ static HashMap<Ref<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNec
             String subresourceFileName = generateValidFileName(url, uniqueFileNames, extension);
             uniqueFileNames.add(subresourceFileName);
             addResult.iterator->value = FileSystem::pathByAppendingComponent(subresourcesDirectoryName, subresourceFileName);
-            serializationContext.replacementURLStringsForCSSStyleSheet.add(*currentCSSStyleSheet, subresourceFileName);
+            serializationContext.replacementURLStringsForCSSStyleSheet.add(currentCSSStyleSheet.copyRef(), subresourceFileName);
         }
     }
 
@@ -688,12 +688,12 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createInternal(Node& node, const Arch
         return nullptr;
 
     Vector<Ref<Node>> nodeList;
-    String markupString = serializeFragment(node, SerializedNodes::SubtreeIncludingNode, &nodeList, ResolveURLs::No, std::nullopt, SerializeShadowRoots::AllForInterchange, { }, options.markupExclusionRules);
+    String markupString = serializeFragment(node, SerializedNodes::SubtreeIncludingNode, &nodeList, ResolveURLs::NoExcludingURLsForPrivacy, std::nullopt, SerializeShadowRoots::AllForInterchange, { }, options.markupExclusionRules);
     auto nodeType = node.nodeType();
     if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
         markupString = makeString(documentTypeString(node.document()), markupString);
 
-    return createInternal(markupString, options, *frame, WTFMove(nodeList), frameFilter);
+    return createInternal(markupString, options, *frame, WTF::move(nodeList), frameFilter);
 }
 
 RefPtr<LegacyWebArchive> LegacyWebArchive::createInternal(const String& markupString, const ArchiveOptions& options, LocalFrame& frame, Vector<Ref<Node>>&& nodes, NOESCAPE const Function<bool(LocalFrame&)>& frameFilter)
@@ -826,24 +826,24 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createInternal(const String& markupSt
         auto mainFrameFileNameWithExtension = options.mainResourceFileName.endsWith(extension) ? options.mainResourceFileName : makeString(options.mainResourceFileName, extension);
         auto fileNameWithExtension = frame.isMainFrame() ? mainFrameFileNameWithExtension : makeString(subresourcesDirectoryName, "/frame_"_s, frame.frameID().toUInt64(), extension);
 
-        ResolveURLs resolveURLs = ResolveURLs::No;
+        ResolveURLs resolveURLs = ResolveURLs::NoExcludingURLsForPrivacy;
         // Base element is excluded, so all URLs should be replaced with absolute URL.
         bool baseElementExcluded = std::ranges::any_of(options.markupExclusionRules, [&](auto& rule) {
             return rule.elementLocalName == "base"_s;
         });
         if (!document->baseElementURL().isEmpty() && baseElementExcluded)
-            resolveURLs = ResolveURLs::Yes;
+            resolveURLs = ResolveURLs::YesExcludingURLsForPrivacy;
 
-        String updatedMarkupString = serializeFragmentWithURLReplacement(*document, SerializedNodes::SubtreeIncludingNode, nullptr, resolveURLs, std::nullopt, WTFMove(uniqueSubresources), WTFMove(uniqueCSSStyleSheets), SerializeShadowRoots::AllForInterchange, { }, options.markupExclusionRules);
+        String updatedMarkupString = serializeFragmentWithURLReplacement(*document, SerializedNodes::SubtreeIncludingNode, nullptr, resolveURLs, std::nullopt, WTF::move(uniqueSubresources), WTF::move(uniqueCSSStyleSheets), SerializeShadowRoots::AllForInterchange, { }, options.markupExclusionRules);
         mainResource = ArchiveResource::create(utf8Buffer(updatedMarkupString), responseURL, response.mimeType(), "UTF-8"_s, frame.tree().uniqueName(), ResourceResponse(), fileNameWithExtension);
     }
 
     if (!subframeIdentifiers.isEmpty()) {
         ASSERT(subframeArchives.isEmpty());
-        return create(mainResource.releaseNonNull(), WTFMove(subresources), WTFMove(subframeIdentifiers), frame.frameID());
+        return create(mainResource.releaseNonNull(), WTF::move(subresources), WTF::move(subframeIdentifiers), frame.frameID());
     }
 
-    return create(mainResource.releaseNonNull(), WTFMove(subresources), WTFMove(subframeArchives), frame.frameID());
+    return create(mainResource.releaseNonNull(), WTF::move(subresources), WTF::move(subframeArchives), frame.frameID());
 }
 
 RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(LocalFrame* frame)
@@ -864,9 +864,9 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(LocalFrame* frame
     builder.append(documentTypeString(*document));
 
     Vector<Ref<Node>> nodeList;
-    builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::No, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes, PreserveBaseElement::Yes, PreserveDirectionForInlineText::Yes, &nodeList));
+    builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::NoExcludingURLsForPrivacy, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes, PreserveBaseElement::Yes, PreserveDirectionForInlineText::Yes, &nodeList));
 
-    RefPtr archive = createInternal(builder.toString(), WTFMove(options), *frame, WTFMove(nodeList), { });
+    RefPtr archive = createInternal(builder.toString(), WTF::move(options), *frame, WTF::move(nodeList), { });
     if (!archive)
         return nullptr;
 

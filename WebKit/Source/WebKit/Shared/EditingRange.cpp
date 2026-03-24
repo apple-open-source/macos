@@ -59,7 +59,7 @@ std::optional<WebCore::SimpleRange> EditingRange::toRange(WebCore::LocalFrame& f
         return std::nullopt;
 
     auto scopeEnd = makeBoundaryPointAfterNodeContents(Ref { paragraphStart->container->treeScope().rootNode() });
-    return WebCore::resolveCharacterRange({ WTFMove(*paragraphStart), WTFMove(scopeEnd) }, range);
+    return WebCore::resolveCharacterRange({ WTF::move(*paragraphStart), WTF::move(scopeEnd) }, range);
 }
 
 EditingRange EditingRange::fromRange(WebCore::LocalFrame& frame, const std::optional<WebCore::SimpleRange>& range, EditingRangeIsRelativeTo editingRangeIsRelativeTo)

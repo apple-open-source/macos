@@ -89,7 +89,7 @@ private:
         Tile(uint32_t id, const IntPoint& position, IntRect&& tileRect)
             : id(id)
             , position(position)
-            , rect(WTFMove(tileRect))
+            , rect(WTF::move(tileRect))
             , dirtyRect(rect)
         {
         }

@@ -9,6 +9,17 @@
     }
   ],
   "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LLVM_PROFILE_FILE",
+        "value" : "\/tmp\/%c%p_nfsTests.profraw"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:NFS.xcodeproj",
+      "identifier" : "D6EA4A181FB7B995002AF776",
+      "name" : "All"
+    },
     "testTimeoutsEnabled" : true
   },
   "testTargets" : [

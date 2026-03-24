@@ -136,7 +136,7 @@ Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
             if ((mappedName && [mappedName isEqual:methodName.get()]) || equalSpans(objcMethodSelectorName, unsafeSpan(buffer.span().data()))) {
                 auto method = makeUnique<ObjcMethod>(thisClass, objcMethodSelector);
                 methodPtr = method.get();
-                m_methodCache.add(name.impl(), WTFMove(method));
+                m_methodCache.add(name.impl(), WTF::move(method));
                 break;
             }
         }
@@ -160,7 +160,7 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
 
     CString jsName = name.ascii();
     RetainPtr<NSString> fieldName = adoptNS([[NSString alloc] initWithCString:jsName.data() encoding:NSASCIIStringEncoding]);
-    id targetObject = (static_cast<ObjcInstance*>(instance))->getObject();
+    id targetObject = (downcast<ObjcInstance>(instance))->getObject();
 #if PLATFORM(IOS_FAMILY)
     IGNORE_WARNINGS_BEGIN("undeclared-selector")
     id attributes = [targetObject respondsToSelector:@selector(attributeKeys)] ? [targetObject performSelector:@selector(attributeKeys)] : nil;
@@ -188,7 +188,7 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
             if ((mappedName && [mappedName isEqual:fieldName.get()]) || [keyName isEqual:fieldName.get()]) {
                 auto newField = makeUnique<ObjcField>((__bridge CFStringRef)keyName);
                 field = newField.get();
-                m_fieldCache.add(name.impl(), WTFMove(newField));
+                m_fieldCache.add(name.impl(), WTF::move(newField));
                 break;
             }
         }
@@ -216,7 +216,7 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
                 if ((mappedName && [mappedName isEqual:fieldName.get()]) || equalSpans(unsafeSpan(objcIvarName), jsName.span())) {
                     auto newField = makeUnique<ObjcField>(objcIVar);
                     field = newField.get();
-                    m_fieldCache.add(name.impl(), WTFMove(newField));
+                    m_fieldCache.add(name.impl(), WTF::move(newField));
                     break;
                 }
             }
@@ -230,7 +230,7 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
 
 JSValue ObjcClass::fallbackObject(JSGlobalObject* lexicalGlobalObject, Instance* instance, PropertyName propertyName)
 {
-    ObjcInstance* objcInstance = static_cast<ObjcInstance*>(instance);
+    auto* objcInstance = downcast<ObjcInstance>(instance);
     id targetObject = objcInstance->getObject();
     
     if (![targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)])

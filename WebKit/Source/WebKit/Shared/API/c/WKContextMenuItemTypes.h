@@ -138,6 +138,7 @@ enum {
     kWKContextMenuItemTagProofread,
     kWKContextMenuItemTagRewrite,
     kWKContextMenuItemTagSummarize,
+    kWKContextMenuItemCaptionDisplayStyleSubmenu,
     kWKContextMenuItemBaseApplicationTag = 10000
 };
 typedef uint32_t WKContextMenuItemTag;

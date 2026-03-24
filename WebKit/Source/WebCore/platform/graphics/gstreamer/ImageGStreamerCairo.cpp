@@ -32,7 +32,7 @@
 namespace WebCore {
 
 ImageGStreamer::ImageGStreamer(GRefPtr<GstSample>&& sample)
-    : m_sample(WTFMove(sample))
+    : m_sample(WTF::move(sample))
 {
     GstCaps* caps = gst_sample_get_caps(m_sample.get());
     GstVideoInfo videoInfo;
@@ -158,7 +158,7 @@ ImageGStreamer::ImageGStreamer(GRefPtr<GstSample>&& sample)
         surface = adoptRef(cairo_image_surface_create_for_data(bufferData, CAIRO_FORMAT_ARGB32, width, height, stride));
 
     ASSERT(cairo_surface_status(surface.get()) == CAIRO_STATUS_SUCCESS);
-    m_image = WTFMove(surface);
+    m_image = WTF::move(surface);
 
     if (GstVideoCropMeta* cropMeta = gst_buffer_get_video_crop_meta(buffer))
         setCropRect(FloatRect(cropMeta->x, cropMeta->y, cropMeta->width, cropMeta->height));

@@ -45,7 +45,7 @@ public:
     DOMHighResTimeStamp processingStart() const { return m_processingStart.milliseconds(); }
     DOMHighResTimeStamp processingEnd() const { return m_processingEnd.milliseconds(); }
     bool cancelable() const { return m_cancelable; }
-    Node* target() const;
+    RefPtr<Node> target() const;
     uint64_t interactionId() const;
 
     Type performanceEntryType() const final;

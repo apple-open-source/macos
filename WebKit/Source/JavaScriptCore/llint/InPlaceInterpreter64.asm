@@ -67,9 +67,9 @@ if ARM64 or ARM64E
     # x0 = opcode
     pcrtoaddr ipint_dispatch_base, t7
     addlshiftp t7, t0, (constexpr (WTF::fastLog2(JSC::IPInt::alignIPInt))), t0
-    emit "br x0"
+    jmp t0
 elsif X86_64
-    leap _g_opcodeConfigStorage, t1
+    leap _os_script_config_storage, t1
     loadp JSC::LLInt::OpcodeConfig::ipint_dispatch_base[t1], t1
     lshiftq (constexpr (WTF::fastLog2(JSC::IPInt::alignIPInt))), t0
     addq t1, t0
@@ -201,7 +201,7 @@ macro argumINTDispatch()
 if ARM64 or ARM64E
     pcrtoaddr _argumINT_begin, argumINTDsp
     addp argumINTTmp, argumINTDsp
-    emit "br x23"
+    jmp argumINTDsp
 elsif X86_64
     leap (_argumINT_begin - _ipint_entry_relativePCBase)[PL], argumINTDsp
     addp argumINTTmp, argumINTDsp
@@ -409,8 +409,7 @@ if ARM64 or ARM64E
     lshiftq (constexpr (WTF::fastLog2(JSC::IPInt::alignUInt))), sc2
     pcrtoaddr _uint_begin, sc3
     addq sc2, ws3
-    # ws3 = x12
-    emit "br x12"
+    jmp ws3
 elsif X86_64
     loadb [MC], sc1
     addq 1, MC
@@ -569,18 +568,20 @@ ipintOp(_call_indirect, macro()
     // The operationCall below already calls validateOpcodeConfig().
     saveCallSiteIndex()
 
-    loadb IPInt::CallIndirectMetadata::length[MC], t2
-    advancePCByReg(t2)
-
     # Get function index by pointer, use it as a return for callee
     move sp, a2
 
     # Get callIndirectMetadata
     move cfr, a1
     move MC, a3
-    advanceMC(IPInt::CallIndirectMetadata::signature)
 
     operationCallMayThrow(macro() cCall4(_ipint_extern_prepare_call_indirect) end)
+
+    # operationCallMayThrow saves the call site index, so we have to advance the PC after.
+    # Otherwise, the wrong call site index will be saved.
+    loadb IPInt::CallIndirectMetadata::length[MC], t3
+    advancePCByReg(t3)
+    advanceMC(IPInt::CallIndirectMetadata::signature)
 
     loadq [sp], IPIntCallCallee
     loadq 8[sp], IPIntCallFunctionSlot
@@ -618,9 +619,6 @@ ipintOp(_return_call_indirect, macro()
     // The operationCallMayThrow below already calls validateOpcodeConfig().
     saveCallSiteIndex()
 
-    loadb IPInt::TailCallIndirectMetadata::length[MC], t2
-    advancePCByReg(t2)
-
     # Get function index by pointer, use it as a return for callee
     move sp, a2
 
@@ -628,6 +626,11 @@ ipintOp(_return_call_indirect, macro()
     move cfr, a1
     move MC, a3
     operationCallMayThrow(macro() cCall4(_ipint_extern_prepare_call_indirect) end)
+
+    # operationCallMayThrow saves the call site index, so we have to advance the PC after.
+    # Otherwise, the wrong call site index will be saved.
+    loadb IPInt::TailCallIndirectMetadata::length[MC], t3
+    advancePCByReg(t3)
 
     loadq [sp], IPIntCallCallee
     loadq 8[sp], IPIntCallFunctionSlot
@@ -662,13 +665,16 @@ ipintOp(_return_call_ref, macro()
     // The operationCallMayThrow below already calls validateOpcodeConfig().
     saveCallSiteIndex()
 
-    loadb IPInt::TailCallRefMetadata::length[MC], t2
-    advancePCByReg(t2)
-
     move cfr, a1
     move MC, a2
     move sp, a3
     operationCallMayThrow(macro() cCall4(_ipint_extern_prepare_call_ref) end)
+
+    # operationCallMayThrow saves the call site index, so we have to advance the PC after.
+    # Otherwise, the wrong call site index will be saved.
+    loadb IPInt::TailCallRefMetadata::length[MC], t3
+    advancePCByReg(t3)
+
     loadq [sp], IPIntCallCallee
     loadq 8[sp], IPIntCallFunctionSlot
     addq 16, sp
@@ -938,20 +944,32 @@ macro ipintCheckMemoryBound(mem, scratch, size)
 .continuation:
 end
 
+macro loadMemoryOffsetAndAdvanceMC(dstReg, tmpReg, instrLenReg)
+	loadb JSWebAssemblyInstance::m_cachedIsMemory64[wasmInstance], tmpReg
+	btiz tmpReg, .memory32
+	loadq IPInt::Const64Metadata::value[MC], dstReg
+    loadb IPInt::Const64Metadata::instructionLength[MC], instrLenReg
+	advanceMC(constexpr (sizeof(IPInt::Const64Metadata)))
+	jmp .done
+.memory32:
+	loadi IPInt::Const32Metadata::value[MC], dstReg
+    loadb IPInt::Const32Metadata::instructionLength[MC], instrLenReg
+	advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+.done:
+end
+
 ipintOp(_i32_load_mem, macro()
     # i32.load
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
     pushInt32(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -959,16 +977,14 @@ ipintOp(_i64_load_mem, macro()
     # i32.load
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadq [memoryBase, t0], t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -976,16 +992,14 @@ ipintOp(_f32_load_mem, macro()
     # f32.load
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadf [memoryBase, t0], ft0
     pushFloat32(ft0)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -993,16 +1007,14 @@ ipintOp(_f64_load_mem, macro()
     # f64.load
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadd [memoryBase, t0], ft0
     pushFloat64(ft0)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1010,7 +1022,7 @@ ipintOp(_i32_load8s_mem, macro()
     # i32.load8_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+    loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
@@ -1018,9 +1030,7 @@ ipintOp(_i32_load8s_mem, macro()
     sxb2i t1, t1
     pushInt32(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1028,16 +1038,14 @@ ipintOp(_i32_load8u_mem, macro()
     # i32.load8_u
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     pushInt32(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1045,7 +1053,7 @@ ipintOp(_i32_load16s_mem, macro()
     # i32.load16_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
@@ -1053,9 +1061,7 @@ ipintOp(_i32_load16s_mem, macro()
     sxh2i t1, t1
     pushInt32(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1063,16 +1069,14 @@ ipintOp(_i32_load16u_mem, macro()
     # i32.load16_u
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     pushInt32(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1080,7 +1084,7 @@ ipintOp(_i64_load8s_mem, macro()
     # i64.load8_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
@@ -1088,9 +1092,7 @@ ipintOp(_i64_load8s_mem, macro()
     sxb2q t1, t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1098,16 +1100,14 @@ ipintOp(_i64_load8u_mem, macro()
     # i64.load8_u
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1115,7 +1115,7 @@ ipintOp(_i64_load16s_mem, macro()
     # i64.load16_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
@@ -1123,9 +1123,7 @@ ipintOp(_i64_load16s_mem, macro()
     sxh2q t1, t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1133,16 +1131,14 @@ ipintOp(_i64_load16u_mem, macro()
     # i64.load16_u
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1150,7 +1146,7 @@ ipintOp(_i64_load32s_mem, macro()
     # i64.load32_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
@@ -1158,9 +1154,7 @@ ipintOp(_i64_load32s_mem, macro()
     sxi2q t1, t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1168,16 +1162,14 @@ ipintOp(_i64_load32u_mem, macro()
     # i64.load8_s
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
     pushInt64(t1)
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1187,15 +1179,13 @@ ipintOp(_i32_store_mem, macro()
     popInt32(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1205,15 +1195,13 @@ ipintOp(_i64_store_mem, macro()
     popInt64(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     storeq t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1223,15 +1211,13 @@ ipintOp(_f32_store_mem, macro()
     popFloat32(ft0)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storef ft0, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1241,15 +1227,13 @@ ipintOp(_f64_store_mem, macro()
     popFloat64(ft0)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     stored ft0, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1259,15 +1243,13 @@ ipintOp(_i32_store8_mem, macro()
     popInt32(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1277,15 +1259,13 @@ ipintOp(_i32_store16_mem, macro()
     popInt32(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1295,15 +1275,13 @@ ipintOp(_i64_store8_mem, macro()
     popInt64(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1313,15 +1291,13 @@ ipintOp(_i64_store16_mem, macro()
     popInt64(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -1331,15 +1307,13 @@ ipintOp(_i64_store32_mem, macro()
     popInt64(t1)
     # pop index
     popMemoryIndex(t0, t2)
-    loadi IPInt::Const32Metadata::value[MC], t2
+	loadMemoryOffsetAndAdvanceMC(t2, t3, t4)
     addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
 
-    loadb IPInt::Const32Metadata::instructionLength[MC], t0
-    advancePCByReg(t0)
-    advanceMC(constexpr (sizeof(IPInt::Const32Metadata)))
+    advancePCByReg(t4)
     nextIPIntInstruction()
 end)
 
@@ -3206,11 +3180,11 @@ ipintOp(_gc_prefix, macro()
     decodeLEBVarUInt32(1, t0, t1, t2, t3, t4)
     # Security guarantee: always less than 30 (0x00 -> 0x1e)
     biaeq t0, 0x1f, .ipint_gc_nonexistent
-    leap _g_opcodeConfigStorage, t1
+    leap _os_script_config_storage, t1
     loadp JSC::LLInt::OpcodeConfig::ipint_gc_dispatch_base[t1], t1
     if ARM64 or ARM64E
-        emit "add x0, x1, x0, lsl 8"
-        emit "br x0"
+        addlshiftp t1, t0, 8, t0
+        jmp t0
     elsif X86_64
         lshiftq 8, t0
         addq t1, t0
@@ -3225,11 +3199,11 @@ ipintOp(_conversion_prefix, macro()
     decodeLEBVarUInt32(1, t0, t1, t2, t3, t4)
     # Security guarantee: always less than 18 (0x00 -> 0x11)
     biaeq t0, 0x12, .ipint_conversion_nonexistent
-    leap _g_opcodeConfigStorage, t1
+    leap _os_script_config_storage, t1
     loadp JSC::LLInt::OpcodeConfig::ipint_conversion_dispatch_base[t1], t1
     if ARM64 or ARM64E
-        emit "add x0, x1, x0, lsl 8"
-        emit "br x0"
+        addlshiftp t1, t0, 8, t0
+        jmp t0
     elsif X86_64
         lshiftq 8, t0
         addq t1, t0
@@ -3244,11 +3218,11 @@ ipintOp(_simd_prefix, macro()
     decodeLEBVarUInt32(1, t0, t1, t2, t3, t4)
     # Security guarantee: always less than 256 (0x00 -> 0xff)
     biaeq t0, 0x100, .ipint_simd_nonexistent
-    leap _g_opcodeConfigStorage, t1
+    leap _os_script_config_storage, t1
     loadp JSC::LLInt::OpcodeConfig::ipint_simd_dispatch_base[t1], t1
     if ARM64 or ARM64E
-        emit "add x0, x1, x0, lsl 8"
-        emit "br x0"
+        addlshiftp t1, t0, 8, t0
+        jmp t0
     elsif X86_64
         lshiftq 8, t0
         addq t1, t0
@@ -3263,11 +3237,11 @@ ipintOp(_atomic_prefix, macro()
     decodeLEBVarUInt32(1, t0, t1, t2, t3, t4)
     # Security guarantee: always less than 78 (0x00 -> 0x4e)
     biaeq t0, 0x4f, .ipint_atomic_nonexistent
-    leap _g_opcodeConfigStorage, t1
+    leap _os_script_config_storage, t1
     loadp JSC::LLInt::OpcodeConfig::ipint_atomic_dispatch_base[t1], t1
     if ARM64 or ARM64E
-        emit "add x0, x1, x0, lsl 8"
-        emit "br x0"
+        addlshiftp t1, t0, 8, t0
+        jmp t0
     elsif X86_64
         lshiftq 8, t0
         addq t1, t0
@@ -10588,8 +10562,7 @@ macro mintArgDispatch()
 if ARM64 or ARM64E
     pcrtoaddr _mint_begin, csr4
     addq sc0, csr4
-    # csr4 = x23
-    emit "br x23"
+    jmp csr4
 elsif X86_64
     leap (_mint_begin - _mint_arg_relativePCBase)[PC, sc0], sc0
     jmp sc0
@@ -10604,8 +10577,7 @@ macro mintRetDispatch()
 if ARM64 or ARM64E
     pcrtoaddr _mint_begin_return, csr4
     addq sc0, csr4
-    # csr4 = x23
-    emit "br x23"
+    jmp csr4
 elsif X86_64
     leap (_mint_begin_return - _mint_ret_relativePCBase)[PC, sc0], sc0
     jmp sc0
@@ -10671,22 +10643,27 @@ end
     # reserved
     # reserved        <- sp
 
+    # save t3 as a frame-relative value so stack data can be moved easily for JSPI
+    # t3 is not used after this
+    subp cfr, t3
     push t3, PC
-    push PL, wasmInstance
+    # ditto for PL, t3 is okay to use as scratch
+    subp PL, cfr, t3
+    push t3, wasmInstance
 
     # set up the call frame
     move sp, t2
     subp stackFrameSize, sp
 
-    # <first non-arg> <- t3
+    # <first non-arg> <- first_non_arg_addr
     # arg
     # ...
     # arg
     # arg             <- t4 = initial SP (wasm stack)
     # reserved
     # reserved
-    # t3, PC
-    # PL, wasmInstance <- t2 = native argument stack (pushed by mINT)
+    # (first_non_arg_addr - cfr), PC
+    # (PL - cfr), wasmInstance <- t2 = native argument stack (pushed by mINT)
     # call frame
     # call frame
     # call frame
@@ -10758,7 +10735,7 @@ end
     # determine the location to begin copying stack arguments, starting from the last
     move cfr, sc2
     addp FirstArgumentOffset, sc2
-    addp t3, sc2
+    addp t3, sc2 # t3 = callerStackArgSize from the metadata
 
     #  <caller frame>              <- sc2
     #  return val
@@ -11007,8 +10984,10 @@ mintAlign(_call)
     pop wasmInstance, ws0
     # pop targetInstance, targetEntrypoint
 
-    # Save stack pointer, if we tail call someone who changes the frame above's stack argument size
+    # Save stack pointer, if we tail call someone who changes the frame above's stack argument size.
+    # Store its value relative to cfp so stack frames can be easily relocated for JSPI.
     move sp, sc1
+    subp cfr, sc1
     storep sc1, ThisArgumentOffset[cfr]
 
     # Swap instances
@@ -11037,17 +11016,18 @@ _wasm_ipint_call_return_location_wide16:
 _wasm_ipint_call_return_location_wide32:
     # Restore the stack pointer
     loadp ThisArgumentOffset[cfr], sc0
+    addp cfr, sc0
     move sc0, sp
 
-    # <first non-arg>   <- t3
+    # <first non-arg>   <- first_non_arg_addr
     # arg
     # ...
     # arg
     # arg
     # reserved
     # reserved
-    # t3, PC
-    # PL, wasmInstance  <- sc3
+    # (first_non_arg_addr - cfr), PC
+    # (PL - cfr), wasmInstance  <- sc3
     # call frame return
     # call frame return
     # call frame
@@ -11065,12 +11045,13 @@ _wasm_ipint_call_return_location_wide32:
     advanceMC(IPInt::CallReturnMetadata::resultBytecode)
     leap [sp, mintRetSrc], mintRetSrc
 
-    # load "saved t3" from the stack
+    # load (first_non_arg_addr - cfr) from the stack and make it absolute
 if ARM64 or ARM64E
     loadp (2 * SlotSize)[sc3], mintRetDst
 elsif X86_64
     loadp (3 * SlotSize)[sc3], mintRetDst
 end
+    addp cfr, mintRetDst
 
     # on x86, we'll use PC again for our PC base
     initPCRelative(mint_ret, PC)
@@ -11204,15 +11185,15 @@ mintAlign(_result_stack_vector)
 
 mintAlign(_end)
 
-    # <first non-arg>   <- t3
+    # <first non-arg>   <- first_non_arg_addr
     # return result
     # ...
     # return result
     # return result
     # return result
     # return result     <- mintRetDst => new SP
-    # t3, PC
-    # PL, wasmInstance  <- sc3
+    # (first_non_arg_addr - cfr), PC
+    # (PL - cfr), wasmInstance  <- sc3
     # call frame return <- mintRetSrc
     # call frame return
     # call frame
@@ -11222,7 +11203,8 @@ mintAlign(_end)
 
     # note: we don't care about t3 anymore
 if ARM64 or ARM64E
-    loadpairq [sc3], PL, wasmInstance
+    loadpairq [sc3], t3, wasmInstance
+    addp t3, cfr, PL
 else
     loadq [sc3], wasmInstance
 end
@@ -11238,7 +11220,8 @@ end
     storep ws0, UnboxedWasmCalleeStackSlot[cfr]
 if X86_64
     move sc2, wasmInstance
-    loadq 8[sc3], PL
+    loadq 8[sc3], t3
+    addp t3, cfr, PL
     loadp (2 * SlotSize)[sc3], PC
 end
 

@@ -63,7 +63,7 @@ static Ref<LayoutShape> createEllipseShape(const FloatPoint& center, const Float
 
 static Ref<LayoutShape> createPolygonShape(Vector<FloatPoint>&& vertices, float boxLogicalWidth)
 {
-    return adoptRef(*new PolygonLayoutShape(WTFMove(vertices), boxLogicalWidth));
+    return adoptRef(*new PolygonLayoutShape(WTF::move(vertices), boxLogicalWidth));
 }
 
 static inline FloatRect physicalRectToLogical(const FloatRect& rect, float logicalBoxHeight, WritingMode writingMode)
@@ -140,7 +140,7 @@ Ref<const LayoutShape> LayoutShape::createShape(const Style::BasicShape& basicSh
             auto topRightRadius = physicalSizeToLogical(Style::evaluate<FloatSize>(horizontalWritingMode ? inset->radii.topRight() : isBlockLeftToRight ? inset->radii.bottomLeft() : inset->radii.bottomRight(), boxSize, Style::ZoomNeeded { }), writingMode);
             auto bottomLeftRadius = physicalSizeToLogical(Style::evaluate<FloatSize>(horizontalWritingMode ? inset->radii.bottomLeft() : isBlockLeftToRight ? inset->radii.topRight() : inset->radii.topLeft(), boxSize, Style::ZoomNeeded { }), writingMode);
             auto bottomRightRadius = physicalSizeToLogical(Style::evaluate<FloatSize>(horizontalWritingMode ? inset->radii.bottomRight() : isBlockLeftToRight ? inset->radii.bottomRight() : inset->radii.bottomLeft(), boxSize, Style::ZoomNeeded { }), writingMode);
-            auto cornerRadii = FloatRoundedRect::Radii(topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
+            auto cornerRadii = CornerRadii(topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
             if (shouldFlipStartAndEndPoints(writingMode))
                 cornerRadii = { cornerRadii.topRight(), cornerRadii.topLeft(), cornerRadii.bottomRight(), cornerRadii.bottomLeft() };
 
@@ -154,7 +154,7 @@ Ref<const LayoutShape> LayoutShape::createShape(const Style::BasicShape& basicSh
                 return physicalPointToLogical(Style::evaluate<FloatPoint>(vertex, boxSize, Style::ZoomNeeded { }) + borderBoxOffset, logicalBoxSize.height(), writingMode);
             });
 
-            return createPolygonShape(WTFMove(vertices), logicalBoxSize.width());
+            return createPolygonShape(WTF::move(vertices), logicalBoxSize.width());
         },
         [&](const Style::PathFunction&) -> Ref<LayoutShape> {
             RELEASE_ASSERT_NOT_REACHED();
@@ -182,7 +182,7 @@ Ref<const LayoutShape> LayoutShape::createRasterShape(Image* image, float thresh
     auto imageBuffer = ImageBuffer::create(snappedPhysicalImageSize, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
 
     auto createShape = [&]() {
-        auto rasterShape = adoptRef(*new RasterLayoutShape(WTFMove(intervals), snappedLogicalMarginRect.size()));
+        auto rasterShape = adoptRef(*new RasterLayoutShape(WTF::move(intervals), snappedLogicalMarginRect.size()));
         rasterShape->m_writingMode = writingMode;
         rasterShape->m_margin = logicalMargin;
         return rasterShape;

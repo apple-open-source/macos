@@ -63,7 +63,7 @@ check_not_sourced() {
 }
 
 
-for x in .zshenv .zprofile .zshrc .zlogin; do
+for x in .zshenv .zprofile .zshrc .zlogin .zlogout; do
 	echo "echo \"$x sourced\" >> \"$SOURCEFILE\"" > "$x"
 	chmod 0644 "$x"
 done
@@ -71,7 +71,7 @@ done
 rm -f "$SOURCEFILE"
 
 # Baseline #1: Non-login shell sourcing
-if ! "$ZSH" -c "true"; then
+if ! "$ZSH" -c 'true'; then
 	1>&2 echo "non-login command failed; results inconclusive"
 	exit 1
 fi
@@ -82,12 +82,12 @@ if [ ! -s "$SOURCEFILE" ]; then
 fi
 
 check_sourced "non-login" .zshenv
-check_not_sourced "non-login" .zprofile .zshrc .zlogin
+check_not_sourced "non-login" .zprofile .zshrc .zlogin .zlogout
 
 rm "$SOURCEFILE"
 
 # Baseline #2: Login shell sourcing
-if ! "$ZSH" -lc 'true'; then
+if ! "$ZSH" -lic 'true'; then
 	1>&2 echo "login command failed; results inconclusive"
 	exit 1
 fi
@@ -97,8 +97,7 @@ if [ ! -s "$SOURCEFILE" ]; then
 	exit 1
 fi
 
-check_sourced "login" .zshenv .zprofile .zlogin
-check_not_sourced "non-login" .zshrc
+check_sourced "login" .zshenv .zprofile .zlogin .zlogout .zshrc
 
 rm -f "$SOURCEFILE"
 
@@ -113,7 +112,7 @@ elif [ -s "$SOURCEFILE" ]; then
 	1>&2 cat "$SOURCEFILE"
 	exit 1
 fi
-if ! "$ZSH" -lpc 'true'; then
+if ! "$ZSH" -lipc 'true'; then
 	1>&2 echo "login command failed; results inconclusive"
 	exit 1
 elif [ -s "$SOURCEFILE" ]; then
@@ -133,7 +132,7 @@ elif [ -s "$SOURCEFILE" ]; then
 	1>&2 cat "$SOURCEFILE"
 	exit 1
 fi
-if ! "$SETEUSER" daemon "$ZSH" -lc 'true'; then
+if ! "$SETEUSER" daemon "$ZSH" -lic 'true'; then
 	1>&2 echo "login command failed; results inconclusive"
 	exit 1
 elif [ -s "$SOURCEFILE" ]; then
@@ -154,7 +153,7 @@ elif [ -s "$SOURCEFILE" ]; then
 	1>&2 cat "$SOURCEFILE"
 	exit 1
 fi
-if ! "$ZSH" -lc 'true'; then
+if ! "$ZSH" -lic 'true'; then
 	1>&2 echo "login command failed; results inconclusive"
 	exit 1
 elif [ -s "$SOURCEFILE" ]; then

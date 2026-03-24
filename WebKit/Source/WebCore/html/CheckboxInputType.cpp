@@ -41,6 +41,7 @@
 #include "FrameDestructionObserverInlines.h"
 #include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLInputElementInlines.h"
 #include "InputTypeNames.h"
 #include "KeyboardEvent.h"
 #include "LayoutPoint.h"
@@ -50,7 +51,7 @@
 #include "MouseEvent.h"
 #include "NodeDocument.h"
 #include "RenderElement.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTheme.h"
 #include "ScopedEventQueue.h"
 #include "ScriptDisallowedScope.h"
@@ -151,9 +152,9 @@ static Touch* findTouchWithIdentifier(TouchList& list, unsigned identifier)
 {
     unsigned length = list.length();
     for (unsigned i = 0; i < length; ++i) {
-        RefPtr touch = list.item(i);
+        auto* touch = list.item(i);
         if (touch->identifier() == identifier)
-            return touch.unsafeGet();
+            return touch;
     }
     return nullptr;
 }
@@ -320,6 +321,11 @@ void CheckboxInputType::disabledStateChanged()
         stopSwitchAnimation(SwitchAnimationType::Held);
         stopSwitchPointerTracking();
     }
+
+#if ENABLE(TOUCH_EVENTS)
+    if (isSwitch())
+        protectedElement()->updateTouchEventHandler();
+#endif
 }
 
 void CheckboxInputType::willUpdateCheckedness(bool, WasSetByJavaScript wasCheckedByJavaScript)

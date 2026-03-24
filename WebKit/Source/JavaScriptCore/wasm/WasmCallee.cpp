@@ -74,7 +74,7 @@ Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, 
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Public)
     , m_compilationMode(compilationMode)
     , m_index(index)
-    , m_indexOrName(index, WTFMove(name))
+    , m_indexOrName(index, WTF::move(name))
 {
 }
 
@@ -190,21 +190,21 @@ JITCallee::JITCallee(Wasm::CompilationMode compilationMode)
 }
 
 JITCallee::JITCallee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
-    : Callee(compilationMode, index, WTFMove(name))
+    : Callee(compilationMode, index, WTF::move(name))
 {
 }
 
 #if ENABLE(JIT)
 void JITCallee::setEntrypoint(Wasm::Entrypoint&& entrypoint)
 {
-    m_entrypoint = WTFMove(entrypoint);
+    m_entrypoint = WTF::move(entrypoint);
     NativeCalleeRegistry::singleton().registerCallee(this);
 }
 
 void JSToWasmICCallee::setEntrypoint(MacroAssemblerCodeRef<JSEntryPtrTag>&& entrypoint)
 {
     ASSERT(!m_jsToWasmICEntrypoint);
-    m_jsToWasmICEntrypoint = WTFMove(entrypoint);
+    m_jsToWasmICEntrypoint = WTF::move(entrypoint);
     NativeCalleeRegistry::singleton().registerCallee(this);
 }
 #endif
@@ -226,21 +226,21 @@ WasmToJSCallee& WasmToJSCallee::singleton()
 }
 
 IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
-    : Callee(Wasm::CompilationMode::IPIntMode, index, WTFMove(name))
+    : Callee(Wasm::CompilationMode::IPIntMode, index, WTF::move(name))
     , m_functionIndex(generator.m_functionIndex)
     , m_bytecode(generator.m_bytecode.data() + generator.m_bytecodeOffset)
     , m_bytecodeEnd(m_bytecode + (generator.m_bytecode.size() - generator.m_bytecodeOffset - 1))
-    , m_metadata(WTFMove(generator.m_metadata))
-    , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
-    , m_uINTBytecode(WTFMove(generator.m_uINTBytecode))
+    , m_metadata(WTF::move(generator.m_metadata))
+    , m_argumINTBytecode(WTF::move(generator.m_argumINTBytecode))
+    , m_uINTBytecode(WTF::move(generator.m_uINTBytecode))
+    , m_callTargets(WTF::move(generator.m_callTargets))
     , m_topOfReturnStackFPOffset(generator.m_topOfReturnStackFPOffset)
     , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
     , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)
     , m_numLocals(generator.m_numLocals)
     , m_numArgumentsOnStack(generator.m_numArgumentsOnStack)
     , m_maxFrameSizeInV128(generator.m_maxFrameSizeInV128)
-    , m_numCallProfiles(generator.m_numCallProfiles)
-    , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
+    , m_tierUpCounter(WTF::move(generator.m_tierUpCounter))
 {
     if (size_t count = generator.m_exceptionHandlers.size()) {
         m_exceptionHandlers = FixedVector<HandlerInfo>(count);
@@ -286,11 +286,6 @@ const RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
 {
     ASSERT(RegisterAtOffsetList::ipintCalleeSaveRegisters().registerCount() == numberOfIPIntCalleeSaveRegisters);
     return &RegisterAtOffsetList::ipintCalleeSaveRegisters();
-}
-
-bool IPIntCallee::needsProfiling() const
-{
-    return m_numCallProfiles;
 }
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
@@ -388,9 +383,9 @@ Box<PCToCodeOriginMap> OptimizingJITCallee::materializePCToOriginMap(B3::PCToOri
         } else
             builder.appendItem(originRange.label, PCToCodeOriginMapBuilder::defaultCodeOrigin());
     }
-    auto map = Box<PCToCodeOriginMap>::create(WTFMove(builder), linkBuffer);
+    auto map = Box<PCToCodeOriginMap>::create(WTF::move(builder), linkBuffer);
     WTF::storeStoreFence();
-    m_callSiteIndexMap = WTFMove(map);
+    m_callSiteIndexMap = WTF::move(map);
 
     if (Options::useSamplingProfiler()) {
         PCToCodeOriginMapBuilder samplingProfilerBuilder(shouldBuildMapping);
@@ -402,7 +397,7 @@ Box<PCToCodeOriginMap> OptimizingJITCallee::materializePCToOriginMap(B3::PCToOri
             } else
                 samplingProfilerBuilder.appendItem(originRange.label, PCToCodeOriginMapBuilder::defaultCodeOrigin());
         }
-        return Box<PCToCodeOriginMap>::create(WTFMove(samplingProfilerBuilder), linkBuffer);
+        return Box<PCToCodeOriginMap>::create(WTF::move(samplingProfilerBuilder), linkBuffer);
     }
     return nullptr;
 }
@@ -479,7 +474,7 @@ const RegisterAtOffsetList* BBQCallee::calleeSaveRegistersImpl()
 #endif
 
 WasmBuiltinCallee::WasmBuiltinCallee(const WebAssemblyBuiltin* builtin, std::pair<const Name*, RefPtr<NameSection>>&& name)
-    : Callee(Wasm::CompilationMode::WasmBuiltinMode, Wasm::FunctionSpaceIndex(0xDEAD), WTFMove(name))
+    : Callee(Wasm::CompilationMode::WasmBuiltinMode, Wasm::FunctionSpaceIndex(0xDEAD), WTF::move(name))
     , m_builtin(builtin, { })
 {
 #if ENABLE(JIT_CAGE)

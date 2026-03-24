@@ -106,8 +106,8 @@ static RetainPtr<CFDictionaryRef> spatialImageEyePropertiesToDictionary(const Sp
 }
 
 ShareableSpatialImage::ShareableSpatialImage(ShareableBitmap::Handle&& leftHandle, ShareableBitmap::Handle&& rightHandle, const SpatialImageEyeProperties& leftMetadata, const SpatialImageEyeProperties& rightMetadata)
-    : m_leftHandle(WTFMove(leftHandle))
-    , m_rightHandle(WTFMove(rightHandle))
+    : m_leftHandle(WTF::move(leftHandle))
+    , m_rightHandle(WTF::move(rightHandle))
     , m_leftMetadata(leftMetadata)
     , m_rightMetadata(rightMetadata)
 {
@@ -144,7 +144,7 @@ std::optional<ShareableSpatialImage> ShareableSpatialImage::create(BitmapImage& 
     if (!leftHandle || !rightHandle)
         return std::nullopt;
 
-    return ShareableSpatialImage(WTFMove(*leftHandle), WTFMove(*rightHandle), *leftMetadata, *rightMetadata);
+    return ShareableSpatialImage(WTF::move(*leftHandle), WTF::move(*rightHandle), *leftMetadata, *rightMetadata);
 }
 
 RetainPtr<CFDataRef> ShareableSpatialImage::createHEICData() const

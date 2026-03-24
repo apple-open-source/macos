@@ -26,6 +26,7 @@
 #pragma once
 
 #include "CookieStore.h"
+#include "EventTargetInterfaces.h"
 #include "FetchIdentifier.h"
 #include "NotificationClient.h"
 #include "ScriptExecutionContextIdentifier.h"
@@ -57,7 +58,7 @@ enum class NotificationEventType : bool;
 struct ServiceWorkerClientData;
 
 class ServiceWorkerGlobalScope final : public WorkerGlobalScope {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ServiceWorkerGlobalScope);
+    WTF_MAKE_TZONE_ALLOCATED(ServiceWorkerGlobalScope);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ServiceWorkerGlobalScope);
 public:
     static Ref<ServiceWorkerGlobalScope> create(ServiceWorkerContextData&&, ServiceWorkerData&&, const WorkerParameters&, Ref<SecurityOrigin>&&, ServiceWorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, std::unique_ptr<NotificationClient>&&, std::unique_ptr<WorkerClient>&&);
@@ -171,7 +172,13 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ServiceWorkerGlobalScope)
+    static bool isType(const WebCore::EventTarget& context) { return context.eventTargetInterface() == WebCore::EventTargetInterfaceType::ServiceWorkerGlobalScope; }
     static bool isType(const WebCore::ScriptExecutionContext& context)
+    {
+        auto* global = dynamicDowncast<WebCore::WorkerGlobalScope>(context);
+        return global && global->type() == WebCore::WorkerGlobalScope::Type::ServiceWorker;
+    }
+    static bool isType(const WebCore::WorkerOrWorkletGlobalScope& context)
     {
         auto* global = dynamicDowncast<WebCore::WorkerGlobalScope>(context);
         return global && global->type() == WebCore::WorkerGlobalScope::Type::ServiceWorker;

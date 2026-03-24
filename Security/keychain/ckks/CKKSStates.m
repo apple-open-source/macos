@@ -61,6 +61,12 @@ CKKSState* const CKKSStateOutgoingQueueOperationFailed = (CKKSState*) @"process_
 
 CKKSState* const CKKSStateExpandToHandleAllViews = (CKKSState*)@"handle_all_views";
 
+CKKSState* const CKKSStateFixupZoneStateEntries = (CKKSState*)@"fixup_zone_state_entries";
+
+CKKSState* const CKKSStateCreateCKZones = (CKKSState*)@"create_ck_zones";
+
+CKKSState* const CKKSStateRecheckAccountStatus = (CKKSState*)@"recheck_ck_account_status";
+
 NSDictionary<CKKSState*, NSNumber*>* CKKSStateMap(void)
 {
     static NSDictionary<CKKSState*, NSNumber*>* stateMap = nil;
@@ -113,6 +119,9 @@ NSDictionary<CKKSState*, NSNumber*>* CKKSStateMap(void)
             CKKSStateExpandToHandleAllViews          : @35,
             CKKSStateZoneCreationFailedDueToNetworkError: @36,
             CKKSStateZoneDeletionFailedDueToNetworkError: @37,
+            CKKSStateFixupZoneStateEntries           : @38,
+            CKKSStateCreateCKZones                   : @39,
+            CKKSStateRecheckAccountStatus            : @40,
         };
     });
     return stateMap;
@@ -163,6 +172,8 @@ CKKSFlag* const CKKSFlagNewPriorityViews = (CKKSFlag*)@"new_priority_views";
 CKKSFlag* const CKKSFlagZoneCreation = (CKKSFlag*)@"zone_creation";
 CKKSFlag* const CKKSFlagZoneDeletion = (CKKSFlag*)@"zone_deletion";
 
+CKKSFlag* const CKKSFlagRecheckCKAccountStatus = (CKKSFlag*)@"recheck_ck_acct_status";
+
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
 {
     static NSSet<CKKSFlag*>* s = nil;
@@ -192,6 +203,7 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagNewPriorityViews,
             CKKSFlagZoneCreation,
             CKKSFlagZoneDeletion,
+            CKKSFlagRecheckCKAccountStatus,
         ]];
     });
     return s;

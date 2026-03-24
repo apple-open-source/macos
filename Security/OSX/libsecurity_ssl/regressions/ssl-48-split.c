@@ -161,30 +161,30 @@ static void *securetransport_ssl_thread(void *arg)
 
         if (ortn == errSSLServerAuthCompleted)
         {
-            require_string(!got_server_auth, out, "second server auth");
+            __Require_String(!got_server_auth, out, "second server auth");
             got_server_auth = true;
         }
     } while (ortn == errSSLWouldBlock
              || ortn == errSSLServerAuthCompleted);
 
-    require_noerr_action_quiet(ortn, out,
+    __Require_noErr_Action_Quiet(ortn, out,
                                fprintf(stderr, "Fell out of SSLHandshake with error: %d\n", (int)ortn));
 
     unsigned char ibuf[90000], obuf[45000];
 
     if (ssl->is_server) {
         size_t len;
-        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf), out, ortn = -1);
-        require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
-        require_action(len == ssl->write_size, out, ortn = -1);
-        require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
-        require_action(len == ssl->write_size, out, ortn = -1);
+        __Require_Action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf), out, ortn = -1);
+        __Require_noErr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
+        __Require_Action(len == ssl->write_size, out, ortn = -1);
+        __Require_noErr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
+        __Require_Action(len == ssl->write_size, out, ortn = -1);
     } else {
         size_t len = ssl->write_size*2;
         size_t olen;
         unsigned char *p = ibuf;
         while (len) {
-            require_noerr(ortn = SSLRead(ctx, p, len, &olen), out);
+            __Require_noErr(ortn = SSLRead(ctx, p, len, &olen), out);
             len -= olen;
             p += olen;
         }
@@ -213,22 +213,22 @@ ssl_test_handle_create(bool server, int comm, CFArrayRef certs)
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
 
     if (server)
-        require_noerr(SSLSetCertificate(ctx, certs), out);
+        __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
-    require_noerr(SSLSetSessionOption(ctx,
+    __Require_noErr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
 
     /* Tell SecureTransport to not check certs itself: it will break out of the
      handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
+    __Require_noErr(SSLSetEnableCertVerify(ctx, false), out);
 
     handle->is_server = server;
     handle->comm = comm;
@@ -306,17 +306,17 @@ tests(void)
         server->write_size = wsizes[k][0];
         client->write_size = wsizes[k][0];
 
-        require(client, out);
-        require(server, out);
+        __Require(client, out);
+        __Require(server, out);
 
-        require_noerr(SSLSetProtocolVersionMin(server->st, kSSLProtocol3), out); // We need this server to do SSL3.
-        require_noerr(SSLSetProtocolVersionMax(client->st, versions[j]), out);
-        require_noerr(SSLSetEnabledCiphers(client->st, &ciphers[i], 1), out);
+        __Require_noErr(SSLSetProtocolVersionMin(server->st, kSSLProtocol3), out); // We need this server to do SSL3.
+        __Require_noErr(SSLSetProtocolVersionMax(client->st, versions[j]), out);
+        __Require_noErr(SSLSetEnabledCiphers(client->st, &ciphers[i], 1), out);
         if(s) {
             // s=0: default (should be enabled)
             // s=1: explicit enable
             // s=2: expliciti disable
-            require_noerr(SSLSetSessionOption(server->st, kSSLSessionOptionSendOneByteRecord, (s==1)?true:false), out);
+            __Require_noErr(SSLSetSessionOption(server->st, kSSLSessionOptionSendOneByteRecord, (s==1)?true:false), out);
         }
         // printf("**** Test Case: i=%d, j=%d, k=%d (%zd), s=%d ****\n", i, j, k, wsizes[k][0], s);
 

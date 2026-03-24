@@ -27,8 +27,10 @@
 #include "StyleLineHeight.h"
 
 #include "AnimationUtilities.h"
+
+#include "CSSPropertyParserConsumer+Font.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleBuilderChecking.h"
-#include "StyleBuilderConverter.h"
 #include "StyleLengthWrapper+Blending.h"
 #include "StyleLengthWrapper+CSSValueConversion.h"
 #include "StylePrimitiveNumericTypes+CSSValueConversion.h"
@@ -53,14 +55,25 @@ auto CSSValueConversion<LineHeight>::operator()(BuilderState& state, const CSSPr
 
     auto conversionData = state
         .cssToLengthConversionData()
-        .copyForLineHeight(zoomWithTextZoomFactor(state));
+        .copyForLineHeight(state.zoomWithTextZoomFactor());
+
+    // If EvaluationTimeZoom is not enabled then we will scale the lengths in the
+    // calc values when we create the CalculationValue below by using the zoom from conversionData.
+    // To avoid double zooming when we evaluate the calc expression we need to make sure
+    // we have a ZoomFactor of 1.0. Otherwise, we defer to whatever is on the conversionData
+    // since EvaluationTimeZoom will set the appropriate value.
+    auto zoomFactor = [&] {
+        if (!state.style().evaluationTimeZoomEnabled())
+            return Style::ZoomFactor { 1.0f };
+        return Style::ZoomFactor { conversionData.zoom() };
+    };
 
     if (primitiveValue.isLength() || primitiveValue.isCalculatedPercentageWithLength()) {
         double fixedValue = 0;
         if (primitiveValue.isLength())
             fixedValue = primitiveValue.resolveAsLength(conversionData);
         else
-            fixedValue = primitiveValue.protectedCssCalcValue()->createCalculationValue(conversionData, CSSCalcSymbolTable { })->evaluate(state.style().fontDescription().computedSizeForRangeZoomOption(conversionData.rangeZoomOption()));
+            fixedValue = primitiveValue.protectedCssCalcValue()->createCalculationValue(conversionData, CSSCalcSymbolTable { })->evaluate(state.style().fontDescription().computedSizeForRangeZoomOption(conversionData.rangeZoomOption()), zoomFactor());
 
         if (multiplier != 1.0f)
             fixedValue *= multiplier;
@@ -78,7 +91,7 @@ auto CSSValueConversion<LineHeight>::operator()(BuilderState& state, const CSSPr
     // values and raw numbers to percentages.
     if (primitiveValue.isPercentage()) {
         // FIXME: percentage should not be restricted to an integer here.
-        auto textZoom = shouldUseEvaluationTimeZoom(state) ? conversionData.zoom() : 1.0f;
+        auto textZoom = evaluationTimeZoomEnabled(state) ? conversionData.zoom() : 1.0f;
         return LineHeight::Fixed {
             CSS::clampToRange<LineHeight::Fixed::range, float>((state.style().fontDescription().computedSizeForRangeZoomOption(conversionData.rangeZoomOption()) * primitiveValue.resolveAsPercentage<int>(conversionData) * textZoom) / 100.0, minValueForCssLength, maxValueForCssLength)
         };

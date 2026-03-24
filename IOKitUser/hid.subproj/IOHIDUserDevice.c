@@ -54,9 +54,15 @@
 #define IOHIDUDLogDebug(fmt, ...)   os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryUserDevice), "0x%llx: " fmt, device->regID, ##__VA_ARGS__)
 
 IOHID_DYN_LINK_DYLIB(/usr/lib, Rosetta)
-IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_is_current_process_translated, dyn_rosetta_is_current_process_translated, bool, false, (void), ())
 IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_rosetta_convert_to_rosetta_absolute_time, uint64_t, system_time, (uint64_t system_time), (system_time))
 IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_system_absolute_time, dyn_rosetta_convert_to_system_absolute_time, uint64_t, rosetta_time, (uint64_t rosetta_time), (rosetta_time))
+
+#ifndef __x86_64__
+static inline boolean_t dyn_rosetta_is_current_process_translated() {return false;}
+#else
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_is_current_process_translated, dyn_rosetta_is_current_process_translated, bool, false, (void), ())
+#endif
+
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorRef          allocator,

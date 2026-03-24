@@ -32,6 +32,7 @@
 #include "StyleInterpolation.h"
 
 #include "CSSRegisteredCustomProperty.h"
+#include "RenderStyle+SettersInlines.h"
 #include "StyleCustomProperty.h"
 #include "StyleCustomPropertyRegistry.h"
 #include "StyleInterpolationClient.h"
@@ -76,8 +77,12 @@ static std::optional<CustomProperty::Value> interpolateSyntaxValues(const Render
         },
         [&](const Color& fromStyleColor) -> std::optional<CustomProperty::Value> {
             auto& toStyleColor = std::get<Color>(to);
-            if (!fromStyleColor.isCurrentColor() || !toStyleColor.isCurrentColor())
-                return blendFunc(fromStyle.colorResolvingCurrentColor(fromStyleColor), toStyle.colorResolvingCurrentColor(toStyleColor), context);
+            if (!fromStyleColor.isCurrentColor() || !toStyleColor.isCurrentColor()) {
+                ColorResolver fromColorResolver { fromStyle };
+                ColorResolver toColorResolver { toStyle };
+
+                return blendFunc(fromColorResolver.colorResolvingCurrentColor(fromStyleColor), toColorResolver.colorResolvingCurrentColor(toStyleColor), context);
+            }
             return { };
         },
         [&](const TransformFunction& fromTransform) -> std::optional<CustomProperty::Value> {
@@ -130,7 +135,7 @@ static std::optional<CustomProperty::ValueList> interpolateSyntaxValueLists(cons
             return transformFunction;
         });
 
-        return CustomProperty::ValueList { WTFMove(interpolatedSyntaxValues), from.separator };
+        return CustomProperty::ValueList { WTF::move(interpolatedSyntaxValues), from.separator };
     }
 
     // Other lists must have matching sizes.
@@ -155,14 +160,14 @@ static Ref<const CustomProperty> interpolatedCustomProperty(const RenderStyle& f
         auto& fromSyntaxValue = std::get<CustomProperty::Value>(from.value());
         auto& toSyntaxValue = std::get<CustomProperty::Value>(to.value());
         if (auto interpolatedSyntaxValue = interpolateSyntaxValues(fromStyle, toStyle, fromSyntaxValue, toSyntaxValue, context))
-            return CustomProperty::createForValue(from.name(), WTFMove(*interpolatedSyntaxValue));
+            return CustomProperty::createForValue(from.name(), WTF::move(*interpolatedSyntaxValue));
     }
 
     if (std::holds_alternative<CustomProperty::ValueList>(from.value()) && std::holds_alternative<CustomProperty::ValueList>(to.value())) {
         auto& fromSyntaxValueList = std::get<CustomProperty::ValueList>(from.value());
         auto& toSyntaxValueList = std::get<CustomProperty::ValueList>(to.value());
         if (auto interpolatedSyntaxValueList = interpolateSyntaxValueLists(fromStyle, toStyle, fromSyntaxValueList, toSyntaxValueList, context))
-            return CustomProperty::createForValueList(from.name(), WTFMove(*interpolatedSyntaxValueList));
+            return CustomProperty::createForValueList(from.name(), WTF::move(*interpolatedSyntaxValueList));
     }
 
     // Use a discrete interpolation for all other cases.

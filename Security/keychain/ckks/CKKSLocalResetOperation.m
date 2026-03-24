@@ -67,6 +67,7 @@
         ckse.lastFetchTime = nil;
         ckse.lastLocalKeychainScanTime = nil;
         ckse.initialSyncFinished = NO;
+        ckse.altDSID = nil;
 
         [ckse saveToDatabase:&localerror];
         if(localerror && self.error == nil) {

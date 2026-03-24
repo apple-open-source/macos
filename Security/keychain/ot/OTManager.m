@@ -3245,6 +3245,55 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext icscRepairResetWithReply:reply];
 }
 
+- (void)enableWalrus:(OTControlArguments *)arguments
+          preRecords:(NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+               reply:(void (^)(NSError * _Nullable))reply {
+
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting an enableWalrus RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    cfshContext.sessionMetrics = [[OTMetricsSessionData alloc] initWithFlowID:arguments.flowID deviceSessionID:arguments.deviceSessionID];
+    cfshContext.shouldSendMetricsForOctagon = arguments.canSendMetrics ? OTAccountMetadataClassC_MetricsState_PERMITTED : OTAccountMetadataClassC_MetricsState_NOTPERMITTED;;
+
+    [cfshContext startOctagonStateMachine];
+
+    [cfshContext enableWalrus:preRecords
+                        reply:^(NSError* removalError) {
+                            reply(removalError);
+                        }
+    ];
+}
+
+- (void)disableWalrus:(OTControlArguments *)arguments
+           preRecords:(NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                reply:(void (^)(NSError * _Nullable))reply {
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a disableWalrus RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    cfshContext.sessionMetrics = [[OTMetricsSessionData alloc] initWithFlowID:arguments.flowID deviceSessionID:arguments.deviceSessionID];
+    cfshContext.shouldSendMetricsForOctagon = arguments.canSendMetrics ? OTAccountMetadataClassC_MetricsState_PERMITTED : OTAccountMetadataClassC_MetricsState_NOTPERMITTED;;
+
+    [cfshContext startOctagonStateMachine];
+
+    [cfshContext disableWalrus:preRecords
+                         reply:^(NSError* removalError) {
+                            reply(removalError);
+                        }
+    ];
+}
+
 + (CKContainer*)makeCKContainer:(NSString*)containerName
 {
     CKContainerOptions* containerOptions = [[CKContainerOptions alloc] init];

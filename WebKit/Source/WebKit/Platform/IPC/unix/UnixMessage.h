@@ -111,8 +111,8 @@ public:
     }
 
     UnixMessage(UnixMessage&& other)
-        : m_attachments(WTFMove(other.m_attachments))
-        , m_messageInfo(WTFMove(other.m_messageInfo))
+        : m_attachments(WTF::move(other.m_attachments))
+        , m_messageInfo(WTF::move(other.m_messageInfo))
     {
         if (other.m_bodyOwned) {
             std::swap(m_body, other.m_body);
@@ -142,7 +142,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     void appendAttachment(Attachment&& attachment)
     {
-        m_attachments.append(WTFMove(attachment));
+        m_attachments.append(WTF::move(attachment));
     }
 
     bool setBodyOutOfLine()

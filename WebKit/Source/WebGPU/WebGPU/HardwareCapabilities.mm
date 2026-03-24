@@ -156,14 +156,14 @@ static Vector<WGPUFeatureName> baseFeatures(id<MTLDevice> device, const Hardware
 
 bool isShaderValidationEnabled(id<MTLDevice> device)
 {
-    static bool result = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    static bool result = [&] {
         // Workaround for rdar://141660277
         NSString* deviceName = NSStringFromClass([device class]);
-        if ((result = [deviceName containsString:@"Debug"] || [deviceName containsString:@"LegacySV"] || [deviceName containsString:@"CaptureMTLDevice"]))
+        bool result = [deviceName containsString:@"Debug"] || [deviceName containsString:@"LegacySV"] || [deviceName containsString:@"CaptureMTLDevice"];
+        if (result)
             WTFLogAlways("WebGPU: Using DEBUG Metal device: retaining references"); // NOLINT
-    });
+        return result;
+    }();
     return result;
 }
 
@@ -202,10 +202,16 @@ static bool swiftCompilerSupportsWebGPU()
         return false;
 
     auto clangVersion = *maybeClangVersion;
-    if (clangVersion[0] == 1700 && clangVersion[1] >= 6 && clangVersion[2] >= 1 && clangVersion[3] >= 1)
+    if (clangVersion[0] == 1700
+        && clangVersion[1] >= 6
+        && (clangVersion[1] > 6 || clangVersion[2] >= 1)
+        && (clangVersion[1] > 6 || clangVersion[2] > 1 || clangVersion[3] >= 1))
         return true;
 
-    if (clangVersion[0] == 2100 && clangVersion[1] >= 0 && clangVersion[2] >= 101 && clangVersion[3] >= 15)
+    if (clangVersion[0] == 2100
+        && clangVersion[1] >= 0
+        && (clangVersion[1] > 0 || clangVersion[2] >= 101)
+        && (clangVersion[1] > 0 || clangVersion[2] > 101 || clangVersion[3] >= 15))
         return true;
 
     if (clangVersion[0] > 2100)
@@ -222,10 +228,9 @@ bool isWebGPUSwiftEnabled()
 #elif !ENABLE(WEBGPU_SWIFT)
     return false;
 #else
-    static std::once_flag onceFlag;
-    static bool isWebGPUSwiftEnabled;
-    std::call_once(onceFlag, [&] {
+    static bool isWebGPUSwiftEnabled = [&] {
         NSNumber* object = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitWebGPUSwiftEnabled"];
+        bool isWebGPUSwiftEnabled;
         if (object)
             isWebGPUSwiftEnabled = object.boolValue;
         else
@@ -235,7 +240,8 @@ bool isWebGPUSwiftEnabled()
             WTFLogAlways("WebGPU: using SWIFT backend"); // NOLINT
         else
             WTFLogAlways("WebGPU: using C++ backend"); // NOLINT
-    });
+        return isWebGPUSwiftEnabled;
+    }();
     return isWebGPUSwiftEnabled;
 #endif
 }
@@ -258,7 +264,7 @@ static HardwareCapabilities apple4(id<MTLDevice> device)
 
     return {
         defaultLimits(),
-        WTFMove(features),
+        WTF::move(features),
         baseCapabilities,
     };
 }
@@ -280,7 +286,7 @@ static HardwareCapabilities apple5(id<MTLDevice> device)
 
     return {
         defaultLimits(),
-        WTFMove(features),
+        WTF::move(features),
         baseCapabilities,
     };
 }
@@ -341,7 +347,7 @@ static HardwareCapabilities apple6(id<MTLDevice> device)
             .maxStorageBuffersInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
             .maxStorageTexturesInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
         },
-        WTFMove(features),
+        WTF::move(features),
         baseCapabilities,
     };
 }
@@ -401,7 +407,7 @@ static HardwareCapabilities apple7(id<MTLDevice> device)
             .maxStorageBuffersInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
             .maxStorageTexturesInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
         },
-        WTFMove(features),
+        WTF::move(features),
         baseCapabilities,
     };
 }
@@ -461,7 +467,7 @@ static HardwareCapabilities mac2(id<MTLDevice> device)
             .maxStorageBuffersInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
             .maxStorageTexturesInVertexStage = maxBindGroups * tier2LimitForBuffersAndTextures,
         },
-        WTFMove(features),
+        WTF::move(features),
         baseCapabilities,
     };
 }
@@ -554,14 +560,13 @@ static bool isPhysicalHardware()
 #if PLATFORM(IOS_FAMILY_SIMULATOR)
     return false;
 #else
-    static bool result = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    static bool result = [] {
         uint32_t isVM = 0;
         size_t size = sizeof(isVM);
         if (!sysctlbyname("kern.hv_vmm_present", &isVM, &size, NULL, 0))
-            result = isVM ? [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitAllowWebGPUOnVMs"] : true;
-    });
+            return isVM ? static_cast<bool>([[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitAllowWebGPUOnVMs"]) : true;
+        return true;
+    }();
     return result;
 #endif
 }

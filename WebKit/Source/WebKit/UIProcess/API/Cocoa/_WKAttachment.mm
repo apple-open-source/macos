@@ -46,7 +46,7 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
 @end
 
 @implementation _WKAttachmentInfo {
-    RefPtr<const API::Attachment> _attachment;
+    const RefPtr<const API::Attachment> _attachment;
     RetainPtr<NSString> _mimeType;
     RetainPtr<NSString> _utiType;
     RetainPtr<NSString> _filePath;
@@ -57,7 +57,7 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
     if (!(self = [super init]))
         return nil;
 
-    _attachment = attachment;
+    lazyInitialize(_attachment, Ref { attachment });
     _filePath = attachment.filePath().createNSString();
     _mimeType = attachment.mimeType().createNSString();
     _utiType = attachment.utiType().createNSString();
@@ -123,7 +123,7 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKAttachment.class, self))
         return;
 
-    _attachment->~Attachment();
+    SUPPRESS_UNRETAINED_ARG _attachment->~Attachment();
 
     [super dealloc];
 }
@@ -148,7 +148,8 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
 
 - (void)setFileWrapper:(NSFileWrapper *)fileWrapper contentType:(NSString *)contentType completion:(void (^)(NSError *))completionHandler
 {
-    if (!_attachment->isValid()) {
+    Ref attachment = *_attachment;
+    if (!attachment->isValid()) {
         if (completionHandler)
             completionHandler([NSError errorWithDomain:WKErrorDomain code:InvalidAttachmentErrorCode userInfo:nil]);
         return;
@@ -156,9 +157,9 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
 
     // This file path member is only populated when the attachment is generated upon dropping files. When data is specified via NSFileWrapper
     // from the SPI client, the corresponding file path of the data is unknown, if it even exists at all.
-    _attachment->setFilePath({ });
-    _attachment->setFileWrapperAndUpdateContentType(fileWrapper, contentType);
-    _attachment->updateAttributes([capturedBlock = makeBlockPtr(completionHandler)] {
+    attachment->setFilePath({ });
+    attachment->setFileWrapperAndUpdateContentType(fileWrapper, contentType);
+    attachment->updateAttributes([capturedBlock = makeBlockPtr(completionHandler)] {
         if (capturedBlock)
             capturedBlock(nil);
     });
@@ -185,7 +186,7 @@ static const NSInteger InvalidAttachmentErrorCode = 2;
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@ %p id='%@'>", [self class], self, self.uniqueIdentifier];
+    return [NSString stringWithFormat:@"<%@ %p id='%@'>", [self class], self, retainPtr(self.uniqueIdentifier).get()];
 }
 
 - (BOOL)isConnected

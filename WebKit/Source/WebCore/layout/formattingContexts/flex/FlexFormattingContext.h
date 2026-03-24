@@ -38,7 +38,7 @@ namespace Layout {
 // This class implements the layout logic for flex formatting contexts.
 // https://www.w3.org/TR/css-flexbox-1/
 class FlexFormattingContext {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(FlexFormattingContext);
+    WTF_MAKE_TZONE_ALLOCATED(FlexFormattingContext);
 public:
     FlexFormattingContext(const ElementBox& flexBox, LayoutState&);
 

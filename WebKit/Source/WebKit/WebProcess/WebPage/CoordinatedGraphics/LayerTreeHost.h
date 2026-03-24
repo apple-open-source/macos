@@ -36,6 +36,7 @@
 #include <WebCore/GraphicsLayerClient.h>
 #include <WebCore/GraphicsLayerFactory.h>
 #include <WebCore/PlatformScreen.h>
+#include <WebCore/RunLoopObserver.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
@@ -63,12 +64,9 @@ class PaintingEngine;
 }
 
 namespace WebKit {
-class LayerTreeHost;
-}
-
-namespace WebKit {
 class CoordinatedSceneState;
 class WebPage;
+struct RenderProcessInfo;
 
 class LayerTreeHost final : public CanMakeCheckedPtr<LayerTreeHost>, public WebCore::GraphicsLayerFactory, public WebCore::CoordinatedPlatformLayer::Client
 {
@@ -84,13 +82,12 @@ public:
     const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
     void setLayerTreeStateIsFrozen(bool);
 
-    void scheduleLayerFlush();
-    void cancelPendingLayerFlush();
     void setRootCompositingLayer(WebCore::GraphicsLayer*);
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*);
 
-    void forceRepaint();
-    void forceRepaintAsync(CompletionHandler<void()>&&);
+    void scheduleRenderingUpdate();
+    void updateRenderingWithForcedRepaint();
+    void updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&&);
     void sizeDidChange();
 
     void pauseRendering();
@@ -102,7 +99,6 @@ public:
 
     void willRenderFrame();
     void didRenderFrame();
-    void didComposite(uint32_t);
 
 #if PLATFORM(GTK)
     void adjustTransientZoom(double, WebCore::FloatPoint);
@@ -117,15 +113,20 @@ public:
     void foreachRegionInDamageHistoryForTesting(Function<void(const WebCore::Region&)>&&);
 #endif
 
-#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM) && (USE(GBM) || OS(ANDROID))
     void preferredBufferFormatsDidChange();
 #endif
+
+    void fillGLInformation(RenderProcessInfo&&, CompletionHandler<void(RenderProcessInfo&&)>&&);
 private:
     void updateRootLayer();
     WebCore::FloatRect visibleContentsRect() const;
-    void layerFlushTimerFired();
-    void flushLayers();
-    void commitSceneState();
+
+    void scheduleRenderingUpdateRunLoopObserver();
+    void invalidateRenderingUpdateRunLoopObserver();
+    void renderingUpdateRunLoopObserverFired();
+    void updateRendering();
+    void requestCompositionForRenderingUpdate();
 
     // CoordinatedPlatformLayer::Client
 #if USE(CAIRO)
@@ -139,9 +140,11 @@ private:
     void detachLayer(WebCore::CoordinatedPlatformLayer&) override;
     void notifyCompositionRequired() override;
     bool isCompositionRequiredOrOngoing() const override;
-    void requestComposition() override;
+    void requestComposition(WebCore::CompositionReason) override;
     RunLoop* compositingRunLoop() const override;
     int maxTextureSize() const override;
+    void willPaintTile() override;
+    void didPaintTile() override;
 
     // GraphicsLayerFactory
     Ref<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;
@@ -157,11 +160,10 @@ private:
     const Ref<CoordinatedSceneState> m_sceneState;
     WebCore::GraphicsLayer* m_rootCompositingLayer { nullptr };
     WebCore::GraphicsLayer* m_overlayCompositingLayer { nullptr };
-    HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layers;
     bool m_layerTreeStateIsFrozen { false };
     bool m_pendingResize { false };
     bool m_pendingForceRepaint { false };
-    bool m_isFlushingLayers { false };
+    bool m_isUpdatingRendering { false };
     bool m_waitUntilPaintingComplete { false };
     bool m_isSuspended { false };
     bool m_isWaitingForRenderer { false };
@@ -176,7 +178,7 @@ private:
         CompletionHandler<void()> callback;
         std::optional<uint32_t> compositionRequestID;
     } m_forceRepaintAsync;
-    RunLoop::Timer m_layerFlushTimer;
+    std::unique_ptr<WebCore::RunLoopObserver> m_renderingUpdateRunLoopObserver;
 #if USE(CAIRO)
     std::unique_ptr<WebCore::Cairo::PaintingEngine> m_paintingEngine;
 #elif USE(SKIA)
@@ -189,8 +191,6 @@ private:
     double m_transientZoomScale { 1 };
     WebCore::FloatPoint m_transientZoomOrigin;
 #endif
-
-    uint32_t m_compositionRequestID { 0 };
 
 #if ENABLE(DAMAGE_TRACKING)
     Lock m_frameDamageHistoryForTestingLock;

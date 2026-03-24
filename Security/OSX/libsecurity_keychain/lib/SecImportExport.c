@@ -101,8 +101,8 @@ static OSStatus importPkcs12IdentityToLegacyKeychain(CFDictionaryRef item, SecKe
     if (!localIdentity) {
         return status;
     }
-    require_noerr(status = SecIdentityCopyPrivateKey(localIdentity, &privateKey), errOut);
-    require_noerr(status = SecIdentityCopyCertificate(identity, &certificate), errOut);
+    __Require_noErr(status = SecIdentityCopyPrivateKey(localIdentity, &privateKey), errOut);
+    __Require_noErr(status = SecIdentityCopyCertificate(identity, &certificate), errOut);
 
     // update the returned item dictionary
     if (localIdentity && certificate && privateKey) {
@@ -144,13 +144,13 @@ static OSStatus parsePkcs12ItemsAndAddtoLegacyKeychain(const void *value, CFDict
         // legacy import behavior requires a keychain, so use default
         status = SecKeychainCopyDefault(&importKeychain);
         if (!importKeychain && !status) { status = errSecNoDefaultKeychain; }
-        require_noerr(status, errOut);
+        __Require_noErr(status, errOut);
     }
     if (CFGetTypeID(value) == CFDictionaryGetTypeID()) {
         CFDictionaryRef item = (CFDictionaryRef)value;
         if (CFDictionaryContainsKey(item, kSecImportItemIdentity)) {
             status = importPkcs12IdentityToLegacyKeychain(item, importKeychain, importAccess);
-            require_noerr(status, errOut);
+            __Require_noErr(status, errOut);
         }
         if (CFDictionaryContainsKey(item, kSecImportItemCertChain)) {
             status = importPkcs12CertChainToLegacyKeychain(item, importKeychain);

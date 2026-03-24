@@ -80,11 +80,11 @@ SSLSecPolicyCopy(SecPolicyRef *ret_policy)
 
 	*ret_policy = NULL;
 	status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_SSL, NULL, &policy_search);
-	require_noerr(status, SecPolicySearchCreate);
+	__Require_noErr(status, SecPolicySearchCreate);
 
 	status = SecPolicySearchCopyNext(policy_search, &policy);
-	require_noerr(status, SecPolicySearchCopyNext);
-	
+	__Require_noErr(status, SecPolicySearchCopyNext);
+
 	*ret_policy = policy;
 
 SecPolicySearchCopyNext:
@@ -110,12 +110,12 @@ CFDataCreateSecCertificate(CFDataRef data_cf)
 	OSStatus status;
 
 	cert = NULL;
-	require(data_cf != NULL, bad_input);
+	__Require(data_cf != NULL, bad_input);
 
 	data.Length = CFDataGetLength(data_cf);
 	data.Data = (uint8 *)CFDataGetBytePtr(data_cf);
 	status = SecCertificateCreateFromData(&data, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &cert);
-	check_noerr(status);
+	__Check_noErr(status);
 	
 bad_input:
 
@@ -137,7 +137,7 @@ CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 
 	count = CFArrayGetCount(certs);
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-	require(array != NULL, CFArrayCreateMutable);
+	__Require(array != NULL, CFArrayCreateMutable);
 
 	for (i = 0; i < count; ++i)
 	{
@@ -145,10 +145,10 @@ CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 		CFDataRef data;
 
 		data = isA_CFData((CFDataRef)CFArrayGetValueAtIndex(certs, i));
-		require(data != NULL, isA_CFData);
+		__Require(data != NULL, isA_CFData);
 
 		cert = CFDataCreateSecCertificate(data);
-		require(cert != NULL, CFDataCreateSecCertificate);
+		__Require(cert != NULL, CFDataCreateSecCertificate);
 
 		CFArrayAppendValue(array, cert);
 		CFRelease(cert);
@@ -187,10 +187,10 @@ show_cert_trust_panel(CFArrayRef cert_list, SInt32 trust_status, CFStringRef hos
 	SecTrustResultType trust_result;
 
 	status = SSLSecPolicyCopy(&policy);
-	require_noerr_action(status, SSLSecPolicyCopy, exit_code = 2);
+	__Require_noErr_Action(status, SSLSecPolicyCopy, exit_code = 2);
 
 	status = SecTrustCreateWithCertificates(cert_list, policy, &trust);
-	require_noerr_action(status, SecTrustCreateWithCertificates, exit_code = 2);
+	__Require_noErr_Action(status, SecTrustCreateWithCertificates, exit_code = 2);
 
 	(void)SecTrustEvaluate(trust, &trust_result);
 	panel = [[SFCertificateTrustPanel alloc] init];
@@ -280,11 +280,11 @@ extern CFDictionaryRef the_dict;
 	int error;
 
 	cert_data_list = CFDictionaryGetValue(the_dict, kSSLClientPropTLSServerCertificateChain);
-	require_action(isA_CFArray(cert_data_list) != NULL, isA_CFArray, error = 2);
-	
+	__Require_Action(isA_CFArray(cert_data_list) != NULL, isA_CFArray, error = 2);
+
 	cert_list = CFDataArrayCreateSecCertificateArray(cert_data_list);
-	require_action(cert_list != NULL, CFDataArrayCreateSecCertificateArray, error = 2);
-	
+	__Require_Action(cert_list != NULL, CFDataArrayCreateSecCertificateArray, error = 2);
+
 	trust_status = errSSLUnknownRootCert;
 	trust_status_cf = CFDictionaryGetValue(the_dict, kSSLClientPropTLSTrustClientStatus);
 	if (isA_CFNumber(trust_status_cf) != NULL)
@@ -300,8 +300,8 @@ extern CFDictionaryRef the_dict;
 	}
 	
 	error = show_cert_trust_panel(cert_list, trust_status, host_name);
-	require_noerr(error, show_cert_trust_panel);
-	
+	__Require_noErr(error, show_cert_trust_panel);
+
 	return;
 
 	/* error cases handled here */

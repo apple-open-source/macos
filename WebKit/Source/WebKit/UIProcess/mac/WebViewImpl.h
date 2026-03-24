@@ -35,6 +35,7 @@
 #include "WKLayoutMode.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/FocusDirection.h>
+#include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
 #include <WebCore/PlatformPlaybackSessionInterface.h>
 #include <WebCore/ScrollTypes.h>
@@ -59,6 +60,7 @@ using _WKRectEdge = NSUInteger;
 
 OBJC_CLASS NSAccessibilityRemoteUIElement;
 OBJC_CLASS NSImmediateActionGestureRecognizer;
+OBJC_CLASS NSPanGestureRecognizer;
 OBJC_CLASS NSMenu;
 OBJC_CLASS NSPopover;
 OBJC_CLASS NSScrollPocket;
@@ -75,6 +77,7 @@ OBJC_CLASS WKFullScreenWindowController;
 OBJC_CLASS WKImageAnalysisOverlayViewDelegate;
 OBJC_CLASS WKImmediateActionController;
 OBJC_CLASS WKMouseTrackingObserver;
+OBJC_CLASS WKPanGestureController;
 OBJC_CLASS WKRevealItemPresenter;
 OBJC_CLASS _WKWarningView;
 OBJC_CLASS WKShareSheet;
@@ -129,6 +132,8 @@ struct TextRecognitionResult;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+template<typename> class ExceptionOr;
 
 namespace WritingTools {
 enum class ReplacementBehavior : uint8_t;
@@ -185,6 +190,7 @@ using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
 
 namespace WebCore {
 struct DragItem;
+struct ResolvedCaptionDisplaySettingsOptions;
 
 #if HAVE(DIGITAL_CREDENTIALS_UI)
 struct DigitalCredentialsRequestData;
@@ -209,6 +215,7 @@ class WebFrameProxy;
 class WebPageProxy;
 class WebProcessPool;
 class WebProcessProxy;
+
 struct WebHitTestResultData;
 
 enum class ContinueUnsafeLoad : bool;
@@ -473,6 +480,8 @@ public:
     void requestCandidatesForSelectionIfNeeded();
 
     void preferencesDidChange();
+
+    void updateNeedsViewFrameInWindowCoordinatesIfNeeded();
 
     void teardownTextIndicatorLayer();
     void startTextIndicatorFadeOut();
@@ -743,6 +752,7 @@ public:
 
     bool beginBackSwipeForTesting();
     bool completeBackSwipeForTesting();
+    bool didCallEndSwipeGestureForTesting() const;
 
     bool useFormSemanticContext() const;
     void semanticContextDidChange();
@@ -812,6 +822,10 @@ public:
     void updateTopScrollPocketStyle();
     void updatePrefersSolidColorHardPocket();
     void setClientImplicitlyRequestedTopScrollPocket();
+#endif
+
+#if ENABLE(VIDEO)
+    void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&&);
 #endif
 
 private:
@@ -1103,6 +1117,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if HAVE(INLINE_PREDICTIONS)
     bool m_inlinePredictionsEnabled { false };
 #endif
+
+    RetainPtr<WKPanGestureController> m_panGestureController;
 };
 
 } // namespace WebKit

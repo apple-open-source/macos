@@ -26,7 +26,7 @@
 #pragma once
 
 #include <WebCore/RenderElementInlines.h>
-#include <WebCore/RenderStyleInlines.h>
+#include <WebCore/RenderStyle+GettersInlines.h>
 
 namespace WebCore {
 
@@ -70,13 +70,16 @@ inline bool RenderElement::mayContainOutOfFlowPositionedObjects(const RenderStyl
 inline bool RenderElement::canContainAbsolutelyPositionedObjects(const RenderStyle* styleToUse) const
 {
     auto& style = styleToUse ? *styleToUse : this->style();
-    return mayContainOutOfFlowPositionedObjects(styleToUse) || style.position() != PositionType::Static || (isRenderBlock() && style.willChange() && style.willChange()->createsContainingBlockForAbsolutelyPositioned(isDocumentElementRenderer()));
+    return mayContainOutOfFlowPositionedObjects(styleToUse)
+        || style.position() != PositionType::Static
+        || (isRenderBlock() && style.willChange().createsContainingBlockForAbsolutelyPositioned(isDocumentElementRenderer()));
 }
 
 inline bool RenderElement::canContainFixedPositionObjects(const RenderStyle* styleToUse) const
 {
     auto& style = styleToUse ? *styleToUse : this->style();
-    return mayContainOutOfFlowPositionedObjects(styleToUse) || (isRenderBlock() && style.willChange() && style.willChange()->createsContainingBlockForOutOfFlowPositioned(isDocumentElementRenderer()));
+    return mayContainOutOfFlowPositionedObjects(styleToUse)
+        || (isRenderBlock() && style.willChange().createsContainingBlockForOutOfFlowPositioned(isDocumentElementRenderer()));
 }
 
 inline bool RenderElement::createsGroupForStyle(const RenderStyle& style)

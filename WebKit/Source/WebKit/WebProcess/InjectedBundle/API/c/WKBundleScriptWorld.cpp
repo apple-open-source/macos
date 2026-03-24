@@ -38,7 +38,7 @@ WKTypeID WKBundleScriptWorldGetTypeID()
 WKBundleScriptWorldRef WKBundleScriptWorldCreateWorld()
 {
     RefPtr<WebKit::InjectedBundleScriptWorld> world = WebKit::InjectedBundleScriptWorld::create(WebKit::ContentWorldIdentifier::generate());
-    SUPPRESS_UNCOUNTED_ARG return toAPI(world.leakRef());
+    return toAPILeakingRef(WTF::move(world));
 }
 
 WKBundleScriptWorldRef WKBundleScriptWorldNormalWorld()
@@ -74,4 +74,9 @@ void WKBundleScriptWorldSetAllowElementUserInfo(WKBundleScriptWorldRef scriptWor
 WKStringRef WKBundleScriptWorldCopyName(WKBundleScriptWorldRef scriptWorldRef)
 {
     return WebKit::toCopiedAPI(WebKit::toImpl(scriptWorldRef)->name());
+}
+
+void WKBundleScriptWorldSetAllowJSHandleCreation(WKBundleScriptWorldRef scriptWorldRef)
+{
+    WebKit::toProtectedImpl(scriptWorldRef)->setAllowJSHandleCreation();
 }

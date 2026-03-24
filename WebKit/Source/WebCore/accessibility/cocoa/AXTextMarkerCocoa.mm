@@ -115,7 +115,7 @@ RetainPtr<NSAttributedString> AXTextMarkerRange::toAttributedString(AXCoreObject
         if (result)
             [result appendAttributedString:string.autorelease()];
         else
-            result = WTFMove(string);
+            result = WTF::move(string);
     };
 
     auto emitNewlineOnExit = [&] (AXIsolatedObject& object) {
@@ -129,8 +129,8 @@ RetainPtr<NSAttributedString> AXTextMarkerRange::toAttributedString(AXCoreObject
         if (length && [[result string] characterAtIndex:length - 1] != '\n') {
             // FIXME: This is super inefficient. We are creating a whole new dictionary and attributed string just to append newline(s).
             NSString *newlineString = behavior == TextEmissionBehavior::Newline ? @"\n" : @"\n\n";
-            NSDictionary *attributes = [result attributesAtIndex:length - 1 effectiveRange:nil];
-            appendToResult(adoptNS([[NSMutableAttributedString alloc] initWithString:newlineString attributes:attributes]));
+            RetainPtr<NSDictionary> attributes = [result attributesAtIndex:length - 1 effectiveRange:nil];
+            appendToResult(adoptNS([[NSMutableAttributedString alloc] initWithString:newlineString attributes:attributes.get()]));
         }
     };
 

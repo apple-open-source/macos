@@ -41,17 +41,17 @@ public:
 
     CocoaView *layerHostView() const { return m_layerHostView.get(); }
     RetainPtr<CocoaView> protectedLayerHostView() const { return layerHostView(); }
-    void setLayerHostView(RetainPtr<CocoaView>&& layerHostView) { m_layerHostView = WTFMove(layerHostView); }
+    void setLayerHostView(RetainPtr<CocoaView>&& layerHostView) { m_layerHostView = WTF::move(layerHostView); }
 
     WebAVPlayerLayer *playerLayer() const { return m_playerLayer.get(); }
-    virtual void setPlayerLayer(RetainPtr<WebAVPlayerLayer>&& layer) { m_playerLayer = WTFMove(layer); }
+    virtual void setPlayerLayer(RetainPtr<WebAVPlayerLayer>&& layer) { m_playerLayer = WTF::move(layer); }
 
 #if PLATFORM(IOS_FAMILY)
     WebAVPlayerLayerView *playerLayerView() const { return m_playerLayerView.get(); }
-    void setPlayerLayerView(RetainPtr<WebAVPlayerLayerView>&& playerLayerView) { m_playerLayerView = WTFMove(playerLayerView); }
+    void setPlayerLayerView(RetainPtr<WebAVPlayerLayerView>&& playerLayerView) { m_playerLayerView = WTF::move(playerLayerView); }
 
     CocoaView *videoView() const { return m_videoView.get(); }
-    void setVideoView(RetainPtr<CocoaView>&& videoView) { m_videoView = WTFMove(videoView); }
+    void setVideoView(RetainPtr<CocoaView>&& videoView) { m_videoView = WTF::move(videoView); }
 #endif
 
 protected:

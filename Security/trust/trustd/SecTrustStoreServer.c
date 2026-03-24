@@ -196,7 +196,7 @@ static bool SecExtractFilesystemPathForPrivateTrustdFile(CFStringRef file, UInt8
 
 static bool SecTrustStoreOpenSharedConnection(SecTrustStoreRef ts) {
     __block int s3e = SQLITE_ERROR;
-    require(ts && ts->queue, errOut);
+    __Require(ts && ts->queue, errOut);
     dispatch_sync(ts->queue, ^{
         static sqlite3* dbhandle = NULL;
         if (dbhandle) {
@@ -210,7 +210,7 @@ static bool SecTrustStoreOpenSharedConnection(SecTrustStoreRef ts) {
         }
         ts->s3h = dbhandle;
     });
-    require_noerr(s3e, errOut);
+    __Require_noErr(s3e, errOut);
     return true;
 errOut:
     secerror("Unable to open shared db connection (error %d)", s3e);
@@ -228,7 +228,7 @@ static int64_t SecTrustStoreCountAll(SecTrustStoreRef ts) {
     __block int64_t result = -1;
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
 
-    require_quiet(ts && uuid, errOutNotLocked);
+    __Require_Quiet(ts && uuid, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         sqlite3_stmt *countAllStmt = NULL;
         int s3e = sqlite3_prepare_v2(ts->s3h,
@@ -237,7 +237,7 @@ static int64_t SecTrustStoreCountAll(SecTrustStoreRef ts) {
                                      &countAllStmt, NULL);
         if (s3e == SQLITE_OK) {
             /* "count all" means only those entries matching the user or admin uuid */
-            require_noerr_quiet(s3e = sqlite3_bind_blob_wrapper(countAllStmt, 1,
+            __Require_noErr_Quiet(s3e = sqlite3_bind_blob_wrapper(countAllStmt, 1,
                                                                  CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
                                                                  SQLITE_STATIC), errOutSql);
         }
@@ -249,7 +249,7 @@ static int64_t SecTrustStoreCountAll(SecTrustStoreRef ts) {
         }
     errOutSql:
         if (countAllStmt) {
-            verify_noerr(sqlite3_finalize(countAllStmt));
+            __Verify_noErr(sqlite3_finalize(countAllStmt));
         }
     });
 
@@ -264,14 +264,14 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
     SecTrustStoreRef ts;
     int s3e = SQLITE_OK;
 
-    require(ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore)), errOut);
+    __Require(ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore)), errOut);
     memset(ts, 0, sizeof(struct __SecTrustStore));
     ts->queue = dispatch_queue_create("truststore", DISPATCH_QUEUE_SERIAL);
     ts->domain = domain;
 
 
-    require(TrustdVariantAllowsFileWrite(), errOut);
-    require(SecTrustStoreOpenSharedConnection(ts), errOut);
+    __Require(TrustdVariantAllowsFileWrite(), errOut);
+    __Require(SecTrustStoreOpenSharedConnection(ts), errOut);
 
     s3e = sqlite3_prepare_v3(ts->s3h,
                              copyParentsSQL,
@@ -296,14 +296,14 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
 			secwarning("CREATE TABLE tsettings: %s", errmsg);
 			sqlite3_free(errmsg);
 		}
-		require_noerr(s3e, errOut);
+		__Require_noErr(s3e, errOut);
         s3e = sqlite3_prepare_v3(ts->s3h,
                                  copyParentsSQL,
                                  sizeof(copyParentsSQL),
                                  SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 	}
-	require_noerr(s3e, errOut);
-	require_noerr(s3e = sqlite3_prepare_v3(ts->s3h,
+	__Require_noErr(s3e, errOut);
+	__Require_noErr(s3e = sqlite3_prepare_v3(ts->s3h,
                                            containsSQL,
                                            sizeof(containsSQL),
                                            SQLITE_PREPARE_PERSISTENT,
@@ -409,8 +409,8 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     CFTypeRef tsdoa, CFErrorRef *error) {
     __block bool ok;
     secdebug("truststore", "[%s trustd] SecTrustStoreSetTrustSettings for domain %d", (geteuid() == TRUSTD_ROLE_ACCOUNT) ? "system" : "user", ts->domain);
-    require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
-    require_action_quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
+    __Require_Action_Quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
+    __Require_Action_Quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
     dispatch_sync(ts->queue, ^{
         CFTypeRef trustSettingsDictOrArray = tsdoa;
         sqlite3_stmt *insert = NULL;
@@ -420,14 +420,14 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
         CFDataRef digest = NULL;
         CFDataRef uuid = NULL;
 
-        require_action_quiet(subject = SecCertificateGetNormalizedSubjectContent(certificate),
+        __Require_Action_Quiet(subject = SecCertificateGetNormalizedSubjectContent(certificate),
                              errOut, ok = SecError(errSecParam, error, CFSTR("get normalized subject failed")));
-        require_action_quiet(digest = SecCertificateCopySHA256Digest(certificate), errOut, ok = SecError(errSecParam, error, CFSTR("get sha256 digest failed")));
-        require_action_quiet(uuid = SecTrustStoreCopyUUID(ts), errOut, ok = SecError(errSecInternal, error, CFSTR("get uuid failed")));
+        __Require_Action_Quiet(digest = SecCertificateCopySHA256Digest(certificate), errOut, ok = SecError(errSecParam, error, CFSTR("get sha256 digest failed")));
+        __Require_Action_Quiet(uuid = SecTrustStoreCopyUUID(ts), errOut, ok = SecError(errSecInternal, error, CFSTR("get uuid failed")));
 
         /* Do some basic checks on the trust settings passed in. */
         if (trustSettingsDictOrArray == NULL) {
-            require_action_quiet(array = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks), errOut, ok = SecError(errSecAllocate, error, CFSTR("CFArrayCreate failed")));
+            __Require_Action_Quiet(array = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks), errOut, ok = SecError(errSecAllocate, error, CFSTR("CFArrayCreate failed")));
             trustSettingsDictOrArray = array;
         }
         else if(CFGetTypeID(trustSettingsDictOrArray) == CFDictionaryGetTypeID()) {
@@ -437,42 +437,42 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
             trustSettingsDictOrArray = array;
         }
         else {
-            require_action_quiet(CFGetTypeID(trustSettingsDictOrArray) == CFArrayGetTypeID(), errOut, ok = SecError(errSecParam, error, CFSTR("trustSettingsDictOrArray neither dict nor array")));
+            __Require_Action_Quiet(CFGetTypeID(trustSettingsDictOrArray) == CFArrayGetTypeID(), errOut, ok = SecError(errSecParam, error, CFSTR("trustSettingsDictOrArray neither dict nor array")));
         }
 
-        require_action_quiet(xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault,
+        __Require_Action_Quiet(xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault,
                                                                    trustSettingsDictOrArray), errOut, ok = SecError(errSecParam, error, CFSTR("xml encode failed")));
 
         int s3e = sqlite3_exec(ts->s3h, beginExclusiveTxnSQL, NULL, NULL, NULL);
-        require_action_quiet(s3e == SQLITE_OK, errOut, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_action_quiet(CFDataGetLength(digest) > 0 &&
+        __Require_Action_Quiet(s3e == SQLITE_OK, errOut, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
+        __Require_Action_Quiet(CFDataGetLength(digest) > 0 &&
                              CFDataGetLength(subject) > 0 &&
                              CFDataGetLength(xmlData) > 0 &&
                              SecCertificateGetLength(certificate) > 0,
                              errOut, ok = SecError(errSecInternal, error, CFSTR("size error")));
 
         /* Parameter order is sha256,subj,tset,data{,uuid}. */
-        require_noerr_action_quiet(s3e = sqlite3_prepare_v2(ts->s3h,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_prepare_v2(ts->s3h,
                                             insertSQL,
                                             sizeof(insertSQL),
                                             &insert, NULL),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 1,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_bind_blob_wrapper(insert, 1,
                                                              CFDataGetBytePtr(digest), (size_t)CFDataGetLength(digest), SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 2,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_bind_blob_wrapper(insert, 2,
                                                              CFDataGetBytePtr(subject), (size_t)CFDataGetLength(subject),
                                                              SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 3,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_bind_blob_wrapper(insert, 3,
                                                              CFDataGetBytePtr(xmlData), (size_t)CFDataGetLength(xmlData),
                                                              SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 4,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_bind_blob_wrapper(insert, 4,
                                                              SecCertificateGetBytePtr(certificate),
                                                              (size_t)SecCertificateGetLength(certificate), SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 5,
+        __Require_noErr_Action_Quiet(s3e = sqlite3_bind_blob_wrapper(insert, 5,
                                                             CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
                                                                    SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
@@ -482,7 +482,7 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
             ok = true;
             ts->containsSettings = true;
         } else {
-            require_noerr_action_quiet(s3e, errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
+            __Require_noErr_Action_Quiet(s3e, errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
             ok = true;
         }
 
@@ -522,28 +522,28 @@ bool _SecTrustStoreRemoveCertificate(SecTrustStoreRef ts, SecCertificateRef cert
     bool ok = true;
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     CFDataRef digest = NULL;
-    require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
-    require_action_quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
-    require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
-    require_action_quiet(digest = SecCertificateCopySHA256Digest(cert), errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("failed to get cert sha256 digest")));
-    require_action_quiet(CFDataGetLength(digest) > 0, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("cert digest of bad length")));
+    __Require_Action_Quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
+    __Require_Action_Quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
+    __Require_Action_Quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
+    __Require_Action_Quiet(digest = SecCertificateCopySHA256Digest(cert), errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("failed to get cert sha256 digest")));
+    __Require_Action_Quiet(CFDataGetLength(digest) > 0, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("cert digest of bad length")));
     dispatch_sync(ts->queue, ^{
         int s3e = SQLITE_OK;
         sqlite3_stmt *deleteStmt = NULL;
 
-        require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
+        __Require_noErr(s3e = sqlite3_prepare_v2(ts->s3h,
                                                deleteSQL,
                                                sizeof(deleteSQL),
                                                &deleteStmt, NULL), errOut);
-        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 1,
+        __Require_noErr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 1,
                                                 CFDataGetBytePtr(digest), (size_t)CFDataGetLength(digest), SQLITE_STATIC), errOut);
-        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 2,
+        __Require_noErr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 2,
                                                 CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errOut);
         s3e = sqlite3_step(deleteStmt);
 
     errOut:
         if (deleteStmt) {
-            verify_noerr(sqlite3_finalize(deleteStmt));
+            __Verify_noErr(sqlite3_finalize(deleteStmt));
         }
         if (s3e != SQLITE_OK && s3e != SQLITE_DONE) {
             secerror("Removal of certificate from trust store failed: %d", s3e);
@@ -560,17 +560,17 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
 {
     __block bool removed_all = false;
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
-    require_action_quiet(ts, errOutNotLocked, removed_all = SecError(errSecParam, error, CFSTR("truststore is NULL")));
-    require_action_quiet(!ts->readOnly, errOutNotLocked, removed_all = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
-    require_action_quiet(uuid, errOutNotLocked, removed_all = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
+    __Require_Action_Quiet(ts, errOutNotLocked, removed_all = SecError(errSecParam, error, CFSTR("truststore is NULL")));
+    __Require_Action_Quiet(!ts->readOnly, errOutNotLocked, removed_all = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
+    __Require_Action_Quiet(uuid, errOutNotLocked, removed_all = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
     dispatch_sync(ts->queue, ^{
         int s3e = SQLITE_OK;
         sqlite3_stmt *deleteAllStmt = NULL;
-        require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
+        __Require_noErr(s3e = sqlite3_prepare_v2(ts->s3h,
                                         deleteAllSQL,
                                         sizeof(deleteAllSQL),
                                         &deleteAllStmt, NULL), errOut);
-        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteAllStmt, 1,
+        __Require_noErr(s3e = sqlite3_bind_blob_wrapper(deleteAllStmt, 1,
                                             CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errOut);
         // begin exclusive transaction
         s3e =sqlite3_exec(ts->s3h, beginExclusiveTxnSQL, NULL, NULL, NULL);
@@ -582,7 +582,7 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
 
     errOut:
         if (deleteAllStmt) {
-            verify_noerr(sqlite3_finalize(deleteAllStmt));
+            __Verify_noErr(sqlite3_finalize(deleteAllStmt));
         }
         if (s3e == SQLITE_OK) {
             removed_all = true;
@@ -619,37 +619,37 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certi
 #if TARGET_OS_IPHONE
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     CFDataRef issuer = NULL;
-    require(issuer = SecCertificateGetNormalizedIssuerContent(certificate), errOutNotLocked);
-    require(CFDataGetLength(issuer) > 0, errOutNotLocked);
-    require(ts && ts->s3h, errOutNotLocked);
+    __Require(issuer = SecCertificateGetNormalizedIssuerContent(certificate), errOutNotLocked);
+    __Require(CFDataGetLength(issuer) > 0, errOutNotLocked);
+    __Require(ts && ts->s3h, errOutNotLocked);
     /* Since only trustd uses the CopyParents interface and only for the CertificateSource, it should never call
      * this with the system domain. */
-    require(ts->domain != kSecTrustStoreDomainSystem, errOutNotLocked);
-    require(uuid, errOutNotLocked);
+    __Require(ts->domain != kSecTrustStoreDomainSystem, errOutNotLocked);
+    __Require(uuid, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         int s3e = SQLITE_OK;
 
-        require_quiet(ts->containsSettings, ok);
+        __Require_Quiet(ts->containsSettings, ok);
         /* @@@ Might have to use SQLITE_TRANSIENT */
-        require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 1,
+        __Require_noErr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 1,
                                                       CFDataGetBytePtr(issuer), (size_t)CFDataGetLength(issuer),
                                                       SQLITE_STATIC), errOut);
-        require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 2,
+        __Require_noErr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 2,
                                                       CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
                                                       SQLITE_STATIC), errOut);
-        require(parents = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+        __Require(parents = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                &kCFTypeArrayCallBacks), errOut);
         for (;;) {
             s3e = sqlite3_step(ts->copyParents);
             if (s3e == SQLITE_ROW) {
                 SecCertificateRef cert;
-                require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
+                __Require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
                                                              sqlite3_column_blob(ts->copyParents, 0),
                                                              sqlite3_column_bytes(ts->copyParents, 0)), errOut);
                 CFArrayAppendValue(parents, cert);
                 CFRelease(cert);
             } else {
-                require(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut);
+                __Require(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut);
                 break;
             }
         }
@@ -663,8 +663,8 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certi
             parents = NULL;
         }
     ok:
-        verify_noerr(sqlite3_reset(ts->copyParents));
-        verify_noerr(sqlite3_clear_bindings(ts->copyParents));
+        __Verify_noErr(sqlite3_reset(ts->copyParents));
+        __Verify_noErr(sqlite3_clear_bindings(ts->copyParents));
     });
 errOutNotLocked:
     CFReleaseNull(uuid);
@@ -687,19 +687,19 @@ static bool SecTrustStoreQueryCertificate(SecTrustStoreRef ts, SecCertificateRef
     __block bool ok = true;
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     __block CFDataRef digest = SecCertificateCopySHA256Digest(cert);
-    require_action_quiet(digest, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("failed to get cert sha256 digest")));
-    require_action_quiet(CFDataGetLength(digest) > 0, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("cert digest of bad length")));
-    require_action_quiet(ts && ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
-    require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("failed to get uuid")));
+    __Require_Action_Quiet(digest, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("failed to get cert sha256 digest")));
+    __Require_Action_Quiet(CFDataGetLength(digest) > 0, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("cert digest of bad length")));
+    __Require_Action_Quiet(ts && ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
+    __Require_Action_Quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("failed to get uuid")));
     dispatch_sync(ts->queue, ^{
         CFDataRef xmlData = NULL;
         CFPropertyListRef trustSettings = NULL;
         int s3e = SQLITE_OK;
-        require_action_quiet(ts->containsSettings, errOut, ok = true);
-        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 1,
+        __Require_Action_Quiet(ts->containsSettings, errOut, ok = true);
+        __Require_noErr_Action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 1,
                                                              CFDataGetBytePtr(digest), (size_t)CFDataGetLength(digest), SQLITE_STATIC),
                              errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
-        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 2,
+        __Require_noErr_Action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 2,
                                                              CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
                              errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
         s3e = sqlite3_step(ts->contains);
@@ -707,18 +707,18 @@ static bool SecTrustStoreQueryCertificate(SecTrustStoreRef ts, SecCertificateRef
             if (contains)
                 *contains = true;
             if (usageConstraints) {
-                require_action(xmlData = CFDataCreate(NULL,
+                __Require_Action(xmlData = CFDataCreate(NULL,
                                                       sqlite3_column_blob(ts->contains, 0),
                                                       sqlite3_column_bytes(ts->contains, 0)), errOut, ok = false);
-                require_action(trustSettings = CFPropertyListCreateWithData(NULL,
+                __Require_Action(trustSettings = CFPropertyListCreateWithData(NULL,
                                                                             xmlData,
                                                                             kCFPropertyListImmutable,
                                                                             NULL, error), errOut, ok = false);
-                require_action(CFGetTypeID(trustSettings) == CFArrayGetTypeID(), errOut, ok = false);
+                __Require_Action(CFGetTypeID(trustSettings) == CFArrayGetTypeID(), errOut, ok = false);
                 *usageConstraints = CFRetain(trustSettings);
             }
         } else {
-            require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut,
+            __Require_Action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut,
                            ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_step failed")));
         }
 
@@ -727,8 +727,8 @@ static bool SecTrustStoreQueryCertificate(SecTrustStoreRef ts, SecCertificateRef
             secerror("Failed to query for cert in trust store: %d", s3e);
             TrustdHealthAnalyticsLogErrorCodeForDatabase(TATrustStore, TAOperationRead, TAFatalError, s3e);
         }
-        verify_noerr(sqlite3_reset(ts->contains));
-        verify_noerr(sqlite3_clear_bindings(ts->contains));
+        __Verify_noErr(sqlite3_reset(ts->contains));
+        __Verify_noErr(sqlite3_clear_bindings(ts->contains));
         CFReleaseNull(xmlData);
         CFReleaseNull(trustSettings);
     });
@@ -846,11 +846,11 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef
     __block bool ok = true;
     __block CFMutableArrayRef CertsAndSettings = NULL;
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
-    require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOutNotLocked);
-    require_action_quiet(trustStoreContents, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("trustStoreContents is NULL")));
-    require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
-    require_action_quiet(ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts DB is NULL")));
-    require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
+    __Require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOutNotLocked);
+    __Require_Action_Quiet(trustStoreContents, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("trustStoreContents is NULL")));
+    __Require_Action_Quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
+    __Require_Action_Quiet(ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts DB is NULL")));
+    __Require_Action_Quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
     dispatch_sync(ts->queue, ^{
         sqlite3_stmt *copyAllStmt = NULL;
         CFDataRef cert = NULL;
@@ -858,28 +858,28 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef
         CFPropertyListRef trustSettings = NULL;
         CFArrayRef certSettingsPair = NULL;
         int s3e = SQLITE_OK;
-        require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
+        __Require_noErr(s3e = sqlite3_prepare_v2(ts->s3h,
                                             copyAllSQL,
                                             sizeof(copyAllSQL),
                                             &copyAllStmt, NULL), errOut);
-        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(copyAllStmt, 1,
+        __Require_noErr_Action(s3e = sqlite3_bind_blob_wrapper(copyAllStmt, 1,
                                                              CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
                              errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_bind_blob failed")));
         for(;;) {
             s3e = sqlite3_step(copyAllStmt);
             if (s3e == SQLITE_ROW) {
-                require(cert = CFDataCreate(kCFAllocatorDefault,
+                __Require(cert = CFDataCreate(kCFAllocatorDefault,
                                             sqlite3_column_blob(copyAllStmt, 0),
                                             sqlite3_column_bytes(copyAllStmt, 0)), errOut);
-                require(xmlData = CFDataCreate(NULL,
+                __Require(xmlData = CFDataCreate(NULL,
                                                sqlite3_column_blob(copyAllStmt, 1),
                                                sqlite3_column_bytes(copyAllStmt, 1)), errOut);
-                require(trustSettings = CFPropertyListCreateWithData(NULL,
+                __Require(trustSettings = CFPropertyListCreateWithData(NULL,
                                                                      xmlData,
                                                                      kCFPropertyListImmutable,
                                                                      NULL, error), errOut);
                 const void *pair[] = { cert , trustSettings };
-                require(certSettingsPair = CFArrayCreate(NULL, pair, 2, &kCFTypeArrayCallBacks), errOut);
+                __Require(certSettingsPair = CFArrayCreate(NULL, pair, 2, &kCFTypeArrayCallBacks), errOut);
                 CFArrayAppendValue(CertsAndSettings, certSettingsPair);
 
                 CFReleaseNull(cert);
@@ -887,7 +887,7 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef
                 CFReleaseNull(trustSettings);
                 CFReleaseNull(certSettingsPair);
             } else {
-                require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
+                __Require_Action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
                 break;
             }
         }
@@ -902,7 +902,7 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFStringRef policyId, CFArrayRef
         CFReleaseNull(certSettingsPair);
     ok:
         if (copyAllStmt) {
-            verify_noerr(sqlite3_finalize(copyAllStmt));
+            __Verify_noErr(sqlite3_finalize(copyAllStmt));
         }
     });
 errOutNotLocked:
@@ -938,9 +938,9 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
     CFDataRef uuid = NULL;
 
     // open database connection (caller has previously checked that path exists)
-    require_noerr(s3e = sec_sqlite3_open(path, &s3h, true), errOut);
+    __Require_noErr(s3e = sec_sqlite3_open(path, &s3h, true), errOut);
     // check whether the 'uuid' column exists
-    require_noerr_action(s3e = sqlite3_prepare_v3(s3h, findUUIDColSQL, sizeof(findUUIDColSQL),
+    __Require_noErr_Action(s3e = sqlite3_prepare_v3(s3h, findUUIDColSQL, sizeof(findUUIDColSQL),
                          0, &findColStmt, NULL), errOut,
                          ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to prepare findColStmt")));
     s3e = sqlite3_step(findColStmt);
@@ -953,17 +953,17 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
         }
         secnotice("config", "trust store schema not current, will update");
     } else {
-        require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, findColStmt, error, CFSTR("check for uuid column failed")));
+        __Require_Action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, findColStmt, error, CFSTR("check for uuid column failed")));
     }
     if (findColStmt) {
         // must finalize select statements before we can drop the table this statement was bound to
         sqlite3_stmt *tmpFindColStmt = findColStmt;
         findColStmt = NULL;
-        require_noerr_action(s3e = sqlite3_finalize(tmpFindColStmt), errOut,
+        __Require_noErr_Action(s3e = sqlite3_finalize(tmpFindColStmt), errOut,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize findColStmt")));
     }
     // previous entries (prior to schema update) are placed in admin domain owned by _trustd
-    require_action_quiet(uuid = SecCopyUUIDDataForUID(TRUSTD_ROLE_ACCOUNT), errOut,
+    __Require_Action_Quiet(uuid = SecCopyUUIDDataForUID(TRUSTD_ROLE_ACCOUNT), errOut,
                          ok = SecError(errSecParam, error, CFSTR("get uuid failed")));
 
     // ======================================================================================
@@ -976,7 +976,7 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
     // ======================================================================================
 
     // start transaction
-    require_noerr(s3e = sqlite3_exec(s3h, beginExclusiveTxnSQL, NULL, NULL, NULL), errOut);
+    __Require_noErr(s3e = sqlite3_exec(s3h, beginExclusiveTxnSQL, NULL, NULL, NULL), errOut);
     // create new tmp_tsettings table with current schema
     s3e = sqlite3_exec(s3h,
             "CREATE TABLE tmp_tsettings("
@@ -992,9 +992,9 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
         secwarning("CREATE TABLE tmp_tsettings: %s", errmsg);
         sqlite3_free(errmsg);
     }
-    require_noerr(s3e, errSql);
+    __Require_noErr(s3e, errSql);
     // are there any existing rows in old table to copy?
-    require_noerr_action(s3e = sqlite3_prepare_v3(s3h, countAllV1SQL, sizeof(countAllV1SQL),
+    __Require_noErr_Action(s3e = sqlite3_prepare_v3(s3h, countAllV1SQL, sizeof(countAllV1SQL),
                          0, &countAllStmt, NULL), errSql,
                          ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to prepare countAllStmt")));
     s3e = sqlite3_step(countAllStmt);
@@ -1005,42 +1005,42 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
         // must finalize select statements before we can drop the table this statement was bound to
         sqlite3_stmt *tmpCountAllStmt = countAllStmt;
         countAllStmt = NULL;
-        require_noerr_action(s3e = sqlite3_finalize(tmpCountAllStmt), errSql,
+        __Require_noErr_Action(s3e = sqlite3_finalize(tmpCountAllStmt), errSql,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize countAllStmt")));
     }
     if (rows > 0) {
         // copy data
         secnotice("config", "copying %lld rows from tsettings", (long long)rows);
-        require_noerr_action(s3e = sqlite3_exec(s3h, copyToTmpSQL, NULL, NULL, NULL), errSql,
+        __Require_noErr_Action(s3e = sqlite3_exec(s3h, copyToTmpSQL, NULL, NULL, NULL), errSql,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to copy table data")));
     } else {
         secnotice("config", "no existing tsettings (%lld rows)", (long long)rows);
     }
     // drop old table
-    require_noerr_action(s3e = sqlite3_exec(s3h, "DROP TABLE tsettings;", NULL, NULL, NULL), errSql,
+    __Require_noErr_Action(s3e = sqlite3_exec(s3h, "DROP TABLE tsettings;", NULL, NULL, NULL), errSql,
                          ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to drop old table")));
     // rename new into old
-    require_noerr_action(s3e = sqlite3_exec(s3h, "ALTER TABLE tmp_tsettings RENAME TO tsettings;", NULL, NULL, NULL), errSql,
+    __Require_noErr_Action(s3e = sqlite3_exec(s3h, "ALTER TABLE tmp_tsettings RENAME TO tsettings;", NULL, NULL, NULL), errSql,
                          ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to rename new table")));
     if (rows > 0) {
         // fix up default (empty) uuid values
-        require_noerr_action(s3e = sqlite3_prepare_v3(s3h, updateUUIDSQL, sizeof(updateUUIDSQL),
+        __Require_noErr_Action(s3e = sqlite3_prepare_v3(s3h, updateUUIDSQL, sizeof(updateUUIDSQL),
                                                       SQLITE_PREPARE_PERSISTENT, &updateUUIDStmt, NULL), errSql,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to prepare updateUUIDStmt")));
-        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(updateUUIDStmt, 1,
+        __Require_noErr_Action(s3e = sqlite3_bind_blob_wrapper(updateUUIDStmt, 1,
                                                              CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errSql,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to bind uuid value")));
         s3e = sqlite3_step(updateUUIDStmt);
         if (!(s3e == SQLITE_OK || s3e == SQLITE_DONE)) {
             // note SQLITE_DONE means the statement ran to completion, i.e. a successful result
-            require_noerr_action(s3e, errSql,
+            __Require_noErr_Action(s3e, errSql,
             ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to update uuid column")));
         }
     }
     // drop and recreate index
-    require_noerr_action(s3e = sqlite3_exec(s3h, "DROP INDEX IF EXISTS isubj;", NULL, NULL, NULL),
+    __Require_noErr_Action(s3e = sqlite3_exec(s3h, "DROP INDEX IF EXISTS isubj;", NULL, NULL, NULL),
                          errSql, ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to drop old index")));
-    require_noerr_action(s3e = sqlite3_exec(s3h, "CREATE INDEX isubj ON tsettings(subj);", NULL, NULL, NULL),
+    __Require_noErr_Action(s3e = sqlite3_exec(s3h, "CREATE INDEX isubj ON tsettings(subj);", NULL, NULL, NULL),
                          errSql, ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to recreate index")));
     // success
     ok = true;
@@ -1065,26 +1065,26 @@ errSql:
     }
 errOut:
     if (updateUUIDStmt) {
-        require_noerr_action(s3e = sqlite3_finalize(updateUUIDStmt), errExit,
+        __Require_noErr_Action(s3e = sqlite3_finalize(updateUUIDStmt), errExit,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize updateUUIDStmt")));
     }
     if (countAllStmt) {
-        require_noerr_action(s3e = sqlite3_finalize(countAllStmt), errExit,
+        __Require_noErr_Action(s3e = sqlite3_finalize(countAllStmt), errExit,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize countAllStmt")));
     }
     if (findColStmt) {
-        require_noerr_action(s3e = sqlite3_finalize(findColStmt), errExit,
+        __Require_noErr_Action(s3e = sqlite3_finalize(findColStmt), errExit,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize findColStmt")));
     }
 errExit:
     if (!ok) {
         secerror("Failed to update schema (uuid %@)", uuid);
         // We won't be able to add entries to the table. Remove it so it can be recreated from scratch.
-        require_noerr_action(s3e = sqlite3_exec(s3h, "DROP TABLE tsettings;", NULL, NULL, NULL), errSql,
+        __Require_noErr_Action(s3e = sqlite3_exec(s3h, "DROP TABLE tsettings;", NULL, NULL, NULL), errSql,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to drop tsettings table")));
     }
     if (s3h) {
-        require_noerr_action(s3e = sqlite3_close(s3h), errExit,
+        __Require_noErr_Action(s3e = sqlite3_close(s3h), errExit,
                              ok = SecDbError(s3e, error, CFSTR("failed to close trust store after schema update")));
     }
     CFReleaseNull(uuid);
@@ -1124,51 +1124,51 @@ bool _SecTrustStoreMigrateUserStore(CFErrorRef *error)
 
     /* Open old Trust Store */
     CFURLRef oldURL = SecCopyURLForFileInKeychainDirectory(kTrustStoreFileName);
-    require_action(oldURL, errOut, ok = SecError(errSecIO, error, CFSTR("failed to get old DB file URL")));
-    require_action(CFURLGetFileSystemRepresentation(oldURL, false, (UInt8*) path, (CFIndex) sizeof(path)), errOut,
+    __Require_Action(oldURL, errOut, ok = SecError(errSecIO, error, CFSTR("failed to get old DB file URL")));
+    __Require_Action(CFURLGetFileSystemRepresentation(oldURL, false, (UInt8*) path, (CFIndex) sizeof(path)), errOut,
                    ok= SecError(errSecIO, error, CFSTR("failed to get old DB file path")));
-    require_noerr_action(s3e = sqlite3_open_v2(path, &old_db, SQLITE_OPEN_READONLY, NULL), errOut,
+    __Require_noErr_Action(s3e = sqlite3_open_v2(path, &old_db, SQLITE_OPEN_READONLY, NULL), errOut,
                          ok = SecDbError(s3e, error, CFSTR("failed to open old trust store database; new trust store will be empty")));
-    require_noerr_action(s3e = sqlite3_prepare_v2(old_db, copyAllOldSQL, sizeof(copyAllOldSQL), &copyAllStmt, NULL), errOut,
+    __Require_noErr_Action(s3e = sqlite3_prepare_v2(old_db, copyAllOldSQL, sizeof(copyAllOldSQL), &copyAllStmt, NULL), errOut,
                          ok = SecDbErrorWithDb(s3e, old_db, error, CFSTR("failed to prepare old trust store read")));
 
     /* Open new Trust Store */
     SecTrustStoreRef new_db = SecTrustStoreForDomainName(CFSTR("user"), error);
-    require_action(new_db, errOut, ok = SecError(errSecAllocate, error, CFSTR("failed to open new trust store")));
+    __Require_Action(new_db, errOut, ok = SecError(errSecAllocate, error, CFSTR("failed to open new trust store")));
 
     /* Read each row of the old trust store and set it in the new trust store */
     for(;;) {
         s3e = sqlite3_step(copyAllStmt);
         if (s3e == SQLITE_ROW) {
-            require_action(cert = SecCertificateCreateWithBytes(NULL,
+            __Require_Action(cert = SecCertificateCreateWithBytes(NULL,
                                                          sqlite3_column_blob(copyAllStmt, 0),
                                                          sqlite3_column_bytes(copyAllStmt, 0)), errOut,
                            ok = SecError(errSecDecode, error, CFSTR("failed to decode cert in old DB")));
-            require_action(xmlData = CFDataCreate(NULL,
+            __Require_Action(xmlData = CFDataCreate(NULL,
                                            sqlite3_column_blob(copyAllStmt, 1),
                                            sqlite3_column_bytes(copyAllStmt, 1)), errOut,
                            ok = SecError(errSecParam, error, CFSTR("no tset data in old DB")));
-            require(tsArray = CFPropertyListCreateWithData(NULL,
+            __Require(tsArray = CFPropertyListCreateWithData(NULL,
                                                            xmlData,
                                                            kCFPropertyListImmutable,
                                                            NULL, error), errOut);
-            require_action(isArray(tsArray), errOut,
+            __Require_Action(isArray(tsArray), errOut,
                            ok = SecError(errSecDecode, error, CFSTR("tset is not an array in old DB")));
             OSStatus status = errSecSuccess;
-            require(status = _SecTrustStoreSetTrustSettings(new_db, cert, tsArray, error), errOut);
+            __Require(status = _SecTrustStoreSetTrustSettings(new_db, cert, tsArray, error), errOut);
 
             CFReleaseNull(cert);
             CFReleaseNull(xmlData);
             CFReleaseNull(tsArray);
         } else {
-            require_action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
+            __Require_Action(s3e == SQLITE_DONE || s3e == SQLITE_OK, errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_step failed")));
             break;
         }
     }
-    require_noerr_action(s3e = sqlite3_finalize(copyAllStmt), errOut,
+    __Require_noErr_Action(s3e = sqlite3_finalize(copyAllStmt), errOut,
                          ok = SecDbErrorWithDb(s3e, old_db, error, CFSTR("failed to finalize old trust store read")));
     copyAllStmt = NULL;
-    require_noerr_action(s3e = sqlite3_close(old_db), errOut,
+    __Require_noErr_Action(s3e = sqlite3_close(old_db), errOut,
                          ok = SecDbError(s3e, error, CFSTR("failed to close old trust store")));
     old_db = NULL;
     ok = true;
@@ -1180,11 +1180,11 @@ bool _SecTrustStoreMigrateUserStore(CFErrorRef *error)
     });
 errOut:
     if (copyAllStmt) {
-        require_noerr_action(s3e = sqlite3_finalize(copyAllStmt), errOut,
+        __Require_noErr_Action(s3e = sqlite3_finalize(copyAllStmt), errOut,
                              ok = SecDbErrorWithDb(s3e, old_db, error, CFSTR("failed to finalize old trust store read")));
     }
     if (old_db) {
-        require_noerr_action(s3e = sqlite3_close(old_db), errOut,
+        __Require_noErr_Action(s3e = sqlite3_close(old_db), errOut,
                              ok = SecDbError(s3e, error, CFSTR("failed to close old trust store")));
     }
     CFReleaseNull(cert);

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ms{
     units{
         acceleration{
@@ -23,6 +23,10 @@ ms{
             revolution{
                 dnam{"revolusi"}
                 other{"{0} revolusi"}
+            }
+            steradian{
+                dnam{"steradian"}
+                other{"{0} steradian"}
             }
         }
         area{
@@ -114,6 +118,10 @@ ms{
             karat{
                 other{"{0} karat"}
             }
+            katal{
+                dnam{"katal"}
+                other{"{0} katal"}
+            }
             milligram-ofglucose-per-deciliter{
                 dnam{"miligram setiap desiliter"}
                 other{"{0} miligram setiap desiliter"}
@@ -122,15 +130,27 @@ ms{
                 dnam{"milimol setiap liter"}
                 other{"{0} milimol setiap liter"}
             }
+            ofglucose{
+                dnam{"glukosa"}
+                other{"{0} glukosa"}
+            }
+            part{
+                dnam{"bahagian"}
+                other{"{0} bahagian"}
+            }
+            part-per-1e6{
+                dnam{"bahagian setiap juta"}
+                other{"{0} bahagian setiap juta"}
+            }
+            part-per-1e9{
+                dnam{"bahagian setiap bilion"}
+                other{"{0} bahagian setiap bilion"}
+            }
             percent{
                 other{"{0} peratus"}
             }
             permille{
                 other{"{0} per seribu"}
-            }
-            permillion{
-                dnam{"bahagian setiap juta"}
-                other{"{0} bahagian setiap juta"}
             }
             permyriad{
                 dnam{"permyriad"}
@@ -231,8 +251,6 @@ ms{
                 other{"{0} nanosaat"}
             }
             night{
-                dnam{"malam"}
-                other{"{0} malam"}
                 per{"{0} setiap malam"}
             }
             quarter{
@@ -257,6 +275,18 @@ ms{
                 dnam{"ampere"}
                 other{"{0} ampere"}
             }
+            coulomb{
+                dnam{"coulomb"}
+                other{"{0} coulomb"}
+            }
+            farad{
+                dnam{"farad"}
+                other{"{0} farad"}
+            }
+            henry{
+                dnam{"henry"}
+                other{"{0} henry"}
+            }
             milliampere{
                 dnam{"miliampere"}
                 other{"{0} miliampere"}
@@ -264,11 +294,19 @@ ms{
             ohm{
                 other{"{0} ohm"}
             }
+            siemens{
+                dnam{"siemens"}
+                other{"{0} siemens"}
+            }
             volt{
                 other{"{0} volt"}
             }
         }
         energy{
+            becquerel{
+                dnam{"becquerel"}
+                other{"{0} becquerel"}
+            }
             british-thermal-unit{
                 dnam{"unit terma British"}
                 other{"{0} unit terma British"}
@@ -277,6 +315,10 @@ ms{
                 dnam{"kalori"}
                 other{"{0} kalori"}
             }
+            calorie-it{
+                dnam{"kalori [IT]"}
+                other{"{0} kalori [IT]"}
+            }
             electronvolt{
                 dnam{"elektronvolt"}
                 other{"{0} elektronvolt"}
@@ -284,6 +326,10 @@ ms{
             foodcalorie{
                 dnam{"Kalori"}
                 other{"{0} Kalori"}
+            }
+            gray{
+                dnam{"gray"}
+                other{"{0} gray"}
             }
             joule{
                 other{"{0} joule"}
@@ -299,8 +345,16 @@ ms{
                 dnam{"kilowatt jam"}
                 other{"{0} kilowatt jam"}
             }
+            sievert{
+                dnam{"sievert"}
+                other{"{0} sievert"}
+            }
         }
         force{
+            kilogram-force{
+                dnam{"kilogram-daya"}
+                other{"{0} kilograms-force"}
+            }
             kilowatt-hour-per-100-kilometer{
                 dnam{"kilowatt jam setiap 100 kilometer"}
                 other{"{0} kilowatt jam setiap 100 kilometer"}
@@ -463,6 +517,16 @@ ms{
                 other{"{0} luminositi solar"}
             }
         }
+        magnetic{
+            tesla{
+                dnam{"tesla"}
+                other{"{0} tesla"}
+            }
+            weber{
+                dnam{"weber"}
+                other{"{0} weber"}
+            }
+        }
         mass{
             carat{
                 other{"{0} karat"}
@@ -572,6 +636,10 @@ ms{
                 dnam{"milimeter raksa"}
                 other{"{0} milimeter raksa"}
             }
+            ofhg{
+                dnam{"merkuri"}
+                other{"{0} merkuri"}
+            }
             pascal{
                 dnam{"Pascal"}
                 other{"{0} Pascal"}
@@ -583,6 +651,7 @@ ms{
         }
         speed{
             beaufort{
+                dnam{"Beaufort"}
                 other{"Beaufort {0}"}
             }
             kilometer-per-hour{
@@ -592,10 +661,6 @@ ms{
             knot{
                 dnam{"knot"}
                 other{"{0} knot"}
-            }
-            light-speed{
-                dnam{"cahaya"}
-                other{"{0} cahaya"}
             }
             meter-per-second{
                 dnam{"meter sesaat"}
@@ -703,6 +768,10 @@ ms{
                 dnam{"auns cecair"}
                 other{"{0} auns cecair"}
             }
+            fluid-ounce-metric{
+                dnam{"auns cecair metrik"}
+                other{"{0} auns cecair metrik"}
+            }
             gallon{
                 dnam{"gelen"}
                 other{"{0} gelen"}
@@ -780,6 +849,16 @@ ms{
             mole{
                 other{"{0}mol"}
             }
+            ofglucose{
+                dnam{"Glc"}
+            }
+            part{
+                dnam{"bahagian"}
+                other{"{0} bahagian"}
+            }
+            part-per-1e9{
+                dnam{"ppb"}
+            }
             percent{
                 dnam{"%"}
             }
@@ -854,11 +933,6 @@ ms{
             month{
                 other{"{0}bln"}
             }
-            night{
-                dnam{"malam"}
-                other{"{0} malam"}
-                per{"{0}/malam"}
-            }
             second{
                 other{"{0}s"}
             }
@@ -890,6 +964,10 @@ ms{
             }
             calorie{
                 other{"{0}kal"}
+            }
+            calorie-it{
+                dnam{"kal-IT"}
+                other{"{0} kal-IT"}
             }
             electronvolt{
                 other{"{0}eV"}
@@ -1017,10 +1095,6 @@ ms{
             kilometer-per-hour{
                 dnam{"km/j"}
             }
-            light-speed{
-                dnam{"cahaya"}
-                other{"{0} cahaya"}
-            }
             meter-per-second{
                 dnam{"m/s"}
             }
@@ -1130,6 +1204,16 @@ ms{
             mole{
                 dnam{"mol"}
                 other{"{0} mol"}
+            }
+            ofglucose{
+                dnam{"Glc"}
+            }
+            part{
+                dnam{"bahagian"}
+                other{"{0} bahagian"}
+            }
+            part-per-1e9{
+                dnam{"bahagian/bilion"}
             }
             percent{
                 dnam{"peratus"}
@@ -1258,6 +1342,10 @@ ms{
             calorie{
                 dnam{"kal"}
                 other{"{0} kal"}
+            }
+            calorie-it{
+                dnam{"kal-IT"}
+                other{"{0} kal-IT"}
             }
             electronvolt{
                 dnam{"eV"}

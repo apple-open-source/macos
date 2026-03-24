@@ -35,6 +35,7 @@
 #include "Opcode.h"
 
 #if PLATFORM(COCOA)
+#include <wtf/ResourceUsage.h>
 #include <wtf/cocoa/Entitlements.h>
 #endif
 
@@ -44,8 +45,9 @@ namespace JSC {
 
 namespace LLInt {
 
+#if !HAVE(OS_SCRIPT_CONFIG_SPI)
 #if COMPILER(CLANG)
-// The purpose of applying this attribute is to move the g_opcodeConfigStorage away from other
+// The purpose of applying this attribute is to move the os_script_config_storage away from other
 // global variables, and allow the linker to pack them in more efficiently. Without this, the
 // linker currently leaves multiple KBs of unused padding before this page though there are many
 // other variables that come afterwards that would have fit in there. Adding this attribute was
@@ -54,8 +56,9 @@ namespace LLInt {
 #else
 #define LLINT_OPCODE_CONFIG_SECTION
 #endif
+alignas(CeilingOnPageSize) uint8_t LLINT_OPCODE_CONFIG_SECTION os_script_config_storage[OpcodeConfigSizeToProtect];
+#endif
 
-alignas(OpcodeConfigAlignment) Opcode LLINT_OPCODE_CONFIG_SECTION g_opcodeConfigStorage[OpcodeConfigSizeToProtect / sizeof(Opcode)];
 static_assert(sizeof(OpcodeConfig) <= OpcodeConfigSizeToProtect);
 
 #if !ENABLE(C_LOOP)
@@ -90,12 +93,38 @@ static constexpr bool scriptingIsForbidden() { return false; }
 
 void initialize()
 {
-    WTF::makePagesFreezable(&g_opcodeConfigStorage, OpcodeConfigSizeToProtect);
+#if HAVE(OS_SCRIPT_CONFIG_SPI)
+    // This check is provided only as a convenience best effort at helping identify when there
+    // is a potential SDK vs OS mismatch. The check is intentionally designed to be cheap.
+    auto osVersionSupports = [] (void* storageAddress) {
+        auto addressValue = reinterpret_cast<uintptr_t>(storageAddress);
+        uintptr_t pageSizeMask = vmPageSize() - 1;
+
+        if (addressValue & pageSizeMask)
+            return false; // os_script_config_storage should be page aligned.
+#if CPU(ADDRESS64)
+        uintptr_t fourGigabyteBoundary = 4 * GB;
+        if (addressValue < fourGigabyteBoundary)
+            return false; // os_script_config_storage would not be positioned under 4G on a 64 bit system.
+#endif
+        // We didn't detect an issue. So, maybe it's OK? Regardless, WTF::makePagesFreezable() will
+        // fail if the address is not valid.
+        return true;
+    };
+
+    // If this RELEASE_ASSERT fails, it's because you've built locally against a newer SDK
+    // that has the os_script_config_storage SPI, but are running on an older OS that does
+    // not implement the SPI. To work around this for your local build, force the #define
+    // of HAVE_OS_SCRIPT_CONFIG_SPI in LLIntData.h to 0.
+    RELEASE_ASSERT(osVersionSupports(os_script_config_storage));
+#endif
+
+    WTF::makePagesFreezable(&os_script_config_storage, OpcodeConfigSizeToProtect);
 
     if (g_jscConfig.vmEntryDisallowed || scriptingIsForbidden()) [[unlikely]] {
         // FIXME: Check if we can do this in a more performant way. See rdar://158509720.
         g_jscConfig.vmEntryDisallowed = true;
-        WTF::permanentlyFreezePages(&g_opcodeConfigStorage, OpcodeConfigSizeToProtect, WTF::FreezePagePermission::None);
+        WTF::permanentlyFreezePages(&os_script_config_storage, OpcodeConfigSizeToProtect, WTF::FreezePagePermission::None);
         return;
     }
     WTF::compilerFence();
@@ -140,7 +169,7 @@ void initialize()
 
     // Step 2: freeze opcodeMaps.
     WTF::compilerFence();
-    WTF::permanentlyFreezePages(&g_opcodeConfigStorage, OpcodeConfigSizeToProtect, WTF::FreezePagePermission::ReadOnly);
+    WTF::permanentlyFreezePages(&os_script_config_storage, OpcodeConfigSizeToProtect, WTF::FreezePagePermission::ReadOnly);
     WTF::compilerFence();
 
     // Step 3: verify that the opcodeMap is expected after freezing.

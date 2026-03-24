@@ -417,15 +417,15 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
     __block CFTypeRef result = NULL;
     CFIndex sizeInBits = 0;
 
-    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+    __Require_Action_Quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
 
     if (pss) {
         // Verify that algorithm is compatible with the modulus size.
         sizeInBits = ((__bridge NSNumber *)CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits)).integerValue;
-        require_action_quiet(sizeInBits >= (CFIndex)(2 * 8 * di->output_size + 9), out,
+        __Require_Action_Quiet(sizeInBits >= (CFIndex)(2 * 8 * di->output_size + 9), out,
                              SecError(errSecParam, error, CFSTR("algorithm %@ incompatible with %lubit RSA key"),
                                       CFArrayGetValueAtIndex(context->algorithm, CFArrayGetCount(context->algorithm) - 1),
                                       sizeInBits));
@@ -448,22 +448,22 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
     }
     PerformWithCFDataBuffer(ccn_sizeof_size(size), ^(uint8_t *buffer, CFDataRef data) {
         NSMutableData *s = [NSMutableData dataWithLength:size];
-        require_action_quiet(s != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
+        __Require_Action_Quiet(s != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
         if (pss) {
             NSMutableData *salt = [NSMutableData dataWithLength:di->output_size];
-            require_action_quiet(salt != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
+            __Require_Action_Quiet(salt != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
             int err = ccrng_generate(ccrng_seckey(), di->output_size, salt.mutableBytes);
-            require_noerr_action_quiet(err, out, SecError(errSecInternal, error, CFSTR("PSS salt gen fail (%zu bytes), err %d"),
+            __Require_noErr_Action_Quiet(err, out, SecError(errSecInternal, error, CFSTR("PSS salt gen fail (%zu bytes), err %d"),
                                                           di->output_size, err));
             err = ccrsa_emsa_pss_encode(di, di, di->output_size, salt.bytes,
                                         CFDataGetLength(in1), CFDataGetBytePtr(in1), sizeInBits - 1, s.mutableBytes);
-            require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSASSA-PSS incompatible algorithm for key size")));
+            __Require_noErr_Action_Quiet(err, out, SecError(errSecParam, error, CFSTR("RSASSA-PSS incompatible algorithm for key size")));
         } else {
             int err = ccrsa_emsa_pkcs1v15_encode(size, s.mutableBytes, CFDataGetLength(in1), CFDataGetBytePtr(in1), di ? di->oid : NULL);
-            require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSAsign wrong input data length")));
+            __Require_noErr_Action_Quiet(err, out, SecError(errSecParam, error, CFSTR("RSAsign wrong input data length")));
         }
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)buffer, size, s.bytes);
-        require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
+        __Require_Quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
         CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, size));
     out:;
     });
@@ -646,10 +646,10 @@ static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *conte
             err = ccrsa_eme_pkcs1v15_encode(ccrng_seckey(), size, (cc_unit *)buffer,
                                             CFDataGetLength(in1), CFDataGetBytePtr(in1));
         }
-        require_noerr_action_quiet(err, out, SecError(errSecParam, error,
+        __Require_noErr_Action_Quiet(err, out, SecError(errSecParam, error,
                                                       CFSTR("RSAencrypt wrong input size (err %d)"), err));
         cc_clear(ccn_sizeof_size(size) - size, buffer + size);
-        require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
+        __Require_Quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
         CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, SecKeyGetBlockSize(context->key)));
     out:;
     });
@@ -674,7 +674,7 @@ static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *conte
     __block CFMutableDataRef result = NULL;
     PerformWithBigEndianToCCUnit(in1, SecKeyGetBlockSize(context->key), ^(CFDataRef ccunits) {
         CFDataRef cc_result = NULL;
-        require_quiet(cc_result = SecKeyRunAlgorithmAndCopyResult(context, ccunits, NULL, error), out);
+        __Require_Quiet(cc_result = SecKeyRunAlgorithmAndCopyResult(context, ccunits, NULL, error), out);
         size_t size = SecKeyGetBlockSize(context->key);
         result = CFDataCreateMutableWithScratch(NULL, size);
         int err;
@@ -698,7 +698,7 @@ static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *conte
                                                 size, (cc_unit *)CFDataGetBytePtr(cc_result));
             }
         }
-        require_noerr_action_quiet(err, out, (CFReleaseNull(result),
+        __Require_noErr_Action_Quiet(err, out, (CFReleaseNull(result),
                                               SecError(errSecParam, error, CFSTR("RSAdecrypt wrong input (err %d)"), err)));
         CFDataSetLength(result, size);
     out:
@@ -746,20 +746,20 @@ const CFStringRef kSecKeyEncryptionParameterRecryptCertificate = CFSTR("recryptC
 static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const struct ccdigest_info *di,
                                           CFTypeRef in1, CFTypeRef params, CFErrorRef *error) {
     CFTypeRef result = NULL, sharedSecret;
-    require_quiet(sharedSecret = SecKeyRunAlgorithmAndCopyResult(context, in1, NULL, error), out);
+    __Require_Quiet(sharedSecret = SecKeyRunAlgorithmAndCopyResult(context, in1, NULL, error), out);
 
     if (context->mode == kSecKeyOperationModePerform) {
         // Parse params.
         CFTypeRef value = NULL;
         CFIndex requestedSize = 0;
-        require_action_quiet((value = CFDictionaryGetValue(params, kSecKeyKeyExchangeParameterRequestedSize)) != NULL
+        __Require_Action_Quiet((value = CFDictionaryGetValue(params, kSecKeyKeyExchangeParameterRequestedSize)) != NULL
                              && CFGetTypeID(value) == CFNumberGetTypeID() &&
                              CFNumberGetValue(value, kCFNumberCFIndexType, &requestedSize), out,
                              SecError(errSecParam, error, CFSTR("kSecKeyKeyExchangeParameterRequestedSize is missing")));
         size_t sharedInfoLength = 0;
         const void *sharedInfo = NULL;
         if ((value = CFDictionaryGetValue(params, kSecKeyKeyExchangeParameterSharedInfo)) != NULL) {
-            require_action_quiet(CFGetTypeID(value) == CFDataGetTypeID(), out, SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong sharedInfo type (must be CFData/NSData)")));
+            __Require_Action_Quiet(CFGetTypeID(value) == CFDataGetTypeID(), out, SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong sharedInfo type (must be CFData/NSData)")));
             sharedInfo = CFDataGetBytePtr(value);
             sharedInfoLength = CFDataGetLength(value);
         }
@@ -767,7 +767,7 @@ static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const
         CFMutableDataRef kdfResult = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), requestedSize);
         int err = ccansikdf_x963(di, CFDataGetLength(sharedSecret), CFDataGetBytePtr(sharedSecret), sharedInfoLength, sharedInfo,
                                  requestedSize, CFDataGetMutableBytePtr(kdfResult));
-        require_noerr_action_quiet(err, out, (CFReleaseNull(kdfResult),
+        __Require_noErr_Action_Quiet(err, out, (CFReleaseNull(kdfResult),
                                               SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong input (%d)"), err)));
         CFAssignRetained(result, kdfResult);
     } else {
@@ -827,15 +827,15 @@ static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, S
     SecKeyRef originalKey = context->key;
     CFMutableDataRef ciphertext = NULL;
 
-    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+    __Require_Action_Quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)
                          || CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeX25519)
                          || CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeX448), out, result = kCFNull);
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPublic), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPublic), out, result = kCFNull);
 
     // Generate ephemeral key.
-    require_quiet(pubKeyData = SecKeyCopyExternalRepresentation(context->key, error), out);
+    __Require_Quiet(pubKeyData = SecKeyCopyExternalRepresentation(context->key, error), out);
     CFAssignRetained(parameters, CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
 #if TARGET_OS_OSX
                                                               kSecUseDataProtectionKeychain, kCFBooleanTrue,
@@ -843,18 +843,18 @@ static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, S
                                                               kSecAttrKeyType, CFDictionaryGetValue(parameters, kSecAttrKeyType),
                                                               kSecAttrKeySizeInBits, CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits),
                                                               NULL));
-    require_quiet(ephemeralPrivateKey = SecKeyCreateRandomKey(parameters, error), out);
-    require_action_quiet(ephemeralPublicKey = SecKeyCopyPublicKey(ephemeralPrivateKey), out,
+    __Require_Quiet(ephemeralPrivateKey = SecKeyCreateRandomKey(parameters, error), out);
+    __Require_Action_Quiet(ephemeralPublicKey = SecKeyCopyPublicKey(ephemeralPrivateKey), out,
                          SecError(errSecParam, error, CFSTR("Unable to get public key from generated ECkey")));
-    require_quiet(ephemeralPubKeyData = SecKeyCopyExternalRepresentation(ephemeralPublicKey, error), out);
+    __Require_Quiet(ephemeralPubKeyData = SecKeyCopyExternalRepresentation(ephemeralPublicKey, error), out);
 
     context->key = ephemeralPrivateKey;
-    require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, true,
+    __Require_Quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, true,
                                                             ephemeralPubKeyData, pubKeyData, variableIV, in2, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Encrypt input data using AES-GCM.
         ciphertext = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, ephemeralPubKeyData);
-        require_quiet(encryptCopyResult(keyExchangeResult, in1, in2, ciphertext, error), out);
+        __Require_Quiet(encryptCopyResult(keyExchangeResult, in1, in2, ciphertext, error), out);
         result = CFRetain(ciphertext);
     } else {
         result = CFRetain(keyExchangeResult);
@@ -884,12 +884,12 @@ static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, S
     const UInt8 *ciphertextBuffer = NULL;
     CFIndex keyEncodedSize = 0;
 
-    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+    __Require_Action_Quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)
                          || CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeX25519)
                          || CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeX448), out, result = kCFNull);
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
 
     if (context->mode == kSecKeyOperationModePerform) {
         // Extract ephemeral public key from the packet.
@@ -901,25 +901,25 @@ static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, S
             keyEncodedSize = keySize;
         }
 
-        require_action_quiet(CFDataGetLength(in1) >= keyEncodedSize, out,
+        __Require_Action_Quiet(CFDataGetLength(in1) >= keyEncodedSize, out,
                              SecError(errSecParam, error, CFSTR("%@: too small input packet for ECIES decrypt"), context->key));
         ciphertextBuffer = CFDataGetBytePtr(in1);
         ephemeralPubKeyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ciphertextBuffer, keyEncodedSize, kCFAllocatorNull);
         ciphertextBuffer += keyEncodedSize;
 
-        require_action_quiet(pubKey = SecKeyCopyPublicKey(context->key), out,
+        __Require_Action_Quiet(pubKey = SecKeyCopyPublicKey(context->key), out,
                              SecError(errSecParam, error, CFSTR("%@: Unable to get public key"), context->key));
-        require_quiet(pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error), out);
+        __Require_Quiet(pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error), out);
     }
 
     // Perform keyExchange operation.
-    require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, false,
+    __Require_Quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, false,
                                                             ephemeralPubKeyData, pubKeyData, variableIV, in2, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Decrypt ciphertext using AES-GCM.
         ciphertext = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ciphertextBuffer, CFDataGetLength(in1) - keyEncodedSize,
                                                  kCFAllocatorNull);
-        require_quiet(result = decryptCopyResult(keyExchangeResult, ciphertext, in2, error), out);
+        __Require_Quiet(result = decryptCopyResult(keyExchangeResult, ciphertext, in2, error), out);
     } else {
         result = CFRetain(keyExchangeResult);
     }
@@ -1002,7 +1002,7 @@ static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, C
                              aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
                              CFDataGetLength(inData), CFDataGetBytePtr(inData),
                              resultBuffer, kSecKeyIESTagLength, tagBuffer);
-    require_action_quiet(err == 0, out,
+    __Require_Action_Quiet(err == 0, out,
                          SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm encrypt data (err %d)"), err));
     res = TRUE;
 out:
@@ -1014,7 +1014,7 @@ static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult,
     CFDataRef result = NULL;
     CFMutableDataRef plaintext = NULL;
     CFMutableDataRef tag = NULL;
-    require_action_quiet(CFDataGetLength(inData) >= kSecKeyIESTagLength, out, SecError(errSecParam, error, CFSTR("ECIES: Input data too short")));
+    __Require_Action_Quiet(CFDataGetLength(inData) >= kSecKeyIESTagLength, out, SecError(errSecParam, error, CFSTR("ECIES: Input data too short")));
     plaintext = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), CFDataGetLength(inData) - kSecKeyIESTagLength);
     tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
     CFDataGetBytes(inData, CFRangeMake(CFDataGetLength(inData) - kSecKeyIESTagLength, kSecKeyIESTagLength),
@@ -1028,7 +1028,7 @@ static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult,
                              aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
                              CFDataGetLength(plaintext), CFDataGetBytePtr(inData), CFDataGetMutableBytePtr(plaintext),
                              kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag));
-    require_action_quiet(err == 0, out,
+    __Require_Action_Quiet(err == 0, out,
                          SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm decrypt data (err %d)"), err));
     result = CFRetain(plaintext);
 out:
@@ -1115,23 +1115,23 @@ static CFTypeRef SecKeyRSAAESGCMCopyEncryptedData(SecKeyOperationContext *contex
     CFDataRef pubKeyData = NULL, wrappedKey = NULL, sessionKey = NULL;
     CFMutableDataRef ciphertext = NULL;
 
-    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+    __Require_Action_Quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPublic), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPublic), out, result = kCFNull);
 
     CFArrayAppendValue(context->algorithm, keyWrapAlgorithm);
-    require_action_quiet(context->mode == kSecKeyOperationModePerform, out,
+    __Require_Action_Quiet(context->mode == kSecKeyOperationModePerform, out,
                          result = SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error));
 
     // Generate session key.  Use 128bit AES for RSA keys < 4096bit, 256bit AES for larger keys.
-    require_quiet(pubKeyData = SecKeyCopyExternalRepresentation(context->key, error), out);
+    __Require_Quiet(pubKeyData = SecKeyCopyExternalRepresentation(context->key, error), out);
     CFIndex keySize = SecKeyGetCFIndexFromRef(CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits));
-    require_action_quiet(sessionKey = CFDataCreateWithRandomBytes((keySize >= 4096) ? (256 / 8) : (128 / 8)), out,
+    __Require_Action_Quiet(sessionKey = CFDataCreateWithRandomBytes((keySize >= 4096) ? (256 / 8) : (128 / 8)), out,
                          SecError(errSecParam, error, CFSTR("Failed to generate session key")));
 
     // Encrypt session key using wrapping algorithm and store at the beginning of the result packet.
-    require_action_quiet(wrappedKey = SecKeyRunAlgorithmAndCopyResult(context, sessionKey, NULL, error), out,
+    __Require_Action_Quiet(wrappedKey = SecKeyRunAlgorithmAndCopyResult(context, sessionKey, NULL, error), out,
                          CFReleaseNull(result));
     ciphertext = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(wrappedKey) + CFDataGetLength(in1) + kSecKeyIESTagLength);
     UInt8 *resultBuffer = CFDataGetMutableBytePtr(ciphertext);
@@ -1146,7 +1146,7 @@ static CFTypeRef SecKeyRSAAESGCMCopyEncryptedData(SecKeyOperationContext *contex
                              CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
                              CFDataGetLength(in1), CFDataGetBytePtr(in1), resultBuffer,
                              kSecKeyIESTagLength, tagBuffer);
-    require_action_quiet(err == 0, out,
+    __Require_Action_Quiet(err == 0, out,
                          SecError(errSecParam, error, CFSTR("RSAWRAP: Failed to aes-gcm encrypt data (err %d)"), err));
     result = CFRetain(ciphertext);
 
@@ -1167,31 +1167,31 @@ static CFTypeRef SecKeyRSAAESGCMCopyDecryptedData(SecKeyOperationContext *contex
     CFDataRef pubKeyData = NULL, sessionKey = NULL;
     SecKeyRef pubKey = NULL;
 
-    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+    __Require_Action_Quiet(parameters = SecKeyCopyAttributes(context->key), out,
                          SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
-    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
 
     CFArrayAppendValue(context->algorithm, keyWrapAlgorithm);
-    require_action_quiet(context->mode == kSecKeyOperationModePerform, out,
+    __Require_Action_Quiet(context->mode == kSecKeyOperationModePerform, out,
                          result = SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error));
 
     // Extract encrypted session key.
-    require_action_quiet(pubKey = SecKeyCopyPublicKey(context->key), out,
+    __Require_Action_Quiet(pubKey = SecKeyCopyPublicKey(context->key), out,
                          SecError(errSecParam, error, CFSTR("%@: unable to get public key"), context->key));
-    require_quiet(pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error), out);
+    __Require_Quiet(pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error), out);
 
     CFIndex wrappedKeySize = SecKeyGetBlockSize(context->key);
-    require_action_quiet(CFDataGetLength(in1) >= wrappedKeySize + kSecKeyIESTagLength, out,
+    __Require_Action_Quiet(CFDataGetLength(in1) >= wrappedKeySize + kSecKeyIESTagLength, out,
                          SecError(errSecParam, error, CFSTR("RSA-WRAP too short input data")));
     sessionKey = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, CFDataGetBytePtr(in1), wrappedKeySize, kCFAllocatorNull);
 
     // Decrypt session key.
     CFAssignRetained(sessionKey, SecKeyRunAlgorithmAndCopyResult(context, sessionKey, NULL, error));
-    require_quiet(sessionKey, out);
+    __Require_Quiet(sessionKey, out);
     CFIndex keySize = SecKeyGetCFIndexFromRef(CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits));
     keySize = (keySize >= 4096) ? (256 / 8) : (128 / 8);
-    require_action_quiet(CFDataGetLength(sessionKey) == keySize, out,
+    __Require_Action_Quiet(CFDataGetLength(sessionKey) == keySize, out,
                          SecError(errSecParam, error, CFSTR("RSA-WRAP bad ciphertext, unexpected session key size")));
 
     // Decrypt ciphertext using AES-GCM.
@@ -1207,7 +1207,7 @@ static CFTypeRef SecKeyRSAAESGCMCopyDecryptedData(SecKeyOperationContext *contex
                              CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
                              CFDataGetLength(plaintext), ciphertextBuffer, CFDataGetMutableBytePtr(plaintext),
                              kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag));
-    require_action_quiet(err == 0, out,
+    __Require_Action_Quiet(err == 0, out,
                          SecError(errSecParam, error, CFSTR("RSA-WRAP: Failed to aes-gcm decrypt data (err %d)"), err));
     result = CFRetain(plaintext);
 
@@ -1359,7 +1359,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureRFC4754,
         };
-        check_compile_time(array_size(signKeys) == array_size(signValues));
+        __Check_Compile_Time(array_size(signKeys) == array_size(signValues));
         adaptors[kSecKeyOperationTypeSign] = CFDictionaryCreate(kCFAllocatorDefault, signKeys, signValues,
                                                                 array_size(signKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1477,7 +1477,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureRFC4754,
         };
-        check_compile_time(array_size(verifyKeys) == array_size(verifyValues));
+        __Check_Compile_Time(array_size(verifyKeys) == array_size(verifyValues));
         adaptors[kSecKeyOperationTypeVerify] = CFDictionaryCreate(kCFAllocatorDefault, verifyKeys, verifyValues,
                                                                   array_size(verifyKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1559,7 +1559,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA384,
             SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA512,
         };
-        check_compile_time(array_size(encryptKeys) == array_size(encryptValues));
+        __Check_Compile_Time(array_size(encryptKeys) == array_size(encryptValues));
         adaptors[kSecKeyOperationTypeEncrypt] = CFDictionaryCreate(kCFAllocatorDefault, encryptKeys, encryptValues,
                                                                    array_size(encryptKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1645,7 +1645,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
 
             SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIES_Standard_SHA256_2PubKeys,
         };
-        check_compile_time(array_size(decryptKeys) == array_size(decryptValues));
+        __Check_Compile_Time(array_size(decryptKeys) == array_size(decryptValues));
         adaptors[kSecKeyOperationTypeDecrypt] = CFDictionaryCreate(kCFAllocatorDefault, decryptKeys, decryptValues,
                                                                    array_size(decryptKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1676,7 +1676,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_KeyExchange_ECDHCofactorX963SHA384,
             SecKeyAlgorithmAdaptorCopyResult_KeyExchange_ECDHCofactorX963SHA512,
         };
-        check_compile_time(array_size(keyExchangeKeys) == array_size(keyExchangeValues));
+        __Check_Compile_Time(array_size(keyExchangeKeys) == array_size(keyExchangeValues));
         adaptors[kSecKeyOperationTypeKeyExchange] = CFDictionaryCreate(kCFAllocatorDefault, keyExchangeKeys, keyExchangeValues,
                                                                        array_size(keyExchangeKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1684,7 +1684,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
         };
         const void *keyEncapsulateValues[] = {
         };
-        check_compile_time(array_size(keyEncapsulateKeys) == array_size(keyEncapsulateValues));
+        __Check_Compile_Time(array_size(keyEncapsulateKeys) == array_size(keyEncapsulateValues));
         adaptors[kSecKeyOperationTypeEncapsulate] = CFDictionaryCreate(kCFAllocatorDefault, keyEncapsulateKeys, keyEncapsulateValues,
                                                                        array_size(keyEncapsulateKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
 
@@ -1692,7 +1692,7 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
         };
         const void *keyDecapsulateValues[] = {
         };
-        check_compile_time(array_size(keyDecapsulateKeys) == array_size(keyDecapsulateValues));
+        __Check_Compile_Time(array_size(keyDecapsulateKeys) == array_size(keyDecapsulateValues));
         adaptors[kSecKeyOperationTypeDecapsulate] = CFDictionaryCreate(kCFAllocatorDefault, keyDecapsulateKeys, keyDecapsulateValues,
                                                                        array_size(keyDecapsulateKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
     });

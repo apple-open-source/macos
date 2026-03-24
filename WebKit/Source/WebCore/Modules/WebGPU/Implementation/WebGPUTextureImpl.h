@@ -44,7 +44,7 @@ class TextureImpl final : public Texture {
 public:
     static Ref<TextureImpl> create(WebGPUPtr<WGPUTexture>&& texture, TextureFormat format, TextureDimension dimension, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new TextureImpl(WTFMove(texture), format, dimension, convertToBackingContext));
+        return adoptRef(*new TextureImpl(WTF::move(texture), format, dimension, convertToBackingContext));
     }
 
     virtual ~TextureImpl();

@@ -1805,7 +1805,7 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			UInt64 dmaOffset = 0;
 
 			result = IOMallocType(IOEthernetAVBPacket);
-			require(result, FailedAllocate);
+			__Require(result, FailedAllocate);
 
 			result->completion_context = this;
 			result->completion_callback = &allocatedAVBPacketCompletion;
@@ -1826,26 +1826,26 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			}
 			
 			buffer = IOBufferMemoryDescriptor::withOptions(options, allocationSize, alignment);
-			require(buffer, FailedAllocate);
+			__Require(buffer, FailedAllocate);
 			result->desc_buffer = buffer;
 			
 			dma = IODMACommand::withSpecification(kIODMACommandOutputHost64, 0, allocationSize, IODMACommand::kMapped, allocationSize, (uint32_t)alignment, _reserved->fAVBPacketMapper, NULL);
-			require(dma, FailedAllocate);
+			__Require(dma, FailedAllocate);
 			result->desc_dma = dma;
 			
 			status = dma->setMemoryDescriptor(buffer);
-			require(kIOReturnSuccess == status, FailedAllocate);
+			__Require(kIOReturnSuccess == status, FailedAllocate);
 
 			status = ((IOBufferMemoryDescriptor *)(result->desc_buffer))->prepare();
-			require(kIOReturnSuccess == status, FailedAllocate);
+			__Require(kIOReturnSuccess == status, FailedAllocate);
 			bufferPrepared = true;
 			
 			status = dma->prepare();
-			require(kIOReturnSuccess == status, FailedAllocate);
+			__Require(kIOReturnSuccess == status, FailedAllocate);
 			dmaPrepared = true;
 
 			status = dma->gen64IOVMSegments(&dmaOffset, &dmaSegment, &segmentCount);
-			require(kIOReturnSuccess == status, FailedAllocate);
+			__Require(kIOReturnSuccess == status, FailedAllocate);
 			
 			result->numberOfEntries = 1;
 			result->virtualRanges[0].address = (IOVirtualAddress)buffer->getBytesNoCopy();
@@ -1916,20 +1916,20 @@ IOReturn IOEthernetController::createRealtimeAVBPacketPool(size_t poolSize)
 {
     IOReturn result = kIOReturnNoMemory;
     
-    require_action(_reserved != nullptr, Exit, result = kIOReturnInternalError);
-    require_action(poolSize >= MIN_REALTIME_POOL_SIZE, Exit, result = kIOReturnBadArgument);
+    __Require_Action(_reserved != nullptr, Exit, result = kIOReturnInternalError);
+    __Require_Action(poolSize >= MIN_REALTIME_POOL_SIZE, Exit, result = kIOReturnBadArgument);
     
-    require_action(_reserved->fRealtimePoolList == nullptr, Exit, result = kIOReturnAborted);
+    __Require_Action(_reserved->fRealtimePoolList == nullptr, Exit, result = kIOReturnAborted);
     
     _reserved->fRealtimePoolSize = poolSize;
     
     _reserved->fRealtimePoolList = IONewZero(IOEthernetAVBPacketPoolEntry, poolSize);
-    require(_reserved->fRealtimePoolList != nullptr, Exit);
+    __Require(_reserved->fRealtimePoolList != nullptr, Exit);
     
     for(size_t index = 0; index < poolSize; index++)
     {
         _reserved->fRealtimePoolList[index].packet = allocateAVBPacket(false);
-        require(_reserved->fRealtimePoolList[index].packet != nullptr, Exit);
+        __Require(_reserved->fRealtimePoolList[index].packet != nullptr, Exit);
         
         //The allocated packet will be using the allocated packet callback which will free the packet
         // we need to use the realtime callback which will put it back into the pool
@@ -1974,14 +1974,14 @@ void IOEthernetController::realtimePoolAVBPacketCompletion(void *context, IOEthe
     IOEthernetAVBPacketPoolEntry *poolEntry;
     ExpansionData *reserved;
     
-    require(context != nullptr, Exit);
-    require(packet != nullptr, Exit);
+    __Require(context != nullptr, Exit);
+    __Require(packet != nullptr, Exit);
     
     controller = (IOEthernetController *)context;
     poolEntry = (IOEthernetAVBPacketPoolEntry *)packet->reservedFamily;
     reserved = controller->_reserved;
     
-    require(reserved != nullptr, Exit);
+    __Require(reserved != nullptr, Exit);
     
     //Reset the packet
     packet->numberOfEntries = 1;
@@ -1993,7 +1993,7 @@ void IOEthernetController::realtimePoolAVBPacketCompletion(void *context, IOEthe
     if(poolEntry->inUse != true)
     {
         IOLog("IOEthernetController ERROR: Double complete of realtime AVB packet");
-        require_action(poolEntry->inUse == true, Exit, IOLockUnlock(reserved->fRealtimePoolLock));
+        __Require_Action(poolEntry->inUse == true, Exit, IOLockUnlock(reserved->fRealtimePoolLock));
     }
     
     poolEntry->inUse = false;

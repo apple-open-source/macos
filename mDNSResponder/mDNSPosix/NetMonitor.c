@@ -520,7 +520,7 @@ mDNSlocal void DisplaySizeCheck(const DNSMessage *const msg, const mDNSu8 *const
 
 mDNSlocal void DisplayResourceRecord(const mDNSAddr *const srcaddr, const char *const op, const ResourceRecord *const pktrr)
 {
-    static const char hexchars[16] = "0123456789ABCDEF";
+    static const char MDNS_NONSTRING hexchars[16] = "0123456789ABCDEF";
     #define MaxWidth 132
     char buffer[MaxWidth+8];
     char *p = buffer;

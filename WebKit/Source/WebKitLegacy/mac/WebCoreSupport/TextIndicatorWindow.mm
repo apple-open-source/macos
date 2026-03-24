@@ -74,7 +74,7 @@ void TextIndicatorWindow::setAnimationProgress(float progress)
 
 void TextIndicatorWindow::clearTextIndicator(WebCore::TextIndicatorDismissalAnimation animation)
 {
-    RefPtr<WebCore::TextIndicator> textIndicator = WTFMove(m_textIndicator);
+    RefPtr<WebCore::TextIndicator> textIndicator = WTF::move(m_textIndicator);
 
     if ([m_textIndicatorLayer isFadingOut])
         return;
@@ -141,7 +141,7 @@ void TextIndicatorWindow::updateTextIndicator(Ref<WebCore::TextIndicator>&& text
 {
     bool wantsBounce = textIndicator->wantsBounce();
     if (m_textIndicator != textIndicator.ptr())
-        m_textIndicator = WTFMove(textIndicator);
+        m_textIndicator = WTF::move(textIndicator);
 
     CGFloat horizontalMargin = WebCore::dropShadowBlurRadius * 2 + WebCore::TextIndicator::defaultHorizontalMargin;
     CGFloat verticalMargin = WebCore::dropShadowBlurRadius * 2 + WebCore::TextIndicator::defaultVerticalMargin;
@@ -163,7 +163,8 @@ void TextIndicatorWindow::updateTextIndicator(Ref<WebCore::TextIndicator>&& text
 
     NSRect frame = NSMakeRect(0, 0, [m_textIndicatorWindow frame].size.width, [m_textIndicatorWindow frame].size.height);
 
-    [m_textIndicatorLayer updateWithFrame:frame textIndicator:m_textIndicator  margin:NSMakeSize(horizontalMargin, verticalMargin) offset:fractionalTextOffset updatingIndicator:YES];
+    RefPtr<WebCore::TextIndicator> protectedTextIndicator = m_textIndicator.get();
+    [m_textIndicatorLayer updateWithFrame:frame textIndicator:protectedTextIndicator.get() margin:NSMakeSize(horizontalMargin, verticalMargin) offset:fractionalTextOffset updatingIndicator:YES];
 }
 
 void TextIndicatorWindow::closeWindow()

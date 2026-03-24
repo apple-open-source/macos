@@ -3981,6 +3981,9 @@ main(int argc, char **argv)
 		memcpy(testprogdir, pwd, strlen(pwd));
 		testprogdir[strlen(pwd)] = '/';
 	}
+#ifdef __APPLE__
+	setenv("__WANT_TEST_HOOKS", "", 0);
+#endif
 
 #ifdef PROGRAM
 	/* Get the target program from environment, if available. */

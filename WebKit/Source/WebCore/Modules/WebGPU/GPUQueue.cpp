@@ -59,7 +59,7 @@
 namespace WebCore {
 
 GPUQueue::GPUQueue(Ref<WebGPU::Queue>&& backing, WebGPU::Device& device)
-    : m_backing(WTFMove(backing))
+    : m_backing(WTF::move(backing))
     , m_device(&device)
 {
 }
@@ -71,7 +71,7 @@ String GPUQueue::label() const
 
 void GPUQueue::setLabel(String&& label)
 {
-    m_backing->setLabel(WTFMove(label));
+    m_backing->setLabel(WTF::move(label));
 }
 
 void GPUQueue::submit(Vector<Ref<GPUCommandBuffer>>&& commandBuffers)
@@ -79,7 +79,7 @@ void GPUQueue::submit(Vector<Ref<GPUCommandBuffer>>&& commandBuffers)
     auto result = WTF::map(commandBuffers, [](auto& commandBuffer) -> Ref<WebGPU::CommandBuffer> {
         return commandBuffer->backing();
     });
-    m_backing->submit(WTFMove(result));
+    m_backing->submit(WTF::move(result));
 
     if (RefPtr device = m_device.get()) {
         for (Ref commandBuffer : commandBuffers) {
@@ -91,7 +91,7 @@ void GPUQueue::submit(Vector<Ref<GPUCommandBuffer>>&& commandBuffers)
 
 void GPUQueue::onSubmittedWorkDone(OnSubmittedWorkDonePromise&& promise)
 {
-    m_backing->onSubmittedWorkDone([promise = WTFMove(promise)]() mutable {
+    m_backing->onSubmittedWorkDone([promise = WTF::move(promise)]() mutable {
         promise.resolve(nullptr);
     });
 }

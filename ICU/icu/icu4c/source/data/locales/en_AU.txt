@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en_AU{
     %%Parent{"en_001"}
     NumberElements{
@@ -12,22 +12,8 @@ en_AU{
     }
     calendar{
         generic{
-            DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
-                "EEEE d MMMM y G",
-                "d MMMM y G",
-                "d MMM y G",
-                "dd/MM/y GGGGG",
-                "{1}, {0}",
-                "{1}, {0}",
-                "{1}, {0}",
-                "{1}, {0}",
-                "{1}, {0}",
-            }
             availableFormats{
+                GyMEd{"E, d/M/y G"}
                 GyMMMEEEEd{"EEEE d MMM y G"}
                 MMMEEEEd{"EEEE d MMM"}
                 MMMMEEEEd{"EEEE d MMMM"}

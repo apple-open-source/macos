@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,6 +86,9 @@
 #include <net/if.h>
 #include <netsmb/smb_2.h>
 #include <netsmb/smb_dev_2.h>
+
+#include "platform_single_signon.h"
+
 
 #define DISCONNECT_ERROR(error) \
 	((error == ENETUNREACH) || (error == ENOTCONN) || (error == ENETRESET) || \
@@ -633,6 +636,68 @@ needToSpawnMCNotifier(int pid)
     }
 
     return ret_val;
+}
+
+/*
+ * Set up environment with LLVM_PROFILE_FILE for code coverage when CCOVERAGE is defined
+ */
+static char **
+setup_coverage_environment(char **original_environ)
+{
+#pragma unused(original_environ)
+
+#ifdef CCOVERAGE
+    if (!original_environ) {
+        return NULL;
+    }
+
+    size_t environ_count = 0;
+    char **custom_environ = NULL;
+    static char llvm_profile_env[256];
+
+    /* Count existing environment variables */
+    while (original_environ[environ_count]) {
+        environ_count++;
+    }
+
+    /* Allocate space for existing env vars + LLVM_PROFILE_FILE + NULL terminator */
+    custom_environ = malloc((environ_count + 2) * sizeof(char*));
+    if (custom_environ) {
+        /* Copy existing environment variables */
+        for (size_t i = 0; i < environ_count; i++) {
+            custom_environ[i] = original_environ[i];
+        }
+
+        /* Add LLVM_PROFILE_FILE environment variable */
+        snprintf(llvm_profile_env, sizeof(llvm_profile_env), "LLVM_PROFILE_FILE=/tmp/coverage/mc_notifier_%%p.profraw");
+        custom_environ[environ_count] = llvm_profile_env;
+        custom_environ[environ_count + 1] = NULL;
+
+        return custom_environ;
+    } else {
+        os_log_error(OS_LOG_DEFAULT, "%s: Failed to allocate memory for custom environment", __FUNCTION__);
+        return NULL;
+    }
+#else
+    /* When CCOVERAGE is not defined, return NULL to indicate no custom environment */
+    return NULL;
+#endif
+}
+
+/*
+ * Clean up custom environment allocation
+ */
+static void
+cleanup_coverage_environment(char **custom_environ)
+{
+#ifdef CCOVERAGE
+    if (custom_environ) {
+        free(custom_environ);
+    }
+#else
+    /* Nothing to do when CCOVERAGE is not defined */
+    (void)custom_environ; /* Suppress unused parameter warning */
+#endif
 }
 
 /*
@@ -1310,6 +1375,7 @@ static void smb_session_reset_security(struct smb_ctx *ctx)
 static int MakeTarget(struct smb_ctx *ctx, const char *serverPrincipal, gssd_nametype serverNameType)
 {	
 	if (serverPrincipal) {
+        //os_log_error(OS_LOG_DEFAULT, "%s: SPN from serverPrincipal is <%s>", __FUNCTION__, serverPrincipal);
 		ctx->ct_setup.ioc_gss_target_size = (uint32_t)strlen(serverPrincipal) + 1;
 		ctx->ct_setup.ioc_gss_target_name = CAST_USER_ADDR_T(malloc(ctx->ct_setup.ioc_gss_target_size));
 		if (ctx->ct_setup.ioc_gss_target_name) {
@@ -1544,14 +1610,18 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
 	}
 	
 	/* We always create a target name if we are doing extended security. */
-	if (error)
+    if (error) {
+        os_log_debug(OS_LOG_DEFAULT, "%s: MakeTarget failed %d ", __FUNCTION__, error);
 		return (error);
+    }
 	
 	/* Now see if we have a client name */
 	smb_session_set_user(ctx, userName);
 	error = smb_session_set_client(ctx, clientPrincipal, clientNameType);
-	if (error)
+    if (error) {
+        os_log_debug(OS_LOG_DEFAULT, "%s: smb_session_set_client failed %d ", __FUNCTION__, error);
 		return (error);
+    }
 		
 	error = smb_session_send_auth(ctx);
 	/* Will need to reset this if these names ever become binary */
@@ -1587,6 +1657,7 @@ static int AuthenticateWithURL(struct smb_ctx *ctx, Boolean useNTLM)
 	/* We always create a target name if we are doing extended security. */
 	error = MakeTarget(ctx, NULL, GSSD_HOSTBASED);
 	if (error) {
+        os_log_debug(OS_LOG_DEFAULT, "%s: MakeTarget failed ", __FUNCTION__);
 		goto done;
 	}
 	/* The NTLM creds are store in user@domain or user@server */
@@ -1811,6 +1882,7 @@ skip_minauth_check:
 	 * authenication message.
 	 */
 	if ((ctx->ct_session_caps & SMB_CAP_EXT_SECURITY) != SMB_CAP_EXT_SECURITY) {
+        //os_log_error(OS_LOG_DEFAULT, "%s: Calling AuthenticateWithNonExtSecurity ", __FUNCTION__);
 		return AuthenticateWithNonExtSecurity(ctx);
 	}
 	
@@ -1818,6 +1890,7 @@ skip_minauth_check:
 	 * They gave us a authentication dictionary then use it.
 	 */	
 	if (authInfoDict) {
+        //os_log_error(OS_LOG_DEFAULT, "%s: Calling AuthenticateWithDictionary ", __FUNCTION__);
 		return AuthenticateWithDictionary(ctx, authInfoDict);
 	}
 	
@@ -1835,6 +1908,7 @@ skip_minauth_check:
 	 * If the server support kerberos then we try it first and if that fails
 	 * then try NTLM.
 	 */
+    //os_log_error(OS_LOG_DEFAULT, "%s: Calling AuthenticateWithURL ", __FUNCTION__);
 	if (serverSupportsKerb) {
 		int error;
 		
@@ -1849,6 +1923,7 @@ skip_minauth_check:
 		ctx->ct_setup.ioc_userflags &= ~SMBV_KERBEROS_ACCESS;
 	}
 	/* Ok try NTLM */
+    //os_log_error(OS_LOG_DEFAULT, "%s: Fall back to NTLM ", __FUNCTION__);
 	return AuthenticateWithURL(ctx, TRUE);
 }
 
@@ -2491,6 +2566,23 @@ smb_connect(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
 	CFArrayRef dcArrayRef = smb_resolve_domain(ctx->serverNameRef);
 	CFIndex numItems = (dcArrayRef) ? CFArrayGetCount(dcArrayRef) : 0;
 	
+    /* If not bound to AD, should we do our own SRV lookups? */
+    if (dcArrayRef == NULL) {
+        if (ctx->prefs.srv_lookup_enabled) {
+            os_log_debug(OS_LOG_DEFAULT, "%s: SRV lookup enabled", __FUNCTION__);
+            
+            /*
+             * Try SRV lookups with default timeout of 5 seconds
+             * Note we should never be doing any mDNS searches and so the timeout should never be needed
+             */
+            dcArrayRef = smb_PSSO_domain(ctx->serverNameRef, 5);
+            numItems = (dcArrayRef) ? CFArrayGetCount(dcArrayRef) : 0;
+        }
+        else {
+            os_log_debug(OS_LOG_DEFAULT, "%s: SRV lookup disabled", __FUNCTION__);
+        }
+    }
+	
 	ctx->serverIsDomainController = FALSE;
 
     /*
@@ -2986,6 +3078,12 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
                                          __FUNCTION__, error);
                         }
                     }
+
+                    /* Set up environment for code coverage if enabled */
+                    char **coverage_environ = setup_coverage_environment(environ);
+                    if (coverage_environ) {
+                        environ = coverage_environ;
+                    }
  
                     /* Call posix_spawn to launch mc_notifier */
                     if (error == 0) {
@@ -2996,6 +3094,9 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
                                          __FUNCTION__, error);
                         }
                     }
+
+                    /* Clean up coverage environment if allocated */
+                    cleanup_coverage_environment(coverage_environ);
 
                     if (error == 0) {
                         // Validate mc_notifier is up and running

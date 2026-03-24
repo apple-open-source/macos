@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en{
     RBNFRules{
         DurationRules{
@@ -236,37 +236,6 @@ en{
             "28: \u015A. 13;",
             "29: \u015A. 14;",
             "30: P\u016Br\u1E47im\u0101;",
-            "%spellout-tithi-amanta:",
-            "1: \u015A. 1;",
-            "2: \u015A. 2;",
-            "3: \u015A. 3;",
-            "4: \u015A. 4;",
-            "5: \u015A. 5;",
-            "6: \u015A. 6;",
-            "7: \u015A. 7;",
-            "8: \u015A. 8;",
-            "9: \u015A. 9;",
-            "10: \u015A. 10;",
-            "11: \u015A. 11;",
-            "12: \u015A. 12;",
-            "13: \u015A. 13;",
-            "14: \u015A. 14;",
-            "15: P\u016Br\u1E47im\u0101;",
-            "16: K. 1;",
-            "17: K. 2;",
-            "18: K. 3;",
-            "19: K. 4;",
-            "20: K. 5;",
-            "21: K. 6;",
-            "22: K. 7;",
-            "23: K. 8;",
-            "24: K. 9;",
-            "25: K. 10;",
-            "26: K. 11;",
-            "27: K. 12;",
-            "28: K. 13;",
-            "29: K. 14;",
-            "30: Am\u0101vasy\u0101;",
             "%spellout-tithi-gujarati:",
             "1: Sud 1;",
             "2: Sud 2;",

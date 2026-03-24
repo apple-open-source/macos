@@ -46,7 +46,7 @@ template<typename> class ExceptionOr;
 class MediaStreamTrackProcessor
     : public RefCounted<MediaStreamTrackProcessor>
     , public ContextDestructionObserver {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaStreamTrackProcessor);
+    WTF_MAKE_TZONE_ALLOCATED(MediaStreamTrackProcessor);
 public:
     struct Init {
         RefPtr<MediaStreamTrack> track;
@@ -66,11 +66,12 @@ public:
     class Source final
         : public ReadableStreamSource
         , public MediaStreamTrackPrivateObserver {
-        WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Source);
+        WTF_MAKE_TZONE_ALLOCATED(Source);
     public:
         Source(Ref<MediaStreamTrackPrivate>&&, MediaStreamTrackProcessor&);
         ~Source();
 
+        bool isEnabled() const { return m_privateTrack->enabled(); }
         bool isWaiting() const { return m_isWaiting; }
         bool isCancelled() const { return m_isCancelled; }
         void close();
@@ -94,7 +95,7 @@ public:
         void setInactive() { };
         void doStart() final;
         void doPull() final;
-        void doCancel() final;
+        void doCancel(JSC::JSValue) final;
 
         bool m_isWaiting { false };
         bool m_isCancelled { false };

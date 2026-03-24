@@ -117,6 +117,8 @@ public:
     virtual bool isValid(const XRProjectionLayer&) const = 0;
     virtual bool isValid(const XRView&) const = 0;
 
+    virtual bool isRemoteGPUProxy() const { return false; }
+
 protected:
     GPU() = default;
 

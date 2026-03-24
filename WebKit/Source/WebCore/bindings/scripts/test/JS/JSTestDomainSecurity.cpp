@@ -152,7 +152,7 @@ void JSTestDomainSecurityPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestDomainSecurity::s_info = { "TestDomainSecurity"_s, &Base::s_info, &JSTestDomainSecurityTable, nullptr, CREATE_METHOD_TABLE(JSTestDomainSecurity) };
 
 JSTestDomainSecurity::JSTestDomainSecurity(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestDomainSecurity>&& impl)
-    : JSDOMWrapper<TestDomainSecurity>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestDomainSecurity>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -381,7 +381,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestDomainSecurity>(impl.ptr());
 #endif
-    return createWrapper<TestDomainSecurity>(globalObject, WTFMove(impl));
+    return createWrapper<TestDomainSecurity>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestDomainSecurity& impl)

@@ -454,7 +454,7 @@ void JSTestConditionalIncludesPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestConditionalIncludes::s_info = { "TestConditionalIncludes"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestConditionalIncludes) };
 
 JSTestConditionalIncludes::JSTestConditionalIncludes(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestConditionalIncludes>&& impl)
-    : JSDOMWrapper<TestConditionalIncludes>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestConditionalIncludes>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -757,7 +757,7 @@ static inline JSC::EncodedJSValue jsTestConditionalIncludesPrototypeFunction_mix
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     auto implResult = impl.mixinResultFieldOperation();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLSequence<IDLInterface<Node>>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTFMove(implResult.nodes))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLSequence<IDLInterface<Node>>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTF::move(implResult.nodes))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestConditionalIncludesPrototypeFunction_mixinResultFieldOperation, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -854,7 +854,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestConditionalIncludes>(impl.ptr());
 #endif
-    return createWrapper<TestConditionalIncludes>(globalObject, WTFMove(impl));
+    return createWrapper<TestConditionalIncludes>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestConditionalIncludes& impl)

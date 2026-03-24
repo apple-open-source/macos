@@ -91,7 +91,7 @@ static bool SecKeyDigestAndVerifyWithError(
                                            CFErrorRef          *error) {
     
     OSStatus status = SecKeyDigestAndVerify(key, algId, dataToDigest, dataToDigestLen, sig, sigLen);
-    require_noerr(status, fail);
+    __Require_noErr(status, fail);
     return true;
 fail:
     SecOTRCreateError(secOTRErrorOSError, status, CFSTR("Error verifying message. OSStatus in error code."), NULL, error);
@@ -104,7 +104,7 @@ static bool SecOTRPICacheHash(SecOTRPublicIdentityRef pubID, CFErrorRef *error)
     
     CFMutableDataRef stream = CFDataCreateMutable(NULL, 0);
 
-    require(SecOTRPIAppendSerialization(pubID, stream, error), fail);
+    __Require(SecOTRPIAppendSerialization(pubID, stream, error), fail);
 
     CCDigest(kCCDigestSHA1, CFDataGetBytePtr(stream), (CC_LONG)CFDataGetLength(stream), pubID->hash);
     
@@ -132,7 +132,7 @@ SecOTRPublicIdentityRef SecOTRPublicIdentityCopyFromPrivate(CFAllocatorRef alloc
     result->publicSigningKey = fullID->publicSigningKey;
     CFRetain(result->publicSigningKey);
     
-    require(SecOTRPICacheHash(result, error), fail);
+    __Require(SecOTRPICacheHash(result, error), fail);
 
     return result;
 
@@ -148,7 +148,7 @@ SecOTRPublicIdentityRef SecOTRPublicIdentityCreateFromSecKeyRef(CFAllocatorRef a
     SecOTRPublicIdentityRef result = CFTypeAllocate(SecOTRPublicIdentity, struct _SecOTRPublicIdentity, allocator);
     result->publicSigningKey = publicKey;
     CFRetain(result->publicSigningKey);
-    require(SecOTRPICacheHash(result, error), fail);
+    __Require(SecOTRPICacheHash(result, error), fail);
     return result;
 fail:
     CFRelease(result->publicSigningKey);
@@ -164,8 +164,8 @@ static SecKeyRef SecOTRCreatePublicKeyFrom(const uint8_t* keyData, size_t keyDat
     
     createdKey = createFunction(kCFAllocatorDefault, &keyData, &keyDataSize);
     
-    require(createdKey != NULL, fail);
-    require(keyDataSize == 0, fail);
+    __Require(createdKey != NULL, fail);
+    __Require(keyDataSize == 0, fail);
 
     return createdKey;
 
@@ -186,18 +186,18 @@ SecOTRPublicIdentityRef SecOTRPublicIdentityCreateFromBytes(CFAllocatorRef alloc
     const uint8_t* fullSequenceEnd = *bytes + *size;
 
     const uint8_t* keyData = ccder_decode_sequence_tl(&fullSequenceEnd, *bytes, fullSequenceEnd);
-    require(keyData != NULL, fail);
+    __Require(keyData != NULL, fail);
     size_t fullSize = (size_t)(fullSequenceEnd - *bytes);
     
     size_t   keyDataSize;
     keyData = ccder_decode_tl(CCDER_CONTEXT_SPECIFIC | kOTRPIDER_SigningID, &keyDataSize, keyData, fullSequenceEnd);
     newID->publicSigningKey = SecOTRCreatePublicKeyFrom(keyData, keyDataSize, kOTRPIDER_SigningID, &CreateECPublicKeyFrom);
-    require(newID->publicSigningKey != NULL, fail);
+    __Require(newID->publicSigningKey != NULL, fail);
     keyData += keyDataSize;
     
     newID->wantsHashes = (NULL != ccder_decode_tl(CCDER_CONTEXT_SPECIFIC | kOTRPIDER_SupportsHashes, &keyDataSize, keyData, fullSequenceEnd));
 
-    require(SecOTRPICacheHash(newID, &stackedError), fail);
+    __Require(SecOTRPICacheHash(newID, &stackedError), fail);
     
     *bytes += fullSize;
     *size -= fullSize;
@@ -274,7 +274,7 @@ bool SecOTRPIAppendSerialization(SecOTRPublicIdentityRef publicID, CFMutableData
 
     uint8_t sendHashes[1] = { 0xFF };
 
-    require_noerr(appendPublicOctetsAndSize(publicID->publicSigningKey, signingKeySerialized), fail);
+    __Require_noErr(appendPublicOctetsAndSize(publicID->publicSigningKey, signingKeySerialized), fail);
 
     size_t outputSize = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE,
                                      ccder_sizeof_implicit_raw_octet_string(CCDER_CONTEXT_SPECIFIC | kOTRPIDER_SigningID, (size_t)CFDataGetLength(signingKeySerialized)) +
@@ -289,7 +289,7 @@ bool SecOTRPIAppendSerialization(SecOTRPublicIdentityRef publicID, CFMutableData
                       ccder_encode_implicit_raw_octet_string(CCDER_CONTEXT_SPECIFIC | kOTRPIDER_SigningID, (size_t)CFDataGetLength(signingKeySerialized), CFDataGetBytePtr(signingKeySerialized), outputBuffer,
                       sAdvertiseHashes ? ccder_encode_implicit_raw_octet_string(CCDER_CONTEXT_SPECIFIC | kOTRPIDER_SupportsHashes, sizeof(sendHashes), sendHashes, outputBuffer, outputBufferEnd) : outputBufferEnd));
 
-    require_quiet(result == outputBuffer, fail);
+    __Require_Quiet(result == outputBuffer, fail);
 
     CFReleaseSafe(signingKeySerialized);
 
@@ -337,27 +337,27 @@ bool SecOTRPIVerifySignature(SecOTRPublicIdentityRef publicID,
                                 const uint8_t *dataToHash, size_t amountToHash,
                                 const uint8_t *signatureStart, size_t signatureSize, CFErrorRef *error)
 {
-    require(signatureSize > 0, fail);
-    require(*signatureStart == signatureSize - 1, fail);
+    __Require(signatureSize > 0, fail);
+    __Require(*signatureStart == signatureSize - 1, fail);
     signatureSize -= 1;
     signatureStart += 1;
 
-    require(SecKeyDigestAndVerifyWithError(publicID->publicSigningKey, kOTRSignatureAlgIDPtr,
+    __Require(SecKeyDigestAndVerifyWithError(publicID->publicSigningKey, kOTRSignatureAlgIDPtr,
                                  dataToHash, amountToHash,
                                  (uint8_t*)signatureStart, signatureSize, NULL), fail);
     return true;
 fail: ;
     uint8_t *replacementSignature = malloc(signatureSize + 3);
-    require(replacementSignature != NULL, fail2);
+    __Require(replacementSignature != NULL, fail2);
     
     size_t replacementSignatureLen = sizeof(replacementSignature);
     uint8_t *replacementSignaturePtr = replacementSignature;
     
     SecOTRPIRecreateSignature(signatureStart, signatureSize, &replacementSignaturePtr, &replacementSignatureLen);
     
-    require_action(replacementSignaturePtr, fail2, SecOTRCreateError(secOTRErrorLocal, kSecOTRErrorSignatureDidNotRecreate, CFSTR("Unable to recreate signature blob."), NULL, error));
+    __Require_Action(replacementSignaturePtr, fail2, SecOTRCreateError(secOTRErrorLocal, kSecOTRErrorSignatureDidNotRecreate, CFSTR("Unable to recreate signature blob."), NULL, error));
 
-    require(SecKeyDigestAndVerifyWithError(publicID->publicSigningKey, kOTRSignatureAlgIDPtr,
+    __Require(SecKeyDigestAndVerifyWithError(publicID->publicSigningKey, kOTRSignatureAlgIDPtr,
                                            dataToHash, amountToHash,
                                            replacementSignaturePtr, replacementSignatureLen, error), fail2);
     free(replacementSignature);

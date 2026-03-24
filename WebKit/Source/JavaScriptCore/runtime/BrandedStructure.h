@@ -29,7 +29,7 @@
 #include <JavaScriptCore/Structure.h>
 #include <JavaScriptCore/Symbol.h>
 #include <JavaScriptCore/Watchpoint.h>
-#include <JavaScriptCore/WriteBarrierInlines.h>
+#include <JavaScriptCore/WriteBarrier.h>
 
 namespace WTF {
 

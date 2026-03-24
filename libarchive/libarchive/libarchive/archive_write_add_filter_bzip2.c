@@ -282,6 +282,9 @@ static int
 archive_compressor_bzip2_free(struct archive_write_filter *f)
 {
 	struct private_data *data = (struct private_data *)f->data;
+#ifdef __APPLE__
+	(void)BZ2_bzCompressEnd(&(data->stream));
+#endif /* __APPLE__ */
 	free(data->compressed);
 	free(data);
 	f->data = NULL;

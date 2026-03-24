@@ -86,8 +86,6 @@ public:
     AXIsolatedObject* parentObject() const final { return parentObjectUnignored(); }
     AXIsolatedObject* parentObjectUnignored() const final { return tree()->objectForID(parent()); }
 #endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
-    AXIsolatedObject* clickableSelfOrAncestor(ClickHandlerFilter filter = ClickHandlerFilter::ExcludeBody) const final { return Accessibility::clickableSelfOrAncestor(*this, filter); };
-    AXIsolatedObject* editableAncestor() const final { return Accessibility::editableAncestor(*this); };
     bool isEditableWebArea() const final { return boolAttributeValue(AXProperty::IsEditableWebArea); }
     bool canSetFocusAttribute() const final { return boolAttributeValue(AXProperty::CanSetFocusAttribute); }
     AttributedStringStyle stylesForAttributedString() const final;
@@ -111,6 +109,8 @@ public:
     String listMarkerText() const final { return stringAttributeValue(AXProperty::ListMarkerText); }
     FontOrientation fontOrientation() const final { return propertyValue<FontOrientation>(AXProperty::FontOrientation); }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
+
+    String description() const final { return stringAttributeValue(AXProperty::Description); }
 
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     bool isIgnored() const final { return boolAttributeValue(AXProperty::IsIgnored); }
@@ -145,9 +145,9 @@ private:
     void setPropertyInVector(AXProperty property, AXPropertyValueVariant&& value)
     {
         if (size_t existingIndex = indexOfProperty(property); existingIndex != notFound)
-            m_properties[existingIndex].second = WTFMove(value);
+            m_properties[existingIndex].second = WTF::move(value);
         else
-            m_properties.append(std::pair(property, WTFMove(value)));
+            m_properties.append(std::pair(property, WTF::move(value)));
     }
     void removePropertyInVector(AXProperty property)
     {
@@ -184,10 +184,10 @@ private:
     URL urlAttributeValue(AXProperty) const;
     uint64_t uint64AttributeValue(AXProperty) const;
     Path pathAttributeValue(AXProperty) const;
+    Style::SpeakAs speakAsAttributeValue(AXProperty) const;
     std::pair<unsigned, unsigned> indexRangePairAttributeValue(AXProperty) const;
     template<typename T> T rectAttributeValue(AXProperty) const;
     template<typename T> Vector<T> vectorAttributeValue(AXProperty) const;
-    template<typename T> OptionSet<T> optionSetAttributeValue(AXProperty) const;
     template<typename T> std::optional<T> optionalAttributeValue(AXProperty) const;
     template<typename T> T propertyValue(AXProperty) const;
 
@@ -210,8 +210,8 @@ private:
     void insertMathPairs(Vector<std::pair<Markable<AXID>, Markable<AXID>>>&, AccessibilityMathMultiscriptPairs&);
     template<typename U> void performFunctionOnMainThreadAndWait(U&& lambda) const
     {
-        Accessibility::performFunctionOnMainThreadAndWait([&lambda, this] {
-            if (RefPtr object = associatedAXObject())
+        Accessibility::performFunctionOnMainThreadAndWait([&lambda, context = mainThreadContext()] {
+            if (RefPtr object = context.axObjectOnMainThread())
                 lambda(object.get());
         });
     }
@@ -221,7 +221,7 @@ private:
         // alive by the secondary thread. Avoid any issues by simply sending our object ID, and our associated
         // AXObjectCache ID, then having the main-thread re-hydrate the equivalent main-thread accessibility object,
         // if it's still alive by the time the dispatch is serviced.
-        Accessibility::performFunctionOnMainThread([lambda = WTFMove(lambda), axID = objectID(), cacheID = treeID()] () mutable {
+        Accessibility::performFunctionOnMainThread([lambda = WTF::move(lambda), axID = objectID(), cacheID = treeID()] () mutable {
             WeakPtr cache = AXTreeStore<AXObjectCache>::axObjectCacheForID(cacheID);
             if (!cache)
                 return;
@@ -238,7 +238,6 @@ private:
     bool isOutput() const final { return elementName() == ElementName::HTML_output; }
 
     // Table support.
-    AXIsolatedObject* exposedTableAncestor(bool includeSelf = false) const final { return Accessibility::exposedTableAncestor(*this, includeSelf); }
     AccessibilityChildrenVector columns() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXProperty::Columns)); }
     AccessibilityChildrenVector rows() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXProperty::Rows)); }
     unsigned columnCount() final { return static_cast<unsigned>(columns().size()); }
@@ -398,22 +397,19 @@ private:
     void mathPrescripts(AccessibilityMathMultiscriptPairs&) final;
     void mathPostscripts(AccessibilityMathMultiscriptPairs&) final;
 #if PLATFORM(COCOA)
-    OptionSet<SpeakAs> speakAs() const final { return optionSetAttributeValue<SpeakAs>(AXProperty::SpeakAs); }
+    Style::SpeakAs speakAs() const final { return speakAsAttributeValue(AXProperty::SpeakAs); }
 #endif
 #if PLATFORM(MAC)
     bool caretBrowsingEnabled() const final { return boolAttributeValue(AXProperty::CaretBrowsingEnabled); }
     AccessibilityChildrenVector allSortedLiveRegions() const final;
     AccessibilityChildrenVector allSortedNonRootWebAreas() const final;
 #endif
-    AXIsolatedObject* focusableAncestor() final { return Accessibility::focusableAncestor(*this); }
-    AXIsolatedObject* highestEditableAncestor() final { return Accessibility::highestEditableAncestor(*this); }
     std::optional<AccessibilityOrientation> explicitOrientation() const { return optionalAttributeValue<AccessibilityOrientation>(AXProperty::ExplicitOrientation); }
     unsigned ariaLevel() const final { return unsignedAttributeValue(AXProperty::ARIALevel); }
     String language() const final { return stringAttributeValue(AXProperty::Language); }
     void setSelectedChildren(const AccessibilityChildrenVector&) final;
     AccessibilityChildrenVector visibleChildren() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXProperty::VisibleChildren)); }
     void setChildrenIDs(Vector<AXID>&&);
-    AXIsolatedObject* liveRegionAncestor(bool excludeIfOff = true) const final { return Accessibility::liveRegionAncestor(*this, excludeIfOff); }
     const String explicitLiveRegionStatus() const final { return stringAttributeValue(AXProperty::ExplicitLiveRegionStatus); }
     const String explicitLiveRegionRelevant() const final { return stringAttributeValue(AXProperty::ExplicitLiveRegionRelevant); }
     bool liveRegionAtomic() const final { return boolAttributeValue(AXProperty::LiveRegionAtomic); }
@@ -556,9 +552,11 @@ private:
     String textContentPrefixFromListMarker() const final;
     String webAreaTitle() const final { return stringAttributeValue(AXProperty::WebAreaTitle); }
     String titleAttribute() const final { return stringAttributeValue(AXProperty::TitleAttribute); }
-    String description() const final { return stringAttributeValue(AXProperty::Description); }
 
     std::optional<String> textContent() const final;
+    bool isBlockFlow() const final { return boolAttributeValue(AXProperty::IsBlockFlow); }
+    std::optional<AXStitchGroup> stitchGroup(IncludeGroupMembers = IncludeGroupMembers::Yes) const final;
+    const Vector<AXStitchGroup>* stitchGroupsView() const;
 
     String text() const final;
     unsigned textLength() const final;
@@ -613,6 +611,34 @@ private:
 #ifndef NDEBUG
     void verifyChildrenIndexInParent() const final { return AXCoreObject::verifyChildrenIndexInParent(m_children); }
 #endif
+
+    class MainThreadContext {
+    // Contains context necessary to get an AXIsolatedObject's main-thread equivalent AccessibilityObject.
+
+    public:
+        MainThreadContext() = delete;
+
+        explicit MainThreadContext(Ref<AXIsolatedTree> tree, AXID axID)
+            : m_tree(WTF::move(tree))
+            , m_axID(axID)
+        { }
+
+        RefPtr<AccessibilityObject> axObjectOnMainThread() const
+        {
+            ASSERT(isMainThread());
+
+            CheckedPtr cache = m_tree->axObjectCache();
+            return cache ? cache->objectForID(m_axID) : nullptr;
+        }
+
+    private:
+        // Ref'ing AXIsolatedTree is OK because AXIsolatedTree is ThreadSafeRefCounted.
+        Ref<AXIsolatedTree> m_tree;
+        // The object ID to hydrate into an AccessibilityObject on the main-thread.
+        AXID m_axID;
+    }; // class MainThreadContext
+
+    MainThreadContext mainThreadContext() const { return MainThreadContext { *tree(), objectID() }; }
 
     // IDs that haven't been resolved into actual objects in m_children.
     FixedVector<AXID> m_unresolvedChildrenIDs;

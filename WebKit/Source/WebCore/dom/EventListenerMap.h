@@ -55,7 +55,7 @@ namespace WebCore {
 
 class EventTarget;
 
-using EventListenerVector = Vector<RefPtr<RegisteredEventListener>, 1, CrashOnOverflow, 2>;
+using EventListenerVector = Vector<Ref<RegisteredEventListener>, 1, CrashOnOverflow, 2>;
 
 class EventListenerMap {
 public:
@@ -110,10 +110,14 @@ private:
         if (WebThreadIsEnabled())
             return;
 #endif
-        if (m_threadUID)
-            RELEASE_ASSERT(m_threadUID == Thread::currentSingleton().uid());
-        else
+        if (!m_threadUID) {
+            ASSERT(!Thread::mayBeGCThread());
             m_threadUID = Thread::currentSingleton().uid();
+            return;
+        }
+        if (m_threadUID == Thread::currentSingleton().uid()) [[likely]]
+            return;
+        RELEASE_ASSERT(Thread::mayBeGCThread());
     }
 
     Vector<std::pair<AtomString, EventListenerVector>, 0, CrashOnOverflow, 4> m_entries;

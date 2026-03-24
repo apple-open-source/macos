@@ -69,6 +69,8 @@ typedef enum {
 @property (nonatomic, strong) NSString* deviceSessionID;
 // test only
 @property (nonatomic) uint64_t piggybacking_version_for_tests;
+@property (nonatomic) BOOL failSOSForTests;
+
 @end
 
 @implementation KCJoiningAcceptSession
@@ -782,19 +784,15 @@ typedef enum {
         }
 
         NSData* encryptedOutgoing = nil;
-        if ([self shouldProcessSOSApplication:message pairingMessage:pairingMessage]) {
+        if ([self shouldProcessSOSApplication:message pairingMessage:pairingMessage] || self.failSOSForTests) {
             secnotice("joining", "doing SOS processSOSApplication");
             encryptedOutgoing = [self processSOSApplication: message.secondData error:&localError];
-            if (encryptedOutgoing == nil || localError) {
+            if (encryptedOutgoing == nil || localError || self.failSOSForTests) {
                 if (localError == nil) {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kProcessApplicationFailure description:@"message failed to process application"];
                 }
-                secerror("joining: failed to process SOS application: %@", localError);
-                [eventS sendMetricWithResult:NO error:localError];
-                if (error) {
-                    *error = localError;
-                }
-                return nil;
+                secerror("joining: failed to process SOS application: %@, but continuing for Octagon", localError);
+                localError = nil;
             }
         }
 
@@ -846,7 +844,7 @@ typedef enum {
         }
         return messageOut;
     }
-
+    // self.piggy_version != kPiggyV2 (SOS only)
     if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
         NSString *description = [NSString stringWithFormat:@"cannot join piggyback version %d with SOS disabled", (int)self.piggy_version];
         secerror("joining: %s", [description UTF8String]);
@@ -950,6 +948,12 @@ typedef enum {
 {
     self.piggybacking_version_for_tests = version;
 }
+
+- (void)setFailSOSPropertyForTests:(BOOL)fail
+{
+    self.failSOSForTests = fail;
+}
+
 #endif
 
 @end

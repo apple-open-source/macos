@@ -37,7 +37,7 @@ class MediaQueryEvaluator;
 // will be called whenever the value of the query changes.
 
 class MediaQueryList final : public RefCounted<MediaQueryList>, public EventTarget, public ActiveDOMObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaQueryList);
+    WTF_MAKE_TZONE_ALLOCATED(MediaQueryList);
 public:
     static Ref<MediaQueryList> create(Document&, MediaQueryMatcher&, MQ::MediaQueryList&&, bool matches);
     ~MediaQueryList();
@@ -81,4 +81,6 @@ private:
     bool m_needsNotification { false };
 };
 
-}
+} // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaQueryList)

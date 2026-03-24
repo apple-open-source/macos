@@ -39,7 +39,7 @@
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+SettersInlines.h"
 #include "RenderView.h"
 #include "Settings.h"
 #include "StyleAdjuster.h"
@@ -87,14 +87,14 @@ RenderStyle resolveForDocument(const Document& document)
         fontDescription.setSpecifiedLocale(document.contentLanguage());
         fontDescription.setOneFamily(standardFamily);
         fontDescription.setShouldAllowUserInstalledFonts(settings.shouldAllowUserInstalledFonts() ? AllowUserInstalledFonts::Yes : AllowUserInstalledFonts::No);
-        // FIXME: We need enableEvaluationTimeZoom to be accessible from FontDescription, not only from RenderStyle. Would it be weird to move it to FontDescription (which is already accessible from RenderStyle)?
-        fontDescription.setEnableEvaluationTimeZoom(document.settings().evaluationTimeZoomEnabled());
+        // FIXME: We need evaluationTimeZoomEnabled to be accessible from FontDescription, not only from RenderStyle. Would it be weird to move it to FontDescription (which is already accessible from RenderStyle)?
+        fontDescription.setEvaluationTimeZoomEnabled(document.settings().evaluationTimeZoomEnabled());
 
         fontDescription.setKeywordSizeFromIdentifier(CSSValueMedium);
         int size = fontSizeForKeyword(CSSValueMedium, false, document);
         fontDescription.setSpecifiedSize(size);
         bool useSVGZoomRules = document.isSVGDocument();
-        auto computedFontSize = computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules, &documentStyle, document);
+        auto computedFontSize = computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules, documentStyle.computedStyle(), document);
         fontDescription.setComputedSize(computedFontSize.size, computedFontSize.usedZoomFactor);
 
         auto [fontOrientation, glyphOrientation] = documentStyle.fontAndGlyphOrientation();
@@ -103,14 +103,16 @@ RenderStyle resolveForDocument(const Document& document)
         return fontDescription;
     }();
 
-    auto fontCascade = FontCascade { WTFMove(fontDescription), documentStyle.fontCascade() };
+    auto fontCascade = FontCascade { WTF::move(fontDescription), documentStyle.fontCascade() };
 
     // We don't just call setFontDescription() because we need to provide the fontSelector to the FontCascade.
     RefPtr fontSelector = document.protectedFontSelector();
-    fontCascade.update(WTFMove(fontSelector));
-    documentStyle.setFontCascade(WTFMove(fontCascade));
+    fontCascade.update(WTF::move(fontSelector));
+    documentStyle.setFontCascade(WTF::move(fontCascade));
 
-    documentStyle.setEnableEvaluationTimeZoom(document.settings().evaluationTimeZoomEnabled());
+    documentStyle.setEvaluationTimeZoomEnabled(document.settings().evaluationTimeZoomEnabled());
+
+    documentStyle.setDeviceScaleFactor(document.deviceScaleFactor());
 
     return documentStyle;
 }

@@ -36,11 +36,13 @@
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSLock.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DocumentMediaElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DocumentMediaElement);
 
 DocumentMediaElement& DocumentMediaElement::from(Document& document)
 {
@@ -48,7 +50,7 @@ DocumentMediaElement& DocumentMediaElement::from(Document& document)
     if (!supplement) {
         auto newSupplement = makeUnique<DocumentMediaElement>(document);
         supplement = newSupplement.get();
-        provideTo(&document, supplementName(), WTFMove(newSupplement));
+        provideTo(&document, supplementName(), WTF::move(newSupplement));
     }
     return *supplement;
 }
@@ -95,7 +97,7 @@ bool DocumentMediaElement::ensureMediaControlsScript()
     if (mediaControlsScripts.isEmpty() || document->activeDOMObjectsAreSuspended() || document->activeDOMObjectsAreStopped())
         return false;
 
-    m_haveParsedMediaControlsScript = setupAndCallJS([mediaControlsScripts = WTFMove(mediaControlsScripts)](JSDOMGlobalObject& globalObject, JSC::JSGlobalObject&, ScriptController& scriptController, DOMWrapperWorld& world) {
+    m_haveParsedMediaControlsScript = setupAndCallJS([mediaControlsScripts = WTF::move(mediaControlsScripts)](JSDOMGlobalObject& globalObject, JSC::JSGlobalObject&, ScriptController& scriptController, DOMWrapperWorld& world) {
         auto& vm = globalObject.vm();
         auto scope = DECLARE_THROW_SCOPE(vm);
 

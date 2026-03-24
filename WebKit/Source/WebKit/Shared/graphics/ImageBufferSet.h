@@ -28,7 +28,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "ImageBufferSetIdentifier.h"
-#include "SwapBuffersDisplayRequirement.h"
+#include "PrepareBackingStoreBuffersData.h"
 #include <WebCore/FloatRect.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/Region.h>

@@ -16,9 +16,7 @@
 #define BN_H_
 
 #include <tclTomMathDecls.h>
-#ifndef MODULE_SCOPE
-#define MODULE_SCOPE extern
-#endif
+#define MODULE_SCOPE extern __attribute__((__visibility__("hidden")))
 
 #include <stdio.h>
 #include <string.h>
@@ -179,17 +177,8 @@ MODULE_SCOPE int KARATSUBA_MUL_CUTOFF,
            TOOM_SQR_CUTOFF;
 #endif
 
-/* define this to use lower memory usage routines (exptmods mostly) */
-/* #define MP_LOW_MEM */
-
 /* default precision */
-#ifndef MP_PREC
-   #ifndef MP_LOW_MEM
-      #define MP_PREC                 32     /* default digits of precision */
-   #else
-      #define MP_PREC                 8      /* default digits of precision */
-   #endif   
-#endif
+      #define MP_PREC                 4      /* default digits of precision */
 
 /* size of comba arrays, should be at least 2 * 2**(BITS_PER_WORD - BITS_PER_DIGIT*2) */
 #define MP_WARRAY               (1 << (sizeof(mp_word) * CHAR_BIT - 2 * DIGIT_BIT + 1))

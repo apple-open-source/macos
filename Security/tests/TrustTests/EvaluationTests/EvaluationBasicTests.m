@@ -49,30 +49,30 @@
     CFArrayRef certs = NULL, anchors = NULL;
     CFDateRef date = NULL;
     
-    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _eval_expired_badssl, sizeof(_eval_expired_badssl)), errOut,
+    __Require_Action(cert0 = SecCertificateCreateWithBytes(NULL, _eval_expired_badssl, sizeof(_eval_expired_badssl)), errOut,
                    fail("unable to create cert"));
-    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _eval_comodo_rsa_dvss, sizeof(_eval_comodo_rsa_dvss)), errOut,
+    __Require_Action(cert1 = SecCertificateCreateWithBytes(NULL, _eval_comodo_rsa_dvss, sizeof(_eval_comodo_rsa_dvss)), errOut,
                    fail("unable to create cert"));
-    require_action(root = SecCertificateCreateWithBytes(NULL, _eval_comodo_rsa_root, sizeof(_eval_comodo_rsa_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _eval_comodo_rsa_root, sizeof(_eval_comodo_rsa_root)), errOut,
                    fail("unable to create cert"));
     
     const void *v_certs[] = { cert0, cert1 };
-    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create array"));
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create anchors array"));
-    require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
+    __Require_Action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
     
-    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     SecPolicySetOptionsValue(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
 #pragma clang diagnostic pop
     
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("unable to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
     
 #if NDEBUG
     ok(SecTrustEvaluateWithError(trust, NULL), "Trust evaluation failed");

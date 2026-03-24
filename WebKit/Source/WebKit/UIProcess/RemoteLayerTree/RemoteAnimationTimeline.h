@@ -25,29 +25,48 @@
 
 #pragma once
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
+#include <WebCore/ProcessQualified.h>
+#include <WebCore/TimelineIdentifier.h>
 #include <WebCore/WebAnimationTime.h>
-#include <wtf/Ref.h>
+#include <wtf/JSONValues.h>
+#include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 
-class RemoteAnimationTimeline final : public RefCounted<RemoteAnimationTimeline> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RemoteAnimationTimeline);
-public:
-    static Ref<RemoteAnimationTimeline> create(Seconds, MonotonicTime);
+using TimelineID = WebCore::ProcessQualified<WebCore::TimelineIdentifier>;
 
-    void updateCurrentTime(MonotonicTime);
+class RemoteAnimationTimeline : public ThreadSafeRefCounted<RemoteAnimationTimeline> {
+    WTF_MAKE_TZONE_ALLOCATED(RemoteAnimationTimeline);
+public:
+    virtual ~RemoteAnimationTimeline() = default;
+
+    bool isMonotonic() const { return !m_duration; }
+    bool isProgressBased() const { return !!m_duration; }
+
     const WebCore::WebAnimationTime& currentTime() const { return m_currentTime; }
+    const std::optional<WebCore::WebAnimationTime>& duration() const { return m_duration; }
+    const TimelineID& identifier() const { return m_identifier; }
+
+    Ref<JSON::Object> toJSONForTesting() const;
+
+protected:
+    RemoteAnimationTimeline(TimelineID, std::optional<WebCore::WebAnimationTime> duration);
+
+    WebCore::WebAnimationTime m_currentTime;
 
 private:
-    RemoteAnimationTimeline(Seconds, WebCore::WebAnimationTime);
-
-    Seconds m_originTime;
-    WebCore::WebAnimationTime m_currentTime;
+    TimelineID m_identifier;
+    std::optional<WebCore::WebAnimationTime> m_duration;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#define SPECIALIZE_TYPE_TRAITS_REMOTE_ANIMATION_TIMELINE(ToValueTypeName, predicate) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ToValueTypeName) \
+    static bool isType(const WebKit::RemoteAnimationTimeline& node) { return node.predicate; } \
+SPECIALIZE_TYPE_TRAITS_END()
+
+#endif // ENABLE(THREADED_ANIMATIONS)

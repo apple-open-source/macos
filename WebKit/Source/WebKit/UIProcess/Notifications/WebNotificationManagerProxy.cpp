@@ -78,7 +78,7 @@ void WebNotificationManagerProxy::setProvider(std::unique_ptr<API::NotificationP
         return;
     }
 
-    m_provider = WTFMove(provider);
+    m_provider = WTF::move(provider);
     m_provider->addNotificationManager(*this);
 }
 
@@ -87,16 +87,6 @@ void WebNotificationManagerProxy::setProvider(std::unique_ptr<API::NotificationP
 void WebNotificationManagerProxy::processPoolDestroyed()
 {
     m_provider->removeNotificationManager(*this);
-}
-
-void WebNotificationManagerProxy::refWebContextSupplement()
-{
-    API::Object::ref();
-}
-
-void WebNotificationManagerProxy::derefWebContextSupplement()
-{
-    API::Object::deref();
 }
 
 HashMap<String, bool> WebNotificationManagerProxy::notificationPermissions()
@@ -114,7 +104,7 @@ void WebNotificationManagerProxy::show(WebPageProxy* webPage, IPC::Connection& c
     LOG(Notifications, "WebPageProxy (%p) asking to show notification (%s)", webPage, notificationData.notificationID.toString().utf8().data());
 
     auto notification = WebNotification::createNonPersistent(notificationData, identifierForPagePointer(webPage), connection);
-    showImpl(webPage, WTFMove(notification), WTFMove(notificationResources));
+    showImpl(webPage, WTF::move(notification), WTF::move(notificationResources));
 }
 
 bool WebNotificationManagerProxy::showPersistent(const WebsiteDataStore& dataStore, IPC::Connection* connection, const WebCore::NotificationData& notificationData, RefPtr<WebCore::NotificationResources>&& notificationResources)
@@ -122,14 +112,14 @@ bool WebNotificationManagerProxy::showPersistent(const WebsiteDataStore& dataSto
     LOG(Notifications, "WebsiteDataStore (%p) asking to show notification (%s)", &dataStore, notificationData.notificationID.toString().utf8().data());
 
     auto notification = WebNotification::createPersistent(notificationData, dataStore.configuration().identifier(), connection);
-    return showImpl(nullptr, WTFMove(notification), WTFMove(notificationResources));
+    return showImpl(nullptr, WTF::move(notification), WTF::move(notificationResources));
 }
 
 bool WebNotificationManagerProxy::showImpl(WebPageProxy* webPage, Ref<WebNotification>&& notification, RefPtr<WebCore::NotificationResources>&& notificationResources)
 {
     m_globalNotificationMap.set(notification->identifier(), notification->coreNotificationID());
     m_notifications.set(notification->coreNotificationID(), notification);
-    return m_provider->show(webPage, notification.get(), WTFMove(notificationResources));
+    return m_provider->show(webPage, notification.get(), WTF::move(notificationResources));
 }
 
 void WebNotificationManagerProxy::cancel(WebPageProxy* page, const WTF::UUID& pageNotificationID)
@@ -238,7 +228,7 @@ void WebNotificationManagerProxy::providerDidClickNotification(const WTF::UUID& 
 
 void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* globalNotificationIDs)
 {
-    Vector<RefPtr<WebNotification>> closedNotifications;
+    Vector<Ref<WebNotification>> closedNotifications;
 
     size_t size = globalNotificationIDs->size();
     for (size_t i = 0; i < size; ++i) {
@@ -280,7 +270,7 @@ void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* glob
         }
 
         m_globalNotificationMap.remove(notification->identifier());
-        closedNotifications.append(WTFMove(notification));
+        closedNotifications.append(notification.releaseNonNull());
     }
 
     for (auto& notification : closedNotifications) {
@@ -366,14 +356,14 @@ void WebNotificationManagerProxy::providerDidRemoveNotificationPolicies(API::Arr
 
 void WebNotificationManagerProxy::getNotifications(const URL& url, const String& tag, PAL::SessionID sessionID, CompletionHandler<void(Vector<NotificationData>&&)>&& callback)
 {
-    Vector<WebNotification*> notifications;
+    Vector<Ref<WebNotification>> notifications;
     for (auto& notification : m_notifications.values()) {
         auto& data = notification->data();
         if (data.serviceWorkerRegistrationURL != url || data.sourceSession != sessionID)
             continue;
         if (!tag.isEmpty() && data.tag != tag)
             continue;
-        notifications.append(notification.ptr());
+        notifications.append(notification.copyRef());
     }
     // Let's sort as per https://notifications.spec.whatwg.org/#dom-serviceworkerregistration-getnotifications.
     std::ranges::sort(notifications, [](auto& a, auto& b) {

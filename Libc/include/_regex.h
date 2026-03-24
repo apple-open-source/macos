@@ -151,9 +151,12 @@ typedef struct {
 #define	REG_MINIMAL	0100	/* Compile using minimal repetition */
 #define	REG_UNGREEDY	REG_MINIMAL
 #endif
-
 #define	REG_DUMP	0200	/* Unused */
-
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_26_4 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_26_4 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
+#define	REG_USEBYTES	REG_DUMP	/* Used internally by TRE */
+#endif
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
  || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
  || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
@@ -184,6 +187,7 @@ typedef struct {
 #define	REG_ASSERT	15	/* Unused */
 #define	REG_INVARG	16	/* invalid argument to regex routine */
 #define	REG_ILLSEQ	17	/* illegal byte sequence */
+#define	REG_BADMAX	18	/* maximum repetition exceeds RE_DUP_MAX */
 
 #define	REG_ATOI	255	/* convert name to number (!) */
 #define	REG_ITOA	0400	/* convert number to name (!) */
@@ -199,8 +203,12 @@ typedef struct {
 #define	REG_STARTEND	00004	/* String start/end in pmatch[0] */
 #define	REG_TRACE	00400	/* Unused */
 #define	REG_LARGE	01000	/* Unused */
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_26_4 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_26_4 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
+#define	REG_APPROX_MATCHER	REG_LARGE	/* Used internally by TRE */
+#endif
 #define	REG_BACKR	02000	/* force use of backref code */
-
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
  || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
  || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)

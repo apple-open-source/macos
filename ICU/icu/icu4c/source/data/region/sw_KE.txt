@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sw_KE{
     Countries{
         001{"dunia"}
@@ -29,7 +29,6 @@ sw_KE{
         BT{"Bhutani"}
         BY{"Belarusi"}
         CC{"Visiwa vya Kokos (Keeling)"}
-        CD{"Kongo - Kinshasa"}
         CV{"Kepuvede"}
         CW{"Kurakao"}
         EA{"Keuta na Melilla"}

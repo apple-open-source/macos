@@ -450,7 +450,10 @@ static WebCore::FloatPoint farthestPointInDirection(WebCore::FloatPoint a, WebCo
     if (_displayLink)
         return;
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // FIXME: CoreAnimation version deprecated rdar://164090713
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
     // Opt into a higher frame-rate for displays that support higher refresh rates.

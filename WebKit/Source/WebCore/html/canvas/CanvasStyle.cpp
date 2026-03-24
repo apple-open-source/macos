@@ -53,7 +53,7 @@ namespace WebCore {
 class CanvasStyleColorResolutionDelegate final : public CSS::PlatformColorResolutionDelegate {
 public:
     explicit CanvasStyleColorResolutionDelegate(Ref<HTMLCanvasElement> canvasElement)
-        : m_canvasElement { WTFMove(canvasElement) }
+        : m_canvasElement { WTF::move(canvasElement) }
     {
     }
 

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>119</integer>
+	<integer>121</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -3376,6 +3376,22 @@
 				<string>apple.com</string>
 				<key>comment</key>
 				<string>rdar://164319789</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^sse-ws$|^sa-fcd-ause1$|^sa-fcd-ausw2$|^sa-fcd-aeuw1$|^sa-fcd-aapse1$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+				<key>comment</key>
+				<string>rdar://167864899</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^demoloop-api$|^demoloop-api-stg$|^ncs$</string>
+				<key>suffix</key>
+				<string>dcota.apple.com</string>
+				<key>comment</key>
+				<string>rdar://169626786</string>
 			</dict>
 		</array>
 		<key>policyName</key>

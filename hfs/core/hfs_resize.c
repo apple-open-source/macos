@@ -972,7 +972,7 @@ hfs_copy_extent(
 	 */
 	vfs_ioattr(hfsmp->hfs_mp, &ioattr);
 	bufferSize = MIN(ioattr.io_maxreadcnt, ioattr.io_maxwritecnt);
-	buffer = hfs_malloc_data(bufferSize);
+	buffer = hfs_malloc_data_shareable(bufferSize);
 	
 	/* Get a buffer for doing the I/O */
 	bp = buf_alloc(hfsmp->hfs_devvp);
@@ -1071,7 +1071,7 @@ hfs_copy_extent(
 	}
 	if (bp)
 		buf_free(bp);
-	hfs_free_data(buffer, bufferSize);
+	hfs_free_data_shareable(buffer, bufferSize);
 	
 	/* Make sure all writes have been flushed to disk. */
 	if (vnode_issystem(vp) && !journal_uses_fua(hfsmp->jnl)) {

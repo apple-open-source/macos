@@ -7843,7 +7843,7 @@ static Int decGetDigits(Unit *uar, Int len) {
   return digits;
   } /* decGetDigits  */
 
-#if DECTRACE | DECCHECK
+#if DECTRACE || DECCHECK
 /* ------------------------------------------------------------------ */
 /* decNumberShow -- display a number [debug aid]                      */
 /*   dn is the number to show                                         */

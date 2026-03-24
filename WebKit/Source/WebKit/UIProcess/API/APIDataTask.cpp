@@ -42,7 +42,7 @@ Ref<DataTaskClient> DataTask::protectedClient() const
 
 void DataTask::setClient(Ref<DataTaskClient>&& client)
 {
-    m_client = WTFMove(client);
+    m_client = WTF::move(client);
 }
 
 void DataTask::cancel()
@@ -62,8 +62,8 @@ void DataTask::networkProcessCrashed()
 
 DataTask::DataTask(std::optional<WebKit::DataTaskIdentifier> identifier, WeakPtr<WebKit::WebPageProxy>&& page, WTF::URL&& originalURL, bool shouldRunAtForegroundPriority)
     : m_identifier(identifier)
-    , m_page(WTFMove(page))
-    , m_originalURL(WTFMove(originalURL))
+    , m_page(WTF::move(page))
+    , m_originalURL(WTF::move(originalURL))
     , m_networkProcess(m_page ? WeakPtr { protectedPage()->protectedWebsiteDataStore()->networkProcess() } : nullptr)
     , m_sessionID(m_page ? std::optional<PAL::SessionID> { protectedPage()->sessionID() } : std::nullopt)
     , m_client(DataTaskClient::create())
@@ -75,7 +75,7 @@ DataTask::DataTask(std::optional<WebKit::DataTaskIdentifier> identifier, WeakPtr
 void DataTask::didCompleteWithError(WebCore::ResourceError&& error)
 {
     m_activity = nullptr;
-    protectedClient()->didCompleteWithError(*this, WTFMove(error));
+    protectedClient()->didCompleteWithError(*this, WTF::move(error));
 }
 
 } // namespace API

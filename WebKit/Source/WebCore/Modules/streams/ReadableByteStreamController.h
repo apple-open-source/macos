@@ -52,7 +52,7 @@ class UnderlyingSourcePullCallback;
 class UnderlyingSourceStartCallback;
 
 class ReadableByteStreamController : public CanMakeWeakPtr<ReadableByteStreamController> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ReadableByteStreamController);
+    WTF_MAKE_TZONE_ALLOCATED(ReadableByteStreamController);
 public:
     ~ReadableByteStreamController();
 
@@ -63,6 +63,8 @@ public:
     ExceptionOr<void> errorForBindings(JSDOMGlobalObject&, JSC::JSValue);
 
     ExceptionOr<void> start(JSDOMGlobalObject&, UnderlyingSourceStartCallback*);
+
+    void respondPendingPullIntosOnClose(JSDOMGlobalObject&);
 
     ReadableStream& stream();
     Ref<ReadableStream> protectedStream();
@@ -88,8 +90,15 @@ public:
 
     void error(JSDOMGlobalObject&, const Exception&);
     void error(JSDOMGlobalObject&, JSC::JSValue);
-    void close(JSDOMGlobalObject&);
+
+    enum class ShouldThrowOnError : bool { No, Yes };
+    bool close(JSDOMGlobalObject&, ShouldThrowOnError = ShouldThrowOnError::Yes);
+    void closeAndRespondToPendingPullIntos(JSDOMGlobalObject&);
+    size_t pullFromBytes(JSDOMGlobalObject&, JSC::ArrayBuffer&, size_t offset);
     ExceptionOr<void> enqueue(JSDOMGlobalObject&, JSC::ArrayBufferView&);
+    ExceptionOr<void> enqueue(JSDOMGlobalObject&, JSC::ArrayBuffer&);
+
+    bool isPulling() const { return m_pulling; }
 
     template<typename Visitor> void visitAdditionalChildren(Visitor&);
 
@@ -102,6 +111,8 @@ public:
 private:
     friend ReadableStream;
     ReadableByteStreamController(ReadableStream&, JSC::JSValue, RefPtr<UnderlyingSourcePullCallback>&&, RefPtr<UnderlyingSourceCancelCallback>&&, double highWaterMark, size_t autoAllocateChunkSize);
+
+    ExceptionOr<void> enqueue(JSDOMGlobalObject&, JSC::ArrayBuffer&, size_t byteOffset, size_t byteLength);
 
     using Callback = Function<void(JSDOMGlobalObject&, std::optional<JSC::JSValue>&&)>;
     ReadableByteStreamController(ReadableStream&, PullAlgorithm&&, CancelAlgorithm&&, double highWaterMark, size_t autoAllocateChunkSize);

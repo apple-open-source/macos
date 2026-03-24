@@ -31,8 +31,13 @@
 #include <WebCore/PlatformExportMacros.h>
 #include <WebCore/PlatformImage.h>
 #include <WebCore/RenderingResource.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
+
+#if USE(SKIA)
+class GrDirectContext;
+#endif
 
 namespace WebCore {
 
@@ -44,12 +49,19 @@ class IntSize;
 class NativeImageBackend;
 struct ImagePaintingOptions;
 
-class NativeImage : public ThreadSafeRefCounted<NativeImage> {
+class NativeImage : public ThreadSafeRefCounted<NativeImage>, public CanMakeThreadSafeCheckedPtr<NativeImage> {
     WTF_MAKE_TZONE_ALLOCATED(NativeImage);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NativeImage);
 public:
+#if USE(SKIA)
+    static WEBCORE_EXPORT RefPtr<NativeImage> create(PlatformImagePtr&&, GrDirectContext* = nullptr);
+    // Creates a NativeImage that is intended to be drawn once or only few times. Signals the platform to avoid generating any caches for the image.
+    static WEBCORE_EXPORT RefPtr<NativeImage> createTransient(PlatformImagePtr&&, GrDirectContext* = nullptr);
+#else
     static WEBCORE_EXPORT RefPtr<NativeImage> create(PlatformImagePtr&&);
     // Creates a NativeImage that is intended to be drawn once or only few times. Signals the platform to avoid generating any caches for the image.
     static WEBCORE_EXPORT RefPtr<NativeImage> createTransient(PlatformImagePtr&&);
+#endif
 
     WEBCORE_EXPORT virtual ~NativeImage();
 
@@ -69,9 +81,13 @@ public:
     uint64_t uniqueID() const;
 #endif
 
+#if USE(SKIA)
+    GrDirectContext* grContext() const { return m_grContext; }
+#endif
+
     void addObserver(WeakRef<RenderingResourceObserver>&& observer)
     {
-        m_observers.add(WTFMove(observer));
+        m_observers.add(WTF::move(observer));
     }
 
     RenderingResourceIdentifier renderingResourceIdentifier() const
@@ -80,7 +96,11 @@ public:
     }
 
 protected:
+#if USE(SKIA)
+    WEBCORE_EXPORT NativeImage(PlatformImagePtr&&, GrDirectContext* = nullptr);
+#else
     WEBCORE_EXPORT NativeImage(PlatformImagePtr&&);
+#endif
 
     void computeHeadroom();
 
@@ -88,6 +108,9 @@ protected:
     mutable Headroom m_headroom { Headroom::None };
     mutable WeakHashSet<RenderingResourceObserver> m_observers;
     RenderingResourceIdentifier m_renderingResourceIdentifier { RenderingResourceIdentifier::generate() };
+#if USE(SKIA)
+    GrDirectContext* m_grContext { nullptr };
+#endif
 };
 
 } // namespace WebCore

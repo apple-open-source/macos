@@ -56,6 +56,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <optional>
 #include <wtf/StdLibExtras.h>
 #include <wtf/simde/simde.h>
+#include <wtf/text/Latin1Character.h>
 
 namespace WTF::SIMD {
 

@@ -46,9 +46,17 @@ CFMutableArrayRef                       batchElements; \
 CFMutableSetRef                         removalCallbackSet; \
 CFMutableSetRef                         inputReportCallbackSet; \
 CFMutableSetRef                         inputValueCallbackSet; \
+CFMutableDictionaryRef                  asyncCommitCallbacks; \
+CFMutableDictionaryRef                  asyncElementCallbacks; \
+CFMutableDictionaryRef                  asyncReportCallbacks; \
 void  * _Atomic                         elementHandler; \
 void  * _Atomic                         removalHandler; \
-void  * _Atomic                         inputReportHandler;
+void  * _Atomic                         inputReportHandler; \
+void  * _Atomic                         propertyNotificationHandler; \
+CFArrayRef                              propertyNotificationKeys; \
+CFMutableDictionaryRef                  previousPropertyValues; \
+IONotificationPortRef                   propertyPort; \
+io_object_t                             propertyNotify;
 
 typedef struct  {
     HIDDeviceIvar

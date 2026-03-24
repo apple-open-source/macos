@@ -37,7 +37,7 @@ public:
     static Ref<ResourceLoadStatisticsThirdParty> create(WebKit::ITPThirdPartyData&& thirdPartyData)
     {
         RELEASE_ASSERT(RunLoop::isMain());
-        return adoptRef(*new ResourceLoadStatisticsThirdParty(WTFMove(thirdPartyData)));
+        return adoptRef(*new ResourceLoadStatisticsThirdParty(WTF::move(thirdPartyData)));
     }
 
     ~ResourceLoadStatisticsThirdParty()
@@ -50,7 +50,7 @@ public:
 
 private:
     explicit ResourceLoadStatisticsThirdParty(WebKit::ITPThirdPartyData&& thirdPartyData)
-        : m_thirdPartyData(WTFMove(thirdPartyData))
+        : m_thirdPartyData(WTF::move(thirdPartyData))
     {
     }
 

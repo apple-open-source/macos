@@ -40,6 +40,10 @@
 typedef struct _WPEBuffer WPEBuffer;
 typedef struct _WPEView WPEView;
 
+#if OS(ANDROID)
+typedef struct AHardwareBuffer AHardwareBuffer;
+#endif
+
 namespace WebCore {
 class ShareableBitmapHandle;
 }
@@ -50,6 +54,7 @@ class UnixFileDescriptor;
 
 namespace WebKit {
 
+class ViewSnapshot;
 class WebPageProxy;
 class WebProcessProxy;
 
@@ -67,6 +72,10 @@ public:
 
     void updateSurfaceID(uint64_t);
 
+#if USE(SKIA)
+    Expected<Ref<ViewSnapshot>, String> takeSnapshot(std::optional<WebCore::IntRect>&&);
+#endif
+
     RendererBufferDescription bufferDescription() const;
 
 private:
@@ -77,6 +86,9 @@ private:
 
     void didCreateDMABufBuffer(uint64_t id, const WebCore::IntSize&, uint32_t format, Vector<WTF::UnixFileDescriptor>&&, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, RendererBufferFormat::Usage);
     void didCreateSHMBuffer(uint64_t id, WebCore::ShareableBitmapHandle&&);
+#if OS(ANDROID)
+    void didCreateAndroidBuffer(uint64_t id, RefPtr<AHardwareBuffer>&&);
+#endif
     void didDestroyBuffer(uint64_t id);
     void frame(uint64_t bufferID, Rects&&, WTF::UnixFileDescriptor&&);
     void frameDone();

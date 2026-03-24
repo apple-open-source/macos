@@ -62,7 +62,7 @@ WebExtensionSQLiteStatement::~WebExtensionSQLiteStatement()
     if (!handle)
         return;
 
-    database()->queue().dispatch([database = Ref { database() }, handle = WTFMove(handle)]() mutable {
+    database()->queue().dispatch([database = Ref { database() }, handle = WTF::move(handle)]() mutable {
         // The database might have closed already;
         if (!database->sqlite3Handle())
             return;
@@ -100,7 +100,9 @@ bool WebExtensionSQLiteStatement::execute(RefPtr<API::Error>& outError)
 
 Ref<WebExtensionSQLiteRowEnumerator> WebExtensionSQLiteStatement::fetch()
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     Ref<WebExtensionSQLiteStatement> protectedThis(*this);
@@ -109,7 +111,9 @@ Ref<WebExtensionSQLiteRowEnumerator> WebExtensionSQLiteStatement::fetch()
 
 bool WebExtensionSQLiteStatement::fetchWithEnumerationCallback(Function<void(RefPtr<WebExtensionSQLiteRow>, bool)>& callback, RefPtr<API::Error>& outError)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     RefPtr<WebExtensionSQLiteRow> row;
@@ -136,7 +140,9 @@ bool WebExtensionSQLiteStatement::fetchWithEnumerationCallback(Function<void(Ref
 
 void WebExtensionSQLiteStatement::reset()
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     int result = sqlite3_reset(m_handle);
@@ -146,7 +152,9 @@ void WebExtensionSQLiteStatement::reset()
 
 void WebExtensionSQLiteStatement::invalidate()
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     int result = sqlite3_finalize(m_handle);
@@ -157,7 +165,9 @@ void WebExtensionSQLiteStatement::invalidate()
 
 void WebExtensionSQLiteStatement::bind(const String& string, int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -168,7 +178,9 @@ void WebExtensionSQLiteStatement::bind(const String& string, int parameterIndex)
 
 void WebExtensionSQLiteStatement::bind(const int& n, int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -179,7 +191,9 @@ void WebExtensionSQLiteStatement::bind(const int& n, int parameterIndex)
 
 void WebExtensionSQLiteStatement::bind(const int64_t& n, int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -190,7 +204,9 @@ void WebExtensionSQLiteStatement::bind(const int64_t& n, int parameterIndex)
 
 void WebExtensionSQLiteStatement::bind(const double& n, int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -201,7 +217,9 @@ void WebExtensionSQLiteStatement::bind(const double& n, int parameterIndex)
 
 void WebExtensionSQLiteStatement::bind(const RefPtr<API::Data>& data, int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -212,7 +230,9 @@ void WebExtensionSQLiteStatement::bind(const RefPtr<API::Data>& data, int parame
 
 void WebExtensionSQLiteStatement::bind(int parameterIndex)
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
     ASSERT_ARG(parameterIndex, parameterIndex > 0);
 
@@ -223,7 +243,9 @@ void WebExtensionSQLiteStatement::bind(int parameterIndex)
 
 HashMap<String, int> WebExtensionSQLiteStatement::columnNamesToIndicies()
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     if (!m_columnNamesToIndicies.isEmpty())
@@ -240,7 +262,9 @@ HashMap<String, int> WebExtensionSQLiteStatement::columnNamesToIndicies()
 
 Vector<String> WebExtensionSQLiteStatement::columnNames()
 {
-    m_db->assertQueue();
+    Ref db = m_db;
+
+    db->assertQueue();
     ASSERT(isValid());
 
     if (!m_columnNames.isEmpty())

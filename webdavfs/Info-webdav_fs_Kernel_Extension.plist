@@ -26,6 +26,8 @@
 	<string>$WEBDAVFS_KEXT_VERSION</string>
 	<key>OSBundleAllowUserLoad</key>
 	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Apple Inc. All rights reserved.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
@@ -38,6 +40,8 @@
 		<string>9.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>9.0.0</string>
+		<key>com.apple.kpi.private</key>
+		<string>15.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Safe Boot</string>

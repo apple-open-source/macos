@@ -54,22 +54,22 @@ static bool test_trust_ok(const uint8_t *cert_data, size_t cert_len,
     CFDateRef date = NULL;
     bool result = false;
     CFErrorRef error = NULL;
-    require_string(cert = SecCertificateCreateWithBytes(NULL, cert_data, (CFIndex)cert_len),
+    __Require_String(cert = SecCertificateCreateWithBytes(NULL, cert_data, (CFIndex)cert_len),
                    errOut, "create cert");
-    require_string(root = SecCertificateCreateWithBytes(NULL, root_data, (CFIndex)root_len),
+    __Require_String(root = SecCertificateCreateWithBytes(NULL, root_data, (CFIndex)root_len),
                    errOut, "create root");
     
     policy = SecPolicyCreateSSL(false, NULL);
-    require_noerr_string(SecTrustCreateWithCertificates(cert, policy, &trust),
+    __Require_noErr_String(SecTrustCreateWithCertificates(cert, policy, &trust),
                          errOut, "create trust with single cert");
     anchors = CFArrayCreate(NULL, (const void **)&root, 1,
                                        &kCFTypeArrayCallBacks);
-    require_noerr_string(SecTrustSetAnchorCertificates(trust, anchors),
+    __Require_noErr_String(SecTrustSetAnchorCertificates(trust, anchors),
                          errOut, "set anchors");
     
     /* 2006/03/03 00:12:00 */
     date = CFDateCreate(NULL, 163037520.0);
-    require_noerr_string(SecTrustSetVerifyDate(trust, date), errOut, "set date");
+    __Require_noErr_String(SecTrustSetVerifyDate(trust, date), errOut, "set date");
     result = SecTrustEvaluateWithError(trust, &error);
     
 errOut:

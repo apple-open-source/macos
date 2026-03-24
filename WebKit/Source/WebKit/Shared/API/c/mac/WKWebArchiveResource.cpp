@@ -38,7 +38,7 @@ WKTypeID WKWebArchiveResourceGetTypeID()
 WKWebArchiveResourceRef WKWebArchiveResourceCreate(WKDataRef dataRef, WKURLRef URLRef, WKStringRef MIMETypeRef, WKStringRef textEncodingRef)
 {
     auto webArchiveResource = API::WebArchiveResource::create(WebKit::toProtectedImpl(dataRef).get(), WebKit::toWTFString(URLRef), WebKit::toWTFString(MIMETypeRef), WebKit::toWTFString(textEncodingRef));
-    return WebKit::toAPILeakingRef(WTFMove(webArchiveResource));
+    return WebKit::toAPILeakingRef(WTF::move(webArchiveResource));
 }
 
 WKDataRef WKWebArchiveResourceCopyData(WKWebArchiveResourceRef webArchiveResourceRef)

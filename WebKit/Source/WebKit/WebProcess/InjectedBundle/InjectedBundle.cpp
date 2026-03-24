@@ -92,8 +92,8 @@ RefPtr<InjectedBundle> InjectedBundle::create(WebProcessCreationParameters& para
     
     auto bundle = adoptRef(*new InjectedBundle(parameters));
 
-    bundle->m_sandboxExtension = SandboxExtension::create(WTFMove(parameters.injectedBundlePathExtensionHandle));
-    if (!bundle->initialize(parameters, WTFMove(initializationUserData)))
+    bundle->m_sandboxExtension = SandboxExtension::create(WTF::move(parameters.injectedBundlePathExtensionHandle));
+    if (!bundle->initialize(parameters, WTF::move(initializationUserData)))
         return nullptr;
 
     return bundle;
@@ -113,7 +113,7 @@ void InjectedBundle::setClient(std::unique_ptr<API::InjectedBundle::Client>&& cl
     if (!client)
         m_client = makeUnique<API::InjectedBundle::Client>();
     else
-        m_client = WTFMove(client);
+        m_client = WTF::move(client);
 }
 
 void InjectedBundle::setServiceWorkerProxyCreationCallback(void (*callback)(uint64_t))
@@ -256,12 +256,12 @@ void InjectedBundle::willDestroyPage(WebPage& page)
 
 void InjectedBundle::didReceiveMessage(const String& messageName, RefPtr<API::Object>&& messageBody)
 {
-    m_client->didReceiveMessage(*this, messageName, WTFMove(messageBody));
+    m_client->didReceiveMessage(*this, messageName, WTF::move(messageBody));
 }
 
 void InjectedBundle::didReceiveMessageToPage(WebPage& page, const String& messageName, RefPtr<API::Object>&& messageBody)
 {
-    m_client->didReceiveMessageToPage(Ref { *this }, page, messageName, WTFMove(messageBody));
+    m_client->didReceiveMessageToPage(Ref { *this }, page, messageName, WTF::move(messageBody));
 }
 
 void InjectedBundle::setUserStyleSheetLocation(const String& location)

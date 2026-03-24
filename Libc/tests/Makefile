@@ -49,6 +49,7 @@ printf: OTHER_CFLAGS += -Wno-format-nonliteral
 strlcpy: OTHER_CFLAGS += -D_FORTIFY_SOURCE=0
 realpath_edge: OTHER_CFLAGS += -fsanitize=address -I../fbsdcompat
 realpath_edge: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(ASAN_DYLIB_PATH)
+signal: OTHER_CFLAGS += -fsanitize=undefined -fno-sanitize-recover=undefined
 qsort freebsd_qsort: OTHER_CFLAGS += -Wno-unused-function
 ifeq ($(PLATFORM),MacOSX)
 qsort_perf: OTHER_CFLAGS += -Wno-sign-compare -Wno-sign-conversion -Wno-cast-align -Wno-shorten-64-to-32
@@ -60,15 +61,22 @@ os_variant: OTHER_CFLAGS += -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 osvariantutil: OTHER_CFLAGS += -Wno-gnu-statement-expression -Wno-covered-switch-default -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
 ifeq ($(PLATFORM),MacOSX)
+include $(SRCROOT)/FreeBSD/db/Makefile.targets
 include $(SRCROOT)/FreeBSD/gen/Makefile.targets
+include $(SRCROOT)/FreeBSD/net/Makefile.targets
+include $(SRCROOT)/FreeBSD/stdio/Makefile.targets
 include $(SRCROOT)/FreeBSD/string/Makefile.targets
+CUSTOM_TARGETS += $(FREEBSD_TESTS)
 endif
 include $(SRCROOT)/regex/Makefile.targets
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 
 ifeq ($(PLATFORM),MacOSX)
+include $(SRCROOT)/FreeBSD/db/Makefile
 include $(SRCROOT)/FreeBSD/gen/Makefile
+include $(SRCROOT)/FreeBSD/net/Makefile
+include $(SRCROOT)/FreeBSD/stdio/Makefile
 include $(SRCROOT)/FreeBSD/string/Makefile
 endif
 include $(SRCROOT)/regex/Makefile
@@ -106,3 +114,14 @@ endif
 install-locales:
 	mkdir -p $(INSTALLDIR)
 	cp -R $(SRCROOT)/locales $(INSTALLDIR)/
+
+freebsd-tests: $(FREEBSD_TESTS)
+
+install-freebsd-tests: $(addprefix install-,$(FREEBSD_TESTS))
+
+$(addprefix install-,$(FREEBSD_TESTS)): install-%: %
+	mkdir -p $(INSTALLDIR)
+	install -m 0755 $(SYMROOT)/$(notdir $<) $(INSTALLDIR)
+
+FreeBSD/freebsd.plist: install-freebsd-tests
+	(cd $(DSTROOT) && atf2plist Libc $(addprefix $(INSTALLPATH)/,$(sort $(FREEBSD_TESTS)))) | sed 's@//@/@' >$@

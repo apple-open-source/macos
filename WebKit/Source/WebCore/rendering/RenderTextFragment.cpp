@@ -27,14 +27,14 @@
 #include "RenderIterator.h"
 #include "RenderObjectInlines.h"
 #include "RenderMultiColumnFlow.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTreeBuilder.h"
 #include "Text.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTextFragment);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTextFragment);
 
 RenderTextFragment::RenderTextFragment(Text& textNode, const String& text, int startOffset, int length)
     : RenderText(Type::TextFragment, textNode, text.substring(startOffset, length))

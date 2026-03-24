@@ -49,14 +49,15 @@ WebScreenOrientationManagerProxy::WebScreenOrientationManagerProxy(WebPageProxy&
     : m_page(page)
     , m_currentOrientation(orientation)
 {
-    protectedPage()->protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebScreenOrientationManagerProxy::messageReceiverName(), m_page->webPageIDInMainFrameProcess(), *this);
+    page.protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebScreenOrientationManagerProxy::messageReceiverName(), page.webPageIDInMainFrameProcess(), *this);
 }
 
 WebScreenOrientationManagerProxy::~WebScreenOrientationManagerProxy()
 {
     unlockIfNecessary();
 
-    protectedPage()->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebScreenOrientationManagerProxy::messageReceiverName(), m_page->webPageIDInMainFrameProcess());
+    Ref page = m_page.get();
+    page->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebScreenOrientationManagerProxy::messageReceiverName(), page->webPageIDInMainFrameProcess());
 }
 
 std::optional<SharedPreferencesForWebProcess> WebScreenOrientationManagerProxy::sharedPreferencesForWebProcess(IPC::Connection& connection) const
@@ -78,7 +79,13 @@ void WebScreenOrientationManagerProxy::setCurrentOrientation(WebCore::ScreenOrie
     if (!m_shouldSendChangeNotifications)
         return;
 
-    protectedPage()->protectedLegacyMainFrameProcess()->send(Messages::WebScreenOrientationManager::OrientationDidChange(orientation), m_page->webPageIDInMainFrameProcess());
+    Ref protectedPage { m_page.get() };
+    protectedPage->forEachWebContentProcess([orientation](auto& process, auto pageID) {
+        if (!process.hasConnection())
+            return;
+        process.send(Messages::WebScreenOrientationManager::OrientationDidChange(orientation), pageID);
+    });
+
     if (m_currentLockRequest)
         m_currentLockRequest(std::nullopt);
 }
@@ -124,7 +131,7 @@ void WebScreenOrientationManagerProxy::lock(WebCore::ScreenOrientationLockType l
         return;
     }
 
-    m_currentLockRequest = WTFMove(completionHandler);
+    m_currentLockRequest = WTF::move(completionHandler);
     auto resolvedLockedOrientation = resolveScreenOrientationLockType(m_currentOrientation, lockType);
     bool shouldOrientationChange = m_currentOrientation != resolvedLockedOrientation;
 

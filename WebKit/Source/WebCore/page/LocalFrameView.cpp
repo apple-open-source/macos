@@ -76,7 +76,6 @@
 #include "HighlightRegistry.h"
 #include "ImageDocument.h"
 #include "InspectorBackendClient.h"
-#include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LocalDOMWindow.h"
@@ -89,6 +88,7 @@
 #include "NullGraphicsContext.h"
 #include "Page.h"
 #include "PageColorSampler.h"
+#include "PageInspectorController.h"
 #include "PageOverlayController.h"
 #include "PerformanceLoggingClient.h"
 #include "ProgressTracker.h"
@@ -107,7 +107,7 @@
 #include "RenderSVGRoot.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarPart.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+SettersInlines.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
 #include "RenderTreeAsText.h"
@@ -161,7 +161,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LocalFrameView);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalFrameView);
 
 MonotonicTime LocalFrameView::sCurrentPaintTimeStamp { };
 
@@ -276,7 +276,7 @@ void LocalFrameView::reset()
     m_pendingTextFragmentIndicatorText = String();
     m_haveCreatedTextIndicator = false;
     m_lastViewportSize = IntSize();
-    m_lastZoomFactor = 1.0f;
+    m_lastUsedZoomFactor = 1.0f;
     m_isTrackingRepaints = false;
     m_trackedRepaintRects.clear();
     m_lastPaintTime = MonotonicTime();
@@ -839,7 +839,7 @@ ScrollableArea* LocalFrameView::scrollableAreaForScrollingNodeID(ScrollingNodeID
         return nullptr;
 
     if (auto area = m_scrollingNodeIDToPluginScrollableAreaMap.get(nodeID))
-        return area.get();
+        return area;
 
     return renderView->compositor().scrollableAreaForScrollingNodeID(nodeID);
 }
@@ -1087,7 +1087,7 @@ void LocalFrameView::clearObscuredInsetsAdjustmentsIfNeeded()
 void LocalFrameView::obscuredInsetsWillChange(FloatBoxExtent&& obscuredInsetsDelta)
 {
     if (CheckedPtr tiledBacking = this->tiledBacking())
-        tiledBacking->obscuredInsetsWillChange(WTFMove(obscuredInsetsDelta));
+        tiledBacking->obscuredInsetsWillChange(WTF::move(obscuredInsetsDelta));
 }
 
 void LocalFrameView::obscuredContentInsetsDidChange(const FloatBoxExtent& newObscuredContentInsets)
@@ -1279,7 +1279,7 @@ void LocalFrameView::willDoLayout(SingleThreadWeakPtr<RenderElement> layoutRoot)
     auto firstLayout = !layoutContext().didFirstLayout();
     if (firstLayout) {
         m_lastViewportSize = sizeForResizeEvent();
-        m_lastZoomFactor = layoutRoot->style().zoom();
+        m_lastUsedZoomFactor = layoutRoot->style().usedZoom();
         m_firstLayoutCallbackPending = true;
     }
     adjustScrollbarsForLayout(firstLayout);
@@ -1711,7 +1711,7 @@ void LocalFrameView::addSlowRepaintObject(RenderElement& renderer)
     bool hadSlowRepaintObjects = hasSlowRepaintObjects();
 
     if (!m_slowRepaintObjects)
-        m_slowRepaintObjects = makeUnique<SingleThreadWeakHashSet<RenderElement>>();
+        m_slowRepaintObjects = makeUnique<SingleThreadWeakKeyHashSet<RenderElement>>();
 
     auto addResult = m_slowRepaintObjects->add(renderer);
     if (addResult.isNewEntry) {
@@ -2107,6 +2107,34 @@ LayoutRect LocalFrameView::viewportConstrainedVisibleContentRect() const
     return viewportRect;
 }
 
+std::optional<LayoutRect> LocalFrameView::visibleRectOfChild(const Frame& child) const
+{
+    RefPtr childOwnerRenderer = child.ownerRenderer();
+    if (!childOwnerRenderer)
+        return std::nullopt;
+
+    // Ensure |child| is a child of this frame.
+    ASSERT(child.tree().parent()->frameID() == m_frame->frameID());
+    ASSERT(childOwnerRenderer->frame().frameID() == m_frame->frameID());
+
+    auto rects = childOwnerRenderer->computeVisibleRectsInContainer(
+        { childOwnerRenderer->frameRect() },
+        &childOwnerRenderer->view(),
+        {
+            .hasPositionFixedDescendant = false,
+            .dirtyRectIsFlipped = false,
+            .descendantNeedsEnclosingIntRect = false,
+            .options = {
+                VisibleRectContext::Option::UseEdgeInclusiveIntersection,
+                VisibleRectContext::Option::ApplyCompositedClips,
+                VisibleRectContext::Option::ApplyCompositedContainerScrolls
+            },
+        }
+    );
+
+    return rects.transform([] (const auto& repaintRects) { return repaintRects.clippedOverflowRect; });
+}
+
 LayoutRect LocalFrameView::rectForFixedPositionLayout() const
 {
     if (m_frame->settings().visualViewportEnabled())
@@ -2165,18 +2193,18 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
     WeakElementEdges containers;
     FixedContainerEdges edges;
     if (sides.isEmpty())
-        return { WTFMove(edges), WTFMove(containers) };
+        return { WTF::move(edges), WTF::move(containers) };
 
     RefPtr page = m_frame->page();
     if (!page)
-        return { WTFMove(edges), WTFMove(containers) };
+        return { WTF::move(edges), WTF::move(containers) };
 
     if (!hasViewportConstrainedObjects())
-        return { WTFMove(edges), WTFMove(containers) };
+        return { WTF::move(edges), WTF::move(containers) };
 
     RefPtr document = m_frame->document();
     if (!document)
-        return { WTFMove(edges), WTFMove(containers) };
+        return { WTF::move(edges), WTF::move(containers) };
 
     TraceScope tracingScope { FixedContainerEdgeSamplingStart, FixedContainerEdgeSamplingEnd };
 
@@ -2186,10 +2214,11 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
 
     struct FixedContainerResult {
         RefPtr<Element> container;
-        bool foundBackdropFilter { false };
-        bool retryHonoringPointerEvents { false };
-        bool isViewportSized { false };
-        bool isDimmingLayer { false };
+        bool foundBackdropFilter : 1 { false };
+        bool retryHonoringPointerEvents : 1 { false };
+        bool isViewportSized : 1 { false };
+        bool isDimmingLayer : 1 { false };
+        bool isSidebar : 1 { false };
         Color backgroundColor;
     };
 
@@ -2311,6 +2340,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
         TooLarge,
         NegativeZIndex,
         IsViewportSizedCandidate,
+        IsSidebar,
         IsDimmingLayer,
         IsCandidate,
     };
@@ -2352,7 +2382,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
         }
 
         if (lengthOnSide == ViewportComparison::Smaller)
-            return TooSmall;
+            return lengthOnAdjacentSide != ViewportComparison::Smaller ? IsSidebar : TooSmall;
 
         if (!isProbablyDimmingContainer && lengthOnAdjacentSide == ViewportComparison::Larger)
             return TooLarge;
@@ -2418,12 +2448,13 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
                 .retryHonoringPointerEvents = false,
                 .isViewportSized = true,
                 .isDimmingLayer = true,
-                .backgroundColor = WTFMove(backgroundColor),
+                .isSidebar = false,
+                .backgroundColor = WTF::move(backgroundColor),
             } };
         }();
 
         if (containerResultFromBackdrop)
-            return WTFMove(*containerResultFromBackdrop);
+            return WTF::move(*containerResultFromBackdrop);
 
         bool hasMultipleBackgroundColors = false;
         Color primaryBackgroundColor;
@@ -2436,7 +2467,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
                     foundBackdropFilter = true;
                 else if (auto color = primaryBackgroundColorForRenderer(side, ancestor); color.isVisible()) {
                     if (!primaryBackgroundColor.isVisible())
-                        primaryBackgroundColor = WTFMove(color);
+                        primaryBackgroundColor = WTF::move(color);
                     else if (primaryBackgroundColor != color)
                         hasMultipleBackgroundColors = true;
                 }
@@ -2455,6 +2486,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
             }
             case IsViewportSizedCandidate:
             case IsDimmingLayer:
+            case IsSidebar:
             case IsCandidate: {
                 return {
                     .container = { ancestor->element() },
@@ -2462,7 +2494,8 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
                     .retryHonoringPointerEvents = false,
                     .isViewportSized = candidateType == IsViewportSizedCandidate,
                     .isDimmingLayer = candidateType == IsDimmingLayer,
-                    .backgroundColor = hasMultipleBackgroundColors ? Color { } : WTFMove(primaryBackgroundColor),
+                    .isSidebar = candidateType == IsSidebar,
+                    .backgroundColor = hasMultipleBackgroundColors ? Color { } : WTF::move(primaryBackgroundColor),
                 };
             }
             }
@@ -2474,6 +2507,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
             .retryHonoringPointerEvents = hitInvisiblePointerEventsNoneContainer,
             .isViewportSized = false,
             .isDimmingLayer = false,
+            .isSidebar = false,
             .backgroundColor = { },
         };
     };
@@ -2505,7 +2539,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
         if (!border->isVisible())
             return samplingRect;
 
-        auto borderWidth = Style::evaluate<float>(border->width(), Style::ZoomNeeded { });
+        auto borderWidth = Style::evaluate<float>(border->width, Style::ZoomNeeded { });
         if (borderWidth > thinBorderWidth)
             return samplingRect;
 
@@ -2554,7 +2588,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
             continue;
         }
 
-        bool preferExistingColor = result.isDimmingLayer || result.isViewportSized;
+        bool preferExistingColor = result.isDimmingLayer || result.isViewportSized || result.isSidebar;
         if (preferExistingColor && page->fixedContainerEdges().hasFixedEdge(side)) {
             edges.colors.setAt(side, page->fixedContainerEdges().colors.at(side));
             continue;
@@ -2587,10 +2621,10 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
         }());
     }
 
-    return { WTFMove(edges), WTFMove(containers) };
+    return { WTF::move(edges), WTF::move(containers) };
 }
 
-FloatPoint LocalFrameView::positionForInsetClipLayer(const FloatPoint& scrollPosition, const FloatBoxExtent& obscuredContentInset)
+FloatRect LocalFrameView::insetClipLayerRect(const FloatPoint& scrollPosition, const FloatBoxExtent& obscuredContentInset, const FloatSize& sizeForVisibleContent)
 {
     auto computeOffset = [](float scrollAmount, float insetAmount) {
         if (!insetAmount)
@@ -2603,7 +2637,14 @@ FloatPoint LocalFrameView::positionForInsetClipLayer(const FloatPoint& scrollPos
 
         return insetAmount - clampedScrollPosition;
     };
-    return { computeOffset(scrollPosition.x(), obscuredContentInset.left()), computeOffset(scrollPosition.y(), obscuredContentInset.top()) };
+
+    FloatPoint position { computeOffset(scrollPosition.x(), obscuredContentInset.left()), computeOffset(scrollPosition.y(), obscuredContentInset.top()) };
+
+    auto adjustedSize = sizeForVisibleContent;
+    if (obscuredContentInset.top())
+        adjustedSize.setHeight(std::max(0.f, sizeForVisibleContent.height() - position.y()));
+
+    return { position, adjustedSize };
 }
 
 float LocalFrameView::yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topInset)
@@ -2813,7 +2854,7 @@ bool LocalFrameView::useDarkAppearance() const
         return renderer->useDarkAppearance();
 #endif
     if (auto* document = m_frame->document())
-        return document->useDarkAppearance(nullptr);
+        return document->useDarkAppearance(static_cast<const Style::ComputedStyle*>(nullptr));
     return false;
 }
 
@@ -2824,7 +2865,7 @@ OptionSet<StyleColorOptions> LocalFrameView::styleColorOptions() const
         return renderer->styleColorOptions();
 #endif
     if (auto* document = m_frame->document())
-        return document->styleColorOptions(nullptr);
+        return document->styleColorOptions(static_cast<const Style::ComputedStyle*>(nullptr));
     return { };
 }
 
@@ -2914,7 +2955,7 @@ void LocalFrameView::repaintSlowRepaintObjects()
 
     // Renderers with fixed backgrounds may be in compositing layers, so we need to explicitly
     // repaint them after scrolling.
-    for (auto& renderer : *m_slowRepaintObjects)
+    for (auto& renderer : *m_slowRepaintObjects | dereferenceView)
         renderer.repaintSlowRepaintObject();
 }
 
@@ -3048,7 +3089,7 @@ bool LocalFrameView::scrollToTextFragment(IsRetry isRetry)
     }
 
     // FIXME: <http://webkit.org/b/245262> (Scroll To Text Fragment should use DelegateMainFrameScroll)
-    TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::RevealSelection, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered, TemporarySelectionOption::ForceCenterScroll });
+    auto selectionChange = revealRangeWithTemporarySelection(range);
     if (m_frame->settings().scrollToTextFragmentIndicatorEnabled() && !m_frame->page()->isControlledByAutomation())
         m_delayedTextFragmentIndicatorTimer.startOneShot(100_ms);
 
@@ -3346,7 +3387,7 @@ void LocalFrameView::textFragmentIndicatorTimerFired()
     auto range = m_pendingTextFragmentIndicatorRange.value();
 
     // FIXME: <http://webkit.org/b/245262> (Scroll To Text Fragment should use DelegateMainFrameScroll)
-    TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::RevealSelection, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered, TemporarySelectionOption::ForceCenterScroll });
+    auto selectionChange = revealRangeWithTemporarySelection(range);
     
     maintainScrollPositionAtScrollToTextFragmentRange(range);
 }
@@ -3426,6 +3467,17 @@ bool LocalFrameView::scrollRectToVisible(const LayoutRect& absoluteRect, const R
     else
         frameView.scrollRectToVisibleInTopLevelView(adjustedRect, isFixed, adjustedOptions);
     return true;
+}
+
+TemporarySelectionChange LocalFrameView::revealRangeWithTemporarySelection(const SimpleRange& range, OptionSet<TemporarySelectionOption> extraOptions)
+{
+    static constexpr OptionSet defaultOptions {
+        TemporarySelectionOption::RevealSelection,
+        TemporarySelectionOption::RevealSelectionBounds,
+        TemporarySelectionOption::UserTriggered,
+        TemporarySelectionOption::ForceCenterScroll
+    };
+    return { range.startContainer().protectedDocument(), { range }, defaultOptions | extraOptions };
 }
 
 static ScrollPositionChangeOptions scrollPositionChangeOptionsForElement(const LocalFrameView& frameView, Element* element, const ScrollRectToVisibleOptions& options)
@@ -4312,7 +4364,7 @@ LocalFrameView::ExtendedBackgroundMode LocalFrameView::calculateExtendedBackgrou
         return ExtendedBackgroundModeNone;
 
     ExtendedBackgroundMode mode = ExtendedBackgroundModeNone;
-    auto backgroundRepeat = rootBackgroundRenderer->style().backgroundLayers().first().repeat();
+    auto backgroundRepeat = rootBackgroundRenderer->style().backgroundLayers().usedFirst().repeat();
     if (backgroundRepeat.x() == FillRepeat::Repeat)
         mode |= ExtendedBackgroundModeHorizontal;
     if (backgroundRepeat.y() == FillRepeat::Repeat)
@@ -4508,9 +4560,7 @@ void LocalFrameView::scrollToPendingTextFragmentRange()
     SetForScope skipScrollResetOfScrollToTextFragmentRange(m_skipScrollResetOfScrollToTextFragmentRange, true);
 
     // FIXME: <http://webkit.org/b/245262> (Scroll To Text Fragment should use DelegateMainFrameScroll)
-    TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::RevealSelection, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered, TemporarySelectionOption::ForceCenterScroll,
-        TemporarySelectionOption::OnlyAllowForwardScrolling
-    });
+    auto selectionChange = revealRangeWithTemporarySelection(range, TemporarySelectionOption::OnlyAllowForwardScrolling);
 
     if (m_delayedTextFragmentIndicatorTimer.isActive())
         return;
@@ -4531,6 +4581,8 @@ void LocalFrameView::scrollToPendingTextFragmentRange()
             return;
 
         auto textRects = RenderObject::absoluteTextRects(range);
+        if (!textRects.size())
+            return;
 
         static constexpr OptionSet hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
         auto result = localMainFrame->eventHandler().hitTestResultAtPoint(LayoutPoint(textRects.first().center()), hitType);
@@ -4552,9 +4604,9 @@ void LocalFrameView::scrollToPendingTextFragmentRange()
                 return;
         }
         if (m_haveCreatedTextIndicator)
-            document->protectedPage()->chrome().client().updateTextIndicator(textIndicator->data());
+            document->protectedPage()->chrome().client().updateTextIndicator(WTF::move(textIndicator));
         else {
-            document->protectedPage()->chrome().client().setTextIndicator(textIndicator->data());
+            document->protectedPage()->chrome().client().setTextIndicator(WTF::move(textIndicator));
             m_haveCreatedTextIndicator = true;
         }
     }
@@ -4743,13 +4795,13 @@ void LocalFrameView::scheduleResizeEventIfNeeded()
         return;
 
     IntSize currentSize = sizeForResizeEvent();
-    float currentZoomFactor = renderView->style().zoom();
+    float currentZoomFactor = renderView->style().usedZoom();
 
-    if (currentSize == m_lastViewportSize && currentZoomFactor == m_lastZoomFactor)
+    if (currentSize == m_lastViewportSize && currentZoomFactor == m_lastUsedZoomFactor)
         return;
 
     m_lastViewportSize = currentSize;
-    m_lastZoomFactor = currentZoomFactor;
+    m_lastUsedZoomFactor = currentZoomFactor;
 
     if (!layoutContext().didFirstLayout())
         return;
@@ -5297,10 +5349,10 @@ void LocalFrameView::updateScrollCorner()
         m_scrollCorner = nullptr;
     else {
         if (!m_scrollCorner) {
-            m_scrollCorner = createRenderer<RenderScrollbarPart>(renderer->protectedDocument(), WTFMove(*cornerStyle));
+            m_scrollCorner = createRenderer<RenderScrollbarPart>(renderer->protectedDocument(), WTF::move(*cornerStyle));
             m_scrollCorner->initializeStyle();
         } else
-            m_scrollCorner->setStyle(WTFMove(*cornerStyle));
+            m_scrollCorner->setStyle(WTF::move(*cornerStyle));
         invalidateScrollCorner(cornerRect);
     }
 }
@@ -5360,9 +5412,9 @@ Color LocalFrameView::documentBackgroundColor() const
     Color htmlBackgroundColor;
     Color bodyBackgroundColor;
     if (htmlElement && htmlElement->renderer())
-        htmlBackgroundColor = htmlElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        htmlBackgroundColor = htmlElement->renderer()->style().visitedDependentBackgroundColorApplyingColorFilter();
     if (bodyElement && bodyElement->renderer())
-        bodyBackgroundColor = bodyElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        bodyBackgroundColor = bodyElement->renderer()->style().visitedDependentBackgroundColorApplyingColorFilter();
 
 #if ENABLE(FULLSCREEN_API)
     Color fullscreenBackgroundColor = [&] () -> Color {
@@ -5378,7 +5430,7 @@ Color LocalFrameView::documentBackgroundColor() const
         if (!fullscreenRenderer)
             return { };
 
-        auto fullscreenElementColor = fullscreenRenderer->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        auto fullscreenElementColor = fullscreenRenderer->style().visitedDependentBackgroundColorApplyingColorFilter();
 
         WeakPtr backdropRenderer = fullscreenRenderer->backdropRenderer();
         if (!backdropRenderer)
@@ -5386,7 +5438,7 @@ Color LocalFrameView::documentBackgroundColor() const
 
         // Do not blend the fullscreenElementColor atop the backdrop color. The backdrop should
         // intentionally be visible underneath (and around) the fullscreen element.
-        return backdropRenderer->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        return backdropRenderer->style().visitedDependentBackgroundColorApplyingColorFilter();
     }();
 
     // Replace or blend the fullscreen background color with the body background color, if present.
@@ -5471,11 +5523,6 @@ void LocalFrameView::updateControlTints()
 void LocalFrameView::invalidateControlTints()
 {
     traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingControlTints);
-}
-
-void LocalFrameView::invalidateImagesWithAsyncDecodes()
-{
-    traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes);
 }
 
 void LocalFrameView::updateAccessibilityObjectRegions()
@@ -5754,8 +5801,8 @@ void LocalFrameView::updateLayoutAndStyleIfNeededRecursive(OptionSet<LayoutOptio
             // Append renderered children after processing the parent, in case the processing
             // affects the set of rendered children.
             auto previousView = descendantsDeque.takeFirst();
-            for (auto* frame = previousView->m_frame->tree().firstRenderedChild(); frame; frame = frame->tree().nextRenderedSibling()) {
-                auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+            for (RefPtr frame = previousView->m_frame->tree().firstRenderedChild(); frame; frame = frame->tree().nextRenderedSibling()) {
+                RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
                 if (!localFrame)
                     continue;
                 if (auto* view = localFrame->view())
@@ -6090,7 +6137,16 @@ void LocalFrameView::adjustPageHeightDeprecated(float *newBottom, float oldTop, 
 float LocalFrameView::documentToAbsoluteScaleFactor(std::optional<float> usedZoom) const
 {
     // If usedZoom is passed, it already factors in pageZoomFactor().
+#if CPU(X86_64)
+    // FIXME(rdar://165780260): Remove when this optimizer issue is resolved.
+    // Clang's Intel optimizer requires us to help it figure out `value_or` to
+    // avoid a performance regression.
+    if (usedZoom.has_value()) [[unlikely]]
+        return usedZoom.value() * m_frame->frameScaleFactor();
+    return m_frame->pageZoomFactor() * m_frame->frameScaleFactor();
+#else
     return usedZoom.value_or(m_frame->pageZoomFactor()) * m_frame->frameScaleFactor();
+#endif
 }
 
 float LocalFrameView::absoluteToDocumentScaleFactor(std::optional<float> usedZoom) const
@@ -7019,7 +7075,7 @@ ScrollbarWidth LocalFrameView::scrollbarWidthStyle()  const
     auto* document = m_frame->document();
     auto scrollingObject = document && document->documentElement() ? document->documentElement()->renderer() : nullptr;
     if (scrollingObject && renderView())
-        return scrollingObject->style().scrollbarWidth();
+        return Style::toPlatform(scrollingObject->style().scrollbarWidth());
     return ScrollbarWidth::Auto;
 }
 
@@ -7029,9 +7085,10 @@ std::optional<ScrollbarColor> LocalFrameView::scrollbarColorStyle() const
     auto scrollingObject = document && document->documentElement() ? document->documentElement()->renderer() : nullptr;
     if (scrollingObject && renderView()) {
         if (auto value = scrollingObject->style().scrollbarColor().tryValue()) {
+            Style::ColorResolver colorResolver { scrollingObject->style() };
             return ScrollbarColor {
-                .thumbColor = scrollingObject->style().colorResolvingCurrentColor(value->thumb),
-                .trackColor = scrollingObject->style().colorResolvingCurrentColor(value->track)
+                .thumbColor = colorResolver.colorResolvingCurrentColor(value->thumb),
+                .trackColor = colorResolver.colorResolvingCurrentColor(value->track)
             };
         }
     }

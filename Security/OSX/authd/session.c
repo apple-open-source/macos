@@ -63,7 +63,7 @@ session_create(session_id_t sid)
     session_t session = NULL;
         
     session = (session_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, session_get_type_id(), AUTH_CLASS_SIZE(session), NULL);
-    require(session != NULL, done);
+    __Require(session != NULL, done);
     
     session->auditinfo.ai_asid = sid;
     
@@ -72,7 +72,7 @@ session_create(session_id_t sid)
     }
     
     session->dispatch_queue = dispatch_queue_create("Session queue", DISPATCH_QUEUE_SERIAL);
-    check(session->dispatch_queue != NULL);
+    __Check(session->dispatch_queue != NULL);
     
     session->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     session->processes = CFSetCreateMutable(kCFAllocatorDefault, 0, NULL);

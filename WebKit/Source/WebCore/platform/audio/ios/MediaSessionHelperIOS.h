@@ -25,21 +25,13 @@
 
 #pragma once
 
-#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY)
 
+#include <WebCore/MediaDeviceRouteController.h>
 #include <WebCore/MediaPlaybackTarget.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/ProcessID.h>
 #include <wtf/WeakHashSet.h>
-
-namespace WebCore {
-class MediaSessionHelperClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::MediaSessionHelperClient> : std::true_type { };
-}
 
 namespace WebCore {
 
@@ -50,7 +42,7 @@ enum class ShouldPause : bool { No, Yes };
 enum class SupportsAirPlayVideo : bool { No, Yes };
 enum class SupportsSpatialAudioPlayback : bool { No, Yes };
 
-class MediaSessionHelperClient : public CanMakeWeakPtr<MediaSessionHelperClient> {
+class MediaSessionHelperClient : public AbstractRefCountedAndCanMakeWeakPtr<MediaSessionHelperClient> {
 public:
     virtual ~MediaSessionHelperClient() = default;
 
@@ -76,7 +68,13 @@ public:
     virtual void activeAudioRouteSupportsSpatialPlaybackDidChange(SupportsSpatialAudioPlayback) = 0;
 };
 
-class WEBCORE_EXPORT MediaSessionHelper : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSessionHelper> {
+class WEBCORE_EXPORT MediaSessionHelper
+#if HAVE(AVROUTING_FRAMEWORK)
+    : public MediaDeviceRouteControllerClient
+#else
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSessionHelper>
+#endif
+{
 public:
     static MediaSessionHelper& sharedHelper();
     static Ref<MediaSessionHelper> protectedSharedHelper();
@@ -120,6 +118,10 @@ public:
 
     void setActiveAudioRouteSupportsSpatialPlayback(bool);
     void updateActiveAudioRouteSupportsSpatialPlayback();
+
+#if HAVE(AVROUTING_FRAMEWORK)
+    void activeRoutesDidChange(MediaDeviceRouteController&) final;
+#endif
 
 protected:
     void externalOutputDeviceAvailableDidChange(HasAvailableTargets);

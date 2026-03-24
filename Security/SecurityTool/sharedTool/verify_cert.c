@@ -128,6 +128,7 @@ int verify_cert(int argc, char * const *argv) {
     bool useTLS = false;
     bool printPem = false;
     bool printDetails = false;
+    bool asJson = false;
     const char *url = NULL;
 
 	struct tm time;
@@ -148,7 +149,7 @@ int verify_cert(int argc, char * const *argv) {
 	}
 
 	optind = 1;
-	while ((arg = getopt(argc, argv, "Cc:r:p:d:n:LPqR:v")) != -1) {
+	while ((arg = getopt(argc, argv, "Cc:r:p:d:n:LPqR:vj")) != -1) {
 		switch (arg) {
 			case 'c':
 				/* Can be specified multiple times */
@@ -228,6 +229,9 @@ int verify_cert(int argc, char * const *argv) {
             case 'v':
                 printDetails = true;
                 verbose++;
+                break;
+            case 'j':
+                asJson = true;
                 break;
 			default:
 				fprintf(stderr, "Usage error\n");
@@ -351,6 +355,11 @@ int verify_cert(int argc, char * const *argv) {
 	/* Evaluate certs */
     (void)SecTrustEvaluateWithError(trustRef, &errorRef);
 post_evaluate:
+
+    if (asJson) {
+        // if we are doing json, supress printing
+        quiet = true;
+    }
     ortn = SecTrustGetTrustResult(trustRef, &resultType);
 	if (ortn) {
 		/* Should never fail - error doesn't mean the cert verified badly */
@@ -407,6 +416,12 @@ post_evaluate:
 			ourRtn = 1;
 			break;
 	}
+    
+    // print now that we have captured ourRtn
+    if (asJson) {
+        printTrustResultAsJSON(trustRef);
+        goto errOut;
+    }
 
 	if ((ourRtn == 0) && !quiet) {
 		printf("...certificate verification successful.\n");

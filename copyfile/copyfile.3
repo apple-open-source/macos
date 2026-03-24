@@ -243,6 +243,19 @@ has it set.
 This flag is used in conjunction with COPYFILE_STAT, or COPYFILE_CLONE (for its fallback case).
 .El
 .Pp
+.Fn fcopyfile
+function can also have its behavior modified by the following flags:
+.Bl -tag -width COPYFILE_NOFOLLOW_SRC
+.It Dv COPYFILE_NOCACHE
+turn caching off for both
+.Va from
+and
+.Va to
+arguments. This is a best effort attempt, and if succeeded the file descriptors would keep the no-caching policy when returning from
+.Fn fcopyfile
+.
+.El
+.Pp
 Copying files into a directory is supported.
 If
 .Va to

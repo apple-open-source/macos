@@ -68,11 +68,11 @@ static bool trySelectFidoApplet(NFReaderSession *session)
 
 Ref<NfcConnection> NfcConnection::create(RetainPtr<NFReaderSession>&& session, NfcService& service)
 {
-    return adoptRef(*new NfcConnection(WTFMove(session), service));
+    return adoptRef(*new NfcConnection(WTF::move(session), service));
 }
 
 NfcConnection::NfcConnection(RetainPtr<NFReaderSession>&& session, NfcService& service)
-    : m_session(WTFMove(session))
+    : m_session(WTF::move(session))
     , m_delegate(adoptNS([[WKNFReaderSessionDelegate alloc] initWithConnection:*this]))
     , m_service(service)
     , m_retryTimer(RunLoop::mainSingleton(), "NfcConnection::RetryTimer"_s, this, &NfcConnection::startPolling)
@@ -110,7 +110,7 @@ void NfcConnection::didDetectTags(NSArray *tags)
     // Therefore, we use tagID to detect if there are multiple physical tags.
     RetainPtr<NSData> tagID = ((NFTag *)tags[0]).tagID;
     for (NFTag *tag : tags) {
-        if ([tagID isEqualToData:tag.tagID])
+        if ([tagID isEqualToData:retainPtr(tag.tagID).get()])
             continue;
         service->didDetectMultipleTags();
         restartPolling();

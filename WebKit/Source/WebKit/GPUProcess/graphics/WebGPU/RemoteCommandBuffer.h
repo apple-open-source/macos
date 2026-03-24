@@ -54,7 +54,7 @@ class RemoteCommandBuffer final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteCommandBuffer> create(WebCore::WebGPU::CommandBuffer& commandBuffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteCommandBuffer(commandBuffer, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteCommandBuffer(commandBuffer, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteCommandBuffer();

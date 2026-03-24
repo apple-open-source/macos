@@ -163,7 +163,7 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
         request.setIsAppInitiated(documentLoader->lastNavigationWasAppInitiated());
 
     if (crossOriginAttribute.isNull()) {
-        CachedResourceRequest cachedRequest { WTFMove(request), WTFMove(options) };
+        CachedResourceRequest cachedRequest { WTF::move(request), WTF::move(options) };
         cachedRequest.setOrigin(document.securityOrigin());
         return cachedRequest;
     }
@@ -183,7 +183,7 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
         options.storedCredentialsPolicy = StoredCredentialsPolicy::DoNotUse;
     }
 
-    CachedResourceRequest cachedRequest { WTFMove(request), WTFMove(options) };
+    CachedResourceRequest cachedRequest { WTF::move(request), WTF::move(options) };
     updateRequestForAccessControl(cachedRequest.resourceRequest(), document.protectedSecurityOrigin().get(), options.storedCredentialsPolicy);
     return cachedRequest;
 }
@@ -305,14 +305,14 @@ Expected<void, String> validatePreflightResponse(PAL::SessionID sessionID, const
 
     auto result = CrossOriginPreflightResultCacheItem::create(storedCredentialsPolicy, response);
     if (!result.has_value())
-        return makeUnexpected(WTFMove(result.error()));
+        return makeUnexpected(WTF::move(result.error()));
 
-    auto entry = WTFMove(result.value());
+    auto entry = WTF::move(result.value());
     auto errorDescription = entry->validateMethodAndHeaders(request.httpMethod(), request.httpHeaderFields());
     CrossOriginPreflightResultCache::singleton().appendEntry(sessionID, { topOrigin.data(), securityOrigin.data(), }, request.url(), entry.moveToUniquePtr());
 
     if (errorDescription)
-        return makeUnexpected(WTFMove(*errorDescription));
+        return makeUnexpected(WTF::move(*errorDescription));
 
     return { };
 }

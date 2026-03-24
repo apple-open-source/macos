@@ -73,7 +73,15 @@
 /* ==== Platform additions: additions to PlatformEnable.h from outside the main repository ==== */
 
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/AdditionalFeatureDefines.h>)
+/* FIXME: Properly support using WKA in modules. */
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#endif
 #include <WebKitAdditions/AdditionalFeatureDefines.h>
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic pop
+#endif
 #endif
 
 
@@ -415,6 +423,10 @@
 #define ENABLE_MODEL_PROCESS 0
 #endif
 
+#if !defined(ENABLE_SCENE_GEOMETRY_UPDATE)
+#define ENABLE_SCENE_GEOMETRY_UPDATE 0
+#endif
+
 #if !defined(ENABLE_MONOSPACE_FONT_EXCEPTION)
 #define ENABLE_MONOSPACE_FONT_EXCEPTION 0
 #endif
@@ -553,6 +565,10 @@
 #define ENABLE_TEXT_SELECTION 1
 #endif
 
+#if !defined(ENABLE_THREADED_ANIMATIONS)
+#define ENABLE_THREADED_ANIMATIONS 0
+#endif
+
 #if !defined(ENABLE_THUNDER)
 #define ENABLE_THUNDER 0
 #endif
@@ -619,6 +635,10 @@
 
 #if !defined(ENABLE_WEBGPU)
 #define ENABLE_WEBGPU PLATFORM(COCOA)
+#endif
+
+#if !defined(ENABLE_WEBXR_HIT_TEST)
+#define ENABLE_WEBXR_HIT_TEST 0
 #endif
 
 #if !defined(ENABLE_WEBXR_LAYERS)
@@ -818,7 +838,7 @@
 #undef ENABLE_B3_JIT
 #define ENABLE_B3_JIT 1
 #undef ENABLE_WEBASSEMBLY_OMGJIT
-#define ENABLE_WEBASSEMBLY_OMGJIT 1
+#define ENABLE_WEBASSEMBLY_OMGJIT 0
 #undef ENABLE_WEBASSEMBLY_BBQJIT
 #define ENABLE_WEBASSEMBLY_BBQJIT 1
 #endif
@@ -1048,6 +1068,10 @@
 #error "ENABLE(WEBXR_HANDS) requires ENABLE(WEBXR)"
 #endif
 
+#if ENABLE(WEBXR_HIT_TEST) && !ENABLE(WEBXR)
+#error "ENABLE(WEBXR_HIT_TEST) requires ENABLE(WEBXR)"
+#endif
+
 #if ENABLE(WEBXR_LAYERS) && !ENABLE(WEBXR)
 #error "ENABLE(WEBXR_LAYERS) requires ENABLE(WEBXR)"
 #endif
@@ -1088,4 +1112,17 @@
 
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 260000
 #define ENABLE_TILED_CA_DRAWING_AREA 1
+#endif
+
+#if !defined(ENABLE_ALLOW_MULTIPLE_COMMIT_LAYER_TREE_PENDING)
+#define ENABLE_ALLOW_MULTIPLE_COMMIT_LAYER_TREE_PENDING 0
+#endif
+
+#if !defined(ENABLE_TLS_1_2_DEFAULT_MINIMUM) \
+    && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) \
+    || ((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 260000) \
+    || (PLATFORM(VISION) && __VISION_OS_VERSION_MIN_REQUIRED >= 260000) \
+    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 260000) \
+    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED >= 260000))
+#define ENABLE_TLS_1_2_DEFAULT_MINIMUM 1
 #endif

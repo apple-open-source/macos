@@ -68,6 +68,7 @@ framework module IOKit_Private [extern_c] [system] {
     header "hid/IOHIDEventFieldDefs.h"
     header "hid/IOHIDEventServiceKeys_Private.h"
     header "hid/IOHIDUserDevice.h"
+    header "hid/IOHIDHelpersPrivate.h"
     export *
   }
   explicit module hidobjc {
@@ -86,6 +87,11 @@ framework module IOKit_Private [extern_c] [system] {
     header "hidobjc/HIDConnectionIvar.h"
     header "hidobjc/HIDSessionBase.h"
     header "hidobjc/HIDSessionIvar.h"
+    export *
+  }
+
+  explicit module pwr_mgt {
+    header "pwr_mgt/IOPMLibPrivate.h"
     export *
   }
 }

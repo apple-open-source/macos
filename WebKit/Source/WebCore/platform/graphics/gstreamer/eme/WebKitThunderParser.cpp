@@ -87,7 +87,8 @@ static GRefPtr<GstCaps> createThunderParseSinkPadTemplateCaps()
     for (const auto& keySystem : supportedKeySystems) {
         for (const auto& mediaType : GStreamerEMEUtilities::s_cencEncryptionMediaTypes) {
             gst_caps_append_structure(caps.get(), gst_structure_new("application/x-cenc", "original-media-type", G_TYPE_STRING,
-                mediaType.characters(), "protection-system", G_TYPE_STRING, GStreamerEMEUtilities::keySystemToUuid(keySystem), nullptr));
+                mediaType.characters(), "protection-system", G_TYPE_STRING,
+                GStreamerEMEUtilities::keySystemToUuid(keySystem).characters(), nullptr));
         }
     }
 

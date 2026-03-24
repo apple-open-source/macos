@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "Vector.h"
 #include "bmalloc.h"
 
@@ -151,7 +153,7 @@ public:
     T takeLast()
     {
         BASSERT(!isEmpty());
-        T result = WTFMove(last());
+        T result = std::move(last());
         --m_size;
         return result;
     }
@@ -264,3 +266,5 @@ private:
 };
 
 } // namespace bmalloc
+
+#endif // __cplusplus

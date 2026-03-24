@@ -228,7 +228,7 @@ memtag_set_tag(uint8_t *addr, size_t size)
 //   (i.e. the one associated with `address + size`)
 MALLOC_NOEXPORT
 uint8_t *
-memtag_assign_tag(uint8_t *address, size_t size);
+memtag_assign_tag_contiguous(uint8_t *address, size_t size);
 
 // Initialize the allocation tags for the chunk of memory pointed to
 // by `chunk_start`, by setting a different tags for all the blocks
@@ -252,12 +252,36 @@ MALLOC_NOEXPORT
 bool
 memtag_handle_mismatch(void *ptr);
 
-// Retag a block.
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uint64_t
+memtag_derive_odd_even_mask(uint32_t idx)
+{
+	// This function derives the exclusion mask to be used when generating tags,
+	// by excluding either odd or even tags based on the evenness of the index.
+	// We also always exclude 0x0, which is used for canonical tagging, and 0xf,
+	// for symmetry between the even and odd masks.
+	return ((idx & 1) ? 0x5555 : 0xaaaa) | 0x8001;
+}
+
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static uint8_t *
-memtag_retag(uint8_t *address, size_t size)
+memtag_assign_tag_odd_even(uint8_t *address, size_t size, uint32_t idx)
 {
-	uint8_t *tagged_addr = memtag_assign_tag(address, size);
+	// Exclude either odd or even tags based on the index.
+	uint64_t mask = memtag_derive_odd_even_mask(idx);
+
+	// Exclude the tag currently associated with the given block.
+	mask = _memtag_exclude_tag(address, mask);
+
+	return __arm_mte_create_random_tag(address, mask);
+}
+
+// Retag a block, using the odd-even tagging scheme.
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uint8_t *
+memtag_retag(uint8_t *address, size_t size, uint32_t idx)
+{
+	uint8_t *tagged_addr = memtag_assign_tag_odd_even(address, size, idx);
 	memtag_set_tag(tagged_addr, size);
 	return tagged_addr;
 }

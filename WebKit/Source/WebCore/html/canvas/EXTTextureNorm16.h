@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class EXTTextureNorm16 final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(EXTTextureNorm16);
+    WTF_MAKE_TZONE_ALLOCATED(EXTTextureNorm16);
     WTF_MAKE_NONCOPYABLE(EXTTextureNorm16);
 public:
     explicit EXTTextureNorm16(WebGLRenderingContextBase&);

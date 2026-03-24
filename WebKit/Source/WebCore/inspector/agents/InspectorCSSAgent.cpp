@@ -28,7 +28,7 @@
 
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSImportRule.h"
-#include "CSSParserMode.h"
+#include "CSSParserContext.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParserState.h"
 #include "CSSPropertyParsing.h"
@@ -93,7 +93,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorCSSAgent);
 class InspectorCSSAgent::StyleSheetAction : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(StyleSheetAction);
 public:
-    StyleSheetAction(InspectorStyleSheet* styleSheet)
+    explicit StyleSheetAction(InspectorStyleSheet* styleSheet)
         : InspectorHistory::Action()
         , m_styleSheet(styleSheet)
     {
@@ -113,6 +113,8 @@ public:
     }
 
 private:
+    bool isSetStyleSheetTextAction() const final { return true; }
+
     ExceptionOr<void> perform() final
     {
         auto result = m_styleSheet->text();
@@ -148,7 +150,7 @@ private:
     void merge(std::unique_ptr<Action> action) override
     {
         ASSERT(action->mergeId() == mergeId());
-        m_text = static_cast<SetStyleSheetTextAction&>(*action).m_text;
+        m_text = downcast<SetStyleSheetTextAction>(*action).m_text;
     }
 
     String m_text;
@@ -299,7 +301,7 @@ void InspectorCSSAgent::didCreateFrontendAndBackend()
 
 void InspectorCSSAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    disable();
+    std::ignore = disable();
 }
 
 void InspectorCSSAgent::reset()
@@ -525,7 +527,7 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Inspector::Pr
                             .setPseudoId(protocolPseudoId.value())
                             .setMatches(buildArrayForMatchedRuleList(matchedRules, styleResolver, *element, pseudoElementIdentifier))
                             .release();
-                        pseudoElements->addItem(WTFMove(matches));
+                        pseudoElements->addItem(WTF::move(matches));
                     }
                 }
             }
@@ -543,12 +545,12 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Inspector::Pr
                     auto& styleSheet = asInspectorStyleSheet(*styledElement);
                     entry->setInlineStyle(styleSheet.buildObjectForStyle(styleSheet.styleForId(InspectorCSSId(styleSheet.id(), 0))));
                 }
-                inherited->addItem(WTFMove(entry));
+                inherited->addItem(WTF::move(entry));
             }
         }
     }
 
-    return { { WTFMove(matchedCSSRules), WTFMove(pseudoElements), WTFMove(inherited) } };
+    return { { WTF::move(matchedCSSRules), WTF::move(pseudoElements), WTF::move(inherited) } };
 }
 
 Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<Inspector::Protocol::CSS::CSSStyle> /* inlineStyle */, RefPtr<Inspector::Protocol::CSS::CSSStyle> /* attributesStyle */>> InspectorCSSAgent::getInlineStylesForNode(Inspector::Protocol::DOM::NodeId nodeId)
@@ -579,7 +581,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::C
         return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
 
     auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, CSSComputedStyleDeclaration::AllowVisited::Yes);
-    auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), WTFMove(computedStyleInfo), nullptr);
+    auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), WTF::move(computedStyleInfo), nullptr);
     return inspectorStyle->buildArrayForComputedStyle();
 }
 
@@ -599,12 +601,12 @@ static Ref<Inspector::Protocol::CSS::Font> buildObjectForFont(const Font& font)
         if (variationAxis.name().length() && variationAxis.name() != variationAxis.tag())
             axis->setName(variationAxis.name());
         
-        resultVariationAxes->addItem(WTFMove(axis));
+        resultVariationAxes->addItem(WTF::move(axis));
     }
 
     auto protocolFont = Inspector::Protocol::CSS::Font::create()
         .setDisplayName(font.platformData().familyName())
-        .setVariationAxes(WTFMove(resultVariationAxes))
+        .setVariationAxes(WTF::move(resultVariationAxes))
         .release();
 
     protocolFont->setSynthesizedBold(fontPlatformData.syntheticBold());
@@ -657,7 +659,7 @@ void InspectorCSSAgent::collectAllDocumentStyleSheets(Document& document, Vector
 {
     auto cssStyleSheets = document.styleScope().activeStyleSheetsForInspector();
     for (auto& cssStyleSheet : cssStyleSheets)
-        collectStyleSheets(cssStyleSheet.get(), result);
+        collectStyleSheets(cssStyleSheet.ptr(), result);
 }
 
 void InspectorCSSAgent::collectStyleSheets(CSSStyleSheet* styleSheet, Vector<CSSStyleSheet*>& result)
@@ -773,7 +775,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::CSS::Grouping>> Insp
 {
     Inspector::Protocol::ErrorString errorString;
 
-    InspectorCSSId compoundId(WTFMove(ruleId));
+    InspectorCSSId compoundId(WTF::move(ruleId));
     ASSERT(!compoundId.isEmpty());
 
     auto* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
@@ -874,7 +876,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::CSS::CSSRule>> Inspe
 
     auto action = makeUnique<AddRuleAction>(inspectorStyleSheet, selector);
     auto& rawAction = *action;
-    auto performResult = domAgent->history()->perform(WTFMove(action));
+    auto performResult = domAgent->history()->perform(WTF::move(action));
     if (performResult.hasException())
         return makeUnexpected(InspectorDOMAgent::toErrorString(performResult.releaseException()));
 
@@ -889,8 +891,12 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::C
 {
     auto cssProperties = JSON::ArrayOf<Inspector::Protocol::CSS::CSSPropertyInfo>::create();
 
+    // Create a CSSParserContext with the page's settings for keyword validation.
+    auto& settings = m_inspectedPage->settings();
+    auto parserContext = CSSParserContext { settings };
+
     for (auto propertyID : allCSSProperties()) {
-        if (!isExposed(propertyID, &m_inspectedPage->settings()))
+        if (!isExposed(propertyID, &settings))
             continue;
 
         auto property = Inspector::Protocol::CSS::CSSPropertyInfo::create()
@@ -902,23 +908,23 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::C
             auto aliasesArray = JSON::ArrayOf<String>::create();
             for (auto& alias : aliases)
                 aliasesArray->addItem(alias);
-            property->setAliases(WTFMove(aliasesArray));
+            property->setAliases(WTF::move(aliasesArray));
         }
 
         auto shorthand = shorthandForProperty(propertyID);
         if (shorthand.length()) {
             auto longhands = JSON::ArrayOf<String>::create();
             for (auto longhand : shorthand) {
-                if (isExposed(longhand, &m_inspectedPage->settings()))
+                if (isExposed(longhand, &settings))
                     longhands->addItem(nameString(longhand));
             }
             if (longhands->length())
-                property->setLonghands(WTFMove(longhands));
+                property->setLonghands(WTF::move(longhands));
         }
 
         if (CSSPropertyParsing::isKeywordFastPathEligibleStyleProperty(propertyID)) {
             auto propertyParserState = CSS::PropertyParserState {
-                .context = strictCSSParserContext(),
+                .context = parserContext,
             };
             auto values = JSON::ArrayOf<String>::create();
             for (auto valueID : allCSSValueKeywords()) {
@@ -926,13 +932,26 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::C
                     values->addItem(nameString(valueID));
             }
             if (values->length())
-                property->setValues(WTFMove(values));
+                property->setValues(WTF::move(values));
+        } else {
+            // For properties that aren't keyword-fast-path eligible (e.g., display),
+            // use the values from CSSProperties.json if available, filtered by settings.
+            auto validKeywords = CSSProperty::validKeywordsForProperty(propertyID);
+            if (!validKeywords.empty()) {
+                auto values = JSON::ArrayOf<String>::create();
+                for (auto valueID : validKeywords) {
+                    if (CSSProperty::isKeywordValidForPropertyValues(propertyID, valueID, parserContext))
+                        values->addItem(nameString(valueID));
+                }
+                if (values->length())
+                    property->setValues(WTF::move(values));
+            }
         }
 
         if (CSSProperty::isInheritedProperty(propertyID))
             property->setInherited(true);
 
-        cssProperties->addItem(WTFMove(property));
+        cssProperties->addItem(WTF::move(property));
     }
 
     return cssProperties;
@@ -1003,7 +1022,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorCSSAgent::forcePseudoState(Ins
     }
 
     if (!forcedPseudoClassesToSet.isEmpty()) {
-        m_nodeIdToForcedPseudoState.set(nodeId, WTFMove(forcedPseudoClassesToSet));
+        m_nodeIdToForcedPseudoState.set(nodeId, WTF::move(forcedPseudoClassesToSet));
         m_documentsWithForcedPseudoStates.add(&element->document());
     } else {
         if (!m_nodeIdToForcedPseudoState.remove(nodeId))
@@ -1349,7 +1368,7 @@ RefPtr<Inspector::Protocol::CSS::CSSRule> InspectorCSSAgent::buildObjectForRule(
     return inspectorStyleSheet ? inspectorStyleSheet->buildObjectForRule(rule) : nullptr;
 }
 
-Ref<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> InspectorCSSAgent::buildArrayForMatchedRuleList(const Vector<RefPtr<const StyleRule>>& matchedRules, Style::Resolver& styleResolver, Element& element, std::optional<Style::PseudoElementIdentifier> pseudoElementIdentifier)
+Ref<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> InspectorCSSAgent::buildArrayForMatchedRuleList(const Vector<Ref<const StyleRule>>& matchedRules, Style::Resolver& styleResolver, Element& element, std::optional<Style::PseudoElementIdentifier> pseudoElementIdentifier)
 {
     auto result = JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>::create();
 
@@ -1359,7 +1378,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> InspectorCSSAgent::build
     SelectorChecker selectorChecker(element.document());
 
     for (auto& matchedRule : matchedRules) {
-        RefPtr<Inspector::Protocol::CSS::CSSRule> ruleObject = buildObjectForRule(matchedRule.get(), styleResolver, element);
+        RefPtr ruleObject = buildObjectForRule(matchedRule.ptr(), styleResolver, element);
         if (!ruleObject)
             continue;
 
@@ -1375,9 +1394,9 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> InspectorCSSAgent::build
 
         auto match = Inspector::Protocol::CSS::RuleMatch::create()
             .setRule(ruleObject.releaseNonNull())
-            .setMatchingSelectors(WTFMove(matchingSelectors))
+            .setMatchingSelectors(WTF::move(matchingSelectors))
             .release();
-        result->addItem(WTFMove(match));
+        result->addItem(WTF::move(match));
     }
 
     return result;
@@ -1429,3 +1448,10 @@ void InspectorCSSAgent::resetPseudoStates()
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::InspectorCSSAgent::SetStyleSheetTextAction)
+    static bool isType(const WebCore::InspectorHistory::Action& action)
+    {
+        return action.isSetStyleSheetTextAction();
+    }
+SPECIALIZE_TYPE_TRAITS_END()

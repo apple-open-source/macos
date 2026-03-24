@@ -33,6 +33,7 @@
 #import "PasteboardAccessIntent.h"
 #import "RemotePageProxy.h"
 #import "SandboxExtension.h"
+#import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import "WebProcessMessages.h"
@@ -93,7 +94,7 @@ std::optional<IPC::AsyncReplyID> WebPasteboardProxy::grantAccessToCurrentData(We
         return std::nullopt;
     }
     auto processIdentifier = process.coreProcessIdentifier();
-    return process.protectedWebsiteDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::AllowFilesAccessFromWebProcess(processIdentifier, paths), WTFMove(completionHandler));
+    return process.protectedWebsiteDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::AllowFilesAccessFromWebProcess(processIdentifier, paths), WTF::move(completionHandler));
 }
 
 void WebPasteboardProxy::grantAccess(WebProcessProxy& process, const String& pasteboardName, PasteboardAccessType type)
@@ -191,7 +192,7 @@ void WebPasteboardProxy::getPasteboardTypes(IPC::Connection& connection, const S
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         Vector<String> pasteboardTypes;
         PlatformPasteboard(pasteboardName).getTypes(pasteboardTypes);
-        completionHandler(WTFMove(pasteboardTypes));
+        completionHandler(WTF::move(pasteboardTypes));
     });
 }
 
@@ -223,7 +224,7 @@ void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connecti
             });
 #endif
         }
-        completionHandler(WTFMove(pathnames), WTFMove(sandboxExtensions));
+        completionHandler(WTF::move(pathnames), WTF::move(sandboxExtensions));
     });
 }
 
@@ -269,7 +270,7 @@ void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection,
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         auto pasteboardBuffer = PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
-        completionHandler(WTFMove(pasteboardBuffer));
+        completionHandler(WTF::move(pasteboardBuffer));
     });
 }
 
@@ -428,7 +429,7 @@ void WebPasteboardProxy::urlStringSuitableForLoading(IPC::Connection& connection
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         String title;
         auto urlString = PlatformPasteboard(pasteboardName).urlStringSuitableForLoading(title);
-        completionHandler(WTFMove(urlString), WTFMove(title));
+        completionHandler(WTF::move(urlString), WTF::move(title));
     });
 }
 
@@ -563,7 +564,7 @@ void WebPasteboardProxy::readURLFromPasteboard(IPC::Connection& connection, uint
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         String title;
         String url = PlatformPasteboard(pasteboardName).readURL(index, title).string();
-        completionHandler(WTFMove(url), WTFMove(title));
+        completionHandler(WTF::move(url), WTF::move(title));
     });
 }
 
@@ -645,7 +646,7 @@ void WebPasteboardProxy::writeWebContentToPasteboard(IPC::Connection& connection
 
     Ref senderProcess = WebProcessProxy::fromConnection(connection);
     auto localFrameArchives = content.localFrameArchives;
-    createOneWebArchiveFromFrames(senderProcess.get(), *rootFrameIdentifier, WTFMove(localFrameArchives), content.remoteFrameIdentifiers, [connection = Ref { connection }, content, pasteboardName, pageID](auto result) mutable {
+    createOneWebArchiveFromFrames(senderProcess.get(), *rootFrameIdentifier, WTF::move(localFrameArchives), content.remoteFrameIdentifiers, [connection = Ref { connection }, content, pasteboardName, pageID](auto result) mutable {
         auto updatedContent = content;
         if (result) {
             if (auto data = result->rawDataRepresentation())
@@ -766,7 +767,7 @@ void WebPasteboardProxy::writeWebArchiveToPasteBoard(IPC::Connection& connection
     if (!webPage)
         return completionHandler(0);
 
-    createOneWebArchiveFromFrames(senderProcess.get(), rootFrameIdentifier, WTFMove(localFrameArchives), remoteFrameIdentifiers, [connection = Ref { connection }, pasteboardName, pageIdentifier = webPage->identifier(), completionHandler = WTFMove(completionHandler)](auto result) mutable {
+    createOneWebArchiveFromFrames(senderProcess.get(), rootFrameIdentifier, WTF::move(localFrameArchives), remoteFrameIdentifiers, [connection = Ref { connection }, pasteboardName, pageIdentifier = webPage->identifier(), completionHandler = WTF::move(completionHandler)](auto result) mutable {
         if (!result)
             return completionHandler(0);
 
@@ -775,8 +776,8 @@ void WebPasteboardProxy::writeWebArchiveToPasteBoard(IPC::Connection& connection
             return completionHandler(0);
 
         RefPtr buffer = SharedBuffer::create(data.get());
-        WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, String { WebCore::WebArchivePboardType }, RefPtr { buffer }, pageIdentifier, [connection, pasteboardName, pageIdentifier, buffer, completionHandler = WTFMove(completionHandler)](auto) mutable {
-            WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, UTTypeWebArchive.identifier, WTFMove(buffer), pageIdentifier, WTFMove(completionHandler));
+        WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, String { WebCore::WebArchivePboardType }, RefPtr { buffer }, pageIdentifier, [connection, pasteboardName, pageIdentifier, buffer, completionHandler = WTF::move(completionHandler)](auto) mutable {
+            WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, UTTypeWebArchive.identifier, WTF::move(buffer), pageIdentifier, WTF::move(completionHandler));
         });
     });
 }
@@ -794,7 +795,7 @@ void WebPasteboardProxy::createOneWebArchiveFromFrames(WebProcessProxy& requeste
     if (!webPage)
         return completionHandler(nullptr);
 
-    auto callbackAggregator = LegacyWebArchiveCallbackAggregator::create(rootFrameIdentifier, WTFMove(localFrameArchives), WTFMove(completionHandler));
+    auto callbackAggregator = LegacyWebArchiveCallbackAggregator::create(rootFrameIdentifier, WTF::move(localFrameArchives), WTF::move(completionHandler));
     HashMap<Ref<WebProcessProxy>, Vector<WebCore::FrameIdentifier>> frameByProcess;
     for (auto frameIdentifier : remoteFrameIdentifiers) {
         RefPtr currentFrame = WebFrameProxy::webFrame(frameIdentifier);
@@ -821,7 +822,7 @@ void WebPasteboardProxy::createOneWebArchiveFromFrames(WebProcessProxy& requeste
         Ref { process }->sendWithAsyncReply(Messages::WebPage::GetWebArchivesForFrames(frameIDs), [frameIDs, callbackAggregator](auto&& result) {
             if (result.size() > frameIDs.size())
                 return;
-            callbackAggregator->addResult(WTFMove(result));
+            callbackAggregator->addResult(WTF::move(result));
         }, webPage->webPageIDInProcess(process.get()));
     }
 }
@@ -832,7 +833,7 @@ void WebPasteboardProxy::testIPCSharedMemory(IPC::Connection& connection, const 
     MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), connection, completionHandler(-1, "error"_str));
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), connection, completionHandler(-1, "error"_str));
 
-    auto sharedMemoryBuffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryBuffer = SharedMemory::map(WTF::move(handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer) {
         completionHandler(-1, "error EOM"_s);
         return;

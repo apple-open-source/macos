@@ -101,9 +101,12 @@ extern "C" {
     M(DiskPersistency) \
     M(DragAndDrop) \
     M(EME) \
+    M(EnhancedSecurity) \
     M(Extensions) \
+    M(FrameTree) \
     M(Fullscreen) \
     M(Gamepad) \
+    M(GestureHandling) \
     M(IPC) \
     M(IPCMessages) \
     M(ITPDebug) \

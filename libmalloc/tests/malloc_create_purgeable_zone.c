@@ -219,10 +219,20 @@ T_DECL(purgeable_realloc, "Test reallocating pointers from the purgeable zone",
 	malloc_zone_free(malloc_default_purgeable_zone(), ptr);
 
 	// Test reallocating from the main zone to the purgeable zone
-	ptr = malloc_zone_malloc(malloc_default_purgeable_zone(), KiB(4));
+	ptr = malloc_zone_malloc(malloc_default_purgeable_zone(), KiB(2));
 	T_ASSERT_NOTNULL(ptr, "Purgeable allocation");
 	T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptr), VM_PURGABLE_DENY,
 			"Allocation comes from main zone");
+	ptr = malloc_zone_realloc(malloc_default_purgeable_zone(), ptr, KiB(4));
+	T_ASSERT_NOTNULL(ptr, "Purgeable allocation");
+	T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptr),
+			VM_PURGABLE_DENY, "Allocation remains in main zone after realloc");
+	// xzone has a small threshold of 32KB, but magazine has a large threshold
+	// of 15 or 32KB, so use the minimum
+	ptr = malloc_zone_realloc(malloc_default_purgeable_zone(), ptr, KiB(15));
+	T_ASSERT_NOTNULL(ptr, "Purgeable allocation");
+	T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptr),
+			VM_PURGABLE_DENY, "Allocation remains in main zone after realloc");
 	ptr = malloc_zone_realloc(malloc_default_purgeable_zone(), ptr, KiB(64));
 	T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptr),
 			VM_PURGABLE_NONVOLATILE, "Allocation non-volatile after realloc");
@@ -253,4 +263,53 @@ T_DECL(purgeable_realloc, "Test reallocating pointers from the purgeable zone",
 			VM_PURGABLE_NONVOLATILE, "Tail of allocation is non-volatile");
 	malloc_zone_free(malloc_default_purgeable_zone(), ptr);
 
+}
+
+T_DECL(purgeable_guard_alloc, "Test purgeable zone with large guard objects",
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
+		T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE_ONLY,
+		T_META_TAG_VM_PREFERRED)
+{
+	void *ptrs[8];
+
+	for (unsigned i = 15; i < 19; ++i) { // 32K -> 1MB
+		size_t sz = (1ul << i) + 1ul;
+
+		for (unsigned j = 0; j < sizeof(ptrs) / sizeof(*ptrs); ++j) {
+			ptrs[j] = malloc_zone_malloc(malloc_default_purgeable_zone(), sz);
+			T_ASSERT_NOTNULL(ptrs[j], "Purgeable allocation %lu", sz);
+			T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptrs[j]),
+					VM_PURGABLE_NONVOLATILE, "Allocation starts non-volatile");
+			*((uint32_t*)ptrs[j]) = 0xcafebabe;
+		}
+
+		int purgable_state;
+		for (unsigned j = 0; j < sizeof(ptrs) / sizeof(*ptrs); ++j) {
+			void *ptr = malloc_zone_realloc(malloc_default_purgeable_zone(),
+					ptrs[j], sz + 1);
+			T_ASSERT_EQ(ptr, ptrs[j], "Purgeable reallocation %lu -> %lu in-place",
+					sz, sz + 1);
+			T_ASSERT_EQ(*(uint32_t *)ptrs[j], 0xcafebabe,
+					"Purgeable reallocation preserves value");
+			T_ASSERT_EQ(get_purgeable_state((mach_vm_address_t)ptr),
+					VM_PURGABLE_NONVOLATILE, "Allocation stays non-volatile");
+			malloc_make_purgeable(ptr);
+			purgable_state = get_purgeable_state((mach_vm_address_t)ptr);
+			T_ASSERT_TRUE(purgable_state == VM_PURGABLE_VOLATILE ||
+					purgable_state == VM_PURGABLE_EMPTY,
+					"Allocation becomes volatile or empty");
+			int rc = malloc_make_nonpurgeable(ptr);
+			T_ASSERT_POSIX_ZERO(rc,
+					"Purgeability change succeeded");
+			purgable_state = get_purgeable_state((mach_vm_address_t)ptr);
+			T_ASSERT_TRUE(purgable_state == VM_PURGABLE_NONVOLATILE,
+					"Allocation becomes non-volatile again");
+		}
+
+		for (unsigned j = 0; j < sizeof(ptrs) / sizeof(*ptrs); ++j) {
+			malloc_zone_free(malloc_default_purgeable_zone(), ptrs[j]);
+		}
+	}
 }

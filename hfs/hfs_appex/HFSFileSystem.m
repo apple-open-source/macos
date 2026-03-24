@@ -28,7 +28,7 @@
     NSString *volName = nil;
     HFSMasterDirectoryBlock * mdbPtr;
     HFSPlusVolumeHeader *volHdrPtr;
-    int result = FSMatchNotRecognized;
+    int result = FSMatchResultNotRecognized;
     u_int32_t allocationBlockSize = 0;
     u_int32_t firstAllocationBlock = 0;
     u_int32_t startBlock = 0;
@@ -41,7 +41,7 @@
     // Get classic HFS volume name (from MDB)
     if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
         OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
-        result = FSMatchRecognized;
+        result = FSMatchResultRecognized;
     // Get HFS Plus volume name (from Catalog)
     } else if ((OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSPlusSigWord)  ||
                (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSXSigWord)  ||
@@ -52,7 +52,7 @@
         if (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSSigWord) {
             // Embedded volume, first find offset
             if (OSSwapBigToHostInt16(mdbPtr->drSigWord) != kHFSSigWord) {
-                result = FSMatchRecognized;
+                result = FSMatchResultRecognized;
                 goto exit;
             }
 
@@ -60,7 +60,7 @@
             firstAllocationBlock = OSSwapBigToHostInt16(mdbPtr->drAlBlSt);
 
             if (OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
-                result = FSMatchRecognized;
+                result = FSMatchResultRecognized;
                 goto exit;
             }
 
@@ -75,13 +75,13 @@
 
         result = hfs_GetNameFromHFSPlusVolumeStartingAt(fd, startOffset, volnameUTF8, OSSwapBigToHostInt32(volHdrPtr->blockSize));
     } else {
-        result = FSMatchNotRecognized;
+        result = FSMatchResultNotRecognized;
     }
 
 exit:
     if (result == FSUR_IO_SUCCESS) {
         volName = [NSString stringWithUTF8String:volnameUTF8];
-        result = FSMatchUsable;
+        result = FSMatchResultUsable;
     }
     reply(result, volName);
 }
@@ -98,14 +98,14 @@ exit:
     __block BOOL nameReadSucc = TRUE;
     NSUUID *volUUID = nil;
     unsigned long blockSize = 0;
-    FSMatchResult match = FSMatchNotRecognized;
+    FSMatchResult match = FSMatchResultNotRecognized;
     FSBlockDeviceResource *device;
     HFSMasterDirectoryBlock *masterBlock = NULL;
 
     device = [FSBlockDeviceResource dynamicCast:resource];
     if (device == nil) {
         os_log_fault(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
-        return reply([FSProbeResult resultWithResult:FSMatchNotRecognized
+        return reply([FSProbeResult resultWithResult:FSMatchResultNotRecognized
                                                 name:nil
                                          containerID:nil], nil);
     }
@@ -181,11 +181,11 @@ exit:
     [self getVolumeName:device.fileDescriptor
             masterBlock:masterBlock
                   reply:^(int res, NSString * _Nullable volName){
-        if (res == FSMatchUsable) {
+        if (res == FSMatchResultUsable) {
             volumeName = volName;
         } else {
             nameReadSucc = FALSE;
-            error = (res == FSMatchRecognized) ? nil : fs_errorForPOSIXError(ENOMEM);
+            error = (res == FSMatchResultRecognized) ? nil : fs_errorForPOSIXError(ENOMEM);
             os_log_error(fskit_std_log(), "%s: Failed to read volume name", __FUNCTION__);
         }
     }];
@@ -195,7 +195,7 @@ exit:
     }
 
     volUUID = [volUUID initWithUUIDBytes:sVolUUID.uuid];
-    match = FSMatchUsable;
+    match = FSMatchResultUsable;
 
 exit:
     if (blockSize > kMDBSize) {

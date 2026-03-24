@@ -153,7 +153,7 @@ public:
 #endif
 
 private:
-    WebExtensionAction* fallbackAction() const;
+    RefPtr<WebExtensionAction> fallbackAction() const;
 
     void clearIconCache();
 

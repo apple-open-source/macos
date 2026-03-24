@@ -28,13 +28,13 @@
 
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/FastMalloc.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakRef.h>
 
 namespace WebKit {
 
-class ResponsivenessTimer : public RefCounted<ResponsivenessTimer> {
+class ResponsivenessTimer : public RefCountedAndCanMakeWeakPtr<ResponsivenessTimer> {
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED(ResponsivenessTimer);
 public:
     class Client : public AbstractRefCountedAndCanMakeWeakPtr<Client> {

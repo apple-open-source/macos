@@ -27,7 +27,6 @@
 ]
 messages -> WebFrame {
     GetFrameInfo() -> (struct std::optional<WebKit::FrameInfoData> data)
-    UpdateFrameSize(WebCore::IntSize newSize)
     CreateProvisionalFrame(struct WebKit::ProvisionalFrameCreationParameters creationParameters)
     DestroyProvisionalFrame();
     FindFocusableElementDescendingIntoRemoteFrame(enum:uint8_t WebCore::FocusDirection direction, struct WebCore::FocusEventData focusEventData) -> (enum:bool WebCore::FoundElementInRemoteFrame foundElement)
@@ -36,4 +35,15 @@ messages -> WebFrame {
     ConnectInspector(Inspector::FrontendChannel::ConnectionType connectionType)
     DisconnectInspector()
     SendMessageToInspectorTarget(String message)
+
+    # Text extraction support
+    RequestTextExtraction(struct WebCore::TextExtraction::Request request) -> (struct WebCore::TextExtraction::Item item)
+    HandleTextExtractionInteraction(struct WebCore::TextExtraction::Interaction interaction) -> (bool succeeded, String description)
+    DescribeTextExtractionInteraction(struct WebCore::TextExtraction::Interaction interaction) -> (struct WebCore::TextExtraction::InteractionDescription description)
+    TakeSnapshotOfExtractedText(struct WebCore::TextExtraction::ExtractedText text) -> (RefPtr<WebCore::TextIndicator> textIndicator)
+    RequestJSHandleForExtractedText(struct WebCore::TextExtraction::ExtractedText text) -> (struct std::optional<WebKit::JSHandleInfo> handle)
+
+    # Element targeting support
+    GetSelectorPathsForNode(struct WebKit::JSHandleInfo handle) -> (Vector<HashSet<String>> selectors)
+    GetNodeForSelectorPaths(Vector<HashSet<String>> selectors) -> (struct std::optional<WebKit::JSHandleInfo> handle)
 }

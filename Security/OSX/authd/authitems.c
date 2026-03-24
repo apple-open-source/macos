@@ -198,7 +198,7 @@ _auth_item_create(void)
     auth_item_t item = NULL;
     
     item = (auth_item_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, auth_item_get_type_id(), AUTH_CLASS_SIZE(auth_item), NULL);
-    require(item != NULL, done);
+    __Require(item != NULL, done);
     
 done:
     return item;
@@ -208,10 +208,10 @@ static auth_item_t
 auth_item_create(uint32_t type, const char * name, const void * value, size_t valueLen, uint32_t flags)
 {
     auth_item_t item = NULL;
-    require(name != NULL, done);
+    __Require(name != NULL, done);
     
     item = _auth_item_create();
-    require(item != NULL, done);
+    __Require(item != NULL, done);
     
     item->type = type;
     item->data.flags = flags;
@@ -238,12 +238,12 @@ static auth_item_t
 auth_item_create_with_xpc(xpc_object_t data)
 {
     auth_item_t item = NULL;
-    require(data != NULL, done);
-    require(xpc_get_type(data) == XPC_TYPE_DICTIONARY, done);
-    require(xpc_dictionary_get_string(data, AUTH_XPC_ITEM_NAME) != NULL, done);
+    __Require(data != NULL, done);
+    __Require(xpc_get_type(data) == XPC_TYPE_DICTIONARY, done);
+    __Require(xpc_dictionary_get_string(data, AUTH_XPC_ITEM_NAME) != NULL, done);
     
     item = _auth_item_create();
-    require(item != NULL, done);
+    __Require(item != NULL, done);
     
     item->data.name = _copy_string(xpc_dictionary_get_string(data, AUTH_XPC_ITEM_NAME));
     item->data.flags = (uint32_t)xpc_dictionary_get_uint64(data, AUTH_XPC_ITEM_FLAGS);
@@ -289,7 +289,7 @@ static bool auth_item_crypt_worker(auth_item_t item, CFDataRef key, int operatio
 		CCCryptorStatus status = CCCrypt(operation, kCCAlgorithmAES, kCCOptionPKCS7Padding,
 			CFDataGetBytePtr(key), CFDataGetLength(key), NULL,
 			item->data.value, item->data.valueLength, NULL, 0, &required_length);
-		require(status == kCCBufferTooSmall, done);
+		__Require(status == kCCBufferTooSmall, done);
 
 		void *buffer = calloc(1u, required_length);
 		status = CCCrypt(operation, kCCAlgorithmAES, kCCOptionPKCS7Padding,
@@ -393,7 +393,7 @@ _auth_items_create(bool createDict)
     auth_items_t items = NULL;
     
     items = (auth_items_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, auth_items_get_type_id(), AUTH_CLASS_SIZE(auth_items), NULL);
-    require(items != NULL, done);
+    __Require(items != NULL, done);
     
     if (createDict) {
         items->dictionary = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -409,7 +409,7 @@ auth_items_create(void)
     auth_items_t items = NULL;
     
     items = _auth_items_create(true);
-    require(items != NULL, done);
+    __Require(items != NULL, done);
     
 done:
     return items;
@@ -419,8 +419,8 @@ static bool
 _auth_items_parse_xpc(auth_items_t items, const xpc_object_t data)
 {
     bool result = false;
-    require(data != NULL, done);
-    require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
+    __Require(data != NULL, done);
+    __Require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
     
     result = xpc_array_apply(data, ^bool(size_t index AUTH_UNUSED, xpc_object_t value) {
         
@@ -442,7 +442,7 @@ auth_items_t auth_items_create_with_xpc(const xpc_object_t data)
     auth_items_t items = NULL;
 
     items = _auth_items_create(true);
-    require(items != NULL, done);
+    __Require(items != NULL, done);
     
     _auth_items_parse_xpc(items, data);
     
@@ -456,7 +456,7 @@ auth_items_create_copy(auth_items_t copy)
     auth_items_t items = NULL;
     
     items = _auth_items_create(false);
-    require(items != NULL, done);
+    __Require(items != NULL, done);
     
     items->dictionary = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(copy->dictionary), copy->dictionary);
     
@@ -491,10 +491,10 @@ _find_item(auth_items_t items, const char * key)
 {
     auth_item_t item = NULL;
     CFStringRef lookup = NULL;
-    require(key != NULL, done);
+    __Require(key != NULL, done);
     
     lookup = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, key, kCFStringEncodingUTF8, kCFAllocatorNull);
-    require(lookup != NULL, done);
+    __Require(lookup != NULL, done);
     
     item = (auth_item_t)CFDictionaryGetValue(items->dictionary, lookup);
     
@@ -691,10 +691,10 @@ auth_items_iterate(auth_items_t items, auth_items_iterator_t iter)
 
     CFIndex count = CFDictionaryGetCount(items->dictionary);
     keys = calloc((size_t)count, sizeof(CFTypeRef));
-    require(keys != NULL, done);
+    __Require(keys != NULL, done);
     
     values = calloc((size_t)count, sizeof(CFTypeRef));
-    require(values != NULL, done);
+    __Require(values != NULL, done);
     
     CFDictionaryGetKeysAndValues(items->dictionary, keys, values);
     for (CFIndex i = 0; i < count; i++) {
@@ -838,8 +838,8 @@ auth_items_get_bool(auth_items_t items, const char *key)
             return atoi(auth_item_get_string(item));
         }
         
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(bool), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(bool), done);
         
         return *(bool*)item->data.value;
     } 
@@ -878,8 +878,8 @@ auth_items_get_int(auth_items_t items, const char *key)
             return atoi(auth_item_get_string(item));
         }
         
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(int32_t), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(int32_t), done);
         
         return *(int32_t*)item->data.value;
     }
@@ -918,8 +918,8 @@ auth_items_get_uint(auth_items_t items, const char *key)
             return (uint32_t)atoi(auth_item_get_string(item));
         }
         
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(uint32_t), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(uint32_t), done);
         
         return *(uint32_t*)item->data.value;
     }
@@ -958,8 +958,8 @@ auth_items_get_int64(auth_items_t items, const char *key)
             return atoll(auth_item_get_string(item));
         }
 
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(int64_t), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(int64_t), done);
         
         return *(int64_t*)item->data.value;
     }
@@ -998,8 +998,8 @@ auth_items_get_uint64(auth_items_t items, const char *key)
             return (uint64_t)atoll(auth_item_get_string(item));
         }
         
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(uint64_t), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(uint64_t), done);
         
         return *(uint64_t*)item->data.value;
     }
@@ -1036,8 +1036,8 @@ double auth_items_get_double(auth_items_t items, const char *key)
             return atof(auth_item_get_string(item));
         }
         
-        require(item->data.value != NULL, done);
-        require(item->data.valueLength == sizeof(double), done);
+        __Require(item->data.value != NULL, done);
+        __Require(item->data.valueLength == sizeof(double), done);
         
         return *(double*)item->data.value;
     }
@@ -1136,7 +1136,7 @@ _auth_rights_create(void)
     auth_rights_t rights = NULL;
     
     rights = (auth_rights_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, auth_rights_get_type_id(), AUTH_CLASS_SIZE(auth_rights), NULL);
-    require(rights != NULL, done);
+    __Require(rights != NULL, done);
     
     rights->array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     
@@ -1148,7 +1148,7 @@ auth_rights_t
 auth_rights_create(void)
 {
     auth_rights_t rights = _auth_rights_create();
-    require(rights != NULL, done);
+    __Require(rights != NULL, done);
     
 done:
     return rights;
@@ -1157,9 +1157,9 @@ done:
 auth_rights_t auth_rights_create_with_xpc(const xpc_object_t data)
 {
     auth_rights_t rights = _auth_rights_create();
-    require(rights != NULL, done);
-    require(data != NULL, done);
-    require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
+    __Require(rights != NULL, done);
+    __Require(data != NULL, done);
+    __Require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
     
     xpc_array_apply(data, ^bool(size_t index AUTH_UNUSED, xpc_object_t value) {
         
@@ -1195,7 +1195,7 @@ static auth_item_t
 _find_right_item(auth_rights_t rights, const char * key)
 {
     auth_item_t item = NULL;
-    require(key != NULL, done);
+    __Require(key != NULL, done);
 
     CFIndex count = CFArrayGetCount(rights->array);
     for (CFIndex i = 0; i < count; i++) {

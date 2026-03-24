@@ -298,8 +298,8 @@ class Heap;
     v(weakSetSpace, weakSetHeapCellType, JSWeakSet) \
     v(withScopeSpace, cellHeapCellType, JSWithScope) \
     v(wrapForValidIteratorSpace, cellHeapCellType, JSWrapForValidIterator) \
-    v(promiseAllContextSpace, cellHeapCellType, JSPromiseAllContext) \
-    v(promiseAllGlobalContextSpace, cellHeapCellType, JSPromiseAllGlobalContext) \
+    v(promiseCombinatorsContextSpace, cellHeapCellType, JSPromiseCombinatorsContext) \
+    v(promiseCombinatorsGlobalContextSpace, cellHeapCellType, JSPromiseCombinatorsGlobalContext) \
     v(promiseReactionSpace, cellHeapCellType, JSPromiseReaction) \
     v(asyncFromSyncIteratorSpace, cellHeapCellType, JSAsyncFromSyncIterator) \
     v(regExpStringIteratorSpace, cellHeapCellType, JSRegExpStringIterator) \
@@ -610,7 +610,7 @@ public:
 
     void appendPossiblyAccessedStringFromConcurrentThreads(String&& string)
     {
-        m_possiblyAccessedStringsFromConcurrentThreads.append(WTFMove(string));
+        m_possiblyAccessedStringsFromConcurrentThreads.append(WTF::move(string));
     }
 
     bool isInPhase(CollectorPhase phase) const { return m_currentPhase == phase; }
@@ -983,7 +983,7 @@ private:
     uint64_t m_gcVersion { 0 };
     Box<Lock> m_threadLock;
     const Ref<AutomaticThreadCondition> m_threadCondition; // The mutator must not wait on this. It would cause a deadlock.
-    RefPtr<AutomaticThread> m_thread;
+    const RefPtr<AutomaticThread> m_thread;
 
     RefPtr<Thread> m_collectContinuouslyThread { nullptr };
     

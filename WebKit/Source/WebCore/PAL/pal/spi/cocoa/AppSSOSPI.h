@@ -25,9 +25,14 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #if HAVE(APP_SSO)
+
+#define kSOAuthorizationOptionInitiatingPath @"path"
 
 #if USE(APPLE_INTERNAL_SDK)
 

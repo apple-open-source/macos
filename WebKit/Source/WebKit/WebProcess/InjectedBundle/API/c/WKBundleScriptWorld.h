@@ -41,6 +41,7 @@ WK_EXPORT void WKBundleScriptWorldMakeAllShadowRootsOpen(WKBundleScriptWorldRef 
 WK_EXPORT void WKBundleScriptWorldExposeClosedShadowRootsForExtensions(WKBundleScriptWorldRef scriptWorld);
 WK_EXPORT void WKBundleScriptWorldDisableOverrideBuiltinsBehavior(WKBundleScriptWorldRef scriptWorld);
 WK_EXPORT void WKBundleScriptWorldSetAllowElementUserInfo(WKBundleScriptWorldRef scriptWorld);
+WK_EXPORT void WKBundleScriptWorldSetAllowJSHandleCreation(WKBundleScriptWorldRef scriptWorld);
 WK_EXPORT WKStringRef WKBundleScriptWorldCopyName(WKBundleScriptWorldRef scriptWorld);
 
 #ifdef __cplusplus

@@ -45,6 +45,8 @@ class ScriptExecutionContext;
 class QualifiedName;
 template<typename> class ExceptionOr;
 
+using TrustedTypeOrString = Variant<RefPtr<TrustedHTML>, RefPtr<TrustedScript>, RefPtr<TrustedScriptURL>, AtomString>;
+
 enum class TrustedType : int8_t {
     TrustedHTML,
     TrustedScript,
@@ -77,5 +79,7 @@ WEBCORE_EXPORT AttributeTypeAndSink trustedTypeForAttribute(const String& elemen
 ExceptionOr<bool> canCompile(ScriptExecutionContext&, JSC::CompilationType, String codeString, const JSC::ArgList& args);
 
 bool isEventHandlerAttribute(const QualifiedName& attributeName);
+
+ExceptionOr<AtomString> trustedTypesCompliantAttributeValue(ScriptExecutionContext&, const String& attributeType, const TrustedTypeOrString& value, const String& sink);
 
 } // namespace WebCore

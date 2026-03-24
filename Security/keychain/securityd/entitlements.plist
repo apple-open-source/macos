@@ -2,41 +2,40 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>allow-obliterate-device</key>
+	<true/>
+	<key>allow-softwareupdated</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>com.apple.securityd</string>
+	<key>aps-connection-initiate</key>
+	<true/>
+	<key>aps-environment</key>
+	<string>serverPreferred</string>
+	<key>com.apple.CloudKeychainProxy.client</key>
+	<true/>
+	<key>com.apple.TapToRadarKit.service-access</key>
+	<true/>
+	<key>com.apple.accounts.appleaccount.fullaccess</key>
+	<true/>
 	<key>com.apple.accounts.idms.fullaccess</key>
+	<true/>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.securityd</string>
+	<key>com.apple.aps-environment</key>
+	<string>serverPreferred</string>
+	<key>com.apple.authentication-services.credential-sharing-groups</key>
+	<true/>
+	<key>com.apple.authkit.client.private</key>
 	<true/>
 	<key>com.apple.authkit.devicelist.server-only</key>
 	<true/>
-	<key>com.apple.usermanagerd.persona.fetch</key>
-	<true/>
-	<key>com.apple.private.iokit.nvram-write-access</key>
-	<true/>
-	<key>com.apple.private.cloudkit.serviceNameForContainerMap</key>
-	<dict>
-		<key>com.apple.security.shared.keychain</key>
-		<string>com.apple.security.keychain.shared</string>
-	</dict>
-	<key>com.apple.private.cloudkit.prefix</key>
-	<string>com.apple.security.</string>
-	<key>com.apple.springboard.opensensitiveurl</key>
-	<true/>
-	<key>com.apple.private.cloudkit.notifyOnAccountWarmup</key>
-	<true/>
-	<key>com.apple.private.dark-wake-push</key>
-	<true/>
-	<key>com.apple.private.accounts.allaccounts</key>
-	<true/>
-	<key>com.apple.private.aps-connection-initiate</key>
-	<true/>
-	<key>aps-connection-initiate</key>
-	<true/>
 	<key>com.apple.developer.aps-environment</key>
 	<string>serverPreferred</string>
-	<key>aps-environment</key>
-	<string>serverPreferred</string>
-	<key>com.apple.aps-environment</key>
-	<string>serverPreferred</string>
-	<key>com.apple.private.cloudkit.setEnvironment</key>
+	<key>com.apple.developer.device-information.user-assigned-device-name</key>
 	<true/>
+	<key>com.apple.developer.icloud-container-environment</key>
+	<string>Production</string>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.apple.security.keychain</string>
@@ -45,97 +44,100 @@
 	<array>
 		<string>CloudKit</string>
 	</array>
-	<key>com.apple.developer.icloud-container-environment</key>
-	<string>Production</string>
-	<key>com.apple.private.cloudkit.customAccounts</key>
-	<true/>
-	<key>com.apple.private.cloudkit.systemService</key>
-	<true/>
-	<key>com.apple.private.cloudkit.buddyAccess</key>
-	<true/>
-	<key>com.apple.private.cloudkit.allowUnverifiedAccount</key>
-	<true/>
-	<key>com.apple.private.cloudkit.supportservice</key>
-	<true/>
-	<key>com.apple.private.cloudkit.spi</key>
-	<true/>
-	<key>com.apple.private.cloudkit.participant-pii</key>
-	<true/>
-	<key>com.apple.private.appleaccount.app-hidden-from-icloud-settings</key>
-	<true/>
-	<key>com.apple.private.tcc.allow</key>
-	<array>
-		<string>kTCCServiceLiverpool</string>
-	</array>
-	<key>com.apple.application-identifier</key>
-	<string>com.apple.securityd</string>
-	<key>application-identifier</key>
-	<string>com.apple.securityd</string>
 	<key>com.apple.keystore.access-keychain-keys</key>
+	<true/>
+	<key>com.apple.keystore.enable_cache_flow</key>
 	<true/>
 	<key>com.apple.keystore.lockassertion</key>
 	<true/>
-	<key>com.apple.private.associated-domains</key>
-	<true/>
-	<key>com.apple.private.necp.match</key>
-	<true/>
-	<key>com.apple.private.network.socket-delegate</key>
-	<true/>
 	<key>com.apple.mkb.usersession.info</key>
 	<true/>
-	<key>com.apple.private.applecredentialmanager.allow</key>
-	<true/>
-	<key>com.apple.private.imcore.imagent</key>
+	<key>com.apple.private.LocalAuthentication.PasscodeStashSecret</key>
 	<true/>
 	<key>com.apple.private.MobileGestalt.AllowedProtectedKeys</key>
 	<array>
 		<string>SerialNumber</string>
 	</array>
-	<key>seatbelt-profiles</key>
-	<array>
-		<string>securityd</string>
-	</array>
-	<key>com.apple.private.sqlite.sqlite-encryption</key>
+	<key>com.apple.private.accounts.allaccounts</key>
 	<true/>
-	<key>com.apple.accounts.appleaccount.fullaccess</key>
+	<key>com.apple.private.amfi.version-restriction</key>
+	<integer>1</integer>
+	<key>com.apple.private.appleaccount.app-hidden-from-icloud-settings</key>
 	<true/>
-	<key>com.apple.authkit.client.private</key>
+	<key>com.apple.private.applecredentialmanager.allow</key>
 	<true/>
-	<key>com.apple.private.trustedpeershelper.client</key>
+	<key>com.apple.private.aps-connection-initiate</key>
+	<true/>
+	<key>com.apple.private.associated-domains</key>
+	<true/>
+	<key>com.apple.private.cloudcoreinternal.allow-custom-bundle-ids</key>
+	<true/>
+	<key>com.apple.private.cloudkit.allowUnverifiedAccount</key>
+	<true/>
+	<key>com.apple.private.cloudkit.buddyAccess</key>
+	<true/>
+	<key>com.apple.private.cloudkit.customAccounts</key>
+	<true/>
+	<key>com.apple.private.cloudkit.notifyOnAccountWarmup</key>
+	<true/>
+	<key>com.apple.private.cloudkit.participant-pii</key>
+	<true/>
+	<key>com.apple.private.cloudkit.prefix</key>
+	<string>com.apple.security.</string>
+	<key>com.apple.private.cloudkit.serviceNameForContainerMap</key>
+	<dict>
+		<key>com.apple.security.shared.keychain</key>
+		<string>com.apple.security.keychain.shared</string>
+	</dict>
+	<key>com.apple.private.cloudkit.setEnvironment</key>
+	<true/>
+	<key>com.apple.private.cloudkit.spi</key>
+	<true/>
+	<key>com.apple.private.cloudkit.supportservice</key>
+	<true/>
+	<key>com.apple.private.cloudkit.systemService</key>
+	<true/>
+	<key>com.apple.private.dark-wake-push</key>
 	<true/>
 	<key>com.apple.private.followup</key>
 	<true/>
-	<key>com.apple.private.imcore.imremoteurlconnection</key>
-	<true/>
 	<key>com.apple.private.ids.remoteurlconnection</key>
+	<true/>
+	<key>com.apple.private.imcore.imagent</key>
+	<true/>
+	<key>com.apple.private.imcore.imremoteurlconnection</key>
 	<true/>
 	<key>com.apple.private.imcore.remoteurlconnection</key>
 	<true/>
-	<key>com.apple.securebackupd.access</key>
+	<key>com.apple.private.iokit.nvram-write-access</key>
 	<true/>
-	<key>com.apple.CloudKeychainProxy.client</key>
-	<true/>
-	<key>com.apple.security.network.client</key>
-	<true/>
-	<key>com.apple.symptom_diagnostics.report</key>
-	<true/>
-	<key>com.apple.private.security.storage.Keychains</key>
-	<true/>
-	<key>allow-softwareupdated</key>
-	<true/>
-	<key>com.apple.private.rtcreportingd</key>
+	<key>com.apple.private.keychain.kcsharing.invitation.manager</key>
 	<true/>
 	<key>com.apple.private.lockdown.finegrained-get</key>
 	<array>
 		<string>com.apple.securityd.ae/cookie</string>
 	</array>
-	<key>allow-obliterate-device</key>
+	<key>com.apple.private.necp.match</key>
 	<true/>
-	<key>com.apple.developer.device-information.user-assigned-device-name</key>
+	<key>com.apple.private.network.socket-delegate</key>
+	<true/>
+	<key>com.apple.private.rtcreportingd</key>
+	<true/>
+	<key>com.apple.private.security.storage.Keychains</key>
 	<true/>
 	<key>com.apple.private.security.storage.SFAnalytics</key>
 	<true/>
-	<key>com.apple.TapToRadarKit.service-access</key>
+	<key>com.apple.private.securityd.get-derived-entropy</key>
+	<true/>
+	<key>com.apple.private.sqlite.sqlite-encryption</key>
+	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceLiverpool</string>
+	</array>
+	<key>com.apple.private.trustedpeershelper.client</key>
+	<true/>
+	<key>com.apple.securebackupd.access</key>
 	<true/>
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
@@ -144,19 +146,25 @@
 		<string>com.apple.AuthenticationServices.CredentialSharingGroups</string>
 		<string>com.apple.security.KeychainDBMover</string>
 	</array>
-	<key>com.apple.authentication-services.credential-sharing-groups</key>
+	<key>com.apple.security.hardened-process</key>
 	<true/>
-	<key>com.apple.private.keychain.kcsharing.invitation.manager</key>
+	<key>com.apple.security.hardened-process.checked-allocations</key>
 	<true/>
-	<key>com.apple.private.cloudcoreinternal.allow-custom-bundle-ids</key>
+	<key>com.apple.security.network.client</key>
 	<true/>
-	<key>com.apple.keystore.enable_cache_flow</key>
+	<key>com.apple.springboard.opensensitiveurl</key>
 	<true/>
-	<key>com.apple.private.LocalAuthentication.PasscodeStashSecret</key>
+	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
-	<key>com.apple.private.amfi.version-restriction</key>
-	<integer>1</integer>
-	<key>com.apple.private.securityd.get-derived-entropy</key>
+	<key>com.apple.usermanagerd.persona.fetch</key>
 	<true/>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
+	<key>com.apple.keystore.keybag.load</key>
+	<true/>
+	<key>seatbelt-profiles</key>
+	<array>
+		<string>securityd</string>
+	</array>
 </dict>
 </plist>

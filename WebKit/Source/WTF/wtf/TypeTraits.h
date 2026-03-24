@@ -30,7 +30,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <type_traits>
+#include <utility>
 #include <wtf/Forward.h>
 
 // SFINAE depends on overload resolution. We indicate the overload we'd prefer
@@ -221,5 +223,15 @@ constexpr std::size_t parameterCount(ReturnType(*)(Args...))
 {
     return ParameterCountImpl<Args...>::value;
 }
+
+#if defined(__has_feature)
+#if __has_feature(objc_arc)
+struct ARCEnabled : std::true_type { };
+#else
+struct ARCEnabled : std::false_type { };
+#endif
+#else
+struct ARCEnabled : std::false_type { };
+#endif
 
 } // namespace NTF

@@ -26,6 +26,7 @@
 #pragma once
 
 #include <WebCore/DisplayListItems.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -41,13 +42,14 @@ namespace DisplayList {
 
 // Note: currently this class is not usable from multiple threads due to the underlying objects, such
 // Font instances, not being thread-safe.
-class DisplayList final : public ThreadSafeRefCounted<DisplayList> {
+class DisplayList final : public ThreadSafeRefCounted<DisplayList>, public CanMakeThreadSafeCheckedPtr<DisplayList> {
     WTF_MAKE_TZONE_ALLOCATED(DisplayList);
     WTF_MAKE_NONCOPYABLE(DisplayList);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DisplayList);
 public:
     static Ref<const DisplayList> create(Vector<Item>&& items)
     {
-        return adoptRef(*new DisplayList(WTFMove(items)));
+        return adoptRef(*new DisplayList(WTF::move(items)));
     }
     WEBCORE_EXPORT ~DisplayList();
 
@@ -58,7 +60,7 @@ public:
 
     void addObserver(WeakRef<RenderingResourceObserver>&& observer) const
     {
-        m_observers.add(WTFMove(observer));
+        m_observers.add(WTF::move(observer));
     }
 
 private:

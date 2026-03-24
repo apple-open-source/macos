@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "BlockLayoutState.h"
 #include "InlineFormattingContext.h"
 #include "InlineLineBuilder.h"
 #include <WebCore/InlineDisplayLine.h>
@@ -41,8 +42,9 @@ public:
 
     InlineDisplay::Line build(const LineLayoutResult&, const LineBox&, bool lineIsFullyTruncatedInBlockDirection) const;
 
-    static void applyEllipsisIfNeeded(LineEndingTruncationPolicy, InlineDisplay::Line&, InlineDisplay::Boxes&, bool isLegacyLineClamp);
+    static std::optional<InlineDisplay::Line::Ellipsis> applyEllipsisIfNeeded(LineEndingTruncationPolicy, InlineDisplay::Line&, InlineDisplay::Boxes&, bool isLegacyLineClamp);
     static void addLegacyLineClampTrailingLinkBoxIfApplicable(const InlineFormattingContext&, const InlineLayoutState&, InlineDisplay::Content&);
+    static bool hasTrailingLineWithBlockContent(const InlineDisplay::Lines&);
 
 private:
     struct EnclosingLineGeometry {

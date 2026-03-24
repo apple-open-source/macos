@@ -26,17 +26,12 @@
 
 #pragma once
 
-#if ENABLE(WEB_AUTHN)
-
-#include "AuthenticatorCoordinator.h"
-#include "CredentialRequestCoordinator.h"
-#include "DigitalCredential.h"
+#include <WebCore/BasicCredential.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
-template<typename> class DOMPromiseDeferred;
 using CredentialPromise = DOMPromiseDeferred<IDLNullable<IDLInterface<BasicCredential>>>;
 
 class Document;
@@ -48,7 +43,7 @@ class CredentialsContainer : public RefCounted<CredentialsContainer> {
 public:
     static Ref<CredentialsContainer> create(WeakPtr<Document, WeakPtrImplWithEventTargetData>&& document)
     {
-        return adoptRef(*new CredentialsContainer(WTFMove(document)));
+        return adoptRef(*new CredentialsContainer(WTF::move(document)));
     }
 
     virtual void get(CredentialRequestOptions&&, CredentialPromise&&);
@@ -73,5 +68,3 @@ protected:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_AUTHN)

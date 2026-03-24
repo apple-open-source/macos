@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 nn{
     %%Parent{"no"}
     Currencies{
@@ -549,6 +549,14 @@ nn{
         SDP{
             one{"gammalt sudansk pund"}
             other{"gamle sudanske pund"}
+        }
+        SLE{
+            one{"sierraleonsk leone"}
+            other{"sierraleonske leonar"}
+        }
+        SLL{
+            one{"sierraleonsk leone (1964–2022)"}
+            other{"sierraleonske leonar (1964–2022)"}
         }
         SUR{
             one{"sovjetisk rubel"}

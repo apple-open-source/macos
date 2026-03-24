@@ -68,7 +68,7 @@ public:
     const MatchResult& matchResult() const;
     Ref<MatchResult> releaseMatchResult();
 
-    const Vector<RefPtr<const StyleRule>>& matchedRuleList() const;
+    const Vector<Ref<const StyleRule>>& matchedRuleList() const;
 
     void clearMatchedRules();
 
@@ -95,6 +95,7 @@ private:
     void collectMatchingRules(DeclarationOrigin);
     void collectMatchingRules(const MatchRequest&);
     void collectMatchingRulesForList(const RuleSet::RuleDataVector*, const MatchRequest&);
+    void collectMatchingRulesForListSlow(const RuleSet::RuleDataVector&, const MatchRequest&);
     bool isFirstMatchModeAndHasMatchedAnyRules() const;
     struct ScopingRootWithDistance {
         RefPtr<const ContainerNode> scopingRoot;
@@ -132,10 +133,17 @@ private:
     size_t m_matchedRuleTransferIndex { 0 };
 
     // Output.
-    Vector<RefPtr<const StyleRule>> m_matchedRuleList;
+    Vector<Ref<const StyleRule>> m_matchedRuleList;
     Ref<MatchResult> m_result;
     Relations m_styleRelations;
     EnumSet<PseudoElementType> m_matchedPseudoElements;
 };
+
+ALWAYS_INLINE void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVector* rules, const MatchRequest& matchRequest)
+{
+    if (!rules || rules->isEmpty())
+        return;
+    collectMatchingRulesForListSlow(*rules, matchRequest);
+}
 
 }

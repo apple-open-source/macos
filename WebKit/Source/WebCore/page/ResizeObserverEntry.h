@@ -42,7 +42,7 @@ class ResizeObserverEntry : public RefCounted<ResizeObserverEntry> {
 public:
     static Ref<ResizeObserverEntry> create(Ref<Element>&& target, const FloatRect& contentRect, FloatSize borderBoxSize, FloatSize contentBoxSize)
     {
-        return adoptRef(*new ResizeObserverEntry(WTFMove(target), contentRect, borderBoxSize, contentBoxSize));
+        return adoptRef(*new ResizeObserverEntry(WTF::move(target), contentRect, borderBoxSize, contentBoxSize));
     }
 
     Element& target() const { return m_target.get(); }
@@ -53,7 +53,7 @@ public:
 
 private:
     ResizeObserverEntry(Ref<Element>&& target, const FloatRect& contentRect, FloatSize borderBoxSize, FloatSize contentBoxSize)
-        : m_target(WTFMove(target))
+        : m_target(WTF::move(target))
         , m_contentRect(DOMRectReadOnly::create(contentRect.x(), contentRect.y(), contentRect.width(), contentRect.height()))
         , m_borderBoxSizes({ ResizeObserverSize::create(borderBoxSize.width(), borderBoxSize.height()) })
         , m_contentBoxSizes({ ResizeObserverSize::create(contentBoxSize.width(), contentBoxSize.height()) })

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Logger.h>
 

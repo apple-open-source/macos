@@ -39,55 +39,6 @@ NS_ASSUME_NONNULL_BEGIN
     return self;
 }
 
-- (void)calculateKeyForItem:(FATItem *)item
-               replyHandler:(void (^)(uint64_t key,
-                                      NSError * _Nullable error))reply
-{
-    __block uint64_t itemOffsetInDir = item.entryData.firstEntryOffsetInDir;
-    uint32_t clusterSize = _volume.systemInfo.bytesPerCluster;
-    __block uint64_t offsetInVolume = 0;
-    __block uint64_t accOffset = 0;
-    __block NSError *error = nil;
-
-    /* Root dir is a special case, leave its key to be 0 */
-    if (item.parentDir != nil) {
-        /*
-         * Calculate the key - the offset of the first direntry in the volume
-         * divided by the size of direntry
-         */
-        [_volume.fatManager iterateClusterChainOfItem:item.parentDir
-                                         replyHandler:^iterateClustersResult(NSError *innerError,
-                                                                             uint32_t startCluster,
-                                                                             uint32_t numOfContigClusters) {
-            if (innerError) {
-                error = innerError;
-                return iterateClustersStop;
-            } else {
-                if (numOfContigClusters == 0) {
-                    /* Item has no clusters, no key */
-                    return iterateClustersStop;
-                }
-                if (itemOffsetInDir - accOffset + sizeof(struct dosdirentry) > numOfContigClusters * clusterSize) {
-                    /* Our offset is not in this batch of contiguous clusters */
-                    accOffset += numOfContigClusters * clusterSize;
-                    return iterateClustersContinue;
-                } else {
-                    /* We are in the correct clusters range */
-                    offsetInVolume = (itemOffsetInDir - accOffset) + startCluster * clusterSize;
-                    return iterateClustersStop;
-                }
-            }
-        }];
-    }
-
-    if (error) {
-        /* We failed to find the volume index */
-        return reply(0, error);
-    }
-
-    return reply(offsetInVolume, nil);
-}
-
 - (void)insertItem:(FATItem *)item
       replyHandler:(void (^)(FATItem * _Nullable cachedItem,
                              NSError * _Nullable error))reply

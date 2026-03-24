@@ -38,7 +38,7 @@ namespace JSC { namespace DFG {
 JITData::JITData(unsigned stubInfoSize, unsigned poolSize, const JITCode& jitCode, ExitVector&& exits)
     : Base(stubInfoSize, poolSize)
     , m_callLinkInfos(jitCode.m_unlinkedCallLinkInfos.size())
-    , m_exits(WTFMove(exits))
+    , m_exits(WTF::move(exits))
 {
     unsigned numberOfWatchpoints = 0;
     for (unsigned i = 0; i < jitCode.m_linkerIR.size(); ++i) {
@@ -55,6 +55,7 @@ JITData::JITData(unsigned stubInfoSize, unsigned poolSize, const JITCode& jitCod
         case LinkerIR::Type::StringSymbolReplaceWatchpointSet:
         case LinkerIR::Type::StringSymbolToPrimitiveWatchpointSet:
         case LinkerIR::Type::RegExpPrimordialPropertiesWatchpointSet:
+        case LinkerIR::Type::PromiseThenWatchpointSet:
         case LinkerIR::Type::ArraySpeciesWatchpointSet:
         case LinkerIR::Type::ArrayPrototypeChainIsSaneWatchpointSet:
         case LinkerIR::Type::StringPrototypeChainIsSaneWatchpointSet:
@@ -179,6 +180,11 @@ bool JITData::tryInitialize(VM& vm, CodeBlock* codeBlock, const JITCode& jitCode
         case LinkerIR::Type::RegExpPrimordialPropertiesWatchpointSet: {
             auto& watchpoint = m_watchpoints[indexOfWatchpoints++];
             success &= attemptToWatch(codeBlock, m_globalObject->regExpPrimordialPropertiesWatchpointSet(), watchpoint);
+            break;
+        }
+        case LinkerIR::Type::PromiseThenWatchpointSet: {
+            auto& watchpoint = m_watchpoints[indexOfWatchpoints++];
+            success &= attemptToWatch(codeBlock, m_globalObject->promiseThenWatchpointSet(), watchpoint);
             break;
         }
         case LinkerIR::Type::ArraySpeciesWatchpointSet: {
@@ -417,10 +423,7 @@ std::optional<CodeOrigin> JITCode::findPC(CodeBlock* codeBlock, void* pc)
 
 void JITCode::finalizeOSREntrypoints(Vector<OSREntryData>&& osrEntry)
 {
-    auto comparator = [] (const auto& a, const auto& b) {
-        return a.m_bytecodeIndex < b.m_bytecodeIndex;
-    };
-    std::sort(osrEntry.begin(), osrEntry.end(), comparator);
+    std::ranges::sort(osrEntry, { }, &OSREntryData::m_bytecodeIndex);
 
 #if ASSERT_ENABLED
     auto verifyIsSorted = [&] (auto& osrVector) {
@@ -429,7 +432,7 @@ void JITCode::finalizeOSREntrypoints(Vector<OSREntryData>&& osrEntry)
     };
     verifyIsSorted(osrEntry);
 #endif
-    m_osrEntry = WTFMove(osrEntry);
+    m_osrEntry = WTF::move(osrEntry);
 }
 
 } } // namespace JSC::DFG

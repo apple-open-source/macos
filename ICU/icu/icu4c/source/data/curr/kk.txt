@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 kk{
     Currencies{
         AED{
@@ -635,6 +635,10 @@ kk{
             "EC$",
             "Шығыс Кариб доллары",
         }
+        XCG{
+            "Cg.",
+            "Кариб гульдені",
+        }
         XOF{
             "F CFA",
             "Батыс Африканың КФА франкі",
@@ -659,6 +663,10 @@ kk{
             "ZMW",
             "Замбия квачасы",
         }
+        ZWG{
+            "ZWG",
+            "Зимбабве алтыны",
+        }
     }
     Currencies%narrow{
         BYN{"р."}
@@ -677,9 +685,17 @@ kk{
             one{"Комор аралдары франкы"}
             other{"Комор аралдары франкы"}
         }
+        XCG{
+            one{"Кариб гульдені"}
+            other{"Кариб гульдені"}
+        }
         XXX{
             one{"(белгісіз валюта бірлігі)"}
             other{"(белгісіз валюта)"}
+        }
+        ZWG{
+            one{"Зимбабве алтыны"}
+            other{"Зимбабве алтыны"}
         }
     }
 }

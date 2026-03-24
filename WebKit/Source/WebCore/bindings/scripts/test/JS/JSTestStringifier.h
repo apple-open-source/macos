@@ -32,7 +32,7 @@ public:
     static JSTestStringifier* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestStringifier>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestStringifier* ptr = new (NotNull, JSC::allocateCell<JSTestStringifier>(vm)) JSTestStringifier(structure, *globalObject, WTFMove(impl));
+        JSTestStringifier* ptr = new (NotNull, JSC::allocateCell<JSTestStringifier>(vm)) JSTestStringifier(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

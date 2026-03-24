@@ -51,7 +51,7 @@ have_data_large(xzm_malloc_zone_t zone) {
 
 T_DECL(malloc_type_placement, "End-to-end type isolation test",
 		T_META_ENVVAR("MallocNanoZone=1"),
-#if TARGET_OS_WATCH && HAVE_MALLOC_TYPE
+#if (TARGET_OS_TV || TARGET_OS_WATCH) && HAVE_MALLOC_TYPE
 		T_META_ENVVAR(PTR_BUCKET_ENVVAR), // disables narrow bucketing
 #endif
 		T_META_TAG_XZONE_ONLY,
@@ -200,7 +200,11 @@ T_DECL(malloc_type_placement, "End-to-end type isolation test",
 	lookup = xzm_ptr_lookup_4test(zone, ptr, &kind, &sgid, &bucket);
 	T_QUIET; T_ASSERT_TRUE(lookup, "lookup");
 
+#if MALLOC_TARGET_EXCLAVES
+	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_GUARD_CHUNK, "large guard chunk");
+#else
 	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_LARGE_CHUNK, "large chunk");
+#endif // MALLOC_TARGET_EXCLAVES
 	T_ASSERT_EQ((int)sgid, XZM_SEGMENT_GROUP_POINTER_LARGE,
 			"large pointer segment group");
 
@@ -219,7 +223,11 @@ T_DECL(malloc_type_placement, "End-to-end type isolation test",
 	lookup = xzm_ptr_lookup_4test(zone, ptr, &kind, &sgid, &bucket);
 	T_QUIET; T_ASSERT_TRUE(lookup, "lookup");
 
+#if MALLOC_TARGET_EXCLAVES
+	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_GUARD_CHUNK, "large guard chunk");
+#else
 	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_LARGE_CHUNK, "large chunk");
+#endif // MALLOC_TARGET_EXCLAVES
 	if (data_large) {
 		T_ASSERT_EQ((int)sgid, XZM_SEGMENT_GROUP_DATA_LARGE, "data segment group");
 	} else {
@@ -258,7 +266,7 @@ T_DECL(malloc_type_placement, "End-to-end type isolation test",
 
 T_DECL(reuse_large_data_as_tiny,
 		"Verify that calloc returns zero'd memory when reusing VA",
-#if TARGET_OS_WATCH
+#if TARGET_OS_TV || TARGET_OS_WATCH
 		T_META_ENVVAR(PTR_BUCKET_ENVVAR), // disables narrow bucketing
 #endif
 		T_META_ENVVAR("MallocXzoneGuarded=1"),
@@ -286,7 +294,11 @@ T_DECL(reuse_large_data_as_tiny,
 	xzm_xzone_bucket_t bucket;
 	bool lookup = xzm_ptr_lookup_4test(zone, large_ptr, &kind, &sgid, &bucket);
 	T_QUIET; T_ASSERT_TRUE(lookup, "Lookup large data pointer");
-	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_LARGE_CHUNK, "Large chunk");
+#if MALLOC_TARGET_EXCLAVES
+	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_GUARD_CHUNK, "large guard chunk");
+#else
+	T_ASSERT_EQ((int)kind, XZM_SLICE_KIND_LARGE_CHUNK, "large chunk");
+#endif // MALLOC_TARGET_EXCLAVES
 	if (data_large) {
 		T_ASSERT_EQ((int)sgid, XZM_SEGMENT_GROUP_DATA_LARGE, "data segment group");
 	} else {

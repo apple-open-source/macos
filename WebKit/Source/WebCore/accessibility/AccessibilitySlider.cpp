@@ -36,7 +36,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "RenderSlider.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SliderThumbElement.h"
 #include "StyleAppearance.h"
 #include <wtf/Scope.h>
@@ -60,7 +60,7 @@ std::optional<AccessibilityOrientation> AccessibilitySlider::explicitOrientation
     if (std::optional orientation = orientationFromARIA())
         return orientation;
 
-    const auto* style = this->style();
+    CheckedPtr style = this->style();
     // Default to horizontal in the unknown case.
     if (!style)
         return AccessibilityOrientation::Horizontal;
@@ -88,7 +88,7 @@ void AccessibilitySlider::addChildren()
         m_subtreeDirty = false;
     });
 
-    auto* cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return;
 
@@ -111,11 +111,11 @@ AccessibilityObject* AccessibilitySlider::elementAccessibilityHitTest(const IntP
 {
     if (m_children.size()) {
         ASSERT(m_children.size() == 1);
-        if (m_children[0]->elementRect().contains(point))
+        if (Ref { m_children[0] }->elementRect().contains(point))
             return dynamicDowncast<AccessibilityObject>(m_children[0].get());
     }
 
-    return axObjectCache()->getOrCreate(renderer());
+    return checkedAxObjectCache()->getOrCreate(checkedRenderer().get());
 }
 
 float AccessibilitySlider::valueForRange() const
@@ -174,7 +174,7 @@ LayoutRect AccessibilitySliderThumb::elementRect() const
     auto* sliderRenderer = dynamicDowncast<RenderSlider>(m_parent->renderer());
     if (!sliderRenderer)
         return LayoutRect();
-    if (auto* thumbRenderer = sliderRenderer->element().sliderThumbElement()->renderer())
+    if (CheckedPtr thumbRenderer = sliderRenderer->protectedElement()->sliderThumbElement()->renderer())
         return thumbRenderer->absoluteBoundingBoxRect();
     return LayoutRect();
 }

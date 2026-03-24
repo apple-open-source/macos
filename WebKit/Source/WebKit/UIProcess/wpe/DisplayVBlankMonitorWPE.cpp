@@ -47,12 +47,12 @@ std::unique_ptr<DisplayVBlankMonitor> DisplayVBlankMonitorWPE::create(PlatformDi
         return nullptr;
     }
 
-    return makeUnique<DisplayVBlankMonitorWPE>(wpe_screen_get_refresh_rate(screen) / 1000, WTFMove(observer));
+    return makeUnique<DisplayVBlankMonitorWPE>(wpe_screen_get_refresh_rate(screen) / 1000, WTF::move(observer));
 }
 
 DisplayVBlankMonitorWPE::DisplayVBlankMonitorWPE(unsigned refreshRate, GRefPtr<WPEScreenSyncObserver>&& observer)
     : DisplayVBlankMonitor(refreshRate)
-    , m_observer(WTFMove(observer))
+    , m_observer(WTF::move(observer))
 {
     wpe_screen_sync_observer_set_callback(m_observer.get(), +[](WPEScreenSyncObserver* observer, gpointer userData) {
         auto* monitor = static_cast<DisplayVBlankMonitorWPE*>(userData);

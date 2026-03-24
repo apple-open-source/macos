@@ -26,7 +26,7 @@
 #include "config.h"
 #include "SkiaReplayCanvas.h"
 
-#if USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#if USE(SKIA)
 #include "GLContext.h"
 #include "GLFence.h"
 #include "PlatformDisplay.h"
@@ -273,4 +273,4 @@ void SkiaReplayCanvas::onDrawVerticesObject(const SkVertices* vertices, SkBlendM
 
 } // namespace WebCore
 
-#endif // USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#endif // USE(SKIA)

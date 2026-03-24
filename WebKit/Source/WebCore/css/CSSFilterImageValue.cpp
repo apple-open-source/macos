@@ -38,8 +38,8 @@ namespace WebCore {
 
 CSSFilterImageValue::CSSFilterImageValue(Ref<CSSValue>&& imageValueOrNone, CSS::Filter&& filter)
     : CSSValue { ClassType::FilterImage }
-    , m_imageValueOrNone { WTFMove(imageValueOrNone) }
-    , m_filter { WTFMove(filter) }
+    , m_imageValueOrNone { WTF::move(imageValueOrNone) }
+    , m_filter { WTF::move(filter) }
 {
 }
 

@@ -56,7 +56,7 @@ static HashMap<WebExtensionContextIdentifier, WeakPtr<WebExtensionContextProxy>>
 
 RefPtr<WebExtensionContextProxy> WebExtensionContextProxy::get(WebExtensionContextIdentifier identifier)
 {
-    return webExtensionContextProxies().get(identifier).get();
+    return webExtensionContextProxies().get(identifier);
 }
 
 WebExtensionContextProxy::WebExtensionContextProxy(const WebExtensionContextParameters& parameters)
@@ -168,7 +168,7 @@ finish:
 
 void WebExtensionContextProxy::updateGrantedPermissions(PermissionsMap&& permissions)
 {
-    m_grantedPermissions = WTFMove(permissions);
+    m_grantedPermissions = WTF::move(permissions);
     m_nextGrantedPermissionsExpirationDate = WallTime::nan();
 }
 

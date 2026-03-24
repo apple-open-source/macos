@@ -59,6 +59,10 @@ public:
 
     virtual ~RemoteTextTrackProxy();
 
+    // WebCore::InbandTextTrackPrivateClient.
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
+
     WebCore::TrackID id() const { return m_trackPrivate->id(); }
     void setMode(WebCore::InbandTextTrackPrivate::Mode mode) { m_trackPrivate->setMode(mode); }
     bool operator==(const WebCore::InbandTextTrackPrivate& track) const { return track == m_trackPrivate.get(); }
@@ -85,8 +89,8 @@ private:
 
     // TrackPrivateBaseClient
     void idChanged(WebCore::TrackID) final;
-    void labelChanged(const AtomString&) final;
-    void languageChanged(const AtomString&) final;
+    void labelChanged(const String&) final;
+    void languageChanged(const String&) final;
     void willRemove() final;
 
     TextTrackPrivateRemoteConfiguration& configuration();

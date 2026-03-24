@@ -57,7 +57,7 @@ static void callOnDelegateThread(Function<void()>&& function)
 {
     if (shouldCallOnNetworkThread())
         function();
-    callOnMainThread(WTFMove(function));
+    callOnMainThread(WTF::move(function));
 }
 
 template<typename Callable>
@@ -123,7 +123,7 @@ using namespace WebCore;
         ASSERT(isMainThread());
         returnValue = [realDelegate download:download willSendRequest:request redirectResponse:redirectResponse];
     };
-    callOnDelegateThreadAndWait(WTFMove(work));
+    callOnDelegateThreadAndWait(WTF::move(work));
     return returnValue.autorelease();
 }
 
@@ -175,7 +175,7 @@ using namespace WebCore;
     auto work = [&] {
         returnValue = [realDelegate download:download shouldDecodeSourceDataOfMIMEType:encodingType];
     };
-    callOnDelegateThreadAndWait(WTFMove(work));
+    callOnDelegateThreadAndWait(WTF::move(work));
     return returnValue;
 }
 

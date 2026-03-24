@@ -46,12 +46,12 @@ struct BorderRadius : RectCorners<BorderRadiusValue> {
     }
 
     BorderRadius(BorderRadiusValue topLeft, BorderRadiusValue topRight, BorderRadiusValue bottomLeft, BorderRadiusValue bottomRight)
-        : RectCorners<BorderRadiusValue> { WTFMove(topLeft), WTFMove(topRight), WTFMove(bottomLeft), WTFMove(bottomRight) }
+        : RectCorners<BorderRadiusValue> { WTF::move(topLeft), WTF::move(topRight), WTF::move(bottomLeft), WTF::move(bottomRight) }
     {
     }
 
     BorderRadius(RectCorners<BorderRadiusValue>&& corners)
-        : RectCorners<BorderRadiusValue> { WTFMove(corners) }
+        : RectCorners<BorderRadiusValue> { WTF::move(corners) }
     {
     }
 
@@ -79,8 +79,8 @@ template<> struct CSSValueConversion<BorderRadiusValue> { auto operator()(Builde
 
 // MARK: - Evaluation
 
-template<> struct Evaluation<BorderRadius, FloatRoundedRect::Radii> {
-    auto operator()(const BorderRadius&, FloatSize, ZoomNeeded) -> FloatRoundedRect::Radii;
+template<> struct Evaluation<BorderRadius, CornerRadii> {
+    auto operator()(const BorderRadius&, FloatSize, ZoomNeeded) -> CornerRadii;
 };
 template<> struct Evaluation<BorderRadius, LayoutRoundedRect::Radii> {
     auto operator()(const BorderRadius&, LayoutSize, ZoomNeeded) -> LayoutRoundedRect::Radii;

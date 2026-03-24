@@ -242,6 +242,12 @@ extern const CFStringRef kSecPolicyAppleJibeTLS
     API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 extern const CFStringRef kSecPolicyAppleIdentityWebPresentment
     API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
+extern const CFStringRef kSecPolicyAppleXcodeAEASigning
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
+extern const CFStringRef kSecPolicyAppleQuartzTimeStamping
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
+extern const CFStringRef kSecPolicyAppleProvoloneFDRSigning
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -554,7 +560,7 @@ SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef __nullable  hostna
 /*!
  @function SecPolicyCreateAppleSWUpdateSigning
  @abstract Returns a policy object for evaluating SW update signing certs.
- @discussion This policy uses the Basic X.509 policy with no validity check
+ @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
      * The chain is anchored to any of the Apple Root CAs.
      * There are exactly 3 certs in the chain.
@@ -1710,6 +1716,21 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef __nullable testR
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
+ @function SecPolicyCreateAppleBasicAttestationUserNoExpiration
+ @abstract Returns a policy object for verifying Basic Attestation Authority UCRT-attested certs without checking expiry
+ @param testRootHash Optional; The SHA-256 fingerprint of a test root for pinning.
+ @discussion The resulting policy uses the Basic X.509 policy with pinning options:
+     * The chain is anchored to the Basic Attestation User Root CA.
+     * There are exactly 3 certs in the chain.
+     * Certificate expiry is ignored for leaf and CA certificates.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleBasicAttestationUserNoExpiration(CFDataRef __nullable testRootHash)
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
+
+/*!
  @function SecPolicyCreateiAPSWAuth
  @abstract Returns a policy object for verifying iAP Software Auth certificates
  @discussion The resulting policy uses the Basic X.509 policy with no validity check
@@ -1802,6 +1823,23 @@ SecPolicyRef SecPolicyCreateiAPSWAuthWithExpiration(bool checkExpiration)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleFDRProvisioning(void)
     API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+
+/*!
+ @function SecPolicyCreateProvoloneFDRSigning
+ @abstract Returns a policy object for verifying Provolone sensor signing certificate chains.
+ @discussion The resulting policy uses the Basic X.509 policy and pinning options:
+    * Certificate expiration is not checked.
+    * There are exactly 3 certs in the chain.
+    * Leaf must contain Component Identity MAC algorithm identifier OID (1.2.840.113635.100.11.4)
+    * Leaf must contain Chip Production Mode OID (1.2.840.113635.100.6.49)
+    * Intermediate must contain Component Identity Certificate Vendor Identifier OID (1.2.840.113635.100.11.2)
+    * Certificate chains must be anchored in a Provolone sensor signing root CA, enforced by the constrained OTA Trust Store.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateProvoloneFDRSigning(void)
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4));
 
 /*!
  @function SecPolicyCreateAppleComponentCertificate
@@ -2360,7 +2398,7 @@ SecPolicyRef SecPolicyCreateJibeTLS(CFStringRef __nullable hostname)
 /*!
  @function SecPolicyCreateIdentiyWebPresentment
  @abstract Returns a policy object for verifying Identity Web Presentment certs
- @param hostname Required; hostname to verify the certificate name against.
+ @param hostname hostname to verify the certificate name against.
  @discussion The resulting policy uses the Basic X.509 policy with validity check and
  pinning options:
     * The chain is anchored to any of the Apple Root CAs.
@@ -2374,8 +2412,42 @@ SecPolicyRef SecPolicyCreateJibeTLS(CFStringRef __nullable hostname)
  it is no longer needed.
  */
 __nullable CF_RETURNS_RETAINED
-SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef hostname)
+SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef _Nullable hostname)
     API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
+
+
+/*!
+ @function SecPolicyCreateAppleXcodeAEASigning
+ @abstract Returns a policy object for evaluating Xcode AEA Signing certs
+ @discussion This policy uses the Basic X.509 policy with NO validity check
+ and pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3
+     * The leaf ha a marker extension with OID 1.2.840.113635.100.19.1.1.1.5
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+*/
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateXcodeAEASigning(void)
+    API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
+
+/*!
+ @function SecPolicyCreateAppleQuartzTimeStamping
+ @abstract Returns a policy object for evaluating Apple Quartz time stamping certificate chains.
+ @discussion This policy uses the Basic X.509 policy with validity check
+ and pinning options:
+    * The chain is anchored to any of the Apple Root CAs.
+    * There are exactly 3 certs in the chain.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+    * The leaf has ExtendedKeyUsage with the TimeStamping OID.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleQuartzTimeStamping(void);
+API_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4));
 
 /*
  *  Legacy functions (macOS only)

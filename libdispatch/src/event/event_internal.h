@@ -87,6 +87,16 @@
  *
  *   When this unregistration fails, then the unote owner must wait for the
  *   next event delivery for this unote.
+ *
+ * Deallocation
+ *
+ *   Once the unote owner is done with it, the unote can be destroyed with
+ *   _dispatch_unote_dealloc. This should never be done while the kernel still
+ *   has a reference to the unote, since we rely on the EV_UDATA_SPECIFIC
+ *   unotes having unique userspace addresses to disambiguate knotes. If the
+ *   unote is deallocated while the paired knote still exists, another thread
+ *   could reuse that userspace address for a new unote, and collide with the
+ *   existing knote when attempting to register for new events.
  */
 typedef uintptr_t dispatch_unote_state_t;
 #define DU_STATE_ARMED            ((dispatch_unote_state_t)0x1ul)
@@ -133,7 +143,7 @@ typedef uint32_t dispatch_unote_ident_t;
 	dispatch_source_type_t __ptrauth_objc_isa_pointer du_type; \
 	union { \
 		uintptr_t du_owner_wref; /* "weak" back reference to the owner object */ \
-		struct dispatch_unote_class_s *du_freelist_next; \
+		uintptr_t du_freelist_next; \
 	}; \
 	os_atomic(dispatch_unote_state_t) du_state; \
 	dispatch_unote_ident_t du_ident; \
@@ -409,13 +419,15 @@ typedef dispatch_kevent_s *dispatch_kevent_t;
 
 #define DISPATCH_DEFERRED_ITEMS_EVENT_COUNT 16
 
+typedef uintptr_t dispatch_deferred_free_items_t;
+
 typedef struct dispatch_deferred_items_s {
 	dispatch_queue_global_t ddi_stashed_rq;
 	dispatch_object_t ddi_stashed_dou;
 	dispatch_qos_t ddi_stashed_qos;
 	dispatch_wlh_t ddi_wlh;
 #if DISPATCH_EVENT_BACKEND_KEVENT
-	dispatch_unote_class_t ddi_unote_freelist;
+	dispatch_deferred_free_items_t ddi_freelist;
 	dispatch_kevent_t ddi_eventlist;
 	uint16_t ddi_nevents;
 	uint16_t ddi_maxevents;
@@ -431,16 +443,16 @@ typedef struct dispatch_deferred_items_s {
 
 #if DISPATCH_PURE_C
 
-// When we park, instead of holding a ddi in the TSD, we hold a list of unotes
+// When we park, instead of holding a ddi in the TSD, we hold a list of items
 // to be freed when we return to userspace. As a debugging aid, and to
-// disambiguate the TSD to ddt, when the TSD holds the freelist we set the LSb
-#define DISPATCH_UNOTE_FREELIST_REF 1ul
+// disambiguate the TSD to ddt, we set bit 1 of the TSD when it holds a freelist.
+#define DISPATCH_DEFERRED_FREELIST_REF 2ul
 
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_deferred_items_set(dispatch_deferred_items_t ddi)
 {
-	dispatch_assert(((uintptr_t)ddi & DISPATCH_UNOTE_FREELIST_REF) == 0);
+	dispatch_assert(((uintptr_t)ddi & DISPATCH_DEFERRED_FREELIST_REF) == 0);
 	_dispatch_thread_setspecific(dispatch_deferred_items_key, (void *)ddi);
 }
 
@@ -450,30 +462,38 @@ _dispatch_deferred_items_get(void)
 {
 	dispatch_deferred_items_t ddi = (dispatch_deferred_items_t)
 			_dispatch_thread_getspecific(dispatch_deferred_items_key);
-	dispatch_assert(((uintptr_t)ddi & DISPATCH_UNOTE_FREELIST_REF) == 0);
+	dispatch_assert(((uintptr_t)ddi & DISPATCH_DEFERRED_FREELIST_REF) == 0);
 	return ddi;
 }
 
+// There are two different types of object that we need to persist across park.
+// There are unotes, which need to be free()d, and sources, which need to have
+// an sref dropped on unpark. To save a TSD, we put them both in the same list.
+// Pointers to sources have their LSb set, while pointers to unotes have it
+// cleared. This makes the type returned from _dispatch_deferred_free_items_get
+// opaque, and it should only be handled by _dispatch_free_deferred_items.
+#define DISPATCH_DEFERRED_FREELIST_SREF_MARKER 1ul
+
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_deferred_free_unotes_set(dispatch_unote_class_t du)
+_dispatch_deferred_free_items_set(dispatch_deferred_free_items_t freelist)
 {
-	if (du) {
-		uintptr_t _du = (uintptr_t)du | DISPATCH_UNOTE_FREELIST_REF;
-		_dispatch_thread_setspecific(dispatch_deferred_items_key, (void *)_du);
+	if (freelist) {
+		_dispatch_thread_setspecific(dispatch_deferred_items_key,
+				(void *)(freelist | DISPATCH_DEFERRED_FREELIST_REF));
 	} else {
 		_dispatch_thread_setspecific(dispatch_deferred_items_key, NULL);
 	}
 }
 
 DISPATCH_ALWAYS_INLINE
-static inline dispatch_unote_class_t
-_dispatch_deferred_free_unotes_get(void)
+static inline dispatch_deferred_free_items_t
+_dispatch_deferred_free_items_get(void)
 {
-	uintptr_t _du = (uintptr_t)
+	dispatch_deferred_free_items_t _dfi = (dispatch_deferred_free_items_t)
 			_dispatch_thread_getspecific(dispatch_deferred_items_key);
-	dispatch_assert(!_du || (_du & DISPATCH_UNOTE_FREELIST_REF));
-	return (dispatch_unote_class_t)(_du & ~DISPATCH_UNOTE_FREELIST_REF);
+	dispatch_assert(!_dfi || (_dfi & DISPATCH_DEFERRED_FREELIST_REF));
+	return (_dfi & ~DISPATCH_DEFERRED_FREELIST_REF);
 }
 
 DISPATCH_ALWAYS_INLINE
@@ -687,7 +707,7 @@ dispatch_unote_t _dispatch_unote_create_with_fd(dispatch_source_type_t dst,
 		uintptr_t handle, uintptr_t mask);
 dispatch_unote_t _dispatch_unote_create_without_handle(
 		dispatch_source_type_t dst, uintptr_t handle, uintptr_t mask);
-void _dispatch_unote_dispose(dispatch_unote_t du, bool may_defer);
+void _dispatch_unote_dealloc(dispatch_unote_t du);
 
 /*
  * @const DUU_DELETE_ACK
@@ -705,10 +725,41 @@ void _dispatch_unote_dispose(dispatch_unote_t du, bool may_defer);
  * @const DUU_MUST_SUCCEED
  * The caller expects the unregistration to always succeeed.
  * _dispatch_unote_unregister will either crash or return true.
+ *
+ * @const DUU_PASS_OWNERSHIP
+ * The caller is passing ownership of this unote into the event system. If
+ * unregistration is successful, dispatch_unote_unregister is responsible for
+ * freeing the unote. If unregistration is unsuccessful, the event system will
+ * not free the unote, and it still belongs to the caller.
+ *
+ * This flag is only used for unotes that don't have a paired dispatch_source_t
+ * object to manage their lifetimes, e.g. mach_reply monitoring unotes. This
+ * exists so that the event system can safely defer the delivery of the
+ * EV_DELETE event to the kernel without the risk of the unote address being
+ * reused to register a new knote (rdar://147852703).
+ *
+ * @const DUU_NO_DEFER
+ * The caller is indicating that, should this unregistration be deferred, the
+ * event system shouldn't take a storage ref on the paired source object.
+ * Workloop Handle based sources can usually have their enablement or
+ * unregistration in the kernel deferred until the next time the servicer
+ * thread parks, as long as the source object lifetime is extended until
+ * unregistration is complete. The lifetime extension is to prevent kevent
+ * collisions if malloc reuses a freed unote for a new unote, since knotes are
+ * uniquely identified by filter/ident/udata tuple.
+ *
+ * This is usually accomplished by taking a storage reference on the paired
+ * source, but this can't be done for the xpc sigterm unote on mach channels,
+ * since in some cases we take a storage ref on the channel when unregistering
+ * the receive unote. The sources that have deferred unregistration srefs are
+ * stored on an intrusively linked freelist, which we can't push the mach
+ * channel to twice.
  */
-#define DUU_DELETE_ACK   0x1
-#define DUU_PROBE        0x2
-#define DUU_MUST_SUCCEED 0x4
+#define DUU_DELETE_ACK     0x1
+#define DUU_PROBE          0x2
+#define DUU_MUST_SUCCEED   0x4
+#define DUU_PASS_OWNERSHIP 0x8
+#define DUU_NO_DEFER       0x10
 bool _dispatch_unote_unregister(dispatch_unote_t du, uint32_t flags);
 bool _dispatch_unote_register(dispatch_unote_t du, dispatch_wlh_t wlh,
 		dispatch_priority_t pri);
@@ -722,8 +773,7 @@ void _dispatch_unote_resume_muxed(dispatch_unote_t du);
 bool _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags);
 bool _dispatch_unote_register_direct(dispatch_unote_t du, dispatch_wlh_t wlh);
 void _dispatch_unote_resume_direct(dispatch_unote_t du);
-void _dispatch_unote_dispose_defer(dispatch_unote_t du);
-void _dispatch_free_deferred_unotes(dispatch_unote_class_t du);
+void _dispatch_free_deferred_items(uintptr_t du);
 #endif
 
 void _dispatch_timer_unote_configure(dispatch_timer_source_refs_t dt);

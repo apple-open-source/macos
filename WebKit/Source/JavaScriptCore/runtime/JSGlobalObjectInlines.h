@@ -36,6 +36,7 @@
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <JavaScriptCore/JSWeakObjectMapRefInternal.h>
 #include <JavaScriptCore/LinkTimeConstant.h>
+#include <JavaScriptCore/ObjectInitializationScope.h>
 #include <JavaScriptCore/ObjectPrototype.h>
 #include <JavaScriptCore/ParserModes.h>
 #include <JavaScriptCore/StrongInlines.h>
@@ -214,7 +215,6 @@ ALWAYS_INLINE Structure* JSGlobalObject::arrayStructureForIndexingTypeDuringAllo
 inline JSFunction* JSGlobalObject::evalFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::evalFunction)); }
 inline JSFunction* JSGlobalObject::throwTypeErrorFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::throwTypeErrorFunction)); }
 inline JSFunction* JSGlobalObject::iteratorProtocolFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performIteration)); }
-inline JSFunction* JSGlobalObject::asyncGeneratorYieldOnRejectedFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::asyncGeneratorYieldOnRejected)); }
 inline JSFunction* JSGlobalObject::promiseProtoThenFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::defaultPromiseThen)); }
 inline JSFunction* JSGlobalObject::promiseEmptyOnFulfilledFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::promiseEmptyOnFulfilled)); }
 inline JSFunction* JSGlobalObject::promiseEmptyOnRejectedFunction() const { return jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::promiseEmptyOnRejected)); }
@@ -381,16 +381,6 @@ ALWAYS_INLINE JSArray* createPatternFilledArray(JSGlobalObject* globalObject, JS
         RETURN_IF_EXCEPTION(scope, { });
     }
     return array;
-}
-
-template<typename... Args>
-inline JSArray* createTuple(JSGlobalObject* globalObject, Args&&... args)
-{
-    MarkedArgumentBuffer buffer;
-    (buffer.append(std::forward<Args>(args)), ...);
-
-    ASSERT(!buffer.hasOverflowed());
-    return constructArray(globalObject, static_cast<ArrayAllocationProfile*>(nullptr), buffer);
 }
 
 inline OptionSet<CodeGenerationMode> JSGlobalObject::defaultCodeGenerationMode() const

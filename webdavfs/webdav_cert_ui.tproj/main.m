@@ -47,7 +47,7 @@ read_fd(int fd, size_t * ret_size)
 
 	size = 4096;
 	buf = malloc(size);
-	require(buf != NULL, malloc);
+	__Require(buf != NULL, malloc);
 
 	offset = 0;
 	remaining = size - offset;
@@ -59,14 +59,14 @@ read_fd(int fd, size_t * ret_size)
 		{
 			size *= 2;
 			buf = reallocf(buf, size);
-			require(buf != NULL, reallocf);
-			
+			__Require(buf != NULL, reallocf);
+
 			remaining = size - offset;
 		}
 		
 		read_count = read(fd, buf + offset, remaining);
-		require(read_count >= 0, read);
-		
+		__Require(read_count >= 0, read);
+
 		if (read_count == 0)
 		{
 			/* EOF */
@@ -77,8 +77,8 @@ read_fd(int fd, size_t * ret_size)
 		remaining -= read_count;
 	}
 	
-	require(offset != 0, no_input);
-	
+	__Require(offset != 0, no_input);
+
 	*ret_size = offset;
 	return ( buf );
 
@@ -108,10 +108,10 @@ my_CFPropertyListCreateFromFileDescriptor(int fd)
 	plist = NULL;
 
 	buf = read_fd(fd, &bufsize);
-	require(buf != NULL, read_fd);
+	__Require(buf != NULL, read_fd);
 
 	data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buf, bufsize, kCFAllocatorNull);
-	require(data != NULL, CFDataCreateWithBytesNoCopy);
+	__Require(data != NULL, CFDataCreateWithBytesNoCopy);
 
 	plist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL);
 

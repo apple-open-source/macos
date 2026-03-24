@@ -40,6 +40,11 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
+#include <wtf/text/ASCIILiteral.h>
+
+#if PLATFORM(COCOA)
+#include "ClassStructPtr.h"
+#endif
 
 #if PLATFORM(MAC)
 #include "ImportanceAssertion.h"
@@ -50,18 +55,12 @@
 #include <bmalloc/bmalloc.h>
 #endif
 
-#ifdef __OBJC__
-typedef Class ClassStructPtr;
-#else
-typedef struct objc_class* ClassStructPtr;
-#endif
-
 namespace IPC {
 
 enum class MessageFlags : uint8_t;
 enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t;
 
-template<typename, typename> struct ArgumentCoder;
+template<typename> struct ArgumentCoder;
 
 #ifdef __OBJC__
 template<typename T> using IsObjCObject = std::enable_if_t<std::is_convertible<T *, id>::value, T *>;
@@ -113,6 +112,16 @@ public:
     void setImportanceAssertion(ImportanceAssertion&&);
 #endif
 
+#if ENABLE(IPC_TESTING_API)
+    bool hasErrorString() const { return !m_errorString.isNull(); }
+    void setErrorString(ASCIILiteral error)
+    {
+        if (!hasErrorString())
+            m_errorString = error;
+    }
+    ASCIILiteral takeErrorString() { return std::exchange(m_errorString, ASCIILiteral { nullptr }); }
+#endif
+
     static std::unique_ptr<Decoder> unwrapForTesting(Decoder&);
 
     std::span<const uint8_t> span() const { return m_buffer; }
@@ -123,7 +132,7 @@ public:
     {
         auto buffer = std::exchange(m_buffer, { });
         if (m_bufferDeallocator && !buffer.empty())
-            m_bufferDeallocator(WTFMove(buffer));
+            m_bufferDeallocator(WTF::move(buffer));
     }
 
     template<typename T>
@@ -142,7 +151,7 @@ public:
     template<typename T>
     std::optional<T> decode()
     {
-        std::optional<T> t { ArgumentCoder<std::remove_cvref_t<T>, void>::decode(*this) };
+        std::optional<T> t { ArgumentCoder<std::remove_cvref_t<T>>::decode(*this) };
         if (!t) [[unlikely]]
             markInvalid();
         return t;
@@ -205,6 +214,10 @@ private:
     Markable<SyncRequestID> m_syncRequestID;
 
     Vector<uint32_t> m_indicesOfObjectsFailingDecoding;
+
+#if ENABLE(IPC_TESTING_API)
+    ASCIILiteral m_errorString;
+#endif
 };
 
 template<>

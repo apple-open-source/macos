@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/JSExportMacros.h>
 #include <JavaScriptCore/StackManager.h>
 #include <wtf/AutomaticThread.h>
 #include <wtf/Box.h>
@@ -238,15 +239,17 @@ public:
     {
         ASSERT(!(event & ~AllEvents));
         clearTrapWithoutCancellingThreadStop(event);
+        // Trap bit must be cleared before we update the thread stop request.
         if (isAsyncEvent(event))
-            cancelThreadStopIfNeeded();
+            updateThreadStopRequestIfNeeded();
     }
     ALWAYS_INLINE CONCURRENT_SAFE void fireTrap(Event event)
     {
         ASSERT(!(event & ~AllEvents));
         m_trapBits.exchangeOr(event);
+        // Trap bit must be set before we update the thread stop request.
         if (isAsyncEvent(event))
-            requestThreadStopIfNeeded(event);
+            updateThreadStopRequestIfNeeded();
     }
 
     // The following returns true if a trap was handled.
@@ -293,8 +296,9 @@ private:
         m_trapBits.exchangeAnd(~event);
     }
 
-    JS_EXPORT_PRIVATE CONCURRENT_SAFE void cancelThreadStopIfNeeded();
-    JS_EXPORT_PRIVATE CONCURRENT_SAFE void requestThreadStopIfNeeded(Event);
+    CONCURRENT_SAFE void cancelThreadStopIfNeeded() WTF_REQUIRES_LOCK(m_trapSignalingLock);
+    CONCURRENT_SAFE void requestThreadStopIfNeeded(Locker<Lock>&) WTF_REQUIRES_LOCK(m_trapSignalingLock);
+    JS_EXPORT_PRIVATE CONCURRENT_SAFE void updateThreadStopRequestIfNeeded();
 
     JS_EXPORT_PRIVATE void deferTerminationSlow(DeferAction);
     JS_EXPORT_PRIVATE void undoDeferTerminationSlow(DeferAction);

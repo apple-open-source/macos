@@ -534,9 +534,11 @@ dns_rdata_parse_data_(dns_rr_t *NONNULL rr, const uint8_t *buf, unsigned *NONNUL
         unsigned left = target - *offp;
         if (left != rdlen) {
             ERROR("TXT record length %u doesn't match remaining space %d", rdlen, left);
+            return false;
         }
         if (left > UINT8_MAX) {
             ERROR("TXT record length %u is longer than 255", left);
+            return false;
         }
         rr->data.txt.len = (uint8_t)left;
         if (rr->data.txt.len > 0) {

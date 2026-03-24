@@ -1240,12 +1240,13 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 	struct attrlist *alist = ap->a_alist;
 	uio_t uio = ap->a_uio;
 	int maxcount = ap->a_maxcount;
-	u_int32_t fixedblocksize;
+	u_int32_t fixedblocksize = (sizeof(u_int32_t) +
+                                attrblksize(alist)); /* 4 bytes for length */;
 	u_int32_t maxattrblocksize = 0;
 	u_int32_t currattrbufsize;
 	void *attrbufptr = NULL;
-	void *attrptr;
-	void *varptr;
+	void *attrptr = NULL;
+	void *varptr = NULL;
 	struct attrblock attrblk;
     vfs_context_t context = ap->a_context;
 	struct smbnode *dnp = NULL;
@@ -1254,6 +1255,7 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 	int error = 0;
     struct smb_share *share = NULL;
     struct smbmount *smp = NULL;
+    u_int32_t allocated_size = 0;
 
 	*(ap->a_actualcount) = 0;
 	*(ap->a_eofflag) = 0;
@@ -1335,23 +1337,6 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 		goto done;
 	}
 	ctx = dnp->d_fctx;
-
-	/* 
-     * Get a buffer to hold packed attributes. 
-     */
-	fixedblocksize = (sizeof(u_int32_t) + attrblksize(alist)); /* 4 bytes for length */
-	maxattrblocksize = fixedblocksize;
-	if (alist->commonattr & ATTR_CMN_NAME) 
-		maxattrblocksize += (share->ss_maxfilenamelen * 3) + 1;
-    
-    SMB_MALLOC_DATA(attrbufptr, maxattrblocksize, Z_WAITOK);
-	if (attrbufptr == NULL) {
-		error = ENOMEM;
-		goto done;
-	}
-	attrptr = attrbufptr;
-	varptr = (char *)attrbufptr + fixedblocksize;  /* Point to variable-length storage */
-
     /* 
 	 * They are continuing from some point ahead of us in the buffer. Skip all
 	 * entries until we reach their point in the buffer.
@@ -1371,6 +1356,25 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 		error = smbfs_findnext(ctx, context);
 		if (error) {
 			break;
+        }
+
+        currattrbufsize = fixedblocksize;
+        if (alist->commonattr & ATTR_CMN_NAME)
+            currattrbufsize += ctx->f_LocalNameLen + 1;
+
+        /* Reallocate if current buffer is too small */
+        if (currattrbufsize > allocated_size) {
+            if (attrbufptr) {
+                SMB_FREE_DATA(attrbufptr, allocated_size);
+            }
+            SMB_MALLOC_DATA(attrbufptr, currattrbufsize, Z_WAITOK);
+            if (attrbufptr == NULL) {
+                error = ENOMEM;
+                break;
+            }
+            allocated_size = currattrbufsize;
+            attrptr = attrbufptr;
+            varptr = (char *)attrbufptr + fixedblocksize;  /* Point to variable-length storage */
         }
 
         /*
@@ -1486,7 +1490,7 @@ done:
     smbnode_lease_unlock(&dnp->n_lease);
 
 	if (attrbufptr) {
-        SMB_FREE_DATA(attrbufptr, maxattrblocksize);
+        SMB_FREE_DATA(attrbufptr, allocated_size);
     }
     
 	smbnode_unlock(VTOSMB(dvp));

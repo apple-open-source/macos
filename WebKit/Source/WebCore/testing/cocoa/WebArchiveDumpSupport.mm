@@ -34,6 +34,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
 #import <wtf/cf/TypeCastsCF.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 using namespace WebCore;
 
@@ -55,12 +56,12 @@ static RetainPtr<CFURLResponseRef> createCFURLResponseFromResponseData(CFDataRef
     if (![response isKindOfClass:[NSHTTPURLResponse class]])
         return adoptCF(CFURLResponseCreate(kCFAllocatorDefault, (__bridge CFURLRef)response.URL, (__bridge CFStringRef)response.MIMEType, response.expectedContentLength, (__bridge CFStringRef)response.textEncodingName, kCFURLCacheStorageAllowed));
 
-    NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+    RetainPtr httpResponse = checked_objc_cast<NSHTTPURLResponse>(response);
 
     // NSURLResponse is not toll-free bridged to CFURLResponse.
-    RetainPtr<CFHTTPMessageRef> httpMessage = adoptCF(CFHTTPMessageCreateResponse(kCFAllocatorDefault, httpResponse.statusCode, nullptr, kCFHTTPVersion1_1));
+    RetainPtr<CFHTTPMessageRef> httpMessage = adoptCF(CFHTTPMessageCreateResponse(kCFAllocatorDefault, httpResponse.get().statusCode, nullptr, kCFHTTPVersion1_1));
 
-    NSDictionary *headerFields = httpResponse.allHeaderFields;
+    NSDictionary *headerFields = httpResponse.get().allHeaderFields;
     for (NSString *headerField in [headerFields keyEnumerator])
         CFHTTPMessageSetHeaderFieldValue(httpMessage.get(), (__bridge CFStringRef)headerField, (__bridge CFStringRef)[headerFields objectForKey:headerField]);
 
@@ -76,20 +77,20 @@ static void convertMIMEType(CFMutableStringRef mimeType)
 
 static void convertWebResourceDataToString(CFMutableDictionaryRef resource)
 {
-    CFMutableStringRef mimeType = checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceMIMEType")));
-    CFStringLowercase(mimeType, CFLocaleGetSystem());
-    convertMIMEType(mimeType);
+    RetainPtr mimeType = checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceMIMEType")));
+    CFStringLowercase(mimeType.get(), RetainPtr { CFLocaleGetSystem() }.get());
+    convertMIMEType(mimeType.get());
 
-    if (CFStringHasPrefix(mimeType, CFSTR("text/")) || MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType)) {
-        CFStringRef textEncodingName = static_cast<CFStringRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceTextEncodingName")));
+    if (CFStringHasPrefix(mimeType.get(), CFSTR("text/")) || MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType.get())) {
+        RetainPtr textEncodingName = checked_cf_cast<CFStringRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceTextEncodingName")));
         CFStringEncoding stringEncoding;
-        if (textEncodingName && CFStringGetLength(textEncodingName))
-            stringEncoding = CFStringConvertIANACharSetNameToEncoding(textEncodingName);
+        if (textEncodingName && CFStringGetLength(textEncodingName.get()))
+            stringEncoding = CFStringConvertIANACharSetNameToEncoding(textEncodingName.get());
         else
             stringEncoding = kCFStringEncodingUTF8;
 
-        CFDataRef data = static_cast<CFDataRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceData")));
-        RetainPtr<CFStringRef> dataAsString = adoptCF(CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, data, stringEncoding));
+        RetainPtr data = checked_cf_cast<CFDataRef>(CFDictionaryGetValue(resource, CFSTR("WebResourceData")));
+        RetainPtr<CFStringRef> dataAsString = adoptCF(CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, data.get(), stringEncoding));
         if (dataAsString)
             CFDictionarySetValue(resource, CFSTR("WebResourceData"), dataAsString.get());
     }
@@ -146,33 +147,36 @@ static void normalizeWebResourceURL(CFMutableStringRef webResourceURL)
 
     auto oldResourceURL = adoptCF(CFStringCreateCopy(kCFAllocatorDefault, webResourceURL));
     CFStringReplace(webResourceURL, CFRangeMake(quickLookSchemeLength, replacementEnd - quickLookSchemeLength), CFSTR("resource"));
-    quickLookURLReplacements().append(std::make_pair(WTFMove(oldResourceURL), webResourceURL));
+    quickLookURLReplacements().append(std::make_pair(WTF::move(oldResourceURL), webResourceURL));
 #endif
 }
 
 static void convertWebResourceResponseToDictionary(CFMutableDictionaryRef propertyList)
 {
-    auto responseData = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(propertyList, CFSTR("WebResourceResponse"))); // WebResourceResponseKey in WebResource.m
+    RetainPtr responseData = dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(propertyList, CFSTR("WebResourceResponse"))); // WebResourceResponseKey in WebResource.m
     if (!responseData)
         return;
 
-    auto response = createCFURLResponseFromResponseData(responseData);
+    auto response = createCFURLResponseFromResponseData(responseData.get());
     if (!response)
         return;
 
     auto responseDictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    auto urlString = adoptCF(CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFURLGetString(CFURLResponseGetURL(response.get()))));
+    RetainPtr urlResponse = CFURLResponseGetURL(response.get());
+    RetainPtr urlResponseString = CFURLGetString(urlResponse.get());
+    auto urlString = adoptCF(CFStringCreateMutableCopy(kCFAllocatorDefault, 0, urlResponseString.get()));
     normalizeWebResourceURL(urlString.get());
     CFDictionarySetValue(responseDictionary.get(), CFSTR("URL"), urlString.get());
 
-    auto mimeTypeString = adoptCF(CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFURLResponseGetMIMEType(response.get())));
+    RetainPtr urlResponseMIMEType = CFURLResponseGetMIMEType(response.get());
+    auto mimeTypeString = adoptCF(CFStringCreateMutableCopy(kCFAllocatorDefault, 0, urlResponseMIMEType.get()));
     convertMIMEType(mimeTypeString.get());
     CFDictionarySetValue(responseDictionary.get(), CFSTR("MIMEType"), mimeTypeString.get());
 
-    auto textEncodingName = CFURLResponseGetTextEncodingName(response.get());
+    RetainPtr textEncodingName = CFURLResponseGetTextEncodingName(response.get());
     if (textEncodingName)
-        CFDictionarySetValue(responseDictionary.get(), CFSTR("textEncodingName"), textEncodingName);
+        CFDictionarySetValue(responseDictionary.get(), CFSTR("textEncodingName"), textEncodingName.get());
 
     SInt64 expectedContentLength = CFURLResponseGetExpectedContentLength(response.get());
     auto expectedContentLengthNumber = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &expectedContentLength));
@@ -194,10 +198,10 @@ static void convertWebResourceResponseToDictionary(CFMutableDictionaryRef proper
 
 static CFComparisonResult compareResourceURLs(const void *val1, const void *val2, void *)
 {
-    CFStringRef url1 = static_cast<CFStringRef>(CFDictionaryGetValue(static_cast<CFDictionaryRef>(val1), CFSTR("WebResourceURL")));
-    CFStringRef url2 = static_cast<CFStringRef>(CFDictionaryGetValue(static_cast<CFDictionaryRef>(val2), CFSTR("WebResourceURL")));
+    RetainPtr url1 = checked_cf_cast<CFStringRef>(CFDictionaryGetValue(static_cast<CFDictionaryRef>(val1), CFSTR("WebResourceURL")));
+    RetainPtr url2 = checked_cf_cast<CFStringRef>(CFDictionaryGetValue(static_cast<CFDictionaryRef>(val2), CFSTR("WebResourceURL")));
 
-    return CFStringCompare(url1, url2, kCFCompareAnchored);
+    return CFStringCompare(url1.get(), url2.get(), kCFCompareAnchored);
 }
 
 RetainPtr<CFStringRef> createXMLStringFromWebArchiveData(CFDataRef webArchiveData)
@@ -219,29 +223,31 @@ RetainPtr<CFStringRef> createXMLStringFromWebArchiveData(CFDataRef webArchiveDat
         RetainPtr<CFMutableDictionaryRef> resourcePropertyList = checked_cf_cast<CFMutableDictionaryRef>(CFArrayGetValueAtIndex(resources.get(), 0));
         CFArrayRemoveValueAtIndex(resources.get(), 0);
 
-        CFMutableDictionaryRef mainResource = checked_cf_cast<CFMutableDictionaryRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebMainResource")));
-        normalizeWebResourceURL(checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(mainResource, CFSTR("WebResourceURL"))));
-        convertWebResourceDataToString(mainResource);
+        RetainPtr mainResource = checked_cf_cast<CFMutableDictionaryRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebMainResource")));
+        RetainPtr webResourceURL = checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(mainResource.get(), CFSTR("WebResourceURL")));
+        normalizeWebResourceURL(webResourceURL.get());
+        convertWebResourceDataToString(mainResource.get());
 
         // Add subframeArchives to list for processing
-        CFMutableArrayRef subframeArchives = checked_cf_cast<CFMutableArrayRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebSubframeArchives"))); // WebSubframeArchivesKey in WebArchive.m
+        RetainPtr subframeArchives = checked_cf_cast<CFMutableArrayRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebSubframeArchives"))); // WebSubframeArchivesKey in WebArchive.m
         if (subframeArchives)
-            CFArrayAppendArray(resources.get(), subframeArchives, CFRangeMake(0, CFArrayGetCount(subframeArchives)));
+            CFArrayAppendArray(resources.get(), subframeArchives.get(), CFRangeMake(0, CFArrayGetCount(subframeArchives.get())));
 
-        CFMutableArrayRef subresources = checked_cf_cast<CFMutableArrayRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebSubresources"))); // WebSubresourcesKey in WebArchive.m
+        RetainPtr subresources = checked_cf_cast<CFMutableArrayRef>(CFDictionaryGetValue(resourcePropertyList.get(), CFSTR("WebSubresources"))); // WebSubresourcesKey in WebArchive.m
         if (!subresources)
             continue;
 
-        CFIndex subresourcesCount = CFArrayGetCount(subresources);
+        CFIndex subresourcesCount = CFArrayGetCount(subresources.get());
         for (CFIndex i = 0; i < subresourcesCount; ++i) {
-            CFMutableDictionaryRef subresourcePropertyList = checked_cf_cast<CFMutableDictionaryRef>(CFArrayGetValueAtIndex(subresources, i));
-            normalizeWebResourceURL(checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(subresourcePropertyList, CFSTR("WebResourceURL"))));
-            convertWebResourceResponseToDictionary(subresourcePropertyList);
-            convertWebResourceDataToString(subresourcePropertyList);
+            RetainPtr subresourcePropertyList = checked_cf_cast<CFMutableDictionaryRef>(CFArrayGetValueAtIndex(subresources.get(), i));
+            RetainPtr subresourceURL = checked_cf_cast<CFMutableStringRef>(CFDictionaryGetValue(subresourcePropertyList.get(), CFSTR("WebResourceURL")));
+            normalizeWebResourceURL(subresourceURL.get());
+            convertWebResourceResponseToDictionary(subresourcePropertyList.get());
+            convertWebResourceDataToString(subresourcePropertyList.get());
         }
 
         // Sort the subresources so they're always in a predictable order for the dump
-        CFArraySortValues(subresources, CFRangeMake(0, CFArrayGetCount(subresources)), compareResourceURLs, 0);
+        CFArraySortValues(subresources.get(), CFRangeMake(0, CFArrayGetCount(subresources.get())), compareResourceURLs, 0);
     }
 
     error = 0;

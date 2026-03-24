@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_CO{
     %%Parent{"es_419"}
     Languages{
@@ -12,7 +12,6 @@ es_CO{
         nso{"sotho septentrional"}
         pa{"punyabí"}
         ss{"siswati"}
-        sw{"suajili"}
         sw_CD{"suajili del Congo"}
         tn{"setswana"}
         wo{"wolof"}

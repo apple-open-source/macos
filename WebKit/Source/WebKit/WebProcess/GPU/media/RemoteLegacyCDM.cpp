@@ -72,7 +72,7 @@ RefPtr<WebCore::LegacyCDMSession> RemoteLegacyCDM::createSession(WebCore::Legacy
     auto [identifier] = sendResult.takeReplyOr(std::nullopt);
     if (!identifier)
         return nullptr;
-    return RemoteLegacyCDMSession::create(factory, WTFMove(*identifier), client);
+    return RemoteLegacyCDMSession::create(factory, WTF::move(*identifier), client);
 }
 
 void RemoteLegacyCDM::setPlayerId(std::optional<MediaPlayerIdentifier> identifier)

@@ -455,7 +455,7 @@ static cl_t fat32_get(cl_t cluster, check_context *context)
 	p = block->buffer + (cluster * 4) % FAT_CHUNK_SIZE;
 
 	/* Extract the raw value, ignoring the reserved bits. */
-	value = (p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24)) & CLUST32_MASK;
+	value = (p[0] + ((uint32_t)p[1] << 8) + ((uint32_t)p[2] << 16) + ((uint32_t)p[3] << 24)) & CLUST32_MASK;
 
 	/* Sign extended the special values for consistency. */
 	if (value >= (CLUST_RSRVD & CLUST32_MASK))
@@ -484,7 +484,7 @@ static cl_t fat16_get(cl_t cluster, check_context *context)
 	p = block->buffer + (cluster * 2) % FAT_CHUNK_SIZE;
 
 	/* Extract the value. */
-	value = p[0] + (p[1] << 8);
+	value = p[0] + ((uint32_t)p[1] << 8);
 
 	/* Sign extended the special values for consistency. */
 	if (value >= (CLUST_RSRVD & CLUST16_MASK))
@@ -513,7 +513,7 @@ static cl_t fat12_get(cl_t cluster, check_context *context)
 	p = block->buffer + (cluster + cluster/2) % FAT_CHUNK_SIZE;
 
 	/* Extract the value. */
-	value = p[0] + (p[1] << 8);
+	value = p[0] + ((uint32_t)p[1] << 8);
 	if (cluster & 1)
 		value >>= 4;
 	else
@@ -918,7 +918,7 @@ int markUsed(cl_t cluster)
 {
 	int error = 0;
 	cl_t index = cluster / 32;
-	uint32_t mask = 1 << (cluster % 32);
+	uint32_t mask = (uint32_t)1 << (cluster % 32);
 	
 	if (useMap[index] & mask)
 		error = 1;
@@ -932,7 +932,7 @@ int markFree(cl_t cluster)
 {
 	int error = 0;
 	cl_t index = cluster / 32;
-	uint32_t mask = 1 << (cluster % 32);
+	uint32_t mask = (uint32_t)1 << (cluster % 32);
 	
 	if (useMap[index] & mask)
 		useMap[index] &= ~mask;

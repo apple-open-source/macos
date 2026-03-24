@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 da{
     Currencies{
         ADP{
@@ -1003,6 +1003,10 @@ da{
             "EC$",
             "østkaribisk dollar",
         }
+        XCG{
+            "Cg.",
+            "caribiske gylden",
+        }
         XDR{
             "XDR",
             "SDR",
@@ -1094,6 +1098,10 @@ da{
         ZWD{
             "ZWD",
             "Zimbabwisk dollar (1980–2008)",
+        }
+        ZWG{
+            "ZWG",
+            "Zimbabwe Gold",
         }
         ZWL{
             "ZWL",
@@ -2038,6 +2046,10 @@ da{
             one{"østkaribisk dollar"}
             other{"østkaribiske dollar"}
         }
+        XCG{
+            one{"caribiske gylden"}
+            other{"caribiske gylden"}
+        }
         XFO{
             one{"Fransk guldfranc"}
             other{"Franske guldfranc"}
@@ -2101,6 +2113,10 @@ da{
         ZWD{
             one{"Zimbabwisk dollar (1980–2008)"}
             other{"Zimbabwiske dollar (1980–2008)"}
+        }
+        ZWG{
+            one{"Zimbabwe Gold"}
+            other{"Zimbabwe Gold"}
         }
         ZWL{
             one{"Zimbabwisk dollar (2009)"}

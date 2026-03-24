@@ -119,7 +119,7 @@ void DragSource::begin(SelectionData&& selectionData, OptionSet<DragOperation> o
         m_drag = nullptr;
     }
 
-    m_selectionData = WTFMove(selectionData);
+    m_selectionData = WTF::move(selectionData);
 
     GRefPtr<GtkTargetList> list = adoptGRef(gtk_target_list_new(nullptr, 0));
     if (m_selectionData->hasText())

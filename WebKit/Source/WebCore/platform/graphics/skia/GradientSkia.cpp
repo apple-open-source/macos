@@ -78,6 +78,18 @@ static SkGradientShader::Interpolation toSkiaInterpolation(const ColorInterpolat
         [&] (const ColorInterpolationMethod::SRGBLinear&) {
             interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kSRGBLinear;
         },
+        [&] (const ColorInterpolationMethod::DisplayP3&) {
+            interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kDisplayP3;
+        },
+        [&] (const ColorInterpolationMethod::A98RGB&) {
+            interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kA98RGB;
+        },
+        [&] (const ColorInterpolationMethod::ProPhotoRGB&) {
+            interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kProphotoRGB;
+        },
+        [&] (const ColorInterpolationMethod::Rec2020&) {
+            interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kRec2020;
+        },
         [&] (const ColorInterpolationMethod::XYZD50&) {
             interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kSRGBLinear;
         },
@@ -87,6 +99,27 @@ static SkGradientShader::Interpolation toSkiaInterpolation(const ColorInterpolat
         [&] (const auto&) {
             // FIXME: Support other color spaces once skia has support for them.
         });
+
+    WTF::switchOn(method.colorSpace,
+        [&]<typename ColorSpace> (const ColorSpace& colorSpace) {
+            if constexpr (hasHueInterpolationMethod<ColorSpace>) {
+                switch (colorSpace.hueInterpolationMethod) {
+                case HueInterpolationMethod::Shorter:
+                    interpolation.fHueMethod = SkGradientShader::Interpolation::HueMethod::kShorter;
+                    break;
+                case HueInterpolationMethod::Longer:
+                    interpolation.fHueMethod = SkGradientShader::Interpolation::HueMethod::kLonger;
+                    break;
+                case HueInterpolationMethod::Increasing:
+                    interpolation.fHueMethod = SkGradientShader::Interpolation::HueMethod::kIncreasing;
+                    break;
+                case HueInterpolationMethod::Decreasing:
+                    interpolation.fHueMethod = SkGradientShader::Interpolation::HueMethod::kDecreasing;
+                    break;
+                }
+            }
+        }
+    );
 
     switch (method.alphaPremultiplication) {
     case AlphaPremultiplication::Premultiplied:
@@ -102,6 +135,8 @@ static SkGradientShader::Interpolation toSkiaInterpolation(const ColorInterpolat
 
 sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradientSpaceTransform)
 {
+    auto interpolation = toSkiaInterpolation(colorInterpolationMethod());
+
     Vector<SkColor4f, 8> colors;
     colors.reserveInitialCapacity(stops().size());
     Vector<SkScalar, 8> positions;
@@ -110,7 +145,7 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
         if (stops.isEmpty()) {
             positions.append(webCoreDoubleToSkScalar(0));
             colors.append(SkColors::kTransparent);
-        } else if (stops.begin()->offset > 0) {
+        } else if (stops.begin()->offset > 0 && interpolation.fHueMethod != SkGradientShader::Interpolation::HueMethod::kLonger) {
             positions.append(webCoreDoubleToSkScalar(0));
             colors.append(stops.begin()->color.colorWithAlphaMultipliedBy(globalAlpha));
         }
@@ -120,7 +155,7 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
             colors.append(stops[i].color.colorWithAlphaMultipliedBy(globalAlpha));
         }
 
-        if (positions.last() < 1) {
+        if (positions.last() < 1 && interpolation.fHueMethod != SkGradientShader::Interpolation::HueMethod::kLonger) {
             positions.append(webCoreDoubleToSkScalar(1));
             colors.append(colors.last());
         }
@@ -140,7 +175,6 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
         break;
     }
 
-    auto interpolation = toSkiaInterpolation(colorInterpolationMethod());
     SkMatrix matrix = gradientSpaceTransform;
 
     auto shader = WTF::switchOn(

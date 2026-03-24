@@ -79,8 +79,8 @@ auto CSSValueConversion<ShapeOutside>::operator()(BuilderState& state, const CSS
 
     if (shape) {
         if (referenceBox != CSSBoxType::BoxMissing)
-            return ShapeOutside::ShapeAndShapeBox { .shape = WTFMove(*shape), .box = referenceBox };
-        return ShapeOutside::Shape { WTFMove(*shape) };
+            return ShapeOutside::ShapeAndShapeBox { .shape = WTF::move(*shape), .box = referenceBox };
+        return ShapeOutside::Shape { WTF::move(*shape) };
     }
 
     if (referenceBox != CSSBoxType::BoxMissing)

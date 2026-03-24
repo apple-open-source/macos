@@ -89,8 +89,25 @@ void  xar_err_set_errno(xar_t x, int e) {
 }
 
 void xar_err_new(xar_t x) {
+	// Safety check
+	if (!x) {
+		return;
+	}
+	
+	// Only preserve user context if callback is registered
+	void *saved_usrctx = NULL;
+	
+	if (XAR(x)->ercallback) {
+		saved_usrctx = ECTX(&XAR(x)->errctx)->usrctx;
+	}
+	
 	memset(&XAR(x)->errctx, 0, sizeof(struct errctx));
 	XAR(x)->errctx.saved_errno = errno;
+	
+	if (XAR(x)->ercallback) {
+		ECTX(&XAR(x)->errctx)->usrctx = saved_usrctx;
+		ECTX(&XAR(x)->errctx)->x = x;  // Always the same value
+	}
 	return;
 }
 

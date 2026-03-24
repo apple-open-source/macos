@@ -44,7 +44,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteComputePassEncoder);
 RemoteComputePassEncoder::RemoteComputePassEncoder(WebCore::WebGPU::ComputePassEncoder& computePassEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(computePassEncoder)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -97,7 +97,7 @@ void RemoteComputePassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, std:
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& offsets)
 {
     if (!bindGroup) {
-        protectedBacking()->setBindGroup(index, nullptr, WTFMove(offsets));
+        protectedBacking()->setBindGroup(index, nullptr, WTF::move(offsets));
         return;
     }
 
@@ -106,12 +106,12 @@ void RemoteComputePassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, std:
     if (!convertedBindGroup)
         return;
 
-    protectedBacking()->setBindGroup(index, convertedBindGroup.get(), WTFMove(offsets));
+    protectedBacking()->setBindGroup(index, convertedBindGroup.get(), WTF::move(offsets));
 }
 
 void RemoteComputePassEncoder::pushDebugGroup(String&& groupLabel)
 {
-    protectedBacking()->pushDebugGroup(WTFMove(groupLabel));
+    protectedBacking()->pushDebugGroup(WTF::move(groupLabel));
 }
 
 void RemoteComputePassEncoder::popDebugGroup()
@@ -121,12 +121,12 @@ void RemoteComputePassEncoder::popDebugGroup()
 
 void RemoteComputePassEncoder::insertDebugMarker(String&& markerLabel)
 {
-    protectedBacking()->insertDebugMarker(WTFMove(markerLabel));
+    protectedBacking()->insertDebugMarker(WTF::move(markerLabel));
 }
 
 void RemoteComputePassEncoder::setLabel(String&& label)
 {
-    protectedBacking()->setLabel(WTFMove(label));
+    protectedBacking()->setLabel(WTF::move(label));
 }
 
 Ref<WebCore::WebGPU::ComputePassEncoder> RemoteComputePassEncoder::protectedBacking()
@@ -141,7 +141,7 @@ Ref<IPC::StreamServerConnection> RemoteComputePassEncoder::protectedStreamConnec
 
 Ref<WebGPU::ObjectHeap> RemoteComputePassEncoder::protectedObjectHeap() const
 {
-    return m_objectHeap.get();
+    return m_objectHeap;
 }
 
 } // namespace WebKit

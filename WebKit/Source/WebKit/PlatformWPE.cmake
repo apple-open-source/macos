@@ -25,6 +25,11 @@ file(MAKE_DIRECTORY ${FORWARDING_HEADERS_WPE_DIR})
 file(MAKE_DIRECTORY ${FORWARDING_HEADERS_WPE_EXTENSION_DIR})
 file(MAKE_DIRECTORY ${FORWARDING_HEADERS_WPE_JSC_DIR})
 
+if (ENABLE_WPE_LEGACY_API)
+    set(LIBWPE_PC_REQUIRES wpe-1.0)
+    set(LIBWPE_PC_UNINSTALLED_REQUIRES wpe-1.0)
+endif ()
+
 if (ENABLE_WPE_PLATFORM)
     set(WPE_PLATFORM_PC_REQUIRES wpe-platform-${WPE_API_VERSION})
     set(WPE_PLATFORM_PC_UNINSTALLED_REQUIRES wpe-platform-${WPE_API_VERSION}-uninstalled)
@@ -118,6 +123,7 @@ endif ()
 list(APPEND WebKit_SERIALIZATION_IN_FILES
     Shared/glib/AvailableInputDevices.serialization.in
     Shared/glib/InputMethodState.serialization.in
+    Shared/glib/RenderProcessInfo.serialization.in
     Shared/glib/RendererBufferTransportMode.serialization.in
     Shared/glib/SelectionData.serialization.in
     Shared/glib/SystemSettings.serialization.in
@@ -184,6 +190,7 @@ set(WPE_API_HEADER_TEMPLATES
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitGeolocationManager.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitGeolocationPermissionRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitHitTestResult.h.in
+    ${WEBKIT_DIR}/UIProcess/API/glib/WebKitImage.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitInputMethodContext.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitInstallMissingMediaPluginsPermissionRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitMediaKeySystemPermissionRequest.h.in
@@ -214,7 +221,6 @@ set(WPE_API_HEADER_TEMPLATES
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitUserMediaPermissionRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitUserMessage.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebContext.h.in
-    ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebExtensionMatchPattern.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebResource.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebView.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebViewSessionState.h.in
@@ -236,6 +242,7 @@ endif ()
 if (ENABLE_2022_GLIB_API)
     list(APPEND WPE_API_HEADER_TEMPLATES
         ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebExtension.h.in
+        ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebExtensionMatchPattern.h.in
     )
     list(APPEND WebKit_SOURCES
         ${WEBKIT_DIR}/UIProcess/API/glib/WebKitWebExtension.cpp
@@ -247,8 +254,13 @@ set(WPE_API_INSTALLED_HEADERS
     ${DERIVED_SOURCES_WPE_API_DIR}/WebKitVersion.h
     ${WEBKIT_DIR}/UIProcess/API/wpe/WebKitColor.h
     ${WEBKIT_DIR}/UIProcess/API/wpe/WebKitRectangle.h
-    ${WEBKIT_DIR}/UIProcess/API/wpe/WebKitWebViewBackend.h
 )
+
+if (ENABLE_WPE_LEGACY_API)
+    list(APPEND WPE_API_INSTALLED_HEADERS
+        ${WEBKIT_DIR}/UIProcess/API/wpe/WebKitWebViewBackend.h
+    )
+endif ()
 
 set(WPE_WEB_PROCESS_EXTENSION_API_INSTALLED_HEADERS
     ${DERIVED_SOURCES_WPE_API_DIR}/WebKitWebProcessEnumTypes.h
@@ -315,6 +327,7 @@ GENERATE_GLIB_API_HEADERS(WebKit WPE_API_HEADER_TEMPLATES
     "-DUSE_GTK4=0"
     "-DENABLE_2022_GLIB_API=$<BOOL:${ENABLE_2022_GLIB_API}>"
     "-DENABLE_WPE_PLATFORM=$<BOOL:${ENABLE_WPE_PLATFORM}>"
+    "-DUSE_LIBWPE=$<BOOL:${USE_LIBWPE}>"
     "-DUSE_GI_FINISH_FUNC_ANNOTATION=${USE_GI_FINISH_FUNC_ANNOTATION}"
 )
 unset(USE_GI_FINISH_FUNC_ANNOTATION)
@@ -402,8 +415,10 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${DERIVED_SOURCES_WPE_API_DIR}"
     "${FORWARDING_HEADERS_WPE_DIR}"
     "${FORWARDING_HEADERS_WPE_EXTENSION_DIR}"
+    "${WEBCORE_DIR}/Modules/mediastream"
     "${WEBKIT_DIR}/NetworkProcess/glib"
     "${WEBKIT_DIR}/NetworkProcess/soup"
+    "${WEBKIT_DIR}/NetworkProcess/webrtc/rice"
     "${WEBKIT_DIR}/Platform/IPC/android"
     "${WEBKIT_DIR}/Platform/IPC/glib"
     "${WEBKIT_DIR}/Platform/IPC/unix"
@@ -433,8 +448,10 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/linux"
     "${WEBKIT_DIR}/UIProcess/soup"
     "${WEBKIT_DIR}/UIProcess/wpe"
+    "${WEBKIT_DIR}/WPEPlatform/wpe"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/wpe"
+    "${WEBKIT_DIR}/WebProcess/Network/webrtc/rice"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport/soup"
     "${WEBKIT_DIR}/WebProcess/WebPage/CoordinatedGraphics"
     "${WEBKIT_DIR}/WebProcess/WebPage/glib"
@@ -452,8 +469,11 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
 list(APPEND WebKit_LIBRARIES
     GLib::Module
     Soup3::Soup3
-    WPE::libwpe
 )
+
+if (ENABLE_WPE_LEGACY_API)
+    list(APPEND WebKit_LIBRARIES WPE::libwpe)
+endif ()
 
 if (ANDROID)
     list(APPEND WebKit_PRIVATE_LIBRARIES intl)
@@ -751,7 +771,6 @@ set(WPE_SOURCES_FOR_INTROSPECTION
     UIProcess/API/wpe/WebKitColor.cpp
     UIProcess/API/wpe/WebKitInputMethodContextWPE.cpp
     UIProcess/API/wpe/WebKitRectangle.cpp
-    UIProcess/API/wpe/WebKitWebViewBackend.cpp
     UIProcess/API/wpe/WebKitWebViewWPE.cpp
  )
 
@@ -770,6 +789,12 @@ set(WPE_INCLUDE_DIRS_FOR_INTROSPECTION
     -I${JavaScriptCoreGLib_FRAMEWORK_HEADERS_DIR}
     -I${JavaScriptCoreGLib_DERIVED_SOURCES_DIR}
 )
+
+if (ENABLE_WPE_LEGACY_API)
+    list(APPEND WPE_SOURCES_FOR_INTROSPECTION
+        UIProcess/API/wpe/WebKitWebViewBackend.cpp
+    )
+endif ()
 
 if (ENABLE_WPE_PLATFORM)
     list(APPEND WPE_LIBRARIES_FOR_INTROSPECTION WPEPlatform)

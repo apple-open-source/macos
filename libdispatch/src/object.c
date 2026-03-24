@@ -273,7 +273,7 @@ _dispatch_dispose(dispatch_object_t dou)
 	// Past this point, the only thing left of the object is its memory
 	if (likely(allow_free)) {
 		_dispatch_object_finalize(dou);
-		_dispatch_object_dealloc(dou);
+		dx_dealloc(dou._do);
 	}
 	if (func && ctxt) {
 		dispatch_async_f(tq, ctxt, func);

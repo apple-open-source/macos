@@ -134,7 +134,7 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
 #endif
 
     VisibleSelection oldSelection = frame->selection().selection();
-    frame->selection().setSelection(range);
+    frame->checkedSelection()->setSelection(range);
 
     float scaleFactor = options.contains(SnapshotOption::ExcludeDeviceScaleFactor) ? 1 : frame->page()->deviceScaleFactor();
     IntRect paintRect = enclosingIntRect(unionRectIgnoringZeroRects(RenderObject::absoluteBorderAndTextRects(range)));
@@ -167,7 +167,7 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
     frameView->paint(graphicsContext, paintRect);
     frameView->setPaintBehavior(oldPaintBehavior);
 
-    frame->selection().setSelection(oldSelection);
+    frame->checkedSelection()->setSelection(oldSelection);
 
     return snapshot;
 }

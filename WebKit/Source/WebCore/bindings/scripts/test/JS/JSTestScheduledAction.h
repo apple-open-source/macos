@@ -32,7 +32,7 @@ public:
     static JSTestScheduledAction* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestScheduledAction>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestScheduledAction* ptr = new (NotNull, JSC::allocateCell<JSTestScheduledAction>(vm)) JSTestScheduledAction(structure, *globalObject, WTFMove(impl));
+        JSTestScheduledAction* ptr = new (NotNull, JSC::allocateCell<JSTestScheduledAction>(vm)) JSTestScheduledAction(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

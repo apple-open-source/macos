@@ -282,7 +282,7 @@ bool ShorthandSerializer::commonSerializationChecks(const StyleProperties& prope
         }
 
         if (m_shorthand.id() != CSSPropertyAll)
-            m_longhandValues[i] = WTFMove(value);
+            m_longhandValues[i] = WTF::move(value);
     }
     if (specialKeyword) {
         m_result = nameString(*specialKeyword);
@@ -298,7 +298,7 @@ bool ShorthandSerializer::commonSerializationChecks(const StyleProperties& prope
 String ShorthandSerializer::serialize()
 {
     if (m_commonSerializationChecksSuppliedResult)
-        return WTFMove(m_result);
+        return WTF::move(m_result);
 
     switch (m_shorthand.id()) {
     case CSSPropertyAll:
@@ -1217,7 +1217,7 @@ String ShorthandSerializer::serializeGridTemplate() const
 
     StringBuilder result;
     unsigned row = 0;
-    for (auto& currentValue : downcast<CSSValueList>(rowTrackSizes).unsafeGet()) {
+    for (auto& currentValue : downcast<CSSValueList>(rowTrackSizes.get())) {
         if (!result.isEmpty())
             result.append(' ');
         if (auto lineNames = dynamicDowncast<CSSGridLineNamesValue>(currentValue))

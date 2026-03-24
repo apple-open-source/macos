@@ -182,6 +182,14 @@ _dispatch_lock_has_failed_trylock(dispatch_lock lock_value)
 #define DISPATCH_ONCE_USE_QUIESCENT_COUNTER 0
 #endif
 
+#ifndef DISPATCH_USE_UL_UNFAIR_LOCK
+#if HAVE_UL_COMPARE_AND_WAIT && HAVE_UL_UNFAIR_LOCK
+#define DISPATCH_USE_UL_UNFAIR_LOCK 1
+#else
+#define DISPATCH_USE_UL_UNFAIR_LOCK 0
+#endif
+#endif // !defined(DISPATCH_USE_UL_UNFAIR_LOCK)
+
 #pragma mark - semaphores
 
 #if USE_MACH_SEM
@@ -272,25 +280,54 @@ void _dispatch_wake_by_address(uint32_t volatile *address);
  */
 typedef struct dispatch_thread_event_s {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
+	// For non-main-queue events:
 	// 1 means signalled but not waited on yet
 	// UINT32_MAX means waited on, but not signalled yet
 	// 0 is the initial and final state
+	// For main queue events, [31:2] are the main thread's port name, [1:0] are:
+	// 0b10 is the initial state
+	// 0b11 means signalled but not waited on yet
+	// 0b01 means waited on, but not signalled yet
+	// All zeros means the main queue became unbound during push, and we use
+	// the non-main-queue encoding.
 	uint32_t dte_value;
 #else
 	_dispatch_sema4_t dte_sema;
 #endif
 } dispatch_thread_event_s, *dispatch_thread_event_t;
 
+#if DISPATCH_USE_UL_UNFAIR_LOCK
+// This mask clears the bottom bit of the dte value to setup the initial state
+// described above
+#define DTE_VALUE_INIT_MASK ~0x1u
+// For main thread wait events, the waiter masks the event value with this to
+// determine what state the event is in
+#define DTE_VALUE_CHECK_MASK 0x3u
+// What the waiter will observe after the main thread signals the event
+#define DTE_VALUE_SIGNALLED 0x2u
+// What the waiter will observe before the main thread signals the event
+#define DTE_VALUE_WAITING 0x1u
+#endif
+
+#define DTE_VALUE_COMPARE_AND_WAIT_INIT 0u
+#define DTE_VALUE_COMPARE_AND_WAIT_WAITED UINT32_MAX
+#define DTE_VALUE_COMPARE_AND_WAIT_SIGNALLED 0u
+
 DISPATCH_NOT_TAIL_CALLED
 void _dispatch_thread_event_wait_slow(dispatch_thread_event_t);
 void _dispatch_thread_event_signal_slow(dispatch_thread_event_t);
+
+#if DISPATCH_USE_UL_UNFAIR_LOCK
+void _dispatch_thread_main_event_wait_slow(dispatch_thread_event_t);
+void _dispatch_thread_main_event_signal_slow(dispatch_thread_event_t);
+#endif
 
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_thread_event_init(dispatch_thread_event_t dte)
 {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
-	dte->dte_value = 0;
+	dte->dte_value = DTE_VALUE_COMPARE_AND_WAIT_INIT;
 #else
 	_dispatch_sema4_init(&dte->dte_sema, _DSEMA4_POLICY_FIFO);
 #endif
@@ -301,16 +338,26 @@ static inline void
 _dispatch_thread_event_signal(dispatch_thread_event_t dte)
 {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
-	if (os_atomic_add_orig(&dte->dte_value, 1u, release) == 0) {
+	uint32_t orig = os_atomic_add_orig(&dte->dte_value, 1u, release);
+	if (orig == DTE_VALUE_COMPARE_AND_WAIT_INIT) {
 		// 0 -> 1 transition doesn't need a signal
 		// force a wake even when the value is corrupt,
 		// waiters do the validation
 		return;
-	}
+	} else if (orig == DTE_VALUE_COMPARE_AND_WAIT_WAITED) {
+		return _dispatch_thread_event_signal_slow(dte);
+	} else {
+		// Other dte values indicate that the waiter is doing an unfair lock
+		// wait against the main thread
+#if !DISPATCH_USE_UL_UNFAIR_LOCK
+		DISPATCH_INTERNAL_CRASH(orig, "Unexpected value for thread event");
 #else
-	// fallthrough
+		return _dispatch_thread_main_event_signal_slow(dte);
 #endif
+	}
+#else // HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 	_dispatch_thread_event_signal_slow(dte);
+#endif // HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 }
 
 
@@ -319,7 +366,8 @@ static inline void
 _dispatch_thread_event_wait(dispatch_thread_event_t dte)
 {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
-	if (os_atomic_sub(&dte->dte_value, 1u, acquire) == 0) {
+	if (os_atomic_sub(&dte->dte_value, 1u, acquire) ==
+			DTE_VALUE_COMPARE_AND_WAIT_SIGNALLED) {
 		// 1 -> 0 is always a valid transition, so we can return
 		// for any other value, take the slow path which checks it's not corrupt
 		return;
@@ -336,11 +384,25 @@ _dispatch_thread_event_destroy(dispatch_thread_event_t dte)
 {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 	// nothing to do
-	dispatch_assert(dte->dte_value == 0);
+	dispatch_assert(dte->dte_value == DTE_VALUE_COMPARE_AND_WAIT_SIGNALLED ||
+			((dte->dte_value & DTE_VALUE_CHECK_MASK) == DTE_VALUE_SIGNALLED));
 #else
 	_dispatch_sema4_dispose(&dte->dte_sema, _DSEMA4_POLICY_FIFO);
 #endif
 }
+
+#if HAVE_UL_COMPARE_AND_WAIT
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_thread_main_event_wait(dispatch_thread_event_t dte)
+{
+	uint32_t after = os_atomic_sub(&dte->dte_value, 1, acquire);
+	if ((after & DTE_VALUE_CHECK_MASK) == DTE_VALUE_SIGNALLED) {
+		return;
+	}
+	return _dispatch_thread_main_event_wait_slow(dte);
+}
+#endif
 
 #pragma mark - unfair lock
 

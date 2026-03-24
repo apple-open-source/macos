@@ -93,7 +93,7 @@ void WebSharedWorkerServer::requestSharedWorker(WebCore::SharedWorkerKey&& share
                     RELEASE_LOG_ERROR(SharedWorker, "WebSharedWorkerServer::requestSharedWorker: Failed to connect to existing shared worker %" PRIu64 ", will create a new one instead.", sharedWorkerIdentifier.toUInt64());
                     if (auto it = checkedThis->m_sharedWorkers.find(sharedWorkerKey); it != checkedThis->m_sharedWorkers.end() && it->value->identifier() == sharedWorkerIdentifier)
                         checkedThis->m_sharedWorkers.remove(it);
-                    checkedThis->requestSharedWorker(WTFMove(sharedWorkerKey), sharedWorkerObjectIdentifier, WTFMove(port), WTFMove(workerOptions));
+                    checkedThis->requestSharedWorker(WTF::move(sharedWorkerKey), sharedWorkerObjectIdentifier, WTF::move(port), WTF::move(workerOptions));
                 });
             }
         }
@@ -113,7 +113,7 @@ void WebSharedWorkerServer::requestSharedWorker(WebCore::SharedWorkerKey&& share
         RefPtr sharedWorker = weakSharedWorker.get();
         CheckedPtr checkedThis = weakThis.get();
         if (checkedThis && sharedWorker)
-            checkedThis->didFinishFetchingSharedWorkerScript(*sharedWorker, WTFMove(fetchResult), WTFMove(initializationData));
+            checkedThis->didFinishFetchingSharedWorkerScript(*sharedWorker, WTF::move(fetchResult), WTF::move(initializationData));
     });
 }
 
@@ -131,8 +131,8 @@ void WebSharedWorkerServer::didFinishFetchingSharedWorkerScript(WebSharedWorker&
         return;
     }
 
-    sharedWorker.setInitializationData(WTFMove(initializationData));
-    sharedWorker.setFetchResult(WTFMove(fetchResult));
+    sharedWorker.setInitializationData(WTF::move(initializationData));
+    sharedWorker.setFetchResult(WTF::move(fetchResult));
 
     if (RefPtr connection = m_contextConnections.get(sharedWorker.topRegistrableDomain()))
         sharedWorker.launch(*connection);
@@ -264,7 +264,7 @@ void WebSharedWorkerServer::addConnection(Ref<WebSharedWorkerServerConnection>&&
     auto processIdentifier = connection->webProcessIdentifier();
     RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::addConnection(%p): processIdentifier=%" PRIu64, connection.ptr(), processIdentifier.toUInt64());
     ASSERT(!m_connections.contains(processIdentifier));
-    m_connections.add(processIdentifier, WTFMove(connection));
+    m_connections.add(processIdentifier, WTF::move(connection));
 }
 
 void WebSharedWorkerServer::removeConnection(WebCore::ProcessIdentifier processIdentifier)

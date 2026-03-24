@@ -140,7 +140,7 @@ void JSWorkerGlobalScopePrototype::finishCreation(VM& vm)
 const ClassInfo JSWorkerGlobalScope::s_info = { "WorkerGlobalScope"_s, &Base::s_info, &JSWorkerGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSWorkerGlobalScope) };
 
 JSWorkerGlobalScope::JSWorkerGlobalScope(VM& vm, Structure* structure, Ref<WorkerGlobalScope>&& impl)
-    : JSEventTarget(vm, structure, WTFMove(impl))
+    : JSEventTarget(vm, structure, WTF::move(impl))
 {
 }
 

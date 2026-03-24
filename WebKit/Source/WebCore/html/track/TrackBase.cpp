@@ -39,6 +39,10 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
+#if ENABLE(MEDIA_SOURCE)
+#include "SourceBuffer.h"
+#endif
+
 #if ENABLE(VIDEO)
 
 namespace WebCore {
@@ -53,12 +57,11 @@ static bool isValidBCP47LanguageTag(const String&);
 #if !RELEASE_LOG_DISABLED
 static Ref<Logger> nullLogger(TrackBase& track)
 {
-    static std::once_flag onceKey;
-    static LazyNeverDestroyed<Ref<Logger>> logger;
-    std::call_once(onceKey, [&] {
-        logger.construct(Logger::create(&track));
-        logger.get()->setEnabled(&track, false);
-    });
+    static NeverDestroyed<Ref<Logger>> logger = [&] {
+        Ref logger = Logger::create(&track);
+        logger->setEnabled(&track, false);
+        return logger;
+    }();
     return logger.get();
 }
 #endif
@@ -88,6 +91,18 @@ void TrackBase::didMoveToNewDocument(Document& newDocument)
 {
     observeContext(newDocument.protectedContextDocument().ptr());
 }
+
+#if ENABLE(MEDIA_SOURCE)
+SourceBuffer* TrackBase::sourceBuffer() const
+{
+    return m_sourceBuffer.get();
+}
+
+void TrackBase::setSourceBuffer(SourceBuffer* buffer)
+{
+    m_sourceBuffer = buffer;
+}
+#endif
 
 void TrackBase::setTrackList(TrackListBase& trackList)
 {
@@ -203,7 +218,7 @@ void TrackBase::addClientToTrackPrivateBase(TrackPrivateBaseClient& client, Trac
 {
     if (RefPtr context = scriptExecutionContext()) {
         m_clientRegistrationId = track.addClient([contextIdentifier = context->identifier()](auto&& task) {
-            ScriptExecutionContext::ensureOnContextThread(contextIdentifier, WTFMove(task));
+            ScriptExecutionContext::ensureOnContextThread(contextIdentifier, WTF::move(task));
         }, client);
     }
 }
@@ -213,8 +228,15 @@ void TrackBase::removeClientFromTrackPrivateBase(TrackPrivateBase& track)
     track.removeClient(m_clientRegistrationId);
 }
 
-MediaTrackBase::MediaTrackBase(ScriptExecutionContext* context, Type type, const std::optional<AtomString>& id, TrackID trackId, const AtomString& label, const AtomString& language)
-    : TrackBase(context, type, id, trackId, label, language)
+static std::optional<AtomString> trackUID(const std::optional<String>& id)
+{
+    if (!id)
+        return { };
+    return AtomString { *id };
+}
+
+MediaTrackBase::MediaTrackBase(ScriptExecutionContext* context, Type type, const std::optional<String>& id, TrackID trackId, const String& label, const String& language)
+    : TrackBase(context, type, trackUID(id), trackId, AtomString { label.isolatedCopy() }, AtomString { language.isolatedCopy() })
 {
 }
 

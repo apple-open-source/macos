@@ -97,14 +97,9 @@ _dispatch_unote_create_without_handle(dispatch_source_type_t dst,
 
 DISPATCH_NOINLINE
 void
-_dispatch_unote_dispose(dispatch_unote_t du, bool may_defer)
+_dispatch_unote_dealloc(dispatch_unote_t du)
 {
 	void *ptr = du._du;
-#if HAVE_MACH
-	if (du._du->dmrr_handler_is_block) {
-		Block_release(du._dmrr->dmrr_handler_ctxt);
-	}
-#endif
 	if (du._du->du_is_timer) {
 		if (unlikely(du._dt->dt_heap_entry[DTH_TARGET_ID] != DTH_INVALID_ID ||
 				du._dt->dt_heap_entry[DTH_DEADLINE_ID] != DTH_INVALID_ID)) {
@@ -117,13 +112,6 @@ _dispatch_unote_dispose(dispatch_unote_t du, bool may_defer)
 	} else if (!du._du->du_is_direct) {
 		ptr = _dispatch_unote_get_linkage(du);
 	}
-#if DISPATCH_HAVE_DIRECT_KNOTES
-	else if (may_defer && du._du->du_is_direct) {
-		// We may have deferred unregistration of this unote, so need to defer
-		// the free as well
-		return _dispatch_unote_dispose_defer(du);
-	}
-#endif
 	free(ptr);
 }
 
@@ -186,16 +174,20 @@ bool
 _dispatch_unote_unregister(dispatch_unote_t du, uint32_t flags)
 {
 	if (!_dispatch_unote_registered(du)) {
+		dispatch_assert(!(flags & DUU_PASS_OWNERSHIP));
 		return true;
 	}
 	switch (du._du->du_filter) {
 	case DISPATCH_EVFILT_CUSTOM_ADD:
 	case DISPATCH_EVFILT_CUSTOM_OR:
 	case DISPATCH_EVFILT_CUSTOM_REPLACE:
+		// Currently, we only expect to pass these flags for direct unotes.
+		dispatch_assert(!(flags & (DUU_PASS_OWNERSHIP | DUU_NO_DEFER)));
 		_dispatch_unote_state_set(du, DU_STATE_UNREGISTERED);
 		return true;
 	}
 	if (du._du->du_is_timer) {
+		dispatch_assert(!(flags & (DUU_PASS_OWNERSHIP | DUU_NO_DEFER)));
 		_dispatch_timer_unote_unregister(du._dt);
 		return true;
 	}
@@ -206,6 +198,7 @@ _dispatch_unote_unregister(dispatch_unote_t du, uint32_t flags)
 #endif
 
 	dispatch_assert(flags & DUU_DELETE_ACK);
+	dispatch_assert(!(flags & (DUU_PASS_OWNERSHIP | DUU_NO_DEFER)));
 	return _dispatch_unote_unregister_muxed(du);
 }
 

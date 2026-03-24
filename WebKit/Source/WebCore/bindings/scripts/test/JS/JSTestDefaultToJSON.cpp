@@ -222,7 +222,7 @@ void JSTestDefaultToJSONPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestDefaultToJSON::s_info = { "TestDefaultToJSON"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDefaultToJSON) };
 
 JSTestDefaultToJSON::JSTestDefaultToJSON(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestDefaultToJSON>&& impl)
-    : JSDOMWrapper<TestDefaultToJSON>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestDefaultToJSON>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -893,8 +893,8 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 {
     UNUSED_PARAM(lexicalGlobalObject);
     if (is<TestDefaultToJSONInherit>(impl))
-        return toJSNewlyCreated(lexicalGlobalObject, globalObject, uncheckedDowncast<TestDefaultToJSONInherit>(WTFMove(impl)));
-    return createWrapper<TestDefaultToJSON>(globalObject, WTFMove(impl));
+        return toJSNewlyCreated(lexicalGlobalObject, globalObject, uncheckedDowncast<TestDefaultToJSONInherit>(WTF::move(impl)));
+    return createWrapper<TestDefaultToJSON>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestDefaultToJSON& impl)

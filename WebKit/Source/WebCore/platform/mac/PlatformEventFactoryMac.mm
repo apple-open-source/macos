@@ -66,7 +66,7 @@ NSPoint globalPointForEvent(NSEvent *event)
     case NSEventTypeRightMouseDragged:
     case NSEventTypeRightMouseUp:
     case NSEventTypeScrollWheel:
-        return globalPoint([event locationInWindow], [event window]);
+        return globalPoint([event locationInWindow], retainPtr([event window]).get());
     default:
         return { 0, 0 };
     }
@@ -110,7 +110,30 @@ static MouseButton currentMouseButton()
         return MouseButton::Left;
     if (pressedMouseButtons == 1 << 1)
         return MouseButton::Right;
+    if (pressedMouseButtons == 1 << 2)
+        return MouseButton::Middle;
+    if (pressedMouseButtons == 1 << 3)
+        return MouseButton::Back;
+    if (pressedMouseButtons == 1 << 4)
+        return MouseButton::Forward;
     return MouseButton::Middle;
+}
+
+static MouseButton buttonFromButtonNumber(NSEvent *event)
+{
+    // NSEvent.buttonNumber reports 0 for non-mouse events, so it would be wrong to map 0 to the left button.
+    switch ([event buttonNumber]) {
+    case 1:
+        return MouseButton::Right;
+    case 2:
+        return MouseButton::Middle;
+    case 3:
+        return MouseButton::Back;
+    case 4:
+        return MouseButton::Forward;
+    default:
+        return MouseButton::None;
+    }
 }
 
 MouseButton mouseButtonForEvent(NSEvent *event)
@@ -127,10 +150,10 @@ MouseButton mouseButtonForEvent(NSEvent *event)
     case NSEventTypeOtherMouseDown:
     case NSEventTypeOtherMouseUp:
     case NSEventTypeOtherMouseDragged:
-        return MouseButton::Middle;
-    case NSEventTypePressure:
+        return buttonFromButtonNumber(event);
     case NSEventTypeMouseEntered:
     case NSEventTypeMouseExited:
+    case NSEventTypePressure:
         return currentMouseButton();
     default:
         return MouseButton::None;
@@ -264,16 +287,16 @@ String keyForKeyEvent(NSEvent *event)
     // typed with the default keyboard layout with no modifier keys except for Shift and AltGr applied.
     // See <https://www.w3.org/TR/2015/WD-uievents-20151215/#keys-guidelines>.
     bool isControlDown = ([event modifierFlags] & NSEventModifierFlagControl);
-    NSString *s = isControlDown ? [event charactersIgnoringModifiers] : [event characters];
-    auto length = [s length];
+    RetainPtr<NSString> string = isControlDown ? [event charactersIgnoringModifiers] : [event characters];
+    auto length = [string length];
     // characters / charactersIgnoringModifiers return an empty string for dead keys.
     // https://developer.apple.com/reference/appkit/nsevent/1534183-characters
     if (!length)
         return "Dead"_s;
     // High unicode codepoints are coded with a character sequence in macOS.
     if (length > 1)
-        return s;
-    return keyForCharCode([s characterAtIndex:0]);
+        return string.get();
+    return keyForCharCode([string characterAtIndex:0]);
 }
 
 // https://w3c.github.io/uievents-code/
@@ -517,12 +540,12 @@ String keyIdentifierForKeyEvent(NSEvent* event)
         }
     }
     
-    NSString *s = [event charactersIgnoringModifiers];
-    if ([s length] != 1) {
-        LOG(Events, "received an unexpected number of characters in key event: %zu", [s length]);
+    RetainPtr<NSString> string = [event charactersIgnoringModifiers];
+    if ([string length] != 1) {
+        LOG(Events, "received an unexpected number of characters in key event: %zu", [string length]);
         return "Unidentified"_s;
     }
-    return keyIdentifierForCharCode([s characterAtIndex:0]);
+    return keyIdentifierForCharCode([string characterAtIndex:0]);
 }
 
 bool isKeypadEvent(NSEvent *event)
@@ -576,14 +599,14 @@ int windowsKeyCodeForKeyEvent(NSEvent* event)
     //    but see comment in windowsKeyCodeForCharCode().
     if (!isKeypadEvent(event) && ([event type] == NSEventTypeKeyDown || [event type] == NSEventTypeKeyUp)) {
         // Cmd switches Roman letters for Dvorak-QWERTY layout, so try modified characters first.
-        NSString* s = [event characters];
-        code = [s length] > 0 ? windowsKeyCodeForCharCode([s characterAtIndex:0]) : 0;
+        RetainPtr<NSString> string = [event characters];
+        code = [string length] > 0 ? windowsKeyCodeForCharCode([string characterAtIndex:0]) : 0;
         if (code)
             return code;
 
         // Ctrl+A on an AZERTY keyboard would get VK_Q keyCode if we relied on -[NSEvent keyCode] below.
-        s = [event charactersIgnoringModifiers];
-        code = [s length] > 0 ? windowsKeyCodeForCharCode([s characterAtIndex:0]) : 0;
+        string = [event charactersIgnoringModifiers];
+        code = [string length] > 0 ? windowsKeyCodeForCharCode([string characterAtIndex:0]) : 0;
         if (code)
             return code;
     }
@@ -758,7 +781,7 @@ public:
         // PlatformWheelEvent
         m_position = IntPoint(pointForEvent(event, windowView));
         m_globalPosition = IntPoint(globalPointForEvent(event));
-        m_granularity = ScrollByPixelWheelEvent;
+        m_granularity = PlatformWheelEventGranularity::ScrollByPixelWheelEvent;
 
         BOOL continuous;
         getWheelEventDeltas(event, m_deltaX, m_deltaY, continuous);

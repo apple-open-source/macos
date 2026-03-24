@@ -26,9 +26,7 @@ foreach line [split $data \n] {
 		puts $line
 		puts {}
 		puts "\#include <tclTomMathDecls.h>"
-		puts "\#ifndef MODULE_SCOPE"
-		puts "\#define MODULE_SCOPE extern"
-		puts "\#endif"
+		puts "\#define MODULE_SCOPE extern __attribute__((__visibility__("hidden")))"
 	    }
 	    {typedef\s+unsigned long\s+mp_digit;} {
 		# change the second 'typedef unsigned long mp

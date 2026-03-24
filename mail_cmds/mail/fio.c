@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)fio.c	8.2 (Berkeley) 4/20/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include <sys/file.h>
 #include <sys/wait.h>
@@ -44,7 +36,9 @@ __FBSDID("$FreeBSD$");
 #include <unistd.h>
 #include <paths.h>
 #include <errno.h>
+#ifdef __APPLE__
 #include <glob.h>
+#endif
 #include "extern.h"
 
 /*
@@ -355,11 +349,20 @@ fsize(FILE *iob)
 char *
 expand(char *name)
 {
+#ifdef __APPLE__
 	const int flags = GLOB_BRACE|GLOB_TILDE|GLOB_NOSORT|GLOB_NOCHECK;
+#endif
 	char xname[PATHSIZE];
 	char cmdbuf[PATHSIZE];		/* also used for file names */
+#ifdef __APPLE__
 	char *match = NULL;
 	glob_t names;
+#else
+	int pid, l;
+	char *cp, *sh;
+	int pivec[2];
+	struct stat sbuf;
+#endif
 
 	/*
 	 * The order of evaluation is "%" and "#" expand into constants.
@@ -394,6 +397,7 @@ expand(char *name)
 		(void)snprintf(xname, sizeof(xname), "%s%s", homedir, name + 1);
 		name = savestr(xname);
 	}
+#ifdef __APPLE__
 	if (strpbrk(name, "~{[*?\\") == NULL)
 		return(savestr(name));
 
@@ -401,12 +405,11 @@ expand(char *name)
 	switch (glob(name, flags, NULL, &names)) {
 	case 0:
 		if (names.gl_pathc == 1) {
-#ifdef __APPLE__
 			if (names.gl_matchc == 0) {
 				match = removebs(names.gl_pathv[0]);
-			} else
-#endif
+			} else {
 				match = savestr(names.gl_pathv[0]);
+			}
 		} else
 			fprintf(stderr, "\"%s\": Ambiguous.\n", name);
 		break;
@@ -422,6 +425,52 @@ expand(char *name)
 	}
 	globfree(&names);
 	return(match);
+#else
+	if (!strpbrk(name, "~{[*?$`'\"\\"))
+		return (savestr(name));
+	if (pipe(pivec) < 0) {
+		warn("pipe");
+		return (NULL);
+	}
+	(void)snprintf(cmdbuf, sizeof(cmdbuf), "echo %s", name);
+	if ((sh = value("SHELL")) == NULL)
+		sh = _PATH_CSHELL;
+	pid = start_command(sh, 0, -1, pivec[1], "-c", cmdbuf, NULL);
+	if (pid < 0) {
+		(void)close(pivec[0]);
+		(void)close(pivec[1]);
+		return (NULL);
+	}
+	(void)close(pivec[1]);
+	l = read(pivec[0], xname, BUFSIZ);
+	(void)close(pivec[0]);
+	if (wait_child(pid) < 0 && WIFSIGNALED(wait_status) &&
+	    WTERMSIG(wait_status) != SIGPIPE) {
+		fprintf(stderr, "\"%s\": Expansion failed.\n", name);
+		return (NULL);
+	}
+	if (l < 0) {
+		warn("read");
+		return (NULL);
+	}
+	if (l == 0) {
+		fprintf(stderr, "\"%s\": No match.\n", name);
+		return (NULL);
+	}
+	if (l == BUFSIZ) {
+		fprintf(stderr, "\"%s\": Expansion buffer overflow.\n", name);
+		return (NULL);
+	}
+	xname[l] = '\0';
+	for (cp = &xname[l-1]; *cp == '\n' && cp > xname; cp--)
+		;
+	cp[1] = '\0';
+	if (strchr(xname, ' ') && stat(xname, &sbuf) < 0) {
+		fprintf(stderr, "\"%s\": Ambiguous.\n", name);
+		return (NULL);
+	}
+	return (savestr(xname));
+#endif
 }
 
 /*

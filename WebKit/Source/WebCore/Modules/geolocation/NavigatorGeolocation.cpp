@@ -44,18 +44,13 @@ NavigatorGeolocation::NavigatorGeolocation(Navigator& navigator)
 
 NavigatorGeolocation::~NavigatorGeolocation() = default;
 
-ASCIILiteral NavigatorGeolocation::supplementName()
-{
-    return "NavigatorGeolocation"_s;
-}
-
 NavigatorGeolocation* NavigatorGeolocation::from(Navigator& navigator)
 {
-    NavigatorGeolocation* supplement = static_cast<NavigatorGeolocation*>(Supplement<Navigator>::from(&navigator, supplementName()));
+    auto* supplement = downcast<NavigatorGeolocation>(Supplement<Navigator>::from(&navigator, supplementName()));
     if (!supplement) {
         auto newSupplement = makeUnique<NavigatorGeolocation>(navigator);
         supplement = newSupplement.get();
-        provideTo(&navigator, supplementName(), WTFMove(newSupplement));
+        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
     }
     return supplement;
 }
@@ -75,7 +70,7 @@ Geolocation* NavigatorGeolocation::geolocation(Navigator& navigator)
 
 Geolocation* NavigatorGeolocation::optionalGeolocation(Navigator& navigator)
 {
-    NavigatorGeolocation* supplement = static_cast<NavigatorGeolocation*>(Supplement<Navigator>::from(&navigator, supplementName()));
+    auto* supplement = downcast<NavigatorGeolocation>(Supplement<Navigator>::from(&navigator, supplementName()));
     if (!supplement)
         return nullptr;
     return supplement->m_geolocation.get();

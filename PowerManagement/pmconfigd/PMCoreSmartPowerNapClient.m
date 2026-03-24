@@ -30,15 +30,59 @@
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection_Private.h>
 #import "PMCoreSmartPowerNapClient.h"
+#import <os/log.h>
+
+static os_log_t cspnClientLog;
+
+@interface PMCoreSmartPowerNapClient()
+
+@property (nonatomic, readwrite) NSXPCConnection *connection;
+
+@end
 
 @implementation PMCoreSmartPowerNapClient
 
-
 - (instancetype)initWithConnection: (NSXPCConnection *)conn {
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        cspnClientLog = os_log_create("com.apple.powerd", "coreSmartPowerNap");
+    });
+
     self = [super init];
     if (self) {
         _connection = conn;
+        __weak typeof(self) welf = self;
+        _connection.interruptionHandler = ^{
+            typeof(self) client = welf;
+            if (!client) {
+                return;
+            }
+            os_log_info(cspnClientLog, "Connection to client interrupted");
+            [client.connection invalidate];
+            if (client.onInterruption) {
+                client.onInterruption();
+            }
+            client.connection = nil;
+        };
+        _connection.invalidationHandler = ^{
+            typeof(self) client = welf;
+            if (!client) {
+                return;
+            }
+            os_log_info(cspnClientLog, "Connection to client invalidated");
+            if (client.onInterruption) {
+                client.onInterruption();
+            }
+            client.connection = nil;
+        };
     }
     return self;
+}
+
+- (void)dealloc
+{
+    [_connection invalidate];
+    _connection = nil;
 }
 @end

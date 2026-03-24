@@ -29,6 +29,8 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/BytecodeConventions.h>
@@ -93,6 +95,13 @@ public:
 
     const RTT* addSignature(const TypeDefinition&);
 
+    void addCallTarget(unsigned callProfileIndex, FunctionSpaceIndex target)
+    {
+        if (callProfileIndex >= m_callTargets.size())
+            m_callTargets.insertFill(m_callTargets.size(), FunctionSpaceIndex { }, callProfileIndex - m_callTargets.size() + 1);
+        m_callTargets[callProfileIndex] = target;
+    }
+
 private:
     struct MetadataBufferMalloc final : public FastMalloc {
         static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity) { return capacity + capacity; }
@@ -111,6 +120,7 @@ private:
 
     void addLength(size_t length);
     void addLEB128ConstantInt32AndLength(uint32_t value, size_t length);
+    void addLEB128ConstantInt64AndLength(uint64_t value, size_t length);
     void addLEB128ConstantAndLengthForType(Type, uint64_t value, size_t length);
     void addLEB128V128Constant(v128_t value, size_t length);
     void addReturnData(const FunctionSignature&, const CallInformation&);
@@ -132,7 +142,7 @@ private:
     unsigned m_numArguments { 0 };
     unsigned m_numArgumentsOnStack { 0 };
     unsigned m_nonArgLocalOffset { 0 };
-    unsigned m_numCallProfiles { 0 };
+    Vector<FunctionSpaceIndex> m_callTargets { };
     Vector<uint8_t, 16> m_argumINTBytecode { };
 
     UncheckedKeyHashMap<IPIntPC, IPIntTierUpCounter::OSREntryData> m_tierUpCounter;

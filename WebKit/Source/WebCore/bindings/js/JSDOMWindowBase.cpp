@@ -35,7 +35,6 @@
 #include "EventLoop.h"
 #include "FetchResponse.h"
 #include "HTMLFrameOwnerElement.h"
-#include "InspectorController.h"
 #include "JSDOMBindingSecurity.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWindowCustom.h"
@@ -48,6 +47,7 @@
 #include "Logging.h"
 #include "Microtasks.h"
 #include "NodeDocument.h"
+#include "PageInspectorController.h"
 #include "RejectedPromiseTracker.h"
 #include "ScriptController.h"
 #include "ScriptModuleLoader.h"
@@ -116,7 +116,7 @@ const GlobalObjectMethodTable* JSDOMWindowBase::globalObjectMethodTable()
 
 JSDOMWindowBase::JSDOMWindowBase(VM& vm, Structure* structure, RefPtr<DOMWindow>&& window, JSWindowProxy* proxy)
     : JSDOMGlobalObject(vm, structure, proxy->world(), globalObjectMethodTable())
-    , m_wrapped(WTFMove(window))
+    , m_wrapped(WTF::move(window))
 {
     m_proxy.set(vm, this, proxy);
 }
@@ -254,7 +254,7 @@ public:
 
     UserGestureInitiatedMicrotaskDispatcher(EventLoopTaskGroup& group, Ref<UserGestureToken>&& userGestureToken)
         : WebCoreMicrotaskDispatcher(Type::WebCoreUserGestureIndicator, group)
-        , m_userGestureToken(WTFMove(userGestureToken))
+        , m_userGestureToken(WTF::move(userGestureToken))
     {
     }
 
@@ -264,7 +264,7 @@ public:
     {
         auto runnability = currentRunnability();
         if (runnability == JSC::QueuedTask::Result::Executed) {
-            UserGestureIndicator gestureIndicator(m_userGestureToken.ptr(), UserGestureToken::GestureScope::MediaOnly, UserGestureToken::ShouldPropagateToMicroTask::Yes);
+            UserGestureIndicator gestureIndicator(m_userGestureToken.ptr(), m_userGestureToken->scope(), UserGestureToken::ShouldPropagateToMicroTask::Yes);
             JSExecState::runTaskWithDebugger(task.globalObject(), task);
         }
         return runnability;
@@ -272,7 +272,7 @@ public:
 
     static Ref<UserGestureInitiatedMicrotaskDispatcher> create(EventLoopTaskGroup& group, Ref<UserGestureToken>&& userGestureToken)
     {
-        return adoptRef(*new UserGestureInitiatedMicrotaskDispatcher(group, WTFMove(userGestureToken)));
+        return adoptRef(*new UserGestureInitiatedMicrotaskDispatcher(group, WTF::move(userGestureToken)));
     }
 
 private:
@@ -298,7 +298,7 @@ void JSDOMWindowBase::queueMicrotaskToEventLoop(JSGlobalObject& object, QueuedTa
     else
         task.setDispatcher(UserGestureInitiatedMicrotaskDispatcher::create(eventLoop, Ref { *userGestureToken }));
 
-    eventLoop.queueMicrotask(WTFMove(task));
+    eventLoop.queueMicrotask(WTF::move(task));
 }
 
 JSC::JSObject* JSDOMWindowBase::currentScriptExecutionOwner(JSGlobalObject* object)

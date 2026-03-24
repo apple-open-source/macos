@@ -39,6 +39,8 @@ static const size_t maximumSnapshotCacheSize = 400 * (1024 * 1024);
 namespace WebKit {
 using namespace WebCore;
 
+#if !(PLATFORM(WPE) && USE(CAIRO))
+
 ViewSnapshotStore::ViewSnapshotStore()
 {
 }
@@ -105,7 +107,7 @@ void ViewSnapshotStore::recordSnapshot(WebPageProxy& webPageProxy, WebBackForwar
     snapshot->setViewScrollPosition(WebCore::roundedIntPoint(webPageProxy.viewScrollPosition()));
     snapshot->setOrigin(WebCore::SecurityOriginData::fromURL(URL(item.url())));
 
-    item.setSnapshot(WTFMove(snapshot));
+    item.setSnapshot(WTF::move(snapshot));
 }
 
 void ViewSnapshotStore::discardSnapshotImages()
@@ -123,6 +125,8 @@ void ViewSnapshotStore::discardSnapshotImagesForOrigin(const WebCore::SecurityOr
             viewSnapshot->clearImage();
     }
 }
+
+#endif // !(PLATFORM(WPE) && USE(CAIRO))
 
 ViewSnapshot::~ViewSnapshot()
 {

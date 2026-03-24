@@ -100,7 +100,7 @@ const Seconds& UserGestureToken::maximumIntervalForUserGestureForwardingForFetch
 
 void UserGestureToken::setMaximumIntervalForUserGestureForwardingForFetchForTesting(Seconds value)
 {
-    maxIntervalForUserGestureForwardingForFetch = WTFMove(value);
+    maxIntervalForUserGestureForwardingForFetch = WTF::move(value);
 }
 
 bool UserGestureToken::isValidForDocument(const Document& document) const
@@ -133,7 +133,7 @@ UserGestureIndicator::UserGestureIndicator(std::optional<IsProcessingUserGesture
         if (RefPtr page = document->page())
             page->setUserDidInteractWithPage(true);
         if (RefPtr frame = document->frame(); frame && !frame->hasHadUserInteraction()) {
-            for (RefPtr<Frame> ancestor = WTFMove(frame); ancestor; ancestor = ancestor->tree().parent()) {
+            for (RefPtr<Frame> ancestor = WTF::move(frame); ancestor; ancestor = ancestor->tree().parent()) {
                 if (RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor)) {
                     localAncestor->setHasHadUserInteraction();
                     if (RefPtr ancestorDocument = localAncestor->document())

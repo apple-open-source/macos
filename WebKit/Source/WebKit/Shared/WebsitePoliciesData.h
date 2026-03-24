@@ -94,6 +94,7 @@ public:
     WebsiteInlineMediaPlaybackPolicy inlineMediaPlaybackPolicy { WebsiteInlineMediaPlaybackPolicy::Default };
     WebCore::ResourceRequest alternateRequest;
     std::optional<UserContentControllerParameters> userContentControllerParameters;
+    String overrideReferrerForAllRequests;
 };
 
 } // namespace WebKit

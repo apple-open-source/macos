@@ -33,6 +33,11 @@
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
 
+namespace WebCore {
+class SharedMemory;
+class SharedMemoryHandle;
+}
+
 namespace WebKit {
 
 struct WebUserScriptData {
@@ -49,6 +54,17 @@ struct WebUserStyleSheetData {
 
 struct WebScriptMessageHandlerData {
     ScriptMessageHandlerIdentifier identifier;
+    ContentWorldData worldData;
+    String name;
+};
+
+struct WebJSBufferData {
+    WebJSBufferData(const RefPtr<WebCore::SharedMemory>&, ContentWorldData&&, const String&);
+    WebJSBufferData(std::optional<WebCore::SharedMemoryHandle>&&, ContentWorldData&&, String&&);
+    ~WebJSBufferData();
+    std::optional<WebCore::SharedMemoryHandle> sharedMemoryHandle() const;
+
+    RefPtr<WebCore::SharedMemory> data;
     ContentWorldData worldData;
     String name;
 };

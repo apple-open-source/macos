@@ -29,19 +29,24 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "EventLoop.h"
+#include "FrameRateMonitor.h"
 #include "JSRTCEncodedAudioFrame.h"
 #include "JSRTCEncodedVideoFrame.h"
+#include "Logging.h"
 #include "ReadableStreamSource.h"
+#include "ScriptExecutionContextInlines.h"
+#include "Settings.h"
 #include "WritableStreamSink.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RTCEncodedStreamProducer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RTCEncodedStreamProducer);
 
 RTCEncodedStreamProducer::~RTCEncodedStreamProducer() = default;
 
-ExceptionOr<Ref<RTCEncodedStreamProducer>> RTCEncodedStreamProducer::create(ScriptExecutionContext& context, Ref<RTCRtpTransformBackend>&& transformBackend, bool isVideo)
+ExceptionOr<Ref<RTCEncodedStreamProducer>> RTCEncodedStreamProducer::create(ScriptExecutionContext& context)
 {
     auto* globalObject = JSC::jsCast<JSDOMGlobalObject*>(context.globalObject());
     if (!globalObject)
@@ -52,20 +57,23 @@ ExceptionOr<Ref<RTCEncodedStreamProducer>> RTCEncodedStreamProducer::create(Scri
     if (readable.hasException())
         return readable.releaseException();
 
-    Ref producer = adoptRef(*new RTCEncodedStreamProducer(context, readable.releaseReturnValue(), WTFMove(readableSource), WTFMove(transformBackend), isVideo));
+    Ref producer = adoptRef(*new RTCEncodedStreamProducer(context, readable.releaseReturnValue(), WTF::move(readableSource)));
 
     if (auto exception = producer->initialize(*globalObject))
-        return { WTFMove(*exception) };
+        return { WTF::move(*exception) };
 
     return producer;
 }
 
-RTCEncodedStreamProducer::RTCEncodedStreamProducer(ScriptExecutionContext& context, Ref<ReadableStream>&& readable, Ref<SimpleReadableStreamSource>&& readableSource, Ref<RTCRtpTransformBackend>&& transformBackend, bool isVideo)
+RTCEncodedStreamProducer::RTCEncodedStreamProducer(ScriptExecutionContext& context, Ref<ReadableStream>&& readable, Ref<SimpleReadableStreamSource>&& readableSource)
     : m_context({ context })
-    , m_readable(WTFMove(readable))
-    , m_readableSource(WTFMove(readableSource))
-    , m_transformBackend(WTFMove(transformBackend))
-    , m_isVideo(isVideo)
+    , m_contextIdentifier(context.identifier())
+    , m_readable(WTF::move(readable))
+    , m_readableSource(WTF::move(readableSource))
+#if !RELEASE_LOG_DISABLED
+    , m_enableAdditionalLogging(context.settingsValues().webRTCMediaPipelineAdditionalLoggingEnabled)
+    , m_identifier(RTCEncodedStreamProducerIdentifier::generate())
+#endif
 {
 }
 
@@ -79,14 +87,19 @@ std::optional<Exception> RTCEncodedStreamProducer::initialize(JSDOMGlobalObject&
         return writable.releaseException();
 
     lazyInitialize(m_writable, writable.releaseReturnValue());
+    return { };
+}
 
-    m_transformBackend->setTransformableFrameCallback([weakThis = WeakPtr { *this }](Ref<RTCRtpTransformableFrame>&& frame) mutable {
-        callOnMainThread([weakThis, frame = WTFMove(frame)]() mutable {
+void RTCEncodedStreamProducer::start(Ref<RTCRtpTransformBackend>&& transformBackend, bool isVideo)
+{
+    transformBackend->setTransformableFrameCallback([weakThis = WeakPtr { *this }, contextIdentifer = m_contextIdentifier](Ref<RTCRtpTransformableFrame>&& frame) mutable {
+        ScriptExecutionContext::postTaskTo(contextIdentifer, [weakThis, frame = WTF::move(frame)](auto&) mutable {
             if (RefPtr protectedThis = weakThis.get())
-                protectedThis->enqueueFrame(WTFMove(frame));
+                protectedThis->enqueueFrame(WTF::move(frame));
         });
     });
-    return { };
+    m_transformBackend = WTF::move(transformBackend);
+    m_isVideo = isVideo;
 }
 
 void RTCEncodedStreamProducer::enqueueFrame(Ref<RTCRtpTransformableFrame>&& frame)
@@ -102,13 +115,34 @@ void RTCEncodedStreamProducer::enqueueFrame(Ref<RTCRtpTransformableFrame>&& fram
     Ref vm = globalObject->vm();
     JSC::JSLockHolder lock(vm);
 
-    auto value = m_isVideo ? toJS(globalObject, globalObject, RTCEncodedVideoFrame::create(WTFMove(frame))) : toJS(globalObject, globalObject, RTCEncodedAudioFrame::create(WTFMove(frame)));
+    if (m_isVideo && !m_pendingKeyFramePromises.isEmpty() && frame->isKeyFrame()) {
+        // FIXME: We should take into account rids to resolve promises.
+        for (Ref promise : std::exchange(m_pendingKeyFramePromises, { }))
+            promise->resolve<IDLUnsignedLongLong>(frame->timestamp());
+    }
+
+#if !RELEASE_LOG_DISABLED
+    if (m_enableAdditionalLogging && m_isVideo) {
+        if (!m_readableFrameRateMonitor) {
+            m_readableFrameRateMonitor = makeUnique<FrameRateMonitor>([identifier = m_identifier](auto info) {
+                RELEASE_LOG(WebRTC, "RTCEncodedStreamProducer readable %" PRIu64 ", frame at %f, previous frame was at %f, observed frame rate is %f, delay since last frame is %f ms, frame count is %lu", identifier.toUInt64(), info.frameTime.secondsSinceEpoch().value(), info.lastFrameTime.secondsSinceEpoch().value(), info.observedFrameRate, ((info.frameTime - info.lastFrameTime) * 1000).value(), info.frameCount);
+            });
+        }
+        m_readableFrameRateMonitor->update();
+    }
+#endif
+
+    auto value = m_isVideo ? toJS(globalObject, globalObject, RTCEncodedVideoFrame::create(WTF::move(frame))) : toJS(globalObject, globalObject, RTCEncodedAudioFrame::create(WTF::move(frame)));
 
     m_readableSource->enqueue(value);
 }
 
 ExceptionOr<void> RTCEncodedStreamProducer::writeFrame(ScriptExecutionContext& context, JSC::JSValue value)
 {
+    RefPtr transformBackend = m_transformBackend;
+    if (!transformBackend)
+        return { };
+
     auto* globalObject = context.globalObject();
     if (!globalObject)
         return { };
@@ -129,9 +163,41 @@ ExceptionOr<void> RTCEncodedStreamProducer::writeFrame(ScriptExecutionContext& c
 
     // If no data, skip the frame since there is nothing to packetize or decode.
     if (rtcFrame->data().data())
-        m_transformBackend->processTransformedFrame(rtcFrame.get());
+        transformBackend->processTransformedFrame(rtcFrame.get());
 
     return { };
+}
+
+void RTCEncodedStreamProducer::generateKeyFrame(ScriptExecutionContext& context, const String& rid, Ref<DeferredPromise>&& promise)
+{
+    ASSERT(m_isVideo);
+
+    RefPtr backend = m_transformBackend;
+    if (!backend)
+        return;
+
+    if (!backend->requestKeyFrame(rid)) {
+        context.checkedEventLoop()->queueTask(TaskSource::Networking, [promise = WTF::move(promise)]() mutable {
+            promise->reject(Exception { ExceptionCode::NotFoundError, "rid was not found or is empty"_s });
+        });
+        return;
+    }
+
+    m_pendingKeyFramePromises.append(WTF::move(promise));
+}
+
+void RTCEncodedStreamProducer::sendKeyFrameRequest()
+{
+    ASSERT(m_isVideo);
+    if (RefPtr backend = m_transformBackend)
+        backend->requestKeyFrame({ });
+}
+
+void RTCEncodedStreamProducer::clear(bool shouldClearCallback)
+{
+    RefPtr backend = std::exchange(m_transformBackend, { });
+    if (backend && shouldClearCallback)
+        backend->clearTransformableFrameCallback();
 }
 
 } // namespace WebCore

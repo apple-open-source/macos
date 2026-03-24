@@ -35,7 +35,7 @@ class WebKit::WebEvent {
     WTF::UUID authorizationToken();
 };
 
-enum class WebKit::WebEventType : uint8_t {
+enum class WebKit::WebEventType : uint32_t {
     MouseDown,
     MouseUp,
     MouseMove,
@@ -62,7 +62,7 @@ enum class WebKit::WebEventType : uint8_t {
 
 class WebKit::WebKeyboardEvent : WebKit::WebEvent {
     String text();
-#if !PLATFORM(GTK) && !USE(LIBWPE)
+#if !PLATFORM(GTK) && !USE(LIBWPE) && !ENABLE(WPE_PLATFORM)
     String unmodifiedText();
 #endif
     String key();
@@ -70,13 +70,13 @@ class WebKit::WebKeyboardEvent : WebKit::WebEvent {
     String keyIdentifier();
     int32_t windowsVirtualKeyCode();
     int32_t nativeVirtualKeyCode();
-#if !PLATFORM(GTK) && !USE(LIBWPE)
+#if !PLATFORM(GTK) && !USE(LIBWPE) && !ENABLE(WPE_PLATFORM)
     int32_t macCharCode();
 #endif
-#if USE(APPKIT) || PLATFORM(IOS_FAMILY) || PLATFORM(GTK) || USE(LIBWPE)
+#if USE(APPKIT) || PLATFORM(IOS_FAMILY) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
     bool handledByInputMethod();
 #endif
-#if PLATFORM(GTK) || USE(LIBWPE)
+#if PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
     std::optional<Vector<WebCore::CompositionUnderline>> preeditUnderlines();
     std::optional<WebKit::EditingRange> preeditSelectionRange();
 #endif
@@ -88,7 +88,7 @@ class WebKit::WebKeyboardEvent : WebKit::WebEvent {
 #endif
     bool isAutoRepeat();
     bool isKeypad();
-#if !PLATFORM(GTK) && !USE(LIBWPE)
+#if !PLATFORM(GTK) && !USE(LIBWPE) && !ENABLE(WPE_PLATFORM)
     bool isSystemKey();
 #endif
 };
@@ -153,6 +153,8 @@ class WebKit::WebTouchEvent : WebKit::WebEvent {
     Left,
     Middle,
     Right,
+    Back,
+    Forward,
     None
 };
 
@@ -208,15 +210,15 @@ class WebKit::WebGestureEvent : WebKit::WebEvent {
     ScrollByPixelWheelEvent
 };
 
-[Nested] enum class WebKit::WebWheelEvent::Phase : uint32_t {
-    PhaseNone,
-    PhaseBegan,
-    PhaseStationary,
-    PhaseChanged,
-    PhaseEnded,
-    PhaseCancelled,
-    PhaseMayBegin,
-    PhaseWillBegin,
+[Nested] enum class WebKit::WebWheelEvent::Phase : uint8_t {
+    None,
+    Began,
+    Stationary,
+    Changed,
+    Ended,
+    Cancelled,
+    MayBegin,
+    WillBegin,
 };
 
 [Nested] enum class WebKit::WebWheelEvent::MomentumEndType : uint8_t {

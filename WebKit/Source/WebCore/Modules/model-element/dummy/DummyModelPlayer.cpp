@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +28,7 @@
 #include "DummyModelPlayer.h"
 
 #include "Model.h"
+#include "ModelPlayerGraphicsLayerConfiguration.h"
 #include "ResourceError.h"
 
 namespace WebCore {
@@ -50,14 +52,8 @@ void DummyModelPlayer::load(Model& model, LayoutSize)
         client->didFailLoading(*this, ResourceError { errorDomainWebKitInternal, 0, model.url(), "Trying to load model via DummyModelPlayer"_s });
 }
 
-PlatformLayer* DummyModelPlayer::layer()
+void DummyModelPlayer::configureGraphicsLayer(GraphicsLayer&, ModelPlayerGraphicsLayerConfiguration&&)
 {
-    return nullptr;
-}
-
-std::optional<LayerHostingContextIdentifier> DummyModelPlayer::layerHostingContextIdentifier()
-{
-    return std::nullopt;
 }
 
 void DummyModelPlayer::sizeDidChange(LayoutSize)
@@ -128,23 +124,13 @@ void DummyModelPlayer::setIsMuted(bool, CompletionHandler<void(bool success)>&&)
 {
 }
 
-#if PLATFORM(COCOA)
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+
 ModelPlayerAccessibilityChildren DummyModelPlayer::accessibilityChildren()
 {
     return { };
 }
+
 #endif
 
-#if ENABLE(GPU_PROCESS_MODEL)
-const MachSendRight* DummyModelPlayer::displayBuffer() const
-{
-    return nullptr;
-}
-
-GraphicsLayerContentsDisplayDelegate* DummyModelPlayer::contentsDisplayDelegate()
-{
-    return nullptr;
-}
-#endif
-
-}
+} // namespace WebCore

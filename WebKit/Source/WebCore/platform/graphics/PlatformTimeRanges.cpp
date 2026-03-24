@@ -47,7 +47,7 @@ PlatformTimeRanges::PlatformTimeRanges(const MediaTime& start, const MediaTime& 
 }
 
 PlatformTimeRanges::PlatformTimeRanges(Vector<Range>&& ranges)
-    : m_ranges { WTFMove(ranges) }
+    : m_ranges { WTF::move(ranges) }
 {
 }
 
@@ -138,7 +138,7 @@ PlatformTimeRanges& PlatformTimeRanges::operator-=(const Range& range)
         ranges.append({ m_ranges[0].start, firstEnd });
     if (secondStart != m_ranges.last().end)
         ranges.append({ secondStart, m_ranges.last().end });
-    intersectWith(WTFMove(ranges));
+    intersectWith(WTF::move(ranges));
 
     return *this;
 }
@@ -269,6 +269,39 @@ bool PlatformTimeRanges::contain(const MediaTime& time) const
 bool PlatformTimeRanges::containWithEpsilon(const MediaTime& time, const MediaTime& epsilon) const
 {
     return findWithEpsilon(time, epsilon) != notFound;
+}
+
+bool PlatformTimeRanges::containWithEpsilon(const PlatformTimeRanges& ranges, const MediaTime& epsilon) const
+{
+    if (ranges.length() < 1)
+        return true;
+
+    if (!length() || ranges.length() != 1)
+        return false;
+
+    PlatformTimeRanges bufferedRanges = *this;
+    bufferedRanges.intersectWith(ranges);
+
+    if (!bufferedRanges.length())
+        return false;
+
+    auto hasBufferedTime = [&] (const MediaTime& time) {
+        return abs(bufferedRanges.nearest(time) - time) <= epsilon;
+    };
+
+    if (!hasBufferedTime(ranges.minimumBufferedTime()) || !hasBufferedTime(ranges.maximumBufferedTime()))
+        return false;
+
+    if (bufferedRanges.length() == 1)
+        return true;
+
+    // Ensure that if we have a gap in the buffered range, it is smaller than the fudge factor;
+    for (unsigned i = 1; i < bufferedRanges.length(); i++) {
+        if (bufferedRanges.end(i) - bufferedRanges.start(i-1) > epsilon)
+            return false;
+    }
+
+    return true;
 }
 
 size_t PlatformTimeRanges::find(const MediaTime& time) const

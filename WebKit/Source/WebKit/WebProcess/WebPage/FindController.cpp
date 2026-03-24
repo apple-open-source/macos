@@ -251,15 +251,15 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
     if (shouldSetSelection && (!wantsFindIndicator || !canShowFindIndicator || !updateFindIndicator(shouldShowOverlay)))
         hideFindIndicator();
 
-    completionHandler(idOfFrameContainingString, WTFMove(matchRects), matchCount, m_foundStringMatchIndex, didWrap == WebCore::DidWrap::Yes);
+    completionHandler(idOfFrameContainingString, WTF::move(matchRects), matchCount, m_foundStringMatchIndex, didWrap == WebCore::DidWrap::Yes);
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
 void FindController::findStringIncludingImages(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(std::optional<FrameIdentifier>, Vector<IntRect>&&, uint32_t, int32_t, bool)>&& completionHandler)
 {
-    protectedWebPage()->protectedCorePage()->analyzeImagesForFindInPage([weakPage = WeakPtr { m_webPage }, string, options, maxMatchCount, completionHandler = WTFMove(completionHandler)]() mutable {
+    protectedWebPage()->protectedCorePage()->analyzeImagesForFindInPage([weakPage = WeakPtr { m_webPage }, string, options, maxMatchCount, completionHandler = WTF::move(completionHandler)]() mutable {
         if (weakPage)
-            weakPage->findController().findString(string, options, maxMatchCount, WTFMove(completionHandler));
+            weakPage->findController().findString(string, options, maxMatchCount, WTF::move(completionHandler));
         else
             completionHandler({ }, { }, { }, { }, { });
     });
@@ -336,8 +336,8 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
         }
     }
 
-    webPage->protectedDrawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([webPage, found, string, options, maxMatchCount, didWrap, idOfFrameContainingString, completionHandler = WTFMove(completionHandler)]() mutable {
-        webPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount, didWrap, idOfFrameContainingString, WTFMove(completionHandler));
+    webPage->protectedDrawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([webPage, found, string, options, maxMatchCount, didWrap, idOfFrameContainingString, completionHandler = WTF::move(completionHandler)]() mutable {
+        webPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount, didWrap, idOfFrameContainingString, WTF::move(completionHandler));
     });
 }
 
@@ -345,7 +345,7 @@ void FindController::findStringMatches(const String& string, OptionSet<FindOptio
 {
     RefPtr webPage { m_webPage.get() };
     auto result = webPage->protectedCorePage()->findTextMatches(string, core(options), maxMatchCount);
-    m_findMatches = WTFMove(result.ranges);
+    m_findMatches = WTF::move(result.ranges);
 
     auto matchRects = m_findMatches.map([](auto& range) {
         return RenderObject::absoluteTextRects(range);
@@ -384,7 +384,7 @@ void FindController::getImageForFindMatch(uint32_t matchIndex)
     if (!handle || !selectionSnapshot->parameters())
         return;
 
-    m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(*selectionSnapshot->parameters(), WTFMove(*handle), matchIndex));
+    m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(*selectionSnapshot->parameters(), WTF::move(*handle), matchIndex));
 }
 
 void FindController::selectFindMatch(uint32_t matchIndex)
@@ -468,7 +468,7 @@ bool FindController::updateFindIndicator(bool isShowingOverlay, bool shouldAnima
 
     m_findIndicatorRect = enclosingIntRect(indicator->selectionRectInRootViewCoordinates());
 #if PLATFORM(COCOA)
-    m_webPage->send(Messages::WebPageProxy::SetTextIndicatorFromFrame(frame->frameID(), indicator->data(), isShowingOverlay ? WebCore::TextIndicatorLifetime::Permanent : WebCore::TextIndicatorLifetime::Temporary));
+    m_webPage->send(Messages::WebPageProxy::SetTextIndicatorFromFrame(frame->frameID(), WTF::move(indicator), isShowingOverlay ? WebCore::TextIndicatorLifetime::Permanent : WebCore::TextIndicatorLifetime::Temporary));
 #endif
     m_isShowingFindIndicator = true;
 

@@ -70,7 +70,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ClipboardItemBindingsDataSource);
 
 ClipboardItemBindingsDataSource::ClipboardItemBindingsDataSource(ClipboardItem& item, Vector<KeyValuePair<String, Ref<DOMPromise>>>&& itemPromises)
     : ClipboardItemDataSource(item)
-    , m_itemPromises(WTFMove(itemPromises))
+    , m_itemPromises(WTF::move(itemPromises))
 {
 }
 
@@ -95,7 +95,7 @@ void ClipboardItemBindingsDataSource::getType(const String& type, Ref<DeferredPr
     }
 
     Ref itemPromise = m_itemPromises[matchIndex].value;
-    itemPromise->whenSettled([itemPromise, promise = WTFMove(promise), type] () mutable {
+    itemPromise->whenSettled([itemPromise, promise = WTF::move(promise), type] () mutable {
         if (itemPromise->status() != DOMPromise::Status::Fulfilled) {
             promise->reject(ExceptionCode::AbortError);
             return;
@@ -138,7 +138,7 @@ void ClipboardItemBindingsDataSource::collectDataForWriting(Clipboard& destinati
 {
     clearItemTypeLoaders();
     ASSERT(!m_completionHandler);
-    m_completionHandler = WTFMove(completion);
+    m_completionHandler = WTF::move(completion);
     m_writingDestination = destination;
     m_numberOfPendingClipboardTypes = m_itemPromises.size();
     m_itemTypeLoaders = m_itemPromises.map([&](auto& typeAndItem) {
@@ -152,7 +152,7 @@ void ClipboardItemBindingsDataSource::collectDataForWriting(Clipboard& destinati
         auto promise = typeAndItem.value;
         /* hack: gcc 8.4 will segfault if the WeakPtr is instantiated within the lambda captures */
         auto wl = WeakPtr { itemTypeLoader };
-        promise->whenSettled([this, protectedItem = Ref { m_item.get() }, destination = m_writingDestination, promise, type, weakItemTypeLoader = WTFMove(wl)] () mutable {
+        promise->whenSettled([this, protectedItem = Ref { m_item.get() }, destination = m_writingDestination, promise, type, weakItemTypeLoader = WTF::move(wl)] () mutable {
             if (!weakItemTypeLoader)
                 return;
 
@@ -234,12 +234,12 @@ void ClipboardItemBindingsDataSource::invokeCompletionHandler()
     }
 
     customData.setOrigin(document->originIdentifierForPasteboard());
-    completionHandler(WTFMove(customData));
+    completionHandler(WTF::move(customData));
 }
 
 ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::ClipboardItemTypeLoader(Clipboard& writingDestination, const String& type, CompletionHandler<void()>&& completionHandler)
     : m_type(type)
-    , m_completionHandler(WTFMove(completionHandler))
+    , m_completionHandler(WTF::move(completionHandler))
     , m_writingDestination(writingDestination)
 {
 }
@@ -325,7 +325,7 @@ void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::sanitizeDataIfNee
             return;
 
         auto bitmapImage = BitmapImage::create();
-        bitmapImage->setData(WTFMove(bufferToSanitize), true);
+        bitmapImage->setData(WTF::move(bufferToSanitize), true);
         auto imageBuffer = ImageBuffer::create(bitmapImage->size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
         if (!imageBuffer) {
             m_data = { nullString() };
@@ -339,7 +339,7 @@ void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::sanitizeDataIfNee
 
 void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::invokeCompletionHandler()
 {
-    if (auto completion = WTFMove(m_completionHandler)) {
+    if (auto completion = WTF::move(m_completionHandler)) {
         sanitizeDataIfNeeded();
         completion();
     }
@@ -350,7 +350,7 @@ void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::didResolveToBlob(
     ASSERT(!m_blobLoader);
     Ref blobLoader = FileReaderLoader::create(readTypeForMIMEType(m_type), this);
     m_blobLoader = blobLoader.copyRef();
-    blobLoader->start(&context, WTFMove(blob));
+    blobLoader->start(&context, WTF::move(blob));
 }
 
 void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::didFailToResolve()

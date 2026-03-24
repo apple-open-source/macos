@@ -48,10 +48,10 @@ struct NotificationPayload {
     NotificationPayload isolatedCopy() &&
     {
         return NotificationPayload {
-            WTFMove(defaultActionURL).isolatedCopy(),
-            WTFMove(title).isolatedCopy(),
+            WTF::move(defaultActionURL).isolatedCopy(),
+            WTF::move(title).isolatedCopy(),
             appBadge,
-            crossThreadCopy(WTFMove(options)),
+            crossThreadCopy(WTF::move(options)),
             isMutable
         };
     }

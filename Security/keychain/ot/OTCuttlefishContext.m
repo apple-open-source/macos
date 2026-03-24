@@ -150,6 +150,9 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
 @end
 
+// Most of the mutable ivars and properties are reset and checked in clearContextState and checkAllStateCleared.
+// Consider adding new ones there.
+
 @interface OTCuttlefishContext () <OTCuttlefishAccountStateHolderNotifier>
 {
     NSString* _bottleID;
@@ -657,6 +660,29 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
 - (void)passcodeStashAvailable:(NSNumber*)aksEventContext
 {
+    cache_flow_enabled_context_t contextType = (cache_flow_enabled_context_t)[aksEventContext unsignedCharValue];
+
+    // on a passcode change, always reset the rate limit time stamp immediately
+    if (contextType == cache_flow_enabled_passcode_changed) {
+        NSError* localError = nil;
+        BOOL result = [self.accountMetadataStore clearLastEscrowRepairAttempt:&localError];
+        if (result == NO || localError) {
+            secerror("octagon: after passcode cahnge, failed to clear last escrow repair attempt: %@", localError);
+        }
+    }
+
+    // first, is the device rate limited?
+    NSError* rateLimitError = nil;
+    NSInteger daysLeft = [self.accountMetadataStore checkEscrowRepairRateLimitAndReturnTimeLeft:&rateLimitError];
+    if (rateLimitError) {
+        secerror("octagon: failed to check rate limit: %@", rateLimitError);
+        return;
+    }
+    if (daysLeft > 0) {
+        secerror("octagon: device is rate limited");
+        return;
+    }
+
     WEAKIFY(self);
 
     OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
@@ -671,7 +697,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         self->_contextType = AppleKeyStorePasscodeCacheReasonUnknown;
 
         bool shouldPostEvent = false;
-        cache_flow_enabled_context_t contextType = (cache_flow_enabled_context_t)[aksEventContext unsignedCharValue];
 
         if (status == CliqueStatusIn) {
 
@@ -686,7 +711,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                              bottleID:&bottleID
                                     escrowSigningSPKI:&escrowSigningSPKI
                                                 error:&localError];
-#if !TARGET_OS_SIMULATOR
+
             switch(contextType) {
                 case cache_flow_enabled_passcode_changed:
                 {
@@ -711,12 +736,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                     self->_escrowSigningSPKI = escrowSigningSPKI;
 
                     self->_contextType = AppleKeyStorePasscodeCacheReasonPasscodeChanged;
-                    // reset the rate limit time stamp
-                    NSError* localError = nil;
-                    BOOL result = [self.accountMetadataStore clearLastEscrowRepairAttempt:&localError];
-                    if (result == NO || localError) {
-                        secerror("failed to clear last escrow repair attempt: %@", localError);
-                    }
                     break;
                 }
                 case cache_flow_enabled_passcode_validated:
@@ -759,7 +778,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                     return;
                 }
             }
-#endif // !TARGET_OS_SIMULATOR
+
             [self.stateMachine handleFlag:OctagonFlagPasscodeStashAvailable];
 
             if (shouldPostEvent) {
@@ -1038,6 +1057,100 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                           reply:reply];
 }
 
+- (void)enableWalrus:(NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+               reply:(void (^)(NSError * _Nullable))reply {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon-enable-walrus", "No cloudkit account present: %@", accountError);
+        reply(accountError);
+        return;
+    }
+
+    OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
+    [self rpcTrustStatus:configuration reply:^(CliqueStatus status,
+                                               NSString* __unused peerID,
+                                               NSDictionary<NSString*,NSNumber*>* __unused peerCountByModelID,
+                                               BOOL __unused isExcluded,
+                                               BOOL __unused isLocked,
+                                               NSError* __unused error) {
+
+        if (status == CliqueStatusIn) {
+            NSString* localFlowID = self.sessionMetrics.flowID;
+            NSString* localDeviceSessionID = self.sessionMetrics.deviceSessionID;
+
+            TPWalrusExtraArguments* args = [[TPWalrusExtraArguments alloc] init];
+#if APPLE_FEATURE_DBR
+            args.isDBRv2 = isDBRv2;
+#endif
+            
+            [self.cuttlefishXPCWrapper enableWalrusWithSpecificUser:self.activeAccount
+                                                         preRecords:preRecords
+                                                          extraArgs:args
+                                                             flowID:localFlowID
+                                                    deviceSessionID:localDeviceSessionID
+                                                              reply:^(NSError * _Nullable walrusEnablementError) {
+                if (walrusEnablementError) {
+                    secerror("octagon-enable-walrus: failed with error: %@", walrusEnablementError);
+                } else {
+                    secnotice("octagon-enable-walrus", "walrus enablement succeeded!");
+                }
+                reply(walrusEnablementError);
+            }];
+        } else {
+            secnotice("octagon", "not in clique, discarding walrus enablement attempt");
+            NSError* error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInClique description:@"Device not in clique, quitting walrus enablement"];
+            reply(error);
+        }
+    }];
+}
+
+- (void)disableWalrus:(NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                reply:(void (^)(NSError * _Nullable))reply {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon-disable-walrus", "No cloudkit account present: %@", accountError);
+        reply(accountError);
+        return;
+    }
+
+    OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
+    [self rpcTrustStatus:configuration reply:^(CliqueStatus status,
+                                               NSString* __unused peerID,
+                                               NSDictionary<NSString*,NSNumber*>* __unused peerCountByModelID,
+                                               BOOL __unused isExcluded,
+                                               BOOL __unused isLocked,
+                                               NSError* __unused error) {
+
+        if (status == CliqueStatusIn) {
+            NSString* localFlowID = self.sessionMetrics.flowID;
+            NSString* localDeviceSessionID = self.sessionMetrics.deviceSessionID;
+
+            TPWalrusExtraArguments* args = [[TPWalrusExtraArguments alloc] init];
+#if APPLE_FEATURE_DBR
+            args.isDBRv2 = isDBRv2;
+#endif
+
+            [self.cuttlefishXPCWrapper disableWalrusWithSpecificUser:self.activeAccount
+                                                          preRecords:preRecords
+                                                           extraArgs:args
+                                                              flowID:localFlowID
+                                                     deviceSessionID:localDeviceSessionID
+                                                               reply:^(NSError * _Nullable walrusDisablementError) {
+                if (walrusDisablementError) {
+                    secerror("octagon-disable-walrus: failed with error: %@", walrusDisablementError);
+                } else {
+                    secnotice("octagon-disable-walrus", "walrus disablement succeeded!");
+                }
+                reply(walrusDisablementError);
+            }];
+        } else {
+            secnotice("octagon", "not in clique, discarding walrus disablement attempt");
+            NSError* error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInClique description:@"Device not in clique, quitting walrus disablement"];
+            reply(error);
+        }
+    }];
+}
+
 - (void)rpcLeaveClique:(nonnull void (^)(NSError * _Nullable))reply
 {
     if ([self.stateMachine isPaused]) {
@@ -1310,6 +1423,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     if ([currentState isEqualToString:OctagonStateHealthCheckReset]) {
         // A small violation of state machines...
         _resetReason = CuttlefishResetReasonHealthCheck;
+        _accountType = AccountTypeDuringRPDCDP;
         return [OctagonStateTransitionOperation named:@"begin-reset"
                                              entering:OctagonStateResetBecomeUntrusted];
     }
@@ -2080,6 +2194,9 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                           }
                                       }
 
+                                      // Update CKKS's active account as well.
+                                      self.ckks.operationDependencies.activeAccount = self.activeAccount;
+
                                       // Inform the account state tracker of our HSA2/Managed account
                                       [self.accountStateTracker setCDPCapableiCloudAccountStatus:CKKSAccountStatusAvailable];
 
@@ -2159,7 +2276,8 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
         // Bring CKKS down, too
         secnotice("octagon-ckks", "Informing %@ of new untrusted status (due to account disappearance)", self.ckks);
-        [self.ckks endTrustedOperation];
+        secnotice("octagon-ckks", "Sending CKKS into logged out");
+        [self.ckks endTrustedOperation:YES];
 
         op.error = localError;
     }];
@@ -2189,8 +2307,59 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
             op.nextState = OctagonStateNoAccount;
             return;
         }
-
-        op.nextState = intendedState;
+        
+        if (!metadata.peerSecretsAccessibilityFixUpPerformed) {
+            secnotice("octagon", "Trying to perform peer secrets accessibility fixup");
+            WEAKIFY(self);
+            [self.cuttlefishXPCWrapper performPeerSecretsFixUpsWithSpecificUser:self.activeAccount reply:^(NSError * _Nullable fixupError) {
+                STRONGIFY(self);
+                
+                if (fixupError) {
+                    secerror("octagon, Failed to perform peer secrets accessibility fixup: %@", fixupError);
+                    
+                    // Check if the error is due to keychain being locked (errSecInteractionNotAllowed)
+                    if ([fixupError.domain isEqualToString:TrustedPeersHelperErrorDomain]) {
+                        NSError* underlyingError = fixupError.userInfo[NSUnderlyingErrorKey];
+                        if (underlyingError && underlyingError.code == errSecInteractionNotAllowed) {
+                            secnotice("octagon", "Device is locked during fixup (errSecInteractionNotAllowed: %@), waiting for unlock", underlyingError);
+                            op.nextState = OctagonStateWaitForUnlock;
+                            return;
+                        }
+                    }
+                    
+                    // Also check using lockStateTracker for general locked errors
+                    if ([self.lockStateTracker isLockedError:fixupError]) {
+                        secnotice("octagon", "Device is locked during fixup, waiting for unlock");
+                        op.nextState = OctagonStateWaitForUnlock;
+                        return;
+                    }
+                    
+                    // For other errors, log but continue
+                    secnotice("octagon", "Continuing despite fixup error: %@", fixupError);
+                    op.nextState = intendedState;
+                } else {
+                    secnotice("octagon", "Successfully performed peer secrets accessibility fixup");
+                    
+                    // Mark the fixup as performed
+                    NSError* persistError = nil;
+                    [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                        metadata.peerSecretsAccessibilityFixUpPerformed = YES;
+                        return metadata;
+                    } error:&persistError];
+                    
+                    if (persistError == nil) {
+                        secnotice("octagon", "Successfully persisted peer secrets accessibility fixup state");
+                    } else {
+                        secerror("octagon, Failed to persist peer secrets accessibility fixup state: %@", persistError);
+                    }
+                    
+                    op.nextState = intendedState;
+                }
+            }];
+        } else {
+            op.nextState = intendedState;
+        }
+        
     }];
 }
 
@@ -2705,7 +2874,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                   }
 
                                   secnotice("octagon-ckks", "Informing %@ of new untrusted status", self.ckks);
-                                  [self.ckks endTrustedOperation];
+                                  [self.ckks endTrustedOperation:NO];
 
                                   // We are no longer in a CKKS4All world. Tell SOS!
                                   if(self.sosAdapter.sosEnabled) {
@@ -5518,24 +5687,25 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     _idmsTargetContext = nil;
     _idmsCuttlefishPassword = nil;
     _notifyIdMS = false;
-    self.accountSettings = nil;
     _skipRateLimitingCheck = NO;
     _repair = NO;
     _danglingPeersCleanup = NO;
     _updateIdMS = NO;
     _reportRateLimitingError = NO;
-    self.recoveryKey = nil;
-    self.inheritanceKey = nil;
-    self.custodianRecoveryKey = nil;
     _healthCheckResults = nil;
+    _accountIsW = NO;
+    _contextType = AppleKeyStorePasscodeCacheReasonUnknown;
     _escrowSigningSPKI = nil;
+
+    self.recoveryKey = nil;
+    self.custodianRecoveryKey = nil;
+    self.inheritanceKey = nil;
+    self.accountSettings = nil;
 }
 
 - (BOOL)checkAllStateCleared
 {
-    return self.inheritanceKey == nil &&
-        self.custodianRecoveryKey == nil &&
-        self.recoveryKey == nil &&
+    return
         _bottleID == nil &&
         _bottleSalt == nil &&
         _entropy == nil &&
@@ -5543,13 +5713,20 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         _idmsTargetContext == nil &&
         _idmsCuttlefishPassword == nil &&
         _notifyIdMS == false &&
-        self.accountSettings == nil &&
         _skipRateLimitingCheck == NO &&
         _repair == NO &&
         _danglingPeersCleanup == NO &&
         _updateIdMS == NO &&
         _reportRateLimitingError == NO &&
-        _healthCheckResults == nil;
+        _healthCheckResults == nil &&
+        _accountIsW == NO &&
+        _contextType == AppleKeyStorePasscodeCacheReasonUnknown &&
+        _escrowSigningSPKI == nil &&
+
+        self.recoveryKey == nil &&
+        self.custodianRecoveryKey == nil &&
+        self.inheritanceKey == nil &&
+        self.accountSettings == nil;
 }
 
 - (BOOL)fetchSendingMetricsPermitted:(NSError**)error

@@ -25,6 +25,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #import <wtf/SoftLinking.h>
@@ -144,3 +149,5 @@ static NSString *const NSExcludedElementsDocumentAttribute = @"ExcludedElements"
 @end
 
 #endif // PLATFORM(IOS_FAMILY)
+
+#endif // __cplusplus

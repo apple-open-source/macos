@@ -380,40 +380,16 @@ void VMTraps::willDestroyVM()
 
 CONCURRENT_SAFE void VMTraps::cancelThreadStopIfNeeded()
 {
-    Locker locker { *m_trapSignalingLock };
-
-    // We need to confirm that there are no pending async events before cancelling the
-    // thread stop request. This is because:
-    // 1. The AsyncEvent being cleared may not be the only one needing threads to stop, or
-    // 2. A new AsyncEvent may have been set by another thread before we get here, and we
-    //    we need to keep the thread stop request.
-    if (needHandling(AsyncEvents)) {
-        RELEASE_ASSERT(m_threadStopRequested);
-        return;
-    }
-    if (!m_threadStopRequested)
-        return; // Cancel was already processed due to another thread. Nothing more to do.
+    ASSERT(m_threadStopRequested);
 
     m_stack.cancelStop();
-
     m_threadStopRequested = false;
 }
 
-CONCURRENT_SAFE void VMTraps::requestThreadStopIfNeeded(VMTraps::Event event)
+CONCURRENT_SAFE void VMTraps::requestThreadStopIfNeeded(Locker<Lock>& locker)
 {
-    Locker locker { *m_trapSignalingLock };
+    ASSERT(!m_threadStopRequested);
     ASSERT(!m_isShuttingDown);
-
-    // We got here because an AsyncEvent was set. Because this is an asynchronous event,
-    // it may have already been cleared by another thread before we get here. So, we
-    // need to confirm that an async event is still pending before requesting a thread stop.
-    if (!needHandling(AsyncEvents)) {
-        RELEASE_ASSERT(!m_threadStopRequested);
-        return;
-    }
-
-    if (m_threadStopRequested)
-        return; // Stop requested was already processed due to another AsyncEvent source. Nothing more to do.
 
     VM& vm = this->vm();
     m_stack.requestStop();
@@ -429,12 +405,29 @@ CONCURRENT_SAFE void VMTraps::requestThreadStopIfNeeded(VMTraps::Event event)
             m_signalSender = adoptRef(new SignalSender(locker, vm));
         m_signalSender->notify(locker);
     }
+#else
+    UNUSED_PARAM(locker);
 #endif
 
-    if (event == NeedTermination)
+    if (hasTrapBit(NeedTermination))
         vm.syncWaiter()->condition().notifyOne();
 
     m_threadStopRequested = true;
+}
+
+CONCURRENT_SAFE void VMTraps::updateThreadStopRequestIfNeeded()
+{
+    Locker locker { *m_trapSignalingLock };
+
+    bool shouldStop = needHandling(AsyncEvents);
+
+    if (shouldStop == m_threadStopRequested)
+        return; // State already matches, nothing to do.
+
+    if (shouldStop)
+        requestThreadStopIfNeeded(locker);
+    else
+        cancelThreadStopIfNeeded();
 }
 
 bool VMTraps::handleTraps(VMTraps::BitField mask)
@@ -475,7 +468,7 @@ bool VMTraps::handleTraps(VMTraps::BitField mask)
     };
 
     auto cancelThreadStop = makeScopeExit([&] {
-        cancelThreadStopIfNeeded();
+        updateThreadStopRequestIfNeeded();
     });
 
     bool didHandleTrap = false;

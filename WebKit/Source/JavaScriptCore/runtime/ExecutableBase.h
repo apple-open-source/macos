@@ -44,7 +44,7 @@ class LLIntOffsetsExtractor;
 class ModuleProgramCodeBlock;
 class ProgramCodeBlock;
 
-enum CompilationKind { FirstCompilation, OptimizingCompilation };
+enum class CompilationKind { FirstCompilation, OptimizingCompilation };
 
 inline bool isCall(CodeSpecializationKind kind)
 {

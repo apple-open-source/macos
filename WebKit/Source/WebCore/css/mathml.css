@@ -60,6 +60,7 @@ math {
     display: inline;
     math-shift: normal;
     math-style: compact;
+    math-depth: 0;
 
     /*
     We use the exact bounding boxes of glyphs to avoid excessive gaps in mathematical formulas.
@@ -183,6 +184,7 @@ mfrac {
 }
 
 mfrac > * {
+    math-depth: auto-add;
     math-style: compact;
 }
 
@@ -191,8 +193,8 @@ mfrac > :nth-child(2) {
 }
 
 /* Other rules for scriptlevel, displaystyle and math-shift */
-mroot > *:last-child {
-    font-size: 0.5041em; /* This 0.71^2 since the scriptlevel is incremented by 2 in the index. */
+mroot > :not(:first-child) {
+    math-depth: add(2);
     math-style: compact;
 }
 
@@ -200,8 +202,14 @@ mroot, msqrt {
     math-shift: compact;
 }
 
-msub > * + *, msup > * + *, msubsup > * + *, mmultiscripts > * + *, munder > * + *, mover > * + *, munderover > * + * {
-    font-size: 0.71em;
+msub > :not(:first-child),
+msup > :not(:first-child),
+msubsup > :not(:first-child),
+mmultiscripts > :not(:first-child),
+munder > :not(:first-child),
+mover > :not(:first-child),
+munderover > :not(:first-child) {
+    math-depth: add(1);
     math-style: compact;
 }
 

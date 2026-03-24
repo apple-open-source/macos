@@ -91,9 +91,14 @@ _dispatch_source_dispose(dispatch_source_t ds, bool *allow_free)
 	_dispatch_source_handler_free(ds->ds_refs, DS_REGISTN_HANDLER);
 	_dispatch_source_handler_free(ds->ds_refs, DS_EVENT_HANDLER);
 	_dispatch_source_handler_free(ds->ds_refs, DS_CANCEL_HANDLER);
-	_dispatch_unote_dispose(ds->ds_refs, false);
-	ds->ds_refs = NULL;
 	_dispatch_lane_class_dispose(ds, allow_free);
+}
+
+void
+_dispatch_source_dealloc(dispatch_object_t dou)
+{
+	_dispatch_unote_dealloc(dou._ds->ds_refs);
+	_dispatch_object_dealloc(dou);
 }
 
 void

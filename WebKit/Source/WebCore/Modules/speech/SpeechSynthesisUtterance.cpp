@@ -38,7 +38,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SpeechSynthesisUtterance);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeechSynthesisUtterance);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeechSynthesisUtteranceActivity);
 
 void SpeechSynthesisUtterance::ref() const
@@ -60,23 +60,20 @@ Ref<SpeechSynthesisUtterance> SpeechSynthesisUtterance::create(ScriptExecutionCo
 
 Ref<SpeechSynthesisUtterance> SpeechSynthesisUtterance::create(ScriptExecutionContext& context, const String& text, SpeechSynthesisUtterance::UtteranceCompletionHandler&& completion)
 {
-    auto utterance = adoptRef(*new SpeechSynthesisUtterance(context, text, WTFMove(completion)));
+    auto utterance = adoptRef(*new SpeechSynthesisUtterance(context, text, WTF::move(completion)));
     utterance->suspendIfNeeded();
     return utterance;
 }
 
 SpeechSynthesisUtterance::SpeechSynthesisUtterance(ScriptExecutionContext& context, const String& text, UtteranceCompletionHandler&& completion)
     : ActiveDOMObject(&context)
-    , m_platformUtterance(PlatformSpeechSynthesisUtterance::create(*this))
-    , m_completionHandler(WTFMove(completion))
+    , m_platformUtterance(PlatformSpeechSynthesisUtterance::create(this))
+    , m_completionHandler(WTF::move(completion))
 {
     m_platformUtterance->setText(text);
 }
 
-SpeechSynthesisUtterance::~SpeechSynthesisUtterance()
-{
-    m_platformUtterance->setClient(nullptr);
-}
+SpeechSynthesisUtterance::~SpeechSynthesisUtterance() = default;
 
 SpeechSynthesisVoice* SpeechSynthesisUtterance::voice() const
 {

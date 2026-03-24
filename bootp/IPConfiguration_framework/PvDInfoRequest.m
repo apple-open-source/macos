@@ -306,12 +306,14 @@ PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict,
 	 * with deallocation. The deallocation code clears the wrapper via
 	 * dispatch_sync on this queue, so accessing the request here is safe.
 	 */
+	ObjectWrapperRetain(wrapper);
 	dispatch_async(queue, ^{
 		PvDInfoRequestRef request = NULL;
 
 		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
 		if (request == NULL) {
 			IPConfigLog(LOG_NOTICE, "%s: request no longer valid", __func__);
+			ObjectWrapperRelease(wrapper);
 			return;
 		}
 		/* Store additional info if present */
@@ -321,6 +323,7 @@ PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict,
 		}
 		/* Process completion synchronously (already on request's queue) */
 		PvDInfoRequestCompletedCallbackSync(request, valid_fetch);
+		ObjectWrapperRelease(wrapper);
 	});
 
 	return;

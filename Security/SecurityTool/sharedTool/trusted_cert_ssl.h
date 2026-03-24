@@ -36,6 +36,7 @@ extern "C" {
 
 void printErrorDetails(SecTrustRef trust);
 void printExtendedResults(SecTrustRef trust);
+void printTrustResultAsJSON(SecTrustRef trust);
 
 int evaluate_ssl(const char *urlstr, int verbose, SecTrustRef * CF_RETURNS_RETAINED trustRef);
 

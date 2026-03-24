@@ -140,7 +140,7 @@ static CFMutableDataRef CreateDataForEncodeEncryptedBlobOf(ccec_pub_ctx_t public
     CFMutableDataRef result = NULL;
     CFMutableDataRef allocated = CFDataCreateMutableWithScratch(kCFAllocatorDefault, sizeof_server_blob(public_key_size, ciphertext_size, verifier_size));
 
-    require_action_quiet(allocated, fail, SecError(errSecAllocate, error, CFSTR("failed to create data")));
+    __Require_Action_Quiet(allocated, fail, SecError(errSecAllocate, error, CFSTR("failed to create data")));
 
     uint8_t *der = CFDataGetMutableBytePtr(allocated);
     uint8_t *der_end = der + CFDataGetLength(allocated);
@@ -150,7 +150,7 @@ static CFMutableDataRef CreateDataForEncodeEncryptedBlobOf(ccec_pub_ctx_t public
                                        verifier_size, verifier,
                                        der, der_end);
 
-    require_action_quiet(der, fail, SecError(errSecParam, error, CFSTR("Encoding failed")));
+    __Require_Action_Quiet(der, fail, SecError(errSecParam, error, CFSTR("Encoding failed")));
 
     CFRetainAssign(result, allocated);
 
@@ -173,7 +173,7 @@ static bool ParseAndFindEncryptedData(CFDataRef blob,
                              verifier_size, verifier,
                              error, der, der_end);
 
-    require_action_quiet(der == der_end, fail, SecError(errSecParam, error, CFSTR("Blob failed to decode")));
+    __Require_Action_Quiet(der == der_end, fail, SecError(errSecParam, error, CFSTR("Blob failed to decode")));
 
     success = true;
 fail:
@@ -201,7 +201,7 @@ CFDataRef SecCopyEncryptedToServerKey(SecKeyRef publicKey, CFDataRef dataToEncry
         size_t encrypted_size = ccecies_encrypt_gcm_ciphertext_size(public_key, &ecies_encrypt, plain_size);
 
         CFMutableDataRef encryption_temp = CFDataCreateMutableWithScratch(kCFAllocatorDefault, encrypted_size);
-        require_action_quiet(encryption_temp, errout, SecError(errSecAllocate, error, CFSTR("failed to create data")));
+        __Require_Action_Quiet(encryption_temp, errout, SecError(errSecAllocate, error, CFSTR("failed to create data")));
 
         uint8_t *encryption_buffer = (uint8_t *) CFDataGetMutableBytePtr(encryption_temp);
 
@@ -220,14 +220,14 @@ CFDataRef SecCopyEncryptedToServerKey(SecKeyRef publicKey, CFDataRef dataToEncry
         size_t tag_size = kBlobMacSize;
         uint8_t *tag = NULL;
 
-        require_action_quiet(public_key_size + ciphertext_size + tag_size == encrypted_size, errout, SecError(errSecInternal, error, CFSTR("Allocation mismatch")));
+        __Require_Action_Quiet(public_key_size + ciphertext_size + tag_size == encrypted_size, errout, SecError(errSecInternal, error, CFSTR("Allocation mismatch")));
 
         encrypted = CreateDataForEncodeEncryptedBlobOf(public_key,
                                                        public_key_size, &public_key_data,
                                                        ciphertext_size, &ciphertext,
                                                        tag_size, &tag,
                                                        error);
-        require_quiet(encrypted, errout);
+        __Require_Quiet(encrypted, errout);
 
         //
         // Core crypto SPI a work in progress, until then we copy.
@@ -237,7 +237,7 @@ CFDataRef SecCopyEncryptedToServerKey(SecKeyRef publicKey, CFDataRef dataToEncry
         memcpy(ciphertext, encryption_buffer + public_key_size, ciphertext_size);
         memcpy(tag, encryption_buffer + public_key_size + ciphertext_size, tag_size);
 
-        require_action_quiet(encrypt_result == 0, errout, SecError(errSecBadReq, error, CFSTR("ccecies_encrypt_gcm failed %d"), encrypt_result));
+        __Require_Action_Quiet(encrypt_result == 0, errout, SecError(errSecBadReq, error, CFSTR("ccecies_encrypt_gcm failed %d"), encrypt_result));
 
         CFRetainAssign(result, encrypted);
     errout:
@@ -270,19 +270,19 @@ CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef blob, CFE
         size_t verifier_size;
         const uint8_t *verifier = NULL;
 
-        require_quiet(ParseAndFindEncryptedData(blob,
+        __Require_Quiet(ParseAndFindEncryptedData(blob,
                                                 &public_key_size, &public_key_start,
                                                 &ciphertext_size, &ciphertext,
                                                 &verifier_size, &verifier,
                                                 error), errout);
 
-        require_quiet(public_key_start, errout); // Silence analyzer, shouldn't ever happen.
-        require_quiet(ciphertext, errout); // Silence analyzer, shouldn't ever happen.
-        require_quiet(verifier, errout); // Silence analyzer, shouldn't ever happen.
+        __Require_Quiet(public_key_start, errout); // Silence analyzer, shouldn't ever happen.
+        __Require_Quiet(ciphertext, errout); // Silence analyzer, shouldn't ever happen.
+        __Require_Quiet(verifier, errout); // Silence analyzer, shouldn't ever happen.
 
         encrypted_size = public_key_size + ciphertext_size + verifier_size;
         crypto_buffer = CFDataCreateMutableWithScratch(kCFAllocatorDefault, encrypted_size);
-        require_action_quiet(crypto_buffer, errout, SecError(errSecAllocate, error, CFSTR("failed to create data")));
+        __Require_Action_Quiet(crypto_buffer, errout, SecError(errSecAllocate, error, CFSTR("failed to create data")));
 
         uint8_t *crypto_buffer_ptr = CFDataGetMutableBytePtr(crypto_buffer);
         memcpy(crypto_buffer_ptr, public_key_start, public_key_size);
@@ -300,7 +300,7 @@ CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef blob, CFE
                                                  0, NULL,
                                                  &plain_size, CFDataGetMutableBytePtr(plain));
 
-        require_action_quiet(decrypt_result == 0, errout, SecError(errSecBadReq, error, CFSTR("ccecies_decrypt_gcm failed %d"), decrypt_result));
+        __Require_Action_Quiet(decrypt_result == 0, errout, SecError(errSecBadReq, error, CFSTR("ccecies_decrypt_gcm failed %d"), decrypt_result));
 
         CFRetainAssign(result, plain);
         
@@ -321,7 +321,7 @@ CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef data
     CFDataRef result = NULL;
     SecKeyRef trustKey = SecTrustCopyKey(trustedEvaluation);
 
-    require_action_quiet(trustKey, fail,
+    __Require_Action_Quiet(trustKey, fail,
                          SecError(errSecInteractionNotAllowed, error, CFSTR("Failed to get key out of trust ref, was it evaluated?")));
 
 

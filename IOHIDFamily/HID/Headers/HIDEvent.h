@@ -314,6 +314,14 @@ typedef NS_ENUM(NSInteger, HIDEventSerializationType) {
  */
 @property (readonly) bool needsUngroupForLegacy;
 
+/*!
+ * @property isUserInput
+ *
+ * @abstract
+ * Convenience property to determine if the event is considered user input or not
+ */
+@property (readonly) bool isUserInput;
+
 @end
 
 NS_ASSUME_NONNULL_END

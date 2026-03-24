@@ -29,6 +29,7 @@
 #include "AutomationBackendDispatchers.h"
 #include "AutomationFrontendDispatchers.h"
 #include "Connection.h"
+#include "FrameTreeNodeData.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "SimulatedInputDispatcher.h"
@@ -111,6 +112,8 @@ public:
 
 using AutomationCompletionHandler = WTF::CompletionHandler<void(std::optional<AutomationCommandError>)>;
 
+using PageAndFrameHandle = std::pair<Inspector::Protocol::Automation::BrowsingContextHandle, Inspector::Protocol::Automation::FrameHandle>;
+
 class WebAutomationSession final : public API::ObjectImpl<API::Object::Type::AutomationSession>
     , public IPC::MessageReceiver
     , public Inspector::AutomationBackendDispatcherHandler
@@ -173,6 +176,12 @@ public:
     void navigationFailedForFrame(const WebFrameProxy&, std::optional<WebCore::NavigationIdentifier>);
     void navigationAbortedForFrame(const WebFrameProxy&, std::optional<WebCore::NavigationIdentifier>);
     void fragmentNavigatedForFrame(const WebFrameProxy&, std::optional<WebCore::NavigationIdentifier>);
+    void emitContextCreatedEvent(const WebPageProxy&);
+    void didCreateFrame(const WebFrameProxy&);
+    void willDestroyFrame(const WebFrameProxy&);
+    void contextCreatedForFrame(const WebFrameProxy&);
+    void contextDestroyedForPage(const WebPageProxy&);
+    void contextDestroyedForFrame(const WebFrameProxy&);
 #endif
     void willClosePage(const WebPageProxy&);
     void handleRunOpenPanel(const WebPageProxy&, const WebFrameProxy&, const API::OpenPanelParameters&, WebOpenPanelResultListenerProxy&);
@@ -301,15 +310,17 @@ public:
     void didDestroyFrame(WebCore::FrameIdentifier);
 
     RefPtr<WebPageProxy> webPageProxyForHandle(const String&);
+    String effectiveHandleForWebFrameProxy(const WebFrameProxy&);
     String handleForWebFrameID(std::optional<WebCore::FrameIdentifier>);
     String handleForWebPageProxy(const WebPageProxy&);
+
+    Expected<PageAndFrameHandle, AutomationCommandError> extractBrowsingContextHandles(const String&);
 
 private:
     Ref<Inspector::Protocol::Automation::BrowsingContext> buildBrowsingContextForPage(WebPageProxy&, WebCore::FloatRect windowFrame);
     void getNextContext(Vector<Ref<WebPageProxy>>&&, Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>>, Inspector::CommandCallback<Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>>>&&);
 
     std::optional<WebCore::FrameIdentifier> webFrameIDForHandle(const String&, bool& frameNotFound);
-    String handleForWebFrameProxy(const WebFrameProxy&);
 
     void waitForNavigationToCompleteOnPage(WebPageProxy&, Inspector::Protocol::Automation::PageLoadStrategy, Seconds, Inspector::CommandCallback<void>&&);
     void waitForNavigationToCompleteOnFrame(WebFrameProxy&, Inspector::Protocol::Automation::PageLoadStrategy, Seconds, Inspector::CommandCallback<void>&&);
@@ -321,6 +332,11 @@ private:
     void restoreWindowForPage(WebPageProxy&, WTF::CompletionHandler<void()>&&);
     void maximizeWindowForPage(WebPageProxy&, WTF::CompletionHandler<void()>&&);
     void hideWindowForPage(WebPageProxy&, WTF::CompletionHandler<void()>&&);
+
+#if ENABLE(WEBDRIVER_BIDI)
+    void recursivelyEmitContextCreatedEvent(const FrameTreeNodeData&, std::optional<String>&& parentContext);
+    WebPageProxy* getOpenerPage(const WebPageProxy&);
+#endif
 
     // IPC::MessageReceiver (Implemented by generated code in WebAutomationSessionMessageReceiver.cpp).
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;

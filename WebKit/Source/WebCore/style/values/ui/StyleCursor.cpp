@@ -65,7 +65,7 @@ auto CSSValueConversion<Cursor>::operator()(BuilderState& state, const CSSValue&
         return CursorImage { styleImage.releaseNonNull(), hotSpot };
     });
 
-    return { WTFMove(images), fromCSSValue<CursorType>(list->item(list->size() - 1)) };
+    return { WTF::move(images), fromCSSValue<CursorType>(list->item(list->size() - 1)) };
 }
 
 Ref<CSSValue> CSSValueCreation<CursorImage>::operator()(CSSValuePool&, const RenderStyle& style, const CursorImage& value)

@@ -39,7 +39,7 @@ ScrollbarTheme& ScrollbarTheme::nativeTheme()
     return theme;
 }
 
-int ScrollbarThemePlayStation::scrollbarThickness(ScrollbarWidth scrollbarWidth, ScrollbarExpansionState, OverlayScrollbarSizeRelevancy)
+int ScrollbarThemePlayStation::scrollbarThickness(ScrollbarWidth scrollbarWidth, OverlayScrollbarSizeRelevancy)
 {
     if (scrollbarWidth == ScrollbarWidth::None)
         return 0;

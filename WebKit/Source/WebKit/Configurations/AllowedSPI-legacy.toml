@@ -52,7 +52,6 @@ selectors = [
     { name = "rectValue", class = "?" },
     { name = "rtfData", class = "?" },
     { name = "sendResponse:", class = "?" },
-    { name = "setAllowsGroupBlending:", class = "?" },
     { name = "setDefaultActionBundleIdentifier:", class = "?" },
     { name = "setHasHighLatencyDataProvider:", class = "?" },
     { name = "setRecipe:", class = "?" },
@@ -1034,6 +1033,14 @@ requires = [
     # The code checks for NW_SETTINGS_HAS_UNIFIED_HTTP, which comes from an
     # internal SDK header.
     "USE_APPLE_INTERNAL_SDK"
+]
+
+[[legacy]]
+symbols = [
+    "nw_settings_get_unified_http_enabled_webkit",
+]
+requires = [
+    "HAVE_NWSETTINGS_UNIFIED_HTTP_WEBKIT"
 ]
 
 # The public iOS build uses CGGeometry methods instead of internal only

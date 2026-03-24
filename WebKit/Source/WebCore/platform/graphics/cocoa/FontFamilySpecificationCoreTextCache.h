@@ -53,6 +53,7 @@ struct FontFamilySpecificationKey {
     }
 
     bool isHashTableDeletedValue() const { return fontDescriptionKey.isHashTableDeletedValue(); }
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 };
 
 inline void add(Hasher& hasher, const FontFamilySpecificationKey& key)
@@ -60,12 +61,6 @@ inline void add(Hasher& hasher, const FontFamilySpecificationKey& key)
     // FIXME: Ideally, we wouldn't be hashing a hash.
     add(hasher, safeCFHash(key.fontDescriptor.get()), key.fontDescriptionKey);
 }
-
-struct FontFamilySpecificationKeyHash {
-    static unsigned hash(const FontFamilySpecificationKey& key) { return computeHash(key); }
-    static bool equal(const FontFamilySpecificationKey& a, const FontFamilySpecificationKey& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
 
 class FontFamilySpecificationCoreTextCache {
     WTF_MAKE_TZONE_ALLOCATED(FontFamilySpecificationCoreTextCache);
@@ -79,7 +74,7 @@ public:
     void clear();
 
 private:
-    HashMap<FontFamilySpecificationKey, std::unique_ptr<FontPlatformData>, FontFamilySpecificationKeyHash, SimpleClassHashTraits<FontFamilySpecificationKey>> m_fonts;
+    HashMap<FontFamilySpecificationKey, std::unique_ptr<FontPlatformData>, DefaultHash<FontFamilySpecificationKey>, SimpleClassHashTraits<FontFamilySpecificationKey>> m_fonts;
 };
 
 template<typename Functor> FontPlatformData& FontFamilySpecificationCoreTextCache::ensure(FontFamilySpecificationKey&& key, Functor&& functor)

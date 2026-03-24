@@ -70,7 +70,7 @@ static Module::ValidationResult makeValidationResult(IPIntPlan& plan)
 
 static Plan::CompletionTask makeValidationCallback(Module::AsyncValidationCallback&& callback)
 {
-    return createSharedTask<Plan::CallbackType>([callback = WTFMove(callback)] (Plan& plan) {
+    return createSharedTask<Plan::CallbackType>([callback = WTF::move(callback)] (Plan& plan) {
         ASSERT(!plan.hasWork());
         callback->run(makeValidationResult(static_cast<IPIntPlan&>(plan)));
     });
@@ -78,7 +78,7 @@ static Plan::CompletionTask makeValidationCallback(Module::AsyncValidationCallba
 
 Module::ValidationResult Module::validateSync(VM& vm, Vector<uint8_t>&& source)
 {
-    Ref<IPIntPlan> plan = adoptRef(*new IPIntPlan(vm, WTFMove(source), CompilerMode::Validation, Plan::dontFinalize()));
+    Ref<IPIntPlan> plan = adoptRef(*new IPIntPlan(vm, WTF::move(source), CompilerMode::Validation, Plan::dontFinalize()));
     Wasm::ensureWorklist().enqueue(plan.get());
     plan->waitForCompletion();
     return makeValidationResult(plan.get());
@@ -86,8 +86,8 @@ Module::ValidationResult Module::validateSync(VM& vm, Vector<uint8_t>&& source)
 
 void Module::validateAsync(VM& vm, Vector<uint8_t>&& source, Module::AsyncValidationCallback&& callback)
 {
-    Ref<Plan> plan = adoptRef(*new IPIntPlan(vm, WTFMove(source), CompilerMode::Validation, makeValidationCallback(WTFMove(callback))));
-    Wasm::ensureWorklist().enqueue(WTFMove(plan));
+    Ref<Plan> plan = adoptRef(*new IPIntPlan(vm, WTF::move(source), CompilerMode::Validation, makeValidationCallback(WTF::move(callback))));
+    Wasm::ensureWorklist().enqueue(WTF::move(plan));
 }
 
 Ref<CalleeGroup> Module::getOrCreateCalleeGroup(VM& vm, MemoryMode mode)
@@ -121,7 +121,7 @@ Ref<CalleeGroup> Module::compileSync(VM& vm, MemoryMode mode)
 void Module::compileAsync(VM& vm, MemoryMode mode, CalleeGroup::AsyncCompilationCallback&& task)
 {
     Ref<CalleeGroup> calleeGroup = getOrCreateCalleeGroup(vm, mode);
-    calleeGroup->compileAsync(vm, WTFMove(task));
+    calleeGroup->compileAsync(vm, WTF::move(task));
 }
 
 void Module::copyInitialCalleeGroupToAllMemoryModes(MemoryMode initialMode)
@@ -148,7 +148,7 @@ Ref<Wasm::InstanceAnchor> Module::registerAnchor(JSWebAssemblyInstance* instance
     return anchor;
 }
 
-std::unique_ptr<MergedProfile> Module::createMergedProfile(IPIntCallee& callee)
+std::unique_ptr<MergedProfile> Module::createMergedProfile(const IPIntCallee& callee)
 {
     auto result = makeUnique<MergedProfile>(callee);
     for (Ref anchor : m_anchors) {
@@ -160,11 +160,7 @@ std::unique_ptr<MergedProfile> Module::createMergedProfile(IPIntCallee& callee)
         }
         if (!data)
             continue;
-
-        auto span = result->mutableSpan();
-        RELEASE_ASSERT(data->size() == result->mutableSpan().size());
-        for (unsigned i = 0; i < data->size(); ++i)
-            span[i].merge(data->at(i));
+        result->merge(*this, callee, *data);
     }
     return result;
 }

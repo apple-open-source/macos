@@ -97,7 +97,7 @@ Ref<WebKit::WebInspectorUIProxy> protectedInspector(_WKInspector *inspector)
 
 - (id <_WKInspectorDelegate>)delegate
 {
-    return _delegate.get().unsafeGet();
+    return _delegate.getAutoreleased();
 }
 
 - (void)setDelegate:(id<_WKInspectorDelegate>)delegate
@@ -200,18 +200,18 @@ Ref<WebKit::WebInspectorUIProxy> protectedInspector(_WKInspector *inspector)
 - (void)printErrorToConsole:(NSString *)error
 {
     // FIXME: This should use a new message source rdar://problem/34658378
-    [self.webView evaluateJavaScript:adoptNS([[NSString alloc] initWithFormat:@"console.error(\"%@\");", error]).get() completionHandler:nil];
+    [retainPtr(self.webView) evaluateJavaScript:adoptNS([[NSString alloc] initWithFormat:@"console.error(\"%@\");", error]).get() completionHandler:nil];
 }
 
 // MARK: _WKInspectorPrivate methods
 
 - (void)_setDiagnosticLoggingDelegate:(id<_WKDiagnosticLoggingDelegate>)delegate
 {
-    auto inspectorWebView = self.inspectorWebView;
+    RetainPtr<WKWebView> inspectorWebView = self.inspectorWebView;
     if (!inspectorWebView)
         return;
 
-    inspectorWebView._diagnosticLoggingDelegate = delegate;
+    inspectorWebView.get()._diagnosticLoggingDelegate = delegate;
     protectedInspector(self)->setDiagnosticLoggingAvailable(!!delegate);
 }
 

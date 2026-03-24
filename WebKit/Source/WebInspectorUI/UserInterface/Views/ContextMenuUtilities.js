@@ -190,13 +190,13 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
 
             contextMenu.appendSeparator();
 
-            contextMenu.appendItem(WI.UIString("Copy HTTP Request"), () => {
-                InspectorFrontendHost.copyText(sourceCode.stringifyHTTPRequest());
+            contextMenu.appendItem(WI.UIString("Copy HTTP Request Headers"), () => {
+                InspectorFrontendHost.copyText(sourceCode.stringifyHTTPRequestHeaders());
             });
 
             if (sourceCode.hasResponse()) {
-                contextMenu.appendItem(WI.UIString("Copy HTTP Response"), () => {
-                    InspectorFrontendHost.copyText(sourceCode.stringifyHTTPResponse());
+                contextMenu.appendItem(WI.UIString("Copy HTTP Response Headers"), () => {
+                    InspectorFrontendHost.copyText(sourceCode.stringifyHTTPResponseHeaders());
                 });
             }
         }

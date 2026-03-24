@@ -42,7 +42,7 @@
         return nil;
 
     _view = view;
-    _control = WTFMove(control);
+    _control = WTF::move(control);
     return self;
 }
 

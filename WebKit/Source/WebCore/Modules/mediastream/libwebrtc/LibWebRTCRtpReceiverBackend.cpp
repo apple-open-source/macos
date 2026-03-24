@@ -28,7 +28,6 @@
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
 #include "Document.h"
-#include "DocumentPage.h"
 #include "LibWebRTCAudioModule.h"
 #include "LibWebRTCDtlsTransportBackend.h"
 #include "LibWebRTCProvider.h"
@@ -46,7 +45,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCRtpReceiverBackend);
 
 LibWebRTCRtpReceiverBackend::LibWebRTCRtpReceiverBackend(Ref<webrtc::RtpReceiverInterface>&& rtcReceiver)
-    : m_rtcReceiver(WTFMove(rtcReceiver))
+    : m_rtcReceiver(WTF::move(rtcReceiver))
 {
 }
 
@@ -110,16 +109,16 @@ Ref<RealtimeMediaSource> LibWebRTCRtpReceiverBackend::createSource(Document& doc
         break;
     case webrtc::MediaType::AUDIO: {
         webrtc::scoped_refptr<webrtc::AudioTrackInterface> audioTrack { static_cast<webrtc::AudioTrackInterface*>(rtcTrack.get()) };
-        Ref source = RealtimeIncomingAudioSource::create(toRef(WTFMove(audioTrack)), fromStdString(rtcTrack->id()));
+        Ref source = RealtimeIncomingAudioSource::create(toRef(WTF::move(audioTrack)), fromStdString(rtcTrack->id()));
         if (document.page()) {
-            auto& webRTCProvider = reinterpret_cast<LibWebRTCProvider&>(document.page()->webRTCProvider());
+            auto& webRTCProvider = downcast<LibWebRTCProvider>(document.page()->webRTCProvider());
             source->setAudioModule(webRTCProvider.audioModule());
         }
         return source;
     }
     case webrtc::MediaType::VIDEO: {
         webrtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack { static_cast<webrtc::VideoTrackInterface*>(rtcTrack.get()) };
-        Ref source = RealtimeIncomingVideoSource::create(toRef(WTFMove(videoTrack)), fromStdString(rtcTrack->id()));
+        Ref source = RealtimeIncomingVideoSource::create(toRef(WTF::move(videoTrack)), fromStdString(rtcTrack->id()));
         if (document.settings().webRTCMediaPipelineAdditionalLoggingEnabled())
             source->enableFrameRatedMonitoring();
         return source;

@@ -36,6 +36,7 @@
 #import "DOMNodeInternal.h"
 #import "DOMPrivate.h"
 #import "DOMRangeInternal.h"
+#import "LegacyWebPageInspectorController.h"
 #import "WebArchiveInternal.h"
 #import "WebChromeClient.h"
 #import "WebDataSourceInternal.h"
@@ -113,7 +114,7 @@
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderLayerScrollableArea.h>
 #import <WebCore/RenderObjectStyle.h>
-#import <WebCore/RenderStyleInlines.h>
+#import <WebCore/RenderStyle+GettersInlines.h>
 #import <WebCore/RenderTextControl.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
@@ -336,6 +337,11 @@ WebView *getWebView(WebFrame *webFrame)
 
     [webView _setZoomMultiplier:[webView _realZoomMultiplier] isTextOnly:[webView _realZoomMultiplierIsTextOnly]];
 
+    if (RefPtr controller = [webView inspectorController]) {
+        frame->_private->webPageInspectorController = controller.get();
+        controller->frameCreated(coreFrame.get());
+    }
+
     return coreFrame;
 }
 
@@ -354,6 +360,9 @@ WebView *getWebView(WebFrame *webFrame)
     localMainFrame->init();
 
     [webView _setZoomMultiplier:[webView _realZoomMultiplier] isTextOnly:[webView _realZoomMultiplierIsTextOnly]];
+
+    frame->_private->webPageInspectorController = [webView inspectorController];
+    [webView inspectorController]->frameCreated(*localMainFrame);
 }
 
 + (Ref<WebCore::LocalFrame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement&)ownerElement page:(WebCore::Page&)page frameName:(const AtomString&)name frameView:(WebFrameView *)frameView
@@ -436,7 +445,11 @@ static NSURL *createUniqueWebDataURL();
 
 - (void)_clearCoreFrame
 {
-    _private->coreFrame = 0;
+    if (RefPtr controller = _private->webPageInspectorController.get())
+        controller->willDestroyFrame(*_private->coreFrame);
+    _private->webPageInspectorController = nullptr;
+
+    _private->coreFrame = nullptr;
 }
 
 - (WebHTMLView *)_webHTMLDocumentView
@@ -855,7 +868,7 @@ static NSURL *createUniqueWebDataURL();
         return std::nullopt;
 
     auto scopeEnd = makeBoundaryPointAfterNodeContents(paragraphStart->container->treeScope().rootNode());
-    return WebCore::resolveCharacterRange({ WTFMove(*paragraphStart), WTFMove(scopeEnd) }, range);
+    return WebCore::resolveCharacterRange({ WTF::move(*paragraphStart), WTF::move(scopeEnd) }, range);
 }
 
 - (DOMRange *)_convertNSRangeToDOMRange:(NSRange)nsrange
@@ -1042,7 +1055,7 @@ static NSURL *createUniqueWebDataURL();
     auto* bodyRenderer = body->renderer();
     if (!bodyRenderer)
         return nil;
-    WebCore::Color color = bodyRenderer->style().visitedDependentColorWithColorFilter(WebCore::CSSPropertyBackgroundColor);
+    auto color = bodyRenderer->style().visitedDependentBackgroundColorApplyingColorFilter();
     if (!color.isValid())
         return nil;
 #if !PLATFORM(IOS_FAMILY)
@@ -1732,11 +1745,8 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     id previousMetadata = nil;
 
     for (WebCore::Node* node = root; node; node = WebCore::NodeTraversal::next(*node)) {
-        auto markers = document->markers().markersFor(*node);
+        auto markers = document->markers().markersFor(*node, WebCore::DocumentMarkerType::DictationResult);
         for (auto& marker : markers) {
-            if (marker->type() != WebCore::DocumentMarkerType::DictationResult)
-                continue;
-
             id metadata = std::get<RetainPtr<id>>(marker->data()).get();
 
             // All result markers should have metadata.
@@ -2264,9 +2274,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     float printWidth = root->writingMode().isHorizontal() ? static_cast<float>(documentRect.width()) / printScaleFactor : pageSize.width;
     float printHeight = root->writingMode().isHorizontal() ? pageSize.height : static_cast<float>(documentRect.height()) / printScaleFactor;
 
-    WebCore::PrintContext printContext(_private->coreFrame);
-    printContext.computePageRectsWithPageSize(WebCore::FloatSize(printWidth, printHeight), true);
-    return createNSArray(printContext.pageRects()).autorelease();
+    Ref printContext = WebCore::PrintContext::create(_private->coreFrame);
+    printContext->computePageRectsWithPageSize(WebCore::FloatSize(printWidth, printHeight), true);
+    return createNSArray(printContext->pageRects()).autorelease();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -2466,7 +2476,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!resourceRequest.url().isValid() && !resourceRequest.url().isEmpty())
         resourceRequest.setURL([NSURL URLWithString:[@"file:" stringByAppendingString:[[request URL] absoluteString]]]);
 
-    coreFrame->loader().load(WebCore::FrameLoadRequest(*coreFrame, WTFMove(resourceRequest)));
+    coreFrame->loader().load(WebCore::FrameLoadRequest(*coreFrame, WTF::move(resourceRequest)));
 }
 
 static NSURL *createUniqueWebDataURL()
@@ -2505,9 +2515,9 @@ static NSURL *createUniqueWebDataURL()
     WebCore::ResourceRequest request(absoluteBaseURL.get());
 
     WebCore::ResourceResponse response(responseURL.get(), MIMEType, [data length], encodingName);
-    WebCore::SubstituteData substituteData(WebCore::SharedBuffer::create(data), [unreachableURL absoluteURL], WTFMove(response), WebCore::SubstituteData::SessionHistoryVisibility::Hidden);
+    WebCore::SubstituteData substituteData(WebCore::SharedBuffer::create(data), [unreachableURL absoluteURL], WTF::move(response), WebCore::SubstituteData::SessionHistoryVisibility::Hidden);
 
-    _private->coreFrame->loader().load(WebCore::FrameLoadRequest(*_private->coreFrame, WTFMove(request), WTFMove(substituteData)));
+    _private->coreFrame->loader().load(WebCore::FrameLoadRequest(*_private->coreFrame, WTF::move(request), WTF::move(substituteData)));
 }
 
 - (void)loadData:(NSData *)data MIMEType:(NSString *)MIMEType textEncodingName:(NSString *)encodingName baseURL:(NSURL *)baseURL
@@ -2567,7 +2577,7 @@ static NSURL *createUniqueWebDataURL()
     auto coreFrame = _private->coreFrame;
     if (!coreFrame)
         return nil;
-    return kit(dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().findByUniqueName(name, *coreFrame)));
+    return kit(dynamicDowncast<WebCore::LocalFrame>(coreFrame->tree().findByUniqueName(name, *coreFrame).get()));
 }
 
 - (WebFrame *)parentFrame

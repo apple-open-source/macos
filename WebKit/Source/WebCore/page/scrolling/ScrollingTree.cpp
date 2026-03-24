@@ -248,7 +248,7 @@ WheelEventHandlingResult ScrollingTree::handleWheelEventWithNode(const PlatformW
 
         if (RefPtr scrollProxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(*node)) {
             if (RefPtr relatedNode = nodeForID(scrollProxyNode->overflowScrollingNodeID())) {
-                node = WTFMove(relatedNode);
+                node = WTF::move(relatedNode);
                 continue;
             }
         }
@@ -355,13 +355,13 @@ bool ScrollingTree::commitTreeStateInternal(std::unique_ptr<ScrollingStateTree>&
     if (hostingContextIdentifier) {
         LOG_WITH_STREAM(Scrolling, stream << "ScrollingTree::commitTreeState - starting hosted tree commit for hosting context ID:  " << *hostingContextIdentifier);
         if (RefPtr scrollingNode = m_hostedSubtrees.get(*hostingContextIdentifier))
-            commitState.frameHostingNode = WTFMove(scrollingNode);
+            commitState.frameHostingNode = WTF::move(scrollingNode);
         else {
             LOG_WITH_STREAM(Scrolling, stream << "ScrollingTree::commitTreeState - parent not present for hosted tree commit");
             // Add to hosted subtrees needing pairing since the hosting node is not in the scrolling tree yet
             m_hostedSubtreesNeedingPairing.ensure(*hostingContextIdentifier, [] {
                 return Vector<std::unique_ptr<ScrollingStateTree>> { };
-            }).iterator->value.append(WTFMove(scrollingStateTree));
+            }).iterator->value.append(WTF::move(scrollingStateTree));
             return true;
         }
         if (!rootNode) {
@@ -438,12 +438,12 @@ bool ScrollingTree::commitTreeStateInternal(std::unique_ptr<ScrollingStateTree>&
     LOG_WITH_STREAM(ScrollingTree, stream << "committed ScrollingTree" << scrollingTreeAsText(debugScrollingStateTreeAsTextBehaviors));
 
     // Recursively commit subtrees that can now be attatched
-    auto subtrees = WTFMove(commitState.pendingSubtreesNeedingCommit);
+    auto subtrees = WTF::move(commitState.pendingSubtreesNeedingCommit);
     for (auto& pair : subtrees) {
         auto hostingID = pair.first;
         LOG_WITH_STREAM(Scrolling, stream << "ScrollingTree::commitTreeState - committing unparented subtrees for hosting context ID: " << hostingID);
         for (auto& subtree : pair.second)
-            succeeded &= commitTreeStateInternal(WTFMove(subtree), hostingID);
+            succeeded &= commitTreeStateInternal(WTF::move(subtree), hostingID);
     }
 
     didCommitTree();
@@ -455,7 +455,7 @@ bool ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
 {
     SetForScope inCommitTreeState(m_inCommitTreeState, true);
     Locker locker { m_treeLock };
-    return commitTreeStateInternal(WTFMove(scrollingStateTree), hostingContextIdentifier);
+    return commitTreeStateInternal(WTF::move(scrollingStateTree), hostingContextIdentifier);
 }
 
 bool ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* stateNode, CommitTreeState& state)
@@ -915,12 +915,12 @@ void ScrollingTree::addPendingScrollUpdate(ScrollUpdate&& update)
     Locker locker { m_pendingScrollUpdatesLock };
     for (auto& existingUpdate : m_pendingScrollUpdates) {
         if (existingUpdate.canMerge(update)) {
-            existingUpdate.merge(WTFMove(update));
+            existingUpdate.merge(WTF::move(update));
             return;
         }
     }
 
-    m_pendingScrollUpdates.append(WTFMove(update));
+    m_pendingScrollUpdates.append(WTF::move(update));
 }
 
 Vector<ScrollUpdate> ScrollingTree::takePendingScrollUpdates()

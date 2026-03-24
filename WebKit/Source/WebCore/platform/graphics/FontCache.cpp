@@ -65,18 +65,13 @@ struct FontPlatformDataCacheKey {
     FontCreationContext fontCreationContext;
 
     friend bool operator==(const FontPlatformDataCacheKey&, const FontPlatformDataCacheKey&) = default;
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 };
 
 inline void add(Hasher& hasher, const FontPlatformDataCacheKey& key)
 {
     add(hasher, key.descriptionKey, key.family, key.fontCreationContext);
 }
-
-struct FontPlatformDataCacheKeyHash {
-    static unsigned hash(const FontPlatformDataCacheKey& key) { return computeHash(key); }
-    static bool equal(const FontPlatformDataCacheKey& a, const FontPlatformDataCacheKey& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
-};
 
 struct FontPlatformDataCacheKeyHashTraits : public SimpleClassHashTraits<FontPlatformDataCacheKey> {
     static constexpr bool emptyValueIsZero = false;
@@ -88,12 +83,6 @@ struct FontPlatformDataCacheKeyHashTraits : public SimpleClassHashTraits<FontPla
     {
         return key.descriptionKey.isHashTableDeletedValue();
     }
-};
-
-struct FontDataCacheKeyHash {
-    static unsigned hash(const FontPlatformData& data) { return data.hash(); }
-    static bool equal(const FontPlatformData& a, const FontPlatformData& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
 };
 
 struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
@@ -118,14 +107,14 @@ struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
     }
 };
 
-using FontPlatformDataCache = HashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyHashTraits>;
-using FontDataCache = HashMap<FontPlatformData, Ref<Font>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontPlatformDataCache = HashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, DefaultHash<FontPlatformDataCacheKey>, FontPlatformDataCacheKeyHashTraits>;
+using FontDataCache = HashMap<FontPlatformData, Ref<Font>, DefaultHash<FontPlatformData>, FontDataCacheKeyTraits>;
 #if ENABLE(OPENTYPE_VERTICAL)
-using FontVerticalDataCache = HashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontVerticalDataCache = HashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, DefaultHash<FontPlatformData>, FontDataCacheKeyTraits>;
 #endif
 
 struct FontCache::FontDataCaches {
-    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FontCache);
+    WTF_MAKE_STRUCT_TZONE_ALLOCATED(FontDataCaches);
 
     FontDataCache data;
     FontPlatformDataCache platformData;
@@ -133,6 +122,8 @@ struct FontCache::FontDataCaches {
     FontVerticalDataCache verticalData;
 #endif
 };
+
+WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(FontCache::FontDataCaches);
 
 CheckedRef<FontCache> FontCache::forCurrentThread()
 {
@@ -415,7 +406,7 @@ static Function<void()>& fontCacheInvalidationCallback()
 
 void FontCache::registerFontCacheInvalidationCallback(Function<void()>&& callback)
 {
-    fontCacheInvalidationCallback() = WTFMove(callback);
+    fontCacheInvalidationCallback() = WTF::move(callback);
 }
 
 template<typename F>

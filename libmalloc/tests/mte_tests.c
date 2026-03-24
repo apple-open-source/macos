@@ -516,8 +516,8 @@ T_DECL(mte_realloc_cross_range,
 }
 
 static void
-_test_no_tag_range(size_t min_sz, size_t max_sz, malloc_type_id_t type_id,
-	bool test_early_alloc)
+_test_range_taggedness(size_t min_sz, size_t max_sz, malloc_type_id_t type_id,
+		bool tagged, bool test_early_alloc)
 {
 	if (!test_early_alloc) {
 		exhaust_early_budget(min_sz, max_sz, type_id);
@@ -527,13 +527,17 @@ _test_no_tag_range(size_t min_sz, size_t max_sz, malloc_type_id_t type_id,
 	while (sz <= max_sz) {
 		char *a = (char *)malloc_type_malloc(sz, type_id);
 		char *e = a + sz - 1;
-		T_QUIET; T_ASSERT_NOTNULL(a, "valid allocation: %p", a);
-		T_QUIET; T_ASSERT_FALSE(PTR_IS_TAGGED(a),
-				"Should not be tagged: %zu", sz);
-		T_QUIET; T_ASSERT_EQ_PTR(a, __arm_mte_get_tag(a),
-				"Memory should not be tagged (start): %zu", sz);
-		T_QUIET; T_ASSERT_EQ_PTR(e, __arm_mte_get_tag(e),
-				"Memory should not be tagged (end): %zu", sz);
+		if (tagged) {
+			T_CHECK_TAGGED_ALLOCATION(a, sz);
+		} else {
+			T_QUIET; T_ASSERT_NOTNULL(a, "valid allocation: %p", a);
+			T_QUIET; T_ASSERT_FALSE(PTR_IS_TAGGED(a),
+					"Should not be tagged: %zu", sz);
+			T_QUIET; T_ASSERT_EQ_PTR(a, __arm_mte_get_tag(a),
+					"Memory should not be tagged (start): %zu", sz);
+			T_QUIET; T_ASSERT_EQ_PTR(e, __arm_mte_get_tag(e),
+					"Memory should not be tagged (end): %zu", sz);
+		}
 
 		if (sz <= 32768) {
 			sz = malloc_size(a) + 1;
@@ -545,7 +549,7 @@ _test_no_tag_range(size_t min_sz, size_t max_sz, malloc_type_id_t type_id,
 }
 
 static void
-_test_no_tag_data(bool test_early_alloc)
+_test_tag_data(bool test_early_alloc)
 {
 	const size_t min_sz = 16;
 	const size_t max_sz = 32768;
@@ -554,24 +558,25 @@ _test_no_tag_data(bool test_early_alloc)
 	T_QUIET;
 	T_ASSERT_TRUE(malloc_type_descriptor_is_pure_data(data_desc), "descriptor");
 
-	_test_no_tag_range(min_sz, max_sz, k_data_type_id, test_early_alloc);
+	_test_range_taggedness(min_sz, max_sz, k_data_type_id, true,
+			test_early_alloc);
 }
 
-T_DECL(mte_no_tag_data,
-		"Check that we do not tag data allocations",
+T_DECL(mte_tag_data,
+		"Check that we tag data allocations",
 		T_META_TAG_XZONE_ONLY)
 {
 	T_SKIP_REQUIRES_SEC_TRANSITION();
-	_test_no_tag_data(false);
+	_test_tag_data(false);
 	T_PASS("Data allocations are not being tagged in xzone");
 }
 
-T_DECL(mte_no_tag_data_early_alloc,
-		"Check that we do not tag data allocations (early alloc)",
+T_DECL(mte_tag_data_early_alloc,
+		"Check that we tag data allocations (early alloc)",
 		T_META_TAG_XZONE_ONLY)
 {
 	T_SKIP_REQUIRES_SEC_TRANSITION();
-	_test_no_tag_data(true);
+	_test_tag_data(true);
 	T_PASS("Data allocations are not being tagged in the early allocator");
 }
 
@@ -584,7 +589,7 @@ T_DECL(mte_no_tag_over_32K,
 	const size_t min_sz = 32768 + 1;
 	const size_t max_sz = (1 << 22);
 
-	_test_no_tag_range(min_sz, max_sz, k_ptr_type_id, false);
+	_test_range_taggedness(min_sz, max_sz, k_ptr_type_id, false, false);
 	T_PASS("Allocations > 32K are not being tagged");
 }
 

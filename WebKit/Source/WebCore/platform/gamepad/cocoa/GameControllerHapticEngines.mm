@@ -50,10 +50,10 @@ Ref<GameControllerHapticEngines> GameControllerHapticEngines::create(GCControlle
 }
 
 GameControllerHapticEngines::GameControllerHapticEngines(GCController *gamepad)
-    : m_leftHandleEngine([gamepad.haptics createEngineWithLocality:get_GameController_GCHapticsLocalityLeftHandleSingleton()])
-    , m_rightHandleEngine([gamepad.haptics createEngineWithLocality:get_GameController_GCHapticsLocalityRightHandleSingleton()])
-    , m_leftTriggerEngine([gamepad.haptics createEngineWithLocality:get_GameController_GCHapticsLocalityLeftTriggerSingleton()])
-    , m_rightTriggerEngine([gamepad.haptics createEngineWithLocality:get_GameController_GCHapticsLocalityRightTriggerSingleton()])
+    : m_leftHandleEngine([retainPtr(gamepad.haptics) createEngineWithLocality:get_GameController_GCHapticsLocalityLeftHandleSingleton()])
+    , m_rightHandleEngine([retainPtr(gamepad.haptics) createEngineWithLocality:get_GameController_GCHapticsLocalityRightHandleSingleton()])
+    , m_leftTriggerEngine([retainPtr(gamepad.haptics) createEngineWithLocality:get_GameController_GCHapticsLocalityLeftTriggerSingleton()])
+    , m_rightTriggerEngine([retainPtr(gamepad.haptics) createEngineWithLocality:get_GameController_GCHapticsLocalityRightTriggerSingleton()])
 {
 }
 
@@ -90,8 +90,8 @@ void GameControllerHapticEngines::playEffect(GamepadHapticEffectType type, const
     if (RefPtr effect = currentEffect)
         effect->stop();
 
-    currentEffect = WTFMove(newEffect);
-    currentEffect->start([weakThis = WeakPtr { *this }, effect = WeakPtr { *currentEffect }, type, completionHandler = WTFMove(completionHandler)](bool success) mutable {
+    currentEffect = WTF::move(newEffect);
+    currentEffect->start([weakThis = WeakPtr { *this }, effect = WeakPtr { *currentEffect }, type, completionHandler = WTF::move(completionHandler)](bool success) mutable {
         ASSERT(isMainThread());
 
         completionHandler(success);
@@ -116,7 +116,7 @@ void GameControllerHapticEngines::stopEffects()
 
 void GameControllerHapticEngines::stop(CompletionHandler<void()>&& completionHandler)
 {
-    auto callbackAggregator = MainRunLoopCallbackAggregator::create(WTFMove(completionHandler));
+    auto callbackAggregator = MainRunLoopCallbackAggregator::create(WTF::move(completionHandler));
     [m_leftHandleEngine stopWithCompletionHandler:makeBlockPtr([callbackAggregator](NSError *error) {
         if (error)
             RELEASE_LOG_ERROR(Gamepad, "GameControllerHapticEngines::stop: Failed to stop the left handle haptic engine");

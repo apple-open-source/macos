@@ -185,11 +185,11 @@ static SecTrustRef trust = nil;
     BOOL result = NO;
     CFErrorRef cferror = NULL;
 
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trustRef), errOut);
-    require_noerr(SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trustRef), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date), errOut);
 
     if (anchors) {
-        require_noerr(SecTrustSetAnchorCertificates(trustRef, (__bridge CFArrayRef)anchors), errOut);
+        __Require_noErr(SecTrustSetAnchorCertificates(trustRef, (__bridge CFArrayRef)anchors), errOut);
     }
 
     result = SecTrustEvaluateWithError(trustRef, &cferror);

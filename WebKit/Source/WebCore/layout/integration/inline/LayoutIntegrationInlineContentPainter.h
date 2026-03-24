@@ -75,7 +75,7 @@ private:
 class LayerPaintScope {
 public:
     LayerPaintScope(const RenderInline* inlineBoxWithLayer);
-    bool includes(const InlineDisplay::Box&);
+    bool testIsIncludesAndUpdate(const InlineDisplay::Box&);
 
 private:
     const Layout::ElementBox* const m_inlineBoxWithLayer;

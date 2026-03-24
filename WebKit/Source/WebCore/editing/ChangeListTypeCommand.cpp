@@ -87,7 +87,7 @@ void ChangeListTypeCommand::doApply()
     if (!typeAndElement || typeAndElement->first != m_type)
         return;
 
-    Ref listToReplace = WTFMove(typeAndElement->second);
+    Ref listToReplace = WTF::move(typeAndElement->second);
     Ref newList = createNewList(listToReplace);
     insertNodeBefore(newList.copyRef(), listToReplace);
     moveRemainingSiblingsToNewParent(listToReplace->protectedFirstChild().get(), nullptr, newList);

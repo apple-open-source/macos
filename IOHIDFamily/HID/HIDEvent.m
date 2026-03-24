@@ -192,4 +192,9 @@
     return IOHIDEventNeedsUngroupForLegacy((__bridge IOHIDEventRef)self);
 }
 
+- (bool)isUserInput
+{
+    return IOHIDEventIsUserInput((__bridge IOHIDEventRef)self);
+}
+
 @end

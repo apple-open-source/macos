@@ -79,6 +79,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
+    Ref<const Logger> protectedLogger() const { return m_logger; }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     void setLogger(Ref<const Logger>&&, uint64_t);
 #endif

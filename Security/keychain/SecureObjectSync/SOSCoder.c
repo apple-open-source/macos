@@ -226,7 +226,7 @@ typedef enum coderExportFormatVersion {
 static uint64_t SOSCoderGetExportedVersion(const uint8_t *der, const uint8_t *der_end) {
     ccder_tag tag;
     uint64_t result = kNotUnderstood;
-    require(ccder_decode_tag(&tag, der, der_end),xit);
+    __Require(ccder_decode_tag(&tag, der, der_end),xit);
     switch (tag) {
         case CCDER_OCTET_STRING: // TODO: this code is safe to delete?
             result = kCoderAsOTRDataOnly;
@@ -237,7 +237,7 @@ static uint64_t SOSCoderGetExportedVersion(const uint8_t *der, const uint8_t *de
             const uint8_t *sequence_end = NULL;
             der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
             ccder_tag firstSequenceTag;
-            require(ccder_decode_tag(&firstSequenceTag, der, der_end),xit);
+            __Require(ccder_decode_tag(&firstSequenceTag, der, der_end),xit);
 
             switch (firstSequenceTag) {
                 case CCDER_OCTET_STRING:
@@ -281,7 +281,7 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
             const uint8_t *sequence_end = NULL;
             der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
 
-            require_action_quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
+            __Require_Action_Quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
 
             der = der_decode_data(kCFAllocatorDefault, &otr_data, error, der, sequence_end);
             der = ccder_decode_bool(&p->waitingForDataPacket, der, sequence_end);
@@ -296,7 +296,7 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
             const uint8_t *sequence_end = NULL;
             der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
 
-            require_action_quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
+            __Require_Action_Quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
 
             uint64_t version;
             der = ccder_decode_uint64(&version, der, sequence_end);
@@ -320,10 +320,10 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
             goto fail;
     }
 
-    require(der, fail);
+    __Require(der, fail);
     
     p->sessRef = SecOTRSessionCreateFromData(NULL, otr_data);
-    require(p->sessRef, fail);
+    __Require(p->sessRef, fail);
 
     if (p->hashOfLastReceived == NULL)
         p->hashOfLastReceived = CFDataCreateMutableWithScratch(kCFAllocatorDefault, lastReceived_di()->output_size);
@@ -352,18 +352,18 @@ SOSCoderRef SOSCoderCreate(SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInf
 
     if (myPeerInfo && peerInfo) {
         privateKey = SOSFullPeerInfoCopyDeviceKey(myPeerInfo, &localError);
-        require_quiet(privateKey, errOut);
+        __Require_Quiet(privateKey, errOut);
 
         myRef = SecOTRFullIdentityCreateFromSecKeyRefSOS(allocator, privateKey, &localError);
-        require_quiet(myRef, errOut);
+        __Require_Quiet(myRef, errOut);
         
         CFReleaseNull(privateKey);
     
         publicKey = SOSPeerInfoCopyPubKey(peerInfo, &localError);
-        require(publicKey, errOut);
+        __Require(publicKey, errOut);
         
         peerRef = SecOTRPublicIdentityCreateFromSecKeyRef(allocator, publicKey, &localError);
-        require_quiet(peerRef, errOut);
+        __Require_Quiet(peerRef, errOut);
         
         if(useCompact == kCFBooleanTrue)
             coder->sessRef = SecOTRSessionCreateFromIDAndFlags(allocator, myRef, peerRef, kSecOTRUseAppleCustomMessageFormat);
@@ -371,7 +371,7 @@ SOSCoderRef SOSCoderCreate(SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInf
         else
             coder->sessRef = SecOTRSessionCreateFromID(allocator, myRef, peerRef);
 
-        require(coder->sessRef, errOut);
+        __Require(coder->sessRef, errOut);
         
         coder->waitingForDataPacket = false;
         coder->pendingResponse = NULL;
@@ -431,10 +431,10 @@ bool SOSCoderIsFor(SOSCoderRef coder, SOSPeerInfoRef peerInfo, SOSFullPeerInfoRe
     CFErrorRef localError = NULL;
 
     myPublicKey = SOSPeerInfoCopyPubKey(SOSFullPeerInfoGetPeerInfo(myPeerInfo), &localError);
-    require(myPublicKey, errOut);
+    __Require(myPublicKey, errOut);
 
     theirPublicKey = SOSPeerInfoCopyPubKey(peerInfo, &localError);
-    require(theirPublicKey, errOut);
+    __Require(theirPublicKey, errOut);
 
     isForThisPair = SecOTRSIsForKeys(coder->sessRef, myPublicKey, theirPublicKey);
 
@@ -475,14 +475,14 @@ SOSCoderStart(SOSCoderRef coder, CFErrorRef *error) {
     SOSCoderStatus result = kSOSCoderFailure;
     CFMutableDataRef startPacket = NULL;
 
-    require_action_quiet(coder->sessRef, coderFailure, CFStringAppend(action, CFSTR("*** no otr session ***")));
+    __Require_Action_Quiet(coder->sessRef, coderFailure, CFStringAppend(action, CFSTR("*** no otr session ***")));
     beginState = CFCopyDescription(coder->sessRef);
-    require_action_quiet(!coder->waitingForDataPacket, negotiatingOut, CFStringAppend(action, CFSTR("waiting for peer to send first data packet")));
-    require_action_quiet(!SecOTRSGetIsReadyForMessages(coder->sessRef), coderFailure, CFStringAppend(action, CFSTR("otr session ready"));
+    __Require_Action_Quiet(!coder->waitingForDataPacket, negotiatingOut, CFStringAppend(action, CFSTR("waiting for peer to send first data packet")));
+    __Require_Action_Quiet(!SecOTRSGetIsReadyForMessages(coder->sessRef), coderFailure, CFStringAppend(action, CFSTR("otr session ready"));
                          result = kSOSCoderDataReturned);
-    require_action_quiet(SecOTRSGetIsIdle(coder->sessRef), negotiatingOut, CFStringAppend(action, CFSTR("otr negotiating already")));
-    require_action_quiet(startPacket = CFDataCreateMutable(kCFAllocatorDefault, 0), coderFailure, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("alloc failed"), NULL, error));
-    require_quiet(SOSOTRSAppendStartPacket(coder->sessRef, startPacket, error), coderFailure);
+    __Require_Action_Quiet(SecOTRSGetIsIdle(coder->sessRef), negotiatingOut, CFStringAppend(action, CFSTR("otr negotiating already")));
+    __Require_Action_Quiet(startPacket = CFDataCreateMutable(kCFAllocatorDefault, 0), coderFailure, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("alloc failed"), NULL, error));
+    __Require_Quiet(SOSOTRSAppendStartPacket(coder->sessRef, startPacket, error), coderFailure);
     CFRetainAssign(coder->pendingResponse, startPacket);
 
 negotiatingOut:
@@ -506,7 +506,7 @@ SOSCoderResendDH(SOSCoderRef coder, CFErrorRef *error) {
     if(coder->sessRef == NULL) return kSOSCoderDataReturned;
     CFMutableDataRef startPacket = CFDataCreateMutable(kCFAllocatorDefault, 0);
     SOSCoderStatus result = kSOSCoderFailure;
-    require_noerr_quiet(SecOTRSAppendRestartPacket(coder->sessRef, startPacket), exit);
+    __Require_noErr_Quiet(SecOTRSAppendRestartPacket(coder->sessRef, startPacket), exit);
     secnotice("coder", "Resending OTR Start %@", startPacket);
     CFRetainAssign(coder->pendingResponse, startPacket);
     result = kSOSCoderNegotiating;
@@ -664,20 +664,20 @@ SOSCoderStatus SOSCoderWrap(SOSCoderRef coder, CFDataRef message, CFMutableDataR
     CFMutableDataRef encoded = NULL;
     OSStatus otrStatus = 0;
 
-    require_action_quiet(coder->sessRef, errOut,
+    __Require_Action_Quiet(coder->sessRef, errOut,
                          CFStringAppend(action, CFSTR("*** using null coder ***"));
                          result = nullCoder(message, codedMessage));
     beginState = CFCopyDescription(coder->sessRef);
-    require_action_quiet(SecOTRSGetIsReadyForMessages(coder->sessRef), errOut,
+    __Require_Action_Quiet(SecOTRSGetIsReadyForMessages(coder->sessRef), errOut,
                          CFStringAppend(action, CFSTR("not ready"));
                          result = kSOSCoderNegotiating);
-    require_action_quiet(!coder->waitingForDataPacket, errOut,
+    __Require_Action_Quiet(!coder->waitingForDataPacket, errOut,
                          CFStringAppend(action, CFSTR("waiting for peer to send data packet first"));
                          result = kSOSCoderNegotiating);
-    require_action_quiet(encoded = CFDataCreateMutable(kCFAllocatorDefault, 0), errOut,
+    __Require_Action_Quiet(encoded = CFDataCreateMutable(kCFAllocatorDefault, 0), errOut,
                          SOSCreateErrorWithFormat(kSOSErrorAllocationFailure, NULL, error, NULL, CFSTR("%@ alloc failed"), clientId);
                          result = kSOSCoderFailure);
-    require_noerr_action_quiet(otrStatus = SecOTRSSignAndProtectMessage(coder->sessRef, message, encoded), errOut,
+    __Require_noErr_Action_Quiet(otrStatus = SecOTRSSignAndProtectMessage(coder->sessRef, message, encoded), errOut,
                                SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ cannot protect message: %" PRIdOSStatus), clientId, otrStatus);
                                CFReleaseNull(encoded);
                                result = kSOSCoderFailure);

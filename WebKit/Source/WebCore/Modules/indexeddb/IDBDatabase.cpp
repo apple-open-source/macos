@@ -48,13 +48,13 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(IDBDatabase);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IDBDatabase);
 
 static Vector<String> sortAndRemoveDuplicates(Vector<String>&& vector)
 {
     std::ranges::sort(vector, WTF::codePointCompareLessThan);
     removeRepeatedElements(vector);
-    return WTFMove(vector);
+    return WTF::move(vector);
 }
 
 Ref<IDBDatabase> IDBDatabase::create(ScriptExecutionContext& context, IDBClient::IDBConnectionProxy& connectionProxy, const IDBResultData& resultData)
@@ -177,7 +177,7 @@ ExceptionOr<Ref<IDBObjectStore>> IDBDatabase::createObjectStore(const String& na
         return Exception { ExceptionCode::InvalidAccessError, "Failed to execute 'createObjectStore' on 'IDBDatabase': The autoIncrement option was set but the keyPath option was empty or an array."_s };
 
     // Install the new ObjectStore into the connection's metadata.
-    auto info = m_info.createNewObjectStore(name, WTFMove(keyPath), parameters.autoIncrement);
+    auto info = m_info.createNewObjectStore(name, WTF::move(keyPath), parameters.autoIncrement);
 
     // Create the actual IDBObjectStore from the transaction, which also schedules the operation server side.
     return versionChangeTransaction->createObjectStore(info);
@@ -199,9 +199,9 @@ ExceptionOr<Ref<IDBTransaction>> IDBDatabase::transaction(StringOrVectorOfString
     if (std::holds_alternative<Vector<String>>(storeNames)) {
         // It is valid for JavaScript to pass in a list of object store names with the same name listed twice,
         // so we need to drop the duplicates.
-        objectStores = sortAndRemoveDuplicates(std::get<Vector<String>>(WTFMove(storeNames)));
+        objectStores = sortAndRemoveDuplicates(std::get<Vector<String>>(WTF::move(storeNames)));
     } else
-        objectStores = { std::get<String>(WTFMove(storeNames)) };
+        objectStores = { std::get<String>(WTF::move(storeNames)) };
 
     for (auto& objectStoreName : objectStores) {
         if (m_info.hasObjectStore(objectStoreName))
@@ -291,13 +291,13 @@ void IDBDatabase::connectionToServerLost(const IDBError& error)
     errorEvent->setTarget(Ref { * this });
 
     if (scriptExecutionContext())
-        queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTFMove(errorEvent));
+        queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTF::move(errorEvent));
 
     auto closeEvent = Event::create(m_eventNames.closeEvent, Event::CanBubble::Yes, Event::IsCancelable::No);
     closeEvent->setTarget(Ref { * this });
 
     if (scriptExecutionContext())
-        queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTFMove(closeEvent));
+        queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTF::move(closeEvent));
 }
 
 void IDBDatabase::maybeCloseInServer()
@@ -375,7 +375,7 @@ void IDBDatabase::willCommitTransaction(IDBTransaction& transaction)
 
     auto refTransaction = m_activeTransactions.take(transaction.info().identifier());
     ASSERT(refTransaction);
-    m_committingTransactions.set(transaction.info().identifier(), WTFMove(refTransaction));
+    m_committingTransactions.set(transaction.info().identifier(), WTF::move(refTransaction));
 }
 
 void IDBDatabase::didCommitTransaction(IDBTransaction& transaction)
@@ -401,7 +401,7 @@ void IDBDatabase::willAbortTransaction(IDBTransaction& transaction)
         refTransaction = m_committingTransactions.take(transaction.info().identifier());
 
     ASSERT(refTransaction);
-    m_abortingTransactions.set(transaction.info().identifier(), WTFMove(refTransaction));
+    m_abortingTransactions.set(transaction.info().identifier(), WTF::move(refTransaction));
 
     if (transaction.isVersionChange()) {
         ASSERT(transaction.originalDatabaseInfo());
@@ -468,7 +468,7 @@ void IDBDatabase::fireVersionChangeEvent(const IDBResourceIdentifier& requestIde
     }
     
     Ref<Event> event = IDBVersionChangeEvent::create(requestIdentifier, currentVersion, requestedVersion, m_eventNames.versionchangeEvent);
-    queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTFMove(event));
+    queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTF::move(event));
 }
 
 void IDBDatabase::dispatchEvent(Event& event)

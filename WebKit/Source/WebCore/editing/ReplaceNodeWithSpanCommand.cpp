@@ -40,7 +40,7 @@ namespace WebCore {
 
 ReplaceNodeWithSpanCommand::ReplaceNodeWithSpanCommand(Ref<HTMLElement>&& element)
     : SimpleEditCommand(element->document())
-    , m_elementToReplace(WTFMove(element))
+    , m_elementToReplace(WTF::move(element))
 {
 }
 

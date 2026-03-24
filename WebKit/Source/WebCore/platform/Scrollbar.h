@@ -50,7 +50,7 @@ public:
 
     WEBCORE_EXPORT void setFrameRect(const IntRect&) final;
 
-    static int pixelsPerLineStep() { return 40; }
+    static constexpr int pixelsPerLineStep() { return 40; }
     WEBCORE_EXPORT static int pixelsPerLineStep(int viewWidthOrHeight);
     WEBCORE_EXPORT static void setShouldUseFixedPixelsPerLineStepForTesting(bool);
     static float minFractionToStepWhenPaging() { return 0.8; }

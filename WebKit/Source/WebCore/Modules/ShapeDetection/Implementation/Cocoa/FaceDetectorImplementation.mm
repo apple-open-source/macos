@@ -37,8 +37,6 @@
 #import <wtf/TZoneMallocInlines.h>
 #import <pal/cocoa/VisionSoftLink.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore::ShapeDetection {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FaceDetectorImpl);
@@ -50,9 +48,14 @@ FaceDetectorImpl::FaceDetectorImpl(const FaceDetectorOptions& faceDetectorOption
 
 FaceDetectorImpl::~FaceDetectorImpl() = default;
 
+static std::span<const CGPoint> pointsInImageOfSize(VNFaceLandmarkRegion2D *landmark, const FloatSize& imageSize)
+{
+    return unsafeMakeSpan([landmark pointsInImageOfSize:imageSize], landmark.pointCount);
+}
+
 static Vector<FloatPoint> convertLandmark(VNFaceLandmarkRegion2D *landmark, const FloatSize& imageSize)
 {
-    return Vector(std::span { [landmark pointsInImageOfSize:imageSize], landmark.pointCount }).map([&imageSize](const CGPoint& point) {
+    return WTF::map(pointsInImageOfSize(landmark, imageSize), [&imageSize](const CGPoint& point) {
         return convertPointFromUnnormalizedVisionToWeb(imageSize, point);
     });
 }
@@ -61,27 +64,21 @@ static Vector<Landmark> convertLandmarks(VNFaceLandmarks2D *landmarks, const Flo
 {
     return {
         {
-            convertLandmark(landmarks.leftEye, imageSize),
+            convertLandmark(retainPtr(landmarks.leftEye).get(), imageSize),
             WebCore::ShapeDetection::LandmarkType::Eye,
         }, {
-            convertLandmark(landmarks.rightEye, imageSize),
+            convertLandmark(retainPtr(landmarks.rightEye).get(), imageSize),
             WebCore::ShapeDetection::LandmarkType::Eye,
         }, {
-            convertLandmark(landmarks.nose, imageSize),
+            convertLandmark(retainPtr(landmarks.nose).get(), imageSize),
             WebCore::ShapeDetection::LandmarkType::Nose,
         },
     };
 }
 
-void FaceDetectorImpl::detect(Ref<ImageBuffer>&& imageBuffer, CompletionHandler<void(Vector<DetectedFace>&&)>&& completionHandler)
+void FaceDetectorImpl::detect(const NativeImage& image, CompletionHandler<void(Vector<DetectedFace>&&)>&& completionHandler)
 {
-    auto nativeImage = imageBuffer->copyNativeImage();
-    if (!nativeImage) {
-        completionHandler({ });
-        return;
-    }
-
-    auto platformImage = nativeImage->platformImage();
+    auto platformImage = image.platformImage();
     if (!platformImage) {
         completionHandler({ });
         return;
@@ -99,22 +96,21 @@ void FaceDetectorImpl::detect(Ref<ImageBuffer>&& imageBuffer, CompletionHandler<
         return;
     }
 
+    auto imageSize = image.size();
     Vector<DetectedFace> results;
     results.reserveInitialCapacity(std::min<size_t>(m_maxDetectedFaces, request.get().results.count));
     for (VNFaceObservation *observation in request.get().results) {
         results.append({
-            convertRectFromVisionToWeb(nativeImage->size(), observation.boundingBox),
-            { convertLandmarks(observation.landmarks, nativeImage->size()) },
+            convertRectFromVisionToWeb(imageSize, observation.boundingBox),
+            { convertLandmarks(retainPtr(observation.landmarks).get(), imageSize) },
         });
         if (results.size() >= m_maxDetectedFaces)
             break;
     }
 
-    completionHandler(WTFMove(results));
+    completionHandler(WTF::move(results));
 }
 
 } // namespace WebCore::ShapeDetection
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // HAVE(SHAPE_DETECTION_API_IMPLEMENTATION) && HAVE(VISION)

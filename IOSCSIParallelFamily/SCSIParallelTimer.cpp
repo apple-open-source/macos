@@ -88,7 +88,7 @@ SCSIParallelTimer::CreateTimerEventSource ( OSObject * owner, Action action )
 	timer = OSTypeAlloc ( SCSIParallelTimer );
 	require_nonzero ( timer, ErrorExit );
 	
-	require ( timer->Init ( owner, action ), FreeTimer );
+	__Require(timer->Init ( owner, action ), FreeTimer);
 	
 	return timer;
 	
@@ -208,7 +208,7 @@ AbsoluteTime
 SCSIParallelTimer::GetDeadline ( SCSIParallelTask * task )
 {
 	
-	check ( task != NULL );
+	__Check(task != NULL);
 	return task->GetTimeoutDeadline ( );
 	
 }
@@ -222,7 +222,7 @@ UInt32
 SCSIParallelTimer::GetTimeoutDuration ( SCSIParallelTask * task )
 {
 	
-	check ( task != NULL );
+	__Check(task != NULL);
 	return task->GetTimeoutDuration ( );
 	
 }
@@ -396,7 +396,7 @@ SCSIParallelTimer::RemoveTask ( SCSIParallelTaskIdentifier parallelRequest )
 	
 	closeGate ( );
 	
-	require ( ( queue_empty ( &fListHead ) == false ), ExitGate );
+	__Require(( queue_empty ( &fListHead ) == false ), ExitGate);
 	
 	if ( task == ( SCSIParallelTask * ) queue_first ( &fListHead ) )
 		headOfList = true;

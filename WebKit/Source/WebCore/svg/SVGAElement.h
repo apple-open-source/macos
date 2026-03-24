@@ -34,7 +34,7 @@ class DOMTokenList;
 enum class Relation : uint8_t;
 
 class SVGAElement final : public SVGGraphicsElement, public SVGURIReference {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGAElement);
+    WTF_MAKE_TZONE_ALLOCATED(SVGAElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGAElement);
 public:
     static Ref<SVGAElement> create(const QualifiedName&, Document&);

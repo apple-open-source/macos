@@ -140,7 +140,7 @@ Ref<CSSValue> CSSValueCreation<OptionSet<TextDecorationLine::Flag>>::operator()(
         list.append(CSSPrimitiveValue::create(CSSValueLineThrough));
     if (value.contains(TextDecorationLine::Flag::Blink))
         list.append(CSSPrimitiveValue::create(CSSValueBlink));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 // MARK: - Serialization

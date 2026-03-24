@@ -54,7 +54,7 @@ class RemotePipelineLayout final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemotePipelineLayout> create(WebCore::WebGPU::PipelineLayout& pipelineLayout, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemotePipelineLayout(pipelineLayout, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemotePipelineLayout(pipelineLayout, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemotePipelineLayout();

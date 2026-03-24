@@ -200,12 +200,12 @@ void DragDropInteractionState::addDefaultDropPreview(UIDragItem *item, UITargete
 
 UITargetedDragPreview *DragDropInteractionState::defaultDropPreview(UIDragItem *item) const
 {
-    return m_defaultDropPreviews.get(item).unsafeGet();
+    return m_defaultDropPreviews.get(item);
 }
 
 UITargetedDragPreview *DragDropInteractionState::finalDropPreview(UIDragItem *item) const
 {
-    return m_finalDropPreviews.get(item).unsafeGet();
+    return m_finalDropPreviews.get(item);
 }
 
 void DragDropInteractionState::deliverDelayedDropPreview(UIView *contentView, UIView *previewContainer, RefPtr<WebCore::TextIndicator>&& textIndicator)
@@ -270,7 +270,7 @@ void DragDropInteractionState::deliverDelayedDropPreview(UIView *contentView, CG
 
 UITargetedDragPreview *DragDropInteractionState::previewForLifting(UIDragItem *item, UIView *contentView, UIView *previewContainer, RefPtr<WebCore::TextIndicator>&& indicator) const
 {
-    return createDragPreviewInternal(item, contentView, previewContainer, AddPreviewViewToContainer::No, WTFMove(indicator)).autorelease();
+    return createDragPreviewInternal(item, contentView, previewContainer, AddPreviewViewToContainer::No, WTF::move(indicator)).autorelease();
 }
 
 UITargetedDragPreview *DragDropInteractionState::previewForCancelling(UIDragItem *item, UIView *contentView, UIView *previewContainer)

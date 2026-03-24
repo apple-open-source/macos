@@ -82,7 +82,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     self = [super init];
     if (!self)
         return nil;
-    coreResource = WTFMove(passedResource);
+    coreResource = WTF::move(passedResource);
     return self;
 }
 
@@ -167,7 +167,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     RetainPtr<NSString> mimeType;
     RetainPtr<NSString> textEncoding;
     RetainPtr<NSString> frameName;
-    NSURLResponse *response = nil;
+    RetainPtr<NSURLResponse> response;
 
     if (resource) {
         data = resource->data().makeContiguous()->createNSData();
@@ -182,7 +182,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     [encoder encodeObject:mimeType.get() forKey:WebResourceMIMETypeKey];
     [encoder encodeObject:textEncoding.get() forKey:WebResourceTextEncodingNameKey];
     [encoder encodeObject:frameName.get() forKey:WebResourceFrameNameKey];
-    [encoder encodeObject:response forKey:WebResourceResponseKey];
+    [encoder encodeObject:response.get() forKey:WebResourceResponseKey];
 }
 
 - (void)dealloc
@@ -256,7 +256,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     if (!self)
         return nil;
 
-    _private = [[WebResourcePrivate alloc] initWithCoreResource:WTFMove(coreResource)];
+    _private = [[WebResourcePrivate alloc] initWithCoreResource:WTF::move(coreResource)];
     return self;
 }
 
@@ -347,10 +347,10 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
 {
     WebCoreThreadViolationCheckRoundTwo();
 
-    NSURLResponse *response = nil;
+    RetainPtr<NSURLResponse> response;
     if (_private->coreResource)
         response = _private->coreResource->response().nsURLResponse();
-    return response ? response : adoptNS([[NSURLResponse alloc] init]).autorelease();
+    return response ? response.autorelease() : adoptNS([[NSURLResponse alloc] init]).autorelease();
 }
 
 - (NSString *)_stringValue

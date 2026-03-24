@@ -99,8 +99,8 @@ void AccessibilitySpinButton::addChildren()
 void AccessibilitySpinButton::step(int amount)
 {
     ASSERT(m_spinButtonElement);
-    if (m_spinButtonElement)
-        m_spinButtonElement->step(amount);
+    if (RefPtr element = m_spinButtonElement.get())
+        element->step(amount);
 }
 
 } // namespace WebCore

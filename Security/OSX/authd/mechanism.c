@@ -118,7 +118,7 @@ static mechanism_t
 _mechanism_create(void)
 {
     mechanism_t mech = (mechanism_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, mechanism_get_type_id(), AUTH_CLASS_SIZE(mechanism), NULL);
-    require(mech != NULL, done);
+    __Require(mech != NULL, done);
     
     mech->data = auth_items_create();
     
@@ -145,11 +145,11 @@ mechanism_t
 mechanism_create_with_sql(auth_items_t sql)
 {
     mechanism_t mech = NULL;
-    require(sql != NULL, done);
-    require(auth_items_get_int64(sql, MECHANISM_ID) != 0, done);
+    __Require(sql != NULL, done);
+    __Require(auth_items_get_int64(sql, MECHANISM_ID) != 0, done);
     
     mech = _mechanism_create();
-    require(mech != NULL, done);
+    __Require(mech != NULL, done);
     
     auth_items_copy(mech->data, sql);
     
@@ -163,11 +163,11 @@ mechanism_t
 mechanism_create_with_string(const char * str, authdb_connection_t dbconn)
 {
     mechanism_t mech = NULL;
-    require(str != NULL, done);
-    require(strchr(str,':') != NULL, done);
+    __Require(str != NULL, done);
+    __Require(strchr(str,':') != NULL, done);
     
     mech = _mechanism_create();
-    require(mech != NULL, done);
+    __Require(mech != NULL, done);
     
     const char delimiters[] = ":,";
     size_t buf_len = strlen(str)+1;
@@ -203,15 +203,15 @@ bool _pluginExists(const char * plugin, const char * base)
 {
     bool result = false;
     
-    require(plugin != NULL, done);
-    require(base != NULL, done);
+    __Require(plugin != NULL, done);
+    __Require(base != NULL, done);
 
     char filePath[PATH_MAX];
     char realPath[PATH_MAX+1];
     snprintf(filePath, sizeof(filePath), "%s/%s.bundle", base, plugin);
 
-    require(realpath(filePath, realPath) != NULL, done);
-    require(strncmp(realPath, base, strlen(base)) == 0, done);
+    __Require(realpath(filePath, realPath) != NULL, done);
+    __Require(strncmp(realPath, base, strlen(base)) == 0, done);
     
     if (access(filePath, F_OK) == 0) {
         result = true;

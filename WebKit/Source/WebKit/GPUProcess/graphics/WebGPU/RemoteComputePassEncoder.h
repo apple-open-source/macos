@@ -55,7 +55,7 @@ class RemoteComputePassEncoder final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteComputePassEncoder> create(WebCore::WebGPU::ComputePassEncoder& computePassEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteComputePassEncoder(computePassEncoder, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteComputePassEncoder(computePassEncoder, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteComputePassEncoder();

@@ -32,27 +32,23 @@
 namespace WebCore {
 namespace Style {
 
-Transition::Data::Data()
-    : Data { Transition::initialProperty() }
+Transition::Transition()
+    : m_data { Data::create() }
 {
 }
 
-Transition::Data::Data(SingleTransitionProperty&& property)
-    : m_property { WTFMove(property) }
+Transition::Transition(SingleTransitionProperty&& property)
+    : Transition { }
+{
+    setProperty(WTF::move(property));
+}
+
+Transition::Data::Data()
+    : m_property { Transition::initialProperty() }
     , m_delay { Transition::initialDelay() }
     , m_duration { Transition::initialDuration() }
     , m_timingFunction { Transition::initialTimingFunction() }
     , m_behavior { static_cast<bool>(Transition::initialBehavior()) }
-    , m_propertySet { false }
-    , m_delaySet { false }
-    , m_durationSet { false }
-    , m_timingFunctionSet { false }
-    , m_behaviorSet { false }
-    , m_propertyFilled { false }
-    , m_delayFilled { false }
-    , m_durationFilled { false }
-    , m_timingFunctionFilled { false }
-    , m_behaviorFilled { false }
 {
 }
 
@@ -63,16 +59,11 @@ Transition::Data::Data(const Data& other)
     , m_duration { other.m_duration }
     , m_timingFunction { other.m_timingFunction }
     , m_behavior { other.m_behavior }
-    , m_propertySet { other.m_propertySet }
-    , m_delaySet { other.m_delaySet }
-    , m_durationSet { other.m_durationSet }
-    , m_timingFunctionSet { other.m_timingFunctionSet }
-    , m_behaviorSet { other.m_behaviorSet }
-    , m_propertyFilled { other.m_propertyFilled }
-    , m_delayFilled { other.m_delayFilled }
-    , m_durationFilled { other.m_durationFilled }
-    , m_timingFunctionFilled { other.m_timingFunctionFilled }
-    , m_behaviorFilled { other.m_behaviorFilled }
+    , m_propertyState { other.m_propertyState }
+    , m_timingFunctionState { other.m_timingFunctionState }
+    , m_delayState { other.m_delayState }
+    , m_durationState { other.m_durationState }
+    , m_behaviorState { other.m_behaviorState }
 {
 }
 
@@ -83,11 +74,11 @@ bool Transition::Data::operator==(const Data& other) const
         && m_duration == other.m_duration
         && m_timingFunction == other.m_timingFunction
         && m_behavior == other.m_behavior
-        && m_propertySet == other.m_propertySet
-        && m_delaySet == other.m_delaySet
-        && m_durationSet == other.m_durationSet
-        && m_timingFunctionSet == other.m_timingFunctionSet
-        && m_behaviorSet == other.m_behaviorSet;
+        && m_propertyState == other.m_propertyState
+        && m_delayState == other.m_delayState
+        && m_durationState == other.m_durationState
+        && m_timingFunctionState == other.m_timingFunctionState
+        && m_behaviorState == other.m_behaviorState;
 }
 
 // MARK: - Logging

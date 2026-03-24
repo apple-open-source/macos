@@ -98,7 +98,7 @@ private:
 };
 
 class OffscreenCanvas final : public ActiveDOMObject, public CanvasBase, public RefCounted<OffscreenCanvas>, public EventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(OffscreenCanvas, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(OffscreenCanvas, WEBCORE_EXPORT);
 public:
     struct ImageEncodeOptions {
         String type = "image/png"_s;
@@ -166,11 +166,9 @@ private:
     void refEventTarget() final { RefCounted::ref(); }
     void derefEventTarget() final { RefCounted::deref(); }
 
-    void setSize(const IntSize&) final;
-
+    void didUpdateSizeProperties();
     void createImageBuffer() const final;
 
-    void reset();
     void scheduleCommitToPlaceholderCanvas();
 
     std::unique_ptr<CanvasRenderingContext> m_context;
@@ -182,6 +180,9 @@ private:
 
 }
 
-SPECIALIZE_TYPE_TRAITS_CANVAS(WebCore::OffscreenCanvas, isOffscreenCanvas())
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::OffscreenCanvas)
+    static bool isType(const WebCore::CanvasBase& base) { return base.isOffscreenCanvas(); }
+    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::EventTargetInterfaceType::OffscreenCanvas; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif

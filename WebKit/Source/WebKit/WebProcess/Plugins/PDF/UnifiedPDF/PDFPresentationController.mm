@@ -36,6 +36,9 @@
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/GraphicsLayerFactory.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/Path.h>
+#include <WebCore/PathSegment.h>
+#include <WebCore/PathSegmentData.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -97,12 +100,18 @@ RefPtr<GraphicsLayer> PDFPresentationController::createGraphicsLayer(const Strin
     return graphicsLayer;
 }
 
+WebCore::Path PDFPresentationController::shadowPathForLayer(const WebCore::GraphicsLayer& layer) const
+{
+    FloatRect bounds { layer.boundsOrigin(), layer.size() };
+    return { { WebCore::PathSegment { WebCore::PathRect { bounds } } } };
+}
+
 RefPtr<GraphicsLayer> PDFPresentationController::makePageContainerLayer(PDFDocumentLayout::PageIndex pageIndex)
 {
     auto addLayerShadow = [](GraphicsLayer& layer, IntPoint shadowOffset, const Color& shadowColor, int shadowStdDeviation) {
         Vector<Ref<FilterOperation>> filterOperations;
         filterOperations.append(DropShadowFilterOperation::create(shadowOffset, shadowStdDeviation, shadowColor));
-        layer.setFilters(FilterOperations { WTFMove(filterOperations) });
+        layer.setFilters(FilterOperations { WTF::move(filterOperations) });
     };
 
     constexpr auto containerShadowOffset = IntPoint { 0, 1 };
@@ -129,26 +138,13 @@ RefPtr<GraphicsLayer> PDFPresentationController::makePageContainerLayer(PDFDocum
     pageBackgroundLayer->setAllowsTiling(false);
     pageBackgroundLayer->setNeedsDisplay(); // We only need to paint this layer once when page backgrounds change.
 
-    if (shouldAddPageBackgroundLayerShadow()) {
-        addLayerShadow(*pageContainerLayer, containerShadowOffset, containerShadowColor, containerShadowStdDeviation);
-        // FIXME: <https://webkit.org/b/276981> Need to add a 1px black border with alpha 0.0586.
-        addLayerShadow(*pageBackgroundLayer, shadowOffset, shadowColor, shadowStdDeviation);
-    }
+    addLayerShadow(*pageContainerLayer, containerShadowOffset, containerShadowColor, containerShadowStdDeviation);
+    // FIXME: <https://webkit.org/b/276981> Need to add a 1px black border with alpha 0.0586.
+    addLayerShadow(*pageBackgroundLayer, shadowOffset, shadowColor, shadowStdDeviation);
 
     pageContainerLayer->addChild(*pageBackgroundLayer);
 
     return pageContainerLayer;
-}
-
-bool PDFPresentationController::shouldAddPageBackgroundLayerShadow() const
-{
-#if PLATFORM(MAC)
-    return true;
-#else
-    // FIXME (288384): Remove this method and unconditionally add shadows behind the page once we figure out
-    // how to maintain a stable framerate during device rotation.
-    return false;
-#endif
 }
 
 RefPtr<GraphicsLayer> PDFPresentationController::pageBackgroundLayerForPageContainerLayer(GraphicsLayer& pageContainerLayer)
@@ -156,7 +152,7 @@ RefPtr<GraphicsLayer> PDFPresentationController::pageBackgroundLayerForPageConta
     auto& children = pageContainerLayer.children();
     if (children.size()) {
         Ref layer = children[0];
-        return WTFMove(layer);
+        return WTF::move(layer);
     }
 
     return nullptr;

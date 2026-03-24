@@ -731,17 +731,22 @@ cflag_body()
 	# test.
 	noclone_volname=$(mktemp -u "$(atf_get ident)_vol_XXXXXXXXXX")
 
-	mkdir hfs_part
-	echo test_file > hfs_part/foo
-
 	echo "$noclone_volname" > noclone_volname
-        atf_check -e ignore -o not-empty hdiutil create -size 10m \
-            -volname "$noclone_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
-            "$noclone_volname.dmg"
-        atf_check -e ignore -o not-empty hdiutil attach -shadow test_shadow \
-            "$noclone_volname.dmg"
-
+	atf_check -e ignore -o not-empty hdiutil create -size 10m \
+	    -volname "$noclone_volname" -nospotlight -fs HFS+ \
+	    "$noclone_volname.dmg"
+	atf_check -e ignore -o not-empty hdiutil attach -shadow test_shadow \
+	    "$noclone_volname.dmg"
 	rootdir="/Volumes/$noclone_volname"
+
+	# Generate 1 MB of random data for the test
+	atf_check -e ignore dd if=/dev/random of=foo bs=1m count=1
+
+	# First try a cross-device copy; clonefile(2) should fail
+	# immediately, regardless of filesystem support, and cp(1)
+	# should switch to the fallback method.
+	atf_check cp -c foo "$rootdir"/foo
+
 	# We need to try this copy twice to exercise the two different paths,
 	# both the target file not existing path and the target file already
 	# existing path.
@@ -758,9 +763,9 @@ cflag_body()
 	atf_check cmp -s "$rootdir"/foo "$rootdir"/bar
 
 	# We should be running on APFS, so we'll test that, too.
-	atf_check cp -c hfs_part/foo hfs_part/bar
-	atf_check test -s hfs_part/bar
-	atf_check cmp -s hfs_part/foo hfs_part/bar
+	atf_check cp -c foo bar
+	atf_check test -s bar
+	atf_check cmp -s foo bar
 }
 cflag_cleanup()
 {

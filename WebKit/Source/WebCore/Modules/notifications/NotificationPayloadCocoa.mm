@@ -37,15 +37,15 @@ namespace WebCore {
 
 std::optional<NotificationPayload> NotificationPayload::fromDictionary(NSDictionary *dictionary)
 {
-    NSURL *defaultAction = dictionary[WebNotificationDefaultActionKey];
+    RetainPtr<NSURL> defaultAction = dictionary[WebNotificationDefaultActionKey];
     if (!defaultAction)
         return std::nullopt;
 
-    NSString *title = dictionary[WebNotificationTitleKey];
+    RetainPtr<NSString> title = dictionary[WebNotificationTitleKey];
     if (!title)
         return std::nullopt;
 
-    NSNumber *appBadge = dictionary[WebNotificationAppBadgeKey];
+    RetainPtr<NSNumber> appBadge = dictionary[WebNotificationAppBadgeKey];
     if (!appBadge)
         return std::nullopt;
 
@@ -56,22 +56,22 @@ std::optional<NotificationPayload> NotificationPayload::fromDictionary(NSDiction
         rawAppBadge = [appBadge unsignedLongLongValue];
     }
 
-    NSDictionary *options = dictionary[WebNotificationOptionsKey];
+    RetainPtr<NSDictionary> options = dictionary[WebNotificationOptionsKey];
     if (!options)
         return std::nullopt;
 
     std::optional<NotificationOptionsPayload> rawOptions;
     if (![options isKindOfClass:[NSNull class]]) {
-        rawOptions = NotificationOptionsPayload::fromDictionary(options);
+        rawOptions = NotificationOptionsPayload::fromDictionary(options.get());
         if (!rawOptions)
             return std::nullopt;
     }
 
-    NSNumber *isMutable = dictionary[WebNotificationMutableKey];
+    RetainPtr<NSNumber> isMutable = dictionary[WebNotificationMutableKey];
     if (!isMutable)
         return std::nullopt;
 
-    return NotificationPayload { defaultAction, title, WTFMove(rawAppBadge), WTFMove(rawOptions), !![isMutable boolValue] };
+    return NotificationPayload { defaultAction.get(), title.get(), WTF::move(rawAppBadge), WTF::move(rawOptions), !![isMutable boolValue] };
 }
 
 NSDictionary *NotificationPayload::dictionaryRepresentation() const

@@ -30,7 +30,6 @@
 #include "BufferIdentifierSet.h"
 #include "ImageBufferBackendHandle.h"
 #include "ImageBufferSetIdentifier.h"
-#include "SwapBuffersDisplayRequirement.h"
 #include <WebCore/Region.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 
@@ -39,6 +38,12 @@ class TextStream;
 }
 
 namespace WebKit {
+
+enum class SwapBuffersDisplayRequirement : uint8_t {
+    NeedsFullDisplay,
+    NeedsNormalDisplay,
+    NeedsNoDisplay
+};
 
 struct ImageBufferSetPrepareBufferForDisplayInputData {
     ImageBufferSetIdentifier remoteBufferSet;
@@ -54,6 +59,7 @@ struct ImageBufferSetPrepareBufferForDisplayOutputData {
     BufferIdentifierSet bufferCacheIdentifiers;
 };
 
+WTF::TextStream& operator<<(WTF::TextStream&, SwapBuffersDisplayRequirement);
 WTF::TextStream& operator<<(WTF::TextStream&, const ImageBufferSetPrepareBufferForDisplayInputData&);
 WTF::TextStream& operator<<(WTF::TextStream&, const ImageBufferSetPrepareBufferForDisplayOutputData&);
 

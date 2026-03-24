@@ -1793,8 +1793,8 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 
     error :
 
-	if (S_store != NULL)	CFRelease(S_store);
-	if (S_prefs != NULL)	CFRelease(S_prefs);
+	__SC_CFRELEASE(S_store);
+	__SC_CFRELEASE(S_prefs);
 	haveConfiguration = TRUE;
 
 	return;

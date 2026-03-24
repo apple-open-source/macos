@@ -38,7 +38,7 @@ template<typename> class ExceptionOr;
 enum class LoginStatusAuthenticationType : uint8_t { WebAuthn, PasswordManager, Unmanaged };
 
 class LoginStatus {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(LoginStatus, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(LoginStatus, WEBCORE_EXPORT);
 public:
     static constexpr uint32_t UsernameMaxLength = 64;
     static constexpr Seconds TimeToLiveAuthentication { 30_s };

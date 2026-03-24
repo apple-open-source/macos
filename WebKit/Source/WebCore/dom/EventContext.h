@@ -102,7 +102,7 @@ private:
 
 inline EventContext::EventContext(Type type, Node* node, RefPtr<EventTarget>&& currentTarget, EventTarget* origin, int closedShadowDepth, bool currentTargetIsInShadowTree)
     : m_node { node }
-    , m_currentTarget { WTFMove(currentTarget) }
+    , m_currentTarget { WTF::move(currentTarget) }
     , m_target { origin }
     , m_closedShadowDepth { closedShadowDepth }
     , m_currentTargetIsInShadowTree { currentTargetIsInShadowTree }
@@ -132,7 +132,7 @@ inline EventContext::EventContext(Type type, Node& node, Node* currentTarget, Ev
 inline void EventContext::setRelatedTarget(RefPtr<Node>&& relatedTarget)
 {
     ASSERT(!isUnreachableNode(relatedTarget.get()));
-    m_relatedTarget = WTFMove(relatedTarget);
+    m_relatedTarget = WTF::move(relatedTarget);
     m_relatedTargetIsSet = true;
 }
 

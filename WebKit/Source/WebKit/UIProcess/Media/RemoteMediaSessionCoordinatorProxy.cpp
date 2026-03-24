@@ -52,12 +52,12 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaSessionCoordinatorProxy);
 
 Ref<RemoteMediaSessionCoordinatorProxy> RemoteMediaSessionCoordinatorProxy::create(WebPageProxy& webPageProxy, Ref<MediaSessionCoordinatorProxyPrivate>&& privateCoordinator)
 {
-    return adoptRef(*new RemoteMediaSessionCoordinatorProxy(webPageProxy, WTFMove(privateCoordinator)));
+    return adoptRef(*new RemoteMediaSessionCoordinatorProxy(webPageProxy, WTF::move(privateCoordinator)));
 }
 
 RemoteMediaSessionCoordinatorProxy::RemoteMediaSessionCoordinatorProxy(WebPageProxy& webPageProxy, Ref<MediaSessionCoordinatorProxyPrivate>&& privateCoordinator)
     : m_webPageProxy(webPageProxy)
-    , m_privateCoordinator(WTFMove(privateCoordinator))
+    , m_privateCoordinator(WTF::move(privateCoordinator))
 #if !RELEASE_LOG_DISABLED
     , m_logger(webPageProxy.logger())
     , m_logIdentifier(LoggerHelper::uniqueLogIdentifier())
@@ -82,9 +82,9 @@ void RemoteMediaSessionCoordinatorProxy::join(MediaSessionCommandCompletionHandl
     auto identifier = LOGIDENTIFIER;
     ALWAYS_LOG(identifier);
 
-    m_privateCoordinator->join([this, protectedThis = Ref { *this }, identifier, completionHandler = WTFMove(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
+    m_privateCoordinator->join([this, protectedThis = Ref { *this }, identifier, completionHandler = WTF::move(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
         ALWAYS_LOG(identifier, "completion");
-        completionHandler(WTFMove(exception));
+        completionHandler(WTF::move(exception));
     });
 }
 
@@ -100,9 +100,9 @@ void RemoteMediaSessionCoordinatorProxy::coordinateSeekTo(double time, MediaSess
     auto identifier = LOGIDENTIFIER;
     ALWAYS_LOG(identifier, time);
 
-    m_privateCoordinator->seekTo(time, [this, protectedThis = Ref { *this }, identifier, completionHandler = WTFMove(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
+    m_privateCoordinator->seekTo(time, [this, protectedThis = Ref { *this }, identifier, completionHandler = WTF::move(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
         ALWAYS_LOG(identifier, "completion");
-        completionHandler(WTFMove(exception));
+        completionHandler(WTF::move(exception));
     });
 }
 
@@ -111,9 +111,9 @@ void RemoteMediaSessionCoordinatorProxy::coordinatePlay(MediaSessionCommandCompl
     auto identifier = LOGIDENTIFIER;
     ALWAYS_LOG(identifier);
 
-    m_privateCoordinator->play([this, protectedThis = Ref { *this }, identifier, completionHandler = WTFMove(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
+    m_privateCoordinator->play([this, protectedThis = Ref { *this }, identifier, completionHandler = WTF::move(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
         ALWAYS_LOG(identifier, "completion");
-        completionHandler(WTFMove(exception));
+        completionHandler(WTF::move(exception));
     });
 }
 
@@ -122,9 +122,9 @@ void RemoteMediaSessionCoordinatorProxy::coordinatePause(MediaSessionCommandComp
     auto identifier = LOGIDENTIFIER;
     ALWAYS_LOG(identifier);
 
-    m_privateCoordinator->pause([this, protectedThis = Ref { *this }, identifier, completionHandler = WTFMove(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
+    m_privateCoordinator->pause([this, protectedThis = Ref { *this }, identifier, completionHandler = WTF::move(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
         ALWAYS_LOG(identifier, "completion");
-        completionHandler(WTFMove(exception));
+        completionHandler(WTF::move(exception));
     });
 }
 
@@ -133,9 +133,9 @@ void RemoteMediaSessionCoordinatorProxy::coordinateSetTrack(const String& track,
     auto identifier = LOGIDENTIFIER;
     ALWAYS_LOG(identifier);
 
-    m_privateCoordinator->setTrack(track, [this, protectedThis = Ref { *this }, identifier, completionHandler = WTFMove(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
+    m_privateCoordinator->setTrack(track, [this, protectedThis = Ref { *this }, identifier, completionHandler = WTF::move(completionHandler)] (std::optional<ExceptionData>&& exception) mutable {
         ALWAYS_LOG(identifier, "completion");
-        completionHandler(WTFMove(exception));
+        completionHandler(WTF::move(exception));
     });
 }
 
@@ -170,7 +170,7 @@ void RemoteMediaSessionCoordinatorProxy::seekSessionToTime(double time, Completi
 
 void RemoteMediaSessionCoordinatorProxy::playSession(std::optional<double> atTime, std::optional<MonotonicTime> hostTime, CompletionHandler<void(bool)>&& callback)
 {
-    protectedWebPageProxy()->protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::RemoteMediaSessionCoordinator::PlaySession { WTFMove(atTime), WTFMove(hostTime) }, callback, m_webPageProxy->webPageIDInMainFrameProcess());
+    protectedWebPageProxy()->protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::RemoteMediaSessionCoordinator::PlaySession { WTF::move(atTime), WTF::move(hostTime) }, callback, m_webPageProxy->webPageIDInMainFrameProcess());
 }
 
 void RemoteMediaSessionCoordinatorProxy::pauseSession(CompletionHandler<void(bool)>&& callback)

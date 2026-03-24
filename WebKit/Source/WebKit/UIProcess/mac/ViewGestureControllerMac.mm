@@ -322,7 +322,7 @@ FloatRect ViewGestureController::windowRelativeBoundsForCustomSwipeViews() const
 
 static RetainPtr<CALayer> leastCommonAncestorLayer(const Vector<RetainPtr<CALayer>>& layers)
 {
-    Vector<Vector<CALayer *>> liveLayerPathsFromRoot(layers.size());
+    Vector<Vector<RetainPtr<CALayer>>> liveLayerPathsFromRoot(layers.size());
 
     size_t shortestPathLength = std::numeric_limits<size_t>::max();
 
@@ -605,7 +605,7 @@ void ViewGestureController::didMoveSwipeSnapshotLayer()
 
 void ViewGestureController::removeSwipeSnapshot()
 {
-    m_snapshotRemovalTracker.reset();
+    m_snapshotRemovalTracker->reset();
 
     m_hasOutstandingRepaintRequest = false;
 

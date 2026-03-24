@@ -152,7 +152,7 @@ static void initialize()
     g_metadata.construct();
     auto metadata = makeUnique<Metadata>();
     memcpy(&metadata->defaults, &g_jscConfig.options, sizeof(OptionsStorage));
-    g_metadata.get() = WTFMove(metadata);
+    g_metadata.get() = WTF::move(metadata);
 }
 
 static void releaseMetadata()
@@ -693,6 +693,7 @@ static inline void disableAllJITOptions()
     disableAllWasmJITOptions();
 
     Options::useBaselineJIT() = false;
+    Options::useLOLJIT() = false;
     Options::useDFGJIT() = false;
     Options::useFTLJIT() = false;
     Options::useDOMJIT() = false;
@@ -825,6 +826,17 @@ void Options::notifyOptionsChanged()
         Options::useWasm() = false;
 #endif
 
+#if ENABLE(WEBASSEMBLY)
+#if CPU(ARM64)
+    if (Options::enableWasmDebugger()) [[unlikely]] {
+        Options::useBBQJIT() = false;
+        Options::useOMGJIT() = false;
+    }
+#else
+    Options::enableWasmDebugger() = false;
+#endif
+#endif
+
     // At initialization time, we may decide that useJIT should be false for any
     // number of reasons (including failing to allocate JIT memory), and therefore,
     // will / should not be able to enable any JIT related services.
@@ -893,6 +905,10 @@ void Options::notifyOptionsChanged()
             Options::forceAllFunctionsToUseSIMD() = true;
         }
     }
+
+    // TODO
+    if (Options::useLOLJIT())
+        Options::forceOSRExitToLLInt() = true;
 
     if (!Options::useConcurrentGC())
         Options::collectContinuously() = false;
@@ -1445,7 +1461,7 @@ void Option::dump(StringBuilder& builder) const
         builder.append(unsafeSpan(m_optionRange.rangeString()));
         break;
     case Options::Type::OptionString:
-        builder.append('"', m_optionString ? unsafeSpan8(m_optionString) : ""_span8, '"');
+        builder.append('"', m_optionString ? unsafeSpan(m_optionString) : ""_span, '"');
         break;
     case Options::Type::GCLogLevel:
         builder.append(m_gcLogLevel);
@@ -1507,6 +1523,8 @@ bool canUseHandlerIC()
 
 bool canUseWasm()
 {
+    if constexpr (useCompressedHeap)
+        return false;
 #if ENABLE(WEBASSEMBLY) && !PLATFORM(WATCHOS)
     return true;
 #else

@@ -40,6 +40,7 @@
 #include "kckey.h"
 #include "child.h"
 #include "derivedentropy.h"
+#include "featureflags/featureflags.h"
 #include <syslog.h>
 #include <mach/mach_error.h>
 #include "SecRandom.h"
@@ -48,6 +49,7 @@
 #include <securityd_client/xdr_dldb.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/casts.h>
+#include <security_utilities/trackingallocator.h>
 #include <Security/AuthorizationTagsPriv.h>
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #include <AssertMacros.h>
@@ -846,12 +848,15 @@ kern_return_t ucsp_server_changeDbPassphraseWithHandle(UCSP_ARGS, DbHandle db, K
     END_IPC(DL)
 }
 
-kern_return_t ucsp_server_generateDerivedEntropy(UCSP_ARGS, KeyHandle *kh, DATA_IN(salt), DATA_IN(passphrase))
+kern_return_t ucsp_server_generateDerivedEntropy(UCSP_ARGS, KeyHandle *kh, DbHandle db, DATA_IN(salt), DATA_IN(passphrase))
 {
     BEGIN_IPC(generateDerivedEntropy)
 
     CssmData cssmSalt = DATA(salt);
     CssmData cssmPassphrase = DATA(passphrase);
+    if (!Server::keychain(db)->validatePassphraseAgainstKeybag(cssmPassphrase)) {
+        CssmError::throwMe(CSSMERR_CSP_OPERATION_AUTH_DENIED);
+    }
     *kh = generateDerivedEntropy(cssmSalt, cssmPassphrase);
     secnotice("dp_login", "handle now %u", *kh);
 
@@ -1328,12 +1333,57 @@ kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 	DATA_IN(acl))
 {
 	BEGIN_IPC(changeAcl)
+
 	CopyOutAccessCredentials creds(cred, credLength);
+
+    // Create a new AccessCredentials, backed by a tracking allocator so everything will be cleaned up at the end of this scope
+    TrackingAllocator allocator(Allocator::standard());
+    AutoCredentials acreds(allocator);
+
+    if (_SecProtectLoginKeychainWithDP() && static_cast<AccessCredentials*>(creds)) {
+        // Get the KeychainDatabase from the key handle
+        KeychainDatabase *db = NULL;
+        if (kind == keyAcl) {
+            RefPointer<Key> keyRef = Server::key(key);
+            Database *baseDb = &keyRef->database();
+            db = dynamic_cast<KeychainDatabase *>(baseDb);
+        } else if (kind == dbAcl) {
+            Database *baseDb = Server::database(key);
+            db = dynamic_cast<KeychainDatabase *>(baseDb);
+        }
+
+        if (db && db->common().isLoginKeychain()) {
+            secinfo("dp_login", "changeAcl db %p (%s) %d", db, db->common().dbName(), static_cast<AccessCredentials*>(creds) ? static_cast<AccessCredentials*>(creds)->size() : -1);
+
+            SampleGroup group = static_cast<AccessCredentials*>(creds)->samples();
+            secinfo("dp_login", "changeAcl samplegroup %u", group.size());
+            for (uint32 n = 0; n < group.size(); n++) {
+                TypedList sample = group[n];
+                sample.checkProper();
+                secinfo("dp_login", "changeAcl TypedList %u %u", sample.length(), sample.type());
+                if (sample.length() == 3 && sample.type() == CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK && sample[1].word() == CSSM_SAMPLE_TYPE_PASSWORD) {
+                    CssmData password = sample[2];
+                    secinfo("dp_login", "changeAcl found password at %u", n);
+                    CssmDataContainer* derivedPass = new(allocator) CssmDataContainer(allocator);
+                    if (const_cast<KeychainDatabase*>(db)->derivePassphraseIfNecessary(password, *derivedPass)) {
+                        sample[2] = *derivedPass;
+                        secnotice("dp_login", "changeAcl derived password");
+                    }
+                }
+                secinfo("dp_login", "changeAcl appending");
+                acreds.append(sample);
+            }
+            secinfo("dp_login", "changeAcl after samples %u", acreds.size());
+        }
+    }
+
 	CopyOutAclEntryInput entryacl(acl, aclLength);
 
     AclSource& aclRef = Server::aclBearer(kind, key);
     secinfo("SecAccess", "changing the ACL for handle %d [%d] (%p)", key, (uint32_t) kind, &aclRef);
-    aclRef.changeAcl(AclEdit(mode, handle, entryacl), creds, connection.process().getPath().c_str());
+
+    // Use filtered credentials if available, otherwise use original
+    aclRef.changeAcl(AclEdit(mode, handle, entryacl), acreds.size() > 0 ? &acreds : creds, connection.process().getPath().c_str());
 
 	END_IPC(CSP)
 }

@@ -41,7 +41,7 @@ WKArrayRef WKArrayCreate(WKTypeRef* rawValues, size_t numberOfValues)
     Vector<RefPtr<API::Object>> elements(numberOfValues, [values](size_t i) -> RefPtr<API::Object> {
         return WebKit::toImpl(values[i]);
     });
-    return WebKit::toAPILeakingRef(API::Array::create(WTFMove(elements)));
+    return WebKit::toAPILeakingRef(API::Array::create(WTF::move(elements)));
 }
 
 WKArrayRef WKArrayCreateAdoptingValues(WKTypeRef* rawValues, size_t numberOfValues)
@@ -50,7 +50,7 @@ WKArrayRef WKArrayCreateAdoptingValues(WKTypeRef* rawValues, size_t numberOfValu
     Vector<RefPtr<API::Object>> elements(numberOfValues, [values](size_t i) {
         return adoptRef(WebKit::toImpl(values[i]));
     });
-    return WebKit::toAPILeakingRef(API::Array::create(WTFMove(elements)));
+    return WebKit::toAPILeakingRef(API::Array::create(WTF::move(elements)));
 }
 
 WKTypeRef WKArrayGetItemAtIndex(WKArrayRef arrayRef, size_t index)

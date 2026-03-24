@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)quit.c	8.2 (Berkeley) 4/28/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include <fcntl.h>
 #include "extern.h"
@@ -51,7 +43,7 @@ __FBSDID("$FreeBSD$");
  * The "quit" command.
  */
 int
-quitcmd(void)
+quitcmd(void *arg __unused)
 {
 	/*
 	 * If we are sourcing, then return 1 so execute() can handle it.
@@ -71,7 +63,11 @@ void
 quit(void)
 {
 	int mcount, p, modify, autohold, anystat, holdbit, nohold;
+#ifdef __APPLE__
 	FILE *ibuf, *obuf, *fbuf, *rbuf, *abuf;
+#else
+	FILE *ibuf, *obuf, *fbuf, *rbuf, *readstat, *abuf;
+#endif
 	struct message *mp;
 	int c, fd;
 	struct stat minfo;
@@ -156,6 +152,12 @@ quit(void)
 			mp->m_flag |= holdbit;
 	}
 	modify = 0;
+#ifndef __APPLE__
+	if (Tflag != NULL) {
+		if ((readstat = Fopen(Tflag, "w")) == NULL)
+			Tflag = NULL;
+	}
+#endif
 	for (c = 0, p = 0, mp = &message[0]; mp < &message[msgCount]; mp++) {
 		if (mp->m_flag & MBOX)
 			c++;
@@ -163,7 +165,19 @@ quit(void)
 			p++;
 		if (mp->m_flag & MODIFY)
 			modify++;
+#ifndef __APPLE__
+		if (Tflag != NULL && (mp->m_flag & (MREAD|MDELETED)) != 0) {
+			char *id;
+
+			if ((id = hfield("article-id", mp)) != NULL)
+				fprintf(readstat, "%s\n", id);
+		}
+#endif
 	}
+#ifndef __APPLE__
+	if (Tflag != NULL)
+		(void)Fclose(readstat);
+#endif
 	if (p == msgCount && !modify && !anystat) {
 		printf("Held %d message%s in %s\n",
 			p, p == 1 ? "" : "s", mailname);
@@ -380,13 +394,23 @@ edstop(void)
 {
 	int gotcha, c;
 	struct message *mp;
+#ifdef __APPLE__
 	FILE *obuf, *ibuf;
+#else
+	FILE *obuf, *ibuf, *readstat;
+#endif
 	struct stat statb;
 	char tempname[PATHSIZE];
 
 	if (readonly)
 		return;
 	holdsigs();
+#ifndef __APPLE__
+	if (Tflag != NULL) {
+		if ((readstat = Fopen(Tflag, "w")) == NULL)
+			Tflag = NULL;
+	}
+#endif
 	for (mp = &message[0], gotcha = 0; mp < &message[msgCount]; mp++) {
 		if (mp->m_flag & MNEW) {
 			mp->m_flag &= ~MNEW;
@@ -394,9 +418,24 @@ edstop(void)
 		}
 		if (mp->m_flag & (MODIFY|MDELETED|MSTATUS))
 			gotcha++;
+#ifndef __APPLE__
+		if (Tflag != NULL && (mp->m_flag & (MREAD|MDELETED)) != 0) {
+			char *id;
+
+			if ((id = hfield("article-id", mp)) != NULL)
+				fprintf(readstat, "%s\n", id);
+		}
+#endif
 	}
+#ifdef __APPLE__
 	if (!gotcha)
 		goto done;
+#else
+	if (Tflag != NULL)
+		(void)Fclose(readstat);
+	if (!gotcha || Tflag != NULL)
+		goto done;
+#endif
 	ibuf = NULL;
 	if (stat(mailname, &statb) >= 0 && statb.st_size > mailsize) {
 		int fd;
@@ -462,12 +501,17 @@ edstop(void)
 	}
 	(void)Fclose(obuf);
 	if (gotcha) {
+#ifdef __APPLE__
 		if (value("keep") == NULL) {
 			(void)rm(mailname);
 			printf("removed\n");
 		} else {	/* leave truncated file there */
 			printf("is empty\n");
 		}
+#else
+		(void)rm(mailname);
+		printf("removed\n");
+#endif
 	} else
 		printf("complete\n");
 	(void)fflush(stdout);

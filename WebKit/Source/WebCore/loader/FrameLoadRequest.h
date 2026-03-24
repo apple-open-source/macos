@@ -137,13 +137,13 @@ public:
     ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad() const { return m_shouldTreatAsContinuingLoad; }
 
     const SubstituteData& substituteData() const { return m_substituteData; }
-    void setSubstituteData(SubstituteData&& data) { m_substituteData = WTFMove(data); }
+    void setSubstituteData(SubstituteData&& data) { m_substituteData = WTF::move(data); }
     bool hasSubstituteData() { return m_substituteData.isValid(); }
     SubstituteData takeSubstituteData() { return std::exchange(m_substituteData, { }); }
 
 
     const String& clientRedirectSourceForHistory() const { return m_clientRedirectSourceForHistory; }
-    void setClientRedirectSourceForHistory(String&& clientRedirectSourceForHistory) { m_clientRedirectSourceForHistory = WTFMove(clientRedirectSourceForHistory); }
+    void setClientRedirectSourceForHistory(String&& clientRedirectSourceForHistory) { m_clientRedirectSourceForHistory = WTF::move(clientRedirectSourceForHistory); }
 
     ReferrerPolicy referrerPolicy() const { return m_referrerPolicy; }
     void setReferrerPolicy(const ReferrerPolicy& referrerPolicy) { m_referrerPolicy = referrerPolicy; }

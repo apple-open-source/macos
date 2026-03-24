@@ -151,7 +151,7 @@ private:
 
     ShapePathOperation(Style::BasicShape shape, CSSBoxType referenceBox)
         : PathOperation(Type::Shape, referenceBox)
-        , m_shape(WTFMove(shape))
+        , m_shape(WTF::move(shape))
     {
     }
 
@@ -216,7 +216,7 @@ private:
 
     RayPathOperation(Style::RayFunction ray, CSSBoxType referenceBox)
         : PathOperation(Type::Ray, referenceBox)
-        , m_ray(WTFMove(ray))
+        , m_ray(WTF::move(ray))
     {
     }
 

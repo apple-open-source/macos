@@ -115,7 +115,7 @@ void JSSharedWorkerGlobalScopePrototype::finishCreation(VM& vm)
 const ClassInfo JSSharedWorkerGlobalScope::s_info = { "SharedWorkerGlobalScope"_s, &Base::s_info, &JSSharedWorkerGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSSharedWorkerGlobalScope) };
 
 JSSharedWorkerGlobalScope::JSSharedWorkerGlobalScope(VM& vm, Structure* structure, Ref<SharedWorkerGlobalScope>&& impl)
-    : JSWorkerGlobalScope(vm, structure, WTFMove(impl))
+    : JSWorkerGlobalScope(vm, structure, WTF::move(impl))
 {
 }
 

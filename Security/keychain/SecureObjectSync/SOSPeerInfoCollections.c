@@ -121,7 +121,7 @@ CFMutableArrayRef SOSPeerInfoArrayCreateFromDER(CFAllocatorRef allocator, CFErro
     
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
     
-    require_action(*der_p, fail, SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Peer Info Array Sequence Header"), NULL, error));
+    __Require_Action(*der_p, fail, SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Peer Info Array Sequence Header"), NULL, error));
     
     while (sequence_end != *der_p) {
         SOSPeerInfoRef pi = SOSPeerInfoCreateFromDER(allocator, error, der_p, sequence_end);

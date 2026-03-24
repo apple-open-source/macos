@@ -25,6 +25,7 @@
     Vector<WebKit::WebUserScriptData> userScripts;
     Vector<WebKit::WebUserStyleSheetData> userStyleSheets;
     Vector<WebKit::WebScriptMessageHandlerData> messageHandlers;
+    Vector<WebKit::WebJSBufferData> buffers;
 #if ENABLE(CONTENT_EXTENSIONS)
     Vector<std::pair<WebKit::WebCompiledContentRuleListData, URL>> contentRuleLists;
 #endif

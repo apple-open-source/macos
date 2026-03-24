@@ -60,7 +60,7 @@ private:
     void createDecodingConfiguration(WebCore::MediaDecodingConfiguration&&, CompletionHandler<void(WebCore::MediaCapabilitiesDecodingInfo&&)>&&);
     void createEncodingConfiguration(WebCore::MediaEncodingConfiguration&&, CompletionHandler<void(WebCore::MediaCapabilitiesEncodingInfo&&)>&&);
 
-    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_connection; // Cannot be null.
+    ThreadSafeWeakRef<GPUConnectionToWebProcess> m_connection;
 };
 
 }

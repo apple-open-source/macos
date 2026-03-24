@@ -47,7 +47,7 @@
 namespace WebCore {
 namespace IDBClient {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(IDBConnectionProxy);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IDBConnectionProxy);
 
 IDBConnectionProxy::IDBConnectionProxy(IDBConnectionToServer& connection, PAL::SessionID sessionID)
     : m_connectionToServer(connection)
@@ -196,7 +196,7 @@ void IDBConnectionProxy::deleteIndex(TransactionOperation& operation, IDBObjectS
     const IDBRequestData requestData { operation };
     saveOperation(operation);
 
-    callConnectionOnMainThread(&IDBConnectionToServer::deleteIndex, requestData, WTFMove(objectStoreIdentifier), indexName);
+    callConnectionOnMainThread(&IDBConnectionToServer::deleteIndex, requestData, WTF::move(objectStoreIdentifier), indexName);
 }
 
 void IDBConnectionProxy::putOrAdd(TransactionOperation& operation, IDBKeyData&& keyData, const IDBValue& value, const IndexIDToIndexKeyMap& indexKeys, const IndexedDB::ObjectStoreOverwriteMode mode)
@@ -275,7 +275,7 @@ void IDBConnectionProxy::completeOperation(const IDBResultData& resultData)
     if (!operation)
         return;
 
-    operation->transitionToComplete(resultData, WTFMove(operation));
+    operation->transitionToComplete(resultData, WTF::move(operation));
 }
 
 void IDBConnectionProxy::abortOpenAndUpgradeNeeded(IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const std::optional<IDBResourceIdentifier>& transactionIdentifier)
@@ -544,10 +544,10 @@ void IDBConnectionProxy::getAllDatabaseNamesAndVersions(ScriptExecutionContext& 
     RefPtr<IDBDatabaseNameAndVersionRequest> request;
     {
         Locker locker { m_databaseInfoMapLock };
-        auto newRequest = IDBDatabaseNameAndVersionRequest::create(context, *this, WTFMove(callback));
+        auto newRequest = IDBDatabaseNameAndVersionRequest::create(context, *this, WTF::move(callback));
         ASSERT(!m_databaseInfoCallbacks.contains(newRequest->resourceIdentifier()));
         request = newRequest.ptr();
-        m_databaseInfoCallbacks.add(newRequest->resourceIdentifier(), WTFMove(newRequest));
+        m_databaseInfoCallbacks.add(newRequest->resourceIdentifier(), WTF::move(newRequest));
     }
 
     callConnectionOnMainThread(&IDBConnectionToServer::getAllDatabaseNamesAndVersions, request->resourceIdentifier(), origin);
@@ -563,7 +563,7 @@ void IDBConnectionProxy::didGetAllDatabaseNamesAndVersions(const IDBResourceIden
             return;
     }
 
-    request->performCallbackOnOriginThread(*request, &IDBDatabaseNameAndVersionRequest::complete, WTFMove(databases));
+    request->performCallbackOnOriginThread(*request, &IDBDatabaseNameAndVersionRequest::complete, WTF::move(databases));
 }
 
 void IDBConnectionProxy::registerDatabaseConnection(IDBDatabase& database, ScriptExecutionContextIdentifier identifier)
@@ -581,7 +581,7 @@ void IDBConnectionProxy::unregisterDatabaseConnection(IDBDatabase& database)
     m_databaseConnectionMap.remove(database.databaseConnectionIdentifier());
 }
 
-void IDBConnectionProxy::forgetActiveOperations(const Vector<RefPtr<TransactionOperation>>& operations)
+void IDBConnectionProxy::forgetActiveOperations(const Vector<Ref<TransactionOperation>>& operations)
 {
     Locker locker { m_transactionOperationLock };
 
@@ -603,7 +603,7 @@ void removeItemsMatchingCurrentThread(HashMap<KeyType, ValueType>& map, Function
 {
     // FIXME: Revisit when introducing WebThread aware thread comparison.
     // https://bugs.webkit.org/show_bug.cgi?id=204345
-    map.removeIf([currentThread = RefPtr { &Thread::currentSingleton() }, cleanupFunction = WTFMove(cleanupFunction)](auto& entry) {
+    map.removeIf([currentThread = RefPtr { &Thread::currentSingleton() }, cleanupFunction = WTF::move(cleanupFunction)](auto& entry) {
         if (&entry.value->originThread() == currentThread.get()) {
             cleanupFunction(entry.value);
             return true;

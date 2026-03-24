@@ -10,6 +10,8 @@
 #ifndef UCOL_H
 #define UCOL_H
 
+DECLARE_SYSTEM_HEADER
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_COLLATION

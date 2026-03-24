@@ -1239,6 +1239,9 @@ ulocimp_addLikelySubtags(const char* localeID,
                          icu::ByteSink& sink,
                          UErrorCode& status) {
     if (U_FAILURE(status)) { return; }
+    if (localeID == nullptr) {
+        localeID = uloc_getDefault();
+    }
     icu::CharString localeBuffer = ulocimp_canonicalize(localeID, status);
     _uloc_addLikelySubtags(localeBuffer.data(), sink, status);
 }
@@ -1281,6 +1284,9 @@ ulocimp_minimizeSubtags(const char* localeID,
                         bool favorScript,
                         UErrorCode& status) {
     if (U_FAILURE(status)) { return; }
+    if (localeID == nullptr) {
+        localeID = uloc_getDefault();
+    }
     icu::CharString localeBuffer = ulocimp_canonicalize(localeID, status);
 #if APPLE_ICU_CHANGES
 // rdar://121488288 (21E188: footprint regressions in multiple processes since 21E187)
@@ -1301,7 +1307,9 @@ uloc_isRightToLeft(const char *locale) {
     UErrorCode errorCode = U_ZERO_ERROR;
     icu::CharString lang;
     icu::CharString script;
-    ulocimp_getSubtags(locale, &lang, &script, nullptr, nullptr, nullptr, errorCode);
+    ulocimp_getSubtags(
+        locale == nullptr ? uloc_getDefault() : locale,
+        &lang, &script, nullptr, nullptr, nullptr, errorCode);
     if (U_FAILURE(errorCode) || script.isEmpty()) {
         // Fastpath: We know the likely scripts and their writing direction
         // for some common languages.
@@ -1321,7 +1329,7 @@ uloc_isRightToLeft(const char *locale) {
         if (U_FAILURE(errorCode)) {
             return false;
         }
-        ulocimp_getSubtags(likely.data(), nullptr, &script, nullptr, nullptr, nullptr, errorCode);
+        ulocimp_getSubtags(likely.toStringPiece(), nullptr, &script, nullptr, nullptr, nullptr, errorCode);
         if (U_FAILURE(errorCode) || script.isEmpty()) {
             return false;
         }
@@ -1362,7 +1370,13 @@ GetRegionFromKey(const char* localeID, std::string_view key, UErrorCode& status)
     if (U_SUCCESS(status) && len >= 3 && len <= 6 &&
         uprv_isASCIILetter(kw[0]) && uprv_isASCIILetter(kw[1])) {
         // Additional Check
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+        icu::RegionValidateMap valid;
+#else
         static icu::RegionValidateMap valid;
+#endif // APPLE_ICU_CHANGES
         const char region[] = {kw[0], kw[1], '\0'};
         if (valid.isSet(region)) {
             result.append(uprv_toupper(kw[0]), status);
@@ -1382,7 +1396,7 @@ ulocimp_getRegionForSupplementalData(const char *localeID, bool inferRegion,
     icu::CharString rgBuf = GetRegionFromKey(localeID, "rg", status);
     if (U_SUCCESS(status) && rgBuf.isEmpty()) {
         // No valid rg keyword value, try for unicode_region_subtag
-        rgBuf = ulocimp_getRegion(localeID, status);
+        rgBuf = ulocimp_getRegion(localeID == nullptr ? uloc_getDefault() : localeID, status);
         if (U_SUCCESS(status) && rgBuf.isEmpty() && inferRegion) {
             // Second check for sd keyword value
             rgBuf = GetRegionFromKey(localeID, "sd", status);
@@ -1391,7 +1405,7 @@ ulocimp_getRegionForSupplementalData(const char *localeID, bool inferRegion,
                 UErrorCode rgStatus = U_ZERO_ERROR;
                 icu::CharString locBuf = ulocimp_addLikelySubtags(localeID, rgStatus);
                 if (U_SUCCESS(rgStatus)) {
-                    rgBuf = ulocimp_getRegion(locBuf.data(), status);
+                    rgBuf = ulocimp_getRegion(locBuf.toStringPiece(), status);
                 }
             }
         }
@@ -1486,7 +1500,7 @@ bool RegionValidateMap::equals(const RegionValidateMap& that) const {
 // The code transform two letter a-z to a integer valued between -1, 26x26.
 // -1 indicate the region is outside the range of two letter a-z
 // the rest of value is between 0 and 676 (= 26x26) and used as an index
-// the the bigmap in map. The map is an array of 22 int32_t.
+// the bigmap in map. The map is an array of 22 int32_t.
 // since 32x21 < 676/32 < 32x22 we store this 676 bits bitmap into 22 int32_t.
 int32_t RegionValidateMap::value(const char* region) const {
     if (uprv_isASCIILetter(region[0]) && uprv_isASCIILetter(region[1]) &&

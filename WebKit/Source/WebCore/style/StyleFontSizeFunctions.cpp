@@ -36,7 +36,7 @@
 #include "FontSizeAdjust.h"
 #include "FrameDestructionObserverInlines.h"
 #include "LocalFrame.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 
 namespace WebCore {
 
@@ -83,13 +83,13 @@ float computedFontSizeFromSpecifiedSize(float specifiedSize, bool isAbsoluteSize
     return std::min(maximumAllowedFontSize, zoomedSize);
 }
 
-ComputedFontSize computedFontSizeFromSpecifiedSize(float specifiedSize, bool isAbsoluteSize, bool useSVGZoomRules, const RenderStyle* style, const Document& document)
+ComputedFontSize computedFontSizeFromSpecifiedSize(float specifiedSize, bool isAbsoluteSize, bool useSVGZoomRules, const ComputedStyle& style, const Document& document)
 {
     float zoomFactor = 1.0f;
     if (!useSVGZoomRules) {
-        zoomFactor = style->usedZoom();
+        zoomFactor = style.usedZoom();
         auto* frame = document.frame();
-        if (frame && style->textZoom() != TextZoom::Reset)
+        if (frame && style.textZoom() != TextZoom::Reset)
             zoomFactor *= frame->textZoomFactor();
     }
     return { computedFontSizeFromSpecifiedSize(specifiedSize, isAbsoluteSize, zoomFactor, useSVGZoomRules ? MinimumFontSizeRule::None : MinimumFontSizeRule::AbsoluteAndRelative, document.settingsValues()), zoomFactor };

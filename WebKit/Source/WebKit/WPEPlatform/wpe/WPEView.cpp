@@ -27,7 +27,7 @@
 #include "WPEView.h"
 
 #include "WPEBuffer.h"
-#include "WPEBufferDMABufFormats.h"
+#include "WPEBufferFormats.h"
 #include "WPEDisplayPrivate.h"
 #include "WPEEnumTypes.h"
 #include "WPEEvent.h"
@@ -110,7 +110,7 @@ enum {
     BUFFER_RELEASED,
     EVENT,
     TOPLEVEL_STATE_CHANGED,
-    PREFERRED_DMA_BUF_FORMATS_CHANGED,
+    PREFERRED_BUFFER_FORMATS_CHANGED,
 
     LAST_SIGNAL
 };
@@ -441,14 +441,14 @@ static void wpe_view_class_init(WPEViewClass* viewClass)
         WPE_TYPE_TOPLEVEL_STATE);
 
     /**
-     * WPEView::preferred-dma-buf-formats-changed:
+     * WPEView::preferred-buffer-formats-changed:
      * @view: a #WPEView
      *
-     * Emitted when the list of preferred DMA-BUF formats has changed.
-     * This can happen whe the @view becomes a candidate for scanout.
+     * Emitted when the list of preferred buffer formats has changed.
+     * This can happen when the @view becomes a candidate for scanout.
      */
-    signals[PREFERRED_DMA_BUF_FORMATS_CHANGED] = g_signal_new(
-        "preferred-dma-buf-formats-changed",
+    signals[PREFERRED_BUFFER_FORMATS_CHANGED] = g_signal_new(
+        "preferred-buffer-formats-changed",
         G_TYPE_FROM_CLASS(viewClass),
         G_SIGNAL_RUN_LAST,
         0, nullptr, nullptr,
@@ -481,9 +481,9 @@ void wpeViewScreenChanged(WPEView* view)
     g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_SCREEN]);
 }
 
-void wpeViewPreferredDMABufFormatsChanged(WPEView* view)
+void wpeViewPreferredBufferFormatsChanged(WPEView* view)
 {
-    g_signal_emit(view, signals[PREFERRED_DMA_BUF_FORMATS_CHANGED], 0);
+    g_signal_emit(view, signals[PREFERRED_BUFFER_FORMATS_CHANGED], 0);
 }
 
 /**
@@ -565,7 +565,7 @@ void wpe_view_set_toplevel(WPEView* view, WPEToplevel* toplevel)
         wpeViewScaleChanged(view, wpe_toplevel_get_scale(priv->toplevel.get()));
         wpeViewToplevelStateChanged(view, wpe_toplevel_get_state(priv->toplevel.get()));
         wpeViewScreenChanged(view);
-        wpeViewPreferredDMABufFormatsChanged(view);
+        wpeViewPreferredBufferFormatsChanged(view);
     }
 
     g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_TOPLEVEL]);
@@ -1052,21 +1052,21 @@ gboolean wpe_view_get_has_focus(WPEView* view)
 }
 
 /**
- * wpe_view_get_preferred_dma_buf_formats:
+ * wpe_view_get_preferred_buffer_formats:
  * @view: a #WPEView
  *
- * Get the list of preferred DMA-BUF buffer formats for @view.
+ * Get the list of preferred buffer formats for @view.
  *
- * Returns: (transfer none) (nullable): a #WPEBufferDMABufFormats
+ * Returns: (transfer none) (nullable): a #WPEBufferFormats
  */
-WPEBufferDMABufFormats* wpe_view_get_preferred_dma_buf_formats(WPEView* view)
+WPEBufferFormats* wpe_view_get_preferred_buffer_formats(WPEView* view)
 {
     g_return_val_if_fail(WPE_IS_VIEW(view), nullptr);
 
     if (!view->priv->toplevel)
         return nullptr;
 
-    return wpe_toplevel_get_preferred_dma_buf_formats(view->priv->toplevel.get());
+    return wpe_toplevel_get_preferred_buffer_formats(view->priv->toplevel.get());
 }
 
 /**

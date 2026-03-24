@@ -59,7 +59,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(PlaybackSessionModelMediaElement);
 PlaybackSessionModelMediaElement::PlaybackSessionModelMediaElement()
     : EventListener(EventListener::CPPEventListenerType)
     , m_soundStageSize { AudioSessionSoundStageSize::Automatic }
-    , m_videoTrackConfigurationObserver { [&] { videoTrackConfigurationChanged(); } }
+    , m_videoTrackConfigurationObserver { Observer<void()>::create([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->videoTrackConfigurationChanged();
+    }) }
 {
 }
 
@@ -367,13 +370,13 @@ void PlaybackSessionModelMediaElement::selectLegibleMediaOption(uint64_t index)
     if (!mediaElement)
         return;
 
-    TextTrack* textTrack;
+    RefPtr<TextTrack> textTrack;
     if (index < m_legibleTracksForMenu.size())
-        textTrack = m_legibleTracksForMenu[static_cast<size_t>(index)].get();
+        textTrack = m_legibleTracksForMenu[static_cast<size_t>(index)].copyRef();
     else
-        textTrack = &TextTrack::captionMenuOffItem();
+        textTrack = TextTrack::captionMenuOffItemSingleton();
 
-    mediaElement->setSelectedTextTrack(textTrack);
+    mediaElement->setSelectedTextTrack(textTrack.get());
 }
 
 void PlaybackSessionModelMediaElement::togglePictureInPicture()
@@ -477,7 +480,7 @@ void PlaybackSessionModelMediaElement::setPlayingOnSecondScreen(bool value)
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-const String& PlaybackSessionModelMediaElement::spatialTrackingLabel() const
+String PlaybackSessionModelMediaElement::spatialTrackingLabel() const
 {
     if (RefPtr mediaElement = m_mediaElement)
         return mediaElement->spatialTrackingLabel();
@@ -506,7 +509,7 @@ void PlaybackSessionModelMediaElement::updateMediaSelectionOptions()
     if (!mediaElement->document().page())
         return;
 
-    auto& captionPreferences = mediaElement->document().page()->group().ensureCaptionPreferences();
+    auto& captionPreferences = mediaElement->document().page()->checkedGroup()->ensureCaptionPreferences();
     auto* textTracks = mediaElement->textTracks();
     if (textTracks && textTracks->length())
         m_legibleTracksForMenu = captionPreferences.sortedTrackListForMenu(textTracks, { TextTrack::Kind::Subtitles, TextTrack::Kind::Captions, TextTrack::Kind::Descriptions });
@@ -545,25 +548,17 @@ void PlaybackSessionModelMediaElement::maybeUpdateVideoMetadata()
     // the subsequent "addtrack" event is fired. This leads to a brief moment when
     // there is no "selected" video track. In this case, ignore the update and
     // return early.
-    if (!selectedItem && (m_spatialVideoMetadata || m_videoProjectionMetadata)) {
-        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "no selected item, but have cached spatial metadata or projection metadata; bailing");
+    if (!selectedItem && m_immersiveVideoMetadata) {
+        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "no selected item, but have cached immersive metadata; bailing");
         return;
     }
 
-    auto spatialVideoMetadata = selectedItem ? selectedItem->configuration().spatialVideoMetadata() : std::nullopt;
-    if (spatialVideoMetadata != m_spatialVideoMetadata) {
-        m_spatialVideoMetadata = WTFMove(spatialVideoMetadata);
-        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "spatialVideoMetadata: ", m_spatialVideoMetadata);
+    auto immersiveVideoMetadata = selectedItem ? selectedItem->configuration().immersiveVideoMetadata() : std::nullopt;
+    if (immersiveVideoMetadata != m_immersiveVideoMetadata) {
+        m_immersiveVideoMetadata = WTF::move(immersiveVideoMetadata);
+        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "immersiveVideoMetadata: ", m_immersiveVideoMetadata);
         for (auto& client : m_clients)
-            client->spatialVideoMetadataChanged(spatialVideoMetadata);
-    }
-
-    auto videoProjectionMetadata = selectedItem ? selectedItem->configuration().videoProjectionMetadata() : std::nullopt;
-    if (videoProjectionMetadata != m_videoProjectionMetadata) {
-        m_videoProjectionMetadata = videoProjectionMetadata;
-        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "videoProjectionMetadata: ", m_videoProjectionMetadata);
-        for (auto& client : m_clients)
-            client->videoProjectionMetadataChanged(m_videoProjectionMetadata);
+            client->immersiveVideoMetadataChanged(immersiveVideoMetadata);
     }
 }
 
@@ -716,7 +711,7 @@ Vector<MediaSelectionOption> PlaybackSessionModelMediaElement::audioMediaSelecti
     if (!mediaElement || !mediaElement->document().page())
         return { };
 
-    auto& captionPreferences = mediaElement->document().page()->group().ensureCaptionPreferences();
+    auto& captionPreferences = mediaElement->document().page()->checkedGroup()->ensureCaptionPreferences();
     return m_audioTracksForMenu.map([&](auto& audioTrack) {
         return captionPreferences.mediaSelectionOptionForTrack(audioTrack.get());
     });
@@ -739,7 +734,7 @@ Vector<MediaSelectionOption> PlaybackSessionModelMediaElement::legibleMediaSelec
     if (!mediaElement || !mediaElement->document().page())
         return { };
 
-    auto& captionPreferences = mediaElement->document().page()->group().ensureCaptionPreferences();
+    auto& captionPreferences = mediaElement->document().page()->checkedGroup()->ensureCaptionPreferences();
     return m_legibleTracksForMenu.map([&](auto& track) {
         return captionPreferences.mediaSelectionOptionForTrack(track.get());
     });
@@ -753,8 +748,6 @@ uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
         return std::numeric_limits<uint64_t>::max();
 
     AtomString displayMode = host->captionDisplayMode();
-    TextTrack& offItem = TextTrack::captionMenuOffItem();
-    TextTrack& automaticItem = TextTrack::captionMenuAutomaticItem();
 
     std::optional<uint64_t> selectedIndex;
     std::optional<uint64_t> offIndex;
@@ -762,11 +755,11 @@ uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
     for (size_t index = 0; index < m_legibleTracksForMenu.size(); index++) {
         auto& track = m_legibleTracksForMenu[index];
 
-        if (track == &offItem)
+        if (track.ptr() == &TextTrack::captionMenuOffItemSingleton())
             offIndex = index;
 
         if (displayMode == MediaControlsHost::automaticKeyword()) {
-            if (track == &automaticItem)
+            if (track.ptr() == &TextTrack::captionMenuAutomaticItemSingleton())
                 selectedIndex = index;
         } else {
             if (track->mode() == TextTrack::Mode::Showing)

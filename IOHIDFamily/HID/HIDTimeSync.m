@@ -263,16 +263,16 @@ void HIDTimeSyncPropertyHandler(void *refcon, io_service_t service, uint32_t mes
 
     // Get IOHIDEventService kernel object reference
     matching = IORegistryEntryIDMatching(serviceID);
-    require_action(matching, exit, os_log_error(_IOHIDLog(), "Failed to get matching for ID 0x%llx", serviceID));
+    __Require_Action(matching, exit, os_log_error(_IOHIDLog(), "Failed to get matching for ID 0x%llx", serviceID));
     service = IOServiceGetMatchingService(kIOMainPortDefault, matching); // Releases matching
     matching = NULL;
-    require_action(service, exit, os_log_error(_IOHIDLog(), "Failed to get service for ID 0x%llx", serviceID));
+    __Require_Action(service, exit, os_log_error(_IOHIDLog(), "Failed to get service for ID 0x%llx", serviceID));
 
     kr = IORegistryEntryCreateIterator(service,
         kIOServicePlane,
         kIORegistryIterateRecursively | kIORegistryIterateParents,
         &iter);
-    require_noerr_action(kr, exit, os_log_error(_IOHIDLog(), "Failed to create iterator for ID 0x%llx", serviceID));
+    __Require_noErr_Action(kr, exit, os_log_error(_IOHIDLog(), "Failed to create iterator for ID 0x%llx", serviceID));
 
     while ((obj = IOIteratorNext(iter))) {
         if (IOObjectConformsTo(obj, "IOHIDDevice")) {
@@ -281,7 +281,7 @@ void HIDTimeSyncPropertyHandler(void *refcon, io_service_t service, uint32_t mes
         }
         IOObjectRelease(obj);
     }
-    require_action(device, exit, os_log_error(_IOHIDLog(), "Failed find device for ID 0x%llx", serviceID));
+    __Require_Action(device, exit, os_log_error(_IOHIDLog(), "Failed find device for ID 0x%llx", serviceID));
 
 exit:
     if (service) {
@@ -339,15 +339,15 @@ exit:
     else if (_client) {
         service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(_client.serviceID));
     }
-    require_quiet(service != IO_OBJECT_NULL, exit);
+    __Require_Quiet(service != IO_OBJECT_NULL, exit);
 
     prop = IORegistryEntrySearchCFProperty(service,
                                            kIOServicePlane,
                                            CFSTR(kIOHIDTimeSyncPropertiesKey),
                                            kCFAllocatorDefault,
                                            kIORegistryIterateRecursively | kIORegistryIterateParents);
-    require_quiet(prop, exit);
-    require_action_quiet(CFGetTypeID(prop) == CFDictionaryGetTypeID(), exit, CFRelease(prop));
+    __Require_Quiet(prop, exit);
+    __Require_Action_Quiet(CFGetTypeID(prop) == CFDictionaryGetTypeID(), exit, CFRelease(prop));
 
     properties = (__bridge_transfer NSDictionary *)prop;
 
@@ -365,7 +365,7 @@ exit:
     BOOL ret = NO;
 
     device_ref = [self findDevice];
-    require_quiet(device_ref != IO_OBJECT_NULL, exit);
+    __Require_Quiet(device_ref != IO_OBJECT_NULL, exit);
 
     tmpDevice = [[HIDDevice alloc] initWithService:device_ref];
 

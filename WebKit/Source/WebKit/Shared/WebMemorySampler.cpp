@@ -37,7 +37,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebMemorySampler);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebMemorySampler);
 
 static const char separator = '\t';
 
@@ -83,7 +83,7 @@ void WebMemorySampler::start(SandboxExtension::Handle&& sampleLogFileHandle, con
         return;
     }
         
-    initializeSandboxedLogFile(WTFMove(sampleLogFileHandle), sampleLogFilePath);
+    initializeSandboxedLogFile(WTF::move(sampleLogFileHandle), sampleLogFilePath);
     initializeTimers(interval);
    
 }
@@ -129,13 +129,13 @@ void WebMemorySampler::initializeTempLogFile()
 {
     auto result = FileSystem::openTemporaryFile(processName());
     m_sampleLogFilePath = result.first;
-    m_sampleLogFile = WTFMove(result.second);
+    m_sampleLogFile = WTF::move(result.second);
     writeHeaders();
 }
 
 void WebMemorySampler::initializeSandboxedLogFile(SandboxExtension::Handle&& sampleLogSandboxHandle, const String& sampleLogFilePath)
 {
-    m_sampleLogSandboxExtension = SandboxExtension::create(WTFMove(sampleLogSandboxHandle));
+    m_sampleLogSandboxExtension = SandboxExtension::create(WTF::move(sampleLogSandboxHandle));
     if (RefPtr extension = m_sampleLogSandboxExtension)
         extension->consume();
     m_sampleLogFilePath = sampleLogFilePath;

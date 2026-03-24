@@ -29,7 +29,6 @@
 #include "WebFrame.h"
 #include "WebFrameInspectorTargetFrontendChannel.h"
 #include <WebCore/FrameInspectorController.h>
-#include <WebCore/InspectorController.h>
 #include <WebCore/LocalFrame.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>

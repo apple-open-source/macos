@@ -4,5 +4,9 @@
 <dict>
 	<key>com.apple.private.smbfs.update-notifier-pid</key>
 	<true/>
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/tmp/coverage</string>
+	</array>
 </dict>
 </plist>

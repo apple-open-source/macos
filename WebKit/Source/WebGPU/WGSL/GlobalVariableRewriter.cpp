@@ -251,6 +251,7 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
 
     const auto& updateCallSites = [&] {
         for (auto& read : m_reads) {
+            dataLogLnIf(shouldLogGlobalVariableRewriting, ">> Updating call site to pass global read: ", read);
             for (auto& [_, call] : callee.callSites) {
                 auto it = m_globals.find(read);
                 RELEASE_ASSERT(it != m_globals.end());
@@ -269,6 +270,7 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
             auto& lengthType = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("u32"_s));
             lengthType.m_inferredType = m_shaderModule.types().u32Type();
 
+            Vector<std::pair<AST::Function*, String>> pendingLengthParameters;
             for (auto& lengthParameter : it->value) {
                 auto lengthName = makeString("__"_s, lengthParameter, "_ArrayLength"_s);
                 if (m_reads.contains(lengthName))
@@ -281,13 +283,13 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
                     ++index;
                 }
                 for (auto& [caller, call] : callee.callSites) {
+                    dataLogLnIf(shouldLogGlobalVariableRewriting, ">> Updating call site ("_s, caller->name(), ") to pass array length: ", lengthName);
                     auto& argument = call->arguments()[index];
                     unsigned arrayOffset = 0;
                     auto& base = getBase(argument, arrayOffset);
                     auto& identifier = base.identifier();
 
-                    auto result = m_lengthParameters.add(caller, ListHashSet<String> { });
-                    result.iterator->value.add(identifier);
+                    pendingLengthParameters.append({ caller, identifier });
 
                     auto lengthName = makeString("__"_s, identifier, "_ArrayLength"_s);
                     auto& length = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(
@@ -313,14 +315,21 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
                     m_shaderModule.append(call->arguments(), *lhs);
                 }
             }
+
+            for (auto&  [caller, lengthParameter] : pendingLengthParameters) {
+                auto result = m_lengthParameters.add(caller, ListHashSet<String> { });
+                result.iterator->value.add(lengthParameter);
+            }
         }
     };
 
+    dataLogLnIf(shouldLogGlobalVariableRewriting, "ENTER: ", callee.target->name());
     auto it = m_visitedFunctions.find(callee.target);
     if (it != m_visitedFunctions.end()) {
         dataLogLnIf(shouldLogGlobalVariableRewriting, "> Already visited callee: ", callee.target->name());
         m_reads = it->value;
         updateCallSites();
+        dataLogLnIf(shouldLogGlobalVariableRewriting, "EXIT: ", callee.target->name());
         return;
     }
 
@@ -331,6 +340,7 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
     updateCallSites();
 
     m_visitedFunctions.add(callee.target, m_reads);
+    dataLogLnIf(shouldLogGlobalVariableRewriting, "EXIT: ", callee.target->name());
 }
 
 void RewriteGlobalVariables::visit(AST::Function& function)
@@ -345,7 +355,7 @@ void RewriteGlobalVariables::visit(AST::Function& function)
         for (const auto& read : m_reads)
             reads.add(read);
     }
-    m_reads = WTFMove(reads);
+    m_reads = WTF::move(reads);
     m_defs.clear();
     m_combinedFunctionVariablesSize = 0;
 
@@ -980,7 +990,7 @@ void RewriteGlobalVariables::insertParameter(const SourceSpan& span, const AST::
     auto& groupAttribute = m_shaderModule.astBuilder().construct<AST::GroupAttribute>(span, groupValue);
     m_shaderModule.append(function.parameters(), m_shaderModule.astBuilder().construct<AST::Parameter>(
         span,
-        WTFMove(name),
+        WTF::move(name),
         *type,
         AST::Attribute::List { groupAttribute },
         parameterRole
@@ -1345,7 +1355,7 @@ auto RewriteGlobalVariables::determineUsedGlobals(const AST::Function& function)
             return makeUnexpected(Error(makeString("entry point '"_s, m_entryPointInformation->originalName, "' uses variables '"_s, bindingResult.iterator->value->declaration->originalName(), "' and '"_s, variable.originalName(), "', both which use the same resource binding: @group("_s, group, ") @binding("_s, binding, ')'), variable.span()));
     }
 
-    m_shaderModule.addOverrideValidation([span = function.span(), variables = WTFMove(workgroupVariables), maximumCombinedWorkgroupVariablesSize] -> std::optional<Error> {
+    m_shaderModule.addOverrideValidation([span = function.span(), variables = WTF::move(workgroupVariables), maximumCombinedWorkgroupVariablesSize] -> std::optional<Error> {
         CheckedUint32 combinedWorkgroupVariablesSize = 0;
         for (const Type* type : variables)
             combinedWorkgroupVariablesSize += type->size();
@@ -1353,7 +1363,7 @@ auto RewriteGlobalVariables::determineUsedGlobals(const AST::Function& function)
             return { Error(makeString("The combined byte size of all variables in the workgroup address space exceeds "_s, String::number(maximumCombinedWorkgroupVariablesSize), " bytes"_s), span) };
         return std::nullopt;
     });
-    m_shaderModule.addOverrideValidation([span = function.span(), variables = WTFMove(privateVariables)] -> std::optional<Error> {
+    m_shaderModule.addOverrideValidation([span = function.span(), variables = WTF::move(privateVariables)] -> std::optional<Error> {
         CheckedUint32 combinedPrivateVariablesSize = 0;
         for (const Type* type : variables)
             combinedPrivateVariablesSize += type->size();
@@ -1588,7 +1598,7 @@ Vector<unsigned> RewriteGlobalVariables::insertStructs(const UsedResources& used
             else
                 ++metalId;
 
-            m_generatedLayout->bindGroupLayouts[group].entries.append(WTFMove(entry));
+            m_generatedLayout->bindGroupLayouts[group].entries.append(WTF::move(entry));
         }
 
         if (entries.isEmpty())
@@ -1632,7 +1642,7 @@ void RewriteGlobalVariables::finalizeArgumentBufferStruct(unsigned group, Vector
     auto& argumentBufferStruct = m_shaderModule.astBuilder().construct<AST::Structure>(
         SourceSpan::empty(),
         argumentBufferStructName(group),
-        WTFMove(structMembers),
+        WTF::move(structMembers),
         AST::Attribute::List { },
         AST::StructureRole::BindGroup
     );
@@ -2280,7 +2290,7 @@ void RewriteGlobalVariables::insertMaterializations(AST::Function& function, con
             auto& access = m_shaderModule.astBuilder().construct<AST::FieldAccessExpression>(
                 SourceSpan::empty(),
                 argument,
-                AST::Identifier::make(WTFMove(fieldName))
+                AST::Identifier::make(WTF::move(fieldName))
             );
             AST::Expression* initializer = &access;
 
@@ -2364,7 +2374,7 @@ void RewriteGlobalVariables::initializeVariables(AST::Function& function, const 
     auto& body = m_shaderModule.astBuilder().construct<AST::CompoundStatement>(
         SourceSpan::empty(),
         AST::Attribute::List { },
-        WTFMove(initializations)
+        WTF::move(initializations)
     );
 
     auto& ifStatement = m_shaderModule.astBuilder().construct<AST::IfStatement>(
@@ -2552,7 +2562,7 @@ void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Sta
         auto& forBody = m_shaderModule.astBuilder().construct<AST::CompoundStatement>(
             SourceSpan::empty(),
             AST::Attribute::List { },
-            WTFMove(forBodyStatements)
+            WTF::move(forBodyStatements)
         );
 
         auto& forStatement = m_shaderModule.astBuilder().construct<AST::ForStatement>(

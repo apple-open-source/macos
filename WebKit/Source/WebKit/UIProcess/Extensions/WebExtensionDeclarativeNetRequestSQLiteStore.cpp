@@ -57,13 +57,13 @@ static Vector<String> ruleIdMapToString(Vector<double> ruleIDs)
 
 void WebExtensionDeclarativeNetRequestSQLiteStore::updateRulesByRemovingIDs(Vector<double> ruleIDs, Ref<JSON::Array> rules, CompletionHandler<void(const String& errorMessage)>&& completionHandler)
 {
-    deleteRules(ruleIDs, [protectedThis = Ref { *this }, ruleIDs = WTFMove(ruleIDs), rules = WTFMove(rules), completionHandler = WTFMove(completionHandler)](const String& errorMessage) mutable {
+    deleteRules(ruleIDs, [protectedThis = Ref { *this }, ruleIDs = WTF::move(ruleIDs), rules = WTF::move(rules), completionHandler = WTF::move(completionHandler)](const String& errorMessage) mutable {
         if (!errorMessage.isEmpty()) {
             completionHandler(errorMessage);
             return;
         }
 
-        protectedThis->addRules(rules, [completionHandler = WTFMove(completionHandler)](const String& errorMessage) mutable {
+        protectedThis->addRules(rules, [completionHandler = WTF::move(completionHandler)](const String& errorMessage) mutable {
             completionHandler(errorMessage);
         });
     });
@@ -76,7 +76,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::addRules(Ref<JSON::Array> rul
         return;
     }
 
-    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, rules = WTFMove(rules), completionHandler = WTFMove(completionHandler)]() mutable {
+    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, rules = WTF::move(rules), completionHandler = WTF::move(completionHandler)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
             completionHandler({ });
@@ -85,7 +85,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::addRules(Ref<JSON::Array> rul
 
         String errorMessage;
         if (!protectedThis->openDatabaseIfNecessary(errorMessage, true)) {
-            WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+            WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
                 completionHandler(errorMessage);
             });
             return;
@@ -96,9 +96,10 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::addRules(Ref<JSON::Array> rul
         Vector<double> rulesIDs;
         for (Ref ruleValue : rules.get()) {
             RefPtr rule = ruleValue->asObject();
-
-            if (!rule || !rule->size())
-                return;
+            if (!rule || !rule->size()) {
+                ASSERT_NOT_REACHED();
+                continue;
+            }
 
             auto ruleID = rule->getInteger("id"_s);
             ASSERT(ruleID);
@@ -122,7 +123,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::addRules(Ref<JSON::Array> rul
                 errorMessage = makeString("Failed to add "_s, protectedThis->m_storageType, " rules. Some rules do not have unique IDs ("_s, makeStringByJoining(ruleIdMapToString(rulesIDs).span(), ", "_s), ")"_s);
 
             if (!errorMessage.isEmpty()) {
-                WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+                WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
                     completionHandler(errorMessage);
                 });
                 return;
@@ -131,16 +132,17 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::addRules(Ref<JSON::Array> rul
 
         for (Ref ruleValue : rules.get()) {
             RefPtr rule = ruleValue->asObject();
-
-            if (!rule || !rule->size())
-                return;
+            if (!rule || !rule->size()) {
+                ASSERT_NOT_REACHED();
+                continue;
+            }
 
             errorMessage = protectedThis->insertRule(*rule, *(protectedThis->database()));
             if (!errorMessage.isEmpty())
                 break;
         }
 
-        WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+        WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(errorMessage);
         });
     });
@@ -153,7 +155,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::deleteRules(Vector<double> ru
         return;
     }
 
-    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, ruleIDs = crossThreadCopy(ruleIDs), completionHandler = WTFMove(completionHandler)]() mutable {
+    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, ruleIDs = crossThreadCopy(ruleIDs), completionHandler = WTF::move(completionHandler)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
             completionHandler({ });
@@ -162,7 +164,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::deleteRules(Vector<double> ru
 
         String errorMessage;
         if (!protectedThis->openDatabaseIfNecessary(errorMessage, true)) {
-            WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+            WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
                 completionHandler(errorMessage);
             });
             return;
@@ -179,7 +181,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::deleteRules(Vector<double> ru
 
         String deleteDatabaseErrorMessage = protectedThis->deleteDatabaseIfEmpty();
 
-        WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), deleteDatabaseErrorMessage = crossThreadCopy(deleteDatabaseErrorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+        WorkQueue::mainSingleton().dispatch([errorMessage = crossThreadCopy(errorMessage), deleteDatabaseErrorMessage = crossThreadCopy(deleteDatabaseErrorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(errorMessage.isEmpty() ? deleteDatabaseErrorMessage : errorMessage);
         });
     });
@@ -187,7 +189,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::deleteRules(Vector<double> ru
 
 void WebExtensionDeclarativeNetRequestSQLiteStore::getRulesWithRuleIDs(Vector<double> ruleIDs, CompletionHandler<void(RefPtr<JSON::Array> rules, const String& errorMessage)>&& completionHandler)
 {
-    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, ruleIDs = crossThreadCopy(ruleIDs), completionHandler = WTFMove(completionHandler)]() mutable {
+    queue().dispatch([weakThis = ThreadSafeWeakPtr { *this }, ruleIDs = crossThreadCopy(ruleIDs), completionHandler = WTF::move(completionHandler)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
             completionHandler({ }, nullString());
@@ -196,7 +198,7 @@ void WebExtensionDeclarativeNetRequestSQLiteStore::getRulesWithRuleIDs(Vector<do
 
         String errorMessage;
         RefPtr rules = protectedThis->getRulesWithRuleIDsInternal(ruleIDs, errorMessage);
-        WorkQueue::mainSingleton().dispatch([rules = WTFMove(rules), errorMessage = crossThreadCopy(errorMessage), completionHandler = WTFMove(completionHandler)]() mutable {
+        WorkQueue::mainSingleton().dispatch([rules = WTF::move(rules), errorMessage = crossThreadCopy(errorMessage), completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(rules, errorMessage);
         });
     });

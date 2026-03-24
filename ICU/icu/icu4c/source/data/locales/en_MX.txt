@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en_MX{
     calendar{
         generic{
@@ -35,6 +35,7 @@ en_MX{
                 Md{"d/M"}
                 hmsvvvv{"h:mm:ss a (vvvv)"}
                 hmv{"h:mm:ss a v"}
+                yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E d/M/y GGGGG"}
                 yyyyMMMEd{"E d MMM y G"}
                 yyyyMMMMEd{"E, d MMMM y G"}

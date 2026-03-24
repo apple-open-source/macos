@@ -19,6 +19,9 @@
 #define TLS_V1_PREFIX "TLSv1."
 #define MAXIMUM_V6_ADDRESS_LENGTH 39
 #define MAXIMUM_V4_ADDRESS_LENGTH 15
+#define NIAP_TLS_PACKAGE_NONE "none"
+#define NIAP_TLS_PACKAGE_FCP_V2_1 "FCP_v2.1"
+#define NIAP_TLS_PACKAGE_RECOMMENDED "recommended"
 
 static const char *
 get_running_process(void)
@@ -94,6 +97,16 @@ sec_protocol_configuration_copy_transformed_options_with_ats_minimums(sec_protoc
 sec_protocol_options_t
 sec_protocol_configuration_copy_transformed_options(__unused sec_protocol_configuration_t config, sec_protocol_options_t options)
 {
+    xpc_object_t map = sec_protocol_configuration_get_map(config);
+    if (map == nil) {
+        return options;
+    }
+
+    int64_t policy_value = xpc_dictionary_get_int64(map, kRequiresNIAPTLSPackageVersion);
+    if (policy_value > kATSGlobalKeyIntegerNotPresent) {
+        sec_protocol_options_set_tls_compliance_policy(options, (uint64_t)(sec_protocol_options_compliance_policy_t)policy_value);
+    }
+
     sec_protocol_options_clear_tls_ciphersuites(options);
     sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats);
     return sec_protocol_configuration_copy_transformed_options_with_ats_minimums(options);
@@ -248,6 +261,11 @@ sec_protocol_configuration_tls_required(sec_protocol_configuration_t config)
         return true;
     }
 
+    int64_t policy_value = xpc_dictionary_get_int64(map, kRequiresNIAPTLSPackageVersion);
+    if (policy_value != kATSGlobalKeyIntegerNotPresent) {
+        return true;
+    }
+
     // We don't check NSAllowsArbitraryLoads if any of the other global keys are set
     return allows_web_loads != kATSGlobalKeyNotPresent ||
            allows_media_loads != kATSGlobalKeyNotPresent ||
@@ -306,11 +324,24 @@ sec_protocol_configuration_copy_transformed_options_for_host_or_address_internal
         return sec_protocol_configuration_copy_transformed_options(config, options);
     }
 
+    sec_protocol_options_compliance_policy_t policy = (sec_protocol_options_compliance_policy_t)xpc_dictionary_get_uint64(exception, kExceptionRequiresNIAPTLSPackageVersion);
+    sec_protocol_options_set_tls_compliance_policy(options, policy);
+
+
+
     bool allows_insecure = xpc_dictionary_get_bool(exception, kExceptionAllowsInsecureHTTPLoads);
     if (allows_insecure) {
         // NSExceptionAllowsInsecureHTTPLoads loosens the server trust requirements for a given domain
         sec_protocol_options_set_ats_required(options, false);
     }
+
+    // Explanation of ciphersuite setting:
+
+    // If kExceptionRequiresForwardSecrecy is YES (which is the default value) then we clear the ciphersuites and set to [tls_ciphersuite_group_ats]
+    // If kExceptionRequiresForwardSecrecy is NO and kExceptionAllowsInsecureHTTPLoads is NO then we clear the ciphersuites and set to [tls_ciphersuite_group_ats | tls_ciphersuite_group_ats_compatibility]
+    // If kExceptionRequiresForwardSecrecy is NO and kExceptionAllowsInsecureHTTPLoads is YES:
+        // When kExceptionRequiresNIAPTLSPackageVersion is "none": the tls defaults from boringssl are used unless overritten by whatever is set on sec_protocol_options by app
+        // When kExceptionRequiresNIAPTLSPackageVersion is not "none": [tls_ciphersuite_group_ats] is used unless overritten by whatever is set on sec_protocol_options by app. (If new versions are added this behavior may need to be modified to be an even more constrained ciphersuite group).
 
     bool pfs_required = xpc_dictionary_get_bool(exception, kExceptionRequiresForwardSecrecy);
     if (pfs_required) {
@@ -440,6 +471,43 @@ sec_protocol_configuration_protocol_string_to_version(const char *protocol)
     }
 
     return version;
+}
+
+/*
+ Helper function to abstract determining what the currently recommended policy is.
+ When transitioning to a new policy this will likely depend on feature flags.
+ */
+static sec_protocol_options_compliance_policy_t
+sec_protocol_options_get_recommended_compliance_policy()
+{
+    return sec_protocol_options_compliance_policy_fcs_v2;
+}
+
+sec_protocol_options_compliance_policy_t
+sec_protocol_configuration_niap_tls_package_key_to_policy(NSString *package_version)
+{
+    if (package_version == nil) {
+        return sec_protocol_options_compliance_policy_none;
+    }
+
+    // Explicit "none" value
+    if ([package_version isEqualToString:@NIAP_TLS_PACKAGE_NONE]) {
+        return sec_protocol_options_compliance_policy_none;
+    }
+
+    // Current supported NIAP TLS package version
+    if ([package_version isEqualToString:@NIAP_TLS_PACKAGE_FCP_V2_1]) {
+        return sec_protocol_options_compliance_policy_fcs_v2;
+    }
+
+    // Recommended policy
+    if ([package_version isEqualToString:@NIAP_TLS_PACKAGE_RECOMMENDED]) {
+        return sec_protocol_options_get_recommended_compliance_policy();
+    }
+
+    // Any unknown value is treated as "recommended" but log a fault
+    os_log_fault(OS_LOG_DEFAULT, "Unknown NIAP TLS package version: %{public}s, treating as recommended", [package_version cStringUsingEncoding:NSUTF8StringEncoding]);
+    return sec_protocol_options_get_recommended_compliance_policy();
 }
 
 static bool
@@ -586,7 +654,6 @@ sec_protocol_configuration_register_builtin_exception(xpc_object_t dict, const c
     xpc_object_t domain_map = xpc_dictionary_get_dictionary(dict, kExceptionDomains);
     if (domain_map) {
         xpc_object_t entry = xpc_dictionary_create(NULL, NULL, 0);
-        xpc_dictionary_set_value(entry, kExceptionDomains, domain_map);
 
         xpc_dictionary_set_bool(entry, kIncludesSubdomains, includes_subdomains);
         xpc_dictionary_set_int64(entry, kExceptionMinimumTLSVersion, protocol);
@@ -626,6 +693,7 @@ sec_protocol_configuration_populate_insecure_defaults(sec_protocol_configuration
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoadsForMedia, (uint64_t)kATSGlobalKeyNotPresent);
     xpc_dictionary_set_uint64(dict, kAllowsLocalNetworking, (uint64_t)kATSGlobalKeyNotPresent);
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoads, (uint64_t)kATSGlobalKeyValueTrue);
+    xpc_dictionary_set_int64(dict, kRequiresNIAPTLSPackageVersion, kATSGlobalKeyIntegerNotPresent);
 }
 
 void
@@ -641,6 +709,7 @@ sec_protocol_configuration_populate_secure_defaults(sec_protocol_configuration_t
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoadsForMedia, (uint64_t)kATSGlobalKeyNotPresent);
     xpc_dictionary_set_uint64(dict, kAllowsLocalNetworking, (uint64_t)kATSGlobalKeyNotPresent);
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoads, (uint64_t)kATSGlobalKeyNotPresent);
+    xpc_dictionary_set_int64(dict, kRequiresNIAPTLSPackageVersion, kATSGlobalKeyIntegerNotPresent);
 }
 
 bool
@@ -697,11 +766,22 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
     ATS_VALUE_FOR_KEY(plist_dictionary, kAllowsArbitraryLoadsInWebContent, web_loads, kATSGlobalKeyNotPresent);
     ATS_VALUE_FOR_KEY(plist_dictionary, kAllowsArbitraryLoadsForMedia, media_loads, kATSGlobalKeyNotPresent);
     ATS_VALUE_FOR_KEY(plist_dictionary, kAllowsLocalNetworking, local_networking, kATSGlobalKeyNotPresent);
+    STRING_FOR_KEY(plist_dictionary, kRequiresNIAPTLSPackageVersion, niap_tls_pkg_version, @"none");
 
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoads, (uint64_t)arbitrary_loads);
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoadsInWebContent, (uint64_t)web_loads);
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoadsForMedia, (uint64_t)media_loads);
     xpc_dictionary_set_uint64(dict, kAllowsLocalNetworking, (uint64_t)local_networking);
+
+    // Global keys need to differentiate between being present or not.
+    if (plist_dictionary[@kRequiresNIAPTLSPackageVersion]) {
+        xpc_dictionary_set_int64(dict, kRequiresNIAPTLSPackageVersion,
+                                 (uint64_t)sec_protocol_configuration_niap_tls_package_key_to_policy(niap_tls_pkg_version));
+    } else {
+        xpc_dictionary_set_int64(dict, kRequiresNIAPTLSPackageVersion, kATSGlobalKeyIntegerNotPresent);
+    }
+
+
 
     NSDictionary *exception_domains = [plist_dictionary valueForKey:@kExceptionDomains];
     if (exception_domains == nil) {
@@ -735,12 +815,18 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
         BOOLEAN_FOR_KEY(entry, kExceptionAllowsInsecureHTTPLoads, allows_http, false);
         BOOLEAN_FOR_KEY(entry, kIncludesSubdomains, includes_subdomains, false);
         BOOLEAN_FOR_KEY(entry, kExceptionRequiresForwardSecrecy, requires_pfs, true);
+        // For NSExceptionRequiresNIAPTLSPackageVersion, the default should be whatever NSRequiresNIAPTLSPackageVersion
+        // is set to (defaults to @"none").
+        STRING_FOR_KEY(entry, kExceptionRequiresNIAPTLSPackageVersion, niap_tls_pkg_version_exception, niap_tls_pkg_version);
         STRING_FOR_KEY(entry, kExceptionMinimumTLSVersion, minimum_tls, @"TLSv1.2");
 
         xpc_object_t entry_map = xpc_dictionary_create(NULL, NULL, 0);
         xpc_dictionary_set_bool(entry_map, kIncludesSubdomains, includes_subdomains);
         xpc_dictionary_set_bool(entry_map, kExceptionAllowsInsecureHTTPLoads, allows_http);
         xpc_dictionary_set_bool(entry_map, kExceptionRequiresForwardSecrecy, requires_pfs);
+        xpc_dictionary_set_uint64(entry_map,
+                                 kExceptionRequiresNIAPTLSPackageVersion,
+                                 (uint64_t)sec_protocol_configuration_niap_tls_package_key_to_policy(niap_tls_pkg_version_exception));
         xpc_dictionary_set_int64(entry_map, kExceptionMinimumTLSVersion, sec_protocol_configuration_protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]));
 
         if ([domain rangeOfString:@"/"].location != NSNotFound) {

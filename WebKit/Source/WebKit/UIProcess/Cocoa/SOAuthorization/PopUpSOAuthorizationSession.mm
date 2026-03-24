@@ -100,14 +100,14 @@ namespace WebKit {
 
 Ref<SOAuthorizationSession> PopUpSOAuthorizationSession::create(Ref<API::PageConfiguration>&& configuration, RetainPtr<WKSOAuthorizationDelegate> delegate, WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
 {
-    return adoptRef(*new PopUpSOAuthorizationSession(WTFMove(configuration), delegate, page, WTFMove(navigationAction), WTFMove(newPageCallback), WTFMove(uiClientCallback)));
+    return adoptRef(*new PopUpSOAuthorizationSession(WTF::move(configuration), delegate, page, WTF::move(navigationAction), WTF::move(newPageCallback), WTF::move(uiClientCallback)));
 }
 
 PopUpSOAuthorizationSession::PopUpSOAuthorizationSession(Ref<API::PageConfiguration>&& configuration, RetainPtr<WKSOAuthorizationDelegate> delegate, WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
-    : SOAuthorizationSession(delegate, WTFMove(navigationAction), page, InitiatingAction::PopUp)
-    , m_configuration(WTFMove(configuration))
-    , m_newPageCallback(WTFMove(newPageCallback))
-    , m_uiClientCallback(WTFMove(uiClientCallback))
+    : SOAuthorizationSession(delegate, WTF::move(navigationAction), page, InitiatingAction::PopUp)
+    , m_configuration(WTF::move(configuration))
+    , m_newPageCallback(WTF::move(newPageCallback))
+    , m_uiClientCallback(WTF::move(uiClientCallback))
 {
 }
 
@@ -128,7 +128,7 @@ void PopUpSOAuthorizationSession::shouldStartInternal()
 void PopUpSOAuthorizationSession::fallBackToWebPathInternal()
 {
     AUTHORIZATIONSESSION_RELEASE_LOG("fallBackToWebPathInternal");
-    m_uiClientCallback(releaseNavigationAction(), WTFMove(m_newPageCallback));
+    m_uiClientCallback(releaseNavigationAction(), WTF::move(m_newPageCallback));
 }
 
 void PopUpSOAuthorizationSession::abortInternal()
@@ -177,7 +177,7 @@ void PopUpSOAuthorizationSession::close(WKWebView *webView)
         return;
     }
     m_secretWebView = nullptr;
-    WTFLogAlways("SecretWebView is cleaned.");
+    AUTHORIZATIONSESSION_RELEASE_LOG("SecretWebView is cleaned.");
 }
 
 void PopUpSOAuthorizationSession::initSecretWebView()
@@ -195,7 +195,7 @@ void PopUpSOAuthorizationSession::initSecretWebView()
     [m_secretWebView setNavigationDelegate:m_secretDelegate.get()];
 
     RELEASE_ASSERT(!m_secretWebView->_page->protectedPreferences()->isExtensibleSSOEnabled());
-    WTFLogAlways("SecretWebView is created.");
+    AUTHORIZATIONSESSION_RELEASE_LOG("SecretWebView is created.");
 }
 
 } // namespace WebKit

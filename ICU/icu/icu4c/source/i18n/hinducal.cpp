@@ -154,6 +154,14 @@ HinduDate HinduLunarCalendar::hinduLunarFromFixed(int32_t date) const {
     bool leapMonth = (solarMonth == CalendarAstronomer::hinduZodiac(nextNewMoon));
     int32_t month = (solarMonth + 1) % 12;
     int32_t year = CalendarAstronomer::hinduCalendarYear((month <= 2) ? date + 180 : date) - HINDU_LUNAR_ERA;
+    // rdar://157555573 For three lunar months between 19/10/2028-15/1/2029 the calculations for months are off by 1
+    if (date + RD_OFFSET + 1 >= 2462064 && date + RD_OFFSET + 1 <= 2462151) {
+        if (leapMonth) {
+            leapMonth = 0;
+        } else {
+            month++;
+        }
+    }
     // rdar://147055320
     // Calculations up to this point gives us a date for Hindu lunisolar calendars based on Amanta and Vikram era
     // More information about Amanta vs Purnimanta can be found here https://www.drikpanchang.com/faq/faq-ans8.html

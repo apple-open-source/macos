@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 gaa{
     AuxExemplarCharacters{"[á ã é í ĩ ó ũ]"}
     Ellipsis{
@@ -24,6 +24,8 @@ gaa{
         latn{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;(¤ #,##0.00)"}
+                accountingFormat%noCurrency{"#,##0.00;(#,##0.00)"}
                 percentFormat{"#,##0%"}
             }
         }
@@ -326,20 +328,20 @@ gaa{
             }
             eras{
                 abbreviated{
-                    "DY",
-                    "YGS",
+                    0{"DY"}
+                    1{"YGS"}
                 }
                 abbreviated%variant{
-                    "DŊB",
-                    "ŊB",
+                    0{"DŊB"}
+                    1{"ŊB"}
                 }
                 wide{
-                    "Dani Yesu",
-                    "Yesu Gbele Sɛɛ",
+                    0{"Dani Yesu"}
+                    1{"Yesu Gbele Sɛɛ"}
                 }
                 wide%variant{
-                    "Dani Ŋmɛnɛŋmɛnɛ Beiaŋ",
-                    "Ŋmɛnɛŋmɛnɛ Beiaŋ",
+                    0{"Dani Ŋmɛnɛŋmɛnɛ Beiaŋ"}
+                    1{"Ŋmɛnɛŋmɛnɛ Beiaŋ"}
                 }
             }
             intervalFormats{
@@ -643,6 +645,13 @@ gaa{
         second-short{
             dn{"sɛk."}
         }
+        sun{
+            relative{
+                "-1"{"Hɔgbaa ni eho"}
+                "0"{"Hɔgbaa nɛɛ"}
+                "1"{"Hɔgbaa ni baaba"}
+            }
+        }
         week{
             dn{"otsi"}
             relative{
@@ -748,6 +757,11 @@ gaa{
                 "und",
                 "gaa",
             }
+        }
+        namePattern{
+            givenFirst-long-addressing-formal{"{title} {surname}"}
+            givenFirst-long-referring-formal{"{title} {given} {given2} {surname} {surname2}"}
+            sorting-long-referring-formal{"{surname-prefix} {surname-core}, {given} {given2}"}
         }
     }
 }

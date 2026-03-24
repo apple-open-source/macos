@@ -15,7 +15,6 @@
 
 bool aggressive_madvise_enabled = false;
 uint64_t magazine_medium_madvise_window_scale_factor = 1;
-malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
 		T_META_TAG_NO_ALLOCATOR_OVERRIDE);

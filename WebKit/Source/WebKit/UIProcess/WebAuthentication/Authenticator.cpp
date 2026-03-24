@@ -51,7 +51,7 @@ void Authenticator::receiveRespond(AuthenticatorObserverRespond&& respond) const
 {
     ASSERT(RunLoop::isMain());
     if (RefPtr observer = m_observer.get())
-        observer->respondReceived(WTFMove(respond));
+        observer->respondReceived(WTF::move(respond));
 }
 
 } // namespace WebKit

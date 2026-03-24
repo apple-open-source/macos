@@ -199,7 +199,7 @@ class RecoveryKeySet: NSObject {
     class func storeRecoveryedEncryptionKeyPair(keyData: Data, label: String) throws -> (Bool) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
             kSecAttrSynchronizable: false,
@@ -213,7 +213,7 @@ class RecoveryKeySet: NSObject {
     class func storeRecoveryedSigningKeyPair(keyData: Data, label: String) throws -> (Bool) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
             kSecAttrSynchronizable: false,

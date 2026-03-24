@@ -45,6 +45,7 @@ typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 
 namespace WebCore {
 
+class AudioVideoRenderer;
 class CDMInstance;
 class LegacyCDMSession;
 class MediaPlayerPrivateMediaSourceAVFObjC;
@@ -72,12 +73,6 @@ public:
 
     AddStatus addSourceBuffer(const ContentType&, const MediaSourceConfiguration&, RefPtr<SourceBufferPrivate>&) final;
     void durationChanged(const MediaTime&) final;
-    void markEndOfStream(EndOfStreamStatus) final;
-
-    MediaPlayer::ReadyState mediaPlayerReadyState() const final;
-    void setMediaPlayerReadyState(MediaPlayer::ReadyState) final;
-
-    bool hasSelectedVideo() const;
 
     FloatSize naturalSize() const;
 
@@ -90,13 +85,7 @@ public:
     void flushAndReenqueueActiveVideoSourceBuffers();
 
 #if ENABLE(ENCRYPTED_MEDIA)
-    void cdmInstanceAttached(CDMInstance&);
-    void cdmInstanceDetached(CDMInstance&);
-    void attemptToDecryptWithInstance(CDMInstance&);
     bool waitingForKey() const;
-
-    CDMInstance* cdmInstance() const { return m_cdmInstance.get(); }
-    void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
 #endif
 
 #if !RELEASE_LOG_DISABLED
@@ -114,40 +103,33 @@ public:
 
     void setResourceOwner(const ProcessIdentity& resourceOwner) { m_resourceOwner = resourceOwner; }
 
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    void keyAdded();
-#endif
+    static WorkQueue& queueSingleton();
 
 private:
     friend class SourceBufferPrivateAVFObjC;
 
     MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient&);
-    MediaPlayerPrivateMediaSourceAVFObjC* platformPlayer() const { return m_player.get(); }
+    RefPtr<MediaPlayerPrivateMediaSourceAVFObjC> platformPlayer() const;
+    void callOnMainThreadWithPlayer(Function<void(MediaPlayerPrivateMediaSourceAVFObjC&)>&&);
 
     void notifyActiveSourceBuffersChanged() final;
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    void sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC*, const SharedBuffer&);
-#endif
     void removeSourceBuffer(SourceBufferPrivate&) final;
 
     void setSourceBufferWithSelectedVideo(SourceBufferPrivateAVFObjC*);
 
+    MediaTime currentTime() const final;
+    bool timeIsProgressing() const final;
     void bufferedChanged(const PlatformTimeRanges&) final;
-    void trackBufferedChanged(SourceBufferPrivate&, Vector<PlatformTimeRanges>&&) final;
 
-    WeakPtr<MediaPlayerPrivateMediaSourceAVFObjC> m_player;
-    Deque<SourceBufferPrivateAVFObjC*> m_sourceBuffersNeedingSessions;
-    SourceBufferPrivateAVFObjC* m_sourceBufferWithSelectedVideo { nullptr };
-#if ENABLE(ENCRYPTED_MEDIA)
-    RefPtr<CDMInstance> m_cdmInstance;
-#endif
+    WeakPtr<MediaPlayerPrivateMediaSourceAVFObjC> m_player WTF_GUARDED_BY_CAPABILITY(mainThread);
+    ThreadSafeWeakPtr<SourceBufferPrivateAVFObjC> m_sourceBufferWithSelectedVideo WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
+    ThreadSafeWeakPtr<AudioVideoRenderer> m_renderer;
 #if !RELEASE_LOG_DISABLED
     const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
     uint64_t m_nextSourceBufferID { 0 };
 #endif
 
-    HashMap<SourceBufferPrivate*, Vector<PlatformTimeRanges>> m_bufferedRanges;
     ProcessIdentity m_resourceOwner;
 };
 

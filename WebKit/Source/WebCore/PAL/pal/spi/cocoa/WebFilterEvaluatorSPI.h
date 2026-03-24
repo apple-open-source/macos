@@ -25,9 +25,13 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
-#if USE(APPLE_INTERNAL_SDK)
+// FIXME: (rdar://167375964) Remove the `__has_feature(modules)` condition when possible.
+#if USE(APPLE_INTERNAL_SDK) && !__has_feature(modules)
 
 #if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
 #import <WebContentAnalysis/WebFilterEvaluator.h>
@@ -35,6 +39,7 @@ DECLARE_SYSTEM_HEADER
 
 #else
 
+#import <Foundation/Foundation.h>
 #import <TargetConditionals.h>
 
 enum {

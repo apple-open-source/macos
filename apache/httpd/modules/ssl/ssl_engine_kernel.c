@@ -38,59 +38,6 @@ static void ssl_configure_env(request_rec *r, SSLConnRec *sslconn);
 static int ssl_find_vhost(void *servername, conn_rec *c, server_rec *s);
 #endif
 
-#define SWITCH_STATUS_LINE "HTTP/1.1 101 Switching Protocols"
-#define UPGRADE_HEADER "Upgrade: TLS/1.0, HTTP/1.1"
-#define CONNECTION_HEADER "Connection: Upgrade"
-
-/* Perform an upgrade-to-TLS for the given request, per RFC 2817. */
-static apr_status_t upgrade_connection(request_rec *r)
-{
-    struct conn_rec *conn = r->connection;
-    apr_bucket_brigade *bb;
-    SSLConnRec *sslconn;
-    apr_status_t rv;
-    SSL *ssl;
-
-    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(02028)
-                  "upgrading connection to TLS");
-
-    bb = apr_brigade_create(r->pool, conn->bucket_alloc);
-
-    rv = ap_fputs(conn->output_filters, bb, SWITCH_STATUS_LINE CRLF
-                  UPGRADE_HEADER CRLF CONNECTION_HEADER CRLF CRLF);
-    if (rv == APR_SUCCESS) {
-        APR_BRIGADE_INSERT_TAIL(bb,
-                                apr_bucket_flush_create(conn->bucket_alloc));
-        rv = ap_pass_brigade(conn->output_filters, bb);
-    }
-
-    if (rv) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02029)
-                      "failed to send 101 interim response for connection "
-                      "upgrade");
-        return rv;
-    }
-
-    ssl_init_ssl_connection(conn, r);
-
-    sslconn = myConnConfig(conn);
-    ssl = sslconn->ssl;
-
-    /* Perform initial SSL handshake. */
-    SSL_set_accept_state(ssl);
-    SSL_do_handshake(ssl);
-
-    if (!SSL_is_init_finished(ssl)) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02030)
-                      "TLS upgrade handshake failed");
-        ssl_log_ssl_error(SSLLOG_MARK, APLOG_ERR, r->server);
-
-        return APR_ECONNABORTED;
-    }
-
-    return APR_SUCCESS;
-}
-
 /* Perform a speculative (and non-blocking) read from the connection
  * filters for the given request, to determine whether there is any
  * pending data to read.  Return non-zero if there is, else zero. */
@@ -154,112 +101,28 @@ static int fill_reneg_buffer(request_rec *r, SSLDirConfigRec *dc)
 }
 
 #ifdef HAVE_TLSEXT
-static int ap_array_same_str_set(apr_array_header_t *s1, apr_array_header_t *s2)
+/* Check whether a transition from vhost sc1 to sc2 from SNI to Host:
+ * vhost selection is permitted according to the SSLVHostSNIPolicy
+ * setting.  Returns 1 if the policy treats the vhosts as compatible,
+ * else 0. */
+static int ssl_check_vhost_sni_policy(SSLSrvConfigRec *sc1,
+                                      SSLSrvConfigRec *sc2)
 {
-    int i;
-    const char *c;
-    
-    if (s1 == s2) {
+    modssl_snivhpolicy_t policy = sc1->mc->snivh_policy;
+
+    /* Policy: insecure => allow everything. */
+    if (policy == MODSSL_SNIVH_INSECURE)
         return 1;
-    }
-    else if (!s1 || !s2 || (s1->nelts != s2->nelts)) {
-        return 0;
-    }
     
-    for (i = 0; i < s1->nelts; i++) {
-        c = APR_ARRAY_IDX(s1, i, const char *);
-        if (!c || !ap_array_str_contains(s2, c)) {
-            return 0;
-        }
-    }
-    return 1;
-}
+    /* Policy: strict => fail for any vhost transition. */
+    if (policy == MODSSL_SNIVH_STRICT)
+        return sc1 == sc2;
 
-static int ssl_pk_server_compatible(modssl_pk_server_t *pks1, 
-                                    modssl_pk_server_t *pks2) 
-{
-    if (!pks1 || !pks2) {
-        return 0;
-    }
-    /* both have the same certificates? */
-    if ((pks1->ca_name_path != pks2->ca_name_path)
-        && (!pks1->ca_name_path || !pks2->ca_name_path 
-            || strcmp(pks1->ca_name_path, pks2->ca_name_path))) {
-        return 0;
-    }
-    if ((pks1->ca_name_file != pks2->ca_name_file)
-        && (!pks1->ca_name_file || !pks2->ca_name_file 
-            || strcmp(pks1->ca_name_file, pks2->ca_name_file))) {
-        return 0;
-    }
-    if (!ap_array_same_str_set(pks1->cert_files, pks2->cert_files)
-        || !ap_array_same_str_set(pks1->key_files, pks2->key_files)) {
-        return 0;
-    }
-    return 1;
-}
+    /* For authonly/secure policy, compare the hash. */
+    AP_DEBUG_ASSERT(sc1->sni_policy_hash);
+    AP_DEBUG_ASSERT(sc2->sni_policy_hash);
 
-static int ssl_auth_compatible(modssl_auth_ctx_t *a1, 
-                               modssl_auth_ctx_t *a2) 
-{
-    if (!a1 || !a2) {
-        return 0;
-    }
-    /* both have the same verification */
-    if ((a1->verify_depth != a2->verify_depth)
-        || (a1->verify_mode != a2->verify_mode)) {
-        return 0;
-    }
-    /* both have the same ca path/file */
-    if ((a1->ca_cert_path != a2->ca_cert_path)
-        && (!a1->ca_cert_path || !a2->ca_cert_path 
-            || strcmp(a1->ca_cert_path, a2->ca_cert_path))) {
-        return 0;
-    }
-    if ((a1->ca_cert_file != a2->ca_cert_file)
-        && (!a1->ca_cert_file || !a2->ca_cert_file 
-            || strcmp(a1->ca_cert_file, a2->ca_cert_file))) {
-        return 0;
-    }
-    /* both have the same ca cipher suite string */
-    if ((a1->cipher_suite != a2->cipher_suite)
-        && (!a1->cipher_suite || !a2->cipher_suite 
-            || strcmp(a1->cipher_suite, a2->cipher_suite))) {
-        return 0;
-    }
-    /* both have the same ca cipher suite string */
-    if ((a1->tls13_ciphers != a2->tls13_ciphers)
-        && (!a1->tls13_ciphers || !a2->tls13_ciphers 
-            || strcmp(a1->tls13_ciphers, a2->tls13_ciphers))) {
-        return 0;
-    }
-    return 1;
-}
-
-static int ssl_ctx_compatible(modssl_ctx_t *ctx1, 
-                              modssl_ctx_t *ctx2) 
-{
-    if (!ctx1 || !ctx2 
-        || (ctx1->protocol != ctx2->protocol)
-        || !ssl_auth_compatible(&ctx1->auth, &ctx2->auth)
-        || !ssl_pk_server_compatible(ctx1->pks, ctx2->pks)) {
-        return 0;
-    }
-    return 1;
-}
-
-static int ssl_server_compatible(server_rec *s1, server_rec *s2)
-{
-    SSLSrvConfigRec *sc1 = s1? mySrvConfig(s1) : NULL;
-    SSLSrvConfigRec *sc2 = s2? mySrvConfig(s2) : NULL;
-
-    /* both use the same TLS protocol? */
-    if (!sc1 || !sc2 
-        || !ssl_ctx_compatible(sc1->server, sc2->server)) {
-        return 0;
-    }
-    
-    return 1;
+    return strcmp(sc1->sni_policy_hash, sc2->sni_policy_hash) == 0;
 }
 #endif
 
@@ -270,39 +133,16 @@ int ssl_hook_ReadReq(request_rec *r)
 {
     SSLSrvConfigRec *sc = mySrvConfig(r->server);
     SSLConnRec *sslconn;
-    const char *upgrade;
 #ifdef HAVE_TLSEXT
     const char *servername;
 #endif
     SSL *ssl;
-
-    /* Perform TLS upgrade here if "SSLEngine optional" is configured,
-     * SSL is not already set up for this connection, and the client
-     * has sent a suitable Upgrade header. */
-    if (sc->enabled == SSL_ENABLED_OPTIONAL && !myConnConfig(r->connection)
-        && (upgrade = apr_table_get(r->headers_in, "Upgrade")) != NULL
-        && ap_find_token(r->pool, upgrade, "TLS/1.0")) {
-        if (upgrade_connection(r)) {
-            return AP_FILTER_ERROR;
-        }
-    }
 
     /* If we are on a slave connection, we do not expect to have an SSLConnRec,
      * but our master connection might. */
     sslconn = myConnConfig(r->connection);
     if (!(sslconn && sslconn->ssl) && r->connection->master) {
         sslconn = myConnConfig(r->connection->master);
-    }
-    
-    /* If "SSLEngine optional" is configured, this is not an SSL
-     * connection, and this isn't a subrequest, send an Upgrade
-     * response header.  Note this must happen before map_to_storage
-     * and OPTIONS * request processing is completed.
-     */
-    if (sc->enabled == SSL_ENABLED_OPTIONAL && !(sslconn && sslconn->ssl)
-        && !r->main) {
-        apr_table_setn(r->headers_out, "Upgrade", "TLS/1.0, HTTP/1.1");
-        apr_table_mergen(r->headers_out, "Connection", "upgrade");
     }
 
     if (!sslconn) {
@@ -351,6 +191,8 @@ int ssl_hook_ReadReq(request_rec *r)
         server_rec *handshakeserver = sslconn->server;
         SSLSrvConfigRec *hssc = mySrvConfig(handshakeserver);
 
+        AP_DEBUG_ASSERT(hssc);
+
         if ((servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name))) {
             /*
              * The SNI extension supplied a hostname. So don't accept requests
@@ -371,19 +213,6 @@ int ssl_hook_ReadReq(request_rec *r)
                             " provided in HTTP request", servername);
                 return HTTP_BAD_REQUEST;
             }
-            if (r->server != handshakeserver 
-                && !ssl_server_compatible(sslconn->server, r->server)) {
-                /* 
-                 * The request does not select the virtual host that was
-                 * selected by the SNI and its SSL parameters are different
-                 */
-                
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02032)
-                             "Hostname %s provided via SNI and hostname %s provided"
-                             " via HTTP have no compatible SSL setup",
-                             servername, r->hostname);
-                return HTTP_MISDIRECTED_REQUEST;
-            }
         }
         else if (((sc->strict_sni_vhost_check == SSL_ENABLED_TRUE)
                   || hssc->strict_sni_vhost_check == SSL_ENABLED_TRUE)
@@ -403,6 +232,16 @@ int ssl_hook_ReadReq(request_rec *r)
                            "hostname using Server Name Indication (SNI), "
                            "which is required to access this server.<br />\n");
             return HTTP_FORBIDDEN;
+        }
+        /* Enforce SSL SNI vhost compatibility policy. */
+        if (!ssl_check_vhost_sni_policy(sc, hssc)) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02032)
+                         "Hostname %s %s and hostname %s provided"
+                         " via HTTP have no compatible SSL setup for policy '%s'",
+                         servername ? servername : handshakeserver->server_hostname,
+                         servername ? "provided via SNI" : "(default host as no SNI was provided)",
+                          r->hostname, MODSSL_SNIVH_NAME(sc->mc->snivh_policy));
+            return HTTP_MISDIRECTED_REQUEST;
         }
     }
 #endif
@@ -1236,16 +1075,6 @@ int ssl_hook_Access(request_rec *r)
      * Support for SSLRequireSSL directive
      */
     if (dc->bSSLRequired && !ssl) {
-        if ((sc->enabled == SSL_ENABLED_OPTIONAL) && !r->connection->master) {
-            /* This vhost was configured for optional SSL, just tell the
-             * client that we need to upgrade.
-             */
-            apr_table_setn(r->err_headers_out, "Upgrade", "TLS/1.0, HTTP/1.1");
-            apr_table_setn(r->err_headers_out, "Connection", "Upgrade");
-
-            return HTTP_UPGRADE_REQUIRED;
-        }
-
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02219)
                       "access to %s failed, reason: %s",
                       r->filename, "SSL connection required");

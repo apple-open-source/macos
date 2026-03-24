@@ -24,6 +24,7 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
+struct RenderProcessInfo;
 
 class WebKitProtocolHandler {
     WTF_MAKE_TZONE_ALLOCATED(WebKitProtocolHandler);
@@ -32,7 +33,7 @@ public:
 
 private:
     void handleRequest(WebKitURISchemeRequest*);
-    void handleGPU(WebKitURISchemeRequest*);
+    void handleGPU(WebKitURISchemeRequest*, RenderProcessInfo&&);
 };
 
 } // namespace WebKit

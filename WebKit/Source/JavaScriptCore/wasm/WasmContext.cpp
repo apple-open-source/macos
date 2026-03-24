@@ -41,7 +41,7 @@ Context::ScratchBufferEntry* Context::scratchBufferForSize(size_t size)
 
         auto newBuffer = makeUniqueArray<ScratchBufferEntry>(m_sizeOfLastScratchBuffer);
         RELEASE_ASSERT(newBuffer);
-        m_scratchBuffers.append(WTFMove(newBuffer));
+        m_scratchBuffers.append(WTF::move(newBuffer));
     }
     // Scanning scratch buffers for GC is not necessary since while performing OSR entry, we do not perform GC.
     return m_scratchBuffers.last().get();

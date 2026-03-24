@@ -748,6 +748,21 @@ OSErr IVChk( SGlobPtr GPtr )
 			}
 			goto ReleaseAndBail;
 		}
+
+		// Require a minimum number of allocation blocks.  At the very least there
+		// should be one for each of the VH, allocation file, extents file, and
+		// catalog. In practice more are needed, but that will be caught later.
+		// This check prevents some underflows which might otherwise occur before
+		// we do more comprehensive checks.
+		if ( myVHBPtr->totalBlocks < 4 ) {
+			RcdError( GPtr, E_NABlks );
+			err = E_NABlks;
+			if ( fsck_get_verbosity_level() >= kDebugLog ) {
+				fsck_print(ctx, LOG_TYPE_INFO, "\t%s - volume header total allocation blocks is too small to be valid \n", __FUNCTION__ );
+				fsck_print(ctx, LOG_TYPE_INFO, "\tvolume allocation block count %d \n", myVHBPtr->totalBlocks );
+			}
+			goto ReleaseAndBail;
+		}
 	}
 	else if ( VolumeObjectIsHFS( ) ) {
 

@@ -30,11 +30,14 @@
 #ifndef WEBGPU_H_
 #define WEBGPU_H_
 
+#include <wtf/Compiler.h>
 #include <wtf/SwiftBridging.h>
 
 #if __has_include(<swift/bridging>)
 #include <swift/bridging>
 #endif
+
+#include <CoreFoundation/CoreFoundation.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnullability-completeness"

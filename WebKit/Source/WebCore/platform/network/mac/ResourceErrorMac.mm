@@ -149,7 +149,7 @@ auto ResourceError::ipcData() const -> std::optional<IPCData>
 }
 
 ResourceError::ResourceError(CFErrorRef cfError)
-    : ResourceError { (__bridge NSError *)cfError }
+    : ResourceError { bridge_cast(cfError) }
 {
 }
 
@@ -214,10 +214,10 @@ void ResourceError::mapPlatformError()
     if (!m_platformError)
         return;
 
-    auto domain = [m_platformError domain];
+    RetainPtr domain = [m_platformError domain];
     auto errorCode = [m_platformError code];
 
-    if ([domain isEqualToString:NSURLErrorDomain] || [domain isEqualToString:(__bridge NSString *)kCFErrorDomainCFNetwork])
+    if ([domain isEqualToString:NSURLErrorDomain] || [domain isEqualToString:bridge_cast(kCFErrorDomainCFNetwork)])
         setType((errorCode == NSURLErrorTimedOut) ? Type::Timeout : (errorCode == NSURLErrorCancelled) ? Type::Cancellation : Type::General);
     else
         setType(Type::General);
@@ -232,10 +232,10 @@ void ResourceError::platformLazyInit()
     m_errorCode = [m_platformError code];
 
     RetainPtr userInfo = [m_platformError userInfo];
-    if (auto *failingURLString = dynamic_objc_cast<NSString>([userInfo valueForKey:@"NSErrorFailingURLStringKey"]))
-        m_failingURL = URL { failingURLString };
-    else if (auto *failingURL = dynamic_objc_cast<NSURL>([userInfo valueForKey:NSURLErrorFailingURLErrorKey]))
-        m_failingURL = URL { failingURL };
+    if (RetainPtr failingURLString = dynamic_objc_cast<NSString>([userInfo valueForKey:@"NSErrorFailingURLStringKey"]))
+        m_failingURL = URL { failingURLString.get() };
+    else if (RetainPtr failingURL = dynamic_objc_cast<NSURL>([userInfo valueForKey:NSURLErrorFailingURLErrorKey]))
+        m_failingURL = URL { failingURL.get() };
     // Workaround for <rdar://problem/6554067>
     m_localizedDescription = m_failingURL.string();
     BEGIN_BLOCK_OBJC_EXCEPTIONS
@@ -292,12 +292,22 @@ ResourceError::operator NSError *() const
 
 CFErrorRef ResourceError::cfError() const
 {
-    return (__bridge CFErrorRef)nsError();
+    return bridge_cast(nsError());
+}
+
+RetainPtr<CFErrorRef> ResourceError::protectedCFError() const
+{
+    return cfError();
 }
 
 CFErrorRef ResourceError::cfError(CFErrorRef underlyingError) const
 {
-    return (__bridge CFErrorRef)nsError((__bridge NSError *)underlyingError);
+    return bridge_cast(nsError(bridge_cast(underlyingError)));
+}
+
+RetainPtr<CFErrorRef> ResourceError::protectedCFError(CFErrorRef underlyingError) const
+{
+    return cfError(underlyingError);
 }
 
 ResourceError::operator CFErrorRef() const
@@ -325,16 +335,16 @@ String ResourceError::blockedTrackerHostName() const
     ASSERT(blockedKnownTracker());
 
     RetainPtr error = nsError();
-    if (id failingPath = error.get().userInfo[@"_NSURLErrorNWPathKey"]) {
-        auto failingEndpoint = adoptNS(nw_path_copy_effective_remote_endpoint(failingPath));
+    if (RetainPtr<id> failingPath = error.get().userInfo[@"_NSURLErrorNWPathKey"]) {
+        auto failingEndpoint = adoptNS(nw_path_copy_effective_remote_endpoint(failingPath.get()));
         if (auto* hostName = nw_endpoint_get_known_tracker_name(failingEndpoint.get()))
             return String::fromUTF8(hostName);
         return { };
     }
     // This loop can be removed when the CFNetwork loader is no longer in use
     for (NSError *underlyingError in error.get().underlyingErrors) {
-        if (id failingPath = underlyingError.userInfo[@"_NSURLErrorNWPathKey"]) {
-            auto failingEndpoint = adoptNS(nw_path_copy_effective_remote_endpoint(failingPath));
+        if (RetainPtr<id> failingPath = underlyingError.userInfo[@"_NSURLErrorNWPathKey"]) {
+            auto failingEndpoint = adoptNS(nw_path_copy_effective_remote_endpoint(failingPath.get()));
             if (auto* hostName = nw_endpoint_get_known_tracker_name(failingEndpoint.get()))
                 return String::fromUTF8(hostName);
         }

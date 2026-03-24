@@ -551,12 +551,12 @@ bool SOSAccountInflateTestTransportsForCircle(SOSAccount* account, CFStringRef c
 
     if(account.key_transport == nil){
         account.key_transport = (CKKeyParameter*)[[CKKeyParameterTest alloc] initWithAccount:account andName:accountName andCircleName:circleName];
-        require_quiet(account.key_transport, fail);
+        __Require_Quiet(account.key_transport, fail);
     }
 
     if(account.circle_transport == nil){
         account.circle_transport = (SOSKVSCircleStorageTransport*)[[SOSCircleStorageTransportTest alloc] initWithAccount:account andWithAccountName:accountName andCircleName:circleName];
-        require_quiet(account.circle_transport, fail);
+        __Require_Quiet(account.circle_transport, fail);
     }
     if(account.kvs_message_transport == nil){
         account.kvs_message_transport = (SOSMessageKVS*)[[SOSMessageKVSTest alloc] initWithAccount:account andName:accountName andCircleName:circleName];

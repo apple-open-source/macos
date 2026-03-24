@@ -117,7 +117,7 @@ IOReturn IOHIDEventServiceUserClient::registerNotificationPort(
 
     IOReturn result;
     
-    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    __Require_Action(!isInactive(), exit, result=kIOReturnOffline);
     
     result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::registerNotificationPortGated), port, (void *)(intptr_t)type);
     
@@ -150,7 +150,7 @@ IOReturn IOHIDEventServiceUserClient::clientMemoryForType(
   
     IOReturn result;
     
-    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    __Require_Action(!isInactive(), exit, result=kIOReturnOffline);
     
     result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::clientMemoryForTypeGated), options, memory);
   
@@ -212,7 +212,7 @@ IOReturn IOHIDEventServiceUserClient::externalMethodGated(ExternalMethodGatedArg
 {
     IOReturn result = kIOReturnOffline;
   
-    require(!isInactive(), exit);
+    __Require(!isInactive(), exit);
 
     result = dispatchExternalMethod(arguments->selector, arguments->arguments, sMethods, sizeof(sMethods) / sizeof(sMethods[0]), this, NULL);
   
@@ -229,7 +229,7 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
     bool result = false;
     OSObject* entitlement = NULL;
     
-    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    __Require_Action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
     
     entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
     if (entitlement) {
@@ -270,10 +270,10 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
     uint32_t      queueSizeOverride = 0;
     uint32_t      qOptions = 0;
   
-    require (super::start(provider), exit);
+    __Require(super::start(provider), exit);
   
     _owner = OSDynamicCast(IOHIDEventService, provider);
-    require (_owner, exit);
+    __Require(_owner, exit);
 
     _owner->retain();
 
@@ -303,16 +303,16 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
 
     if ( queueSize ) {
         _queue = IOHIDEventServiceQueue::withCapacity(this, queueSize, qOptions);
-        require(_queue, exit);
+        __Require(_queue, exit);
     }
   
     workLoop = getWorkLoop();
-    require(workLoop, exit);
+    __Require(workLoop, exit);
   
   
     _commandGate = IOCommandGate::commandGate(this);
-    require(_commandGate, exit);
-    require(workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit);
+    __Require(_commandGate, exit);
+    __Require(workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit);
   
     debugStateSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDEventServiceUserClient::serializeDebugState));
     if (debugStateSerializer) {
@@ -429,7 +429,7 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
     void *          outData     = NULL;
     size_t          outSize     = 0;
     
-    require_action(arguments->structureInputSize < kEventSizeMax, exit, ret = kIOReturnNoMemory);
+    __Require_Action(arguments->structureInputSize < kEventSizeMax, exit, ret = kIOReturnNoMemory);
 
     if ( arguments->structureInput && arguments->structureInputSize) {
         inEvent = IOHIDEvent::withBytes(arguments->structureInput, arguments->structureInputSize);
@@ -437,10 +437,10 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
 
     if ( arguments->structureOutputDescriptor ) {
         // Memory mapping could fail if process is terminating or userland is shutting down
-        require_noerr((ret = arguments->structureOutputDescriptor->prepare()), exit);
+        __Require_noErr((ret = arguments->structureOutputDescriptor->prepare()), exit);
 
         mmap = arguments->structureOutputDescriptor->map();
-        require_action(mmap, map_fail, ret = kIOReturnNoMemory);
+        __Require_Action(mmap, map_fail, ret = kIOReturnNoMemory);
 
         outData = (void *)mmap->getVirtualAddress();
         outSize = arguments->structureOutputDescriptor->getLength();
@@ -547,19 +547,19 @@ IOReturn IOHIDEventServiceUserClient::_copyMatchingEvent(
     OSDictionary *matching = NULL;
     OSData *result = NULL;
     
-    require_action(arguments->structureVariableOutputData, exit, ret = kIOReturnBadArgument);
+    __Require_Action(arguments->structureVariableOutputData, exit, ret = kIOReturnBadArgument);
     
     if (arguments->structureInput && arguments->structureInputSize) {
         obj = OSUnserializeXML((const char *)arguments->structureInput,
                                arguments->structureInputSize);
-        require_action(obj, exit, ret = kIOReturnBadArgument);
+        __Require_Action(obj, exit, ret = kIOReturnBadArgument);
         
         matching = OSDynamicCast(OSDictionary, obj);
-        require_action(matching, exit, ret = kIOReturnBadArgument);
+        __Require_Action(matching, exit, ret = kIOReturnBadArgument);
     }
     
     ret = target->copyMatchingEvent(matching, &result);
-    require(ret == kIOReturnSuccess && result, exit);
+    __Require(ret == kIOReturnSuccess && result, exit);
     
     // result will be released for us
     *arguments->structureVariableOutputData = result;
@@ -578,14 +578,14 @@ IOReturn IOHIDEventServiceUserClient::copyMatchingEvent(OSDictionary *matching, 
     IOReturn ret = kIOReturnError;
     IOHIDEvent *event = NULL;
     
-    require_action(eventData, exit, ret = kIOReturnBadArgument);
-    require_action(_owner && _state == kUserClientStateOpen, exit, ret = kIOReturnNotOpen);
+    __Require_Action(eventData, exit, ret = kIOReturnBadArgument);
+    __Require_Action(_owner && _state == kUserClientStateOpen, exit, ret = kIOReturnNotOpen);
     
     event = _owner->copyMatchingEvent(matching);
-    require_action(event, exit, ret = kIOReturnUnsupported);
+    __Require_Action(event, exit, ret = kIOReturnUnsupported);
     
     *eventData = event->createBytes();
-    require_action(*eventData, exit, ret = kIOReturnNoMemory);
+    __Require_Action(*eventData, exit, ret = kIOReturnNoMemory);
     
     ret = kIOReturnSuccess;
     
@@ -680,7 +680,7 @@ bool   IOHIDEventServiceUserClient::serializeDebugState(void * ref __unused, OSS
     OSDictionary  *debugDict = OSDictionary::withCapacity(6);
     OSNumber      *num;
     
-    require(debugDict, exit);
+    __Require(debugDict, exit);
     
     currentTime =  mach_continuous_time();
     

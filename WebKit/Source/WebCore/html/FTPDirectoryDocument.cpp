@@ -50,7 +50,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(FTPDirectoryDocument);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FTPDirectoryDocument);
 
 using namespace HTMLNames;
     
@@ -122,17 +122,17 @@ void FTPDirectoryDocumentParser::appendEntry(String&& filename, String&& size, S
         typeElement->setAttributeWithoutSynchronization(HTMLNames::classAttr, "ftpDirectoryIcon ftpDirectoryTypeFile"_s);
     rowElement->appendChild(typeElement);
 
-    Ref nameElement = createTDForFilename(WTFMove(filename));
+    Ref nameElement = createTDForFilename(WTF::move(filename));
     nameElement->setAttributeWithoutSynchronization(HTMLNames::classAttr, "ftpDirectoryFileName"_s);
     rowElement->appendChild(nameElement);
 
     Ref dateElement = HTMLTableCellElement::create(tdTag, document);
-    dateElement->appendChild(Text::create(document, WTFMove(date)));
+    dateElement->appendChild(Text::create(document, WTF::move(date)));
     dateElement->setAttributeWithoutSynchronization(HTMLNames::classAttr, "ftpDirectoryFileDate"_s);
     rowElement->appendChild(dateElement);
 
     Ref sizeElement = HTMLTableCellElement::create(tdTag, document);
-    sizeElement->appendChild(Text::create(document, WTFMove(size)));
+    sizeElement->appendChild(Text::create(document, WTF::move(size)));
     sizeElement->setAttributeWithoutSynchronization(HTMLNames::classAttr, "ftpDirectoryFileSize"_s);
     rowElement->appendChild(sizeElement);
     document->setHasVisuallyNonEmptyCustomContent();
@@ -150,8 +150,8 @@ Ref<Element> FTPDirectoryDocumentParser::createTDForFilename(String&& filename)
         fullURL = makeAtomString(baseURL, '/', filename);
 
     Ref anchorElement = HTMLAnchorElement::create(document);
-    anchorElement->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, WTFMove(fullURL));
-    anchorElement->appendChild(Text::create(document, WTFMove(filename)));
+    anchorElement->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, WTF::move(fullURL));
+    anchorElement->appendChild(Text::create(document, WTF::move(filename)));
 
     Ref tdElement = HTMLTableCellElement::create(tdTag, document);
     tdElement->appendChild(anchorElement);
@@ -272,7 +272,7 @@ void FTPDirectoryDocumentParser::parseAndAppendOneLine(const String& inputLine)
 
     LOG(FTP, "Appending entry - %s, %s", filename.ascii().data(), result.fileSize.ascii().data());
 
-    appendEntry(WTFMove(filename), processFilesizeString(result.fileSize, result.type == FTPDirectoryEntry), processFileDateString(result.modifiedTime), result.type == FTPDirectoryEntry);
+    appendEntry(WTF::move(filename), processFilesizeString(result.fileSize, result.type == FTPDirectoryEntry), processFileDateString(result.modifiedTime), result.type == FTPDirectoryEntry);
 }
 
 static inline RefPtr<SharedBuffer> createTemplateDocumentData(const Settings& settings)
@@ -302,7 +302,7 @@ bool FTPDirectoryDocumentParser::loadDocumentTemplate()
     if (!foundElement)
         LOG_ERROR("Unable to find element by id \"ftpDirectoryTable\" in the template document.");
     else if (RefPtr tableElement = dynamicDowncast<HTMLTableElement>(*foundElement)) {
-        m_tableElement = WTFMove(tableElement);
+        m_tableElement = WTF::move(tableElement);
         return true;
     } else
         LOG_ERROR("Element of id \"ftpDirectoryTable\" is not a table element");
@@ -353,7 +353,7 @@ void FTPDirectoryDocumentParser::append(RefPtr<StringImpl>&& inputSource)
     bool foundNewLine = false;
 
     m_destIndex = 0;
-    SegmentedString string { String { WTFMove(inputSource) } };
+    SegmentedString string { String { WTF::move(inputSource) } };
     while (!string.isEmpty()) {
         char16_t c = string.currentCharacter();
 

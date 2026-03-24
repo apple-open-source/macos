@@ -74,6 +74,9 @@ static bool set_loginclass(struct sudoers_context *);
 static bool set_runaspw(struct sudoers_context *ctx, const char *, bool);
 static bool set_runasgr(struct sudoers_context *ctx, const char *, bool);
 
+#ifdef __APPLE_MDM_SUPPORT__
+	bool isManaged(const char *fullPath);
+#endif // __APPLE_MDM_SUPPORT__
 /*
  * Globals
  */
@@ -1296,6 +1299,13 @@ open_sudoers(const char *path, char **outfile, bool doedit, bool *keepopen)
     } else {
 	error = sudo_secure_fd(fd, S_IFREG, sudoers_file_uid(),
 	    sudoers_file_gid(), &sb);
+#ifdef __APPLE_MDM_SUPPORT__
+	/* uid of remotemanagementd responsible for deploying MDM configurations */
+	const uid_t rmd_uid = 277;
+	if (error == SUDO_PATH_WRONG_OWNER && isManaged(path)) {
+	    error = sudo_secure_fd(fd, S_IFREG, rmd_uid, rmd_uid, &sb);
+	}
+#endif // __APPLE_MDM_SUPPORT__
     }
     switch (error) {
     case SUDO_PATH_SECURE:

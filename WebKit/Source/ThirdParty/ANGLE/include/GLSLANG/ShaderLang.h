@@ -26,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 381
+#define ANGLE_SH_VERSION 382
 
 enum ShShaderSpec
 {
@@ -157,7 +157,7 @@ struct ShPixelLocalStorageOptions
 struct ShCompileOptions
 {
     ShCompileOptions();
-    ShCompileOptions(const ShCompileOptions &other) = default;
+    ShCompileOptions(const ShCompileOptions &other)            = default;
     ShCompileOptions &operator=(const ShCompileOptions &other) = default;
 
     // Translates intermediate tree to glsl, hlsl, msl, or SPIR-V binary.  Can be queried by
@@ -473,6 +473,8 @@ struct ShCompileOptions
     // still be reflected.
     uint64_t skipAllValidationAndTransforms : 1;
 
+    uint64_t transformFloatUniformTo16Bits : 1;
+
     ShCompileOptionsMetal metal;
     ShPixelLocalStorageOptions pls;
 };
@@ -488,7 +490,7 @@ using ShHashFunction64 = khronos_uint64_t (*)(const char *, size_t);
 struct ShBuiltInResources
 {
     ShBuiltInResources();
-    ShBuiltInResources(const ShBuiltInResources &) = default;
+    ShBuiltInResources(const ShBuiltInResources &)            = default;
     ShBuiltInResources &operator=(const ShBuiltInResources &) = default;
 
     // Constants.
@@ -1146,6 +1148,15 @@ enum ReservedIds
     kIdInputAttachment7 = kIdInputAttachment0 + 7,
     kIdDepthInputAttachment,
     kIdStencilInputAttachment,
+
+    // 16-bit storage extension
+    kIdFloat16,
+    kIdFloat16Vec2,
+    kIdFloat16Vec3,
+    kIdFloat16Vec4,
+    kIdFloat16Mat2,
+    kIdFloat16Mat3,
+    kIdFloat16Mat4,
 
     kIdFirstUnreserved,
 };

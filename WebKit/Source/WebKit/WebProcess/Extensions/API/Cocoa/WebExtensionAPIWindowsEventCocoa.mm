@@ -54,7 +54,9 @@ void WebExtensionAPIWindowsEvent::invokeListenersWithArgument(id argument, Optio
         if (!listener.second.containsAny(windowTypeFilter))
             continue;
 
-        listener.first->call(argument);
+        Ref listenerRef = Ref { *listener.first };
+        auto globalContext = listenerRef->globalContext();
+        listenerRef->call(toJSValueRef(globalContext, argument));
     }
 }
 

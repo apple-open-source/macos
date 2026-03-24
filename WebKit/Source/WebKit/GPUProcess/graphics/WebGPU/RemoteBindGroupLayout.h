@@ -54,7 +54,7 @@ class RemoteBindGroupLayout final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteBindGroupLayout> create(WebCore::WebGPU::BindGroupLayout& bindGroupLayout, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteBindGroupLayout(bindGroupLayout, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteBindGroupLayout(bindGroupLayout, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteBindGroupLayout();

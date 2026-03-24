@@ -101,7 +101,7 @@ private:
 
 inline void BlobRegistryImpl::setFileDirectory(String&& filePath)
 {
-    m_fileDirectory = WTFMove(filePath);
+    m_fileDirectory = WTF::move(filePath);
 }
 
 } // namespace WebCore

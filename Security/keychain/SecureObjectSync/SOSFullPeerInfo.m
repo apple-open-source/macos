@@ -108,10 +108,10 @@ bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, S
     
     SOSPeerInfoRef newPeer = NULL;
     SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(fullPeerInfo, error);
-    require_quiet(device_key, fail);
+    __Require_Quiet(device_key, fail);
     
     newPeer = create_modification(fullPeerInfo->peer_info, device_key, error);
-    require_quiet(newPeer, fail);
+    __Require_Quiet(newPeer, fail);
 
     CFTransferRetained(fullPeerInfo->peer_info, newPeer);
     result = true;
@@ -225,10 +225,10 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator, CFSt
                                                             // All newly-created FullPeerInfos are on software that supports CKKS4All
                                                             true,
                                                             error);
-    require_quiet(fpi->peer_info, exit);
+    __Require_Quiet(fpi->peer_info, exit);
 
     OSStatus status = SecKeyCopyPersistentRef(signingKey, &fpi->key_ref);
-    require_quiet(SecError(status, error, CFSTR("Inflating persistent ref")), exit);
+    __Require_Quiet(SecError(status, error, CFSTR("Inflating persistent ref")), exit);
     
     status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_signing_key_ref);
     if (status == errSecItemNotFound) {
@@ -249,7 +249,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator, CFSt
         }
     }
     
-    require_quiet(SecError(status, error, CFSTR("Inflating octagon peer signing persistent ref")), exit);
+    __Require_Quiet(SecError(status, error, CFSTR("Inflating octagon peer signing persistent ref")), exit);
     
     status = SecKeyCopyPersistentRef(octagonPeerEncryptionKey, &fpi->octagon_peer_encryption_key_ref);
     if (status == errSecItemNotFound) {
@@ -270,7 +270,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator, CFSt
         }
     }
     
-    require_quiet(SecError(status, error, CFSTR("Inflating octagon peer encryption persistent ref")), exit);
+    __Require_Quiet(SecError(status, error, CFSTR("Inflating octagon peer encryption persistent ref")), exit);
 
     CFTransferRetained(result, fpi);
 
@@ -284,10 +284,10 @@ SOSFullPeerInfoRef SOSFullPeerInfoCopyFullPeerInfo(SOSFullPeerInfoRef toCopy) {
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, kCFAllocatorDefault);
     SOSPeerInfoRef piToCopy = SOSFullPeerInfoGetPeerInfo(toCopy);
     
-    require_quiet(piToCopy, errOut);
-    require_quiet(fpi, errOut);
+    __Require_Quiet(piToCopy, errOut);
+    __Require_Quiet(fpi, errOut);
     fpi->peer_info = SOSPeerInfoCreateCopy(kCFAllocatorDefault, piToCopy, NULL);
-    require_quiet(fpi->peer_info, errOut);
+    __Require_Quiet(fpi->peer_info, errOut);
     fpi->key_ref = CFRetainSafe(toCopy->key_ref);
     CFTransferRetained(retval, fpi);
 
@@ -342,7 +342,7 @@ CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
     CFTypeRef vData = NULL;
     SecKeyRef pubKey = SOSPeerInfoCopyPubKey(pi, error);
     CFDictionaryRef query = NULL;
-    require_quiet(pubKey, exit);
+    __Require_Quiet(pubKey, exit);
     
 
     CFDataRef public_key_hash = SecKeyCopyPublicKeyHash(pubKey);
@@ -356,7 +356,7 @@ CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
                                                          NULL);
     CFReleaseNull(public_key_hash);
 
-    require_quiet(SecError(SecItemCopyMatching(query, &vData),error ,
+    __Require_Quiet(SecError(SecItemCopyMatching(query, &vData),error ,
                            CFSTR("Error finding persistent ref to key from public: %@"), pubKey), exit);
 
 exit:
@@ -381,7 +381,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, 
     }
 
     pubKey = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pubKey, exit);
+    __Require_Quiet(pubKey, exit);
     
     fpi->key_ref = SecKeyCreatePersistentRefToMatchingPrivateKey(pubKey, error);
     
@@ -405,10 +405,10 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErro
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
     CFReleaseNull(fpi->peer_info);
     fpi->peer_info = SOSPeerInfoCreateFromDER(allocator, error, der_p, der_end);
-    require_quiet(fpi->peer_info != NULL, fail);
+    __Require_Quiet(fpi->peer_info != NULL, fail);
 
     *der_p = der_decode_data(allocator, &fpi->key_ref, error, *der_p, sequence_end);
-    require_quiet(*der_p != NULL, fail);
+    __Require_Quiet(*der_p != NULL, fail);
     
     return fpi;
 
@@ -552,18 +552,18 @@ bool SOSFullPeerInfoUpdateToCurrent(SOSFullPeerInfoRef peer, CFSetRef minimumVie
     CFErrorRef createError = NULL;
     SecKeyRef device_key = NULL;
 
-    require_quiet(sosFullPeerInfoRequiresUpdate(peer, minimumViews, excludedViews), errOut);
+    __Require_Quiet(sosFullPeerInfoRequiresUpdate(peer, minimumViews, excludedViews), errOut);
 
     newViews = SOSFullPeerInfoCopyViewUpdate(peer, minimumViews, excludedViews);
 
     device_key = SOSFullPeerInfoCopyDeviceKey(peer, &copyError);
-    require_action_quiet(device_key, errOut,
+    __Require_Action_Quiet(device_key, errOut,
                          secnotice("upgrade", "SOSFullPeerInfoCopyDeviceKey failed: %@", copyError));
     
     SOSPeerInfoRef newPeer = SOSPeerInfoCreateCurrentCopy(kCFAllocatorDefault, peer->peer_info,
                                                           NULL, NULL, kCFBooleanFalse, kCFBooleanTrue, kCFBooleanTrue, newViews,
                                                           device_key, &createError);
-    require_action_quiet(newPeer, errOut,
+    __Require_Action_Quiet(newPeer, errOut,
                          secnotice("upgrade", "Peer info v2 create copy failed: %@", createError));
 
     CFTransferRetained(peer->peer_info, newPeer);
@@ -593,9 +593,9 @@ SOSPeerInfoRef SOSFullPeerInfoGetPeerInfo(SOSFullPeerInfoRef fullPeer) {
 
 SecKeyRef SOSFullPeerInfoCopyPubKey(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     SecKeyRef retval = NULL;
-    require_quiet(fpi, errOut);
+    __Require_Quiet(fpi, errOut);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
-    require_quiet(pi, errOut);
+    __Require_Quiet(pi, errOut);
     retval = SOSPeerInfoCopyPubKey(pi, error);
 
 errOut:
@@ -605,9 +605,9 @@ errOut:
 SecKeyRef SOSFullPeerInfoCopyOctagonPublicSigningKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
 {
     SecKeyRef retval = NULL;
-    require_quiet(fpi, errOut);
+    __Require_Quiet(fpi, errOut);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
-    require_quiet(pi, errOut);
+    __Require_Quiet(pi, errOut);
     retval = SOSPeerInfoCopyOctagonSigningPublicKey(pi, error);
 errOut:
     return retval;
@@ -616,9 +616,9 @@ errOut:
 SecKeyRef SOSFullPeerInfoCopyOctagonPublicEncryptionKey(SOSFullPeerInfoRef fpi, CFErrorRef* error)
 {
     SecKeyRef retval = NULL;
-    require_quiet(fpi, errOut);
+    __Require_Quiet(fpi, errOut);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
-    require_quiet(pi, errOut);
+    __Require_Quiet(pi, errOut);
     retval = SOSPeerInfoCopyOctagonEncryptionPublicKey(pi, error);
 
 errOut:
@@ -643,7 +643,7 @@ static SecKeyRef SOSFullPeerInfoCopyMatchingOctagonSigningPrivateKey(SOSFullPeer
 {
     SecKeyRef retval = NULL;
     SecKeyRef pub = SOSFullPeerInfoCopyOctagonPublicSigningKey(fpi, error);
-    require_quiet(pub, exit);
+    __Require_Quiet(pub, exit);
     retval = SecKeyCopyMatchingPrivateKey(pub, error);
     
 exit:
@@ -654,7 +654,7 @@ static SecKeyRef SOSFullPeerInfoCopyMatchingOctagonEncryptionPrivateKey(SOSFullP
 {
     SecKeyRef retval = NULL;
     SecKeyRef pub = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(fpi, error);
-    require_quiet(pub, exit);
+    __Require_Quiet(pub, exit);
     retval = SecKeyCopyMatchingPrivateKey(pub, error);
 
 exit:
@@ -666,7 +666,7 @@ exit:
 static OSStatus SOSFullPeerInfoGetMatchingPrivateKeyStatus(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     OSStatus retval = errSecParam;
     SecKeyRef pub = SOSFullPeerInfoCopyPubKey(fpi, error);
-    require_quiet(pub, exit);
+    __Require_Quiet(pub, exit);
     retval = SecKeyGetMatchingPrivateKeyStatus(pub, error);
 
 exit:
@@ -696,7 +696,7 @@ bool SOSFullPeerInfoPurgePersistentKey(SOSFullPeerInfoRef fpi, CFErrorRef* error
     SecKeyRef pub = SOSFullPeerInfoCopyPubKey(fpi, error);
     SecKeyRef octagonSigningPub = SOSFullPeerInfoCopyOctagonPublicSigningKey(fpi, error);
     SecKeyRef octagonEncryptionPub = SOSFullPeerInfoCopyOctagonPublicEncryptionKey(fpi, error);
-    require_quiet(pub, fail);
+    __Require_Quiet(pub, fail);
     // iCloud Identities doesn't have either signing or encryption key here. Don't fail if they're not present.
 
     privQuery = CreatePrivateKeyMatchingQuery(pub, false);
@@ -790,12 +790,12 @@ bool SOSFullPeerInfoPromoteToApplication(SOSFullPeerInfoRef fpi, SecKeyRef user_
     SOSPeerInfoRef old_pi = NULL;
 
     SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-    require_quiet(device_key, exit);
+    __Require_Quiet(device_key, exit);
 
     old_pi = fpi->peer_info;
     fpi->peer_info = SOSPeerInfoCopyAsApplication(old_pi, user_key, device_key, error);
 
-    require_action_quiet(fpi->peer_info, exit, fpi->peer_info = old_pi; old_pi = NULL);
+    __Require_Action_Quiet(fpi->peer_info, exit, fpi->peer_info = old_pi; old_pi = NULL);
 
     success = true;
 
@@ -811,12 +811,12 @@ bool SOSFullPeerInfoUpgradeSignatures(SOSFullPeerInfoRef fpi, SecKeyRef user_key
     SOSPeerInfoRef old_pi = NULL;
     
     SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-    require_quiet(device_key, exit);
+    __Require_Quiet(device_key, exit);
     
     old_pi = fpi->peer_info;
     fpi->peer_info = SOSPeerInfoUpgradeSignatures(NULL, user_key, device_key, old_pi, error);
     
-    require_action_quiet(fpi->peer_info, exit, fpi->peer_info = old_pi; old_pi = NULL);
+    __Require_Action_Quiet(fpi->peer_info, exit, fpi->peer_info = old_pi; old_pi = NULL);
     
     success = true;
     
@@ -835,11 +835,11 @@ SOSPeerInfoRef SOSFullPeerInfoPromoteToRetiredAndCopy(SOSFullPeerInfoRef fpi, CF
     SOSPeerInfoRef peer_to_free = NULL;
     SOSPeerInfoRef retired_peer = NULL;
     SecKeyRef key = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-    require_quiet(key, error_out);
+    __Require_Quiet(key, error_out);
 
     retired_peer = SOSPeerInfoCreateRetirementTicket(NULL, key, fpi->peer_info, error);
 
-    require_quiet(retired_peer, error_out);
+    __Require_Quiet(retired_peer, error_out);
 
     peer_to_free = fpi->peer_info;
     fpi->peer_info = retired_peer;
@@ -855,9 +855,9 @@ error_out:
 bool SOSFullPeerInfoPing(SOSFullPeerInfoRef peer, CFErrorRef* error) {
     bool retval = false;
     SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(peer, error);
-    require_quiet(device_key, fail);
+    __Require_Quiet(device_key, fail);
     SOSPeerInfoRef newPeer = SOSPeerInfoCopyWithPing(kCFAllocatorDefault, peer->peer_info, device_key, error);
-    require_quiet(newPeer, fail);
+    __Require_Quiet(newPeer, fail);
     
     CFReleaseNull(peer->peer_info);
     peer->peer_info = newPeer;

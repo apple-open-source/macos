@@ -33,6 +33,11 @@
     AlignedStorage<WebKit::InjectedBundleScriptWorld> _world;
 }
 
+static Ref<WebKit::InjectedBundleScriptWorld> protectedWorld(WKWebProcessPlugInScriptWorld *world)
+{
+    return *world->_world;
+}
+
 + (WKWebProcessPlugInScriptWorld *)world
 {
     return WebKit::wrapper(WebKit::InjectedBundleScriptWorld::create(WebKit::ContentWorldIdentifier::generate())).autorelease();
@@ -47,28 +52,33 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInScriptWorld.class, self))
         return;
-    _world->~InjectedBundleScriptWorld();
+    SUPPRESS_UNCOUNTED_ARG _world->~InjectedBundleScriptWorld();
     [super dealloc];
 }
 
 - (void)clearWrappers
 {
-    _world->clearWrappers();
+    protectedWorld(self)->clearWrappers();
 }
 
 - (void)makeAllShadowRootsOpen
 {
-    _world->makeAllShadowRootsOpen();
+    protectedWorld(self)->makeAllShadowRootsOpen();
 }
 
 - (void)exposeClosedShadowRootsForExtensions
 {
-    _world->exposeClosedShadowRootsForExtensions();
+    protectedWorld(self)->exposeClosedShadowRootsForExtensions();
 }
 
 - (void)disableOverrideBuiltinsBehavior
 {
-    _world->disableOverrideBuiltinsBehavior();
+    protectedWorld(self)->disableOverrideBuiltinsBehavior();
+}
+
+- (void)allowJSHandleCreation
+{
+    protectedWorld(self)->setAllowJSHandleCreation();
 }
 
 - (NSString *)name

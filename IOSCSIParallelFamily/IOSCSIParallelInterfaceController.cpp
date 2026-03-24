@@ -228,7 +228,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	fSCSIDomainIdentifier = OSIncrementAtomic ( &fSCSIParallelDomainCount );
 	
 	result = super::start ( provider );
-	require ( result, PROVIDER_START_FAILURE );
+	__Require(result, PROVIDER_START_FAILURE);
 	
 	require_nonzero ( provider, PROVIDER_START_FAILURE );
 	
@@ -239,7 +239,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	if ( userController == NULL )
 	{
 		result = provider->open ( this );
-		require ( result, PROVIDER_START_FAILURE );
+		__Require(result, PROVIDER_START_FAILURE);
 	}
 	
 	fProvider					= provider;
@@ -255,7 +255,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	require_nonzero ( fDeviceLock, DEVICE_LOCK_ALLOC_FAILURE );
 	
 	result = CreateWorkLoop ( provider );
-	require ( result, WORKLOOP_CREATE_FAILURE );
+	__Require(result, WORKLOOP_CREATE_FAILURE);
 	
 	dict = OSDictionary::withCapacity ( 1 );
 	require_nonzero ( dict, CONTROLLER_DICT_FAILURE );
@@ -313,7 +313,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	// All the necessary preparation work has been done
 	// for this superclass, now Initialize the chip driver.
 	result = InitializeController ( );
-	require ( result, INIT_CONTROLLER_FAILURE );
+	__Require(result, INIT_CONTROLLER_FAILURE);
 	
 	// Retrieve the Initiator Identifier for this HBA.
 	fInitiatorIdentifier = ReportInitiatorIdentifier ( );
@@ -338,14 +338,14 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	
 	// Allocate the SCSIParallelTasks and the pool
 	result = AllocateSCSIParallelTasks ( );
-	require ( result, TASK_ALLOCATE_FAILURE );
+	__Require(result, TASK_ALLOCATE_FAILURE);
 	
 	// The HBA has been fully initialized and is now ready to provide
 	// its services to the system.
 	fHBAHasBeenInitialized = true;
 	
 	result = StartController ( );
-	require ( result, START_CONTROLLER_FAILURE );
+	__Require(result, START_CONTROLLER_FAILURE);
 	
 	// The controller is now ready to accept requests, set the flag so
 	// that the commands will be accepted
@@ -681,7 +681,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit);
 		result = hbaDict->setObject ( key, value );
 		result = hbaDict->setObject ( kIOPropertySCSIPortIdentifierKey, value );
 		
@@ -693,7 +693,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit);
 		result = hbaDict->setObject ( key, value );
 		
 	}
@@ -704,7 +704,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit);
 		result = hbaDict->setObject ( key, value );
 		
 	}
@@ -715,7 +715,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kALPADataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kALPADataSize ), ErrorExit);
 		result = hbaDict->setObject ( key, value );
 		
 	}
@@ -731,7 +731,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kSASAddressDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kSASAddressDataSize ), ErrorExit);
 		result = hbaDict->setObject ( key, value );
 		result = hbaDict->setObject ( kIOPropertySCSIPortIdentifierKey, value );
 		
@@ -1175,7 +1175,7 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	require_nonzero ( parallelTask, TASK_CREATION_FAILURE );
 	
 	result = InitializeDMASpecification ( parallelTask );
-	require ( result, TASK_INIT_FAILURE );
+	__Require(result, TASK_INIT_FAILURE);
 	
 	// Send the single command into the pool.
 	fParallelTaskPool->returnCommand ( parallelTask );
@@ -1677,7 +1677,7 @@ IOSCSIParallelInterfaceController::HandleTimeout (
 	
 	IODMACommand *	dmaCommand	= NULL;
 	
-	check ( parallelRequest != NULL );
+	__Check(parallelRequest != NULL);
 	
 	if ( GetDataTransferDirection ( parallelRequest ) != kSCSIDataTransfer_NoDataTransfer )
 	{
@@ -1757,10 +1757,10 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 		fHBACanAcceptClientRequests = true;
 	
 	// Verify that the device ID is not that of the initiator.
-	require ( ( targetID != fInitiatorIdentifier ), INVALID_PARAMETER_EXIT );
+	__Require(( targetID != fInitiatorIdentifier ), INVALID_PARAMETER_EXIT);
 	
 	// First check to see if this device already exists
-	require ( ( GetTargetForID ( targetID ) == NULL ), INVALID_PARAMETER_EXIT );
+	__Require(( GetTargetForID ( targetID ) == NULL ), INVALID_PARAMETER_EXIT);
 	
 	// See if the controller has a device tree entry it wants us to hook this
 	// target upto (e.g. to get io-device-location keys).
@@ -1776,13 +1776,13 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	AddDeviceToTargetList ( newDevice );
 	
 	result = newDevice->attach ( this );
-	require ( result, ATTACH_FAILED_EXIT );
+	__Require(result, ATTACH_FAILED_EXIT);
 	
 	result = newDevice->SetInitialTargetProperties ( properties );
-	require ( result, START_FAILED_EXIT );
+	__Require(result, START_FAILED_EXIT);
 	
 	result = newDevice->start ( this );
-	require ( result, START_FAILED_EXIT );
+	__Require(result, START_FAILED_EXIT);
 	
 	newDevice->release ( );
 	
@@ -1951,9 +1951,9 @@ IOSCSIParallelInterfaceController::GetTargetForID ( SCSITargetIdentifier targetI
 	IOInterruptState					lockState	= 0;
 	UInt8								indexID		= 0;
 	
-	require ( ( targetID >= 0 ), INVALID_PARAMETER_FAILURE );
-	require ( ( targetID <= fHighestSupportedDeviceID ), INVALID_PARAMETER_FAILURE );
-	require ( ( targetID != fInitiatorIdentifier ), INVALID_PARAMETER_FAILURE );
+	__Require(( targetID >= 0 ), INVALID_PARAMETER_FAILURE);
+	__Require(( targetID <= fHighestSupportedDeviceID ), INVALID_PARAMETER_FAILURE);
+	__Require(( targetID != fInitiatorIdentifier ), INVALID_PARAMETER_FAILURE);
 	
 	lockState = IOSimpleLockLockDisableInterrupt ( fDeviceLock );
 	
@@ -2332,7 +2332,7 @@ IOSCSIParallelInterfaceController::CreateDeviceInterrupt (
 		provider,
 		0 );
 	
-	check ( ies != NULL );
+	__Check(ies != NULL);
 	
 	return ies;
 	

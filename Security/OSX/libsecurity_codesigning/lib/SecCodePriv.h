@@ -256,6 +256,7 @@ CF_ENUM(uint32_t) {
     kSecCSSkipXattrFiles = 1 << 15,
 };
 
+
 #if TARGET_OS_OSX
 /* Here just to make TAPI happy. */
 extern int GKBIS_DS_Store_Present;

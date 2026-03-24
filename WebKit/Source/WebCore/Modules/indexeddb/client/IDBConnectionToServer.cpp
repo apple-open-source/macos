@@ -45,7 +45,7 @@
 namespace WebCore {
 namespace IDBClient {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(IDBConnectionToServer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IDBConnectionToServer);
 
 Ref<IDBConnectionToServer> IDBConnectionToServer::create(IDBConnectionToServerDelegate& delegate, PAL::SessionID sessionID)
 {
@@ -529,7 +529,7 @@ void IDBConnectionToServer::didGetAllDatabaseNamesAndVersions(const IDBResourceI
     LOG(IndexedDB, "IDBConnectionToServer::didGetAllDatabaseNamesAndVersions");
     ASSERT(isMainThread());
 
-    m_proxy->didGetAllDatabaseNamesAndVersions(requestIdentifier, WTFMove(databases));
+    m_proxy->didGetAllDatabaseNamesAndVersions(requestIdentifier, WTF::move(databases));
 }
 
 } // namespace IDBClient

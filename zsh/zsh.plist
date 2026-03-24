@@ -22,6 +22,7 @@
 		<string>Src/builtin.c: workaround for 22966068</string>
 		<string>Completion/Base/Utility/_nothing: 24988289</string>
 		<string>Src/init.c: rootless startup fixes (81279955, 82457194, 154104354)</string>
+		<string>Src/builtin.c: rootless logout fixes (167441998)</string>
 		<string>Src/Zle/zle_refresh.c: fix PGM heap overflow (#92128183)</string>
 		<string>Update function signatures for configure scripts (#104205683)</string>
 		<string>Update architecture reported by --version (#66283207)</string>

@@ -46,10 +46,15 @@ public:
 
 private:
     static NavigatorContacts* from(Navigator&);
-    static ASCIILiteral supplementName();
+    static ASCIILiteral supplementName() { return "NavigatorContacts"_s; }
+    bool isNavigatorContacts() const final { return true; }
 
     RefPtr<ContactsManager> m_contactsManager;
     const CheckedRef<Navigator> m_navigator;
 };
 
-}
+} // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::NavigatorContacts)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isNavigatorContacts(); }
+SPECIALIZE_TYPE_TRAITS_END()

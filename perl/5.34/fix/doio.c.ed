@@ -9,6 +9,18 @@ $a
  */
 extern void _zero_posn_(PerlIO *fp);
 .
+a
+
+/*
+ * Even if the SDK content says dup3 exists, the builder runtime may
+ * not support that syscall. Until the builder supports them, hide the API.
+ * Ditto for pipe2 and accept4.
+ */
+#undef HAS_PIPE2
+#undef HAS_DUP3
+#undef HAS_ACCEPT4
+.
+
 /fp = saveifp;/a
 	/* reset position to begining of file */
 	_zero_posn_(fp);

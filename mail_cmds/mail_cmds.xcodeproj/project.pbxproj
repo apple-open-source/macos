@@ -3,19 +3,34 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2A3351852DC092B800F90BFD /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2A3351862DC092B800F90BFD /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				2A33518C2DC092CC00F90BFD /* Install test plist */,
+			);
+			dependencies = (
+				2A3351892DC092BC00F90BFD /* PBXTargetDependency */,
+			);
+			name = tests;
+			packageProductDependencies = (
+			);
+			productName = tests;
+		};
 		FC5B093D1497CF20007519B8 /* executables */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FC5B093E1497CF20007519B8 /* Build configuration list for PBXAggregateTarget "executables" */;
 			buildPhases = (
-				FC6C98FD149A989300DDCC47 /* Install open source info */,
+				FC6C98FD149A989300DDCC47 /* ShellScript */,
 			);
 			dependencies = (
 				FC5B09471497CF3B007519B8 /* PBXTargetDependency */,
 				FCD73C7F149803550043B232 /* PBXTargetDependency */,
+				2A33518B2DC092C200F90BFD /* PBXTargetDependency */,
 			);
 			name = executables;
 			productName = executables;
@@ -23,10 +38,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A3351822DC08D3E00F90BFD /* libatf-c.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A3351812DC08D3E00F90BFD /* libatf-c.tbd */; };
 		E1B7430525C12521003EC2BC /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = E1B7430425C12521003EC2BC /* util.c */; };
 		FC00B2431497D36800B005A5 /* mail.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08FA1497CF01007519B8 /* mail.1 */; };
 		FC00B2441497D36800B005A5 /* mailx.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08FB1497CF01007519B8 /* mailx.1 */; };
-		FC5B091C1497CF02007519B8 /* aux.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EB1497CF01007519B8 /* aux.c */; };
 		FC5B091D1497CF02007519B8 /* cmd1.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EC1497CF01007519B8 /* cmd1.c */; };
 		FC5B091E1497CF02007519B8 /* cmd2.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08ED1497CF01007519B8 /* cmd2.c */; };
 		FC5B091F1497CF02007519B8 /* cmd3.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EE1497CF01007519B8 /* cmd3.c */; };
@@ -52,6 +67,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A3351882DC092BC00F90BFD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A33516F2DC08C8500F90BFD;
+			remoteInfo = mail_sigint_test;
+		};
+		2A33518A2DC092C200F90BFD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A3351852DC092B800F90BFD;
+			remoteInfo = tests;
+		};
 		FC5B09461497CF3B007519B8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
@@ -76,6 +105,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A33516E2DC08C8500F90BFD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A33518C2DC092CC00F90BFD /* Install test plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Install test plist";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC5B08CA1497CECE007519B8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -99,8 +147,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FC5B08DE1497CEF5007519B8 /* com.apple.comsat.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.comsat.plist; sourceTree = "<group>"; };
-		FC5B08EB1497CF01007519B8 /* aux.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = aux.c; sourceTree = "<group>"; };
+		2A3351702DC08C8500F90BFD /* mailx_signal_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mailx_signal_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A3351812DC08D3E00F90BFD /* libatf-c.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libatf-c.tbd"; path = "Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.Internal.sdk/usr/local/lib/libatf-c.tbd"; sourceTree = DEVELOPER_DIR; };
 		E1B7430425C12521003EC2BC /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
 		FC5B08CD1497CECE007519B8 /* mail */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mail; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC5B08EC1497CF01007519B8 /* cmd1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd1.c; sourceTree = "<group>"; };
@@ -138,7 +186,44 @@
 		FCD73C741497F6A00043B232 /* mailx */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mailx; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		2A33517C2DC08CE800F90BFD /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				mailx_signal_test.c,
+			);
+			target = 2A33516F2DC08C8500F90BFD /* mailx_signal_test */;
+		};
+		2A3351902DC0930600F90BFD /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				mail_cmds.plist,
+			);
+			target = 2A3351852DC092B800F90BFD /* tests */;
+		};
+		2AE9081C2DE7A4C3001FF318 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				mailx_signal_test.c,
+			);
+			target = FC5B08C71497CECE007519B8 /* mail */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		2A3351782DC08CC500F90BFD /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (2AE9081C2DE7A4C3001FF318 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 2A33517C2DC08CE800F90BFD /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
+		2A33518D2DC092EF00F90BFD /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (2A3351902DC0930600F90BFD /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		2A33516D2DC08C8500F90BFD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A3351822DC08D3E00F90BFD /* libatf-c.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC5B08C91497CECE007519B8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -156,6 +241,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A3351802DC08D3E00F90BFD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2A3351812DC08D3E00F90BFD /* libatf-c.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FC5B08EA1497CF01007519B8 /* mail */ = {
 			isa = PBXGroup;
 			children = (
@@ -185,6 +278,7 @@
 				FC5B09071497CF02007519B8 /* send.c */,
 				FC5B09081497CF02007519B8 /* strings.c */,
 				FC5B090A1497CF02007519B8 /* temp.c */,
+				2A3351782DC08CC500F90BFD /* tests */,
 				FC5B090B1497CF02007519B8 /* tty.c */,
 				E1B7430425C12521003EC2BC /* util.c */,
 				FC5B09191497CF02007519B8 /* v7.local.c */,
@@ -208,6 +302,8 @@
 			isa = PBXGroup;
 			children = (
 				FC5B08EA1497CF01007519B8 /* mail */,
+				2A33518D2DC092EF00F90BFD /* tests */,
+				2A3351802DC08D3E00F90BFD /* Frameworks */,
 				FC7459551497CC7F00E98ADB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -217,6 +313,7 @@
 			children = (
 				FC5B08CD1497CECE007519B8 /* mail */,
 				FCD73C741497F6A00043B232 /* mailx */,
+				2A3351702DC08C8500F90BFD /* mailx_signal_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -224,6 +321,25 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2A33516F2DC08C8500F90BFD /* mailx_signal_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A3351752DC08C8500F90BFD /* Build configuration list for PBXNativeTarget "mailx_signal_test" */;
+			buildPhases = (
+				2A33516C2DC08C8500F90BFD /* Sources */,
+				2A33516D2DC08C8500F90BFD /* Frameworks */,
+				2A33516E2DC08C8500F90BFD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mailx_signal_test;
+			packageProductDependencies = (
+			);
+			productName = mail_sigint_test;
+			productReference = 2A3351702DC08C8500F90BFD /* mailx_signal_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		FC5B08C71497CECE007519B8 /* mail */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FC5B08CB1497CECE007519B8 /* Build configuration list for PBXNativeTarget "mail" */;
@@ -236,6 +352,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2A3351782DC08CC500F90BFD /* tests */,
 			);
 			name = mail;
 			productName = target;
@@ -269,6 +388,14 @@
 			attributes = {
 				LastUpgradeCheck = 0430;
 				ORGANIZATIONNAME = "Apple Inc.";
+				TargetAttributes = {
+					2A33516F2DC08C8500F90BFD = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					2A3351852DC092B800F90BFD = {
+						CreatedOnToolsVersion = 16.3;
+					};
+				};
 			};
 			buildConfigurationList = FC74594E1497CC7F00E98ADB /* Build configuration list for PBXProject "mail_cmds" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -286,12 +413,28 @@
 				FC5B093D1497CF20007519B8 /* executables */,
 				FC5B08C71497CECE007519B8 /* mail */,
 				FCD73C731497F6A00043B232 /* mailx */,
+				2A3351852DC092B800F90BFD /* tests */,
+				2A33516F2DC08C8500F90BFD /* mailx_signal_test */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		FC6C98FD149A989300DDCC47 /* Install open source info */ = {
+		FC00B2461497D46200B005A5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/mail/install-misc.sh";
+			showEnvVarsInLog = 0;
+		};
+		FC6C98FD149A989300DDCC47 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -309,20 +452,6 @@
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
 			showEnvVarsInLog = 0;
 		};
-		FC00B2461497D46200B005A5 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = ". \"$SRCROOT\"/mail/install-misc.sh";
-			showEnvVarsInLog = 0;
-		};
 		FCD73C7D149803190043B232 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -334,12 +463,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ln -f \"$DSTROOT\"/usr/bin/mail \"$DSTROOT\"/usr/bin/\"$PRODUCT_NAME\"";
+			shellScript = "ln -f \"$DSTROOT\"/usr/bin/mail \"$DSTROOT\"/usr/bin/\"$PRODUCT_NAME\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2A33516C2DC08C8500F90BFD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC5B08C81497CECE007519B8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -380,6 +516,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A3351892DC092BC00F90BFD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A33516F2DC08C8500F90BFD /* mailx_signal_test */;
+			targetProxy = 2A3351882DC092BC00F90BFD /* PBXContainerItemProxy */;
+		};
+		2A33518B2DC092C200F90BFD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A3351852DC092B800F90BFD /* tests */;
+			targetProxy = 2A33518A2DC092C200F90BFD /* PBXContainerItemProxy */;
+		};
 		FC5B09471497CF3B007519B8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FC5B08C71497CECE007519B8 /* mail */;
@@ -398,6 +544,67 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2A3351742DC08C8500F90BFD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				INSTALL_PATH = /AppleInternal/Tests/mail_cmds;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		2A3351872DC092B800F90BFD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FC5B08CC1497CECE007519B8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -446,6 +653,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2A3351752DC08C8500F90BFD /* Build configuration list for PBXNativeTarget "mailx_signal_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A3351742DC08C8500F90BFD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A3351862DC092B800F90BFD /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A3351872DC092B800F90BFD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FC5B08CB1497CECE007519B8 /* Build configuration list for PBXNativeTarget "mail" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -1895,6 +1895,44 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 }
 
+- (void)test_sec_protocol_options_set_tls_compliance_policy {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertEqual(content->tls_compliance_policy, 0);
+        return true;
+    });
+
+    sec_protocol_options_set_tls_compliance_policy(options, sec_protocol_options_compliance_policy_fcs_v2);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertEqual(content->tls_compliance_policy, sec_protocol_options_compliance_policy_fcs_v2);
+        return true;
+    });
+}
+
+- (void)test_sec_protocol_options_set_legacy_ats_applicable {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertFalse(content->legacy_ats_applicable);
+        return true;
+    });
+
+    sec_protocol_options_set_legacy_ats_applicable(options, true);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->legacy_ats_applicable);
+        return true;
+    });
+}
+
 - (void)test_sec_protocol_options_get_external_pre_shared_keys_enabled {
     sec_protocol_options_t options = [self create_sec_protocol_options];
     XCTAssertFalse(sec_protocol_options_get_external_pre_shared_keys_enabled(options));

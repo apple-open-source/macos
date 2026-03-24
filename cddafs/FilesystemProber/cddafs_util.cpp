@@ -185,8 +185,8 @@ UtilityMain ( int argc, const char * argv[] )
 	
 	// Verify our arguments
 	result = ParseUtilityArgs ( argc, argv, &actionPtr, &mountPointPtr, &isEjectable, &isLocked );
-	require ( ( result == 0 ), Exit );
-	
+	__Require ( ( result == 0 ), Exit );
+
 	// Build our device name (full path), should end up with something like:
 	// -- "/dev/disk1" or "/dev/disk2" or "/dev/disk3"
 	
@@ -195,8 +195,8 @@ UtilityMain ( int argc, const char * argv[] )
 	
 	// call the appropriate routine to handle the given action argument after becoming root
 	result = seteuid ( 0 );
-	require_action ( ( result == 0 ), Exit, result = FSUR_INVAL );
-	
+	__Require_Action ( ( result == 0 ), Exit, result = FSUR_INVAL );
+
 	result = setegid ( 0 );
 	
 	if ( result )
@@ -272,7 +272,7 @@ Exit:
 		
 	}
 	
-	check ( result == FSUR_IO_SUCCESS );
+	__Check ( result == FSUR_IO_SUCCESS );
 	exit ( result );
 	
 	return result;	// ...and make main fit the ANSI spec.
@@ -325,9 +325,9 @@ ParseUtilityArgs ( 	int				argc,
 	int			index			= 0;
 	
 	// Must have at least 3 arguments and the action argument must start with a '-'
-	require_action ( ( argc >= 3 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
-	require_action ( ( argv[1][0] == '-' ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
-	
+	__Require_Action ( ( argc >= 3 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+	__Require_Action ( ( argv[1][0] == '-' ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+
 	// we only support actions Probe, Mount, Force Mount, and Unmount
 	*actionPtr = &argv[1][1];
 	
@@ -336,7 +336,7 @@ ParseUtilityArgs ( 	int				argc,
 		
 		case FSUC_PROBE:
 			// action Probe and requires 5 arguments (need the flags)
-			require_action ( ( argc >= 5 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+			__Require_Action ( ( argc >= 5 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
 			index = 3;
 			break;
 		
@@ -349,8 +349,8 @@ ParseUtilityArgs ( 	int				argc,
 		case FSUC_MOUNT_FORCE:
 			// action Mount and ForceMount require 6 arguments
 			// ( need the mountpoint and the flags )
-			require_action ( ( argc >= 6 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
-			
+			__Require_Action ( ( argc >= 6 ), Exit, DisplayUsage ( kUsageTypeUtility, argv ) );
+
 			*mountPointPtr = argv[3];
 			index = 4;
 			break;
@@ -365,13 +365,13 @@ ParseUtilityArgs ( 	int				argc,
 	// Make sure device (argv[2]) is something reasonable
 	// (we expect something like "disk1")
 	deviceLength = ( int ) strlen ( argv[2] );
-	require ( ( deviceLength >= 5 ), Exit );
-	
+	__Require ( ( deviceLength >= 5 ), Exit );
+
 	result = 0;
 	
 	// If index is zero, no more work to do...
-	require ( ( index != 0 ), Exit );
-	
+	__Require ( ( index != 0 ), Exit );
+
 	// Flags: removable/fixed
 	if ( !strcmp ( argv[index], "removable" ) )
 	{
@@ -587,8 +587,8 @@ Unmount ( const char * theMountPointPtr )
 	int		mountflags = 0;
 	
 	result = unmount ( theMountPointPtr, mountflags );
-	require_action ( ( result == 0 ), Exit, result = FSUR_IO_FAIL );
-	
+	__Require_Action ( ( result == 0 ), Exit, result = FSUR_IO_FAIL );
+
 	result = FSUR_IO_SUCCESS;
 	
 	
@@ -619,11 +619,11 @@ MountMain ( int argc, const char * argv[] )
 	int		mountFlags 	= 0;
 	
 	error = ParseMountArgs ( &argc, &argv, &mountFlags );
-	require_action ( ( error == 0 ), Exit, DisplayUsage ( kUsageTypeMount, argv ) );
-	
+	__Require_Action ( ( error == 0 ), Exit, DisplayUsage ( kUsageTypeMount, argv ) );
+
 	error = Mount ( argv[0], argv[1], mountFlags );
-	check ( error == FSUR_IO_SUCCESS );
-	
+	__Check ( error == FSUR_IO_SUCCESS );
+
 	// mount_cddafs must return 0 for successful mounts
 	if ( error == FSUR_IO_SUCCESS )
 		error = 0;	
@@ -655,8 +655,8 @@ ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
 	*mountFlags |= MNT_RDONLY;
 	
 	// Must have at least 3 arguments and the action argument must start with a '-'
-	require_action ( ( *argc > 2 ), Exit, error = 1 );
-	
+	__Require_Action ( ( *argc > 2 ), Exit, error = 1 );
+
 	// Check command line args
 	while ( ( ch = getopt ( *argc, ( char * const * ) *argv, "o:" ) ) != -1 )
 	{
@@ -727,9 +727,9 @@ void
 StripTrailingSpaces ( char * theContentsPtr )
 {
 	
-	check ( theContentsPtr );
-	check ( strlen ( theContentsPtr ) > 0 );
-	
+	__Check ( theContentsPtr );
+	__Check ( strlen ( theContentsPtr ) > 0 );
+
 	if ( strlen ( theContentsPtr ) > 0 )
 	{
 		
@@ -773,9 +773,9 @@ Mount ( const char * 	deviceNamePtr,
 	
 	DebugLog ( ( "Mount('%s','%s')\n", deviceNamePtr, mountPointPtr ) );
 	
-	require ( ( mountPointPtr != NULL ), Exit );
-	require ( ( *mountPointPtr != '\0' ), Exit );
-	
+	__Require ( ( mountPointPtr != NULL ), Exit );
+	__Require ( ( *mountPointPtr != '\0' ), Exit );
+
 	args.device			= ( char * ) deviceNamePtr;
 	args.fileType		= 0x41494643; // 'AIFC'
 	args.fileCreator	= 0x3F3F3F3F; // '????'
@@ -787,27 +787,27 @@ Mount ( const char * 	deviceNamePtr,
 	{
 		// Kernel extension wasn't loaded, so try to load it...
 		error = LoadKernelExtension ( );
-		require ( ( error == 0 ), Exit );
-		
+		__Require ( ( error == 0 ), Exit );
+
 		// Now try again since we loaded our extension
 		error = getvfsbyname ( gAppleCDDAName, &vfc );
-		require ( ( error == 0 ), Exit );
-		
+		__Require ( ( error == 0 ), Exit );
+
 	}
 	
 	TOCDataPtr = ( QTOCDataFormat10Ptr ) GetTOCDataPtr ( deviceNamePtr );
-	require ( ( TOCDataPtr != NULL ), Exit );
+	__Require ( ( TOCDataPtr != NULL ), Exit );
 	
 	nameDataRef = GetTrackData ( deviceNamePtr, TOCDataPtr );
-	require ( ( nameDataRef != NULL ), ReleaseTOCData );
-	
+	__Require ( ( nameDataRef != NULL ), ReleaseTOCData );
+
 	// Get the number of audio tracks
 	args.numTracks = FindNumberOfAudioTracks ( TOCDataPtr );
 	
 	// Build the XML file ".TOC.plist"
 	xmlDataRef	= CreateXMLFileInPListFormat ( TOCDataPtr );
-	require ( ( xmlDataRef != NULL ), ReleaseNameData );
-	
+	__Require ( ( xmlDataRef != NULL ), ReleaseNameData );
+
 	// Get the pointers.
 	nameDataPtr	= ( UInt8 * ) CFDataGetBytePtr ( nameDataRef );
 	xmlDataPtr	= ( UInt8 * ) CFDataGetBytePtr ( xmlDataRef );
@@ -846,10 +846,10 @@ Mount ( const char * 	deviceNamePtr,
 	DebugLog ( ( "DeviceName = %s\n", deviceNamePtr ) );
 	DebugLog ( ( "numTracks = %d\n", ( int ) args.numTracks ) );
 	
-	require ( ( args.nameData != 0 ), ReleaseXMLData );
-	require ( ( args.nameDataSize != 0 ), ReleaseXMLData );
-	require ( ( args.xmlData != 0 ), ReleaseXMLData );
-	
+	__Require ( ( args.nameData != 0 ), ReleaseXMLData );
+	__Require ( ( args.nameDataSize != 0 ), ReleaseXMLData );
+	__Require ( ( args.xmlData != 0 ), ReleaseXMLData );
+
 	DebugLog ( ( "args.nameData = %qx\n", args.nameData ) );
 	DebugLog ( ( "args.xmlData = %qx\n", args.xmlData ) );
 	DebugLog ( ( "sizeof(args) = %ld\n", sizeof ( args ) ) );
@@ -858,18 +858,18 @@ Mount ( const char * 	deviceNamePtr,
 	if ( mountFlags & MNT_NOFOLLOW )
 	{
 		size_t actualSize = strlcpy ( realMountPoint, mountPointPtr, PATH_MAX );
-		require ( ( actualSize < PATH_MAX ), ReleaseXMLData );
+		__Require ( ( actualSize < PATH_MAX ), ReleaseXMLData );
 	}
 	else
 	{
 		realMountPointPtr = realpath ( mountPointPtr, realMountPoint );
-		require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
+		__Require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
 	}
 
 	// Issue the system mount command
 	result = mount ( vfc.vfc_name, realMountPoint, mountFlags, &args );
-	require ( ( result == 0 ), ReleaseXMLData );
-	
+	__Require ( ( result == 0 ), ReleaseXMLData );
+
 	result = FSUR_IO_SUCCESS;
 	
 	
@@ -891,7 +891,7 @@ ReleaseTOCData:
 	
 	
 	// free the memory
-	require_quiet ( ( TOCDataPtr != NULL ), Exit );
+	__Require_Quiet ( ( TOCDataPtr != NULL ), Exit );
 	free ( ( char * ) TOCDataPtr );
 	TOCDataPtr = NULL;
 	
@@ -921,14 +921,14 @@ ParseTOC ( UInt8 * TOCInfoPtr )
 	UInt8					index				= 0;
 	UInt8					numberOfDescriptors = 0;
 	
-	require ( ( TOCInfoPtr != NULL ), Exit );
-	
+	__Require ( ( TOCInfoPtr != NULL ), Exit );
+
 	// Set our pointer to the TOCInfoPtr
 	TOCDataPtr = ( QTOCDataFormat10Ptr ) TOCInfoPtr;
 	
 	error = GetNumberOfTrackDescriptors ( TOCDataPtr, &numberOfDescriptors );
-	require_quiet ( ( error == 0 ), Exit );
-	
+	__Require_Quiet ( ( error == 0 ), Exit );
+
 	for ( index = 0; index < numberOfDescriptors; index++ )
 	{
 		
@@ -1129,7 +1129,7 @@ LoadKernelExtension ( void )
 	}
 	
 	
-	check ( result == 0 );
+	__Check ( result == 0 );
 	
 	
 Exit:
@@ -1528,21 +1528,21 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 	error = IOServiceGetMatchingServices ( 	kIOMasterPortDefault,
 											IOBSDNameMatching ( kIOMasterPortDefault, 0, bsdName ),
 											&iterator );
-	require ( ( error == kIOReturnSuccess ), Exit );
+	__Require ( ( error == kIOReturnSuccess ), Exit );
 	
 	// Only expect one entry since there is a 1:1 correspondence between bsd names
 	// and IOKit storage objects	
 	registryEntry = IOIteratorNext ( iterator );
-	require ( ( registryEntry != MACH_PORT_NULL ), ReleaseIterator );
-	
-	require ( IOObjectConformsTo ( registryEntry, kIOCDMediaString ), ReleaseEntry );
-	
+	__Require ( ( registryEntry != MACH_PORT_NULL ), ReleaseIterator );
+
+	__Require ( IOObjectConformsTo ( registryEntry, kIOCDMediaString ), ReleaseEntry );
+
 	error = IORegistryEntryCreateCFProperties ( registryEntry,
 												&properties,
 												kCFAllocatorDefault,
 												kNilOptions );
-	require ( ( error == kIOReturnSuccess ), ReleaseEntry );
-	
+	__Require ( ( error == kIOReturnSuccess ), ReleaseEntry );
+
 	// Get the TOCInfo
 	data = ( CFDataRef ) CFDictionaryGetValue ( properties, 
 												CFSTR ( kIOCDMediaTOCKey ) );
@@ -1622,15 +1622,15 @@ GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
 	UInt16	length	= 0;
 	SInt32	result	= 0;
 	
-	require_action ( ( TOCDataPtr != NULL ), Exit, result = -1 );
-	require_action ( ( numberOfDescriptors != NULL ), Exit, result = -1 );
-	
+	__Require_Action ( ( TOCDataPtr != NULL ), Exit, result = -1 );
+	__Require_Action ( ( numberOfDescriptors != NULL ), Exit, result = -1 );
+
 	// Grab the length and advance
 	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 	DebugLog ( ( "Length = %d\n", length ) );
 	
-	require_action ( ( length > sizeof ( CDTOC ) ), Exit, result = -1 );
-	
+	__Require_Action ( ( length > sizeof ( CDTOC ) ), Exit, result = -1 );
+
 	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
 				sizeof ( TOCDataPtr->lastSessionNumber ) );
 	
@@ -1708,18 +1708,18 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 	
 	DebugLog ( ( "FindNumberOfAudioTracks called\n" ) );
 	
-	require ( ( TOCDataPtr != NULL ), Exit );
-	
+	__Require ( ( TOCDataPtr != NULL ), Exit );
+
 	// Grab the length and advance
 	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
-	require ( ( length > sizeof ( CDTOC ) ), Exit );
-	
+	__Require ( ( length > sizeof ( CDTOC ) ), Exit );
+
 	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
 				sizeof ( TOCDataPtr->lastSessionNumber ) );
 	
 	numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
-	require ( ( numberOfDescriptors != 0 ), Exit );
-	
+	__Require ( ( numberOfDescriptors != 0 ), Exit );
+
 	DebugLog ( ( "numberOfDescriptors = %d\n", numberOfDescriptors ) );	
 	
 	trackDescriptorPtr = TOCDataPtr->trackDescriptors;

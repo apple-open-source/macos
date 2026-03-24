@@ -77,7 +77,7 @@ public:
     void addObserver(WeakRef<RenderingResourceObserver>&& observer)
     {
         ASSERT(hasValidRenderingResourceIdentifier());
-        m_observers.add(WTFMove(observer));
+        m_observers.add(WTF::move(observer));
     }
 
 protected:

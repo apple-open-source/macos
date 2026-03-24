@@ -1,4 +1,110 @@
 =================
+WPE WebKit 2.51.4
+=================
+
+What's new in WPE WebKit 2.51.4?
+
+  - Fix rendering of some PDFs due to issues in cross-thread transfer of
+    accelerated bitmaps.
+  - Fix a bug in compositor state causing that one frame could be sent to
+    the UI process before the previous one is done.
+  - Use timerfd when available to improve timer resolution.
+  - Support using AHardwareBuffer as backing store for accelerated surfaces,
+    which avoids copying graphics buffers shared among different processes
+    when using WPEPlatform on Android.
+  - Support non-composited page rendering, which may be beneficial on
+    low-end embedded devices with weak GPUs, or without a GPU at all. This
+    may be toggled at runtime by disabling the AcceleratedCompsiting feature
+    flag.
+  - Add the ENABLE_WPE_LEGACY_API CMake option, which allows disabling the
+    libwpe-based API on builds that have the new WPEPlatform API enabled
+    at build time.
+  - Correctly handle the program name passed to the sleep disabler.
+  - Change XKB context initialization to always succeed even if the default
+    configuration directories are not present in the system.
+  - Fix synthetic clicks for unhandled touch events being produced twice
+    per event.
+  - Fix the build with Clang 21.
+  - Fix the build when support for Sysprof tracing is disabled.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.51.3
+=================
+
+What's new in WPE WebKit 2.51.3?
+
+  - Add API to take image snapshots of web views, using webkit_web_view_get_snapshot()
+    and webkit_web_view_get_snapshot_finish().
+  - Add WPEPlatform API to obtain the contents of the clipboard, using
+    wpe_clipboard_content_get_text() and wpe_clipboard_content_get_bytes().
+  - Improve composition scheduling to avoid blocking waiting for tile painting.
+  - Moved WebRTC network access to the NetworkProcess, when using GstWebRTC.
+    This requires librice, and building with the CMake USE_LIBRICE option. When
+    enabled, it is still possible to choose the older libnice-based implementation
+    at runtime by setting WEBKIT_GST_DISABLE_WEBRTC_NETWORK_SANDBOX=1 in the
+    environment.
+  - Add support the XR_ANDROID_raycast OpenXR extension for WebXR Hit Testing.
+  - Add support to use super-tiled graphics buffers when running on Vivante GPUs.
+    Currently setting WEBKIT_SKIA_USE_VIVANTE_SUPER_TILED_TILE_TEXTURES=1 in the
+    environment is needed to opt-in into using those.
+  - Ensure that GStreamer is properly initialized before applying any multimedia
+    handling quirks.
+  - Fix pointer event processing no longer working after a mouse right button press.
+  - Fix PointerEvent behaviour for mouse events synthesized from touch inputs.
+  - Fix seeking and looping of media elements that set the "loop" property.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.51.2
+=================
+
+What's new in WPE WebKit 2.51.2?
+
+  - Add WebKitImage utility class that will be used for favicons and snapshots.
+  - Videos with BT2100-PQ colorspace are now tone-mapped to SDR, ensuring colours
+    do not appear washed out.
+  - Use a run loop observer also to notify the main thread when composition is done.
+  - Remove the hybrid rendering mode now that we are computing a different tile size
+    for GPU and CPU rendering modes.
+  - Make jsc_value_array_buffer_get_data() introspectable.
+  - Make webkit_web_view_add_frame_displayed_callback() work with WPEPlatform.
+  - Restrict allowed URI protocols for media playback.
+  - Removed support in the MiniBrowser for the unstable zxdg_shell_v6 Wayland
+    protocol when using the legacy API.
+  - Add support in the MiniBrowser for --maximized and --fullscreen when using
+    the legacy API.
+  - Add rendering and buffer formats information to webkit://gpu.
+  - Enable dynamic MSAA for accelerated 2D canvas rendering.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.51.1
+=================
+
+What's new in WPE WebKit 2.51.1?
+
+  - Use the GPU process for WebGL by default.
+  - Add initial API for web extensions.
+  - Add API to handle WebXR permission requests.
+  - Add new API to query the immersive session status.
+  - Improve text rendering performance
+  - Compute the layers tile size, using a different strategy depending on whether
+    GPU rendering is enabled.
+  - Add support for run loop observers that are now used to replace the layer flush
+    timer and properly implement the opportunistic task scheduler.
+  - Add initial support for WebXR on Android.
+  - Improve WPEBufferDMABuf to allow importing more kinds of buffers as into pixel
+    buffers using wpe_buffer_import_to_pixels().
+  - Remove support for building with libsoup2.
+  - Fix speaker enumeration for ALSA PCM sinks.
+  - Fix rendering for gradients with hue interpolation method.
+  - Fix rendering of layers with fractional transforms.
+  - Fix pasting image data (like image/png) from the clipboard.
+  - Fix importing a WPEBufferAndroid as an EGLImage when using EGL 1.4 or older.
+  - Fix several crashes and rendering issues.
+
+=================
 WPE WebKit 2.49.4
 =================
 

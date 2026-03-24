@@ -176,7 +176,7 @@ inline JSValue jsMakeNontrivialString(JSGlobalObject* globalObject, StringType&&
     if (!result) [[unlikely]]
         return throwOutOfMemoryError(globalObject, scope);
     ASSERT(result.length() <= JSString::MaxLength);
-    return jsNontrivialString(vm, WTFMove(result));
+    return jsNontrivialString(vm, WTF::move(result));
 }
 
 template <typename CharacterType>
@@ -213,7 +213,7 @@ inline void JSRopeString::convertToNonRope(String&& string) const
     // store-store barrier here to ensure concurrent compiler threads see initialized String.
     ASSERT(JSString::isRope());
     WTF::storeStoreFence();
-    new (&uninitializedValueInternal()) String(WTFMove(string));
+    new (&uninitializedValueInternal()) String(WTF::move(string));
     static_assert(sizeof(String) == sizeof(RefPtr<StringImpl>), "JSString's String initialization must be done in one pointer move.");
     // We do not clear the trailing fibers and length information (fiber1 and fiber2) because we could be reading the length concurrently.
     ASSERT(!JSString::isRope());
@@ -466,7 +466,7 @@ inline JSString* jsAtomString(JSGlobalObject* globalObject, VM& vm, JSString* st
     auto createFromRope = [&](VM& vm, auto& buffer) {
         auto impl = AtomStringImpl::add(buffer);
         size_t sizeToReport = impl->hasOneRef() ? impl->cost() : 0;
-        ropeString->convertToNonRope(String { WTFMove(impl) });
+        ropeString->convertToNonRope(String { WTF::move(impl) });
         vm.heap.reportExtraMemoryAllocated(ropeString, sizeToReport);
         return ropeString;
     };

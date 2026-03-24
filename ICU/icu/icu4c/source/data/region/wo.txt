@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 wo{
     Countries{
         001{"àddina"}
@@ -85,6 +85,7 @@ wo{
         CN{"Siin"}
         CO{"Kolombi"}
         CP{"Ile Clipperton"}
+        CQ{"Guernsey Pound"}
         CR{"Kosta Rika"}
         CU{"Kuba"}
         CV{"Kabo Werde"}

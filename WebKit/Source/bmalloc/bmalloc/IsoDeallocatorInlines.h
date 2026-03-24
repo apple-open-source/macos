@@ -25,6 +25,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include "BPlatform.h"
+
 #if !BUSE(TZONE)
 
 #include "BInline.h"
@@ -86,3 +90,5 @@ BNO_INLINE void IsoDeallocator<Config>::scavenge()
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

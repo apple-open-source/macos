@@ -57,8 +57,13 @@
 #include <stdatomic.h>
 #include <libkern/c++/OSBoundedArrayRef.h>
 
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#include <IOKit/coreanalytics/CoreAnalyticsHub.h>
+#endif
+
 #include "IOHIKeyboard.h"
 #include "IOHIPointing.h"
+
 
 #include <IOKit/hidsystem/IOHIDShared.h>
 
@@ -71,6 +76,12 @@
 #define HIDDeviceLogInfo(fmt, ...)    HIDLogInfo("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDDeviceLogDebug(fmt, ...)   HIDLogDebug("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDDeviceLogTest(fmt, ...)    HIDDeviceLog(" DEBUG " fmt, ##__VA_ARGS__)
+
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#ifdef InductiveAllowList
+static void SendInductiveAllowListFailureAnalytics(IOHIDDevice* device);
+#endif
+#endif
 
 //===========================================================================
 // IOHIDAsyncReportQueue class
@@ -330,7 +341,7 @@ bool IOHIDDevice::init( OSDictionary * dict )
 
     if (!_reserved)
         return false;
-    
+
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -416,50 +427,50 @@ bool IOHIDDevice::start( IOService * provider )
 
     HIDDeviceLogInfo("start");
 
-    require(super::start(provider), exit);
+    __Require(super::start(provider), exit);
     
     _workLoop = getWorkLoop();
-    require_action(_workLoop, exit, HIDDeviceLogError("failed to get a work loop"));
+    __Require_Action(_workLoop, exit, HIDDeviceLogError("failed to get a work loop"));
     
     _workLoop->retain();
     
     _eventSource = IOHIDEventSource::HIDEventSource(this, NULL);
-    require(_eventSource, exit);
-    require_noerr(_workLoop->addEventSource(_eventSource), exit);
+    __Require(_eventSource, exit);
+    __Require_noErr(_workLoop->addEventSource(_eventSource), exit);
 
     _asyncReportThread = thread_call_allocate_with_options(OSMemberFunctionCast(thread_call_func_t, this, &IOHIDDevice::runSyncReportAsync), this, THREAD_CALL_PRIORITY_KERNEL, THREAD_CALL_OPTIONS_ONCE);
-    require_action(_asyncReportThread, exit, HIDDeviceLogError("thread_call_allocate_with_options failed"));
+    __Require_Action(_asyncReportThread, exit, HIDDeviceLogError("thread_call_allocate_with_options failed"));
 
     STAILQ_INIT(&_asyncReportCalls);
     STAILQ_INIT(&_asyncCommitCalls);
 
     value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
     _asyncTimeout = value && value->unsigned32BitValue() >= kIOHIDDeviceMinAsyncRequestTimeout * 1000 && value->unsigned32BitValue() <= kIOHIDDeviceMaxAsyncRequestTimeout * 1000 ? value->unsigned32BitValue() : kIOHIDDeviceDefaultAsyncRequestTimeout * 1000;
-    require_action((_asyncTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDDevice::setNextAsyncTimeout))), exit, HIDDeviceLogError("IOTimerEventSource::timerEventSource failed"));
-    require_noerr(_workLoop->addEventSource(_asyncTimer), exit);
+    __Require_Action((_asyncTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDDevice::setNextAsyncTimeout))), exit, HIDDeviceLogError("IOTimerEventSource::timerEventSource failed"));
+    __Require_noErr(_workLoop->addEventSource(_asyncTimer), exit);
 
     // Call handleStart() before fetching the report descriptor.
-    require_action(handleStart(provider), exit, HIDDeviceLogError("handleStart failed"));
+    __Require_Action(handleStart(provider), exit, HIDDeviceLogError("handleStart failed"));
 
     // Fetch report descriptor for the device, and parse it.
-    require_noerr(newReportDescriptor(&reportDescriptor), exit);
-    require(reportDescriptor, exit);
+    __Require_noErr(newReportDescriptor(&reportDescriptor), exit);
+    __Require(reportDescriptor, exit);
     
     reportDescriptorMap = reportDescriptor->map();
-    require(reportDescriptorMap, exit);
+    __Require(reportDescriptorMap, exit);
     
     reportDescriptorData = OSData::withBytes((void*)reportDescriptorMap->getVirtualAddress(), (unsigned int)reportDescriptorMap->getSize());
-    require(reportDescriptorData, exit);
+    __Require(reportDescriptorData, exit);
 
     setProperty(kIOHIDReportDescriptorKey, reportDescriptorData);
 
     ret = parseReportDescriptor( reportDescriptor );
-    require_noerr_action(ret, exit, HIDDeviceLogError("failed to parse report descriptor"));
+    __Require_noErr_Action(ret, exit, HIDDeviceLogError("failed to parse report descriptor"));
     
     createReporters();
 
     _hierarchElements = _elementContainer->getFlattenedElements();
-    require(_hierarchElements, exit);
+    __Require(_hierarchElements, exit);
     
     _hierarchElements->retain();
     
@@ -476,7 +487,7 @@ bool IOHIDDevice::start( IOService * provider )
 
     // Publish properties to the registry before any clients are
     // attached.
-    require(publishProperties(provider), exit);
+    __Require(publishProperties(provider), exit);
     
 #if TARGET_OS_IOS && !TARGET_OS_VISION
 #ifdef InductiveAllowList
@@ -487,7 +498,7 @@ bool IOHIDDevice::start( IOService * provider )
         isInductive = transport && transport->isEqualTo(kIOHIDTransportInductiveInBandValue);
         OSSafeReleaseNULL(obj);
         if(isInductive) {
-            require(verifyInductiveAllowList(), exit);
+            __Require(verifyInductiveAllowList(), exit);
         }
     }
 #endif
@@ -525,13 +536,13 @@ bool IOHIDDevice::start( IOService * provider )
                                             IOHIDDevice::_publishDeviceNotificationHandler,
                                             NULL);
     matching->release();
-    require(_deviceNotify, exit);
+    __Require(_deviceNotify, exit);
 
     obj = getProperty(kIOHIDRegisterServiceKey);
     if (obj != kOSBooleanFalse) {
         registerService();
     }
-    
+
     logProperties();
     result = true;
 exit:
@@ -655,6 +666,11 @@ bool IOHIDDevice::verifyInductiveAllowList()
         
         if(!found) {
             HIDDeviceLogError("Inductive descriptor contains usage: %x and usage page: %x pair outside of allow list", usage, usagePage);
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#ifdef InductiveAllowList
+            SendInductiveAllowListFailureAnalytics(this);
+#endif
+#endif
             return false;
         }
     }
@@ -668,13 +684,13 @@ void IOHIDDevice::createReporters()
     IOReportLegend *legend = NULL;
 
     legend = IOReportLegend::with(NULL);
-    require(legend, exit);
+    __Require(legend, exit);
     
     _eventReporter = IOSimpleReporter::with(this, kIOReportCategoryPower, kIOReportUnitNone);
-    require_action(_eventReporter, exit, HIDDeviceLogError("IOSimpleReporter::with failed"));
+    __Require_Action(_eventReporter, exit, HIDDeviceLogError("IOSimpleReporter::with failed"));
      
     _reporterList = OSSet::withCapacity(1);
-    require_action(_reporterList, exit, HIDDeviceLogError("_reporterList creation failed"));
+    __Require_Action(_reporterList, exit, HIDDeviceLogError("_reporterList creation failed"));
  
     //set up channels for IOSimpleReporter
     _elementContainer->getInputReportElements()->iterateObjects(^bool(OSObject *object) {
@@ -688,7 +704,7 @@ void IOHIDDevice::createReporters()
     });
 
     res = legend->addReporterLegend(_eventReporter, "IOHIDDevice Input Report Errors", "Input Report IDs");
-    require_noerr(res, exit);
+    __Require_noErr(res, exit);
    
     _reporterList->setObject(_eventReporter);
     
@@ -773,7 +789,7 @@ void IOHIDDevice::stop(IOService * provider)
         _deviceNotify->remove();
         _deviceNotify = NULL;
     }
-    
+
     handleStop(provider);
     
     if (_workLoop) {
@@ -890,10 +906,10 @@ bool IOHIDDevice::validateMatchingTable(OSDictionary * table)
     }
         
     // If no vendor usage, should return with match
-    require_quiet(hasVendorUsagePage == true, exit);
+    __Require_Quiet(hasVendorUsagePage == true, exit);
     
     // We can assume that device will understand vendor usages and matching is intentional.
-    require_quiet(vendorID == NULL, exit);
+    __Require_Quiet(vendorID == NULL, exit);
     
     // Device has vendor usages but missing vendor ID.
     // Check if transport is USB or Bluetooth. This check is not applicable for any other transport for
@@ -1203,10 +1219,10 @@ bool IOHIDDevice::handleOpen(IOService * client, IOOptionBits options, void * ar
         accept = false;
     }
 
-    require_action(!_clientSet->containsObject(client), exit, HIDDeviceLog("Multiple opens from client 0x%llx", client->getRegistryEntryID()));
+    __Require_Action(!_clientSet->containsObject(client), exit, HIDDeviceLog("Multiple opens from client 0x%llx", client->getRegistryEntryID()));
 
     // Add the new client object to our client set.
-    require_action(_clientSet->setObject(client), exit, accept = false);
+    __Require_Action(_clientSet->setObject(client), exit, accept = false);
 
     // PR TODO: It looks like the issue that was referenced here is resolved, so I removed it. Can someone else double verify?
     if (options & kIOHIDOptionsTypeSeizeDevice && !_seizedClient) {
@@ -1349,7 +1365,24 @@ IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argumen
 
     if ((kIOMessageDeviceSignaledWakeup == type) && _performWakeTickle)
     {
-        IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this); // not a real event. tickle is not maskable.
+        OSObject *obj = copyProperty(kIOHIDRMDeviceStateKey);
+        OSString *stateString = OSDynamicCast(OSString, obj);
+        HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
+
+        if (stateString) {
+            if (stateString->isEqualTo("Allowed")) {
+                state = kHIDRMDeviceStateAllowed;
+            } else if (stateString->isEqualTo("Denied")) {
+                state = kHIDRMDeviceStateDenied;
+            } else if (stateString->isEqualTo("Approving")) {
+                state = kHIDRMDeviceStateApproving;
+            }
+        }
+        OSSafeReleaseNULL(obj);
+
+        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+            IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this);
+        }
         return kIOReturnSuccess;
     }
 
@@ -1375,7 +1408,7 @@ bool IOHIDDevice::setProperty( const OSSymbol * key, OSObject * object)
 
     // Update the property table before notifying clients of property changes.
     ret = super::setProperty(key, object);
-    require(ret, exit);
+    __Require(ret, exit);
 
     for (const char *prop : msgProps) {
         if (key->isEqualTo(prop)) {
@@ -1432,7 +1465,7 @@ OSNumber * IOHIDDevice::newPrimaryUsageNumber() const
     OSNumber *      number = NULL;
 
     collection = OSDynamicCast(IOHIDElement, _hierarchElements->getObject(0));
-    require(collection, exit);
+    __Require(collection, exit);
 
     number =  OSNumber::withNumber(collection->getUsage(), 32);
 
@@ -1446,7 +1479,7 @@ OSNumber * IOHIDDevice::newPrimaryUsagePageNumber() const
     OSNumber *      number = NULL;
 
     collection = OSDynamicCast(IOHIDElement, _hierarchElements->getObject(0));
-    require(collection, exit);
+    __Require(collection, exit);
 
     number =  OSNumber::withNumber(collection->getUsagePage(), 32);
 
@@ -1530,20 +1563,20 @@ IOReturn IOHIDDevice::parseReportDescriptor( IOMemoryDescriptor * report,
     IOHIDElementPrivate *root = NULL;
     
     reportLength = report->getLength();
-    require_action(reportLength, exit, ret = kIOReturnBadArgument);
+    __Require_Action(reportLength, exit, ret = kIOReturnBadArgument);
     
     reportData = IOMallocData(reportLength);
-    require_action(reportData, exit, ret = kIOReturnNoMemory);
+    __Require_Action(reportData, exit, ret = kIOReturnNoMemory);
     
     report->readBytes(0, reportData, reportLength);
     
     _elementContainer = IOHIDDeviceElementContainer::withDescriptor(reportData,
                                                                     reportLength,
                                                                     this);
-    require(_elementContainer, exit);
+    __Require(_elementContainer, exit);
     
     _elementArray = _elementContainer->getElements();
-    require(_elementArray, exit);
+    __Require(_elementArray, exit);
     
     _elementArray->retain();
     
@@ -1842,7 +1875,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
     size_t     index = 0;
     uint8_t    *data = (uint8_t*)elementData;
     IOMemoryDescriptor *elementDesc = getMemoryWithCurrentElementValues();
-    require(_elementArray && elementDesc, fail);
+    __Require(_elementArray && elementDesc, fail);
 
     WORKLOOP_LOCK;
 
@@ -1857,7 +1890,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
             goto fail;
         }
 
-        require_noerr_action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow iterating cookie data buffer %u %u", dataOffset, dataLength));
+        __Require_noErr_Action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow iterating cookie data buffer %u %u", dataOffset, dataLength));
         cookieCount++;
     }
 
@@ -1870,7 +1903,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
     }
     dataOffset = 0;
 
-    require_noerr_action(os_mul_overflow(cookieCount, sizeof(uint32_t), &cookieSize),
+    __Require_noErr_Action(os_mul_overflow(cookieCount, sizeof(uint32_t), &cookieSize),
                          fail,
                          HIDDeviceLogError("Overflow calculating cookieSize"));
 
@@ -1894,7 +1927,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
         cookie = headerPtr->cookie;
         dataLength = headerPtr->length;
 
-        require_noerr_action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow verifying cookie data buffer %u %u", dataOffset, dataLength));
+        __Require_noErr_Action(os_add3_overflow(dataOffset, dataLength, sizeof(IOHIDElementValueHeader), &dataOffset), fail, HIDDeviceLogError("Overflow verifying cookie data buffer %u %u", dataOffset, dataLength));
 
         element = GetElement(cookie);
 
@@ -1934,7 +1967,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
 
         elementVal = OSData::withBytesNoCopy(elementValuePtr,
                                              dataLengths[index]);
-        require_action(elementVal, fail, ret = kIOReturnNoMemory);
+        __Require_Action(elementVal, fail, ret = kIOReturnNoMemory);
         element->setDataBits(elementVal);
         elementVal->release();
     }
@@ -2110,7 +2143,7 @@ void IOHIDDevice::setNextAsyncTimeout()
     AbsoluteTime      nextDeadline = UINT64_MAX;
 
     WORKLOOP_LOCK;
-    require(!isInactive() && !_settingTimeout, exit);
+    __Require(!isInactive() && !_settingTimeout, exit);
     _settingTimeout = true;
 
     _asyncTimer->cancelTimeout();
@@ -2220,8 +2253,8 @@ IOReturn IOHIDDevice::outReport(IOMemoryDescriptor * report, IOHIDReportType rep
     IOReturn          ret  = kIOReturnOffline;
     AsyncReportCall * call = NULL;
 
-    require_action_quiet(completion && completion->action, exit, ret = kIOReturnUnsupported);
-    require_action((call = IOMallocType(AsyncReportCall)), exit, ret = kIOReturnNoMemory);
+    __Require_Action_Quiet(completion && completion->action, exit, ret = kIOReturnUnsupported);
+    __Require_Action((call = IOMallocType(AsyncReportCall)), exit, ret = kIOReturnNoMemory);
 
     call->report      = report;
     call->reportType  = reportType;
@@ -2232,7 +2265,7 @@ IOReturn IOHIDDevice::outReport(IOMemoryDescriptor * report, IOHIDReportType rep
     clock_interval_to_deadline(completionTimeout, kMicrosecondScale, &call->deadline);
 
     WORKLOOP_LOCK;
-    require_action_quiet(!isInactive(), exit, WORKLOOP_UNLOCK);
+    __Require_Action_Quiet(!isInactive(), exit, WORKLOOP_UNLOCK);
     STAILQ_INSERT_TAIL(&_asyncReportCalls, call, reportLink);
     setNextAsyncTimeout();
     _asyncReportThreadActive = true;
@@ -2404,15 +2437,32 @@ IOReturn IOHIDDevice::handleReportWithTime(
     if (changed && shouldTickle && _performTickle
             && (CMP_ABSOLUTETIME(&timeStamp, &_eventDeadline) > 0))
     {
-        AbsoluteTime ts;
+        OSObject *obj = copyProperty(kIOHIDRMDeviceStateKey);
+        OSString *stateString = OSDynamicCast(OSString, obj);
+        HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
 
-        nanoseconds_to_absolutetime(kIOHIDEventThreshold, &ts);
+        if (stateString) {
+            if (stateString->isEqualTo("Allowed")) {
+                state = kHIDRMDeviceStateAllowed;
+            } else if (stateString->isEqualTo("Denied")) {
+                state = kHIDRMDeviceStateDenied;
+            } else if (stateString->isEqualTo("Approving")) {
+                state = kHIDRMDeviceStateApproving;
+            }
+        }
+        OSSafeReleaseNULL(obj);
 
-        _eventDeadline = ts;
+        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+            AbsoluteTime ts;
 
-        ADD_ABSOLUTETIME(&_eventDeadline, &timeStamp);
+            nanoseconds_to_absolutetime(kIOHIDEventThreshold, &ts);
 
-        IOHIDSystemActivityTickle(NX_NULLEVENT, this);
+            _eventDeadline = ts;
+
+            ADD_ABSOLUTETIME(&_eventDeadline, &timeStamp);
+
+            IOHIDSystemActivityTickle(NX_NULLEVENT, this);
+        }
     }
 
     if (ret != kIOReturnSuccess) {
@@ -2482,10 +2532,10 @@ bool IOHIDDevice::createInterface(IOOptionBits options __unused)
         IOHIDInterface * interface = (IOHIDInterface *)_interfaceNubs->getObject(i);
 
         result = interface->attach(this);
-        require(result, exit);
+        __Require(result, exit);
 
         result = interface->start(this);
-        require_action(result, exit, interface->detach(this));
+        __Require_Action(result, exit, interface->detach(this));
     }
     
     result = true;
@@ -2520,7 +2570,7 @@ bool IOHIDDevice::conformsTo(UInt32 usagePage, UInt32 usage)
     OSArray *usagePairs = NULL;
     
     usagePairs = newDeviceUsagePairs();
-    require(usagePairs && usagePairs->getCount(), exit);
+    __Require(usagePairs && usagePairs->getCount(), exit);
     
     for (unsigned int i = 0; i < usagePairs->getCount(); i++) {
         OSDictionary *pairs = NULL;
@@ -2594,7 +2644,7 @@ IOReturn IOHIDDevice::runElementValues(IOHIDElementCookie * cookies, UInt32 cook
             memset(elementData->getBytesNoCopy(), 0, elementData->getLength());
         }
 
-        require_action((context = IOMallocType(AsyncCommitContext)), exit, ret = kIOReturnNoMemory);
+        __Require_Action((context = IOMallocType(AsyncCommitContext)), exit, ret = kIOReturnNoMemory);
         context->origCompletion = *completion;
         // One extra, so CommitComplete knows when origCompletion can be triggered
         context->callsMade      = 1;
@@ -2605,11 +2655,11 @@ IOReturn IOHIDDevice::runElementValues(IOHIDElementCookie * cookies, UInt32 cook
         completionTimeout = completionTimeout >= kIOHIDDeviceMinAsyncRequestTimeout && completionTimeout <= kIOHIDDeviceMaxAsyncRequestTimeout ? completionTimeout * 1000 : _asyncTimeout;
         clock_interval_to_deadline(completionTimeout, kMicrosecondScale, &context->deadline);
     } else {
-        require_action((report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared | kIOMemoryThreadSafe, maxReportLength)), exit, ret = kIOReturnNoMemory);
+        __Require_Action((report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared | kIOMemoryThreadSafe, maxReportLength)), exit, ret = kIOReturnNoMemory);
     }
 
     WORKLOOP_LOCK;
-    require_action_quiet(!isInactive(), exit, {
+    __Require_Action_Quiet(!isInactive(), exit, {
         ret = kIOReturnOffline;
         if (context) {
             IOFreeType(context, AsyncCommitContext);
@@ -2748,7 +2798,7 @@ void IOHIDDevice::CommitComplete(void * param, IOReturn status, UInt32 remaining
             break;
         }
     }
-    require_action_quiet(call, exit, WORKLOOP_UNLOCK);
+    __Require_Action_Quiet(call, exit, WORKLOOP_UNLOCK);
 
     STAILQ_REMOVE(&_asyncCommitCalls, call, AsyncCommitCall, commitLink);
     setNextAsyncTimeout();
@@ -2776,7 +2826,7 @@ void IOHIDDevice::CommitComplete(void * param, IOReturn status, UInt32 remaining
 
     call->context->status = status ? status : call->context->status;
     call->context->callsCompleted++;
-    require_action_quiet(call->context->callsCompleted == call->context->callsMade, exit, WORKLOOP_UNLOCK);
+    __Require_Action_Quiet(call->context->callsCompleted == call->context->callsMade, exit, WORKLOOP_UNLOCK);
 
     WORKLOOP_UNLOCK;
 
@@ -2792,6 +2842,96 @@ exit:
     }
     return;
 }
+
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#ifdef InductiveAllowList
+static void SendInductiveAllowListFailureAnalytics(IOHIDDevice* device)
+{
+
+    OSDictionary* analyticsDict = NULL; 
+    OSObject* transport = NULL;
+    OSObject* vendorID = NULL;
+    OSObject* productID = NULL;
+    OSObject* manufacturerString = NULL;
+    OSObject* productString = NULL;
+    OSObject* reportDescriptor = NULL;
+    CoreAnalyticsHub * analyticsService = NULL;
+
+    OSDictionary * matching = IOService::serviceMatching(kCoreAnalyticsMatchingClassName);
+    OSString * eventNameStr = OSString::withCString("com.apple.hid.inductive.allowlist.reject");
+    OSIterator * analyticsIterator = IOService::getMatchingServices(matching);
+
+    __Require(analyticsIterator, exit);
+    analyticsService = OSDynamicCast(CoreAnalyticsHub, analyticsIterator->getNextObject());
+
+    __Require(analyticsService, exit);
+
+    analyticsDict = OSDictionary::withCapacity(6);
+    transport = device->newTransportString();
+    vendorID = device->newVendorIDNumber();
+    productID = device->newProductIDNumber();
+    manufacturerString = device->newManufacturerString();
+    productString = device->newProductString();
+    reportDescriptor = device->copyProperty(kIOHIDReportDescriptorKey);
+
+    if (transport) {
+        analyticsDict->setObject("Transport", transport);
+    }
+    if (vendorID) {
+        analyticsDict->setObject("VendorID", vendorID);
+    }
+    if (productID) {
+        analyticsDict->setObject("ProductID", productID);
+    }
+    if (manufacturerString) {
+        analyticsDict->setObject("Manufacturer", manufacturerString);
+    }
+    if (productString) {
+        analyticsDict->setObject("Product", productString);
+    }
+
+    if (reportDescriptor) {
+        OSData* reportDescriptorData = OSDynamicCast(OSData, reportDescriptor);
+        if (reportDescriptorData) {
+            const uint8_t* bytes = (const uint8_t*)reportDescriptorData->getBytesNoCopy();
+            unsigned int length = reportDescriptorData->getLength();
+            IOByteCount hexStringLen;
+
+            if (!os_mul_and_add_overflow(length, 2, 1, &hexStringLen)) {
+                char* hexString = (char*)IOMallocData(hexStringLen);
+                if (hexString) {
+                    char* target = hexString;
+                    for (unsigned int i = 0; i < length; i++) {
+                        target += snprintf(target, hexStringLen - (i * 2), "%02x", bytes[i]);
+                    }
+                    OSString* reportDescriptorString = OSString::withCString(hexString);
+                    if (reportDescriptorString) {
+                        analyticsDict->setObject("ReportDescriptor", reportDescriptorString);
+                        OSSafeReleaseNULL(reportDescriptorString);
+                    }
+                    IOFreeData(hexString, hexStringLen);
+                }
+            }
+        }
+    }
+
+    analyticsService->analyticsSendEventLazy(eventNameStr, analyticsDict);
+
+exit:
+    OSSafeReleaseNULL(matching);
+    OSSafeReleaseNULL(transport);
+    OSSafeReleaseNULL(vendorID);
+    OSSafeReleaseNULL(productID);
+    OSSafeReleaseNULL(manufacturerString);
+    OSSafeReleaseNULL(productString);
+    OSSafeReleaseNULL(reportDescriptor);
+    OSSafeReleaseNULL(eventNameStr);
+    OSSafeReleaseNULL(analyticsDict);
+    OSSafeReleaseNULL(analyticsService);
+    OSSafeReleaseNULL(analyticsIterator);
+}
+#endif
+#endif
 
 OSMetaClassDefineReservedUnused(IOHIDDevice, 18);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 19);
@@ -2853,7 +2993,7 @@ IMPL(IOHIDDevice, _HandleReport)
     
     if (bmd) {
         
-        require_action(reportLength <= bmd->getCapacity(), exit, ret = kIOReturnBadArgument; HIDDeviceLogError("HandleReport reportLength:%d capacity:%d\n", (int)reportLength, (int)bmd->getCapacity()););
+        __Require_Action(reportLength <= bmd->getCapacity(), exit, ret = kIOReturnBadArgument; HIDDeviceLogError("HandleReport reportLength:%d capacity:%d\n", (int)reportLength, (int)bmd->getCapacity()););
         
         bmd->setLength(reportLength);
     }

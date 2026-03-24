@@ -51,7 +51,7 @@ public:
 
 protected:
     ExtensionCapability() = default;
-    void setPlatformCapability(PlatformCapability&& capability) { m_platformCapability = WTFMove(capability); }
+    void setPlatformCapability(PlatformCapability&& capability) { m_platformCapability = WTF::move(capability); }
 
 private:
     PlatformCapability m_platformCapability;

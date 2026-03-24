@@ -165,7 +165,7 @@ void webKitVideoSinkSetMediaPlayerPrivate(GstElement* appSink, MediaPlayerPrivat
         GstBuffer* buffer = gst_sample_get_buffer(sample.get());
         GST_TRACE_OBJECT(sink, "new-sample with PTS=%" GST_TIME_FORMAT, GST_TIME_ARGS(GST_BUFFER_PTS(buffer)));
 #endif
-        player->triggerRepaint(WTFMove(sample));
+        player->triggerRepaint(WTF::move(sample));
         return GST_FLOW_OK;
     }), player);
     g_signal_connect(appSink, "new-preroll", G_CALLBACK(+[](GstElement* sink, MediaPlayerPrivateGStreamer* player) -> GstFlowReturn {
@@ -174,7 +174,7 @@ void webKitVideoSinkSetMediaPlayerPrivate(GstElement* appSink, MediaPlayerPrivat
         GstBuffer* buffer = gst_sample_get_buffer(sample.get());
         GST_DEBUG_OBJECT(sink, "new-preroll with PTS=%" GST_TIME_FORMAT, GST_TIME_ARGS(GST_BUFFER_PTS(buffer)));
 #endif
-        player->triggerRepaint(WTFMove(sample));
+        player->triggerRepaint(WTF::move(sample));
         return GST_FLOW_OK;
     }), player);
 

@@ -43,39 +43,42 @@ namespace WebKit {
 
 static WebWheelEvent::Phase phaseForEvent(NSEvent *event)
 {
-    uint32_t phase = WebWheelEvent::PhaseNone;
-    if ([event phase] & NSEventPhaseBegan)
-        phase |= WebWheelEvent::PhaseBegan;
-    if ([event phase] & NSEventPhaseStationary)
-        phase |= WebWheelEvent::PhaseStationary;
-    if ([event phase] & NSEventPhaseChanged)
-        phase |= WebWheelEvent::PhaseChanged;
-    if ([event phase] & NSEventPhaseEnded)
-        phase |= WebWheelEvent::PhaseEnded;
-    if ([event phase] & NSEventPhaseCancelled)
-        phase |= WebWheelEvent::PhaseCancelled;
-    if ([event phase] & NSEventPhaseMayBegin)
-        phase |= WebWheelEvent::PhaseMayBegin;
+    using enum WebWheelEvent::Phase;
 
-    return static_cast<WebWheelEvent::Phase>(phase);
+    auto phase = None;
+    if ([event phase] & NSEventPhaseBegan)
+        phase = Began;
+    if ([event phase] & NSEventPhaseStationary)
+        phase = Stationary;
+    if ([event phase] & NSEventPhaseChanged)
+        phase = Changed;
+    if ([event phase] & NSEventPhaseEnded)
+        phase = Ended;
+    if ([event phase] & NSEventPhaseCancelled)
+        phase = Cancelled;
+    if ([event phase] & NSEventPhaseMayBegin)
+        phase = MayBegin;
+
+    return phase;
 }
 
 static WebWheelEvent::Phase momentumPhaseForEvent(NSEvent *event)
 {
-    uint32_t phase = WebWheelEvent::PhaseNone; 
+    using enum WebWheelEvent::Phase;
+    auto phase = None;
 
     if ([event momentumPhase] & NSEventPhaseBegan)
-        phase |= WebWheelEvent::PhaseBegan;
+        phase = Began;
     if ([event momentumPhase] & NSEventPhaseStationary)
-        phase |= WebWheelEvent::PhaseStationary;
+        phase = Stationary;
     if ([event momentumPhase] & NSEventPhaseChanged)
-        phase |= WebWheelEvent::PhaseChanged;
+        phase = Changed;
     if ([event momentumPhase] & NSEventPhaseEnded)
-        phase |= WebWheelEvent::PhaseEnded;
+        phase = Ended;
     if ([event momentumPhase] & NSEventPhaseCancelled)
-        phase |= WebWheelEvent::PhaseCancelled;
+        phase = Cancelled;
 
-    return static_cast<WebWheelEvent::Phase>(phase);
+    return phase;
 }
 
 static int typeForEvent(NSEvent *event)
@@ -150,7 +153,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
         deltaY *= static_cast<float>(WebCore::Scrollbar::pixelsPerLineStep());
     }
 
-    WebWheelEvent::Granularity granularity  = WebWheelEvent::ScrollByPixelWheelEvent;
+    WebWheelEvent::Granularity granularity  = WebWheelEvent::Granularity::ScrollByPixelWheelEvent;
     bool directionInvertedFromDevice        = [event isDirectionInvertedFromDevice];
     WebWheelEvent::Phase phase              = phaseForEvent(event);
     WebWheelEvent::Phase momentumPhase      = momentumPhaseForEvent(event);
@@ -191,15 +194,15 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
         rawPlatformDelta = { WebCore::FloatSize(-IOHIDEventGetFloatValue(ioHIDEvent.get(), kIOHIDEventFieldScrollX), -IOHIDEventGetFloatValue(ioHIDEvent.get(), kIOHIDEventFieldScrollY)) };
 
         if (IOHIDEventGetScrollMomentum(ioHIDEvent.get()) & kIOHIDEventScrollMomentumWillBegin) {
-            ASSERT(momentumPhase == WebWheelEvent::Phase::PhaseNone && phase == WebWheelEvent::Phase::PhaseEnded);
-            momentumPhase = WebWheelEvent::Phase::PhaseWillBegin;
+            ASSERT(momentumPhase == WebWheelEvent::Phase::None && phase == WebWheelEvent::Phase::Ended);
+            momentumPhase = WebWheelEvent::Phase::WillBegin;
         }
 
         bool momentumWasInterrupted = IOHIDEventGetScrollMomentum(ioHIDEvent.get()) & kIOHIDEventScrollMomentumInterrupted;
         momentumEndType = momentumWasInterrupted ? WebWheelEvent::MomentumEndType::Interrupted : WebWheelEvent::MomentumEndType::Natural;
     })();
 
-    if (phase == WebWheelEvent::PhaseCancelled) {
+    if (phase == WebWheelEvent::Phase::Cancelled) {
         deltaX = 0;
         deltaY = 0;
         wheelTicksX = 0;
@@ -278,6 +281,10 @@ NSInteger WebEventFactory::toNSButtonNumber(WebKit::WebMouseEventButton mouseBut
         return 1 << 1;
     case WebKit::WebMouseEventButton::Middle:
         return 1 << 2;
+    case WebKit::WebMouseEventButton::Back:
+        return 1 << 3;
+    case WebKit::WebMouseEventButton::Forward:
+        return 1 << 4;
     }
     ASSERT_NOT_REACHED();
     return 0;

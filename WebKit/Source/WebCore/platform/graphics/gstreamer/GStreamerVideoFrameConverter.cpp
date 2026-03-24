@@ -53,11 +53,11 @@ GStreamerVideoFrameConverter::Pipeline::Pipeline(Type type)
     g_object_set(m_sink.get(), "enable-last-sample", FALSE, "max-buffers", 1, nullptr);
     switch (m_type) {
     case Type::SystemMemory: {
-        auto videoconvert = makeGStreamerElement("videoconvert"_s);
-        auto videoscale = makeGStreamerElement("videoscale"_s);
+        auto videoConvert = createVideoConvertScaleElement();
+        RELEASE_ASSERT(videoConvert);
         m_pipeline = gst_element_factory_make("pipeline", "video-frame-converter");
-        gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), videoconvert, videoscale, m_sink.get(), nullptr);
-        gst_element_link_many(m_src.get(), videoconvert, videoscale, m_sink.get(), nullptr);
+        gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), videoConvert.get(), m_sink.get(), nullptr);
+        gst_element_link_many(m_src.get(), videoConvert.get(), m_sink.get(), nullptr);
         break;
     }
 #if USE(GSTREAMER_GL)

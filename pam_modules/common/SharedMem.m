@@ -35,7 +35,7 @@ const char *pam_shm_write(const void *data, size_t len) {
 
     size_t totalSize = sizeof(uint32_t) + len;
 
-    int fd = shm_open([segmentName UTF8String], O_CREAT | O_RDWR, 0666);
+    int fd = shm_open([segmentName UTF8String], O_CREAT | O_RDWR, 0600);
     if (fd == -1) {
         _LOG_ERROR("createSegmentWithName: createSegmentWithName shm_open %s", segmentName.UTF8String);
         return nil;
@@ -44,6 +44,7 @@ const char *pam_shm_write(const void *data, size_t len) {
     if (ftruncate(fd, totalSize) == -1) {
         _LOG_ERROR("createSegmentWithName: ftruncate");
         close(fd);
+        shm_unlink([segmentName UTF8String]);
         return nil;
     }
 
@@ -51,6 +52,7 @@ const char *pam_shm_write(const void *data, size_t len) {
     if (ptr == MAP_FAILED) {
         _LOG_ERROR("createSegmentWithName: mmap");
         close(fd);
+        shm_unlink([segmentName UTF8String]);
         return nil;
     }
 
@@ -143,7 +145,7 @@ char *pam_copy_secret_from_shm(struct pam_handle *pamh, const char *env_name) {
         goto fin;
     }
     
-    size_t secret_len = pam_shm_read(shm_handle, NULL, NULL);
+    size_t secret_len = pam_shm_read(shm_handle, NULL, 0);
     if (secret_len == 0) {
         _LOG_ERROR("Unable to retrieve the secret length.");
         goto fin;

@@ -29,8 +29,10 @@
 
 #include "APIObject.h"
 #include "WebExtensionPortChannelIdentifier.h"
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/WeakPtr.h>
 
 OBJC_CLASS NSError;
 OBJC_CLASS WKWebExtensionMessagePort;

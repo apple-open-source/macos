@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 de{
     AuxExemplarCharacters{"[áàăâåãā æ ç éèĕêëē ğ íìĭîïİī ı ñ óòŏôøō œ ş úùŭûū ÿ]"}
     ExemplarCharacters{"[aä b c d e f g h i j k l m n oö p q r s ß t uü v w x y z]"}
@@ -17,6 +17,7 @@ de{
             }
             patterns{
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
             patternsLong{
@@ -205,7 +206,7 @@ de{
         buddhist{
             eras{
                 wide{
-                    "B.E.",
+                    0{"B.E."}
                 }
             }
         }
@@ -356,6 +357,12 @@ de{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%relative{
+                "{1} 'um' {0}",
+                "{1} 'um' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "HHmmsszzzz",
                 "HHmmssz",
@@ -372,12 +379,15 @@ de{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"y-MM G"}
+                GyMEd{"E, d.M.y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEEEEd{"EEEE, d. MMM y G"}
                 GyMMMEd{"E d. MMM y G"}
                 GyMMMd{"d. MMM y G"}
                 GyMd{"d.M.y GGGGG"}
                 H{"HH 'Uhr'"}
+                Hv{"HH 'Uhr' v"}
                 MEEEEd{"EEEE, d.M."}
                 MEd{"E d.M."}
                 MMMEEEEd{"EEEE, d. MMM"}
@@ -532,6 +542,12 @@ de{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%relative{
+                "{1} 'um' {0}",
+                "{1} 'um' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "HHmmsszzzz",
                 "HHmmssz",
@@ -543,6 +559,10 @@ de{
                 "yyMMdd",
             }
             availableFormats{
+                Bh{"h 'Uhr' B"}
+                EBh{"E, h 'Uhr' B"}
+                EBhm{"E, h:mm 'Uhr' B"}
+                EBhms{"E, h:mm:ss 'Uhr' B"}
                 EEEEHm{"EEEE, HH:mm"}
                 EEEEHms{"EEEE, HH:mm:ss"}
                 EEEEhm{"EEEE, h:mm a"}
@@ -550,15 +570,19 @@ de{
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"E d."}
+                Eh{"E, h a"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"MM/y G"}
+                GyMEd{"E, dd.MM.y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEEEEd{"EEEE, d. MMM y G"}
                 GyMMMEd{"E d. MMM y G"}
                 GyMMMd{"d. MMM y G"}
                 GyMd{"dd.MM.y G"}
                 H{"HH 'Uhr'"}
+                Hv{"HH 'Uhr' v"}
                 MEEEEd{"EEEE, d.M."}
                 MEd{"E d.M."}
                 MMMEEEEd{"EEEE, d. MMM"}
@@ -571,7 +595,7 @@ de{
                 }
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
-                MMd{"d.MM."}
+                MMd{"dd.MM."}
                 MMdd{"dd.MM."}
                 Md{"d.M."}
                 h{"h a"}
@@ -579,10 +603,11 @@ de{
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
+                hv{"h a v"}
                 yM{"M.y"}
                 yMEEEEd{"EEEE, d.M.y"}
                 yMEd{"E d.M.y"}
-                yMM{"MM.y"}
+                yMM{"MM/y"}
                 yMMM{"MMM y"}
                 yMMMEEEEd{"EEEE, d. MMM y"}
                 yMMMEd{"E d. MMM y"}
@@ -681,16 +706,16 @@ de{
             }
             eras{
                 abbreviated{
-                    "v. Chr.",
-                    "n. Chr.",
+                    0{"v. Chr."}
+                    1{"n. Chr."}
                 }
                 abbreviated%variant{
-                    "v. u. Z.",
-                    "u. Z.",
+                    0{"v. u. Z."}
+                    1{"u. Z."}
                 }
                 wide%variant{
-                    "vor unserer Zeitrechnung",
-                    "unserer Zeitrechnung",
+                    0{"vor unserer Zeitrechnung"}
+                    1{"unserer Zeitrechnung"}
                 }
             }
             intervalFormats{
@@ -804,10 +829,6 @@ de{
                     a{"h:mm a – h:mm a v"}
                     h{"h:mm–h:mm a v"}
                     m{"h:mm–h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
                 }
                 yM{
                     M{"MM.y – MM.y"}
@@ -932,6 +953,31 @@ de{
             }
         }
         hebrew{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d. MMMM y",
+                "d. MMMM y",
+                "dd.MM.y",
+                "dd.MM.y",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMdd",
+                "yMMdd",
+            }
             monthNames{
                 format{
                     wide{
@@ -1068,16 +1114,14 @@ de{
         roc{
             eras{
                 abbreviated{
-                    "v. VR China",
-                    "Minguo",
+                    0{"v. VR China"}
+                    1{"Minguo"}
                 }
                 narrow{
-                    "v. VR China",
-                    "Minguo",
+                    0{"v. VR China"}
                 }
                 wide{
-                    "vor Volksrepublik China",
-                    "Minguo",
+                    0{"vor Volksrepublik China"}
                 }
             }
         }

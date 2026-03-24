@@ -58,8 +58,11 @@ constexpr WebCore::FramesPerSecond DisplayLinkFramesPerSecond = 60;
 {
     if (self = [super init]) {
         m_monitor = monitor;
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        // FIXME: CoreAnimation version deprecated rdar://164090713
         // Note that CADisplayLink retains its target (self), so a call to -invalidate is needed on teardown.
         m_displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(handleDisplayLink:)];
+    ALLOW_DEPRECATED_DECLARATIONS_END
         [m_displayLink addToRunLoop:WebThreadNSRunLoop() forMode:NSDefaultRunLoopMode];
         m_displayLink.preferredFramesPerSecond = DisplayLinkFramesPerSecond;
     }

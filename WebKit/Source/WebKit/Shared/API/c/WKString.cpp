@@ -136,7 +136,7 @@ WKStringRef WKStringCreateWithJSString(JSStringRef jsStringRef)
 {
     auto apiString = jsStringRef ? API::String::create(jsStringRef->string()) : API::String::createNull();
 
-    return WebKit::toAPILeakingRef(WTFMove(apiString));
+    return WebKit::toAPILeakingRef(WTF::move(apiString));
 }
 
 JSStringRef WKStringCopyJSString(WKStringRef stringRef)

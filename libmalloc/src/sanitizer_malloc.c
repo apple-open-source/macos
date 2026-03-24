@@ -705,19 +705,17 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 		size_t size, malloc_zone_malloc_options_t options,
 		malloc_type_id_t type_id)
 {
-	if (!size) {
-		size = 1;
-	}
 	size_t redzone_size = zone->redzone_size;
-	const size_t usr_size = size;
+	const size_t usr_size = size ? size : 1;
+	size_t alloc_size = usr_size;
 	if (zone->do_poisoning) {
 		const size_t mask = ASAN_SHADOW_ALIGNMENT - 1;
 		// Round up redzone so that allocation is padded to shadow alignment
 		redzone_size += (ASAN_SHADOW_ALIGNMENT - (usr_size & mask)) & mask;
 		// Recalculate the total allocation size
-		size = usr_size + redzone_size;
+		alloc_size = usr_size + redzone_size;
 		// Check for overflow once at the end
-		if (size < usr_size) {
+		if (alloc_size < usr_size) {
 			malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 			return NULL;
 		}
@@ -730,14 +728,14 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 	if (zone->wrapped_zone->version >= 16) {
 		if (zone->wrapped_zone->malloc_type_malloc_with_options) {
 			// Dispatch directly with pass-thru options
-			ptr = DELEGATE(malloc_type_malloc_with_options, 0, size, options,
+			ptr = DELEGATE(malloc_type_malloc_with_options, 0, alloc_size, options,
 					type_id);
 		} else if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 			// Need fallback for this option
-			ptr = DELEGATE(malloc_type_calloc, 1, size, type_id);
+			ptr = DELEGATE(malloc_type_calloc, 1, alloc_size, type_id);
 		} else {
 			// Remaining options already handled in parent, ignore them
-			ptr = DELEGATE(malloc_type_malloc, size, type_id);
+			ptr = DELEGATE(malloc_type_malloc, alloc_size, type_id);
 		}
 	} else if (zone->wrapped_zone->version >= 15 &&
 			zone->wrapped_zone->malloc_with_options) {
@@ -745,7 +743,7 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(type_desc);
 #endif // MALLOC_TARGET_64BIT
-		ptr = DELEGATE(malloc_with_options, 0, size, options);
+		ptr = DELEGATE(malloc_with_options, 0, alloc_size, options);
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
 #endif // MALLOC_TARGET_64BIT
@@ -766,10 +764,10 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 #endif // MALLOC_TARGET_64BIT
 		if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 			// Need fallback for this option
-			ptr = DELEGATE(calloc, 1, size);
+			ptr = DELEGATE(calloc, 1, alloc_size);
 		} else {
 			// Remaining options already handled in parent, ignore them
-			ptr = DELEGATE(malloc, size);
+			ptr = DELEGATE(malloc, alloc_size);
 		}
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
@@ -779,12 +777,12 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "malloc(0x%lx) = %p\n", size, ptr);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "malloc(0x%lx) = %p\n", alloc_size, ptr);
 	if (ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, ptr);
-		MALLOC_ASSERT(actual_size >= size);
-		redzone_size += actual_size - size;
+		MALLOC_ASSERT(actual_size >= alloc_size);
+		redzone_size += actual_size - alloc_size;
 		ptr = __unsafe_forge_bidi_indexable(void *, ptr,
 				usr_size + redzone_size);
 		poison_alloc(zone, ptr, usr_size, redzone_size);
@@ -811,10 +809,10 @@ static void * __alloc_size(2,3) __sized_by_or_null(num_items * size)
 sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
 		size_t size, malloc_type_id_t type_id)
 {
+	size_t alloc_items = num_items ? num_items : 1;
+	size_t alloc_size = size ? size : 1;
 	size_t usr_size;
-	if (!size || !num_items) {
-		usr_size = 1;
-	} else if (calloc_get_size(num_items, size, 0, &usr_size)) {
+	if (calloc_get_size(alloc_items, alloc_size, 0, &usr_size)) {
 		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 		return NULL;
 	}
@@ -824,10 +822,10 @@ sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
 		// Round up redzone so that allocation is padded to shadow alignment
 		redzone_size += ASAN_SHADOW_ALIGNMENT - (usr_size & (ASAN_SHADOW_ALIGNMENT - 1));
 		// Recalculate the total allocation size
-		num_items = 1;
-		size = usr_size + redzone_size;
+		alloc_items = 1;
+		alloc_size = usr_size + redzone_size;
 		// Check for overflow once at the end
-		if (size < usr_size) {
+		if (alloc_size < usr_size) {
 			malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 			return NULL;
 		}
@@ -836,28 +834,28 @@ sanitizer_malloc_type_calloc(sanitizer_zone_t *zone, size_t num_items,
 	void *ptr;
 	if (zone->wrapped_zone->version >= 16) {
 		ptr = __unsafe_forge_bidi_indexable(void *,
-				DELEGATE(malloc_type_calloc, num_items, size, type_id), usr_size);
+				DELEGATE(malloc_type_calloc, alloc_items, alloc_size, type_id), usr_size);
 	} else {
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(
 				(malloc_type_descriptor_t){ .type_id = type_id });
 #endif // MALLOC_TARGET_64BIT
 		ptr = __unsafe_forge_bidi_indexable(void *,
-				DELEGATE(calloc, num_items, size), usr_size);
+				DELEGATE(calloc, alloc_items, alloc_size), usr_size);
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
 #endif // MALLOC_TARGET_64BIT
 	}
 
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "calloc(0x%lx, 0x%lx) = %p\n", num_items, size, ptr);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "calloc(0x%lx, 0x%lx) = %p\n", alloc_items, alloc_size, ptr);
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
 	if (ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, ptr);
-		MALLOC_ASSERT(actual_size >= size);
-		redzone_size += actual_size - size;
+		MALLOC_ASSERT(actual_size >= alloc_size);
+		redzone_size += actual_size - alloc_size;
 		ptr = __unsafe_forge_bidi_indexable(void *, ptr,
 				usr_size + redzone_size);
 		poison_alloc(zone, ptr, usr_size, redzone_size);
@@ -876,31 +874,29 @@ sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_valloc(sanitizer_zone_t *zone, size_t size)
 {
-	if (!size) {
-		size = 1;
-	}
+	const size_t usr_size = size ? size : 1;
+	size_t alloc_size = usr_size;
 	size_t redzone_size = zone->redzone_size;
-	const size_t usr_size = size;
 	if (zone->do_poisoning) {
 		// Round up redzone so that allocation is padded to shadow alignment
 		redzone_size += ASAN_SHADOW_ALIGNMENT - (usr_size & (ASAN_SHADOW_ALIGNMENT - 1));
 		// Recalculate the total allocation size
-		size = usr_size + redzone_size;
+		alloc_size = usr_size + redzone_size;
 		// Check for overflow once at the end
-		if (size < usr_size) {
+		if (alloc_size < usr_size) {
 			return NULL;
 		}
 	}
-	void *ptr = DELEGATE(valloc, size);
+	void *ptr = DELEGATE(valloc, alloc_size);
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "valloc(0x%lx) = %p\n", size, ptr);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "valloc(0x%lx) = %p\n", alloc_size, ptr);
 	if (ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, ptr);
-		MALLOC_ASSERT(actual_size >= size);
-		redzone_size += actual_size - size;
+		MALLOC_ASSERT(actual_size >= alloc_size);
+		redzone_size += actual_size - alloc_size;
 		ptr = __unsafe_forge_bidi_indexable(void *, ptr,
 				usr_size + redzone_size);
 		poison_alloc(zone, ptr, usr_size, redzone_size);
@@ -929,32 +925,29 @@ sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 		void * __unsafe_indexable ptr, size_t new_size,
 		malloc_type_id_t type_id)
 {
-	if (new_size == 0) {
-		new_size = 1;
-	}
-
+	const size_t usr_new_size = new_size ? new_size : 1;
+	size_t alloc_size = usr_new_size;
 	size_t redzone_size = zone->redzone_size;
-	const size_t usr_new_size = new_size;
 	if (zone->do_poisoning) {
 		// Round up redzone so that allocation is padded to shadow alignment
-		redzone_size += ASAN_SHADOW_ALIGNMENT - (new_size & (ASAN_SHADOW_ALIGNMENT - 1));
+		redzone_size += ASAN_SHADOW_ALIGNMENT - (alloc_size & (ASAN_SHADOW_ALIGNMENT - 1));
 		// Recalculate the total allocation size
-		new_size = usr_new_size + redzone_size;
+		alloc_size = usr_new_size + redzone_size;
 		// Check for overflow once at the end
-		if (new_size < usr_new_size) {
+		if (alloc_size < usr_new_size) {
 			return NULL;
 		}
 	}
 
 	void *new_ptr;
 	if (zone->wrapped_zone->version >= 16) {
-		new_ptr = DELEGATE(malloc_type_malloc, new_size, type_id);
+		new_ptr = DELEGATE(malloc_type_malloc, alloc_size, type_id);
 	} else {
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(
 				(malloc_type_descriptor_t){ .type_id = type_id });
 #endif // MALLOC_TARGET_64BIT
-		new_ptr = DELEGATE(malloc, new_size);
+		new_ptr = DELEGATE(malloc, alloc_size);
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
 #endif // MALLOC_TARGET_64BIT
@@ -963,7 +956,7 @@ sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, new_ptr, usr_new_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "realloc(%p, 0x%lx) = %p\n", ptr, new_size, new_ptr);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "realloc(%p, 0x%lx) = %p\n", ptr, alloc_size, new_ptr);
 
 	if (ptr != NULL) {
 		size_t old_redzone_size = 0;
@@ -974,7 +967,7 @@ sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 			MALLOC_ASSERT(old_size > old_redzone_size);
 		}
 
-		if (zone->debug) malloc_report(ASL_LEVEL_INFO, "realloc(%p, 0x%lx): size(%p) = 0x%lx - redzone 0x%lx)\n", ptr, new_size, old_ptr, old_size, old_redzone_size);
+		if (zone->debug) malloc_report(ASL_LEVEL_INFO, "realloc(%p, 0x%lx): size(%p) = 0x%lx - redzone 0x%lx)\n", ptr, alloc_size, old_ptr, old_size, old_redzone_size);
 
 		// Don't free/quarantine the old pointer if allocation failed. Per man page:
 		// > For realloc(), the input pointer is still valid if reallocation failed.
@@ -993,8 +986,8 @@ sanitizer_malloc_type_realloc(sanitizer_zone_t *zone,
 	if (new_ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, new_ptr);
-		MALLOC_ASSERT(actual_size >= new_size);
-		redzone_size += actual_size - new_size;
+		MALLOC_ASSERT(actual_size >= alloc_size);
+		redzone_size += actual_size - alloc_size;
 		new_ptr = __unsafe_forge_bidi_indexable(void *, new_ptr,
 				usr_new_size + redzone_size);
 		poison_alloc(zone, new_ptr, usr_new_size, redzone_size);
@@ -1026,29 +1019,27 @@ static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_type_memalign(sanitizer_zone_t *zone, size_t align,
 		size_t size, malloc_type_id_t type_id)
 {
-	if (!size) {
-		size = 1;
-	}
+	const size_t usr_size = size ? size : 1;
+	size_t alloc_size = usr_size;
 	size_t redzone_size = zone->redzone_size;
-	const size_t usr_size = size;
 	if (zone->do_poisoning) {
 		// Recalculate the total allocation size
-		size = usr_size + redzone_size;
+		alloc_size = usr_size + redzone_size;
 		// Check for overflow once at the end
-		if (size < usr_size) {
+		if (alloc_size < usr_size) {
 			return NULL;
 		}
 	}
 
 	void *ptr;
 	if (zone->wrapped_zone->version >= 16) {
-		ptr = DELEGATE(malloc_type_memalign, align, size, type_id);
+		ptr = DELEGATE(malloc_type_memalign, align, alloc_size, type_id);
 	} else {
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(
 				(malloc_type_descriptor_t){ .type_id = type_id });
 #endif // MALLOC_TARGET_64BIT
-		ptr = DELEGATE(memalign, align, size);
+		ptr = DELEGATE(memalign, align, alloc_size);
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
 #endif // MALLOC_TARGET_64BIT
@@ -1057,12 +1048,12 @@ sanitizer_malloc_type_memalign(sanitizer_zone_t *zone, size_t align,
 #if !MALLOC_TARGET_EXCLAVES
 	record_alloc_stacktrace(zone->depo, zone->map, ptr, usr_size);
 #endif /* !MALLOC_TARGET_EXCLAVES */
-	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "memalign(0x%lx, 0x%lx)\n", align, size);
+	if (zone->debug) malloc_report(ASL_LEVEL_INFO, "memalign(0x%lx, 0x%lx)\n", align, alloc_size);
 	if (ptr && zone->do_poisoning) {
 		// Recalculate the redzone size to include allocator padding
 		size_t actual_size = DELEGATE(size, ptr);
-		MALLOC_ASSERT(actual_size >= size);
-		redzone_size += actual_size - size;
+		MALLOC_ASSERT(actual_size >= alloc_size);
+		redzone_size += actual_size - alloc_size;
 		ptr = __unsafe_forge_bidi_indexable(void *, ptr,
 				usr_size + redzone_size);
 		poison_alloc(zone, ptr, usr_size, redzone_size);

@@ -47,6 +47,10 @@ public:
 
     virtual ~PendingScript();
 
+    // LoadableScriptClient.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     TextPosition startingPosition() const { return m_startingPosition; }
     void setStartingPosition(const TextPosition& position) { m_startingPosition = position; }
 

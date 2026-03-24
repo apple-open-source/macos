@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 gsw{
     AuxExemplarCharacters{"[áàăâåā æ ç éèĕêëē íìĭîïī ñ óòŏôøō œ úùŭûū ÿ]"}
     ExemplarCharacters{"[aä b c d e f g h i j k l m n oö p q r s t uü v w x y z]"}
@@ -8,7 +8,9 @@ gsw{
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
             patternsLong{
@@ -166,7 +168,7 @@ gsw{
                 }
             }
             symbols{
-                group{"’"}
+                group{"'"}
                 minusSign{"−"}
             }
         }
@@ -447,8 +449,8 @@ gsw{
             }
             eras{
                 abbreviated{
-                    "v. Chr.",
-                    "n. Chr.",
+                    0{"v. Chr."}
+                    1{"n. Chr."}
                 }
             }
             intervalFormats{

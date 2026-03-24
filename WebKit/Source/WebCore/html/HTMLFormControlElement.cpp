@@ -43,7 +43,7 @@
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "RenderBox.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTheme.h"
 #include "SelectionRestorationMode.h"
 #include "Settings.h"
@@ -56,7 +56,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLFormControlElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLFormControlElement);
 
 using namespace HTMLNames;
 
@@ -99,9 +99,10 @@ bool HTMLFormControlElement::formNoValidate() const
 String HTMLFormControlElement::formAction() const
 {
     const AtomString& value = attributeWithoutSynchronization(formactionAttr);
+    Ref document = this->document();
     if (value.isEmpty())
-        return document().url().string();
-    return document().completeURL(value).string();
+        return document->url().string();
+    return document->completeURL(value).string();
 }
 
 Node::InsertedIntoAncestorResult HTMLFormControlElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
@@ -157,8 +158,8 @@ void HTMLFormControlElement::finishParsingChildren()
 void HTMLFormControlElement::disabledStateChanged()
 {
     ValidatedFormListedElement::disabledStateChanged();
-    if (renderer() && renderer()->style().hasUsedAppearance())
-        renderer()->repaint();
+    if (CheckedPtr renderer = this->renderer(); renderer && renderer->style().hasUsedAppearance())
+        renderer->repaint();
 }
 
 void HTMLFormControlElement::readOnlyStateChanged()
@@ -180,8 +181,8 @@ void HTMLFormControlElement::didAttachRenderers()
     // The call to updateFromElement() needs to go after the call through
     // to the base class's attach() because that can sometimes do a close
     // on the renderer.
-    if (renderer())
-        renderer()->updateFromElement();
+    if (CheckedPtr renderer = this->renderer())
+        renderer->updateFromElement();
 }
 
 void HTMLFormControlElement::setChangedSinceLastFormControlChangeEvent(bool changed)
@@ -219,7 +220,7 @@ void HTMLFormControlElement::didRecalcStyle(OptionSet<Style::Change>)
     if (renderer()) {
         RefPtr<HTMLFormControlElement> element = this;
         Style::deprecatedQueuePostResolutionCallback([element] {
-            if (auto* renderer = element->renderer())
+            if (CheckedPtr renderer = element->renderer())
                 renderer->updateFromElement();
         });
     }
@@ -239,8 +240,9 @@ bool HTMLFormControlElement::isMouseFocusable() const
 #if (PLATFORM(GTK) || PLATFORM(WPE))
     return HTMLElement::isMouseFocusable();
 #else
-    // FIXME: We should remove the quirk once <rdar://problem/47334655> is fixed.
-    if (!!tabIndexSetExplicitly() || document().quirks().needsFormControlToBeMouseFocusable())
+    // FIXME: We can remove needsFormControlToBeMouseFocusable if there are no more quirks
+    // or if we decide to change the default behavior and make form control elements focusable
+    if (!!tabIndexSetExplicitly() || protectedDocument()->quirks().needsFormControlToBeMouseFocusable())
         return HTMLElement::isMouseFocusable();
     return false;
 #endif
@@ -253,7 +255,7 @@ void HTMLFormControlElement::runFocusingStepsForAutofocus()
 
 void HTMLFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 {
-    HTMLElement::dispatchBlurEvent(WTFMove(newFocusedElement));
+    HTMLElement::dispatchBlurEvent(WTF::move(newFocusedElement));
     hideVisibleValidationMessage();
 }
 

@@ -37,9 +37,14 @@ class JSWebExtensionWrappable : public RefCounted<JSWebExtensionWrappable> {
 public:
     virtual ~JSWebExtensionWrappable() { }
 
-    virtual JSClassRef wrapperClass() = 0;
+    virtual JSClassRef wrapperClass() const = 0;
 };
 
 } // namespace WebKit
+
+#define SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(ImplClass, ScriptClass) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ImplClass) \
+static bool isType(const WebKit::JSWebExtensionWrappable& wrappable) { return wrappable.wrapperClass() == WebKit::JS##ImplClass::ScriptClass##Class(); } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

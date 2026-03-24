@@ -40,7 +40,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #import "RemoteAnimation.h"
 #import "RemoteAnimationStack.h"
 #endif
@@ -56,13 +56,13 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeNode);
 
 Ref<RemoteLayerTreeNode> RemoteLayerTreeNode::create(WebCore::PlatformLayerIdentifier layerID, Markable<WebCore::LayerHostingContextIdentifier> hostIdentifier, RetainPtr<CALayer> layer)
 {
-    return adoptRef(*new RemoteLayerTreeNode(layerID, hostIdentifier, WTFMove(layer)));
+    return adoptRef(*new RemoteLayerTreeNode(layerID, hostIdentifier, WTF::move(layer)));
 }
 
 RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerID, Markable<WebCore::LayerHostingContextIdentifier> hostIdentifier, RetainPtr<CALayer> layer)
     : m_layerID(layerID)
     , m_remoteContextHostingIdentifier(hostIdentifier)
-    , m_layer(WTFMove(layer))
+    , m_layer(WTF::move(layer))
 {
     initializeLayer();
     [m_layer setDelegate:[WebActionDisablingCALayerDelegate shared]];
@@ -72,14 +72,14 @@ RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerI
 
 Ref<RemoteLayerTreeNode> RemoteLayerTreeNode::create(WebCore::PlatformLayerIdentifier layerID, Markable<WebCore::LayerHostingContextIdentifier> hostIdentifier, RetainPtr<UIView> uiView)
 {
-    return adoptRef(*new RemoteLayerTreeNode(layerID, hostIdentifier, WTFMove(uiView)));
+    return adoptRef(*new RemoteLayerTreeNode(layerID, hostIdentifier, WTF::move(uiView)));
 }
 
 RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerID, Markable<WebCore::LayerHostingContextIdentifier> hostIdentifier, RetainPtr<UIView> uiView)
     : m_layerID(layerID)
     , m_remoteContextHostingIdentifier(hostIdentifier)
     , m_layer([uiView.get() layer])
-    , m_uiView(WTFMove(uiView))
+    , m_uiView(WTF::move(uiView))
 {
     initializeLayer();
 }
@@ -88,7 +88,7 @@ RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerI
 RemoteLayerTreeNode::~RemoteLayerTreeNode()
 {
     RetainPtr layer = this->layer();
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     if (RefPtr animationStack = m_animationStack)
         animationStack->clear(layer.get());
 #endif
@@ -101,7 +101,7 @@ RemoteLayerTreeNode::~RemoteLayerTreeNode()
 Ref<RemoteLayerTreeNode> RemoteLayerTreeNode::createWithPlainLayer(WebCore::PlatformLayerIdentifier layerID)
 {
     RetainPtr<CALayer> layer = adoptNS([[WKCompositingLayer alloc] init]);
-    return RemoteLayerTreeNode::create(layerID, std::nullopt, WTFMove(layer));
+    return RemoteLayerTreeNode::create(layerID, std::nullopt, WTF::move(layer));
 }
 
 void RemoteLayerTreeNode::detachFromParent()
@@ -280,7 +280,8 @@ RemoteLayerTreeNode* RemoteLayerTreeNode::forCALayer(CALayer *layer)
 NSString *RemoteLayerTreeNode::appendLayerDescription(NSString *description, CALayer *layer)
 {
     auto layerID = WebKit::RemoteLayerTreeNode::layerID(layer);
-    RetainPtr layerDescription = adoptNS([[NSString alloc] initWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, layer.name ? layer.name : @""]);
+    RetainPtr<NSString> name = layer.name ? layer.name : @"";
+    RetainPtr layerDescription = adoptNS([[NSString alloc] initWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, name.get()]);
     return [description stringByAppendingString:layerDescription.get()];
 }
 
@@ -302,7 +303,7 @@ void RemoteLayerTreeNode::removeFromHostingNode()
 #endif
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects& effects, const WebCore::AcceleratedEffectValues& baseValues, RemoteLayerTreeHost& host)
 {
     ASSERT(isUIThread());
@@ -315,9 +316,10 @@ void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::Acce
     if (effects.isEmpty())
         return;
 
-    Ref animationStack = RemoteAnimationStack::create(effects.map([&](const Ref<AcceleratedEffect>& effect) {
-        RefPtr timeline = host.timeline(m_layerID.processIdentifier());
-        ASSERT(timeline);
+    Ref animationStack = RemoteAnimationStack::create(effects.map([&](const Ref<WebCore::AcceleratedEffect>& effect) {
+        TimelineID timelineID { effect->timelineIdentifier(), m_layerID.processIdentifier() };
+        RefPtr timeline = host.timeline(timelineID);
+        RELEASE_ASSERT(timeline, "Remote layer tree animations should have a pre-registered timeline.");
         return RemoteAnimation::create(Ref { effect }.get(), *timeline);
     }), baseValues.clone(), layer.get().bounds);
     m_animationStack = animationStack.copyRef();

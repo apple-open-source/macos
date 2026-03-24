@@ -109,14 +109,14 @@ void UserMediaCaptureManager::addSource(Ref<RemoteRealtimeAudioSource>&& source)
 {
     auto identifier = source->identifier();
     ASSERT(!m_sources.contains(identifier));
-    m_sources.add(identifier, Source(WTFMove(source)));
+    m_sources.add(identifier, Source(WTF::move(source)));
 }
 
 void UserMediaCaptureManager::addSource(Ref<RemoteRealtimeVideoSource>&& source)
 {
     auto identifier = source->identifier();
     ASSERT(!m_sources.contains(identifier));
-    m_sources.add(identifier, Source(WTFMove(source)));
+    m_sources.add(identifier, Source(WTF::move(source)));
 }
 
 void UserMediaCaptureManager::removeSource(RealtimeMediaSourceIdentifier identifier)
@@ -158,9 +158,9 @@ void UserMediaCaptureManager::sourceSettingsChanged(RealtimeMediaSourceIdentifie
         return;
 
     switchOn(iterator->value, [&](Ref<RemoteRealtimeAudioSource>& source) {
-        source->setSettings(WTFMove(settings));
+        source->setSettings(WTF::move(settings));
     }, [&](Ref<RemoteRealtimeVideoSource>& source) {
-        source->setSettings(WTFMove(settings));
+        source->setSettings(WTF::move(settings));
     }, [](std::nullptr_t) { });
 }
 
@@ -171,9 +171,9 @@ void UserMediaCaptureManager::sourceConfigurationChanged(RealtimeMediaSourceIden
         return;
 
     switchOn(iterator->value, [&](Ref<RemoteRealtimeAudioSource>& source) {
-        source->configurationChanged(WTFMove(persistentID), WTFMove(settings), WTFMove(capabilities));
+        source->configurationChanged(WTF::move(persistentID), WTF::move(settings), WTF::move(capabilities));
     }, [&](Ref<RemoteRealtimeVideoSource>& source) {
-        source->configurationChanged(WTFMove(persistentID), WTFMove(settings), WTFMove(capabilities));
+        source->configurationChanged(WTF::move(persistentID), WTF::move(settings), WTF::move(capabilities));
     }, [](std::nullptr_t) { });
 }
 
@@ -184,9 +184,9 @@ void UserMediaCaptureManager::applyConstraintsSucceeded(RealtimeMediaSourceIdent
         return;
 
     switchOn(iterator->value, [&](Ref<RemoteRealtimeAudioSource>& source) {
-        source->applyConstraintsSucceeded(WTFMove(settings));
+        source->applyConstraintsSucceeded(WTF::move(settings));
     }, [&](Ref<RemoteRealtimeVideoSource>& source) {
-        source->applyConstraintsSucceeded(WTFMove(settings));
+        source->applyConstraintsSucceeded(WTF::move(settings));
     }, [](std::nullptr_t) { });
 }
 
@@ -197,9 +197,9 @@ void UserMediaCaptureManager::applyConstraintsFailed(RealtimeMediaSourceIdentifi
         return;
 
     switchOn(iterator->value, [&](Ref<RemoteRealtimeAudioSource>& source) {
-        source->applyConstraintsFailed(invalidConstraint, WTFMove(message));
+        source->applyConstraintsFailed(invalidConstraint, WTF::move(message));
     }, [&](Ref<RemoteRealtimeVideoSource>& source) {
-        source->applyConstraintsFailed(invalidConstraint, WTFMove(message));
+        source->applyConstraintsFailed(invalidConstraint, WTF::move(message));
     }, [](std::nullptr_t) { });
 }
 
@@ -216,7 +216,7 @@ CaptureSourceOrError UserMediaCaptureManager::AudioFactory::createAudioCaptureSo
         DeprecatedGlobalSettings::setShouldManageAudioSessionCategory(true);
 #endif
 
-    return RemoteRealtimeAudioSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
+    return RemoteRealtimeAudioSource::create(device, constraints, WTF::move(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
 }
 
 void UserMediaCaptureManager::AudioFactory::setShouldCaptureInGPUProcess(bool value)
@@ -238,7 +238,7 @@ CaptureSourceOrError UserMediaCaptureManager::VideoFactory::createVideoCaptureSo
     if (m_shouldCaptureInGPUProcess)
         m_manager->protectedRemoteCaptureSampleManager()->setVideoFrameObjectHeapProxy(&WebProcess::singleton().ensureProtectedGPUProcessConnection()->videoFrameObjectHeapProxy());
 
-    return RemoteRealtimeVideoSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
+    return RemoteRealtimeVideoSource::create(device, constraints, WTF::move(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
 }
 
 CaptureSourceOrError UserMediaCaptureManager::DisplayFactory::createDisplayCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
@@ -249,10 +249,10 @@ CaptureSourceOrError UserMediaCaptureManager::DisplayFactory::createDisplayCaptu
 #endif
     if (m_shouldCaptureInGPUProcess) {
         Ref videoFrameObjectHeapProxy = WebProcess::singleton().ensureProtectedGPUProcessConnection()->videoFrameObjectHeapProxy();
-        m_manager->protectedRemoteCaptureSampleManager()->setVideoFrameObjectHeapProxy(WTFMove(videoFrameObjectHeapProxy));
+        m_manager->protectedRemoteCaptureSampleManager()->setVideoFrameObjectHeapProxy(WTF::move(videoFrameObjectHeapProxy));
     }
 
-    return RemoteRealtimeVideoSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
+    return RemoteRealtimeVideoSource::create(device, constraints, WTF::move(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
 }
 
 void UserMediaCaptureManager::DisplayFactory::setShouldCaptureInGPUProcess(bool value)

@@ -45,7 +45,7 @@ class BaseAudioMediaStreamTrackRendererUnit;
 class AudioMediaStreamTrackRendererCocoa final : public AudioMediaStreamTrackRenderer {
     WTF_MAKE_TZONE_ALLOCATED(AudioMediaStreamTrackRendererCocoa);
 public:
-    static Ref<AudioMediaStreamTrackRenderer> create(Init&& init) { return adoptRef(*new AudioMediaStreamTrackRendererCocoa(WTFMove(init))); }
+    static Ref<AudioMediaStreamTrackRenderer> create(Init&& init) { return adoptRef(*new AudioMediaStreamTrackRendererCocoa(WTF::move(init))); }
     ~AudioMediaStreamTrackRendererCocoa();
 
 private:
@@ -68,7 +68,8 @@ private:
     RefPtr<AudioSampleDataSource> m_dataSource; // Used in background thread.
     RefPtr<AudioSampleDataSource> m_registeredDataSource; // Used in main thread.
     bool m_shouldRecreateDataSource { false };
-    WebCore::AudioMediaStreamTrackRendererUnit::ResetObserver m_resetObserver;
+    using ResetObserver = AudioMediaStreamTrackRendererUnit::ResetObserver;
+    const Ref<ResetObserver> m_resetObserver;
     String m_deviceID;
 };
 

@@ -49,11 +49,11 @@ WebContextMenuItemData::WebContextMenuItemData()
 WebContextMenuItemData::WebContextMenuItemData(WebCore::ContextMenuItemType type, WebCore::ContextMenuAction action, String&& title, bool enabled, bool checked, unsigned indentationLevel, Vector<WebContextMenuItemData>&& submenu)
     : m_type(type)
     , m_action(action)
-    , m_title(WTFMove(title))
+    , m_title(WTF::move(title))
     , m_enabled(enabled)
     , m_checked(checked)
     , m_indentationLevel(indentationLevel)
-    , m_submenu(WTFMove(submenu))
+    , m_submenu(WTF::move(submenu))
 {
 }
 

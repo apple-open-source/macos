@@ -35,23 +35,23 @@ namespace IPC {
 
 RefPtr<StreamServerConnection> StreamServerConnection::tryCreate(Handle&& handle, const StreamServerConnectionParameters& params)
 {
-    auto buffer = StreamServerConnectionBuffer::map(WTFMove(handle.buffer));
+    auto buffer = StreamServerConnectionBuffer::map(WTF::move(handle.buffer));
     if (!buffer)
         return { };
 
-    auto connection = IPC::Connection::createClientConnection(IPC::Connection::Identifier { WTFMove(handle.outOfStreamConnection) });
+    auto connection = IPC::Connection::createClientConnection(IPC::Connection::Identifier { WTF::move(handle.outOfStreamConnection) });
 
 #if ENABLE(IPC_TESTING_API)
     if (params.ignoreInvalidMessageForTesting)
         connection->setIgnoreInvalidMessageForTesting();
 #endif
 
-    return adoptRef(*new StreamServerConnection(WTFMove(connection), WTFMove(*buffer)));
+    return adoptRef(*new StreamServerConnection(WTF::move(connection), WTF::move(*buffer)));
 }
 
 StreamServerConnection::StreamServerConnection(Ref<Connection> connection, StreamServerConnectionBuffer&& stream)
-    : m_connection(WTFMove(connection))
-    , m_buffer(WTFMove(stream))
+    : m_connection(WTF::move(connection))
+    , m_buffer(WTF::move(stream))
 {
 }
 
@@ -107,7 +107,7 @@ void StreamServerConnection::enqueueMessage(Connection&, UniqueRef<Decoder>&& me
 {
     {
         Locker locker { m_outOfStreamMessagesLock };
-        m_outOfStreamMessages.append(WTFMove(message));
+        m_outOfStreamMessages.append(WTF::move(message));
     }
     ASSERT(m_workQueue);
     protectedWorkQueue()->wakeUp();
@@ -218,7 +218,7 @@ bool StreamServerConnection::processStreamMessage(Decoder& decoder, StreamMessag
     if (decoder.isSyncMessage()) {
         result = m_buffer.releaseAll();
         if (m_syncReplyToDispatch)
-            protectedConnection()->sendSyncReply(makeUniqueRefFromNonNullUniquePtr(WTFMove(m_syncReplyToDispatch)));
+            protectedConnection()->sendSyncReply(makeUniqueRefFromNonNullUniquePtr(WTF::move(m_syncReplyToDispatch)));
     } else
         result = m_buffer.release(decoder.currentBufferOffset());
     if (result == WakeUpClient::Yes)
@@ -301,8 +301,9 @@ void StreamServerConnection::dispatchDidReceiveInvalidMessage(Decoder& message)
     invalidate();
 }
 
-void StreamServerConnection::markCurrentlyDispatchedMessageAsInvalid()
+void StreamServerConnection::markCurrentlyDispatchedMessageAsInvalid(ASCIILiteral error)
 {
+    UNUSED_PARAM(error);
     ASSERT(m_isDispatchingMessage);
     m_didReceiveInvalidMessage = true;
 }

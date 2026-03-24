@@ -37,7 +37,7 @@ namespace WebCore {
 
 ExceptionOr<Ref<FileSystemWritableFileStream>> FileSystemWritableFileStream::create(JSDOMGlobalObject& globalObject, Ref<WritableStreamSink>&& sink)
 {
-    auto result = createInternalWritableStream(globalObject, WTFMove(sink));
+    auto result = createInternalWritableStream(globalObject, WTF::move(sink));
     if (result.hasException())
         return result.releaseException();
 
@@ -45,7 +45,7 @@ ExceptionOr<Ref<FileSystemWritableFileStream>> FileSystemWritableFileStream::cre
 }
 
 FileSystemWritableFileStream::FileSystemWritableFileStream(Ref<InternalWritableStream>&& internalStream)
-    : WritableStream(WTFMove(internalStream))
+    : WritableStream(WTF::move(internalStream))
 {
 }
 
@@ -89,7 +89,7 @@ void FileSystemWritableFileStream::write(JSC::JSGlobalObject& lexicalGlobalObjec
         return promise.reject(Exception { ExceptionCode::UnknownError, "Failed to complete write operation"_s });
 
     Ref domPromise = DOMPromise::create(*globalObject, *jsPromise);
-    domPromise->whenSettled([domPromise, promise = WTFMove(promise)]() mutable {
+    domPromise->whenSettled([domPromise, promise = WTF::move(promise)]() mutable {
         switch (domPromise->status()) {
         case DOMPromise::Status::Fulfilled:
             return promise.resolve();
@@ -106,13 +106,13 @@ void FileSystemWritableFileStream::write(JSC::JSGlobalObject& lexicalGlobalObjec
 void FileSystemWritableFileStream::seek(JSC::JSGlobalObject& lexicalGlobalObject, uint64_t position, DOMPromiseDeferred<void>&& promise)
 {
     WriteParams params { WriteCommandType::Seek, std::nullopt, position, std::nullopt };
-    write(lexicalGlobalObject, params, WTFMove(promise));
+    write(lexicalGlobalObject, params, WTF::move(promise));
 }
 
 void FileSystemWritableFileStream::truncate(JSC::JSGlobalObject& lexicalGlobalObject, uint64_t size, DOMPromiseDeferred<void>&& promise)
 {
     WriteParams params { WriteCommandType::Truncate, size, std::nullopt, std::nullopt };
-    write(lexicalGlobalObject, params, WTFMove(promise));
+    write(lexicalGlobalObject, params, WTF::move(promise));
 }
 
 } // namespace WebCore

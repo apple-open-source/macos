@@ -281,6 +281,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 #endif // !MALLOC_TARGET_EXCLAVES
 #include "sanitizer_malloc.h"
 #if !MALLOC_TARGET_EXCLAVES
+# include "malloc_config.h"
 # include "purgeable_malloc.h"
 #endif // !MALLOC_TARGET_EXCLAVES
 #include "malloc_private.h"

@@ -26,8 +26,8 @@
 #include "StyleOffsetPosition.h"
 
 #include "CSSPositionValue.h"
-#include "RenderStyleInlines.h"
 #include "StyleBuilderChecking.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StyleLengthWrapper+Blending.h"
 #include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Blending.h"
@@ -37,7 +37,7 @@
 namespace WebCore {
 namespace Style {
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 auto OffsetPosition::convert(const AcceleratedEffectOffsetPosition& value) -> Variant<CSS::Keyword::Auto, CSS::Keyword::Normal, Position>
 {
@@ -66,7 +66,7 @@ auto CSSValueConversion<OffsetPosition>::operator()(BuilderState& state, const C
 
     RefPtr positionValue = requiredDowncast<CSSPositionValue>(state, value);
     if (!positionValue)
-        return RenderStyle::initialOffsetPosition();
+        return Style::ComputedStyle::initialOffsetPosition();
     return OffsetPosition { toStyle(positionValue->position(), state) };
 }
 
@@ -96,7 +96,7 @@ auto Blending<OffsetPosition>::blend(const OffsetPosition& a, const OffsetPositi
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 auto Evaluation<OffsetPosition, AcceleratedEffectOffsetPosition>::operator()(const OffsetPosition& value, FloatSize referenceBox, ZoomNeeded token) -> AcceleratedEffectOffsetPosition
 {

@@ -84,6 +84,9 @@ enum {
 
 static const int32_t MAX_IMPLICIT_STRING_LENGTH = 40;  /* do not store the length explicitly for such strings */
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static const ResFile kNoPoolBundle;
 
 /*
@@ -92,6 +95,7 @@ static const ResFile kNoPoolBundle;
  * (nullptr is used in error cases.)
  */
 static SResource kNoResource;  // TODO: const
+#endif // APPLE_ICU_CHANGES
 
 static UDataInfo dataInfo= {
     sizeof(UDataInfo),
@@ -144,9 +148,18 @@ void setUsePoolBundle(UBool use) {
 }
 
 // TODO: return const pointer, or find another way to express "none"
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+SResource* res_none() {
+    static SResource* kNoResource = new SResource();
+    return kNoResource;
+}
+#else
 struct SResource* res_none() {
     return &kNoResource;
 }
+#endif // APPLE_ICU_CHANGES
 
 SResource::SResource()
         : fType(URES_NONE), fWritten(false), fRes(RES_BOGUS), fRes16(-1), fKey(-1), fKey16(-1),
@@ -182,7 +195,13 @@ TableResource::~TableResource() {}
 
 // TODO: clarify that containers adopt new items, even in error cases; use LocalPointer
 void TableResource::add(SResource *res, int linenumber, UErrorCode &errorCode) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    if (U_FAILURE(errorCode) || res == nullptr || res == res_none()) {
+#else
     if (U_FAILURE(errorCode) || res == nullptr || res == &kNoResource) {
+#endif // APPLE_ICU_CHANGES
         return;
     }
 
@@ -247,7 +266,13 @@ void TableResource::add(SResource *res, int linenumber, UErrorCode &errorCode) {
 ArrayResource::~ArrayResource() {}
 
 void ArrayResource::add(SResource *res) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    if (res != nullptr && res != res_none()) {
+#else
     if (res != nullptr && res != &kNoResource) {
+#endif // APPLE_ICU_CHANGES
         if (fFirst == nullptr) {
             fFirst = res;
         } else {
@@ -261,7 +286,13 @@ void ArrayResource::add(SResource *res) {
 PseudoListResource::~PseudoListResource() {}
 
 void PseudoListResource::add(SResource *res) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    if (res != nullptr && res != res_none()) {
+#else
     if (res != nullptr && res != &kNoResource) {
+#endif // APPLE_ICU_CHANGES
         res->fNext = fFirst;
         fFirst = res;
         ++fCount;

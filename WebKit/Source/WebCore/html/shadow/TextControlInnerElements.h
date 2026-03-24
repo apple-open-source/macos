@@ -35,7 +35,7 @@ namespace WebCore {
 class RenderTextControlInnerBlock;
 
 class TextControlInnerContainer final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TextControlInnerContainer);
+    WTF_MAKE_TZONE_ALLOCATED(TextControlInnerContainer);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TextControlInnerContainer);
 public:
     static Ref<TextControlInnerContainer> create(Document&);
@@ -47,7 +47,7 @@ private:
 };
 
 class TextControlInnerElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TextControlInnerElement);
+    WTF_MAKE_TZONE_ALLOCATED(TextControlInnerElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TextControlInnerElement);
 public:
     static Ref<TextControlInnerElement> create(Document&);
@@ -60,7 +60,7 @@ private:
 };
 
 class TextControlInnerTextElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TextControlInnerTextElement);
+    WTF_MAKE_TZONE_ALLOCATED(TextControlInnerTextElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TextControlInnerTextElement);
 public:
     static Ref<TextControlInnerTextElement> create(Document&, bool isEditable);
@@ -86,7 +86,7 @@ private:
 };
 
 class TextControlPlaceholderElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TextControlPlaceholderElement);
+    WTF_MAKE_TZONE_ALLOCATED(TextControlPlaceholderElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TextControlPlaceholderElement);
 public:
     static Ref<TextControlPlaceholderElement> create(Document&);
@@ -98,7 +98,7 @@ private:
 };
 
 class SearchFieldResultsButtonElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SearchFieldResultsButtonElement);
+    WTF_MAKE_TZONE_ALLOCATED(SearchFieldResultsButtonElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SearchFieldResultsButtonElement);
 public:
     static Ref<SearchFieldResultsButtonElement> create(Document&);
@@ -120,7 +120,7 @@ private:
 };
 
 class SearchFieldCancelButtonElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SearchFieldCancelButtonElement);
+    WTF_MAKE_TZONE_ALLOCATED(SearchFieldCancelButtonElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SearchFieldCancelButtonElement);
 public:
     static Ref<SearchFieldCancelButtonElement> create(Document&);

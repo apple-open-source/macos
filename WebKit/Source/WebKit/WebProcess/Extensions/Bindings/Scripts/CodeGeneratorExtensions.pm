@@ -326,7 +326,7 @@ ${implementationClassName}* to${implementationClassName}(JSContextRef context, J
 {
     if (!context || !value || !${className}::${classRefGetter}() || !JSValueIsObjectOfClass(context, value, ${className}::${classRefGetter}()))
         return nullptr;
-    return static_cast<${implementationClassName}*>(JSWebExtensionWrapper::unwrap(context, value));
+    return downcast<${implementationClassName}>(JSWebExtensionWrapper::unwrap(context, value));
 }
 
 JSClassRef ${className}::${classRefGetter}()
@@ -730,7 +730,7 @@ EOF
             if ($callbackHandlerArgument && !$returnsPromiseIfNoCallback) {
                 push(@contents, <<EOF);
     if (!${callbackHandlerArgument})
-        ${callbackHandlerArgument} = toJSErrorCallbackHandler(context, impl->runtime());
+        ${callbackHandlerArgument} = toJSErrorCallbackHandler(context, impl->protectedRuntime());
 
 EOF
             }
@@ -798,7 +798,9 @@ EOF
                 push(@contents, "    ${functionCall};\n\n");
                 push(@contents, "    return ${defaultReturnValue};\n}\n");
             } else {
-                push(@contents, "    return " . $returnExpression . ";\n}\n");
+                # The safer cpp static analysis wants us to protect the value passed to toJS() but it is not
+                # necessary for safety.
+                push(@contents, "    SUPPRESS_UNCOUNTED_ARG return " . $returnExpression . ";\n}\n");
             }
 
             if ($isPropertyFunction) {
@@ -813,7 +815,7 @@ ${functionSignature}
 EOF
 
                 my $keyArgumentName = $specifiedParameters[0]->name;
-                push(@contents, "    auto ${keyArgumentName} = toJSString(argumentCount > 0 ? " . $self->_platformTypeConstructor($specifiedParameters[0], "arguments[0]") . " : nil);\n");
+                push(@contents, "    auto ${keyArgumentName} = toJSString(argumentCount > 0 ? " . $self->_platformTypeConstructor($specifiedParameters[0], "arguments[0]") . "_s : emptyString());\n");
 
                 if ($isGetPropertyFunction) {
                     push(@contents, "\n");
@@ -936,7 +938,7 @@ EOF
 
             push(@contents, <<EOF);
 
-    return @{[$self->_returnExpression($attribute, $getterExpression, $interface)]};
+    SUPPRESS_UNCOUNTED_ARG return @{[$self->_returnExpression($attribute, $getterExpression, $interface)]};
 }
 EOF
 
@@ -1471,7 +1473,7 @@ sub _platformTypeConstructor
         return "toJSValue(context, $argumentName)";
     }
 
-    return "toJSCallbackHandler(context, $argumentName, impl->runtime())" if $idlTypeName eq "function" && $signature->extendedAttributes->{"CallbackHandler"};
+    return "toJSCallbackHandler(context, $argumentName, impl->protectedRuntime())" if $idlTypeName eq "function" && $signature->extendedAttributes->{"CallbackHandler"};
     return "toNSArray(context, $argumentName, $arrayType.class)" if $idlTypeName eq "array" && $arrayType;
     return "toNSArray(context, $argumentName)" if $idlTypeName eq "array";
     return "JSValueToBoolean(context, $argumentName)" if $idlTypeName eq "boolean";
@@ -1730,7 +1732,7 @@ EOF
         return unless $_->extendedAttributes->{"Dynamic"} or $_->extendedAttributes->{"MainWorldOnly"};
 
         my $name = $_->name;
-        return "    JSPropertyNameAccumulatorAddName(propertyNames, toJSString(\"${name}\").get());\n" unless $hasDynamicProperties;
+        return "    JSPropertyNameAccumulatorAddName(propertyNames, toJSString(\"${name}\"_s).get());\n" unless $hasDynamicProperties;
 
         my $condition = &$generateCondition($_);
         my $conditionalString = conditionalString($_);
@@ -1738,7 +1740,7 @@ EOF
         my $content = "";
         $content .= "#if ${conditionalString}\n" if $conditionalString;
         $content .= "    if (${condition})\n";
-        $content .= "        JSPropertyNameAccumulatorAddName(propertyNames, toJSString(\"${name}\").get());\n";
+        $content .= "        JSPropertyNameAccumulatorAddName(propertyNames, toJSString(\"${name}\"_s).get());\n";
         $content .= "#endif // ${conditionalString}\n" if $conditionalString;
         $content .= "\n";
         return $content;

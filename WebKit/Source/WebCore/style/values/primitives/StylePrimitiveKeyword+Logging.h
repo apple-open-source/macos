@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "CSSPrimitiveValueMappings.h"
 #include "StylePrimitiveKeyword+ValueRepresentationNeeded.h"
 #include "StyleValueTypes.h"
 

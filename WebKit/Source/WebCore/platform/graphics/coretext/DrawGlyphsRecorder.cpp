@@ -385,7 +385,7 @@ void DrawGlyphsRecorder::recordDrawPath(CGRenderingStateRef, CGGStateRef gstate,
     // The path we get has already CTM applied to it but we should serialize the non-transformed version to correctly apply line width.
     CGAffineTransform invertTransform = CGAffineTransformInvert(*ctm);
     auto localPath = adoptCF(CGPathCreateMutableCopyByTransformingPath(coreGraphicsPath, &invertTransform));
-    Path path { PathCG::create(WTFMove(localPath)) };
+    Path path { PathCG::create(WTF::move(localPath)) };
 
     updateShadow(CGGStateGetStyle(gstate));
 

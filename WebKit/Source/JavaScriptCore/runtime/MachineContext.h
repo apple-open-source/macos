@@ -27,8 +27,8 @@
 
 #pragma once
 
+#include "LLIntPCRanges.h"
 #include <JavaScriptCore/GPRInfo.h>
-#include <JavaScriptCore/LLIntPCRanges.h>
 #include <JavaScriptCore/MacroAssemblerCodeRef.h>
 #include <wtf/PlatformRegisters.h>
 #include <wtf/PointerPreparations.h>
@@ -161,6 +161,16 @@ static inline void*& stackPointerImpl(mcontext_t& machineContext)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.__gregs[_REG_SP]);
 #elif CPU(ARM64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.mc_gpregs.gp_sp);
+#else
+#error Unknown Architecture
+#endif
+
+#elif OS(QNX)
+
+#if CPU(X86_64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.rsp);
+#elif CPU(ARM64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.gpr[AARCH64_REG_SP]);
 #else
 #error Unknown Architecture
 #endif

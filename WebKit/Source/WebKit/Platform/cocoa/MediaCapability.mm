@@ -45,11 +45,11 @@ static RetainPtr<BEMediaEnvironment> createMediaEnvironment(const URL& webPageUR
 
 Ref<MediaCapability> MediaCapability::create(URL&& url)
 {
-    return adoptRef(*new MediaCapability(WTFMove(url)));
+    return adoptRef(*new MediaCapability(WTF::move(url)));
 }
 
 MediaCapability::MediaCapability(URL&& webPageURL)
-    : m_webPageURL { WTFMove(webPageURL) }
+    : m_webPageURL { WTF::move(webPageURL) }
     , m_mediaEnvironment { createMediaEnvironment(m_webPageURL) }
 {
     setPlatformCapability([BEProcessCapability mediaPlaybackAndCaptureWithEnvironment:m_mediaEnvironment.get()]);

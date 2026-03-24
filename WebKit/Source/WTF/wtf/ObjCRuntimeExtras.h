@@ -24,6 +24,8 @@
 
 #pragma once
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
 #import <wtf/MallocSpan.h>
@@ -89,3 +91,5 @@ using WTF::protocol_copyPropertyListSpan;
 using WTF::protocol_copyProtocolListSpan;
 
 #endif // __cplusplus
+
+#endif // __OBJC__

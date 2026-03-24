@@ -15,7 +15,11 @@
 #include "unicode/unistr.h"
 #include "unicode/ucnv.h"
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 IcuEnvironment* env = new IcuEnvironment();
+#endif // APPLE_ICU_CHANGES
 
 template <typename T>
 using deleted_unique_ptr = std::unique_ptr<T, std::function<void(T*)>>;
@@ -52,7 +56,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
 
   static const size_t dest_buffer_size = 1024 * 1204;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+  const std::unique_ptr<char[]> dest_buffer(new char[dest_buffer_size]);
+#else
   static const std::unique_ptr<char[]> dest_buffer(new char[dest_buffer_size]);
+#endif // APPLE_ICU_CHANGES
 
   fuzzstr.extract(dest_buffer.get(), dest_buffer_size, converter.get(), status);
 

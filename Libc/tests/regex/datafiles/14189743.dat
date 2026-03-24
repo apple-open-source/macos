@@ -1,9 +1,16 @@
-#Ei	^((([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]\.)*)([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]$	nssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	^((([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]\.)*)([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]$	nssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	ssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	snssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	nssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	ssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	snssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	nssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
-Ei	SAME	ssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnssnss.edu	(0,1)
+# Original test case
+Ew	^((([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]\.)*)([[:alnum:]_][[:alnum:]-]{0,61})?[[:alnum:]]$	\
+		dns.dns									NULL
+Ew	SAME	.dns									NOMATCH
+Ew	SAME	_.dns									NOMATCH
+Ew	SAME	d.dns									NULL
+Ew	SAME	_d.dns									NULL
+Ew	SAME	dnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdns.dns	NULL
+Ew	SAME	_dnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdnsdns.dns	NOMATCH
+
+# Simplified test case
+Ew	^((a{1,3})?x)*y		xy		NULL
+Ew	SAME			axy		NULL
+Ew	SAME			aaxy		NULL
+Ew	SAME			aaaxy		NULL
+Ew	SAME			aaaaxy		NOMATCH

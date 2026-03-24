@@ -51,6 +51,12 @@ String::String(std::span<const Latin1Character> characters)
 {
 }
 
+// Construct a string with UTF-8 data.
+String::String(std::span<const char8_t> characters)
+    : m_impl(StringImpl::create(characters))
+{
+}
+
 // Construct a string with Latin-1 data.
 String::String(std::span<const char> characters)
     : m_impl(characters.data() ? RefPtr { StringImpl::create(byteCast<Latin1Character>(characters)) } : nullptr)
@@ -59,7 +65,7 @@ String::String(std::span<const char> characters)
 
 // Construct a string with Latin-1 data, from a null-terminated source.
 String::String(const char* nullTerminatedString)
-    : m_impl(nullTerminatedString ? RefPtr { StringImpl::createFromCString(nullTerminatedString) } : nullptr)
+    : m_impl(nullTerminatedString ? RefPtr { StringImpl::create(byteCast<Latin1Character>(unsafeSpan(nullTerminatedString))) } : nullptr)
 {
 }
 
@@ -288,7 +294,7 @@ String String::isolatedCopy() &&
     if (isSafeToSendToAnotherThread()) {
         // Since we know that our string is a temporary that will be destroyed
         // we can just steal the m_impl from it, thus avoiding a copy.
-        return { WTFMove(*this) };
+        return { WTF::move(*this) };
     }
 
     SUPPRESS_UNCOUNTED_ARG return m_impl ? m_impl->isolatedCopy() : String { };
@@ -464,12 +470,19 @@ void String::convertTo16Bit()
     std::span<char16_t> destination;
     auto convertedString = String::createUninitialized(length(), destination);
     StringImpl::copyCharacters(destination, span8());
-    *this = WTFMove(convertedString);
+    *this = WTF::move(convertedString);
 }
 
-template<bool replaceInvalidSequences>
-String fromUTF8Impl(std::span<const char8_t> string)
+String String::fromUTF8(std::span<const char8_t> codeUnits)
 {
+    return codeUnits;
+}
+
+String String::fromUTF8ReplacingInvalidSequences(std::span<const char8_t> string)
+{
+    if (!string.data())
+        return { };
+
     RELEASE_ASSERT(string.size() <= String::MaxLength);
 
     if (string.empty())
@@ -479,10 +492,8 @@ String fromUTF8Impl(std::span<const char8_t> string)
         return StringImpl::create(byteCast<Latin1Character>(string));
 
     Vector<char16_t, 1024> buffer(string.size());
- 
-    auto result = replaceInvalidSequences
-        ? Unicode::convertReplacingInvalidSequences(string, buffer.mutableSpan())
-        : Unicode::convert(string, buffer.mutableSpan());
+
+    auto result = Unicode::convertReplacingInvalidSequences(string, buffer.mutableSpan());
     if (result.code != Unicode::ConversionResultCode::Success)
         return { };
 
@@ -490,23 +501,9 @@ String fromUTF8Impl(std::span<const char8_t> string)
     return StringImpl::create(result.buffer);
 }
 
-String String::fromUTF8(std::span<const char8_t> string)
-{
-    if (!string.data())
-        return { };
-    return fromUTF8Impl<false>(string);
-}
-
-String String::fromUTF8ReplacingInvalidSequences(std::span<const char8_t> characters)
-{
-    if (!characters.data())
-        return { };
-    return fromUTF8Impl<true>(characters);
-}
-
 String String::fromUTF8WithLatin1Fallback(std::span<const char8_t> string)
 {
-    String utf8 = fromUTF8(string);
+    String utf8 { string };
     if (!utf8) {
         // Do this assertion before chopping the size_t down to unsigned.
         RELEASE_ASSERT(string.size() <= String::MaxLength);

@@ -55,7 +55,7 @@ RenderBundle::RenderBundle(NSArray<RenderBundleICBWithResources*> *resources, Ve
     : m_device(device)
     , m_renderBundleEncoder(encoder)
     , m_renderBundlesResources(resources)
-    , m_resources(WTFMove(bindableResources))
+    , m_resources(WTF::move(bindableResources))
     , m_descriptor(descriptor)
     , m_descriptorColorFormats(descriptor.colorFormatsSpan())
     , m_bindGroups(bindGroups)

@@ -412,6 +412,18 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             return CuttlefishAPI.PerformCkserverUnreadableDataRemovalOperation(request: request)
         }, completion: completion)
     }
+
+    public func enableWalrus(_ request: EnableWalrusRequest, completion: @escaping (Result<EnableWalrusResponse, any Error>) -> Void) {
+        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
+            return CuttlefishAPI.EnableWalrusOperation(request: request)
+        }, completion: completion)
+    }
+
+    public func disableWalrus(_ request: DisableWalrusRequest, completion: @escaping (Result<DisableWalrusResponse, any Error>) -> Void) {
+        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
+            return CuttlefishAPI.DisableWalrusOperation(request: request)
+        }, completion: completion)
+    }
 }
 
 protocol CKOperationRunner {

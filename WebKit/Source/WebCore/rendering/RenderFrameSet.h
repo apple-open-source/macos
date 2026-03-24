@@ -54,7 +54,7 @@ private:
 };
 
 class RenderFrameSet final : public RenderBox {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderFrameSet);
+    WTF_MAKE_TZONE_ALLOCATED(RenderFrameSet);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderFrameSet);
 public:
     RenderFrameSet(HTMLFrameSetElement&, RenderStyle&&);

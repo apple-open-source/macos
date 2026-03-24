@@ -81,12 +81,15 @@
 #if APPLE_ICU_CHANGES
 // rdar://60884991 #58 Replace installsrc patching with changes directly in header files
 // Apple modifies the default to be 0, not 1
+// rdar://166411027 (CharismaE: UserNotifications-640.4.12#8-install has failed to build; expected unqualified-id)
+// Apple also modifies the default for U_SHOW_CPLUSPLUS_HEADER_API to be 0, not 1, but only if U_SHOW_CPLUSPLUS_API
+// hasn't been redefined to 1 by the makefile
 #ifdef __cplusplus
 #   ifndef U_SHOW_CPLUSPLUS_API
 #       define U_SHOW_CPLUSPLUS_API 0
 #   endif
 #   ifndef U_SHOW_CPLUSPLUS_HEADER_API
-#       define U_SHOW_CPLUSPLUS_HEADER_API 0
+#       define U_SHOW_CPLUSPLUS_HEADER_API U_SHOW_CPLUSPLUS_API
 #   endif
 #else
 #   undef U_SHOW_CPLUSPLUS_API
@@ -447,6 +450,85 @@ typedef double UDate;
 #define U_TOOLUTIL_API U_IMPORT
 #endif
 
+#ifndef U_FORCE_HIDE_DRAFT_API
+
+/**
+ * \def U_DATA_API_CLASS
+ * Set to export library symbols from inside the stubdata library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_COMMON_API_CLASS
+ * Set to export library symbols from inside the common library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_I18N_API_CLASS
+ * Set to export library symbols from inside the i18n library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_LAYOUT_API_CLASS
+ * Set to export library symbols from inside the layout engine library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_LAYOUTEX_API_CLASS
+ * Set to export library symbols from inside the layout extensions library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_IO_API_CLASS
+ * Set to export library symbols from inside the ustdio library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+/**
+ * \def U_TOOLUTIL_API_CLASS
+ * Set to export library symbols from inside the toolutil library,
+ * and to import them from outside, to be used on a class.
+ * @draft ICU 78
+ */
+
+// When used on Windows, the U_..._API macros expand to __declspec(dllexport)
+// and __declspec(dllimport), which when used on a class results in all members
+// of the class being exported, including private members, which is problematic
+// for classes that have private members that can't be exported (such as
+// templates from the standard library):
+//
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-1-c4251
+//
+#if U_PLATFORM_HAS_WIN32_API
+#define U_DATA_API_CLASS
+#define U_COMMON_API_CLASS
+#define U_I18N_API_CLASS
+#define U_LAYOUT_API_CLASS
+#define U_LAYOUTEX_API_CLASS
+#define U_IO_API_CLASS
+#define U_TOOLUTIL_API_CLASS
+#else
+#define U_DATA_API_CLASS     U_DATA_API
+#define U_COMMON_API_CLASS   U_COMMON_API
+#define U_I18N_API_CLASS     U_I18N_API
+#define U_LAYOUT_API_CLASS   U_LAYOUT_API
+#define U_LAYOUTEX_API_CLASS U_LAYOUTEX_API
+#define U_IO_API_CLASS       U_IO_API
+#define U_TOOLUTIL_API_CLASS U_TOOLUTIL_API
+#endif
+
+#endif  // U_FORCE_HIDE_DRAFT_API
+
 /**
  * \def U_STANDARD_CPP_NAMESPACE
  * Control of C++ Namespace
@@ -661,12 +743,13 @@ typedef enum UErrorCode {
     U_MF_DUPLICATE_DECLARATION_ERROR, /**< The same variable is declared in more than one .local or .input declaration. @internal ICU 75 technology preview @deprecated This API is for technology preview only. */
     U_MF_OPERAND_MISMATCH_ERROR,     /**< An operand provided to a function does not have the required form for that function @internal ICU 75 technology preview @deprecated This API is for technology preview only. */
     U_MF_DUPLICATE_VARIANT_ERROR, /**< A message includes a variant with the same key list as another variant. @internal ICU 76 technology preview @deprecated This API is for technology preview only. */
+    U_MF_BAD_OPTION,             /**< An option value provided to a function does not have the required form for that option. @internal ICU 77 technology preview @deprecated This API is for technology preview only. */
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal formatting API error code.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
-    U_FMT_PARSE_ERROR_LIMIT = 0x10120,
+    U_FMT_PARSE_ERROR_LIMIT = 0x10121,
 #endif  // U_HIDE_DEPRECATED_API
 
     /*

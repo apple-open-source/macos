@@ -107,7 +107,7 @@ public:
     void removeTrack(LibWebRTCRtpSenderBackend&);
 
     struct Backends {
-        std::unique_ptr<LibWebRTCRtpSenderBackend> senderBackend;
+        RefPtr<LibWebRTCRtpSenderBackend> senderBackend;
         std::unique_ptr<LibWebRTCRtpReceiverBackend> receiverBackend;
         std::unique_ptr<LibWebRTCRtpTransceiverBackend> transceiverBackend;
     };
@@ -142,7 +142,6 @@ private:
     void OnStandardizedIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState) final;
     void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState) final;
     void OnIceCandidate(const webrtc::IceCandidate*) final;
-    void OnIceCandidatesRemoved(const std::vector<webrtc::Candidate>&) final;
 
     void createSessionDescriptionSucceeded(std::unique_ptr<webrtc::SessionDescriptionInterface>&&);
     void createSessionDescriptionFailed(ExceptionCode, const char*);

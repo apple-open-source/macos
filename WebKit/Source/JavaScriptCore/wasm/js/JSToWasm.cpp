@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -696,7 +696,7 @@ CodePtr<JSEntryPtrTag> FunctionSignature::jsToWasmICEntrypoint() const
                 slowPath.append(jit.branchIfNotCell(scratchJSR));
 
                 jit.emitLoadStructure(scratchJSR.payloadGPR(), scratchJSR.payloadGPR());
-                jit.loadCompactPtr(CCallHelpers::Address(scratchJSR.payloadGPR(), Structure::classInfoOffset()), scratchJSR.payloadGPR());
+                jit.loadPtr(CCallHelpers::Address(scratchJSR.payloadGPR(), Structure::classInfoOffset()), scratchJSR.payloadGPR());
 
                 static_assert(std::is_final<WebAssemblyFunction>::value, "We do not check for subtypes below");
                 static_assert(std::is_final<WebAssemblyWrapperFunction>::value, "We do not check for subtypes below");
@@ -850,9 +850,9 @@ CodePtr<JSEntryPtrTag> FunctionSignature::jsToWasmICEntrypoint() const
         return nullptr;
 
     auto code = FINALIZE_WASM_CODE(linkBuffer, JSEntryPtrTag, nullptr, "JS->Wasm IC %s", WTF::toCString(*this).data());
-    jsToWasmICCallee->setEntrypoint(WTFMove(code));
+    jsToWasmICCallee->setEntrypoint(WTF::move(code));
     WTF::storeStoreFence();
-    m_jsToWasmICCallee = WTFMove(jsToWasmICCallee);
+    m_jsToWasmICCallee = WTF::move(jsToWasmICCallee);
 
     return m_jsToWasmICCallee->jsToWasm();
 }

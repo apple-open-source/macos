@@ -93,7 +93,7 @@ static void *do_query(void *arg)
     CFTypeRef results = NULL;
 
     for(int i=0;i<20;i++)
-        verify_action(SecItemCopyMatching(query, &results)==errSecInteractionNotAllowed, CFReleaseSafe(query); return (void *)-1);
+        __Verify_Action(SecItemCopyMatching(query, &results)==errSecInteractionNotAllowed, CFReleaseSafe(query); return (void *)-1);
 
     CFReleaseSafe(query);
     
@@ -104,7 +104,7 @@ static void *do_sos(void *arg)
 {
     
     for(int i=0;i<20;i++)
-        verify_action(SOSCCThisDeviceIsInCircle_Server(NULL)==-1, return (void *)-1);
+        __Verify_Action(SOSCCThisDeviceIsInCircle_Server(NULL)==-1, return (void *)-1);
 
     return NULL;
 }

@@ -35,6 +35,7 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
 #include <wtf/darwin/XPCExtras.h>
+#include <wtf/darwin/XPCObjectPtr.h>
 
 using WebKit::WebPushD::PushMessageForTesting;
 
@@ -77,7 +78,7 @@ private:
     String m_bundleIdentifier;
     String m_pushPartition;
 
-    RetainPtr<xpc_connection_t> m_connection;
+    XPCObjectPtr<xpc_connection_t> m_connection;
     ASCIILiteral m_serviceName;
 };
 

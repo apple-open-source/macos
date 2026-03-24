@@ -125,7 +125,7 @@ extern void SSLDump(const unsigned char *data, unsigned long len);
 #ifdef	NDEBUG
 #define ASSERT(s)
 #else
-#define ASSERT(s)	check(s)
+#define ASSERT(s)	__Check(s)
 #endif
 
 #endif	/* _SSL_DEBUG_H_ */

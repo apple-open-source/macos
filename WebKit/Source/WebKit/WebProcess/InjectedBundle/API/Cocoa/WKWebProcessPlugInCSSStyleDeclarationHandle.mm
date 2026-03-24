@@ -38,7 +38,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInCSSStyleDeclarationHandle.class, self))
         return;
-    _cssStyleDeclarationHandle->~InjectedBundleCSSStyleDeclarationHandle();
+    SUPPRESS_UNCOUNTED_ARG _cssStyleDeclarationHandle->~InjectedBundleCSSStyleDeclarationHandle();
     [super dealloc];
 }
 

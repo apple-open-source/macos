@@ -27,14 +27,15 @@
 
 #include <wtf/Compiler.h>
 
+#include <concepts>
 #include <wtf/dtoa.h>
 #include <wtf/text/IntegerToStringConversion.h>
 #include <wtf/text/StringConcatenate.h>
 
 namespace WTF {
 
-template<typename Integer>
-class StringTypeAdapter<Integer, typename std::enable_if_t<std::is_integral_v<Integer>>> {
+template<std::integral Integer>
+class StringTypeAdapter<Integer> {
 public:
     StringTypeAdapter(Integer number)
         : m_number { number }
@@ -51,8 +52,10 @@ private:
 };
 
 template<typename Enum>
-class StringTypeAdapter<Enum, typename std::enable_if_t<std::is_enum_v<Enum>>> {
-using UnderlyingType = typename std::underlying_type_t<Enum>;
+    requires (std::is_enum_v<Enum>)
+class StringTypeAdapter<Enum> {
+private:
+    using UnderlyingType = typename std::underlying_type_t<Enum>;
 public:
     StringTypeAdapter(Enum enumValue)
         : m_enum { enumValue }
@@ -68,8 +71,8 @@ private:
     Enum m_enum;
 };
 
-template<typename FloatingPoint>
-class StringTypeAdapter<FloatingPoint, typename std::enable_if_t<std::is_floating_point<FloatingPoint>::value>> {
+template<std::floating_point FloatingPoint>
+class StringTypeAdapter<FloatingPoint> {
 public:
     StringTypeAdapter(FloatingPoint number)
     {

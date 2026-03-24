@@ -72,7 +72,7 @@ private:
 
 SpielSpeechWrapper::SpielSpeechWrapper(const PlatformSpeechSynthesizer& synthesizer, Function<void()>&& speakerCreatedCallback)
     : m_platformSynthesizer(synthesizer)
-    , m_speakerCreatedCallback(WTFMove(speakerCreatedCallback))
+    , m_speakerCreatedCallback(WTF::move(speakerCreatedCallback))
 {
     ensureGStreamerInitialized();
     registerWebKitGStreamerElements();
@@ -222,7 +222,7 @@ void SpielSpeechWrapper::speakUtterance(RefPtr<PlatformSpeechSynthesisUtterance>
     spiel_utterance_set_volume(spielUtterance.get(), utterance->volume());
     spiel_utterance_set_pitch(spielUtterance.get(), utterance->pitch());
     spiel_utterance_set_rate(spielUtterance.get(), utterance->rate());
-    m_utterance = WTFMove(utterance);
+    m_utterance = WTF::move(utterance);
     spiel_speaker_speak(m_speaker.get(), spielUtterance.get());
 }
 
@@ -280,12 +280,12 @@ void PlatformSpeechSynthesizer::resume()
 void PlatformSpeechSynthesizer::speak(RefPtr<PlatformSpeechSynthesisUtterance>&& utterance)
 {
     if (!m_platformSpeechWrapper) {
-        m_platformSpeechWrapper = makeUnique<SpielSpeechWrapper>(*this, [&, utterance = WTFMove(utterance)]() mutable {
-            m_platformSpeechWrapper->speakUtterance(WTFMove(utterance));
+        m_platformSpeechWrapper = makeUnique<SpielSpeechWrapper>(*this, [&, utterance = WTF::move(utterance)]() mutable {
+            m_platformSpeechWrapper->speakUtterance(WTF::move(utterance));
         });
         return;
     }
-    m_platformSpeechWrapper->speakUtterance(WTFMove(utterance));
+    m_platformSpeechWrapper->speakUtterance(WTF::move(utterance));
 }
 
 void PlatformSpeechSynthesizer::cancel()

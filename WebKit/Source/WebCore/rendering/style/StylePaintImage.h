@@ -37,7 +37,7 @@ class StylePaintImage final : public StyleGeneratedImage {
 public:
     static Ref<StylePaintImage> create(String name, Ref<CSSVariableData> arguments)
     {
-        return adoptRef(*new StylePaintImage(WTFMove(name), WTFMove(arguments)));
+        return adoptRef(*new StylePaintImage(WTF::move(name), WTF::move(arguments)));
     }
     virtual ~StylePaintImage();
 

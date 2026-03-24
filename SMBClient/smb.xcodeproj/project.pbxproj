@@ -270,6 +270,10 @@
 		DD17896E21710518008D17BB /* SMBClientTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DD1789502170FB93008D17BB /* SMBClientTests.m */; };
 		DD17896F21710546008D17BB /* SMBClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6516D750F181911003A80A8 /* SMBClient.framework */; };
 		DD178970217105D3008D17BB /* smbclient.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD17896B217102E2008D17BB /* smbclient.plist */; };
+		DD2FD1B82F364F7300C22E6B /* platform_single_signon.c in Sources */ = {isa = PBXBuildFile; fileRef = DD2FD1B72F364F7300C22E6B /* platform_single_signon.c */; };
+		DD2FD1B92F364F7300C22E6B /* platform_single_signon.h in Headers */ = {isa = PBXBuildFile; fileRef = DD2FD1B62F364F7300C22E6B /* platform_single_signon.h */; };
+		DD2FD1BF2F3653E100C22E6B /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD2FD1BE2F3653E100C22E6B /* Network.framework */; };
+		DD2FD1C02F36542B00C22E6B /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD2FD1BE2F3653E100C22E6B /* Network.framework */; };
 		DD4C44A221C064CB00226B58 /* librap.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4508BF1910DFF2DE0095516B /* librap.a */; };
 		DD5111E0265EEC08008E19CA /* libsmb.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45329CD809E23B4200B4975E /* libsmb.a */; };
 		DD5111F9265EF2D0008E19CA /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111F7265EEE38008E19CA /* OpenDirectory.framework */; };
@@ -847,6 +851,9 @@
 		DD178969217102E2008D17BB /* FakeXCTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FakeXCTestCase.h; sourceTree = "<group>"; };
 		DD17896A217102E2008D17BB /* FakeXCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FakeXCTest.h; sourceTree = "<group>"; };
 		DD17896B217102E2008D17BB /* smbclient.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = smbclient.plist; sourceTree = "<group>"; };
+		DD2FD1B62F364F7300C22E6B /* platform_single_signon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = platform_single_signon.h; sourceTree = "<group>"; };
+		DD2FD1B72F364F7300C22E6B /* platform_single_signon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = platform_single_signon.c; sourceTree = "<group>"; };
+		DD2FD1BE2F3653E100C22E6B /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.Internal.sdk/System/Library/Frameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
 		DD5111E1265EEC56008E19CA /* KerberosHelper.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KerberosHelper.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/PrivateFrameworks/KerberosHelper.framework; sourceTree = DEVELOPER_DIR; };
 		DD5111E3265EEC71008E19CA /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = DEVELOPER_DIR; };
 		DD5111E5265EEC8B008E19CA /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
@@ -886,6 +893,7 @@
 		DDF7BF601471CFDD00A152C3 /* smbio_2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smbio_2.h; sourceTree = "<group>"; };
 		DDF7BF611471D38100A152C3 /* smb_gss_2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smb_gss_2.c; sourceTree = "<group>"; };
 		DDFAFDDB21C062DA00EC4114 /* DCERPC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DCERPC.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/DCERPC.framework; sourceTree = DEVELOPER_DIR; };
+		DDFD486D2E72466D006D6A13 /* SMBKextTestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SMBKextTestPlan.xctestplan; sourceTree = "<group>"; };
 		E14FACDC2D14557000CED044 /* mc_notifier.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = mc_notifier.entitlements; sourceTree = "<group>"; };
 		EB2516160759C88500282A1C /* charsets.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = charsets.c; sourceTree = "<group>"; };
 		EB2516170759C88500282A1C /* charsets.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = charsets.h; sourceTree = "<group>"; };
@@ -938,6 +946,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD2FD1BF2F3653E100C22E6B /* Network.framework in Frameworks */,
 				729C49A914A40B2E0044853F /* CoreServices.framework in Frameworks */,
 				7206CE351491D0D200326A44 /* IOKit.framework in Frameworks */,
 				450B466B114B021F00F14A7C /* KerberosHelper.framework in Frameworks */,
@@ -1077,6 +1086,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD2FD1C02F36542B00C22E6B /* Network.framework in Frameworks */,
 				DDD6F5DA26615AAA009FCD25 /* OpenDirectory.framework in Frameworks */,
 				DDD6F5D926615AA3009FCD25 /* SystemConfiguration.framework in Frameworks */,
 				DDD6F5D826615A98009FCD25 /* GSS.framework in Frameworks */,
@@ -1330,6 +1340,8 @@
 				45171FF01152F2C900F83C4A /* smb_preferences.h */,
 				EB55F4C20795DC8E00811E58 /* nsmb.conf.5 */,
 				2D8D3036009681767F000001 /* ctx.c */,
+				DD2FD1B62F364F7300C22E6B /* platform_single_signon.h */,
+				DD2FD1B72F364F7300C22E6B /* platform_single_signon.c */,
 				453624650AD5653700B20100 /* parse_url.h */,
 				453624660AD5653700B20100 /* parse_url.c */,
 				453AA7411004F86000754099 /* msdfs.c */,
@@ -1390,6 +1402,7 @@
 		456C8C110ADD6B1D005890B8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DD2FD1BE2F3653E100C22E6B /* Network.framework */,
 				DD5111F7265EEE38008E19CA /* OpenDirectory.framework */,
 				DD5111F5265EEE07008E19CA /* Kernel.framework */,
 				DD5111F3265EEDCB008E19CA /* IOKit.framework */,
@@ -1520,6 +1533,7 @@
 			children = (
 				DD1789502170FB93008D17BB /* SMBClientTests.m */,
 				DD1789522170FB93008D17BB /* Info.plist */,
+				DDFD486D2E72466D006D6A13 /* SMBKextTestPlan.xctestplan */,
 			);
 			path = SMBClientTests;
 			sourceTree = "<group>";
@@ -1594,6 +1608,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				45329C0309E23B4200B4975E /* rcfile_priv.h in Headers */,
+				DD2FD1B92F364F7300C22E6B /* platform_single_signon.h in Headers */,
 				45329C0909E23B4200B4975E /* charsets.h in Headers */,
 				453624670AD5653700B20100 /* parse_url.h in Headers */,
 				453AA7441004F86000754099 /* msdfs.h in Headers */,
@@ -1902,7 +1917,7 @@
 				D6516D720F181911003A80A8 /* Sources */,
 				D6516D730F181911003A80A8 /* Frameworks */,
 				DD68E09A268E5E6E007D8ECF /* CopyFiles */,
-				DD68E09C268E5E8C007D8ECF /* ShellScript */,
+				DD68E09C268E5E8C007D8ECF /* Run Script */,
 				DD68E09D268E5EA6007D8ECF /* CopyFiles */,
 			);
 			buildRules = (
@@ -2220,7 +2235,7 @@
 			shellPath = /bin/sh;
 			shellScript = "rm -rf ${SMBFS_LIBRPC}/lsarpc_client.c\nln -s ${DERIVED_FILE_DIR}/lsarpc_client.c ${SMBFS_LIBRPC}/lsarpc_client.c\nrm -rf ${SMBFS_LIBRPC}/srvsvc_client.c\nln -s ${DERIVED_FILE_DIR}/srvsvc_client.c ${SMBFS_LIBRPC}/srvsvc_client.c\n";
 		};
-		DD68E09C268E5E8C007D8ECF /* ShellScript */ = {
+		DD68E09C268E5E8C007D8ECF /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -2229,6 +2244,7 @@
 			);
 			inputPaths = (
 			);
+			name = "Run Script";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -2277,6 +2293,7 @@
 				AE10327C24F3E6F800829097 /* interface.c in Sources */,
 				45329C6809E23B4200B4975E /* charsets.c in Sources */,
 				453624680AD5653700B20100 /* parse_url.c in Sources */,
+				DD2FD1B82F364F7300C22E6B /* platform_single_signon.c in Sources */,
 				D69390EA0DD4B3A7006189A1 /* smbio.c in Sources */,
 				45CA53B30FDDCDB300A003D6 /* subr_mchain.c in Sources */,
 				453AA7431004F86000754099 /* msdfs.c in Sources */,
@@ -2766,7 +2783,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "-DSMB_DEBUG=1";
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = mount_smbfs;
 				SDKROOT = macosx.internal;
@@ -2833,7 +2849,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = mount_smbfs;
 				SDKROOT = macosx.internal;
@@ -2901,7 +2916,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "-DSMB_DEBUG=1";
 				PRODUCT_NAME = smb;
 				REZ_EXECUTABLE = YES;
 				SDKROOT = macosx.internal;
@@ -2970,7 +2984,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "";
 				PRODUCT_NAME = smb;
 				REZ_EXECUTABLE = YES;
 				SDKROOT = macosx.internal;
@@ -3033,7 +3046,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-DSMB_DEBUG=1";
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = smbutil;
 				SDKROOT = macosx.internal;
@@ -3095,7 +3107,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = smbutil;
 				SDKROOT = macosx.internal;
@@ -3163,7 +3174,6 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins;
-				OTHER_CFLAGS = "-DSMB_DEBUG=1";
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.CIFSPlugin;
 				PRODUCT_NAME = smb;
@@ -3234,7 +3244,6 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.CIFSPlugin;
 				PRODUCT_NAME = smb;
@@ -3298,7 +3307,8 @@
 				);
 				OTHER_CFLAGS = (
 					"-DSMBCLIENT_PRIVATE",
-					"-DSMB_DEBUG",
+					"-DDEBUG=1",
+					"-DSMB_DEBUG=1",
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = TestLib;
@@ -3432,8 +3442,9 @@
 				MODULE_STOP = smbfs_module_stop;
 				MODULE_VERSION = 1.7.0;
 				OTHER_CFLAGS = (
-					"-DSMB_DEBUG=1",
 					"-DNAMEDSTREAMS",
+					"-DDEBUG=1",
+					"-DSMB_DEBUG=1",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.smbfs;
 				PRODUCT_NAME = smbfs;
@@ -3608,6 +3619,7 @@
 		45A29CF609DC5046005888E7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CCOVERAGEDIR = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -3661,6 +3673,7 @@
 		45A29CF709DC5046005888E7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CCOVERAGEDIR = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -3837,9 +3850,10 @@
 			};
 			name = Deployment;
 		};
-		526D2FE31C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE31C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CCOVERAGEDIR = /tmp/coverage;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
@@ -3879,13 +3893,19 @@
 				HEADER_SEARCH_PATHS = "${SDK_DIR}";
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
+					"-fcoverage-mapping",
+					"-DCCOVERAGE",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SYMROOT = ./build;
 				WARNING_CFLAGS = "-Wall";
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE41C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE41C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -3893,9 +3913,9 @@
 				PRODUCT_NAME = "smb_frameworks copy";
 				SDKROOT = macosx.internal;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE51C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE51C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -3905,9 +3925,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE61C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE61C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -3917,9 +3937,9 @@
 				SDKROOT = macosx.internal;
 				SUPPORTS_TEXT_BASED_API = YES;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE71C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE71C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -3938,9 +3958,9 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE81C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE81C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -3988,10 +4008,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-				);
 				PRODUCT_NAME = smb;
 				REZ_EXECUTABLE = YES;
 				SDKROOT = macosx.internal;
@@ -4010,9 +4026,9 @@
 					"-Wformat-security",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FE91C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FE91C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD8277811EEB348400DED795 /* kext.xcconfig */;
 			buildSettings = {
@@ -4066,9 +4082,11 @@
 				MODULE_VERSION = 1.7.0;
 				OTHER_CFLAGS = (
 					"-DNAMEDSTREAMS",
-					"-fprofile-instr-generate",
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
 					"-fcoverage-mapping",
+					"-DCCOVERAGE",
 				);
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.smbfs;
 				PRODUCT_NAME = smbfs;
 				SDKROOT = macosx.internal;
@@ -4086,9 +4104,9 @@
 				);
 				WRAPPER_EXTENSION = kext;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FEA1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FEA1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -4103,9 +4121,9 @@
 				SDKROOT = macosx.internal;
 				WRAPPER_EXTENSION = fs;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FEB1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FEB1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4171,9 +4189,9 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FEC1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FEC1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -4220,10 +4238,6 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins;
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.CIFSPlugin;
 				PRODUCT_NAME = smb;
@@ -4244,9 +4258,9 @@
 				);
 				WRAPPER_EXTENSION = bundle;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FED1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FED1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4287,8 +4301,9 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"-DRPC_LIB_ONLY=1",
-					"-fprofile-instr-generate",
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
 					"-fcoverage-mapping",
+					"-DCCOVERAGE",
 				);
 				PRODUCT_NAME = rpc;
 				SDKROOT = macosx.internal;
@@ -4311,9 +4326,9 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FEE1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FEE1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4362,9 +4377,9 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FEF1C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FEF1C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -4411,10 +4426,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-				);
 				OTHER_LDFLAGS = (
 					"-lutil",
 					"-fprofile-instr-generate",
@@ -4435,9 +4446,9 @@
 					"-Wshadow",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FF01C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FF01C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -4479,10 +4490,6 @@
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-				);
 				OTHER_LDFLAGS = (
 					"-lutil",
 					"-fprofile-instr-generate",
@@ -4503,9 +4510,9 @@
 					"-Wshadow",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FF11C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FF11C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -4545,8 +4552,9 @@
 				);
 				OTHER_CFLAGS = (
 					"-DSMBCLIENT_PRIVATE",
-					"-fprofile-instr-generate",
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
 					"-fcoverage-mapping",
+					"-DCCOVERAGE",
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate ";
 				PRODUCT_NAME = TestLib;
@@ -4567,9 +4575,9 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
-		526D2FF21C4F1461006AF6C4 /* CodeCvgDeployment */ = {
+		526D2FF21C4F1461006AF6C4 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4613,7 +4621,7 @@
 				);
 				ZERO_LINK = NO;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
 		721499CD14C664AC003A186C /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -5057,7 +5065,7 @@
 			};
 			name = Deployment;
 		};
-		D797CB1723BA264800AF97C2 /* CodeCvgDeployment */ = {
+		D797CB1723BA264800AF97C2 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -5117,10 +5125,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -5129,7 +5133,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
 		DD1789562170FB93008D17BB /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -5282,7 +5286,7 @@
 			};
 			name = Deployment;
 		};
-		DD1789582170FB93008D17BB /* CodeCvgDeployment */ = {
+		DD1789582170FB93008D17BB /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
@@ -5352,7 +5356,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
 		DD178963217100D7008D17BB /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -5416,7 +5420,11 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "-DFAKE_XC_TEST";
+				OTHER_CFLAGS = (
+					"-DFAKE_XC_TEST",
+					"-DDEBUG=1",
+					"-DSMB_DEBUG=1",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
@@ -5491,7 +5499,7 @@
 			};
 			name = Deployment;
 		};
-		DD178965217100D7008D17BB /* CodeCvgDeployment */ = {
+		DD178965217100D7008D17BB /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
@@ -5548,8 +5556,9 @@
 				MTL_FAST_MATH = YES;
 				OTHER_CFLAGS = (
 					"-DFAKE_XC_TEST",
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
 					"-fcoverage-mapping",
-					"-fprofile-instr-generate",
+					"-DCCOVERAGE",
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -5559,7 +5568,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
 		F4B3803E250787B6003A621B /* Development */ = {
 			isa = XCBuildConfiguration;
@@ -5684,7 +5693,7 @@
 			};
 			name = Deployment;
 		};
-		F4B38040250787B6003A621B /* CodeCvgDeployment */ = {
+		F4B38040250787B6003A621B /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -5737,15 +5746,11 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = (
-					"-fcoverage-mapping",
-					"-fprofile-instr-generate",
-				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 			};
-			name = CodeCvgDeployment;
+			name = CodeCoverage;
 		};
 /* End XCBuildConfiguration section */
 
@@ -5755,7 +5760,7 @@
 			buildConfigurations = (
 				4508BF1A10DFF2DF0095516B /* Development */,
 				4508BF1B10DFF2DF0095516B /* Deployment */,
-				526D2FEE1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FEE1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5765,7 +5770,7 @@
 			buildConfigurations = (
 				45329A7E09E2283700B4975E /* Development */,
 				45329A7F09E2283700B4975E /* Deployment */,
-				526D2FEF1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FEF1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5775,7 +5780,7 @@
 			buildConfigurations = (
 				45329CD609E23B4200B4975E /* Development */,
 				45329CD709E23B4200B4975E /* Deployment */,
-				526D2FE81C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE81C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5785,7 +5790,7 @@
 			buildConfigurations = (
 				45329D0009E23DAF00B4975E /* Development */,
 				45329D0109E23DAF00B4975E /* Deployment */,
-				526D2FF01C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FF01C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5795,7 +5800,7 @@
 			buildConfigurations = (
 				454D24020ADC6F4A00B10C40 /* Development */,
 				454D24030ADC6F4A00B10C40 /* Deployment */,
-				526D2FEC1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FEC1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5805,7 +5810,7 @@
 			buildConfigurations = (
 				4556F64B0B04409E00F77A08 /* Development */,
 				4556F64C0B04409E00F77A08 /* Deployment */,
-				526D2FF11C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FF11C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5815,7 +5820,7 @@
 			buildConfigurations = (
 				456813CA09E1E9D80028549B /* Development */,
 				456813CB09E1E9D80028549B /* Deployment */,
-				526D2FE91C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE91C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5825,7 +5830,7 @@
 			buildConfigurations = (
 				4568141809E1EBFB0028549B /* Development */,
 				4568141909E1EBFB0028549B /* Deployment */,
-				526D2FEA1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FEA1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5835,7 +5840,7 @@
 			buildConfigurations = (
 				45A29CF209DC5046005888E7 /* Development */,
 				45A29CF309DC5046005888E7 /* Deployment */,
-				526D2FE71C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE71C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5845,7 +5850,7 @@
 			buildConfigurations = (
 				45A29CF609DC5046005888E7 /* Development */,
 				45A29CF709DC5046005888E7 /* Deployment */,
-				526D2FE31C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE31C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5855,7 +5860,7 @@
 			buildConfigurations = (
 				45BAC47B10DC0B68008D40D3 /* Development */,
 				45BAC47C10DC0B68008D40D3 /* Deployment */,
-				526D2FED1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FED1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5865,7 +5870,7 @@
 			buildConfigurations = (
 				721499CD14C664AC003A186C /* Development */,
 				721499CE14C664AC003A186C /* Deployment */,
-				526D2FE61C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE61C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5875,7 +5880,7 @@
 			buildConfigurations = (
 				721499F814C78F60003A186C /* Development */,
 				721499F914C78F60003A186C /* Deployment */,
-				526D2FE51C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE51C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5885,7 +5890,7 @@
 			buildConfigurations = (
 				72149A0C14C7905F003A186C /* Development */,
 				72149A0D14C7905F003A186C /* Deployment */,
-				526D2FE41C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FE41C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5895,7 +5900,7 @@
 			buildConfigurations = (
 				D6516D770F181912003A80A8 /* Development */,
 				D6516D780F181912003A80A8 /* Deployment */,
-				526D2FEB1C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FEB1C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5905,7 +5910,7 @@
 			buildConfigurations = (
 				D67665F40F1C0CB500A0DC1B /* Development */,
 				D67665F50F1C0CB500A0DC1B /* Deployment */,
-				526D2FF21C4F1461006AF6C4 /* CodeCvgDeployment */,
+				526D2FF21C4F1461006AF6C4 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5915,7 +5920,7 @@
 			buildConfigurations = (
 				D797CB1523BA264800AF97C2 /* Development */,
 				D797CB1623BA264800AF97C2 /* Deployment */,
-				D797CB1723BA264800AF97C2 /* CodeCvgDeployment */,
+				D797CB1723BA264800AF97C2 /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5925,7 +5930,7 @@
 			buildConfigurations = (
 				DD1789562170FB93008D17BB /* Development */,
 				DD1789572170FB93008D17BB /* Deployment */,
-				DD1789582170FB93008D17BB /* CodeCvgDeployment */,
+				DD1789582170FB93008D17BB /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5935,7 +5940,7 @@
 			buildConfigurations = (
 				DD178963217100D7008D17BB /* Development */,
 				DD178964217100D7008D17BB /* Deployment */,
-				DD178965217100D7008D17BB /* CodeCvgDeployment */,
+				DD178965217100D7008D17BB /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -5945,7 +5950,7 @@
 			buildConfigurations = (
 				F4B3803E250787B6003A621B /* Development */,
 				F4B3803F250787B6003A621B /* Deployment */,
-				F4B38040250787B6003A621B /* CodeCvgDeployment */,
+				F4B38040250787B6003A621B /* CodeCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

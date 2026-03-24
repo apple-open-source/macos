@@ -60,7 +60,7 @@ static Vector<Ref<WebPageProxy>> allPageProxiesFor(const WebAutomationSession& s
         for (Ref page : process->pages()) {
             if (!page->isControlledByAutomation())
                 continue;
-            pages.append(WTFMove(page));
+            pages.append(WTF::move(page));
         }
     }
 
@@ -81,7 +81,7 @@ void BidiPermissionsAgent::setPermission(Ref<JSON::Object>&& descriptor, const S
         bool embeddedOriginIsWildcard = subFrameURLString == "*"_s;
         auto embeddedOrigin = RegistrableDomain { URL { subFrameURLString } };
 
-        Ref callbackAggregator = CallbackAggregator::create([callback = WTFMove(callback)]() {
+        Ref callbackAggregator = CallbackAggregator::create([callback = WTF::move(callback)]() {
             callback({ });
         });
 

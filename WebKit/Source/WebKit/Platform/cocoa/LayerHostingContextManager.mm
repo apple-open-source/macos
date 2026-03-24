@@ -49,7 +49,13 @@ void LayerHostingContextManager::requestHostingContext(LayerHostingContextCallba
         return;
     }
 
-    m_layerHostingContextRequests.append(WTFMove(completionHandler));
+    m_layerHostingContextRequests.append(WTF::move(completionHandler));
+}
+
+void LayerHostingContextManager::setInitialVideoLayerSize(const WebCore::FloatSize& size)
+{
+    if (!size.isEmpty() && m_videoLayerSize.isEmpty())
+        m_videoLayerSize = size;
 }
 
 std::optional<WebCore::HostingContext> LayerHostingContextManager::createHostingContextIfNeeded(const PlatformLayerContainer& layer, bool canShowWhileLocked)
@@ -75,7 +81,6 @@ std::optional<WebCore::HostingContext> LayerHostingContextManager::createHosting
         hadLayer = true;
     } else if (!layer && m_inlineLayerHostingContext) {
         m_inlineLayerHostingContext = nullptr;
-        m_videoLayerSize = { };
         hadLayer = true;
     }
 
@@ -97,7 +102,7 @@ void LayerHostingContextManager::setVideoLayerSizeFenced(const WebCore::FloatSiz
 #if USE(EXTENSIONKIT)
 #if ENABLE(MACH_PORT_LAYER_HOSTING)
         auto sendRightAnnotatedCopy = sendRightAnnotated;
-        hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(WTFMove(sendRightAnnotatedCopy));
+        hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(WTF::move(sendRightAnnotatedCopy));
 #else
         hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(sendRightAnnotated.sendRight.sendRight());
 #endif // ENABLE(MACH_PORT_LAYER_HOSTING)

@@ -37,7 +37,7 @@ class UserStyleSheet final : public ObjectImpl<Object::Type::UserStyleSheet>, pu
 public:
     static Ref<UserStyleSheet> create(WebCore::UserStyleSheet userStyleSheet, API::ContentWorld& world)
     {
-        return adoptRef(*new UserStyleSheet(WTFMove(userStyleSheet), world));
+        return adoptRef(*new UserStyleSheet(WTF::move(userStyleSheet), world));
     }
 
     UserStyleSheet(WebCore::UserStyleSheet, API::ContentWorld&);

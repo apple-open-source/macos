@@ -13,7 +13,8 @@ terms of the MIT license. A copy of the license can be found in the file
 void
 xzm_metapool_init(xzm_metapool_t mp, xzm_metapool_id_t pool_id, uint8_t vm_tag,
 		uint32_t slab_size, uint32_t block_align, uint32_t block_size,
-		xzm_metapool_t metadata_pool)
+		xzm_metapool_t metadata_pool, void *start_space,
+		uint32_t start_space_size)
 {
 	if (block_align) {
 		xzm_debug_assert(slab_size % block_size == 0);
@@ -34,6 +35,34 @@ xzm_metapool_init(xzm_metapool_t mp, xzm_metapool_id_t pool_id, uint8_t vm_tag,
 	xzm_debug_assert(!metadata_pool ||
 			metadata_pool->xzmp_block_size >= sizeof(struct xzm_metapool_block_s));
 
+	xzm_metapool_slab_t current_slab = NULL;
+	uint32_t current_block = 0;
+	if (start_space) {
+		xzm_debug_assert(!metadata_pool);
+
+		uintptr_t aligned_start_space =
+				roundup((uintptr_t)start_space, block_align);
+		uintptr_t alignment_offset =
+				aligned_start_space - (uintptr_t)start_space;
+
+		if (alignment_offset > start_space_size ||
+				start_space_size - alignment_offset < block_size * 2) {
+			start_space = NULL;
+			start_space_size = 0;
+		} else {
+			start_space = (void *)aligned_start_space;
+			start_space_size -= (size_t)alignment_offset;
+
+			start_space_size -= start_space_size % block_size;
+
+			current_slab = (xzm_metapool_slab_t)start_space;
+			*current_slab = (struct xzm_metapool_slab_s){
+				.xzmps_base = start_space,
+			};
+			current_block = block_size;
+		}
+	}
+
 	*mp = (struct xzm_metapool_s){
 		.xzmp_lock = _MALLOC_LOCK_INIT,
 		.xzmp_id = pool_id,
@@ -42,8 +71,16 @@ xzm_metapool_init(xzm_metapool_t mp, xzm_metapool_id_t pool_id, uint8_t vm_tag,
 		.xzmp_slab_limit = (slab_size / block_size) * block_size,
 		.xzmp_block_align = block_align,
 		.xzmp_block_size = block_size,
+		.xzmp_current_slab = current_slab,
+		.xzmp_current_block = current_block,
 		.xzmp_metadata_metapool = metadata_pool,
+		.xzmp_start_space = start_space,
+		.xzmp_start_space_size = start_space_size,
 	};
+
+	if (start_space) {
+		SLIST_INSERT_HEAD(&mp->xzmp_slabs, current_slab, xzmps_entry);
+	}
 }
 
 static bool
@@ -51,6 +88,16 @@ _xzm_metapool_should_madvise(xzm_metapool_t mp)
 {
 	return (mp->xzmp_metadata_metapool) &&
 			(mp->xzmp_block_size >= vm_page_size);
+}
+
+static uint32_t
+_xzm_metapool_limit_for_slab(xzm_metapool_t mp, xzm_metapool_slab_t slab)
+{
+	if ((void *)slab == mp->xzmp_start_space) {
+		return mp->xzmp_start_space_size;
+	} else {
+		return mp->xzmp_slab_limit;
+	}
 }
 
 // Only used in exclaves and the debug dylib
@@ -61,9 +108,9 @@ _xzm_metapool_slab_for_block(xzm_metapool_t mp, void *blockp)
 	xzm_metapool_slab_t slab = NULL;
 	SLIST_FOREACH(slab, &mp->xzmp_slabs, xzmps_entry) {
 		uintptr_t slab_base = (uintptr_t)slab->xzmps_base;
-		uintptr_t slab_limit = (uintptr_t)(
-				slab->xzmps_base + mp->xzmp_slab_size);
-		if (block_ptr >= slab_base && block_ptr < slab_limit) {
+		uintptr_t slab_limit_address =
+				slab_base + _xzm_metapool_limit_for_slab(mp, slab);
+		if (block_ptr >= slab_base && block_ptr < slab_limit_address) {
 			xzm_debug_assert(!((block_ptr - slab_base) % mp->xzmp_block_size));
 			return slab;
 		}
@@ -91,7 +138,8 @@ xzm_metapool_alloc(xzm_metapool_t mp)
 	}
 
 	if (!mp->xzmp_current_slab ||
-			mp->xzmp_current_block == mp->xzmp_slab_limit) {
+			mp->xzmp_current_block ==
+					_xzm_metapool_limit_for_slab(mp, mp->xzmp_current_slab)) {
 		size_t allocation_size = (size_t)mp->xzmp_slab_size;
 		uint8_t align = mp->xzmp_block_align ?
 				(uint8_t)__builtin_ctz(mp->xzmp_block_align) : 0;
@@ -143,6 +191,15 @@ xzm_metapool_alloc(xzm_metapool_t mp)
 
 	uint8_t *current_base = mp->xzmp_current_slab->xzmps_base;
 	block = (void *)(current_base + mp->xzmp_current_block);
+
+#ifdef DEBUG
+	uintptr_t block_limit = (uintptr_t)((uint8_t *)block + mp->xzmp_block_size);
+	uintptr_t slab_limit = (uintptr_t)(current_base +
+			_xzm_metapool_limit_for_slab(mp, mp->xzmp_current_slab));
+	// The block fits in the slab
+	xzm_debug_assert(block_limit <= slab_limit);
+#endif
+
 	mp->xzmp_current_block += mp->xzmp_block_size;
 
 

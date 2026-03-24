@@ -325,7 +325,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
         CFStringRef to_name = NULL;
         CFStringRef backup_name = NULL;
         
-        require_quiet(isString(key), errOut);
+        __Require_Quiet(isString(key), errOut);
         
         // if SOS is disabled only listen for account change, key parameter and circle changes. and recovery ring and icloud identity ring
         switch (SOSKVSKeyGetKeyTypeAndParse(key, &circle_name, &peer_info_name, &ring_name, &backup_name, &from_name, &to_name)) {

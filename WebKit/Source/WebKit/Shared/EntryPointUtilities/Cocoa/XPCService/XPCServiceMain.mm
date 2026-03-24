@@ -50,6 +50,7 @@
 #import <wtf/spi/cocoa/OSLogSPI.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/MakeString.h>
+#import <wtf/text/TextStream.h>
 
 #if __has_include(<WebKitAdditions/DyldCallbackAdditions.h>)
 #import <WebKitAdditions/DyldCallbackAdditions.h>
@@ -143,7 +144,7 @@ static void setUserDirSuffix(ASCIILiteral suffix)
 
 void XPCServiceEventHandler(xpc_connection_t peer)
 {
-    OSObjectPtr<xpc_connection_t> retainedPeerConnection(peer);
+    XPCObjectPtr<xpc_connection_t> retainedPeerConnection(peer);
 
     xpc_connection_set_target_queue(peer, globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
@@ -181,7 +182,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             bool disableLogging = xpc_dictionary_get_bool(event, "disable-logging");
             initializeLogd(disableLogging, retainedPeerConnection.get());
 
-            if (RetainPtr languages = xpc_dictionary_get_value(event, "OverrideLanguages")) {
+            if (XPCObjectPtr<xpc_object_t> languages = xpc_dictionary_get_value(event, "OverrideLanguages")) {
                 Vector<String> newLanguages;
                 @autoreleasepool {
                     xpc_array_apply(languages.get(), makeBlockPtr([&newLanguages](size_t index, xpc_object_t value) {
@@ -190,7 +191,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
                     }).get());
                 }
                 LOG_WITH_STREAM(Language, stream << "Bootstrap message contains OverrideLanguages: " << newLanguages);
-                stageOverrideLanguagesForMainThread(WTFMove(newLanguages));
+                stageOverrideLanguagesForMainThread(WTF::move(newLanguages));
             } else
                 LOG(Language, "Bootstrap message does not contain OverrideLanguages");
 
@@ -243,9 +244,10 @@ void XPCServiceEventHandler(xpc_connection_t peer)
                 return;
             }
 
-            auto reply = adoptOSObject(xpc_dictionary_create_reply(event));
+            // FIXME: This is a false positive. <rdar://164843889>
+            SUPPRESS_RETAINPTR_CTOR_ADOPT auto reply = adoptXPCObject(xpc_dictionary_create_reply(event));
             xpc_dictionary_set_string(reply.get(), "message-name", "process-finished-launching");
-            xpc_connection_send_message(xpc_dictionary_get_remote_connection(event), reply.get());
+            xpc_connection_send_message(XPCObjectPtr<xpc_connection_t> { xpc_dictionary_get_remote_connection(event) }.get(), reply.get());
 
             int fd = xpc_dictionary_dup_fd(event, "stdout");
             if (fd != -1)
@@ -255,7 +257,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             if (fd != -1)
                 dup2(fd, STDERR_FILENO);
 
-            WorkQueue::mainSingleton().dispatchSync([initializerFunctionPtr, event = OSObjectPtr<xpc_object_t>(event), retainedPeerConnection] {
+            WorkQueue::mainSingleton().dispatchSync([initializerFunctionPtr, event = XPCObjectPtr<xpc_object_t>(event), retainedPeerConnection] {
                 WTF::initializeMainThread();
 
                 initializeCFPrefs();
@@ -278,7 +280,8 @@ void XPCServiceEventHandler(xpc_connection_t peer)
 
 int XPCServiceMain(int, const char**)
 {
-    auto bootstrap = adoptOSObject(xpc_copy_bootstrap());
+    // FIXME: This is a false positive. <rdar://164843889>
+    SUPPRESS_RETAINPTR_CTOR_ADOPT auto bootstrap = adoptXPCObject(xpc_copy_bootstrap());
 
     if (bootstrap) {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)

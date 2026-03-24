@@ -138,53 +138,108 @@ def  process_trace (trace):
     log ("Processing trace...")
     events = collections.OrderedDict()
     reports = collections.OrderedDict()
+
     for probe in trace:
         if probe["debugid"] == kIOHIDDebugCode_HandleReport:
             timestamp = probe["args"][1]
-            reports[timestamp] = probe
+            report = reports.setdefault(timestamp, [])
+            report.append(probe)
         else:
             timestamp = int (probe["args"][0])
             event = events.setdefault(timestamp, [])
             event.append(probe)
-    for  timestamp in events:
+    for timestamp in events:
         if timestamp in reports:
-            events[timestamp].append(reports[timestamp])
+            events[timestamp].extend(reports[timestamp])
 
     log ("Extracted event count: %d" % len(events))
-    return events   
+    return events
+
+
+def process_sorted_probes(probes):
+    result = []
+    events = []
+    currentReport = None
+    for probe in probes:
+
+        probeID = probe["debugid"]
+
+        if probeID == kIOHIDDebugCode_HandleReport:
+            # cache this probe as the most recently seen report
+            currentReport = probe
+
+        elif probeID == kIOHIDDebugCode_DispatchHIDEvent:
+            # begin tracking a new event
+            events.append({probeID : probe})
+            if currentReport:
+                # associate this event with the most recent input report
+                events[-1][kIOHIDDebugCode_HandleReport] = currentReport
+
+        elif (probeID == kHID_ES_Service_Callback or
+              probeID == kHID_ES_Service_Filters_Start or
+              probeID == kHID_ES_Service_Filters_End or
+              probeID == kHID_ES_Session_Filters_Start or
+              probeID == kHID_ES_Session_Filters_End or
+              probeID == kHID_ES_FiltersClientsDone or
+              probeID == kHID_ES_ClientsEnqueueEnd):
+            # find the first event which doesn't have this probe yet
+            found = False
+            for event in events:
+                if not probeID in event:
+                    event[probeID] = probe
+                    found = True
+                    break
+            if not found:
+                # in case there is no dispatch event probe, track this as its own event
+                log("WARNING: event with no kIOHIDDebugCode_DispatchHIDEvent probe")
+                events.append({probeID : probe})
+
+        elif probeID == kHID_ES_Client_QueueCallback:
+            # there can be multiple of these per event; we identify the correct event based on
+            # the most recent event of the correct type which has the probe indicating processing
+            # has completed in the event system. this is a heuristic but its the best we can do and
+            # should hopefully work most of the time.
+            found = False
+            for event in reversed(events):
+                if (kHID_ES_Service_Callback in event and kHID_ES_ClientsEnqueueEnd in event and
+                    int(event[kHID_ES_Service_Callback]["args"][2]) == int(probe["args"][1])):
+                    event.setdefault(probeID, [])
+                    event[probeID].append(probe)
+                    found = True
+                    break
+            if not found:
+                log("WARNING: dropping kHID_ES_Client_QueueCallback probe")
+
+    # flatten each event dictionaries into a list of probes
+    for event in events:
+        eventProbes = []
+        for k, v in event.items():
+            if isinstance(v, list):
+                eventProbes.extend(v)
+            else:
+                eventProbes.append(v)
+        result.append(eventProbes)
+
+    # return the list of probe lists
+    return result
+
 
 def  process_events (eventsDict):
     log ("Processing Events")
     events = []
-    for  timestamp in eventsDict:
-        event = Event.createEvent(timestamp, eventsDict[timestamp])
-        if event: 
-            events.append(event)
+    for timestamp in eventsDict:
+        # sort probes by timestamp
+        probes = sorted(eventsDict[timestamp], key=lambda x: x['timestampns'])
+
+        probeLists = process_sorted_probes(probes)
+        for probeList in probeLists:
+            event = Event.createEvent(timestamp, probeList)
+            if event:
+                events.append(event)
+            else:
+                log("WARNING: insufficient information to create an event")
+
     return events
-
-    events = collections.OrderedDict()
-    reports = ollections.OrderedDict()
-    for probe in trace:
-        if probe["debugid"] == kIOHIDDebugCode_HandleReport:
-            timestamp = probe["args"][1]
-            reports[timestamp] = probe
-        else:
-            timestamp = int (probe["args"][0])
-            event = []
-            if events[timestamp]:
-                event = events[timestamp]
-            event.append(probe)
-            events[timestamp] = event
-    for  timestamp in events:
-        if reports[timestamp]:
-            events[timestamp].append(reports[timestamp])
-
-    for  timestamp in events:
-        if reports[timestamp]:
-            events[timestamp].append(reports[timestamp])
-
-    log ("Processed event count: %d" % len(events))
-    return events   
 
 class Event(object):
     

@@ -31,12 +31,12 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(NavigationTransition);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigationTransition);
 
 NavigationTransition::NavigationTransition(NavigationNavigationType type, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&& finished)
     : m_navigationType(type)
-    , m_from(WTFMove(fromEntry))
-    , m_finished(WTFMove(finished))
+    , m_from(WTF::move(fromEntry))
+    , m_finished(WTF::move(finished))
 {
 }
 

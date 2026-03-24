@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ain{
     ExemplarCharacters{
         "[ヽ ヾ ー ァ ア ィ イ ゥ ウ ヴ ェ エ ォ オ ヵ カ ガ キ ギ ㇰ ク グ ヶ ケ ゲ コ ゴ サ ザ ㇱ シ ジ ㇲ ス ズ セ ゼ {"

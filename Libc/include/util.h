@@ -105,12 +105,6 @@ int	openpty(int *, int *, char * _LIBC_PTYNAME_OR_NULL,
 char *_LIBC_CSTR fparseln(FILE *, size_t *, size_t *, const char[3], int);
 pid_t	forkpty(int *, char * _LIBC_PTYNAME_OR_NULL,
     struct termios *, struct winsize *);
-int	pidlock(const char *, int, pid_t *, const char *);
-int	ttylock(const char *, int, pid_t *);
-int	ttyunlock(const char *);
-int	ttyaction(char *tty, char *act, char *user);
-struct iovec;
-char   *ttymsg(struct iovec *, int, const char *, int);
 __END_DECLS
 #ifdef UNIFDEF_LEGACY_UTMP_APIS
 

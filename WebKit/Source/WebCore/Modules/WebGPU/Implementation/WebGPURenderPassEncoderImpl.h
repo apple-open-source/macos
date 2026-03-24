@@ -41,7 +41,7 @@ class RenderPassEncoderImpl final : public RenderPassEncoder {
 public:
     static Ref<RenderPassEncoderImpl> create(WebGPUPtr<WGPURenderPassEncoder>&& renderPassEncoder, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new RenderPassEncoderImpl(WTFMove(renderPassEncoder), convertToBackingContext));
+        return adoptRef(*new RenderPassEncoderImpl(WTF::move(renderPassEncoder), convertToBackingContext));
     }
 
     virtual ~RenderPassEncoderImpl();

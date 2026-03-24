@@ -31,7 +31,7 @@
 #include "InlineItem.h"
 #include "InlineTextItem.h"
 #include "LayoutElementBox.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "TextUtil.h"
 
 namespace WebCore {
@@ -437,7 +437,7 @@ static std::optional<size_t> firstHyphenPosition(StringView content, const Rende
     auto candidatePosition = std::min(contentLength, contentLength - limitAfterValue(style) + 1);
     auto firstHyphenLocation = std::optional<size_t> { };
     while (true) {
-        auto hyphenIndex = lastHyphenLocation(content, candidatePosition, style.computedLocale());
+        auto hyphenIndex = lastHyphenLocation(content, candidatePosition, Style::toPlatform(style.computedLocale()));
         if (!hyphenIndex || hyphenIndex < limitBefore)
             return firstHyphenLocation;
         if (hyphenIndex >= candidatePosition) {
@@ -456,7 +456,7 @@ static std::optional<size_t> lastHyphenPosition(StringView content, const Render
     if (!hasEnoughContentForHyphenation(contentLength, style))
         return { };
 
-    if (auto hyphenIndex = lastHyphenLocation(content, std::min(contentLength, contentLength - limitAfterValue(style) + 1), style.computedLocale()))
+    if (auto hyphenIndex = lastHyphenLocation(content, std::min(contentLength, contentLength - limitAfterValue(style) + 1), Style::toPlatform(style.computedLocale())))
         return hyphenIndex >= limitBeforeValue(style) ? std::make_optional(hyphenIndex) : std::nullopt;
     return { };
 }
@@ -470,7 +470,7 @@ static std::optional<size_t> hyphenPositionBefore(StringView content, const Rend
     if (beforePosition < limitBeforeValue(style) || !hasEnoughContentForHyphenation(contentLength, style))
         return { };
 
-    if (auto hyphenIndex = lastHyphenLocation(content, std::min(beforePosition, contentLength - limitAfterValue(style)) + 1, style.computedLocale()))
+    if (auto hyphenIndex = lastHyphenLocation(content, std::min(beforePosition, contentLength - limitAfterValue(style)) + 1, Style::toPlatform(style.computedLocale())))
         return hyphenIndex >= limitBeforeValue(style) ? std::make_optional(hyphenIndex) : std::nullopt;
     return { };
 }
@@ -855,7 +855,7 @@ InlineContentBreaker::OverflowingTextContent InlineContentBreaker::processOverfl
     return { overflowingRunIndex };
 }
 
-OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBehavior(const RenderStyle& style, bool hasWrapOpportunityAtPreviousPosition) const
+EnumSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBehavior(const RenderStyle& style, bool hasWrapOpportunityAtPreviousPosition) const
 {
     // Disregard any prohibition against line breaks mandated by the word-break property.
     // The different wrapping opportunities must not be prioritized.
@@ -867,8 +867,8 @@ OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBe
     if (style.wordBreak() == WordBreak::BreakAll)
         return { WordBreakRule::AtArbitraryPositionWithinWords };
 
-    auto includeHyphenationIfAllowed = [&](std::optional<InlineContentBreaker::WordBreakRule> wordBreakRule) -> OptionSet<InlineContentBreaker::WordBreakRule> {
-        auto hyphenationIsAllowed = !n_hyphenationIsDisabled && style.hyphens() == Hyphens::Auto && canHyphenate(style.computedLocale());
+    auto includeHyphenationIfAllowed = [&](std::optional<InlineContentBreaker::WordBreakRule> wordBreakRule) -> EnumSet<InlineContentBreaker::WordBreakRule> {
+        auto hyphenationIsAllowed = !n_hyphenationIsDisabled && style.hyphens() == Hyphens::Auto && canHyphenate(Style::toPlatform(style.computedLocale()));
         if (hyphenationIsAllowed) {
             if (wordBreakRule)
                 return { *wordBreakRule, WordBreakRule::AtHyphenationOpportunities };
@@ -917,7 +917,7 @@ void InlineContentBreaker::ContinuousContent::resetTrailingTrimmableContent()
 
 void InlineContentBreaker::ContinuousContent::append(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth, InlineLayoutUnit textSpacingAdjustment)
 {
-    ASSERT(inlineItem.isAtomicInlineBox() || inlineItem.isInlineBoxStartOrEnd() || inlineItem.isOpaque());
+    ASSERT(inlineItem.isAtomicInlineBox() || inlineItem.isInlineBoxStartOrEnd() || inlineItem.isOpaque() || inlineItem.isBlock());
     m_isTextOnlyContent = false;
     m_hasTrailingWordSeparator = m_hasTrailingWordSeparator && !inlineItem.isAtomicInlineBox();
     appendToRunList(inlineItem, style, { }, logicalWidth, textSpacingAdjustment);

@@ -147,7 +147,7 @@ void IOHIDEventQueue::updateUsageCounts()
 
     // Submit queue usage at local maximum queue size.
     // (immediately before consumer dequeues)
-    require_quiet(lastHead != 0 && head != lastHead, exit);
+    __Require_Quiet(lastHead != 0 && head != lastHead, exit);
 
     if (lastHead < tail) {
         queueUsage = tail - lastHead;
@@ -159,7 +159,7 @@ void IOHIDEventQueue::updateUsageCounts()
 
     // Bucket the % usage into 0, 1, 2, 3, ...
     queueUsage /= HID_QUEUE_BUCKET_DENOM;
-    require(queueUsage < HID_QUEUE_USAGE_BUCKETS, exit);
+    __Require(queueUsage < HID_QUEUE_USAGE_BUCKETS, exit);
 
     _usageCounts[queueUsage]++;
 
@@ -173,7 +173,7 @@ OSDictionary *IOHIDEventQueue::copyUsageCountDict() const
 {
     OSDictionary *dict = OSDictionary::withCapacity(HID_QUEUE_USAGE_BUCKETS);
 
-    require(dict, exit);
+    __Require(dict, exit);
 
     for (size_t i = 0; i < HID_QUEUE_USAGE_BUCKETS; i++) {
         char        key[256] = {0};

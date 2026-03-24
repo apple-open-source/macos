@@ -65,7 +65,6 @@
 		D3D4D1F22601867400C8FE88 /* display.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1DA2601861600C8FE88 /* display.c */; };
 		D3D4D1F32601867400C8FE88 /* get_addrs.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1DB2601861600C8FE88 /* get_addrs.c */; };
 		D3D4D1F42601867400C8FE88 /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1DC2601861600C8FE88 /* io.c */; };
-		D3D4D1F52601867400C8FE88 /* talk_ctl.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1DD2601861600C8FE88 /* talk_ctl.h */; };
 		D3D4D1F62601867400C8FE88 /* look_up.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1DF2601861600C8FE88 /* look_up.c */; };
 		D3D4D1F72601867400C8FE88 /* ctl_transact.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E02601861600C8FE88 /* ctl_transact.c */; };
 		D3D4D1F82601867400C8FE88 /* talk.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E12601861600C8FE88 /* talk.c */; };
@@ -74,7 +73,6 @@
 		D3D4D1FB2601867400C8FE88 /* init_disp.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E42601861600C8FE88 /* init_disp.c */; };
 		D3D4D1FC2601867400C8FE88 /* invite.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E52601861600C8FE88 /* invite.c */; };
 		D3D4D1FD2601867400C8FE88 /* ctl.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E62601861600C8FE88 /* ctl.c */; };
-		D3D4D1FE2601867400C8FE88 /* talk.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1E72601861600C8FE88 /* talk.h */; };
 		D3D4D2112601868000C8FE88 /* talk.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1E82601861600C8FE88 /* talk.1 */; };
 		D3D4D2382601874300C8FE88 /* libncurses.5.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D2372601874300C8FE88 /* libncurses.5.tbd */; };
 		D3D4D25D260187FA00C8FE88 /* ntalkd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = D3D4D1C92601861600C8FE88 /* ntalkd.8 */; };
@@ -82,24 +80,13 @@
 		D3D4D2712601880A00C8FE88 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1CB2601861600C8FE88 /* table.c */; };
 		D3D4D2722601880A00C8FE88 /* print.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1CC2601861600C8FE88 /* print.c */; };
 		D3D4D2732601880A00C8FE88 /* announce.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1CD2601861600C8FE88 /* announce.c */; };
-		D3D4D2742601880A00C8FE88 /* extern.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1CF2601861600C8FE88 /* extern.h */; };
 		D3D4D2752601880A00C8FE88 /* talkd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D12601861600C8FE88 /* talkd.c */; };
-		D3D4D29A2601886D00C8FE88 /* ttymsg.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D52601861600C8FE88 /* ttymsg.h */; };
 		D3D4D29B2601886D00C8FE88 /* ttymsg.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D62601861600C8FE88 /* ttymsg.c */; };
 		D3D4D2AF260188A600C8FE88 /* ntalk.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = D3D4D1D02601861600C8FE88 /* ntalk.plist */; };
 		D3D4D2D4260189AB00C8FE88 /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1AA2601861600C8FE88 /* network.c */; };
 		D3D4D2D5260189AB00C8FE88 /* terminal.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1AC2601861600C8FE88 /* terminal.c */; };
-		D3D4D2D6260189AB00C8FE88 /* misc-proto.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1AD2601861600C8FE88 /* misc-proto.h */; };
-		D3D4D2D7260189AB00C8FE88 /* types.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1AE2601861600C8FE88 /* types.h */; };
-		D3D4D2D8260189AB00C8FE88 /* ring.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1AF2601861600C8FE88 /* ring.h */; };
-		D3D4D2D9260189AB00C8FE88 /* misc.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B02601861600C8FE88 /* misc.h */; };
 		D3D4D2DA260189AB00C8FE88 /* sys_bsd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B22601861600C8FE88 /* sys_bsd.c */; };
-		D3D4D2DB260189AB00C8FE88 /* general.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B32601861600C8FE88 /* general.h */; };
-		D3D4D2DC260189AB00C8FE88 /* krb4-proto.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B42601861600C8FE88 /* krb4-proto.h */; };
-		D3D4D2DD260189AB00C8FE88 /* fdset.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B52601861600C8FE88 /* fdset.h */; };
-		D3D4D2DE260189AB00C8FE88 /* defines.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B62601861600C8FE88 /* defines.h */; };
 		D3D4D2DF260189AB00C8FE88 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B82601861600C8FE88 /* main.c */; };
-		D3D4D2E0260189AB00C8FE88 /* externs.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1B92601861600C8FE88 /* externs.h */; };
 		D3D4D2E1260189AB00C8FE88 /* ring.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1BA2601861600C8FE88 /* ring.c */; };
 		D3D4D2E2260189AB00C8FE88 /* telnet.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1BB2601861600C8FE88 /* telnet.c */; };
 		D3D4D2E3260189AB00C8FE88 /* utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1BC2601861600C8FE88 /* utilities.c */; };
@@ -112,19 +99,15 @@
 		D3D4D33526018AA600C8FE88 /* libtelnet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D33426018AA600C8FE88 /* libtelnet.a */; };
 		D3D4D34826018AD200C8FE88 /* telnet.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1AB2601861600C8FE88 /* telnet.1 */; };
 		D3D4D39126018B7B00C8FE88 /* termstat.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1972601861600C8FE88 /* termstat.c */; };
-		D3D4D39226018B7B00C8FE88 /* defs.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1982601861600C8FE88 /* defs.h */; };
 		D3D4D39326018B7B00C8FE88 /* telnetd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1992601861600C8FE88 /* telnetd.c */; };
 		D3D4D39526018B7B00C8FE88 /* slc.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D19B2601861600C8FE88 /* slc.c */; };
 		D3D4D39626018B7B00C8FE88 /* utility.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D19C2601861600C8FE88 /* utility.c */; };
 		D3D4D39726018B7B00C8FE88 /* state.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D19D2601861600C8FE88 /* state.c */; };
-		D3D4D39926018B7B00C8FE88 /* pathnames.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A22601861600C8FE88 /* pathnames.h */; };
-		D3D4D39A26018B7B00C8FE88 /* telnetd.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A32601861600C8FE88 /* telnetd.h */; };
 		D3D4D39B26018B7B00C8FE88 /* sys_term.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A42601861600C8FE88 /* sys_term.c */; };
 		D3D4D39E26018B7B00C8FE88 /* global.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A82601861600C8FE88 /* global.c */; };
 		D3D4D3F926018CC700C8FE88 /* libtelnet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D33426018AA600C8FE88 /* libtelnet.a */; };
 		D3D4D44226018F0E00C8FE88 /* libncurses.5.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D2372601874300C8FE88 /* libncurses.5.tbd */; };
 		D3D4D47A26018F6200C8FE88 /* telnetd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = D3D4D1A52601861600C8FE88 /* telnetd.8 */; };
-		D3D4D4C326018FE300C8FE88 /* ext.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A62601861600C8FE88 /* ext.h */; };
 		D3D4D57B260192FE00C8FE88 /* tftp.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C22601861600C8FE88 /* tftp.c */; };
 		D3D4D57C260192FE00C8FE88 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C42601861600C8FE88 /* main.c */; };
 		D3D4D5922601930C00C8FE88 /* libedit.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D5912601930C00C8FE88 /* libedit.tbd */; };
@@ -132,7 +115,6 @@
 		D3D4D60D2601938D00C8FE88 /* tftpd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1F02601861600C8FE88 /* tftpd.c */; };
 		D3D4D61E2601939B00C8FE88 /* tftpd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = D3D4D1EB2601861600C8FE88 /* tftpd.8 */; };
 		D3D4D650260193E700C8FE88 /* tftp.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = D3D4D1EC2601861600C8FE88 /* tftp.plist */; };
-		D3D4D67B2601944E00C8FE88 /* ttymsg.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D52601861600C8FE88 /* ttymsg.h */; };
 		D3D4D67C2601944E00C8FE88 /* ttymsg.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D62601861600C8FE88 /* ttymsg.c */; };
 		D3D4D67D2601944E00C8FE88 /* wall.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D72601861600C8FE88 /* wall.c */; };
 		D3D4D6922601945400C8FE88 /* wall.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1D42601861600C8FE88 /* wall.1 */; };
@@ -1110,7 +1092,6 @@
 				D3D4D1F22601867400C8FE88 /* display.c in Sources */,
 				D3D4D1F32601867400C8FE88 /* get_addrs.c in Sources */,
 				D3D4D1F42601867400C8FE88 /* io.c in Sources */,
-				D3D4D1F52601867400C8FE88 /* talk_ctl.h in Sources */,
 				D3D4D1F62601867400C8FE88 /* look_up.c in Sources */,
 				D3D4D1F72601867400C8FE88 /* ctl_transact.c in Sources */,
 				D3D4D1F82601867400C8FE88 /* talk.c in Sources */,
@@ -1119,7 +1100,6 @@
 				D3D4D1FB2601867400C8FE88 /* init_disp.c in Sources */,
 				D3D4D1FC2601867400C8FE88 /* invite.c in Sources */,
 				D3D4D1FD2601867400C8FE88 /* ctl.c in Sources */,
-				D3D4D1FE2601867400C8FE88 /* talk.h in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1127,13 +1107,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3D4D29A2601886D00C8FE88 /* ttymsg.h in Sources */,
 				D3D4D29B2601886D00C8FE88 /* ttymsg.c in Sources */,
 				D3D4D2702601880A00C8FE88 /* process.c in Sources */,
 				D3D4D2712601880A00C8FE88 /* table.c in Sources */,
 				D3D4D2722601880A00C8FE88 /* print.c in Sources */,
 				D3D4D2732601880A00C8FE88 /* announce.c in Sources */,
-				D3D4D2742601880A00C8FE88 /* extern.h in Sources */,
 				D3D4D2752601880A00C8FE88 /* talkd.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1144,17 +1122,8 @@
 			files = (
 				D3D4D2D4260189AB00C8FE88 /* network.c in Sources */,
 				D3D4D2D5260189AB00C8FE88 /* terminal.c in Sources */,
-				D3D4D2D6260189AB00C8FE88 /* misc-proto.h in Sources */,
-				D3D4D2D7260189AB00C8FE88 /* types.h in Sources */,
-				D3D4D2D8260189AB00C8FE88 /* ring.h in Sources */,
-				D3D4D2D9260189AB00C8FE88 /* misc.h in Sources */,
 				D3D4D2DA260189AB00C8FE88 /* sys_bsd.c in Sources */,
-				D3D4D2DB260189AB00C8FE88 /* general.h in Sources */,
-				D3D4D2DC260189AB00C8FE88 /* krb4-proto.h in Sources */,
-				D3D4D2DD260189AB00C8FE88 /* fdset.h in Sources */,
-				D3D4D2DE260189AB00C8FE88 /* defines.h in Sources */,
 				D3D4D2DF260189AB00C8FE88 /* main.c in Sources */,
-				D3D4D2E0260189AB00C8FE88 /* externs.h in Sources */,
 				D3D4D2E1260189AB00C8FE88 /* ring.c in Sources */,
 				D3D4D2E2260189AB00C8FE88 /* telnet.c in Sources */,
 				D3D4D2E3260189AB00C8FE88 /* utilities.c in Sources */,
@@ -1168,16 +1137,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3D4D4C326018FE300C8FE88 /* ext.h in Sources */,
 				D3D4D39126018B7B00C8FE88 /* termstat.c in Sources */,
-				D3D4D39226018B7B00C8FE88 /* defs.h in Sources */,
 				D3D4D39326018B7B00C8FE88 /* telnetd.c in Sources */,
 				D3D4D39526018B7B00C8FE88 /* slc.c in Sources */,
 				D3D4D39626018B7B00C8FE88 /* utility.c in Sources */,
 				D3D4D39726018B7B00C8FE88 /* state.c in Sources */,
-				D3D4D39926018B7B00C8FE88 /* pathnames.h in Sources */,
 				2E859FEF29971BE6000E6212 /* password_enabled.c in Sources */,
-				D3D4D39A26018B7B00C8FE88 /* telnetd.h in Sources */,
 				D3D4D39B26018B7B00C8FE88 /* sys_term.c in Sources */,
 				D3D4D39E26018B7B00C8FE88 /* global.c in Sources */,
 			);
@@ -1222,7 +1187,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3D4D67B2601944E00C8FE88 /* ttymsg.h in Sources */,
 				D3D4D67C2601944E00C8FE88 /* ttymsg.c in Sources */,
 				D3D4D67D2601944E00C8FE88 /* wall.c in Sources */,
 			);
@@ -1405,6 +1369,7 @@
 				);
 				GCC_WARN_UNUSED_FUNCTION = NO;
 				GCC_WARN_UNUSED_VARIABLE = NO;
+				HEADER_SEARCH_PATHS = "${SRCROOT}/wall";
 				INSTALL_PATH = /usr/libexec;
 				LEXFLAGS = "-8";
 				LEX_CASE_INSENSITIVE_SCANNER = YES;

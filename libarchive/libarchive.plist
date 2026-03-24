@@ -58,6 +58,9 @@
 		<string>libarchive/archive_write_set_format_pax.c: Apply 7c02cde37a63580cd1859183fbbd2cf04a89be85 to avoid overflow (150087613)</string>
 		<string>libarchive/archive_write_disk_posix.c: fix symlink races using *at functions (130087688)</string>
 		<string>Introduce several hooks to facilitate testing (130087688)</string>
+                <string>libarchive/archive_write.c: Fix memory leak caused by freeing resources in close() instead of free() (130914159)</string>
+                <string>libarchive/archive_write_add_filter_bzip2.c: Fix memory leak caused by freeing resources in close() instead of free() (130914159)</string>
+		<string>tar/read.c: Open file ourselves to avoid losing track of quarantine status after chdir (166552800)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

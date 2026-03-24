@@ -63,7 +63,9 @@ class HideEditMenuScope {
 public:
     HideEditMenuScope(WKTextInteractionWrapper *wrapper, DeactivateSelection deactivateSelection)
         : m_wrapper { wrapper }
+#if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
         , m_reactivateSelection { deactivateSelection == DeactivateSelection::Yes }
+#endif
     {
         [wrapper.textInteractionAssistant willStartScrollingOverflow];
 #if USE(BROWSERENGINEKIT)
@@ -95,7 +97,9 @@ public:
 
 private:
     __weak WKTextInteractionWrapper *m_wrapper { nil };
+#if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
     bool m_reactivateSelection { false };
+#endif
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
@@ -168,8 +172,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
 #endif
 
     for (id<UIInteraction> interaction in _view.interactions) {
-        if (RetainPtr selectionInteraction = dynamic_objc_cast<UITextSelectionDisplayInteraction>(interaction))
-            return selectionInteraction.unsafeGet();
+        if (auto* selectionInteraction = dynamic_objc_cast<UITextSelectionDisplayInteraction>(interaction))
+            return selectionInteraction;
     }
 
     return nil;
@@ -201,6 +205,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
 
 - (void)prepareToMoveSelectionContainer:(UIView *)newContainer
 {
+    RetainPtr contentView = _view;
+    if (!contentView)
+        return;
+
 #if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
     RetainPtr displayInteraction = [self textSelectionDisplayInteraction];
     RetainPtr highlightView = [displayInteraction highlightView];
@@ -212,9 +220,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
         // When the display interaction is in the activated state, calling these delegate methods tells it
         // to remove and reparent all internally managed views (e.g. selection highlight views, selection
         // handles) in the new selection container.
-        [self activateSelection];
-        [displayInteraction willMoveToView:_view];
-        [displayInteraction didMoveToView:_view];
+        if (![contentView _isSuppressingSelectionAssistant])
+            [self activateSelection];
+        [displayInteraction willMoveToView:contentView.get()];
+        [displayInteraction didMoveToView:contentView.get()];
 
         _managedTextSelectionViews = { };
         for (UIView *subview in newContainer.subviews) {
@@ -223,32 +232,32 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
         }
     }
 
-    if (newContainer == _view)
+    if (newContainer == contentView)
         return;
 
-    auto findParentViewBelowNewContainer = [&](UIView *view) -> UIView * {
+    auto findParentViewBelowNewContainer = [&](UIView *view) -> RetainPtr<UIView> {
         if (view == newContainer)
             return nil;
 
         for (RetainPtr foundView = view; foundView; foundView = [foundView superview]) {
-            if (foundView == _view)
+            if (foundView == contentView)
                 return nil;
 
             if ([foundView superview] == newContainer)
-                return foundView.unsafeGet();
+                return foundView;
         }
 
         return nil;
     };
 
-    RetainPtr viewsIntersectingSelection = [_view allViewsIntersectingSelectionRange];
+    RetainPtr viewsIntersectingSelection = [contentView allViewsIntersectingSelectionRange];
     RetainPtr subviewsBeforeSelection = adoptNS([NSMutableSet new]);
     for (UIView *view in viewsIntersectingSelection.get()) {
         if (RetainPtr parentBelowNewContainer = findParentViewBelowNewContainer(view))
             [subviewsBeforeSelection addObject:parentBelowNewContainer.get()];
     }
 
-    RefPtr page = [_view page];
+    RefPtr page = [contentView page];
     bool insertSelectionAfterCompositingViews = page && page->editorState().visualData->enclosingLayerUsesContentsLayer;
 
     // Ensure that the selection highlight is inserted after all `subviewsBeforeSelection`.

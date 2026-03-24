@@ -27,27 +27,25 @@
 
 #if ENABLE(VIDEO)
 
-#include <WebCore/HTMLMediaElement.h>
 #include <WebCore/RenderImage.h>
-#include <WebCore/RenderObjectNode.h>
 
 namespace WebCore {
 
 class RenderMedia : public RenderImage {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderMedia);
+    WTF_MAKE_TZONE_ALLOCATED(RenderMedia);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderMedia);
 public:
     RenderMedia(Type, HTMLMediaElement&, RenderStyle&&);
     virtual ~RenderMedia();
 
-    HTMLMediaElement& mediaElement() const { return downcast<HTMLMediaElement>(nodeForNonAnonymous()); }
-    Ref<HTMLMediaElement> protectedMediaElement() const { return mediaElement(); }
+    inline HTMLMediaElement& mediaElement() const; // Defined in RenderMediaInlines.h
+    inline Ref<HTMLMediaElement> protectedMediaElement() const; // Defined in RenderMediaInlines.h
 
     bool shouldDisplayBrokenImageIcon() const final { return false; }
 
 protected:
     void layout() override;
-    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
+    void styleDidChange(Style::Difference, const RenderStyle* oldStyle) override;
 
     void visibleInViewportStateChanged() override { }
 
@@ -60,16 +58,6 @@ private:
     bool isImage() const final { return false; }
     void paintReplaced(PaintInfo&, const LayoutPoint&) override;
 };
-
-inline bool HTMLMediaElement::hasRenderer() const
-{
-    return is<RenderMedia>(Node::renderer());
-}
-
-inline RenderMedia* HTMLMediaElement::renderer() const
-{
-    return downcast<RenderMedia>(Node::renderer());
-}
 
 } // namespace WebCore
 

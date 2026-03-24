@@ -107,7 +107,7 @@ SecIdentityRef test_cert_create_root_certificate(CFStringRef subject, SecKeyRef 
     CFMutableDictionaryRef extensions = NULL;
 
 	CFArrayRef ca_subject = NULL;
-	require(ca_subject = test_cert_string_to_subject(subject), out);
+	__Require(ca_subject = test_cert_string_to_subject(subject), out);
 	extensions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	test_cert_key_usage(extensions, kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign);
 	test_cert_path_length(extensions, 0);
@@ -139,7 +139,7 @@ SecCertificateRef test_cert_issue_certificate(SecIdentityRef ca_identity,
 		{ serial_non_zero++; serial_length--; }
     serialno = CFDataCreate(kCFAllocatorDefault,
 		serial_non_zero, serial_length);
-	require(cert_subject = test_cert_string_to_subject(subject), out);
+	__Require(cert_subject = test_cert_string_to_subject(subject), out);
 	//extensions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	//require(extensions, out);
 	//test_cert_key_usage(extensions, key_usage);

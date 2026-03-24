@@ -228,31 +228,37 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
         if (!this._property.implicit && this._property.ownerStyle.type === WI.CSSStyleDeclaration.Type.Computed && !this._property.isShorthand) {
             let effectiveProperty = this._property.ownerStyle.nodeStyles.effectivePropertyForName(this._property.name);
+
+            // Check if it's a user agent style BEFORE potentially replacing with shorthand.
+            // User agent styles don't have styleSheetTextRange, so they get replaced below.
+            let originalOwnerRule = effectiveProperty?.ownerStyle.ownerRule;
+            let shouldShowGoToArrow = WI.settings.showUserAgentStyles.value || originalOwnerRule?.type !== WI.CSSStyleSheet.Type.UserAgent;
+
             if (effectiveProperty && !effectiveProperty.styleSheetTextRange)
                 effectiveProperty = effectiveProperty.relatedShorthandProperty;
 
-            let ownerRule = effectiveProperty ? effectiveProperty.ownerStyle.ownerRule : null;
+            let ownerRule = effectiveProperty?.ownerStyle.ownerRule;
 
-            let arrowElement = this._contentElement.appendChild(WI.createGoToArrowButton());
-            arrowElement.addEventListener("click", (event) => {
-                if (!effectiveProperty || !ownerRule || !event.altKey) {
-                    if (this._delegate.spreadsheetStylePropertyShowProperty)
-                        this._delegate.spreadsheetStylePropertyShowProperty(this, this._property);
-                    return;
-                }
+            if (shouldShowGoToArrow) {
+                let arrowElement = this._contentElement.appendChild(WI.createGoToArrowButton());
+                arrowElement.addEventListener("click", (event) => {
+                    if (!effectiveProperty || !ownerRule || !event.altKey) {
+                        this._delegate.spreadsheetStylePropertyShowProperty?.(this, this._property);
+                        return;
+                    }
 
-                let sourceCode = ownerRule.sourceCodeLocation.sourceCode;
-                let {startLine, startColumn} = effectiveProperty.styleSheetTextRange;
-                WI.showSourceCodeLocation(sourceCode.createSourceCodeLocation(startLine, startColumn), {
-                    ignoreNetworkTab: true,
-                    ignoreSearchTab: true,
+                    let sourceCode = ownerRule.sourceCodeLocation.sourceCode;
+                    let {startLine, startColumn} = effectiveProperty.styleSheetTextRange;
+                    WI.showSourceCodeLocation(sourceCode.createSourceCodeLocation(startLine, startColumn), {
+                        ignoreNetworkTab: true,
+                        ignoreSearchTab: true,
+                    });
                 });
-            });
 
-            if (effectiveProperty && ownerRule)
-                arrowElement.title = WI.UIString("Option-click to show source");
+                if (effectiveProperty && ownerRule)
+                    arrowElement.title = WI.UIString("Option-click to show source");
+            }
         }
-
         this.updateStatus();
     }
 
@@ -336,10 +342,12 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     applyFilter(filterText)
     {
-        let matchesName = this._nameElement.textContent.includes(filterText);
+        let lowerCaseFilterText = filterText.toLowerCase();
+
+        let matchesName = this._nameElement.textContent.toLowerCase().includes(lowerCaseFilterText);
         this._nameElement.classList.toggle(WI.GeneralStyleDetailsSidebarPanel.FilterMatchSectionClassName, !!matchesName);
 
-        let matchesValue = this._valueElement.textContent.includes(filterText);
+        let matchesValue = this._valueElement.textContent.toLowerCase().includes(lowerCaseFilterText);
         this._valueElement.classList.toggle(WI.GeneralStyleDetailsSidebarPanel.FilterMatchSectionClassName, !!matchesValue);
 
         let matches = matchesName || matchesValue;

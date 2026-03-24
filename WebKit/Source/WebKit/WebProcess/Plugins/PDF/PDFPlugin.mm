@@ -148,7 +148,7 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
             }
         });
     }
-    return protectedSelf->_parent.get().unsafeGet();
+    return protectedSelf->_parent.getAutoreleased();
 }
 
 - (void)setParent:(NSObject *)parent
@@ -425,7 +425,7 @@ static WebCore::Cursor::Type toWebCoreCursorType(PDFLayerControllerCursorType cu
     ASSERT(items.count >= types.count);
     for (NSUInteger i = 0, count = items.count; i < count; ++i)
         pasteboardItems.append({ [items objectAtIndex:i], [types objectAtIndex:i] });
-    _pdfPlugin->writeItemsToGeneralPasteboard(WTFMove(pasteboardItems));
+    _pdfPlugin->writeItemsToGeneralPasteboard(WTF::move(pasteboardItems));
 }
 
 - (void)showDefinitionForAttributedString:(NSAttributedString *)string atPoint:(CGPoint)point
@@ -631,7 +631,7 @@ void PDFPlugin::installPDFDocument()
         return;
     }
 
-    auto handlePDFTestCallback = makeScopeExit([testCallback = WTFMove(m_pdfTestCallback)] {
+    auto handlePDFTestCallback = makeScopeExit([testCallback = WTF::move(m_pdfTestCallback)] {
         if (testCallback)
             testCallback->invoke();
     });
@@ -1128,11 +1128,11 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
             [item action] ? ContextMenuItemHasAction::Yes : ContextMenuItemHasAction::No,
             [item isSeparatorItem] ? ContextMenuItemIsSeparator::Yes : ContextMenuItemIsSeparator::No
         };
-        items.append(WTFMove(menuItem));
+        items.append(WTF::move(menuItem));
     }
-    PDFContextMenu contextMenu { point, WTFMove(items), WTFMove(openInPreviewTag) };
+    PDFContextMenu contextMenu { point, WTF::move(items), WTF::move(openInPreviewTag) };
 
-    webPage->sendWithAsyncReply(Messages::WebPageProxy::ShowPDFContextMenu { contextMenu, identifier(), frame->frameID() }, [itemCount, nsMenu = WTFMove(nsMenu), weakThis = WeakPtr { *this }](std::optional<int32_t>&& selectedIndex) {
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::ShowPDFContextMenu { contextMenu, identifier(), frame->frameID() }, [itemCount, nsMenu = WTF::move(nsMenu), weakThis = WeakPtr { *this }](std::optional<int32_t>&& selectedIndex) {
         if (RefPtr protectedThis = weakThis.get()) {
             if (selectedIndex && selectedIndex.value() >= 0 && selectedIndex.value() < itemCount)
                 [nsMenu performActionForItemAtIndex:*selectedIndex];
@@ -1212,7 +1212,7 @@ void PDFPlugin::invalidateScrollCornerRect(const IntRect& rect)
 void PDFPlugin::setActiveAnnotation(SetActiveAnnotationParams&& setActiveAnnotationParams)
 {
     // This may be called off the main thread if VoiceOver is running, thus dispatch to the main runloop since it involves main thread only objects.
-    callOnMainRunLoopAndWait([annotation = WTFMove(setActiveAnnotationParams.annotation), this] {
+    callOnMainRunLoopAndWait([annotation = WTF::move(setActiveAnnotationParams.annotation), this] {
         if (!supportsForms())
             return;
 

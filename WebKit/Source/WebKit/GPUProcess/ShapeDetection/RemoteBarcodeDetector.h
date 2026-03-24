@@ -55,36 +55,26 @@ class ObjectHeap;
 class RemoteBarcodeDetector : public IPC::StreamMessageReceiver {
 public:
     WTF_MAKE_TZONE_ALLOCATED(RemoteBarcodeDetector);
+    WTF_MAKE_NONCOPYABLE(RemoteBarcodeDetector);
 public:
-    static Ref<RemoteBarcodeDetector> create(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
+    static Ref<RemoteBarcodeDetector> create(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, RemoteRenderingBackend& renderingBackend, ShapeDetectionIdentifier identifier)
     {
-        return adoptRef(*new RemoteBarcodeDetector(WTFMove(barcodeDetector), objectHeap, backend, identifier, webProcessIdentifier));
+        return adoptRef(*new RemoteBarcodeDetector(WTF::move(barcodeDetector), renderingBackend, identifier));
     }
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
     virtual ~RemoteBarcodeDetector();
 
 private:
-    RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::BarcodeDetector>&&, ShapeDetection::ObjectHeap&, RemoteRenderingBackend&, ShapeDetectionIdentifier, WebCore::ProcessIdentifier);
-
-    RemoteBarcodeDetector(const RemoteBarcodeDetector&) = delete;
-    RemoteBarcodeDetector(RemoteBarcodeDetector&&) = delete;
-    RemoteBarcodeDetector& operator=(const RemoteBarcodeDetector&) = delete;
-    RemoteBarcodeDetector& operator=(RemoteBarcodeDetector&&) = delete;
-
-    WebCore::ShapeDetection::BarcodeDetector& backing() const { return m_backing; }
-    Ref<WebCore::ShapeDetection::BarcodeDetector> protectedBacking() const;
-    Ref<RemoteRenderingBackend> protectedBackend() const;
+    RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::BarcodeDetector>&&, RemoteRenderingBackend&, ShapeDetectionIdentifier);
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
     void detect(WebCore::RenderingResourceIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedBarcode>&&)>&&);
 
-    Ref<WebCore::ShapeDetection::BarcodeDetector> m_backing;
-    WeakRef<ShapeDetection::ObjectHeap> m_objectHeap;
-    WeakRef<RemoteRenderingBackend> m_backend;
+    const Ref<WebCore::ShapeDetection::BarcodeDetector> m_backing;
+    const WeakRef<RemoteRenderingBackend> m_renderingBackend;
     const ShapeDetectionIdentifier m_identifier;
-    const WebCore::ProcessIdentifier m_webProcessIdentifier;
 };
 
 } // namespace WebKit

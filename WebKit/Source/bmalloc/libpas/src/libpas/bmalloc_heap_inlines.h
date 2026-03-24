@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,9 @@
 #ifndef BMALLOC_HEAP_INLINES_H
 #define BMALLOC_HEAP_INLINES_H
 
-#include "pas_platform.h"
+#include "pas_config.h"
+
+#if LIBPAS_ENABLED
 
 PAS_IGNORE_WARNINGS_BEGIN("missing-field-initializers")
 
@@ -410,5 +412,5 @@ PAS_END_EXTERN_C;
 
 PAS_IGNORE_WARNINGS_END
 
+#endif /* LIBPAS_ENABLED */
 #endif /* BMALLOC_HEAP_INLINES_H */
-

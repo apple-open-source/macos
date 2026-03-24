@@ -62,6 +62,7 @@ public:
     WEBCORE_EXPORT static Vector<CaptureDevice>& displayDevices();
 
     static std::optional<MockMediaDevice> mockDeviceWithPersistentID(const String&);
+    static std::optional<MockMediaDevice> mockMicrophoneFromDeviceID(uint32_t);
     static std::optional<CaptureDevice> captureDeviceWithPersistentID(CaptureDevice::DeviceType, const String&);
 
     CaptureDeviceManager& audioCaptureDeviceManager() { return m_audioCaptureDeviceManager; }

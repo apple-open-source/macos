@@ -28,7 +28,6 @@
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
 #include <wtf/PreciseSum.h>
-#include <wtf/Vector.h>
 
 namespace JSC {
 
@@ -203,7 +202,7 @@ JSC_DEFINE_HOST_FUNCTION(mathProtoFuncHypot, (JSGlobalObject* globalObject, Call
 
     if (!argsCount) [[unlikely]]
         return JSValue::encode(jsDoubleNumber(0));
-    if (argsCount == 1) {
+    if (argsCount == 1) [[unlikely]] {
         double arg0 = callFrame->uncheckedArgument(0).toNumber(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
         return JSValue::encode(jsDoubleNumber(std::fabs(arg0)));
@@ -239,34 +238,43 @@ JSC_DEFINE_HOST_FUNCTION(mathProtoFuncHypot, (JSGlobalObject* globalObject, Call
 #endif
     }
 
-    Vector<double, 8> args(argsCount, [&](size_t i) -> std::optional<double> {
-        double argument = callFrame->uncheckedArgument(i).toNumber(globalObject);
-        RETURN_IF_EXCEPTION(scope, std::nullopt);
-        return argument;
-    }, NulloptBehavior::Abort);
-    RETURN_IF_EXCEPTION(scope, { });
-
-    double max = 0;
-    for (double argument : args) {
-        if (std::isinf(argument))
-            return JSValue::encode(jsDoubleNumber(+std::numeric_limits<double>::infinity()));
-        max = std::max(std::abs(argument), max);
-    }
-
-    if (!max)
-        max = 1;
-
-    // Kahan summation algorithm significantly reduces the numerical error in the total obtained.
+    bool hasInfinity = false;
+    bool hasNaN = false;
+    double maxAbs = 0;
     double sum = 0;
-    double compensation = 0;
-    for (double argument : args) {
-        double scaledArgument = argument / max;
-        double summand = scaledArgument * scaledArgument - compensation;
-        double preliminary = sum + summand;
-        compensation = (preliminary - sum) - summand;
-        sum = preliminary;
+    for (size_t i = 0; i < argsCount; i++) {
+        double argument = callFrame->uncheckedArgument(i).toNumber(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        if (std::isinf(argument)) [[unlikely]] {
+            hasInfinity = true;
+            continue;
+        }
+        if (std::isnan(argument)) [[unlikely]] {
+            hasNaN = true;
+            continue;
+        }
+
+        double absArgument = std::fabs(argument);
+        if (maxAbs < absArgument) {
+            double scaledArgument = maxAbs / absArgument;
+            sum = std::fma(sum, scaledArgument * scaledArgument, 1);
+            maxAbs = absArgument;
+        } else if (maxAbs) {
+            double scaledArgument = absArgument / maxAbs;
+            sum = std::fma(scaledArgument, scaledArgument, sum);
+        }
     }
-    return JSValue::encode(jsDoubleNumber(sqrt(sum) * max));
+
+    if (hasInfinity) [[unlikely]]
+        return JSValue::encode(jsDoubleNumber(+std::numeric_limits<double>::infinity()));
+    if (hasNaN) [[unlikely]]
+        return JSValue::encode(jsNaN());
+    // when maxAbs is 0, that means all numbers are 0s. Thus, early return with 0.0.
+    if (!maxAbs) [[unlikely]]
+        return JSValue::encode(jsDoubleNumber(0.0));
+
+    return JSValue::encode(jsDoubleNumber(std::sqrt(sum) * maxAbs));
 }
 
 JSC_DEFINE_HOST_FUNCTION(mathProtoFuncLog, (JSGlobalObject* globalObject, CallFrame* callFrame))

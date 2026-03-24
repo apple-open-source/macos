@@ -38,6 +38,7 @@
 #include <wtf/MainThreadData.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Scope.h>
+#include <wtf/glib/GMallocString.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
@@ -88,7 +89,7 @@ struct WebKitMediaSrcPrivate {
     double rate { 1.0 };
 
     // Only used by URI Handler API implementation.
-    GUniquePtr<char> uri;
+    GMallocString uri;
 
     ThreadSafeWeakPtr<MediaPlayerPrivateGStreamerMSE> player;
 };
@@ -140,9 +141,9 @@ WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitMediaSrc, webkit_media_src, GST_TYPE_ELEMENT,
 struct Stream : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Stream> {
     Stream(WebKitMediaSrc* source, GRefPtr<GstPad>&& pad, Ref<MediaSourceTrackGStreamer>&& track, GRefPtr<GstStream>&& streamInfo)
         : source(source)
-        , pad(WTFMove(pad))
-        , track(WTFMove(track))
-        , streamInfo(WTFMove(streamInfo))
+        , pad(WTF::move(pad))
+        , track(WTF::move(track))
+        , streamInfo(WTF::move(streamInfo))
         , streamingMembersDataMutex(GRefPtr(this->track->initialCaps()), source->priv->startTime, source->priv->rate)
     {
         ASSERT(this->track->initialCaps());
@@ -155,7 +156,7 @@ struct Stream : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Stream> {
 
     struct StreamingMembers {
         StreamingMembers(GRefPtr<GstCaps>&& initialCaps, GstClockTime startTime, double rate)
-            : pendingInitialCaps(WTFMove(initialCaps))
+            : pendingInitialCaps(WTF::move(initialCaps))
         {
             gst_segment_init(&segment, GST_FORMAT_TIME);
             segment.start = segment.time = startTime;
@@ -218,18 +219,18 @@ static GstStreamType gstStreamType(TrackPrivateBaseGStreamer::TrackType type)
 }
 
 #ifndef GST_DISABLE_GST_DEBUG
-static const char* streamTypeToString(TrackPrivateBaseGStreamer::TrackType type)
+static ASCIILiteral streamTypeToString(TrackPrivateBaseGStreamer::TrackType type)
 {
     switch (type) {
     case TrackPrivateBaseGStreamer::TrackType::Audio:
-        return "Audio";
+        return "Audio"_s;
     case TrackPrivateBaseGStreamer::TrackType::Video:
-        return "Video";
+        return "Video"_s;
     case TrackPrivateBaseGStreamer::TrackType::Text:
-        return "Text";
+        return "Text"_s;
     default:
     case TrackPrivateBaseGStreamer::TrackType::Unknown:
-        return "Unknown";
+        return "Unknown"_s;
     }
 }
 #endif // GST_DISABLE_GST_DEBUG
@@ -273,7 +274,7 @@ static void webkit_media_src_class_init(WebKitMediaSrcClass* klass)
 
     // In GStreamer 1.20 and older urisourcebin mishandles source elements with dynamic pads. This
     // is not an issue in 1.22.
-    if (webkitGstCheckVersion(1, 22, 0))
+    if (gst_check_version(1, 22, 0))
         eklass->query = GST_DEBUG_FUNCPTR(webKitMediaSrcQuery);
 
     g_object_class_install_property(oklass,
@@ -309,7 +310,8 @@ void webKitMediaSrcEmitStreams(WebKitMediaSrc* source, const Vector<RefPtr<Media
     source->priv->collection = adoptGRef(gst_stream_collection_new("WebKitMediaSrc"));
     for (const auto& track : tracks) {
 #ifndef GST_DISABLE_GST_DEBUG
-        GST_DEBUG_OBJECT(source, "Adding stream with trackId '%" PRIu64 "' of type %s with caps %" GST_PTR_FORMAT, track->id(), streamTypeToString(track->type()), track->initialCaps().get());
+        GST_DEBUG_OBJECT(source, "Adding stream with trackId '%" PRIu64 "' of type %s with caps %" GST_PTR_FORMAT,
+            track->id(), streamTypeToString(track->type()).characters(), track->initialCaps().get());
 #endif // GST_DISABLE_GST_DEBUG
         if (source->priv->streams.contains(track->id())) {
             GST_ERROR_OBJECT(source, "stream with trackId '%" PRIu64 "' already exists", track->id());
@@ -326,7 +328,7 @@ void webKitMediaSrcEmitStreams(WebKitMediaSrc* source, const Vector<RefPtr<Media
         pad->priv->stream = ThreadSafeWeakPtr { *stream.get() };
 
         gst_stream_collection_add_stream(source->priv->collection.get(), GRefPtr<GstStream>(stream->streamInfo.get()).leakRef());
-        source->priv->streams.set(track->id(), WTFMove(stream));
+        source->priv->streams.set(track->id(), WTF::move(stream));
     }
 
     gst_element_post_message(GST_ELEMENT(source), gst_message_new_stream_collection(GST_OBJECT(source), source->priv->collection.get()));
@@ -339,7 +341,7 @@ void webKitMediaSrcEmitStreams(WebKitMediaSrc* source, const Vector<RefPtr<Media
                 return GST_PAD_PROBE_OK;
             }, nullptr, nullptr);
 
-        if (!webkitGstCheckVersion(1, 20, 6)) {
+        if (!gst_check_version(1, 20, 6)) {
             // Workaround: gst_element_add_pad() should already call gst_pad_set_active() if the element is PAUSED or
             // PLAYING. Unfortunately, as of GStreamer 1.18.2 it does so with the element lock taken, causing a deadlock
             // in gst_pad_start_task(), who tries to post a `stream-status` message in the element, which also requires
@@ -364,7 +366,7 @@ static RefPtr<MediaPlayerPrivateGStreamerMSE> webKitMediaSrcPlayer(WebKitMediaSr
 
 void webKitMediaSrcSetPlayer(WebKitMediaSrc* source, ThreadSafeWeakPtr<MediaPlayerPrivateGStreamerMSE>&& player)
 {
-    source->priv->player = WTFMove(player);
+    source->priv->player = WTF::move(player);
 }
 
 static void webKitMediaSrcTearDownStream(WebKitMediaSrc* source, TrackID id)
@@ -494,8 +496,8 @@ static void webKitMediaSrcLoop(void* userData)
     }
 
     if (!streamingMembers->wasStreamStartSent) {
-        GUniquePtr<char> streamId { g_strdup_printf("mse/%" PRIu64 "", stream->track->id()) };
-        GRefPtr<GstEvent> event = adoptGRef(gst_event_new_stream_start(streamId.get()));
+        auto streamId = GMallocString::unsafeAdoptFromUTF8(g_strdup_printf("mse/%" PRIu64 "", stream->track->id()));
+        GRefPtr<GstEvent> event = adoptGRef(gst_event_new_stream_start(streamId.utf8()));
         gst_event_set_group_id(event.get(), stream->source->priv->groupId);
         gst_event_set_stream(event.get(), stream->streamInfo.get());
 
@@ -513,7 +515,7 @@ static void webKitMediaSrcLoop(void* userData)
         [[maybe_unused]] bool wasCapsEventSent = gst_pad_push_event(pad, event.leakRef());
         GST_DEBUG_OBJECT(pad, "Pushed initial CAPS event, %s was returned.", boolForPrinting(wasCapsEventSent));
 
-        streamingMembers->previousCaps = WTFMove(streamingMembers->pendingInitialCaps);
+        streamingMembers->previousCaps = WTF::move(streamingMembers->pendingInitialCaps);
         ASSERT(!streamingMembers->pendingInitialCaps);
     }
 
@@ -530,7 +532,7 @@ static void webKitMediaSrcLoop(void* userData)
                 DataMutexLocker streamingMembers { stream->streamingMembersDataMutex };
                 ASSERT(!streamingMembers->isFlushing);
 
-                object = WTFMove(receivedObject);
+                object = WTF::move(receivedObject);
                 streamingMembers->hasPoppedFirstObject = true;
                 streamingMembers->queueChangedOrFlushedCondition.notifyAll();
             });
@@ -713,7 +715,7 @@ static void webKitMediaSrcStreamFlush(Stream* stream, bool isSeekingFlush)
             streamingMembers->isFlushing = false;
             streamingMembers->doesNeedSegmentEvent = true;
 
-            if (!webkitGstCheckVersion(1, 22, 0)) {
+            if (!gst_check_version(1, 22, 0)) {
                 // In older GST versions STREAM_COLLECTION event is delivered to decodebin3
                 // from parsebin src pad probe. On the way, this event is cached inside
                 // parser element (GstBaseParse) and pushed downstream with first frame.
@@ -878,7 +880,7 @@ static gchar* webKitMediaSrcGetUri(GstURIHandler* handler)
     WebKitMediaSrc* source = WEBKIT_MEDIA_SRC(handler);
 
     auto locker = GstObjectLocker(source);
-    return g_strdup(source->priv->uri.get());
+    return g_strdup(source->priv->uri.utf8());
 }
 
 static gboolean webKitMediaSrcSetUri(GstURIHandler* handler, const gchar* uri, GError**)
@@ -891,7 +893,7 @@ static gboolean webKitMediaSrcSetUri(GstURIHandler* handler, const gchar* uri, G
     }
 
     auto locker = GstObjectLocker(source);
-    source->priv->uri = GUniquePtr<char>(g_strdup(uri));
+    source->priv->uri = GMallocString::unsafeAdoptFromUTF8(g_strdup(uri));
     return TRUE;
 }
 

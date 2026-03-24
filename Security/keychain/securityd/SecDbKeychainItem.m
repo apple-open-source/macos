@@ -142,7 +142,7 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     CFMutableDataRef blob = NULL;
     CFDataRef ac_data = NULL;
     bool ok = true;
-    //check(keybag >= 0);
+    //__Check(keybag >= 0);
 
     /* Precalculate output blob length. */
     /* Use 256 bit AES key for bulkKey. */
@@ -223,12 +223,12 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
 #if USE_KEYSTORE && !TARGET_OS_SIMULATOR
     if (version >= 4) {
         auth_data = kc_create_auth_data(access_control, authenticated_attributes);
-        require_quiet(ok = ks_encrypt_acl(keybag, keyclass, bulkKeySize, bulkKey, bulkKeyWrapped, auth_data, acm_context, access_control, error), out);
+        __Require_Quiet(ok = ks_encrypt_acl(keybag, keyclass, bulkKeySize, bulkKey, bulkKeyWrapped, auth_data, acm_context, access_control, error), out);
     } else
 #endif
     {
         /* Encrypt bulkKey. */
-        require_quiet(ok = ks_crypt(kAKSKeyOpEncrypt, keybag, NULL,
+        __Require_Quiet(ok = ks_crypt(kAKSKeyOpEncrypt, keybag, NULL,
                                     keyclass, bulkKeySize, bulkKey,
                                     &actual_class, bulkKeyWrapped,
                                     useNewBackupBehavior, error), out);
@@ -242,13 +242,13 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     if (!hasACLConstraints) {
         blobLen += sizeof(actual_class);
     } else {
-        require_quiet(ac_data = kc_copy_protection_data(access_control), out);
+        __Require_Quiet(ac_data = kc_copy_protection_data(access_control), out);
         prot_length = (uint32_t)CFDataGetLength(ac_data);
         blobLen += sizeof(prot_length) + prot_length;
     }
 
     blobLen += sizeof(key_wrapped_size) + key_wrapped_size + ctLen + tagLen;
-    require_quiet(blob = CFDataCreateMutable(NULL, blobLen), out);
+    __Require_Quiet(blob = CFDataCreateMutable(NULL, blobLen), out);
     CFDataSetLength(blob, blobLen);
     cursor = CFDataGetMutableBytePtr(blob);
 
@@ -423,9 +423,9 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
     CFDataRef ed_data = NULL;
     aks_ref_key_t ref_key = NULL;
 #if TARGET_OS_IPHONE
-    check(keybag >= 0 || bkp != NULL);
+    __Check(keybag >= 0 || bkp != NULL);
 #else
-    check((keybag >= 0) || (keybag == session_keybag_handle));
+    __Check((keybag >= 0) || (keybag == session_keybag_handle));
 #endif
 #endif
 
@@ -463,7 +463,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
             if (version >= 8) {
                 keyDiversify = true;
             }
-            check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
+            __Check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
             SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithData:encryptedBlob decryptionKeybag:keybag error:&localError];
             if (outKeyclass) {
                 *outKeyclass = item.keyclass;
@@ -544,7 +544,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
             goto out;
         } else {
             access_control = SecAccessControlCreate(NULL, NULL);
-            require_quiet(access_control, out);
+            __Require_Quiet(access_control, out);
             ok = SecAccessControlSetProtection(access_control, protection, NULL);
             CFRelease(protection);
             if (!ok) {
@@ -577,10 +577,10 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
 #else
         CFTypeRef protection = kc_encode_keyclass(keyclass);
 #endif
-        require_action_quiet(protection, out, ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: invalid keyclass detected")));
-        require_action_quiet(access_control = SecAccessControlCreate(kCFAllocatorDefault, error), out,
+        __Require_Action_Quiet(protection, out, ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: invalid keyclass detected")));
+        __Require_Action_Quiet(access_control = SecAccessControlCreate(kCFAllocatorDefault, error), out,
                              ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: SecAccessControlCreate failed")));
-        require_action_quiet(SecAccessControlSetProtection(access_control, protection, error), out,
+        __Require_Action_Quiet(SecAccessControlSetProtection(access_control, protection, error), out,
                              ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: SecAccessControlSetProtection failed")));
 
         cursor += sizeof(keyclass);
@@ -644,16 +644,16 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
     if (hasProtectionData) {
         if (caller_access_groups) {
             caller_access_groups_data = kc_copy_access_groups_data(caller_access_groups, error);
-            require_quiet(ok = (caller_access_groups_data != NULL), out);
+            __Require_Quiet(ok = (caller_access_groups_data != NULL), out);
         }
 
-        check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
-        require_quiet(ok = kc_attribs_key_encrypted_data_from_blob(keybag, db_class, cursor, wrapped_key_size, access_control, version,
+        __Check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
+        __Require_Quiet(ok = kc_attribs_key_encrypted_data_from_blob(keybag, db_class, cursor, wrapped_key_size, access_control, version,
                                                                    &authenticated_attributes, &ref_key, &ed_data, error), out);
         if (CFEqual(cryptoOp, kAKSKeyOpDecrypt)) {
-            require_quiet(ok = ks_decrypt_acl(ref_key, ed_data, bulkKey, acm_context, caller_access_groups_data, access_control, error), out);
+            __Require_Quiet(ok = ks_decrypt_acl(ref_key, ed_data, bulkKey, acm_context, caller_access_groups_data, access_control, error), out);
         } else if (CFEqual(cryptoOp, kAKSKeyOpDelete)) {
-            require_quiet(ok = ks_delete_acl(ref_key, ed_data, acm_context, caller_access_groups_data, access_control, error), out);
+            __Require_Quiet(ok = ks_delete_acl(ref_key, ed_data, acm_context, caller_access_groups_data, access_control, error), out);
             attributes = CFRetainSafe(authenticated_attributes);
             goto out;
         } else {
@@ -664,7 +664,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
 #endif
     {
         /* Now unwrap the bulk key using a key in the keybag. */
-        require_quiet(ok = ks_crypt(cryptoOp, keybag, bkp,
+        __Require_Quiet(ok = ks_crypt(cryptoOp, keybag, bkp,
             keyclass, wrapped_key_size, cursor, NULL, bulkKey, false, error), out);
     }
 
@@ -741,7 +741,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
         attributes = s3dl_item_v3_decode(plainText, error);
     }
     
-    require_action_quiet(attributes, out, { ok = false; secerror("decode v%d failed: %@", version, error ? *error : NULL); });
+    __Require_Action_Quiet(attributes, out, { ok = false; secerror("decode v%d failed: %@", version, error ? *error : NULL); });
 
 #if USE_KEYSTORE
     if (version >= 4 && authenticated_attributes != NULL) {
@@ -835,22 +835,22 @@ static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, cons
     bool ok = false;
 
     der_decode_plist(NULL, (CFPropertyListRef*)&blob_dict, NULL, blob_data, blob_data + blob_data_len);
-    require_action_quiet(blob_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'blob data'")));
+    __Require_Action_Quiet(blob_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'blob data'")));
 
     if (!ks_separate_data_and_key(blob_dict, &ed, &key_data)) {
         ed = CFDataCreate(kCFAllocatorDefault, blob_data, blob_data_len);
         key_data = CFRetain(ed);
     }
-    require_action_quiet(ed, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'encrypted data'")));
-    require_action_quiet(key_data, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'key data'")));
+    __Require_Action_Quiet(ed, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'encrypted data'")));
+    __Require_Action_Quiet(key_data, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'key data'")));
 
     const void *external_data = NULL;
     size_t external_data_len = 0;
-    require_quiet(external_data = ks_ref_key_get_external_data(keybag, key_data, &tmp_ref_key, &external_data_len, error), out);
+    __Require_Quiet(external_data = ks_ref_key_get_external_data(keybag, key_data, &tmp_ref_key, &external_data_len, error), out);
 
     CFPropertyListRef external_data_dict = NULL;
     der_decode_plist(NULL, &external_data_dict, NULL, external_data, external_data + external_data_len);
-    require_action_quiet(external_data_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'encrypted data dictionary'")));
+    __Require_Action_Quiet(external_data_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'encrypted data dictionary'")));
     acl = CFDictionaryCreateMutableCopy(NULL, 0, external_data_dict);
     SecDbForEachAttrWithMask(class, attr_desc, kSecDbInAuthenticatedDataFlag) {
         CFDictionaryRemoveValue(acl, attr_desc->name);
@@ -870,7 +870,7 @@ static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, cons
             SecAccessControlSetConstraints(access_control, acl);
         } else {
             CFDictionaryRef constraints = CFDictionaryGetValue(acl, kAKSKeyAcl);
-            require_action_quiet(isDictionary(constraints), out,
+            __Require_Action_Quiet(isDictionary(constraints), out,
                                  SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: acl missing")));
             SecAccessControlSetConstraints(access_control, constraints);
         }
@@ -1024,7 +1024,7 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
         decryptSecretData = true;
     }
     @autoreleasepool {
-        require_quiet((ok = ks_decrypt_data(q->q_keybag, NULL, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
+        __Require_Quiet((ok = ks_decrypt_data(q->q_keybag, NULL, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
                                             q->q_caller_access_groups, item, &version, decryptSecretData, keyclass, error)), out);
     }
 
@@ -1125,7 +1125,7 @@ bool SecDbItemDecrypt(SecDbItemRef item, bool decryptSecretData, CFDataRef edata
     SecAccessControlRef access_control = NULL;
     uint32_t version = 0;
 
-    require_quiet(ok = ks_decrypt_data(SecDbItemGetKeybag(item), SecDbItemGetBackupKeypair(item), item->cryptoOp, &access_control, item->credHandle, edata,
+    __Require_Quiet(ok = ks_decrypt_data(SecDbItemGetKeybag(item), SecDbItemGetBackupKeypair(item), item->cryptoOp, &access_control, item->credHandle, edata,
                                        item->class, item->callerAccessGroups, &dict, &version, decryptSecretData, NULL, error), out);
 
     if (version < 2) {
@@ -1370,11 +1370,11 @@ SecAccessControlRef SecDbItemCopyAccessControl(SecDbItemRef item, CFErrorRef *er
     if (!acccData || !pdmnValue)
         return NULL;
     if (!CFEqual(acccData, kCFNull))
-        require_quiet(accc = SecAccessControlCreateFromData(CFGetAllocator(item), acccData, error), out);
+        __Require_Quiet(accc = SecAccessControlCreateFromData(CFGetAllocator(item), acccData, error), out);
 
     if (!CFEqual(pdmnValue, kCFNull)) {
-        require_quiet(pdmn = SecAccessControlCreate(CFGetAllocator(item), error), out);
-        require_quiet(SecAccessControlSetProtection(pdmn, pdmnValue, error), out);
+        __Require_Quiet(pdmn = SecAccessControlCreate(CFGetAllocator(item), error), out);
+        __Require_Quiet(SecAccessControlSetProtection(pdmn, pdmnValue, error), out);
     }
 
     if (accc && pdmn) {
@@ -1384,7 +1384,7 @@ SecAccessControlRef SecDbItemCopyAccessControl(SecDbItemRef item, CFErrorRef *er
             secerror("SecDbItemCopyAccessControl accc %@ != pdmn %@, setting pdmn to accc value", acccProt, pdmnProt);
             __security_simulatecrash(CFSTR("Corrupted item on decrypt accc != pdmn"), __sec_exception_code_CorruptItem);
             // Setting pdmn to accc prot value.
-            require_quiet(SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbAccessAttr, error), acccProt, error), out);
+            __Require_Quiet(SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbAccessAttr, error), acccProt, error), out);
         }
     }
 

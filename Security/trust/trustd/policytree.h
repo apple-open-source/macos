@@ -31,8 +31,9 @@
 #define _SECURITY_POLICYTREE_H_
 
 #include <libDER/libDER.h>
-#include <sys/queue.h>
 #include <stdbool.h>
+
+#include "trust/trustd/SecCertificateServer.h"
 
 __BEGIN_DECLS
 
@@ -50,7 +51,28 @@ struct policy_set {
     policy_set_t oid_next;
 };
 
+policy_set_t policy_set_create(const oid_t *p_oid);
+void policy_set_add(policy_set_t *policy_set, const oid_t *p_oid);
+void policy_set_intersect(policy_set_t *policy_set, policy_set_t other_set);
+bool policy_set_contains(policy_set_t policy_set, const oid_t *oid);
+void policy_set_free(policy_set_t policy_set);
+
 typedef const DERItem *policy_qualifier_t;
+
+typedef struct policy_graph *policy_graph_t;
+policy_graph_t policy_graph_create(void);
+void policy_graph_free(policy_graph_t graph);
+void policy_graph_dump(policy_graph_t graph);
+
+// RFC 9618 policy graph verification function
+bool policy_graph_verify_path(policy_graph_t graph,
+                              SecCertificatePathVCRef path,
+                              bool anchor_trusted,
+                              uint32_t *explicit_policy,
+                              uint32_t *inhibit_any_policy,
+                              uint32_t *policy_mapping);
+
+CFArrayRef policy_graph_copy_constrained_policy_set(policy_graph_t graph, int32_t n);
 
 typedef struct policy_tree *policy_tree_t;
 struct policy_tree {
@@ -62,11 +84,6 @@ struct policy_tree {
     policy_tree_t parent;
     uint64_t tree_size; // 0 for non-root nodes
 };
-
-void policy_set_add(policy_set_t *policy_set, const oid_t *p_oid);
-void policy_set_intersect(policy_set_t *policy_set, policy_set_t other_set);
-bool policy_set_contains(policy_set_t policy_set, const oid_t *oid);
-void policy_set_free(policy_set_t policy_set);
 
 policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q);
 

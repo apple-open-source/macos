@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if USE(AVFOUNDATION)
 
 #include <VideoToolbox/VTCompressionSession.h>

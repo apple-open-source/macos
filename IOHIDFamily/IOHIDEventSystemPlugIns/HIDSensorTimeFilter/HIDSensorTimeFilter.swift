@@ -148,41 +148,11 @@ class Stats {
  
     private var logEvent:Bool = false
     var latency:Stats = Stats(smoothingFactor: 0.5)
-  
 
     public required init?(service: HIDEventService) {
         self.service = service
         self.serviceID = service.serviceID
         self.serviceIDStr = "0x\(String(self.serviceID, radix: 16))"
-        guard let vendorEventDict = service.property(forKey: "ChildVendorMessage") as? NSDictionary else {
-            return nil
-        }
-
-        guard let vendorEventElements = vendorEventDict[kIOHIDElementKey] as? NSArray else {
-            return nil
-        }
-        
-        var supportTimeSync:Bool = false
-        
-        for element in vendorEventElements {
-            guard let elementDict = element as? NSDictionary else {
-                return nil
-            }
-            guard let page = elementDict["UsagePage"] as? Int else {
-                continue
-            }
-            guard let usage = elementDict["Usage"] as? Int else {
-                continue
-            }
-            if  usage == kHIDUsage_AppleVendorSensor_BTRemoteTimestamp && page == kHIDPage_AppleVendorSensor {
-                supportTimeSync = true
-                break
-            }
-        }
-        if supportTimeSync == false {
-            return nil
-        }
-        
         mach_timebase_info(&timebaseInfo)
         super.init()
     }
@@ -209,6 +179,34 @@ class Stats {
         options: [AnyHashable : Any]? = nil,
         score: UnsafeMutablePointer<Int>
     ) -> Bool {
+        guard let vendorEventDict = service.property(forKey: "ChildVendorMessage") as? NSDictionary else {
+            return false
+        }
+
+        guard let vendorEventElements = vendorEventDict[kIOHIDElementKey] as? NSArray else {
+            return false
+        }
+
+        var supportTimeSync:Bool = false
+
+        for element in vendorEventElements {
+            guard let elementDict = element as? NSDictionary else {
+                return false
+            }
+            guard let page = elementDict["UsagePage"] as? Int else {
+                continue
+            }
+            guard let usage = elementDict["Usage"] as? Int else {
+                continue
+            }
+            if usage == kHIDUsage_AppleVendorSensor_BTRemoteTimestamp && page == kHIDPage_AppleVendorSensor {
+                supportTimeSync = true
+                break
+            }
+        }
+        if supportTimeSync == false {
+            return false
+        }
         score.pointee = 0
         return true;
     }
@@ -285,7 +283,7 @@ class Stats {
                 latency.add(value:machAbsoluteToNanoseconds(currentTs - syncedTs))
                 
             } else {
-                logger.error("\(self.serviceIDStr): timesync timstamp is in future use time of arrival current ts:\(currentTs) synce ts:\(syncedTs) remote ts:\(remoteTs)")
+                logger.error("\(self.serviceIDStr): timesync timestamp is in future use time of arrival current ts:\(currentTs) synced ts:\(syncedTs) remote ts:\(remoteTs)")
                 
                 sampleTimeType = .arrival
                 ts = event.timestamp

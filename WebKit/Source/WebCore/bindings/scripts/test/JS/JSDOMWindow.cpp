@@ -191,7 +191,7 @@ void JSDOMWindowPrototype::finishCreation(VM& vm)
 const ClassInfo JSDOMWindow::s_info = { "DOMWindow"_s, &Base::s_info, &JSDOMWindowTable, nullptr, CREATE_METHOD_TABLE(JSDOMWindow) };
 
 JSDOMWindow::JSDOMWindow(VM& vm, Structure* structure, Ref<DOMWindow>&& impl, JSWindowProxy* proxy)
-    : JSEventTarget(vm, structure, WTFMove(impl), proxy)
+    : JSEventTarget(vm, structure, WTF::move(impl), proxy)
 {
 }
 

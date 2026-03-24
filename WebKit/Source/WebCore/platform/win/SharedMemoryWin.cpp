@@ -44,7 +44,7 @@ RefPtr<SharedMemory> SharedMemory::allocate(size_t size)
     RefPtr<SharedMemory> memory = adoptRef(new SharedMemory);
     memory->m_size = size;
     memory->m_data = baseAddress;
-    memory->m_handle = WTFMove(handle);
+    memory->m_handle = WTF::move(handle);
 
     return memory;
 }
@@ -72,7 +72,7 @@ RefPtr<SharedMemory> SharedMemory::map(Handle&& handle, Protection protection)
     RefPtr<SharedMemory> memory = adoptRef(new SharedMemory);
     memory->m_size = handle.size();
     memory->m_data = data;
-    memory->m_handle = WTFMove(handle.m_handle);
+    memory->m_handle = WTF::move(handle.m_handle);
     return memory;
 }
 

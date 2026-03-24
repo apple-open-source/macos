@@ -133,7 +133,7 @@ AppleSCSIPDT03Emulator::Create ( void )
 	require_nonzero ( logicalUnit, ErrorExit );
 	
 	result = logicalUnit->init ( );
-	require ( result, ReleaseLogicalUnit );
+	__Require(result, ReleaseLogicalUnit);
 	
 	return logicalUnit;
 	

@@ -65,6 +65,8 @@
 					<string>/AppleInternal/Tests/libmalloc_exclavekit/EVE.libmalloc.exclavekit-darwintest.asan.sbdl</string>
 					<string>--corefile-path</string>
 					<string>EVE_corefile.core</string>
+					<string>--memory-size</string>
+					<string>1610612736</string>
 				</array>
 				<key>Disabled</key>
 				<true/>

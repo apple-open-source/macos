@@ -43,7 +43,7 @@ class Navigator final
     , public LocalDOMWindowProperty
     , public Supplementable<Navigator>
 {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Navigator);
+    WTF_MAKE_TZONE_ALLOCATED(Navigator);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Navigator);
 public:
     static Ref<Navigator> create(ScriptExecutionContext* context, LocalDOMWindow& window) { return adoptRef(*new Navigator(context, window)); }

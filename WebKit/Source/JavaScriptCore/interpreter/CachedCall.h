@@ -89,48 +89,9 @@ public:
 
     void relink();
 
+
     template<typename... Args> requires (std::is_convertible_v<Args, JSValue> && ...)
-    ALWAYS_INLINE JSValue callWithArguments(JSGlobalObject* globalObject, JSValue thisValue, Args... args)
-    {
-        VM& vm = m_vm;
-        auto scope = DECLARE_THROW_SCOPE(vm);
-
-        ASSERT_WITH_MESSAGE(!thisValue.isEmpty(), "Expected thisValue to be non-empty. Use jsUndefined() if you meant to use undefined.");
-#if ASSERT_ENABLED
-        if constexpr (sizeof...(args) > 0) {
-            size_t argIndex = 0;
-            auto checkArg = [&argIndex](JSValue arg) {
-                ASSERT_WITH_MESSAGE(!arg.isEmpty(), "arguments[%zu] is JSValue(). Use jsUndefined() if you meant to make it undefined.", argIndex);
-                ++argIndex;
-            };
-            (checkArg(args), ...);
-        }
-#endif
-
-#if CPU(ARM64) && CPU(ADDRESS64) && !ENABLE(C_LOOP)
-        ASSERT(sizeof...(args) == static_cast<size_t>(m_protoCallFrame.argumentCount()));
-        constexpr unsigned argumentCountIncludingThis = 1 + sizeof...(args);
-        if constexpr (argumentCountIncludingThis <= 4) {
-            if (m_numParameters <= argumentCountIncludingThis) [[likely]] {
-                JSValue result = m_vm.interpreter.tryCallWithArguments(*this, thisValue, args...);
-                RETURN_IF_EXCEPTION(scope, { });
-                if (result)
-                    return result;
-            }
-        }
-#endif
-
-        clearArguments();
-        setThis(thisValue);
-        (appendArgument(args), ...);
-
-        if (hasOverflowedArguments()) [[unlikely]] {
-            throwOutOfMemoryError(globalObject, scope);
-            return { };
-        }
-
-        RELEASE_AND_RETURN(scope, call());
-    }
+    JSValue callWithArguments(JSGlobalObject*, JSValue thisValue, Args...);
 
 private:
     VM& m_vm;

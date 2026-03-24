@@ -34,20 +34,20 @@ SOSCopyECWrappedData(ccec_pub_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error)
     size_t outputLength;
     int res;
 
-    require_quiet(SecRequirementError(data != NULL, error, CFSTR("data required for wrapping")), exit);
-    require_quiet(SecRequirementError(ec_ctx != NULL, error, CFSTR("ec pub key required for wrapping")), exit);
-    require_quiet(ec_ctx != NULL, exit);
+    __Require_Quiet(SecRequirementError(data != NULL, error, CFSTR("data required for wrapping")), exit);
+    __Require_Quiet(SecRequirementError(ec_ctx != NULL, error, CFSTR("ec pub key required for wrapping")), exit);
+    __Require_Quiet(ec_ctx != NULL, exit);
 
     outputLength = ccec_rfc6637_wrap_key_size(ec_ctx, CCEC_RFC6637_COMPACT_KEYS | DEBUGKEYS, CFDataGetLength(data));
 
     output = CFDataCreateMutableWithScratch(NULL, outputLength);
-    require_quiet(SecAllocationError(output, error, CFSTR("%s CFData allocation failed"), __FUNCTION__), exit);
+    __Require_Quiet(SecAllocationError(output, error, CFSTR("%s CFData allocation failed"), __FUNCTION__), exit);
 
     res = ccec_rfc6637_wrap_key(ec_ctx, CFDataGetMutableBytePtr(output), CCEC_RFC6637_COMPACT_KEYS | DEBUGKEYS, kAlgorithmID,
                                 CFDataGetLength(data), CFDataGetBytePtr(data), &ccec_rfc6637_dh_curve_p256,
                                 &ccec_rfc6637_wrap_sha256_kek_aes128, (const uint8_t *)fingerprint,
                                 ccrng(NULL));
-    require_noerr_action(res, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Wrap failed with %d"), res));
+    __Require_noErr_Action(res, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Wrap failed with %d"), res));
 
     CFTransferRetained(result, output);
 
@@ -70,8 +70,8 @@ bool SOSPerformWithUnwrappedData(ccec_full_ctx_t ec_ctx, CFDataRef data, CFError
                                             &ccec_rfc6637_unwrap_sha256_kek_aes128, (const uint8_t *)fingerprint,
                                             CFDataGetLength(data), CFDataGetBytePtr(data));
 
-        require_noerr_action(ec_result, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccec_rfc6637_unwrap_key failed with %d"), ec_result));
-        require_quiet(SecRequirementError(alg == kAlgorithmID, error, CFSTR("Unexpected algorithm: %d"), (int)alg), exit);
+        __Require_noErr_Action(ec_result, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccec_rfc6637_unwrap_key failed with %d"), ec_result));
+        __Require_Quiet(SecRequirementError(alg == kAlgorithmID, error, CFSTR("Unexpected algorithm: %d"), (int)alg), exit);
 
         operation(outputLength, buffer);
 
@@ -93,14 +93,14 @@ SOSCopyECUnwrappedData(ccec_full_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error
     int res;
 
     output = CFDataCreateMutableWithScratch(NULL, outputLength);
-    require_quiet(SecAllocationError(output, error, CFSTR("%s CFData allocation failed"), __FUNCTION__), exit);
+    __Require_Quiet(SecAllocationError(output, error, CFSTR("%s CFData allocation failed"), __FUNCTION__), exit);
 
     res = ccec_rfc6637_unwrap_key(ec_ctx, &outputLength, CFDataGetMutableBytePtr(output),
                                   CCEC_RFC6637_COMPACT_KEYS | DEBUGKEYS, &alg, &ccec_rfc6637_dh_curve_p256,
                                   &ccec_rfc6637_unwrap_sha256_kek_aes128, (const uint8_t *)fingerprint,
                                   CFDataGetLength(data), CFDataGetBytePtr(data));
-    require_noerr_action(res, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Unwrap failed with %d"), res));
-    require_quiet(SecRequirementError(alg == kAlgorithmID, error, CFSTR("Unexpected algorithm: %d"), (int)alg), exit);
+    __Require_noErr_Action(res, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Unwrap failed with %d"), res));
+    __Require_Quiet(SecRequirementError(alg == kAlgorithmID, error, CFSTR("Unexpected algorithm: %d"), (int)alg), exit);
 
     CFDataSetLength(output, outputLength);
 

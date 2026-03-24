@@ -114,7 +114,7 @@ RefPtr<WebCore::StorageNamespace> WebStorageNamespaceProvider::sessionStorageNam
         if (shouldCreate == ShouldCreateNamespace::No)
             return nullptr;
         auto sessionStorageNamespace = StorageNamespaceImpl::createSessionStorageNamespace(webPage->sessionStorageNamespaceIdentifier(), webPage->identifier(), topLevelOrigin, sessionStorageQuota());
-        it = sessionStorageNamespacesMap.set(topLevelOrigin.data(), WTFMove(sessionStorageNamespace)).iterator;
+        it = sessionStorageNamespacesMap.set(topLevelOrigin.data(), WTF::move(sessionStorageNamespace)).iterator;
     }
     return it->value;
 }

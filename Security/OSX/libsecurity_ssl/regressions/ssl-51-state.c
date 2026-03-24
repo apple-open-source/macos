@@ -161,8 +161,8 @@ static int process(tls_stream_parser_ctx_t ctx, tls_buffer record)
     decrypted.length = tls_record_decrypted_size(h->record, record.length);
     decrypted.data = malloc(decrypted.length);
 
-    require_action(decrypted.data, errOut, err=-ENOMEM);
-    require_noerr((err=tls_record_decrypt(h->record, record, &decrypted, &ct)), errOut);
+    __Require_Action(decrypted.data, errOut, err=-ENOMEM);
+    __Require_noErr((err=tls_record_decrypt(h->record, record, &decrypted, &ct)), errOut);
 
     test_printf("%s: %p decrypted %zd bytes, ct=%d\n", __FUNCTION__, ctx, decrypted.length, ct);
 
@@ -184,13 +184,13 @@ tls_handshake_write_callback(tls_handshake_ctx_t ctx, const tls_buffer data, uin
     test_printf("%s: %p writing data ct=%d, len=%zd\n", __FUNCTION__, ctx, content_type, data.length);
 
     struct RecQueueItem *item = malloc(sizeof(struct RecQueueItem));
-    require_action(item, errOut, err=-ENOMEM);
+    __Require_Action(item, errOut, err=-ENOMEM);
 
     err=tls_buffer_alloc(&item->record, tls_record_encrypted_size(handle->record, content_type, data.length));
-    require_noerr(err, errOut);
+    __Require_noErr(err, errOut);
 
     err=tls_record_encrypt(handle->record, data, content_type, &item->record);
-    require_noerr(err, errOut);
+    __Require_noErr(err, errOut);
 
     item->offset = 0;
 
@@ -401,24 +401,24 @@ ssl_test_handle_create(bool server)
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx, (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
-    require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, true), out);
-    require_noerr(SSLSetEnabledCiphers(ctx, ciphersuites, nciphersuites), out);
-    require_noerr(SSLSetPSKSharedSecret(ctx, shared_secret, sizeof(shared_secret)), out);
+    __Require_noErr(SSLSetIOFuncs(ctx, (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
+    __Require_noErr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, true), out);
+    __Require_noErr(SSLSetEnabledCiphers(ctx, ciphersuites, nciphersuites), out);
+    __Require_noErr(SSLSetPSKSharedSecret(ctx, shared_secret, sizeof(shared_secret)), out);
 
     handle->st = ctx;
     handle->parser = tls_stream_parser_create(handle, process);
     handle->record = tls_record_create(false, CCRNGSTATE);
     handle->hdsk = tls_handshake_create(false, true); // server.
 
-    require_noerr(tls_handshake_set_ciphersuites(handle->hdsk, ciphers, nciphers), out);
-    require_noerr(tls_handshake_set_callbacks(handle->hdsk, &tls_handshake_callbacks, handle), out);
-    require_noerr(tls_handshake_set_psk_secret(handle->hdsk, &psk_secret), out);
-    require_noerr(tls_handshake_set_renegotiation(handle->hdsk, true), out);
+    __Require_noErr(tls_handshake_set_ciphersuites(handle->hdsk, ciphers, nciphers), out);
+    __Require_noErr(tls_handshake_set_callbacks(handle->hdsk, &tls_handshake_callbacks, handle), out);
+    __Require_noErr(tls_handshake_set_psk_secret(handle->hdsk, &psk_secret), out);
+    __Require_noErr(tls_handshake_set_renegotiation(handle->hdsk, true), out);
 
     // Initialize the record queue
     STAILQ_INIT(&handle->rec_queue);
@@ -441,21 +441,21 @@ tests(void)
 
     client = ssl_test_handle_create(false);
 
-    require_action(client, out, ortn = -1);
+    __Require_Action(client, out, ortn = -1);
 
     ortn = SSLGetSessionState(client->st, &state);
-    require_noerr(ortn, out);
+    __Require_noErr(ortn, out);
     is(state, kSSLIdle, "State should be Idle");
 
     do {
         ortn = SSLHandshake(client->st);
         test_printf("SSLHandshake returned err=%d\n", (int)ortn);
 
-        require_noerr(SSLGetSessionState(client->st, &state), out);
+        __Require_noErr(SSLGetSessionState(client->st, &state), out);
 
         if (ortn == errSSLPeerAuthCompleted || ortn == errSSLWouldBlock)
         {
-            require_action(state==kSSLHandshake, out, ortn = -1);
+            __Require_Action(state==kSSLHandshake, out, ortn = -1);
         }
 
     } while(ortn==errSSLWouldBlock ||
@@ -473,11 +473,11 @@ tests(void)
     do {
         ortn = SSLRead(client->st, buffer, sizeof(buffer), &available);
         test_printf("SSLRead returned err=%d, avail=%zd\n", (int)ortn, available);
-        require_noerr(SSLGetSessionState(client->st, &state), out);
+        __Require_noErr(SSLGetSessionState(client->st, &state), out);
 
         if (ortn == errSSLPeerAuthCompleted)
         {
-            require_action(state==kSSLHandshake, out, ortn = -1);
+            __Require_Action(state==kSSLHandshake, out, ortn = -1);
         }
 
     } while(available==0);

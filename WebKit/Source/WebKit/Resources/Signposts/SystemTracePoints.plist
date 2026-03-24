@@ -586,6 +586,18 @@
              </dict>
              <dict>
                  <key>Name</key>
+                 <string>Filters Core Image render</string>
+                 <key>Type</key>
+                 <string>Interval</string>
+                 <key>Component</key>
+                 <string>47</string>
+                 <key>CodeBegin</key>
+                 <string>5062</string>
+                 <key>CodeEnd</key>
+                 <string>5063</string>
+             </dict>
+             <dict>
+                 <key>Name</key>
                  <string>Paint WebHTMLView</string>
                  <key>Type</key>
                  <string>Interval</string>
@@ -957,6 +969,18 @@
                  <string>14011</string>
                  <key>CodeEnd</key>
                  <string>14012</string>
+             </dict>
+             <dict>
+                 <key>Name</key>
+                 <string>Text extraction</string>
+                 <key>Type</key>
+                 <string>Interval</string>
+                 <key>Component</key>
+                 <string>47</string>
+                 <key>CodeBegin</key>
+                 <string>14013</string>
+                 <key>CodeEnd</key>
+                 <string>14014</string>
              </dict>
              <dict>
                  <key>Name</key>

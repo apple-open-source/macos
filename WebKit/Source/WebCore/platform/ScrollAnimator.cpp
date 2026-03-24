@@ -193,8 +193,8 @@ bool ScrollAnimator::handleSteppedScrolling(const PlatformWheelEvent& wheelEvent
     }
 #endif
 
-    auto* horizontalScrollbar = scrollableArea->horizontalScrollbar();
-    auto* verticalScrollbar = scrollableArea->verticalScrollbar();
+    RefPtr horizontalScrollbar = scrollableArea->horizontalScrollbar();
+    RefPtr verticalScrollbar = scrollableArea->verticalScrollbar();
 
     // Accept the event if we have a scrollbar in that direction and can still
     // scroll any further.
@@ -216,7 +216,7 @@ bool ScrollAnimator::handleSteppedScrolling(const PlatformWheelEvent& wheelEvent
             behavior.add(ScrollBehavior::NeverAnimate);
 
         if (deltaY) {
-            if (wheelEvent.granularity() == ScrollByPageWheelEvent)
+            if (wheelEvent.granularity() == PlatformWheelEventGranularity::ScrollByPageWheelEvent)
                 deltaY = std::copysign(Scrollbar::pageStepDelta(scrollableArea->visibleHeight()), deltaY);
 
             auto scrollDelta = verticalScrollbar->pixelStep() * -deltaY; // Wheel deltas are reversed from scrolling direction.
@@ -224,7 +224,7 @@ bool ScrollAnimator::handleSteppedScrolling(const PlatformWheelEvent& wheelEvent
         }
 
         if (deltaX) {
-            if (wheelEvent.granularity() == ScrollByPageWheelEvent)
+            if (wheelEvent.granularity() == PlatformWheelEventGranularity::ScrollByPageWheelEvent)
                 deltaX = std::copysign(Scrollbar::pageStepDelta(scrollableArea->visibleWidth()), deltaX);
 
             auto scrollDelta = horizontalScrollbar->pixelStep() * -deltaX; // Wheel deltas are reversed from scrolling direction.
@@ -387,7 +387,7 @@ float ScrollAnimator::pageScaleFactor() const
 
 std::unique_ptr<ScrollingEffectsControllerTimer> ScrollAnimator::createTimer(Function<void()>&& function)
 {
-    return makeUnique<ScrollingEffectsControllerTimer>(RunLoop::currentSingleton(), [function = WTFMove(function), weakScrollableArea = WeakPtr { m_scrollableArea.get() }] {
+    return makeUnique<ScrollingEffectsControllerTimer>(RunLoop::currentSingleton(), [function = WTF::move(function), weakScrollableArea = WeakPtr { m_scrollableArea.get() }] {
         if (!weakScrollableArea)
             return;
         function();
@@ -409,18 +409,14 @@ void ScrollAnimator::stopAnimationCallback(ScrollingEffectsController&)
 
 void ScrollAnimator::deferWheelEventTestCompletionForReason(ScrollingNodeID identifier, WheelEventTestMonitor::DeferReason reason) const
 {
-    if (!m_wheelEventTestMonitor)
-        return;
-
-    m_wheelEventTestMonitor->deferForReason(identifier, reason);
+    if (RefPtr monitor = m_wheelEventTestMonitor)
+        monitor->deferForReason(identifier, reason);
 }
 
 void ScrollAnimator::removeWheelEventTestCompletionDeferralForReason(ScrollingNodeID identifier, WheelEventTestMonitor::DeferReason reason) const
 {
-    if (!m_wheelEventTestMonitor)
-        return;
-    
-    m_wheelEventTestMonitor->removeDeferralForReason(identifier, reason);
+    if (RefPtr monitor = m_wheelEventTestMonitor)
+        monitor->removeDeferralForReason(identifier, reason);
 }
 
 #if USE(COORDINATED_GRAPHICS)

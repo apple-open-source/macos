@@ -89,6 +89,7 @@ static void Test22088_Ethiopic(void);
 static void TestChangingRuleset(void);
 static void TestParseWithEmptyCurr(void);
 static void TestDuration(void);
+static void TestStrictParse(void);
 #if APPLE_ICU_CHANGES
 // rdar://
 static void TestParseAltNum(void);
@@ -117,6 +118,7 @@ static void TestMinGroupingDigits(void); // TEMPORARY!!!
 static void TestUrduPercentSign(void); // rdar://129319878
 static void TestIndianSecondaryGrouping(void); // rdar://144593924
 static void TestSwissSeparators(void); // rdar://147403870
+static void TestTeluguOrdinals(void); // rdar://149207873
 #endif  // APPLE_ICU_CHANGES
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -164,6 +166,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestChangingRuleset);
     TESTCASE(TestParseWithEmptyCurr);
     TESTCASE(TestDuration);
+    TESTCASE(TestStrictParse);
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestParseAltNum);
@@ -191,6 +194,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestUrduPercentSign); // rdar://129319878
     TESTCASE(TestIndianSecondaryGrouping); // rdar://144593924
     TESTCASE(TestSwissSeparators); // rdar://147403870
+    TESTCASE(TestTeluguOrdinals); // rdar://149207873
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -1019,7 +1023,7 @@ free(result);
         status = U_ZERO_ERROR;
         u_uastrcpy(dest, numFormatted);   /* Parse the expected output of the formatting test */
         parsePos = 3;                 /*      12,345,678,900,987,654,321.12345679         */
-                                      /* start parsing at the the third char              */
+                                      /* start parsing at the third char              */
         resultSize = unum_parseDecimal(fmt, dest, -1, &parsePos, desta, DESTCAPACITY, &status);
         if (U_FAILURE(status)) {
             log_err("File %s, Line %d, status = %s\n", __FILE__, __LINE__, u_errorName(status));
@@ -4100,7 +4104,7 @@ static void Test22088_Ethiopic(void) {
         snprintf(errorMessage, 200, "Creation of number formatter for %s failed", testCases[i].localeID);
         if (assertSuccess(errorMessage, &err)) {
             UChar result[200];
-            
+
             unum_formatDouble(nf, 123, result, 200, NULL, &err);
             snprintf(errorMessage, 200, "Formatting of number for %s failed", testCases[i].localeID);
             if (assertSuccess(errorMessage, &err)) {
@@ -4127,13 +4131,13 @@ static void TestChangingRuleset(void) {
         { "am_ET",               u"%ethiopic",    u"፻፳፫" },
         { "am_ET@numbers=ethi",  NULL,            u"፻፳፫" },
     };
-    
+
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
         char errorMessage[200];
         const char* rulesetNameString = (testCases[i].rulesetName != NULL) ? austrdup(testCases[i].rulesetName) : "NULL";
         UErrorCode err = U_ZERO_ERROR;
         UNumberFormat* nf = unum_open(UNUM_NUMBERING_SYSTEM, NULL, 0, testCases[i].localeID, NULL, &err);
-        
+
         snprintf(errorMessage, 200, "Creating of number formatter for %s failed", testCases[i].localeID);
         if (assertSuccess(errorMessage, &err)) {
             if (testCases[i].rulesetName != NULL) {
@@ -4141,10 +4145,10 @@ static void TestChangingRuleset(void) {
                 snprintf(errorMessage, 200, "Changing formatter for %s's default ruleset to %s failed", testCases[i].localeID, rulesetNameString);
                 assertSuccess(errorMessage, &err);
             }
-            
+
             if (U_SUCCESS(err)) {
                 UChar result[200];
-                
+
                 unum_formatDouble(nf, 123, result, 200, NULL, &err);
                 snprintf(errorMessage, 200, "Formatting of number with %s/%s failed", testCases[i].localeID, rulesetNameString);
                 if (assertSuccess(errorMessage, &err)) {
@@ -4306,19 +4310,68 @@ static void TestDuration(void) {
     // when https://unicode-org.atlassian.net/browse/ICU-22487 is fixed.
     double values[] = { 34, 34.5, 1234, 1234.2, 1234.7, 1235, 8434, 8434.5 };
     const UChar* expectedResults[] = { u"34 sec.", u"34 sec.", u"20:34", u"20:34", u"20:35", u"20:35", u"2:20:34", u"2:20:34" };
-    
+
     UErrorCode err = U_ZERO_ERROR;
     UNumberFormat* nf = unum_open(UNUM_DURATION, NULL, 0, "en_US", NULL, &err);
-    
+
     if (assertSuccess("Failed to create duration formatter", &err)) {
         UChar actualResult[200];
-        
+
         for (int32_t i = 0; i < UPRV_LENGTHOF(values); i++) {
             unum_formatDouble(nf, values[i], actualResult, 200, NULL, &err);
             if (assertSuccess("Error formatting duration", &err)) {
                 assertUEquals("Wrong formatting result", expectedResults[i], actualResult);
             }
         }
+        unum_close(nf);
+    }
+}
+
+// ICU-23139
+static void TestStrictParse(void) {
+    #define LOCALE_COUNT 4
+    #define TESTS_COUNT 5
+    // fr-FR: grouping separator '\u202F', decimal separator ','
+    // en-US: grouping separator ',', decimal separator '.'
+    // de: grouping separator '.', decimal separator ','
+    // de-CH: grouping separator '\u2019', decimal separator '.'
+    const char* locales[LOCALE_COUNT] = { "fr_FR", "en_US", "de", "de_CH" };
+    const UChar* toParse[TESTS_COUNT] =
+        { u"1.234", u"1,234", u"1\u00a0234", u"1 234", u"1.234,567" };
+    double expectedLenient[LOCALE_COUNT][TESTS_COUNT] = {
+        {   1234,   1.234,         1234,    1234,    1234.567 }, // fr-FR
+        {  1.234,    1234,         1234,    1234,   1.234 }, // en-US
+        {   1234,   1.234,         1234,    1234,    1234.567 }, // de
+        {  1.234,    1234,         1234,    1234,   1.234 } // de-CH
+    };
+    double expectedStrict[LOCALE_COUNT][TESTS_COUNT] = {
+        {      1,   1.234,         1234,    1234,       1 }, // fr-FR
+        {  1.234,    1234,            1,       1,   1.234 }, // en-US
+        {   1234,   1.234,            1,       1,    1234.567 }, // de
+        {  1.234,       1,         1234,    1234,   1.234 } // de-CH
+   };
+
+    UErrorCode status = U_ZERO_ERROR;
+    double result;
+    for (int idxLocale = 0; idxLocale < LOCALE_COUNT; idxLocale++) {
+        char msg[256];
+        status = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(UNUM_DEFAULT, NULL, -1, locales[idxLocale], NULL, &status);
+
+        unum_setAttribute(nf, UNUM_LENIENT_PARSE, true);
+        snprintf(msg, 256, "%s: %s", locales[idxLocale], "Lenient Parsing");
+        for (int i = 0; i < TESTS_COUNT; i++) {
+            result = unum_parseDouble(nf, toParse[i], -1, 0, &status);
+            assertDoubleEquals(msg, expectedLenient[idxLocale][i], result);
+        }
+
+        unum_setAttribute(nf, UNUM_LENIENT_PARSE, false);
+        snprintf(msg, 256, "%s: %s", locales[idxLocale], "Strict Parsing");
+        for (int i = 0; i < TESTS_COUNT; i++) {
+            result = unum_parseDouble(nf, toParse[i], -1, 0, &status);
+            assertDoubleEquals(msg, expectedStrict[idxLocale][i], result);
+        }
+
         unum_close(nf);
     }
 }
@@ -4844,9 +4897,9 @@ static const LocaleCurrCodeItem currCodeItems[] = {
     { "en",              u""    }, // curr ICU has "XXX"
     { "en@currency=EUR", u"EUR" },
     { "en_US",           u"USD" },
-    { "en_ZZ",           u"XAG" },
+    { "en_ZZ",           u"XAD" },
     { "_US",             u"USD" },
-    { "_ZZ",             u"XAG" },
+    { "_ZZ",             u"XAD" },
     { "us",              u""    }, // curr ICU has "XXX"
     { "",                u""    }, // curr ICU has "XXX"
     { NULL,              NULL   }
@@ -5004,7 +5057,7 @@ static void TestCountryFallback(void) {
         "en_CL", "es_CL", "en_CL",
         "en_CO", "es_CO", "en_CO",
         "en_GR", "el_GR", "en_150",
-        "en_HU", "hu_HU", "en_150",
+//        "en_HU", "hu_HU", "en_150", // the change for CLDR-11586 means en_150 no longer has the same currency format as en_HU and hu_HU are giving us
         "en_ID", "id_ID", "en_001@currency=IDR",
 //        "en_MM", "my_MM@numbers=latn", "en_001", // en_MM exists and has "#,##0 ¤" -- en_001 "¤#,##0.00"
 //        "en_MV", "dv_MV", "en_001", // en_MV exists and has "¤ #,##0.00" -- en_001 has "¤#,##0.00"
@@ -5042,7 +5095,7 @@ static void TestCountryFallback(void) {
         "en_LU", "fr_LU", "en_150",
         "en_ME", "sr_ME", "en_150",
         "en_NO", "nb_NO", "en_NO",
-        "en_PL", "pl_PL", "en_150",
+//        "en_PL", "pl_PL", "en_150", // CLDR 48 added an en_PL resource, and it doesn't match the "pl" resource we were using before
         "en_RO", "ro_RO", "en_150",
         "en_RS", "sr_RS", "en_150@currency=RSD",
 //        "en_SA", "ar_SA@numbers=latn", "en", // en_SA exists and has "¤ #,##0.00" -- en_001 has "¤#,##0.00"
@@ -5340,7 +5393,7 @@ static void TestCurrencySymbol(void) {
         u"en_AT", u"€ 1.234,56",
         u"zh-Hant_US@currency=USD", u"$1,234.56",
         // rdar://107676538, fixed in rdar://108767828, modified by rdar://147403870
-        u"fr_CH@currency=CHF", u"CHF 1’234.56",
+        u"fr_CH@currency=CHF", u"CHF 1'234.56",
         // rdar://107711452
         u"en_ID@currency=IDR", u"Rp 1.235", // IDR has digits="0"
         // rdar://102824421
@@ -5601,7 +5654,7 @@ static void TestIndianSecondaryGrouping(void) {
         u"te_IN",                 u"1,23,456.78", u"₹1,23,456.78",
         u"te_IN@numbers=telu",    u"౧,౨౩,౪౫౬.౭౮", u"₹౧,౨౩,౪౫౬.౭౮",
         u"ur_IN",                 u"1,23,456.78",  u"₹1,23,456.78",
-        u"ur_IN@numbers=arabext", u"۱٬۲۳٬۴۵۶٫۷۸",  u"₹ ۱٬۲۳٬۴۵۶٫۷۸",
+        u"ur_IN@numbers=arabext", u"۱٬۲۳٬۴۵۶٫۷۸",  u"₹۱٬۲۳٬۴۵۶٫۷۸",
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
@@ -5631,13 +5684,47 @@ static void TestIndianSecondaryGrouping(void) {
         unum_close(currF);
     }
 }
+    
+// rdar://149207873
+static void TestTeluguOrdinals(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UChar result[100];
+    char result_utf8[200];
+    int32_t resultLength;
+
+    // Create an ordinal number formatter for Telugu locale
+    UNumberFormat* fmt = unum_open(
+        UNUM_ORDINAL,           // ordinal number format
+        NULL,                    // pattern (NULL for default)
+        0,                       // pattern length
+        "te",                    // Telugu locale
+        NULL,                    // parse error (not needed)
+        &status
+    );
+    if (U_FAILURE(status)) {
+        printf("Failed to create number formatter: %s\n", u_errorName(status));
+    }
+
+    // Format the number 25 as ordinal
+    resultLength = unum_format(fmt, 25, result, 100, NULL, &status);
+    if (U_FAILURE(status)) {
+        printf("Failed to format number: %s\n", u_errorName(status));
+        unum_close(fmt);
+    }
+
+    const UChar* expectedResult = u"25వ";
+    if (assertSuccess("te", &status)) {
+        assertUEquals("te", expectedResult, result);
+    }
+    unum_close(fmt);
+}
 
 // rdar://147403870
 static void TestSwissSeparators(void) {
     const UChar* testCases[] = {
-        u"de_CH", u"12’345.67",
-        u"it_CH", u"12’345.67",
-        u"fr_CH", u"12’345.67",
+        u"de_CH", u"12'345.67",
+        u"it_CH", u"12'345.67",
+        u"fr_CH", u"12'345.67",
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {

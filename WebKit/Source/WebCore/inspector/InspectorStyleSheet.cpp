@@ -343,7 +343,7 @@ void StyleSheetHandler::startRuleHeader(StyleRuleType type, unsigned offset)
     auto data = CSSRuleSourceData::create(type);
     data->ruleHeaderRange.start = offset;
     m_currentRuleData = data.copyRef();
-    m_currentRuleDataStack.append(WTFMove(data));
+    m_currentRuleDataStack.append(WTF::move(data));
 }
 
 template <typename CharacterType> inline void StyleSheetHandler::setRuleHeaderEnd(std::span<const CharacterType> data)
@@ -407,13 +407,13 @@ void StyleSheetHandler::endRuleBody(unsigned offset)
         std::swap(rule->styleSourceData, inferredStyleRule->styleSourceData);
 
         // Inferred style rules are always logically placed at the start of their parent rule.
-        rule->childRules.insert(0, WTFMove(inferredStyleRule));
+        rule->childRules.insert(0, WTF::move(inferredStyleRule));
     }
 
     if (m_currentRuleDataStack.isEmpty())
-        m_ruleSourceDataResult->append(WTFMove(rule));
+        m_ruleSourceDataResult->append(WTF::move(rule));
     else
-        m_currentRuleDataStack.last()->childRules.append(WTFMove(rule));
+        m_currentRuleDataStack.last()->childRules.append(WTF::move(rule));
 }
 
 void StyleSheetHandler::markRuleBodyContainsImplicitlyNestedProperties()
@@ -426,7 +426,7 @@ Ref<CSSRuleSourceData> StyleSheetHandler::popRuleData()
 {
     ASSERT(!m_currentRuleDataStack.isEmpty());
     m_currentRuleData = nullptr;
-    auto data = WTFMove(m_currentRuleDataStack.last());
+    auto data = WTF::move(m_currentRuleDataStack.last());
     m_currentRuleDataStack.removeLast();
     return data;
 }
@@ -676,7 +676,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::Grouping>> InspectorStyleSheet::buil
                     layerRulePayload->setText(layerName);
                     if (!sourceURL.isEmpty())
                         layerRulePayload->setSourceURL(sourceURL);
-                    groupingsPayload->addItem(WTFMove(layerRulePayload));
+                    groupingsPayload->addItem(WTF::move(layerRulePayload));
                 }
 
                 if (auto& media = importRule->media(); media.length() && media.mediaText() != "all"_s) {
@@ -686,7 +686,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::Grouping>> InspectorStyleSheet::buil
                     mediaRulePayload->setText(media.mediaText());
                     if (!sourceURL.isEmpty())
                         mediaRulePayload->setSourceURL(sourceURL);
-                    groupingsPayload->addItem(WTFMove(mediaRulePayload));
+                    groupingsPayload->addItem(WTF::move(mediaRulePayload));
                 }
             }
         }
@@ -714,7 +714,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::Grouping>> InspectorStyleSheet::buil
                 if (!sourceURL.isEmpty())
                     sheetGroupingPayload->setSourceURL(sourceURL);
 
-                groupingsPayload->addItem(WTFMove(sheetGroupingPayload));
+                groupingsPayload->addItem(WTF::move(sheetGroupingPayload));
             }
 
             parentRule = styleSheet->ownerRule();
@@ -730,12 +730,12 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::Grouping>> InspectorStyleSheet::buil
 
 Ref<InspectorStyle> InspectorStyle::create(const InspectorCSSId& styleId, Ref<CSSStyleDeclaration>&& style, InspectorStyleSheet* parentStyleSheet)
 {
-    return adoptRef(*new InspectorStyle(styleId, WTFMove(style), parentStyleSheet));
+    return adoptRef(*new InspectorStyle(styleId, WTF::move(style), parentStyleSheet));
 }
 
 InspectorStyle::InspectorStyle(const InspectorCSSId& styleId, Ref<CSSStyleDeclaration>&& style, InspectorStyleSheet* parentStyleSheet)
     : m_styleId(styleId)
-    , m_style(WTFMove(style))
+    , m_style(WTF::move(style))
     , m_parentStyleSheet(parentStyleSheet)
 {
 }
@@ -768,7 +768,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::CSSComputedStyleProperty>> Inspector
             .setName(propertyEntry.name)
             .setValue(propertyEntry.value)
             .release();
-        result->addItem(WTFMove(entry));
+        result->addItem(WTF::move(entry));
     }
     return result;
 }
@@ -951,7 +951,7 @@ Ref<Inspector::Protocol::CSS::CSSStyle> InspectorStyle::styleWithProperties()
                             .setName(shorthand)
                             .setValue(shorthandValue(shorthand))
                             .release();
-                        shorthandEntries->addItem(WTFMove(entry));
+                        shorthandEntries->addItem(WTF::move(entry));
                     }
                 }
             }
@@ -963,8 +963,8 @@ Ref<Inspector::Protocol::CSS::CSSStyle> InspectorStyle::styleWithProperties()
     }
 
     return Inspector::Protocol::CSS::CSSStyle::create()
-        .setCssProperties(WTFMove(propertiesObject))
-        .setShorthandEntries(WTFMove(shorthandEntries))
+        .setCssProperties(WTF::move(propertiesObject))
+        .setShorthandEntries(WTF::move(shorthandEntries))
         .release();
 }
 
@@ -1029,7 +1029,7 @@ Vector<String> InspectorStyle::longhandProperties(const String& shorthandPropert
 
 Ref<InspectorStyleSheet> InspectorStyleSheet::create(InspectorPageAgent* pageAgent, const String& id, RefPtr<CSSStyleSheet>&& pageStyleSheet, Inspector::Protocol::CSS::StyleSheetOrigin origin, const String& documentURL, Listener* listener)
 {
-    return adoptRef(*new InspectorStyleSheet(pageAgent, id, WTFMove(pageStyleSheet), origin, documentURL, listener));
+    return adoptRef(*new InspectorStyleSheet(pageAgent, id, WTF::move(pageStyleSheet), origin, documentURL, listener));
 }
 
 String InspectorStyleSheet::styleSheetURL(CSSStyleSheet* pageStyleSheet)
@@ -1042,7 +1042,7 @@ String InspectorStyleSheet::styleSheetURL(CSSStyleSheet* pageStyleSheet)
 InspectorStyleSheet::InspectorStyleSheet(InspectorPageAgent* pageAgent, const String& id, RefPtr<CSSStyleSheet>&& pageStyleSheet, Inspector::Protocol::CSS::StyleSheetOrigin origin, const String& documentURL, Listener* listener)
     : m_pageAgent(pageAgent)
     , m_id(id)
-    , m_pageStyleSheet(WTFMove(pageStyleSheet))
+    , m_pageStyleSheet(WTF::move(pageStyleSheet))
     , m_origin(origin)
     , m_documentURL(documentURL)
     , m_listener(listener)
@@ -1303,7 +1303,7 @@ static Ref<Inspector::Protocol::CSS::CSSSelector> buildObjectForSelectorHelper(c
     tuple->addItem(specificity[0]);
     tuple->addItem(specificity[1]);
     tuple->addItem(specificity[2]);
-    inspectorSelector->setSpecificity(WTFMove(tuple));
+    inspectorSelector->setSpecificity(WTF::move(tuple));
 
     return inspectorSelector;
 }
@@ -1439,7 +1439,7 @@ RefPtr<Inspector::Protocol::CSS::CSSRule> InspectorStyleSheet::buildObjectForRul
 
     auto groupingsPayload = buildArrayForGroupings(*rule);
     if (groupingsPayload->length())
-        result->setGroupings(WTFMove(groupingsPayload));
+        result->setGroupings(WTF::move(groupingsPayload));
 
     if (auto sourceData = ruleSourceDataFor(rule))
         result->setIsImplicitlyNested(sourceData->isImplicitlyNested);
@@ -1541,6 +1541,9 @@ ExceptionOr<void> InspectorStyleSheet::setRuleStyleText(const InspectorCSSId& id
 
     auto* cssRule = ruleForId(id);
     if (!cssRule)
+        return Exception { ExceptionCode::NotFoundError };
+
+    if (!ensureParsedDataReady())
         return Exception { ExceptionCode::NotFoundError };
 
     RefPtr<CSSRuleSourceData> sourceData = ruleSourceDataFor(cssRule);
@@ -1717,7 +1720,7 @@ bool InspectorStyleSheet::ensureSourceData()
 
     StyleSheetHandler handler(m_parsedStyleSheet->text(), m_pageStyleSheet->ownerDocument(), ruleSourceDataResult.get());
     CSSParser::parseStyleSheetForInspector(m_parsedStyleSheet->text(), context, newStyleSheet, handler);
-    m_parsedStyleSheet->setSourceData(WTFMove(ruleSourceDataResult));
+    m_parsedStyleSheet->setSourceData(WTF::move(ruleSourceDataResult));
     return m_parsedStyleSheet->hasSourceData();
 }
 
@@ -1765,7 +1768,7 @@ bool InspectorStyleSheet::extensionStyleSheetText(String* result) const
     if (!ownerDocument())
         return false;
 
-    auto content = ownerDocument()->extensionStyleSheets().contentForInjectedStyleSheet(m_pageStyleSheet);
+    auto content = ownerDocument()->extensionStyleSheets().contentForInjectedStyleSheet(*m_pageStyleSheet);
     if (content.isEmpty())
         return false;
 
@@ -1795,7 +1798,7 @@ Ref<JSON::ArrayOf<Inspector::Protocol::CSS::CSSRule>> InspectorStyleSheet::build
 
     RefPtr<CSSRuleList> refRuleList = ruleList;
     Vector<RefPtr<CSSRule>> rules;
-    collectFlatRules(WTFMove(refRuleList), &rules);
+    collectFlatRules(WTF::move(refRuleList), &rules);
 
     for (auto& rule : rules) {
         if (auto* styleRule = dynamicDowncast<CSSStyleRule>(rule.get())) {
@@ -1823,7 +1826,7 @@ void InspectorStyleSheet::collectFlatRules(RefPtr<CSSRuleList>&& ruleList, Vecto
 
             auto childRuleList = asCSSRuleList(rule);
             ASSERT(childRuleList);
-            collectFlatRules(WTFMove(childRuleList), result);
+            collectFlatRules(WTF::move(childRuleList), result);
             break;
         }
 
@@ -1835,12 +1838,12 @@ void InspectorStyleSheet::collectFlatRules(RefPtr<CSSRuleList>&& ruleList, Vecto
 
 Ref<InspectorStyleSheetForInlineStyle> InspectorStyleSheetForInlineStyle::create(InspectorPageAgent* pageAgent, const String& id, Ref<StyledElement>&& element, Inspector::Protocol::CSS::StyleSheetOrigin origin, Listener* listener)
 {
-    return adoptRef(*new InspectorStyleSheetForInlineStyle(pageAgent, id, WTFMove(element), origin, listener));
+    return adoptRef(*new InspectorStyleSheetForInlineStyle(pageAgent, id, WTF::move(element), origin, listener));
 }
 
 InspectorStyleSheetForInlineStyle::InspectorStyleSheetForInlineStyle(InspectorPageAgent* pageAgent, const String& id, Ref<StyledElement>&& element, Inspector::Protocol::CSS::StyleSheetOrigin origin, Listener* listener)
     : InspectorStyleSheet(pageAgent, id, nullptr, origin, String(), listener)
-    , m_element(WTFMove(element))
+    , m_element(WTF::move(element))
     , m_ruleSourceData(nullptr)
     , m_isStyleTextValid(false)
 {
@@ -1942,7 +1945,7 @@ Ref<CSSRuleSourceData> InspectorStyleSheetForInlineStyle::ruleSourceData() const
     RuleSourceDataList ruleSourceDataResult;
     StyleSheetHandler handler(m_styleText, &m_element->document(), &ruleSourceDataResult);
     CSSParser::parseDeclarationListForInspector(m_styleText, context, handler);
-    return WTFMove(ruleSourceDataResult.first());
+    return WTF::move(ruleSourceDataResult.first());
 }
 
 } // namespace WebCore

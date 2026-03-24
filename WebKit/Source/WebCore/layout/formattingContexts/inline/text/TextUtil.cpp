@@ -35,7 +35,7 @@
 #include "Latin1TextIterator.h"
 #include "LayoutInlineTextBox.h"
 #include "RenderBox.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextRun.h"
 #include "TextSpacing.h"
@@ -386,7 +386,7 @@ bool TextUtil::mayBreakInBetween(String previousContent, const RenderStyle& prev
         // See the templated CharacterType in nextBreakablePosition for last and lastlast characters.
         nextContent.convertTo16Bit();
     }
-    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { nextContent, nextContentStyle.computedLocale(), TextUtil::lineBreakIteratorMode(nextContentStyle.lineBreak()), TextUtil::contentAnalysis(nextContentStyle.wordBreak()) };
+    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { nextContent, Style::toPlatform(nextContentStyle.computedLocale()), TextUtil::lineBreakIteratorMode(nextContentStyle.lineBreak()), TextUtil::contentAnalysis(nextContentStyle.wordBreak()) };
     auto previousContentLength = previousContent.length();
     // FIXME: We should look into the entire uncommitted content for more text context.
     char16_t lastCharacter = previousContentLength ? previousContent[previousContentLength - 1] : 0;
@@ -630,7 +630,7 @@ InlineLayoutUnit TextUtil::hyphenWidth(const RenderStyle& style)
 
 bool TextUtil::hasHangablePunctuationStart(const InlineTextItem& inlineTextItem, const RenderStyle& style)
 {
-    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(HangingPunctuation::First))
+    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(Style::HangingPunctuationValue::First))
         return false;
     auto leadingCharacter = inlineTextItem.inlineTextBox().content()[inlineTextItem.start()];
     return U_GET_GC_MASK(leadingCharacter) & (U_GC_PS_MASK | U_GC_PI_MASK | U_GC_PF_MASK);
@@ -647,7 +647,7 @@ float TextUtil::hangablePunctuationStartWidth(const InlineTextItem& inlineTextIt
 
 bool TextUtil::hasHangablePunctuationEnd(const InlineTextItem& inlineTextItem, const RenderStyle& style)
 {
-    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(HangingPunctuation::Last))
+    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(Style::HangingPunctuationValue::Last))
         return false;
     auto trailingCharacter = inlineTextItem.inlineTextBox().content()[inlineTextItem.end() - 1];
     return U_GET_GC_MASK(trailingCharacter) & (U_GC_PE_MASK | U_GC_PI_MASK | U_GC_PF_MASK);
@@ -664,7 +664,7 @@ float TextUtil::hangablePunctuationEndWidth(const InlineTextItem& inlineTextItem
 
 bool TextUtil::hasHangableStopOrCommaEnd(const InlineTextItem& inlineTextItem, const RenderStyle& style)
 {
-    if (!inlineTextItem.length() || !style.hangingPunctuation().containsAny({ HangingPunctuation::AllowEnd, HangingPunctuation::ForceEnd }))
+    if (!inlineTextItem.length() || !style.hangingPunctuation().containsAny({ Style::HangingPunctuationValue::AllowEnd, Style::HangingPunctuationValue::ForceEnd }))
         return false;
     auto trailingPosition = inlineTextItem.end() - 1;
     auto trailingCharacter = inlineTextItem.inlineTextBox().content()[trailingPosition];

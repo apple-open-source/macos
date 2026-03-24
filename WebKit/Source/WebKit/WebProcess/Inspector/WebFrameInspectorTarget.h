@@ -40,6 +40,7 @@ class WebFrameInspectorTargetFrontendChannel;
 class WebFrameInspectorTarget final : public Inspector::InspectorTarget {
     WTF_MAKE_TZONE_ALLOCATED(WebFrameInspectorTarget);
     WTF_MAKE_NONCOPYABLE(WebFrameInspectorTarget);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebFrameInspectorTarget);
 public:
     explicit WebFrameInspectorTarget(WebFrame&);
     ~WebFrameInspectorTarget();

@@ -49,7 +49,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCAVOutputContext, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCAVOutputContext>;
 
     CoreIPCAVOutputContext(
         RetainPtr<NSString>&&,
@@ -70,7 +70,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSSomeFoundationType, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSSomeFoundationType>;
 
     CoreIPCNSSomeFoundationType(
         RetainPtr<NSString>&&,
@@ -100,7 +100,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCclass NSSomeOtherFoundationType, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCclass NSSomeOtherFoundationType>;
 
     CoreIPCclass NSSomeOtherFoundationType(
         RetainPtr<NSDictionary>&&
@@ -119,7 +119,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCDDScannerResult, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCDDScannerResult>;
 
     CoreIPCDDScannerResult(
         RetainPtr<NSString>&&,

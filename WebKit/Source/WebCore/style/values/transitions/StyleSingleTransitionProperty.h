@@ -63,7 +63,7 @@ struct SingleTransitionProperty {
     }
 
     SingleTransitionProperty(CustomIdentifier&& identifier)
-        : m_value { fromCustomIdentifier(WTFMove(identifier)) }
+        : m_value { fromCustomIdentifier(WTF::move(identifier)) }
     {
     }
 
@@ -71,6 +71,11 @@ struct SingleTransitionProperty {
         : m_value { SingleProperty { .value = propertyID } }
     {
     }
+
+    bool isAll() const { return WTF::holdsAlternative<CSS::Keyword::All>(m_value); }
+    bool isNone() const { return WTF::holdsAlternative<CSS::Keyword::None>(m_value); }
+    bool isUnknownProperty() const { return WTF::holdsAlternative<UnknownProperty>(m_value); }
+    bool isSingleProperty() const { return WTF::holdsAlternative<SingleProperty>(m_value); }
 
     template<typename... F> decltype(auto) switchOn(F&&... f) const
     {
@@ -85,8 +90,8 @@ private:
     static Kind fromCustomIdentifier(CustomIdentifier&& identifier)
     {
         if (isCustomPropertyName(identifier.value))
-            return Kind { SingleProperty { .value = WTFMove(identifier.value) } };
-        return Kind { UnknownProperty { .value = WTFMove(identifier) } };
+            return Kind { SingleProperty { .value = WTF::move(identifier.value) } };
+        return Kind { UnknownProperty { .value = WTF::move(identifier) } };
     }
 
     Kind m_value;

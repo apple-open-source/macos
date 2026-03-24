@@ -26,13 +26,13 @@
 #include "config.h"
 #include "AcceleratedEffectStack.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(AcceleratedEffectStack);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedEffectStack);
 
 Ref<AcceleratedEffectStack> AcceleratedEffectStack::create()
 {
@@ -82,9 +82,9 @@ void AcceleratedEffectStack::setEffects(AcceleratedEffects&& effects)
 
 void AcceleratedEffectStack::setBaseValues(AcceleratedEffectValues&& values)
 {
-    m_baseValues = WTFMove(values);
+    m_baseValues = WTF::move(values);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

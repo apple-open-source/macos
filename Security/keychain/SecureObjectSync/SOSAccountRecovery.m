@@ -63,7 +63,7 @@ bool SOSAccountSetRecoveryKeyBagEntry(CFAllocatorRef allocator, SOSAccount* acco
 SOSRecoveryKeyBagRef SOSAccountCopyRecoveryKeyBagEntry(CFAllocatorRef allocator, SOSAccount* account, CFErrorRef *error) {
     SOSRecoveryKeyBagRef retval = NULL;
     CFDataRef rkbg_as_data = asData(SOSAccountGetValue(account, kRecoveryRingKey, error), error);
-    require_quiet(rkbg_as_data, errOut);
+    __Require_Quiet(rkbg_as_data, errOut);
     retval = SOSRecoveryKeyBagCreateFromData(allocator, rkbg_as_data, error);
 errOut:
     return retval;
@@ -72,10 +72,10 @@ errOut:
 CFDataRef SOSAccountCopyRecoveryPublic(CFAllocatorRef allocator, SOSAccount* account, CFErrorRef *error) {
     SOSRecoveryKeyBagRef rkbg = SOSAccountCopyRecoveryKeyBagEntry(allocator, account, error);
     CFDataRef recKey = NULL;
-    require_quiet(rkbg, errOut);
+    __Require_Quiet(rkbg, errOut);
     CFDataRef tmpKey = SOSRecoveryKeyBagGetKeyData(rkbg, error);
-    require_quiet(tmpKey, errOut);
-    require_quiet(!CFEqualSafe(tmpKey, SOSRKNullKey()), errOut);
+    __Require_Quiet(tmpKey, errOut);
+    __Require_Quiet(!CFEqualSafe(tmpKey, SOSRKNullKey()), errOut);
     recKey = CFDataCreateCopy(kCFAllocatorDefault, tmpKey);
 errOut:
     CFReleaseNull(rkbg);
@@ -191,20 +191,20 @@ bool SOSAccountRecoveryKeyIsInBackupAndCurrentInView(SOSAccount* account, CFStri
     SOSBackupSliceKeyBagRef backupSlice = NULL;
 
     CFDataRef recoveryKeyFromAccount = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, NULL);
-    require_quiet(recoveryKeyFromAccount, errOut);
+    __Require_Quiet(recoveryKeyFromAccount, errOut);
 
     CFStringRef ringName = SOSBackupCopyRingNameForView(viewname);
     ring = [account.trust copyRing:ringName err:&bsError];
     CFReleaseNull(ringName);
     
-    require_quiet(ring, errOut);
+    __Require_Quiet(ring, errOut);
     
     //grab the backup slice from the ring
     backupSliceData = SOSRingGetPayload(ring, &bsError);
-    require_quiet(backupSliceData, errOut);
+    __Require_Quiet(backupSliceData, errOut);
     
     backupSlice = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, backupSliceData, &bsError);
-    require_quiet(backupSlice, errOut);
+    __Require_Quiet(backupSlice, errOut);
 
     result = SOSBKSBPrefixedKeyIsInKeyBag(backupSlice, bskbRkbgPrefix, recoveryKeyFromAccount);
     CFReleaseNull(backupSlice);

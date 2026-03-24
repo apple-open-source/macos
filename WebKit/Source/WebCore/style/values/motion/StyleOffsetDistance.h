@@ -35,14 +35,14 @@ namespace Style {
 struct OffsetDistance : LengthWrapperBase<LengthPercentage<>> {
     using Base::Base;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     explicit OffsetDistance(AcceleratedEffectOffsetDistance distance) : Base { Fixed { distance.value } } { }
 #endif
 };
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 template<> struct Evaluation<OffsetDistance, AcceleratedEffectOffsetDistance> {
     auto operator()(const OffsetDistance& value, float pathLength, ZoomNeeded token) -> AcceleratedEffectOffsetDistance

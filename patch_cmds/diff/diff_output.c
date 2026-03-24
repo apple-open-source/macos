@@ -29,7 +29,22 @@
 #include <diff_output.h>
 
 #include "diff_internal.h"
-#include "diff.h"
+
+static bool color;
+static const char *del_code = "31";
+static const char *add_code = "32";
+
+void
+diff_output_set_colors(bool _color,
+		       const char *_del_code,
+		       const char *_add_code)
+{
+	color = _color;
+	if (_del_code)
+		del_code = _del_code;
+	if (_add_code)
+		add_code = _add_code;
+}
 
 static int
 get_atom_byte(int *ch, struct diff_atom *atom, off_t off)

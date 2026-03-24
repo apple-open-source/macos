@@ -41,7 +41,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteTextureView);
 RemoteTextureView::RemoteTextureView(WebCore::WebGPU::TextureView& textureView, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(textureView)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -62,7 +62,7 @@ void RemoteTextureView::stopListeningForIPC()
 
 void RemoteTextureView::setLabel(String&& label)
 {
-    Ref { m_backing }->setLabel(WTFMove(label));
+    Ref { m_backing }->setLabel(WTF::move(label));
 }
 
 Ref<IPC::StreamServerConnection> RemoteTextureView::protectedStreamConnection() const

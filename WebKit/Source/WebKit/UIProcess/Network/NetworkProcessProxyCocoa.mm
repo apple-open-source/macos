@@ -45,6 +45,10 @@
 #import <wtf/WeakPtr.h>
 #endif
 
+#if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
+#import "APIUIClient.h"
+#endif
+
 namespace WebKit {
 
 using namespace WebCore;
@@ -95,10 +99,10 @@ bool NetworkProcessProxy::sendXPCEndpointToProcess(AuxiliaryProcessProxy& proces
         return false;
     if (!process.hasConnection())
         return false;
-    RetainPtr message = xpcEndpointMessage();
+    XPCObjectPtr<xpc_object_t> message = xpcEndpointMessage();
     if (!message)
         return false;
-    RetainPtr xpcConnection = process.connection().xpcConnection();
+    XPCObjectPtr<xpc_connection_t> xpcConnection = process.connection().xpcConnection();
     RELEASE_ASSERT(xpcConnection);
     xpc_connection_send_message(xpcConnection.get(), message.get());
     return true;
@@ -126,7 +130,7 @@ void NetworkProcessProxy::removeBackgroundStateObservers()
 
 void NetworkProcessProxy::setBackupExclusionPeriodForTesting(PAL::SessionID sessionID, Seconds period, CompletionHandler<void()>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::NetworkProcess::SetBackupExclusionPeriodForTesting(sessionID, period), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::NetworkProcess::SetBackupExclusionPeriodForTesting(sessionID, period), WTF::move(completionHandler));
 }
 
 #endif
@@ -151,6 +155,15 @@ void NetworkProcessProxy::getWindowSceneAndBundleIdentifierForPaymentPresentatio
         bundleIdentifier = [webViewUIDelegate _hostSceneBundleIdentifierForWebView:webView.get()];
 
     completionHandler(sceneIdentifier, bundleIdentifier);
+}
+
+void NetworkProcessProxy::notifyWillPresentPaymentUI(WebPageProxyIdentifier webPageProxyIdentifier)
+{
+    RefPtr page = WebProcessProxy::webPage(webPageProxyIdentifier);
+    if (!page || !page->pageClient())
+        return;
+
+    page->uiClient().willPresentModalUI(*page);
 }
 #endif
 

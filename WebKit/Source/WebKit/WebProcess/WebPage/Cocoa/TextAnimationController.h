@@ -93,7 +93,10 @@ private:
     void removeTransparentMarkersForTextAnimationID(const WTF::UUID&);
     void removeTransparentMarkersForActiveWritingToolsSession();
 
-    RefPtr<WebCore::Document> document() const;
+    WebCore::Document* document() const;
+
+    RefPtr<WebPage> protectedWebPage() { return m_webPage.get(); }
+
     WeakPtr<WebPage> m_webPage;
 
     std::optional<WTF::UUID> m_initialAnimationID;

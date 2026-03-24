@@ -34,10 +34,13 @@
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include <JavaScriptCore/InspectorTarget.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace Inspector;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorTargetProxy);
 
 InspectorTargetProxy::InspectorTargetProxy(const String& targetId, Inspector::InspectorTargetType type)
     : m_identifier(targetId)

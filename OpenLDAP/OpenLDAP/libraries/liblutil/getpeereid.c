@@ -82,7 +82,7 @@ int lutil_getpeereid( int s, uid_t *euid, gid_t *egid
 	struct xucred peercred;
 	ber_socklen_t peercredlen = sizeof peercred;
 
-	if(( getsockopt( s, LOCAL_PEERCRED, 1,
+	if(( getsockopt( s, SOL_SOCKET, LOCAL_PEERCRED,
 		(void *)&peercred, &peercredlen ) == 0 )
 		&& ( peercred.cr_version == XUCRED_VERSION ))
 	{

@@ -89,10 +89,10 @@ IGNORE_NULL_CHECK_WARNINGS_END
     auto hostAppAuditToken = configuration.hostApplicationAuditToken;
     Vector<uint8_t> hostAppAuditTokenData(sizeof(hostAppAuditToken));
     memcpySpan(hostAppAuditTokenData.mutableSpan(), asByteSpan(hostAppAuditToken));
-    connectionConfiguration.hostAppAuditTokenData = WTFMove(hostAppAuditTokenData);
+    connectionConfiguration.hostAppAuditTokenData = WTF::move(hostAppAuditTokenData);
 #endif
 
-    API::Object::constructInWrapper<API::WebPushDaemonConnection>(self, configuration.machServiceName, WTFMove(connectionConfiguration));
+    API::Object::constructInWrapper<API::WebPushDaemonConnection>(self, configuration.machServiceName, WTF::move(connectionConfiguration));
 
     return self;
 }
@@ -134,9 +134,9 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
 - (void)subscribeToPushServiceForScope:(NSURL *)scopeURL applicationServerKey:(NSData *)applicationServerKey completionHandler:(void (^)(_WKWebPushSubscriptionData *, NSError *))completionHandler
 {
     auto key = makeVector(applicationServerKey);
-    self._protectedConnection->subscribeToPushService(scopeURL, WTFMove(key), [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
+    self._protectedConnection->subscribeToPushService(scopeURL, WTF::move(key), [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result)
-            return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTFMove(result.value()))).get(), nil);
+            return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTF::move(result.value()))).get(), nil);
 
         // FIXME: This error can be used to create DOMException; we may consider adding a new value to WKErrorCode for it.
         RetainPtr error = adoptNS([[NSError alloc] initWithDomain:@"WKErrorDomain" code:WKErrorUnknown userInfo:@{ NSLocalizedDescriptionKey:result.error().message.createNSString().get() }]);
@@ -160,7 +160,7 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
     self._protectedConnection->getPushSubscription(scopeURL, [completionHandlerCopy = makeBlockPtr(completionHandler)] (auto result) {
         if (result) {
             if (auto data = result.value())
-                return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTFMove(*data))).get(), nil);
+                return completionHandlerCopy(wrapper(API::WebPushSubscriptionData::create(WTF::move(*data))).get(), nil);
 
             return completionHandlerCopy(nil, nil);
         }
@@ -176,7 +176,7 @@ static _WKWebPushPermissionState toWKPermissionsState(WebCore::PushPermissionSta
         if (!result)
             return completionHandlerCopy(nil);
 
-        return completionHandlerCopy(wrapper(API::WebPushMessage::create(WTFMove(result.value()))).get());
+        return completionHandlerCopy(wrapper(API::WebPushMessage::create(WTF::move(result.value()))).get());
     });
 }
 

@@ -34,7 +34,7 @@ namespace WebCore {
 
 StyleNamedImage::StyleNamedImage(String&& name)
     : StyleGeneratedImage { Type::NamedImage, StyleNamedImage::isFixedSize }
-    , m_name { WTFMove(name) }
+    , m_name { WTF::move(name) }
 {
 }
 

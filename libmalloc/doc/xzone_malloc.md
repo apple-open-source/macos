@@ -1,4 +1,4 @@
-# xzone malloc
+# xzone malloc: Apple's general-purpose userspace memory allocator
 
 xzone malloc is a memory allocator for Apple OS platforms designed to mitigate
 heap memory safety vulnerabilities to the maximum extent possible while also
@@ -15,6 +15,7 @@ Key security features of xzone malloc include:
 - Probabilistic guard pages
 - Allocation fronts
 - MTE support
+- Guard objects
 
 ### Type isolation
 
@@ -137,13 +138,46 @@ accesses to a block for scratch space, but they are still prevented from
 exploiting use-after-free type confusion since that requires the block to be
 reused.
 
-When assigning tags, the tags of the previous incarnation of the block as well
-as its neighbors are excluded (except, as a current implementation detail, at
-page boundaries).
+xzone malloc implements an "odd-even" tag assignment scheme.  Each block is
+assigned a random tag whose parity always depends on the parity of its index
+within the chunk that contains it.  When retagging a block, the tag of the
+previous incarnation of the block is excluded.  This scheme deterministically
+prevents an attacker from exploiting linear overflow bugs (even across adjacent
+chunks), while also probabilistically mitigating the exploitation of
+use-after-free bugs.
 
 Under the default policy, allocations that are "pure data", i.e. allocations
 whose type information indicates that they contain no pointers, are not tagged.
 xzone malloc can be configured to also tag them via entitlement.
+
+### Guard objects
+
+To provide probabilistic protection against spatial and temporal memory safety
+vulnerabilities affecting allocations too large to be covered by bucketing type
+isolation and MTE support (i.e. > 32KB), xzone malloc implements an allocation
+scheme called **guard objects**, adapted from xnu's memory allocator.
+
+Under guard objects:
+
+- Larger sizes are quantized into power-of-2 size classes, and each size class
+  is served from a slab allocator
+- Slabs are called _chunks_, which are made up of _slots_
+- The allocator probabilistically _guards_ (i.e. makes inaccessible, e.g. via
+  `mprotect(PROT_NONE)`) a certain proportion of the slots, and rearranges the
+  guards as slots are allocated and deallocated
+
+It's called guard _objects_ because the key to the protection it provides is the
+_object-sized_ guards.
+
+xzone malloc implements guard objects for the allocation size ranges that it
+manages directly.  Above the maximum size, it relies on the underlying kernel
+virtual memory (VM) subsystem to implement its own guard objects scheme for
+direct virtual memory mappings.
+
+[Documentation of xnu's implementation of guard objects][xnu-guard-objects] is
+mostly also applicable to xzone malloc's, although there are some notable
+differences, especially in the policy for re-use of freed slots and
+re-randomization of guard placement.
 
 ## Configuration
 
@@ -277,6 +311,17 @@ xzones:
 - In higher-performance configurations, `SMALL_FREELIST` xzones are used to
   serve `4KB < size <= 32KB` allocations from 8-slice chunks, using the same
   atomic free-list approach as `TINY`.
+
+When the **guard objects** mitigation is active, allocations that would normally
+be served from the `LARGE` allocation scheme are instead served from a slab
+allocator called a **gzone**:
+
+- Like an xzone, a gzone is a slab allocator for a single size
+- A gzone manages guard object chunks, made up of some number of slots of the
+  block size
+- Each gzone maintains lists of chunks it owns, including partially-full chunks
+  with available slots, 'quarantined' chunks that need to be re-randomized
+  before re-use and full chunks with no available slots remaining
 
 ## Performance features
 
@@ -418,3 +463,5 @@ the "x" prefix.
 [mimalloc]: https://github.com/microsoft/mimalloc
 
 [kalloc_type]: https://security.apple.com/blog/towards-the-next-generation-of-xnu-memory-safety/
+
+[xnu-guard-objects]: https://github.com/apple-oss-distributions/xnu/blob/xnu-12377.61.12/doc/allocators/guard-objects.md

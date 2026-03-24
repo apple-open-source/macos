@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 syr{
     Keys{
         calendar{"ܣܘܪܓܕܐ"}
@@ -36,9 +36,13 @@ syr{
         gu{"ܓܘܓܐܪܝܬ"}
         he{"ܥܒܪܐܝܬ"}
         hi{"ܗܢܕܝܐ"}
+        hi_Latn{"ܗܢܕܝܐ (ܪܗܘܡܝܐ)"}
         hy{"ܐܪܡܢܝܬ"}
+        id{"ܐܢܕܘܢܝܬ"}
         it{"ܐܝܛܠܝܬ"}
+        ja{"ܝܦܢܝܐ"}
         ka{"ܓܘܪܓܝܐܝܬ"}
+        ko{"ܟܘܪܝܐܝܬ"}
         ku{"ܩܘܪܕܝܬ"}
         la{"ܠܬܝܢܝܬ"}
         lg{"ܓܢܕܝܬ"}
@@ -59,22 +63,19 @@ syr{
         sv{"ܣܘܝܕܐܝܬ"}
         sw{"ܣܘܐܗܝܠܐܝܬ"}
         syr{"ܣܘܪܝܝܐ"}
+        th{"ܬܝܠܢܕܐܝܬ"}
         tr{"ܬܘܪܟܝܬ"}
         uk{"ܐܘܟܪܐܝܢܐܝܬ"}
         und{"ܠܫܢܐ ܠܐ ܝܕܝܥܐ"}
         ur{"ܐܘܪܕܘܝܬ"}
         vi{"ܒܝܬܢܐܡܐܝܬ"}
         yi{"ܝܕܝܬܝܬ"}
-        zh{"ܨܝܢܝܬ"}
-        zh_Hans{"ܨܝܢܝܬ (ܦܫܝܛܐ)"}
-        zh_Hant{"ܨܝܢܐܝܬ"}
-    }
-    Languages%long{
-        zh_Hans{"ܨܝܢܝܬ (ܡܐܢܕܘܪܝܐ ܦܫܝܛܐ)"}
+        zh{"ܨܝܢܐܝܬ"}
+        zh_Hans{"ܨܝܢܐܝܬ ܦܫܝܛܐ"}
+        zh_Hant{"ܨܝܢܐܝܬ ܝܘܒܠܝܐ"}
     }
     Languages%menu{
         ckb{"ܩܘܪܕܝܬ ܡܨܥܝܐ"}
-        zh{"ܨܝܢܝܬ (ܡܐܢܕܘܪܝܐ)"}
     }
     Languages%short{
         az{"ܐܙܪܝ"}
@@ -87,14 +88,24 @@ syr{
         Armi{"ܐܪܡܝܐ"}
         Armn{"ܐܪܡܢܝܬ"}
         Beng{"ܒܢܓܠܝܬ"}
+        Cyrl{"ܩܘܪܠܝܐ"}
         Geor{"ܓܘܪܓܝܬ"}
         Grek{"ܝܘܢܝܬ"}
         Gujr{"ܓܘܓܐܪܝܬ"}
+        Hans{"ܦܫܝܛܐ"}
+        Hant{"ܝܘܒܠܝܐ"}
         Hebr{"ܥܒܪܝܬ"}
+        Jpan{"ܝܦܢܐܝܬ"}
+        Kore{"ܟܘܪܝܐܝܬ"}
+        Latn{"ܪܗܘܡܝܐ"}
         Syrc{"ܣܘܪܝܬ"}
         Zsye{"ܐܝܡܘܓܝ"}
-        Zxxx{"ܠܝܬ ܟܬܝܒܘܬܐ"}
-        Zzzz{"ܠܝܬ ܛܟܣܐ ܕܟܬܝܒܬܐ"}
+        Zxxx{"ܕܠܐ ܟܬܒܐ"}
+        Zzzz{"ܟܬܝܒܘܬܐ ܠܐ ܝܕܝܥܬܐ"}
+    }
+    Scripts%stand-alone{
+        Hans{"ܨܝܢܐܝܬ ܦܫܝܛܐ"}
+        Hant{"ܨܝܢܐܝܬ ܝܘܒܠܝܐ"}
     }
     Types{
         calendar{
@@ -106,12 +117,17 @@ syr{
             gregorian{"ܣܘܪܓܕܐ ܓܪܝܓܘܪܝܐ"}
             hebrew{"ܣܘܪܓܕܐ ܝܗܘܕܝܐ"}
             indian{"ܣܘܪܓܕܐ ܐܘܡܬܢܝܐ ܗܢܕܘܝܐ"}
-            islamic{"ܣܘܪܓܕܐ ܡܫܠܡܢܝܐ"}
-            islamic-civil{"ܣܘܪܓܕܐ ܡܫܠܡܢܝܐ ܡܕܝܢܝܐ"}
+            islamic{"ܣܘܪܓܕܐ ܡܫܠܡܢܐ"}
+            islamic-civil{"ܣܘܪܓܕܐ ܡܫܠܡܢܐ ܡܕܝܢܝܐ"}
             iso8601{"ܣܘܪܓܕܐ ISO-8601"}
             japanese{"ܣܘܪܓܕܐ ܝܦܢܝܐ"}
             persian{"ܣܘܪܓܕܐ ܦܪܣܝܐ"}
             roc{"ܣܘܪܓܕܐ ܡܝܢܓܘ"}
+        }
+        calendar%core{
+            gregorian{"ܓܪܝܓܘܪܝܐ"}
+            islamic{"ܣܘܪܓܕܐ ܡܫܠܡܢܐ"}
+            islamic-civil{"ܣܘܪܓܕܐ ܡܫܠܡܢܐ ܡܕܝܢܝܐ"}
         }
         cf{
             account{"ܛܘܦܣܐ ܕܙܘ̈ܙܐ ܡܚܫܒܢܘܬܝܐ"}
@@ -142,7 +158,7 @@ syr{
             grek{"ܡܢܝ̈ܢܐ ܕܝܘܢܝ̈ܐ"}
             hebr{"ܡܢܝ̈ܢܐ ܕܝܗܘܕܝ̈ܐ"}
             jpan{"ܡܢܝ̈ܢܐ ܕܝܦܢܝ̈ܐ"}
-            latn{"ܡܢܝ̈ܢܐ ܡܥܪܒܝܐ"}
+            latn{"ܡܢܝ̈ܢܐ ܡܥܪ̈ܒܝܐ"}
             mong{"ܡܢܝ̈ܢܐ ܕܡܘܢܓܘܠܢܝ̈ܐ"}
             roman{"ܡܢܝ̈ܢܐ ܪܗܘܡܝܐ"}
         }

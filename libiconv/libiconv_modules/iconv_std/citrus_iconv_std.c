@@ -299,8 +299,19 @@ mbtocsx(struct _citrus_iconv_std_encoding *se,
 			last = *s;
 			ret = _stdenc_mbtocs(se->se_handle, &csid[i], &idx[i],
 			    s, n, se->se_ps, &accum, hooks);
-			if (ret != 0)
+			if (ret != 0) {
+				/*
+				 * An error encountered in a multibyte sequence
+				 * might advance *s prematurely without trying
+				 * to restore it.  The caller may just bubble
+				 * up the error, but if it tries to recover
+				 * (e.g., by skipping on EILSEQ) then we need
+				 * to be sure our position reflects that of the
+				 * illegal sequence.
+				 */
+				*s = last;
 				break;
+			}
 			if (accum == (size_t)-2) {
 				*nresult = accum;
 				break;

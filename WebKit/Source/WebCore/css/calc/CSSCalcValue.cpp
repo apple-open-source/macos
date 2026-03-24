@@ -34,7 +34,6 @@
 #include "CSSCalcValue.h"
 
 #include "CSSCalcSymbolTable.h"
-#include "CSSCalcTree+StyleCalculationValue.h"
 #include "CSSCalcTree+ComputedStyleDependencies.h"
 #include "CSSCalcTree+Evaluation.h"
 #include "CSSCalcTree+Parser.h"
@@ -47,6 +46,7 @@
 #include "CSSPropertyParserOptions.h"
 #include "CSSSerializationContext.h"
 #include "Logging.h"
+#include "StyleCalculationTree+Conversion.h"
 #include "StyleCalculationValue.h"
 #include "StyleLengthResolution.h"
 #include "StylePrimitiveNumericTypes.h"
@@ -62,7 +62,7 @@ RefPtr<Value> Value::parse(CSSParserTokenRange& tokens, CSS::PropertyParserState
     auto parserOptions = ParserOptions {
         .category = category,
         .range = range,
-        .allowedSymbols = WTFMove(symbolsAllowed),
+        .allowedSymbols = WTF::move(symbolsAllowed),
         .propertyOptions = propertyOptions
     };
     auto simplificationOptions = SimplificationOptions {
@@ -77,22 +77,27 @@ RefPtr<Value> Value::parse(CSSParserTokenRange& tokens, CSS::PropertyParserState
     if (!tree)
         return nullptr;
 
-    RefPtr result = adoptRef(new Value(category, range, WTFMove(*tree)));
+    RefPtr result = adoptRef(new Value(category, range, WTF::move(*tree)));
     LOG_WITH_STREAM(Calc, stream << "Value::create " << *result);
     return result;
 }
 
-Ref<Value> Value::create(const Style::CalculationValue& value, const RenderStyle& style)
+Ref<Value> Value::create(const Style::Calculation::Value& value, const RenderStyle& style)
 {
-    auto tree = fromStyleCalculationValue(value, style);
-    Ref result = adoptRef(*new Value(value.category(), { value.range().min, value.range().max }, WTFMove(tree)));
-    LOG_WITH_STREAM(Calc, stream << "Value::create from Style::CalculationValue: " << result);
-    return result;
+    auto category = value.category();
+    auto range = value.range();
+
+    auto toCSSOptions = Style::Calculation::ToCSSOptions {
+        .category = category,
+        .range = range,
+        .style = style,
+    };
+    return Value::create(category, range, Style::Calculation::toCSS(value.tree(), toCSSOptions));
 }
 
 Ref<Value> Value::create(CSS::Category category, CSS::Range range, CSSCalc::Tree&& tree)
 {
-    return adoptRef(*new Value(category, range, WTFMove(tree)));
+    return adoptRef(*new Value(category, range, WTF::move(tree)));
 }
 
 Ref<Value> Value::copySimplified(const CSSToLengthConversionData& conversionData) const
@@ -140,7 +145,7 @@ Ref<Value> Value::copySimplified(NoConversionDataRequiredToken, const CSSCalcSym
 Value::Value(CSS::Category category, CSS::Range range, CSSCalc::Tree&& tree)
     : m_category(category)
     , m_range(range)
-    , m_tree(WTFMove(tree))
+    , m_tree(WTF::move(tree))
 {
 }
 
@@ -279,38 +284,39 @@ double Value::computeLengthPx(const CSSToLengthConversionData& conversionData, c
     return clampToPermittedRange(Style::computeNonCalcLengthDouble(evaluateDouble(m_tree, options).value_or(0), CSS::LengthUnit::Px, conversionData));
 }
 
-Ref<Style::CalculationValue> Value::createCalculationValue(const CSSToLengthConversionData& conversionData) const
+Ref<Style::Calculation::Value> Value::createCalculationValue(const CSSToLengthConversionData& conversionData) const
 {
     return createCalculationValue(conversionData, { });
 }
 
-Ref<Style::CalculationValue> Value::createCalculationValue(const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) const
+Ref<Style::Calculation::Value> Value::createCalculationValue(const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) const
 {
-    auto options = EvaluationOptions {
+    auto toStyleOptions = Style::Calculation::ToStyleOptions {
         .category = m_category,
         .range = m_range,
         .conversionData = conversionData,
         .symbolTable = symbolTable
     };
-    return toStyleCalculationValue(m_tree, options);
+
+    return Style::Calculation::Value::create(m_category, m_range, Style::Calculation::toStyle(m_tree, toStyleOptions));
 }
 
-Ref<Style::CalculationValue> Value::createCalculationValue(NoConversionDataRequiredToken token) const
+Ref<Style::Calculation::Value> Value::createCalculationValue(NoConversionDataRequiredToken token) const
 {
     return createCalculationValue(token, { });
 }
 
-Ref<Style::CalculationValue> Value::createCalculationValue(NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) const
+Ref<Style::Calculation::Value> Value::createCalculationValue(NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) const
 {
     ASSERT(!m_tree.requiresConversionData);
 
-    auto options = EvaluationOptions {
+    auto toStyleOptions = Style::Calculation::ToStyleOptions {
         .category = m_category,
         .range = m_range,
         .conversionData = std::nullopt,
         .symbolTable = symbolTable
     };
-    return toStyleCalculationValue(m_tree, options);
+    return Style::Calculation::Value::create(m_category, m_range, Style::Calculation::toStyle(m_tree, toStyleOptions));
 }
 
 void Value::dump(TextStream& ts) const

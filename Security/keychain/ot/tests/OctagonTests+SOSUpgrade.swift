@@ -1515,7 +1515,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
     }
 
-    func testCliqueOctagonUpgrade () throws {
+    func testCliqueOctagonUpgrade() throws {
         self.putFakeKeyHierarchiesInCloudKit()
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
@@ -1532,7 +1532,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
     }
 
-    func testCliqueOctagonUpgradeFail () throws {
+    func testCliqueOctagonUpgradeFail() throws {
         self.putFakeKeyHierarchiesInCloudKit()
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()

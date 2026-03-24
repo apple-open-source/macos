@@ -146,7 +146,7 @@ bool MediaSessionManagerInterface::activeAudioSessionRequired() const
         return true;
 
     return std::ranges::any_of(m_audioCaptureSources, [](auto& source) {
-        return source.isCapturingAudio();
+        return Ref { source }->isCapturingAudio();
     });
 #else
     return false;
@@ -216,7 +216,7 @@ bool MediaSessionManagerInterface::hasActiveNowPlayingSessionInGroup(std::option
 
 void MediaSessionManagerInterface::enqueueTaskOnMainThread(Function<void()>&& task)
 {
-    callOnMainThread(CancellableTask(m_taskGroup, [task = WTFMove(task)] () mutable {
+    callOnMainThread(CancellableTask(m_taskGroup, [task = WTF::move(task)] () mutable {
         task();
     }));
 }
@@ -425,7 +425,7 @@ MediaSessionRestrictions MediaSessionManagerInterface::restrictions(PlatformMedi
     return m_restrictions[indexFromMediaType(type)];
 }
 
-bool MediaSessionManagerInterface::sessionWillBeginPlayback(PlatformMediaSessionInterface& session)
+void MediaSessionManagerInterface::sessionWillBeginPlayback(PlatformMediaSessionInterface& session, CompletionHandler<void(bool)>&& completionHandler)
 {
     ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier());
 
@@ -436,12 +436,14 @@ bool MediaSessionManagerInterface::sessionWillBeginPlayback(PlatformMediaSession
     auto restrictions = this->restrictions(sessionType);
     if (session.state() == PlatformMediaSession::State::Interrupted && restrictions & MediaSessionRestriction::InterruptedPlaybackNotPermitted) {
         ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier(), " returning false because session.state() is Interrupted, and InterruptedPlaybackNotPermitted");
-        return false;
+        completionHandler(false);
+        return;
     }
 
     if (!maybeActivateAudioSession()) {
         ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier(), " returning false, failed to activate AudioSession");
-        return false;
+        completionHandler(false);
+        return;
     }
 
     if (m_currentInterruption)
@@ -461,9 +463,9 @@ bool MediaSessionManagerInterface::sessionWillBeginPlayback(PlatformMediaSession
         });
     }
     ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier(), " returning true");
-    return true;
+    completionHandler(true);
 #else
-    return false;
+    completionHandler(false);
 #endif
 }
 
@@ -568,8 +570,8 @@ void MediaSessionManagerInterface::removeAudioCaptureSource(AudioCaptureSource& 
 int MediaSessionManagerInterface::countActiveAudioCaptureSources()
 {
     int count = 0;
-    for (const auto& source : m_audioCaptureSources) {
-        if (source.wantsToCaptureAudio())
+    for (Ref source : m_audioCaptureSources) {
+        if (source->wantsToCaptureAudio())
             ++count;
     }
     return count;
@@ -578,11 +580,21 @@ int MediaSessionManagerInterface::countActiveAudioCaptureSources()
 void MediaSessionManagerInterface::processDidReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType command, const PlatformMediaSession::RemoteCommandArgument& argument)
 {
 #if ENABLE(VIDEO) || ENABLE(audio)
-    WeakPtr weakActiveSession = firstSessionMatching([](auto& session) {
-        return session.canReceiveRemoteControlCommands();
-    });
+    RefPtr<PlatformMediaSessionInterface> activeSession;
+    for (auto& weakSession : copySessionsToVector()) {
+        RefPtr session = weakSession.get();
+        if (!session || !session->canReceiveRemoteControlCommands())
+            continue;
 
-    if (RefPtr activeSession = weakActiveSession.get())
+        if (session->isNowPlayingEligible()) {
+            activeSession = WTF::move(session);
+            break;
+        }
+        if (!activeSession)
+            activeSession = WTF::move(session);
+    }
+
+    if (activeSession)
         activeSession->didReceiveRemoteControlCommand(command, argument);
 #else
     UNUSED_PARAM(command);
@@ -618,9 +630,6 @@ void MediaSessionManagerInterface::addSession(PlatformMediaSessionInterface& ses
 {
 #if !RELEASE_LOG_DISABLED && (ENABLE(VIDEO) || ENABLE(WEB_AUDIO))
     m_logger->addLogger(session.protectedLogger());
-#endif
-
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(ADDSESSION, session.logIdentifier());
 #endif
 

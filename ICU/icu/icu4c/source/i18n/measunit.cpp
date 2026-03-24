@@ -39,28 +39,29 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MeasureUnit)
 static const int32_t gOffsets[] = {
     0,
     2,
-    7,
-    17,
-    27,
-    31,
-    333,
-    344,
-    362,
-    366,
-    375,
+    8,
+    21,
+    34,
+    38,
+    340,
+    351,
+    370,
     378,
-    382,
-    390,
-    412,
-    416,
-    431,
-    432,
-    438,
-    449,
-    455,
-    459,
-    461,
-    495
+    392,
+    396,
+    400,
+    408,
+    439,
+    443,
+    445,
+    462,
+    463,
+    469,
+    481,
+    487,
+    492,
+    494,
+    538
 };
 
 static const int32_t kCurrencyOffset = 5;
@@ -82,6 +83,7 @@ static const char * const gTypes[] = {
     "graphics",
     "length",
     "light",
+    "magnetic",
     "mass",
     "none",
     "power",
@@ -101,9 +103,13 @@ static const char * const gSubTypes[] = {
     "degree",
     "radian",
     "revolution",
+    "steradian",
     "acre",
+    "bu-jp",
+    "cho",
     "dunam",
     "hectare",
+    "se-jp",
     "square-centimeter",
     "square-foot",
     "square-inch",
@@ -113,13 +119,16 @@ static const char * const gSubTypes[] = {
     "square-yard",
     "item",
     "karat",
+    "katal",
     "milligram-ofglucose-per-deciliter",
-    "milligram-per-deciliter",
     "millimole-per-liter",
     "mole",
+    "ofglucose",
+    "part",
+    "part-per-1e6",
+    "part-per-1e9",
     "percent",
     "permille",
-    "permillion",
     "permyriad",
     "liter-per-100-kilometer",
     "liter-per-kilometer",
@@ -442,6 +451,7 @@ static const char * const gSubTypes[] = {
     "day",
     "day-person",
     "decade",
+    "fortnight",
     "hour",
     "microsecond",
     "millisecond",
@@ -457,18 +467,28 @@ static const char * const gSubTypes[] = {
     "year",
     "year-person",
     "ampere",
+    "coulomb",
+    "farad",
+    "henry",
     "milliampere",
     "ohm",
+    "siemens",
     "volt",
+    "becquerel",
     "british-thermal-unit",
+    "british-thermal-unit-it",
     "calorie",
+    "calorie-it",
     "electronvolt",
     "foodcalorie",
+    "gray",
     "joule",
     "kilocalorie",
     "kilojoule",
     "kilowatt-hour",
+    "sievert",
     "therm-us",
+    "kilogram-force",
     "kilowatt-hour-per-100-kilometer",
     "newton",
     "pound-force",
@@ -486,12 +506,15 @@ static const char * const gSubTypes[] = {
     "pixel-per-inch",
     "astronomical-unit",
     "centimeter",
+    "chain",
     "decimeter",
     "earth-radius",
     "fathom",
     "foot",
     "furlong",
     "inch",
+    "jo-jp",
+    "ken",
     "kilometer",
     "light-year",
     "meter",
@@ -504,15 +527,24 @@ static const char * const gSubTypes[] = {
     "parsec",
     "picometer",
     "point",
+    "ri-jp",
+    "rin",
+    "rod",
+    "shaku-cloth",
+    "shaku-length",
     "solar-radius",
+    "sun",
     "yard",
     "candela",
     "lumen",
     "lux",
     "solar-luminosity",
+    "tesla",
+    "weber",
     "carat",
     "dalton",
     "earth-mass",
+    "fun",
     "grain",
     "gram",
     "kilogram",
@@ -521,6 +553,7 @@ static const char * const gSubTypes[] = {
     "ounce",
     "ounce-troy",
     "pound",
+    "slug",
     "solar-mass",
     "stone",
     "ton",
@@ -541,6 +574,7 @@ static const char * const gSubTypes[] = {
     "megapascal",
     "millibar",
     "millimeter-ofhg",
+    "ofhg",
     "pascal",
     "pound-force-per-square-inch",
     "beaufort",
@@ -553,6 +587,7 @@ static const char * const gSubTypes[] = {
     "fahrenheit",
     "generic",
     "kelvin",
+    "rankine",
     "newton-meter",
     "pound-force-foot",
     "acre-foot",
@@ -567,6 +602,8 @@ static const char * const gSubTypes[] = {
     "cubic-mile",
     "cubic-yard",
     "cup",
+    "cup-imperial",
+    "cup-jp",
     "cup-metric",
     "deciliter",
     "dessert-spoon",
@@ -575,24 +612,32 @@ static const char * const gSubTypes[] = {
     "drop",
     "fluid-ounce",
     "fluid-ounce-imperial",
+    "fluid-ounce-metric",
     "gallon",
     "gallon-imperial",
     "hectoliter",
     "jigger",
+    "koku",
+    "kosaji",
     "liter",
     "megaliter",
     "milliliter",
+    "osaji",
     "pinch",
     "pint",
+    "pint-imperial",
     "pint-metric",
     "quart",
     "quart-imperial",
+    "sai",
+    "shaku",
     "tablespoon",
-    "teaspoon"
+    "teaspoon",
+    "to-jp"
 };
 
 // Shortcuts to the base unit in order to make the default constructor fast
-static const int32_t kBaseTypeIdx = 16;
+static const int32_t kBaseTypeIdx = 17;
 static const int32_t kBaseSubTypeIdx = 0;
 
 MeasureUnit *MeasureUnit::createGForce(UErrorCode &status) {
@@ -651,6 +696,14 @@ MeasureUnit MeasureUnit::getRevolutionAngle() {
     return MeasureUnit(1, 4);
 }
 
+MeasureUnit *MeasureUnit::createSteradian(UErrorCode &status) {
+    return MeasureUnit::create(1, 5, status);
+}
+
+MeasureUnit MeasureUnit::getSteradian() {
+    return MeasureUnit(1, 5);
+}
+
 MeasureUnit *MeasureUnit::createAcre(UErrorCode &status) {
     return MeasureUnit::create(2, 0, status);
 }
@@ -659,76 +712,100 @@ MeasureUnit MeasureUnit::getAcre() {
     return MeasureUnit(2, 0);
 }
 
-MeasureUnit *MeasureUnit::createDunam(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createBuJp(UErrorCode &status) {
     return MeasureUnit::create(2, 1, status);
 }
 
-MeasureUnit MeasureUnit::getDunam() {
+MeasureUnit MeasureUnit::getBuJp() {
     return MeasureUnit(2, 1);
 }
 
-MeasureUnit *MeasureUnit::createHectare(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createCho(UErrorCode &status) {
     return MeasureUnit::create(2, 2, status);
 }
 
-MeasureUnit MeasureUnit::getHectare() {
+MeasureUnit MeasureUnit::getCho() {
     return MeasureUnit(2, 2);
 }
 
-MeasureUnit *MeasureUnit::createSquareCentimeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createDunam(UErrorCode &status) {
     return MeasureUnit::create(2, 3, status);
 }
 
-MeasureUnit MeasureUnit::getSquareCentimeter() {
+MeasureUnit MeasureUnit::getDunam() {
     return MeasureUnit(2, 3);
 }
 
-MeasureUnit *MeasureUnit::createSquareFoot(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createHectare(UErrorCode &status) {
     return MeasureUnit::create(2, 4, status);
 }
 
-MeasureUnit MeasureUnit::getSquareFoot() {
+MeasureUnit MeasureUnit::getHectare() {
     return MeasureUnit(2, 4);
 }
 
-MeasureUnit *MeasureUnit::createSquareInch(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSeJp(UErrorCode &status) {
     return MeasureUnit::create(2, 5, status);
 }
 
-MeasureUnit MeasureUnit::getSquareInch() {
+MeasureUnit MeasureUnit::getSeJp() {
     return MeasureUnit(2, 5);
 }
 
-MeasureUnit *MeasureUnit::createSquareKilometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSquareCentimeter(UErrorCode &status) {
     return MeasureUnit::create(2, 6, status);
 }
 
-MeasureUnit MeasureUnit::getSquareKilometer() {
+MeasureUnit MeasureUnit::getSquareCentimeter() {
     return MeasureUnit(2, 6);
 }
 
-MeasureUnit *MeasureUnit::createSquareMeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSquareFoot(UErrorCode &status) {
     return MeasureUnit::create(2, 7, status);
 }
 
-MeasureUnit MeasureUnit::getSquareMeter() {
+MeasureUnit MeasureUnit::getSquareFoot() {
     return MeasureUnit(2, 7);
 }
 
-MeasureUnit *MeasureUnit::createSquareMile(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSquareInch(UErrorCode &status) {
     return MeasureUnit::create(2, 8, status);
 }
 
-MeasureUnit MeasureUnit::getSquareMile() {
+MeasureUnit MeasureUnit::getSquareInch() {
     return MeasureUnit(2, 8);
 }
 
-MeasureUnit *MeasureUnit::createSquareYard(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSquareKilometer(UErrorCode &status) {
     return MeasureUnit::create(2, 9, status);
 }
 
-MeasureUnit MeasureUnit::getSquareYard() {
+MeasureUnit MeasureUnit::getSquareKilometer() {
     return MeasureUnit(2, 9);
+}
+
+MeasureUnit *MeasureUnit::createSquareMeter(UErrorCode &status) {
+    return MeasureUnit::create(2, 10, status);
+}
+
+MeasureUnit MeasureUnit::getSquareMeter() {
+    return MeasureUnit(2, 10);
+}
+
+MeasureUnit *MeasureUnit::createSquareMile(UErrorCode &status) {
+    return MeasureUnit::create(2, 11, status);
+}
+
+MeasureUnit MeasureUnit::getSquareMile() {
+    return MeasureUnit(2, 11);
+}
+
+MeasureUnit *MeasureUnit::createSquareYard(UErrorCode &status) {
+    return MeasureUnit::create(2, 12, status);
+}
+
+MeasureUnit MeasureUnit::getSquareYard() {
+    return MeasureUnit(2, 12);
 }
 
 MeasureUnit *MeasureUnit::createItem(UErrorCode &status) {
@@ -747,12 +824,20 @@ MeasureUnit MeasureUnit::getKarat() {
     return MeasureUnit(3, 1);
 }
 
-MeasureUnit *MeasureUnit::createMilligramOfglucosePerDeciliter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKatal(UErrorCode &status) {
     return MeasureUnit::create(3, 2, status);
 }
 
-MeasureUnit MeasureUnit::getMilligramOfglucosePerDeciliter() {
+MeasureUnit MeasureUnit::getKatal() {
     return MeasureUnit(3, 2);
+}
+
+MeasureUnit *MeasureUnit::createMilligramOfglucosePerDeciliter(UErrorCode &status) {
+    return MeasureUnit::create(3, 3, status);
+}
+
+MeasureUnit MeasureUnit::getMilligramOfglucosePerDeciliter() {
+    return MeasureUnit(3, 3);
 }
 
 MeasureUnit *MeasureUnit::createMilligramPerDeciliter(UErrorCode &status) {
@@ -779,20 +864,28 @@ MeasureUnit MeasureUnit::getMole() {
     return MeasureUnit(3, 5);
 }
 
-MeasureUnit *MeasureUnit::createPercent(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createOfglucose(UErrorCode &status) {
     return MeasureUnit::create(3, 6, status);
 }
 
-MeasureUnit MeasureUnit::getPercent() {
+MeasureUnit MeasureUnit::getOfglucose() {
     return MeasureUnit(3, 6);
 }
 
-MeasureUnit *MeasureUnit::createPermille(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createPart(UErrorCode &status) {
     return MeasureUnit::create(3, 7, status);
 }
 
-MeasureUnit MeasureUnit::getPermille() {
+MeasureUnit MeasureUnit::getPart() {
     return MeasureUnit(3, 7);
+}
+
+MeasureUnit *MeasureUnit::createPartPer1E6(UErrorCode &status) {
+    return MeasureUnit::create(3, 8, status);
+}
+
+MeasureUnit MeasureUnit::getPartPer1E6() {
+    return MeasureUnit(3, 8);
 }
 
 MeasureUnit *MeasureUnit::createPartPerMillion(UErrorCode &status) {
@@ -803,12 +896,36 @@ MeasureUnit MeasureUnit::getPartPerMillion() {
     return MeasureUnit(3, 8);
 }
 
-MeasureUnit *MeasureUnit::createPermyriad(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createPartPer1E9(UErrorCode &status) {
     return MeasureUnit::create(3, 9, status);
 }
 
-MeasureUnit MeasureUnit::getPermyriad() {
+MeasureUnit MeasureUnit::getPartPer1E9() {
     return MeasureUnit(3, 9);
+}
+
+MeasureUnit *MeasureUnit::createPercent(UErrorCode &status) {
+    return MeasureUnit::create(3, 10, status);
+}
+
+MeasureUnit MeasureUnit::getPercent() {
+    return MeasureUnit(3, 10);
+}
+
+MeasureUnit *MeasureUnit::createPermille(UErrorCode &status) {
+    return MeasureUnit::create(3, 11, status);
+}
+
+MeasureUnit MeasureUnit::getPermille() {
+    return MeasureUnit(3, 11);
+}
+
+MeasureUnit *MeasureUnit::createPermyriad(UErrorCode &status) {
+    return MeasureUnit::create(3, 12, status);
+}
+
+MeasureUnit MeasureUnit::getPermyriad() {
+    return MeasureUnit(3, 12);
 }
 
 MeasureUnit *MeasureUnit::createLiterPer100Kilometers(UErrorCode &status) {
@@ -963,116 +1080,124 @@ MeasureUnit MeasureUnit::getDecade() {
     return MeasureUnit(7, 3);
 }
 
-MeasureUnit *MeasureUnit::createHour(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFortnight(UErrorCode &status) {
     return MeasureUnit::create(7, 4, status);
 }
 
-MeasureUnit MeasureUnit::getHour() {
+MeasureUnit MeasureUnit::getFortnight() {
     return MeasureUnit(7, 4);
 }
 
-MeasureUnit *MeasureUnit::createMicrosecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createHour(UErrorCode &status) {
     return MeasureUnit::create(7, 5, status);
 }
 
-MeasureUnit MeasureUnit::getMicrosecond() {
+MeasureUnit MeasureUnit::getHour() {
     return MeasureUnit(7, 5);
 }
 
-MeasureUnit *MeasureUnit::createMillisecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMicrosecond(UErrorCode &status) {
     return MeasureUnit::create(7, 6, status);
 }
 
-MeasureUnit MeasureUnit::getMillisecond() {
+MeasureUnit MeasureUnit::getMicrosecond() {
     return MeasureUnit(7, 6);
 }
 
-MeasureUnit *MeasureUnit::createMinute(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMillisecond(UErrorCode &status) {
     return MeasureUnit::create(7, 7, status);
 }
 
-MeasureUnit MeasureUnit::getMinute() {
+MeasureUnit MeasureUnit::getMillisecond() {
     return MeasureUnit(7, 7);
 }
 
-MeasureUnit *MeasureUnit::createMonth(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMinute(UErrorCode &status) {
     return MeasureUnit::create(7, 8, status);
 }
 
-MeasureUnit MeasureUnit::getMonth() {
+MeasureUnit MeasureUnit::getMinute() {
     return MeasureUnit(7, 8);
 }
 
-MeasureUnit *MeasureUnit::createMonthPerson(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMonth(UErrorCode &status) {
     return MeasureUnit::create(7, 9, status);
 }
 
-MeasureUnit MeasureUnit::getMonthPerson() {
+MeasureUnit MeasureUnit::getMonth() {
     return MeasureUnit(7, 9);
 }
 
-MeasureUnit *MeasureUnit::createNanosecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMonthPerson(UErrorCode &status) {
     return MeasureUnit::create(7, 10, status);
 }
 
-MeasureUnit MeasureUnit::getNanosecond() {
+MeasureUnit MeasureUnit::getMonthPerson() {
     return MeasureUnit(7, 10);
 }
 
-MeasureUnit *MeasureUnit::createNight(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNanosecond(UErrorCode &status) {
     return MeasureUnit::create(7, 11, status);
 }
 
-MeasureUnit MeasureUnit::getNight() {
+MeasureUnit MeasureUnit::getNanosecond() {
     return MeasureUnit(7, 11);
 }
 
-MeasureUnit *MeasureUnit::createQuarter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNight(UErrorCode &status) {
     return MeasureUnit::create(7, 12, status);
 }
 
-MeasureUnit MeasureUnit::getQuarter() {
+MeasureUnit MeasureUnit::getNight() {
     return MeasureUnit(7, 12);
 }
 
-MeasureUnit *MeasureUnit::createSecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createQuarter(UErrorCode &status) {
     return MeasureUnit::create(7, 13, status);
 }
 
-MeasureUnit MeasureUnit::getSecond() {
+MeasureUnit MeasureUnit::getQuarter() {
     return MeasureUnit(7, 13);
 }
 
-MeasureUnit *MeasureUnit::createWeek(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createSecond(UErrorCode &status) {
     return MeasureUnit::create(7, 14, status);
 }
 
-MeasureUnit MeasureUnit::getWeek() {
+MeasureUnit MeasureUnit::getSecond() {
     return MeasureUnit(7, 14);
 }
 
-MeasureUnit *MeasureUnit::createWeekPerson(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWeek(UErrorCode &status) {
     return MeasureUnit::create(7, 15, status);
 }
 
-MeasureUnit MeasureUnit::getWeekPerson() {
+MeasureUnit MeasureUnit::getWeek() {
     return MeasureUnit(7, 15);
 }
 
-MeasureUnit *MeasureUnit::createYear(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWeekPerson(UErrorCode &status) {
     return MeasureUnit::create(7, 16, status);
 }
 
-MeasureUnit MeasureUnit::getYear() {
+MeasureUnit MeasureUnit::getWeekPerson() {
     return MeasureUnit(7, 16);
 }
 
-MeasureUnit *MeasureUnit::createYearPerson(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createYear(UErrorCode &status) {
     return MeasureUnit::create(7, 17, status);
 }
 
-MeasureUnit MeasureUnit::getYearPerson() {
+MeasureUnit MeasureUnit::getYear() {
     return MeasureUnit(7, 17);
+}
+
+MeasureUnit *MeasureUnit::createYearPerson(UErrorCode &status) {
+    return MeasureUnit::create(7, 18, status);
+}
+
+MeasureUnit MeasureUnit::getYearPerson() {
+    return MeasureUnit(7, 18);
 }
 
 MeasureUnit *MeasureUnit::createAmpere(UErrorCode &status) {
@@ -1083,124 +1208,204 @@ MeasureUnit MeasureUnit::getAmpere() {
     return MeasureUnit(8, 0);
 }
 
-MeasureUnit *MeasureUnit::createMilliampere(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createCoulomb(UErrorCode &status) {
     return MeasureUnit::create(8, 1, status);
 }
 
-MeasureUnit MeasureUnit::getMilliampere() {
+MeasureUnit MeasureUnit::getCoulomb() {
     return MeasureUnit(8, 1);
 }
 
-MeasureUnit *MeasureUnit::createOhm(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFarad(UErrorCode &status) {
     return MeasureUnit::create(8, 2, status);
 }
 
-MeasureUnit MeasureUnit::getOhm() {
+MeasureUnit MeasureUnit::getFarad() {
     return MeasureUnit(8, 2);
 }
 
-MeasureUnit *MeasureUnit::createVolt(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createHenry(UErrorCode &status) {
     return MeasureUnit::create(8, 3, status);
 }
 
-MeasureUnit MeasureUnit::getVolt() {
+MeasureUnit MeasureUnit::getHenry() {
     return MeasureUnit(8, 3);
 }
 
-MeasureUnit *MeasureUnit::createBritishThermalUnit(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMilliampere(UErrorCode &status) {
+    return MeasureUnit::create(8, 4, status);
+}
+
+MeasureUnit MeasureUnit::getMilliampere() {
+    return MeasureUnit(8, 4);
+}
+
+MeasureUnit *MeasureUnit::createOhm(UErrorCode &status) {
+    return MeasureUnit::create(8, 5, status);
+}
+
+MeasureUnit MeasureUnit::getOhm() {
+    return MeasureUnit(8, 5);
+}
+
+MeasureUnit *MeasureUnit::createSiemens(UErrorCode &status) {
+    return MeasureUnit::create(8, 6, status);
+}
+
+MeasureUnit MeasureUnit::getSiemens() {
+    return MeasureUnit(8, 6);
+}
+
+MeasureUnit *MeasureUnit::createVolt(UErrorCode &status) {
+    return MeasureUnit::create(8, 7, status);
+}
+
+MeasureUnit MeasureUnit::getVolt() {
+    return MeasureUnit(8, 7);
+}
+
+MeasureUnit *MeasureUnit::createBecquerel(UErrorCode &status) {
     return MeasureUnit::create(9, 0, status);
 }
 
-MeasureUnit MeasureUnit::getBritishThermalUnit() {
+MeasureUnit MeasureUnit::getBecquerel() {
     return MeasureUnit(9, 0);
 }
 
-MeasureUnit *MeasureUnit::createCalorie(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createBritishThermalUnit(UErrorCode &status) {
     return MeasureUnit::create(9, 1, status);
 }
 
-MeasureUnit MeasureUnit::getCalorie() {
+MeasureUnit MeasureUnit::getBritishThermalUnit() {
     return MeasureUnit(9, 1);
 }
 
-MeasureUnit *MeasureUnit::createElectronvolt(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createBritishThermalUnitIt(UErrorCode &status) {
     return MeasureUnit::create(9, 2, status);
 }
 
-MeasureUnit MeasureUnit::getElectronvolt() {
+MeasureUnit MeasureUnit::getBritishThermalUnitIt() {
     return MeasureUnit(9, 2);
 }
 
-MeasureUnit *MeasureUnit::createFoodcalorie(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createCalorie(UErrorCode &status) {
     return MeasureUnit::create(9, 3, status);
 }
 
-MeasureUnit MeasureUnit::getFoodcalorie() {
+MeasureUnit MeasureUnit::getCalorie() {
     return MeasureUnit(9, 3);
 }
 
-MeasureUnit *MeasureUnit::createJoule(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createCalorieIt(UErrorCode &status) {
     return MeasureUnit::create(9, 4, status);
 }
 
-MeasureUnit MeasureUnit::getJoule() {
+MeasureUnit MeasureUnit::getCalorieIt() {
     return MeasureUnit(9, 4);
 }
 
-MeasureUnit *MeasureUnit::createKilocalorie(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createElectronvolt(UErrorCode &status) {
     return MeasureUnit::create(9, 5, status);
 }
 
-MeasureUnit MeasureUnit::getKilocalorie() {
+MeasureUnit MeasureUnit::getElectronvolt() {
     return MeasureUnit(9, 5);
 }
 
-MeasureUnit *MeasureUnit::createKilojoule(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFoodcalorie(UErrorCode &status) {
     return MeasureUnit::create(9, 6, status);
 }
 
-MeasureUnit MeasureUnit::getKilojoule() {
+MeasureUnit MeasureUnit::getFoodcalorie() {
     return MeasureUnit(9, 6);
 }
 
-MeasureUnit *MeasureUnit::createKilowattHour(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createGray(UErrorCode &status) {
     return MeasureUnit::create(9, 7, status);
 }
 
-MeasureUnit MeasureUnit::getKilowattHour() {
+MeasureUnit MeasureUnit::getGray() {
     return MeasureUnit(9, 7);
 }
 
-MeasureUnit *MeasureUnit::createThermUs(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createJoule(UErrorCode &status) {
     return MeasureUnit::create(9, 8, status);
 }
 
-MeasureUnit MeasureUnit::getThermUs() {
+MeasureUnit MeasureUnit::getJoule() {
     return MeasureUnit(9, 8);
 }
 
-MeasureUnit *MeasureUnit::createKilowattHourPer100Kilometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilocalorie(UErrorCode &status) {
+    return MeasureUnit::create(9, 9, status);
+}
+
+MeasureUnit MeasureUnit::getKilocalorie() {
+    return MeasureUnit(9, 9);
+}
+
+MeasureUnit *MeasureUnit::createKilojoule(UErrorCode &status) {
+    return MeasureUnit::create(9, 10, status);
+}
+
+MeasureUnit MeasureUnit::getKilojoule() {
+    return MeasureUnit(9, 10);
+}
+
+MeasureUnit *MeasureUnit::createKilowattHour(UErrorCode &status) {
+    return MeasureUnit::create(9, 11, status);
+}
+
+MeasureUnit MeasureUnit::getKilowattHour() {
+    return MeasureUnit(9, 11);
+}
+
+MeasureUnit *MeasureUnit::createSievert(UErrorCode &status) {
+    return MeasureUnit::create(9, 12, status);
+}
+
+MeasureUnit MeasureUnit::getSievert() {
+    return MeasureUnit(9, 12);
+}
+
+MeasureUnit *MeasureUnit::createThermUs(UErrorCode &status) {
+    return MeasureUnit::create(9, 13, status);
+}
+
+MeasureUnit MeasureUnit::getThermUs() {
+    return MeasureUnit(9, 13);
+}
+
+MeasureUnit *MeasureUnit::createKilogramForce(UErrorCode &status) {
     return MeasureUnit::create(10, 0, status);
 }
 
-MeasureUnit MeasureUnit::getKilowattHourPer100Kilometer() {
+MeasureUnit MeasureUnit::getKilogramForce() {
     return MeasureUnit(10, 0);
 }
 
-MeasureUnit *MeasureUnit::createNewton(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilowattHourPer100Kilometer(UErrorCode &status) {
     return MeasureUnit::create(10, 1, status);
 }
 
-MeasureUnit MeasureUnit::getNewton() {
+MeasureUnit MeasureUnit::getKilowattHourPer100Kilometer() {
     return MeasureUnit(10, 1);
 }
 
-MeasureUnit *MeasureUnit::createPoundForce(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNewton(UErrorCode &status) {
     return MeasureUnit::create(10, 2, status);
 }
 
-MeasureUnit MeasureUnit::getPoundForce() {
+MeasureUnit MeasureUnit::getNewton() {
     return MeasureUnit(10, 2);
+}
+
+MeasureUnit *MeasureUnit::createPoundForce(UErrorCode &status) {
+    return MeasureUnit::create(10, 3, status);
+}
+
+MeasureUnit MeasureUnit::getPoundForce() {
+    return MeasureUnit(10, 3);
 }
 
 MeasureUnit *MeasureUnit::createGigahertz(UErrorCode &status) {
@@ -1315,164 +1520,236 @@ MeasureUnit MeasureUnit::getCentimeter() {
     return MeasureUnit(13, 1);
 }
 
-MeasureUnit *MeasureUnit::createDecimeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createChain(UErrorCode &status) {
     return MeasureUnit::create(13, 2, status);
 }
 
-MeasureUnit MeasureUnit::getDecimeter() {
+MeasureUnit MeasureUnit::getChain() {
     return MeasureUnit(13, 2);
 }
 
-MeasureUnit *MeasureUnit::createEarthRadius(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createDecimeter(UErrorCode &status) {
     return MeasureUnit::create(13, 3, status);
 }
 
-MeasureUnit MeasureUnit::getEarthRadius() {
+MeasureUnit MeasureUnit::getDecimeter() {
     return MeasureUnit(13, 3);
 }
 
-MeasureUnit *MeasureUnit::createFathom(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createEarthRadius(UErrorCode &status) {
     return MeasureUnit::create(13, 4, status);
 }
 
-MeasureUnit MeasureUnit::getFathom() {
+MeasureUnit MeasureUnit::getEarthRadius() {
     return MeasureUnit(13, 4);
 }
 
-MeasureUnit *MeasureUnit::createFoot(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFathom(UErrorCode &status) {
     return MeasureUnit::create(13, 5, status);
 }
 
-MeasureUnit MeasureUnit::getFoot() {
+MeasureUnit MeasureUnit::getFathom() {
     return MeasureUnit(13, 5);
 }
 
-MeasureUnit *MeasureUnit::createFurlong(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFoot(UErrorCode &status) {
     return MeasureUnit::create(13, 6, status);
 }
 
-MeasureUnit MeasureUnit::getFurlong() {
+MeasureUnit MeasureUnit::getFoot() {
     return MeasureUnit(13, 6);
 }
 
-MeasureUnit *MeasureUnit::createInch(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFurlong(UErrorCode &status) {
     return MeasureUnit::create(13, 7, status);
 }
 
-MeasureUnit MeasureUnit::getInch() {
+MeasureUnit MeasureUnit::getFurlong() {
     return MeasureUnit(13, 7);
 }
 
-MeasureUnit *MeasureUnit::createKilometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createInch(UErrorCode &status) {
     return MeasureUnit::create(13, 8, status);
 }
 
-MeasureUnit MeasureUnit::getKilometer() {
+MeasureUnit MeasureUnit::getInch() {
     return MeasureUnit(13, 8);
 }
 
-MeasureUnit *MeasureUnit::createLightYear(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createJoJp(UErrorCode &status) {
     return MeasureUnit::create(13, 9, status);
 }
 
-MeasureUnit MeasureUnit::getLightYear() {
+MeasureUnit MeasureUnit::getJoJp() {
     return MeasureUnit(13, 9);
 }
 
-MeasureUnit *MeasureUnit::createMeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKen(UErrorCode &status) {
     return MeasureUnit::create(13, 10, status);
 }
 
-MeasureUnit MeasureUnit::getMeter() {
+MeasureUnit MeasureUnit::getKen() {
     return MeasureUnit(13, 10);
 }
 
-MeasureUnit *MeasureUnit::createMicrometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilometer(UErrorCode &status) {
     return MeasureUnit::create(13, 11, status);
 }
 
-MeasureUnit MeasureUnit::getMicrometer() {
+MeasureUnit MeasureUnit::getKilometer() {
     return MeasureUnit(13, 11);
 }
 
-MeasureUnit *MeasureUnit::createMile(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createLightYear(UErrorCode &status) {
     return MeasureUnit::create(13, 12, status);
 }
 
-MeasureUnit MeasureUnit::getMile() {
+MeasureUnit MeasureUnit::getLightYear() {
     return MeasureUnit(13, 12);
 }
 
-MeasureUnit *MeasureUnit::createMileScandinavian(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMeter(UErrorCode &status) {
     return MeasureUnit::create(13, 13, status);
 }
 
-MeasureUnit MeasureUnit::getMileScandinavian() {
+MeasureUnit MeasureUnit::getMeter() {
     return MeasureUnit(13, 13);
 }
 
-MeasureUnit *MeasureUnit::createMillimeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMicrometer(UErrorCode &status) {
     return MeasureUnit::create(13, 14, status);
 }
 
-MeasureUnit MeasureUnit::getMillimeter() {
+MeasureUnit MeasureUnit::getMicrometer() {
     return MeasureUnit(13, 14);
 }
 
-MeasureUnit *MeasureUnit::createNanometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMile(UErrorCode &status) {
     return MeasureUnit::create(13, 15, status);
 }
 
-MeasureUnit MeasureUnit::getNanometer() {
+MeasureUnit MeasureUnit::getMile() {
     return MeasureUnit(13, 15);
 }
 
-MeasureUnit *MeasureUnit::createNauticalMile(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMileScandinavian(UErrorCode &status) {
     return MeasureUnit::create(13, 16, status);
 }
 
-MeasureUnit MeasureUnit::getNauticalMile() {
+MeasureUnit MeasureUnit::getMileScandinavian() {
     return MeasureUnit(13, 16);
 }
 
-MeasureUnit *MeasureUnit::createParsec(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMillimeter(UErrorCode &status) {
     return MeasureUnit::create(13, 17, status);
 }
 
-MeasureUnit MeasureUnit::getParsec() {
+MeasureUnit MeasureUnit::getMillimeter() {
     return MeasureUnit(13, 17);
 }
 
-MeasureUnit *MeasureUnit::createPicometer(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNanometer(UErrorCode &status) {
     return MeasureUnit::create(13, 18, status);
 }
 
-MeasureUnit MeasureUnit::getPicometer() {
+MeasureUnit MeasureUnit::getNanometer() {
     return MeasureUnit(13, 18);
 }
 
-MeasureUnit *MeasureUnit::createPoint(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createNauticalMile(UErrorCode &status) {
     return MeasureUnit::create(13, 19, status);
 }
 
-MeasureUnit MeasureUnit::getPoint() {
+MeasureUnit MeasureUnit::getNauticalMile() {
     return MeasureUnit(13, 19);
 }
 
-MeasureUnit *MeasureUnit::createSolarRadius(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createParsec(UErrorCode &status) {
     return MeasureUnit::create(13, 20, status);
 }
 
-MeasureUnit MeasureUnit::getSolarRadius() {
+MeasureUnit MeasureUnit::getParsec() {
     return MeasureUnit(13, 20);
 }
 
-MeasureUnit *MeasureUnit::createYard(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createPicometer(UErrorCode &status) {
     return MeasureUnit::create(13, 21, status);
 }
 
-MeasureUnit MeasureUnit::getYard() {
+MeasureUnit MeasureUnit::getPicometer() {
     return MeasureUnit(13, 21);
+}
+
+MeasureUnit *MeasureUnit::createPoint(UErrorCode &status) {
+    return MeasureUnit::create(13, 22, status);
+}
+
+MeasureUnit MeasureUnit::getPoint() {
+    return MeasureUnit(13, 22);
+}
+
+MeasureUnit *MeasureUnit::createRiJp(UErrorCode &status) {
+    return MeasureUnit::create(13, 23, status);
+}
+
+MeasureUnit MeasureUnit::getRiJp() {
+    return MeasureUnit(13, 23);
+}
+
+MeasureUnit *MeasureUnit::createRin(UErrorCode &status) {
+    return MeasureUnit::create(13, 24, status);
+}
+
+MeasureUnit MeasureUnit::getRin() {
+    return MeasureUnit(13, 24);
+}
+
+MeasureUnit *MeasureUnit::createRod(UErrorCode &status) {
+    return MeasureUnit::create(13, 25, status);
+}
+
+MeasureUnit MeasureUnit::getRod() {
+    return MeasureUnit(13, 25);
+}
+
+MeasureUnit *MeasureUnit::createShakuCloth(UErrorCode &status) {
+    return MeasureUnit::create(13, 26, status);
+}
+
+MeasureUnit MeasureUnit::getShakuCloth() {
+    return MeasureUnit(13, 26);
+}
+
+MeasureUnit *MeasureUnit::createShakuLength(UErrorCode &status) {
+    return MeasureUnit::create(13, 27, status);
+}
+
+MeasureUnit MeasureUnit::getShakuLength() {
+    return MeasureUnit(13, 27);
+}
+
+MeasureUnit *MeasureUnit::createSolarRadius(UErrorCode &status) {
+    return MeasureUnit::create(13, 28, status);
+}
+
+MeasureUnit MeasureUnit::getSolarRadius() {
+    return MeasureUnit(13, 28);
+}
+
+MeasureUnit *MeasureUnit::createSun(UErrorCode &status) {
+    return MeasureUnit::create(13, 29, status);
+}
+
+MeasureUnit MeasureUnit::getSun() {
+    return MeasureUnit(13, 29);
+}
+
+MeasureUnit *MeasureUnit::createYard(UErrorCode &status) {
+    return MeasureUnit::create(13, 30, status);
+}
+
+MeasureUnit MeasureUnit::getYard() {
+    return MeasureUnit(13, 30);
 }
 
 MeasureUnit *MeasureUnit::createCandela(UErrorCode &status) {
@@ -1507,636 +1784,764 @@ MeasureUnit MeasureUnit::getSolarLuminosity() {
     return MeasureUnit(14, 3);
 }
 
-MeasureUnit *MeasureUnit::createCarat(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createTesla(UErrorCode &status) {
     return MeasureUnit::create(15, 0, status);
 }
 
-MeasureUnit MeasureUnit::getCarat() {
+MeasureUnit MeasureUnit::getTesla() {
     return MeasureUnit(15, 0);
 }
 
-MeasureUnit *MeasureUnit::createDalton(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWeber(UErrorCode &status) {
     return MeasureUnit::create(15, 1, status);
 }
 
-MeasureUnit MeasureUnit::getDalton() {
+MeasureUnit MeasureUnit::getWeber() {
     return MeasureUnit(15, 1);
 }
 
+MeasureUnit *MeasureUnit::createCarat(UErrorCode &status) {
+    return MeasureUnit::create(16, 0, status);
+}
+
+MeasureUnit MeasureUnit::getCarat() {
+    return MeasureUnit(16, 0);
+}
+
+MeasureUnit *MeasureUnit::createDalton(UErrorCode &status) {
+    return MeasureUnit::create(16, 1, status);
+}
+
+MeasureUnit MeasureUnit::getDalton() {
+    return MeasureUnit(16, 1);
+}
+
 MeasureUnit *MeasureUnit::createEarthMass(UErrorCode &status) {
-    return MeasureUnit::create(15, 2, status);
+    return MeasureUnit::create(16, 2, status);
 }
 
 MeasureUnit MeasureUnit::getEarthMass() {
-    return MeasureUnit(15, 2);
+    return MeasureUnit(16, 2);
+}
+
+MeasureUnit *MeasureUnit::createFun(UErrorCode &status) {
+    return MeasureUnit::create(16, 3, status);
+}
+
+MeasureUnit MeasureUnit::getFun() {
+    return MeasureUnit(16, 3);
 }
 
 MeasureUnit *MeasureUnit::createGrain(UErrorCode &status) {
-    return MeasureUnit::create(15, 3, status);
+    return MeasureUnit::create(16, 4, status);
 }
 
 MeasureUnit MeasureUnit::getGrain() {
-    return MeasureUnit(15, 3);
+    return MeasureUnit(16, 4);
 }
 
 MeasureUnit *MeasureUnit::createGram(UErrorCode &status) {
-    return MeasureUnit::create(15, 4, status);
+    return MeasureUnit::create(16, 5, status);
 }
 
 MeasureUnit MeasureUnit::getGram() {
-    return MeasureUnit(15, 4);
+    return MeasureUnit(16, 5);
 }
 
 MeasureUnit *MeasureUnit::createKilogram(UErrorCode &status) {
-    return MeasureUnit::create(15, 5, status);
+    return MeasureUnit::create(16, 6, status);
 }
 
 MeasureUnit MeasureUnit::getKilogram() {
-    return MeasureUnit(15, 5);
+    return MeasureUnit(16, 6);
 }
 
 MeasureUnit *MeasureUnit::createMicrogram(UErrorCode &status) {
-    return MeasureUnit::create(15, 6, status);
+    return MeasureUnit::create(16, 7, status);
 }
 
 MeasureUnit MeasureUnit::getMicrogram() {
-    return MeasureUnit(15, 6);
+    return MeasureUnit(16, 7);
 }
 
 MeasureUnit *MeasureUnit::createMilligram(UErrorCode &status) {
-    return MeasureUnit::create(15, 7, status);
+    return MeasureUnit::create(16, 8, status);
 }
 
 MeasureUnit MeasureUnit::getMilligram() {
-    return MeasureUnit(15, 7);
+    return MeasureUnit(16, 8);
 }
 
 MeasureUnit *MeasureUnit::createOunce(UErrorCode &status) {
-    return MeasureUnit::create(15, 8, status);
+    return MeasureUnit::create(16, 9, status);
 }
 
 MeasureUnit MeasureUnit::getOunce() {
-    return MeasureUnit(15, 8);
+    return MeasureUnit(16, 9);
 }
 
 MeasureUnit *MeasureUnit::createOunceTroy(UErrorCode &status) {
-    return MeasureUnit::create(15, 9, status);
+    return MeasureUnit::create(16, 10, status);
 }
 
 MeasureUnit MeasureUnit::getOunceTroy() {
-    return MeasureUnit(15, 9);
+    return MeasureUnit(16, 10);
 }
 
 MeasureUnit *MeasureUnit::createPound(UErrorCode &status) {
-    return MeasureUnit::create(15, 10, status);
+    return MeasureUnit::create(16, 11, status);
 }
 
 MeasureUnit MeasureUnit::getPound() {
-    return MeasureUnit(15, 10);
+    return MeasureUnit(16, 11);
+}
+
+MeasureUnit *MeasureUnit::createSlug(UErrorCode &status) {
+    return MeasureUnit::create(16, 12, status);
+}
+
+MeasureUnit MeasureUnit::getSlug() {
+    return MeasureUnit(16, 12);
 }
 
 MeasureUnit *MeasureUnit::createSolarMass(UErrorCode &status) {
-    return MeasureUnit::create(15, 11, status);
+    return MeasureUnit::create(16, 13, status);
 }
 
 MeasureUnit MeasureUnit::getSolarMass() {
-    return MeasureUnit(15, 11);
+    return MeasureUnit(16, 13);
 }
 
 MeasureUnit *MeasureUnit::createStone(UErrorCode &status) {
-    return MeasureUnit::create(15, 12, status);
+    return MeasureUnit::create(16, 14, status);
 }
 
 MeasureUnit MeasureUnit::getStone() {
-    return MeasureUnit(15, 12);
+    return MeasureUnit(16, 14);
 }
 
 MeasureUnit *MeasureUnit::createTon(UErrorCode &status) {
-    return MeasureUnit::create(15, 13, status);
+    return MeasureUnit::create(16, 15, status);
 }
 
 MeasureUnit MeasureUnit::getTon() {
-    return MeasureUnit(15, 13);
+    return MeasureUnit(16, 15);
 }
 
 MeasureUnit *MeasureUnit::createTonne(UErrorCode &status) {
-    return MeasureUnit::create(15, 14, status);
+    return MeasureUnit::create(16, 16, status);
 }
 
 MeasureUnit MeasureUnit::getTonne() {
-    return MeasureUnit(15, 14);
+    return MeasureUnit(16, 16);
 }
 
 MeasureUnit *MeasureUnit::createMetricTon(UErrorCode &status) {
-    return MeasureUnit::create(15, 14, status);
+    return MeasureUnit::create(16, 16, status);
 }
 
 MeasureUnit MeasureUnit::getMetricTon() {
-    return MeasureUnit(15, 14);
+    return MeasureUnit(16, 16);
 }
 
 MeasureUnit *MeasureUnit::createGigawatt(UErrorCode &status) {
-    return MeasureUnit::create(17, 0, status);
-}
-
-MeasureUnit MeasureUnit::getGigawatt() {
-    return MeasureUnit(17, 0);
-}
-
-MeasureUnit *MeasureUnit::createHorsepower(UErrorCode &status) {
-    return MeasureUnit::create(17, 1, status);
-}
-
-MeasureUnit MeasureUnit::getHorsepower() {
-    return MeasureUnit(17, 1);
-}
-
-MeasureUnit *MeasureUnit::createKilowatt(UErrorCode &status) {
-    return MeasureUnit::create(17, 2, status);
-}
-
-MeasureUnit MeasureUnit::getKilowatt() {
-    return MeasureUnit(17, 2);
-}
-
-MeasureUnit *MeasureUnit::createMegawatt(UErrorCode &status) {
-    return MeasureUnit::create(17, 3, status);
-}
-
-MeasureUnit MeasureUnit::getMegawatt() {
-    return MeasureUnit(17, 3);
-}
-
-MeasureUnit *MeasureUnit::createMilliwatt(UErrorCode &status) {
-    return MeasureUnit::create(17, 4, status);
-}
-
-MeasureUnit MeasureUnit::getMilliwatt() {
-    return MeasureUnit(17, 4);
-}
-
-MeasureUnit *MeasureUnit::createWatt(UErrorCode &status) {
-    return MeasureUnit::create(17, 5, status);
-}
-
-MeasureUnit MeasureUnit::getWatt() {
-    return MeasureUnit(17, 5);
-}
-
-MeasureUnit *MeasureUnit::createAtmosphere(UErrorCode &status) {
     return MeasureUnit::create(18, 0, status);
 }
 
-MeasureUnit MeasureUnit::getAtmosphere() {
+MeasureUnit MeasureUnit::getGigawatt() {
     return MeasureUnit(18, 0);
 }
 
-MeasureUnit *MeasureUnit::createBar(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createHorsepower(UErrorCode &status) {
     return MeasureUnit::create(18, 1, status);
 }
 
-MeasureUnit MeasureUnit::getBar() {
+MeasureUnit MeasureUnit::getHorsepower() {
     return MeasureUnit(18, 1);
 }
 
-MeasureUnit *MeasureUnit::createGasolineEnergyDensity(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilowatt(UErrorCode &status) {
     return MeasureUnit::create(18, 2, status);
 }
 
-MeasureUnit MeasureUnit::getGasolineEnergyDensity() {
+MeasureUnit MeasureUnit::getKilowatt() {
     return MeasureUnit(18, 2);
 }
 
-MeasureUnit *MeasureUnit::createHectopascal(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMegawatt(UErrorCode &status) {
     return MeasureUnit::create(18, 3, status);
 }
 
-MeasureUnit MeasureUnit::getHectopascal() {
+MeasureUnit MeasureUnit::getMegawatt() {
     return MeasureUnit(18, 3);
 }
 
-MeasureUnit *MeasureUnit::createInchHg(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMilliwatt(UErrorCode &status) {
     return MeasureUnit::create(18, 4, status);
 }
 
-MeasureUnit MeasureUnit::getInchHg() {
+MeasureUnit MeasureUnit::getMilliwatt() {
     return MeasureUnit(18, 4);
 }
 
-MeasureUnit *MeasureUnit::createKilopascal(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createWatt(UErrorCode &status) {
     return MeasureUnit::create(18, 5, status);
 }
 
-MeasureUnit MeasureUnit::getKilopascal() {
+MeasureUnit MeasureUnit::getWatt() {
     return MeasureUnit(18, 5);
 }
 
-MeasureUnit *MeasureUnit::createMegapascal(UErrorCode &status) {
-    return MeasureUnit::create(18, 6, status);
-}
-
-MeasureUnit MeasureUnit::getMegapascal() {
-    return MeasureUnit(18, 6);
-}
-
-MeasureUnit *MeasureUnit::createMillibar(UErrorCode &status) {
-    return MeasureUnit::create(18, 7, status);
-}
-
-MeasureUnit MeasureUnit::getMillibar() {
-    return MeasureUnit(18, 7);
-}
-
-MeasureUnit *MeasureUnit::createMillimeterOfMercury(UErrorCode &status) {
-    return MeasureUnit::create(18, 8, status);
-}
-
-MeasureUnit MeasureUnit::getMillimeterOfMercury() {
-    return MeasureUnit(18, 8);
-}
-
-MeasureUnit *MeasureUnit::createPascal(UErrorCode &status) {
-    return MeasureUnit::create(18, 9, status);
-}
-
-MeasureUnit MeasureUnit::getPascal() {
-    return MeasureUnit(18, 9);
-}
-
-MeasureUnit *MeasureUnit::createPoundPerSquareInch(UErrorCode &status) {
-    return MeasureUnit::create(18, 10, status);
-}
-
-MeasureUnit MeasureUnit::getPoundPerSquareInch() {
-    return MeasureUnit(18, 10);
-}
-
-MeasureUnit *MeasureUnit::createBeaufort(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createAtmosphere(UErrorCode &status) {
     return MeasureUnit::create(19, 0, status);
 }
 
-MeasureUnit MeasureUnit::getBeaufort() {
+MeasureUnit MeasureUnit::getAtmosphere() {
     return MeasureUnit(19, 0);
 }
 
-MeasureUnit *MeasureUnit::createKilometerPerHour(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createBar(UErrorCode &status) {
     return MeasureUnit::create(19, 1, status);
 }
 
-MeasureUnit MeasureUnit::getKilometerPerHour() {
+MeasureUnit MeasureUnit::getBar() {
     return MeasureUnit(19, 1);
 }
 
-MeasureUnit *MeasureUnit::createKnot(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createGasolineEnergyDensity(UErrorCode &status) {
     return MeasureUnit::create(19, 2, status);
 }
 
-MeasureUnit MeasureUnit::getKnot() {
+MeasureUnit MeasureUnit::getGasolineEnergyDensity() {
     return MeasureUnit(19, 2);
 }
 
-MeasureUnit *MeasureUnit::createLightSpeed(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createHectopascal(UErrorCode &status) {
     return MeasureUnit::create(19, 3, status);
 }
 
-MeasureUnit MeasureUnit::getLightSpeed() {
+MeasureUnit MeasureUnit::getHectopascal() {
     return MeasureUnit(19, 3);
 }
 
-MeasureUnit *MeasureUnit::createMeterPerSecond(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createInchHg(UErrorCode &status) {
     return MeasureUnit::create(19, 4, status);
 }
 
-MeasureUnit MeasureUnit::getMeterPerSecond() {
+MeasureUnit MeasureUnit::getInchHg() {
     return MeasureUnit(19, 4);
 }
 
-MeasureUnit *MeasureUnit::createMilePerHour(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilopascal(UErrorCode &status) {
     return MeasureUnit::create(19, 5, status);
 }
 
-MeasureUnit MeasureUnit::getMilePerHour() {
+MeasureUnit MeasureUnit::getKilopascal() {
     return MeasureUnit(19, 5);
 }
 
-MeasureUnit *MeasureUnit::createCelsius(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMegapascal(UErrorCode &status) {
+    return MeasureUnit::create(19, 6, status);
+}
+
+MeasureUnit MeasureUnit::getMegapascal() {
+    return MeasureUnit(19, 6);
+}
+
+MeasureUnit *MeasureUnit::createMillibar(UErrorCode &status) {
+    return MeasureUnit::create(19, 7, status);
+}
+
+MeasureUnit MeasureUnit::getMillibar() {
+    return MeasureUnit(19, 7);
+}
+
+MeasureUnit *MeasureUnit::createMillimeterOfMercury(UErrorCode &status) {
+    return MeasureUnit::create(19, 8, status);
+}
+
+MeasureUnit MeasureUnit::getMillimeterOfMercury() {
+    return MeasureUnit(19, 8);
+}
+
+MeasureUnit *MeasureUnit::createOfhg(UErrorCode &status) {
+    return MeasureUnit::create(19, 9, status);
+}
+
+MeasureUnit MeasureUnit::getOfhg() {
+    return MeasureUnit(19, 9);
+}
+
+MeasureUnit *MeasureUnit::createPascal(UErrorCode &status) {
+    return MeasureUnit::create(19, 10, status);
+}
+
+MeasureUnit MeasureUnit::getPascal() {
+    return MeasureUnit(19, 10);
+}
+
+MeasureUnit *MeasureUnit::createPoundPerSquareInch(UErrorCode &status) {
+    return MeasureUnit::create(19, 11, status);
+}
+
+MeasureUnit MeasureUnit::getPoundPerSquareInch() {
+    return MeasureUnit(19, 11);
+}
+
+MeasureUnit *MeasureUnit::createBeaufort(UErrorCode &status) {
     return MeasureUnit::create(20, 0, status);
 }
 
-MeasureUnit MeasureUnit::getCelsius() {
+MeasureUnit MeasureUnit::getBeaufort() {
     return MeasureUnit(20, 0);
 }
 
-MeasureUnit *MeasureUnit::createFahrenheit(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKilometerPerHour(UErrorCode &status) {
     return MeasureUnit::create(20, 1, status);
 }
 
-MeasureUnit MeasureUnit::getFahrenheit() {
+MeasureUnit MeasureUnit::getKilometerPerHour() {
     return MeasureUnit(20, 1);
 }
 
-MeasureUnit *MeasureUnit::createGenericTemperature(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createKnot(UErrorCode &status) {
     return MeasureUnit::create(20, 2, status);
 }
 
-MeasureUnit MeasureUnit::getGenericTemperature() {
+MeasureUnit MeasureUnit::getKnot() {
     return MeasureUnit(20, 2);
 }
 
-MeasureUnit *MeasureUnit::createKelvin(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createLightSpeed(UErrorCode &status) {
     return MeasureUnit::create(20, 3, status);
 }
 
-MeasureUnit MeasureUnit::getKelvin() {
+MeasureUnit MeasureUnit::getLightSpeed() {
     return MeasureUnit(20, 3);
 }
 
-MeasureUnit *MeasureUnit::createNewtonMeter(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createMeterPerSecond(UErrorCode &status) {
+    return MeasureUnit::create(20, 4, status);
+}
+
+MeasureUnit MeasureUnit::getMeterPerSecond() {
+    return MeasureUnit(20, 4);
+}
+
+MeasureUnit *MeasureUnit::createMilePerHour(UErrorCode &status) {
+    return MeasureUnit::create(20, 5, status);
+}
+
+MeasureUnit MeasureUnit::getMilePerHour() {
+    return MeasureUnit(20, 5);
+}
+
+MeasureUnit *MeasureUnit::createCelsius(UErrorCode &status) {
     return MeasureUnit::create(21, 0, status);
 }
 
-MeasureUnit MeasureUnit::getNewtonMeter() {
+MeasureUnit MeasureUnit::getCelsius() {
     return MeasureUnit(21, 0);
 }
 
-MeasureUnit *MeasureUnit::createPoundFoot(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createFahrenheit(UErrorCode &status) {
     return MeasureUnit::create(21, 1, status);
 }
 
-MeasureUnit MeasureUnit::getPoundFoot() {
+MeasureUnit MeasureUnit::getFahrenheit() {
     return MeasureUnit(21, 1);
 }
 
-MeasureUnit *MeasureUnit::createAcreFoot(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createGenericTemperature(UErrorCode &status) {
+    return MeasureUnit::create(21, 2, status);
+}
+
+MeasureUnit MeasureUnit::getGenericTemperature() {
+    return MeasureUnit(21, 2);
+}
+
+MeasureUnit *MeasureUnit::createKelvin(UErrorCode &status) {
+    return MeasureUnit::create(21, 3, status);
+}
+
+MeasureUnit MeasureUnit::getKelvin() {
+    return MeasureUnit(21, 3);
+}
+
+MeasureUnit *MeasureUnit::createRankine(UErrorCode &status) {
+    return MeasureUnit::create(21, 4, status);
+}
+
+MeasureUnit MeasureUnit::getRankine() {
+    return MeasureUnit(21, 4);
+}
+
+MeasureUnit *MeasureUnit::createNewtonMeter(UErrorCode &status) {
     return MeasureUnit::create(22, 0, status);
 }
 
-MeasureUnit MeasureUnit::getAcreFoot() {
+MeasureUnit MeasureUnit::getNewtonMeter() {
     return MeasureUnit(22, 0);
 }
 
-MeasureUnit *MeasureUnit::createBarrel(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createPoundFoot(UErrorCode &status) {
     return MeasureUnit::create(22, 1, status);
 }
 
-MeasureUnit MeasureUnit::getBarrel() {
+MeasureUnit MeasureUnit::getPoundFoot() {
     return MeasureUnit(22, 1);
 }
 
+MeasureUnit *MeasureUnit::createAcreFoot(UErrorCode &status) {
+    return MeasureUnit::create(23, 0, status);
+}
+
+MeasureUnit MeasureUnit::getAcreFoot() {
+    return MeasureUnit(23, 0);
+}
+
+MeasureUnit *MeasureUnit::createBarrel(UErrorCode &status) {
+    return MeasureUnit::create(23, 1, status);
+}
+
+MeasureUnit MeasureUnit::getBarrel() {
+    return MeasureUnit(23, 1);
+}
+
 MeasureUnit *MeasureUnit::createBushel(UErrorCode &status) {
-    return MeasureUnit::create(22, 2, status);
+    return MeasureUnit::create(23, 2, status);
 }
 
 MeasureUnit MeasureUnit::getBushel() {
-    return MeasureUnit(22, 2);
+    return MeasureUnit(23, 2);
 }
 
 MeasureUnit *MeasureUnit::createCentiliter(UErrorCode &status) {
-    return MeasureUnit::create(22, 3, status);
+    return MeasureUnit::create(23, 3, status);
 }
 
 MeasureUnit MeasureUnit::getCentiliter() {
-    return MeasureUnit(22, 3);
+    return MeasureUnit(23, 3);
 }
 
 MeasureUnit *MeasureUnit::createCubicCentimeter(UErrorCode &status) {
-    return MeasureUnit::create(22, 4, status);
+    return MeasureUnit::create(23, 4, status);
 }
 
 MeasureUnit MeasureUnit::getCubicCentimeter() {
-    return MeasureUnit(22, 4);
+    return MeasureUnit(23, 4);
 }
 
 MeasureUnit *MeasureUnit::createCubicFoot(UErrorCode &status) {
-    return MeasureUnit::create(22, 5, status);
+    return MeasureUnit::create(23, 5, status);
 }
 
 MeasureUnit MeasureUnit::getCubicFoot() {
-    return MeasureUnit(22, 5);
+    return MeasureUnit(23, 5);
 }
 
 MeasureUnit *MeasureUnit::createCubicInch(UErrorCode &status) {
-    return MeasureUnit::create(22, 6, status);
+    return MeasureUnit::create(23, 6, status);
 }
 
 MeasureUnit MeasureUnit::getCubicInch() {
-    return MeasureUnit(22, 6);
+    return MeasureUnit(23, 6);
 }
 
 MeasureUnit *MeasureUnit::createCubicKilometer(UErrorCode &status) {
-    return MeasureUnit::create(22, 7, status);
+    return MeasureUnit::create(23, 7, status);
 }
 
 MeasureUnit MeasureUnit::getCubicKilometer() {
-    return MeasureUnit(22, 7);
+    return MeasureUnit(23, 7);
 }
 
 MeasureUnit *MeasureUnit::createCubicMeter(UErrorCode &status) {
-    return MeasureUnit::create(22, 8, status);
+    return MeasureUnit::create(23, 8, status);
 }
 
 MeasureUnit MeasureUnit::getCubicMeter() {
-    return MeasureUnit(22, 8);
+    return MeasureUnit(23, 8);
 }
 
 MeasureUnit *MeasureUnit::createCubicMile(UErrorCode &status) {
-    return MeasureUnit::create(22, 9, status);
+    return MeasureUnit::create(23, 9, status);
 }
 
 MeasureUnit MeasureUnit::getCubicMile() {
-    return MeasureUnit(22, 9);
+    return MeasureUnit(23, 9);
 }
 
 MeasureUnit *MeasureUnit::createCubicYard(UErrorCode &status) {
-    return MeasureUnit::create(22, 10, status);
+    return MeasureUnit::create(23, 10, status);
 }
 
 MeasureUnit MeasureUnit::getCubicYard() {
-    return MeasureUnit(22, 10);
+    return MeasureUnit(23, 10);
 }
 
 MeasureUnit *MeasureUnit::createCup(UErrorCode &status) {
-    return MeasureUnit::create(22, 11, status);
+    return MeasureUnit::create(23, 11, status);
 }
 
 MeasureUnit MeasureUnit::getCup() {
-    return MeasureUnit(22, 11);
+    return MeasureUnit(23, 11);
+}
+
+MeasureUnit *MeasureUnit::createCupImperial(UErrorCode &status) {
+    return MeasureUnit::create(23, 12, status);
+}
+
+MeasureUnit MeasureUnit::getCupImperial() {
+    return MeasureUnit(23, 12);
+}
+
+MeasureUnit *MeasureUnit::createCupJp(UErrorCode &status) {
+    return MeasureUnit::create(23, 13, status);
+}
+
+MeasureUnit MeasureUnit::getCupJp() {
+    return MeasureUnit(23, 13);
 }
 
 MeasureUnit *MeasureUnit::createCupMetric(UErrorCode &status) {
-    return MeasureUnit::create(22, 12, status);
+    return MeasureUnit::create(23, 14, status);
 }
 
 MeasureUnit MeasureUnit::getCupMetric() {
-    return MeasureUnit(22, 12);
+    return MeasureUnit(23, 14);
 }
 
 MeasureUnit *MeasureUnit::createDeciliter(UErrorCode &status) {
-    return MeasureUnit::create(22, 13, status);
+    return MeasureUnit::create(23, 15, status);
 }
 
 MeasureUnit MeasureUnit::getDeciliter() {
-    return MeasureUnit(22, 13);
+    return MeasureUnit(23, 15);
 }
 
 MeasureUnit *MeasureUnit::createDessertSpoon(UErrorCode &status) {
-    return MeasureUnit::create(22, 14, status);
+    return MeasureUnit::create(23, 16, status);
 }
 
 MeasureUnit MeasureUnit::getDessertSpoon() {
-    return MeasureUnit(22, 14);
+    return MeasureUnit(23, 16);
 }
 
 MeasureUnit *MeasureUnit::createDessertSpoonImperial(UErrorCode &status) {
-    return MeasureUnit::create(22, 15, status);
+    return MeasureUnit::create(23, 17, status);
 }
 
 MeasureUnit MeasureUnit::getDessertSpoonImperial() {
-    return MeasureUnit(22, 15);
+    return MeasureUnit(23, 17);
 }
 
 MeasureUnit *MeasureUnit::createDram(UErrorCode &status) {
-    return MeasureUnit::create(22, 16, status);
+    return MeasureUnit::create(23, 18, status);
 }
 
 MeasureUnit MeasureUnit::getDram() {
-    return MeasureUnit(22, 16);
+    return MeasureUnit(23, 18);
 }
 
 MeasureUnit *MeasureUnit::createDrop(UErrorCode &status) {
-    return MeasureUnit::create(22, 17, status);
+    return MeasureUnit::create(23, 19, status);
 }
 
 MeasureUnit MeasureUnit::getDrop() {
-    return MeasureUnit(22, 17);
+    return MeasureUnit(23, 19);
 }
 
 MeasureUnit *MeasureUnit::createFluidOunce(UErrorCode &status) {
-    return MeasureUnit::create(22, 18, status);
+    return MeasureUnit::create(23, 20, status);
 }
 
 MeasureUnit MeasureUnit::getFluidOunce() {
-    return MeasureUnit(22, 18);
+    return MeasureUnit(23, 20);
 }
 
 MeasureUnit *MeasureUnit::createFluidOunceImperial(UErrorCode &status) {
-    return MeasureUnit::create(22, 19, status);
+    return MeasureUnit::create(23, 21, status);
 }
 
 MeasureUnit MeasureUnit::getFluidOunceImperial() {
-    return MeasureUnit(22, 19);
+    return MeasureUnit(23, 21);
+}
+
+MeasureUnit *MeasureUnit::createFluidOunceMetric(UErrorCode &status) {
+    return MeasureUnit::create(23, 22, status);
+}
+
+MeasureUnit MeasureUnit::getFluidOunceMetric() {
+    return MeasureUnit(23, 22);
 }
 
 MeasureUnit *MeasureUnit::createGallon(UErrorCode &status) {
-    return MeasureUnit::create(22, 20, status);
+    return MeasureUnit::create(23, 23, status);
 }
 
 MeasureUnit MeasureUnit::getGallon() {
-    return MeasureUnit(22, 20);
+    return MeasureUnit(23, 23);
 }
 
 MeasureUnit *MeasureUnit::createGallonImperial(UErrorCode &status) {
-    return MeasureUnit::create(22, 21, status);
+    return MeasureUnit::create(23, 24, status);
 }
 
 MeasureUnit MeasureUnit::getGallonImperial() {
-    return MeasureUnit(22, 21);
+    return MeasureUnit(23, 24);
 }
 
 MeasureUnit *MeasureUnit::createHectoliter(UErrorCode &status) {
-    return MeasureUnit::create(22, 22, status);
+    return MeasureUnit::create(23, 25, status);
 }
 
 MeasureUnit MeasureUnit::getHectoliter() {
-    return MeasureUnit(22, 22);
+    return MeasureUnit(23, 25);
 }
 
 MeasureUnit *MeasureUnit::createJigger(UErrorCode &status) {
-    return MeasureUnit::create(22, 23, status);
+    return MeasureUnit::create(23, 26, status);
 }
 
 MeasureUnit MeasureUnit::getJigger() {
-    return MeasureUnit(22, 23);
+    return MeasureUnit(23, 26);
+}
+
+MeasureUnit *MeasureUnit::createKoku(UErrorCode &status) {
+    return MeasureUnit::create(23, 27, status);
+}
+
+MeasureUnit MeasureUnit::getKoku() {
+    return MeasureUnit(23, 27);
+}
+
+MeasureUnit *MeasureUnit::createKosaji(UErrorCode &status) {
+    return MeasureUnit::create(23, 28, status);
+}
+
+MeasureUnit MeasureUnit::getKosaji() {
+    return MeasureUnit(23, 28);
 }
 
 MeasureUnit *MeasureUnit::createLiter(UErrorCode &status) {
-    return MeasureUnit::create(22, 24, status);
+    return MeasureUnit::create(23, 29, status);
 }
 
 MeasureUnit MeasureUnit::getLiter() {
-    return MeasureUnit(22, 24);
+    return MeasureUnit(23, 29);
 }
 
 MeasureUnit *MeasureUnit::createMegaliter(UErrorCode &status) {
-    return MeasureUnit::create(22, 25, status);
+    return MeasureUnit::create(23, 30, status);
 }
 
 MeasureUnit MeasureUnit::getMegaliter() {
-    return MeasureUnit(22, 25);
+    return MeasureUnit(23, 30);
 }
 
 MeasureUnit *MeasureUnit::createMilliliter(UErrorCode &status) {
-    return MeasureUnit::create(22, 26, status);
+    return MeasureUnit::create(23, 31, status);
 }
 
 MeasureUnit MeasureUnit::getMilliliter() {
-    return MeasureUnit(22, 26);
+    return MeasureUnit(23, 31);
+}
+
+MeasureUnit *MeasureUnit::createOsaji(UErrorCode &status) {
+    return MeasureUnit::create(23, 32, status);
+}
+
+MeasureUnit MeasureUnit::getOsaji() {
+    return MeasureUnit(23, 32);
 }
 
 MeasureUnit *MeasureUnit::createPinch(UErrorCode &status) {
-    return MeasureUnit::create(22, 27, status);
+    return MeasureUnit::create(23, 33, status);
 }
 
 MeasureUnit MeasureUnit::getPinch() {
-    return MeasureUnit(22, 27);
+    return MeasureUnit(23, 33);
 }
 
 MeasureUnit *MeasureUnit::createPint(UErrorCode &status) {
-    return MeasureUnit::create(22, 28, status);
+    return MeasureUnit::create(23, 34, status);
 }
 
 MeasureUnit MeasureUnit::getPint() {
-    return MeasureUnit(22, 28);
+    return MeasureUnit(23, 34);
+}
+
+MeasureUnit *MeasureUnit::createPintImperial(UErrorCode &status) {
+    return MeasureUnit::create(23, 35, status);
+}
+
+MeasureUnit MeasureUnit::getPintImperial() {
+    return MeasureUnit(23, 35);
 }
 
 MeasureUnit *MeasureUnit::createPintMetric(UErrorCode &status) {
-    return MeasureUnit::create(22, 29, status);
+    return MeasureUnit::create(23, 36, status);
 }
 
 MeasureUnit MeasureUnit::getPintMetric() {
-    return MeasureUnit(22, 29);
+    return MeasureUnit(23, 36);
 }
 
 MeasureUnit *MeasureUnit::createQuart(UErrorCode &status) {
-    return MeasureUnit::create(22, 30, status);
+    return MeasureUnit::create(23, 37, status);
 }
 
 MeasureUnit MeasureUnit::getQuart() {
-    return MeasureUnit(22, 30);
+    return MeasureUnit(23, 37);
 }
 
 MeasureUnit *MeasureUnit::createQuartImperial(UErrorCode &status) {
-    return MeasureUnit::create(22, 31, status);
+    return MeasureUnit::create(23, 38, status);
 }
 
 MeasureUnit MeasureUnit::getQuartImperial() {
-    return MeasureUnit(22, 31);
+    return MeasureUnit(23, 38);
+}
+
+MeasureUnit *MeasureUnit::createSai(UErrorCode &status) {
+    return MeasureUnit::create(23, 39, status);
+}
+
+MeasureUnit MeasureUnit::getSai() {
+    return MeasureUnit(23, 39);
+}
+
+MeasureUnit *MeasureUnit::createShaku(UErrorCode &status) {
+    return MeasureUnit::create(23, 40, status);
+}
+
+MeasureUnit MeasureUnit::getShaku() {
+    return MeasureUnit(23, 40);
 }
 
 MeasureUnit *MeasureUnit::createTablespoon(UErrorCode &status) {
-    return MeasureUnit::create(22, 32, status);
+    return MeasureUnit::create(23, 41, status);
 }
 
 MeasureUnit MeasureUnit::getTablespoon() {
-    return MeasureUnit(22, 32);
+    return MeasureUnit(23, 41);
 }
 
 MeasureUnit *MeasureUnit::createTeaspoon(UErrorCode &status) {
-    return MeasureUnit::create(22, 33, status);
+    return MeasureUnit::create(23, 42, status);
 }
 
 MeasureUnit MeasureUnit::getTeaspoon() {
-    return MeasureUnit(22, 33);
+    return MeasureUnit(23, 42);
+}
+
+MeasureUnit *MeasureUnit::createToJp(UErrorCode &status) {
+    return MeasureUnit::create(23, 43, status);
+}
+
+MeasureUnit MeasureUnit::getToJp() {
+    return MeasureUnit(23, 43);
 }
 
 // End generated code for measunit.cpp
@@ -2179,7 +2584,7 @@ MeasureUnit::MeasureUnit(MeasureUnit &&other) noexcept
 
 MeasureUnit::MeasureUnit(MeasureUnitImpl&& impl)
         : fImpl(nullptr), fSubTypeId(-1), fTypeId(-1) {
-    if (!findBySubType(impl.identifier.toStringPiece(), this)) {
+    if (!findBySubType(impl.identifier.data(), this)) {
         fImpl = new MeasureUnitImpl(std::move(impl));
     }
 }
@@ -2380,10 +2785,16 @@ void MeasureUnit::initCurrency(StringPiece isoCurrency) {
     result = binarySearch(
             gSubTypes, gOffsets[fTypeId], gOffsets[fTypeId + 1], isoCurrency);
     if (result == -1) {
-        fImpl = new MeasureUnitImpl(MeasureUnitImpl::forCurrencyCode(isoCurrency));
-        if (fImpl) {
-            fSubTypeId = -1;
-            return;
+        UErrorCode status = U_ZERO_ERROR;
+        fImpl = new MeasureUnitImpl(MeasureUnitImpl::forCurrencyCode(isoCurrency, status));
+        if (fImpl != nullptr) {
+            if (U_SUCCESS(status)) {
+                fSubTypeId = -1;
+                return;
+            } else {
+                delete fImpl;
+                fImpl = nullptr;
+            }
         }
         // malloc error: fall back to the undefined currency
         result = binarySearch(
@@ -2412,7 +2823,12 @@ int32_t MeasureUnit::getOffset() const {
 MeasureUnitImpl MeasureUnitImpl::copy(UErrorCode &status) const {
     MeasureUnitImpl result;
     result.complexity = complexity;
-    result.identifier.append(identifier, status);
+    result.identifier = identifier;
+    if (result.identifier.isEmpty() != identifier.isEmpty()) {
+        status = U_MEMORY_ALLOCATION_ERROR;
+        return result;
+    }
+    result.constantDenominator = constantDenominator;
     for (int32_t i = 0; i < singleUnits.length(); i++) {
         SingleUnitImpl *item = result.singleUnits.emplaceBack(*singleUnits[i]);
         if (!item) {
@@ -2440,6 +2856,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_ANGLE_ARC_SECOND:       munit = MeasureUnit::createArcSecond(*status);   break;
         case UAMEASUNIT_ANGLE_RADIAN:           munit = MeasureUnit::createRadian(*status);      break;
         case UAMEASUNIT_ANGLE_REVOLUTION:       munit = MeasureUnit::createRevolutionAngle(*status); break;
+        case UAMEASUNIT_ANGLE_STERADIAN:        munit = MeasureUnit::createSteradian(*status);   break;
 
         case UAMEASUNIT_AREA_SQUARE_METER:      munit = MeasureUnit::createSquareMeter(*status);     break;
         case UAMEASUNIT_AREA_SQUARE_KILOMETER:  munit = MeasureUnit::createSquareKilometer(*status); break;
@@ -2451,6 +2868,9 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_AREA_SQUARE_INCH:       munit = MeasureUnit::createSquareInch(*status);      break;
         case UAMEASUNIT_AREA_SQUARE_YARD:       munit = MeasureUnit::createSquareYard(*status);      break;
         case UAMEASUNIT_AREA_DUNAM:             munit = MeasureUnit::createDunam(*status);           break;
+        case UAMEASUNIT_AREA_BU_JP:             munit = MeasureUnit::createBuJp(*status);            break;
+        case UAMEASUNIT_AREA_CHO:               munit = MeasureUnit::createCho(*status);             break;
+        case UAMEASUNIT_AREA_SE_JP:             munit = MeasureUnit::createSeJp(*status);            break;
 
         case UAMEASUNIT_DURATION_YEAR:          munit = MeasureUnit::createYear(*status);        break;
         case UAMEASUNIT_DURATION_MONTH:         munit = MeasureUnit::createMonth(*status);       break;
@@ -2470,6 +2890,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_DURATION_DECADE:        munit = MeasureUnit::createDecade(*status);      break;
         case UAMEASUNIT_DURATION_QUARTER:       munit = MeasureUnit::createQuarter(*status);     break;
         case UAMEASUNIT_DURATION_NIGHT:         munit = MeasureUnit::createNight(*status);       break;
+        case UAMEASUNIT_DURATION_FORTNIGHT:     munit = MeasureUnit::createFortnight(*status);   break;
 
         case UAMEASUNIT_LENGTH_METER:           munit = MeasureUnit::createMeter(*status);       break;
         case UAMEASUNIT_LENGTH_CENTIMETER:      munit = MeasureUnit::createCentimeter(*status);  break;
@@ -2493,6 +2914,15 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_LENGTH_POINT:           munit = MeasureUnit::createPoint(*status);       break;
         case UAMEASUNIT_LENGTH_SOLAR_RADIUS:    munit = MeasureUnit::createSolarRadius(*status); break;
         case UAMEASUNIT_LENGTH_EARTH_RADIUS:    munit = MeasureUnit::createEarthRadius(*status); break;
+        case UAMEASUNIT_LENGTH_CHAIN:           munit = MeasureUnit::createChain(*status);       break;
+        case UAMEASUNIT_LENGTH_JO_JP:           munit = MeasureUnit::createJoJp(*status);        break;
+        case UAMEASUNIT_LENGTH_KEN:             munit = MeasureUnit::createKen(*status);         break;
+        case UAMEASUNIT_LENGTH_RI_JP:           munit = MeasureUnit::createRiJp(*status);        break;
+        case UAMEASUNIT_LENGTH_RIN:             munit = MeasureUnit::createRin(*status);         break;
+        case UAMEASUNIT_LENGTH_ROD:             munit = MeasureUnit::createRod(*status);         break;
+        case UAMEASUNIT_LENGTH_SHAKU_CLOTH:     munit = MeasureUnit::createShakuCloth(*status);  break;
+        case UAMEASUNIT_LENGTH_SHAKU_LENGTH:    munit = MeasureUnit::createShakuLength(*status); break;
+        case UAMEASUNIT_LENGTH_SUN:             munit = MeasureUnit::createSun(*status);         break;
 
         case UAMEASUNIT_MASS_GRAM:              munit = MeasureUnit::createGram(*status);        break;
         case UAMEASUNIT_MASS_KILOGRAM:          munit = MeasureUnit::createKilogram(*status);    break;
@@ -2509,6 +2939,8 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_MASS_EARTH_MASS:        munit = MeasureUnit::createEarthMass(*status);   break;
         case UAMEASUNIT_MASS_SOLAR_MASS:        munit = MeasureUnit::createSolarMass(*status);   break;
         case UAMEASUNIT_MASS_GRAIN:             munit = MeasureUnit::createGrain(*status);       break;
+        case UAMEASUNIT_MASS_FUN:               munit = MeasureUnit::createFun(*status);         break;
+        case UAMEASUNIT_MASS_SLUG:              munit = MeasureUnit::createSlug(*status);        break;
 
         case UAMEASUNIT_POWER_WATT:             munit = MeasureUnit::createWatt(*status);        break;
         case UAMEASUNIT_POWER_KILOWATT:         munit = MeasureUnit::createKilowatt(*status);    break;
@@ -2527,6 +2959,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_PRESSURE_MEGAPASCAL:    munit = MeasureUnit::createMegapascal(*status);  break;
         case UAMEASUNIT_PRESSURE_PASCAL:        munit = MeasureUnit::createPascal(*status);      break;
         case UAMEASUNIT_PRESSURE_BAR:           munit = MeasureUnit::createBar(*status);         break;
+        case UAMEASUNIT_PRESSURE_OFHG:          munit = MeasureUnit::createOfhg(*status);        break;
 
         case UAMEASUNIT_SPEED_METER_PER_SECOND:   munit = MeasureUnit::createMeterPerSecond(*status);   break;
         case UAMEASUNIT_SPEED_KILOMETER_PER_HOUR: munit = MeasureUnit::createKilometerPerHour(*status); break;
@@ -2539,6 +2972,7 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_TEMPERATURE_FAHRENHEIT: munit = MeasureUnit::createFahrenheit(*status);  break;
         case UAMEASUNIT_TEMPERATURE_KELVIN:     munit = MeasureUnit::createKelvin(*status);      break;
         case UAMEASUNIT_TEMPERATURE_GENERIC:    munit = MeasureUnit::createGenericTemperature(*status); break;
+        case UAMEASUNIT_TEMPERATURE_RANKINE:    munit = MeasureUnit::createRankine(*status);     break;
 
         case UAMEASUNIT_VOLUME_LITER:           munit = MeasureUnit::createLiter(*status);          break;
         case UAMEASUNIT_VOLUME_CUBIC_KILOMETER: munit = MeasureUnit::createCubicKilometer(*status); break;
@@ -2574,6 +3008,16 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_VOLUME_JIGGER:          munit = MeasureUnit::createJigger(*status);         break;
         case UAMEASUNIT_VOLUME_PINCH:           munit = MeasureUnit::createPinch(*status);          break;
         case UAMEASUNIT_VOLUME_QUART_IMPERIAL:  munit = MeasureUnit::createQuartImperial(*status);  break;
+        case UAMEASUNIT_VOLUME_CUP_IMPERIAL:    munit = MeasureUnit::createCupImperial(*status);    break;
+        case UAMEASUNIT_VOLUME_CUP_JP:          munit = MeasureUnit::createCupJp(*status);          break;
+        case UAMEASUNIT_VOLUME_FLUID_OUNCE_METRIC: munit = MeasureUnit::createFluidOunceMetric(*status); break;
+        case UAMEASUNIT_VOLUME_KOKU:            munit = MeasureUnit::createKoku(*status);           break;
+        case UAMEASUNIT_VOLUME_KOSAJI:          munit = MeasureUnit::createKosaji(*status);         break;
+        case UAMEASUNIT_VOLUME_OSAJI:           munit = MeasureUnit::createOsaji(*status);          break;
+        case UAMEASUNIT_VOLUME_PINT_IMPERIAL:   munit = MeasureUnit::createPintImperial(*status);   break;
+        case UAMEASUNIT_VOLUME_SAI:             munit = MeasureUnit::createSai(*status);            break;
+        case UAMEASUNIT_VOLUME_SHAKU:           munit = MeasureUnit::createShaku(*status);          break;
+        case UAMEASUNIT_VOLUME_TO_JP:           munit = MeasureUnit::createToJp(*status);           break;
 
         case UAMEASUNIT_ENERGY_JOULE:           munit = MeasureUnit::createJoule(*status);          break;
         case UAMEASUNIT_ENERGY_KILOJOULE:       munit = MeasureUnit::createKilojoule(*status);      break;
@@ -2584,6 +3028,11 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_ENERGY_ELECTRONVOLT:    munit = MeasureUnit::createElectronvolt(*status);   break;
         case UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT: munit = MeasureUnit::createBritishThermalUnit(*status); break;
         case UAMEASUNIT_ENERGY_THERM_US:        munit = MeasureUnit::createThermUs(*status);        break;
+        case UAMEASUNIT_ENERGY_BECQUEREL:       munit = MeasureUnit::createBecquerel(*status);      break;
+        case UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT_IT: munit = MeasureUnit::createBritishThermalUnitIt(*status); break;
+        case UAMEASUNIT_ENERGY_CALORIE_IT:      munit = MeasureUnit::createCalorieIt(*status);      break;
+        case UAMEASUNIT_ENERGY_GRAY:            munit = MeasureUnit::createGray(*status);           break;
+        case UAMEASUNIT_ENERGY_SIEVERT:         munit = MeasureUnit::createSievert(*status);        break;
 
         case UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER: munit = MeasureUnit::createLiterPerKilometer(*status); break;
         case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON:     munit = MeasureUnit::createMilePerGallon(*status);     break;
@@ -2606,6 +3055,10 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_ELECTRIC_MILLIAMPERE:   munit = MeasureUnit::createMilliampere(*status); break;
         case UAMEASUNIT_ELECTRIC_OHM:           munit = MeasureUnit::createOhm(*status);         break;
         case UAMEASUNIT_ELECTRIC_VOLT:          munit = MeasureUnit::createVolt(*status);        break;
+        case UAMEASUNIT_ELECTRIC_COULOMB:       munit = MeasureUnit::createCoulomb(*status);     break;
+        case UAMEASUNIT_ELECTRIC_FARAD:         munit = MeasureUnit::createFarad(*status);       break;
+        case UAMEASUNIT_ELECTRIC_HENRY:         munit = MeasureUnit::createHenry(*status);       break;
+        case UAMEASUNIT_ELECTRIC_SIEMENS:       munit = MeasureUnit::createSiemens(*status);     break;
 
         case UAMEASUNIT_FREQUENCY_HERTZ:        munit = MeasureUnit::createHertz(*status);       break;
         case UAMEASUNIT_FREQUENCY_KILOHERTZ:    munit = MeasureUnit::createKilohertz(*status);   break;
@@ -2619,18 +3072,23 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
 
         case UAMEASUNIT_CONCENTRATION_KARAT:    munit = MeasureUnit::createKarat(*status);       break;
         case UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER: munit = MeasureUnit::createMilligramOfglucosePerDeciliter(*status); break; // milligram-per-deciliter was renamed...
+        case UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER: munit = MeasureUnit::createMilligramOfglucosePerDeciliter(*status); break; // milligram-per-deciliter was renamed...
         case UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER:     munit = MeasureUnit::createMillimolePerLiter(*status);     break;
-        case UAMEASUNIT_CONCENTRATION_PART_PER_MILLION:        munit = MeasureUnit::createPartPerMillion(*status);        break;
+        case UAMEASUNIT_CONCENTRATION_PART_PER_MILLION:        munit = MeasureUnit::createPartPer1E6(*status);        break;
         case UAMEASUNIT_CONCENTRATION_PERCENT:  munit = MeasureUnit::createPercent(*status);     break;
         case UAMEASUNIT_CONCENTRATION_PERMILLE: munit = MeasureUnit::createPermille(*status);    break;
         case UAMEASUNIT_CONCENTRATION_PERMYRIAD: munit = MeasureUnit::createPermyriad(*status);  break;
         case UAMEASUNIT_CONCENTRATION_MOLE:     munit = MeasureUnit::createMole(*status);        break;
         case UAMEASUNIT_CONCENTRATION_ITEM:     munit = MeasureUnit::createItem(*status);        break;
-        case UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER: munit = MeasureUnit::createMilligramOfglucosePerDeciliter(*status); break;
+        case UAMEASUNIT_CONCENTRATION_KATAL:    munit = MeasureUnit::createKatal(*status);       break;
+        case UAMEASUNIT_CONCENTRATION_OFGLUCOSE: munit = MeasureUnit::createOfglucose(*status);  break;
+        case UAMEASUNIT_CONCENTRATION_PART:     munit = MeasureUnit::createPart(*status);        break;
+        case UAMEASUNIT_CONCENTRATION_PART_PER_1E9: munit = MeasureUnit::createPartPer1E9(*status); break;
 
         case UAMEASUNIT_FORCE_NEWTON:           munit = MeasureUnit::createNewton(*status);      break;
         case UAMEASUNIT_FORCE_POUND_FORCE:      munit = MeasureUnit::createPoundForce(*status);  break;
         case UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER: munit = MeasureUnit::createKilowattHourPer100Kilometer(*status); break;
+        case UAMEASUNIT_FORCE_KILOGRAM_FORCE:   munit = MeasureUnit::createKilogramForce(*status); break;
 
         case UAMEASUNIT_TORQUE_NEWTON_METER:    munit = MeasureUnit::createNewtonMeter(*status); break;
         case UAMEASUNIT_TORQUE_POUND_FOOT:      munit = MeasureUnit::createPoundFoot(*status);   break;
@@ -2643,6 +3101,9 @@ MeasureUnit* MeasureUnit::createFromUAMeasureUnit(UAMeasureUnit unit, UErrorCode
         case UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER:   munit = MeasureUnit::createDotPerCentimeter(*status);   break;
         case UAMEASUNIT_GRAPHICS_DOT_PER_INCH :        munit = MeasureUnit::createDotPerInch(*status);         break;
         case UAMEASUNIT_GRAPHICS_DOT:           munit = MeasureUnit::createDot(*status);        break;
+        
+        case UAMEASUNIT_MAGNETIC_TESLA:         munit = MeasureUnit::createTesla(*status);      break;
+        case UAMEASUNIT_MAGNETIC_WEBER:         munit = MeasureUnit::createWeber(*status);      break;
 
         default: *status = U_ILLEGAL_ARGUMENT_ERROR; break;
     }
@@ -2660,213 +3121,257 @@ static const UAMeasureUnit indexToUAMeasUnit[] = {
     UAMEASUNIT_ANGLE_DEGREE,                          // (1 << 8) + 0,   # 4   degree
     UAMEASUNIT_ANGLE_RADIAN,                          // (1 << 8) + 3,   # 5   radian
     UAMEASUNIT_ANGLE_REVOLUTION,                      // (1 << 8) + 4,   # 6   revolution
-    //                                                                   # --- area (7)
-    UAMEASUNIT_AREA_ACRE,                             // (2 << 8) + 4,   # 7   acre
-    UAMEASUNIT_AREA_DUNAM,                            // (2 << 8) + 9,   # 8   dunam
-    UAMEASUNIT_AREA_HECTARE,                          // (2 << 8) + 5,   # 9   hectare
-    UAMEASUNIT_AREA_SQUARE_CENTIMETER,                // (2 << 8) + 6,   # 10  square-centimeter
-    UAMEASUNIT_AREA_SQUARE_FOOT,                      // (2 << 8) + 2,   # 11  square-foot
-    UAMEASUNIT_AREA_SQUARE_INCH,                      // (2 << 8) + 7,   # 12  square-inch
-    UAMEASUNIT_AREA_SQUARE_KILOMETER,                 // (2 << 8) + 1,   # 13  square-kilometer
-    UAMEASUNIT_AREA_SQUARE_METER,                     // (2 << 8) + 0,   # 14  square-meter
-    UAMEASUNIT_AREA_SQUARE_MILE,                      // (2 << 8) + 3,   # 15  square-mile
-    UAMEASUNIT_AREA_SQUARE_YARD,                      // (2 << 8) + 8,   # 16  square-yard
-    //                                                                   # --- concentr (17)
-    UAMEASUNIT_CONCENTRATION_ITEM,                    // (18 << 8) + 8,  # 17  item
-    UAMEASUNIT_CONCENTRATION_KARAT,                   // (18 << 8) + 0,  # 18  karat
-    UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER, // (18 << 8) + 9,  # 19  milligram-ofglucose-per-deciliter
-    UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER, // (18 << 8) + 1,  # 20  milligram-per-deciliter
-    UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER,     // (18 << 8) + 2,  # 21  millimole-per-liter
-    UAMEASUNIT_CONCENTRATION_MOLE,                    // (18 << 8) + 7,  # 22  mole
-    UAMEASUNIT_CONCENTRATION_PERCENT,                 // (18 << 8) + 4,  # 23  percent
-    UAMEASUNIT_CONCENTRATION_PERMILLE,                // (18 << 8) + 5,  # 24  permille
-    UAMEASUNIT_CONCENTRATION_PART_PER_MILLION,        // (18 << 8) + 3,  # 25  permillion
-    UAMEASUNIT_CONCENTRATION_PERMYRIAD,               // (18 << 8) + 6,  # 26  permyriad
-    //                                                                   # --- consumption (27)
-    UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs,  // (13 << 8) + 2,  # 27  liter-per-100-kilometer
-    UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER,       // (13 << 8) + 0,  # 28  liter-per-kilometer
-    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON,           // (13 << 8) + 1,  # 29  mile-per-gallon
-    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL,  // (13 << 8) + 3,  # 30  mile-per-gallon-imperial
-    //                                                                   # --- currency (31)
-    //                                                                   # --- digital (31)
-    UAMEASUNIT_DIGITAL_BIT,                           // (14 << 8) + 0,  # 31  bit
-    UAMEASUNIT_DIGITAL_BYTE,                          // (14 << 8) + 1,  # 32  byte
-    UAMEASUNIT_DIGITAL_GIGABIT,                       // (14 << 8) + 2,  # 33  gigabit
-    UAMEASUNIT_DIGITAL_GIGABYTE,                      // (14 << 8) + 3,  # 34  gigabyte
-    UAMEASUNIT_DIGITAL_KILOBIT,                       // (14 << 8) + 4,  # 35  kilobit
-    UAMEASUNIT_DIGITAL_KILOBYTE,                      // (14 << 8) + 5,  # 36  kilobyte
-    UAMEASUNIT_DIGITAL_MEGABIT,                       // (14 << 8) + 6,  # 37  megabit
-    UAMEASUNIT_DIGITAL_MEGABYTE,                      // (14 << 8) + 7,  # 38  megabyte
-    UAMEASUNIT_DIGITAL_PETABYTE,                      // (14 << 8) + 10, # 39  petabyte
-    UAMEASUNIT_DIGITAL_TERABIT,                       // (14 << 8) + 8,  # 40  terabit
-    UAMEASUNIT_DIGITAL_TERABYTE,                      // (14 << 8) + 9,  # 41  terabyte
-    //                                                                   # --- duration (42)
-    UAMEASUNIT_DURATION_CENTURY,                      // (4 << 8) + 10,  # 42  century
-    UAMEASUNIT_DURATION_DAY,                          // (4 << 8) + 3,   # 43  day
-    UAMEASUNIT_DURATION_DAY_PERSON,                   // (4 << 8) + 14,  # 44  day-person
-    UAMEASUNIT_DURATION_DECADE,                       // (4 << 8) + 15,  # 45  decade
-    UAMEASUNIT_DURATION_HOUR,                         // (4 << 8) + 4,   # 46  hour
-    UAMEASUNIT_DURATION_MICROSECOND,                  // (4 << 8) + 8,   # 47  microsecond
-    UAMEASUNIT_DURATION_MILLISECOND,                  // (4 << 8) + 7,   # 48  millisecond
-    UAMEASUNIT_DURATION_MINUTE,                       // (4 << 8) + 5,   # 49  minute
-    UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 50  month
-    UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 51  month-person
-    UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 52  nanosecond
-    UAMEASUNIT_DURATION_NIGHT,                        // (4 << 8) + 17,  # 53  night
-    UAMEASUNIT_DURATION_QUARTER,                      // (4 << 8) + 16,  # 54  quarter
-    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 55  second
-    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 56  week
-    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 57  week-person
-    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 58  year
-    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 59  year-person
-    //                                                                   # --- electric (60)
-    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 60  ampere
-    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 61  milliampere
-    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 62  ohm
-    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 63  volt
-    //                                                                   # --- energy (64)
-    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 64  british-thermal-unit
-    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 65  calorie
-    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 66  electronvolt
-    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 67  foodcalorie
-    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 68  joule
-    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 69  kilocalorie
-    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 70  kilojoule
-    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 71  kilowatt-hour
-    UAMEASUNIT_ENERGY_THERM_US,                       // (12 << 8) + 8,  # 72  therm-us
-    //                                                                   # --- force (73)
-    UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER, // (19 << 8) + 2,  # 73  kilowatt-hour-per-100-kilometer
-    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 74  newton
-    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 75  pound-force
-    //                                                                   # --- frequency (76)
-    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 76  gigahertz
-    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 77  hertz
-    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 78  kilohertz
-    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 79  megahertz
-    //                                                                   # --- graphics (80)
-    UAMEASUNIT_GRAPHICS_DOT,                          // (21 << 8) + 7,  # 80  dot
-    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER,           // (21 << 8) + 5,  # 81  dot-per-centimeter
-    UAMEASUNIT_GRAPHICS_DOT_PER_INCH,                 // (21 << 8) + 6,  # 82  dot-per-inch
-    UAMEASUNIT_GRAPHICS_EM,                           // (21 << 8) + 0,  # 83  em
-    UAMEASUNIT_GRAPHICS_MEGAPIXEL,                    // (21 << 8) + 2,  # 84  megapixel
-    UAMEASUNIT_GRAPHICS_PIXEL,                        // (21 << 8) + 1,  # 85  pixel
-    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER,         // (21 << 8) + 3,  # 86  pixel-per-centimeter
-    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH,               // (21 << 8) + 4,  # 87  pixel-per-inch
-    //                                                                   # --- length (88)
-    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 88  astronomical-unit
-    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 89  centimeter
-    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 90  decimeter
-    UAMEASUNIT_LENGTH_EARTH_RADIUS,                   // (5 << 8) + 21,  # 91  earth-radius
-    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 92  fathom
-    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 93  foot
-    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 94  furlong
-    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 95  inch
-    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 96  kilometer
-    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 97  light-year
-    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 98  meter
-    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 99  micrometer
-    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 100 mile
-    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 101 mile-scandinavian
-    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 102 millimeter
-    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 103 nanometer
-    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 104 nautical-mile
-    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 105 parsec
-    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 106 picometer
-    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 107 point
-    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 108 solar-radius
-    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 109 yard
-    //                                                                   # --- light (110)
-    UAMEASUNIT_LIGHT_CANDELA,                         // (17 << 8) + 2   # 110 candela
-    UAMEASUNIT_LIGHT_LUMEN,                           // (17 << 8) + 3   # 111 lumen
-    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 112 lux
-    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 113 solar-luminosity
-    //                                                                   # --- mass (114)
-    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 114 carat
-    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 115 dalton
-    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 116 earth-mass
-    UAMEASUNIT_MASS_GRAIN,                            // (6 << 8) + 14,  # 117 grain
-    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 118 gram
-    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 119 kilogram
-    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 120 microgram
-    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 121 milligram
-    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 122 ounce
-    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 123 ounce-troy
-    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 124 pound
-    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 125 solar-mass
-    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 126 stone
-    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 127 ton
-    UAMEASUNIT_MASS_TONNE,                            // (6 << 8) + 7,   # 128 tonne
-    //                                                                   # --- none (129)
-    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 129 base
-    //                                                                   # --- power (130)
-    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 130 gigawatt
-    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 131 horsepower
-    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 132 kilowatt
-    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 133 megawatt
-    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 134 milliwatt
-    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 135 watt
-    //                                                                   # --- pressure (136)
-    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 136 atmosphere
-    UAMEASUNIT_PRESSURE_BAR,                          // (8 << 8) + 9,   # 137 bar
-    UAMEASUNIT_PRESSURE_GASOLINE_ENERGY_DENSITY,      // (8 << 8) + 10,  # 138 gasoline-energy-density
-    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 139 hectopascal
-    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 140 inch-ofhg
-    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 141 kilopascal
-    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 142 megapascal
-    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 143 millibar
-    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 144 millimeter-ofhg
-    UAMEASUNIT_PRESSURE_PASCAL,                       // (8 << 8) + 8,   # 145 pascal
-    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 146 pound-force-per-square-inch
-    //                                                                   # --- speed (147)
-    UAMEASUNIT_SPEED_BEAUFORT,                        // (9 << 8) + 4.   $ 147 beaufort
-    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 148 kilometer-per-hour
-    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 149 knot
-    UAMEASUNIT_SPEED_LIGHT_SPEED,                     // (9 << 8) + 5,   # 150 light-speed
-    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 151 meter-per-second
-    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 152 mile-per-hour
-    //                                                                   # --- temperature (153)
-    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 153 celsius
-    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 154 fahrenheit
-    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 155 generic
-    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 156 kelvin
-    //                                                                   # --- torque (157)
-    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 157 newton-meter
-    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 158 pound-force-foot
-    //                                                                   # --- volume (159)
-    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 159 acre-foot
-    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 160 barrel
-    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 161 bushel
-    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 162 centiliter
-    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 163 cubic-centimeter
-    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 164 cubic-foot
-    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 165 cubic-inch
-    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 166 cubic-kilometer
-    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 167 cubic-meter
-    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 168 cubic-mile
-    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 169 cubic-yard
-    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 170 cup
-    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 171 cup-metric
-    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 172 deciliter
-    UAMEASUNIT_VOLUME_DESSERT_SPOON,                  // (11 << 8) + 27, # 173 dessert-spoon
-    UAMEASUNIT_VOLUME_DESSERT_SPOON_IMPERIAL,         // (11 << 8) + 28, # 174 dessert-spoon-imperial
-    UAMEASUNIT_VOLUME_DRAM,                           // (11 << 8) + 29, # 175 dram
-    UAMEASUNIT_VOLUME_DROP,                           // (11 << 8) + 30, # 176 drop
-    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 177 fluid-ounce
-    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 178 fluid-ounce-imperial
-    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 179 gallon
-    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 180 gallon-imperial
-    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 181 hectoliter
-    UAMEASUNIT_VOLUME_JIGGER,                         // (11 << 8) + 31, # 182 jigger
-    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 183 liter
-    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 184 megaliter
-    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 185 milliliter
-    UAMEASUNIT_VOLUME_PINCH,                          // (11 << 8) + 32, # 186 pinch
-    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 187 pint
-    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 188 pint-metric
-    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 189 quart
-    UAMEASUNIT_VOLUME_QUART_IMPERIAL,                 // (11 << 8) + 33, # 190 quart-imperial
-    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 191 tablespoon
-    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 192 teaspoon
+    UAMEASUNIT_ANGLE_STERADIAN,                       // (1 << 8) + 5,   # 7   steradian
+    //                                                                   # --- area (8)
+    UAMEASUNIT_AREA_ACRE,                             // (2 << 8) + 4,   # 8   acre
+    UAMEASUNIT_AREA_BU_JP,                            // (2 << 8) + 10,  # 9   bu-jp
+    UAMEASUNIT_AREA_CHO,                              // (2 << 8) + 11,  # 10  cho
+    UAMEASUNIT_AREA_DUNAM,                            // (2 << 8) + 9,   # 11  dunam
+    UAMEASUNIT_AREA_HECTARE,                          // (2 << 8) + 5,   # 12  hectare
+    UAMEASUNIT_AREA_SE_JP,                            // (2 << 8) + 12,  # 13  se-jp
+    UAMEASUNIT_AREA_SQUARE_CENTIMETER,                // (2 << 8) + 6,   # 14  square-centimeter
+    UAMEASUNIT_AREA_SQUARE_FOOT,                      // (2 << 8) + 2,   # 15  square-foot
+    UAMEASUNIT_AREA_SQUARE_INCH,                      // (2 << 8) + 7,   # 16  square-inch
+    UAMEASUNIT_AREA_SQUARE_KILOMETER,                 // (2 << 8) + 1,   # 17  square-kilometer
+    UAMEASUNIT_AREA_SQUARE_METER,                     // (2 << 8) + 0,   # 18  square-meter
+    UAMEASUNIT_AREA_SQUARE_MILE,                      // (2 << 8) + 3,   # 19  square-mile
+    UAMEASUNIT_AREA_SQUARE_YARD,                      // (2 << 8) + 8,   # 20  square-yard
+    //                                                                   # --- concentr (21)
+    UAMEASUNIT_CONCENTRATION_ITEM,                    // (18 << 8) + 8,  # 21  item
+    UAMEASUNIT_CONCENTRATION_KARAT,                   // (18 << 8) + 0,  # 22  karat
+    UAMEASUNIT_CONCENTRATION_KATAL,                   // (18 << 8) + 11, # 23  katal
+    UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER, // (18 << 8) + 9,  # 24  milligram-ofglucose-per-deciliter
+    UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER,     // (18 << 8) + 2,  # 25  millimole-per-liter
+    UAMEASUNIT_CONCENTRATION_MOLE,                    // (18 << 8) + 7,  # 26  mole
+    UAMEASUNIT_CONCENTRATION_OFGLUCOSE,               // (18 << 8) + 10, # 27  ofglucose
+    UAMEASUNIT_CONCENTRATION_PART,                    // (18 << 8) + 12, # 28  part
+    UAMEASUNIT_CONCENTRATION_PART_PER_1E6,            // (18 << 8) + 13, # 29  part-per-1e6
+    UAMEASUNIT_CONCENTRATION_PART_PER_1E9,            // (18 << 8) + 14, # 30  part-per-1e9
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // (18 << 8) + 4,  # 31  percent
+    UAMEASUNIT_CONCENTRATION_PERMILLE,                // (18 << 8) + 5,  # 32  permille
+    UAMEASUNIT_CONCENTRATION_PERMYRIAD,               // (18 << 8) + 6,  # 33  permyriad
+    //                                                                   # --- consumption (34)
+    UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs,  // (13 << 8) + 2,  # 34  liter-per-100-kilometer
+    UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER,       // (13 << 8) + 0,  # 35  liter-per-kilometer
+    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON,           // (13 << 8) + 1,  # 36  mile-per-gallon
+    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL,  // (13 << 8) + 3,  # 37  mile-per-gallon-imperial
+    //                                                                   # --- currency (38)
+    //                                                                   # --- digital (38)
+    UAMEASUNIT_DIGITAL_BIT,                           // (14 << 8) + 0,  # 38  bit
+    UAMEASUNIT_DIGITAL_BYTE,                          // (14 << 8) + 1,  # 39  byte
+    UAMEASUNIT_DIGITAL_GIGABIT,                       // (14 << 8) + 2,  # 40  gigabit
+    UAMEASUNIT_DIGITAL_GIGABYTE,                      // (14 << 8) + 3,  # 41  gigabyte
+    UAMEASUNIT_DIGITAL_KILOBIT,                       // (14 << 8) + 4,  # 42  kilobit
+    UAMEASUNIT_DIGITAL_KILOBYTE,                      // (14 << 8) + 5,  # 43  kilobyte
+    UAMEASUNIT_DIGITAL_MEGABIT,                       // (14 << 8) + 6,  # 44  megabit
+    UAMEASUNIT_DIGITAL_MEGABYTE,                      // (14 << 8) + 7,  # 45  megabyte
+    UAMEASUNIT_DIGITAL_PETABYTE,                      // (14 << 8) + 10, # 46  petabyte
+    UAMEASUNIT_DIGITAL_TERABIT,                       // (14 << 8) + 8,  # 47  terabit
+    UAMEASUNIT_DIGITAL_TERABYTE,                      // (14 << 8) + 9,  # 48  terabyte
+    //                                                                   # --- duration (49)
+    UAMEASUNIT_DURATION_CENTURY,                      // (4 << 8) + 10,  # 49  century
+    UAMEASUNIT_DURATION_DAY,                          // (4 << 8) + 3,   # 50  day
+    UAMEASUNIT_DURATION_DAY_PERSON,                   // (4 << 8) + 14,  # 51  day-person
+    UAMEASUNIT_DURATION_DECADE,                       // (4 << 8) + 15,  # 52  decade
+    UAMEASUNIT_DURATION_FORTNIGHT,                    // (4 << 8) + 18,  # 53  fortnight
+    UAMEASUNIT_DURATION_HOUR,                         // (4 << 8) + 4,   # 54  hour
+    UAMEASUNIT_DURATION_MICROSECOND,                  // (4 << 8) + 8,   # 55  microsecond
+    UAMEASUNIT_DURATION_MILLISECOND,                  // (4 << 8) + 7,   # 56  millisecond
+    UAMEASUNIT_DURATION_MINUTE,                       // (4 << 8) + 5,   # 57  minute
+    UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 58  month
+    UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 59  month-person
+    UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 60  nanosecond
+    UAMEASUNIT_DURATION_NIGHT,                        // (4 << 8) + 17,  # 61  night
+    UAMEASUNIT_DURATION_QUARTER,                      // (4 << 8) + 16,  # 62  quarter
+    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 63  second
+    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 64  week
+    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 65  week-person
+    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 66  year
+    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 67  year-person
+    //                                                                   # --- electric (68)
+    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 68  ampere
+    UAMEASUNIT_ELECTRIC_COULOMB,                      // (15 << 8) + 4,  # 69  coulomb
+    UAMEASUNIT_ELECTRIC_FARAD,                        // (15 << 8) + 5,  # 70  farad
+    UAMEASUNIT_ELECTRIC_HENRY,                        // (15 << 8) + 6,  # 71  henry
+    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 72  milliampere
+    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 73  ohm
+    UAMEASUNIT_ELECTRIC_SIEMENS,                      // (15 << 8) + 7,  # 74  siemens
+    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 75  volt
+    //                                                                   # --- energy (76)
+    UAMEASUNIT_ENERGY_BECQUEREL,                      // (12 << 8) + 9,  # 76  becquerel
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 77  british-thermal-unit
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT_IT,        // (12 << 8) + 10, # 78  british-thermal-unit-it
+    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 79  calorie
+    UAMEASUNIT_ENERGY_CALORIE_IT,                     // (12 << 8) + 11, # 80  calorie-it
+    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 81  electronvolt
+    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 82  foodcalorie
+    UAMEASUNIT_ENERGY_GRAY,                           // (12 << 8) + 12, # 83  gray
+    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 84  joule
+    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 85  kilocalorie
+    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 86  kilojoule
+    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 87  kilowatt-hour
+    UAMEASUNIT_ENERGY_SIEVERT,                        // (12 << 8) + 13, # 88  sievert
+    UAMEASUNIT_ENERGY_THERM_US,                       // (12 << 8) + 8,  # 89  therm-us
+    //                                                                   # --- force (90)
+    UAMEASUNIT_FORCE_KILOGRAM_FORCE,                  // (19 << 8) + 3,  # 90  kilogram-force
+    UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER, // (19 << 8) + 2,  # 91  kilowatt-hour-per-100-kilometer
+    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 92  newton
+    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 93  pound-force
+    //                                                                   # --- frequency (94)
+    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 94  gigahertz
+    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 95  hertz
+    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 96  kilohertz
+    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 97  megahertz
+    //                                                                   # --- graphics (98)
+    UAMEASUNIT_GRAPHICS_DOT,                          // (21 << 8) + 7,  # 98  dot
+    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER,           // (21 << 8) + 5,  # 99  dot-per-centimeter
+    UAMEASUNIT_GRAPHICS_DOT_PER_INCH,                 // (21 << 8) + 6,  # 100 dot-per-inch
+    UAMEASUNIT_GRAPHICS_EM,                           // (21 << 8) + 0,  # 101 em
+    UAMEASUNIT_GRAPHICS_MEGAPIXEL,                    // (21 << 8) + 2,  # 102 megapixel
+    UAMEASUNIT_GRAPHICS_PIXEL,                        // (21 << 8) + 1,  # 103 pixel
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER,         // (21 << 8) + 3,  # 104 pixel-per-centimeter
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH,               // (21 << 8) + 4,  # 105 pixel-per-inch
+    //                                                                   # --- length (106)
+    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 106 astronomical-unit
+    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 107 centimeter
+    UAMEASUNIT_LENGTH_CHAIN,                          // (5 << 8) + 22,  # 108 chain
+    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 109 decimeter
+    UAMEASUNIT_LENGTH_EARTH_RADIUS,                   // (5 << 8) + 21,  # 110 earth-radius
+    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 111 fathom
+    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 112 foot
+    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 113 furlong
+    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 114 inch
+    UAMEASUNIT_LENGTH_JO_JP,                          // (5 << 8) + 23,  # 115 jo-jp
+    UAMEASUNIT_LENGTH_KEN,                            // (5 << 8) + 24,  # 116 ken
+    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 117 kilometer
+    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 118 light-year
+    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 119 meter
+    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 120 micrometer
+    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 121 mile
+    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 122 mile-scandinavian
+    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 123 millimeter
+    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 124 nanometer
+    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 125 nautical-mile
+    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 126 parsec
+    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 127 picometer
+    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 128 point
+    UAMEASUNIT_LENGTH_RI_JP,                          // (5 << 8) + 25,  # 129 ri-jp
+    UAMEASUNIT_LENGTH_RIN,                            // (5 << 8) + 26,  # 130 rin
+    UAMEASUNIT_LENGTH_ROD,                            // (5 << 8) + 27,  # 131 rod
+    UAMEASUNIT_LENGTH_SHAKU_CLOTH,                    // (5 << 8) + 28,  # 132 shaku-cloth
+    UAMEASUNIT_LENGTH_SHAKU_LENGTH,                   // (5 << 8) + 29,  # 133 shaku-length
+    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 134 solar-radius
+    UAMEASUNIT_LENGTH_SUN,                            // (5 << 8) + 30,  # 135 sun
+    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 136 yard
+    //                                                                   # --- light (137)
+    UAMEASUNIT_LIGHT_CANDELA,                         // (17 << 8) + 2   # 137 candela
+    UAMEASUNIT_LIGHT_LUMEN,                           // (17 << 8) + 3   # 138 lumen
+    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 139 lux
+    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 140 solar-luminosity
+    //                                                                   # --- magnetic (141)
+    UAMEASUNIT_MAGNETIC_TESLA,                        // (22 << 8) + 0,  # 141 tesla
+    UAMEASUNIT_MAGNETIC_WEBER,                        // (22 << 8) + 1,  # 142 weber
+    //                                                                   # --- mass (143)
+    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 143 carat
+    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 144 dalton
+    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 145 earth-mass
+    UAMEASUNIT_MASS_FUN,                              // (6 << 8) + 15,  # 146 fun
+    UAMEASUNIT_MASS_GRAIN,                            // (6 << 8) + 14,  # 147 grain
+    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 148 gram
+    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 149 kilogram
+    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 150 microgram
+    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 151 milligram
+    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 152 ounce
+    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 153 ounce-troy
+    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 154 pound
+    UAMEASUNIT_MASS_SLUG,                             // (6 << 8) + 16,  # 155 slug
+    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 156 solar-mass
+    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 157 stone
+    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 158 ton
+    UAMEASUNIT_MASS_TONNE,                            // (6 << 8) + 7,   # 159 tonne
+    //                                                                   # --- none (160)
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 160 base
+    //                                                                   # --- power (161)
+    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 161 gigawatt
+    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 162 horsepower
+    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 163 kilowatt
+    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 164 megawatt
+    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 165 milliwatt
+    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 166 watt
+    //                                                                   # --- pressure (167)
+    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 167 atmosphere
+    UAMEASUNIT_PRESSURE_BAR,                          // (8 << 8) + 9,   # 168 bar
+    UAMEASUNIT_PRESSURE_GASOLINE_ENERGY_DENSITY,      // (8 << 8) + 10,  # 169 gasoline-energy-density
+    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 170 hectopascal
+    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 171 inch-ofhg
+    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 172 kilopascal
+    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 173 megapascal
+    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 174 millibar
+    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 175 millimeter-ofhg
+    UAMEASUNIT_PRESSURE_OFHG,                         // (8 << 8) + 11,  # 176 ofhg
+    UAMEASUNIT_PRESSURE_PASCAL,                       // (8 << 8) + 8,   # 177 pascal
+    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 178 pound-force-per-square-inch
+    //                                                                   # --- speed (179)
+    UAMEASUNIT_SPEED_BEAUFORT,                        // (9 << 8) + 4.   $ 179 beaufort
+    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 180 kilometer-per-hour
+    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 181 knot
+    UAMEASUNIT_SPEED_LIGHT_SPEED,                     // (9 << 8) + 5,   # 182 light-speed
+    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 183 meter-per-second
+    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 184 mile-per-hour
+    //                                                                   # --- temperature (185)
+    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 185 celsius
+    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 186 fahrenheit
+    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 187 generic
+    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 188 kelvin
+    UAMEASUNIT_TEMPERATURE_RANKINE,                   // (10 << 8) + 4,  # 189 rankine
+    //                                                                   # --- torque (190)
+    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 190 newton-meter
+    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 191 pound-force-foot
+    //                                                                   # --- volume (192)
+    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 192 acre-foot
+    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 193 barrel
+    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 194 bushel
+    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 195 centiliter
+    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 196 cubic-centimeter
+    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 197 cubic-foot
+    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 198 cubic-inch
+    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 199 cubic-kilometer
+    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 200 cubic-meter
+    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 201 cubic-mile
+    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 202 cubic-yard
+    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 203 cup
+    UAMEASUNIT_VOLUME_CUP_IMPERIAL,                   // (11 << 8) + 34, # 204 cup-imperial
+    UAMEASUNIT_VOLUME_CUP_JP,                         // (11 << 8) + 35, # 205 cup-jp
+    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 206 cup-metric
+    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 207 deciliter
+    UAMEASUNIT_VOLUME_DESSERT_SPOON,                  // (11 << 8) + 27, # 208 dessert-spoon
+    UAMEASUNIT_VOLUME_DESSERT_SPOON_IMPERIAL,         // (11 << 8) + 28, # 209 dessert-spoon-imperial
+    UAMEASUNIT_VOLUME_DRAM,                           // (11 << 8) + 29, # 210 dram
+    UAMEASUNIT_VOLUME_DROP,                           // (11 << 8) + 30, # 211 drop
+    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 212 fluid-ounce
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 213 fluid-ounce-imperial
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_METRIC,             // (11 << 8) + 36, # 214 fluid-ounce-metric
+    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 215 gallon
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 216 gallon-imperial
+    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 217 hectoliter
+    UAMEASUNIT_VOLUME_JIGGER,                         // (11 << 8) + 31, # 218 jigger
+    UAMEASUNIT_VOLUME_KOKU,                           // (11 << 8) + 37, # 219 koku
+    UAMEASUNIT_VOLUME_KOSAJI,                         // (11 << 8) + 38, # 220 kosaji
+    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 221 liter
+    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 222 megaliter
+    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 223 milliliter
+    UAMEASUNIT_VOLUME_OSAJI,                          // (11 << 8) + 39, # 224 osaji
+    UAMEASUNIT_VOLUME_PINCH,                          // (11 << 8) + 32, # 225 pinch
+    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 226 pint
+    UAMEASUNIT_VOLUME_PINT_IMPERIAL,                  // (11 << 8) + 40, # 227 pint-imperial
+    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 228 pint-metric
+    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 229 quart
+    UAMEASUNIT_VOLUME_QUART_IMPERIAL,                 // (11 << 8) + 33, # 230 quart-imperial
+    UAMEASUNIT_VOLUME_SAI,                            // (11 << 8) + 41, # 231 sai
+    UAMEASUNIT_VOLUME_SHAKU,                          // (11 << 8) + 42, # 232 shaku
+    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 233 tablespoon
+    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 234 teaspoon
+    UAMEASUNIT_VOLUME_TO_JP,                          // (11 << 8) + 43, # 235 to-jp
 };
 
 UAMeasureUnit MeasureUnit::getUAMeasureUnit() const {

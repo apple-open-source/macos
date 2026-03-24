@@ -38,6 +38,7 @@
 - (void)setSessionControlArguments:(OTControlArguments*)controlArguments;
 - (void)setConfiguration:(OTJoiningConfiguration *)config;
 - (void)setPiggybackingVersion:(uint64_t)version;
+- (void)setFailSOSPropertyForTests:(BOOL)fail;
 @end
 #endif /* Header_h */
 #endif

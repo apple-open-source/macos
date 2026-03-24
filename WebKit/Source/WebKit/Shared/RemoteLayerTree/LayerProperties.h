@@ -35,7 +35,7 @@
 #include <WebCore/AppleVisualEffect.h>
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #include <WebCore/AcceleratedEffectValues.h>
 #endif
 
@@ -62,6 +62,7 @@ enum class LayerChangeIndex : size_t {
 #if HAVE(CORE_MATERIAL)
     AppleVisualEffectChanged,
 #endif
+    ShadowPathChanged,
 };
 
 enum class LayerChange : uint64_t {
@@ -122,6 +123,7 @@ enum class LayerChange : uint64_t {
 #if HAVE(CORE_MATERIAL)
     AppleVisualEffectChanged            = 1LLU << static_cast<size_t>(LayerChangeIndex::AppleVisualEffectChanged),
 #endif
+    ShadowPathChanged                   = 1LLU << static_cast<size_t>(LayerChangeIndex::ShadowPathChanged),
 };
 
 struct RemoteLayerBackingStoreOrProperties {
@@ -165,7 +167,7 @@ struct LayerProperties {
     struct AnimationChanges {
         Vector<std::pair<String, PlatformCAAnimationRemote::Properties>> addedAnimations;
         HashSet<String> keysOfAnimationsToRemove;
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
         Vector<Ref<WebCore::AcceleratedEffect>> effects;
         WebCore::AcceleratedEffectValues baseValues;
 #endif
@@ -225,6 +227,7 @@ struct LayerProperties {
 #if HAVE(CORE_MATERIAL)
     WebCore::AppleVisualEffectData appleVisualEffectData;
 #endif
+    WebCore::Path shadowPath;
 };
 
 }

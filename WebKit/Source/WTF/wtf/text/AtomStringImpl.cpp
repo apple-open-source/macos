@@ -77,8 +77,8 @@ static inline Ref<AtomStringImpl> addToStringTable(AtomStringTableLocker&, Strin
     // If the string is newly-translated, then we need to adopt it.
     // The boolean in the pair tells us if that is so.
     if (addResult.isNewEntry)
-        return adoptRef(static_cast<AtomStringImpl&>(*addResult.iterator->get()));
-    return *static_cast<AtomStringImpl*>(addResult.iterator->get());
+        return adoptRef(uncheckedDowncast<AtomStringImpl>(*addResult.iterator->get()));
+    return *uncheckedDowncast<AtomStringImpl>(addResult.iterator->get());
 }
 
 template<typename T, typename HashTranslator>
@@ -102,10 +102,10 @@ struct UTF16BufferTranslator {
 
     static void translate(AtomStringTable::StringEntry& location, const UTF16Buffer& buf, unsigned hash)
     {
-        auto* pointer = &StringImpl::create8BitIfPossible(buf.characters).leakRef();
-        pointer->setHash(hash);
-        pointer->setIsAtom(true);
-        location = pointer;
+        Ref stringImpl = StringImpl::create8BitIfPossible(buf.characters);
+        stringImpl->setHash(hash);
+        stringImpl->setIsAtom(true);
+        location = &stringImpl.leakRef();
     }
 };
 
@@ -122,7 +122,9 @@ struct HashedUTF8CharactersTranslator {
 
     static bool equal(const AtomStringTable::StringEntry& passedString, const HashedUTF8Characters& characters)
     {
-        auto* string = passedString.get();
+        // This is passed in to it is guaranteed to be valid. We want to extract the raw pointer
+        // here instead of repeatedly calling `PackedPtr::operator->()` which is not free.
+        SUPPRESS_UNCOUNTED_LOCAL auto* string = passedString.get();
         if (characters.length.lengthUTF16 != string->length())
             return false;
 
@@ -150,10 +152,9 @@ struct HashedUTF8CharactersTranslator {
         if (result.isAllASCII)
             newString = StringImpl::create(byteCast<Latin1Character>(characters.characters));
 
-        auto* pointer = &newString.leakRef();
-        pointer->setHash(hash);
-        pointer->setIsAtom(true);
-        location = pointer;
+        newString->setHash(hash);
+        newString->setIsAtom(true);
+        location = &newString.leakRef();
     }
 };
 
@@ -163,7 +164,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(std::span<const char16_t> characters)
         return nullptr;
 
     if (characters.empty())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     UTF16Buffer buffer { characters };
     return addToStringTable<UTF16Buffer, UTF16BufferTranslator>(buffer);
@@ -175,7 +176,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(HashTranslatorCharBuffer<char16_t>& b
         return nullptr;
 
     if (buffer.characters.empty())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     return addToStringTable<UTF16Buffer, UTF16BufferTranslator>(buffer);
 }
@@ -189,10 +190,10 @@ struct SubstringLocation {
 struct SubstringTranslator {
     static void translate(AtomStringTable::StringEntry& location, const SubstringLocation& buffer, unsigned hash)
     {
-        auto* pointer = &StringImpl::createSubstringSharingImpl(*buffer.baseString, buffer.start, buffer.length).leakRef();
-        pointer->setHash(hash);
-        pointer->setIsAtom(true);
-        location = pointer;
+        SUPPRESS_UNCOUNTED_ARG Ref stringImpl = StringImpl::createSubstringSharingImpl(*buffer.baseString, buffer.start, buffer.length);
+        stringImpl->setHash(hash);
+        stringImpl->setIsAtom(true);
+        location = &stringImpl.leakRef();
     }
 };
 
@@ -226,7 +227,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(StringImpl* baseString, unsigned star
         return nullptr;
 
     if (!length || start >= baseString->length())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     unsigned maxLength = baseString->length() - start;
     if (length >= maxLength) {
@@ -255,10 +256,10 @@ struct Latin1BufferTranslator {
 
     static void translate(AtomStringTable::StringEntry& location, const Latin1Buffer& buf, unsigned hash)
     {
-        auto* pointer = &StringImpl::create(buf.characters).leakRef();
-        pointer->setHash(hash);
-        pointer->setIsAtom(true);
-        location = pointer;
+        Ref stringImpl = StringImpl::create(buf.characters);
+        stringImpl->setHash(hash);
+        stringImpl->setIsAtom(true);
+        location = &stringImpl.leakRef();
     }
 };
 
@@ -277,10 +278,10 @@ struct BufferFromStaticDataTranslator {
 
     static void translate(AtomStringTable::StringEntry& location, const Buffer& buf, unsigned hash)
     {
-        auto* pointer = &StringImpl::createWithoutCopying(buf.characters).leakRef();
-        pointer->setHash(hash);
-        pointer->setIsAtom(true);
-        location = pointer;
+        Ref stringImpl = StringImpl::createWithoutCopying(buf.characters);
+        stringImpl->setHash(hash);
+        stringImpl->setIsAtom(true);
+        location = &stringImpl.leakRef();
     }
 };
 
@@ -290,7 +291,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(HashTranslatorCharBuffer<Latin1Charac
         return nullptr;
 
     if (buffer.characters.empty())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     return addToStringTable<Latin1Buffer, Latin1BufferTranslator>(buffer);
 }
@@ -301,7 +302,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(std::span<const Latin1Character> char
         return nullptr;
 
     if (characters.empty())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     Latin1Buffer buffer { characters };
     return addToStringTable<Latin1Buffer, Latin1BufferTranslator>(buffer);
@@ -352,11 +353,10 @@ static inline Ref<AtomStringImpl> addStatic(const StringImpl& base)
     return addStatic(locker, stringTable(), base);
 }
 
-RefPtr<AtomStringImpl> AtomStringImpl::add(const StaticStringImpl* string)
+RefPtr<AtomStringImpl> AtomStringImpl::add(const StaticStringImpl& string)
 {
-    auto s = reinterpret_cast<const StringImpl*>(string);
-    ASSERT(s->isStatic());
-    return addStatic(*s);
+    ASSERT(static_cast<const StringImpl&>(string).isStatic());
+    SUPPRESS_UNCOUNTED_ARG return addStatic(static_cast<const StringImpl&>(string));
 }
 
 Ref<AtomStringImpl> AtomStringImpl::addSlowCase(StringImpl& string)
@@ -364,7 +364,7 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(StringImpl& string)
     // This check is necessary for null symbols.
     // Their length is zero, but they are not AtomStringImpl.
     if (!string.length())
-        return *static_cast<AtomStringImpl*>(StringImpl::empty());
+        return *uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     if (string.isStatic())
         return addStatic(string);
@@ -382,7 +382,7 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(StringImpl& string)
         string.setIsAtom(true);
     }
 
-    return *static_cast<AtomStringImpl*>(addResult.iterator->get());
+    return *uncheckedDowncast<AtomStringImpl>(addResult.iterator->get());
 }
 
 Ref<AtomStringImpl> AtomStringImpl::addSlowCase(Ref<StringImpl>&& string)
@@ -390,13 +390,13 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(Ref<StringImpl>&& string)
     // This check is necessary for null symbols.
     // Their length is zero, but they are not AtomStringImpl.
     if (!string->length())
-        return *static_cast<AtomStringImpl*>(StringImpl::empty());
+        return *uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     if (string->isStatic())
-        return addStatic(WTFMove(string));
+        return addStatic(WTF::move(string));
 
     if (string->isSymbol())
-        return addSymbol(WTFMove(string));
+        return addSymbol(WTF::move(string));
 
     ASSERT_WITH_MESSAGE(!string->isAtom(), "AtomStringImpl should not hit the slow case if the string is already an atom.");
 
@@ -406,10 +406,10 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(Ref<StringImpl>&& string)
     if (addResult.isNewEntry) {
         ASSERT(addResult.iterator->get() == string.ptr());
         string->setIsAtom(true);
-        return static_reference_cast<AtomStringImpl>(WTFMove(string));
+        return uncheckedDowncast<AtomStringImpl>(WTF::move(string));
     }
 
-    return *static_cast<AtomStringImpl*>(addResult.iterator->get());
+    return *uncheckedDowncast<AtomStringImpl>(addResult.iterator->get());
 }
 
 Ref<AtomStringImpl> AtomStringImpl::addSlowCase(AtomStringTable& stringTable, StringImpl& string)
@@ -417,7 +417,7 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(AtomStringTable& stringTable, St
     // This check is necessary for null symbols.
     // Their length is zero, but they are not AtomStringImpl.
     if (!string.length())
-        return *static_cast<AtomStringImpl*>(StringImpl::empty());
+        return *uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     if (string.isStatic()) {
         AtomStringTableLocker locker;
@@ -439,7 +439,7 @@ Ref<AtomStringImpl> AtomStringImpl::addSlowCase(AtomStringTable& stringTable, St
         string.setIsAtom(true);
     }
 
-    return *static_cast<AtomStringImpl*>(addResult.iterator->get());
+    return *uncheckedDowncast<AtomStringImpl>(addResult.iterator->get());
 }
 
 // When removing a string from the table, we know it's already the one in the table, so no need for a string equality check.
@@ -464,13 +464,13 @@ RefPtr<AtomStringImpl> AtomStringImpl::lookUpSlowCase(StringImpl& string)
     ASSERT_WITH_MESSAGE(!string.isAtom(), "AtomStringImpl objects should return from the fast case.");
 
     if (!string.length())
-        return static_cast<AtomStringImpl*>(StringImpl::empty());
+        return uncheckedDowncast<AtomStringImpl>(StringImpl::empty());
 
     AtomStringTableLocker locker;
     auto& atomStringTable = stringTable();
     auto iterator = atomStringTable.find(&string);
     if (iterator != atomStringTable.end())
-        return static_cast<AtomStringImpl*>(iterator->get());
+        return uncheckedDowncast<AtomStringImpl>(iterator->get());
     return nullptr;
 }
 
@@ -490,7 +490,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::lookUp(std::span<const Latin1Character> c
     Latin1Buffer buffer { characters };
     auto iterator = table.find<Latin1BufferTranslator>(buffer);
     if (iterator != table.end())
-        return static_cast<AtomStringImpl*>(iterator->get());
+        return uncheckedDowncast<AtomStringImpl>(iterator->get());
     return nullptr;
 }
 
@@ -502,7 +502,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::lookUp(std::span<const char16_t> characte
     UTF16Buffer buffer { characters };
     auto iterator = table.find<UTF16BufferTranslator>(buffer);
     if (iterator != table.end())
-        return static_cast<AtomStringImpl*>(iterator->get());
+        return uncheckedDowncast<AtomStringImpl>(iterator->get());
     return nullptr;
 }
 

@@ -10,6 +10,7 @@
 #include "session.h"
 #include "debugging.h"
 #include "engine.h"
+#include "PluginSafePath.h"
 
 #include <xpc/private.h>
 #include <Security/AuthorizationPlugin.h>
@@ -83,6 +84,10 @@ _agent_finalize(CFTypeRef value)
         CFReleaseNull(agent->context);
         CFReleaseNull(agent->mech);
         CFReleaseNull(agent->engine);
+        if (agent->agentPid) {
+            os_log_debug(AUTHD_LOG, "agent: staged plugins cleanup");
+            plugin_unstage(agent->agentPid);
+        }
         dispatch_release(agent->actionQueue);
     });
     
@@ -144,7 +149,7 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
     agent_t agent = NULL;
     
     agent = (agent_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, agent_get_type_id(), AUTH_CLASS_SIZE(agent), NULL);
-    require(agent != NULL, done);
+    __Require(agent != NULL, done);
     
     agent->mech = (mechanism_t)CFRetain(mech);
     agent->engine = (engine_t)CFRetain(engine);

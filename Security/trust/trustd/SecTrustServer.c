@@ -1089,7 +1089,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
 
 /* One or more of the policies did not accept the candidate path. */
 static void SecPathBuilderReject(SecPathBuilderRef builder) {
-    check(builder);
+    __Check(builder);
 
     builder->state = SecPathBuilderGetNext;
 
@@ -1396,6 +1396,13 @@ bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
         CFDictionarySetValue(builder->info, kSecTrustInfoQWACValidationKey,
                              kCFBooleanTrue);
     }
+    // report extensive revocationInfo for whole path
+    if (builder->info && SecCertificatePathVCIsRevocationDone(builder->bestPath)) {
+        CFArrayRef rvcInfo = SecCertificatePathVCCopyRevocationInfo(builder->bestPath);
+        CFDictionarySetValue(builder->info, kSecTrustInfoRevocationInfoKey, rvcInfo);
+        CFReleaseNull(rvcInfo);
+    }
+    
 
 
     /* This will trigger the outer step function to call the completion
@@ -1495,7 +1502,7 @@ SecTaskRef SecPathBuilderCopyClientTask(SecPathBuilderRef builder) {
     audit_token_t auditToken = {};
     SecTaskRef task = NULL;
 
-    require_quiet(clientAuditToken && (sizeof(auditToken) == CFDataGetLength(clientAuditToken)), errOut);
+    __Require_Quiet(clientAuditToken && (sizeof(auditToken) == CFDataGetLength(clientAuditToken)), errOut);
     CFDataGetBytes(clientAuditToken, CFRangeMake(0, sizeof(auditToken)), (uint8_t *)&auditToken);
     task = SecTaskCreateWithAuditToken(NULL, auditToken);
 
@@ -1508,7 +1515,7 @@ bool SecPathBuilderIsPlatformBinary(SecPathBuilderRef builder) {
     bool platform_binary = false;
 
     SecTaskRef task = SecPathBuilderCopyClientTask(builder);
-    require_quiet(task, errOut);
+    __Require_Quiet(task, errOut);
 
     uint32_t masked_flags = SecTaskGetCodeSignStatus(task) & (CS_VALID | CS_DEBUGGED | CS_PLATFORM_BINARY | CS_PLATFORM_PATH);
     if (masked_flags == (CS_VALID | CS_PLATFORM_BINARY) ||

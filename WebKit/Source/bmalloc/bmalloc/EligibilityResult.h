@@ -25,6 +25,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include "BPlatform.h"
+
 #if !BUSE(TZONE)
 
 #include "IsoPage.h"
@@ -59,3 +63,5 @@ struct EligibilityResult {
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

@@ -31,8 +31,9 @@
 #include <security_utilities/memutils.h>
 #include <security_utilities/macho++.h>
 #include <security_utilities/endian.h>
-#include "dyld_cache_format.h"
+#include <mach-o/dyld_cache_format.h>
 
+#define DYLD_SHARED_CACHE_DIR "/var/db/dyld/"
 
 //
 // One (architecture of the) Shared Library Cache.

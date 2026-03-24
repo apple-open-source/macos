@@ -30,8 +30,8 @@ typedef NS_ENUM(uint8_t, fatType) {
 @property dirtyBitValue dirtyBitValueOnDisk;
 
 @property size_t dirBlockSize;
-@property uint32_t bytesPerSector;
-@property uint32_t bytesPerCluster;
+@property uint64_t bytesPerSector;
+@property uint64_t bytesPerCluster;
 
 @property uint32_t firstFreeCluster;
 @property uint32_t firstClusterOffset; /* in sectors */

@@ -40,11 +40,16 @@
     AlignedStorage<WebKit::InjectedBundleNodeHandle> _nodeHandle;
 }
 
+static Ref<WebKit::InjectedBundleNodeHandle> protectedNodeHandle(WKWebProcessPlugInNodeHandle *handle)
+{
+    return *handle->_nodeHandle;
+}
+
 - (void)dealloc
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInNodeHandle.class, self))
         return;
-    _nodeHandle->~InjectedBundleNodeHandle();
+    SUPPRESS_UNCOUNTED_ARG _nodeHandle->~InjectedBundleNodeHandle();
     [super dealloc];
 }
 
@@ -57,7 +62,7 @@
 
 - (WKWebProcessPlugInFrame *)htmlIFrameElementContentFrame
 {
-    return WebKit::wrapper(_nodeHandle->htmlIFrameElementContentFrame()).autorelease();
+    return WebKit::wrapper(protectedNodeHandle(self)->htmlIFrameElementContentFrame()).autorelease();
 }
 
 - (CocoaImage *)renderedImageWithOptions:(WKSnapshotOptions)options
@@ -71,7 +76,7 @@
     if (width)
         optionalWidth = width.floatValue;
 
-    auto image = _nodeHandle->renderedImage(WebKit::toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
+    auto image = protectedNodeHandle(self)->renderedImage(WebKit::toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
     if (!image)
         return nil;
 
@@ -88,42 +93,42 @@
 
 - (CGRect)elementBounds
 {
-    return _nodeHandle->elementBounds();
+    return protectedNodeHandle(self)->elementBounds();
 }
 
 - (BOOL)HTMLInputElementIsAutoFilled
 {
-    return _nodeHandle->isHTMLInputElementAutoFilled();
+    return protectedNodeHandle(self)->isHTMLInputElementAutoFilled();
 }
 
 - (BOOL)HTMLInputElementIsAutoFilledAndViewable
 {
-    return _nodeHandle->isHTMLInputElementAutoFilledAndViewable();
+    return protectedNodeHandle(self)->isHTMLInputElementAutoFilledAndViewable();
 }
 
 - (BOOL)HTMLInputElementIsAutoFilledAndObscured
 {
-    return _nodeHandle->isHTMLInputElementAutoFilledAndObscured();
+    return protectedNodeHandle(self)->isHTMLInputElementAutoFilledAndObscured();
 }
 
 - (void)setHTMLInputElementIsAutoFilled:(BOOL)isAutoFilled
 {
-    _nodeHandle->setHTMLInputElementAutoFilled(isAutoFilled);
+    protectedNodeHandle(self)->setHTMLInputElementAutoFilled(isAutoFilled);
 }
 
 - (void)setHTMLInputElementIsAutoFilledAndViewable:(BOOL)isAutoFilledAndViewable
 {
-    _nodeHandle->setHTMLInputElementAutoFilledAndViewable(isAutoFilledAndViewable);
+    protectedNodeHandle(self)->setHTMLInputElementAutoFilledAndViewable(isAutoFilledAndViewable);
 }
 
 - (void)setHTMLInputElementIsAutoFilledAndObscured:(BOOL)isAutoFilledAndObscured
 {
-    _nodeHandle->setHTMLInputElementAutoFilledAndObscured(isAutoFilledAndObscured);
+    protectedNodeHandle(self)->setHTMLInputElementAutoFilledAndObscured(isAutoFilledAndObscured);
 }
 
 - (BOOL)isHTMLInputElementAutoFillButtonEnabled
 {
-    return _nodeHandle->isHTMLInputElementAutoFillButtonEnabled();
+    return protectedNodeHandle(self)->isHTMLInputElementAutoFillButtonEnabled();
 }
 
 static WebCore::AutoFillButtonType toAutoFillButtonType(_WKAutoFillButtonType autoFillButtonType)
@@ -169,52 +174,52 @@ static _WKAutoFillButtonType toWKAutoFillButtonType(WebCore::AutoFillButtonType 
 
 - (void)setHTMLInputElementAutoFillButtonEnabledWithButtonType:(_WKAutoFillButtonType)autoFillButtonType
 {
-    _nodeHandle->setHTMLInputElementAutoFillButtonEnabled(toAutoFillButtonType(autoFillButtonType));
+    protectedNodeHandle(self)->setHTMLInputElementAutoFillButtonEnabled(toAutoFillButtonType(autoFillButtonType));
 }
 
 - (_WKAutoFillButtonType)htmlInputElementAutoFillButtonType
 {
-    return toWKAutoFillButtonType(_nodeHandle->htmlInputElementAutoFillButtonType());
+    return toWKAutoFillButtonType(protectedNodeHandle(self)->htmlInputElementAutoFillButtonType());
 }
 
 - (_WKAutoFillButtonType)htmlInputElementLastAutoFillButtonType
 {
-    return toWKAutoFillButtonType(_nodeHandle->htmlInputElementLastAutoFillButtonType());
+    return toWKAutoFillButtonType(protectedNodeHandle(self)->htmlInputElementLastAutoFillButtonType());
 }
 
 - (BOOL)HTMLInputElementIsUserEdited
 {
-    return _nodeHandle->htmlInputElementLastChangeWasUserEdit();
+    return protectedNodeHandle(self)->htmlInputElementLastChangeWasUserEdit();
 }
 
 - (BOOL)HTMLTextAreaElementIsUserEdited
 {
-    return _nodeHandle->htmlTextAreaElementLastChangeWasUserEdit();
+    return protectedNodeHandle(self)->htmlTextAreaElementLastChangeWasUserEdit();
 }
 
 - (BOOL)isSelectElement
 {
-    return _nodeHandle->isSelectElement();
+    return protectedNodeHandle(self)->isSelectElement();
 }
 
 - (BOOL)isSelectableTextNode
 {
-    return _nodeHandle->isSelectableTextNode();
+    return protectedNodeHandle(self)->isSelectableTextNode();
 }
 
 - (BOOL)isTextField
 {
-    return _nodeHandle->isTextField();
+    return protectedNodeHandle(self)->isTextField();
 }
 
 - (WKWebProcessPlugInNodeHandle *)HTMLTableCellElementCellAbove
 {
-    return WebKit::wrapper(_nodeHandle->htmlTableCellElementCellAbove()).autorelease();
+    return WebKit::wrapper(protectedNodeHandle(self)->htmlTableCellElementCellAbove()).autorelease();
 }
 
 - (WKWebProcessPlugInFrame *)frame
 {
-    return WebKit::wrapper(_nodeHandle->document()->documentFrame()).autorelease();
+    return WebKit::wrapper(protectedNodeHandle(self)->document()->documentFrame()).autorelease();
 }
 
 - (WebKit::InjectedBundleNodeHandle&)_nodeHandle

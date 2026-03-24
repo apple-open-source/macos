@@ -38,7 +38,7 @@ namespace WebCore {
 class ScriptExecutionContext;
 
 class Subscriber final : public ActiveDOMObject, public ScriptWrappable, public RefCounted<Subscriber> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Subscriber);
+    WTF_MAKE_TZONE_ALLOCATED(Subscriber);
 
 public:
     void ref() const final { RefCounted::ref(); }

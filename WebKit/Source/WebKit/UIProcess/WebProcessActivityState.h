@@ -46,17 +46,22 @@ public:
     void takeAudibleActivity();
     void takeCapturingActivity();
     void takeMutedCaptureAssertion();
+    void takeNetworkActivity();
+    void takeTextExtractionAssertion();
 
     void reset();
     void dropVisibleActivity();
     void dropAudibleActivity();
     void dropCapturingActivity();
     void dropMutedCaptureAssertion();
+    void dropNetworkActivity();
+    void dropTextExtractionAssertion();
 
     bool hasValidVisibleActivity() const;
     bool hasValidAudibleActivity() const;
     bool hasValidCapturingActivity() const;
     bool hasValidMutedCaptureAssertion() const;
+    bool hasValidNetworkActivity() const;
 
 #if PLATFORM(IOS_FAMILY)
     void takeOpeningAppLinkActivity();
@@ -91,6 +96,8 @@ private:
 #if PLATFORM(IOS_FAMILY)
     RefPtr<ProcessThrottlerActivity> m_openingAppLinkActivity;
 #endif
+    RefPtr<ProcessThrottlerActivity> m_networkActivity;
+    RefPtr<ProcessAssertion> m_textExtractionAssertion;
 };
 
 } // namespace WebKit

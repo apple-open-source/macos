@@ -37,7 +37,9 @@
 #include "ProvisionalFrameProxy.h"
 #include "RemotePageDrawingAreaProxy.h"
 #include "RemotePageFullscreenManagerProxy.h"
+#include "RemotePageScreenOrientationManagerProxy.h"
 #include "RemotePageVisitedLinkStoreRegistration.h"
+#include "RemotePageWebDeviceOrientationUpdateProviderProxy.h"
 #include "UserMediaProcessManager.h"
 #include "WebBackForwardList.h"
 #include "WebBackForwardListMessages.h"
@@ -48,6 +50,7 @@
 #include "WebProcessActivityState.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
+#include "WebScreenOrientationManagerProxy.h"
 #include <WebCore/MediaProducer.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/RemoteUserInputEventData.h>
@@ -59,6 +62,10 @@
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 #include "RemotePageVideoPresentationManagerProxy.h"
+#endif
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
+#include "WebDeviceOrientationUpdateProviderProxy.h"
 #endif
 
 namespace WebKit {
@@ -85,6 +92,35 @@ RemotePageProxy::RemotePageProxy(WebPageProxy& page, WebProcessProxy& process, c
     m_process->addRemotePageProxy(*this);
 }
 
+void RemotePageProxy::disconnect()
+{
+    if (RefPtr page = m_page.get())
+        page->isNoLongerAssociatedWithRemotePage(*this);
+    if (m_drawingArea)
+        m_process->send(Messages::WebPage::Close(), m_webPageID);
+    m_process->removeRemotePageProxy(*this);
+
+    m_drawingArea = nullptr;
+#if ENABLE(FULLSCREEN_API)
+    m_fullscreenManager = nullptr;
+#endif
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    m_videoPresentationManager = nullptr;
+#endif
+#if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
+    m_webDeviceOrientationUpdateProvider = nullptr;
+#endif
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    m_playbackSessionManager = nullptr;
+#endif
+    m_visitedLinkStoreRegistration = nullptr;
+    m_messageReceiverRegistration.stopReceivingMessages();
+    m_screenOrientationManager = nullptr;
+#if ASSERT_ENABLED
+    m_disconnected = true;
+#endif
+}
+
 void RemotePageProxy::injectPageIntoNewProcess()
 {
     RefPtr page = m_page.get();
@@ -97,6 +133,13 @@ void RemotePageProxy::injectPageIntoNewProcess()
         return;
     }
 
+#if PLATFORM(MAC) && USE(RUNNINGBOARD)
+    if (page->preferences().backgroundWebContentRunningBoardThrottlingEnabled())
+        m_process->setRunningBoardThrottlingEnabled();
+#endif
+
+    page->takeActivitiesOnRemotePage(*this);
+
     Ref drawingArea = *page->drawingArea();
     m_drawingArea = RemotePageDrawingAreaProxy::create(drawingArea.get(), m_process);
 #if ENABLE(FULLSCREEN_API)
@@ -105,9 +148,16 @@ void RemotePageProxy::injectPageIntoNewProcess()
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     m_videoPresentationManager = RemotePageVideoPresentationManagerProxy::create(pageID(), m_process, page->protectedVideoPresentationManager().get());
 #endif
+#if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
+    m_webDeviceOrientationUpdateProvider = RemotePageWebDeviceOrientationUpdateProviderProxy::create(pageID(), m_process, page->protectedWebDeviceOrientationUpdateProviderProxy().get());
+#endif
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_playbackSessionManager = RemotePagePlaybackSessionManagerProxy::create(pageID(), page->protectedPlaybackSessionManager().get(), m_process);
 #endif
+
+    if (RefPtr screenOrientationManager = page->screenOrientationManager())
+        m_screenOrientationManager = RemotePageScreenOrientationManagerProxy::create(m_webPageID, screenOrientationManager.get(), m_process);
+
     m_visitedLinkStoreRegistration = makeUnique<RemotePageVisitedLinkStoreRegistration>(*page, m_process);
 
     RefPtr websitePolicies = page->mainFrameWebsitePolicies();
@@ -137,17 +187,17 @@ void RemotePageProxy::processDidTerminate(WebProcessProxy& process, ProcessTermi
 
 RemotePageProxy::~RemotePageProxy()
 {
-    if (RefPtr page = m_page.get())
-        page->isNoLongerAssociatedWithRemotePage(*this);
-    if (m_drawingArea)
-        m_process->send(Messages::WebPage::Close(), m_webPageID);
-    m_process->removeRemotePageProxy(*this);
+    ASSERT(m_disconnected);
 }
 
 void RemotePageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (decoder.messageName() == Messages::WebPageProxy::IsPlayingMediaDidChange::name()) {
         IPC::handleMessage<Messages::WebPageProxy::IsPlayingMediaDidChange>(connection, decoder, this, &RemotePageProxy::isPlayingMediaDidChange);
+        return;
+    }
+    if (decoder.messageName() == Messages::WebPageProxy::SetNetworkRequestsInProgress::name()) {
+        IPC::handleMessage<Messages::WebPageProxy::SetNetworkRequestsInProgress>(connection, decoder, this, &RemotePageProxy::setNetworkRequestsInProgress);
         return;
     }
 
@@ -205,6 +255,17 @@ void RemotePageProxy::isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFl
 #endif
 }
 
+void RemotePageProxy::setNetworkRequestsInProgress(bool hasNetworkRequestsInProgress)
+{
+    m_hasNetworkRequestsInProgress = hasNetworkRequestsInProgress;
+
+    RefPtr page = m_page.get();
+    if (!page || page->isClosed())
+        return;
+
+    page->networkRequestsInProgressDidChange();
+}
+
 void RemotePageProxy::setDrawingArea(DrawingAreaProxy* drawingArea)
 {
     RefPtr page = m_page.get();
@@ -232,6 +293,16 @@ void RemotePageProxy::setDrawingArea(DrawingAreaProxy* drawingArea)
             })
         ), 0
     );
+}
+
+void RemotePageProxy::setCurrentOrientation(WebCore::ScreenOrientationType orientation)
+{
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    if (RefPtr manager = page->screenOrientationManager())
+        manager->setCurrentOrientation(orientation);
 }
 
 }

@@ -50,7 +50,7 @@ private:
     TextDetectorImpl& operator=(const TextDetectorImpl&) = delete;
     TextDetectorImpl& operator=(TextDetectorImpl&&) = delete;
 
-    void detect(Ref<ImageBuffer>&&, CompletionHandler<void(Vector<DetectedText>&&)>&&) final;
+    void detect(const NativeImage&, CompletionHandler<void(Vector<DetectedText>&&)>&&) final;
 };
 
 } // namespace WebCore::ShapeDetection

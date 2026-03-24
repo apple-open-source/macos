@@ -52,26 +52,26 @@ public:
 
 #if USE(UNIX_DOMAIN_SOCKETS)
     ConnectionHandle(UnixFileDescriptor&& inHandle)
-        : m_handle(WTFMove(inHandle))
+        : m_handle(WTF::move(inHandle))
     { }
     explicit operator bool() const { return !!m_handle; }
-    int release() WARN_UNUSED_RETURN { return m_handle.release(); }
+    WARN_UNUSED_RETURN int release() { return m_handle.release(); }
 #elif OS(WINDOWS)
     ConnectionHandle(Win32Handle&& inHandle)
-        : m_handle(WTFMove(inHandle))
+        : m_handle(WTF::move(inHandle))
     { }
     explicit operator bool() const { return !!m_handle; }
-    HANDLE leak() WARN_UNUSED_RETURN { return m_handle.leak(); }
+    WARN_UNUSED_RETURN HANDLE leak() { return m_handle.leak(); }
 #elif OS(DARWIN)
     ConnectionHandle(MachSendRight&& sendRight)
-        : m_handle(WTFMove(sendRight))
+        : m_handle(WTF::move(sendRight))
     { }
     explicit operator bool() const { return MACH_PORT_VALID(m_handle.sendRight()); }
-    mach_port_t leakSendRight() WARN_UNUSED_RETURN { return m_handle.leakSendRight(); }
+    WARN_UNUSED_RETURN mach_port_t leakSendRight() { return m_handle.leakSendRight(); }
 #endif
 
 private:
-    friend struct IPC::ArgumentCoder<ConnectionHandle, void>;
+    friend struct IPC::ArgumentCoder<ConnectionHandle>;
 
 #if USE(UNIX_DOMAIN_SOCKETS)
     UnixFileDescriptor m_handle;

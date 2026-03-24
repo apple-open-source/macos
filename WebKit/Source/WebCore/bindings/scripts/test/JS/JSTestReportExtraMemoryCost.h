@@ -32,7 +32,7 @@ public:
     static JSTestReportExtraMemoryCost* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestReportExtraMemoryCost>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestReportExtraMemoryCost* ptr = new (NotNull, JSC::allocateCell<JSTestReportExtraMemoryCost>(vm)) JSTestReportExtraMemoryCost(structure, *globalObject, WTFMove(impl));
+        JSTestReportExtraMemoryCost* ptr = new (NotNull, JSC::allocateCell<JSTestReportExtraMemoryCost>(vm)) JSTestReportExtraMemoryCost(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

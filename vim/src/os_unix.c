@@ -1542,7 +1542,7 @@ restore_clipboard(void)
 mch_suspend(void)
 {
 #ifdef __APPLE__
-    if (exmode_active == EXMODE_NORMAL && jobc_disabled)
+    if (jobc_disabled)
 	return;
 #endif
     if (ignore_sigtstp)
@@ -1611,7 +1611,7 @@ mch_init(void)
     // we can tell based on whether we're in our parent's process group or not.
     // With job control enabled, we'll either see a `pgid` of our `pid`, or
     // we'll see a `pgid` of one of our siblings if we're in a pipeline.
-    jobc_disabled = getpgid(0) == getppid();
+    jobc_disabled = getpgid(0) == getsid(0);
 #endif
     set_signals();
 

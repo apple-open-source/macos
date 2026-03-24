@@ -658,6 +658,14 @@ static const TransIDSourceTarg dataVarCompItems[] = {
     { u"Simplified-Traditional",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u4ECE\\u7B80\\u4F53\\u8F6C\\u6362\\u4E3A\\u7E41\\u4F53\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u5F9E\\u7C21\\u9AD4\\u8F49\\u63DB\\u70BA\\u7E41\\u9AD4\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002" },
+    // rdar://144324540 𰻝 → 𰻞 (biáng)
+    { u"Simplified-Traditional",
+      "\\U00030EDD",
+      "\\U00030EDE" },
+    // rdar://144324540 𰻞 → 𰻝 (biáng)
+    { u"Traditional-Simplified",
+      "\\U00030EDE",
+      "\\U00030EDD" },
     { u"Halfwidth-Fullwidth",
       "Sample text, \\uFF7B\\uFF9D\\uFF8C\\uFF9F\\uFF99\\uFF83\\uFF77\\uFF7D\\uFF84.",
       "\\uFF33\\uFF41\\uFF4D\\uFF50\\uFF4C\\uFF45\\u3000\\uFF54\\uFF45\\uFF58\\uFF54\\uFF0C\\u3000\\u30B5\\u30F3\\u30D7\\u30EB\\u30C6\\u30AD\\u30B9\\u30C8\\uFF0E" },

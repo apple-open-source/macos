@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/AllowMacroScratchRegisterUsage.h>
@@ -85,8 +87,8 @@ struct CallInformation {
     CallInformation() = default;
     CallInformation(ArgumentLocation passedThisArgument, Vector<ArgumentLocation, 8>&& parameters, Vector<ArgumentLocation, 1>&& returnValues, size_t totalSize, size_t headerSize)
         : thisArgument(passedThisArgument)
-        , params(WTFMove(parameters))
-        , results(WTFMove(returnValues))
+        , params(WTF::move(parameters))
+        , results(WTF::move(returnValues))
         , headerAndArgumentStackSizeInBytes(totalSize)
         , headerIncludingThisSizeInBytes(headerSize)
     { }
@@ -121,9 +123,9 @@ public:
     static constexpr unsigned headerSizeInBytes = CallFrame::headerSizeInRegisters * sizeof(Register);
 
     WasmCallingConvention(Vector<JSValueRegs>&& jsrs, Vector<FPRReg>&& fprs, Vector<GPRReg>&& scratches, RegisterSetBuilder&& calleeSaves)
-        : jsrArgs(WTFMove(jsrs))
-        , fprArgs(WTFMove(fprs))
-        , prologueScratchGPRs(WTFMove(scratches))
+        : jsrArgs(WTF::move(jsrs))
+        , fprArgs(WTF::move(fprs))
+        , prologueScratchGPRs(WTF::move(scratches))
         , calleeSaveRegisters(calleeSaves.buildAndValidate())
     { }
 
@@ -276,7 +278,7 @@ public:
         size_t totalFrameSize = resultStackOffset;
         ASSERT(totalFrameSize >= argStackOffset);
 
-        return { thisArgument, WTFMove(params), WTFMove(results), totalFrameSize, headerSize };
+        return { thisArgument, WTF::move(params), WTF::move(results), totalFrameSize, headerSize };
     }
 
     RegisterSet argumentGPRs() const { return RegisterSetBuilder::argumentGPRs(); }
@@ -292,8 +294,8 @@ public:
     static constexpr unsigned headerSizeInBytes = CallFrame::headerSizeInRegisters * sizeof(Register);
 
     JSCallingConvention(Vector<JSValueRegs>&& gprs, Vector<FPRReg>&& fprs, RegisterSetBuilder&& calleeSaves)
-        : jsrArgs(WTFMove(gprs))
-        , fprArgs(WTFMove(fprs))
+        : jsrArgs(WTF::move(gprs))
+        , fprArgs(WTF::move(fprs))
         , calleeSaveRegisters(calleeSaves.buildAndValidate())
     { }
 
@@ -355,7 +357,7 @@ public:
                 return marshallLocation(role, signature.argumentType(index), gpArgumentCount, fpArgumentCount, stackOffset);
             });
         Vector<ArgumentLocation, 1> results { ArgumentLocation { ValueLocation { JSRInfo::returnValueJSR }, Width64 } };
-        return { thisArgument, WTFMove(params), WTFMove(results), stackOffset, headerSize };
+        return { thisArgument, WTF::move(params), WTF::move(results), stackOffset, headerSize };
     }
 
     const Vector<JSValueRegs> jsrArgs;
@@ -373,9 +375,9 @@ public:
     static constexpr unsigned headerSizeInBytes = 0;
 
     CCallingConventionArmThumb2(Vector<GPRReg>&& gprs, Vector<FPRReg>&& fprs, Vector<GPRReg>&& scratches, RegisterSetBuilder&& calleeSaves)
-        : gprArgs(WTFMove(gprs))
-        , fprArgs(WTFMove(fprs))
-        , prologueScratchGPRs(WTFMove(scratches))
+        : gprArgs(WTF::move(gprs))
+        , fprArgs(WTF::move(fprs))
+        , prologueScratchGPRs(WTF::move(scratches))
         , calleeSaveRegisters(calleeSaves.buildAndValidate())
     { }
 
@@ -561,7 +563,7 @@ public:
                 ASSERT(!signature.returnType(index).isV128());
                 return marshallLocation(role, signature.returnType(index), gpArgumentCount, fpArgumentCount, resultStackOffset);
             });
-        return { thisArgument, WTFMove(params), WTFMove(results), std::max(argStackOffset, resultStackOffset), std::max(stackArgsCount, stackResultsCount) };
+        return { thisArgument, WTF::move(params), WTF::move(results), std::max(argStackOffset, resultStackOffset), std::max(stackArgsCount, stackResultsCount) };
     }
 
     const Vector<GPRReg> gprArgs;

@@ -55,12 +55,12 @@ CopyWrappedKey(CFDataRef wrappingKey, CFDataRef unwrappedKey)
     ccecb_ctx_decl(ccecb_context_size(ecb_mode), key);
     CFMutableDataRef wrappedKey = NULL;
 
-    require(CFDataGetLength(wrappingKey) == KEY_LENGTH, out);
+    __Require(CFDataGetLength(wrappingKey) == KEY_LENGTH, out);
 
     ccecb_init(ecb_mode, key, CFDataGetLength(wrappingKey), CFDataGetBytePtr(wrappingKey));
 
     wrappedKey = CFDataCreateMutableWithScratch(NULL, ccwrap_wrapped_size(CFDataGetLength(unwrappedKey)));
-    require(wrappingKey, out);
+    __Require(wrappingKey, out);
 
     size_t obytes = 0;
     int wrap_status = ccwrap_auth_encrypt(ecb_mode, key, CFDataGetLength(unwrappedKey), CFDataGetBytePtr(unwrappedKey),
@@ -84,13 +84,13 @@ CopyUnwrappedKey(CFDataRef wrappingKey, CFDataRef wrappedKey)
     ccecb_ctx_decl(ccecb_context_size(ecb_mode), key);
     NSMutableData *unwrappedKey = NULL;
 
-    require(CFDataGetLength(wrappedKey) >= CCWRAP_SEMIBLOCK, out);
-    require(CFDataGetLength(wrappingKey) == KEY_LENGTH, out);
+    __Require(CFDataGetLength(wrappedKey) >= CCWRAP_SEMIBLOCK, out);
+    __Require(CFDataGetLength(wrappingKey) == KEY_LENGTH, out);
 
     ccecb_init(ecb_mode, key, CFDataGetLength(wrappingKey), CFDataGetBytePtr(wrappingKey));
 
     unwrappedKey = CFBridgingRelease(CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), ccwrap_unwrapped_size(CFDataGetLength(wrappedKey))));
-    require(unwrappedKey, out);
+    __Require(unwrappedKey, out);
 
     size_t obytes = 0;
     int unwrap_status = ccwrap_auth_decrypt(ecb_mode, key, CFDataGetLength(wrappedKey), CFDataGetBytePtr(wrappedKey),

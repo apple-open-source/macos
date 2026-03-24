@@ -164,7 +164,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     [avUtterance setPitchMultiplier:utterance->pitch()];
     [avUtterance setVoice:avVoice];
     utterance->setWrapper(avUtterance.get());
-    m_utterance = WTFMove(utterance);
+    m_utterance = WTF::move(utterance);
 
     // macOS won't send a did start speaking callback for empty strings.
 #if !HAVE(UNIFIED_SPEECHSYNTHESIS_FIX_FOR_81465164)

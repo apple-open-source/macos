@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class OESElementIndexUint final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(OESElementIndexUint);
+    WTF_MAKE_TZONE_ALLOCATED(OESElementIndexUint);
 public:
     explicit OESElementIndexUint(WebGLRenderingContextBase&);
     ~OESElementIndexUint();

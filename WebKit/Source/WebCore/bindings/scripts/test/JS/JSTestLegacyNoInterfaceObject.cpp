@@ -129,7 +129,7 @@ void JSTestLegacyNoInterfaceObjectPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestLegacyNoInterfaceObject::s_info = { "TestLegacyNoInterfaceObject"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestLegacyNoInterfaceObject) };
 
 JSTestLegacyNoInterfaceObject::JSTestLegacyNoInterfaceObject(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestLegacyNoInterfaceObject>&& impl)
-    : JSDOMWrapper<TestLegacyNoInterfaceObject>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestLegacyNoInterfaceObject>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -399,7 +399,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestLegacyNoInterfaceObject>(impl.ptr());
 #endif
-    return createWrapper<TestLegacyNoInterfaceObject>(globalObject, WTFMove(impl));
+    return createWrapper<TestLegacyNoInterfaceObject>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestLegacyNoInterfaceObject& impl)

@@ -565,7 +565,7 @@ SOSObjectRef SOSDataSourceCopyObject(SOSDataSourceRef ds, SOSObjectRef match, CF
     CFDataRef digest = SOSObjectCopyDigest(ds, match, error);
     SOSManifestRef manifest = NULL;
 
-    require(digest, exit);
+    __Require(digest, exit);
     manifest = SOSManifestCreateWithData(digest, error);
 
     SOSDataSourceForEachObject(ds, NULL, manifest, error, ^void (CFDataRef key, SOSObjectRef object, bool *stop) {

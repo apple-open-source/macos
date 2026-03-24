@@ -34,7 +34,7 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
-#include "HTMLMediaElement.h"
+#include "EventTargetInterfaces.h"
 #include "MediaPlayer.h"
 #include "MediaPromiseTypes.h"
 #include "MediaSourceInit.h"
@@ -53,6 +53,7 @@ class AudioTrack;
 class AudioTrackPrivate;
 class ContentType;
 class InbandTextTrackPrivate;
+class HTMLMediaElement;
 class MediaSourceClientImpl;
 class MediaSourceHandle;
 class SourceBuffer;
@@ -76,7 +77,7 @@ class MediaSource
     , private Logger::Observer
 #endif
 {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaSource);
+    WTF_MAKE_TZONE_ALLOCATED(MediaSource);
 public:
     static void setRegistry(URLRegistry*);
     static MediaSource* lookup(const String& url) { return s_registry ? downcast<MediaSource>(s_registry->lookup(url)) : nullptr; }
@@ -211,7 +212,7 @@ private:
 
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
-    enum EventTargetInterfaceType eventTargetInterface() const final;
+    enum EventTargetInterfaceType eventTargetInterface() const override;
 
     // URLRegistrable.
     URLRegistry& registry() const final;
@@ -285,6 +286,7 @@ struct LogArgument<WebCore::MediaSource::ReadyState> {
 } // namespace WTF
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::MediaSource)
+    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::EventTargetInterfaceType::MediaSource; }
     static bool isType(const WebCore::URLRegistrable& registrable) { return registrable.registrableType() == WebCore::URLRegistrable::RegistrableType::MediaSource; }
 SPECIALIZE_TYPE_TRAITS_END()
 

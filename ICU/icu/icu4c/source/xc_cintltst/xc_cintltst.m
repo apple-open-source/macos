@@ -8,14 +8,15 @@
 
 #import <XCTest/XCTest.h>
 #import "ctest.h"
+#import "unicode/uclean.h"
 
 extern int main(int argc, const char* const argv[]);
 
-int call_main(const char *argv1) {
+int call_main(const char *testname) {
     resetRepeat();
-    char argv0[] = "intltest";
-    int argc = 2;
-    const char* const argv[] = {argv0, argv1, NULL};
+    char argv0[] = "cintltst";
+    const char* argv[4];
+    int argc = ctest_setup_xctest_argv(argv0, argv, testname);
     int result = main(argc, argv);
     return result;
 }
@@ -27,140 +28,161 @@ int call_main(const char *argv1) {
 
 @implementation xc_cintltst
 
-- (void)setUp {
-    // Put setup code here. This method is called before the invocation of each test method in the class.
+//+ (void)setUp {
+//    // This method is called only once before any of the test methods begin.
+//}
+
++ (void)tearDown {
+    //This method is called only once after all of the test methods are done.
+
+    // rdar://163964842
+    // Do one last init to ensure we're leaving ICU in a good state
+    // because XCTest uses the libicucore.A.dylib we built and it calls
+    // udat_format() via CFDateFormatterCreateStringWithAbsoluteTime()
+    // after the tests complete, which will get an EXC_BAD_ACCESS
+    // if we've already cleaned up the timezone resource data.
+    UErrorCode errorCode = U_ZERO_ERROR;
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode)) {
+        fprintf(stderr, "u_init() failed with status: %s.\n",
+                u_errorName(errorCode));
+    }
 }
 
-- (void)tearDown {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
-}
+//- (void)setUp {
+    // This method is called before each test method in the class.
+//}
+
+//- (void)tearDown {
+    // This method is called after each test method in the class.
+//}
 
 // TODO: implement dynamic tests: https://docs.apple.com/access/general/documentation/xctestinternal/060-dynamic-tests
 
 
 - (void)test_complex {
-    char argv1[] = "/complex";
-    int result = call_main(argv1);
+    char testname[] = "/complex";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_custrtrn {
-    char argv1[] = "/custrtrn";
-    int result = call_main(argv1);
+    char testname[] = "/custrtrn";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_hpmufn {
-    char argv1[] = "/hpmufn";
-    int result = call_main(argv1);
+    char testname[] = "/hpmufn";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_idna {
-    char argv1[] = "/idna";
-    int result = call_main(argv1);
+    char testname[] = "/idna";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_putiltst {
-    char argv1[] = "/putiltst";
-    int result = call_main(argv1);
+    char testname[] = "/putiltst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_regex {
-    char argv1[] = "/regex";
-    int result = call_main(argv1);
+    char testname[] = "/regex";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_spreptst {
-    char argv1[] = "/spreptst";
-    int result = call_main(argv1);
+    char testname[] = "/spreptst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tscoll {
-    char argv1[] = "/tscoll";
-    int result = call_main(argv1);
+    char testname[] = "/tscoll";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tsconv {
-    char argv1[] = "/tsconv";
-    int result = call_main(argv1);
+    char testname[] = "/tsconv";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tsformat {
-    char argv1[] = "/tsformat";
-    int result = call_main(argv1);
+    char testname[] = "/tsformat";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tsnorm {
-    char argv1[] = "/tsnorm";
-    int result = call_main(argv1);
+    char testname[] = "/tsnorm";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tstformat {
-    char argv1[] = "/tstformat";
-    int result = call_main(argv1);
+    char testname[] = "/tstformat";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tstxtbd {
-    char argv1[] = "/tstxtbd";
-    int result = call_main(argv1);
+    char testname[] = "/tstxtbd";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_tsutil {
-    char argv1[] = "/tsutil";
-    int result = call_main(argv1);
+    char testname[] = "/tsutil";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_ucsdetst {
-    char argv1[] = "/ucsdetst";
-    int result = call_main(argv1);
+    char testname[] = "/ucsdetst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_udatatst {
-    char argv1[] = "/udatatst";
-    int result = call_main(argv1);
+    char testname[] = "/udatatst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_uset {
-    char argv1[] = "/uset";
-    int result = call_main(argv1);
+    char testname[] = "/uset";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_uspoof {
-    char argv1[] = "/uspoof";
-    int result = call_main(argv1);
+    char testname[] = "/uspoof";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_utf16tst {
-    char argv1[] = "/utf16tst";
-    int result = call_main(argv1);
+    char testname[] = "/utf16tst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_utf8tst {
-    char argv1[] = "/utf8tst";
-    int result = call_main(argv1);
+    char testname[] = "/utf8tst";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_utrans {
-    char argv1[] = "/utrans";
-    int result = call_main(argv1);
+    char testname[] = "/utrans";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 

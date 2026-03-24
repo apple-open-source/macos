@@ -42,14 +42,14 @@ class InbandChapterTrackPrivateAVFObjC : public InbandTextTrackPrivate {
 public:
     static Ref<InbandChapterTrackPrivateAVFObjC> create(RetainPtr<NSLocale> locale, TrackID trackID)
     {
-        return adoptRef(*new InbandChapterTrackPrivateAVFObjC(WTFMove(locale), trackID));
+        return adoptRef(*new InbandChapterTrackPrivateAVFObjC(WTF::move(locale), trackID));
     }
 
     virtual ~InbandChapterTrackPrivateAVFObjC() = default;
 
     TrackID id() const final { return m_id; }
     InbandTextTrackPrivate::Kind kind() const final { return InbandTextTrackPrivate::Kind::Chapters; }
-    AtomString language() const final;
+    String language() const final;
 
     int trackIndex() const final { return m_index; }
     void setTextTrackIndex(int index) { m_index = index; }
@@ -59,7 +59,7 @@ public:
 private:
     InbandChapterTrackPrivateAVFObjC(RetainPtr<NSLocale>, TrackID);
 
-    AtomString inBandMetadataTrackDispatchType() const final { return "com.apple.chapters"_s; }
+    String inBandMetadataTrackDispatchType() const final { return "com.apple.chapters"_s; }
     ASCIILiteral logClassName() const final { return "InbandChapterTrackPrivateAVFObjC"_s; }
 
     struct ChapterData {
@@ -72,7 +72,7 @@ private:
 
     Vector<ChapterData> m_processedChapters;
     RetainPtr<NSLocale> m_locale;
-    mutable AtomString m_language;
+    mutable String m_language;
     const TrackID m_id;
     int m_index { 0 };
 };

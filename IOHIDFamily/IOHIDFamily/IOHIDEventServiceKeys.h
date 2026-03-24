@@ -200,6 +200,26 @@
 #define kIOHIDScrollAccelerationSupportKey     "HIDSupportsScrollAcceleration"
 
 /*!
+ @define kIOHIDSupportedEventMaskKey
+ @abstract Bit mask property denoting what event types the device can dispatch.
+ @discussion Bit mask of IOHIDEventType values, constructed using IOHIDEventTypeMask macro or (1LL << type).
+             Example: IOHIDEventTypeMask(kIOHIDEventTypeKeyboard) | IOHIDEventTypeMask(kIOHIDEventTypePointer)
+ */
+#define kIOHIDSupportedEventMaskKey                      "SupportedHIDEventMask"
+
+/*!
+ @define kIOHIDKeyboardUsagePairsKey
+ @abstract Array property of keyboard usage and usage page pairs associated with the service.
+ */
+#define kIOHIDSupportedKeyboardUsagePairsKey             "SupportedKeyboardUsagePairs"
+
+/*!
+ @define kIOHIDVendorUsagePairsKey
+ @abstract Array property of vendor-defined usage and usage page pairs associated with the service.
+ */
+#define kIOHIDSupportedVendorUsagePairsKey               "SupportedVendorUsagePairs"
+
+/*!
      @defined kIOHIDEventServiceSensorControlOptionsKey
      @discussion Properties queried on creation of IOHIDService,  allow filters to alter default behavior for the service.
      @abstract Property to report bit mask of default controls service should support.

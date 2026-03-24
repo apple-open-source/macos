@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 73;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -34,9 +34,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		1864C88E23F227D200A383C1 /* notify_test_helper.c in Sources */ = {isa = PBXBuildFile; fileRef = 1864C88223F2174E00A383C1 /* notify_test_helper.c */; };
-		1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */ = {isa = PBXBuildFile; fileRef = 727C90371B9A372700D5B754 /* notify_bench.c */; };
-		189ACD7F25800C0100816271 /* com.apple.notify-tests.sb in Install Sandbox */ = {isa = PBXBuildFile; fileRef = 189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */; };
 		2D312B76102CA2E300F90022 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		2D312B77102CA2E300F90022 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
 		2D312B78102CA2E300F90022 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
@@ -56,16 +53,7 @@
 		2D38AA13102CD8B800D3D622 /* notify_register_mach_port.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8F102CA38F00F90022 /* notify_register_mach_port.3 */; };
 		2D38AA14102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B90102CA38F00F90022 /* notify_register_signal.3 */; };
 		2D38AA15102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B91102CA38F00F90022 /* notify_set_state.3 */; };
-		2D4F060B1B14E7DF00D59CEF /* com.apple.notifyd.sb in Install Sandbox profile */ = {isa = PBXBuildFile; fileRef = 2DD962061B14E6560040D341 /* com.apple.notifyd.sb */; };
 		2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 2DCB287110D99ADA00DF3A8D /* notify_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		3FA21ACF148AAA5000099D2F /* notify_proc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21A9C148AA7FA00099D2F /* notify_proc.c */; };
-		3FA21AD0148AAA5000099D2F /* notifyd.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21A9E148AA7FA00099D2F /* notifyd.c */; };
-		3FA21AD1148AAA5000099D2F /* pathwatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA0148AA7FA00099D2F /* pathwatch.c */; };
-		3FA21AD2148AAA5000099D2F /* service.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA2148AA7FA00099D2F /* service.c */; };
-		3FA21AD4148AAA5D00099D2F /* notifyd.8 in Install man page */ = {isa = PBXBuildFile; fileRef = 3FA21A9D148AA7FA00099D2F /* notifyd.8 */; };
-		3FA21AD5148AAA6E00099D2F /* notifyutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA9148AA82700099D2F /* notifyutil.c */; };
-		3FA21AD6148AAA7500099D2F /* notifyutil.1 in Install man page */ = {isa = PBXBuildFile; fileRef = 3FA21AA8148AA82700099D2F /* notifyutil.1 */; };
-		3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */ = {isa = PBXBuildFile; fileRef = 3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */; };
 		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		3FD0DBAD148AB12000C50811 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FD0DBAC148AB12000C50811 /* libbsm.dylib */; };
 		6E8E6AD02282A7DA0084C085 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = 6E8E6ACD2282A7DA0084C085 /* notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
@@ -76,12 +64,20 @@
 		9456B8522023CAB300CF7D27 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		9456B8532023CAB600CF7D27 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
 		9487BF2A2089A99A0043BF74 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
-		9487BF2B2089A9E30043BF74 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; };
+		9487BF2B2089A9E30043BF74 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		9487BF2C2089BAA30043BF74 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
 		9487BF2D2089BAB20043BF74 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
-		955DB9212BA377F200D816AE /* com.apple.notify-test-lockdown.sb in Install Sandbox */ = {isa = PBXBuildFile; fileRef = 955DB9122B990BF800D816AE /* com.apple.notify-test-lockdown.sb */; };
-		955DB9282BA3938700D816AE /* notify_loopback_test_helper.c in Sources */ = {isa = PBXBuildFile; fileRef = 955DB9272BA3937D00D816AE /* notify_loopback_test_helper.c */; };
 		E6481E7F2165785F00C04412 /* notify_probes.d in Sources */ = {isa = PBXBuildFile; fileRef = E6481E7E2165785F00C04412 /* notify_probes.d */; };
+		EE3BD0702E1C817700650B34 /* notify_probes.d in Sources */ = {isa = PBXBuildFile; fileRef = E6481E7E2165785F00C04412 /* notify_probes.d */; };
+		EE3BD0712E1C819700650B34 /* notify_old_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */; settings = {ATTRIBUTES = (Client, ); }; };
+		EE3BD0732E1C835E00650B34 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE3BD0722E1C835E00650B34 /* libCrashReporterClient.a */; };
+		EE986AA92F0C948E00C51417 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		EE986AAA2F0C948E00C51417 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = 6E8E6ACD2282A7DA0084C085 /* notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		EE986AAB2F0C948E00C51417 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
+		EE986AAC2F0C948E00C51417 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
+		EE986C602F0C9DE600C51417 /* libnotifyd-testing-lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */; };
+		EEA9DBDB2F11AFE60002ED21 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = EEA9DBD92F11AFD30002ED21 /* libbsm.tbd */; };
+		EEA9DBDC2F11AFEE0002ED21 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EEA9DBDA2F11AFDC0002ED21 /* libCrashReporterClient.a */; };
 		F74F76B525DB8F17008B3BB8 /* notify_old_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
@@ -122,6 +118,13 @@
 			remoteGlobalIDString = 955DB91D2BA377F200D816AE;
 			remoteInfo = notify_loopback_test_helper;
 		};
+		EE986C612F0C9DE600C51417 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE986A9E2F0C8D6300C51417;
+			remoteInfo = "notifyd-testing-lib";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -141,7 +144,6 @@
 			dstPath = /System/Library/Sandbox/Profiles;
 			dstSubfolderSpec = 0;
 			files = (
-				189ACD7F25800C0100816271 /* com.apple.notify-tests.sb in Install Sandbox */,
 			);
 			name = "Install Sandbox";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -174,7 +176,6 @@
 			dstPath = /System/Library/Sandbox/Profiles;
 			dstSubfolderSpec = 0;
 			files = (
-				2D4F060B1B14E7DF00D59CEF /* com.apple.notifyd.sb in Install Sandbox profile */,
 			);
 			name = "Install Sandbox profile";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -185,7 +186,6 @@
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				3FA21AD4148AAA5D00099D2F /* notifyd.8 in Install man page */,
 			);
 			name = "Install man page";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -196,7 +196,6 @@
 			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
-				3FA21AD6148AAA7500099D2F /* notifyutil.1 in Install man page */,
 			);
 			name = "Install man page";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -207,7 +206,6 @@
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */,
 			);
 			name = "Install launchd.plist";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -218,7 +216,6 @@
 			dstPath = /System/Library/Sandbox/Profiles;
 			dstSubfolderSpec = 0;
 			files = (
-				955DB9212BA377F200D816AE /* com.apple.notify-test-lockdown.sb in Install Sandbox */,
 			);
 			name = "Install Sandbox";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -226,21 +223,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		180F8D3E21136EBF009A472B /* notify_pathwatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_pathwatch.c; sourceTree = "<group>"; };
-		18177A7123612EDC008CCFDE /* notify_register_mach_port.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_register_mach_port.c; sourceTree = "<group>"; };
-		182FD2C2210BB0F600BF263C /* notify_benchmark.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_benchmark.c; sourceTree = "<group>"; };
-		18314CC821FF867600FEB43D /* notifyutil_entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = notifyutil_entitlements.plist; sourceTree = "<group>"; };
-		18383C6720F909A300D5C465 /* notify_regenerate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_regenerate.c; sourceTree = "<group>"; };
-		18383C6820F909A300D5C465 /* notify_register_signal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_register_signal.c; sourceTree = "<group>"; };
-		18383C6920F909A300D5C465 /* notify_sigusr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_sigusr.c; sourceTree = "<group>"; };
-		183F91E32357FCEB009A1BFC /* notify_suspend.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_suspend.c; sourceTree = "<group>"; };
-		1846D85A24AAC578001D052D /* notify_register_file_desc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_register_file_desc.c; sourceTree = "<group>"; };
-		1864C88123F216CB00A383C1 /* notify_exec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_exec.c; sourceTree = "<group>"; };
-		1864C88223F2174E00A383C1 /* notify_test_helper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_test_helper.c; sourceTree = "<group>"; };
 		1864C88B23F227AC00A383C1 /* notify_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notify_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		1886391720E1A22F00C8BEA9 /* notifybench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifybench; sourceTree = BUILT_PRODUCTS_DIR; };
-		189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */ = {isa = PBXFileReference; lastKnownFileType = text; path = "com.apple.notify-tests.sb"; sourceTree = "<group>"; };
-		189ACD7D25800A0B00816271 /* notify_sandbox.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_sandbox.c; sourceTree = "<group>"; };
 		2D312B73102CA2E300F90022 /* libnotify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libnotify.c; sourceTree = "<group>"; usesTabs = 1; };
 		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		2D312B75102CA2E300F90022 /* table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.c; sourceTree = "<group>"; };
@@ -262,69 +246,121 @@
 		2D312B92102CA38F00F90022 /* notify.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify.3; sourceTree = "<group>"; };
 		2D6D820D18DA602A0034E7B4 /* notify_is_valid_token.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_is_valid_token.3; sourceTree = "<group>"; };
 		2DCB287110D99ADA00DF3A8D /* notify_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_private.h; sourceTree = "<group>"; };
-		2DD962061B14E6560040D341 /* com.apple.notifyd.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.notifyd.sb; sourceTree = "<group>"; };
 		2DF9EA0B102CF33400DE9E8D /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
-		3F82235D12B18551005DD509 /* libnotify.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libnotify.xcconfig; sourceTree = "<group>"; };
 		3F8223B412B18877005DD509 /* libsystem_notify.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_notify.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		3F947780191C322100A93E8E /* no-sim-man.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "no-sim-man.sh"; sourceTree = "<group>"; };
-		3F999961185C474E00EAD3A0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
-		3F999963185C474E00EAD3A0 /* notifyd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyd.xcconfig; sourceTree = "<group>"; };
-		3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyutil.xcconfig; sourceTree = "<group>"; };
-		3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.notifyd.plist; sourceTree = "<group>"; };
-		3FA21A9A148AA7FA00099D2F /* notify.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = notify.conf; sourceTree = "<group>"; };
-		3FA21A9B148AA7FA00099D2F /* notify.conf.iPhone */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.iPhone; path = ../notify.conf.iPhone; sourceTree = "<group>"; };
-		3FA21A9C148AA7FA00099D2F /* notify_proc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_proc.c; sourceTree = "<group>"; usesTabs = 1; };
-		3FA21A9D148AA7FA00099D2F /* notifyd.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = notifyd.8; sourceTree = "<group>"; };
-		3FA21A9E148AA7FA00099D2F /* notifyd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notifyd.c; sourceTree = "<group>"; usesTabs = 1; };
-		3FA21A9F148AA7FA00099D2F /* notifyd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = notifyd.h; sourceTree = "<group>"; usesTabs = 1; };
-		3FA21AA0148AA7FA00099D2F /* pathwatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pathwatch.c; sourceTree = "<group>"; };
-		3FA21AA1148AA7FA00099D2F /* pathwatch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathwatch.h; sourceTree = "<group>"; };
-		3FA21AA2148AA7FA00099D2F /* service.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = service.c; sourceTree = "<group>"; usesTabs = 1; };
-		3FA21AA3148AA7FA00099D2F /* service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = service.h; sourceTree = "<group>"; };
-		3FA21AA8148AA82700099D2F /* notifyutil.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = notifyutil.1; sourceTree = "<group>"; };
-		3FA21AA9148AA82700099D2F /* notifyutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notifyutil.c; sourceTree = "<group>"; };
 		3FA21AB0148AA8E300099D2F /* notifyd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifyd; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FA21ABE148AA8F000099D2F /* notifyutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifyutil; sourceTree = BUILT_PRODUCTS_DIR; };
-		3FA21ADD148AABA900099D2F /* mk_notify_conf.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = mk_notify_conf.sh; sourceTree = "<group>"; };
-		3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.MacOSX; path = notifyd/notify.conf.MacOSX; sourceTree = SOURCE_ROOT; };
 		3FD0DBAC148AB12000C50811 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		6E8DAA2E2184283500A90CEA /* table.in.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.in.c; sourceTree = "<group>"; usesTabs = 1; };
-		6E8E6ACC2282A7D30084C085 /* notify.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; name = notify.defs; path = usr/include/mach/notify.defs; sourceTree = SDKROOT; };
 		6E8E6ACD2282A7DA0084C085 /* notify.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; name = notify.defs; path = usr/include/mach/notify.defs; sourceTree = SDKROOT; };
 		6EC91ED42178FF7100F11587 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
-		727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_cancel_in_block.c; sourceTree = "<group>"; };
-		727C90341B9A372700D5B754 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		727C90371B9A372700D5B754 /* notify_bench.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_bench.c; sourceTree = "<group>"; };
-		727C90381B9A372700D5B754 /* notify_control.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_control.c; sourceTree = "<group>"; };
-		727C90391B9A372700D5B754 /* notify_disable_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_disable_test.c; sourceTree = "<group>"; };
-		727C903A1B9A372700D5B754 /* notify_many_dups.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_many_dups.c; sourceTree = "<group>"; };
-		727C903B1B9A372700D5B754 /* random_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = random_test.c; sourceTree = "<group>"; };
-		7875226923A34F3B002B6F1D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		847C35922A57CDA600D003D4 /* notify.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = notify.modulemap; sourceTree = "<group>"; };
 		847C35932A57CDB900D003D4 /* notify_private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = notify_private.modulemap; sourceTree = "<group>"; };
 		94099C732087E7D50004B6BC /* xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		94099C752087E7D50004B6BC /* RegisterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegisterTests.m; sourceTree = "<group>"; };
 		94099C772087E7D50004B6BC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parallel_register_cancel.c; sourceTree = "<group>"; };
-		9502BC1B2BB2495E0028E81D /* com.apple.notifyd.test.matching.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.notifyd.test.matching.plist; sourceTree = "<group>"; };
-		950AE1D72B22831500C9874D /* notify_loopback.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_loopback.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
-		955DB9122B990BF800D816AE /* com.apple.notify-test-lockdown.sb */ = {isa = PBXFileReference; lastKnownFileType = text; path = "com.apple.notify-test-lockdown.sb"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = "<none>"; };
 		955DB9262BA377F200D816AE /* notify_loopback_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notify_loopback_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
-		955DB9272BA3937D00D816AE /* notify_loopback_test_helper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_loopback_test_helper.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
-		955DB9292BA3991A00D816AE /* notify_loopback_test_helper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_loopback_test_helper.entitlements; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.xml; };
-		9571628629CE7250008428A8 /* rnserver.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = rnserver.defs; sourceTree = "<group>"; };
-		9571628729D1F6E0008428A8 /* notify_register_mach_port.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_register_mach_port.entitlements; sourceTree = "<group>"; };
-		95BA11042BB72BB100CE6202 /* notify_introspect.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_introspect.entitlements; sourceTree = "<group>"; };
-		95ECB2F52BAB98FF00548214 /* notify_introspect.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_introspect.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
-		9B71D22F206AB52200BB9574 /* notify_qos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_qos.c; sourceTree = "<group>"; };
-		C0FF3C23234516ED00ABBA89 /* notify_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_matching.c; sourceTree = "<group>"; };
-		C0FF3C242345172700ABBA89 /* notify_leaks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_leaks.c; sourceTree = "<group>"; };
 		E6481E7E2165785F00C04412 /* notify_probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = notify_probes.d; sourceTree = "<group>"; };
-		EEA783202CAC657F004D0C62 /* notify_restrict_post.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_restrict_post.c; sourceTree = "<group>"; };
-		EEA783212CAC657F004D0C62 /* notify_restrict_post.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_restrict_post.entitlements; sourceTree = "<group>"; };
+		EE3BD0722E1C835E00650B34 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS26.4.Internal.sdk/usr/local/lib/libCrashReporterClient.a; sourceTree = DEVELOPER_DIR; };
+		EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libnotifyd-testing-lib.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE986C5C2F0C9DE600C51417 /* notifyd-xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "notifyd-xctests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEA9DBD92F11AFD30002ED21 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
+		EEA9DBDA2F11AFDC0002ED21 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.Internal.sdk/usr/local/lib/libCrashReporterClient.a; sourceTree = DEVELOPER_DIR; };
 		F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = notify_old_ipc.defs; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; usesTabs = 1; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EE9868A82F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				notify_test_helper.c,
+			);
+			target = 1864C88323F227AC00A383C1 /* notify_test_helper */;
+		};
+		EE9868AA2F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				notify_loopback_test_helper.c,
+			);
+			target = 955DB91D2BA377F200D816AE /* notify_loopback_test_helper */;
+		};
+		EE9869612F08A01B00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				notify_proc.c,
+				notifyd.c,
+				pathwatch.c,
+				service.c,
+			);
+			target = 3FA21AAF148AA8E300099D2F /* notifyd */;
+		};
+		EE986AB12F0C948E00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				notify_proc.c,
+				notifyd.c,
+				pathwatch.c,
+				service.c,
+			);
+			target = EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		EE9867FC2F08474000C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 3FA21ABC148AA8F000099D2F /* Install man page */;
+			membershipExceptions = (
+				notifyutil.1,
+			);
+		};
+		EE9868A92F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 189ACD7E25800BEC00816271 /* Install Sandbox */;
+			membershipExceptions = (
+				"com.apple.notify-tests.sb",
+			);
+		};
+		EE9868AB2F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 955DB9202BA377F200D816AE /* Install Sandbox */;
+			membershipExceptions = (
+				"com.apple.notify-test-lockdown.sb",
+			);
+		};
+		EE9869622F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 3FA21AAE148AA8E300099D2F /* Install man page */;
+			membershipExceptions = (
+				notifyd.8,
+			);
+		};
+		EE9869632F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 3FA21AD7148AAAA600099D2F /* Install launchd.plist */;
+			membershipExceptions = (
+				com.apple.notifyd.plist,
+			);
+		};
+		EE9869642F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 2D4F060A1B14E79900D59CEF /* Install Sandbox profile */;
+			membershipExceptions = (
+				com.apple.notifyd.sb,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		EE9867DB2EFC8F0C00C51417 /* notifybench */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = notifybench; sourceTree = "<group>"; };
+		EE9867DE2EFC90CE00C51417 /* xcodescripts */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = xcodescripts; sourceTree = "<group>"; };
+		EE9867EE2F0843B600C51417 /* xcodeconfig */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = xcodeconfig; sourceTree = "<group>"; };
+		EE9867F92F08474000C51417 /* notifyutil */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9867FC2F08474000C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = notifyutil; sourceTree = "<group>"; };
+		EE9868A32F0851CB00C51417 /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9868A82F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868A92F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9868AA2F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868AB2F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
+		EE9869592F08A01B00C51417 /* notifyd */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9869612F08A01B00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9869622F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9869632F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9869642F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE986AB12F0C948E00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = notifyd; sourceTree = "<group>"; };
+		EE986C5D2F0C9DE600C51417 /* notifyd-xctests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "notifyd-xctests"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1886391120E1A22F00C8BEA9 /* Frameworks */ = {
@@ -353,6 +389,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EE3BD0732E1C835E00650B34 /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,40 +401,51 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EE986A9C2F0C8D6300C51417 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE986C592F0C9DE600C51417 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE986C602F0C9DE600C51417 /* libnotifyd-testing-lib.a in Frameworks */,
+				EEA9DBDC2F11AFEE0002ED21 /* libCrashReporterClient.a in Frameworks */,
+				EEA9DBDB2F11AFE60002ED21 /* libbsm.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		08FB7794FE84155DC02AAC07 /* Libnotify */ = {
 			isa = PBXGroup;
 			children = (
-				1886391820E1A24A00C8BEA9 /* notifybench */,
-				3F94777F191C322100A93E8E /* xcodescripts */,
-				3F999960185C474E00EAD3A0 /* xcodeconfig */,
+				EE9867DB2EFC8F0C00C51417 /* notifybench */,
+				EE9867DE2EFC90CE00C51417 /* xcodescripts */,
+				EE9867EE2F0843B600C51417 /* xcodeconfig */,
 				2D312B79102CA30200F90022 /* notify_ipc.defs */,
 				F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */,
 				6E8E6ACD2282A7DA0084C085 /* notify.defs */,
 				3FA21A97148AA7CD00099D2F /* libsystem_notify */,
-				3FA21AA7148AA82700099D2F /* notifyutil */,
-				3FA21A98148AA7FA00099D2F /* notifyd */,
+				EE9869592F08A01B00C51417 /* notifyd */,
+				EE9867F92F08474000C51417 /* notifyutil */,
 				2DF9EA0A102CF31700DE9E8D /* Additional Files */,
 				94099C742087E7D50004B6BC /* xctests */,
+				EE986C5D2F0C9DE600C51417 /* notifyd-xctests */,
 				3FA21ACE148AAA0D00099D2F /* Products */,
-				727C902F1B9A372700D5B754 /* tests */,
+				EE9868A32F0851CB00C51417 /* tests */,
 				94099C732087E7D50004B6BC /* xctests.xctest */,
 				1886391720E1A22F00C8BEA9 /* notifybench */,
 				6EC91ED32178FF7100F11587 /* Frameworks */,
 				1864C88B23F227AC00A383C1 /* notify_test_helper */,
 				955DB9262BA377F200D816AE /* notify_loopback_test_helper */,
+				EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */,
 			);
 			name = Libnotify;
-			sourceTree = "<group>";
-		};
-		1886391820E1A24A00C8BEA9 /* notifybench */ = {
-			isa = PBXGroup;
-			children = (
-				727C90371B9A372700D5B754 /* notify_bench.c */,
-			);
-			path = notifybench;
 			sourceTree = "<group>";
 		};
 		2D312B72102CA2C400F90022 /* Source */ = {
@@ -449,26 +497,6 @@
 			name = "Additional Files";
 			sourceTree = "<group>";
 		};
-		3F94777F191C322100A93E8E /* xcodescripts */ = {
-			isa = PBXGroup;
-			children = (
-				3F947780191C322100A93E8E /* no-sim-man.sh */,
-			);
-			path = xcodescripts;
-			sourceTree = "<group>";
-		};
-		3F999960185C474E00EAD3A0 /* xcodeconfig */ = {
-			isa = PBXGroup;
-			children = (
-				6E8E6ACC2282A7D30084C085 /* notify.defs */,
-				3F999961185C474E00EAD3A0 /* base.xcconfig */,
-				3F82235D12B18551005DD509 /* libnotify.xcconfig */,
-				3F999963185C474E00EAD3A0 /* notifyd.xcconfig */,
-				3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */,
-			);
-			path = xcodeconfig;
-			sourceTree = "<group>";
-		};
 		3FA21A97148AA7CD00099D2F /* libsystem_notify */ = {
 			isa = PBXGroup;
 			children = (
@@ -481,120 +509,27 @@
 			name = libsystem_notify;
 			sourceTree = "<group>";
 		};
-		3FA21A98148AA7FA00099D2F /* notifyd */ = {
-			isa = PBXGroup;
-			children = (
-				7875226923A34F3B002B6F1D /* entitlements.plist */,
-				2DD962061B14E6560040D341 /* com.apple.notifyd.sb */,
-				3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */,
-				3FA21A9A148AA7FA00099D2F /* notify.conf */,
-				3FA21A9D148AA7FA00099D2F /* notifyd.8 */,
-				3FA21ADC148AABA900099D2F /* Build Support */,
-				3FA21AAA148AA85300099D2F /* Source */,
-				3FA21AAB148AA86600099D2F /* Private Headers */,
-			);
-			path = notifyd;
-			sourceTree = "<group>";
-		};
-		3FA21AA7148AA82700099D2F /* notifyutil */ = {
-			isa = PBXGroup;
-			children = (
-				3FA21AA8148AA82700099D2F /* notifyutil.1 */,
-				3FA21AA9148AA82700099D2F /* notifyutil.c */,
-				18314CC821FF867600FEB43D /* notifyutil_entitlements.plist */,
-			);
-			path = notifyutil;
-			sourceTree = "<group>";
-		};
-		3FA21AAA148AA85300099D2F /* Source */ = {
-			isa = PBXGroup;
-			children = (
-				3FA21A9C148AA7FA00099D2F /* notify_proc.c */,
-				3FA21A9E148AA7FA00099D2F /* notifyd.c */,
-				3FA21AA0148AA7FA00099D2F /* pathwatch.c */,
-				3FA21AA2148AA7FA00099D2F /* service.c */,
-			);
-			name = Source;
-			sourceTree = "<group>";
-		};
-		3FA21AAB148AA86600099D2F /* Private Headers */ = {
-			isa = PBXGroup;
-			children = (
-				3FA21A9F148AA7FA00099D2F /* notifyd.h */,
-				3FA21AA1148AA7FA00099D2F /* pathwatch.h */,
-				3FA21AA3148AA7FA00099D2F /* service.h */,
-			);
-			name = "Private Headers";
-			sourceTree = "<group>";
-		};
 		3FA21ACE148AAA0D00099D2F /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				3F8223B412B18877005DD509 /* libsystem_notify.dylib */,
 				3FA21AB0148AA8E300099D2F /* notifyd */,
 				3FA21ABE148AA8F000099D2F /* notifyutil */,
+				EE986C5C2F0C9DE600C51417 /* notifyd-xctests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		3FA21ADC148AABA900099D2F /* Build Support */ = {
-			isa = PBXGroup;
-			children = (
-				3FD0DBAC148AB12000C50811 /* libbsm.dylib */,
-				3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */,
-				3FA21A9B148AA7FA00099D2F /* notify.conf.iPhone */,
-				3FA21ADD148AABA900099D2F /* mk_notify_conf.sh */,
-			);
-			name = "Build Support";
-			path = xcodescripts;
 			sourceTree = "<group>";
 		};
 		6EC91ED32178FF7100F11587 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EEA9DBDA2F11AFDC0002ED21 /* libCrashReporterClient.a */,
+				EEA9DBD92F11AFD30002ED21 /* libbsm.tbd */,
+				EE3BD0722E1C835E00650B34 /* libCrashReporterClient.a */,
 				6EC91ED42178FF7100F11587 /* libCrashReporterClient.a */,
+				3FD0DBAC148AB12000C50811 /* libbsm.dylib */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		727C902F1B9A372700D5B754 /* tests */ = {
-			isa = PBXGroup;
-			children = (
-				9502BC1C2BB2495E0028E81D /* launchd_plists */,
-				95BA11042BB72BB100CE6202 /* notify_introspect.entitlements */,
-				95ECB2F52BAB98FF00548214 /* notify_introspect.c */,
-				EEA783212CAC657F004D0C62 /* notify_restrict_post.entitlements */,
-				EEA783202CAC657F004D0C62 /* notify_restrict_post.c */,
-				955DB9292BA3991A00D816AE /* notify_loopback_test_helper.entitlements */,
-				955DB9122B990BF800D816AE /* com.apple.notify-test-lockdown.sb */,
-				950AE1D72B22831500C9874D /* notify_loopback.c */,
-				955DB9272BA3937D00D816AE /* notify_loopback_test_helper.c */,
-				1864C88123F216CB00A383C1 /* notify_exec.c */,
-				1864C88223F2174E00A383C1 /* notify_test_helper.c */,
-				C0FF3C23234516ED00ABBA89 /* notify_matching.c */,
-				18383C6720F909A300D5C465 /* notify_regenerate.c */,
-				1846D85A24AAC578001D052D /* notify_register_file_desc.c */,
-				18177A7123612EDC008CCFDE /* notify_register_mach_port.c */,
-				18383C6820F909A300D5C465 /* notify_register_signal.c */,
-				18383C6920F909A300D5C465 /* notify_sigusr.c */,
-				727C90341B9A372700D5B754 /* Makefile */,
-				9B71D22F206AB52200BB9574 /* notify_qos.c */,
-				727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */,
-				727C90381B9A372700D5B754 /* notify_control.c */,
-				727C90391B9A372700D5B754 /* notify_disable_test.c */,
-				727C903A1B9A372700D5B754 /* notify_many_dups.c */,
-				183F91E32357FCEB009A1BFC /* notify_suspend.c */,
-				727C903B1B9A372700D5B754 /* random_test.c */,
-				9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */,
-				182FD2C2210BB0F600BF263C /* notify_benchmark.c */,
-				180F8D3E21136EBF009A472B /* notify_pathwatch.c */,
-				C0FF3C242345172700ABBA89 /* notify_leaks.c */,
-				189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */,
-				189ACD7D25800A0B00816271 /* notify_sandbox.c */,
-				9571628629CE7250008428A8 /* rnserver.defs */,
-				9571628729D1F6E0008428A8 /* notify_register_mach_port.entitlements */,
-			);
-			path = tests;
 			sourceTree = "<group>";
 		};
 		94099C742087E7D50004B6BC /* xctests */ = {
@@ -604,14 +539,6 @@
 				94099C772087E7D50004B6BC /* Info.plist */,
 			);
 			path = xctests;
-			sourceTree = "<group>";
-		};
-		9502BC1C2BB2495E0028E81D /* launchd_plists */ = {
-			isa = PBXGroup;
-			children = (
-				9502BC1B2BB2495E0028E81D /* com.apple.notifyd.test.matching.plist */,
-			);
-			path = launchd_plists;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
@@ -700,6 +627,9 @@
 			);
 			dependencies = (
 			);
+			fileSystemSynchronizedGroups = (
+				EE9867DB2EFC8F0C00C51417 /* notifybench */,
+			);
 			name = notifybench;
 			productName = notifyutil;
 			productReference = 1886391720E1A22F00C8BEA9 /* notifybench */;
@@ -736,6 +666,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EE9867F92F08474000C51417 /* notifyutil */,
 			);
 			name = notifyutil;
 			productName = notifyutil;
@@ -794,12 +727,54 @@
 			productReference = 3F8223B412B18877005DD509 /* libsystem_notify.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE986AA62F0C8D6300C51417 /* Build configuration list for PBXNativeTarget "notifyd-testing-lib" */;
+			buildPhases = (
+				EE986A9B2F0C8D6300C51417 /* Sources */,
+				EE986A9C2F0C8D6300C51417 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "notifyd-testing-lib";
+			packageProductDependencies = (
+			);
+			productName = "notifyd-testing-lib";
+			productReference = EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		EE986C5B2F0C9DE600C51417 /* notifyd-xctests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE986C652F0C9DE600C51417 /* Build configuration list for PBXNativeTarget "notifyd-xctests" */;
+			buildPhases = (
+				EE986C582F0C9DE600C51417 /* Sources */,
+				EE986C592F0C9DE600C51417 /* Frameworks */,
+				EE986C5A2F0C9DE600C51417 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EE986C622F0C9DE600C51417 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				EE986C5D2F0C9DE600C51417 /* notifyd-xctests */,
+			);
+			name = "notifyd-xctests";
+			packageProductDependencies = (
+			);
+			productName = "notifyd-xctests";
+			productReference = EE986C5C2F0C9DE600C51417 /* notifyd-xctests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					72FA84F61BD6E9DF00A4CC6F = {
@@ -811,16 +786,22 @@
 					94099C722087E7D50004B6BC = {
 						CreatedOnToolsVersion = 10.0;
 					};
+					EE986A9E2F0C8D6300C51417 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					EE986C5B2F0C9DE600C51417 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "Libnotify" */;
-			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
+			preferredProjectObjectVersion = 45;
 			productRefGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -835,12 +816,21 @@
 				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
 				72FA84FB1BD6EAB900A4CC6F /* tests */,
 				94099C722087E7D50004B6BC /* xctests */,
+				EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */,
+				EE986C5B2F0C9DE600C51417 /* notifyd-xctests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		94099C712087E7D50004B6BC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE986C5A2F0C9DE600C51417 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -887,9 +877,13 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/notifyd/xcodescripts/mk_notify_conf.sh",
+				"$(SRCROOT)/notifyd/notify.conf.iOSSimulator",
+				"$(SRCROOT)/notifyd/notify.conf.iPhone",
+				"$(SRCROOT)/notifyd/notify.conf.MacOSX",
 			);
 			name = "Install notify.conf";
 			outputPaths = (
+				"$(DSTROOT)/private/etc/notify.conf",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash -e -x";
@@ -902,7 +896,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1864C88E23F227D200A383C1 /* notify_test_helper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -910,7 +903,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -921,11 +913,7 @@
 				6E8E6AD02282A7DA0084C085 /* notify.defs in Sources */,
 				9456B8532023CAB600CF7D27 /* table.c in Sources */,
 				3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */,
-				3FA21ACF148AAA5000099D2F /* notify_proc.c in Sources */,
-				3FA21AD0148AAA5000099D2F /* notifyd.c in Sources */,
 				9456B8522023CAB300CF7D27 /* libnotify.c in Sources */,
-				3FA21AD1148AAA5000099D2F /* pathwatch.c in Sources */,
-				3FA21AD2148AAA5000099D2F /* service.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -933,7 +921,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3FA21AD5148AAA6E00099D2F /* notifyutil.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -941,6 +928,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EE3BD0712E1C819700650B34 /* notify_old_ipc.defs in Sources */,
+				EE3BD0702E1C817700650B34 /* notify_probes.d in Sources */,
 				9487BF2C2089BAA30043BF74 /* table.c in Sources */,
 				9487BF2A2089A99A0043BF74 /* notify_client.c in Sources */,
 				94099C762087E7D50004B6BC /* RegisterTests.m in Sources */,
@@ -953,7 +942,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				955DB9282BA3938700D816AE /* notify_loopback_test_helper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -967,6 +955,24 @@
 				2D312B77102CA2E300F90022 /* notify_client.c in Sources */,
 				E6481E7F2165785F00C04412 /* notify_probes.d in Sources */,
 				2D312B78102CA2E300F90022 /* table.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE986A9B2F0C8D6300C51417 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE986AA92F0C948E00C51417 /* notify_ipc.defs in Sources */,
+				EE986AAA2F0C948E00C51417 /* notify.defs in Sources */,
+				EE986AAB2F0C948E00C51417 /* libnotify.c in Sources */,
+				EE986AAC2F0C948E00C51417 /* table.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE986C582F0C9DE600C51417 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -998,12 +1004,18 @@
 			target = 955DB91D2BA377F200D816AE /* notify_loopback_test_helper */;
 			targetProxy = 955DB92A2BA39B8100D816AE /* PBXContainerItemProxy */;
 		};
+		EE986C622F0C9DE600C51417 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */;
+			targetProxy = EE986C612F0C9DE600C51417 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1864C88923F227AC00A383C1 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
@@ -1013,7 +1025,8 @@
 		};
 		1864C88A23F227AC00A383C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
@@ -1023,7 +1036,8 @@
 		};
 		1886391520E1A22F00C8BEA9 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/bin;
@@ -1033,7 +1047,8 @@
 		};
 		1886391620E1A22F00C8BEA9 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/bin;
@@ -1043,7 +1058,8 @@
 		};
 		1DEB91ED08733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = libnotify.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
@@ -1095,55 +1111,17 @@
 		};
 		3FA21AB9148AA8E300099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyd.xcconfig;
 			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
-				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-				);
-				"OTHER_CFLAGS[sdk=appletvos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
-				"OTHER_CFLAGS[sdk=bridgeos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-				);
-				"OTHER_CFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
-				"OTHER_CFLAGS[sdk=watchos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				"OTHER_CPLUSPLUSFLAGS[sdk=appletvos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
-				"OTHER_CPLUSPLUSFLAGS[sdk=bridgeos*]" = "$(OTHER_CFLAGS)";
-				"OTHER_CPLUSPLUSFLAGS[sdk=iphoneos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
-				"OTHER_CPLUSPLUSFLAGS[sdk=watchos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
 		3FA21AC6148AA8F000099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
@@ -1153,7 +1131,8 @@
 		};
 		3FA21AC9148AA93000099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = base.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1182,7 +1161,8 @@
 		};
 		94099C782087E7D50004B6BC /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = libnotify.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1224,7 +1204,11 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = xctests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = (
@@ -1289,7 +1273,8 @@
 		};
 		949B783E208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = libnotify.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
@@ -1297,55 +1282,17 @@
 		};
 		949B783F208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyd.xcconfig;
 			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
-				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-				);
-				"OTHER_CFLAGS[sdk=appletvos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
-				"OTHER_CFLAGS[sdk=bridgeos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-				);
-				"OTHER_CFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
-				"OTHER_CFLAGS[sdk=watchos*]" = (
-					"$(inherited)",
-					"-DSINGLE_THREADED_NOTIFY_STATE=1",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				"OTHER_CPLUSPLUSFLAGS[sdk=appletvos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
-				"OTHER_CPLUSPLUSFLAGS[sdk=bridgeos*]" = "$(OTHER_CFLAGS)";
-				"OTHER_CPLUSPLUSFLAGS[sdk=iphoneos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
-				"OTHER_CPLUSPLUSFLAGS[sdk=watchos*]" = (
-					"$(OTHER_CFLAGS)",
-					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
 		949B7840208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
@@ -1355,7 +1302,8 @@
 		};
 		949B7841208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = base.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1384,7 +1332,8 @@
 		};
 		949B7844208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = libnotify.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1426,7 +1375,11 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = xctests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = (
@@ -1447,7 +1400,8 @@
 		};
 		955DB9242BA377F200D816AE /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tests/notify_loopback_test_helper.entitlements";
@@ -1458,11 +1412,48 @@
 		};
 		955DB9252BA377F200D816AE /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tests/notify_loopback_test_helper.entitlements";
 				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EE986AA72F0C8D6300C51417 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = "notifyd-testing-lib.xcconfig";
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EE986AA82F0C8D6300C51417 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = "notifyd-testing-lib.xcconfig";
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EE986C632F0C9DE600C51417 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = "notifyd-xctests.xcconfig";
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EE986C642F0C9DE600C51417 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = "notifyd-xctests.xcconfig";
+			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1565,6 +1556,24 @@
 			buildConfigurations = (
 				955DB9242BA377F200D816AE /* Release */,
 				955DB9252BA377F200D816AE /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE986AA62F0C8D6300C51417 /* Build configuration list for PBXNativeTarget "notifyd-testing-lib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE986AA72F0C8D6300C51417 /* Release */,
+				EE986AA82F0C8D6300C51417 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE986C652F0C9DE600C51417 /* Build configuration list for PBXNativeTarget "notifyd-xctests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE986C632F0C9DE600C51417 /* Release */,
+				EE986C642F0C9DE600C51417 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

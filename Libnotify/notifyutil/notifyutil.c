@@ -122,7 +122,7 @@ usage(const char *name)
 
 // Triggers a notifyd dump
 static void
-notifyutil_dump()
+notifyutil_dump(void)
 {
 	int ret;
 

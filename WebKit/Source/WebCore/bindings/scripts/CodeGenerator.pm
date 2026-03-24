@@ -1510,6 +1510,8 @@ sub GenerateConditionalStringFromAttributeValue
 
     my %disjunction = map {
         my %conjunction = map {
+            assert("Conditional macros should not include the leading 'ENABLE_'") if $_ =~ /^ENABLE_/;
+
             s/^(!?)(.+)$/$1ENABLE($2)/r => 1
         } split(/&/);
 

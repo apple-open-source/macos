@@ -32,7 +32,7 @@
 #include "DropShadowFilterOperationWithStyleColor.h"
 #include "FilterOperation.h"
 #include "RenderStyle.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleColor.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
 

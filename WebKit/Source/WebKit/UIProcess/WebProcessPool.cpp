@@ -43,6 +43,7 @@
 #include "BrowsingContextGroup.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
+#include "EnhancedSecurity.h"
 #include "FrameProcess.h"
 #include "GPUProcessConnectionParameters.h"
 #include "GamepadData.h"
@@ -404,7 +405,7 @@ void WebProcessPool::setInjectedBundleClient(std::unique_ptr<API::InjectedBundle
     if (!client)
         m_injectedBundleClient = makeUnique<API::InjectedBundleClient>();
     else
-        m_injectedBundleClient = WTFMove(client);
+        m_injectedBundleClient = WTF::move(client);
 }
 
 void WebProcessPool::setHistoryClient(std::unique_ptr<API::LegacyContextHistoryClient>&& historyClient)
@@ -412,12 +413,12 @@ void WebProcessPool::setHistoryClient(std::unique_ptr<API::LegacyContextHistoryC
     if (!historyClient)
         m_historyClient = makeUnique<API::LegacyContextHistoryClient>();
     else
-        m_historyClient = WTFMove(historyClient);
+        m_historyClient = WTF::move(historyClient);
 }
 
 void WebProcessPool::setLegacyDownloadClient(RefPtr<API::DownloadClient>&& client)
 {
-    m_legacyDownloadClient = WTFMove(client);
+    m_legacyDownloadClient = WTF::move(client);
 }
 
 void WebProcessPool::setAutomationClient(std::unique_ptr<API::AutomationClient>&& automationClient)
@@ -425,12 +426,12 @@ void WebProcessPool::setAutomationClient(std::unique_ptr<API::AutomationClient>&
     if (!automationClient)
         m_automationClient = makeUnique<API::AutomationClient>();
     else
-        m_automationClient = WTFMove(automationClient);
+        m_automationClient = WTF::move(automationClient);
 }
 
 void WebProcessPool::setOverrideLanguages(Vector<String>&& languages)
 {
-    WebKit::setOverrideLanguages(WTFMove(languages));
+    WebKit::setOverrideLanguages(WTF::move(languages));
 
     LOG_WITH_STREAM(Language, stream << "WebProcessPool is setting OverrideLanguages: " << languages);
     sendToAllProcesses(Messages::WebProcess::UserPreferredLanguagesChanged(overrideLanguages()));
@@ -567,7 +568,7 @@ void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy
 #if PLATFORM(COCOA)
     parameters.applicationBundleIdentifier = applicationBundleIdentifier();
 #endif
-    ensureProtectedGPUProcess()->createGPUProcessConnection(webProcessProxy, WTFMove(connectionIdentifier), WTFMove(parameters));
+    ensureProtectedGPUProcess()->createGPUProcessConnection(webProcessProxy, WTF::move(connectionIdentifier), WTF::move(parameters));
 }
 #endif // ENABLE(GPU_PROCESS)
 
@@ -630,7 +631,7 @@ void WebProcessPool::createModelProcessConnection(WebProcessProxy& webProcessPro
     parameters.presentingApplicationAuditToken = configuration().presentingApplicationProcessToken();
 #endif
 
-    ensureProtectedModelProcess(webProcessProxy)->createModelProcessConnection(webProcessProxy, WTFMove(connectionIdentifier), WTFMove(parameters));
+    ensureProtectedModelProcess(webProcessProxy)->createModelProcessConnection(webProcessProxy, WTF::move(connectionIdentifier), WTF::move(parameters));
 }
 
 void WebProcessPool::startedPlayingModels(IPC::Connection& connection)
@@ -706,7 +707,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
 
     RefPtr requestingProcess = requestingProcessIdentifier ? WebProcessProxy::processForIdentifier(*requestingProcessIdentifier) : nullptr;
     auto lockdownMode = requestingProcess ? requestingProcess->lockdownMode() : (lockdownModeEnabledBySystem() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled);
-    auto enhancedSecurity = requestingProcess ? requestingProcess->enhancedSecurity() : WebProcessProxy::EnhancedSecurity::Disabled;
+    auto enhancedSecurity = requestingProcess ? requestingProcess->enhancedSecurity() : EnhancedSecurity::Disabled;
     Ref processPool = requestingProcess ? requestingProcess->processPool() : processPools()[0].get();
 
     RefPtr<WebProcessProxy> remoteWorkerProcessProxy;
@@ -774,10 +775,10 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishRemoteWorkerContextConnectionToNetworkProcess creating a new service worker process (process=%p, workerType=%" PUBLIC_LOG_STRING ", PID=%d)", remoteWorkerProcessProxy.get(), workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared", remoteWorkerProcessProxy->processID());
 
         processPool->initializeNewWebProcess(newProcessProxy, websiteDataStore.get());
-        processPool->m_processes.append(WTFMove(newProcessProxy));
+        processPool->m_processes.append(WTF::move(newProcessProxy));
     }
 
-    auto aggregator = CallbackAggregator::create([completionHandler = WTFMove(completionHandler), remoteProcessIdentifier = remoteWorkerProcessProxy->coreProcessIdentifier()]() mutable {
+    auto aggregator = CallbackAggregator::create([completionHandler = WTF::move(completionHandler), remoteProcessIdentifier = remoteWorkerProcessProxy->coreProcessIdentifier()]() mutable {
         completionHandler(remoteProcessIdentifier);
     });
     websiteDataStore->protectedNetworkProcess()->addAllowedFirstPartyForCookies(*remoteWorkerProcessProxy, site.domain(), LoadedWebArchive::No, [aggregator] { });
@@ -839,7 +840,7 @@ void WebProcessPool::resolvePathsForSandboxExtensions()
     platformResolvePathsForSandboxExtensions();
 }
 
-Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websiteDataStore, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, WebProcessProxy::IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode)
+Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websiteDataStore, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, WebProcessProxy::IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode)
 {
     auto processProxy = WebProcessProxy::create(*this, websiteDataStore, lockdownMode, enhancedSecurity, isPrewarmed, crossOriginMode);
     initializeNewWebProcess(processProxy, websiteDataStore, isPrewarmed);
@@ -848,7 +849,7 @@ Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websi
     return processProxy;
 }
 
-RefPtr<WebProcessProxy> WebProcessPool::tryTakePrewarmedProcess(WebsiteDataStore& websiteDataStore, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
+RefPtr<WebProcessProxy> WebProcessPool::tryTakePrewarmedProcess(WebsiteDataStore& websiteDataStore, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
 {
     RefPtr<WebProcessProxy> prewarmedProcess;
 
@@ -912,7 +913,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
     if (!mediaCacheDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(mediaCacheDirectory, SandboxExtension::Type::ReadWrite))
-            mediaCacheDirectoryExtensionHandle = WTFMove(*handle);
+            mediaCacheDirectoryExtensionHandle = WTF::move(*handle);
     }
 #endif
 
@@ -920,7 +921,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     SandboxExtension::Handle mediaKeyStorageDirectoryExtensionHandle;
     if (!mediaKeyStorageDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(mediaKeyStorageDirectory, SandboxExtension::Type::ReadWrite))
-            mediaKeyStorageDirectoryExtensionHandle = WTFMove(*handle);
+            mediaKeyStorageDirectoryExtensionHandle = WTF::move(*handle);
     }
     auto mediaKeyStorageSalt = websiteDataStore.mediaKeysStorageSalt();
 
@@ -933,7 +934,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
     if (!javaScriptConfigurationDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(javaScriptConfigurationDirectory, SandboxExtension::Type::ReadWrite))
-            javaScriptConfigurationDirectoryExtensionHandle = WTFMove(*handle);
+            javaScriptConfigurationDirectoryExtensionHandle = WTF::move(*handle);
     }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW) && !PLATFORM(IOS_FAMILY)
@@ -941,7 +942,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     SandboxExtension::Handle modelElementCacheDirectoryExtensionHandle;
     if (!modelElementCacheDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(modelElementCacheDirectory, SandboxExtension::Type::ReadWrite))
-            modelElementCacheDirectoryExtensionHandle = WTFMove(*handle);
+            modelElementCacheDirectoryExtensionHandle = WTF::move(*handle);
     }
 #endif
 
@@ -951,30 +952,30 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
         if (m_cachedWebContentTempDirectory.isEmpty())
             m_cachedWebContentTempDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(FileSystem::pathByAppendingComponent(directory, webContentServiceName));
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(m_cachedWebContentTempDirectory, SandboxExtension::Type::ReadWrite))
-            containerTemporaryDirectoryExtensionHandle = WTFMove(*handle);
+            containerTemporaryDirectoryExtensionHandle = WTF::move(*handle);
     }
 #endif // PLATFORM(IOS_FAMILY) && !USE(EXTENSIONKIT)
 
     return WebProcessDataStoreParameters {
         websiteDataStore.sessionID(),
-        WTFMove(mediaCacheDirectory),
+        WTF::move(mediaCacheDirectory),
 #if !ENABLE(GPU_PROCESS)
-        WTFMove(mediaCacheDirectoryExtensionHandle),
+        WTF::move(mediaCacheDirectoryExtensionHandle),
 #endif
-        WTFMove(mediaKeyStorageDirectory),
-        WTFMove(mediaKeyStorageDirectoryExtensionHandle),
-        WTFMove(mediaKeyStorageSalt),
-        WTFMove(javaScriptConfigurationDirectory),
-        WTFMove(javaScriptConfigurationDirectoryExtensionHandle),
+        WTF::move(mediaKeyStorageDirectory),
+        WTF::move(mediaKeyStorageDirectoryExtensionHandle),
+        WTF::move(mediaKeyStorageSalt),
+        WTF::move(javaScriptConfigurationDirectory),
+        WTF::move(javaScriptConfigurationDirectoryExtensionHandle),
         websiteDataStore.thirdPartyCookieBlockingMode(),
         m_domainsWithUserInteraction,
         m_domainsWithCrossPageStorageAccessQuirk,
 #if ENABLE(ARKIT_INLINE_PREVIEW) && !PLATFORM(IOS_FAMILY)
-        WTFMove(modelElementCacheDirectory),
-        WTFMove(modelElementCacheDirectoryExtensionHandle),
+        WTF::move(modelElementCacheDirectory),
+        WTF::move(modelElementCacheDirectoryExtensionHandle),
 #endif
 #if PLATFORM(IOS_FAMILY) && !USE(EXTENSIONKIT)
-        WTFMove(containerTemporaryDirectoryExtensionHandle),
+        WTF::move(containerTemporaryDirectoryExtensionHandle),
 #endif
         websiteDataStore.trackingPreventionEnabled()
 #if ENABLE(OPT_IN_PARTITIONED_COOKIES)
@@ -991,7 +992,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.injectedBundlePath = m_resolvedPaths.injectedBundlePath;
     if (!parameters.injectedBundlePath.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(parameters.injectedBundlePath, SandboxExtension::Type::ReadOnly))
-            parameters.injectedBundlePathExtensionHandle = WTFMove(*handle);
+            parameters.injectedBundlePathExtensionHandle = WTF::move(*handle);
     }
 
     parameters.additionalSandboxExtensionHandles = WTF::compactMap(m_resolvedPaths.additionalWebProcessSandboxExtensionPaths, [](auto& path) {
@@ -1080,7 +1081,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     if (websiteDataStore)
         parameters.websiteDataStoreParameters = webProcessDataStoreParameters(process, *websiteDataStore);
 
-    process.initializeWebProcess(WTFMove(parameters));
+    process.initializeWebProcess(WTF::move(parameters));
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     setMediaAccessibilityPreferences(process);
@@ -1124,7 +1125,7 @@ void WebProcessPool::prewarmProcess()
     WEBPROCESSPOOL_RELEASE_LOG(PerformanceLogging, "prewarmProcess: Prewarming a WebProcess for performance");
 
     auto lockdownMode = lockdownModeEnabledBySystem() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
-    auto enhancedSecurity = WebProcessProxy::EnhancedSecurity::Disabled;
+    auto enhancedSecurity = EnhancedSecurity::Disabled;
     createNewWebProcess(nullptr, lockdownMode, enhancedSecurity, WebProcessProxy::IsPrewarmed::Yes);
 }
 
@@ -1174,11 +1175,11 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
         WallTime now = WallTime::now();
         auto sampleLogFilePath = makeString("WebProcess"_s, now.secondsSinceEpoch().secondsAs<uint64_t>(), "pid"_s, process.processID());
         if (auto handleAndFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite)) {
-            sampleLogSandboxHandle = WTFMove(handleAndFilePath->first);
-            sampleLogFilePath = WTFMove(handleAndFilePath->second);
+            sampleLogSandboxHandle = WTF::move(handleAndFilePath->first);
+            sampleLogFilePath = WTF::move(handleAndFilePath->second);
         }
         
-        process.send(Messages::WebProcess::StartMemorySampler(WTFMove(sampleLogSandboxHandle), sampleLogFilePath, m_memorySamplerInterval), 0);
+        process.send(Messages::WebProcess::StartMemorySampler(WTF::move(sampleLogSandboxHandle), sampleLogFilePath, m_memorySamplerInterval), 0);
     }
 
     if (m_configuration->fullySynchronousModeIsAllowedForTesting())
@@ -1262,7 +1263,7 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 #endif
 }
 
-Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDataStore, IsSharedProcess isSharedProcess, const std::optional<Site>& site, const std::optional<Site>& mainFrameSite, const HashSet<RegistrableDomain>& isolatedDomains, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration, ProcessSwapDisposition processSwapDisposition)
+Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDataStore, IsSharedProcess isSharedProcess, const std::optional<Site>& site, const std::optional<Site>& mainFrameSite, const HashSet<RegistrableDomain>& isolatedDomains, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration, ProcessSwapDisposition processSwapDisposition)
 {
     if (isSharedProcess == IsSharedProcess::Yes) {
         ASSERT(mainFrameSite);
@@ -1301,7 +1302,7 @@ Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDat
 
     if (usesSingleWebProcess()) {
 #if PLATFORM(COCOA)
-        bool mustMatchDataStore = WebKit::WebsiteDataStore::defaultDataStoreExists() && &websiteDataStore != WebKit::WebsiteDataStore::defaultDataStore().ptr();
+        bool mustMatchDataStore = WebKit::WebsiteDataStore::defaultDataStoreExists() && &websiteDataStore != &WebKit::WebsiteDataStore::defaultDataStore();
 #else
         bool mustMatchDataStore = false;
 #endif
@@ -1334,7 +1335,10 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 
     RefPtr<WebProcessProxy> process;
     auto lockdownMode = pageConfiguration->lockdownModeEnabled() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
-    auto enhancedSecurity = pageConfiguration->enhancedSecurityEnabled() ? WebProcessProxy::EnhancedSecurity::Enabled : WebProcessProxy::EnhancedSecurity::Disabled;
+
+    bool useEnhancedSecurityFallback = lockdownMode == WebProcessProxy::LockdownMode::Disabled && lockdownModeEnabledBySystem();
+    auto enhancedSecurity = (pageConfiguration->protectedPreferences()->forceEnhancedSecurity() || pageConfiguration->isEnhancedSecurityEnabled() || useEnhancedSecurityFallback) ? EnhancedSecurity::EnabledPolicy : EnhancedSecurity::Disabled;
+
     RefPtr relatedPage = pageConfiguration->relatedPage();
 
     if (auto& openerInfo = pageConfiguration->openerInfo(); openerInfo && Ref { pageConfiguration->preferences() }->siteIsolationEnabled())
@@ -1365,7 +1369,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     
     process->setAllowTestOnlyIPC(pageConfiguration->allowTestOnlyIPC());
 
-    auto page = process->createWebPage(pageClient, WTFMove(pageConfiguration));
+    auto page = process->createWebPage(pageClient, WTF::move(pageConfiguration));
     Ref pagePreference = page->preferences();
 
     if (!m_remoteWorkerPreferences) {
@@ -1535,7 +1539,7 @@ void WebProcessPool::activePagesOriginsInWebProcessForTesting(ProcessID pid, Com
 {
     for (Ref process : m_processes) {
         if (process->processID() == pid)
-            return process->activePagesDomainsForTesting(WTFMove(completionHandler));
+            return process->activePagesDomainsForTesting(WTF::move(completionHandler));
     }
     completionHandler({ });
 }
@@ -1544,7 +1548,7 @@ void WebProcessPool::countWebPagesInAllProcessesForTesting(CompletionHandler<voi
 {
     class ResultAggregator : public RefCounted<ResultAggregator> {
     public:
-        static Ref<ResultAggregator> create(CompletionHandler<void(size_t)>&& completionHandler) { return adoptRef(*new ResultAggregator(WTFMove(completionHandler))); }
+        static Ref<ResultAggregator> create(CompletionHandler<void(size_t)>&& completionHandler) { return adoptRef(*new ResultAggregator(WTF::move(completionHandler))); }
         void addWebPageCount(unsigned count) { m_count += count; }
         ~ResultAggregator()
         {
@@ -1553,13 +1557,13 @@ void WebProcessPool::countWebPagesInAllProcessesForTesting(CompletionHandler<voi
 
     private:
         ResultAggregator(CompletionHandler<void(unsigned)>&& completionHandler)
-            : m_completionHandler(WTFMove(completionHandler)) { }
+            : m_completionHandler(WTF::move(completionHandler)) { }
 
         CompletionHandler<void(unsigned)> m_completionHandler;
         unsigned m_count { 0 };
     };
 
-    Ref aggregator = ResultAggregator::create(WTFMove(completionHandler));
+    Ref aggregator = ResultAggregator::create(WTF::move(completionHandler));
     for (auto& process : m_processes) {
         process->sendWithAsyncReply(Messages::WebProcess::CountWebPagesForTesting(), [aggregator] (unsigned count) mutable {
             aggregator->addWebPageCount(count);
@@ -1710,7 +1714,7 @@ void WebProcessPool::setDefaultRequestTimeoutInterval(double timeoutInterval)
 Ref<DownloadProxy> WebProcessPool::createDownloadProxy(WebsiteDataStore& dataStore, const ResourceRequest& request, WebPageProxy* originatingPage, const std::optional<FrameInfoData>& frameInfo)
 {
     Ref client = m_legacyDownloadClient ? Ref<API::DownloadClient>(*m_legacyDownloadClient) : adoptRef(*new API::DownloadClient);
-    return dataStore.createDownloadProxy(WTFMove(client), request, originatingPage, frameInfo);
+    return dataStore.createDownloadProxy(WTF::move(client), request, originatingPage, frameInfo);
 }
 
 void WebProcessPool::addMessageReceiver(IPC::ReceiverName messageReceiverName, IPC::MessageReceiver& messageReceiver)
@@ -1768,11 +1772,11 @@ void WebProcessPool::startMemorySampler(const double interval)
         WallTime now = WallTime::now();
         auto sampleLogFilePath = makeString("WebProcess"_s, now.secondsSinceEpoch().secondsAs<uint64_t>());
         if (auto handleAndFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite)) {
-            sampleLogSandboxHandle = WTFMove(handleAndFilePath->first);
-            sampleLogFilePath = WTFMove(handleAndFilePath->second);
+            sampleLogSandboxHandle = WTF::move(handleAndFilePath->first);
+            sampleLogFilePath = WTF::move(handleAndFilePath->second);
         }
 
-        process->send(Messages::WebProcess::StartMemorySampler(WTFMove(sampleLogSandboxHandle), sampleLogFilePath, interval), 0);
+        process->send(Messages::WebProcess::StartMemorySampler(WTF::move(sampleLogSandboxHandle), sampleLogFilePath, interval), 0);
     }
 }
 
@@ -1833,7 +1837,7 @@ void WebProcessPool::setAutomationSession(RefPtr<WebAutomationSession>&& automat
     if (RefPtr previousSession = m_automationSession)
         previousSession->setProcessPool(nullptr);
     
-    m_automationSession = WTFMove(automationSession);
+    m_automationSession = WTF::move(automationSession);
 
 #if ENABLE(REMOTE_INSPECTOR)
     if (RefPtr automationSession = m_automationSession) {
@@ -1864,11 +1868,11 @@ bool WebProcessPool::httpPipeliningEnabled() const
 #endif
 }
 
-WebProcessProxy* WebProcessPool::webProcessProxyFromConnection(const IPC::Connection& connection) const
+RefPtr<WebProcessProxy> WebProcessPool::webProcessProxyFromConnection(const IPC::Connection& connection) const
 {
     for (Ref process : m_processes) {
         if (process->hasConnection(connection))
-            return process.unsafePtr();
+            return process;
     }
 
     ASSERT_NOT_REACHED();
@@ -1894,7 +1898,7 @@ void WebProcessPool::handleSynchronousMessage(IPC::Connection& connection, const
     if (!webProcessProxy)
         return completionHandler({ });
 
-    m_injectedBundleClient->didReceiveSynchronousMessageFromInjectedBundle(*this, messageName, webProcessProxy->transformHandlesToObjects(messageBody.protectedObject().get()).get(), [webProcessProxy = Ref { *webProcessProxy }, completionHandler = WTFMove(completionHandler)] (RefPtr<API::Object>&& returnData) mutable {
+    m_injectedBundleClient->didReceiveSynchronousMessageFromInjectedBundle(*this, messageName, webProcessProxy->transformHandlesToObjects(messageBody.protectedObject().get()).get(), [webProcessProxy = Ref { *webProcessProxy }, completionHandler = WTF::move(completionHandler)] (RefPtr<API::Object>&& returnData) mutable {
         completionHandler(UserData(webProcessProxy->transformObjectsToHandles(returnData.get())));
     });
 }
@@ -1921,7 +1925,7 @@ void WebProcessPool::startedUsingGamepads(IPC::Connection& connection)
 
 void WebProcessPool::stoppedUsingGamepads(IPC::Connection& connection, CompletionHandler<void()>&& completionHandler)
 {
-    CompletionHandlerCallingScope callCompletionHandlerOnExit(WTFMove(completionHandler));
+    CompletionHandlerCallingScope callCompletionHandlerOnExit(WTF::move(completionHandler));
     RefPtr proxy = webProcessProxyFromConnection(connection);
     if (!proxy)
         return;
@@ -1932,12 +1936,12 @@ void WebProcessPool::stoppedUsingGamepads(IPC::Connection& connection, Completio
 
 void WebProcessPool::playGamepadEffect(unsigned gamepadIndex, const String& gamepadID, WebCore::GamepadHapticEffectType type, const WebCore::GamepadEffectParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
 {
-    GamepadProvider::singleton().playEffect(gamepadIndex, gamepadID, type, parameters, WTFMove(completionHandler));
+    GamepadProvider::singleton().playEffect(gamepadIndex, gamepadID, type, parameters, WTF::move(completionHandler));
 }
 
 void WebProcessPool::stopGamepadEffects(unsigned gamepadIndex, const String& gamepadID, CompletionHandler<void()>&& completionHandler)
 {
-    GamepadProvider::singleton().stopEffects(gamepadIndex, gamepadID, WTFMove(completionHandler));
+    GamepadProvider::singleton().stopEffects(gamepadIndex, gamepadID, WTF::move(completionHandler));
 }
 
 void WebProcessPool::processStoppedUsingGamepads(WebProcessProxy& process)
@@ -2084,11 +2088,10 @@ void WebProcessPool::updateProcessAssertions()
     // Check on next run loop since the web process proxy tokens are probably being updated.
     callOnMainRunLoop([] {
         remoteWorkerProcesses().forEach([](auto& workerProcess) {
-            Ref protectedWorkerProcess { workerProcess };
-            if (protectedWorkerProcess->isRunningServiceWorkers())
-                protectedWorkerProcess->updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
-            if (protectedWorkerProcess->isRunningSharedWorkers())
-                protectedWorkerProcess->updateRemoteWorkerProcessAssertion(RemoteWorkerType::SharedWorker);
+            if (workerProcess.isRunningServiceWorkers())
+                workerProcess.updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
+            if (workerProcess.isRunningSharedWorkers())
+                workerProcess.updateRemoteWorkerProcessAssertion(RemoteWorkerType::SharedWorker);
         });
     });
 }
@@ -2141,13 +2144,20 @@ unsigned WebProcessPool::prewarmedProcessCountLimit() const
     return m_hasUsedSiteIsolation ? 2 : 1;
 }
 
-void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, const URL& sourceURL, BrowsingContextGroup& browsingContextGroup, IsSharedProcess isSharedProcess, const Site& mainFrameSite, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, LoadedWebArchive loadedWebArchive, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler)
+void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, const URL& sourceURL, BrowsingContextGroup& browsingContextGroup, IsSharedProcess isSharedProcess, const Site& mainFrameSite, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, LoadedWebArchive loadedWebArchive, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler)
 {
     Site site { navigation.currentRequest().url() };
 
     bool siteIsolationEnabled = page.protectedPreferences()->siteIsolationEnabled();
     if (siteIsolationEnabled && !m_hasUsedSiteIsolation)
         m_hasUsedSiteIsolation = true;
+
+    bool isMainFrameNavigation = frame.isMainFrame();
+    Ref sourceProcess = frame.process();
+    if (siteIsolationEnabled && !isMainFrameNavigation && page.didLoadWebArchive()) {
+        ASSERT(sourceProcess.ptr() == &page.protectedMainFrame()->process());
+        return completionHandler(sourceProcess.copyRef(), nullptr, "Navigation is treated as same-site (archive load)"_s);
+    }
 
     if (siteIsolationEnabled && !site.isEmpty()) {
         ASSERT(frameInfo.isMainFrame ? site == mainFrameSite : Site(URL(page.protectedPageLoadState()->activeURL())) == mainFrameSite);
@@ -2159,15 +2169,14 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         RefPtr<WebProcessProxy> process;
         if (RefPtr frameProcess = browsingContextGroup.processForSite(site))
             process = &frameProcess->process();
-        if (process && process->websiteDataStore() == dataStore.ptr() && process->websiteDataStore() == &page.websiteDataStore() && !process->isInProcessCache()) {
-            dataStore->protectedNetworkProcess()->addAllowedFirstPartyForCookies(*process, mainFrameSite.domain(), LoadedWebArchive::No, [completionHandler = WTFMove(completionHandler), process] () mutable {
+        if (process && process->websiteDataStore() == dataStore.ptr() && process->websiteDataStore() == &page.websiteDataStore() && !process->isInProcessCache() && process->lockdownMode() == lockdownMode && enhancedSecurityStatesAreConsistent(process->enhancedSecurity(), enhancedSecurity)) {
+            dataStore->protectedNetworkProcess()->addAllowedFirstPartyForCookies(*process, mainFrameSite.domain(), LoadedWebArchive::No, [completionHandler = WTF::move(completionHandler), process] () mutable {
                 completionHandler(process.releaseNonNull(), nullptr, "Found process for the same site"_s);
             });
             return;
         }
     }
 
-    Ref sourceProcess = frame.process();
     ASSERT(isSharedProcess == IsSharedProcess::No);
     auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, isSharedProcess, mainFrameSite, processSwapRequestedByClient, lockdownMode, enhancedSecurity, frameInfo, dataStore.copyRef());
 
@@ -2190,43 +2199,43 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         LOG(ProcessSwapping, "(ProcessSwapping) Navigating from %s to %s, keeping around old process. Now holding on to old processes for %u origins.", sourceURL.string().utf8().data(), navigation.currentRequest().url().string().utf8().data(), m_swappedProcessesPerRegistrableDomain.size());
     }
 
-    if (!frame.isMainFrame() && siteIsolationEnabled)
-        return completionHandler(WTFMove(process), suspendedPage.get(), reason);
+    if (!isMainFrameNavigation && siteIsolationEnabled)
+        return completionHandler(WTF::move(process), suspendedPage.get(), reason);
 
     ASSERT(process->state() != AuxiliaryProcessProxy::State::Terminated);
-    prepareProcessForNavigation(WTFMove(process), page, suspendedPage.get(), reason, isSharedProcess, site, mainFrameSite, navigation, lockdownMode, enhancedSecurity, loadedWebArchive, WTFMove(dataStore), WTFMove(completionHandler));
+    prepareProcessForNavigation(WTF::move(process), page, suspendedPage.get(), reason, isSharedProcess, site, mainFrameSite, navigation, lockdownMode, enhancedSecurity, loadedWebArchive, WTF::move(dataStore), WTF::move(completionHandler));
 }
 
 void WebProcessPool::prepareProcessForNavigation(Ref<WebProcessProxy>&& process, WebPageProxy& page, SuspendedPageProxy* suspendedPage, ASCIILiteral reason, IsSharedProcess isSharedProcess, const Site& site, const Site& mainFrameSite,
-    const API::Navigation& navigation, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, LoadedWebArchive loadedWebArchive, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler, unsigned previousAttemptsCount)
+    const API::Navigation& navigation, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, LoadedWebArchive loadedWebArchive, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler, unsigned previousAttemptsCount)
 {
     static constexpr unsigned maximumNumberOfAttempts = 3;
     auto preventProcessShutdownScope = process->shutdownPreventingScope();
-    auto callCompletionHandler = [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), page = Ref { page }, navigation = Ref { navigation }, process, preventProcessShutdownScope = WTFMove(preventProcessShutdownScope), reason, dataStore, lockdownMode, enhancedSecurity, loadedWebArchive, previousAttemptsCount, isSharedProcess, site, mainFrameSite](SuspendedPageProxy* suspendedPage) mutable {
+    auto callCompletionHandler = [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler), page = Ref { page }, navigation = Ref { navigation }, process, preventProcessShutdownScope = WTF::move(preventProcessShutdownScope), reason, dataStore, lockdownMode, enhancedSecurity, loadedWebArchive, previousAttemptsCount, isSharedProcess, site, mainFrameSite](SuspendedPageProxy* suspendedPage) mutable {
         // Since the IPC is asynchronous, make sure the destination process and suspended page are still valid.
         if (process->state() == AuxiliaryProcessProxy::State::Terminated && previousAttemptsCount < maximumNumberOfAttempts) {
             // The destination process crashed during the IPC to the network process, use a new process.
             ASSERT(isSharedProcess == IsSharedProcess::No);
             Ref fallbackProcess = processForSite(dataStore, isSharedProcess, site, mainFrameSite, { }, lockdownMode, enhancedSecurity, page->configuration(), WebCore::ProcessSwapDisposition::None);
-            prepareProcessForNavigation(WTFMove(fallbackProcess), page, nullptr, reason, isSharedProcess, site, mainFrameSite, navigation, lockdownMode, enhancedSecurity, loadedWebArchive, WTFMove(dataStore), WTFMove(completionHandler), previousAttemptsCount + 1);
+            prepareProcessForNavigation(WTF::move(fallbackProcess), page, nullptr, reason, isSharedProcess, site, mainFrameSite, navigation, lockdownMode, enhancedSecurity, loadedWebArchive, WTF::move(dataStore), WTF::move(completionHandler), previousAttemptsCount + 1);
             return;
         }
         if (suspendedPage) {
             if (RefPtr targetItem = navigation->targetItem(); !targetItem || suspendedPage != targetItem->suspendedPage())
                 suspendedPage = nullptr;
         }
-        completionHandler(WTFMove(process), suspendedPage, reason);
+        completionHandler(WTF::move(process), suspendedPage, reason);
     };
 
-    dataStore->protectedNetworkProcess()->addAllowedFirstPartyForCookies(process, site.domain(), loadedWebArchive, [callCompletionHandler = WTFMove(callCompletionHandler), weakSuspendedPage = WeakPtr { suspendedPage }]() mutable {
+    dataStore->protectedNetworkProcess()->addAllowedFirstPartyForCookies(process, site.domain(), loadedWebArchive, [callCompletionHandler = WTF::move(callCompletionHandler), weakSuspendedPage = WeakPtr { suspendedPage }]() mutable {
         if (RefPtr suspendedPage = weakSuspendedPage.get())
-            suspendedPage->waitUntilReadyToUnsuspend(WTFMove(callCompletionHandler));
+            suspendedPage->waitUntilReadyToUnsuspend(WTF::move(callCompletionHandler));
         else
             callCompletionHandler(nullptr);
     });
 }
 
-std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& pageSourceURL, IsSharedProcess isSharedProcess, const Site& mainFrameSite, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore)
+std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& pageSourceURL, IsSharedProcess isSharedProcess, const Site& mainFrameSite, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore)
 {
     auto& targetURL = navigation.currentRequest().url();
     auto targetSite = Site { targetURL };
@@ -2238,25 +2247,25 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
     };
 
     if (usesSingleWebProcess())
-        return { WTFMove(sourceProcess), nullptr, "Single WebProcess mode is enabled"_s };
+        return { WTF::move(sourceProcess), nullptr, "Single WebProcess mode is enabled"_s };
 
     if (pageConfiguration->relatedPage() && page.alwaysUseRelatedPageProcess())
-        return { WTFMove(sourceProcess), nullptr, "Always using related page process"_s };
+        return { WTF::move(sourceProcess), nullptr, "Always using related page process"_s };
 
     if (sourceProcess->lockdownMode() != lockdownMode)
         return { createNewProcess(), nullptr, "Process swap due to Lockdown mode change"_s };
 
-    if (sourceProcess->enhancedSecurity() != enhancedSecurity)
+    if (!enhancedSecurityStatesAreConsistent(sourceProcess->enhancedSecurity(), enhancedSecurity))
         return { createNewProcess(), nullptr, "Process swap due to EnhancedSecurity change"_s };
 
     if (processSwapRequestedByClient == ProcessSwapRequestedByClient::Yes)
         return { createNewProcess(), nullptr, "Process swap was requested by the client"_s };
 
     if (!m_configuration->processSwapsOnNavigation())
-        return { WTFMove(sourceProcess), nullptr, "Feature is disabled"_s };
+        return { WTF::move(sourceProcess), nullptr, "Feature is disabled"_s };
 
     if (m_automationSession)
-        return { WTFMove(sourceProcess), nullptr, "An automation session is active"_s };
+        return { WTF::move(sourceProcess), nullptr, "An automation session is active"_s };
 
     // Redirects to a different scheme for which the client has registered their own custom handler.
     // We need to process swap so that we end up with a fresh navigation instead of a redirect, so
@@ -2268,7 +2277,7 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
     bool siteIsolationEnabled = page.protectedPreferences()->siteIsolationEnabled();
     if (!sourceProcess->hasCommittedAnyProvisionalLoads() && !siteIsolationEnabled) {
         tryPrewarmWithDomainInformation(sourceProcess, targetSite.domain());
-        return { WTFMove(sourceProcess), nullptr, "Process has not yet committed any provisional loads"_s };
+        return { WTF::move(sourceProcess), nullptr, "Process has not yet committed any provisional loads"_s };
     }
 
     // FIXME: We should support process swap when a window has been opened via window.open() without 'noopener'.
@@ -2279,9 +2288,9 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
     // may be a response generated by the engine, so consider those navigations as non-client-initiated.
     bool isRequestFromClientOrUserInput = navigation.isRequestFromClientOrUserInput() && !navigation.substituteData();
     if (navigation.openedByDOMWithOpener()
-        && page.mainFrame() && page.mainFrame()->opener()
+        && page.mainFrame() && (page.mainFrame()->opener() || page.mainFrame()->disownedOpener())
         && !(isRequestFromClientOrUserInput || siteIsolationEnabled || page.protectedWebsiteDataStore()->openerTypeForDomain(targetSite.domain()) == RestrictedOpenerType::NoOpener))
-        return { WTFMove(sourceProcess), nullptr, "Browsing context been opened by DOM without 'noopener'"_s };
+        return { WTF::move(sourceProcess), nullptr, "Browsing context been opened by DOM without 'noopener'"_s };
 
     // FIXME: We should support process swap when a window has opened other windows via window.open.
     // Currently we only allow the swap if the user has performed some manual navigation action
@@ -2289,7 +2298,7 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
     if (navigation.hasOpenedFrames()
         && page.hasOpenedPage()
         && !(isRequestFromClientOrUserInput || siteIsolationEnabled))
-        return { WTFMove(sourceProcess), nullptr, "Browsing context has opened other windows"_s };
+        return { WTF::move(sourceProcess), nullptr, "Browsing context has opened other windows"_s };
 
     if (RefPtr targetItem = navigation.targetItem(); targetItem && !siteIsolationEnabled) {
         if (CheckedPtr suspendedPage = targetItem->suspendedPage()) {
@@ -2312,13 +2321,24 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
 
     // If it is the first navigation in a DOM popup and there is no opener, then force a process swap no matter what since
     // popup windows are originally created in their opener's process.
+    // However, if the navigation is same-site with the related page (the opener), keep them in the same process,
+    // IFF the page was initially opened with noopener. If openerFrameIdentifier is set,
+    // the page was originally opened with an opener but COOP severed it, so we should still swap processes.
     // Note that we currently do not process swap if the window popup has a name. In theory, we should be able to swap in this case too
     // but we would need to transfer over the name to the new process. At this point, it is not clear it is worth the extra complexity.
-    if (page.openedByDOM() && !navigation.openedByDOMWithOpener() && !page.hasCommittedAnyProvisionalLoads() && frameInfo.frameName.isEmpty() && !targetURL.protocolIsBlob())
-        return { createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s };
+    if (page.openedByDOM() && !navigation.openedByDOMWithOpener() && !page.hasCommittedAnyProvisionalLoads() && frameInfo.frameName.isEmpty() && !targetURL.protocolIsBlob()) {
+        bool isSameSiteWithRelatedPage = false;
+        if (!page.openerFrameIdentifier() && pageConfiguration->relatedPage()) {
+            RefPtr relatedPage = pageConfiguration->relatedPage();
+            URL relatedPageURL { relatedPage->pageLoadState().url() };
+            isSameSiteWithRelatedPage = relatedPageURL.isValid() && targetSite.matches(relatedPageURL);
+        }
+        if (!isSameSiteWithRelatedPage)
+            return { createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s };
+    }
 
     if (navigation.treatAsSameOriginNavigation())
-        return { WTFMove(sourceProcess), nullptr, "The treatAsSameOriginNavigation flag is set"_s };
+        return { WTF::move(sourceProcess), nullptr, "The treatAsSameOriginNavigation flag is set"_s };
 
     URL sourceURL;
     if (page.isPageOpenedByDOMShowingInitialEmptyDocument() && !navigation.requesterOrigin().isNull())
@@ -2335,20 +2355,20 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
 
     // For non-HTTP(s) URLs, we only swap when navigating to a new scheme, unless processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol is set.
     if (!m_configuration->processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol() && !sourceURL.protocolIsInHTTPFamily() && sourceURL.protocol() == targetURL.protocol() && !siteIsolationEnabled)
-        return { WTFMove(sourceProcess), nullptr, "Navigation within the same non-HTTP(s) protocol"_s };
+        return { WTF::move(sourceProcess), nullptr, "Navigation within the same non-HTTP(s) protocol"_s };
 
     if (!sourceURL.isValid()
         || !targetURL.isValid()
         || sourceURL.isEmpty()
         || (siteIsolationEnabled ? targetSite.matches(sourceURL) : targetSite.domain().matches(sourceURL)))
-        return { WTFMove(sourceProcess), nullptr, "Navigation is same-site"_s };
+        return { WTF::move(sourceProcess), nullptr, "Navigation is same-site"_s };
 
     if (sourceURL.protocolIsAbout()) {
         if (auto sourceSite = sourceProcess->site()) {
             if (!siteIsolationEnabled && sourceSite->domain().matches(targetURL))
-                return { WTFMove(sourceProcess), nullptr, "Navigation is treated as same-site (matched domain)"_s };
+                return { WTF::move(sourceProcess), nullptr, "Navigation is treated as same-site (matched domain)"_s };
             if (siteIsolationEnabled && sourceSite->matches(targetURL))
-                return { WTFMove(sourceProcess), nullptr, "Navigation is treated as same-site (matched site)"_s };
+                return { WTF::move(sourceProcess), nullptr, "Navigation is treated as same-site (matched site)"_s };
         }
 
         const bool treatAsSameSiteForAboutNavigation = [&sourceProcess, &siteIsolationEnabled] {
@@ -2365,7 +2385,7 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
         }();
 
         if (treatAsSameSiteForAboutNavigation)
-            return { WTFMove(sourceProcess), nullptr, "Navigation is treated as same-site"_s };
+            return { WTF::move(sourceProcess), nullptr, "Navigation is treated as same-site"_s };
     }
 
     auto reason = "Navigation is cross-site"_s;
@@ -2470,12 +2490,12 @@ void WebProcessPool::clearCurrentModifierStateForTesting()
 void WebProcessPool::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains)
 {
     sendToAllProcesses(Messages::WebProcess::SetDomainsWithUserInteraction(domains));
-    m_domainsWithUserInteraction = WTFMove(domains);
+    m_domainsWithUserInteraction = WTF::move(domains);
 }
 
 void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {    
-    Ref callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    Ref callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     for (Ref process : processes())
         process->sendWithAsyncReply(Messages::WebProcess::SetDomainsWithCrossPageStorageAccess(domains), [callbackAggregator] { });
@@ -2486,7 +2506,7 @@ void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain
 
 void WebProcessPool::seedResourceLoadStatisticsForTesting(const RegistrableDomain& firstPartyDomain, const RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&& completionHandler)
 {
-    Ref callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    Ref callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     for (Ref process : processes())
         process->sendWithAsyncReply(Messages::WebProcess::SeedResourceLoadStatisticsForTesting(firstPartyDomain, thirdPartyDomain, shouldScheduleNotification), [callbackAggregator] { });
@@ -2494,7 +2514,7 @@ void WebProcessPool::seedResourceLoadStatisticsForTesting(const RegistrableDomai
 
 void WebProcessPool::sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&& completionHandler)
 {
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    auto callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     for (Ref process : processes()) {
         // WebProcess already flushes outstanding stats to NetworkProcess on suspend, so there's no
@@ -2617,7 +2637,7 @@ void WebProcessPool::isJITDisabledInAllRemoteWorkerProcesses(CompletionHandler<v
 {
     class JITDisabledCallbackAggregator : public RefCounted<JITDisabledCallbackAggregator> {
     public:
-        static auto create(CompletionHandler<void(bool)>&& callback) { return adoptRef(*new JITDisabledCallbackAggregator(WTFMove(callback))); }
+        static auto create(CompletionHandler<void(bool)>&& callback) { return adoptRef(*new JITDisabledCallbackAggregator(WTF::move(callback))); }
 
         ~JITDisabledCallbackAggregator()
         {
@@ -2629,14 +2649,14 @@ void WebProcessPool::isJITDisabledInAllRemoteWorkerProcesses(CompletionHandler<v
 
     private:
         explicit JITDisabledCallbackAggregator(CompletionHandler<void(bool)>&& callback)
-            : m_callback(WTFMove(callback))
+            : m_callback(WTF::move(callback))
         { }
 
         CompletionHandler<void(bool)> m_callback;
         bool m_isJITDisabled { true };
     };
 
-    Ref callbackAggregator = JITDisabledCallbackAggregator::create(WTFMove(completionHandler));
+    Ref callbackAggregator = JITDisabledCallbackAggregator::create(WTF::move(completionHandler));
     remoteWorkerProcesses().forEach([&](auto& process) {
         process.sendWithAsyncReply(Messages::WebProcess::IsJITEnabled(), [callbackAggregator](bool isJITEnabled) {
             callbackAggregator->setJITEnabled(isJITEnabled);
@@ -2700,7 +2720,7 @@ void WebProcessPool::observeScriptTrackingPrivacyUpdatesIfNeeded()
             return;
 
         if (auto data = ScriptTrackingPrivacyController::sharedSingleton().cachedListData(); !data.isEmpty())
-            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateScriptTrackingPrivacyFilter(WTFMove(data)));
+            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateScriptTrackingPrivacyFilter(WTF::move(data)));
     });
     controller->initializeIfNeeded();
 }
@@ -2846,7 +2866,7 @@ void WebProcessPool::updateWebProcessSuspensionDelay()
         remainingProcesses.add(process);
     }
 
-    updateWebProcessSuspensionDelayWithPacing(WTFMove(remainingProcesses));
+    updateWebProcessSuspensionDelayWithPacing(WTF::move(remainingProcesses));
 }
 
 void WebProcessPool::updateWebProcessSuspensionDelayWithPacing(WeakHashSet<WebProcessProxy>&& processes)
@@ -2861,9 +2881,9 @@ void WebProcessPool::updateWebProcessSuspensionDelayWithPacing(WeakHashSet<WebPr
     // triggers other operations (like full GC and cache clearing) that can be expensive. We pace
     // these state changes to reduce the likelihood of CPU or swap storms.
     static constexpr Seconds intervalBetweenUpdates { 500_ms };
-    WorkQueue::mainSingleton().dispatchAfter(intervalBetweenUpdates, [weakThis = WeakPtr { *this }, processes = WTFMove(processes)]() mutable {
+    WorkQueue::mainSingleton().dispatchAfter(intervalBetweenUpdates, [weakThis = WeakPtr { *this }, processes = WTF::move(processes)]() mutable {
         if (RefPtr protectedThis = weakThis.get())
-            protectedThis->updateWebProcessSuspensionDelayWithPacing(WTFMove(processes));
+            protectedThis->updateWebProcessSuspensionDelayWithPacing(WTF::move(processes));
     });
 }
 
@@ -2930,7 +2950,7 @@ void WebProcessPool::loadOrUpdateResourceMonitorRuleList()
 
 void WebProcessPool::setResourceMonitorURLsForTesting(const String& rulesText, CompletionHandler<void()>&& completionHandler)
 {
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    auto callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     platformCompileResourceMonitorRuleList(rulesText, [weakThis = WeakPtr { *this }, callbackAggregator](auto ruleList) {
         RefPtr protectedThis = weakThis.get();
@@ -2980,7 +3000,7 @@ void WebProcessPool::initializeAccessibilityIfNecessary()
 
     for (auto& process : m_processes) {
         auto handleArray = SandboxExtension::createHandlesForMachLookup({ }, process->auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
-        process->send(Messages::WebProcess::InitializeAccessibility(WTFMove(handleArray)), 0);
+        process->send(Messages::WebProcess::InitializeAccessibility(WTF::move(handleArray)), 0);
     }
 
     m_hasReceivedAXRequestInUIProcess = true;

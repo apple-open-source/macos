@@ -63,7 +63,7 @@ class MediaStreamTrack
     , private LoggerHelper
 #endif
 {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaStreamTrack);
+    WTF_MAKE_TZONE_ALLOCATED(MediaStreamTrack);
 public:
     class Observer {
     public:
@@ -76,7 +76,7 @@ public:
     static Ref<MediaStreamTrack> create(ScriptExecutionContext&, UniqueRef<MediaStreamTrackDataHolder>&&);
     virtual ~MediaStreamTrack();
 
-    // ContextDestructionObserver.
+    // ContextDestructionObserver, AudioCaptureSource.
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
     USING_CAN_MAKE_WEAKPTR(EventTarget);
@@ -147,11 +147,12 @@ public:
     Ref<PhotoSettingsPromise> getPhotoSettings();
 
     const MediaTrackConstraints& getConstraints() const { return m_constraints; }
-    void setConstraints(MediaTrackConstraints&& constraints) { m_constraints = WTFMove(constraints); }
+    void setConstraints(MediaTrackConstraints&& constraints) { m_constraints = WTF::move(constraints); }
 
     void applyConstraints(const std::optional<MediaTrackConstraints>&, DOMPromiseDeferred<void>&&);
 
     RealtimeMediaSource& source() const { return m_private->source(); }
+    Ref<RealtimeMediaSource> protectedSource() const { return source(); }
     RealtimeMediaSource& sourceForProcessor() const { return m_private->sourceForProcessor(); }
     MediaStreamTrackPrivate& privateTrack() { return m_private.get(); }
     const MediaStreamTrackPrivate& privateTrack() const { return m_private.get(); }
@@ -165,7 +166,7 @@ public:
     void addObserver(Observer&);
     void removeObserver(Observer&);
 
-    void setIdForTesting(String&& id) { m_private->setIdForTesting(WTFMove(id)); }
+    void setIdForTesting(String&& id) { m_private->setIdForTesting(WTF::move(id)); }
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_private->logger(); }
@@ -249,5 +250,7 @@ private:
 typedef Vector<Ref<MediaStreamTrack>> MediaStreamTrackVector;
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaStreamTrack)
 
 #endif // ENABLE(MEDIA_STREAM)

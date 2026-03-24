@@ -53,7 +53,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(OpenXRLayer);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(OpenXRLayerProjection);
 
 OpenXRLayer::OpenXRLayer(UniqueRef<OpenXRSwapchain>&& swapchain)
-    : m_swapchain(WTFMove(swapchain))
+    : m_swapchain(WTF::move(swapchain))
 {
 }
 
@@ -205,9 +205,9 @@ std::optional<PlatformXR::FrameData::ExternalTexture> OpenXRLayer::exportOpenXRT
     });
 
     return PlatformXR::FrameData::ExternalTexture {
-        .fds = WTFMove(fds),
-        .strides = WTFMove(strides),
-        .offsets = WTFMove(offsets),
+        .fds = WTF::move(fds),
+        .strides = WTF::move(strides),
+        .offsets = WTF::move(offsets),
         .fourcc = static_cast<uint32_t>(fourcc),
         .modifier = modifier,
     };
@@ -222,15 +222,21 @@ void OpenXRLayer::setGBMDevice(RefPtr<WebCore::GBMDevice> gbmDevice)
 
 std::optional<PlatformXR::FrameData::ExternalTexture> OpenXRLayer::exportOpenXRTextureGBM(WebCore::GLDisplay& display, PlatformGLObject openxrTexture)
 {
-    WebCore::FourCC preferredDMABufFormat = m_swapchain->hasAlpha() == OpenXRSwapchain::HasAlpha::Yes ? DRM_FORMAT_ARGB8888 : DRM_FORMAT_XRGB8888;
+    static constexpr std::array<WebCore::FourCC, 3> preferredAlphaDRMFormats = { DRM_FORMAT_ARGB8888, DRM_FORMAT_RGBA8888, DRM_FORMAT_ABGR8888 };
+    static constexpr std::array<WebCore::FourCC, 3> preferredNoAlphaDRMFormats = { DRM_FORMAT_XRGB8888, DRM_FORMAT_RGBX8888, DRM_FORMAT_BGRX8888 };
+    const auto& preferredDRMFormats = m_swapchain->hasAlpha() == OpenXRSwapchain::HasAlpha::Yes ? preferredAlphaDRMFormats : preferredNoAlphaDRMFormats;
     WebCore::GLDisplay::BufferFormat format;
     const auto& supportedFormats = display.bufferFormats();
-    for (const auto& supportedFormat : supportedFormats) {
-        if (supportedFormat.fourcc == preferredDMABufFormat) {
-            format = supportedFormat;
+    for (const auto& preferredFormat : preferredDRMFormats) {
+        auto matchIndex = supportedFormats.findIf([preferredFormat](const auto& supportedFormat) {
+            return supportedFormat.fourcc == preferredFormat;
+        });
+        if (matchIndex != notFound) {
+            format = supportedFormats[matchIndex];
             break;
         }
     }
+
     if (!format.fourcc.value) {
         RELEASE_LOG(XR, "OpenXR texture format not supported");
         return std::nullopt;
@@ -314,9 +320,9 @@ std::optional<PlatformXR::FrameData::ExternalTexture> OpenXRLayer::exportOpenXRT
     m_exportedTexturesMap.add(openxrTexture, exportedTexture);
 
     return PlatformXR::FrameData::ExternalTexture {
-        .fds = WTFMove(fds),
-        .strides = WTFMove(strides),
-        .offsets = WTFMove(offsets),
+        .fds = WTF::move(fds),
+        .strides = WTF::move(strides),
+        .offsets = WTF::move(offsets),
         .fourcc = fourcc,
         .modifier = modifier
     };
@@ -373,11 +379,11 @@ std::optional<PlatformXR::FrameData::ExternalTexture> OpenXRLayer::exportOpenXRT
 
 std::unique_ptr<OpenXRLayerProjection> OpenXRLayerProjection::create(std::unique_ptr<OpenXRSwapchain>&& swapchain)
 {
-    return std::unique_ptr<OpenXRLayerProjection>(new OpenXRLayerProjection(makeUniqueRefFromNonNullUniquePtr(WTFMove(swapchain))));
+    return std::unique_ptr<OpenXRLayerProjection>(new OpenXRLayerProjection(makeUniqueRefFromNonNullUniquePtr(WTF::move(swapchain))));
 }
 
 OpenXRLayerProjection::OpenXRLayerProjection(UniqueRef<OpenXRSwapchain>&& swapchain)
-    : OpenXRLayer(WTFMove(swapchain))
+    : OpenXRLayer(WTF::move(swapchain))
     , m_layerProjection(createOpenXRStruct<XrCompositionLayerProjection, XR_TYPE_COMPOSITION_LAYER_PROJECTION>())
 {
 }
@@ -407,7 +413,7 @@ std::optional<PlatformXR::FrameData::LayerData> OpenXRLayerProjection::startFram
     if (!externalTexture)
         return std::nullopt;
 
-    layerData.textureData->colorTexture = WTFMove(externalTexture.value());
+    layerData.textureData->colorTexture = WTF::move(externalTexture.value());
 
     auto halfWidth = m_swapchain->width() / 2;
     layerData.layerSetup = {

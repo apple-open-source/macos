@@ -64,6 +64,7 @@ public:
 protected:
     ScrollingTreeFrameScrollingNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
 
+    FloatSize sizeForVisibleContent() const { return m_sizeForVisibleContent; }
     FloatPoint minLayoutViewportOrigin() const { return m_minLayoutViewportOrigin; }
     FloatPoint maxLayoutViewportOrigin() const { return m_maxLayoutViewportOrigin; }
 
@@ -77,6 +78,7 @@ private:
     void dumpProperties(WTF::TextStream&, OptionSet<ScrollingStateTreeAsTextBehavior>) const override;
 
     FloatRect m_layoutViewport;
+    FloatSize m_sizeForVisibleContent;
     FloatPoint m_minLayoutViewportOrigin;
     FloatPoint m_maxLayoutViewportOrigin;
     std::optional<FloatSize> m_overrideVisualViewportSize;

@@ -56,7 +56,7 @@ class PageClientImpl final : public PageClientImplCocoa
     , public WebFullScreenManagerProxyClient
 #endif
     {
-    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PageClientImpl);
+    WTF_MAKE_TZONE_ALLOCATED(PageClientImpl);
 #if ENABLE(FULLSCREEN_API)
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PageClientImpl);
 #endif
@@ -324,6 +324,10 @@ private:
     void didEnterFullscreen() final { }
     void didExitFullscreen() final { }
     void didCleanupFullscreen() final { }
+#endif
+
+#if ENABLE(VIDEO)
+    void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&&) final;
 #endif
 
     CheckedPtr<WebViewImpl> checkedImpl() const { return m_impl.get(); }

@@ -84,21 +84,18 @@ WebPrintOperationGtk::PrintPagesData::PrintPagesData(WebPrintOperationGtk* print
     }
 
     if (printOperation->m_pagesToPrint == GTK_PRINT_PAGES_RANGES) {
-        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GTK port
         Vector<GtkPageRange> pageRanges;
-        GtkPageRange* ranges = printOperation->m_pageRanges;
-        size_t rangesCount = printOperation->m_pageRangesCount;
+        pageRanges.reserveCapacity(printOperation->m_pageRanges.span().size());
         int pageCount = printOperation->pageCount();
 
-        pageRanges.reserveCapacity(rangesCount);
-        for (size_t i = 0; i < rangesCount; ++i) {
-            if (ranges[i].start >= 0 && ranges[i].start < pageCount && ranges[i].end >= 0 && ranges[i].end < pageCount)
-                pageRanges.append(ranges[i]);
-            else if (ranges[i].start >= 0 && ranges[i].start < pageCount && ranges[i].end >= pageCount) {
-                pageRanges.append(ranges[i]);
+        for (const auto& range : printOperation->m_pageRanges.span()) {
+            if (range.start >= 0 && range.start < pageCount && range.end >= 0 && range.end < pageCount)
+                pageRanges.append(range);
+            else if (range.start >= 0 && range.start < pageCount && range.end >= pageCount) {
+                pageRanges.append(range);
                 pageRanges.last().end = pageCount - 1;
-            } else if (ranges[i].end >= 0 && ranges[i].end < pageCount && ranges[i].start < 0) {
-                pageRanges.append(ranges[i]);
+            } else if (range.end >= 0 && range.end < pageCount && range.start < 0) {
+                pageRanges.append(range);
                 pageRanges.last().start = 0;
             }
         }
@@ -107,7 +104,6 @@ WebPrintOperationGtk::PrintPagesData::PrintPagesData(WebPrintOperationGtk* print
             for (int j = pageRanges[i].start; j <= pageRanges[i].end; ++j)
                 pages.append(j);
         }
-        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     } else {
         for (int i = 0; i < printOperation->pageCount(); ++i)
             pages.append(i);
@@ -217,7 +213,7 @@ WebPrintOperationGtk::~WebPrintOperationGtk()
 void WebPrintOperationGtk::startPrint(WebCore::PrintContext* printContext, CompletionHandler<void(RefPtr<WebCore::FragmentedSharedBuffer>&&, WebCore::ResourceError&&)>&& completionHandler)
 {
     m_printContext = printContext;
-    m_completionHandler = WTFMove(completionHandler);
+    m_completionHandler = WTF::move(completionHandler);
 
     const char* outputFormat = gtk_print_settings_get(m_printSettings.get(), GTK_PRINT_SETTINGS_OUTPUT_FILE_FORMAT);
 
@@ -260,9 +256,11 @@ void WebPrintOperationGtk::startPrint(WebCore::PrintContext* printContext, Compl
     RELEASE_ASSERT(!g_strcmp0(outputFormat, "pdf"));
 #endif
 
-    int rangesCount;
-    m_pageRanges = gtk_print_settings_get_page_ranges(m_printSettings.get(), &rangesCount);
-    m_pageRangesCount = rangesCount;
+    {
+        int rangesCount;
+        auto* ranges = gtk_print_settings_get_page_ranges(m_printSettings.get(), &rangesCount);
+        m_pageRanges = adoptGMallocSpan(unsafeMakeSpan(ranges, rangesCount));
+    }
     m_pagesToPrint = gtk_print_settings_get_print_pages(m_printSettings.get());
     m_needsRotation = gtk_print_settings_get_bool(m_printSettings.get(), "wk-rotate-to-orientation");
 
@@ -335,7 +333,7 @@ void WebPrintOperationGtk::endPage(cairo_t* cr)
 void WebPrintOperationGtk::endPrint(cairo_t* cr)
 {
     cairo_surface_finish(cairo_get_target(cr));
-    printDone(m_buffer.take(), { });
+    printDone(m_buffer.takeBuffer(), { });
 }
 #elif USE(SKIA)
 void WebPrintOperationGtk::startPage(SkPictureRecorder& recorder)
@@ -768,7 +766,7 @@ void WebPrintOperationGtk::printDone(RefPtr<WebCore::FragmentedSharedBuffer>&& b
 
     // Print finished or failed, notify the UI process that we are done if the page hasn't been closed.
     if (m_completionHandler)
-        m_completionHandler(WTFMove(buffer), WTFMove(error));
+        m_completionHandler(WTF::move(buffer), WTF::move(error));
 }
 
 #if USE(CAIRO)

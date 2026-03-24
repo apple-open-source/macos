@@ -399,7 +399,7 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
         || (deltaY > 0 && scrollOffset.y() <= minPosition.y()))
         deltaY = 0;
 
-    if (wheelEvent.granularity() == ScrollByPageWheelEvent) {
+    if (wheelEvent.granularity() == PlatformWheelEventGranularity::ScrollByPageWheelEvent) {
         if (deltaX) {
             bool negative = deltaX < 0;
             deltaX = Scrollbar::pageStepDelta(extents.contentsSize.width());

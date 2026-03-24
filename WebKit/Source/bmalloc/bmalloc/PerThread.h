@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BInline.h"
 #include "BPlatform.h"
 #include "PerHeapKind.h"
@@ -163,3 +165,5 @@ T* PerThread<T>::getSlowCase()
 } // namespace bmalloc
 
 #endif
+
+#endif // __cplusplus

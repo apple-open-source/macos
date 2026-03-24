@@ -37,6 +37,7 @@
 #include <WebCore/CachedResource.h>
 #include <WebCore/InspectorWebAgentBase.h>
 #include <WebCore/LayoutRect.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/Platform.h>
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/Seconds.h>
@@ -60,9 +61,10 @@ class Page;
 class RenderObject;
 class FragmentedSharedBuffer;
 
-class InspectorPageAgent final : public InspectorAgentBase, public Inspector::PageBackendDispatcherHandler {
+class InspectorPageAgent final : public InspectorAgentBase, public Inspector::PageBackendDispatcherHandler, public CanMakeCheckedPtr<InspectorPageAgent> {
     WTF_MAKE_NONCOPYABLE(InspectorPageAgent);
     WTF_MAKE_TZONE_ALLOCATED(InspectorPageAgent);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(InspectorPageAgent);
 public:
     InspectorPageAgent(PageAgentContext&, InspectorBackendClient*, InspectorOverlay&);
     ~InspectorPageAgent();
@@ -75,7 +77,6 @@ public:
     Inspector::Protocol::ErrorStringOr<void> enable();
     Inspector::Protocol::ErrorStringOr<void> disable();
     Inspector::Protocol::ErrorStringOr<void> reload(std::optional<bool>&& ignoreCache, std::optional<bool>&& revalidateAllResources);
-    Inspector::Protocol::ErrorStringOr<void> navigate(const String& url);
     Inspector::Protocol::ErrorStringOr<void> overrideUserAgent(const String&);
     Inspector::Protocol::ErrorStringOr<void> overrideSetting(Inspector::Protocol::Page::Setting, std::optional<bool>&& value);
     Inspector::Protocol::ErrorStringOr<void> overrideUserPreference(Inspector::Protocol::Page::UserPreferenceName, std::optional<Inspector::Protocol::Page::UserPreferenceValue>&&);

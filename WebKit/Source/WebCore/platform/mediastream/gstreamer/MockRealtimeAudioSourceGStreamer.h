@@ -39,6 +39,11 @@ public:
 
     ~MockRealtimeAudioSourceGStreamer();
 
+    using MockRealtimeAudioSource::ref;
+    using MockRealtimeAudioSource::deref;
+    void virtualRef() const final { MockRealtimeAudioSource::ref(); }
+    void virtualDeref() const final { MockRealtimeAudioSource::deref(); }
+
     // GStreamerCapturerObserver
     void captureEnded() final;
     void captureDeviceUpdated(const GStreamerCaptureDevice&) final;

@@ -122,6 +122,7 @@
 0755	root	wheel	System/Library/Templates/Data/home
 0755	root	wheel	System/Library/Templates/Data/mnt
 0755	root	wheel	System/Library/Templates/Data/opt
+0755	root	wheel	System/Library/Templates/Data/pkg
 0755	root	wheel	System/Library/Templates/Data/sw
 0755	root	wheel	System/Library/Templates/Data/usr
 0755	root	wheel	System/Library/Templates/Data/usr/local

@@ -30,6 +30,7 @@
 #include "PDFPluginIdentifier.h"
 #include "PasteboardAccessIntent.h"
 #include "SameDocumentNavigationType.h"
+#include "TransactionID.h"
 #include "WebPopupMenuProxy.h"
 #include "WindowKind.h"
 #include <WebCore/ActivityState.h>
@@ -44,7 +45,9 @@
 #include <WebCore/ExceptionData.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/InputMode.h>
+#include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ShareableBitmap.h>
@@ -131,10 +134,13 @@ enum class DOMPasteRequiresInteraction : bool;
 enum class ScrollIsAnimated : bool;
 
 struct AppHighlight;
+struct AriaNotifyData;
 struct DataDetectorElementInfo;
 struct DictionaryPopupInfo;
 struct ElementContext;
 struct FixedContainerEdges;
+struct LiveRegionAnnouncementData;
+struct ResolvedCaptionDisplaySettingsOptions;
 struct TextIndicatorData;
 struct ShareDataWithParsedURL;
 
@@ -208,6 +214,8 @@ struct FocusedElementInformation;
 struct FrameInfoData;
 struct InteractionInformationAtPosition;
 struct KeyEventInterpretationContext;
+struct MainFrameData;
+struct PageData;
 struct WebAutocorrectionContext;
 struct WebHitTestResultData;
 
@@ -387,7 +395,7 @@ public:
     virtual void selectionDidChange() = 0;
 #endif
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
     virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) = 0;
 #endif
 
@@ -410,6 +418,8 @@ public:
     virtual WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) = 0;
 #if PLATFORM(IOS_FAMILY)
     virtual void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&) = 0;
+    virtual void relayAriaNotifyNotification(const WebCore::AriaNotifyData&) = 0;
+    virtual void relayLiveRegionNotification(const WebCore::LiveRegionAnnouncementData&) = 0;
 #endif
 #if PLATFORM(MAC)
     virtual WebCore::IntRect rootViewToWindow(const WebCore::IntRect&) = 0;
@@ -540,7 +550,8 @@ public:
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(COCOA)
-    virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&) = 0;
+    virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&, const std::optional<MainFrameData>&, const PageData&, const TransactionID&) = 0;
+    virtual void didCommitMainFrameData(const MainFrameData&) = 0;
     virtual void layerTreeCommitComplete() { }
 
     virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;
@@ -677,7 +688,7 @@ public:
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
-    virtual void showMediaControlsContextMenu(WebCore::FloatRect&&, Vector<WebCore::MediaControlsContextMenuItem>&&, CompletionHandler<void(WebCore::MediaControlsContextMenuItem::ID)>&& completionHandler) { completionHandler(WebCore::MediaControlsContextMenuItem::invalidID); }
+    virtual void showMediaControlsContextMenu(WebCore::FloatRect&&, Vector<WebCore::MediaControlsContextMenuItem>&&, const FrameInfoData&, WebCore::HTMLMediaElementIdentifier, CompletionHandler<void(WebCore::MediaControlsContextMenuItem::ID)>&& completionHandler) { completionHandler(WebCore::MediaControlsContextMenuItem::invalidID); }
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
     
 #if PLATFORM(MAC)
@@ -812,7 +823,7 @@ public:
 #endif
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    virtual const String& spatialTrackingLabel() const = 0;
+    virtual String spatialTrackingLabel() const = 0;
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -840,6 +851,16 @@ public:
 #if ENABLE(POINTER_LOCK)
     virtual void beginPointerLockMouseTracking() { }
     virtual void endPointerLockMouseTracking() { }
+#endif
+
+#if ENABLE(VIDEO)
+    virtual void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&&);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    virtual void allowImmersiveElementFromURL(const URL&, CompletionHandler<void(bool)>&& completion) const { completion(false); }
+    virtual void presentImmersiveElement(const WebCore::LayerHostingContextIdentifier, CompletionHandler<void(bool)>&& completion) const { completion(false); }
+    virtual void dismissImmersiveElement(CompletionHandler<void()>&& completion) const { completion(); }
 #endif
 };
 

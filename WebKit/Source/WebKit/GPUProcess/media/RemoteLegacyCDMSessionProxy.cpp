@@ -42,6 +42,8 @@ namespace WebKit {
 
 using namespace WebCore;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLegacyCDMSessionProxy);
+
 Ref<RemoteLegacyCDMSessionProxy> RemoteLegacyCDMSessionProxy::create(RemoteLegacyCDMFactoryProxy& factory, uint64_t logIdentifier, RemoteLegacyCDMSessionIdentifier sessionIdentifier, WebCore::LegacyCDM& cdm)
 {
     return adoptRef(*new RemoteLegacyCDMSessionProxy(factory, logIdentifier, sessionIdentifier, cdm));
@@ -94,7 +96,7 @@ void RemoteLegacyCDMSessionProxy::generateKeyRequest(const String& mimeType, Ref
         return;
     }
     
-    auto initDataArray = convertToUint8Array(WTFMove(initData));
+    auto initDataArray = convertToUint8Array(WTF::move(initData));
     if (!initDataArray) {
         completion({ }, emptyString(), 0, 0);
         return;
@@ -126,7 +128,7 @@ void RemoteLegacyCDMSessionProxy::update(RefPtr<SharedBuffer>&& update, UpdateCa
         return;
     }
     
-    auto updateArray = convertToUint8Array(WTFMove(update));
+    auto updateArray = convertToUint8Array(WTF::move(update));
     if (!updateArray) {
         completion(false, nullptr, 0, 0);
         return;

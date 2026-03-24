@@ -99,7 +99,7 @@ Vector<Ref<HistoryItem>> WebBackForwardListProxy::allItems(FrameIdentifier frame
 
     Vector<Ref<HistoryItem>> allItems;
     for (Ref frameState : allFrameStates)
-        allItems.append(toHistoryItem(historyItemClient, WTFMove(frameState)));
+        allItems.append(toHistoryItem(historyItemClient, WTF::move(frameState)));
 
     return allItems;
 }

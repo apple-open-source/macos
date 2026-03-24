@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(MAC) && ENABLE(SCROLLING_THREAD)
+#if PLATFORM(MAC)
 
 #include "DisplayLinkObserverID.h"
 #include "MomentumEventDispatcher.h"
@@ -42,12 +42,15 @@
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/threads/BinarySemaphore.h>
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #include "RemoteAnimationStack.h"
-#include "RemoteAnimationTimeline.h"
+#include "RemoteMonotonicTimelineRegistry.h"
 #endif
 
 namespace WebCore {
+#if ENABLE(THREADED_ANIMATIONS)
+class AcceleratedTimeline;
+#endif
 class PlatformWheelEvent;
 class WheelEventDeltaFilter;
 struct WheelEventHandlingResult;
@@ -61,16 +64,15 @@ namespace WebKit {
 
 class DisplayLink;
 class NativeWebWheelEvent;
-class RemoteAnimationStack;
+#if ENABLE(THREADED_ANIMATIONS)
+class RemoteAnimationTimeline;
+class RemoteProgressBasedTimeline;
+#endif
 class RemoteScrollingCoordinatorProxyMac;
 class RemoteLayerTreeDrawingAreaProxyMac;
 class RemoteLayerTreeNode;
 class RemoteScrollingTree;
 class RemoteLayerTreeEventDispatcherDisplayLinkClient;
-
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-class RemoteAnimationTimeline;
-#endif
 
 // This class exists to act as a threadsafe DisplayLink::Client client, allowing RemoteScrollingCoordinatorProxyMac to
 // be main-thread only. It's the UI-process analogue of WebPage/EventDispatcher.
@@ -105,14 +107,16 @@ public:
 
     void renderingUpdateComplete();
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     void lockForAnimationChanges() WTF_ACQUIRES_LOCK(m_animationLock);
     void unlockForAnimationChanges() WTF_RELEASES_LOCK(m_animationLock);
     void animationsWereAddedToNode(RemoteLayerTreeNode&);
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&);
+    void updateTimelinesRegistration(WebCore::ProcessIdentifier, const WebCore::AcceleratedTimelinesUpdate&, MonotonicTime);
+    RefPtr<const RemoteAnimationTimeline> timeline(const TimelineID&);
     void updateAnimations();
-    void registerTimelineIfNecessary(WebCore::ProcessIdentifier, Seconds, MonotonicTime);
-    const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const;
+    RefPtr<const RemoteAnimationStack> animationStackForNodeWithIDForTesting(WebCore::PlatformLayerIdentifier) const;
+    HashSet<Ref<RemoteProgressBasedTimeline>> timelinesForScrollingNodeIDForTesting(WebCore::ScrollingNodeID);
 #endif
 
 private:
@@ -198,12 +202,12 @@ private:
 
     std::unique_ptr<RunLoop::Timer> m_delayedRenderingUpdateDetectionTimer;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     // For WTF_ACQUIRES_LOCK
     friend class RemoteScrollingCoordinatorProxyMac;
     Lock m_animationLock;
     HashMap<WebCore::PlatformLayerIdentifier, Ref<RemoteAnimationStack>> m_animationStacks WTF_GUARDED_BY_LOCK(m_animationLock);
-    HashMap<WebCore::ProcessIdentifier, Ref<RemoteAnimationTimeline>> m_timelines WTF_GUARDED_BY_LOCK(m_animationLock);
+    std::unique_ptr<RemoteMonotonicTimelineRegistry> m_monotonicTimelineRegistry WTF_GUARDED_BY_LOCK(m_animationLock);
 #endif
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
@@ -214,4 +218,4 @@ private:
 
 } // namespace WebKit
 
-#endif // PLATFORM(MAC) && ENABLE(SCROLLING_THREAD)
+#endif // PLATFORM(MAC)

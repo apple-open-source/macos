@@ -28,6 +28,7 @@
 #include <Foundation/Foundation.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
+#include <Security/SecCertificatePriv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -308,9 +309,18 @@ void printErrorDetails(SecTrustRef trust)
     // Display per-certificate errors
     fprintf(stdout, "---\nCertificate errors\n");
     for (CFIndex chainIndex = 0; chainIndex < chainLength; chainIndex++) {
-        NSDictionary *certProps = (NSDictionary *)[props objectAtIndex:chainIndex];
-        NSString *certTitle = (NSString *)[certProps objectForKey:(__bridge NSString*)kSecPropertyTypeTitle];
+        NSString *certTitle;
+        if (props.count > (NSUInteger)chainIndex) {
+            NSDictionary *certProps = (NSDictionary *)[props objectAtIndex:chainIndex];
+            certTitle = (NSString *)[certProps objectForKey:(__bridge NSString*)kSecPropertyTypeTitle];
+        } else {
+            certTitle = @"no title";
+        }
         fprintf(stdout, " %ld: %s\n", (long)chainIndex, [certTitle UTF8String]);
+        if (details.count <= (NSUInteger) chainIndex) {
+            fprintf(stdout, ANSI_RED "    NO PROPERTY for index %d" ANSI_RESET "\n", (int)chainIndex);
+            continue;
+        }
         NSDictionary *certDetails = (NSDictionary *)[details objectAtIndex:chainIndex];
         NSEnumerator *keyEnumerator = [certDetails keyEnumerator];
         NSString *key;
@@ -388,4 +398,89 @@ int evaluate_ssl(const char *urlstr, int verbose, SecTrustRef * CF_RETURNS_RETAI
     }
     return 0;
 #endif
+}
+
+static id makeJSON(id object) {
+    if (object == nil) {
+        return nil;
+    }
+    
+    if ([object isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *d = object;
+        NSMutableDictionary *result = [NSMutableDictionary dictionary];
+        [d enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+            id jkey = [key description];
+            if (jkey == nil) {
+                return;
+            }
+            result[jkey] = makeJSON(obj);
+        }];
+        return result;
+    } else if ([object isKindOfClass:[NSArray class]]) {
+        NSArray *a = object;
+        NSMutableArray *result = [NSMutableArray array];
+        [a enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            id value = makeJSON(obj);
+            if (value == nil) {
+                return;
+            }
+            [result addObject:value];
+        }];
+        return result;
+    } else if ([object isKindOfClass:[NSData class]]) {
+        return [((NSData *)object) base64EncodedStringWithOptions:0];
+    } else if ([object isKindOfClass:[NSString class]]) {
+        return object;
+    } else if ([object isKindOfClass:[NSNumber class]]) {
+        return object;
+    } else if ([object isKindOfClass:[NSDate class]]) {
+        NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
+        return [dateFormat stringFromDate:object];
+    }
+    
+    return [object description];
+}
+
+void
+printTrustResultAsJSON(SecTrustRef trustRef) {
+    @autoreleasepool {
+        NSDictionary *result = CFBridgingRelease(SecTrustCopyResult(trustRef));
+        if (result == nil) {
+            return;
+        }
+        
+        NSArray *chain = CFBridgingRelease(SecTrustCopyCertificateChain(trustRef));
+        if (chain == nil) {
+            return;
+        }
+        NSMutableArray *dataChain = [NSMutableArray array];
+        NSMutableArray *subjects = [NSMutableArray array];
+        for (id c in chain) {
+            SecCertificateRef cert = (__bridge SecCertificateRef)c;
+            NSData *data = CFBridgingRelease(SecCertificateCopyData(cert));
+            if (data) {
+                [dataChain addObject:data];
+            }
+            NSArray *commonNames = CFBridgingRelease(SecCertificateCopyCommonNames(cert));
+            [subjects addObject:commonNames];
+        }
+        
+        NSDictionary *complete = makeJSON(@{
+            @"chain": dataChain,
+            @"subjectNames": subjects,
+            @"result": result,
+        });
+        
+        NSError *error = nil;
+            
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:complete
+                                                           options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys
+                                                             error:&error];
+        if (jsonData) {
+            NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            fprintf(stdout, "%s\n", [jsonString UTF8String]);
+        } else {
+            fprintf(stderr, "Error converting result to JSON: %s\n", [[error localizedDescription] UTF8String]);
+        }
+    }
 }

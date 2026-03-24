@@ -60,7 +60,7 @@ class RemoteXRBinding final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteXRBinding> create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, WebCore::WebGPU::XRBinding& xrBinding, WebGPU::ObjectHeap& objectHeap, RemoteGPU& gpu, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteXRBinding(gpuConnectionToWebProcess, xrBinding, objectHeap, gpu, WTFMove(streamConnection), identifier));
+        return adoptRef(*new RemoteXRBinding(gpuConnectionToWebProcess, xrBinding, objectHeap, gpu, WTF::move(streamConnection), identifier));
     }
 
     virtual ~RemoteXRBinding();

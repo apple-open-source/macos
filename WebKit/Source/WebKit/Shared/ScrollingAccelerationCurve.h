@@ -41,7 +41,7 @@ class NativeWebWheelEvent;
 
 class ScrollingAccelerationCurve {
 public:
-    ScrollingAccelerationCurve(float gainLinear, float gainParabolic, float gainCubic, float gainQuartic, float tangentSpeedLinear, float tangentSpeedParabolicRoot, float resolution, float frameRate);
+    constexpr ScrollingAccelerationCurve(float gainLinear, float gainParabolic, float gainCubic, float gainQuartic, float tangentSpeedLinear, float tangentSpeedParabolicRoot, float resolution, float frameRate);
 
     static std::optional<ScrollingAccelerationCurve> fromNativeWheelEvent(const NativeWebWheelEvent&);
 
@@ -63,7 +63,9 @@ public:
         // Does not check m_intermediates.
         return a.m_parameters == b.m_parameters;
     }
-    
+
+    static constexpr std::optional<ScrollingAccelerationCurve> fallbackCurve();
+
 private:
     friend TextStream& operator<<(TextStream&, const ScrollingAccelerationCurve&);
 
@@ -98,6 +100,29 @@ private:
     };
 
     std::optional<ComputedIntermediateValues> m_intermediates;
+};
+
+constexpr ScrollingAccelerationCurve::ScrollingAccelerationCurve(float gainLinear, float gainParabolic, float gainCubic, float gainQuartic, float tangentSpeedLinear, float tangentSpeedParabolicRoot, float resolution, float frameRate)
+    : m_parameters { gainLinear, gainParabolic, gainCubic, gainQuartic, tangentSpeedLinear, tangentSpeedParabolicRoot, resolution, frameRate }
+{
+}
+
+constexpr std::optional<ScrollingAccelerationCurve> ScrollingAccelerationCurve::fallbackCurve()
+{
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER) && PLATFORM(MAC)
+    return ScrollingAccelerationCurve {
+        0.924995422,
+        0.75,
+        0,
+        0,
+        6.29999542,
+        12,
+        400,
+        60,
+    };
+#else
+    return std::nullopt;
+#endif
 };
 
 TextStream& operator<<(TextStream&, const ScrollingAccelerationCurve&);

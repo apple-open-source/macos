@@ -40,7 +40,7 @@ class CSSNamedImageValue final : public CSSValue {
 public:
     static Ref<CSSNamedImageValue> create(String name)
     {
-        return adoptRef(*new CSSNamedImageValue(WTFMove(name)));
+        return adoptRef(*new CSSNamedImageValue(WTF::move(name)));
     }
     ~CSSNamedImageValue();
 

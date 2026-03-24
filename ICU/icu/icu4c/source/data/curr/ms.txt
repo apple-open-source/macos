@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ms{
     Currencies{
         AED{
@@ -377,7 +377,7 @@ ms{
         }
         MMK{
             "MMK",
-            "Kyat Myanma",
+            "Kyat Myanmar",
         }
         MNT{
             "MNT",
@@ -663,6 +663,10 @@ ms{
             "EC$",
             "Dolar Caribbean Timur",
         }
+        XCG{
+            "Cg.",
+            "Guilder Caribbean",
+        }
         XOF{
             "F CFA",
             "Franc CFA BCEAO",
@@ -695,6 +699,10 @@ ms{
             "ZWD",
             "Dolar Zimbabwe (1980–2008)",
         }
+        ZWG{
+            "ZWG",
+            "Emas Zimbabwe",
+        }
         ZWL{
             "ZWL",
             "Dolar Zimbabwe (2009)",
@@ -718,8 +726,17 @@ ms{
         ILS{
             other{"Syekel baharu Israel"}
         }
+        MMK{
+            other{"Kyat Myanmar"}
+        }
+        XCG{
+            other{"Guilder Caribbean"}
+        }
         XXX{
             other{"(mata wang tidak diketahui)"}
+        }
+        ZWG{
+            other{"Emas Zimbabwe"}
         }
     }
     currencySpacing{

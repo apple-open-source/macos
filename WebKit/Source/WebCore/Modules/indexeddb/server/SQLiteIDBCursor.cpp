@@ -47,7 +47,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(SQLiteIDBCursor);
 
 std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreate(SQLiteIDBTransaction& transaction, const IDBCursorInfo& info)
 {
-    auto cursor = makeUnique<SQLiteIDBCursor>(transaction, info);
+    auto cursor = makeUniqueRef<SQLiteIDBCursor>(transaction, info);
 
     if (!cursor->establishStatement())
         return nullptr;
@@ -55,12 +55,12 @@ std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreate(SQLiteIDBTransacti
     if (!cursor->advance(1))
         return nullptr;
 
-    return cursor;
+    return cursor.moveToUniquePtr();
 }
 
 std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreateBackingStoreCursor(SQLiteIDBTransaction& transaction, IDBObjectStoreIdentifier objectStoreID, std::optional<IDBIndexIdentifier> indexID, const IDBKeyRangeData& range)
 {
-    auto cursor = makeUnique<SQLiteIDBCursor>(transaction, objectStoreID, indexID, range);
+    auto cursor = makeUniqueRef<SQLiteIDBCursor>(transaction, objectStoreID, indexID, range);
 
     if (!cursor->establishStatement())
         return nullptr;
@@ -68,7 +68,7 @@ std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreateBackingStoreCursor(
     if (!cursor->advance(1))
         return nullptr;
 
-    return cursor;
+    return cursor.moveToUniquePtr();
 }
 
 SQLiteIDBCursor::SQLiteIDBCursor(SQLiteIDBTransaction& transaction, const IDBCursorInfo& info)
@@ -137,7 +137,7 @@ void SQLiteIDBCursor::currentData(IDBGetResult& result, const std::optional<IDBK
     }
     prefetchedRecords.shrinkToFit();
 
-    result = { currentRecord.record.key, currentRecord.record.primaryKey, IDBValue(currentRecord.record.value), keyPath, WTFMove(prefetchedRecords) };
+    result = { currentRecord.record.key, currentRecord.record.primaryKey, IDBValue(currentRecord.record.value), keyPath, WTF::move(prefetchedRecords) };
 }
 
 static String buildPreIndexStatement(bool isDirectionNext)
@@ -203,7 +203,7 @@ bool SQLiteIDBCursor::createSQLiteStatement(StringView sql)
         LOG_ERROR("Could not create cursor statement (prepare/id) - '%s'", database->lastErrorMsg());
         return false;
     }
-    m_statement = WTFMove(statement);
+    m_statement = WTF::move(statement);
 
     return bindArguments();
 }
@@ -541,7 +541,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
         }
 
         if (m_cursorType == IndexedDB::CursorType::KeyAndValue)
-            record.record.value = { ThreadSafeDataBuffer::create(WTFMove(keyData)), blobURLs, blobFilePaths };
+            record.record.value = { ThreadSafeDataBuffer::create(WTF::move(keyData)), blobURLs, blobFilePaths };
     } else {
         if (!deserializeIDBKeyData(keyData.span(), record.record.primaryKey)) {
             LOG_ERROR("Unable to deserialize value data from database while advancing index cursor");
@@ -551,7 +551,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
 
         if (!m_cachedObjectStoreStatement || CheckedRef { *m_cachedObjectStoreStatement }->reset() != SQLITE_OK) {
             if (auto cachedObjectStoreStatement = database->prepareStatement("SELECT rowid, value FROM Records WHERE key = CAST(? AS TEXT) and objectStoreID = ?;"_s))
-                m_cachedObjectStoreStatement = WTFMove(cachedObjectStoreStatement);
+                m_cachedObjectStoreStatement = WTF::move(cachedObjectStoreStatement);
         }
 
         CheckedPtr cachedObjectStoreStatement = m_cachedObjectStoreStatement.get();
@@ -575,7 +575,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
                 return FetchResult::Failure;
             }
 
-            record.record.value = { ThreadSafeDataBuffer::create(cachedObjectStoreStatement->columnBlob(1)), WTFMove(blobURLs), WTFMove(blobFilePaths) };
+            record.record.value = { ThreadSafeDataBuffer::create(cachedObjectStoreStatement->columnBlob(1)), WTF::move(blobURLs), WTF::move(blobFilePaths) };
         } else if (result == SQLITE_DONE) {
             // This indicates that the record we're trying to retrieve has been removed from the object store.
             // Skip over it.

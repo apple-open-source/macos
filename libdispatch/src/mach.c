@@ -51,6 +51,9 @@ static inline void _dispatch_mach_msg_reply_received(dispatch_mach_t dm,
 static dispatch_mach_msg_t _dispatch_mach_msg_create_reply_disconnected(
 		dispatch_object_t dou, dispatch_mach_reply_refs_t dmr,
 		dispatch_mach_reason_t reason);
+static dispatch_mach_msg_t _dispatch_mach_msg_create_async_reply_disconnected(
+		mach_port_t reply_port, pthread_priority_t priority, void *ctxt,
+		voucher_t voucher, dispatch_mach_reason_t reason);
 static bool _dispatch_mach_reconnect_invoke(dispatch_mach_t dm,
 		dispatch_object_t dou);
 static inline mach_msg_header_t* _dispatch_mach_msg_get_msg(
@@ -193,15 +196,23 @@ void
 _dispatch_mach_dispose(dispatch_mach_t dm, bool *allow_free)
 {
 	_dispatch_object_debug(dm, "%s", __func__);
-	_dispatch_unote_dispose(dm->dm_recv_refs, false);
-	dm->dm_recv_refs = NULL;
-	_dispatch_unote_dispose(dm->dm_send_refs, false);
-	dm->dm_send_refs = NULL;
-	if (dm->dm_xpc_term_refs) {
-		_dispatch_unote_dispose(dm->dm_xpc_term_refs, false);
-		dm->dm_xpc_term_refs = NULL;
+	if (dm->dm_recv_refs->dmrr_handler_is_block) {
+		Block_release(dm->dm_recv_refs->dmrr_handler_ctxt);
+		dm->dm_recv_refs->dmrr_handler_ctxt = NULL;
 	}
 	_dispatch_lane_class_dispose(dm, allow_free);
+}
+
+void _dispatch_mach_dealloc(dispatch_object_t dou)
+{
+	_dispatch_unote_dealloc(dou._dm->dm_recv_refs);
+	_dispatch_unote_dealloc(dou._dm->dm_send_refs);
+
+	if (dou._dm->dm_xpc_term_refs) {
+		_dispatch_unote_dealloc(dou._dm->dm_xpc_term_refs);
+	}
+
+	_dispatch_object_dealloc(dou);
 }
 
 void
@@ -337,11 +348,13 @@ _dispatch_mach_reply_list_tryremove(dispatch_mach_send_refs_t dmsr,
 #define DMRU_DELETE_ACK     DUU_DELETE_ACK
 #define DMRU_PROBE          DUU_PROBE
 #define DMRU_MUST_SUCCEED   DUU_MUST_SUCCEED
-#define DMRU_DUU_MASK       0x0f
-#define DMRU_DISCONNECTED   0x10
-#define DMRU_REMOVE         0x20
-#define DMRU_ASYNC_MERGE    0x40
-#define DMRU_CANCEL         0x80
+#define DMRU_PASS_OWNERSHIP DUU_PASS_OWNERSHIP
+#define DMRU_NO_DEFER       DUU_NO_DEFER
+#define DMRU_DUU_MASK       0x1f
+#define DMRU_DISCONNECTED   0x20
+#define DMRU_REMOVE         0x40
+#define DMRU_ASYNC_MERGE    0x80
+#define DMRU_CANCEL         0x100
 
 DISPATCH_NOINLINE
 static void
@@ -354,9 +367,21 @@ _dispatch_mach_reply_unregister(dispatch_mach_t dm,
 	// - sync waiters have a dmr of type DISPATCH_MACH_TYPE_WAITER,
 	//   stack-allocated in _dispatch_mach_send_and_wait_for_reply().
 	bool sync_waiter = (dux_type(dmr) == DISPATCH_MACH_TYPE_WAITER);
+	if (!sync_waiter) {
+		// If we defer the EV_DELETE of a mach reply knote, the unote needs its
+		// lifetime extended until the wlh thread parks to deliver events to
+		// the kernel. This is only possible for async waiters, since we can't
+		// free() the stack allocated sync unote.
+		options |= DMRU_PASS_OWNERSHIP;
+		// Reply port owned is used to indicate that the reply ref is using the
+		// waiting thread's special reply port - should only be possible for
+		// sync waiters
+		dispatch_assert(!dmr->dmr_reply_port_owned);
+	}
 	dispatch_mach_send_refs_t dmsr = dm->dm_send_refs;
 	bool disconnected = (options & DMRU_DISCONNECTED);
 	bool wakeup = false;
+	bool was_registered = _dispatch_unote_registered(dmr);
 
 	_dispatch_debug("machport[0x%08x]: unregistering for%s reply%s, ctxt %p",
 			(mach_port_t)dmr->du_ident, sync_waiter ? " sync" : "",
@@ -372,7 +397,25 @@ _dispatch_mach_reply_unregister(dispatch_mach_t dm,
 		_dispatch_unfair_lock_unlock(&dmsr->dmsr_replies_lock);
 	}
 
-	if (_dispatch_unote_registered(dmr) &&
+	// If we successfully unregister an async reply unote, that unote will be
+	// immediately freed. We need some information from the unote to construct
+	// the message we pass XPC to tell it about cancellation. We could
+	// pre-build the whole message, but the message takes ownership of the
+	// voucher away from the unote, which we don't want to do in case
+	// unregistration fails. So we cache the properties that we need from the
+	// unote, and use them to construct the message after unregistration.
+	mach_port_t dmr_reply_port = MACH_PORT_NULL;
+	pthread_priority_t dmr_priority = 0;
+	void *dmr_ctxt = NULL;
+	voucher_t dmr_voucher = NULL;
+	if (!sync_waiter && was_registered) {
+		dmr_reply_port = (mach_port_t)dmr->du_ident;
+		dmr_priority = dmr->dmr_priority;
+		dmr_ctxt = dmr->dmr_ctxt;
+		dmr_voucher = dmr->dmr_voucher;
+	}
+
+	if (was_registered &&
 			!_dispatch_unote_unregister(dmr, options & DMRU_DUU_MASK)) {
 		dispatch_assert(!sync_waiter); // sync waiters never use kevent
 		if (options & DMRU_CANCEL) {
@@ -383,23 +426,45 @@ _dispatch_mach_reply_unregister(dispatch_mach_t dm,
 		return;
 	}
 
-	dispatch_mach_msg_t dmsgr = NULL;
+	// rdar://158789661: It's possible that another thread was concurrently
+	// delivering this reply to its reply queue while we, on the channel queue,
+	// were trying to unregister it due to disconnection. In that case, we
+	// don't know that dmr->dmr_ctxt is still valid since libxpc can free it at
+	// any point on the reply queue (which is not serialized with the reply
+	// delivering thread if the reply is handled on the main queue). However,
+	// if we make it here then we know that the reply isn't being delivered
+	// because unote_unregister succeeded - if the reply were in flight the
+	// knote would have been disabled, and disabled EV_DISPATCH2 knotes return
+	// an error when other threads attempt to delete them without EV_ENABLE.
 	dispatch_queue_t drq = NULL;
-	if (disconnected) {
-		if (dm->dm_is_xpc && dmr->dmr_ctxt) {
-			drq = _dispatch_mach_msg_context_async_reply_queue(dm, dmr->dmr_ctxt);
-		}
-		dmsgr = _dispatch_mach_msg_create_reply_disconnected(NULL, dmr,
-				drq ? DISPATCH_MACH_ASYNC_WAITER_DISCONNECTED
-				: DISPATCH_MACH_DISCONNECTED);
-		// _dispatch_mach_msg_create_reply_disconnected() consumes the voucher
-		dispatch_assert(dmr->dmr_voucher == NULL);
-	} else if (dmr->dmr_voucher) {
-		_voucher_release(dmr->dmr_voucher);
-		dmr->dmr_voucher = NULL;
+	if (disconnected && dm->dm_is_xpc && dmr_ctxt) {
+		drq = _dispatch_mach_msg_context_async_reply_queue(dm, dmr_ctxt);
 	}
-	if (!sync_waiter) {
-		_dispatch_unote_dispose(dmr, true);
+
+	dispatch_mach_msg_t dmsgr = NULL;
+	if (sync_waiter || !was_registered) {
+		// On this path, we can still access dmr because we didn't pass
+		// ownership of it to kevent.
+		if (disconnected) {
+			dmsgr = _dispatch_mach_msg_create_reply_disconnected(NULL, dmr,
+					drq ? DISPATCH_MACH_ASYNC_WAITER_DISCONNECTED
+					: DISPATCH_MACH_DISCONNECTED);
+			// _dispatch_mach_msg_create_reply_disconnected() consumes the voucher
+			dispatch_assert(dmr->dmr_voucher == NULL);
+		} else if (dmr->dmr_voucher) {
+			_voucher_release(dmr->dmr_voucher);
+			dmr->dmr_voucher = NULL;
+		}
+	} else {
+		if (disconnected) {
+			dmsgr = _dispatch_mach_msg_create_async_reply_disconnected(
+					dmr_reply_port, dmr_priority, dmr_ctxt, dmr_voucher,
+					drq ? DISPATCH_MACH_ASYNC_WAITER_DISCONNECTED :
+					DISPATCH_MACH_DISCONNECTED);
+		} else if (dmr_voucher) {
+			_voucher_release(dmr_voucher);
+			dmr_voucher = NULL;
+		}
 	}
 
 	if (dmsgr) {
@@ -963,6 +1028,26 @@ _dispatch_mach_msg_disconnected(dispatch_mach_t dm, mach_port_t local_port,
 	_dispatch_debug("machport[0x%08x]: %s right disconnected", local_port ?
 			local_port : remote_port, local_port ? "receive" : "send");
 	return _dispatch_mach_handle_or_push_received_msg(dm, dmsg, 0);
+}
+
+static inline dispatch_mach_msg_t
+_dispatch_mach_msg_create_async_reply_disconnected(mach_port_t reply_port,
+		pthread_priority_t priority, void *ctxt, voucher_t voucher,
+		dispatch_mach_reason_t reason)
+{
+	dispatch_mach_msg_t dmsgr;
+
+	mach_msg_header_t *hdr;
+	dmsgr = dispatch_mach_msg_create(NULL, sizeof(mach_msg_header_t),
+			DISPATCH_MACH_MSG_DESTRUCTOR_DEFAULT, &hdr);
+	hdr->msgh_local_port = reply_port;
+	dmsgr->dmsg_priority = priority;
+	dmsgr->do_ctxt = ctxt;
+	dmsgr->dmsg_voucher = voucher;
+	_dispatch_mach_msg_set_reason(dmsgr, 0, reason);
+	_dispatch_debug("machport[0x%08x]: reply disconnected, ctxt %p",
+			hdr->msgh_local_port, dmsgr->do_ctxt);
+	return dmsgr;
 }
 
 static inline dispatch_mach_msg_t
@@ -2083,10 +2168,33 @@ _dispatch_mach_cancel(dispatch_mach_t dm)
 		duu_options |= DMRU_PROBE;
 	}
 
+	// We pass DMRU_NO_DEFER to prevent the event subsystem from deferring the
+	// EV_DELETE kevent. We can't have the event system take an sref on the
+	// channel for the sigterm ref, since we'll also take one for the recv ref.
+	// Taking an sref here would put the channel on the defer freelist twice.
+	// We also can't have the event subsystem free the unote, since we aren't
+	// serialized with other threads delivering sigterm notifications if the
+	// channel isn't wl backed (rdar://157943534). The only safe thing is to do
+	// the unregistration immediately, and leave the allocation alive until the
+	// mach channel is deallocated.  There's a short circuit in
+	// _dispatch_unote_unregister that causes it to return true immediately if
+	// the unote isn't registered, which is why it's safe to unregister
+	// multiple times if we go into DSF_NEEDS_EVENT.
 	dispatch_xpc_term_refs_t dxtr = dm->dm_xpc_term_refs;
-	if (dxtr && !_dispatch_unote_unregister(dxtr, duu_options)) {
+	if (dxtr && !_dispatch_unote_unregister(dxtr,
+			duu_options | DMRU_NO_DEFER)) {
 		uninstalled = false;
 	}
+
+	// Before rdar://147852703, we unregistered both the sigterm ref and the
+	// receive ref with DMRU_DELETE_ACK, which allows us to unregister the
+	// unote while another thread is concurrently merging the event (if it's
+	// already cleared the ARM bit). This was fine, because the unote held a
+	// reference to the channel, and the unote's lifetime was tied to the
+	// channel's (the unote was deallocated in mach_channel_dispose). Now that
+	// we free the sigterm ref inside of unote_unregister, we can't do that. We
+	// still deallocate the receive ref unote based on the channel lifetime (in
+	// _dispatch_mach_dealloc), so it's safe for this unregistration.
 
 	dispatch_mach_recv_refs_t dmrr = dm->dm_recv_refs;
 	mach_port_t local_port = (mach_port_t)dmrr->du_ident;
@@ -2932,9 +3040,30 @@ static void
 _dispatch_mach_sigterm_invoke(void *ctx)
 {
 	dispatch_mach_t dm = ctx;
-	uint32_t duu_options = DUU_DELETE_ACK | DUU_MUST_SUCCEED;
+	// We're serialized with _dispatch_mach_cancel and
+	// _dispatch_mach_deallocate here, so it's safe to have the event subsystem
+	// take ownership of the xpc sigterm unote as long as we null out the
+	// pointer on the channel. If we go through this path, we don't need to
+	// unregister the term ref again (this must succeed), and we don't need to
+	// free the unote in _dispatch_mach_dealloc.
+	uint32_t duu_options = DUU_DELETE_ACK | DUU_MUST_SUCCEED | DUU_PASS_OWNERSHIP;
 	_dispatch_unote_unregister(dm->dm_xpc_term_refs, duu_options);
-	if (!(_dispatch_queue_atomic_flags(dm) & DSF_CANCELED)) {
+	dm->dm_xpc_term_refs = NULL;
+
+	// If we've been cancelled, it's possible that we delayed cancellation
+	// because we were waiting for this sigterm event. If that's the case, when
+	// we retry cancellation after this, we should act as though we aren't
+	// waiting for an event (i.e. do a DMRU_PROBE unregister against the
+	// receive ref, if it exists). Both this function and _dispatch_mach_cancel
+	// run isolated to the channel, so we can't be racing with a concurrent set
+	// of the DSF_NEEDS_EVENT bit from there.
+	dispatch_queue_flags_t flags = _dispatch_queue_atomic_flags_clear_orig(dm,
+			DSF_NEEDS_EVENT);
+	// We only set DSF_NEEDS_EVENT when we fail unregistration of one of the
+	// unotes in _dispatch_mach_cancel, which implies DSF_CANCELED
+	dispatch_assert(!(flags & DSF_NEEDS_EVENT) || (flags & DSF_CANCELED));
+
+	if (!(flags & DSF_CANCELED)) {
 		dispatch_mach_recv_refs_t dmrr = dm->dm_recv_refs;
 		_dispatch_client_callout4(dmrr->dmrr_handler_ctxt,
 				DISPATCH_MACH_SIGTERM_RECEIVED, NULL, 0,

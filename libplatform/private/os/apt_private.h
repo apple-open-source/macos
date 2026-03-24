@@ -28,26 +28,30 @@
 #include <stdbool.h>
 #include <os/base.h>
 
-#define OS_APT_SPI_VERSION 20241023
+#define OS_APT_SPI_VERSION 20250710
 
-#define OS_APT_MSG_AVAILABILITY \
+#define OS_APT_MSG_AVAILABILITY_v20241023 \
 		__SPI_AVAILABLE(macos(15.4), ios(18.4), tvos(18.4), watchos(11.4), visionos(2.4))
+
+#define OS_APT_MSG_AVAILABILITY_v20250710 \
+		__SPI_AVAILABLE(macos(26.4), ios(26.4), tvos(26.4), watchos(26.4), visionos(26.4))
 
 __BEGIN_DECLS
 
 #pragma mark - Message namespaces and types
 
-OS_APT_MSG_AVAILABILITY
+OS_APT_MSG_AVAILABILITY_v20241023
 OS_ENUM(apt_msg_namespace, uint8_t,
   apt_msg_ns_rsvd = 0,
   apt_msg_ns_swift = 1,
 );
 
-OS_APT_MSG_AVAILABILITY
+OS_APT_MSG_AVAILABILITY_v20241023
 OS_ENUM(apt_namespace_swift, uint8_t,
   apt_msg_ty_swift_rsvd = 0,
   apt_msg_ty_swift_task_running = 1,
   apt_msg_ty_swift_task_waiting_on = 2,
+  apt_msg_ty_swift_task_stopped = 3,
 );
 
 #pragma mark - Private SPI for Swift Concurrency runtime
@@ -61,7 +65,7 @@ OS_ENUM(apt_namespace_swift, uint8_t,
  * @param task_id
  * ID of the Swift async task that is running.
  */
-OS_APT_MSG_AVAILABILITY
+OS_APT_MSG_AVAILABILITY_v20241023
 OS_EXPORT OS_NOTHROW
 void os_apt_msg_async_task_running_4swift(uint64_t task_id);
 
@@ -74,9 +78,22 @@ void os_apt_msg_async_task_running_4swift(uint64_t task_id);
  * @param task_id
  * Task ID of the task that the current Swift async task is waiting on.
  */
-OS_APT_MSG_AVAILABILITY
+OS_APT_MSG_AVAILABILITY_v20241023
 OS_EXPORT OS_NOTHROW
 void os_apt_msg_async_task_waiting_on_4swift(uint64_t task_id);
+
+/*!
+ * @function os_apt_msg_async_task_stopped_4swift
+ *
+ * @abstract
+ * Indicate that the current Swift async task is stopped.
+ *
+ * @param task_id
+ * Task ID of the Swift async task that is stopped.
+ */
+OS_APT_MSG_AVAILABILITY_v20250710
+OS_EXPORT OS_NOTHROW
+void os_apt_msg_async_task_stopped_4swift(uint64_t task_id);
 
 __END_DECLS
 

@@ -35,15 +35,6 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-class PlatformContentFilter;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::PlatformContentFilter> : std::true_type { };
-}
-
-namespace WebCore {
 
 class ContentFilterUnblockHandler;
 class FragmentedSharedBuffer;
@@ -86,9 +77,6 @@ public:
 #endif
 
     struct FilterParameters {
-#if HAVE(WEBCONTENTRESTRICTIONS)
-        bool usesWebContentRestrictions { false };
-#endif
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
         String webContentRestrictionsConfigurationPath { };
 #endif

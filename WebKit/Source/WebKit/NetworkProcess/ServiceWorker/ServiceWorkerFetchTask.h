@@ -82,7 +82,7 @@ public:
     WebCore::FetchIdentifier fetchIdentifier() const { return m_fetchIdentifier; }
     std::optional<WebCore::ServiceWorkerIdentifier> serviceWorkerIdentifier() const { return m_serviceWorkerIdentifier; }
 
-    WebCore::ResourceRequest takeRequest() { return WTFMove(m_currentRequest); }
+    WebCore::ResourceRequest takeRequest() { return WTF::move(m_currentRequest); }
 
     void cannotHandle();
     void contextClosed();

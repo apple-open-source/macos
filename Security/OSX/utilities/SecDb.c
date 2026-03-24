@@ -76,6 +76,7 @@ struct __OpaqueSecDbConnection {
     bool hasIOFailure;
     CFErrorRef corruptionError;
     sqlite3 *handle;
+    int acquiredLockIndex; // -1 if no lock, 0 for backup/writer, 1..kSecDbMaxReaders-1 for normal reader
     // Pending deletions and additions for the current transaction
     // Entires are either:
     // 1) a CFArrayRef of 1 element representing a deletion,
@@ -93,9 +94,8 @@ struct __OpaqueSecDb {
 
     CFMutableArrayRef idleWriteConnections;     // up to kSecDbMaxWriters of them (currently 1, requires locking change for >1)
     CFMutableArrayRef idleReadConnections;      // up to kSecDbMaxReaders of them
-    pthread_mutex_t writeMutex;
-    // TODO: Replace after we have rdar://problem/60961964
-    dispatch_semaphore_t readSemaphore;
+    os_unfair_lock readerLocks[kSecDbMaxReaders]; // `kSecDbMaxReaders` individual reader locks with priority donation
+    os_unfair_lock writerLock; // Single writer lock for write mutual exclusion with priority donation
 
     bool didFirstOpen;
     bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error);
@@ -232,12 +232,9 @@ SecDbDestroy(CFTypeRef value)
         db->commitQueue = NULL;
     }
 
-    pthread_mutex_destroy(&(db->writeMutex));
-
-    if (db->readSemaphore) {
-        dispatch_release(db->readSemaphore);
-        db->readSemaphore = NULL;
-    }
+    // os_unfair_lock doesn't require explicit cleanup
+    // Lock automatically cleaned up when going out of scope
+    // No explicit cleanup needed
 
     if (db->opened) {
         Block_release(db->opened);
@@ -255,7 +252,7 @@ SecDbCreate(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, b
     SecDbRef db = NULL;
 
     db = CFTypeAllocate(SecDb, struct __OpaqueSecDb, kCFAllocatorDefault);
-    require(db != NULL, done);
+    __Require(db != NULL, done);
 
     if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
         // TODO: Move this code out of this layer
@@ -275,21 +272,14 @@ SecDbCreate(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, b
     CFReleaseNull(commitQueueStr);
     db->idleWriteConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     db->idleReadConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    pthread_mutexattr_t writeMutexAttrs;
-    bool mutexAttrSuccess =  (0 == pthread_mutexattr_init(&writeMutexAttrs));
-    if(mutexAttrSuccess) {
-        mutexAttrSuccess = (0 == pthread_mutexattr_setpolicy_np(&writeMutexAttrs, PTHREAD_MUTEX_POLICY_FAIRSHARE_NP));
-    }
 
-    if(!mutexAttrSuccess) {
-        seccritical("SecDb: SecDbCreate failed to create attributes for the write mutex; fairness properties are no longer present");
+    // Initialize all reader locks and the writer lock
+    secinfo("dbconn", "SecDbCreate: initializing %zu reader locks and 1 writer lock supporting priority donation", kSecDbMaxReaders);
+    for (int i = 0; i < (int)kSecDbMaxReaders; i++) {
+        db->readerLocks[i] = OS_UNFAIR_LOCK_INIT;
     }
-    if (pthread_mutex_init(&(db->writeMutex), (mutexAttrSuccess ? &writeMutexAttrs : NULL)) != 0) {
-        seccritical("SecDb: SecDbCreate failed to init the write mutex, this will end badly");
-    }
-    pthread_mutexattr_destroy(&writeMutexAttrs);
-
-    db->readSemaphore = dispatch_semaphore_create(kSecDbMaxReaders);
+    db->writerLock = OS_UNFAIR_LOCK_INIT;
+    secinfo("dbconn", "SecDbCreate: successfully initialized separated locking system with %zu reader locks and 1 writer lock", kSecDbMaxReaders);
 
     db->didFirstOpen = false;
     db->opened = Block_copy(opened);
@@ -641,6 +631,8 @@ int SecDBGetInteger(SecDbConnectionRef dbconn, CFStringRef sql, int defaultValue
 }
 
 
+const uint64_t gVacuumBootDelay = 5 * 60 * NSEC_PER_SEC; // 5 minutes
+
 void SecDBManagementTasks(SecDbConnectionRef dbconn)
 {
     int64_t page_count = SecDBGetInteger(dbconn, CFSTR("pragma page_count"), -1);
@@ -656,17 +648,27 @@ void SecDBManagementTasks(SecDbConnectionRef dbconn)
 
     int64_t pages_in_use = page_count - free_count;
     double loadFactor = ((double)pages_in_use/(double)page_count);
-    if (0.85 < loadFactor && free_count < max_free) {
+    auto nsSinceBoot = clock_gettime_nsec_np(CLOCK_UPTIME_RAW_APPROX);
+    if (nsSinceBoot < gVacuumBootDelay) {
+        // Don't block things like SpringBoard at boot time
+        secnotice("db", "vacuum too close to boot: %"PRId64" page_count: %"PRId64" free_count: %"PRId64" loadFactor: %f", nsSinceBoot/NSEC_PER_SEC, page_count, free_count, loadFactor);
+    } else if (0.85 < loadFactor && free_count < max_free) {
+        secnotice("db", "vacuum not needed page_count: %"PRId64" free_count: %"PRId64" loadFactor: %f", page_count, free_count, loadFactor);
         /* no work yet */
     } else {
         int64_t pages_to_free = (int64_t)(0.2 * free_count);
         if (0.4 > loadFactor) {
             pages_to_free = free_count;
         }
+        // limit to a reasonable number of pages, so we don't block other callers for very long
+        if (pages_to_free > max_free) {
+            pages_to_free = max_free;
+        }
 
         char *formatString = NULL;
         asprintf(&formatString, "pragma incremental_vacuum(%d)", (int)pages_to_free);
         if (formatString) {
+            secnotice("db", "vacuum pages_to_free: %"PRId64"  page_count: %"PRId64" free_count: %"PRId64" loadFactor: %f", pages_to_free, page_count, free_count, loadFactor);
             char *sqlerror = NULL;
             int rc = sqlite3_exec(dbconn->handle, formatString, NULL, NULL, &sqlerror);
             if (rc) {
@@ -674,6 +676,9 @@ void SecDBManagementTasks(SecDbConnectionRef dbconn)
             }
             sqlite3_free(sqlerror);
             free(formatString);
+            secnotice("db", "vacuum complete");
+        } else {
+            secerror("db vacuum couldn't format string");
         }
     }
 }
@@ -1131,7 +1136,7 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
     SecDbConnectionRef dbconn = NULL;
 
     dbconn = CFTypeAllocate(SecDbConnection, struct __OpaqueSecDbConnection, kCFAllocatorDefault);
-    require(dbconn != NULL, done);
+    __Require(dbconn != NULL, done);
 
     dbconn->db = db;
     dbconn->readOnly = readOnly;
@@ -1142,6 +1147,7 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
     dbconn->hasIOFailure = false;
     dbconn->corruptionError = NULL;
     dbconn->handle = NULL;
+    dbconn->acquiredLockIndex = -1; // No lock held initially
     dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
 
 done:
@@ -1152,50 +1158,99 @@ bool SecDbConnectionIsReadOnly(SecDbConnectionRef dbconn) {
     return dbconn->readOnly;
 }
 
-SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
+SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, bool isBackupOperation, CFErrorRef *error) {
     SecDbConnectionRef dbconn = NULL;
-    SecDbConnectionAcquireRefMigrationSafe(db, readOnly, &dbconn, error);
+    SecDbConnectionAcquireRefMigrationSafe(db, readOnly, &dbconn, isBackupOperation, error);
     return dbconn;
 }
 
-static void SecDbConnectionConsumeResourceWithSignposts(SecDbRef db, bool readOnly) {
+static int SecDbConnectionConsumeResourceWithPriorityDonationAndSignposts(SecDbRef db, bool readOnly, bool isBackupOperation) {
     if (readOnly) {
-        if (dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_NOW) != 0) {
-            StatCtx ctx = SecDbStatStart(readOnly);
-            dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_FOREVER);
-            SecDbStatEnd(ctx);
+        if (isBackupOperation) {
+            // Backup operation: always acquire readerLocks[0]
+            secinfo("dbconn", "Backup attempting to acquire reserved lock[0]");
+            if (_SecDbStatsWaitSignpostsEnabled()) {
+                if (os_unfair_lock_trylock(&db->readerLocks[0])) {
+                    SecDbStatImpulse(readOnly);
+                    secinfo("dbconn", "Backup successfully acquired lock[0] (trylock)");
+                } else {
+                    StatCtx ctx = SecDbStatStart(readOnly);
+                    os_unfair_lock_lock(&db->readerLocks[0]);
+                    SecDbStatEnd(ctx);
+                    secinfo("dbconn", "Backup successfully acquired lock[0] (after waiting)");
+                }
+            } else {
+                os_unfair_lock_lock(&db->readerLocks[0]);
+                secinfo("dbconn", "Backup successfully acquired lock[0]");
+            }
+            return 0; // Backup uses index 0
         } else {
-            SecDbStatImpulse(readOnly);
+            // Normal reader: try locks from random offset in range [1, kSecDbMaxReaders-1]
+            uint32_t start_offset = 1 + (arc4random() % (kSecDbMaxReaders - 1)); // Range: 1 to 5
+            secinfo("dbconn", "Reader attempting to acquire lock starting from index %d", start_offset);
+
+            // First pass: try to acquire any lock without blocking (indices 1 to kSecDbMaxReaders-1)
+            for (int attempt = 0; attempt < (int)(kSecDbMaxReaders - 1); attempt++) {
+                int index = 1 + ((start_offset - 1 + attempt) % (kSecDbMaxReaders - 1)); // Maps to 1..5
+                if (os_unfair_lock_trylock(&db->readerLocks[index])) {
+                    if (_SecDbStatsWaitSignpostsEnabled()) {
+                        SecDbStatImpulse(readOnly);
+                    }
+                    secinfo("dbconn", "Reader successfully acquired lock[%d]", index);
+                    return index;
+                }
+            }
+
+            // No locks available - wait on already picked random start offset
+            secinfo("dbconn", "Reader no locks available, waiting on lock[%d]", start_offset);
+            if (_SecDbStatsWaitSignpostsEnabled()) {
+                StatCtx ctx = SecDbStatStart(readOnly);
+                os_unfair_lock_lock(&db->readerLocks[start_offset]);
+                SecDbStatEnd(ctx);
+            } else {
+                os_unfair_lock_lock(&db->readerLocks[start_offset]);
+            }
+            secinfo("dbconn", "Reader successfully acquired lock[%d] (after waiting)", start_offset);
+            return start_offset;
         }
     } else {
-        if (pthread_mutex_trylock(&(db->writeMutex)) != 0) {
-            StatCtx ctx = SecDbStatStart(readOnly);
-            pthread_mutex_lock(&(db->writeMutex));
-            SecDbStatEnd(ctx);
+        // Writer: acquire writer lock only
+        secinfo("dbconn", "Writer attempting to acquire writer lock");
+        if (_SecDbStatsWaitSignpostsEnabled()) {
+            if (os_unfair_lock_trylock(&db->writerLock)) {
+                SecDbStatImpulse(readOnly);
+                secinfo("dbconn", "Writer successfully acquired writer lock (trylock)");
+            } else {
+                StatCtx ctx = SecDbStatStart(readOnly);
+                os_unfair_lock_lock(&db->writerLock);
+                SecDbStatEnd(ctx);
+                secinfo("dbconn", "Writer successfully acquired writer lock (after waiting)");
+            }
         } else {
-            SecDbStatImpulse(readOnly);
+            os_unfair_lock_lock(&db->writerLock);
+            secinfo("dbconn", "Writer successfully acquired writer lock");
         }
+        return 0; // Writer returns 0
     }
 }
 
-static void SecDbConnectionConsumeResource(SecDbRef db, bool readOnly) {
-    if (_SecDbStatsWaitSignpostsEnabled()) {
-        SecDbConnectionConsumeResourceWithSignposts(db, readOnly);
-        return;
-    }
-
-    if (readOnly) {
-        dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_FOREVER);
-    } else {
-        pthread_mutex_lock(&(db->writeMutex));
-    }
+static int SecDbConnectionConsumeResource(SecDbRef db, bool readOnly, bool isBackupOperation) {
+    return SecDbConnectionConsumeResourceWithPriorityDonationAndSignposts(db, readOnly, isBackupOperation);
 }
 
-static void SecDbConnectionMakeResourceAvailable(SecDbRef db, bool readOnly) {
+static void SecDbConnectionMakeResourceAvailable(SecDbRef db, bool readOnly, int lock_index) {
     if (readOnly) {
-        dispatch_semaphore_signal(db->readSemaphore);
+        // Reader release: release reader lock
+        secinfo("dbconn", "Reader releasing lock[%d]", lock_index);
+        assert(lock_index >= 0 && lock_index < (int)kSecDbMaxReaders);
+        os_unfair_lock_unlock(&db->readerLocks[lock_index]);
+        secinfo("dbconn", "Reader successfully released lock[%d]", lock_index);
     } else {
-        pthread_mutex_unlock(&(db->writeMutex));
+        // Writer release: release writer lock
+        secinfo("dbconn", "Writer releasing writer lock");
+        assert(lock_index == 0);
+        os_unfair_lock_unlock(&db->writerLock);
+        secinfo("dbconn", "Writer successfully released writer lock");
     }
 }
 
@@ -1291,13 +1346,20 @@ static bool SecDbPerformFirstOpen(SecDbRef db, SecDbConnectionRef* dbconnRef, CF
 }
 
 
-bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error)
+bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, bool isBackupOperation, CFErrorRef *error)
 {
     CFRetain(db);
 #if SECDB_DEBUGGING
     secinfo("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
 #endif
-    SecDbConnectionConsumeResource(db, readOnly);
+
+    secinfo("dbconn", "SecDbConnectionAcquireRefMigrationSafe: acquiring %s connection%s",
+            readOnly ? "reader" : "writer", isBackupOperation ? " (BACKUP)" : "");
+
+    // Acquire the resource and track the lock index
+    int acquiredLockIndex = SecDbConnectionConsumeResource(db, readOnly, isBackupOperation);
+    secinfo("dbconn", "SecDbConnectionAcquireRefMigrationSafe: acquired %s connection with index %d",
+            readOnly ? "reader" : "writer", acquiredLockIndex);
 
     __block SecDbConnectionRef dbconn = NULL;
     __block bool ok = true;
@@ -1307,6 +1369,15 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
         dbconn = connection;
         if (dbconnRef) {
             *dbconnRef = connection;
+        }
+
+        // Store the acquired lock index in the connection
+        if (dbconn) {
+            // before assigning acquireLockIndex, make sure no one is holding onto this connection
+            assert(dbconn->acquiredLockIndex == -1);
+            dbconn->acquiredLockIndex = acquiredLockIndex;
+            secinfo("dbconn", "SecDbConnectionAcquireRefMigrationSafe: stored lock index %d in %s connection %p",
+                    acquiredLockIndex, readOnly ? "reader" : "writer", dbconn);
         }
 
         return dbconn != NULL;
@@ -1358,8 +1429,12 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
 
     if (!dbconn) {
         // Caller doesn't get (to use) a connection so the backing synchronization primitive is available again
-        SecDbConnectionMakeResourceAvailable(db, readOnly);
+        secinfo("dbconn", "SecDbConnectionAcquireRefMigrationSafe: failed to get connection, releasing acquired lock");
+        SecDbConnectionMakeResourceAvailable(db, readOnly, acquiredLockIndex);
         CFRelease(db);
+    } else {
+        secinfo("dbconn", "SecDbConnectionAcquireRefMigrationSafe: successfully acquired %s connection %p with lock index %d", 
+                readOnly ? "reader" : "writer", dbconn, acquiredLockIndex);
     }
 
     return dbconn ? true : false;
@@ -1371,12 +1446,24 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
         return;
     }
     SecDbRef db = dbconn->db;
+    bool readOnly = SecDbConnectionIsReadOnly(dbconn);
+    
+    secinfo("dbconn", "SecDbConnectionRelease: releasing %s connection %p with lock index %d", 
+            readOnly ? "reader" : "writer", dbconn, dbconn->acquiredLockIndex);
+            
 #if SECDB_DEBUGGING
     secinfo("dbconn", "release %@", dbconn);
 #endif
 
-    bool readOnly = SecDbConnectionIsReadOnly(dbconn);
     dispatch_sync(db->queue, ^{
+        // Release and set acquireLock under `dispatch_sync(db->queue)` block
+        // Without this another thread can acquire the same connection and set the acquiredLockIndex to some other lock index
+        secinfo("dbconn", "SecDbConnectionRelease: releasing %s connection %p with lock index %d" ,
+                readOnly ? "reader" : "writer", dbconn, dbconn->acquiredLockIndex);
+        SecDbConnectionMakeResourceAvailable(db, readOnly, dbconn->acquiredLockIndex);
+        // Mark no lock held (set to -1)
+        dbconn->acquiredLockIndex = -1;
+        
         if (dbconn->hasIOFailure) {
             // Something wrong on the file layer (e.g. revoked file descriptor for networked home)
             secwarning("SecDbConnectionRelease: IO failure reported in connection, throwing away currently idle caches");
@@ -1398,9 +1485,7 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
             }
         }
     });
-
-    // Signal after we have put the connection back in the pool of connections
-    SecDbConnectionMakeResourceAvailable(db, readOnly);
+   
     CFRelease(dbconn);
     CFRelease(db);
 }
@@ -1441,7 +1526,7 @@ void SecDbForceClose(SecDbRef db) {
 }
 
 bool SecDbPerformRead(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn)) {
-    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, true, error);
+    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, true, false, error);
     bool success = false;
     if (dbconn) {
         perform(dbconn);
@@ -1456,7 +1541,7 @@ bool SecDbPerformWrite(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConn
         SecError(errSecNotAvailable, error, CFSTR("failed to get a db handle"));
         return false;
     }
-    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, false, error);
+    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, false, false, error);
     bool success = false;
     if (dbconn) {
         perform(dbconn);

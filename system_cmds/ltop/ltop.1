@@ -1,6 +1,6 @@
-.\" Copyright (c) 2012, Apple Inc.  All rights reserved.
+.\" Copyright (c) 2012-2025, Apple Inc.  All rights reserved.
 .\"
-.Dd June 28, 2012
+.Dd November 21, 2025
 .Dt LTOP 1
 .Os "macOS"
 .Sh NAME
@@ -12,7 +12,7 @@
 .Fl h
 .Pp
 .Nm ltop
-.Op Fl dL
+.Op Fl dLN
 .Op Fl g Ar group
 .Op Fl p Ar pid
 .Op Fl r Ar resource
@@ -52,9 +52,16 @@ option.
 Only display info for process
 .Ar pid .
 .\" ==========
+.It Fl N
+Filter out entries where credits, debits, and balance are all zero.
+.\" ==========
 .It Fl r Ar resource
-Only display info for resource
+Only display info for ledger resource
 .Ar resource .
+Resources are ledgers tracked by the kernel, such as memory or CPU usage.
+Available resources can be listed via the
+.Fl L
+option.
 .\" ==========
 .El
 .Sh SEE ALSO

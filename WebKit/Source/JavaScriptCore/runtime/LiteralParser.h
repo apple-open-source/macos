@@ -97,7 +97,7 @@ public:
 
     void setRoot(Entry root)
     {
-        m_root = WTFMove(root);
+        m_root = WTF::move(root);
     }
 
 private:

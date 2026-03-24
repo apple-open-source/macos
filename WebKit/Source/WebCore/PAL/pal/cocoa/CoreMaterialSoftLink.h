@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 #if HAVE(CORE_MATERIAL)
 
 #import <pal/spi/cocoa/CoreMaterialSPI.h>

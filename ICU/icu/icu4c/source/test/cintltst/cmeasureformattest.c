@@ -115,6 +115,8 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_DIGITAL_MEGABYTE,         37.203, "37.20 megabytes",           "37 megabytes",           "37.203 MB",        "37.2 MB",        "37MB",        "37MB",      0,2,    0,2   },
     { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER,           120.0, "120.00 milligrams per deciliter", "120 milligrams per deciliter", "120 mg/dL", "120.0 mg/dL", "120mg/dL", "120mg/dL", 0,3, 0,3   },
     { UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER, 120.0, "120.00 milligrams per deciliter", "120 milligrams per deciliter", "120 mg/dL", "120.0 mg/dL", "120mg/dL", "120mg/dL", 0,3, 0,3   },
+    { UAMEASUNIT_CONCENTRATION_PART_PER_1E6, 35, "35.00 parts per million",     "35 parts per million",   "35 ppm",           "35.0 ppm",       "35ppm",       "35ppm",     0,2,    0,2   },
+    { UAMEASUNIT_CONCENTRATION_PART_PER_MILLION, 35, "35.00 parts per million", "35 parts per million",   "35 ppm",           "35.0 ppm",       "35ppm",       "35ppm",     0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -170,14 +172,14 @@ static const SingleUnitFormat fr_singFmt[] = {
 
 static const SingleUnitFormat fr_CA_singFmt[] = {
 //    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
-    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minute",                   "0 minute",                   "0 min",            "0,0 min",        "0m",          "0m",        0,1,    0,1   },
-    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1 min",            "1,0 min",        "1m",          "1m",        0,1,    0,1   },
-    { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25 min",         "5,2 min",        "5m",          "5m",        0,1,    0,1   },
-    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20 centim\\u00E8tres",       "37 centim\\u00E8tres",       "37,203 cm",        "37,2 cm",        "37\\u202Fcm", "37\\u202Fcm", 0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 degr\\u00E9s Celsius",    "37 degr\\u00E9s Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00A0\\u00B0C", "37\\u00B0", 0,2, 0,2 },
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00B0F", "37\\u00B0", 0,2, 0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00\\u00a0minute",             "0\\u00a0minute",                   "0\\u00a0min",        "0,0\\u00a0min",        "0m",          "0m",        0,1,    0,1   },
+    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00\\u00a0minute",             "1\\u00a0minute",              "1\\u00a0min",        "1,0\\u00a0min",       "1m",          "1m",        0,1,    0,1   },
+    { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25\\u00a0minutes",            "5\\u00a0minutes",            "5,25 min",     "5,2 min",       "5m",          "5m",        0,1,    0,1   },
+    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20\\u00a0centim\\u00E8tres", "37\\u00a0centim\\u00E8tres", "37,203\\u00a0cm",   "37,2\\u00a0cm",        "37\\u202Fcm", "37\\u202Fcm", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20\\u00a0degr\\u00E9s Celsius", "37\\u00a0degr\\u00E9s Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00A0\\u00B0C", "37\\u00B0", 0,2, 0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20\\u00a0degr\\u00E9s Fahrenheit", "37\\u00a0degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00B0F", "37\\u00B0", 0,2, 0,2 },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00B0",                  "37\\u00B0",                  "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20 litres",                  "37 litres",                  "37,203\\u202FL",         "37,2\\u202FL",         "37L",         "37L",       0,2,    0,2   },
+    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20\\u00a0litres",            "37\\u00a0litres",                  "37,203\\u202FL",         "37,2\\u202FL",         "37L",         "37L",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20 calories",                "37 calories",                "37,203 cal",       "37,2 cal",       "37 cal",      "37 cal",    0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -209,12 +211,26 @@ static const SingleUnitFormat da_singFmt[] = {
 
 static const SingleUnitFormat fi_singFmt[] = {
 //    unit                                    value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
+#if APPLE_ICU_CHANGES // rdar://155402842
+    { UAMEASUNIT_DURATION_HOUR,               37.203, "37,20 tuntia",               "37 tuntia",             "37,203 h",              "37,2 h",                 "37 h",       "37 h",      0,2,    0,2 },
+#else
     { UAMEASUNIT_DURATION_HOUR,               37.203, "37,20 tuntia",               "37 tuntia",             "37,203 t",              "37,2 t",                 "37 t",       "37 t",      0,2,    0,2 },
+#endif // APPLE_ICU_CHANGES
     { UAMEASUNIT_DURATION_MINUTE,             37.203, "37,20 minuuttia",            "37 minuuttia",          "37,203 min",            "37,2 min",            "37 min",       "37 min",      0,2,    0,2 },
     { UAMEASUNIT_LENGTH_METER ,               37.203, "37,20 metri\\u00e4",         "37 metri\\u00e4",       "37,203 m",              "37,2 m",                 "37\\u202fm","37\\u202fm",  0,2,    0,2 },
     { UAMEASUNIT_LENGTH_KILOMETER,            37.203, "37,20 kilometri\\u00e4",     "37 kilometri\\u00e4",   "37,203 km",           "37,2 km",               "37\\u202fkm",  "37\\u202fkm", 0,2,    0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
+
+#if APPLE_ICU_CHANGES // rdar://155402842
+static const SingleUnitFormat gu_singFmt[] = {
+//    unit                                    value   wide_2                           wide_0                        shrt_X              shrt_1      narr_0         numr_0      wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,               1.0,   "1.00 \\u0a95\\u0ab2\\u0abe\\u0a95",                                             "1 \\u0a95\\u0ab2\\u0abe\\u0a95",                                         "1 \\u0a95\\u0ab2\\u0abe\\u0a95",                                         "1.0 \\u0a95\\u0ab2\\u0abe\\u0a95",                                              "1 \\u0a95\\u0af0",                    "1 \\u0a95\\u0af0", 0,1,    0,1 },
+    { UAMEASUNIT_DURATION_HOUR,               5.5,   "5.50 \\u0a95\\u0ab2\\u0abe\\u0a95",                                             "5 \\u0a95\\u0ab2\\u0abe\\u0a95",                                         "5.5 \\u0a95\\u0ab2\\u0abe\\u0a95",                                       "5.5 \\u0a95\\u0ab2\\u0abe\\u0a95",                                              "5 \\u0a95\\u0af0",                    "5 \\u0a95\\u0af0", 0,1,    0,1 },
+    { UAMEASUNIT_DURATION_MINUTE,             1.0,   "1.00 \\u0aae\\u0abf\\u0aa8\\u0abf\\u0a9f",                                       "1 \\u0aae\\u0abf\\u0aa8\\u0abf\\u0a9f",                                   "1 \\u0aae\\u0abf\\u0aa8\\u0abf\\u0a9f",                                   "1.0 \\u0aae\\u0abf\\u0aa8\\u0abf\\u0a9f",                                        "1 \\u0aae\\u0abf\\u0af0",              "1 \\u0aae\\u0abf\\u0af0",              0,1,    0,1 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+#endif // APPLE_ICU_CHANGES
 
 static const SingleUnitFormat nl_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
@@ -576,7 +592,7 @@ static const MultipleUnitName ja_multNam[] = {
 
 static const LocaleWidthNumFmtItem lwnItems[] = {
     // ============= TIER 0,1 and subocales
-//    { "en",         en_singFmt,      en_singNam,      en_multFmt,      en_multNam      }, // en: try plural cases for 1, other
+    { "en",         en_singFmt,      en_singNam,      en_multFmt,      en_multNam      }, // en: try plural cases for 1, other
 #if APPLE_ICU_CHANGES // rdar://82156728
     { "id",         id_singFmt,      id_singNam,      NULL,            NULL            },
 #endif // APPLE_ICU_CHANGES
@@ -625,6 +641,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     // ============= India Tentpole locales
 #if APPLE_ICU_CHANGES // rdar://135257320
     { "mr",         mr_singFmt,      NULL,            NULL,            NULL            }, // mr: try plural cases for 1, other (Marathi)
+    { "gu",         gu_singFmt,      NULL,            NULL,            NULL            }, // rdar://155402842 gu: Gujarati with narrow duration units
 #endif
     { "ta",         ta_singFmt,      NULL,            NULL,            NULL            },
     { "ur",         ur_singFmt,      NULL,            NULL,            NULL            },
@@ -639,6 +656,12 @@ enum { kUBufMax = 96, kBBufMax = 192 };
 
 static void TestUAMeasureFormat()
 {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (getTestOption(QUICK_OPTION)) {
+        log_verbose("Skipping in quick mode (use -e for exhaustive tests)\n");
+        return;
+    }
+#endif
     const LocaleWidthNumFmtItem * itemPtr;
     log_verbose("\nTesting uameasfmt functions\n");
     for (itemPtr = lwnItems; itemPtr->locale != NULL; itemPtr++) {

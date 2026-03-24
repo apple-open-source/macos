@@ -72,7 +72,7 @@ static WebPageGroupData pageGroupData(const String& identifier)
         validIdentifier = makeString("__uniquePageGroupID-"_s, pageGroupID.toUInt64());
 
     return {
-        WTFMove(validIdentifier),
+        WTF::move(validIdentifier),
         pageGroupID
     };
 }

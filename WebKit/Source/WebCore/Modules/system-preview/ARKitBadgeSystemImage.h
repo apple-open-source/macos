@@ -66,7 +66,7 @@ public:
     RenderingResourceIdentifier imageIdentifier() const;
 
 private:
-    friend struct IPC::ArgumentCoder<ARKitBadgeSystemImage, void>;
+    friend struct IPC::ArgumentCoder<ARKitBadgeSystemImage>;
     ARKitBadgeSystemImage(Image& image)
         : SystemImage(SystemImageType::ARKitBadge)
         , m_image(image)

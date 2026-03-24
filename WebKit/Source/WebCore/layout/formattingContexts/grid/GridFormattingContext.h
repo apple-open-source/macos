@@ -42,9 +42,8 @@ class UnplacedGridItem;
 struct GridAreaLines;
 struct UnplacedGridItems;
 
-class GridFormattingContext : public CanMakeCheckedPtr<GridFormattingContext> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(GridFormattingContext);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GridFormattingContext);
+class GridFormattingContext {
+    WTF_MAKE_TZONE_ALLOCATED(GridFormattingContext);
 public:
 
     struct GridLayoutConstraints {

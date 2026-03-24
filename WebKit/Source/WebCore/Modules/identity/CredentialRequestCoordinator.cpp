@@ -51,12 +51,12 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(CredentialRequestCoordinatorClient);
 
 Ref<CredentialRequestCoordinator> CredentialRequestCoordinator::create(Ref<CredentialRequestCoordinatorClient>&& client, Page& page)
 {
-    return adoptRef(*new CredentialRequestCoordinator(WTFMove(client), page));
+    return adoptRef(*new CredentialRequestCoordinator(WTF::move(client), page));
 }
 
 CredentialRequestCoordinator::CredentialRequestCoordinator(Ref<CredentialRequestCoordinatorClient>&& client, Page& page)
-    : ActiveDOMObject(page.localTopDocument().get())
-    , m_client(WTFMove(client))
+    : ActiveDOMObject(page.localTopDocument())
+    , m_client(WTF::move(client))
     , m_page(page)
 {
 }
@@ -67,7 +67,7 @@ CredentialRequestCoordinator::PickerStateGuard::PickerStateGuard(CredentialReque
 }
 
 CredentialRequestCoordinator::PickerStateGuard::PickerStateGuard(PickerStateGuard&& other) noexcept
-    : m_coordinator(WTFMove(other.m_coordinator))
+    : m_coordinator(WTF::move(other.m_coordinator))
     , m_active(other.m_active)
 {
     other.m_active = false;
@@ -120,7 +120,7 @@ void CredentialRequestCoordinator::setState(PickerState newState)
 void CredentialRequestCoordinator::setCurrentPromise(CredentialPromise&& promise)
 {
     ASSERT(!m_currentPromise.has_value());
-    m_currentPromise = WTFMove(promise);
+    m_currentPromise = WTF::move(promise);
 }
 
 CredentialPromise* CredentialRequestCoordinator::currentPromise()
@@ -168,28 +168,28 @@ void CredentialRequestCoordinator::presentPicker(const Document& document, Crede
             if (!weakThis)
                 return;
             LOG(DigitalCredentials, "Credential picker was aborted by AbortSignal");
-            weakThis->abortPicker(WTFMove(reason));
+            weakThis->abortPicker(WTF::move(reason));
         });
     }
 
     setState(PickerState::Presenting);
-    setCurrentPromise(WTFMove(promise));
+    setCurrentPromise(WTF::move(promise));
     observeContext(document.protectedScriptExecutionContext().get());
 
     auto validatedCredentialRequests = validatedRequestsOrException.releaseReturnValue();
     DigitalCredentialsRequestData requestData {
-        WTFMove(validatedCredentialRequests),
+        WTF::move(validatedCredentialRequests),
         document.protectedTopOrigin()->data(),
         document.protectedSecurityOrigin()->data(),
     };
 
     auto weakThis = WeakPtr { *this };
     m_client->showDigitalCredentialsPicker(
-        WTFMove(unvalidatedRequests),
+        WTF::move(unvalidatedRequests),
         requestData,
         [weakThis = WeakPtr { *this }, signal](Expected<DigitalCredentialsResponseData, ExceptionData>&& responseOrException) {
             if (RefPtr protectedThis = weakThis.get())
-                protectedThis->handleDigitalCredentialsPickerResult(WTFMove(responseOrException), signal);
+                protectedThis->handleDigitalCredentialsPickerResult(WTF::move(responseOrException), signal);
         });
 }
 
@@ -267,7 +267,7 @@ void CredentialRequestCoordinator::finalizeDigitalCredential(const DigitalCreden
         return;
     }
 
-    auto document = m_page->localTopDocument();
+    RefPtr document = m_page->localTopDocument();
     if (!document) {
         m_currentPromise->reject(ExceptionCode::InvalidStateError, "No Document."_s);
         m_currentPromise.reset();
@@ -293,7 +293,7 @@ void CredentialRequestCoordinator::finalizeDigitalCredential(const DigitalCreden
     Ref credential = DigitalCredential::create(
         { returnValue->vm(), returnValue },
         responseData.protocol);
-    m_currentPromise->resolve(WTFMove(credential.ptr()));
+    m_currentPromise->resolve(credential.ptr());
     m_currentPromise.reset();
 }
 

@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cmd3.c	8.2 (Berkeley) 4/20/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include "extern.h"
 
@@ -51,7 +43,7 @@ __FBSDID("$FreeBSD$");
  * and forking a sh -c
  */
 int
-shell(char *str)
+shell(void *str)
 {
 	sig_t sigint = signal(SIGINT, SIG_IGN);
 	char *sh;
@@ -62,7 +54,11 @@ shell(char *str)
 	if (bangexp(cmd, sizeof(cmd)) < 0)
 		return (1);
 	if ((sh = value("SHELL")) == NULL)
+#ifdef __APPLE__
 		sh = _PATH_BSHELL;
+#else
+		sh = _PATH_CSHELL;
+#endif
 	(void)run_command(sh, 0, -1, -1, "-c", cmd, NULL);
 	(void)signal(SIGINT, sigint);
 	printf("!\n");
@@ -74,13 +70,17 @@ shell(char *str)
  */
 /*ARGSUSED*/
 int
-dosh(char *str __unused)
+dosh(void *str __unused)
 {
 	sig_t sigint = signal(SIGINT, SIG_IGN);
 	char *sh;
 
 	if ((sh = value("SHELL")) == NULL)
+#ifdef __APPLE__
 		sh = _PATH_BSHELL;
+#else
+		sh = _PATH_CSHELL;
+#endif
 	(void)run_command(sh, 0, -1, -1, NULL);
 	(void)signal(SIGINT, sigint);
 	printf("\n");
@@ -99,8 +99,10 @@ bangexp(char *str, size_t strsize)
 	char *cp, *cp2;
 	int n, changed = 0;
 
+#ifdef __APPLE__
 	if (value("bang") == NULL)
 		return (0);
+#endif
 	cp = str;
 	cp2 = bangbuf;
 	n = sizeof(bangbuf);
@@ -148,7 +150,7 @@ overf:
  */
 
 int
-help(void)
+help(void *arg __unused)
 {
 	int c;
 	FILE *f;
@@ -186,6 +188,7 @@ schdir(void *v)
 	return (0);
 }
 
+#ifdef __APPLE__
 char *
 getauthor(char *str)
 {
@@ -206,7 +209,7 @@ printf("file name=%s\n", str);
 }
 
 int
-followup(int *msgvec)
+followup(void *msgvec)
 {
 	int res;
 	int reset = 0;
@@ -225,7 +228,7 @@ followup(int *msgvec)
 }
 
 int
-Capfollowup(int *msgvec)
+Capfollowup(void *msgvec)
 {
 	int res;
 	int reset = 0;
@@ -242,6 +245,7 @@ Capfollowup(int *msgvec)
 	}
 	return (res);
 }
+#endif
 
 int
 respond(void *v)
@@ -424,10 +428,14 @@ set(void *v)
 	char *cp, *cp2;
 	char varbuf[BUFSIZ], **ap, **p;
 	int errs, h, s;
+#ifdef __APPLE__
 	int stringlength;
+#endif
 
 	if (*arglist == NULL) {
+#ifdef __APPLE__
 		char * printval;
+#endif
 		for (h = 0, s = 1; h < HSHSIZE; h++)
 			for (vp = variables[h]; vp != NULL; vp = vp->v_link)
 				s++;
@@ -437,6 +445,7 @@ set(void *v)
 				*p++ = vp->v_name;
 		*p = NULL;
 		sort(ap);
+#ifdef __APPLE__
 		for (p = ap; *p != NULL; p++) {
 			printf("%s", *p);
 			printval = value(*p);
@@ -445,11 +454,16 @@ set(void *v)
 			}
 			printf("\n");
 		}
+#else
+		for (p = ap; *p != NULL; p++) {
+			printf("%s\t%s\n", *p, value(*p));
+#endif
 		return (0);
 	}
 	errs = 0;
 	for (ap = arglist; *ap != NULL; ap++) {
 		cp = *ap;
+#ifdef __APPLE__
 		stringlength = strlen(cp);
 		if (stringlength > 2 && cp[0]=='n' && cp[1]=='o') {
 			/* set no<var> means unset <var> */
@@ -463,6 +477,7 @@ set(void *v)
 			/* synonym: must convert into "asksub" */
 			cp = "asksub";
 		}
+#endif
 		cp2 = varbuf;
 		while (cp2 < varbuf + sizeof(varbuf) - 1 && *cp != '=' && *cp != '\0')
 			*cp2++ = *cp++;
@@ -491,10 +506,13 @@ unset(void *v)
 	struct var *vp, *vp2;
 	int errs, h;
 	char **ap;
+#ifdef __APPLE__
 	int stringlength;
+#endif
 
 	errs = 0;
 	for (ap = arglist; *ap != NULL; ap++) {
+#ifdef __APPLE__
 		stringlength = strlen(*ap);
 		if (stringlength > 2 && (*ap)[0]=='n' && (*ap)[1]=='o') {
 			/* no<var> is not in db - only <var> can be in table */
@@ -506,12 +524,19 @@ unset(void *v)
 			/* synonym: must convert into "asksub" */
 			*ap = "asksub";
 		}
+#endif
 		if ((vp2 = lookup(*ap)) == NULL) {
-			if (getenv(*ap)) {
+			if (getenv(*ap)) 
+#ifdef __APPLE__
+			{
 				unsetenv(*ap);
 				if (debug)
 					fprintf(stderr,"WARNING:  unsetting environment variable: %s\n", *ap);
-			} else if (!sourcing) {
+			}
+#else
+				unsetenv(*ap);
+#endif
+			else if (!sourcing) {
 				printf("\"%s\": undefined variable\n", *ap);
 				errs++;
 			}
@@ -624,7 +649,7 @@ diction(const void *a, const void *b)
 
 /*ARGSUSED*/
 int
-null(int e __unused)
+null(void *arg __unused)
 {
 	return (0);
 }
@@ -634,8 +659,9 @@ null(int e __unused)
  * the current file.
  */
 int
-file(char **argv)
+file(void *arg)
 {
+	char **argv = arg;
 
 	if (argv[0] == NULL) {
 		newfileinfo(0);
@@ -651,8 +677,9 @@ file(char **argv)
  * Expand file names like echo
  */
 int
-echo(char **argv)
+echo(void *arg)
 {
+	char **argv = arg;
 	char **ap, *cp;
 
 	for (ap = argv; *ap != NULL; ap++) {
@@ -668,7 +695,7 @@ echo(char **argv)
 }
 
 int
-Respond(int *msgvec)
+Respond(void *msgvec)
 {
 	if (value("Replyall") == NULL && value("flipr") == NULL)
 		return (doRespond(msgvec));
@@ -719,8 +746,9 @@ doRespond(int msgvec[])
  * .mailrc and do some things if sending, others if receiving.
  */
 int
-ifcmd(char **argv)
+ifcmd(void *arg)
 {
+	char **argv = arg;
 	char *cp;
 
 	if (cond != CANY) {
@@ -750,7 +778,7 @@ ifcmd(char **argv)
  * flip over the conditional flag.
  */
 int
-elsecmd(void)
+elsecmd(void *arg __unused)
 {
 
 	switch (cond) {
@@ -778,7 +806,7 @@ elsecmd(void)
  * End of if statement.  Just set cond back to anything.
  */
 int
-endifcmd(void)
+endifcmd(void *arg __unused)
 {
 
 	if (cond == CANY) {
@@ -793,8 +821,9 @@ endifcmd(void)
  * Set the list of alternate names.
  */
 int
-alternates(char **namelist)
+alternates(void *arg)
 {
+	char **namelist = arg;
 	int c;
 	char **ap, **ap2, *cp;
 

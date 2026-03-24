@@ -26,5 +26,7 @@
 	<true/>
 	<key>com.apple.private.xpc.launchd.ios-system-session</key>
 	<true/>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
 </dict>
 </plist>

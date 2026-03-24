@@ -56,7 +56,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ShadowRoot);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ShadowRoot);
 
 struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
     uint8_t flagsAndModes[3];
@@ -75,7 +75,7 @@ static_assert(sizeof(WeakPtr<Element, WeakPtrImplWithEventTargetData>) == sizeof
 
 ShadowRoot::ShadowRoot(Document& document, ShadowRootMode mode, SlotAssignmentMode assignmentMode, ShadowRootDelegatesFocus delegatesFocus, Clonable clonable, ShadowRootSerializable serializable, ShadowRootAvailableToElementInternals availableToElementInternals, RefPtr<CustomElementRegistry>&& registry, ShadowRootScopedCustomElementRegistry scopedRegistry, const AtomString& referenceTarget)
     : DocumentFragment(document, TypeFlag::IsShadowRootOrFormControlElement)
-    , TreeScope(*this, document, WTFMove(registry))
+    , TreeScope(*this, document, WTF::move(registry))
     , m_delegatesFocus(delegatesFocus == ShadowRootDelegatesFocus::Yes)
     , m_isClonable(clonable == Clonable::Yes)
     , m_serializable(serializable == ShadowRootSerializable::Yes)
@@ -97,7 +97,7 @@ ShadowRoot::ShadowRoot(Document& document, std::unique_ptr<SlotAssignment>&& slo
     , TreeScope(*this, document, nullptr)
     , m_mode(ShadowRootMode::UserAgent)
     , m_styleScope(makeUnique<Style::Scope>(*this))
-    , m_slotAssignment(WTFMove(slotAssignment))
+    , m_slotAssignment(WTF::move(slotAssignment))
 {
     setEventTargetFlag(EventTargetFlag::IsInShadowTree);
     setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
@@ -134,7 +134,7 @@ Node::InsertedIntoAncestorResult ShadowRoot::insertedIntoAncestor(InsertionType 
     if (!m_hasScopedCustomElementRegistry && usesNullCustomElementRegistry() && !parentOfInsertedTree.usesNullCustomElementRegistry()) {
         if (RefPtr registry = CustomElementRegistry::registryForElement(*host())) {
             clearUsesNullCustomElementRegistry();
-            setCustomElementRegistry(WTFMove(registry));
+            setCustomElementRegistry(WTF::move(registry));
         }
     }
     if (insertionType.connectedToDocument) {
@@ -238,12 +238,16 @@ ExceptionOr<void> ShadowRoot::replaceChildrenWithMarkup(const String& markup, Op
     auto fragment = createFragmentForInnerOuterHTML(*protectedHost(), markup, policy, customElementRegistry());
     if (fragment.hasException())
         return fragment.releaseException();
-    return replaceChildrenWithFragment(*this, fragment.releaseReturnValue());
+    bool usedFastPath = fragment.returnValue()->hasWasParsedWithFastPath();
+    auto result = replaceChildrenWithFragment(*this, fragment.releaseReturnValue());
+    if (!result.hasException() && usedFastPath)
+        document().updateCachedSetInnerHTML(markup, *this, *protectedHost());
+    return result;
 }
 
 ExceptionOr<void> ShadowRoot::setHTMLUnsafe(Variant<RefPtr<TrustedHTML>, String>&& html)
 {
-    auto stringValueHolder = trustedTypeCompliantString(*document().scriptExecutionContext(), WTFMove(html), "ShadowRoot setHTMLUnsafe"_s);
+    auto stringValueHolder = trustedTypeCompliantString(document().contextDocument(), WTF::move(html), "ShadowRoot setHTMLUnsafe"_s);
 
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
@@ -253,7 +257,7 @@ ExceptionOr<void> ShadowRoot::setHTMLUnsafe(Variant<RefPtr<TrustedHTML>, String>
 
 String ShadowRoot::getHTML(GetHTMLOptions&& options) const
 {
-    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren, nullptr, ResolveURLs::NoExcludingURLsForPrivacy, SerializationSyntax::HTML, options.serializableShadowRoots ? SerializeShadowRoots::Serializable : SerializeShadowRoots::Explicit, WTFMove(options.shadowRoots));
+    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren, nullptr, ResolveURLs::NoExcludingURLsForPrivacy, SerializationSyntax::HTML, options.serializableShadowRoots ? SerializeShadowRoots::Serializable : SerializeShadowRoots::Explicit, WTF::move(options.shadowRoots));
 }
 
 String ShadowRoot::innerHTML() const
@@ -263,7 +267,7 @@ String ShadowRoot::innerHTML() const
 
 ExceptionOr<void> ShadowRoot::setInnerHTML(Variant<RefPtr<TrustedHTML>, String>&& html)
 {
-    auto stringValueHolder = trustedTypeCompliantString(*document().scriptExecutionContext(), WTFMove(html), "ShadowRoot innerHTML"_s);
+    auto stringValueHolder = trustedTypeCompliantString(document().contextDocument(), WTF::move(html), "ShadowRoot innerHTML"_s);
 
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
@@ -487,17 +491,9 @@ Vector<Ref<ShadowRoot>> assignedShadowRootsIfSlotted(const Node& node)
     return result;
 }
 
-#if ENABLE(PICTURE_IN_PICTURE_API)
-Element* ShadowRoot::pictureInPictureElement() const
+Vector<Ref<WebAnimation>> ShadowRoot::getAnimations()
 {
-    notImplemented();
-    return nullptr;
-}
-#endif
-
-Vector<RefPtr<WebAnimation>> ShadowRoot::getAnimations()
-{
-    return document().matchingAnimations([&] (Element& target) -> bool {
+    return document().matchingAnimations([&](Element& target) {
         return target.containingShadowRoot() == this;
     });
 }

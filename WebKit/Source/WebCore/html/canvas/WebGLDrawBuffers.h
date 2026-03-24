@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class WebGLDrawBuffers final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLDrawBuffers);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLDrawBuffers);
 public:
     explicit WebGLDrawBuffers(WebGLRenderingContextBase&);
     ~WebGLDrawBuffers();

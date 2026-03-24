@@ -36,7 +36,9 @@
 
 - (void)setControlObject:(OTControl*)control;
 - (void)setContextIDForSession:(NSString*)contextID;
+// for tests
 - (void)setPiggybackingVersion:(uint64_t)version;
+- (void)setFailSOSPropertyForTests:(BOOL)fail;
 @end
 #endif /* Header_h */
 #endif

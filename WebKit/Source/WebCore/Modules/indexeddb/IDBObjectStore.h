@@ -64,7 +64,7 @@ enum class ObjectStoreOverwriteMode : uint8_t;
 }
 
 class IDBObjectStore final : public ActiveDOMObject, public CanMakeCheckedPtr<IDBObjectStore> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(IDBObjectStore);
+    WTF_MAKE_TZONE_ALLOCATED(IDBObjectStore);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(IDBObjectStore);
 public:
     static UniqueRef<IDBObjectStore> create(ScriptExecutionContext&, const IDBObjectStoreInfo&, IDBTransaction&);

@@ -58,7 +58,7 @@ public:
 
     RetainPtr<id> toID() const;
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSURLProtectionSpace, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSURLProtectionSpace>;
     CoreIPCNSURLProtectionSpaceData m_data;
 };
 

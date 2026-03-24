@@ -34,11 +34,13 @@
 #include <WebCore/GraphicsContextGLState.h>
 #include <memory>
 #include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 // Base class for GraphicsContextGL contexts that use ANGLE.
 class WEBCORE_EXPORT GraphicsContextGLANGLE : public GraphicsContextGL {
+    WTF_FORBID_HEAP_ALLOCATION_FOR_ABSTRACT_CLASS(GraphicsContextGLANGLE);
 public:
     ~GraphicsContextGLANGLE();
 
@@ -297,9 +299,7 @@ public:
     void multiDrawArraysInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei> firstsCountsAndInstanceCounts) final;
     void multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei> countsAndOffsets, GCGLenum type) final;
     void multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei> countsOffsetsAndInstanceCounts, GCGLenum type) final;
-    bool supportsExtension(const CString&) override;
-    void ensureExtensionEnabled(const CString&) override;
-    bool isExtensionEnabled(const CString&) override;
+    bool enableExtension(GCGLExtension) override;
     void drawBuffersEXT(std::span<const GCGLenum>) override;
     CString getTranslatedShaderSourceANGLE(PlatformGLObject) override;
     PlatformGLObject createQueryEXT() final;
@@ -342,12 +342,11 @@ public:
     void deleteShader(PlatformGLObject) final;
     void deleteTexture(PlatformGLObject) final;
     void simulateEventForTesting(SimulatedEventForTesting) override;
-    void drawSurfaceBufferToImageBuffer(SurfaceBuffer, ImageBuffer&) override;
     RefPtr<PixelBuffer> drawingBufferToPixelBuffer(FlipY);
 
     RefPtr<PixelBuffer> readRenderingResultsForPainting();
 
-    virtual RefPtr<NativeImage> bufferAsNativeImage(SurfaceBuffer);
+    RefPtr<NativeImage> copyNativeImageYFlipped(SurfaceBuffer) override;
 
     // Returns the span of valid data read on success.
     bool getBufferSubDataWithStatus(GCGLenum target, GCGLintptr offset, std::span<uint8_t> data);
@@ -357,13 +356,17 @@ public:
     std::optional<IntSize> readPixelsWithStatus(IntRect, GCGLenum format, GCGLenum type, GCGLboolean packReverseRowOrder, std::span<uint8_t> data);
 
     void addError(GCGLErrorCode);
+
+    EnumSet<GCGLExtension> knownActiveExtensions() const;
+    EnumSet<GCGLExtension> requestableExtensions() const;
+
 protected:
     GraphicsContextGLANGLE(GraphicsContextGLAttributes);
 
     bool updateErrors();
 
     // Called once by all the public entry points that eventually call OpenGL.
-    bool makeContextCurrent() WARN_UNUSED_RETURN;
+    WARN_UNUSED_RETURN bool makeContextCurrent();
 
     // Initializes the instance. Returns false if the instance should not be used.
     bool initialize();
@@ -405,8 +408,10 @@ protected:
     static void platformReleaseThreadResources();
 
     virtual void invalidateKnownTextureContent(GCGLuint);
-    bool enableExtension(const CString&) WARN_UNUSED_RETURN;
-    void requestExtension(const CString&);
+    bool supportsExtensionImpl(ASCIILiteral) const;
+    // Enables extensions only if all are supported, returns true if all the extensions are supported. No changes if false is returned.
+    WARN_UNUSED_RETURN bool enableExtensionsImpl(std::initializer_list<ASCIILiteral>);
+    bool isExtensionEnabledImpl(ASCIILiteral) const;
 
     // Only for non-WebGL 2.0 contexts.
     GCGLenum adjustWebGL1TextureInternalFormat(GCGLenum internalformat, GCGLenum format, GCGLenum type);
@@ -415,9 +420,9 @@ protected:
     void prepareForDrawingBufferWriteIfBound();
     virtual void prepareForDrawingBufferWrite();
 
-    HashSet<CString> m_availableExtensions;
-    HashSet<CString> m_requestableExtensions;
-    HashSet<CString> m_enabledExtensions;
+    HashSet<CString> m_allRequestableExtensions;
+    HashSet<CString> m_allEnabledRequestableExtensions;
+    HashSet<CString> m_extensions;
     bool m_webglColorBufferFloatRGB { false };
     bool m_webglColorBufferFloatRGBA { false };
     GCGLuint m_texture { 0 };

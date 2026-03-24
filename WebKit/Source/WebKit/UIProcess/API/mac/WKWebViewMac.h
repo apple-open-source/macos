@@ -40,6 +40,7 @@ std::optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScr
 - (void)insertText:(id)string replacementRange:(NSRange)replacementRange;
 
 - (void)_resetSecureInputState;
+- (Vector<String>)_promisedFileMIMETypes:(id<NSDraggingInfo>)info;
 
 @end
 

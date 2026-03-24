@@ -95,7 +95,7 @@ tre_print_reach1(tre_tnfa_transition_t *state, tre_tag_t *tags, int num_tags)
 }
 
 static void
-tre_print_reach(const tre_tnfa_t *tnfa, tre_tnfa_reach_t *reach, int num_tags)
+tre_print_reach(tre_tnfa_reach_t *reach, int num_tags)
 {
   while (reach->state != NULL)
     {
@@ -383,7 +383,7 @@ no_first_optimization:
   DPRINT(("-------------+------------------------------------------------\n"));
 
   reach_next_i = reach_next;
-  while (/*CONSTCOND*/1)
+  while (/*CONSTCOND*/(void)1,1)
     {
       /* If no match found yet, add the initial states to `reach_next'. */
       if (match_eo < 0)
@@ -434,7 +434,7 @@ no_first_optimization:
       else
 	{
 	  if (num_tags == 0 || reach_next_i == reach_next)
-	    /* We have found a match. */
+	    /* We have found a match. */
 	    break;
 	}
 
@@ -462,9 +462,9 @@ no_first_optimization:
 
 #ifdef TRE_DEBUG
       DPRINT(("%3d:%2lc/%05d |", pos - 1, (tre_cint_t)prev_c, (int)prev_c));
-      tre_print_reach(tnfa, reach_next, num_tags);
-      //DPRINT(("%3d:%2lc/%05d |", pos, (tre_cint_t)next_c, (int)next_c));
-      //tre_print_reach(tnfa, reach_next, num_tags);
+      tre_print_reach(reach_next, num_tags);
+      DPRINT(("%3d:%2lc/%05d |", pos, (tre_cint_t)next_c, (int)next_c));
+      tre_print_reach(reach_next, num_tags);
 #endif /* TRE_DEBUG */
 
       /* Swap `reach' and `reach_next'. */

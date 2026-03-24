@@ -31,10 +31,6 @@
 #include "CompositingRunLoop.h"
 #include "ThreadedCompositorPlayStation.h"
 
-#if USE(GLIB_EVENT_LOOP)
-#include <wtf/glib/RunLoopSourcePriority.h>
-#endif
-
 namespace WebKit {
 
 ThreadedDisplayRefreshMonitor::ThreadedDisplayRefreshMonitor(WebCore::PlatformDisplayID displayID, Client& client, WebCore::DisplayUpdate displayUpdate)
@@ -43,9 +39,6 @@ ThreadedDisplayRefreshMonitor::ThreadedDisplayRefreshMonitor(WebCore::PlatformDi
     , m_client(&client)
     , m_displayUpdate(displayUpdate)
 {
-#if USE(GLIB_EVENT_LOOP)
-    m_displayRefreshTimer.setPriority(RunLoopSourcePriority::DisplayRefreshMonitorTimer);
-#endif
 }
 
 bool ThreadedDisplayRefreshMonitor::requestRefreshCallback()

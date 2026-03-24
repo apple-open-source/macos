@@ -83,20 +83,20 @@ private:
     void notifyFlushRequired(const WebCore::GraphicsLayer*) override;
     float pageScaleFactor() const override;
     float deviceScaleFactor() const override;
-    std::optional<float> customContentsScale(const WebCore::GraphicsLayer*) const override;
-    bool layerNeedsPlatformContext(const WebCore::GraphicsLayer*) const override;
+    std::optional<float> customContentsScale(const WebCore::GraphicsLayer&) const override;
+    bool layerNeedsPlatformContext(const WebCore::GraphicsLayer&) const override;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     bool layerAllowsDynamicContentScaling(const WebCore::GraphicsLayer*) const override;
 #endif
     void tiledBackingUsageChanged(const WebCore::GraphicsLayer*, bool /*usingTiledBacking*/) override;
-    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
+    void paintContents(const WebCore::GraphicsLayer&, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
 
     void paintPDFSelection(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, std::optional<PDFLayoutRow> = { });
 
     std::optional<WebCore::PlatformLayerIdentifier> contentsLayerIdentifier() const final;
 
     void updatePageBackgroundLayers();
-    std::optional<PDFDocumentLayout::PageIndex> pageIndexForPageBackgroundLayer(const WebCore::GraphicsLayer*) const;
+    std::optional<PDFDocumentLayout::PageIndex> pageIndexForPageBackgroundLayer(const WebCore::GraphicsLayer&) const;
     WebCore::GraphicsLayer* backgroundLayerForPage(PDFDocumentLayout::PageIndex) const;
 
     void didGeneratePreviewForPage(PDFDocumentLayout::PageIndex) override;

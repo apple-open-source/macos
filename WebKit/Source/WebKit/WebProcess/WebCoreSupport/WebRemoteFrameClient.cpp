@@ -47,7 +47,7 @@ namespace WebKit {
 using namespace WebCore;
 
 WebRemoteFrameClient::WebRemoteFrameClient(Ref<WebFrame>&& frame, ScopeExit<Function<void()>>&& frameInvalidator)
-    : WebFrameLoaderClient(WTFMove(frame), WTFMove(frameInvalidator))
+    : WebFrameLoaderClient(WTF::move(frame), WTF::move(frameInvalidator))
 {
 }
 
@@ -73,9 +73,9 @@ void WebRemoteFrameClient::frameDetached()
         ownerElement->protectedDocument()->checkCompleted();
 }
 
-void WebRemoteFrameClient::sizeDidChange(IntSize size)
+void WebRemoteFrameClient::frameRectDidChange(IntRect rect)
 {
-    m_frame->updateRemoteFrameSize(size);
+    broadcastFrameRectToOtherProcesses(rect);
 }
 
 void WebRemoteFrameClient::paintContents(GraphicsContext& context, const IntRect& rect)
@@ -86,7 +86,7 @@ void WebRemoteFrameClient::paintContents(GraphicsContext& context, const IntRect
     page->paintRemoteFrameContents(m_frame->frameID(), rect, context);
 }
 
-void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const String& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
+void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const SecurityOriginData& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
 {
     if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::PostMessageToRemote(source, sourceOrigin, target, targetOrigin, message));
@@ -97,7 +97,7 @@ void WebRemoteFrameClient::changeLocation(FrameLoadRequest&& request)
     NavigationAction action(request);
     // FIXME: action.request and request are probably duplicate information. <rdar://116203126>
     // FIXME: Get more parameters correct and add tests for each one. <rdar://116203354>
-    dispatchDecidePolicyForNavigationAction(action, action.originalRequest(), ResourceResponse(), nullptr, { }, { }, { }, { }, IsPerformingHTTPFallback::No, { }, PolicyDecisionMode::Asynchronous, [protectedFrame = Ref { m_frame }, request = WTFMove(request)] (PolicyAction policyAction) mutable {
+    dispatchDecidePolicyForNavigationAction(action, action.originalRequest(), ResourceResponse(), nullptr, { }, { }, { }, { }, NavigationUpgradeToHTTPSBehavior::BasedOnPolicy, { }, PolicyDecisionMode::Asynchronous, [protectedFrame = Ref { m_frame }, request = WTF::move(request)] (PolicyAction policyAction) mutable {
         // WebPage::loadRequest will make this load happen if needed.
         // FIXME: What if PolicyAction::Ignore is sent. Is everything in the right state? We probably need to make sure the load event still happens on the parent frame. <rdar://116203453>
     });
@@ -189,15 +189,15 @@ void WebRemoteFrameClient::unfocus()
 void WebRemoteFrameClient::documentURLForConsoleLog(CompletionHandler<void(const URL&)>&& completionHandler)
 {
     if (RefPtr page = m_frame->page())
-        page->sendWithAsyncReply(Messages::WebPageProxy::DocumentURLForConsoleLog(m_frame->frameID()), WTFMove(completionHandler));
+        page->sendWithAsyncReply(Messages::WebPageProxy::DocumentURLForConsoleLog(m_frame->frameID()), WTF::move(completionHandler));
     else
         completionHandler({ });
 }
 
 void WebRemoteFrameClient::dispatchDecidePolicyForNavigationAction(const NavigationAction& navigationAction, const ResourceRequest& request, const ResourceResponse& redirectResponse,
-    FormState* formState, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier> navigationID, std::optional<HitTestResult>&& hitTestResult, bool hasOpener, IsPerformingHTTPFallback isPerformingHTTPFallback, SandboxFlags sandboxFlags, PolicyDecisionMode policyDecisionMode, FramePolicyFunction&& function)
+    FormState* formState, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier> navigationID, std::optional<HitTestResult>&& hitTestResult, bool hasOpener, NavigationUpgradeToHTTPSBehavior navigationUpgradeToHTTPSBehavior, SandboxFlags sandboxFlags, PolicyDecisionMode policyDecisionMode, FramePolicyFunction&& function)
 {
-    WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(navigationAction, request, redirectResponse, formState, clientRedirectSourceForHistory, navigationID, WTFMove(hitTestResult), hasOpener, isPerformingHTTPFallback, sandboxFlags, policyDecisionMode, WTFMove(function));
+    WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(navigationAction, request, redirectResponse, formState, clientRedirectSourceForHistory, navigationID, WTF::move(hitTestResult), hasOpener, navigationUpgradeToHTTPSBehavior, sandboxFlags, policyDecisionMode, WTF::move(function));
 }
 
 void WebRemoteFrameClient::updateSandboxFlags(WebCore::SandboxFlags sandboxFlags)
@@ -205,7 +205,7 @@ void WebRemoteFrameClient::updateSandboxFlags(WebCore::SandboxFlags sandboxFlags
     WebFrameLoaderClient::updateSandboxFlags(sandboxFlags);
 }
 
-void WebRemoteFrameClient::updateOpener(const WebCore::Frame& newOpener)
+void WebRemoteFrameClient::updateOpener(std::optional<WebCore::FrameIdentifier> newOpener)
 {
     WebFrameLoaderClient::updateOpener(newOpener);
 }
@@ -213,6 +213,16 @@ void WebRemoteFrameClient::updateOpener(const WebCore::Frame& newOpener)
 void WebRemoteFrameClient::setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize adjustViewSize)
 {
     WebFrameLoaderClient::setPrinting(printing, pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize);
+}
+
+void WebRemoteFrameClient::broadcastAllFrameTreeSyncDataToOtherProcesses(FrameTreeSyncData& data)
+{
+    WebFrameLoaderClient::broadcastAllFrameTreeSyncDataToOtherProcesses(data);
+}
+
+void WebRemoteFrameClient::broadcastFrameTreeSyncDataToOtherProcesses(const FrameTreeSyncSerializationData& data)
+{
+    WebFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(data);
 }
 
 void WebRemoteFrameClient::applyWebsitePolicies(WebsitePoliciesData&& websitePolicies)
@@ -223,10 +233,10 @@ void WebRemoteFrameClient::applyWebsitePolicies(WebsitePoliciesData&& websitePol
         return;
     }
 
-    coreFrame->setCustomUserAgent(WTFMove(websitePolicies.customUserAgent));
-    coreFrame->setCustomUserAgentAsSiteSpecificQuirks(WTFMove(websitePolicies.customUserAgentAsSiteSpecificQuirks));
+    coreFrame->setCustomUserAgent(WTF::move(websitePolicies.customUserAgent));
+    coreFrame->setCustomUserAgentAsSiteSpecificQuirks(WTF::move(websitePolicies.customUserAgentAsSiteSpecificQuirks));
     coreFrame->setAdvancedPrivacyProtections(websitePolicies.advancedPrivacyProtections);
-    coreFrame->setCustomNavigatorPlatform(WTFMove(websitePolicies.customNavigatorPlatform));
+    coreFrame->setCustomNavigatorPlatform(WTF::move(websitePolicies.customNavigatorPlatform));
     coreFrame->setAutoplayPolicy(core(websitePolicies.autoplayPolicy));
 }
 
@@ -244,7 +254,7 @@ void WebRemoteFrameClient::reportMixedContentViolation(bool blocked, const URL& 
 
 void WebRemoteFrameClient::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection direction, const WebCore::FocusEventData& focusEventData, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
 {
-    m_frame->sendWithAsyncReply(Messages::WebFrameProxy::FindFocusableElementDescendingIntoRemoteFrame(direction, focusEventData), WTFMove(completionHandler));
+    m_frame->sendWithAsyncReply(Messages::WebFrameProxy::FindFocusableElementDescendingIntoRemoteFrame(direction, focusEventData), WTF::move(completionHandler));
 }
 
 }

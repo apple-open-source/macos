@@ -54,6 +54,7 @@
                encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter
           fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
               initialSyncFinished:(BOOL)initialSyncFinished
+                          altDSID:(NSString* _Nullable)altDSID
 {
     if(self = [super init]) {
         _contextID = contextID;
@@ -67,6 +68,7 @@
         _lastFixup = lastFixup;
         _fetchNewestChangesFirst = fetchNewestChangesFirst;
         _initialSyncFinished = initialSyncFinished;
+        _altDSID = altDSID;
 
         self.encodedRateLimiter = encodedRateLimiter;
     }
@@ -74,14 +76,15 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSZoneStateEntry[%@](%@): created:%@ subscribed:%@ moreRecords:%@ fetchNewestChangesFirst:%@ initialSyncFinished:%@>",
+    return [NSString stringWithFormat:@"<CKKSZoneStateEntry[%@](%@): created:%@ subscribed:%@ moreRecords:%@ fetchNewestChangesFirst:%@ initialSyncFinished:%@> altDSID:%@",
             self.contextID,
             self.ckzone,
             self.ckzonecreated ? @"YES" : @"NO",
             self.ckzonesubscribed ? @"YES" : @"NO",
             self.moreRecordsInCloudKit ? @"YES" : @"NO",
             self.fetchNewestChangesFirst ? @"YES" : @"NO",
-            self.initialSyncFinished ? @"YES" : @"NO"
+            self.initialSyncFinished ? @"YES" : @"NO",
+            self.altDSID
     ];
 }
 
@@ -104,6 +107,7 @@
             ((self.lastLocalKeychainScanTime == nil && obj.lastLocalKeychainScanTime == nil) || [self.lastLocalKeychainScanTime isEqualToDate: obj.lastLocalKeychainScanTime]) &&
             self.fetchNewestChangesFirst == obj.fetchNewestChangesFirst &&
             self.initialSyncFinished == obj.initialSyncFinished &&
+            ((self.altDSID == nil && obj.altDSID == nil) || [self.altDSID isEqualToString:obj.altDSID]) &&
             true) ? YES : NO;
 }
 
@@ -129,7 +133,8 @@
                                                   lastFixup:CKKSCurrentFixupNumber
                                          encodedRateLimiter:nil
                                     fetchNewestChangesFirst:YES
-                                        initialSyncFinished:NO];
+                                        initialSyncFinished:NO
+                                                    altDSID:nil];
     }
     return ret;
 }
@@ -194,7 +199,7 @@
 
 + (NSArray<NSString*>*) sqlColumns {
     // Note that 'extra' is not currently used, but the schema supports adding a protobuf or other serialized data
-    return @[@"contextID", @"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra", @"fetchNewestChangesFirst", @"initialSyncFinished"];
+    return @[@"contextID", @"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra", @"fetchNewestChangesFirst", @"initialSyncFinished", @"altDSID"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
@@ -220,6 +225,7 @@
         @"lastscan": CKKSNilToNSNull(self.lastLocalKeychainScanTime ? [dateFormat stringFromDate:self.lastLocalKeychainScanTime] : nil),
         @"fetchNewestChangesFirst": [NSNumber numberWithBool:self.fetchNewestChangesFirst],
         @"initialSyncFinished": [NSNumber numberWithBool:self.initialSyncFinished],
+        @"altDSID": self.altDSID ? self.altDSID : @"",
     };
 }
 
@@ -236,6 +242,7 @@
                                       encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData
                                  fetchNewestChangesFirst:row[@"fetchNewestChangesFirst"].asBOOL
                                      initialSyncFinished:row[@"initialSyncFinished"].asBOOL
+                                                 altDSID:row[@"altDSID"].asString
     ];
 }
 

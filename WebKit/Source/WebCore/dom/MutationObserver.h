@@ -55,7 +55,7 @@ class WindowEventLoop;
 template<typename> class ExceptionOr;
 
 class MutationObserver final : public RefCounted<MutationObserver> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MutationObserver);
+    WTF_MAKE_TZONE_ALLOCATED(MutationObserver);
 public:
     static Ref<MutationObserver> create(Ref<MutationCallback>&&);
 

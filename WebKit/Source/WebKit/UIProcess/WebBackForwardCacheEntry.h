@@ -29,7 +29,7 @@
 #include <WebCore/ProcessIdentifier.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -39,7 +39,7 @@ class SuspendedPageProxy;
 class WebBackForwardCache;
 class WebProcessProxy;
 
-class WebBackForwardCacheEntry : public RefCounted<WebBackForwardCacheEntry> {
+class WebBackForwardCacheEntry : public RefCountedAndCanMakeWeakPtr<WebBackForwardCacheEntry> {
     WTF_MAKE_TZONE_ALLOCATED(WebBackForwardCacheEntry);
 public:
     static Ref<WebBackForwardCacheEntry> create(WebBackForwardCache&, WebCore::BackForwardItemIdentifier, WebCore::ProcessIdentifier, RefPtr<SuspendedPageProxy>&&);

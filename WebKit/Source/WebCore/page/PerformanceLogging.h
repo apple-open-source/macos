@@ -55,7 +55,7 @@ public:
 private:
     static void getPlatformMemoryUsageStatistics(Vector<std::pair<ASCIILiteral, size_t>>&);
 
-    Page& m_page;
+    WeakRef<Page> m_page;
 };
 
 }

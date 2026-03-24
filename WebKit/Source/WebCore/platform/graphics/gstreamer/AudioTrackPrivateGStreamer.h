@@ -40,17 +40,17 @@ class AudioTrackPrivateGStreamer final : public AudioTrackPrivate, public TrackP
 public:
     static Ref<AudioTrackPrivateGStreamer> create(ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer>&& player, unsigned index, GRefPtr<GstPad>&& pad, bool shouldHandleStreamStartEvent = true)
     {
-        return adoptRef(*new AudioTrackPrivateGStreamer(WTFMove(player), index, WTFMove(pad), shouldHandleStreamStartEvent));
+        return adoptRef(*new AudioTrackPrivateGStreamer(WTF::move(player), index, WTF::move(pad), shouldHandleStreamStartEvent));
     }
 
     static Ref<AudioTrackPrivateGStreamer> create(ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer>&& player, unsigned index, GRefPtr<GstPad>&& pad, TrackID trackId)
     {
-        return adoptRef(*new AudioTrackPrivateGStreamer(WTFMove(player), index, WTFMove(pad), trackId));
+        return adoptRef(*new AudioTrackPrivateGStreamer(WTF::move(player), index, WTF::move(pad), trackId));
     }
 
     static Ref<AudioTrackPrivateGStreamer> create(ThreadSafeWeakPtr<MediaPlayerPrivateGStreamer>&& player, unsigned index, GstStream* stream)
     {
-        return adoptRef(*new AudioTrackPrivateGStreamer(WTFMove(player), index, stream));
+        return adoptRef(*new AudioTrackPrivateGStreamer(WTF::move(player), index, stream));
     }
 
     Kind kind() const final;
@@ -63,7 +63,7 @@ public:
     int trackIndex() const final { return m_index; }
 
     TrackID id() const final { return m_trackID.value_or(m_id); }
-    std::optional<AtomString> trackUID() const final
+    std::optional<String> trackUID() const final
     {
         auto player = m_player.get();
 
@@ -73,15 +73,15 @@ public:
         return std::nullopt;
     }
 
-    AtomString label() const final { return m_label; }
-    AtomString language() const final { return m_language; }
+    String label() const final { return m_label; }
+    String language() const final { return m_language; }
 
     void updateConfigurationFromCaps(GRefPtr<GstCaps>&&) final;
 
 protected:
     void updateConfigurationFromTags(GRefPtr<GstTagList>&&) final;
 
-    void tagsChanged(GRefPtr<GstTagList>&& tags) final { updateConfigurationFromTags(WTFMove(tags)); }
+    void tagsChanged(GRefPtr<GstTagList>&& tags) final { updateConfigurationFromTags(WTF::move(tags)); }
     void capsChanged(TrackID streamId, GRefPtr<GstCaps>&&) final;
 
 private:

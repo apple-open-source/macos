@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -30,12 +32,6 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)ndbm.c	8.4 (Berkeley) 7/21/94";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/hash/ndbm.c,v 1.7 2007/01/09 00:27:51 imp Exp $");
-
 /*
  * This package provides a dbm compatible interface to the new hashing
  * package described in db(3).
@@ -47,9 +43,11 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/ndbm.c,v 1.7 2007/01/09 00:27:51 imp Ex
 #include <string.h>
 #include <errno.h>
 
+#ifdef __APPLE__
 #include <db.h>
 #define _DBM
 typedef DB DBM;
+#endif
 #include <ndbm.h>
 #include "hash.h"
 
@@ -121,14 +119,10 @@ dbm_firstkey(DBM *db)
 	int status;
 	datum retkey;
 	DBT dbtretkey, dbtretdata;
-	HTAB *htab = (HTAB *)(db->internal);
 
 	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_FIRST);
-	if (status) {
+	if (status)
 		dbtretkey.data = NULL;
-		htab->nextkey_eof = 1;
-	} else
-		htab->nextkey_eof = 0;
 	retkey.dptr = dbtretkey.data;
 	retkey.dsize = dbtretkey.size;
 	return (retkey);
@@ -142,20 +136,13 @@ dbm_firstkey(DBM *db)
 extern datum
 dbm_nextkey(DBM *db)
 {
-	int status = 1;
+	int status;
 	datum retkey;
 	DBT dbtretkey, dbtretdata;
-	HTAB *htab = (HTAB *)(db->internal);
 
-	if (htab->nextkey_eof)
+	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_NEXT);
+	if (status)
 		dbtretkey.data = NULL;
-	else {
-		status = (db->seq)(db, &dbtretkey, &dbtretdata, R_NEXT);
-		if (status) {
-			dbtretkey.data = NULL;
-			htab->nextkey_eof = 1;
-		}
-	}
 	retkey.dptr = dbtretkey.data;
 	retkey.dsize = dbtretkey.size;
 	return (retkey);

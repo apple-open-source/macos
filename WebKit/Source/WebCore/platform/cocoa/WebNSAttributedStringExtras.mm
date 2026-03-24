@@ -37,7 +37,7 @@ namespace WebCore {
 NSAttributedString *attributedStringByStrippingAttachmentCharacters(NSAttributedString *attributedString)
 {
     NSRange attachmentRange;
-    NSString *originalString = [attributedString string];
+    RetainPtr<NSString> originalString = [attributedString string];
     static NeverDestroyed attachmentCharString = [] {
         unichar chars[2] = { NSAttachmentCharacter, 0 };
         return adoptNS([[NSString alloc] initWithCharacters:chars length:1]);
@@ -49,7 +49,7 @@ NSAttributedString *attributedStringByStrippingAttachmentCharacters(NSAttributed
 
         while (attachmentRange.location != NSNotFound && attachmentRange.length > 0) {
             [newAttributedString replaceCharactersInRange:attachmentRange withString:@""];
-            attachmentRange = [[newAttributedString string] rangeOfString:attachmentCharString.get().get()];
+            attachmentRange = [retainPtr([newAttributedString string]) rangeOfString:attachmentCharString.get().get()];
         }
         return newAttributedString.autorelease();
     }

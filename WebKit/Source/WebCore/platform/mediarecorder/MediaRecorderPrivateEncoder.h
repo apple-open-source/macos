@@ -52,8 +52,8 @@ struct MediaRecorderPrivateOptions;
 class MediaSample;
 class PlatformAudioData;
 class VideoFrame;
-struct AudioInfo;
-struct VideoInfo;
+class AudioInfo;
+class VideoInfo;
 
 class MediaRecorderPrivateEncoder final : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaRecorderPrivateEncoder, WTF::DestructionThread::Main> {
 public:

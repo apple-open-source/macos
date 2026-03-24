@@ -36,7 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface _WKRemoteWebInspectorViewController () {
 @package
-    RefPtr<WebKit::RemoteWebInspectorUIProxy> m_remoteInspectorProxy;
+    const RefPtr<WebKit::RemoteWebInspectorUIProxy> m_remoteInspectorProxy;
 }
 @end
 

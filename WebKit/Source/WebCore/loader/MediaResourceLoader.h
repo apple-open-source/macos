@@ -110,6 +110,8 @@ public:
     bool didPassAccessControlCheck() const override { return m_didPassAccessControlCheck.load(); }
 
     // CachedRawResourceClient
+    void ref() const final { PlatformMediaResource::ref(); }
+    void deref() const final { PlatformMediaResource::deref(); }
     void responseReceived(const CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) override;
     void redirectReceived(CachedResource&, ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&) override;
     bool shouldCacheResponse(CachedResource&, const ResourceResponse&) override;

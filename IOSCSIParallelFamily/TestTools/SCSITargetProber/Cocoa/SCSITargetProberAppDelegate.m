@@ -193,17 +193,17 @@ domainComparator ( id obj1, id obj2, void * context );
 	
 	// Create a notification port on which to receive messages.
 	port = IONotificationPortCreate ( kIOMasterPortDefault );
-	require ( ( port != NULL ), ErrorExit );
+	__Require(( port != NULL ), ErrorExit);
 	
 	// Get the runloop source so we can attach it to our runloop.
 	source = IONotificationPortGetRunLoopSource ( port );
-	require ( ( source != NULL ), ReleasePort );
+	__Require(( source != NULL ), ReleasePort);
 	
 	// Create the matching dictionary. Our matching dictionary uses
 	// the "IOSCSIParallelInterfaceController" class matching - basically
 	// any device which inherits from IOSCSIParallelInterfaceController.
 	matchingDict = IOServiceMatching ( kIOSCSIParallelInterfaceControllerClassString );
-	require ( ( matchingDict != NULL ), ReleaseSource );
+	__Require(( matchingDict != NULL ), ReleaseSource);
 	
 	// Retain the dictionary as IOServiceAddMatchingNotification() retains one
 	// reference.
@@ -237,7 +237,7 @@ domainComparator ( id obj1, id obj2, void * context );
 	// the "IOSCSITargetDevice" class matching - basically
 	// any device which inherits from IOSCSITargetDevice.
 	matchingDict = IOServiceMatching ( kIOSCSITargetDeviceClassString );
-	require ( ( matchingDict != NULL ), ReleaseSource );
+	__Require(( matchingDict != NULL ), ReleaseSource);
 	
 	// Retain the dictionary as IOServiceAddMatchingNotification() retains one
 	// reference.

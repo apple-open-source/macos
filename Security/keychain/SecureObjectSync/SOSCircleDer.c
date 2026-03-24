@@ -45,14 +45,14 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
     cir->signatures = NULL;
     
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
-    require_action_quiet(sequence_end != NULL, fail,
+    __Require_Action_Quiet(sequence_end != NULL, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER"), (error != NULL) ? *error : NULL, error));
     
     // Version first.
     uint64_t version = 0;
     *der_p = ccder_decode_uint64(&version, *der_p, der_end);
     
-    require_action_quiet(version == kOnlyCompatibleVersion, fail,
+    __Require_Action_Quiet(version == kOnlyCompatibleVersion, fail,
                          SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("Bad Circle Version"), NULL, error));
     
     *der_p = der_decode_string(allocator, &cir->name, error, *der_p, sequence_end);
@@ -64,12 +64,12 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
     
     CFDictionaryRef tmp = NULL;
     *der_p = der_decode_dictionary(allocator, &tmp, error, *der_p, sequence_end);
-    require_action_quiet(tmp != NULL, fail, SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER1"), (error != NULL) ? *error : NULL, error));
+    __Require_Action_Quiet(tmp != NULL, fail, SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER1"), (error != NULL) ? *error : NULL, error));
     
     cir->signatures = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);
     CFReleaseNull(tmp);
     
-    require_action_quiet(*der_p == sequence_end, fail,
+    __Require_Action_Quiet(*der_p == sequence_end, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER2"), (error != NULL) ? *error : NULL, error));
     
     return cir;
@@ -91,13 +91,13 @@ size_t SOSCircleGetDEREncodedSize(SOSCircleRef cir, CFErrorRef *error) {
     SOSCircleAssertStable(cir);
     size_t total_payload = 0;
     
-    require_quiet(accumulate_size(&total_payload, ccder_sizeof_uint64(kOnlyCompatibleVersion)),                        fail);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_string(cir->name, error)),                                fail);
-    require_quiet(accumulate_size(&total_payload, SOSGenCountGetDEREncodedSize(cir->generation, error)),                          fail);
-    require_quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->peers, error)),            fail);
-    require_quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->applicants, error)),          fail);
-    require_quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->rejected_applicants, error)), fail);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) cir->signatures, error)),    fail);
+    __Require_Quiet(accumulate_size(&total_payload, ccder_sizeof_uint64(kOnlyCompatibleVersion)),                        fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_string(cir->name, error)),                                fail);
+    __Require_Quiet(accumulate_size(&total_payload, SOSGenCountGetDEREncodedSize(cir->generation, error)),                          fail);
+    __Require_Quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->peers, error)),            fail);
+    __Require_Quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->applicants, error)),          fail);
+    __Require_Quiet(accumulate_size(&total_payload, SOSPeerInfoSetGetDEREncodedArraySize(cir->rejected_applicants, error)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) cir->signatures, error)),    fail);
     
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, total_payload);
     
@@ -127,7 +127,7 @@ CFDataRef SOSCircleCreateIncompatibleCircleDER(CFErrorRef* error)
     uint8_t* der_end = 0;
     CFMutableDataRef result = NULL;
     
-    require_quiet(accumulate_size(&total_payload, ccder_sizeof_uint64(kAlwaysIncompatibleVersion)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, ccder_sizeof_uint64(kAlwaysIncompatibleVersion)), fail);
     
     encoded_size = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, total_payload);
     

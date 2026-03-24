@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
 #include <JavaScriptCore/AugmentableInspectorControllerClient.h>
@@ -44,7 +46,7 @@ public:
 
     virtual const FrontendRouter& frontendRouter() const = 0;
     virtual BackendDispatcher& backendDispatcher() = 0;
-    virtual void registerAlternateAgent(std::unique_ptr<InspectorAgentBase>) = 0;
+    virtual void registerAlternateAgent(UniqueRef<InspectorAgentBase>&&) = 0;
 
     bool connected() const { return frontendRouter().hasFrontends(); }
 };

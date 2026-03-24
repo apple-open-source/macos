@@ -27,6 +27,7 @@
 #if HAVE(SCREEN_CAPTURE_KIT)
 
 #include <WebCore/DisplayCapturePromptType.h>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RetainPtr.h>
@@ -42,20 +43,11 @@ OBJC_CLASS SCStreamDelegate;
 OBJC_CLASS WebDisplayMediaPromptHelper;
 
 namespace WebCore {
-class ScreenCaptureSessionSourceObserver;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ScreenCaptureSessionSourceObserver> : std::true_type { };
-}
-
-namespace WebCore {
 
 class CaptureDevice;
 class ScreenCaptureKitSharingSessionManager;
 
-class ScreenCaptureSessionSourceObserver : public CanMakeWeakPtr<ScreenCaptureSessionSourceObserver> {
+class ScreenCaptureSessionSourceObserver : public CanMakeWeakPtr<ScreenCaptureSessionSourceObserver>, public AbstractCanMakeCheckedPtr {
 public:
     virtual ~ScreenCaptureSessionSourceObserver() = default;
 
@@ -75,7 +67,8 @@ public:
     SCStream* stream() const { return m_stream.get(); }
     SCContentFilter* contentFilter() const { return m_contentFilter.get(); }
     SCContentSharingSession* sharingSession() const { return m_sharingSession.get(); }
-    WeakPtr<ScreenCaptureSessionSourceObserver> observer() const { return m_observer; }
+    ScreenCaptureSessionSourceObserver* observer() const { return m_observer.get(); }
+    CheckedPtr<ScreenCaptureSessionSourceObserver> checkedObserver() const { return m_observer.get(); }
 
     void updateContentFilter(SCContentFilter*);
     void streamDidEnd();

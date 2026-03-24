@@ -52,7 +52,7 @@ UnevaluatedCalcBase::UnevaluatedCalcBase(CSSCalc::Value& value)
 }
 
 UnevaluatedCalcBase::UnevaluatedCalcBase(Ref<CSSCalc::Value>&& value)
-    : calc { WTFMove(value) }
+    : calc { WTF::move(value) }
 {
 }
 

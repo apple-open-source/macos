@@ -40,7 +40,7 @@ public:
     }
 
     CoreIPCString(String&& string)
-        : m_string(WTFMove(string))
+        : m_string(WTF::move(string))
     {
     }
 
@@ -49,7 +49,7 @@ public:
     RetainPtr<id> toID() const { return m_string.createNSString(); }
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCString, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCString>;
 
     String m_string;
 };

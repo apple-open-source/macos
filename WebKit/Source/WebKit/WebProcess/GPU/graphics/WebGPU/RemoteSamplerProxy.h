@@ -59,12 +59,14 @@ private:
     RemoteSamplerProxy& operator=(const RemoteSamplerProxy&) = delete;
     RemoteSamplerProxy& operator=(RemoteSamplerProxy&&) = delete;
 
+    bool isRemoteSamplerProxy() const final { return true; }
+
     WebGPUIdentifier backing() const { return m_backing; }
     
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().protectedStreamClientConnection()->send(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->send(WTF::move(message), backing());
     }
 
     void setLabelInternal(const String&) final;
@@ -75,5 +77,9 @@ private:
 };
 
 } // namespace WebKit::WebGPU
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebGPU::RemoteSamplerProxy)
+    static bool isType(const WebCore::WebGPU::Sampler& sampler) { return sampler.isRemoteSamplerProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GPU_PROCESS)

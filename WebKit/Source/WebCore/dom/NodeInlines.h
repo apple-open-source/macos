@@ -78,6 +78,11 @@ inline RenderBox* Node::renderBox() const
     return dynamicDowncast<RenderBox>(renderer());
 }
 
+inline CheckedPtr<RenderBox> Node::checkedRenderBox() const
+{
+    return renderBox();
+}
+
 inline RenderBoxModelObject* Node::renderBoxModelObject() const
 {
     return dynamicDowncast<RenderBoxModelObject>(renderer());

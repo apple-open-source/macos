@@ -32,7 +32,7 @@
 #include "MediaCapabilitiesInfo.h"
 #include "VP9UtilitiesCocoa.h"
 
-#include <webrtc/api/create_peerconnection_factory.h>
+#include <webrtc/api/create_modular_peer_connection_factory.h>
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 

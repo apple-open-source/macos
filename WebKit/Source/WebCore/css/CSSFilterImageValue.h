@@ -43,7 +43,7 @@ class CSSFilterImageValue final : public CSSValue {
 public:
     static Ref<CSSFilterImageValue> create(Ref<CSSValue>&& imageValueOrNone, CSS::Filter&& filter)
     {
-        return adoptRef(*new CSSFilterImageValue(WTFMove(imageValueOrNone), WTFMove(filter)));
+        return adoptRef(*new CSSFilterImageValue(WTF::move(imageValueOrNone), WTF::move(filter)));
     }
     ~CSSFilterImageValue();
 

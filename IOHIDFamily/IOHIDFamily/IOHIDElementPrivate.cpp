@@ -863,8 +863,8 @@ bool IOHIDElementPrivate::matchProperties(OSDictionary * matching)
     OSObject          * value      = NULL;
     static const char * keys[]     = {kIOHIDElementCookieKey, kIOHIDElementTypeKey, kIOHIDElementCollectionTypeKey, kIOHIDElementUsageKey, kIOHIDElementUsagePageKey, kIOHIDElementMinKey, kIOHIDElementMaxKey, kIOHIDElementScaledMaxKey, kIOHIDElementSizeKey, kIOHIDElementReportSizeKey, kIOHIDElementReportCountKey, kIOHIDElementIsArrayKey, kIOHIDElementIsRelativeKey, kIOHIDElementIsWrappingKey, kIOHIDElementIsNonLinearKey, kIOHIDElementHasPreferredStateKey, kIOHIDElementHasNullStateKey, kIOHIDElementVendorSpecificKey, kIOHIDElementUnitKey, kIOHIDElementUnitExponentKey, kIOHIDElementNameKey, kIOHIDElementValueLocationKey, kIOHIDElementDuplicateIndexKey, kIOHIDElementParentCollectionKey};
 
-    require(matching, exit);
-    require_action((properties = createProperties()), exit, ret = false);
+    __Require(matching, exit);
+    __Require_Action((properties = createProperties()), exit, ret = false);
 
     for (const char * key : keys) {
         value = matching->getObject(key);
@@ -1042,7 +1042,7 @@ bool IOHIDElementPrivate::enqueueValue(IOHIDElementValue *value)
     IOHIDEventQueue *queue = NULL;
     IOHIDReportElementQueue *reportQueue = NULL;
 
-    require(_queueArray, exit);
+    __Require(_queueArray, exit);
 
     for (UInt32 i = 0; i < _queueArray->getCount(); i++) {
         queue = OSDynamicCast(IOHIDEventQueue, _queueArray->getObject(i));
@@ -2003,7 +2003,7 @@ OSCollection * IOHIDElementPrivate::copyCollection(OSDictionary * cycleDict)
     
     if (allocDict) {
         cycleDict = OSDictionary::withCapacity(16);
-        require(cycleDict, done);
+        __Require(cycleDict, done);
     }
     
     // Check for a cycle
@@ -2012,7 +2012,7 @@ OSCollection * IOHIDElementPrivate::copyCollection(OSDictionary * cycleDict)
         goto done;
     
     properties = createProperties();
-    require(properties, done);
+    __Require(properties, done);
     if (_childArray) {
         if (_childArray->getCount() < 0x1000) {
             OSCollection *childCopy = _childArray->copyCollection(cycleDict);

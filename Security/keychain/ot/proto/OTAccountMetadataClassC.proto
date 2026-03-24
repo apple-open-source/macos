@@ -107,4 +107,7 @@ message AccountMetadataClassC {
 
     // Escrow repair "version" for the most recent repair attempt.
     optional int64 escrowRepairAttemptVersion = 27;
+    
+    // fixup for changing `kSecAttrAccessible`: "kSecAttrAccessibleWhenUnlocked" -> "kSecAttrAccessibleWhenUnlockedThisDeviceOnly" for (escrowKeys + RecoveryKeys + secrets)
+    optional bool peerSecretsAccessibilityFixUpPerformed = 31;
 }

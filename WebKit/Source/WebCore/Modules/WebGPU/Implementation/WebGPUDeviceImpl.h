@@ -45,7 +45,7 @@ class DeviceImpl final : public Device {
 public:
     static Ref<DeviceImpl> create(WebGPUPtr<WGPUDevice>&& device, Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new DeviceImpl(WTFMove(device), WTFMove(features), WTFMove(limits), convertToBackingContext));
+        return adoptRef(*new DeviceImpl(WTF::move(device), WTF::move(features), WTF::move(limits), convertToBackingContext));
     }
 
     virtual ~DeviceImpl();

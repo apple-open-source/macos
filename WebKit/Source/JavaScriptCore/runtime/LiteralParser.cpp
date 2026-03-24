@@ -1580,7 +1580,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                     if (sourceRanges) {
                         auto entry = m_rangesStack.takeLast();
                         entry.range = { entry.range.begin(), static_cast<unsigned>(m_lexer.currentTokenEnd() - m_lexer.start()) };
-                        lastValueRange = WTFMove(entry);
+                        lastValueRange = WTF::move(entry);
                     }
                 }
                 m_lexer.next();
@@ -1597,7 +1597,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
             RETURN_IF_EXCEPTION(scope, { });
             if constexpr (reviverMode == JSONReviverMode::Enabled) {
                 if (sourceRanges)
-                    std::get<JSONRanges::Array>(m_rangesStack.last().properties).append(WTFMove(lastValueRange));
+                    std::get<JSONRanges::Array>(m_rangesStack.last().properties).append(WTF::move(lastValueRange));
             }
 
             if (m_lexer.currentToken()->type == TokComma)
@@ -1612,7 +1612,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                 if (sourceRanges) {
                     auto entry = m_rangesStack.takeLast();
                     entry.range = { entry.range.begin(), static_cast<unsigned>(m_lexer.currentTokenEnd() - m_lexer.start()) };
-                    lastValueRange = WTFMove(entry);
+                    lastValueRange = WTF::move(entry);
                 }
             }
             m_lexer.next();
@@ -1649,7 +1649,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                     TokenType nextType = m_lexer.next();
                     if (nextType == TokLBrace || nextType == TokLBracket) {
                         m_objectStack.appendWithCrashOnOverflow(object);
-                        m_identifierStack.append(WTFMove(ident));
+                        m_identifierStack.append(WTF::move(ident));
                         m_stateStack.append(DoParseObjectEndExpression);
                         if (nextType == TokLBrace)
                             goto startParseObject;
@@ -1714,7 +1714,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                     if (sourceRanges) {
                         auto entry = m_rangesStack.takeLast();
                         entry.range = { entry.range.begin(), static_cast<unsigned>(m_lexer.currentTokenEnd() - m_lexer.start()) };
-                        lastValueRange = WTFMove(entry);
+                        lastValueRange = WTF::move(entry);
                     }
                 }
                 m_lexer.next();
@@ -1731,7 +1731,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                 if (sourceRanges) {
                     auto entry = m_rangesStack.takeLast();
                     entry.range = { entry.range.begin(), static_cast<unsigned>(m_lexer.currentTokenEnd() - m_lexer.start()) };
-                    lastValueRange = WTFMove(entry);
+                    lastValueRange = WTF::move(entry);
                 }
             }
             m_lexer.next();
@@ -1779,7 +1779,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
 
                 if constexpr (reviverMode == JSONReviverMode::Enabled) {
                     if (sourceRanges)
-                        std::get<JSONRanges::Object>(m_rangesStack.last().properties).set(ident.impl(), WTFMove(lastValueRange));
+                        std::get<JSONRanges::Object>(m_rangesStack.last().properties).set(ident.impl(), WTF::move(lastValueRange));
                 }
             }
             if (m_lexer.currentToken()->type == TokComma)
@@ -1793,7 +1793,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
                 if (sourceRanges) {
                     auto entry = m_rangesStack.takeLast();
                     entry.range = { entry.range.begin(), static_cast<unsigned>(m_lexer.currentTokenEnd() - m_lexer.start()) };
-                    lastValueRange = WTFMove(entry);
+                    lastValueRange = WTF::move(entry);
                 }
             }
             m_lexer.next();
@@ -1911,7 +1911,7 @@ JSValue LiteralParser<CharType, reviverMode>::parse(VM& vm, ParserState initialS
         if (m_stateStack.isEmpty()) {
             if constexpr (reviverMode == JSONReviverMode::Enabled) {
                 if (sourceRanges)
-                    sourceRanges->setRoot(WTFMove(lastValueRange));
+                    sourceRanges->setRoot(WTF::move(lastValueRange));
             }
             return lastValue;
         }

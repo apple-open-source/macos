@@ -69,15 +69,18 @@ void *_nc_table_find_64(table_64_t *t, uint64_t key) {
 }
 
 void _nc_table_delete(table_t *t, const char *key, char **expected) {
-	assert(os_set_delete(&t->set, key) == expected);
+	char **result = os_set_delete(&t->set, key);
+	os_assert(result == expected);
 }
 
 void _nc_table_delete_n(table_n_t *t, uint32_t key, uint32_t *expected) {
-	assert(os_set_delete(&t->set, key) == expected);
+	uint32_t *result = os_set_delete(&t->set, key);
+	os_assert(result == expected);
 }
 
 void _nc_table_delete_64(table_64_t *t, uint64_t key, uint64_t *expected) {
-	assert(os_set_delete(&t->set, key) == expected);
+	uint64_t *result = os_set_delete(&t->set, key);
+	os_assert(result == expected);
 }
 
 typedef bool (^payload_handler_t) (void *);

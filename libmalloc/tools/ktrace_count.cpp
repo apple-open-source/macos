@@ -11,10 +11,12 @@ typedef struct {
 	std::map<size_t, size_t> allocs;
 	size_t null_allocs;
 	size_t total_allocs;
+	size_t total_alloc_bytes;
 	// allocation size -> number of frees
 	std::map<size_t, size_t> frees;
 	size_t null_frees;
 	size_t total_frees;
+	size_t total_free_bytes;
 } analyze_ktrace_thread_t;
 
 typedef struct {
@@ -44,6 +46,7 @@ track_alloc(analyze_ktrace_t &ak, uint64_t tid, uintptr_t ptr, size_t sz)
 		ak.ptr_size[ptr] = sz;
 
 		++thread.total_allocs;
+		thread.total_alloc_bytes += sz;
 	} else {
 		++thread.null_allocs;
 	}
@@ -58,6 +61,7 @@ track_free(analyze_ktrace_t &ak, uint64_t tid, uintptr_t ptr)
 		auto it = ak.ptr_size.find(ptr);
 		if (it != ak.ptr_size.end()) {
 			++thread.frees[roundup_log2(it->second)];
+			thread.total_free_bytes += it->second;
 			ak.ptr_size.erase(it);
 		}
 
@@ -203,9 +207,14 @@ print_thread(const analyze_ktrace_thread_t &at)
 				  << alloc_percent << "%)" << std::endl;
 	}
 	std::cout << std::setw(FIELD_WIDTH + 4)
-			  << "Total: " << std::setw(FIELD_WIDTH) << at.total_allocs << "\n"
+			  << "Total Alloc: " << std::setw(FIELD_WIDTH) << at.total_allocs
+			  << "\n"
 			  << std::setw(FIELD_WIDTH + 4)
-			  << "NULL: " << std::setw(FIELD_WIDTH) << at.null_allocs << "\n"
+			  << "Total Bytes: " << std::setw(FIELD_WIDTH)
+			  << at.total_alloc_bytes << "\n"
+			  << std::setw(FIELD_WIDTH + 4)
+			  << "NULL Allocs: " << std::setw(FIELD_WIDTH) << at.null_allocs
+			  << "\n"
 			  << std::endl;
 
 	std::cout << "========= Free Sizes =========" << std::endl;
@@ -217,9 +226,18 @@ print_thread(const analyze_ktrace_thread_t &at)
 				  << "%)" << std::endl;
 	}
 	std::cout << std::setw(FIELD_WIDTH + 4)
-			  << "Total: " << std::setw(FIELD_WIDTH) << at.total_frees << "\n"
+			  << "Total Frees: " << std::setw(FIELD_WIDTH) << at.total_frees
+			  << "\n"
 			  << std::setw(FIELD_WIDTH + 4)
-			  << "NULL: " << std::setw(FIELD_WIDTH) << at.null_frees
+			  << "Total Bytes: " << std::setw(FIELD_WIDTH)
+			  << at.total_free_bytes << "\n"
+			  << std::setw(FIELD_WIDTH + 4)
+			  << "NULL Frees: " << std::setw(FIELD_WIDTH) << at.null_frees
+			  << std::endl;
+
+	std::cout << "\nTotal Unfreed Bytes: " << std::setw(FIELD_WIDTH)
+			  << static_cast<ssize_t>(at.total_alloc_bytes) -
+						 static_cast<ssize_t>(at.total_free_bytes)
 			  << std::endl;
 }
 
@@ -238,12 +256,14 @@ print_analysis(const analyze_ktrace_t &ak)
 			}
 			aggregate.null_allocs += t.second.null_allocs;
 			aggregate.total_allocs += t.second.total_allocs;
+			aggregate.total_alloc_bytes += t.second.total_alloc_bytes;
 
 			for (const auto &kv : t.second.frees) {
 				aggregate.frees[kv.first] += kv.second;
 			}
 			aggregate.null_frees += t.second.null_frees;
 			aggregate.total_frees += t.second.total_frees;
+			aggregate.total_free_bytes += t.second.total_free_bytes;
 		}
 
 		std::cout << "\n<<<<<< Thread 0x" << std::setw(8) << std::setfill('0')

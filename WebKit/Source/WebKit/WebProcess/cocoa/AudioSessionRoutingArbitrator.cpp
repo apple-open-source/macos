@@ -41,7 +41,10 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AudioSessionRoutingArbitrator);
 
 AudioSessionRoutingArbitrator::AudioSessionRoutingArbitrator(WebProcess& process)
-    : m_observer([this] (AudioSession& session) { session.setRoutingArbitrationClient(*this); })
+    : m_observer(WebCore::AudioSession::ChangedObserver::create([weakThis = WeakPtr { *this }] (AudioSession& session) {
+        if (RefPtr protectedThis = weakThis.get())
+            session.setRoutingArbitrationClient(*protectedThis);
+    }))
     , m_logIdentifier(LoggerHelper::uniqueLogIdentifier())
 {
     AudioSession::addAudioSessionChangedObserver(m_observer);
@@ -49,12 +52,24 @@ AudioSessionRoutingArbitrator::AudioSessionRoutingArbitrator(WebProcess& process
 
 AudioSessionRoutingArbitrator::~AudioSessionRoutingArbitrator() = default;
 
-void AudioSessionRoutingArbitrator::beginRoutingArbitrationWithCategory(AudioSession::CategoryType category, CompletionHandler<void(RoutingArbitrationError, DefaultRouteChanged)>&& callback)
+void AudioSessionRoutingArbitrator::ref() const
 {
-    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::AudioSessionRoutingArbitratorProxy::BeginRoutingArbitrationWithCategory(category), WTFMove(callback), AudioSessionRoutingArbitratorProxy::destinationId());
+    // Owned by WebProcess.
+    WebProcess::singleton().ref();
 }
 
-void AudioSessionRoutingArbitrator::leaveRoutingAbritration()
+void AudioSessionRoutingArbitrator::deref() const
+{
+    // Owned by WebProcess.
+    WebProcess::singleton().deref();
+}
+
+void AudioSessionRoutingArbitrator::beginRoutingArbitrationWithCategory(AudioSession::CategoryType category, CompletionHandler<void(RoutingArbitrationError, DefaultRouteChanged)>&& callback)
+{
+    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::AudioSessionRoutingArbitratorProxy::BeginRoutingArbitrationWithCategory(category), WTF::move(callback), AudioSessionRoutingArbitratorProxy::destinationId());
+}
+
+void AudioSessionRoutingArbitrator::leaveRoutingArbitration()
 {
     WebProcess::singleton().protectedParentProcessConnection()->send(Messages::AudioSessionRoutingArbitratorProxy::EndRoutingArbitration(), AudioSessionRoutingArbitratorProxy::destinationId());
 }

@@ -1,16 +1,19 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 pa{
     Keys{
         calendar{"ਕੈਲੰਡਰ"}
         cf{"ਮੁਦਰਾ ਬਣਤਰ"}
         collation{"ਲੜੀਬੱਧ ਕ੍ਰਮ"}
         currency{"ਮੁਦਰਾ"}
+        em{"ਇਮੋਜੀ ਪੇਸ਼ਕਾਰੀ"}
         hc{"ਘੰਟੇ ਦਾ ਚੱਕਰ (12 ਬਨਾਮ 24)"}
         lb{"ਰੇਖਾ ਵਿੱਥ ਸ਼ੈਲੀ"}
+        lw{"ਸ਼ਬਦਾਂ ਵਿਚਕਾਰ ਲਾਈਨ ਵਿੱਥ"}
         ms{"ਮਾਪ ਪ੍ਰਣਾਲੀ"}
         numbers{"ਸੰਖਿਆਵਾਂ"}
+        ss{"ਸੰਖੇਪ ਸ਼ਬਦ ਤੋਂ ਬਾਅਦ ਵਾਕ ਵਿੱਥ"}
     }
     Languages{
         aa{"ਅਫ਼ਾਰ"}
@@ -45,6 +48,7 @@ pa{
         ay{"ਅਈਮਾਰਾ"}
         az{"ਅਜ਼ਰਬਾਈਜਾਨੀ"}
         ba{"ਬਸ਼ਕੀਰ"}
+        bal{"ਬਲੋਚੀ"}
         ban{"ਬਾਲੀਨੀਜ਼"}
         bas{"ਬਾਸਾ"}
         be{"ਬੇਲਾਰੂਸੀ"}
@@ -155,6 +159,7 @@ pa{
         grc{"ਪੁਰਾਤਨ ਯੂਨਾਨੀ"}
         gsw{"ਜਰਮਨ (ਸਵਿਸ)"}
         gu{"ਗੁਜਰਾਤੀ"}
+        guc{"ਵੇਯੂ"}
         guz{"ਗੁਸੀ"}
         gv{"ਮੈਂਕਸ"}
         gwi{"ਗਵਿਚ’ਇਨ"}
@@ -226,6 +231,7 @@ pa{
         kpe{"ਕਪੇਲ"}
         kr{"ਕਨੂਰੀ"}
         krc{"ਕਰਾਚੇ ਬਲਕਾਰ"}
+        kri{"ਕ੍ਰੀਓ"}
         krl{"ਕਰੀਲੀਅਨ"}
         kru{"ਕੁਰੁਖ"}
         ks{"ਕਸ਼ਮੀਰੀ"}
@@ -300,7 +306,7 @@ pa{
         myv{"ਇਰਜ਼ੀਆ"}
         mzn{"ਮੇਜ਼ੈਂਡਰਾਨੀ"}
         na{"ਨਾਉਰੂ"}
-        nan{"ਚੀਨੀ ਮਿਨ ਨਾਨ"}
+        nan{"ਮਿਨ ਨੈਨ ਚੀਨੀ"}
         nap{"ਨਿਆਪੋਲੀਟਨ"}
         naq{"ਨਾਮਾ"}
         nb{"ਨਾਰਵੇਜਿਆਈ ਬੋਕਮਲ"}
@@ -461,6 +467,7 @@ pa{
         ve{"ਵੇਂਡਾ"}
         vec{"ਵੇਨੇਸ਼ੀਅਨ"}
         vi{"ਵੀਅਤਨਾਮੀ"}
+        vls{"ਪੱਛਮੀ ਫ਼ਲੈਮਿਸ਼"}
         vmw{"ਮਖੂਵਾ"}
         vo{"ਵੋਲਾਪੂਕ"}
         vun{"ਵੂੰਜੋ"}
@@ -488,6 +495,12 @@ pa{
         zun{"ਜ਼ੂਨੀ"}
         zxx{"ਬੋਲੀ ਸੰਬੰਧੀ ਕੋਈ ਸਮੱਗਰੀ ਨਹੀਂ"}
         zza{"ਜ਼ਾਜ਼ਾ"}
+    }
+    Languages%core{
+        ku{"ਕੁਰਦਿਸ਼"}
+    }
+    Languages%extension{
+        ku{"ਕੁਰਮਾਂਜੀ"}
     }
     Languages%long{
         zh_Hans{"ਚੀਨੀ ਮੈਂਡਰਿਨ (ਸਰਲ)"}
@@ -602,9 +615,31 @@ pa{
             vietnamese{"ਵੀਅਤਨਾਮੀ ਕੈਲੰਡਰ"}
             vikram{"ਬਿਕਰਮੀ ਕੈਲੰਡਰ"}
         }
+        calendar%core{
+            buddhist{"ਬੋਧੀ"}
+            chinese{"ਚੀਨੀ"}
+            coptic{"ਕੋਪਟਿਕ"}
+            dangi{"ਡਾਂਗੀ"}
+            ethiopic{"ਇਥੀਓਪਿਕ"}
+            ethiopic-amete-alem{"ਇਥੀਓਪਿਕ ਅਮੀਟ ਆਲਮ"}
+            gregorian{"ਗਰੇਗੋਰੀਅਨ"}
+            hebrew{"ਹਿਬਰੂ"}
+            indian{"ਭਾਰਤੀ ਕੌਮੀ"}
+            islamic{"ਇਸਲਾਮੀ"}
+            islamic-civil{"ਇਸਲਾਮੀ (ਸਾਰਨੀਬੱਧ, ਸਮਾਜਿਕ ਯੁੱਗ)"}
+            islamic-tbla{"ਇਸਲਾਮੀ (ਸਾਰਨੀਬੱਧ, ਖਗੋਲੀ ਯੁੱਗ)"}
+            islamic-umalqura{"ਇਸਲਾਮੀ (ਉਮ ਅਲ-ਕੁਰਾ)"}
+            japanese{"ਜਪਾਨੀ"}
+            persian{"ਫ਼ਾਰਸੀ"}
+            roc{"ਮਿੰਗੂਓ"}
+        }
         cf{
             account{"ਲੇਖਾ ਮੁਦਰਾ ਬਣਤਰ"}
             standard{"ਮਿਆਰੀ ਮੁਦਰਾ ਬਣਤਰ"}
+        }
+        cf%core{
+            account{"ਲੇਖਾ"}
+            standard{"ਮਿਆਰੀ"}
         }
         collation{
             compat{"ਪਿਛਲਾ ਤਰਤੀਬ ਵਾਰ ਕ੍ਰਮ, ਅਨੁਰੂਪਤਾ ਲਈ"}
@@ -614,21 +649,53 @@ pa{
             standard{"ਸਧਾਰਨ ਲੜੀਬੱਧ ਕ੍ਰਮ"}
             traditional{"ਰਵਾਇਤੀ ਲੜੀਬੱਧ ਕ੍ਰਮ"}
         }
+        collation%core{
+            ducet{"ਡਿਫ਼ੌਲਟ ਯੂਨੀਕੋਡ"}
+            search{"ਖੋਜੋ"}
+            standard{"ਮਿਆਰੀ"}
+        }
+        em%core{
+            default{"ਡਿਫ਼ੌਲਟ"}
+            emoji{"ਇਮੋਜੀ"}
+            text{"ਟੈਕਸਟ"}
+        }
         hc{
             h11{"12 ਘੰਟੇ ਦੀ ਪ੍ਰਣਾਲੀ (0–11)"}
             h12{"12 ਘੰਟੇ ਦੀ ਪ੍ਰਣਾਲੀ (1–12)"}
             h23{"24 ਘੰਟੇ ਦੀ ਪ੍ਰਣਾਲੀ (0–23)"}
             h24{"24 ਘੰਟੇ ਦੀ ਪ੍ਰਣਾਲੀ (1–24)"}
         }
+        hc%core{
+            h11{"12 (0–11)"}
+            h12{"12 (1–12)"}
+            h23{"24 (0–23)"}
+            h24{"24 (1–24)"}
+        }
         lb{
             loose{"ਖੁੱਲ੍ਹੀ ਰੇਖਾ ਵਿੱਥ ਸ਼ੈਲੀ"}
             normal{"ਸਧਾਰਨ ਰੇਖਾ ਵਿੱਥ ਸ਼ੈਲੀ"}
             strict{"ਪੱਕੀ ਰੇਖਾ ਵਿੱਥ ਸ਼ੈਲੀ"}
         }
+        lb%core{
+            loose{"ਖੁੱਲ੍ਹੀ"}
+            normal{"ਸਧਾਰਨ"}
+            strict{"ਪੱਕੀ"}
+        }
+        lw%core{
+            breakall{"ਸਭ ‘ਚ ਵਿੱਥ ਰੱਖੋ"}
+            keepall{"ਸਭ ਰੱਖੋ"}
+            normal{"ਸਧਾਰਨ"}
+            phrase{"ਵਾਕੰਸ਼ਾਂ ‘ਚ ਰੱਖੋ"}
+        }
         ms{
             metric{"ਮੀਟਰਿਕ ਪ੍ਰਣਾਲੀ"}
             uksystem{"ਇੰਪੀਰੀਅਲ ਮਾਪ ਪ੍ਰਣਾਲੀ"}
             ussystem{"ਅਮਰੀਕੀ ਮਾਪ ਪ੍ਰਣਾਲੀ"}
+        }
+        ms%core{
+            metric{"ਮੀਟਰਿਕ"}
+            uksystem{"UK"}
+            ussystem{"US"}
         }
         numbers{
             arab{"ਅਰਬੀ-ਭਾਰਤੀ ਅੰਕ"}
@@ -673,6 +740,10 @@ pa{
             thai{"ਥਾਈ ਅੰਕ"}
             tibt{"ਤਿੱਬਤੀ ਅੰਕ"}
             vaii{"ਵਾਈ ਅੰਕ"}
+        }
+        ss%core{
+            none{"ਬੰਦ"}
+            standard{"ਚਾਲੂ"}
         }
     }
     characterLabelPattern{

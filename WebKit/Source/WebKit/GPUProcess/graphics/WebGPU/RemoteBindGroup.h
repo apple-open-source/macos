@@ -54,7 +54,7 @@ class RemoteBindGroup final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteBindGroup> create(WebCore::WebGPU::BindGroup& bindGroup, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteBindGroup(bindGroup, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteBindGroup(bindGroup, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteBindGroup();
@@ -76,7 +76,7 @@ private:
     WebCore::WebGPU::BindGroup& backing() { return m_backing; }
     Ref<WebCore::WebGPU::BindGroup> protectedBacking();
 
-    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const { return m_objectHeap.get(); }
+    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const { return m_objectHeap; }
     Ref<IPC::StreamServerConnection> protectedStreamConnection() const;
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;

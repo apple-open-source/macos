@@ -125,7 +125,7 @@ void JSTestClassWithJSBuiltinConstructorPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestClassWithJSBuiltinConstructor::s_info = { "TestClassWithJSBuiltinConstructor"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestClassWithJSBuiltinConstructor) };
 
 JSTestClassWithJSBuiltinConstructor::JSTestClassWithJSBuiltinConstructor(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestClassWithJSBuiltinConstructor>&& impl)
-    : JSDOMWrapper<TestClassWithJSBuiltinConstructor>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestClassWithJSBuiltinConstructor>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -233,7 +233,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestClassWithJSBuiltinConstructor>(impl.ptr());
 #endif
-    return createWrapper<TestClassWithJSBuiltinConstructor>(globalObject, WTFMove(impl));
+    return createWrapper<TestClassWithJSBuiltinConstructor>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestClassWithJSBuiltinConstructor& impl)

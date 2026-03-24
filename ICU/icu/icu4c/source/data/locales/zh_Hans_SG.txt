@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 zh_Hans_SG{
     calendar{
         buddhist{
@@ -25,8 +25,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "GyMEEEEd",
-                "GyMd",
-                "GyMd",
+                "GyMMMd",
+                "GyMMMd",
                 "GyyMd",
             }
             intervalFormats{
@@ -58,8 +58,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "GyMEEEEd",
-                "GyMd",
-                "GyMd",
+                "GyMMMd",
+                "GyMMMd",
                 "GGGGGyyMMdd",
             }
             availableFormats{
@@ -127,8 +127,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "yMEEEEd",
-                "yMd",
-                "yMd",
+                "yMMMd",
+                "yMMMd",
                 "yyMMdd",
             }
             availableFormats{
@@ -200,8 +200,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "GyMEEEEd",
-                "GyMd",
-                "GyMd",
+                "GyMMMd",
+                "GyMMMd",
                 "GyyMd",
             }
         }
@@ -227,8 +227,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "GyMEEEEd",
-                "GyMd",
-                "GyMd",
+                "GyMMMd",
+                "GyMMMd",
                 "GyyMd",
             }
             availableFormats{
@@ -258,8 +258,8 @@ zh_Hans_SG{
                 "ahmmss",
                 "ahmm",
                 "GyMEEEEd",
-                "GyMd",
-                "GyMd",
+                "GyMMMd",
+                "GyMMMd",
                 "GyyMd",
             }
             availableFormats{

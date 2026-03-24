@@ -55,8 +55,8 @@ typedef struct _tre_ast_node {
   struct _tre_ast_node *original;
   tre_ast_type_t type;   /* Type of the node. */
   int submatch_id;
-  int num_submatches;
-  int num_tags;
+  unsigned int num_submatches;
+  unsigned int num_tags;
   short nullable;
   short make_branches;
 } tre_ast_node_t;
@@ -114,7 +114,7 @@ __private_extern__ tre_ast_node_t *
 tre_ast_new_node(tre_mem_t mem, tre_ast_type_t type, size_t size);
 
 __private_extern__ tre_ast_node_t *
-tre_ast_new_literal(tre_mem_t mem, int code_min, int code_max, int position);
+tre_ast_new_literal(tre_mem_t mem, int code_min, int code_max);
 
 __private_extern__ tre_ast_node_t *
 tre_ast_new_iter(tre_mem_t mem, tre_ast_node_t *arg, int min, int max,

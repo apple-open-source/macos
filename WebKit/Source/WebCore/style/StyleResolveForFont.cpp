@@ -241,6 +241,12 @@ static ResolvedFontSize fontSizeFromUnresolvedFontSize(const CSSPropertyParserHe
                     .keyword = CSSValueInvalid
                 };
 
+            case CSSValueMath:
+                return {
+                    .size = 0.0f,
+                    .keyword = CSSValueInvalid
+                };
+
             default:
                 break;
             }
@@ -318,7 +324,7 @@ static ResolvedFontFamily fontFamilyFromUnresolvedFontFamily(const CSSPropertyPa
                     // FIXME: Treat system-ui like other generic font families
                     if (ident == CSSValueSystemUi)
                         return { nameString(CSSValueSystemUi), true };
-                    return { familyNamesData->at(CSSPropertyParserHelpers::genericFontFamilyIndex(ident)), true };
+                    return { *familyNamesData->at(CSSPropertyParserHelpers::genericFontFamilyIndex(ident)), true };
                 }
                 return { AtomString(context->settingsValues().fontGenericFamilies.standardFontFamily()), false };
             },
@@ -338,7 +344,7 @@ static ResolvedFontFamily fontFamilyFromUnresolvedFontFamily(const CSSPropertyPa
     });
 
     return {
-        .family = WTFMove(family),
+        .family = WTF::move(family),
         .isSpecifiedFont = isSpecifiedFont
     };
 }
@@ -356,7 +362,7 @@ std::optional<FontCascade> resolveForUnresolvedFont(const CSSPropertyParserHelpe
 
     auto useFixedDefaultSize = [](const FontCascadeDescription& fontDescription) {
         return fontDescription.familyCount() == 1
-            && fontDescription.firstFamily() == familyNamesData->at(FamilyNamesIndex::MonospaceFamily);
+            && fontDescription.firstFamily() == *familyNamesData->at(FamilyNamesIndex::MonospaceFamily);
     };
 
     // Font family applied in the same way as StyleBuilderCustom::applyValueFontFamily
@@ -397,7 +403,7 @@ std::optional<FontCascade> resolveForUnresolvedFont(const CSSPropertyParserHelpe
     // As there is no line-height on FontCascade, there's no need to resolve it, even
     // though there is line-height information on CSSPropertyParserHelpers::UnresolvedFont.
 
-    auto fontCascade = FontCascade(WTFMove(fontDescription));
+    auto fontCascade = FontCascade(WTF::move(fontDescription));
     fontCascade.update(protectedContext->cssFontSelector());
     return fontCascade;
 }

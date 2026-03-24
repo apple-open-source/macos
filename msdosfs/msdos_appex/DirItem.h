@@ -97,7 +97,7 @@ NS_ASSUME_NONNULL_BEGIN
 -(NSError *)writeDirEntryDataToDisk:(DirEntryData *)dirEntryData;
 
 /**
- Mark directory entry-set as deleted for a new item.
+ Mark directory entry-set as deleted for an item.
  @param forItem item to mark as seleted in the directory
  */
 -(NSError *)markDirEntriesAsDeleted:(FATItem *)forItem;

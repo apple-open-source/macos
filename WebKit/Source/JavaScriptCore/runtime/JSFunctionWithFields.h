@@ -48,8 +48,17 @@ public:
 
         FirstResolvingPromise = 0,
 
-        ResolvingWithoutPromiseContext = 0,
-        ResolvingWithoutPromiseOther = 1,
+        ResolvingWithInternalMicrotaskContext = 0,
+        ResolvingWithInternalMicrotaskOther = 1,
+
+        PromiseAllContext = 0,
+        PromiseAllResolve = 1,
+
+        PromiseAllSettledContext = 0,
+        PromiseAllSettledOther = 1,
+
+        PromiseAnyContext = 0,
+        PromiseAnyReject = 1,
     };
 
     DECLARE_INFO;

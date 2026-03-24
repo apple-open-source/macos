@@ -31,6 +31,7 @@
 #include <WebCore/GraphicsLayerClient.h>
 #include <WebCore/TiledBacking.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/WeakHashMap.h>
 
 namespace WebCore {
 class PlatformWheelEvent;
@@ -85,7 +86,7 @@ private:
     WebCore::GraphicsLayerClient& graphicsLayerClient() override { return *this; }
 
     std::optional<PDFLayoutRow> visibleRow() const override;
-    std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer*) const override;
+    std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer&) const override;
 
     WebCore::FloatSize contentsOffsetForPage(PDFDocumentLayout::PageIndex) const;
 
@@ -154,12 +155,12 @@ private:
     void notifyFlushRequired(const WebCore::GraphicsLayer*) override;
     float pageScaleFactor() const override;
     float deviceScaleFactor() const override;
-    std::optional<float> customContentsScale(const WebCore::GraphicsLayer*) const override;
+    std::optional<float> customContentsScale(const WebCore::GraphicsLayer&) const override;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     bool layerAllowsDynamicContentScaling(const GraphicsLayer*) const override;
 #endif
     void tiledBackingUsageChanged(const WebCore::GraphicsLayer*, bool /*usingTiledBacking*/) override;
-    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
+    void paintContents(const WebCore::GraphicsLayer&, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
 
     void paintPDFSelection(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, std::optional<PDFLayoutRow> = { });
 
@@ -213,7 +214,7 @@ private:
         RefPtr<WebCore::GraphicsLayer> protectedSelectionLayer() const { return selectionLayer; }
     };
 
-    const RowData* rowDataForLayer(const WebCore::GraphicsLayer*) const;
+    const RowData* rowDataForLayer(const WebCore::GraphicsLayer&) const;
     WebCore::FloatPoint positionForRowContainerLayer(const PDFLayoutRow&) const;
     WebCore::FloatSize rowContainerSize(const PDFLayoutRow&) const;
 
@@ -222,7 +223,7 @@ private:
     RefPtr<WebCore::GraphicsLayer> m_rowsContainerLayer;
     Vector<RowData> m_rows;
 
-    HashMap<const WebCore::GraphicsLayer*, unsigned> m_layerToRowIndexMap;
+    WeakHashMap<WebCore::GraphicsLayer, unsigned> m_layerToRowIndexMap;
     std::optional<PDFDocumentLayout::DisplayMode> m_displayModeAtLastLayerSetup;
 
     unsigned m_visibleRowIndex { 0 };

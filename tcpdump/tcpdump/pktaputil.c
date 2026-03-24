@@ -121,11 +121,9 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		 */
 		if (if_info == NULL) {
 			if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname, -1,
-						   pktp_hdr->pth_dlt, ndo->ndo_snaplen);
+									   pktp_hdr->pth_dlt, ndo->ndo_snaplen);
 			if (if_info == NULL) {
-				fprintf(stderr, "%s: pcap_add_if_info(%s, %u) failed: %s\n",
-					__func__, pktp_hdr->pth_ifname, pktp_hdr->pth_dlt, pcap_geterr(pcap));
-				kill(getpid(), SIGTERM);
+				/* Most likely to happen when the packet filter is incompatible with the link type */
 				return 0;
 			}
 		}
@@ -223,9 +221,7 @@ pktapv2_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 			if_info = pcap_add_if_info(pcap, ifname, -1,
 						   pktap_v2_hdr->pth_dlt, ndo->ndo_snaplen);
 			if (if_info == NULL) {
-				fprintf(stderr, "%s: pcap_add_if_info(%s, %u) failed: %s\n",
-					__func__, ifname, pktap_v2_hdr->pth_dlt, pcap_geterr(pcap));
-				kill(getpid(), SIGTERM);
+				/* Most likely to happen when the packet filter is incompatible with the link type */
 				return 0;
 			}
 		}

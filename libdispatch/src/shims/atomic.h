@@ -131,7 +131,12 @@
 		_os_atomic_c11_op((p), (v), m, xor, ^)
 #define os_atomic_xor_orig(p, v, m) \
 		_os_atomic_c11_op_orig((p), (v), m, xor, ^)
+#define os_atomic_init(p, v) \
+		atomic_init(_os_atomic_c11_atomic(p), v)
 
+// Dependency injection should be unnecessary if we've defined the memory
+// ordering to be acquire, but there are likely places that we're incorrectly
+// using relaxed ordering on a dependency injected pointer.
 typedef struct { unsigned long __opaque_zero; } os_atomic_dependency_t;
 
 #define OS_ATOMIC_DEPENDENCY_NONE     ((os_atomic_dependency_t){ 0UL })
@@ -140,6 +145,10 @@ typedef struct { unsigned long __opaque_zero; } os_atomic_dependency_t;
 	        ((typeof(*(p)) *)((p) + _os_atomic_auto_dependency(e).__opaque_zero))
 #define os_atomic_load_with_dependency_on(p, e) \
 	        os_atomic_load(os_atomic_inject_dependency(p, e), dependency)
+#define _os_atomic_auto_dependency(e) \
+	_Generic(e, \
+	    os_atomic_dependency_t: (e), \
+	    default: os_atomic_make_dependency(e))
 
 #define os_atomic_thread_fence(m)  atomic_thread_fence(memory_order_##m)
 

@@ -384,7 +384,7 @@
 -(NSError *)updateModificationTimeOnCreateRemove
 {
     __block NSError *error = nil;
-    uint32_t sectorSize = self.volume.systemInfo.bytesPerSector;
+    uint64_t sectorSize = self.volume.systemInfo.bytesPerSector;
     DirBlock* dirBlock = [[DirBlock alloc] initInDir:self];
     struct timespec parentMTime = {0};
     struct timespec currentTime = {0};
@@ -833,12 +833,6 @@
 			CONV_ConvertToFSM(&name);
 			break;
 	}
-
-	// Need to update modification time
-    // XXXta: If the only place we call writeDirEntriesToDisk is on create, we can remove this code.
-	struct timespec spec;
-	CONV_GetCurrentTime(&spec);
-    [dirEntryData setModifyTime:&spec];
 
     // Calculate checksum to put in long name entries.
 	uint8_t checkSum = msdosfs_winChksum([dirEntryData getName]);

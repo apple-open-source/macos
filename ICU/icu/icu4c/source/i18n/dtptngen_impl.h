@@ -186,7 +186,11 @@ public:
 
 class FormatParser : public UMemory {
 public:
+#if APPLE_ICU_CHANGES // rdar://162810290
+    UnicodeString items[MAX_DT_TOKEN] = {};
+#else
     UnicodeString items[MAX_DT_TOKEN];
+#endif
     int32_t itemNumber;
 
     FormatParser();
@@ -208,7 +212,22 @@ private:
 
    TokenStatus status;
    virtual TokenStatus setTokens(const UnicodeString& pattern, int32_t startPos, int32_t *len);
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED // rdar://165873670
+    // The allocator adds uninitialized padding bytes here,
+    // so let's initialize them.
+    // (See the message text for the static_assert below.)
+#if __LP64__ // 64 bit
+    uint8_t padding_bytes[112] = {};
+#else // 32 bit
+     uint8_t padding_bytes[116] = {};
+#endif
+#endif
 };
+
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED // rdar://165873670
+static_assert(sizeof(FormatParser) % 256 == 0,
+              "FormatParser's size must be a multiple of 256 to make sizeof() == malloc_size(), thus allowing us to ensure the allocated memory is fully initialized. Comment out padding_bytes[] and compile again. This assert will show 'Expression evaluates to x == 0'. Now uncomment padding_bytes[] and use (256 - x) for the length.");
+#endif
 
 class DistanceInfo : public UMemory {
 public:

@@ -32,6 +32,10 @@
 #include <wtf/Forward.h>
 #include <wtf/TypeCasts.h>
 
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+#include <WebCore/CDMKeyID.h>
+#endif
+
 typedef struct CF_BRIDGED_TYPE(id) __CVBuffer* CVPixelBufferRef;
 
 namespace WebCore {
@@ -70,10 +74,9 @@ public:
     Vector<Ref<MediaSampleAVFObjC>> divideIntoHomogeneousSamples();
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    using KeyIDs = Vector<Ref<SharedBuffer>>;
-    void setKeyIDs(KeyIDs&& keyIDs) { m_keyIDs = WTFMove(keyIDs); }
-    const KeyIDs& keyIDs() const { return m_keyIDs; }
-    KeyIDs& keyIDs() { return m_keyIDs; }
+    void setKeyIDs(CDMKeyIDs&& keyIDs) { m_keyIDs = WTF::move(keyIDs); }
+    const CDMKeyIDs& keyIDs() const { return m_keyIDs; }
+    CDMKeyIDs& keyIDs() { return m_keyIDs; }
 #endif
 
     static bool isCMSampleBufferNonDisplaying(CMSampleBufferRef);
@@ -94,7 +97,7 @@ protected:
     MediaTime m_duration;
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    Vector<Ref<SharedBuffer>> m_keyIDs;
+    CDMKeyIDs m_keyIDs;
 #endif
 };
 

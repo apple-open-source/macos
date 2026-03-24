@@ -33,8 +33,10 @@
 #endif
 #endif
 
+#ifdef __APPLE__
 #include <pthread/private.h>
 #include <mach/mach.h>
+#endif
 
 /*
  * IMPORTANT: This header file describes PRIVATE interfaces between libdispatch
@@ -55,7 +57,11 @@
 DISPATCH_ASSUME_NONNULL_BEGIN
 __BEGIN_DECLS
 
+#ifdef __APPLE__
 typedef mach_port_t dispatch_tid_t;
+#else
+typedef uint32_t dispatch_tid_t;
+#endif
 typedef uint32_t dispatch_lock_t;
 
 #if !defined(__DISPATCH_BUILDING_DISPATCH__)
@@ -64,8 +70,13 @@ typedef uint32_t dispatch_lock_t;
 // tracking other information
 #define DLOCK_FREE_BITS_MASK		((dispatch_lock_t)0x00000003)
 
+#ifdef __APPLE__
 #define DLOCK_OWNER_NULL			((dispatch_tid_t)MACH_PORT_NULL)
 #define dispatch_tid_self()			((dispatch_tid_t)_pthread_mach_thread_self_direct())
+#else
+#define DLOCK_OWNER_NULL			((dispatch_tid_t)0)
+#define dispatch_tid_self()			((dispatch_tid_t)gettid())
+#endif // __APPLE__
 
 DISPATCH_ALWAYS_INLINE
 static inline dispatch_tid_t
@@ -131,7 +142,7 @@ dispatch_lock_is_locked_by_self(dispatch_lock_t lock_value)
 typedef struct dispatch_thread_override_info {
 	uint32_t can_override:1,
 		unused:31;
-	qos_class_t override_qos_floor;
+	dispatch_qos_class_t override_qos_floor;
 } dispatch_thread_override_info_s;
 
 /*!
@@ -159,7 +170,7 @@ dispatch_thread_get_current_override_qos_floor(void);
 SPI_AVAILABLE(macos(13.0), ios(16.0))
 DISPATCH_EXPORT
 int
-dispatch_thread_override_self(qos_class_t override_qos);
+dispatch_thread_override_self(dispatch_qos_class_t override_qos);
 
 /*!
  * @function dispatch_lock_override_start_with_debounce
@@ -184,7 +195,7 @@ SPI_AVAILABLE(macos(13.0), ios(16.0))
 DISPATCH_EXPORT DISPATCH_NONNULL1
 int
 dispatch_lock_override_start_with_debounce(dispatch_lock_t *lock_addr,
-	dispatch_tid_t expected_thread, qos_class_t override_to_apply);
+	dispatch_tid_t expected_thread, dispatch_qos_class_t override_to_apply);
 
 /*!
  * @function dispatch_lock_override_end
@@ -200,7 +211,7 @@ dispatch_lock_override_start_with_debounce(dispatch_lock_t *lock_addr,
 SPI_AVAILABLE(macos(13.0), ios(16.0))
 DISPATCH_EXPORT
 int
-dispatch_lock_override_end(qos_class_t override_to_end);
+dispatch_lock_override_end(dispatch_qos_class_t override_to_end);
 
 /*!
  * @function dispatch_verify_current_queue_4swiftonly

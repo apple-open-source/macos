@@ -1240,6 +1240,7 @@ static int proxy_handler(request_rec *r)
 
         r->proxyreq = PROXYREQ_REVERSE;
         r->filename = apr_pstrcat(r->pool, r->handler, r->filename, NULL);
+        apr_table_setn(r->notes, "proxy-sethandler", "1");
 
         /* Still need to canonicalize r->filename */
         rc = ap_proxy_canon_url(r);
@@ -1249,6 +1250,7 @@ static int proxy_handler(request_rec *r)
         }
     }
     else if (r->proxyreq && strncmp(r->filename, "proxy:", 6) == 0) {
+        apr_table_unset(r->notes, "proxy-sethandler");
         rc = OK;
     }
     if (rc != OK) {
@@ -1948,15 +1950,18 @@ PROXY_DECLARE(const char *) ap_proxy_de_socketfy(apr_pool_t *p, const char *url)
         const char *ret, *c;
 
         ret = ptr + 1;
-        /* special case: "unix:....|scheme:" is OK, expand
-         * to "unix:....|scheme://localhost"
-         * */
+        /* special cases: "unix:...|scheme:" ind "unix:...|scheme://" are OK,
+         * expand to "unix:....|scheme://localhost"
+         */
         c = ap_strchr_c(ret, ':');
         if (c == NULL) {
             return NULL;
         }
         if (c[1] == '\0') {
             return apr_pstrcat(p, ret, "//localhost", NULL);
+        }
+        else if (c[1] == '/' && c[2] == '/' && !c[3]) {
+            return apr_pstrcat(p, ret, "localhost", NULL);
         }
         else {
             return ret;
@@ -3344,27 +3349,26 @@ static int proxy_pre_config(apr_pool_t *pconf, apr_pool_t *plog,
 }
 static void register_hooks(apr_pool_t *p)
 {
-    /* fixup before mod_rewrite, so that the proxied url will not
-     * escaped accidentally by our fixup.
-     */
-    static const char * const aszSucc[] = { "mod_rewrite.c", NULL};
     /* Only the mpm_winnt has child init hook handler.
      * make sure that we are called after the mpm
      * initializes.
      */
     static const char *const aszPred[] = { "mpm_winnt.c", "mod_proxy_balancer.c",
                                            "mod_proxy_hcheck.c", NULL};
+    static const char * const aszModRewrite[] = { "mod_rewrite.c", NULL };
+
     /* handler */
     ap_hook_handler(proxy_handler, NULL, NULL, APR_HOOK_FIRST);
     /* filename-to-URI translation */
     ap_hook_pre_translate_name(proxy_pre_translate_name, NULL, NULL,
                                APR_HOOK_MIDDLE);
-    ap_hook_translate_name(proxy_translate_name, aszSucc, NULL,
+    /* mod_rewrite has a say on the uri before proxy translation */
+    ap_hook_translate_name(proxy_translate_name, aszModRewrite, NULL,
                            APR_HOOK_FIRST);
     /* walk <Proxy > entries and suppress default TRACE behavior */
     ap_hook_map_to_storage(proxy_map_location, NULL,NULL, APR_HOOK_FIRST);
-    /* fixups */
-    ap_hook_fixups(proxy_fixup, NULL, aszSucc, APR_HOOK_FIRST);
+    /* fixup after mod_rewrite so that a [P] URL from there gets fixed up */
+    ap_hook_fixups(proxy_fixup, aszModRewrite, NULL, APR_HOOK_FIRST);
     /* post read_request handling */
     ap_hook_post_read_request(proxy_detect, NULL, NULL, APR_HOOK_FIRST);
     /* pre config handling */

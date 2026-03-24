@@ -98,6 +98,11 @@ typedef NS_ENUM(NSInteger, WKInactiveSchedulingPolicy) {
  */
 @property (nonatomic) WKInactiveSchedulingPolicy inactiveSchedulingPolicy WK_API_AVAILABLE(macos(14.0), ios(17.0));
 
+/*! @abstract A Boolean value indicating whether LookToScroll is enabled.
+    @discussion The default value is `NO`.
+    */
+@property (nonatomic) BOOL isLookToScrollEnabled WK_API_AVAILABLE(visionos(26.0)) WK_API_UNAVAILABLE(macos, ios, macCatalyst, tvos, watchos);
+
 @end
 
 @interface WKPreferences (WKDeprecated)
@@ -108,9 +113,5 @@ typedef NS_ENUM(NSInteger, WKInactiveSchedulingPolicy) {
 #endif
 
 @property (nonatomic) BOOL javaScriptEnabled WK_API_DEPRECATED("Use WKWebpagePreferences.allowsContentJavaScript to disable content JavaScript on a per-navigation basis", macos(10.10, 11.0), ios(8.0, 14.0));
-
-#if 0 // API_WEBKIT_ADDITIONS_REPLACEMENT
-#import <WebKitAdditions/WKPreferencesAdditions.h>
-#endif
 
 @end

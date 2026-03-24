@@ -69,7 +69,7 @@ public:
     }
 
 private:
-    friend struct IPC::ArgumentCoder<MonotonicObjectIdentifier, void>;
+    friend struct IPC::ArgumentCoder<MonotonicObjectIdentifier>;
     template<typename U> friend MonotonicObjectIdentifier<U> makeMonotonicObjectIdentifier(uint64_t);
     friend struct HashTraits<MonotonicObjectIdentifier>;
     template<typename U> friend struct MonotonicObjectIdentifierHash;

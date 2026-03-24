@@ -29,7 +29,7 @@
 namespace WebCore {
 
 class DistantLightSource : public LightSource {
-    friend struct IPC::ArgumentCoder<DistantLightSource, void>;
+    friend struct IPC::ArgumentCoder<DistantLightSource>;
 
 public:
     WEBCORE_EXPORT static Ref<DistantLightSource> create(float azimuth, float elevation);

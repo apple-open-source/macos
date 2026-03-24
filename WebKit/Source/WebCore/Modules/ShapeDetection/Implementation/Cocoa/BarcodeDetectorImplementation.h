@@ -59,7 +59,7 @@ private:
     BarcodeDetectorImpl& operator=(const BarcodeDetectorImpl&) = delete;
     BarcodeDetectorImpl& operator=(BarcodeDetectorImpl&&) = delete;
 
-    void detect(Ref<ImageBuffer>&&, CompletionHandler<void(Vector<DetectedBarcode>&&)>&&) final;
+    void detect(const NativeImage&, CompletionHandler<void(Vector<DetectedBarcode>&&)>&&) final;
 
     std::optional<BarcodeFormatSet> m_requestedBarcodeFormatSet;
 };

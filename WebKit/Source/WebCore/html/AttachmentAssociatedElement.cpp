@@ -36,18 +36,28 @@
 
 namespace WebCore {
 
+Ref<HTMLElement> AttachmentAssociatedElement::asProtectedHTMLElement()
+{
+    return asHTMLElement();
+}
+
+Ref<const HTMLElement> AttachmentAssociatedElement::asProtectedHTMLElement() const
+{
+    return asHTMLElement();
+}
+
 void AttachmentAssociatedElement::setAttachmentElement(Ref<HTMLAttachmentElement>&& attachment)
 {
     if (RefPtr existingAttachment = attachmentElement())
         existingAttachment->remove();
 
     attachment->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, IsImportant::Yes);
-    Ref { asHTMLElement() }->ensureProtectedUserAgentShadowRoot()->appendChild(WTFMove(attachment));
+    asProtectedHTMLElement()->ensureProtectedUserAgentShadowRoot()->appendChild(WTF::move(attachment));
 }
 
 RefPtr<HTMLAttachmentElement> AttachmentAssociatedElement::attachmentElement() const
 {
-    if (RefPtr shadowRoot = Ref { asHTMLElement() }->userAgentShadowRoot())
+    if (RefPtr shadowRoot = asProtectedHTMLElement()->userAgentShadowRoot())
         return childrenOfType<HTMLAttachmentElement>(*shadowRoot).first();
 
     return nullptr;

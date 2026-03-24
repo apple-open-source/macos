@@ -32,11 +32,14 @@
 
 #import <wtf/RetainPtr.h>
 
+OBJC_CLASS DDScannerResult;
+
 namespace WebKit {
 
 struct DataDetectionResult {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(DataDetectionResult);
-    RetainPtr<NSArray> results;
+    void setResults(NSArray *detectionResults);
+    Vector<RetainPtr<DDScannerResult>> results;
 };
 
 }

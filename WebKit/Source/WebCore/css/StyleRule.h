@@ -31,11 +31,11 @@
 #include <WebCore/MediaQuery.h>
 #include <WebCore/StyleRuleType.h>
 #include <map>
+#include <wtf/FixedVector.h>
 #include <wtf/NoVirtualDestructorBase.h>
 #include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
-#include <wtf/UniqueArray.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -144,7 +144,7 @@ public:
     void adoptSelectorList(CSSSelectorList&&);
 #if ENABLE(CSS_SELECTOR_JIT)
     CompiledSelector& compiledSelectorForListIndex(unsigned index) const;
-    void releaseCompiledSelectors() const { m_compiledSelectors = nullptr; }
+    void releaseCompiledSelectors() const { m_compiledSelectors = { }; }
 #endif
 
     static unsigned averageSizeInBytes();
@@ -164,7 +164,7 @@ private:
     mutable Ref<StyleProperties> m_properties;
     CSSSelectorList m_selectorList;
 #if ENABLE(CSS_SELECTOR_JIT)
-    mutable UniqueArray<CompiledSelector> m_compiledSelectors;
+    mutable FixedVector<CompiledSelector> m_compiledSelectors;
 #endif
 };
 
@@ -200,7 +200,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations);
 class StyleRuleNestedDeclarations final : public StyleRule {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations, StyleRuleNestedDeclarations);
 public:
-    static Ref<StyleRuleNestedDeclarations> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleNestedDeclarations(WTFMove(properties))); }
+    static Ref<StyleRuleNestedDeclarations> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleNestedDeclarations(WTF::move(properties))); }
     Ref<StyleRuleNestedDeclarations> copy() const { return adoptRef(*new StyleRuleNestedDeclarations(*this)); }
 
     String debugDescription() const;
@@ -211,7 +211,7 @@ private:
 
 class StyleRuleFontFace final : public StyleRuleBase {
 public:
-    static Ref<StyleRuleFontFace> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleFontFace(WTFMove(properties))); }
+    static Ref<StyleRuleFontFace> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleFontFace(WTF::move(properties))); }
     ~StyleRuleFontFace();
 
     const StyleProperties& properties() const { return m_properties; }
@@ -291,11 +291,11 @@ public:
 
     ~StyleRulePage();
 
-    const CSSSelector* selector() const { return m_selectorList.first(); }    
+    const CSSSelector& selector() const { return m_selectorList.first(); }
     const StyleProperties& properties() const { return m_properties; }
     MutableStyleProperties& mutableProperties();
 
-    void wrapperAdoptSelectorList(CSSSelectorList&& selectors) { m_selectorList = WTFMove(selectors); }
+    void wrapperAdoptSelectorList(CSSSelectorList&& selectors) { m_selectorList = WTF::move(selectors); }
 
     Ref<StyleRulePage> copy() const { return adoptRef(*new StyleRulePage(*this)); }
 
@@ -332,7 +332,7 @@ public:
     Ref<StyleRuleMedia> copy() const;
 
     const MQ::MediaQueryList& mediaQueries() const { return m_mediaQueries; }
-    void setMediaQueries(MQ::MediaQueryList&& queries) { m_mediaQueries = WTFMove(queries); }
+    void setMediaQueries(MQ::MediaQueryList&& queries) { m_mediaQueries = WTF::move(queries); }
 
     String debugDescription() const;
 private:
@@ -421,8 +421,8 @@ public:
     const CSSSelectorList& scopeEnd() const { return m_scopeEnd; }
     const CSSSelectorList& originalScopeStart() const { return m_originalScopeStart; }
     const CSSSelectorList& originalScopeEnd() const { return m_originalScopeEnd; }
-    void setScopeStart(CSSSelectorList&& scopeStart) { m_scopeStart = WTFMove(scopeStart); }
-    void setScopeEnd(CSSSelectorList&& scopeEnd) { m_scopeEnd = WTFMove(scopeEnd); }
+    void setScopeStart(CSSSelectorList&& scopeStart) { m_scopeStart = WTF::move(scopeStart); }
+    void setScopeEnd(CSSSelectorList&& scopeEnd) { m_scopeEnd = WTF::move(scopeEnd); }
     WeakPtr<const StyleSheetContents> styleSheetContents() const;
     void setStyleSheetContents(const StyleSheetContents&);
 
@@ -503,9 +503,9 @@ inline StyleRuleBase::StyleRuleBase(const StyleRuleBase& o)
 
 inline void StyleRule::adoptSelectorList(CSSSelectorList&& selectors)
 {
-    m_selectorList = WTFMove(selectors);
+    m_selectorList = WTF::move(selectors);
 #if ENABLE(CSS_SELECTOR_JIT)
-    m_compiledSelectors = nullptr;
+    m_compiledSelectors = { };
 #endif
 }
 
@@ -513,13 +513,10 @@ inline void StyleRule::adoptSelectorList(CSSSelectorList&& selectors)
 
 inline CompiledSelector& StyleRule::compiledSelectorForListIndex(unsigned index) const
 {
-    ASSERT(index < m_selectorList.listSize());
+    ASSERT(index < m_selectorList.size());
 
-    if (!m_compiledSelectors) {
-        auto listSize = m_selectorList.listSize();
-        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(index < listSize);
-        m_compiledSelectors = makeUniqueArray<CompiledSelector>(listSize);
-    }
+    if (m_compiledSelectors.isEmpty())
+        m_compiledSelectors = FixedVector<CompiledSelector>(m_selectorList.size());
     return m_compiledSelectors[index];
 }
 

@@ -24,7 +24,6 @@
 
 #pragma once
 
-#include <WebCore/CSSGradient.h>
 #include <WebCore/CSSPosition.h>
 #include <WebCore/CSSPrimitiveNumericTypes.h>
 

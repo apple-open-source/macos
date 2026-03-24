@@ -32,9 +32,15 @@
 
 namespace WebKit {
 
-NativeWebWheelEvent::NativeWebWheelEvent(NSEvent* event, NSView* view)
+NativeWebWheelEvent::NativeWebWheelEvent(NSEvent *event, NSView *view)
     : WebWheelEvent(WebEventFactory::createWebWheelEvent(event, view))
     , m_nativeEvent(event)
+{
+}
+
+NativeWebWheelEvent::NativeWebWheelEvent(const WebWheelEvent& wheelEvent)
+    : WebWheelEvent(wheelEvent)
+    , m_nativeEvent(nil)
 {
 }
 

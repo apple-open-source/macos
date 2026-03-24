@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,22 +22,17 @@
  */
 
 #ifdef BUILTIN_MACHO
+#include <stdckdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/file.h>
 #include <unistd.h>
 
-#include <mach-o/fat.h>
 #include <mach-o/arch.h>
-#include <mach-o/swap.h>
+#include <mach-o/fat.h>
+#include <mach-o/utils.h>
 
 #include "file.h"
-
-/* Silence a compiler warning. */
-FILE_RCSID("")
 
 /* Known values for GPU cpu_type_t */
 #define CPU_TYPE_APPLEGPU	((cpu_type_t)	(19 | CPU_ARCH_ABI64))
@@ -115,252 +110,177 @@ FILE_RCSID("")
 
 /* Magic number for fat GPU files */
 #define FAT_GPU_MAGIC 0xcbfebabe
+#define FAT_GPU_CIGAM 0xbebafecb
 
-static const NXArchInfo GPUArchInfoTable[] =
-{
+static const struct ArchInfo {
+	const char	*name;
+	cpu_type_t	 cputype;
+	cpu_subtype_t	 cpusubtype;
+} GPUArchInfoTable[] = {
 	/* Apple GPUs */
-	{"applegpu_gx2",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_GX2,	NX_LittleEndian,
-	 "APPLEGPU_GX2"},
-	{"applegpu_g4p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G4P,	NX_LittleEndian,
-	 "APPLEGPU_G4P"},
-	{"applegpu_g4g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G4G,	NX_LittleEndian,
-	 "APPLEGPU_G4G"},
-	{"applegpu_g5p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G5P,	NX_LittleEndian,
-	 "APPLEGPU_G5P"},
-	{"applegpu_g9p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G9P,	NX_LittleEndian,
-	 "APPLEGPU_G9P"},
-	{"applegpu_g9g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G9G,	NX_LittleEndian,
-	 "APPLEGPU_G9G"},
-	{"applegpu_g10p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G10P,	NX_LittleEndian,
-	 "APPLEGPU_G10P"},
-	{"applegpu_g11p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11P,	NX_LittleEndian,
-	 "APPLEGPU_G11P"},
-	{"applegpu_g11m",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11M,	NX_LittleEndian,
-	 "APPLEGPU_G11M"},
-	{"applegpu_g11g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11G,	NX_LittleEndian,
-	 "APPLEGPU_G11G"},
-	{"applegpu_g11g_8fstp",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11G_8FSTP,	NX_LittleEndian,
-	 "APPLEGPU_G11G_8FSTP"},
-	{"applegpu_g12p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G12P,	NX_LittleEndian,
-	 "APPLEGPU_G12P"},
-	{"applegpu_g13p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13P,	NX_LittleEndian,
-	 "APPLEGPU_G13P"},
-	{"applegpu_g13g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13G,	NX_LittleEndian,
-	 "APPLEGPU_G13G"},
-	{"applegpu_g13s",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13S,	NX_LittleEndian,
-	 "APPLEGPU_G13S"},
-	{"applegpu_g13c",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13C,	NX_LittleEndian,
-	 "APPLEGPU_G13C"},
-	{"applegpu_g13d",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13D,	NX_LittleEndian,
-	 "APPLEGPU_G13D"},
-	{"applegpu_g14p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14P,	NX_LittleEndian,
-	 "APPLEGPU_G14P"},
-	{"applegpu_g14g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14G,	NX_LittleEndian,
-	 "APPLEGPU_G14G"},
-	{"applegpu_g14s",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14S,	NX_LittleEndian,
-	 "APPLEGPU_G14S"},
-	{"applegpu_g14d",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14D,	NX_LittleEndian,
-	 "APPLEGPU_G14D"},
-	{"applegpu_g15p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15P,	NX_LittleEndian,
-	 "APPLEGPU_G15P"},
-	{"applegpu_g15g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15G,	NX_LittleEndian,
-	 "APPLEGPU_G15G"},
-	{"applegpu_g15s",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15S,	NX_LittleEndian,
-	 "APPLEGPU_G15S"},
-	{"applegpu_g16p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G16P,	NX_LittleEndian,
-	 "APPLEGPU_G16P"},
+	{"applegpu_gx2",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_GX2 },
+	{"applegpu_g4p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G4P },
+	{"applegpu_g4g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G4G },
+	{"applegpu_g5p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G5P },
+	{"applegpu_g9p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G9P },
+	{"applegpu_g9g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G9G },
+	{"applegpu_g10p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G10P },
+	{"applegpu_g11p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11P },
+	{"applegpu_g11m",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11M },
+	{"applegpu_g11g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11G },
+	{"applegpu_g11g_8fstp",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G11G_8FSTP },
+	{"applegpu_g12p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G12P },
+	{"applegpu_g13p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13P },
+	{"applegpu_g13g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13G },
+	{"applegpu_g13s",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13S },
+	{"applegpu_g13c",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13C },
+	{"applegpu_g13d",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G13D },
+	{"applegpu_g14p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14P },
+	{"applegpu_g14g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14G },
+	{"applegpu_g14s",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14S },
+	{"applegpu_g14d",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14D },
+	{"applegpu_g15p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15P },
+	{"applegpu_g15g",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15G },
+	{"applegpu_g15s",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15S },
+	{"applegpu_g16p",		CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G16P },
 	/* AMD GPUs */
-	{"amdgpu_gfx600",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600,	NX_LittleEndian,
-	 "AMDGPU_GFX600"},
-	{"amdgpu_gfx600_nwh",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600_NWH,	NX_LittleEndian,
-	 "AMDGPU_GFX600_NWH"},
-	{"amdgpu_gfx701",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX701,	NX_LittleEndian,
-	 "AMDGPU_GFX701"},
-	{"amdgpu_gfx704",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX704,	NX_LittleEndian,
-	 "AMDGPU_GFX704"},
-	{"amdgpu_gfx803",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX803,	NX_LittleEndian,
-	 "AMDGPU_GFX803"},
-	{"amdgpu_gfx802",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX802,	NX_LittleEndian,
-	 "AMDGPU_GFX802"},
-	{"amdgpu_gfx900",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX900,	NX_LittleEndian,
-	 "AMDGPU_GFX900"},
-	{"amdgpu_gfx904",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX904,	NX_LittleEndian,
-	 "AMDGPU_GFX904"},
-	{"amdgpu_gfx906",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX906,	NX_LittleEndian,
-	 "AMDGPU_GFX906"},
-	{"amdgpu_gfx1010_nsgc",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1010_NSGC,	NX_LittleEndian,
-	 "AMDGPU_GFX1010_NSGC"},
-	{"amdgpu_gfx1010",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1010,	NX_LittleEndian,
-	 "AMDGPU_GFX1010"},
-	{"amdgpu_gfx1011",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1011,	NX_LittleEndian,
-	 "AMDGPU_GFX1011"},
-	{"amdgpu_gfx1012",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1012,	NX_LittleEndian,
-	 "AMDGPU_GFX1012"},
-	{"amdgpu_gfx1030",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1030,	NX_LittleEndian,
-	 "AMDGPU_GFX1030"},
-	{"amdgpu_gfx1032",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1032,	NX_LittleEndian,
-	 "AMDGPU_GFX1032"},
+	{"amdgpu_gfx600",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600 },
+	{"amdgpu_gfx600_nwh",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600_NWH },
+	{"amdgpu_gfx701",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX701 },
+	{"amdgpu_gfx704",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX704 },
+	{"amdgpu_gfx803",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX803 },
+	{"amdgpu_gfx802",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX802 },
+	{"amdgpu_gfx900",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX900 },
+	{"amdgpu_gfx904",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX904 },
+	{"amdgpu_gfx906",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX906 },
+	{"amdgpu_gfx1010_nsgc",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1010_NSGC },
+	{"amdgpu_gfx1010",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1010 },
+	{"amdgpu_gfx1011",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1011 },
+	{"amdgpu_gfx1012",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1012 },
+	{"amdgpu_gfx1030",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1030 },
+	{"amdgpu_gfx1032",		CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX1032 },
 	/* Intel GPUs */
-	{"intelgpu_skl_gt2r6",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT2R6,	NX_LittleEndian,
-	 "INTELGPU_SKL_GT2R6"},
-	{"intelgpu_skl_gt2r7",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT2R7,	NX_LittleEndian,
-	 "INTELGPU_SKL_GT2R7"},
-	{"intelgpu_skl_gt3r10",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT3R10,	NX_LittleEndian,
-	 "INTELGPU_SKL_GT3R10"},
-	{"intelgpu_kbl_gt2r0",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R0,	NX_LittleEndian,
-	 "INTELGPU_KBL_GT2R0"},
-	{"intelgpu_kbl_gt2r2",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R2,	NX_LittleEndian,
-	 "INTELGPU_KBL_GT2R2"},
-	{"intelgpu_kbl_gt2r4",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R4,	NX_LittleEndian,
-	 "INTELGPU_KBL_GT2R4"},
-	{"intelgpu_kbl_gt3r1",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT3R1,	NX_LittleEndian,
-	 "INTELGPU_KBL_GT3R1"},
-	{"intelgpu_kbl_gt3r6",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT3R6,	NX_LittleEndian,
-	 "INTELGPU_KBL_GT3R6"},
-	{"intelgpu_icl_1x6x8r7",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_ICL_1X6X8R7,	NX_LittleEndian,
-	 "INTELGPU_ICL_1X6X8R7"},
-	{"intelgpu_icl_1x8x8r7",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_ICL_1X8X8R7,	NX_LittleEndian,
-	 "INTELGPU_ICL_1X8X8R7"},
+	{"intelgpu_skl_gt2r6",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT2R6 },
+	{"intelgpu_skl_gt2r7",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT2R7 },
+	{"intelgpu_skl_gt3r10",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_SKL_GT3R10 },
+	{"intelgpu_kbl_gt2r0",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R0 },
+	{"intelgpu_kbl_gt2r2",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R2 },
+	{"intelgpu_kbl_gt2r4",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT2R4 },
+	{"intelgpu_kbl_gt3r1",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT3R1 },
+	{"intelgpu_kbl_gt3r6",		CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_KBL_GT3R6 },
+	{"intelgpu_icl_1x6x8r7",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_ICL_1X6X8R7 },
+	{"intelgpu_icl_1x8x8r7",	CPU_TYPE_INTELGPU,	CPU_SUBTYPE_INTEL_ICL_1X8X8R7 },
 	/* AIR */
-	{"air64_v16",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V16,	NX_LittleEndian,
-	 "AIR64_V16"},
-	{"air64_v18",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V18,	NX_LittleEndian,
-	 "AIR64_V18"},
-	{"air64_v111",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V111,	NX_LittleEndian,
-	 "AIR64_V111"},
-	{"air64_v20",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V20,	NX_LittleEndian,
-	 "AIR64_V20"},
-	{"air64_v21",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V21,	NX_LittleEndian,
-	 "AIR64_V21"},
-	{"air64_v22",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V22,	NX_LittleEndian,
-	 "AIR64_V22"},
-	{"air64_v23",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V23,	NX_LittleEndian,
-	 "AIR64_V23"},
-	{"air64_v24",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V24,	NX_LittleEndian,
-	 "AIR64_V24"},
-	{"air64_v25",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V25,	NX_LittleEndian,
-	 "AIR64_V25"},
-	{"air64_v26",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V26,	NX_LittleEndian,
-	 "AIR64_V26"},
-	{NULL,	0,	0,	0,
-	 NULL}
+	{"air64_v16",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V16 },
+	{"air64_v18",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V18 },
+	{"air64_v111",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V111 },
+	{"air64_v20",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V20 },
+	{"air64_v21",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V21 },
+	{"air64_v22",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V22 },
+	{"air64_v23",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V23 },
+	{"air64_v24",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V24 },
+	{"air64_v25",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V25 },
+	{"air64_v26",			CPU_TYPE_AIR64,		CPU_SUBTYPE_AIR_V26 },
+	{ 0 }
 };
 
-static const NXArchInfo *GetAllGPUArchInfos(void)
+static const char *
+gpu_arch_name_for_cpu_type(cpu_type_t cputype, cpu_subtype_t cpusubtype)
 {
-	return GPUArchInfoTable;
-}
+	const struct ArchInfo *ai;
 
-static int
-print_known_arch_name_for_file(struct magic_set *ms, cpu_type_t cputype,
-	cpu_subtype_t cpusubtype, const NXArchInfo *ArchInfoTable)
-{
-	const NXArchInfo *ai;
-
-	for (ai = ArchInfoTable; ai->name != NULL; ai++) {
-		if(ai->cputype == cputype && ai->cpusubtype == (cpu_subtype_t)(cpusubtype & ~CPU_SUBTYPE_MASK)) {
-			file_printf(ms, " (for architecture %s)", ai->name);
-			return 0;
+	for (ai = GPUArchInfoTable; ai->name != NULL; ai++) {
+		if (ai->cputype == cputype && ai->cpusubtype == cpusubtype) {
+			return ai->name;
 		}
 	}
-
-	return -1;
+	return NULL;
 }
 
 static void
-print_arch_name_for_file(struct magic_set *ms, cpu_type_t cputype,
-	cpu_subtype_t cpusubtype)
+print_arch_name_for_cpu_type(struct magic_set *ms, cpu_type_t cputype,
+    cpu_subtype_t cpusubtype)
 {
-	if (print_known_arch_name_for_file(ms, cputype, cpusubtype,
-		NXGetAllArchInfos()) == 0)
-		return;
+	const char *arch_name = macho_arch_name_for_cpu_type(cputype, cpusubtype);
 
-	if (print_known_arch_name_for_file(ms, cputype, cpusubtype,
-		GetAllGPUArchInfos()) == 0)
+	if (arch_name == NULL) {
+		/* could be a GPU, which libmacho does not recognize */
+		arch_name = gpu_arch_name_for_cpu_type(cputype, cpusubtype);
+	}
+
+	if (arch_name != NULL) {
+		file_printf(ms, " (for architecture %s)", arch_name);
 		return;
+	}
 
 	file_printf(ms, " (for architecture cputype (%d) cpusubtype (%d))",
-		cputype, cpusubtype);
+	    cputype, cpusubtype);
+}
+
+static void
+swap32(void *buf, size_t len)
+{
+	for (uint32_t *u32 = buf; len >= sizeof(*u32); u32++, len -= sizeof(*u32)) {
+		*u32 = __builtin_bswap32(*u32);
+	}
 }
 
 protected int
 file_trymacho(struct magic_set *ms, const struct buffer *b, const char *inname)
 {
-	int fd = b->fd;
-	const unsigned char *buf = b->fbuf;
-	size_t nbytes = b->flen;
-	struct stat stat_buf;
-	unsigned long size;
-	struct fat_header fat_header;
-	struct fat_arch *fat_archs;
-	uint32_t arch_size, i;
-	ssize_t tbytes;
-	unsigned char *tmpbuf;
+	struct fat_header fhdr;
+	struct fat_arch ahdr;
+	struct mach_header mhdr;
+	off_t offset;
+	bool swap = false;
 
-	if (fstat(fd, &stat_buf) == -1) {
+	if (b->flen < sizeof(fhdr) + sizeof(ahdr) + sizeof(mhdr)) {
+		/* too small for even a single empty slice */
+		return -1;
+	}
+	memcpy(&fhdr, b->fbuf, sizeof(fhdr));
+	switch (fhdr.magic) {
+	case FAT_GPU_MAGIC:
+	case FAT_MAGIC:
+		break;
+	case FAT_GPU_CIGAM:
+	case FAT_CIGAM:
+		swap32(&fhdr, sizeof(fhdr));
+		swap = true;
+		break;
+	default:
 		return -1;
 	}
 
-	size = stat_buf.st_size;
-
-	if (nbytes < sizeof(struct fat_header)) {
-		return -1;
-	}
-
-	memcpy(&fat_header, buf, sizeof(struct fat_header));
-#ifdef __LITTLE_ENDIAN__
-	swap_fat_header(&fat_header, NX_LittleEndian);
-#endif /* __LITTLE_ENDIAN__ */
-
-	/* Check magic number, plus little hack for Mach-O vs. Java. */
-	if(!((fat_header.magic == FAT_MAGIC && fat_header.nfat_arch < 20) ||
-	      fat_header.magic == FAT_GPU_MAGIC && fat_header.nfat_arch < 20)) {
-		return -1;
-	}
-
-	arch_size = fat_header.nfat_arch * sizeof(struct fat_arch);
-
-	if (nbytes < sizeof(struct fat_header) + arch_size) {
-		return -1;
-	}
-
-	if ((fat_archs = (struct fat_arch *)malloc(arch_size)) == NULL) {
-		return -1;
-	}
-
-	memcpy((void *)fat_archs, buf + sizeof(struct fat_header), arch_size);
-#ifdef __LITTLE_ENDIAN__
-	swap_fat_arch(fat_archs, fat_header.nfat_arch, NX_LittleEndian);
-#endif /* __LITTLE_ENDIAN__ */
-
-	for(i = 0; i < fat_header.nfat_arch; i++) {
+	for (unsigned int i = 0; i < fhdr.nfat_arch; i++) {
+		if (ckd_mul(&offset, sizeof(ahdr), i) ||
+		    ckd_add(&offset, offset, sizeof(fhdr))) {
+			return -1;
+		}
+		if (offset <= b->flen - sizeof(ahdr)) {
+			memcpy(&ahdr, b->fbuf + offset, sizeof(ahdr));
+		} else if (lseek(b->fd, offset, SEEK_SET) != offset ||
+		    read(b->fd, &ahdr, sizeof(ahdr)) != sizeof(ahdr)) {
+			return -1;
+		}
+		if (swap) {
+			swap32(&ahdr, sizeof(ahdr));
+		}
+		if (ahdr.size < sizeof(mhdr)) {
+			return -1;
+		}
+		if (ahdr.offset <= b->flen - sizeof(mhdr)) {
+			memcpy(&mhdr, b->fbuf + ahdr.offset, sizeof(mhdr));
+		} else if (lseek(b->fd, ahdr.offset, SEEK_SET) != ahdr.offset ||
+		    read(b->fd, &mhdr, sizeof(mhdr)) != sizeof(mhdr)) {
+			return -1;
+		}
 		file_printf(ms, "\n%s", inname);
-		print_arch_name_for_file(ms,
-			fat_archs[i].cputype, fat_archs[i].cpusubtype);
+		print_arch_name_for_cpu_type(ms, ahdr.cputype,
+		    ahdr.cpusubtype & ~CPU_SUBTYPE_MASK);
 		file_printf(ms, ":\t");
-
-		if (fat_archs[i].offset + fat_archs[i].size > size) {
-			free(fat_archs);
-			return -1;
-		}
-
-		if (lseek(fd, fat_archs[i].offset, SEEK_SET) == -1) {
-			free(fat_archs);
-			return -1;
-		}
-
-		tmpbuf = calloc(1,ms->bytes_max + 1);
-		if ((tbytes = read(fd, tmpbuf, ms->bytes_max)) == -1) {
-			free(fat_archs);
-			free(tmpbuf);
-			return -1;
-		}
-
-		file_buffer(ms, -1, NULL, inname, tmpbuf, (size_t)tbytes);
-		free(tmpbuf);
+		file_buffer(ms, -1, NULL, inname, &mhdr, sizeof(mhdr));
 	}
-
-	free(fat_archs);
 	return 0;
 }
 #endif /* BUILTIN_MACHO */

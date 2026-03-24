@@ -131,7 +131,7 @@ void webkitFaviconDatabaseGetLoadDecisionForIcon(WebKitFaviconDatabase* database
 
     database->priv->iconDatabase->checkIconURLAndSetPageURLIfNeeded(icon.url.string(), pageURL,
         isEphemeral ? IconDatabase::AllowDatabaseWrite::No : IconDatabase::AllowDatabaseWrite::Yes,
-            [database = GRefPtr<WebKitFaviconDatabase>(database), url = icon.url.string().isolatedCopy(), pageURL = pageURL.isolatedCopy(), completionHandler = WTFMove(completionHandler)](bool found, bool changed) {
+            [database = GRefPtr<WebKitFaviconDatabase>(database), url = icon.url.string().isolatedCopy(), pageURL = pageURL.isolatedCopy(), completionHandler = WTF::move(completionHandler)](bool found, bool changed) {
             if (!webkitFaviconDatabaseIsOpen(database.get())) {
                 completionHandler(false);
                 return;
@@ -190,13 +190,14 @@ void webkitFaviconDatabaseGetFaviconInternal(WebKitFaviconDatabase* database, co
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(database, cancellable, callback, userData));
     WebKitFaviconDatabasePrivate* priv = database->priv;
-    priv->iconDatabase->loadIconForPageURL(String::fromUTF8(pageURI), isEphemeral ? IconDatabase::AllowDatabaseWrite::No : IconDatabase::AllowDatabaseWrite::Yes,
-        [task = WTFMove(task), pageURI = CString(pageURI)](PlatformImagePtr&& icon) {
-            if (!icon) {
+    priv->iconDatabase->loadIconsForPageURL(String::fromUTF8(pageURI), isEphemeral ? IconDatabase::AllowDatabaseWrite::No : IconDatabase::AllowDatabaseWrite::Yes,
+        [task = WTF::move(task), pageURI = CString(pageURI)](Vector<PlatformImagePtr>&& icons) {
+            if (icons.isEmpty()) {
                 g_task_return_new_error(task.get(), WEBKIT_FAVICON_DATABASE_ERROR, WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN,
                     _("Unknown favicon for page %s"), pageURI.data());
                 return;
             }
+            auto& icon = icons.last();
 #if USE(CAIRO)
             g_task_return_pointer(task.get(), icon.leakRef(), reinterpret_cast<GDestroyNotify>(cairo_surface_destroy));
 #elif USE(SKIA)
@@ -298,11 +299,11 @@ gchar* webkit_favicon_database_get_favicon_uri(WebKitFaviconDatabase* database, 
     if (!webkitFaviconDatabaseIsOpen(database))
         return nullptr;
 
-    String iconURLForPageURL = database->priv->iconDatabase->iconURLForPageURL(String::fromUTF8(pageURL));
-    if (iconURLForPageURL.isEmpty())
+    const auto& iconURLsForPageURL = database->priv->iconDatabase->iconURLsForPageURL(String::fromUTF8(pageURL));
+    if (iconURLsForPageURL.isEmpty())
         return nullptr;
 
-    return g_strdup(iconURLForPageURL.utf8().data());
+    return g_strdup(iconURLsForPageURL.last().utf8().data());
 }
 
 /**

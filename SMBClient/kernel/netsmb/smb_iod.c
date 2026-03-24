@@ -2721,14 +2721,19 @@ smb_iod_removerq(struct smb_rq *rqp)
     
 	if (rqp->sr_flags & SMBR_INTERNAL) {
 		TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
+
+        SMBRQ_SLOCK(rqp);
         rqp->sr_flags &= ~SMBR_ENQUEUED;
+        SMBRQ_SUNLOCK(rqp);
 
         SMB_IOD_RQUNLOCK(iod);
 		return 0;
 	}
     
 	TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
+    SMBRQ_SLOCK(rqp);
     rqp->sr_flags &= ~SMBR_ENQUEUED;
+    SMBRQ_SUNLOCK(rqp);
 
     SMB_IOD_RQUNLOCK(iod);
 

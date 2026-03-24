@@ -30,6 +30,8 @@
 #ifndef _SECURITY_SECPOLICYSERVER_H_
 #define _SECURITY_SECPOLICYSERVER_H_
 
+#include <libDER/libDER.h>
+
 #include <Security/SecTrust.h>
 #include "Security/SecPolicyInternal.h"
 #include <Security/SecTrustSettings.h>

@@ -65,6 +65,7 @@ public:
     virtual void withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)>) = 0;
     virtual void paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t bufferIndex) = 0;
     virtual void updateContentsHeadroom(float) = 0;
+    virtual bool isRemoteCompositorIntegrationProxy() const { return false; }
 
 protected:
     CompositorIntegration() = default;

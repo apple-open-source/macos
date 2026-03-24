@@ -38,7 +38,9 @@
 namespace WebCore {
 
 namespace Style {
-class CalculationValue;
+namespace Calculation {
+class Value;
+}
 }
 
 namespace CSS {
@@ -68,7 +70,7 @@ class Value final : public RefCounted<Value> {
 public:
     static RefPtr<Value> parse(CSSParserTokenRange&, CSS::PropertyParserState&, CSS::Category, CSS::Range, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
 
-    static Ref<Value> create(const Style::CalculationValue&, const RenderStyle&);
+    static Ref<Value> create(const Style::Calculation::Value&, const RenderStyle&);
     static Ref<Value> create(CSS::Category, CSS::Range, CSSCalc::Tree&&);
 
     ~Value();
@@ -96,10 +98,10 @@ public:
     double computeLengthPx(const CSSToLengthConversionData&) const;
     double computeLengthPx(const CSSToLengthConversionData&, const CSSCalcSymbolTable&) const;
 
-    Ref<Style::CalculationValue> createCalculationValue(NoConversionDataRequiredToken) const;
-    Ref<Style::CalculationValue> createCalculationValue(NoConversionDataRequiredToken, const CSSCalcSymbolTable&) const;
-    Ref<Style::CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
-    Ref<Style::CalculationValue> createCalculationValue(const CSSToLengthConversionData&, const CSSCalcSymbolTable&) const;
+    Ref<Style::Calculation::Value> createCalculationValue(NoConversionDataRequiredToken) const;
+    Ref<Style::Calculation::Value> createCalculationValue(NoConversionDataRequiredToken, const CSSCalcSymbolTable&) const;
+    Ref<Style::Calculation::Value> createCalculationValue(const CSSToLengthConversionData&) const;
+    Ref<Style::Calculation::Value> createCalculationValue(const CSSToLengthConversionData&, const CSSCalcSymbolTable&) const;
 
     void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
 

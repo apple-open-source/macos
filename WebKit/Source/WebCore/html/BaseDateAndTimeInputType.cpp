@@ -331,7 +331,7 @@ void BaseDateAndTimeInputType::handleDOMActivateEvent(Event& event)
     if (!element()->renderer() || !protectedElement()->isMutable() || !UserGestureIndicator::processingUserGesture())
         return;
 
-    m_pickerWasActivatedByKeyboard = event.isKeyboardEvent();
+    m_pickerWasActivatedByKeyboard = is<KeyboardEvent>(event);
 
     if (m_dateTimeChooser)
         return;
@@ -428,7 +428,7 @@ void BaseDateAndTimeInputType::updateInnerTextValue()
             // Need to put something to keep text baseline.
             displayValue = " "_s;
         }
-        firstChildElement->setInnerText(WTFMove(displayValue));
+        firstChildElement->setInnerText(WTF::move(displayValue));
         return;
     }
 

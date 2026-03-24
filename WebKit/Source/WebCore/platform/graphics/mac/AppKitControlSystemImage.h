@@ -64,7 +64,7 @@ protected:
     AppKitControlSystemImage(AppKitControlSystemImageType);
 
 private:
-    friend struct IPC::ArgumentCoder<AppKitControlSystemImage, void>;
+    friend struct IPC::ArgumentCoder<AppKitControlSystemImage>;
     AppKitControlSystemImageType m_controlType;
 
     Color m_tintColor;

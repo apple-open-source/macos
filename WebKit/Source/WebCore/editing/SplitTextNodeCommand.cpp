@@ -37,7 +37,7 @@ namespace WebCore {
 
 SplitTextNodeCommand::SplitTextNodeCommand(Ref<Text>&& text, int offset)
     : SimpleEditCommand(text->document())
-    , m_text2(WTFMove(text))
+    , m_text2(WTF::move(text))
     , m_offset(offset)
 {
     // NOTE: Various callers rely on the fact that the original node becomes
@@ -62,7 +62,7 @@ void SplitTextNodeCommand::doApply()
     if (prefixText.isEmpty())
         return;
 
-    m_text1 = Text::create(document(), WTFMove(prefixText));
+    m_text1 = Text::create(document(), WTF::move(prefixText));
     ASSERT(m_text1);
     if (CheckedPtr markers = document().markersIfExists())
         markers->copyMarkers(m_text2, { 0, m_offset }, *protectedText1());

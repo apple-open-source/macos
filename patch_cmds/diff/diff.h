@@ -126,35 +126,35 @@ struct excludes {
 	struct excludes *next;
 };
 
-extern bool	lflag, Nflag, Pflag, rflag, sflag, Tflag, cflag;
-extern bool    ignore_file_case, suppress_common, color, noderef, algorithm_set;
+extern bool	 lflag, Nflag, Pflag, rflag, sflag, Tflag, cflag;
+extern bool	 ignore_file_case, suppress_common, color, noderef, algorithm_set;
 #ifdef __APPLE__
 extern unsigned int diff_context;
-extern int	diff_format, diff_algorithm, status;
+extern int	 diff_format, diff_algorithm, status;
 #else
-extern int     diff_format, diff_context, diff_algorithm, status;
+extern int	 diff_format, diff_context, diff_algorithm, status;
 #endif /* __APPLE__ */
-extern bool	diff_algorithm_set;
-extern int	tabsize, width;
+extern bool	 diff_algorithm_set;
+extern int	 tabsize, width;
 extern char	*start, *ifdefname, *diffargs, *label[2];
 extern char	*ignore_pats, *most_recent_pat;
 extern char	*group_format;
 extern const char	*add_code, *del_code;
-extern struct	stat stb1, stb2;
-extern struct	excludes *excludes_list;
-extern regex_t	ignore_re, most_recent_re;
-extern bool	unix2003_compat;	/* __APPLE__ */
+extern struct stat stb1, stb2;
+extern struct excludes *excludes_list;
+extern regex_t	 ignore_re, most_recent_re;
 #ifdef __APPLE__
-extern bool	posix;			/* __APPLE__ */
+extern bool	 unix2003_compat;
+extern bool	 posix;
 #endif	/* __APPLE__ */
 
-int	diffreg(char *, char *, int, int);
-int	diffreg_new(char *, char *, int, int);
-bool	can_libdiff(int);
-void	diffdir(char *, char *, int);
+int	 diffreg(char *, char *, int, int);
+int	 diffreg_new(char *, char *, int, int);
+bool	 can_libdiff(int);
+void	 diffdir(char *, char *, int);
 #ifdef __APPLE__
 void   print_status(int, char *, const struct stat *, char *,
     const struct stat *, const char *);
 #else
-void	print_status(int, char *, char *, const char *);
+void	 print_status(int, char *, char *, const char *);
 #endif /* __APPLE__ */

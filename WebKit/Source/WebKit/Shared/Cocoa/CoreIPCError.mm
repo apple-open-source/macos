@@ -34,79 +34,87 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CoreIPCError);
 
-bool CoreIPCError::hasValidUserInfo(const RetainPtr<CFDictionaryRef>& userInfo)
-{
-    NSDictionary * info = bridge_cast(userInfo.get());
+#define INJECT_VALUE(key, value) { \
+    if (value)\
+        [mutableUserInfo setObject:(__bridge id)value.get() forKey:key];\
+}
 
-    if (RetainPtr<id> object = [info objectForKey:@"NSErrorClientCertificateChainKey"]) {
-        if (![object isKindOfClass:[NSArray class]])
-            return false;
-        for (id certificate in object.get()) {
-            if ((CFGetTypeID((__bridge CFTypeRef)certificate) != SecCertificateGetTypeID()))
-                return false;
-        }
-    }
-
-    if (RetainPtr<id> peerCertificateChain = [info objectForKey:@"NSErrorPeerCertificateChainKey"]) {
-        for (id object in peerCertificateChain.get()) {
-            if (CFGetTypeID((__bridge CFTypeRef)object) != SecCertificateGetTypeID())
-                return false;
-        }
-    }
-
-    if (RetainPtr peerTrust = (__bridge SecTrustRef)[info objectForKey:NSURLErrorFailingURLPeerTrustErrorKey]) {
-        if (CFGetTypeID((__bridge CFTypeRef)peerTrust.get()) != SecTrustGetTypeID())
-            return false;
-    }
-
-    if (RetainPtr<id> underlyingError = [info objectForKey:NSUnderlyingErrorKey]) {
-        if (![underlyingError isKindOfClass:[NSError class]])
-            return false;
-    }
-
-    return true;
+#define INJECT_STRING_VALUE(key, value) { \
+    if (!value.isNull())\
+        [mutableUserInfo setObject:value.createNSString().get() forKey:key];\
 }
 
 RetainPtr<id> CoreIPCError::toID() const
 {
+    RetainPtr<NSMutableDictionary> mutableUserInfo = adoptNS([[NSMutableDictionary alloc] init]);
+
+    if (m_clientCertificateChain) {
+        RetainPtr<NSMutableArray> chain = adoptNS([[NSMutableArray alloc] init]);
+        for (RetainPtr item : *m_clientCertificateChain)
+            [chain addObject:(__bridge id)item.get()];
+        INJECT_VALUE(@"NSErrorClientCertificateChainKey", chain)
+    }
+
+    if (m_peerCertificateChain) {
+        RetainPtr<NSMutableArray> chain = adoptNS([[NSMutableArray alloc] init]);
+        for (RetainPtr item : *m_peerCertificateChain)
+            [chain addObject:(__bridge id)item.get()];
+        INJECT_VALUE(@"NSErrorPeerCertificateChainKey", chain)
+    }
+
+    INJECT_STRING_VALUE(NSLocalizedDescriptionKey, m_localizedDescription)
+    INJECT_STRING_VALUE(NSLocalizedFailureReasonErrorKey, m_localizedFailureReasonError)
+    INJECT_STRING_VALUE(NSLocalizedRecoverySuggestionErrorKey, m_localizedRecoverySuggestionError)
+    INJECT_STRING_VALUE(NSLocalizedFailureErrorKey, m_localizedFailureError)
+
+    if (m_localizedRecoveryOptionsError) {
+        RetainPtr options = [NSMutableArray arrayWithCapacity:m_localizedRecoveryOptionsError->size()];
+        for (const String& entry : *m_localizedRecoveryOptionsError)
+            [options addObject:entry.createNSString().get()];
+        INJECT_VALUE(NSLocalizedRecoveryOptionsErrorKey, options)
+    }
+
+    INJECT_STRING_VALUE(NSHelpAnchorErrorKey, m_helpAnchorError)
+    INJECT_STRING_VALUE(NSDebugDescriptionErrorKey, m_debugDescriptionError)
+
+    INJECT_VALUE(NSStringEncodingErrorKey, m_stringEncodingError)
+
+    INJECT_VALUE(NSURLErrorFailingURLPeerTrustErrorKey, m_failingURLPeerTrustError)
+    INJECT_VALUE(NSURLErrorKey, m_urlError)
+    INJECT_VALUE(NSURLErrorFailingURLErrorKey, m_failingURLError)
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+    INJECT_STRING_VALUE(NSURLErrorFailingURLStringErrorKey, m_failingURLStringError)
+#endif
+
+    INJECT_STRING_VALUE(NSFilePathErrorKey, m_filePathError)
+
+    INJECT_STRING_VALUE(@"networkTaskDescription", m_networkTaskDescription)
+    INJECT_STRING_VALUE(@"networkTaskMetricsPrivacyStance", m_networkTaskMetricsPrivacyStance)
+
+    INJECT_STRING_VALUE(@"NSDescription", m_description)
+
     if (m_underlyingError) {
-        auto underlyingNSError = m_underlyingError->toID();
+        RetainPtr underlyingNSError = m_underlyingError->toID();
         if (!underlyingNSError)
             return nil;
 
-        RetainPtr<CFMutableDictionaryRef> mutableUserInfo;
-        if (!m_userInfo)
-            mutableUserInfo = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-        else
-            mutableUserInfo = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(m_userInfo.get()) + 1, m_userInfo.get()));
-        CFDictionarySetValue(mutableUserInfo.get(), (__bridge CFStringRef)NSUnderlyingErrorKey, (__bridge CFTypeRef)underlyingNSError.get());
-        return adoptNS([[NSError alloc] initWithDomain:m_domain.createNSString().get() code:m_code userInfo:(__bridge NSDictionary *)mutableUserInfo.get()]);
+        INJECT_VALUE(NSUnderlyingErrorKey, underlyingNSError)
     }
-    return adoptNS([[NSError alloc] initWithDomain:m_domain.createNSString().get() code:m_code userInfo:(__bridge NSDictionary *)m_userInfo.get()]);
+
+    return adoptNS([[NSError alloc] initWithDomain:m_domain.createNSString().get() code:m_code userInfo:(__bridge NSDictionary *)mutableUserInfo.get()]);
 }
 
-bool CoreIPCError::isSafeToEncodeUserInfo(id value)
-{
-    if ([value isKindOfClass:NSString.class] || [value isKindOfClass:NSURL.class] || [value isKindOfClass:NSNumber.class])
-        return true;
 
-    if (auto array = dynamic_objc_cast<NSArray>(value)) {
-        for (id object in array) {
-            if (!isSafeToEncodeUserInfo(object))
-                return false;
-        }
-        return true;
-    }
+#define EXTRACT_TYPED_VALUE(key, type, target) { \
+    RetainPtr<id> extractedValue = [userInfo objectForKey:key];\
+    if ([extractedValue isKindOfClass:[type class]])\
+        target = extractedValue.get();\
+}
 
-    if (auto dictionary = dynamic_objc_cast<NSDictionary>(value)) {
-        for (id innerValue in dictionary.objectEnumerator) {
-            if (!isSafeToEncodeUserInfo(innerValue))
-                return false;
-        }
-        return true;
-    }
-
-    return false;
+#define EXTRACT_STRING_VALUE(key, target) { \
+    RetainPtr<id> extractedValue = [userInfo objectForKey:key];\
+    if ([extractedValue isKindOfClass:[NSString class]])\
+        target = String(extractedValue.get());\
 }
 
 CoreIPCError::CoreIPCError(NSError *nsError)
@@ -115,76 +123,93 @@ CoreIPCError::CoreIPCError(NSError *nsError)
 {
     RetainPtr<NSDictionary> userInfo = [nsError userInfo];
 
-    RetainPtr<CFMutableDictionaryRef> filteredUserInfo = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, [userInfo count], &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-    [userInfo enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL*) {
-        if ([key isEqualToString:@"NSErrorClientCertificateChainKey"]) {
-            if (![value isKindOfClass:[NSArray class]])
-                return;
-        }
-        if (isSafeToEncodeUserInfo(value))
-            CFDictionarySetValue(filteredUserInfo.get(), (__bridge CFTypeRef)key, (__bridge CFTypeRef)value);
-    }];
-
     if (RetainPtr<NSArray> clientIdentityAndCertificates = [userInfo objectForKey:@"NSErrorClientCertificateChainKey"]) {
         if ([clientIdentityAndCertificates isKindOfClass:[NSArray class]]) {
+            m_clientCertificateChain = Vector<RetainPtr<SecCertificateRef>> { };
             // Turn SecIdentity members into SecCertificate to strip out private key information.
-            RetainPtr<id> clientCertificates = [NSMutableArray arrayWithCapacity:clientIdentityAndCertificates.get().count];
             for (id object in clientIdentityAndCertificates.get()) {
                 // Only SecIdentity or SecCertificate types are expected in clientIdentityAndCertificates
                 if (CFGetTypeID((__bridge CFTypeRef)object) != SecIdentityGetTypeID() && CFGetTypeID((__bridge CFTypeRef)object) != SecCertificateGetTypeID())
                     continue;
                 if (CFGetTypeID((__bridge CFTypeRef)object) != SecIdentityGetTypeID()) {
-                    [clientCertificates addObject:object];
+                    m_clientCertificateChain->append((__bridge SecCertificateRef)object);
                     continue;
                 }
                 SecCertificateRef certificate = nil;
                 OSStatus status = SecIdentityCopyCertificate((SecIdentityRef)object, &certificate);
-                RetainPtr<SecCertificateRef> retainCertificate = adoptCF(certificate);
                 // The SecIdentity member is the key information of this attribute. Without it, we should nil
                 // the attribute.
                 if (status != errSecSuccess) {
-                    LOG_ERROR("Failed to encode nsError.userInfo[NSErrorClientCertificateChainKey]: %d", status);
-                    clientCertificates = nil;
+                    LOG_ERROR("Failed to encode nsError.userInfo[NSErrorClientCertificateChainKey]: %ld", static_cast<long>(status));
+                    m_clientCertificateChain = std::nullopt;
                     break;
                 }
-                [clientCertificates addObject:(__bridge id)certificate];
+                m_clientCertificateChain->append(adoptCF(certificate));
             }
-            CFDictionarySetValue(filteredUserInfo.get(), CFSTR("NSErrorClientCertificateChainKey"), (__bridge CFTypeRef)clientCertificates.get());
         }
     }
 
-    RetainPtr<id> peerCertificateChain = [userInfo objectForKey:@"NSErrorPeerCertificateChainKey"];
+    RetainPtr<NSArray> peerCertificateChain = dynamic_objc_cast<NSArray>([userInfo objectForKey:@"NSErrorPeerCertificateChainKey"]);
     if (!peerCertificateChain) {
         if (RetainPtr<id> candidatePeerTrust = [userInfo objectForKey:NSURLErrorFailingURLPeerTrustErrorKey]) {
             if (CFGetTypeID((__bridge CFTypeRef)candidatePeerTrust.get()) == SecTrustGetTypeID())
-                peerCertificateChain = (__bridge NSArray *)adoptCF(SecTrustCopyCertificateChain((__bridge SecTrustRef)candidatePeerTrust.get())).get();
+                peerCertificateChain = bridge_cast(adoptCF(SecTrustCopyCertificateChain((__bridge SecTrustRef)candidatePeerTrust.get())));
         }
     }
 
     if (peerCertificateChain && [peerCertificateChain isKindOfClass:[NSArray class]]) {
-        bool hasExpectedTypes = true;
+        m_peerCertificateChain = Vector<RetainPtr<SecCertificateRef>> { };
         for (id object in peerCertificateChain.get()) {
             if (CFGetTypeID((__bridge CFTypeRef)object) != SecCertificateGetTypeID()) {
-                hasExpectedTypes = false;
+                m_peerCertificateChain = std::nullopt;
                 break;
             }
+            m_peerCertificateChain->append((__bridge SecCertificateRef)object);
         }
-        if (hasExpectedTypes)
-            CFDictionarySetValue(filteredUserInfo.get(), CFSTR("NSErrorPeerCertificateChainKey"), (__bridge CFTypeRef)peerCertificateChain.get());
     }
+
+    if (RetainPtr<id> underlyingError = [userInfo objectForKey:NSUnderlyingErrorKey]) {
+        if (RetainPtr error = dynamic_objc_cast<NSError>(underlyingError))
+            m_underlyingError = makeUnique<CoreIPCError>(error.get());
+    }
+
+    EXTRACT_STRING_VALUE(NSLocalizedDescriptionKey, m_localizedDescription)
+    EXTRACT_STRING_VALUE(NSLocalizedFailureReasonErrorKey, m_localizedFailureReasonError)
+    EXTRACT_STRING_VALUE(NSLocalizedRecoverySuggestionErrorKey, m_localizedRecoverySuggestionError)
+    EXTRACT_STRING_VALUE(NSLocalizedFailureErrorKey, m_localizedFailureError)
+
+    if (RetainPtr<id> extractedValue = [userInfo objectForKey:NSLocalizedRecoveryOptionsErrorKey]) {
+        if (RetainPtr array = dynamic_objc_cast<NSArray>(extractedValue)) {
+            m_localizedRecoveryOptionsError = Vector<String> { };
+            for (id object in array.get()) {
+                if (RetainPtr string = dynamic_objc_cast<NSString>(object))
+                    m_localizedRecoveryOptionsError->append(string.get());
+            }
+        }
+    }
+
+    EXTRACT_STRING_VALUE(NSHelpAnchorErrorKey, m_helpAnchorError)
+    EXTRACT_STRING_VALUE(NSDebugDescriptionErrorKey, m_debugDescriptionError)
+
+    EXTRACT_TYPED_VALUE(NSStringEncodingErrorKey, NSNumber, m_stringEncodingError)
 
     if (RetainPtr peerTrust = (__bridge SecTrustRef)[userInfo objectForKey:NSURLErrorFailingURLPeerTrustErrorKey]) {
         if (CFGetTypeID((__bridge CFTypeRef)peerTrust.get()) == SecTrustGetTypeID())
-            CFDictionarySetValue(filteredUserInfo.get(), (__bridge CFStringRef)NSURLErrorFailingURLPeerTrustErrorKey, peerTrust.get());
+            m_failingURLPeerTrustError = peerTrust;
     }
 
-    m_userInfo = static_cast<CFDictionaryRef>(filteredUserInfo.get());
+    EXTRACT_TYPED_VALUE(NSURLErrorKey, NSURL, m_urlError)
+    EXTRACT_TYPED_VALUE(NSURLErrorFailingURLErrorKey, NSURL, m_failingURLError)
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+    EXTRACT_STRING_VALUE(NSURLErrorFailingURLStringErrorKey, m_failingURLStringError)
+#endif
 
-    if (RetainPtr<id> underlyingError = [userInfo objectForKey:NSUnderlyingErrorKey]) {
-        if ([underlyingError isKindOfClass:[NSError class]])
-            m_underlyingError = makeUnique<CoreIPCError>(underlyingError.get());
-    }
+    EXTRACT_STRING_VALUE(NSFilePathErrorKey, m_filePathError)
+
+    EXTRACT_STRING_VALUE(@"networkTaskDescription", m_networkTaskDescription)
+    EXTRACT_STRING_VALUE(@"networkTaskMetricsPrivacyStance", m_networkTaskMetricsPrivacyStance)
+
+    EXTRACT_STRING_VALUE(@"NSDescription", m_description)
 }
 
 } // namespace WebKit

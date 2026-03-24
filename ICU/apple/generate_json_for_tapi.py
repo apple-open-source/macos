@@ -21,6 +21,16 @@ def is_header(filename):
     return False
 
 def include_location(path, build_for_ios):
+    # NOTE: This is a KLUDGE to get around the fact that rbbirpt.h and regexcst.h define
+    # some of the same symbols.  This causes TAPI to fail with duplicate-definition errors,
+    # even though no .cpp file includes both headers and there's nothing in either file
+    # that's actually in the public API.  --rtg 10/17/25
+    if "regexcst.h" in path:
+    	return False
+    # (We also have to skip regexst.h because it includes regexcst.h  --rtg 10/17/25)
+    if "regexst.h" in path:
+    	return False
+    	
     if "icu/icu4c/source/i18n" in path:
         return True
     if "icu/icu4c/source/common" in path:

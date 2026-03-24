@@ -95,34 +95,34 @@ static bool evaluateTrust(NSArray *certs, NSArray *anchors, SecPolicyRef policy,
     SecTrustRef trust = NULL;
     bool result = false;
     NSArray *chain = nil;
-    require_noerr_string(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs,
+    __Require_noErr_String(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs,
                                                         policy,
                                                         &trust),
                          errOut, "failed to create trust ref");
     if (anchors) {
-        require_noerr_string(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors),
+        __Require_noErr_String(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors),
                              errOut, "failed to set anchors");
     }
-    require_noerr_string(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate),
+    __Require_noErr_String(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate),
                          errOut, "failed to set verify date");
     result = SecTrustEvaluateWithError(trust, NULL);
 
     /* check result */
     if (expectedResult) {
-        require_string(result == expectedResult,
+        __Require_String(result == expectedResult,
                        errOut, "unexpected untrusted chain");
     } else {
-        require_string(result == expectedResult,
+        __Require_String(result == expectedResult,
                        errOut, "unexpected trusted chain");
     }
 
     /* check the chain that returned */
     chain = CFBridgingRelease(SecTrustCopyCertificateChain(trust));
-    require_string([chain count] == [expectedChain count],
+    __Require_String([chain count] == [expectedChain count],
                    errOut, "wrong number of certs in result chain");
     NSUInteger ix, count = [expectedChain count];
     for (ix = 0; ix < count; ix++) {
-        require_string(CFEqual((__bridge SecCertificateRef)[chain objectAtIndex:ix],
+        __Require_String(CFEqual((__bridge SecCertificateRef)[chain objectAtIndex:ix],
                                (__bridge SecCertificateRef)[expectedChain objectAtIndex:ix]),
                        errOut, "chain didn't match expected");
     }

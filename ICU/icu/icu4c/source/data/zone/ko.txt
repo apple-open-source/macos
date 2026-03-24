@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ko{
     zoneStrings{
         "Africa:Abidjan"{
@@ -269,6 +269,9 @@ ko{
         }
         "America:Costa_Rica"{
             ec{"코스타리카"}
+        }
+        "America:Coyhaique"{
+            ec{"코이아이케"}
         }
         "America:Creston"{
             ec{"크레스톤"}
@@ -1167,7 +1170,7 @@ ko{
             ec{"에파테"}
         }
         "Pacific:Enderbury"{
-            ec{"엔더베리"}
+            ec{"칸톤"}
         }
         "Pacific:Fakaofo"{
             ec{"파카오푸"}
@@ -1192,9 +1195,6 @@ ko{
         }
         "Pacific:Honolulu"{
             ec{"호놀룰루"}
-        }
-        "Pacific:Kanton"{
-            ec{"칸톤"}
         }
         "Pacific:Kiritimati"{
             ec{"키리티마티"}
@@ -1283,9 +1283,7 @@ ko{
             ls{"남아프리카 시간"}
         }
         "meta:Africa_Western"{
-            ld{"서아프리카 하계 표준시"}
-            lg{"서아프리카 시간"}
-            ls{"서아프리카 표준시"}
+            ls{"서아프리카 시간"}
         }
         "meta:Alaska"{
             ld{"알래스카 하계 표준시"}
@@ -1368,24 +1366,24 @@ ko{
             ls{"대서양 표준시"}
         }
         "meta:Australia_Central"{
-            ld{"오스트레일리아 중부 하계 표준시"}
-            lg{"오스트레일리아 중부 시간"}
-            ls{"오스트레일리아 중부 표준시"}
+            ld{"호주 중부 하계 표준시"}
+            lg{"호주 중부 시간"}
+            ls{"호주 중부 표준시"}
         }
         "meta:Australia_CentralWestern"{
-            ld{"오스트레일리아 중서부 하계 표준시"}
-            lg{"오스트레일리아 중서부 시간"}
-            ls{"오스트레일리아 중서부 표준시"}
+            ld{"호주 중서부 하계 표준시"}
+            lg{"호주 중서부 시간"}
+            ls{"호주 중서부 표준시"}
         }
         "meta:Australia_Eastern"{
-            ld{"오스트레일리아 동부 하계 표준시"}
-            lg{"오스트레일리아 동부 시간"}
-            ls{"오스트레일리아 동부 표준시"}
+            ld{"호주 동부 하계 표준시"}
+            lg{"호주 동부 시간"}
+            ls{"호주 동부 표준시"}
         }
         "meta:Australia_Western"{
-            ld{"오스트레일리아 서부 하계 표준시"}
-            lg{"오스트레일리아 서부 시간"}
-            ls{"오스트레일리아 서부 표준시"}
+            ld{"호주 서부 하계 표준시"}
+            lg{"호주 서부 시간"}
+            ls{"호주 서부 표준시"}
         }
         "meta:Azerbaijan"{
             ld{"아제르바이잔 하계 표준시"}
@@ -1547,6 +1545,9 @@ ko{
         "meta:Guyana"{
             ls{"가이아나 시간"}
         }
+        "meta:Hawaii"{
+            ls{"하와이 알류샨 표준시"}
+        }
         "meta:Hawaii_Aleutian"{
             ld{"하와이 알류샨 하계 표준시"}
             lg{"하와이 알류샨 시간"}
@@ -1615,9 +1616,9 @@ ko{
             ls{"서부 카자흐스탄 시간"}
         }
         "meta:Korea"{
-            ld{"대한민국 하계 표준시"}
-            lg{"대한민국 시간"}
-            ls{"대한민국 표준시"}
+            ld{"한국 하계 표준시"}
+            lg{"한국 시간"}
+            ls{"한국 표준시"}
         }
         "meta:Kosrae"{
             ls{"코스라에섬 시간"}

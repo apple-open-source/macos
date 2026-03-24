@@ -34,7 +34,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKResourceLoadStatisticsFirstParty.class, self))
         return;
-    _firstParty->API::ResourceLoadStatisticsFirstParty::~ResourceLoadStatisticsFirstParty();
+    SUPPRESS_UNRETAINED_ARG _firstParty->API::ResourceLoadStatisticsFirstParty::~ResourceLoadStatisticsFirstParty();
     [super dealloc];
 }
 

@@ -45,7 +45,7 @@ class ExternalTextureImpl final : public ExternalTexture {
 public:
     static Ref<ExternalTextureImpl> create(WebGPUPtr<WGPUExternalTexture>&& externalTexture, const ExternalTextureDescriptor& descriptor, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new ExternalTextureImpl(WTFMove(externalTexture), descriptor, convertToBackingContext));
+        return adoptRef(*new ExternalTextureImpl(WTF::move(externalTexture), descriptor, convertToBackingContext));
     }
 
     virtual ~ExternalTextureImpl();

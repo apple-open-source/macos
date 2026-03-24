@@ -349,6 +349,7 @@ isLocalTLD(NSString *host)
                            atsRequired:(bool)atsRequired
                          minTLSVersion:(tls_protocol_version_t)minTLSVersion
                 forwardSecrecyRequired:(bool)forwardSecrecyRequired
+                      compliancePolicy:(sec_protocol_options_compliance_policy_t)compliancePolicy
 {
     sec_protocol_options_t options = [self create_sec_protocol_options];
     sec_protocol_options_set_sec_protocol_configuration(options, configuration);
@@ -360,7 +361,8 @@ isLocalTLD(NSString *host)
         XCTAssertTrue(atsRequired == sec_protocol_configuration_tls_required_for_host(configuration, hostname, isDirect), "TLS should have been required: %d for hostname %s", atsRequired, hostname);
         transformed = sec_protocol_configuration_copy_transformed_options_for_host(options, hostname, isDirect);
     }
-    (void)sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
+    (void)sec_protocol_options_access_handle(transformed,
+ ^bool(void *handle) {
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
         XCTAssertTrue(content->ats_required == atsRequired, "ats_required should have been set to: %d for hostname %s", atsRequired, hostname);
@@ -370,8 +372,80 @@ isLocalTLD(NSString *host)
         } else {
             XCTAssertTrue(content->ciphersuites == nil, "forward secrecy was not required for hostname %s, expected ciphersuites to be nil", hostname);
         }
+        XCTAssertTrue(content->tls_compliance_policy == compliancePolicy,
+                      "compliance_policy should have been set to: %d, instead received: %d for hostname %s",
+                      compliancePolicy,
+                      content->tls_compliance_policy, hostname);
         return true;
     });
+}
+
+- (void)testNIAPRequirementOverridesArbitraryLoads
+{
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @YES,
+                                 @"NSRequiresNIAPTLSPackageVersion" : @"FCP_v2.1"
+                                };
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_fcs_v2];
+}
+
+- (void)testNIAPRequirementOverridesArbitraryLoadsWithNone
+{
+    NSDictionary *exampleATS = @{@"NSAllowsArbitraryLoads" : @YES,
+                                 @"NSRequiresNIAPTLSPackageVersion" : @"none"
+    };
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+}
+
+- (void)testExceptionRemovesNIAPRequirement
+{
+    NSDictionary *exampleATS = @{@"NSRequiresNIAPTLSPackageVersion" : @"FCP_v2.1",
+                                 @"NSExceptionDomains" : @{
+                                     @"facebook.com" : @{
+                                         @"NSExceptionRequiresNIAPTLSPackageVersion" : @"none"
+                                     }
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_fcs_v2];
+    [self runATSExceptionTestForHostname:"facebook.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+}
+
+- (void)testExceptionUnknownExceptionAppliedAsRecommended
+{
+    NSDictionary *exampleATS = @{@"NSRequiresNIAPTLSPackageVersion" : @"none",
+                                 @"NSExceptionDomains" : @{
+                                     @"facebook.com" : @{
+                                         @"NSExceptionRequiresNIAPTLSPackageVersion" : @"invalid"
+                                     }
+                                 }};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"facebook.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_fcs_v2];
 }
 
 - (void)testExceptionRaisesSecurityRequirements
@@ -395,6 +469,9 @@ isLocalTLD(NSString *host)
                                          @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
                                          @"NSExceptionRequiresForwardSecrecy" : @YES
                                      },
+                                     @"facebook.com" : @{
+                                         @"NSExceptionRequiresNIAPTLSPackageVersion" : @"recommended"
+                                     }
                                  }};
 
     sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
@@ -403,21 +480,22 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"facebook.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_fcs_v2];
 
     // Check built in exceptions
-    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testBuiltInExceptions
@@ -430,19 +508,19 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // Check built in exceptions
-    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testExceptionOverridesBuiltInException
@@ -464,6 +542,9 @@ isLocalTLD(NSString *host)
                                          @"NSExceptionAllowsInsecureHTTPLoads" : @NO,
                                          @"NSExceptionMinimumTLSVersion" : @"TLSv1.3",
                                      },
+                                     @"is.autonavi.com" : @{
+                                         @"NSExceptionRequiresNIAPTLSPackageVersion" : @"recommended"
+                                     }
                                  }};
 
     sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef) exampleATS, false);
@@ -472,22 +553,22 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // Check built in exceptions
-    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"test.setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false];
+    [self runATSExceptionTestForHostname:"apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"csd4.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"test.setup.icloud.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"ls.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"gs.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"geo.apple.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"is.autonavi.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_fcs_v2];
+    [self runATSExceptionTestForHostname:"apple-mapkit.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv10 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testInvalidATSDictionary
@@ -508,12 +589,12 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"invalid.exception.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"youtube.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"invalid.exception.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testIncludesSubdomains
@@ -540,10 +621,10 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv11 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"test.another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv13 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv11 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"test.another.subhostname.example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testCIDRExceptions
@@ -564,29 +645,29 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // External, allowed by exception
-    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // External, no exception
-    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"2001:db80:0000:0000:0000:0000:0000:0000" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"2001:db80:0000:0000:0000:0000:0000:0000" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     atsState = @{@"NSExceptionDomains" : @{
         @"::/0" : @{ @"NSExceptionAllowsInsecureHTTPLoads" : @YES },
@@ -601,29 +682,29 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false];
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false minTLSVersion:0 forwardSecrecyRequired:false compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // Allowed by exception
-    [self runATSExceptionTestForHostname:"128.0.0.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"128.0.0.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.1" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.100" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.255" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.100.101" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"198.51.101.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"203.0.113.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"255.255.255.0" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"fe00::" configuration:configuration isAddress:true isDirect:false atsRequired:false minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 
     // Blocked by exception
-    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"127.255.255.255" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"1.1.1.1" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"127.255.255.255" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"2001:db8:85a3::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 - (void)testMinTLSVersionDisallowedStrings
@@ -646,9 +727,9 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
-    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true];
+    [self runATSExceptionTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
+    [self runATSExceptionTestForHostname:"neverssl.com" configuration:configuration isAddress:false isDirect:false atsRequired:true minTLSVersion:tls_protocol_version_TLSv12 forwardSecrecyRequired:true compliancePolicy:sec_protocol_options_compliance_policy_none];
 }
 
 #pragma mark - Global Keys Tests
@@ -658,6 +739,7 @@ isLocalTLD(NSString *host)
                            isAddress:(bool)isAddress
                             isDirect:(bool)isDirect
                          atsRequired:(bool)atsRequired
+                 globalCompliancePolicySet:(bool)compliancePolicySet
 {
     XCTAssertTrue(atsRequired == sec_protocol_configuration_tls_required_for_host(configuration, hostname, isDirect), "ATS should have been required: %d for hostname: %s", atsRequired, hostname);
     sec_protocol_options_t options = [self create_sec_protocol_options];
@@ -676,10 +758,16 @@ isLocalTLD(NSString *host)
             XCTAssertTrue(content->ats_required == true, "ATS should have been required for hostname: %s", hostname);
             XCTAssertTrue(content->min_version == tls_protocol_version_TLSv12, "Minimum TLS version should have been 1.2 for hostname: %s", hostname);
             XCTAssertTrue(content->ciphersuites != nil, "Forward secrecy should have been required for hostname: %s", hostname);
+            if (compliancePolicySet) {
+                XCTAssertTrue(content->tls_compliance_policy == sec_protocol_options_compliance_policy_fcs_v2, "Compliance policy should have been set for: %s", hostname);
+            } else {
+                XCTAssertTrue(content->tls_compliance_policy == sec_protocol_options_compliance_policy_none, "Compliance policy should not have been set for: %s", hostname);
+            }
         } else {
             XCTAssertTrue(content->ats_required == false, "ATS should not have been required for hostname: %s", hostname);
             XCTAssertTrue(content->min_version == 0, "Minimum TLS version should not have been set for hostname: %s", hostname);
             XCTAssertTrue(content->ciphersuites == nil, "Forward secrecy should not have been required for hostname: %s", hostname);
+            XCTAssertTrue(content->tls_compliance_policy == sec_protocol_options_compliance_policy_none, "Compliance policy should not have been set for: %s", hostname);
         }
         return true;
     });
@@ -695,15 +783,15 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
 }
 
 - (void)testLocalNetworkingDisabled
@@ -716,15 +804,15 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:true];
-    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true];
-    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
-    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
-    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:true];
-    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
 }
 
 - (void)testAllowsArbitraryLoads
@@ -737,15 +825,36 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
+}
+
+- (void)testRequiresNIAPTLSPackageVersion
+{
+    NSDictionary *atsState = @{@"NSRequiresNIAPTLSPackageVersion" : @"recommended"};
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)atsState, false);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:true];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:true];
 }
 
 - (void)testAppleBundleExceptionWithNoATSKey
@@ -756,15 +865,15 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false];
-    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false];
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:false globalCompliancePolicySet:false];
 }
 
 - (void)runAllowsArbitraryLoadsOverrideTestWithATSDictionary:(NSDictionary *)atsState
@@ -775,16 +884,16 @@ isLocalTLD(NSString *host)
     if (!configuration) {
         return;
     }
-    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false];
-    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true];
-    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true];
+    [self runGlobalKeysTestForHostname:"localhost" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"myhost.local" configuration:configuration isAddress:false isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"example.com" configuration:configuration isAddress:false isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"google.com" configuration:configuration isAddress:false isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"127.0.0.1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"203.0.113.1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe80::1" configuration:configuration isAddress:true isDirect:true atsRequired:false globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"fe00::1" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
+    [self runGlobalKeysTestForHostname:"2001:db8::8a2e:370:7334" configuration:configuration isAddress:true isDirect:false atsRequired:true globalCompliancePolicySet:false];
 }
 
 - (void)testLocalNetworkingKeyOverridesAllowsArbitraryLoads

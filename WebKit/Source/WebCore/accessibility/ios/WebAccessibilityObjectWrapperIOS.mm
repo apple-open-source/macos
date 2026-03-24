@@ -214,7 +214,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     return _textMarkerData.ignored;
 }
 
-- (AccessibilityObject*)accessibilityObject
+- (RefPtr<AccessibilityObject>)accessibilityObject
 {
     return _cache->objectForTextMarkerData(_textMarkerData);
 }
@@ -399,7 +399,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     }
 
     auto array = adoptNS([[NSMutableArray alloc] init]);
-    for (const auto& child : self.axBackingObject->unignoredChildren()) {
+    for (const auto& child : self.axBackingObject->stitchedUnignoredChildren()) {
         auto* wrapper = child->wrapper();
         if (child->isRemoteFrame()) {
             if (id platformRemoteFrame = child->remoteFramePlatformElement().unsafeGet())
@@ -431,7 +431,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView accessibilityElementCount];
     }
 
-    return self.axBackingObject->unignoredChildren().size();
+    return self.axBackingObject->stitchedUnignoredChildren().size();
 }
 
 - (id)accessibilityElementAtIndex:(NSInteger)index
@@ -444,7 +444,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView accessibilityElementAtIndex:index];
     }
 
-    const auto& children = self.axBackingObject->unignoredChildren();
+    const auto& children = self.axBackingObject->stitchedUnignoredChildren();
     size_t elementIndex = static_cast<size_t>(index);
     if (elementIndex >= children.size())
         return nil;
@@ -471,7 +471,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView indexOfAccessibilityElement:element];
     }
 
-    const auto& children = self.axBackingObject->unignoredChildren();
+    const auto& children = self.axBackingObject->stitchedUnignoredChildren();
     unsigned count = children.size();
     for (unsigned k = 0; k < count; ++k) {
         AccessibilityObjectWrapper* wrapper = children[k]->wrapper();
@@ -1258,12 +1258,6 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return nil;
 }
 
-- (AccessibilityObject*)tableParent
-{
-    // Find the parent table for the table cell.
-    return self.axBackingObject->exposedTableAncestor(/* includeSelf */ true);
-}
-
 - (id)accessibilityTitleElement
 {
     if (![self _prepareAccessibilityCall])
@@ -1286,7 +1280,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (!tableCell)
         return nil;
 
-    RefPtr table = [self tableParent];
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
     if (!table)
         return nil;
 
@@ -1328,7 +1322,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    RefPtr table = [self tableParent];
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
     if (!table)
         return nil;
 
@@ -1341,7 +1335,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return 0;
 
-    RefPtr table = [self tableParent];
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
     return table ? table->rowCount() : 0;
 }
 
@@ -1350,7 +1344,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return 0;
 
-    RefPtr table = [self tableParent];
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
     return table ? table->columnCount() : 0;
 }
 
@@ -1359,9 +1353,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return 0;
 
-    RefPtr table = [self tableParent];
-    NSInteger rowCount = table ? table->axRowCount() : 0;
-    return rowCount > 0 ? rowCount : 0;
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
+    return table ? std::max(table->axRowCount(), 0) : 0;
 }
 
 - (NSUInteger)accessibilityARIAColumnCount
@@ -1369,9 +1362,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return 0;
 
-    RefPtr table = [self tableParent];
-    NSInteger colCount = table ? table->axColumnCount() : 0;
-    return colCount > 0 ? colCount : 0;
+    RefPtr table = self.axBackingObject->exposedTableAncestor(true);
+    return table ? std::max(table->axColumnCount(), 0) : 0;
 }
 
 - (NSUInteger)accessibilityARIARowIndex
@@ -1456,7 +1448,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     }
 
     if (listItemAncestor && listItemAncestor.get() != self.axBackingObject) {
-        const auto& listItemChildren = listItemAncestor->unignoredChildren();
+        const auto& listItemChildren = listItemAncestor->stitchedUnignoredChildren();
         if (listItemChildren.isEmpty())
             return NSMakeRange(NSNotFound, 0);
 
@@ -1474,7 +1466,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         })) {
             size_t listItemCount = 0;
             size_t indexOfListItem = notFound;
-            for (Ref child : listAncestor->unignoredChildren()) {
+            for (Ref child : listAncestor->stitchedUnignoredChildren()) {
                 if (child.ptr() == listItemAncestor.get())
                     indexOfListItem = listItemCount;
 
@@ -1829,7 +1821,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (role != AccessibilityRole::Link)
         return NO;
 
-    const auto& children = self.axBackingObject->unignoredChildren();
+    const auto& children = self.axBackingObject->stitchedUnignoredChildren();
     unsigned childrenSize = children.size();
 
     // If there's only one child, then it doesn't have segmented children.
@@ -1837,11 +1829,23 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return NO;
 
     for (unsigned i = 0; i < childrenSize; ++i) {
-        AccessibilityRole role = children[i]->role();
-        if (role != AccessibilityRole::StaticText && role != AccessibilityRole::Image && !children[i]->isGroup())
+        switch (children[i]->role()) {
+        case AccessibilityRole::StaticText:
+        case AccessibilityRole::Image:
+        case AccessibilityRole::Insertion:
+        case AccessibilityRole::Deletion:
+        case AccessibilityRole::Generic:
+            // It's okay to "stitch" insertion and deletion containers into their containing link
+            // because we expect ATs to read text within these containers in a different pitch
+            // indicating their presence.
+            continue;
+        default:
+            break;
+        }
+
+        if (!children[i]->isGroup())
             return NO;
     }
-
     return YES;
 }
 
@@ -2205,7 +2209,7 @@ static RenderObject* rendererForView(WAKView* view)
         return nil;
 
     auto criteria = accessibilitySearchCriteriaForSearchPredicate(*backingObject, parameters);
-    return makeNSArray(backingObject->findMatchingObjects(WTFMove(criteria)));
+    return makeNSArray(backingObject->findMatchingObjects(WTF::move(criteria)));
 }
 
 - (void)accessibilityModifySelection:(TextGranularity)granularity increase:(BOOL)increase
@@ -2377,11 +2381,11 @@ static RenderObject* rendererForView(WAKView* view)
     if (!marker)
         return nil;
 
-    AccessibilityObject* obj = [marker accessibilityObject];
-    if (!obj)
+    RefPtr object = [marker accessibilityObject];
+    if (!object)
         return nil;
 
-    return AccessibilityUnignoredAncestor(obj->wrapper());
+    return AccessibilityUnignoredAncestor(object->wrapper());
 }
 
 - (NSArray *)textMarkerRangeForSelection
@@ -2438,6 +2442,18 @@ static RenderObject* rendererForView(WAKView* view)
     if (!webRange)
         return nil;
     return AXTextMarkerRange { webRange }.toString().createNSString().autorelease();
+}
+
+- (NSAttributedString *)_attributedStringForTextMarkerRangeForTesting:(NSArray *)inputMarkerRange
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    RefPtr<AccessibilityObject> object = self.axBackingObject;
+    if (!object)
+        return nil;
+
+    return object->attributedStringForTextMarkerRange(AXTextMarkerRange { inputMarkerRange }).autorelease();
 }
 
 - (NSAttributedString *)attributedStringForRange:(NSRange)range

@@ -5,4 +5,3 @@
 request = "rdar://157890653"
 symbols = ["dyld_program_sdk_at_least"]
 requires = ["USE_APPLE_INTERNAL_SDK"]
-

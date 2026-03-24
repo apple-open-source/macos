@@ -32,13 +32,15 @@
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/darwin/DispatchExtras.h>
+#import <wtf/darwin/XPCObjectPtr.h>
 #import <wtf/text/ASCIILiteral.h>
 
 namespace WebKit {
 
 void startListeningForMachServiceConnections(const char* serviceName, ASCIILiteral entitlement, void(*connectionAdded)(xpc_connection_t), void(*connectionRemoved)(xpc_connection_t), void(*eventHandler)(xpc_object_t))
 {
-    static NeverDestroyed<RetainPtr<xpc_connection_t>> listener = adoptNS(xpc_connection_create_mach_service(serviceName, mainDispatchQueueSingleton(), XPC_CONNECTION_MACH_SERVICE_LISTENER));
+    // FIXME: This is a false positive. <rdar://164843889>
+    SUPPRESS_RETAINPTR_CTOR_ADOPT static NeverDestroyed<XPCObjectPtr<xpc_connection_t>> listener = adoptXPCObject(xpc_connection_create_mach_service(serviceName, mainDispatchQueueSingleton(), XPC_CONNECTION_MACH_SERVICE_LISTENER));
     xpc_connection_set_event_handler(listener.get().get(), ^(xpc_object_t peer) {
         if (xpc_get_type(peer) != XPC_TYPE_CONNECTION)
             return;
@@ -79,21 +81,23 @@ void startListeningForMachServiceConnections(const char* serviceName, ASCIILiter
     xpc_connection_activate(listener.get().get());
 }
 
-RetainPtr<xpc_object_t> vectorToXPCData(Vector<uint8_t>&& vector)
+XPCObjectPtr<xpc_object_t> vectorToXPCData(Vector<uint8_t>&& vector)
 {
-    return adoptNS(xpc_data_create_with_dispatch_data(makeDispatchData(WTFMove(vector)).get()));
+    // FIXME: This is a false positive. <rdar://164843889>
+    SUPPRESS_RETAINPTR_CTOR_ADOPT return adoptXPCObject(xpc_data_create_with_dispatch_data(makeDispatchData(WTF::move(vector)).get()));
 }
 
-OSObjectPtr<xpc_object_t> encoderToXPCData(UniqueRef<IPC::Encoder>&& encoder)
+XPCObjectPtr<xpc_object_t> encoderToXPCData(UniqueRef<IPC::Encoder>&& encoder)
 {
-    __block auto blockEncoder = WTFMove(encoder);
+    __block auto blockEncoder = WTF::move(encoder);
     auto buffer = blockEncoder->span();
-    auto dispatchData = adoptNS(dispatch_data_create(buffer.data(), buffer.size(), mainDispatchQueueSingleton(), ^{
+    auto dispatchData = adoptOSObject(dispatch_data_create(buffer.data(), buffer.size(), mainDispatchQueueSingleton(), ^{
         // Explicitly clear out the encoder, destroying it.
         blockEncoder.moveToUniquePtr();
     }));
 
-    return adoptOSObject(xpc_data_create_with_dispatch_data(dispatchData.get()));
+    // FIXME: This is a false positive. <rdar://164843889>
+    SUPPRESS_RETAINPTR_CTOR_ADOPT return adoptXPCObject(xpc_data_create_with_dispatch_data(dispatchData.get()));
 }
 
 } // namespace WebKit

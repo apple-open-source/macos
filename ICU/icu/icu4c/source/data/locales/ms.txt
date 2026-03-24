@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ms{
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
@@ -171,16 +171,6 @@ ms{
         }
     }
     calendar{
-        buddhist{
-            intervalFormats{
-                Bh{
-                    B{"h B – h B"}
-                }
-                Bhm{
-                    B{"h:mm B – h:mm B"}
-                }
-            }
-        }
         chinese{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -292,6 +282,12 @@ ms{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%relative{
+                "{1} 'pada' {0}",
+                "{1} 'pada' {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -307,16 +303,17 @@ ms{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
-                GyMd{"M/d/y GGGGG"}
+                GyMd{"d/M/y GGGGG"}
                 MEd{"E, d/M"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 y{"y G"}
@@ -392,10 +389,6 @@ ms{
                     M{"d/M – d/M"}
                     d{"d/M – d/M"}
                 }
-                h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
-                }
                 hm{
                     a{"h:mm a – h:mm a"}
                     h{"h:mm–h:mm a"}
@@ -405,10 +398,6 @@ ms{
                     a{"h:mm a – h:mm a v"}
                     h{"h:mm–h:mm a v"}
                     m{"h:mm–h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
                 }
                 y{
                     y{"y–y G"}
@@ -477,6 +466,12 @@ ms{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%relative{
+                "{1} 'pada' {0}",
+                "{1} 'pada' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -492,6 +487,8 @@ ms{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
@@ -504,7 +501,6 @@ ms{
                 MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a v"}
@@ -609,8 +605,8 @@ ms{
             }
             eras{
                 abbreviated{
-                    "S.M.",
-                    "TM",
+                    0{"S.M."}
+                    1{"TM"}
                 }
             }
             intervalFormats{
@@ -674,10 +670,6 @@ ms{
                     M{"d/M – d/M"}
                     d{"d/M – d/M"}
                 }
-                h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
-                }
                 hm{
                     a{"h:mm a – h:mm a"}
                     h{"h:mm–h:mm a"}
@@ -687,10 +679,6 @@ ms{
                     a{"h:mm a – h:mm a v"}
                     h{"h:mm–h:mm a v"}
                     m{"h:mm–h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
                 }
                 yM{
                     M{"M/y – M/y"}
@@ -812,6 +800,8 @@ ms{
         }
         islamic{
             availableFormats{
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMd{"d/M/y GGGGG"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E, d/M/y GGGGG"}
@@ -819,10 +809,10 @@ ms{
             }
             eras{
                 abbreviated{
-                    "H",
+                    0{"H"}
                 }
                 wide{
-                    "AH",
+                    0{"AH"}
                 }
             }
             monthNames{
@@ -858,29 +848,16 @@ ms{
                 }
             }
         }
-        japanese{
-            intervalFormats{
-                Bh{
-                    B{"h B – h B"}
-                }
-                Bhm{
-                    B{"h:mm B – h:mm B"}
-                }
-            }
-        }
         roc{
             eras{
                 abbreviated{
-                    "Sblm R.O.C",
-                    "R.O.C.",
+                    0{"Sblm R.O.C"}
                 }
                 narrow{
-                    "Sblm R.O.C",
-                    "R.O.C.",
+                    0{"Sblm R.O.C"}
                 }
                 wide{
-                    "Sebelum R.O.C",
-                    "R.O.C.",
+                    0{"Sebelum R.O.C"}
                 }
             }
         }
@@ -1011,13 +988,10 @@ ms{
             }
         }
         dayOfYear{
-            dn{"Hari dalam Tahun"}
-        }
-        dayOfYear-narrow{
-            dn{"Hari dlm Thn"}
+            dn{"hari dalam tahun"}
         }
         dayOfYear-short{
-            dn{"Hari dlm Thn"}
+            dn{"hari dlm thn"}
         }
         dayperiod{
             dn{"PG/PTG"}
@@ -1435,22 +1409,19 @@ ms{
             }
         }
         weekOfMonth{
-            dn{"Minggu dalam Bulan"}
+            dn{"minggu dalam bulan"}
         }
         weekOfMonth-narrow{
-            dn{"Minggu dalam Bulan"}
+            dn{"mgu dlm bln"}
         }
         weekOfMonth-short{
-            dn{"Minggu dlm bulan"}
+            dn{"minggu dlm bln"}
         }
         weekday{
             dn{"Hari dalam Minggu"}
         }
         weekdayOfMonth{
             dn{"Hari dalam Bulan"}
-        }
-        weekdayOfMonth-narrow{
-            dn{"Hari dlm bln"}
         }
         weekdayOfMonth-short{
             dn{"Hari dlm bln"}
@@ -1527,19 +1498,6 @@ ms{
             lenient{
                 "[\\- ‑ . /]",
                 "[\\: ∶]",
-            }
-        }
-        general{
-            lenient{
-                "[.．․﹒ 。｡︒]",
-                "['＇’ ՚ ᾽᾿ ʼ]",
-                "[%％﹪ ٪]",
-                "[‰ ؉]",
-                "[\$＄﹩]",
-                "[£￡ ₤]",
-                "[¥￥]",
-                "[₩￦]",
-                "[₹ {Rp} {Rs}₨]",
             }
         }
         number{

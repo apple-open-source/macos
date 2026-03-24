@@ -7,12 +7,18 @@
 #include <assert.h>
 
 #include "unicode/locid.h"
+#include "unicode/numsys.h"
+#include "unicode/strenum.h"
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 struct IcuEnvironment {
   IcuEnvironment() {
     // nothing to initialize yet;
   }
 };
+#endif // APPLE_ICU_CHANGES
 
 const icu::Locale& GetRandomLocale(uint16_t rnd) {
   int32_t num_locales = 0;
@@ -20,5 +26,21 @@ const icu::Locale& GetRandomLocale(uint16_t rnd) {
   assert(num_locales > 0);
   return locales[rnd % num_locales];
 }
+
+const icu::NumberingSystem* CreateRandomNumberingSystem(uint16_t rnd, UErrorCode &status) {
+  std::unique_ptr<icu::StringEnumeration> se(icu::NumberingSystem::getAvailableNames(status));
+  if (U_FAILURE(status)) return nullptr;
+  int32_t count = se->count(status);
+  if (U_FAILURE(status)) return nullptr;
+  int32_t index = rnd % count;
+  se->reset(status);
+  for (int32_t i = 0; i < index - 1; i++, se->next(nullptr, status)) {
+      // empty
+  }
+  const char* name = se->next(nullptr, status);
+  if (U_FAILURE(status)) return nullptr;
+  return icu::NumberingSystem::createInstanceByName(name, status);
+}
+
 
 #endif  // FUZZER_UTILS_H_

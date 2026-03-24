@@ -267,7 +267,13 @@ void RangeInputType::createShadowSubtree()
     container->appendChild(ContainerNode::ChildChange::Source::Parser, track);
 
     track->setUserAgentPart(UserAgentParts::webkitSliderRunnableTrack());
-    track->appendChild(ContainerNode::ChildChange::Source::Parser, SliderThumbElement::create(document));
+    Ref thumb = SliderThumbElement::create(document);
+    track->appendChild(ContainerNode::ChildChange::Source::Parser, thumb);
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+    // Set up the initial enablement state for the thumb now that it has a parent.
+    thumb->hostDisabledStateChanged();
+#endif
 }
 
 HTMLElement* RangeInputType::sliderTrackElement() const
@@ -311,7 +317,7 @@ RenderPtr<RenderElement> RangeInputType::createInputRenderer(RenderStyle&& style
 {
     ASSERT(element());
     // FIXME: https://github.com/llvm/llvm-project/pull/142471 Moving style is not unsafe.
-    SUPPRESS_UNCOUNTED_ARG return createRenderer<RenderSlider>(*protectedElement(), WTFMove(style));
+    SUPPRESS_UNCOUNTED_ARG return createRenderer<RenderSlider>(*protectedElement(), WTF::move(style));
 }
 
 Decimal RangeInputType::parseToNumber(const String& src, const Decimal& defaultValue) const

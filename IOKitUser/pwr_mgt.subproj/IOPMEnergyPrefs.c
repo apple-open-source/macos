@@ -762,16 +762,16 @@ IOReturn IOPMSetPMPreference(CFStringRef key,
                              CFTypeRef value,
                              CFStringRef pwr_src)
 {
-    CFMutableDictionaryRef prefs   = IOPMCopyPreferencesOnFile();
+    CFMutableDictionaryRef prefs   = IOPMCopyPMPreferences();
     IOReturn               ret     = kIOReturnError;
 
     if (!prefs) {
         goto exit;
     }
 
-    // Make sure power source is supported
+    // Make sure power source is supported. NULL implies ALL power sources.
     if (pwr_src) {
-        if (!CFDictionaryContainsKey(prefs, pwr_src)) {
+        if (!checkPowerSourceSupported(pwr_src)) {
             ret = kIOReturnBadArgument;
             goto exit;
         }

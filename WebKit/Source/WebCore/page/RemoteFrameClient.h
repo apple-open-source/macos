@@ -50,9 +50,9 @@ class RemoteFrameClient : public FrameLoaderClient {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(RemoteFrameClient);
 public:
     virtual void frameDetached() = 0;
-    virtual void sizeDidChange(IntSize) = 0;
+    virtual void frameRectDidChange(IntRect) = 0;
     virtual void paintContents(GraphicsContext&, const IntRect&) = 0;
-    virtual void postMessageToRemote(FrameIdentifier source, const String& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts&) = 0;
+    virtual void postMessageToRemote(FrameIdentifier source, const SecurityOriginData& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts&) = 0;
     virtual void changeLocation(FrameLoadRequest&&) = 0;
     virtual String renderTreeAsText(size_t baseIndent, OptionSet<RenderAsTextFlag>) = 0;
     virtual String layerTreeAsText(size_t baseIndent, OptionSet<LayerTreeAsTextOptions>) = 0;

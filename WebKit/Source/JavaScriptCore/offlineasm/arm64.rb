@@ -207,6 +207,18 @@ class RegisterID
             'sp'
         when 'lr'
             'x30'
+        when 'zr'
+            case kind
+            when :word
+                "wzr"
+            when :ptr
+                prefix = $currentSettings["ADDRESS64"] ? "x" : "w"
+                prefix + "zr"
+            when :quad
+                "xzr"
+            else
+                raise "bad zr kind #{kind}"
+            end
         else
             raise "Bad register name #{@name} at #{codeOriginString}"
         end

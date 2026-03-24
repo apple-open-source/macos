@@ -53,7 +53,7 @@ DisplayRefreshMonitor* DisplayRefreshMonitorManager::ensureMonitorForDisplayID(P
 
     LOG_WITH_STREAM(DisplayLink, stream << "[Web] DisplayRefreshMonitorManager::ensureMonitorForDisplayID() - created monitor " << monitor.get() << " for display " << displayID);
     DisplayRefreshMonitor* result = monitor.get();
-    m_monitors.append(DisplayRefreshMonitorWrapper { WTFMove(monitor) });
+    m_monitors.append(DisplayRefreshMonitorWrapper { WTF::move(monitor) });
     return result;
 }
 
@@ -123,7 +123,7 @@ size_t DisplayRefreshMonitorManager::findMonitorForDisplayID(PlatformDisplayID d
     });
 }
 
-DisplayRefreshMonitor* DisplayRefreshMonitorManager::monitorForClient(DisplayRefreshMonitorClient& client)
+RefPtr<DisplayRefreshMonitor> DisplayRefreshMonitorManager::monitorForClient(DisplayRefreshMonitorClient& client)
 {
     if (!client.hasDisplayID())
         return nullptr;
@@ -132,7 +132,7 @@ DisplayRefreshMonitor* DisplayRefreshMonitorManager::monitorForClient(DisplayRef
     if (monitor)
         monitor->addClient(client);
 
-    return monitor.unsafeGet();
+    return monitor;
 }
 
 DisplayRefreshMonitor* DisplayRefreshMonitorManager::monitorForDisplayID(PlatformDisplayID displayID) const

@@ -57,7 +57,7 @@ class ScrollingEffectsControllerTimer : public RunLoop::TimerBase {
 public:
     ScrollingEffectsControllerTimer(RunLoop& runLoop, Function<void()>&& callback)
         : RunLoop::TimerBase(runLoop, "ScrollingEffectsControllerTimer"_s)
-        , m_callback(WTFMove(callback))
+        , m_callback(WTF::move(callback))
     {
     }
 

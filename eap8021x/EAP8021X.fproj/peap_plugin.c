@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019, 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019, 2022-2023, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -249,6 +249,7 @@ typedef struct {
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			session_was_resumed;
+    bool 			trust_exceptions_applied;
 } PEAPPluginData, *PEAPPluginDataRef;
 
 enum {
@@ -536,6 +537,7 @@ peap_start(EAPClientPluginDataRef plugin)
     context->peap_version = BAD_VERSION;
     context->bogus_l_bit = FALSE;
     context->session_was_resumed = FALSE;
+    context->trust_exceptions_applied = FALSE;
     return (status);
  failed:
     if (ssl_context != NULL) {
@@ -598,6 +600,58 @@ PEAPPacketCreateAck(int identifier)
 			       identifier, 0, NULL, NULL));
 }
 
+/* This function will return true if client certificate was sent
+ * during the TLS handshake
+ */
+static Boolean
+peap_client_certificate_requested(PEAPPluginDataRef context)
+{
+    SSLClientCertificateState clientState;
+
+    OSStatus status = SSLGetClientCertificateState(context->ssl_context, &clientState);
+    return (status == errSecSuccess && clientState == kSSLClientCertSent);
+}
+
+/*
+ * PEAPv0 => https://datatracker.ietf.org/doc/html/draft-kamath-pppext-peapv0-00.txt
+ * PEAPv0 supports acknowledged and protected success/failure indications, using the
+ * EAP Extensions method (Type 33).
+ *
+ * PEAPv1 => https://datatracker.ietf.org/doc/html/draft-josefsson-pppext-eap-tls-eap-05.txt
+ * In case of PEAPv1, EAP conversation encapsulated within the TLS channel as within PEAP
+ * Part 2 (inner authentication) continues until the EAP server sends an EAP-Failure or
+ * EAP-Success.
+ *
+ * In case of inner authentication using EAP-MSCHAPv2, the protocol relies on Success
+ * Request packet (OpCode=3) and Failure Request packet (OpCode=4) to deem inner
+ * authentication successful or failure respectively.
+ * Therefore, regardless of PEAP version, peer must receive Success Request packet
+ * in order to call inner authentication successful.
+ *
+ * In case of eduroam reported issue (rdar://171120600), the PEAP server uses PEAPv1
+ * and it fails to send EAP-Success to the EAP-GTC peer inside the TLS channel.
+ * In order to support the interoperability with eduroam networks,
+ * accept_protected_success_indication() does not take PEAP version into account
+ * while making the decision.
+ */
+static bool
+accept_protected_success_indication(PEAPPluginDataRef context)
+{
+    bool acceptable_eap_type = false;
+
+    switch (context->eap.last_type) {
+	case kEAPTypeGenericTokenCard:
+	case kEAPTypeMD5Challenge:
+	case kEAPTypeOneTimePassword:
+	case kEAPTypeTLS:
+	    acceptable_eap_type = true;
+	    break;
+	default:
+	    break;
+    }
+    return (acceptable_eap_type);
+}
+
 static EAPResponsePacketRef
 peap_process_extensions(PEAPPluginDataRef context,
 			EAPExtensionsPacketRef in_pkt_p,
@@ -625,7 +679,26 @@ peap_process_extensions(PEAPPluginDataRef context,
     avp_result_status = EAPExtensionsResultPacketGetStatus(r_p);
     switch (avp_result_status) {
     case kEAPExtensionsResultStatusSuccess:
-	context->inner_auth_state = kPEAPInnerAuthStateSuccess;
+	    EAPLOG_FL(LOG_NOTICE, "received protected success indication via EAP extension method");
+	    /* This means the PEAP peer received protected success indication
+	     * via the EAP Extensions method, type 33.
+	     * https://datatracker.ietf.org/doc/html/draft-josefsson-pppext-eap-tls-eap-03#section-4
+	     */
+	    if (accept_protected_success_indication(context)) {
+		EAPLOG_FL(LOG_NOTICE,
+			  "protected success indication is acceptable for certain inner EAP types");
+		context->inner_auth_state = kPEAPInnerAuthStateSuccess;
+	    } else if (context->session_was_resumed || 	peap_client_certificate_requested(context) ||
+			context->trust_exceptions_applied == FALSE) {
+		/* This success indication was received after one of these -
+		 * 1. TLS session resumption
+		 * 2. TLS client sent its certificate during TLS handshake
+		 * 3. TLS server certificate was trusted using trust anchors
+		 *    configured via profile
+		 */
+		EAPLOG_FL(LOG_NOTICE, "protected success indication marking inner authentication successful");
+		context->inner_auth_state = kPEAPInnerAuthStateSuccess;
+	    }
 	break;
     case kEAPExtensionsResultStatusFailure:
 	context->inner_auth_state = kPEAPInnerAuthStateFailure;
@@ -1003,6 +1076,7 @@ peap_verify_server(EAPClientPluginDataRef plugin,
 					     context->server_certs,
 					     FALSE,
 					     NULL,
+					     &context->trust_exceptions_applied,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
 	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted status %d %d",

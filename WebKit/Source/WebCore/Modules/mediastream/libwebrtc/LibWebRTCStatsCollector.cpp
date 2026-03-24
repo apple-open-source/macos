@@ -41,7 +41,7 @@
 namespace WebCore {
 
 LibWebRTCStatsCollector::LibWebRTCStatsCollector(CollectorCallback&& callback)
-    : m_callback(WTFMove(callback))
+    : m_callback(WTF::move(callback))
 {
 }
 
@@ -50,7 +50,7 @@ LibWebRTCStatsCollector::~LibWebRTCStatsCollector()
     if (!m_callback)
         return;
 
-    callOnMainThread([callback = WTFMove(m_callback)]() mutable {
+    callOnMainThread([callback = WTF::move(m_callback)]() mutable {
         callback(nullptr);
     });
 }
@@ -670,7 +670,7 @@ void addToStatsMap(DOMMapAdapter& report, const webrtc::RTCStats& rtcStats)
 {
     T stats { static_cast<const PreciseType&>(rtcStats) };
     String statsId = stats.id;
-    report.set<IDLDOMString, IDLDictionary<T>>(WTFMove(statsId), WTFMove(stats));
+    report.set<IDLDOMString, IDLDictionary<T>>(WTF::move(statsId), WTF::move(stats));
 }
 
 static inline void initializeRTCStatsReportBackingMap(DOMMapAdapter& report, const webrtc::RTCStatsReport& rtcReport)

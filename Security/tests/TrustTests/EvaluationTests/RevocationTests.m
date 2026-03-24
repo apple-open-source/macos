@@ -248,17 +248,17 @@
     policy = SecPolicyCreateAppleExternalDeveloperOptionalExpiry(false);
     revocationPolicy = SecPolicyCreateRevocation(kSecRevocationRequirePositiveResponse | kSecRevocationOCSPMethod);
     NSArray *policies = @[ (__bridge id)policy, (__bridge id)revocationPolicy ];
-    require_noerr_action(SecTrustCreateWithCertificates(certs, (__bridge CFArrayRef)policies, &trust), errOut,
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, (__bridge CFArrayRef)policies, &trust), errOut,
                          fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Set no fetch allowed */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. Since we required a response but disabled networking, should fail. */
     is(SecTrustEvaluateWithError(trust, &error), false, "non-definitive revoked cert without network failed");
@@ -271,7 +271,7 @@
     CFReleaseNull(error);
 
     /* Set fetch allowed */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, true), errOut, fail("failed to set network fetch allowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, true), errOut, fail("failed to set network fetch allowed"));
 
     /* Evaluate trust. We should re-do the evaluation and get a revoked failure from the OCSP check. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with network succeeded");
@@ -314,16 +314,16 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Set no fetch allowed */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. This cert is revoked, but is only listed as "probably not revoked" by valid.apple.com.
      * Since network fetch is not allowed and we fail open, this cert should come back as trusted. */
@@ -331,7 +331,7 @@ errOut:
     CFReleaseNull(error);
 
     /* Set fetch allowed */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, true), errOut, fail("failed to set network fetch allowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, true), errOut, fail("failed to set network fetch allowed"));
 
     /* Evaluate trust. SetFetchAllowed should have reset the trust result, so now we should re-do the evaluation and get a revoked failure. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with network succeeded");
@@ -377,15 +377,15 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policies = CFArrayCreate(NULL, v_policies, 2, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
     badVerifyDate = CFDateCreate(NULL, 490000000.0);  // July 12, 2016 at 12:06:40 AM PDT (before cert issued)
-    require_noerr_action(SecTrustSetVerifyDate(trust, badVerifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, badVerifyDate), errOut, fail("failed to set verify date"));
 
     /* Set no fetch allowed */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. This cert is revoked, but is only listed as "probably not revoked" by valid.apple.com.
      * Since we are evaluating it at a time before it was issued, it should come back as untrusted
@@ -401,7 +401,7 @@ errOut:
 
     /* Set verify date within validity period */
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Evaluate trust. Now that we trust the chain, we should do a revocation check and get a revocation failure. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with network succeeded");
@@ -446,13 +446,13 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Evaluate trust. This cert is revoked, but is only listed as "probably not revoked" by valid.apple.com.
      * This cert should come back as revoked after a network-based fetch. */
@@ -465,7 +465,7 @@ errOut:
     }
 
     /* Set no fetch allowed, so we're relying on the cached response from above */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. Cached response should tell us that it's revoked. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with cached response succeeded");
@@ -508,13 +508,13 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Evaluate trust. This cert is revoked, but is only listed as "probably not revoked" by valid.apple.com.
      * This cert should come back as revoked after a network-based fetch. */
@@ -527,7 +527,7 @@ errOut:
     }
 
     /* Set no fetch allowed, so we're relying on the cached response from above */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. Cached response should tell us that it's revoked. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with cached response succeeded");
@@ -585,13 +585,13 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policies = CFArrayCreate(NULL, v_policies, 2, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
 
@@ -607,7 +607,27 @@ errOut:
         } else {
             fail("did not get valid until date");
         }
+        NSArray *revocation = (__bridge NSArray *)CFDictionaryGetValue(result, kSecTrustInfoRevocationInfoKey);
+        if ([revocation isKindOfClass:[NSArray class]] && revocation.count > 0) {
+            NSDictionary *certInfo = revocation[0];
+            if ([certInfo isKindOfClass:[NSDictionary class]]) {
+                NSDictionary *ocsp = certInfo[@"ocsp"];
+                if ([ocsp isKindOfClass:[NSDictionary class]]) {
+                    XCTAssertEqual(ocsp[@"isRevoked"], @NO, "should not be revoked");
+                    XCTAssertEqual(ocsp[@"isDefinitive"], @YES, "should be definitive");
+                } else {
+                    XCTFail("no oscp info");
+                }
+            } else {
+                XCTFail("no cert info");
+            }
+        } else {
+            XCTFail("no revocation");
+        }
+    } else {
+        XCTFail("no result");
     }
+        
     CFReleaseNull(result);
 
 errOut:
@@ -647,18 +667,18 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policies = CFArrayCreate(NULL, v_policies, 2, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
 
     /* Set no fetch allowed, so we're relying on the cached response from above */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. Cached response should tell us that it's revoked. */
     is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
@@ -704,13 +724,13 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Evaluate trust. Since we aren't allowed to do networking (and this cert is only "Probably Not Revoked" in Valid),
      * we shouldn't see this cert as revoked */
@@ -743,18 +763,18 @@ errOut:
     NSNumber *revocationChecked = nil;
 
     const void *v_certs[] = { leaf };
-    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create certificates array"));
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&subCA, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&subCA, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create anchors array"));
 
-    require_action(smimePolicy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, NULL), errOut, fail("unable to create policy"));
+    __Require_Action(smimePolicy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, NULL), errOut, fail("unable to create policy"));
     revocationPolicy = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod | kSecRevocationCheckIfTrusted);
     policies = @[(__bridge id)smimePolicy, (__bridge id)revocationPolicy];
     ok_status(SecTrustCreateWithCertificates(certs, (__bridge CFArrayRef)policies, &trust), "failed to create trust");
     ok_status(SecTrustSetNetworkFetchAllowed(trust, false), "SecTrustSetNetworkFetchAllowed failed");
 
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("unable to set anchors"));
     ok(SecTrustEvaluateWithError(trust, &error), "Not trusted");
     result = CFBridgingRelease(SecTrustCopyResult(trust));
@@ -780,9 +800,9 @@ errOut:
     SecCertificateRef leaf = NULL, subCA = NULL;
     NSNumber *revocationChecked = NULL;
 
-    require_action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_sha256_valid_cav2_complete_ok1, sizeof(_leaf_sha256_valid_cav2_complete_ok1)), errOut,
+    __Require_Action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_sha256_valid_cav2_complete_ok1, sizeof(_leaf_sha256_valid_cav2_complete_ok1)), errOut,
                    fail("unable to create cert"));
-    require_action(subCA = SecCertificateCreateWithBytes(NULL, _ca_sha256_valid_cav2_complete, sizeof(_ca_sha256_valid_cav2_complete)), errOut, fail("unable to create cert"));
+    __Require_Action(subCA = SecCertificateCreateWithBytes(NULL, _ca_sha256_valid_cav2_complete, sizeof(_ca_sha256_valid_cav2_complete)), errOut, fail("unable to create cert"));
 
     revocationChecked = [self runRevocationCheckNoNetwork:leaf
                                                     subCA:subCA];
@@ -806,9 +826,9 @@ errOut:
     SecCertificateRef leaf = NULL, subCA = NULL;
     NSNumber *revocationChecked = NULL;
 
-    require_action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_serial_invalid_incomplete_ok1, sizeof(_leaf_serial_invalid_incomplete_ok1)), errOut,
+    __Require_Action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_serial_invalid_incomplete_ok1, sizeof(_leaf_serial_invalid_incomplete_ok1)), errOut,
                    fail("unable to create cert"));
-    require_action(subCA = SecCertificateCreateWithBytes(NULL, _ca_serial_invalid_incomplete, sizeof(_ca_serial_invalid_incomplete)), errOut, fail("unable to create cert"));
+    __Require_Action(subCA = SecCertificateCreateWithBytes(NULL, _ca_serial_invalid_incomplete, sizeof(_ca_serial_invalid_incomplete)), errOut, fail("unable to create cert"));
 
     revocationChecked = [self runRevocationCheckNoNetwork:leaf
                                                     subCA:subCA];
@@ -838,20 +858,20 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Set the stapled response */
     ocspResponse = CFDataCreate(NULL, _devID_OCSPResponse, sizeof(_devID_OCSPResponse));
     ok_status(SecTrustSetOCSPResponse(trust, ocspResponse), "failed to set OCSP response");
 
     /* Set no fetch allowed, so we're relying on the stapled response from above */
-    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+    __Require_noErr_Action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
 
     /* Evaluate trust. This cert is revoked, but is only listed as "probably not revoked" by valid.apple.com.
      * This cert should come back as revoked because of the stapled revoked response. */
@@ -894,13 +914,13 @@ errOut:
 
     certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateAppleExternalDeveloper();
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
 
     verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Set the stapled response */
     ocspResponse = CFDataCreate(NULL, _devID_OCSPResponse, sizeof(_devID_OCSPResponse));

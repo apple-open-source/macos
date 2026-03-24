@@ -52,7 +52,7 @@ class XRViewImpl final : public XRView {
 public:
     static Ref<XRViewImpl> create(WebGPUPtr<WGPUXRView>&& binding, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new XRViewImpl(WTFMove(binding), convertToBackingContext));
+        return adoptRef(*new XRViewImpl(WTF::move(binding), convertToBackingContext));
     }
 
     virtual ~XRViewImpl();

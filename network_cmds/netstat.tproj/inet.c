@@ -313,9 +313,6 @@ protopr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 					}
 					break;
 			}
-		} else {
-			if (params->vflag)
-				printf("got %d twice\n", xgn->xgn_kind);
 		}
 		
 		if ((istcp && which != ALL_XGN_KIND_TCP) || (!istcp && which != ALL_XGN_KIND_INP))
@@ -1510,4 +1507,15 @@ udp_reinit(struct netstat_parameters *params, uint32_t off, char *name, int af)
 	udp_done = 0;
 
 	return 0;
+}
+
+void
+in_addr_print(struct netstat_parameters *params, struct in_addr *in)
+{
+	char line[80];
+	int width;
+
+	snprintf(line, sizeof(line), "%s", inetname(params, in));
+	width = params->lflag ? 40 : 18;
+	printf("%-*.*s ", width, width, line);
 }

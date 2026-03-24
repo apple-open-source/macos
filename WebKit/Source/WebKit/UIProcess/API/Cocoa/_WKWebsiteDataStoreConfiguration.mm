@@ -87,8 +87,8 @@ static void checkURLArgument(NSURL *url)
     if (!directory)
         [NSException raise:NSInvalidArgumentException format:@"Directory is nil"];
 
-    NSString *path = directory.path;
-    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, path, path);
+    RetainPtr<NSString> path = directory.path;
+    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, path.get(), path.get());
 
     return self;
 }
@@ -760,7 +760,7 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
 
 - (void)setProxyConfiguration:(NSDictionary *)configuration
 {
-    _configuration->setProxyConfiguration((__bridge CFDictionaryRef)adoptNS([configuration copy]).get());
+    Ref { *_configuration }->setProxyConfiguration((__bridge CFDictionaryRef)adoptNS([configuration copy]).get());
 }
 
 - (NSURL *)standaloneApplicationURL
@@ -849,6 +849,16 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
         enabled = [defaultTrackingPreventionEnabledOverride boolValue];
 
     _configuration->setDefaultTrackingPreventionEnabledOverride(enabled);
+}
+
+- (NSString *)additionalDomainsWithUserInteractionForTesting
+{
+    return _configuration->additionalDomainsWithUserInteractionForTesting().createNSString().autorelease();
+}
+
+- (void)setAdditionalDomainsWithUserInteractionForTesting:(NSString *)domains
+{
+    _configuration->setAdditionalDomainsWithUserInteractionForTesting(domains);
 }
 
 - (NSUUID *)identifier

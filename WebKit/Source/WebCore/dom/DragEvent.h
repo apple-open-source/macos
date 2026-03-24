@@ -38,8 +38,8 @@ struct DragEventInit : public MouseEventInit {
     RefPtr<DataTransfer> dataTransfer;
 };
 
-class DragEvent : public MouseEvent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DragEvent);
+class DragEvent final : public MouseEvent {
+    WTF_MAKE_TZONE_ALLOCATED(DragEvent);
 public:
     using Init = DragEventInit;
 
@@ -60,9 +60,7 @@ private:
         EventTarget* relatedTarget, double force, SyntheticClickType, DataTransfer*, IsSimulated, IsTrusted);
     DragEvent();
 
-    bool isDragEvent() const final { return true; }
-
-    RefPtr<DataTransfer> m_dataTransfer;
+    const RefPtr<DataTransfer> m_dataTransfer;
 };
 
 } // namespace WebCore

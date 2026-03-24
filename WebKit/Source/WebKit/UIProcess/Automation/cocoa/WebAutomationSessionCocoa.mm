@@ -57,7 +57,7 @@ static std::optional<String> getBase64EncodedPNGData(const RetainPtr<CGImageRef>
 
 std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(ShareableBitmap::Handle&& imageDataHandle)
 {
-    auto bitmap = ShareableBitmap::create(WTFMove(imageDataHandle), SharedMemory::Protection::ReadOnly);
+    auto bitmap = ShareableBitmap::create(WTF::move(imageDataHandle), SharedMemory::Protection::ReadOnly);
     if (!bitmap)
         return std::nullopt;
 
@@ -83,7 +83,7 @@ std::optional<String> WebAutomationSession::platformGenerateLocalFilePathForRemo
 
     RetainPtr temporaryDirectory = FileSystem::createTemporaryDirectory(@"WebDriver");
     RetainPtr remoteFile = adoptNS([[NSURL alloc] initFileURLWithPath:remoteFilePath.createNSString().get() isDirectory:NO]);
-    RetainPtr localFilePath = [temporaryDirectory stringByAppendingPathComponent:remoteFile.get().lastPathComponent];
+    RetainPtr localFilePath = [temporaryDirectory stringByAppendingPathComponent:retainPtr(remoteFile.get().lastPathComponent).get()];
 
     NSError *fileWriteError;
     [fileContents.get() writeToFile:localFilePath.get() options:NSDataWritingAtomic error:&fileWriteError];

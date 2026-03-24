@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ur{
     AuxExemplarCharacters{
         "[؀؁؂؃\u200C\u200D\u200E\u200F ً ٌ ٍ َ ُ ِ ّ ْ ٔ ٖ ٗ ٘ ٰ أ آ ں ؤ ۂ ۃ ئ ٻ ة ٺ "
@@ -43,6 +43,7 @@ ur{
                 accountingFormat%alphaNextToNumber{"¤ #,##,##0.00;(¤ #,##,##0.00)"}
                 accountingFormat%noCurrency{"#,##,##0.00;(#,##,##0.00)"}
                 currencyFormat{"¤#,##,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
             }
             patternsLong{
@@ -100,6 +101,56 @@ ur{
             patternsShort{
                 currencyFormat{
                     1000{
+                        one{"¤0 ہزار"}
+                        other{"¤0 ہزار"}
+                    }
+                    10000{
+                        one{"¤00 ہزار"}
+                        other{"¤00 ہزار"}
+                    }
+                    100000{
+                        one{"¤0 لاکھ"}
+                        other{"¤0 لاکھ"}
+                    }
+                    1000000{
+                        one{"¤00 لاکھ"}
+                        other{"¤00 لاکھ"}
+                    }
+                    10000000{
+                        one{"¤0 کروڑ"}
+                        other{"¤0 کروڑ"}
+                    }
+                    100000000{
+                        one{"¤00 کروڑ"}
+                        other{"¤00 کروڑ"}
+                    }
+                    1000000000{
+                        one{"¤0 ارب"}
+                        other{"¤0 ارب"}
+                    }
+                    10000000000{
+                        one{"¤00 ارب"}
+                        other{"¤00 ارب"}
+                    }
+                    100000000000{
+                        one{"¤0 کھرب"}
+                        other{"¤0 کھرب"}
+                    }
+                    1000000000000{
+                        one{"¤00 کھرب"}
+                        other{"¤00 کھرب"}
+                    }
+                    10000000000000{
+                        one{"¤00 ٹریلین"}
+                        other{"¤00 ٹریلین"}
+                    }
+                    100000000000000{
+                        one{"¤000 ٹریلین"}
+                        other{"¤000 ٹریلین"}
+                    }
+                }
+                currencyFormat%alphaNextToNumber{
+                    1000{
                         one{"¤ 0 ہزار"}
                         other{"¤ 0 ہزار"}
                     }
@@ -136,8 +187,8 @@ ur{
                         other{"¤ 0 کھرب"}
                     }
                     1000000000000{
-                        one{"¤0 ٹریلین"}
-                        other{"¤0 ٹریلین"}
+                        one{"¤ 00 کھرب"}
+                        other{"¤ 00 کھرب"}
                     }
                     10000000000000{
                         one{"¤ 00 ٹریلین"}
@@ -146,12 +197,6 @@ ur{
                     100000000000000{
                         one{"¤ 000 ٹریلین"}
                         other{"¤ 000 ٹریلین"}
-                    }
-                }
-                currencyFormat%alphaNextToNumber{
-                    1000000000000{
-                        one{"¤ 0 ٹریلین"}
-                        other{"¤ 0 ٹریلین"}
                     }
                 }
                 decimalFormat{
@@ -231,37 +276,78 @@ ur{
     }
     calendar{
         bangla{
+            DateTimePatterns{
+                "‎h:mm:ss a zzzz",
+                "‎h:mm:ss a z",
+                "‎h:mm:ss a",
+                "‎h:mm a",
+                "EEEE، d MMMM، y G",
+                "d MMMM",
+                "d MMM",
+                "d MMM",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                GyMMM{"MMM، y G"}
+                GyMMMEd{"E، d MMM، y G"}
+                GyMMMd{"d MMM، y G"}
+                GyMd{"d MMM، y G"}
+                MMMEd{"E، d MMM "}
+                MMMMEEEEd{"EEEE، d MMMM "}
+                MMMMEEEd{"EEE، d MMM "}
+                yM{"MMM، y"}
+                yMEd{"E، d MMM، y"}
+                yMM{"MMM، y"}
+                yMMM{"MMM، y"}
+                yMMMEd{"E، d MMM"}
+                yMMMM{"MMMM، y"}
+            }
             eras{
                 abbreviated{
-                    "بنگ",
+                    0{"بنگ"}
                 }
                 wide{
-                    "بنگابد",
+                    0{"بنگابد"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادر",
+                        "آشون",
+                        "کارتک",
+                        "اگرہاین",
+                        "پوش",
                         "ماگھ",
-                        "پھاگن",
-                        "چیت",
+                        "پھالگن",
+                        "چیتر",
                     }
                     narrow{
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
-                        "ک",
+                        "آ",
                         "ک",
                         "ا",
                         "پ",
@@ -270,42 +356,42 @@ ur{
                         "چ",
                     }
                     wide{
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادر",
+                        "آشون",
+                        "کارتک",
+                        "اگرہاین",
+                        "پوش",
                         "ماگھ",
-                        "پھاگن",
-                        "چیت",
+                        "پھالگن",
+                        "چیتر",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادر",
+                        "آشون",
+                        "کارتک",
+                        "اگرہاین",
+                        "پوش",
                         "ماگھ",
-                        "پھاگن",
-                        "چیت",
+                        "پھالگن",
+                        "چیتر",
                     }
                     narrow{
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
-                        "ک",
+                        "آ",
                         "ک",
                         "ا",
                         "پ",
@@ -314,29 +400,23 @@ ur{
                         "چ",
                     }
                     wide{
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادر",
+                        "آشون",
+                        "کارتک",
+                        "اگرہاین",
+                        "پوش",
                         "ماگھ",
-                        "پھاگن",
-                        "چیت",
+                        "پھالگن",
+                        "چیتر",
                     }
                 }
             }
         }
         coptic{
-            eras{
-                abbreviated{
-                    "دور0",
-                    "دور1",
-                }
-            }
             monthNames{
                 format{
                     wide{
@@ -358,12 +438,6 @@ ur{
             }
         }
         ethiopic{
-            eras{
-                abbreviated{
-                    "دور0",
-                    "دور1",
-                }
-            }
             monthNames{
                 format{
                     wide{
@@ -406,6 +480,12 @@ ur{
                 "{1}، {0}",
                 "{1}، {0}",
             }
+            DateTimePatterns%relative{
+                "{1} {0} پر",
+                "{1} {0} پر",
+                "{1}، {0}",
+                "{1}، {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -417,8 +497,11 @@ ur{
                 "GGGGGyMd",
             }
             availableFormats{
+                EBh{"h E B"}
                 Ed{"d E"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E, d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E، d MMM، y G"}
                 GyMMMd{"d MMM، y G"}
@@ -573,6 +656,12 @@ ur{
                 "{1}، {0}",
                 "{1}، {0}",
             }
+            DateTimePatterns%relative{
+                "{1} {0} پر",
+                "{1} کو {0}",
+                "{1}، {0}",
+                "{1}، {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -588,6 +677,8 @@ ur{
                 Ehm{"E ‎h:mm a"}
                 Ehms{"E ‎h:mm:ss a"}
                 Gy{"y G"}
+                GyM{"M/y G"}
+                GyMEd{"E، d/M/y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E، d MMM، y G"}
                 GyMMMd{"d MMM، y G"}
@@ -654,6 +745,14 @@ ur{
                         morning1{"صبح"}
                         night1{"رات"}
                     }
+                    narrow{
+                        afternoon1{"دوپہر"}
+                        afternoon2{"سہ پہر"}
+                        evening1{"شام"}
+                        midnight{"نصف شب"}
+                        morning1{"صبح"}
+                        night1{"رات"}
+                    }
                     wide{
                         afternoon1{"دوپہر میں"}
                         afternoon2{"سہ پہر"}
@@ -666,16 +765,16 @@ ur{
             }
             eras{
                 abbreviated{
-                    "قبل مسیح",
-                    "عیسوی",
+                    0{"قبل مسیح"}
+                    1{"عیسوی"}
                 }
                 abbreviated%variant{
-                    "BCE",
-                    "CE",
+                    0{"BCE"}
+                    1{"CE"}
                 }
                 wide%variant{
-                    "عام دور سے قبل",
-                    "عام دور",
+                    0{"عام دور سے قبل"}
+                    1{"عام دور"}
                 }
             }
             intervalFormats{
@@ -850,16 +949,16 @@ ur{
                 "‎h:mm:ss a",
                 "‎h:mm a",
                 {
-                    "EEEE، d MMMM، y",
-                    "d=tithiura",
+                    "EEEE، G y، MMMM d",
+                    "d=tithiurg",
                 }
                 {
-                    "MMMM، d",
-                    "d=tithiura",
+                    "MMMM d",
+                    "d=tithiurg",
                 }
                 {
-                    "MMM، d",
-                    "d=tithiura",
+                    "MMM d",
+                    "d=tithiurg",
                 }
                 "MMM d",
                 "{1} {0}",
@@ -868,101 +967,127 @@ ur{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                GyMMM{"G y، MMM"}
+                GyMMMEd{"E، G y، MMM d"}
+                GyMMMd{"G y، MMM d"}
+                GyMd{"G y، MMM d"}
+                MMMEd{"E، MMM d"}
+                MMMMEEEEd{"EEEE، MMMM d"}
+                MMMMEEEd{"EEE، MMM d"}
+                yM{"y، MMM"}
+                yMEd{"E، y، MMM d"}
+                yMM{"y، MMM"}
+                yMMM{"y، MMM"}
+                yMMMEd{"E، y، MMM d"}
+                yMMMM{"y، MMMM"}
+            }
             eras{
                 abbreviated{
-                    "و س",
+                    0{"و س"}
                 }
                 wide{
-                    "وکرم سموت",
+                    0{"وکرم سموت"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
+                        "کارتک",
+                        "ماگشر",
+                        "پوش",
+                        "مہا",
                         "پھاگن",
-                        "چیت",
-                        "بیساکھ",
+                        "چیتر",
+                        "ویشاکھ",
                         "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
+                        "اشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آسو",
                     }
                     narrow{
                         "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
                         "ا",
-                        "س",
+                        "ش",
                         "بھ",
-                        "ک",
+                        "آ",
                     }
                     wide{
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
+                        "کارتک",
+                        "ماگشر",
+                        "پوش",
+                        "مہا",
                         "پھاگن",
-                        "چیت",
-                        "بیساکھ",
+                        "چیتر",
+                        "ویشاکھ",
                         "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
+                        "اشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آسو",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
+                        "کارتک",
+                        "ماگشر",
+                        "پوش",
+                        "مہا",
                         "پھاگن",
-                        "چیت",
-                        "بیساکھ",
+                        "چیتر",
+                        "ویشاکھ",
                         "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
+                        "اشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آسو",
                     }
                     narrow{
                         "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
                         "ا",
-                        "س",
+                        "ش",
                         "بھ",
-                        "ک",
+                        "آ",
                     }
                     wide{
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
+                        "کارتک",
+                        "ماگشر",
+                        "پوش",
+                        "مہا",
                         "پھاگن",
-                        "چیت",
-                        "بیساکھ",
+                        "چیتر",
+                        "ویشاکھ",
                         "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
+                        "اشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آسو",
                     }
                 }
             }
@@ -974,12 +1099,12 @@ ur{
                 }
                 numeric{
                     all{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
                 stand-alone{
                     narrow{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
             }
@@ -1009,7 +1134,7 @@ ur{
         indian{
             eras{
                 abbreviated{
-                    "ساکا",
+                    0{"ساکا"}
                 }
             }
             monthNames{
@@ -1062,9 +1187,13 @@ ur{
             }
         }
         islamic{
+            availableFormats{
+                GyM{"M/y G"}
+                GyMEd{"E، d/M/y G"}
+            }
             eras{
                 abbreviated{
-                    "ہجری",
+                    0{"ہجری"}
                 }
             }
             monthNames{
@@ -1107,16 +1236,16 @@ ur{
                 "‎h:mm:ss a",
                 "‎h:mm a",
                 {
-                    "EEEE، d MMMM، y",
-                    "d=tithiura",
+                    "G y MMMM d، EEEE",
+                    "d=tithiurk",
                 }
                 {
-                    "MMMM، d",
-                    "d=tithiura",
+                    "MMMM d",
+                    "d=tithiurk",
                 }
                 {
-                    "MMM، d",
-                    "d=tithiura",
+                    "MMM d",
+                    "d=tithiurk",
                 }
                 "MMM d",
                 "{1} {0}",
@@ -1125,101 +1254,120 @@ ur{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"d، E"}
+                GyMMMEd{"G y MMM d، E"}
+                MMMEd{"MMM d، E"}
+                MMMMEEEEd{"MMMM d، EEEE"}
+                MMMMEEEd{"MMM d، EEE"}
+                yMEd{"y MMM d، E"}
+                yMMMEd{"y MMM d، E"}
+            }
             eras{
                 abbreviated{
-                    "ش شکے",
+                    0{"ش شکے"}
                 }
                 wide{
-                    "شالیواہن شکے",
+                    0{"شالیواہن شکے"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                     narrow{
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
+                        "آ",
                         "ک",
-                        "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                     narrow{
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
+                        "آ",
                         "ک",
-                        "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                 }
             }
@@ -1231,23 +1379,147 @@ ur{
                 }
                 numeric{
                     all{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
                 stand-alone{
                     narrow{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
             }
         }
         malayalam{
+            DateTimePatterns{
+                "‎h:mm:ss a zzzz",
+                "‎h:mm:ss a z",
+                "‎h:mm:ss a",
+                "‎h:mm a",
+                "G y MMMM d، EEEE",
+                "MMMM d",
+                "MMM d",
+                "MMM d",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"d، E"}
+                GyMMMEd{"G y MMM d، E"}
+                MMMEd{"MMM d، E"}
+                MMMMEEEEd{"MMMM d، EEEE"}
+                MMMMEEEd{"MMM d، EEE"}
+                yMEd{"y MMM d، E"}
+                yMMMEd{"y MMM d، E"}
+            }
             eras{
                 abbreviated{
-                    "کول",
+                    0{"کول"}
                 }
                 wide{
-                    "کولا ورشم",
+                    0{"کولا ورشم"}
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "چنگم",
+                        "کنّی",
+                        "تلام",
+                        "ورشچکم",
+                        "دھنو",
+                        "مکرم",
+                        "کمبھم",
+                        "مینم",
+                        "میٹم",
+                        "ایٹوم",
+                        "متھنم",
+                        "کرکٹکم",
+                    }
+                    narrow{
+                        "چ",
+                        "ک",
+                        "ت",
+                        "و",
+                        "د",
+                        "م",
+                        "ک",
+                        "م",
+                        "م",
+                        "ا",
+                        "م",
+                        "ک",
+                    }
+                    wide{
+                        "چنگم",
+                        "کنّی",
+                        "تلام",
+                        "ورشچکم",
+                        "دھنو",
+                        "مکرم",
+                        "کمبھم",
+                        "مینم",
+                        "میٹم",
+                        "ایٹوم",
+                        "متھنم",
+                        "کرکٹکم",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "چنگم",
+                        "کنّی",
+                        "تلام",
+                        "ورشچکم",
+                        "دھنو",
+                        "مکرم",
+                        "کمبھم",
+                        "مینم",
+                        "میٹم",
+                        "ایٹوم",
+                        "متھنم",
+                        "کرکٹکم",
+                    }
+                    narrow{
+                        "چ",
+                        "ک",
+                        "ت",
+                        "و",
+                        "د",
+                        "م",
+                        "ک",
+                        "م",
+                        "م",
+                        "ا",
+                        "م",
+                        "ک",
+                    }
+                    wide{
+                        "چنگم",
+                        "کنّی",
+                        "تلام",
+                        "ورشچکم",
+                        "دھنو",
+                        "مکرم",
+                        "کمبھم",
+                        "مینم",
+                        "میٹم",
+                        "ایٹوم",
+                        "متھنم",
+                        "کرکٹکم",
+                    }
                 }
             }
         }
@@ -1258,16 +1530,16 @@ ur{
                 "‎h:mm:ss a",
                 "‎h:mm a",
                 {
-                    "EEEE، d MMMM، y",
-                    "d=tithiura",
+                    "EEEE، G y، MMMM d",
+                    "d=tithiurm",
                 }
                 {
-                    "MMMM، d",
-                    "d=tithiura",
+                    "MMMM d",
+                    "d=tithiurm",
                 }
                 {
-                    "MMM، d",
-                    "d=tithiura",
+                    "MMM d",
+                    "d=tithiurm",
                 }
                 "MMM d",
                 "{1} {0}",
@@ -1276,12 +1548,127 @@ ur{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                GyMMM{"G y، MMM"}
+                GyMMMEd{"E، G y، MMM d"}
+                GyMMMd{"G y، MMM d"}
+                GyMd{"G y، MMM d"}
+                MMMEd{"E، MMM d"}
+                MMMMEEEEd{"EEEE، MMMM d"}
+                MMMMEEEd{"EEE، MMM d"}
+                yMEd{"E، y، MMM d"}
+                yMM{"y، MMM"}
+                yMMM{"y، MMM"}
+                yMMMEd{"E، y، MMM d"}
+                yMMMM{"y، MMMM"}
+            }
             eras{
                 abbreviated{
-                    "شک س",
+                    0{"شک س"}
                 }
                 wide{
-                    "شک سموت",
+                    0{"شک سموت"}
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڈھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشون",
+                        "کارتک",
+                        "مارگشیرش",
+                        "پوش",
+                        "ماگھ",
+                        "پھالگن",
+                    }
+                    narrow{
+                        "چ",
+                        "و",
+                        "ج",
+                        "آ",
+                        "ش",
+                        "بھ",
+                        "آ",
+                        "ک",
+                        "م",
+                        "پ",
+                        "م",
+                        "پھ",
+                    }
+                    wide{
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڈھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشون",
+                        "کارتک",
+                        "مارگشیرش",
+                        "پوش",
+                        "ماگھ",
+                        "پھالگن",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڈھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشون",
+                        "کارتک",
+                        "مارگشیرش",
+                        "پوش",
+                        "ماگھ",
+                        "پھالگن",
+                    }
+                    narrow{
+                        "چ",
+                        "و",
+                        "ج",
+                        "آ",
+                        "ش",
+                        "بھ",
+                        "آ",
+                        "ک",
+                        "م",
+                        "پ",
+                        "م",
+                        "پھ",
+                    }
+                    wide{
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڈھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشون",
+                        "کارتک",
+                        "مارگشیرش",
+                        "پوش",
+                        "ماگھ",
+                        "پھالگن",
+                    }
                 }
             }
             monthPatterns{
@@ -1292,104 +1679,145 @@ ur{
                 }
                 numeric{
                     all{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
                 stand-alone{
                     narrow{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
             }
         }
         odia{
+            DateTimePatterns{
+                "‎h:mm:ss a zzzz",
+                "‎h:mm:ss a z",
+                "‎h:mm:ss a",
+                "‎h:mm a",
+                "EEEE، MMMM d، y",
+                "MMMM d",
+                "MMM d",
+                "MMM d",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                GyMMM{"MMM، y"}
+                GyMMMEd{"E، MMM d، y"}
+                GyMMMd{"MMM d، y"}
+                GyMd{"MMM d، y"}
+                MMMEd{"E، MMM d"}
+                MMMMEEEEd{"EEEE، MMMM d"}
+                MMMMEEEd{"EEE، MMM d"}
+                yM{"MMM، y"}
+                yMEd{"E، MMM d، y "}
+                yMM{"MMM، y"}
+                yMMM{"MMM، y"}
+                yMMMEd{"E، MMM d"}
+                yMMMM{"MMMM، y"}
+            }
             monthNames{
                 format{
                     abbreviated{
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
+                        "کنیا",
+                        "تلا",
+                        "بچھا",
+                        "دھنو",
+                        "مکر",
+                        "کمبھ",
+                        "مین",
+                        "میش",
+                        "ورِش",
+                        "متھن",
+                        "کرکٹ",
+                        "سنگھ",
                     }
                     narrow{
                         "ک",
-                        "ک",
-                        "ا",
-                        "پ",
-                        "م",
-                        "پھ",
-                        "چ",
+                        "ت",
                         "ب",
-                        "ج",
-                        "ا",
+                        "د",
+                        "م",
+                        "ک",
+                        "م",
+                        "م",
+                        "و",
+                        "م",
+                        "ک",
                         "س",
-                        "بھ",
                     }
                     wide{
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
+                        "کنیا",
+                        "تلا",
+                        "بچھا",
+                        "دھنو",
+                        "مکر",
+                        "کمبھ",
+                        "مین",
+                        "میش",
+                        "ورِش",
+                        "متھن",
+                        "کرکٹ",
+                        "سنگھ",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
+                        "کنیا",
+                        "تلا",
+                        "بچھا",
+                        "دھنو",
+                        "مکر",
+                        "کمبھ",
+                        "مین",
+                        "میش",
+                        "ورِش",
+                        "متھن",
+                        "کرکٹ",
+                        "سنگھ",
                     }
                     narrow{
                         "ک",
-                        "ک",
-                        "ا",
-                        "پ",
-                        "م",
-                        "پھ",
-                        "چ",
+                        "ت",
                         "ب",
-                        "ج",
-                        "ا",
+                        "د",
+                        "م",
+                        "ک",
+                        "م",
+                        "م",
+                        "و",
+                        "م",
+                        "ک",
                         "س",
-                        "بھ",
                     }
                     wide{
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
+                        "کنیا",
+                        "تلا",
+                        "بچھا",
+                        "دھنو",
+                        "مکر",
+                        "کمبھ",
+                        "مین",
+                        "میش",
+                        "ورِش",
+                        "متھن",
+                        "کرکٹ",
+                        "سنگھ",
                     }
                 }
             }
@@ -1417,107 +1845,141 @@ ur{
         roc{
             eras{
                 abbreviated{
-                    "قبل از جمہوریہ چین",
-                    "جمہوریہ چین",
+                    0{"قبل از جمہوریہ چین"}
+                    1{"جمہوریہ چین"}
                 }
             }
         }
         tamil{
+            DateTimePatterns{
+                "‎h:mm:ss a zzzz",
+                "‎h:mm:ss a z",
+                "‎h:mm:ss a",
+                "‎h:mm a",
+                "G y MMMM d، EEEE",
+                "MMMM d",
+                "MMM d",
+                "MMM d",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"d، E"}
+                GyMMMEd{"G y MMM d، E"}
+                MMMEd{"MMM d، E"}
+                MMMMEEEEd{"MMMM d، EEEE"}
+                MMMMEEEd{"MMM d، EEE"}
+                yMEd{"y MMM d، E"}
+                yMMMEd{"y MMM d، E"}
+            }
             eras{
                 abbreviated{
-                    "شک و",
+                    0{"شک و"}
                 }
                 wide{
-                    "شک وروڈم",
+                    0{"شک وروڈم"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چتیرے",
+                        "ویکاسی",
+                        "آنی",
+                        "آڈی",
+                        "آونی",
+                        "پرٹّاسی",
+                        "ایپسی",
+                        "کارتیکے",
+                        "مارگلی",
+                        "تے",
+                        "ماسی",
+                        "پنگنی",
                     }
                     narrow{
                         "چ",
-                        "ب",
-                        "ج",
-                        "ا",
-                        "س",
-                        "بھ",
-                        "ک",
-                        "ک",
-                        "ا",
+                        "و",
+                        "آ",
+                        "آ",
+                        "آ",
                         "پ",
+                        "ا",
+                        "ک",
                         "م",
-                        "پھ",
+                        "ت",
+                        "م",
+                        "پ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چتیرے",
+                        "ویکاسی",
+                        "آنی",
+                        "آڈی",
+                        "آونی",
+                        "پرٹّاسی",
+                        "ایپسی",
+                        "کارتیکے",
+                        "مارگلی",
+                        "تے",
+                        "ماسی",
+                        "پنگنی",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چتیرے",
+                        "ویکاسی",
+                        "آنی",
+                        "آڈی",
+                        "آونی",
+                        "پرٹّاسی",
+                        "ایپسی",
+                        "کارتیکے",
+                        "مارگلی",
+                        "تے",
+                        "ماسی",
+                        "پنگنی",
                     }
                     narrow{
                         "چ",
-                        "ب",
-                        "ج",
-                        "ا",
-                        "س",
-                        "بھ",
-                        "ک",
-                        "ک",
-                        "ا",
+                        "و",
+                        "آ",
+                        "آ",
+                        "آ",
                         "پ",
+                        "ا",
+                        "ک",
                         "م",
-                        "پھ",
+                        "ت",
+                        "م",
+                        "پ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چتیرے",
+                        "ویکاسی",
+                        "آنی",
+                        "آڈی",
+                        "آونی",
+                        "پرٹّاسی",
+                        "ایپسی",
+                        "کارتیکے",
+                        "مارگلی",
+                        "تے",
+                        "ماسی",
+                        "پنگنی",
                     }
                 }
             }
@@ -1529,16 +1991,16 @@ ur{
                 "‎h:mm:ss a",
                 "‎h:mm a",
                 {
-                    "EEEE، d MMMM، y",
-                    "d=tithiura",
+                    "G y MMMM d، EEEE",
+                    "d=tithiurt",
                 }
                 {
-                    "MMMM، d",
-                    "d=tithiura",
+                    "MMMM d",
+                    "d=tithiurt",
                 }
                 {
-                    "MMM، d",
-                    "d=tithiura",
+                    "MMM d",
+                    "d=tithiurt",
                 }
                 "MMM d",
                 "{1} {0}",
@@ -1547,101 +2009,120 @@ ur{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
+            availableFormats{
+                Ed{"d، E"}
+                GyMMMEd{"G y MMM d، E"}
+                MMMEd{"MMM d، E"}
+                MMMMEEEEd{"MMMM d، EEEE"}
+                MMMMEEEd{"MMM d، EEE"}
+                yMEd{"y MMM d، E"}
+                yMMMEd{"y MMM d، E"}
+            }
             eras{
                 abbreviated{
-                    "ش شکم",
+                    0{"ش شکم"}
                 }
                 wide{
-                    "شالیواہن شکم",
+                    0{"شالیواہن شکم"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                     narrow{
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
+                        "آ",
                         "ک",
-                        "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
+                        "چیتر",
+                        "ویشاکھ",
+                        "جیشٹھ",
+                        "آشاڑھ",
+                        "شراون",
+                        "بھادرپد",
+                        "آشویُج",
+                        "کارتک",
+                        "مارگشر",
+                        "پشیہ",
                         "ماگھ",
-                        "پھاگن",
+                        "پھالگن",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چیترم",
+                        "ویشاکھم",
+                        "جیشٹھم",
+                        "آشاڑھم",
+                        "شراونم",
+                        "بھادرپدم",
+                        "آشویُجم",
+                        "کارتکم",
+                        "مارگشرم",
+                        "پشیم",
+                        "ماگھم",
+                        "پھالگنم",
                     }
                     narrow{
                         "چ",
-                        "ب",
+                        "و",
                         "ج",
-                        "ا",
-                        "س",
+                        "آ",
+                        "ش",
                         "بھ",
+                        "آ",
                         "ک",
-                        "ک",
-                        "ا",
+                        "م",
                         "پ",
                         "م",
                         "پھ",
                     }
                     wide{
-                        "چیت",
-                        "بیساکھ",
-                        "جیٹھ",
-                        "اساڑھ",
-                        "ساون",
-                        "بھادوں",
-                        "کنوار",
-                        "کاتک",
-                        "اگہن",
-                        "پوس",
-                        "ماگھ",
-                        "پھاگن",
+                        "چیترم",
+                        "ویشاکھم",
+                        "جیشٹھم",
+                        "آشاڑھم",
+                        "شراونم",
+                        "بھادرپدم",
+                        "آشویُجم",
+                        "کارتکم",
+                        "مارگشرم",
+                        "پشیم",
+                        "ماگھم",
+                        "پھالگنم",
                     }
                 }
             }
@@ -1653,12 +2134,12 @@ ur{
                 }
                 numeric{
                     all{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
                 stand-alone{
                     narrow{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
             }
@@ -1670,7 +2151,7 @@ ur{
                 "‎h:mm:ss a",
                 "‎h:mm a",
                 {
-                    "EEEEE، MMMM d، y",
+                    "EEEE، MMMM d، y",
                     "d=tithiurp",
                 }
                 {
@@ -1688,27 +2169,38 @@ ur{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "MMMd",
+            }
             availableFormats{
+                Ed{"E، d"}
                 GyMMM{"G y، MMM"}
                 GyMMMEd{"E، G y، MMM d"}
                 GyMMMd{"G y، MMM d"}
                 GyMd{"G y، MMM d"}
-                MEd{"E، MMM dd"}
+                MMMEd{"E، MMM d"}
+                MMMMEEEEd{"EEEE، MMMM d"}
+                MMMMEEEd{"EEE، MMM d"}
                 yM{"y، MMM"}
                 yMEd{"E، y، MMM d"}
                 yMM{"y، MMM"}
                 yMMM{"y، MMM"}
                 yMMMEd{"E، y، MMM d"}
                 yMMMM{"y، MMMM"}
-                yMMMd{"MMM d"}
-                yMd{"MMM d"}
             }
             eras{
                 abbreviated{
-                    "و س",
+                    0{"و س"}
                 }
                 wide{
-                    "وکرم سموت",
+                    0{"وکرم سموت"}
                 }
             }
             monthNames{
@@ -1809,12 +2301,12 @@ ur{
                 }
                 numeric{
                     all{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
                 stand-alone{
                     narrow{
-                        leap{"ادھک{0}"}
+                        leap{"ادھک {0}"}
                     }
                 }
             }

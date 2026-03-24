@@ -85,8 +85,25 @@ _big5_check(u_int c)
 {
 
 	c &= 0xff;
+#ifdef __APPLE__
+	/*
+	 * Include the user-defined region, since we're more doing more strict
+	 * validation now.
+	 */
+	return ((c >= 0x81 && c <= 0xfe) ? 2 : 1);
+#else
 	return ((c >= 0xa1 && c <= 0xfe) ? 2 : 1);
+#endif
 }
+
+#ifdef __APPLE__
+static __inline bool
+_big5_valid_trailer(u_int c)
+{
+	c &= 0xff;
+	return ((c >= 0x40 && c <= 0x7e) || (c >= 0xa1 && c <= 0xfe));
+}
+#endif
 
 static size_t
 _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
@@ -115,7 +132,15 @@ _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 		return ((size_t)-2);
 
 	if (bs->ch != 0) {
+#ifdef __APPLE__
+		/*
+		 * It would be better to refactor mbrtowc to avoid this
+		 * repetition with the bits down below.
+		 */
+		if (!_big5_valid_trailer(*s)) {
+#else
 		if (*s == '\0') {
+#endif
 			errno = EILSEQ;
 			return ((size_t)-1);
 		}
@@ -134,7 +159,11 @@ _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 			bs->ch = wc;
 			return ((size_t)-2);
 		}
+#ifdef __APPLE__
+		if (!_big5_valid_trailer(*s)) {
+#else
 		if (*s == '\0') {
+#endif
 			errno = EILSEQ;
 			return ((size_t)-1);
 		}

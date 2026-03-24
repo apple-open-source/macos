@@ -31,13 +31,13 @@
 #include "CachedImage.h"
 #include "NullGraphicsContext.h"
 #include "RenderElement.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleCachedImage.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderImageResourceStyleImage);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderImageResourceStyleImage);
 
 RenderImageResourceStyleImage::RenderImageResourceStyleImage(StyleImage& styleImage)
     : m_styleImage(styleImage)

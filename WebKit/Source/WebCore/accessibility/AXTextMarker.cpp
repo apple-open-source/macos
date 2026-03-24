@@ -87,7 +87,7 @@ TextMarkerData::TextMarkerData(AXObjectCache& cache, const CharacterOffset& char
     auto visiblePosition = cache.visiblePositionFromCharacterOffset(characterOffsetParam);
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (AXObjectCache::shouldCreateAXThreadCompatibleMarkers()) {
-        if (std::optional data = cache.textMarkerDataForVisiblePosition(WTFMove(visiblePosition), origin))
+        if (std::optional data = cache.textMarkerDataForVisiblePosition(WTF::move(visiblePosition), origin))
             *this = *data;
         return;
     }
@@ -123,7 +123,7 @@ AXTextMarker::AXTextMarker(const VisiblePosition& visiblePosition, TextMarkerOri
         return;
 
     if (auto data = cache->textMarkerDataForVisiblePosition(visiblePosition, origin))
-        m_data = WTFMove(*data);
+        m_data = WTF::move(*data);
 }
 
 AXTextMarker::AXTextMarker(const CharacterOffset& characterOffset, TextMarkerOrigin origin)
@@ -215,6 +215,8 @@ RefPtr<AXCoreObject> AXTextMarker::object() const
     if (isNull())
         return nullptr;
 
+    // FIXME: The isNull() check should allow us to deref *treeID() and *objectID() safely
+    // in this function for a bit more performance.
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (!isMainThread()) {
         auto tree = std::get<RefPtr<AXIsolatedTree>>(axTreeForID(treeID()));
@@ -312,8 +314,8 @@ AXTextMarkerRange::AXTextMarkerRange(AXTextMarker&& start, AXTextMarker&& end)
     }
 
     bool reverse = is_gt(order);
-    m_start = reverse ? WTFMove(end) : WTFMove(start);
-    m_end = reverse ? WTFMove(start) : WTFMove(end);
+    m_start = reverse ? WTF::move(end) : WTF::move(start);
+    m_end = reverse ? WTF::move(start) : WTF::move(end);
 }
 
 AXTextMarkerRange::AXTextMarkerRange(std::optional<AXID> treeID, std::optional<AXID> objectID, unsigned start, unsigned end)
@@ -448,7 +450,7 @@ std::optional<AXTextMarkerRange> AXTextMarkerRange::intersectionWith(const AXTex
 
         if (!downcast<AXIsolatedObject>(current)->textRuns())
             intersectionStart = { *current, /* offset */ 0 };
-        return { { WTFMove(intersectionStart), WTFMove(intersectionEnd) } };
+        return { { WTF::move(intersectionStart), WTF::move(intersectionEnd) } };
     }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
@@ -548,7 +550,7 @@ String listMarkerTextOnSameLine(const AXTextMarker& marker)
 }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
-String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText) const
+String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText, IncludeImageAltText includeImageAltText) const
 {
 #if !ENABLE(AX_THREAD_TEXT_APIS)
     UNUSED_PARAM(includeListMarkerText);
@@ -575,7 +577,12 @@ String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText) 
             return result.toString();
         }
 
-        auto emitNewlineOnExit = [&] (AXIsolatedObject& object) {
+        auto emitAuxiliaryText = [&] (AXIsolatedObject& object) {
+            if (includeImageAltText == IncludeImageAltText::Yes && object.isImage()) {
+                // This is an image, so add alt text (if it has any).
+                result.append(object.description());
+            }
+
             // FIXME: This function should not just be emitting newlines, but instead handling every character type in TextEmissionBehavior.
             auto behavior = object.textEmissionBehavior();
             if (behavior != TextEmissionBehavior::Newline && behavior != TextEmissionBehavior::DoubleNewline)
@@ -593,22 +600,27 @@ String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText) 
 
         // FIXME: If we've been given reversed markers, i.e. the end marker actually comes before the start marker,
         // we may want to detect this and try searching AXDirection::Previous?
-        RefPtr current = findObjectWithRuns(*start.isolatedObject(), AXDirection::Next, std::nullopt, emitNewlineOnExit);
+        RefPtr current = findObjectWithRuns(*start.isolatedObject(), AXDirection::Next, std::nullopt, emitAuxiliaryText);
         while (current && current->objectID() != end.objectID()) {
             result.append(current->textRuns()->toStringView());
-            current = findObjectWithRuns(*current, AXDirection::Next, std::nullopt, emitNewlineOnExit);
+            current = findObjectWithRuns(*current, AXDirection::Next, std::nullopt, emitAuxiliaryText);
         }
         result.append(end.runs()->substring(0, end.offset()));
         return result.toString();
     }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
-    return Accessibility::retrieveValueFromMainThread<String>([this] () -> String {
+    return Accessibility::retrieveValueFromMainThread<String>([this, includeImageAltText] () -> String {
+
         auto range = simpleRange();
         if (!range)
             return { };
 
-        TextIterator it = TextIterator(*range, { TextIteratorBehavior::IgnoresFullSizeKana });
+        OptionSet<TextIteratorBehavior> behaviors = { TextIteratorBehavior::IgnoresFullSizeKana };
+        if (includeImageAltText == IncludeImageAltText::Yes)
+            behaviors.add(TextIteratorBehavior::EmitsImageAltText);
+
+        TextIterator it = TextIterator(*range, behaviors);
         if (it.atEnd())
             return { };
 
@@ -699,13 +711,13 @@ int AXTextMarker::lineIndex() const
     if (currentLineID == targetLineID)
         return 0;
 
-    auto currentMarker = WTFMove(startMarker);
+    auto currentMarker = WTF::move(startMarker);
     if (!currentMarker.atLineEnd()) {
         // Start from a line end, so that subsequent calls to nextLineEnd() yield a new line.
         // Otherwise if we started from the middle of a line, we would count the the first line twice.
         auto nextLineEndMarker = currentMarker.nextLineEnd();
         TEXT_MARKER_ASSERT_DOUBLE(nextLineEndMarker.lineID() == currentMarker.lineID(), nextLineEndMarker, currentMarker);
-        currentMarker = WTFMove(nextLineEndMarker);
+        currentMarker = WTF::move(nextLineEndMarker);
     }
 
     unsigned index = 0;
@@ -744,7 +756,7 @@ CharacterRange AXTextMarker::characterRangeForLine(unsigned lineIndex) const
     while (lineIndex && currentLineRange) {
         precedingLength += currentLineRange.toString().length();
         auto lineEndMarker = currentLineRange.end().nextLineEnd(IncludeTrailingLineBreak::Yes, stopAtID);
-        currentLineRange = { lineEndMarker.previousLineStart(stopAtID), WTFMove(lineEndMarker) };
+        currentLineRange = { lineEndMarker.previousLineStart(stopAtID), WTF::move(lineEndMarker) };
         --lineIndex;
     }
     return currentLineRange ? CharacterRange(precedingLength, currentLineRange.toString().length()) : CharacterRange();
@@ -763,7 +775,7 @@ AXTextMarkerRange AXTextMarker::markerRangeForLineIndex(unsigned lineIndex) cons
     auto currentLineRange = lineRange(LineRangeType::Current);
     while (lineIndex && currentLineRange) {
         auto lineEndMarker = currentLineRange.end().nextLineEnd();
-        currentLineRange = { lineEndMarker.previousLineStart(), WTFMove(lineEndMarker) };
+        currentLineRange = { lineEndMarker.previousLineStart(), WTF::move(lineEndMarker) };
         --lineIndex;
     }
     return currentLineRange;
@@ -784,7 +796,7 @@ int AXTextMarker::lineNumberForIndex(unsigned index) const
     unsigned lineIndex = 0;
     auto currentMarker = *this;
     while (index) {
-        auto oldMarker = WTFMove(currentMarker);
+        auto oldMarker = WTF::move(currentMarker);
         currentMarker = oldMarker.findMarker(AXDirection::Next, CoalesceObjectBreaks::Yes, IgnoreBRs::Yes, stopAtID);
         if (!currentMarker.isValid())
             break;
@@ -911,7 +923,7 @@ AXTextMarker AXTextMarker::nextMarkerFromOffset(unsigned offset, ForceSingleOffs
     auto marker = *this;
     while (offset) {
         if (auto newMarker = marker.findMarker(AXDirection::Next, CoalesceObjectBreaks::No, IgnoreBRs::No, stopAtID, forceSingleOffsetMovement))
-            marker = WTFMove(newMarker);
+            marker = WTF::move(newMarker);
         else
             break;
 
@@ -942,7 +954,7 @@ AXTextMarker AXTextMarker::findLastBefore(std::optional<AXID> stopAtID) const
         RefPtr newObject = findObjectWithRuns(*lastObjectWithRuns, AXDirection::Next, stopAtID);
         if (!newObject)
             break;
-        lastObjectWithRuns = WTFMove(newObject);
+        lastObjectWithRuns = WTF::move(newObject);
     }
 
     return AXTextMarker { *lastObjectWithRuns, lastObjectWithRuns->textRuns()->totalLength() };
@@ -962,7 +974,7 @@ AXTextMarkerRange AXTextMarker::rangeWithSameStyle() const
             RefPtr next = findObjectWithRuns(*current, direction);
             if (next && originalStyle != next->stylesForAttributedString())
                 break;
-            current = WTFMove(next);
+            current = WTF::move(next);
         }
 
         if (current)
@@ -1454,7 +1466,7 @@ AXTextMarker AXTextMarker::toTextRunMarker(std::optional<AXID> stopAtID) const
     // AXTextMarker { ID 3: StaticText, Offset 3 }
     // Because we had to walk over ID 2 which had length 3 text.
     size_t precedingOffset = 0;
-    RefPtr current = runs ? WTFMove(object) : findObjectWithRuns(*object, AXDirection::Next, stopAtID);
+    RefPtr current = runs ? WTF::move(object) : findObjectWithRuns(*object, AXDirection::Next, stopAtID);
     while (current) {
         unsigned totalLength = current->textRuns()->totalLength();
         if (precedingOffset + totalLength >= offset())
@@ -1499,7 +1511,7 @@ AXTextMarkerRange AXTextMarker::lineRange(LineRangeType type, IncludeTrailingLin
             startMarker = startMarker.previousLineStart();
 
         auto endMarker = startMarker.nextLineEnd(includeTrailingLineBreak);
-        return { WTFMove(startMarker), WTFMove(endMarker) };
+        return { WTF::move(startMarker), WTF::move(endMarker) };
     }
 
     ASSERT(type == LineRangeType::Right);
@@ -1510,7 +1522,7 @@ AXTextMarkerRange AXTextMarker::lineRange(LineRangeType type, IncludeTrailingLin
         startMarker = startMarker.previousLineStart();
 
     auto endMarker = startMarker.nextLineEnd(includeTrailingLineBreak);
-    return { WTFMove(startMarker), WTFMove(endMarker) };
+    return { WTF::move(startMarker), WTF::move(endMarker) };
 
     return { };
 }
@@ -1552,7 +1564,7 @@ AXTextMarkerRange AXTextMarker::wordRange(WordRangeType type) const
             return { *this, *this };
     }
 
-    return { WTFMove(startMarker), WTFMove(endMarker) };
+    return { WTF::move(startMarker), WTF::move(endMarker) };
 }
 
 AXTextMarkerRange AXTextMarker::sentenceRange(SentenceRangeType type) const
@@ -1573,7 +1585,7 @@ AXTextMarkerRange AXTextMarker::sentenceRange(SentenceRangeType type) const
             endMarker = startMarker;
     }
 
-    return { WTFMove(startMarker), WTFMove(endMarker) };
+    return { WTF::move(startMarker), WTF::move(endMarker) };
 }
 
 AXTextMarkerRange AXTextMarker::paragraphRange() const
@@ -1591,7 +1603,7 @@ AXTextMarkerRange AXTextMarker::paragraphRange() const
     if (rangeString.containsOnly<isASCIIWhitespace>())
         endMarker = startMarker;
 
-    return { WTFMove(startMarker), WTFMove(endMarker) };
+    return { WTF::move(startMarker), WTF::move(endMarker) };
 }
 
 bool AXTextMarker::equivalentTextPosition(const AXTextMarker& other) const

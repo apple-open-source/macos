@@ -43,7 +43,9 @@
 #include "RenderBoxInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderElementInlines.h"
+#include "RenderMediaInlines.h"
 #include "RenderObjectInlines.h"
+#include "RenderVideoInlines.h"
 #include "RenderView.h"
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -52,10 +54,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderVideo);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderVideo);
 
 RenderVideo::RenderVideo(HTMLVideoElement& element, RenderStyle&& style)
-    : RenderMedia(Type::Video, element, WTFMove(style))
+    : RenderMedia(Type::Video, element, WTF::move(style))
 {
     setIntrinsicSize(calculateIntrinsicSize());
     ASSERT(isRenderVideo());
@@ -118,25 +120,19 @@ bool RenderVideo::updateIntrinsicSize()
 
 LayoutSize RenderVideo::calculateIntrinsicSizeInternal()
 {
-    // Spec text from 4.8.6
-    //
-    // The intrinsic width of a video element's playback area is the intrinsic width 
-    // of the video resource, if that is available; otherwise it is the intrinsic 
-    // width of the poster frame, if that is available; otherwise it is 300 CSS pixels.
-    //
-    // The intrinsic height of a video element's playback area is the intrinsic height 
-    // of the video resource, if that is available; otherwise it is the intrinsic 
-    // height of the poster frame, if that is available; otherwise it is 150 CSS pixels.
+    // This implements the intrinsic width/height calculation from:
+    // https://html.spec.whatwg.org/#the-video-element:dimension-attributes:~:text=The%20intrinsic%20width%20of%20a%20video%20element's%20playback%20area
+    // If the video playback area is currently represented by the poster image,
+    // the intrinsic width and height are that of the poster image.
     Ref videoElement = this->videoElement();
     RefPtr player = videoElement->player();
+
+    // Assume the intrinsic width is that of the video.
     if (player && videoElement->readyState() >= HTMLVideoElement::HAVE_METADATA) {
         LayoutSize size(player->naturalSize());
         if (!size.isEmpty())
             return size;
     }
-
-    if (hasPosterFrameSize())
-        return m_cachedImageSize;
 
     // <video> in standalone media documents should not use the default 300x150
     // size since they also have audio-only files. By setting the intrinsic
@@ -152,6 +148,25 @@ LayoutSize RenderVideo::calculateIntrinsicSize()
 {
     if (shouldApplySizeContainment())
         return intrinsicSize();
+
+    // Return cached poster size directly if we're using it, since it's already scaled.
+    // Determine what we should display: poster or video.
+    // If the show-poster-flag is set (or there is no video frame to display) AND
+    // there is a poster image, display the poster.
+    Ref videoElement = this->videoElement();
+    RefPtr player = videoElement->player();
+    bool shouldUsePoster = (videoElement->shouldDisplayPosterImage() || !player || !player->hasAvailableVideoFrame()) && hasPosterFrameSize();
+
+    if (shouldUsePoster) {
+        auto cachedSize = m_cachedImageSize;
+        if (shouldApplyInlineSizeContainment()) {
+            if (isHorizontalWritingMode())
+                cachedSize.setWidth(intrinsicSize().width());
+            else
+                cachedSize.setHeight(intrinsicSize().height());
+        }
+        return cachedSize;
+    }
 
     auto calculatedIntrinsicSize = calculateIntrinsicSizeInternal();
     calculatedIntrinsicSize.scale(style().usedZoom());
@@ -295,7 +310,7 @@ void RenderVideo::layout()
     updatePlayer();
 }
 
-void RenderVideo::styleDidChange(StyleDifference difference, const RenderStyle* oldStyle)
+void RenderVideo::styleDidChange(Style::Difference difference, const RenderStyle* oldStyle)
 {
     RenderMedia::styleDidChange(difference, oldStyle);
     if (!oldStyle || style().objectFit() != oldStyle->objectFit())

@@ -73,7 +73,7 @@ public:
     bool containsNonInvertibleMatrix() const;
 
 private:
-    friend struct IPC::ArgumentCoder<TransformOperations, void>;
+    friend struct IPC::ArgumentCoder<TransformOperations>;
     friend WTF::TextStream& operator<<(WTF::TextStream&, const TransformOperations&);
 
     Vector<Ref<TransformOperation>> m_operations;

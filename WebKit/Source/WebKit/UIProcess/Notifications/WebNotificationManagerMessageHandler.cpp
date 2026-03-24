@@ -60,10 +60,10 @@ void WebNotificationManagerMessageHandler::showNotification(IPC::Connection& con
     RELEASE_LOG(Push, "WebNotificationManagerMessageHandler showNotification called");
 
     if (!data.serviceWorkerRegistrationURL.isEmpty()) {
-        ServiceWorkerNotificationHandler::singleton().showNotification(connection, data, WTFMove(resources), WTFMove(callback));
+        ServiceWorkerNotificationHandler::singleton().showNotification(connection, data, WTF::move(resources), WTF::move(callback));
         return;
     }
-    protectedPage()->showNotification(connection, data, WTFMove(resources));
+    protectedPage()->showNotification(connection, data, WTF::move(resources));
     callback();
 }
 
@@ -71,7 +71,7 @@ void WebNotificationManagerMessageHandler::cancelNotification(WebCore::SecurityO
 {
     Ref serviceWorkerNotificationHandler = ServiceWorkerNotificationHandler::singleton();
     if (serviceWorkerNotificationHandler->handlesNotification(notificationID)) {
-        serviceWorkerNotificationHandler->cancelNotification(WTFMove(origin), notificationID);
+        serviceWorkerNotificationHandler->cancelNotification(WTF::move(origin), notificationID);
         return;
     }
     protectedPage()->cancelNotification(notificationID);

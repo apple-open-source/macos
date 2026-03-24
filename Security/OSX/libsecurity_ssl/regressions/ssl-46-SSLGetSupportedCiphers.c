@@ -39,19 +39,19 @@ static int test_GetSupportedCiphers(SSLContextRef ssl, bool server)
     int fail=1;
     SSLCipherSuite *ciphers = NULL;
 
-    require_noerr(SSLGetNumberSupportedCiphers(ssl, &max_ciphers), out);
+    __Require_noErr(SSLGetNumberSupportedCiphers(ssl, &max_ciphers), out);
 
     size_t size = max_ciphers * sizeof (SSLCipherSuite);
     ciphers = (SSLCipherSuite *) malloc(size);
 
-    require_string(ciphers, out, "out of memory");
+    __Require_String(ciphers, out, "out of memory");
     memset(ciphers, 0xff, size);
 
     size_t num_ciphers = max_ciphers;
-    require_noerr(SSLGetSupportedCiphers(ssl, ciphers, &num_ciphers), out);
+    __Require_noErr(SSLGetSupportedCiphers(ssl, ciphers, &num_ciphers), out);
 
     for (size_t i = 0; i < num_ciphers; i++) {
-        require(ciphers[i]!=(SSLCipherSuite)(-1), out);
+        __Require(ciphers[i]!=(SSLCipherSuite)(-1), out);
     }
 
     /* Success! */
@@ -267,35 +267,35 @@ static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphe
     int fail=1;
     SSLCipherSuite *ciphers = NULL;
 
-    require_noerr(SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite), out);
-    require_noerr(SSLSetConnection(ssl, NULL), out);
+    __Require_noErr(SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite), out);
+    __Require_noErr(SSLSetConnection(ssl, NULL), out);
 
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
-    require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
+    __Require_noErr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
+    __Require_String(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
 
     size = num_ciphers * sizeof (SSLCipherSuite);
     ciphers = (SSLCipherSuite *) malloc(size);
-    require_string(ciphers, out, "out of memory");
+    __Require_String(ciphers, out, "out of memory");
     memset(ciphers, 0xff, size);
 
-    require_noerr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
-    require_string(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
+    __Require_noErr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
+    __Require_String(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
 
     free(ciphers);
     ciphers = NULL;
 
-    require(SSLHandshake(ssl) == errSSLWouldBlock, out);
+    __Require(SSLHandshake(ssl) == errSSLWouldBlock, out);
 
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
-    require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
+    __Require_noErr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
+    __Require_String(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
 
     size = num_ciphers * sizeof (SSLCipherSuite);
     ciphers = (SSLCipherSuite *) malloc(size);
-    require_string(ciphers, out, "out of memory");
+    __Require_String(ciphers, out, "out of memory");
     memset(ciphers, 0xff, size);
 
-    require_noerr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
-    require_string(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
+    __Require_noErr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
+    __Require_String(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
 
     /* Success! */
     fail=0;
@@ -317,10 +317,10 @@ static int test_SetEnabledCiphers(SSLContextRef ssl)
         TLS_RSA_WITH_AES_128_CBC_SHA, /* Supported and enabled by default */
     };
 
-    require_noerr(SSLSetEnabledCiphers(ssl, ciphers, sizeof(ciphers)/sizeof(SSLCipherSuite)), out);
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_enabled), out);
+    __Require_noErr(SSLSetEnabledCiphers(ssl, ciphers, sizeof(ciphers)/sizeof(SSLCipherSuite)), out);
+    __Require_noErr(SSLGetNumberEnabledCiphers(ssl, &num_enabled), out);
 
-    require(num_enabled==2, out); /* 2 ciphers in the above table are supported */
+    __Require(num_enabled==2, out); /* 2 ciphers in the above table are supported */
 
     /* Success! */
     fail=0;
@@ -338,7 +338,7 @@ test_dhe(SSLProtocolSide side, bool dhe_enabled)
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_dhe: SSLCreateContext(1) failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
-    require(ssl, out);
+    __Require(ssl, out);
 
     ok_status(SSLSetDHEEnabled(ssl, dhe_enabled),"test_dhe: SSLSetDHEEnabled failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
 
@@ -352,7 +352,7 @@ test_dhe(SSLProtocolSide side, bool dhe_enabled)
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_dhe: SSLCreateContext(2) failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
-    require(ssl, out);
+    __Require(ssl, out);
 
     ok(!test_SetEnabledCiphers(ssl), "test_dhe: SetEnabledCiphers test failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
 
@@ -368,7 +368,7 @@ test_config(SSLProtocolSide side, CFStringRef config, unsigned num, const SSLCip
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_config: SSLCreateContext(1) failed (%s,%@)", server?"server":"client", config);
-    require(ssl, out);
+    __Require(ssl, out);
 
     ok_status(SSLSetSessionConfig(ssl, config), "test_config: SSLSetSessionConfig failed (%s,%@)", server?"server":"client", config);
 
@@ -380,7 +380,7 @@ test_config(SSLProtocolSide side, CFStringRef config, unsigned num, const SSLCip
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_config: SSLCreateContext(2) failed (%s,%@)", server?"server":"client", config);
-    require(ssl, out);
+    __Require(ssl, out);
 
     ok(!test_SetEnabledCiphers(ssl), "test_config: SetEnabledCiphers test failed (%s,%@)", server?"server":"client", config);
 
@@ -396,7 +396,7 @@ test_default(SSLProtocolSide side)
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_config: SSLCreateContext(1) failed (%s)", server?"server":"client");
-    require(ssl, out);
+    __Require(ssl, out);
 
     /* The order of this tests does matter, be careful when adding tests */
     ok(!test_GetSupportedCiphers(ssl, server), "test_default: GetSupportedCiphers test failed (%s)", server?"server":"client");
@@ -406,7 +406,7 @@ test_default(SSLProtocolSide side)
 
     ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     ok(ssl, "test_default: SSLCreateContext(2) failed (%s)", server?"server":"client");
-    require(ssl, out);
+    __Require(ssl, out);
 
     ok(!test_SetEnabledCiphers(ssl), "test_config: SetEnabledCiphers test failed (%s)", server?"server":"client");
 

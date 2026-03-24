@@ -42,7 +42,7 @@ IOHIDAsyncReportTestDriver::start(IOService * provider)
 
     HIDServiceLog("IOHIDAsyncReportTestDriver::start");
 
-    require_quiet(super::start(provider), exit);
+    __Require_Quiet(super::start(provider), exit);
 
     _interface = OSRequiredCast(IOHIDInterface, provider);
     _device = OSRequiredCast(IOHIDUserDevice, provider->getProvider());
@@ -71,7 +71,7 @@ IOHIDAsyncReportTestDriver::start(IOService * provider)
     matching->setObject(kIOHIDElementTypeKey, OSNumber::withNumber(kIOHIDElementTypeFeature, 32));
 
     elements = OSSharedPtr<OSArray>(_interface->createMatchingElements(matching.get()), OSNoRetain);
-    require_quiet(elements->getCount() > 0, exit);
+    __Require_Quiet(elements->getCount() > 0, exit);
 
     _reportID = OSRequiredCast(IOHIDElement, elements->getObject(0))->getReportID();
 
@@ -90,7 +90,7 @@ IOHIDAsyncReportTestDriver::setProperties(OSObject * properties)
     OSBoolean * run = nullptr;
 
     propertyDict = OSDynamicCast(OSDictionary, properties);
-    require_action(propertyDict, exit, ret = kIOReturnBadArgument);
+    __Require_Action(propertyDict, exit, ret = kIOReturnBadArgument);
 
     run = OSDynamicCast(OSBoolean, propertyDict->getObject("RunTest"));
     if (run == kOSBooleanTrue) {

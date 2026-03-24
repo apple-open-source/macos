@@ -33,6 +33,7 @@
 #include "WebProcessProxy.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/MakeString.h>
 
@@ -42,7 +43,7 @@
 
 namespace WebKit {
 
-typedef HashMap<WebPageProxy*, unsigned> PageLevelMap;
+using PageLevelMap = WeakHashMap<WebPageProxy, unsigned>;
 
 static PageLevelMap& pageLevelMap()
 {
@@ -53,7 +54,7 @@ static PageLevelMap& pageLevelMap()
 unsigned inspectorLevelForPage(WebPageProxy* page)
 {
     if (page) {
-        auto findResult = pageLevelMap().find(page);
+        auto findResult = pageLevelMap().find(*page);
         if (findResult != pageLevelMap().end())
             return findResult->value + 1;
     }
@@ -66,12 +67,12 @@ String defaultInspectorPageGroupIdentifierForPage(WebPageProxy* page)
     return makeString("__WebInspectorPageGroupLevel"_s, inspectorLevelForPage(page), "__"_s);
 }
 
-void trackInspectorPage(WebPageProxy* inspectorPage, WebPageProxy* inspectedPage)
+void trackInspectorPage(WebPageProxy& inspectorPage, WebPageProxy* inspectedPage)
 {
     pageLevelMap().set(inspectorPage, inspectorLevelForPage(inspectedPage));
 }
 
-void untrackInspectorPage(WebPageProxy* inspectorPage)
+void untrackInspectorPage(WebPageProxy& inspectorPage)
 {
     pageLevelMap().remove(inspectorPage);
 }
@@ -110,7 +111,7 @@ bool isInspectorProcessPool(WebProcessPool& processPool)
 
 bool isInspectorPage(WebPageProxy& webPage)
 {
-    return pageLevelMap().contains(&webPage);
+    return pageLevelMap().contains(webPage);
 }
 
 #if PLATFORM(COCOA)

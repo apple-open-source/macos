@@ -32,7 +32,7 @@ messages -> DrawingArea {
 #endif
 
     SetDeviceScaleFactor(float deviceScaleFactor) -> ()
-    DisplayDidRefresh()
+    DisplayDidRefresh(MonotonicTime start)
 
 #if PLATFORM(COCOA)
     UpdateGeometry(WebCore::IntSize viewSize, bool flushSynchronously, MachSendRight fencePort) -> ()

@@ -14,7 +14,7 @@
 <script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
-<link href="../images/favicon.ico" rel="shortcut icon" /></head>
+<link href="../images/favicon.png" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
@@ -134,6 +134,7 @@ Directory</a></li>
           <li><a href="#reqdn">Require ldap-dn</a></li>
           <li><a href="#reqattribute">Require ldap-attribute</a></li>
           <li><a href="#reqfilter">Require ldap-filter</a></li>
+	  <li><a href="#reqsearch">Require ldap-search</a></li>
         </ul>
       </li>
 
@@ -268,7 +269,7 @@ configuration de la mise en cache.
 
     <ul>
       <li>Avec la directive <a href="#reqgroup"><code>Require ldap-user</code></a>,
-      l'autorisation d'accès est accordée si le nom d'utilisateur
+l'autorisation d'accès est accordée si le nom d'utilisateur
       spécifié par la directive correspond au nom d'utilisateur fourni
       par le client.</li>
 
@@ -294,6 +295,11 @@ configuration de la mise en cache.
       est accordée si le filtre de recherche renvoie un objet
       utilisateur unique qui corresponde au DN de l'utilisateur
       authentifié.</li>
+
+      <li>Avec la directive <a href="#reqsearch"><code>Require
+      ldap-search</code></a>, l'autorisation d'accès
+      est accordée si le filtre de recherche renvoie avec succès un objet
+      correspondant unique avec n’importe quel DN.</li>
 
       <li>dans tous les autres cas, refus ou restriction de
       l'accès.</li>
@@ -592,6 +598,30 @@ AuthLDAPMaxSubGroupDepth 1</pre>
   Require ldap-filter (memberOf=cn=%{ldap:%{unescape:%{env:MATCH_SITENAME}},ou=Websites,o=Example)
 &lt;/LocationMatch&gt;</pre>
 
+
+
+
+<h3><a name="reqsearch" id="reqsearch">Require ldap-search</a></h3>
+
+    <p>La directive <code>Require ldap-search</code> permet à
+    l'administrateur d'autoriser l'accès en fonction d'un filtre de
+    recherche LDAP générique contenant une <a href="../expr.html">expression rationnelle</a>. Si le filtre de
+    recherche renvoie une et une seule correspondance, l'accès est
+    accordé sans tenir compte du DN.</p>
+
+    <p>La directive suivante accorderait l'accès aux URLs correspondant
+    aux objets spécifiés dans le serveur LDAP :</p>
+
+<pre class="prettyprint lang-config">&lt;LocationMatch "^/dav/(?&lt;SITENAME&gt;[^/]+)/"&gt;
+Require ldap-search "(cn=%{ldap:%{unescape:%{env:MATCH_SITENAME}}
+Website)"
+&lt;/LocationMatch&gt;</pre>
+
+
+    <p>Note : il faut bien s'assurer que les
+    expressions sont correctement échappés afin de se prémunir contre
+    toute injection LDAP. A cet effet, il est possible d'utiliser la
+    fonction <strong>ldap</strong> comme dans l'exemple ci-dessus.</p>
 
 
 
@@ -1457,7 +1487,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_ldap.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2024 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2025 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

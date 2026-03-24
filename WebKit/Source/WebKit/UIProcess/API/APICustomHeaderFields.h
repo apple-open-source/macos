@@ -40,10 +40,10 @@ public:
     CustomHeaderFields() = default;
 
     const Vector<WebCore::HTTPHeaderField>& fields() const { return m_fields.fields; }
-    void setFields(Vector<WebCore::HTTPHeaderField>&& fields) { m_fields.fields = WTFMove(fields); }
+    void setFields(Vector<WebCore::HTTPHeaderField>&& fields) { m_fields.fields = WTF::move(fields); }
 
     const Vector<WTF::String> thirdPartyDomains() const { return m_fields.thirdPartyDomains; }
-    void setThirdPartyDomains(Vector<WTF::String>&& domains) { m_fields.thirdPartyDomains = WTFMove(domains); }
+    void setThirdPartyDomains(Vector<WTF::String>&& domains) { m_fields.thirdPartyDomains = WTF::move(domains); }
 
     const WebCore::CustomHeaderFields& coreFields() const { return m_fields; }
 

@@ -1,18 +1,26 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fa_AF{
     AuxExemplarCharacters{"[\u200E\u200F َ ِ ُ ْ ٖ ٰ \u200C\u200D إ ټ ځ څ ډ ړ ږ ښ ك ګ ڼ ىي]"}
     NumberElements{
         arabext{
             patterns{
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;‎(¤ #,##0.00)"}
+                accountingFormat%noCurrency{"#,##0.00;‎(#,##0.00)"}
                 currencyFormat{"¤ #,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00"}
             }
         }
         latn{
             patterns{
                 accountingFormat{"¤ #,##0.00;‎(¤ #,##0.00)"}
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;‎(¤ #,##0.00)"}
+                accountingFormat%noCurrency{"#,##0.00;‎(#,##0.00)"}
                 currencyFormat{"¤ #,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00"}
             }
         }
     }

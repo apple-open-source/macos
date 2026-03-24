@@ -102,8 +102,8 @@ OSStatus SecServerPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStr
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)(void));
 bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)(void));
 bool s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
-                        CFArrayRef accessGroups, CFErrorRef *error);
-bool s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *error);
+                        CFArrayRef accessGroups, CFErrorRef *error, int *out_count, size_t *out_size);
+bool s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *error, size_t *out_size);
 bool s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                   CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef *error);
 bool s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFErrorRef *error);

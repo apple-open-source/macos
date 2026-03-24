@@ -182,13 +182,13 @@ static bool SOSTransportCircleKVSUpdateRetirementRecords(CFDictionaryRef updates
     CFStringRef circle_key = NULL;
     
     if(SOSAccountHasPublicKey(self.account, NULL)){
-        require_quiet(circle_name = (__bridge CFStringRef)self.circleName, fail);
-        require_quiet(circle_key = SOSCircleKeyCreateWithName(circle_name, error), fail);
+        __Require_Quiet(circle_name = (__bridge CFStringRef)self.circleName, fail);
+        __Require_Quiet(circle_key = SOSCircleKeyCreateWithName(circle_name, error), fail);
 
-        require_quiet(account, fail);
+        __Require_Quiet(account, fail);
         SOSAccountTrustClassic *trust = account.trust;
         SOSCircleRef circle = trust.trustedCircle;
-        require_quiet(circle && CFEqualSafe(circle_name, SOSCircleGetName(circle)), fail);
+        __Require_Quiet(circle && CFEqualSafe(circle_name, SOSCircleGetName(circle)), fail);
 
         SOSCircleForEachActivePeer(circle, ^(SOSPeerInfoRef peer) {
             CFStringRef retirement_key = SOSRetirementKeyCreateWithCircleNameAndPeer(circle_name, SOSPeerInfoGetPeerID(peer));
@@ -211,10 +211,10 @@ fail:
 -(bool)kvsAppendRingKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error
 {
     if(SOSAccountHasPublicKey(self.account, NULL)){
-        require_quiet(account, fail);
+        __Require_Quiet(account, fail);
         SOSAccountTrustClassic *trust = account.trust;
         SOSCircleRef circle = trust.trustedCircle;
-        require_quiet(circle, fail);
+        __Require_Quiet(circle, fail);
 
         // Always interested in backup rings:
         SOSAccountForEachRingName(account, ^(CFStringRef ringName) {
@@ -282,7 +282,7 @@ fail:
 {
     CFDataRef retirement_data = SOSPeerInfoCopyEncodedData(peer, kCFAllocatorDefault, error);
 
-    require_quiet(retirement_data, fail);
+    __Require_Quiet(retirement_data, fail);
 
     CFStringRef retirement_key = SOSRetirementKeyCreateWithCircleNameAndPeer((__bridge CFStringRef)(self.circleName), SOSPeerInfoGetPeerID(peer));
     if (retirement_key) {

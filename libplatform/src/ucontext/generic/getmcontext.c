@@ -102,6 +102,7 @@ getmcontext(ucontext_t *uctx, void *sp)
 
 #elif defined(__arm64__)
 
+#include <sys/resource.h>
 #include <signal.h>
 #include <strings.h>
 #include <stdint.h>

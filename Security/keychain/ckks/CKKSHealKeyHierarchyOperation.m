@@ -32,6 +32,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
 
@@ -46,6 +47,7 @@
 @property BOOL allowFullRefetchResult;
 @property BOOL newCloudKitRecordsWritten;
 @property BOOL cloudkitWriteFailures;
+@property BOOL authTokenFailure;
 
 @property CKKSResultOperation* setResultStateOperation;
 
@@ -73,6 +75,8 @@
 
         _newCloudKitRecordsWritten = NO;
         _ckOperations = [NSHashTable weakObjectsHashTable];
+
+        _authTokenFailure = NO;
     }
     return self;
 }
@@ -95,7 +99,10 @@
     self.setResultStateOperation = [CKKSResultOperation named:@"determine-next-state" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
         STRONGIFY(self);
 
-        if(self.cloudkitWriteFailures) {
+        if (self.authTokenFailure) {
+            ckksnotice_global("ckksheal", "CloudKit told us of an AuthTokenError, we'll try to re-fetch the current account state");
+            self.nextState = CKKSStateRecheckAccountStatus;
+        } else if(self.cloudkitWriteFailures) {
             ckksnotice_global("ckksheal", "Due to write failures, we'll try to fetch the current state");
            self.nextState = CKKSStateBeginFetch;
 
@@ -547,7 +554,12 @@
                             didSucceed = NO;
                             [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
 
-                            self.cloudkitWriteFailures = YES;
+                            if ([error isCKServerAuthTokenError]) {
+                                ckkserror("ckksheal", viewState.zoneID, "CloudKit tells us of an AuthTokenError, need to recheck CK Account Status");
+                                self.authTokenFailure = YES;
+                            } else {
+                                self.cloudkitWriteFailures = YES;
+                            }
                         }
                         return CKKSDatabaseTransactionCommit;
                     }];

@@ -22,11 +22,9 @@
 .\" WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 .\" OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 .\" ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-.\"
-.\" $FreeBSD: src/lib/libc/gen/ftok.3,v 1.17 2009/07/13 12:53:43 trasz Exp $
-.Dd July 9, 2009
-.Os
+.Dd November 28, 2022
 .Dt FTOK 3
+.Os
 .Sh NAME
 .Nm ftok
 .Nd create IPC identifier from path name
@@ -43,7 +41,7 @@ function attempts to create a unique key suitable for use with the
 .Xr semget 2 ,
 and
 .Xr shmget 2
-functions, given the
+functions given the
 .Fa path
 of an existing file and a user-selectable
 .Fa id .
@@ -78,11 +76,11 @@ The
 function originates with System V and is typically used by programs
 that use the System V IPC routines.
 .Sh AUTHORS
-.An Thorsten Lockert Aq tholo@sigmasoft.com
+.An Thorsten Lockert Aq Mt tholo@sigmasoft.com
 .Sh BUGS
-The returned key is computed based on the device minor number and inode
-of the specified
-.Fa path ,
+The returned key is computed based on the device minor number and inode of the
+specified
+.Fa path
 in combination with the lower 8 bits of the given
 .Fa id .
-Thus, it is quite possible for the routine to return duplicate keys.
+Thus it is quite possible for the routine to return duplicate keys.

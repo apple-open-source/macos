@@ -57,7 +57,7 @@ bool CSSStyleSheetObservableArray::setValueAt(JSC::JSGlobalObject* lexicalGlobal
         return false;
 
     if (auto exception = shouldThrowWhenAddingSheet(*sheetConversionResult.returnValue())) {
-        throwException(lexicalGlobalObject, scope, createDOMException(*lexicalGlobalObject, WTFMove(*exception)));
+        throwException(lexicalGlobalObject, scope, createDOMException(*lexicalGlobalObject, WTF::move(*exception)));
         return false;
     }
 
@@ -94,12 +94,12 @@ ExceptionOr<void> CSSStyleSheetObservableArray::setSheets(Vector<Ref<CSSStyleShe
 {
     for (auto& sheet : sheets) {
         if (auto exception = shouldThrowWhenAddingSheet(sheet))
-            return WTFMove(*exception);
+            return WTF::move(*exception);
     }
 
     for (auto& sheet : m_sheets)
         willRemoveSheet(sheet);
-    m_sheets = WTFMove(sheets);
+    m_sheets = WTF::move(sheets);
     for (auto& sheet : m_sheets)
         didAddSheet(sheet);
 

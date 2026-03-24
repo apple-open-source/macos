@@ -97,7 +97,7 @@ void MockContentFilter::willSendRequest(ResourceRequest& request, const Resource
         return;
     }
 
-    request.setURL(WTFMove(modifiedRequestURL));
+    request.setURL(WTF::move(modifiedRequestURL));
 }
 
 void MockContentFilter::willSendRequest(ResourceRequest&& request, const ResourceResponse& redirectResponse, CompletionHandler<void(String&&)>&& completionHandler)

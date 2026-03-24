@@ -170,17 +170,17 @@ static CFDataRef copy_precert_entry_from_chain(SecPVCRef pvc)
     CFDataRef tbs_precert = NULL;
     CFMutableDataRef data= NULL;
 
-    require_quiet(SecPVCGetCertificateCount(pvc)>=2, out); //we need the issuer key for precerts.
+    __Require_Quiet(SecPVCGetCertificateCount(pvc)>=2, out); //we need the issuer key for precerts.
     leafCert = SecPVCGetCertificateAtIndex(pvc, 0);
     issuer = SecPVCGetCertificateAtIndex(pvc, 1);
 
-    require(leafCert, out);
-    require(issuer, out); // Those two would likely indicate an internal error, since we already checked the chain length above.
+    __Require(leafCert, out);
+    __Require(issuer, out); // Those two would likely indicate an internal error, since we already checked the chain length above.
     issuerKeyHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(issuer);
     tbs_precert = SecCertificateCopyPrecertTBS(leafCert);
 
-    require(issuerKeyHash, out);
-    require(tbs_precert && CFDataGetLength(tbs_precert) > 0, out);
+    __Require(issuerKeyHash, out);
+    __Require(tbs_precert && CFDataGetLength(tbs_precert) > 0, out);
     data = CFDataCreateMutable(kCFAllocatorDefault, CFDataGetLength(issuerKeyHash) + 3 + CFDataGetLength(tbs_precert));
     CFDataSetLength(data, CFDataGetLength(issuerKeyHash) + 3 + CFDataGetLength(tbs_precert));
 
@@ -247,7 +247,7 @@ bool SecCertificateTransparencyExtractSCTLogIDAndTimestamp(CFDataRef sct, CFData
     const uint8_t *p = CFDataGetBytePtr(sct);
     size_t len = (size_t)CFDataGetLength(sct);
 
-    require(len>=43 && len < LONG_MAX, out);
+    __Require(len>=43 && len < LONG_MAX, out);
 
     version = p[0]; p++;
     logID = p; p+=32;
@@ -319,21 +319,21 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFD
     const uint8_t *p = CFDataGetBytePtr(sct);
     size_t len = (size_t)CFDataGetLength(sct);
 
-    require(len>=43 && len < LONG_MAX, out);
+    __Require(len>=43 && len < LONG_MAX, out);
 
     version = p[0]; p++; len--;
     logID = p; p+=32; len-=32;
     timestampData = p; p+=8; len-=8;
     extensionsLen = SSLDecodeUint16(p); p+=2; len-=2;
 
-    require(len>=extensionsLen, out);
+    __Require(len>=extensionsLen, out);
     extensionsData = p; p+=extensionsLen; len-=extensionsLen;
 
-    require(len>=4, out);
+    __Require(len>=4, out);
     hashAlg=p[0]; p++; len--;
     sigAlg=p[0]; p++; len--;
     signatureLen = SSLDecodeUint16(p); p+=2; len-=2;
-    require(len==signatureLen, out); /* We do not tolerate any extra data after the signature */
+    __Require(len==signatureLen, out); /* We do not tolerate any extra data after the signature */
     signatureData = p;
 
     /* verify version: only v1(0) is supported */
@@ -353,10 +353,10 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFD
 
     /* signed entry */
     // don't allow attackers to allocate more than 1 MB
-    require(CFDataGetLength(entry) > 0 && CFDataGetLength(entry) < 0x0fffff, out);
+    __Require(CFDataGetLength(entry) > 0 && CFDataGetLength(entry) < 0x0fffff, out);
     size_t signed_data_len = 12 + (size_t)CFDataGetLength(entry) + 2 + extensionsLen ;
     signed_data = malloc(signed_data_len);
-    require(signed_data, out);
+    __Require(signed_data, out);
     q = signed_data;
     *q++ = version;
     *q++ = 0; // certificate_timestamp
@@ -370,15 +370,15 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFD
 
     CFDictionaryRef logData = CFDictionaryGetValue(trustedLogs, logIDData);
     CFAbsoluteTime sct_time = TimestampToCFAbsoluteTime(timestamp);
-    require(logData && isSCTValidForLogData(logData, entry_type, sct_time, cert_expiry_date), out);
+    __Require(logData && isSCTValidForLogData(logData, entry_type, sct_time, cert_expiry_date), out);
 
     CFDataRef logKeyData = CFDictionaryGetValue(logData, kSecCTPublicKeyKey);
-    require(logKeyData, out); // This failing would be an internal logic error
+    __Require(logKeyData, out); // This failing would be an internal logic error
     pubKey = SecKeyCreateFromSubjectPublicKeyInfoData(kCFAllocatorDefault, logKeyData);
-    require(pubKey, out);
+    __Require(pubKey, out);
 
     oid = oidForSigAlg(hashAlg, sigAlg);
-    require(oid, out);
+    __Require(oid, out);
 
     algId.algorithm = *oid;
     algId.parameters.Data = NULL;
@@ -419,18 +419,18 @@ static CFArrayRef copy_ocsp_scts(SecPVCRef pvc)
     SecOCSPRequestRef ocspRequest = NULL;
 
     ocspResponsesData = SecPathBuilderCopyOCSPResponses(pvc->builder);
-    require_quiet(ocspResponsesData, out);
+    __Require_Quiet(ocspResponsesData, out);
 
-    require_quiet(SecPVCGetCertificateCount(pvc)>=2, out); //we need the issuer key for precerts.
+    __Require_Quiet(SecPVCGetCertificateCount(pvc)>=2, out); //we need the issuer key for precerts.
     leafCert = SecPVCGetCertificateAtIndex(pvc, 0);
     issuer = SecPVCGetCertificateAtIndex(pvc, 1);
 
-    require(leafCert, out);
-    require(issuer, out); // not quiet: Those two would likely indicate an internal error, since we already checked the chain length above.
+    __Require(leafCert, out);
+    __Require(issuer, out); // not quiet: Those two would likely indicate an internal error, since we already checked the chain length above.
     ocspRequest = SecOCSPRequestCreate(leafCert, issuer);
 
     SCTs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    require(SCTs, out);
+    __Require(SCTs, out);
 
     CFArrayForEach(ocspResponsesData, ^(const void *value) {
         /* TODO: Should the builder already have the appropriate SecOCSPResponseRef ? */
@@ -484,14 +484,14 @@ static bool find_validating_logs(SecPVCRef pvc, CFDictionaryRef trustedLogs,
     __block bool at_least_one_currently_valid_external = 0;
     __block bool at_least_one_currently_valid_embedded = 0;
 
-    require(logsValidatingEmbeddedScts, out);
-    require(currentLogsValidatingScts, out);
+    __Require(logsValidatingEmbeddedScts, out);
+    __Require(currentLogsValidatingScts, out);
 
     /* Skip if there are no SCTs. */
     bool no_scts = (embeddedScts && CFArrayGetCount(embeddedScts) > 0) ||
                    (builderScts && CFArrayGetCount(builderScts) > 0) ||
                     (ocspScts && CFArrayGetCount(ocspScts) > 0);
-    require_quiet(no_scts, out);
+    __Require_Quiet(no_scts, out);
 
     if(trustedLogs && CFDictionaryGetCount(trustedLogs) > 0) { // Don't bother trying to validate SCTs if we don't have any trusted logs.
         if(embeddedScts && precertEntry) { // Don't bother if we could not get the precert.

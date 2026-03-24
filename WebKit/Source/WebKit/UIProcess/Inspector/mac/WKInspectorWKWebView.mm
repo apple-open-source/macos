@@ -59,6 +59,11 @@
     return _inspectorWKWebViewDelegate.getAutoreleased();
 }
 
+- (RetainPtr<id <WKInspectorWKWebViewDelegate>>)protectedInspectorWKWebViewDelegate
+{
+    return self.inspectorWKWebViewDelegate;
+}
+
 - (void)setInspectorWKWebViewDelegate:(id <WKInspectorWKWebViewDelegate>)delegate
 {
     if (!!_inspectorWKWebViewDelegate)
@@ -72,37 +77,37 @@
 
 - (IBAction)reload:(id)sender
 {
-    [self.inspectorWKWebViewDelegate inspectorWKWebViewReload:self];
+    [self.protectedInspectorWKWebViewDelegate inspectorWKWebViewReload:self];
 }
 
 - (IBAction)reloadFromOrigin:(id)sender
 {
-    [self.inspectorWKWebViewDelegate inspectorWKWebViewReloadFromOrigin:self];
+    [self.protectedInspectorWKWebViewDelegate inspectorWKWebViewReloadFromOrigin:self];
 }
 
 - (void)viewWillMoveToWindow:(NSWindow *)newWindow
 {
     [super viewWillMoveToWindow:newWindow];
-    [self.inspectorWKWebViewDelegate inspectorWKWebView:self willMoveToWindow:newWindow];
+    [self.protectedInspectorWKWebViewDelegate inspectorWKWebView:self willMoveToWindow:newWindow];
 }
 
 - (void)viewDidMoveToWindow
 {
     [super viewDidMoveToWindow];
-    [self.inspectorWKWebViewDelegate inspectorWKWebViewDidMoveToWindow:self];
+    [self.protectedInspectorWKWebViewDelegate inspectorWKWebViewDidMoveToWindow:self];
 }
 
 - (BOOL)becomeFirstResponder
 {
     BOOL result = [super becomeFirstResponder];
-    [self.inspectorWKWebViewDelegate inspectorWKWebViewDidBecomeActive:self];
+    [self.protectedInspectorWKWebViewDelegate inspectorWKWebViewDidBecomeActive:self];
     return result;
 }
 
 - (void)_handleWindowDidBecomeKey:(NSNotification *)notification
 {
     if (notification.object == self.window)
-        [self.inspectorWKWebViewDelegate inspectorWKWebViewDidBecomeActive:self];
+        [self.protectedInspectorWKWebViewDelegate inspectorWKWebViewDidBecomeActive:self];
 }
 
 @end

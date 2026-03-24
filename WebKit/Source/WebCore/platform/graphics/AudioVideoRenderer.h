@@ -44,6 +44,7 @@ namespace WebCore {
 class CDMInstance;
 class FloatRect;
 class GraphicsContext;
+class LegacyCDMSession;
 class LayoutRect;
 class MediaSample;
 class NativeImage;
@@ -85,7 +86,9 @@ public:
     virtual RefPtr<VideoFrame> currentVideoFrame() const = 0;
     virtual void paintCurrentVideoFrameInContext(GraphicsContext&, const FloatRect&) { }
     virtual RefPtr<NativeImage> currentNativeImage() const { return nullptr; }
+#if ENABLE(VIDEO)
     virtual std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() = 0;
+#endif
     virtual PlatformLayer* platformVideoLayer() const { return nullptr; }
 
     using LayerHostingContextCallback = CompletionHandler<void(HostingContext)>;
@@ -94,9 +97,6 @@ public:
     virtual WebCore::FloatSize videoLayerSize() const { return { }; }
     virtual void notifyVideoLayerSizeChanged(Function<void(const MediaTime&, FloatSize)>&&) { }
     virtual void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRightAnnotated&&) { }
-#if ENABLE(ENCRYPTED_MEDIA)
-    virtual void notifyInsufficientExternalProtectionChanged(Function<void(bool)>&&) { }
-#endif
 };
 
 class VideoFullscreenInterface {
@@ -144,8 +144,8 @@ public:
 
     virtual void enqueueSample(TrackIdentifier, Ref<MediaSample>&&, std::optional<MediaTime> = std::nullopt) = 0;
     virtual bool isReadyForMoreSamples(TrackIdentifier) = 0;
-    virtual void requestMediaDataWhenReady(TrackIdentifier, Function<void(TrackIdentifier)>&&) = 0;
-    virtual void stopRequestingMediaData(TrackIdentifier) = 0;
+    using RequestPromise = NativePromise<TrackIdentifier, PlatformMediaError>;
+    virtual Ref<RequestPromise> requestMediaDataWhenReady(TrackIdentifier) = 0;
     virtual void notifyTrackNeedsReenqueuing(TrackIdentifier, Function<void(TrackIdentifier, const MediaTime&)>&&) { }
 
     virtual bool timeIsProgressing() const = 0;
@@ -168,6 +168,12 @@ public:
 
 #if ENABLE(ENCRYPTED_MEDIA)
     virtual void setCDMInstance(CDMInstance*) { }
+    virtual Ref<MediaPromise> setInitData(Ref<SharedBuffer>) { return MediaPromise::createAndResolve(); }
+    virtual void attemptToDecrypt() { }
+#endif
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    virtual RefPtr<SharedBuffer> initData() const { return nullptr; }
+    virtual void setCDMSession(LegacyCDMSession*) { }
 #endif
 };
 

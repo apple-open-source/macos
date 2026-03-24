@@ -50,7 +50,9 @@ public:
     WEBCORE_EXPORT ResourceError(CFErrorRef error);
 
     WEBCORE_EXPORT CFErrorRef cfError() const;
+    WEBCORE_EXPORT RetainPtr<CFErrorRef> protectedCFError() const;
     WEBCORE_EXPORT CFErrorRef cfError(CFErrorRef) const;
+    WEBCORE_EXPORT RetainPtr<CFErrorRef> protectedCFError(CFErrorRef) const;
     WEBCORE_EXPORT operator CFErrorRef() const;
     WEBCORE_EXPORT ResourceError(NSError *);
     WEBCORE_EXPORT NSError *nsError() const;

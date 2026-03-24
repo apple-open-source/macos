@@ -77,7 +77,7 @@ print_net_api_stats(struct netstat_parameters *params, uint32_t off __unused, ch
 
 	p(nas_ipf_add_count, "\t%lld IP filter%s currently attached\n");
 #ifdef NAS_HAS_FLTR_OS_COUNTS
-	p(nas_ipf_add_os_count, "\t%lld interface filter%s currently attached by OS\n");
+	p(nas_ipf_add_os_count, "\t%lld IP filter%s currently attached by OS\n");
 #endif /* NAS_HAS_FLTR_OS_COUNTS */
 	p(nas_ipf_add_total, "\t%lld IP filter%s attached since boot\n");
 	p(nas_ipf_add_os_total, "\t%lld IP filter%s attached since boot by OS\n");
@@ -233,58 +233,123 @@ print_if_link_heuristics_stats(struct netstat_parameters *params, char *name)
 	/*
 	 * Do not bother to cluter the output if there is nothing to report
 	 */
-	if (ifr.ifr_intval == 0 &&
-		if_linkheuristics.iflh_link_heuristics_cnt == 0 &&
-		if_linkheuristics.iflh_congested_link_cnt == 0 &&
-		if_linkheuristics.iflh_lqm_good_cnt == 0 &&
-		if_linkheuristics.iflh_lqm_poor_cnt == 0 &&
-		if_linkheuristics.iflh_lqm_bad_cnt == 0) {
+	if (ifr.ifr_intval != 0 ||
+		if_linkheuristics.iflh_link_heuristics_cnt != 0 ||
+		if_linkheuristics.iflh_congested_link_cnt != 0 ||
+		if_linkheuristics.iflh_lqm_good_cnt != 0 ||
+		if_linkheuristics.iflh_lqm_poor_cnt != 0 ||
+		if_linkheuristics.iflh_lqm_bad_cnt != 0) {
+		printf("link heuristics on %s\n", name);
+
+		printf("\tenabled: %s\n", ifr.ifr_intval ? "true" : "false");
+
+	#define	p(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
+		printf(m, if_linkheuristics.f, plural(if_linkheuristics.f))
+
+	#define	p1(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
+		printf(m, if_linkheuristics.f / 1000, if_linkheuristics.f % 1000)
+
+		p(iflh_link_heuristics_cnt, "\t%llu time%s link heuristics enabled\n");
+		p1(iflh_link_heuristics_time, "\t%llu.%03llu seconds link heuristics enabled\n");
+
+		p(iflh_congested_link_cnt, "\t%llu time%s link congested enabled\n");
+		p1(iflh_congested_link_time, "\t%llu.%03llu seconds link congested\n");
+
+		p(iflh_lqm_good_cnt, "\t%llu time%s good link quality enabled\n");
+		p1(iflh_lqm_good_time, "\t%llu.%03llu seconds of good link quality\n");
+
+		p(iflh_lqm_poor_cnt, "\t%llu time%s poor link quality enabled\n");
+		p1(iflh_lqm_poor_time, "\t%llu.%03llu seconds of poor link quality\n");
+
+		p(iflh_lqm_min_viable_cnt, "\t%llu time%s minimally viable link quality enabled\n");
+		p1(iflh_lqm_min_viable_time, "\t%llu.%03llu seconds of minimally viable link quality\n");
+
+		p(iflh_lqm_bad_cnt, "\t%llu time%s bad link quality enabled\n");
+		p1(iflh_lqm_bad_time, "\t%llu.%03llu seconds of bad link quality\n");
+
+		p(iflh_tcp_linkheur_stealthdrop, "\t%llu stealth TCP packet%s to closed port\n");
+
+		p(iflh_tcp_linkheur_noackpri, "\t%llu TCP packet%s ACK/SYN no prioritized\n");
+
+		p(iflh_tcp_linkheur_comprxmt, "\t%llu TCP data retransmission%s compressed\n");
+
+		p(iflh_tcp_linkheur_synrxmt, "\t%llu TCP SYN retransmission%s standard backoff\n");
+
+		p(iflh_tcp_linkheur_rxmtfloor, "\t%llu TCP retransmission%s delayed to floor\n");
+
+		p(iflh_udp_linkheur_stealthdrop, "\t%llu stealth UDP packet%s to closed port\n");
+	}
+done:
+	close(s);
+
+	return 0;
+}
+
+int
+print_if_lpw_stats(struct netstat_parameters *params, char *name)
+{
+#ifdef IFDATA_LPWSTATS
+	struct ifreq ifr = { 0 };
+	int s = -1;
+	struct if_lpw_stats if_lpw_stats = { 0 };
+	size_t lpw_miblen = sizeof(struct if_lpw_stats);
+	int mib[6];
+
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s < 0) {
+		warn("socket");
+		return -1;
+	}
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (ioctl(s, SIOCGLINKHEURISTICS, &ifr) == -1) {
+		if (params->vflag > 0) {
+			warn("ioctl SIOCGLINKHEURISTICS");
+		}
 		goto done;
 	}
 
-	printf("link heuristics on %s\n", name);
+	/* Common OID prefix */
+	mib[0] = CTL_NET;
+	mib[1] = PF_LINK;
+	mib[2] = NETLINK_GENERIC;
+	mib[3] = IFMIB_IFDATA;
+	mib[4] = if_nametoindex(name);
 
-	printf("\tenabled: %s\n", ifr.ifr_intval ? "true" : "false");
+	mib[5] = IFDATA_LPWSTATS;
+	if (sysctl(mib, 6, &if_lpw_stats, &lpw_miblen, (void *)0, 0) == -1) {
+		if (params->vflag > 0) {
+			warn("sysctl IFDATA_LPWSTATS");
+		}
+		goto done;
+	}
 
-#define	p(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
-    printf(m, if_linkheuristics.f, plural(if_linkheuristics.f))
+	/*
+	 * Do not bother to clutter the output if there is nothing to report
+	 */
+	if (params->vflag != 0 ||
+	    ifr.ifr_intval != 0 ||
+	    if_lpw_stats.iflpw_ipackets != 0 ||
+		if_lpw_stats.iflpw_opackets != 0 ||
+		if_lpw_stats.iflpw_magic_pkt_checked != 0 ||
+		if_lpw_stats.iflpw_magic_pkt_found != 0) {
+		printf("LPW stats on %s\n", name);
 
-#define	p1(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
-	printf(m, if_linkheuristics.f / 1000, if_linkheuristics.f % 1000)
+	#define	p_lpw(f, m) if (if_lpw_stats.f || params->sflag <= 1) \
+		printf(m, if_lpw_stats.f, plural(if_lpw_stats.f))
 
-	p(iflh_link_heuristics_cnt, "\t%llu time%s link heuristics enabled\n");
-	p1(iflh_link_heuristics_time, "\t%llu.%03llu seconds link heuristics enabled\n");
+		p_lpw(iflpw_ipackets, "\t%llu packet%s received in LPW mode\n");
+		p_lpw(iflpw_opackets, "\t%llu packet%s sent in LPW mode\n");
+		p_lpw(iflpw_magic_pkt_checked, "\t%llu magic packet%s checked\n");
+		p_lpw(iflpw_magic_pkt_found, "\t%llu magic packet%s found\n");
 
-	p(iflh_congested_link_cnt, "\t%llu time%s link congested enabled\n");
-	p1(iflh_congested_link_time, "\t%llu.%03llu seconds link congested\n");
-
-	p(iflh_lqm_good_cnt, "\t%llu time%s good link quality enabled\n");
-	p1(iflh_lqm_good_time, "\t%llu.%03llu seconds of good link quality\n");
-
-	p(iflh_lqm_poor_cnt, "\t%llu time%s poor link quality enabled\n");
-	p1(iflh_lqm_poor_time, "\t%llu.%03llu seconds of poor link quality\n");
-
-	p(iflh_lqm_min_viable_cnt, "\t%llu time%s minimally viable link quality enabled\n");
-	p1(iflh_lqm_min_viable_time, "\t%llu.%03llu seconds of minimally viable link quality\n");
-
-	p(iflh_lqm_bad_cnt, "\t%llu time%s bad link quality enabled\n");
-	p1(iflh_lqm_bad_time, "\t%llu.%03llu seconds of bad link quality\n");
-
-	p(iflh_tcp_linkheur_stealthdrop, "\t%llu stealth TCP packet%s to closed port\n");
-
-	p(iflh_tcp_linkheur_noackpri, "\t%llu TCP packet%s ACK/SYN no prioritized\n");
-
-	p(iflh_tcp_linkheur_comprxmt, "\t%llu TCP data retransmission%s compressed\n");
-
-	p(iflh_tcp_linkheur_synrxmt, "\t%llu TCP SYN retransmission%s standard backoff\n");
-
-	p(iflh_tcp_linkheur_rxmtfloor, "\t%llu TCP retransmission%s delayed to floor\n");
-
-	p(iflh_udp_linkheur_stealthdrop, "\t%llu stealth UDP packet%s to closed port\n");
-
+	#undef p_lpw
+	}
 
 done:
 	close(s);
+#endif /* IFDATA_LPWSTATS */
 
 	return 0;
 }

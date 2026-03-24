@@ -39,11 +39,17 @@
 #import <WebCore/TouchAction.h>
 #import <WebCore/TransformationMatrix.h>
 #import <WebCore/WebCoreCALayerExtras.h>
-#import <pal/cocoa/CoreMaterialSoftLink.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <ranges>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+#import "WKSeparatedImageView.h"
+#endif
+
+#import <pal/cocoa/CoreMaterialSoftLink.h>
 
 namespace WTF {
 
@@ -154,7 +160,7 @@ bool mayContainEditableElementsInRect(UIView *rootView, const WebCore::FloatRect
     if (viewsInRect.isEmpty())
         return false;
     bool possiblyHasEditableElements = true;
-    for (RetainPtr view : WTF::makeReversedRange(viewsInRect)) {
+    for (RetainPtr view : viewsInRect | std::views::reverse) {
         if (![view isKindOfClass:WKCompositingView.class])
             continue;
         auto* node = RemoteLayerTreeNode::forCALayer([view layer]);
@@ -203,14 +209,14 @@ OptionSet<WebCore::TouchAction> touchActionsForPoint(UIView *rootView, const Web
         return { WebCore::TouchAction::Auto };
 
     RetainPtr<UIView> hitView;
-    for (RetainPtr view : WTF::makeReversedRange(viewsAtPoint)) {
+    for (RetainPtr view : viewsAtPoint | std::views::reverse) {
         // We only hit WKChildScrollView directly if its content layer doesn't have an event region.
         // We don't generate the region if there is nothing interesting in it, meaning the touch-action is auto.
         if ([view isKindOfClass:[WKChildScrollView class]])
             return WebCore::TouchAction::Auto;
 
         if ([view isKindOfClass:[WKCompositingView class]]) {
-            hitView = WTFMove(view);
+            hitView = WTF::move(view);
             break;
         }
     }
@@ -237,9 +243,9 @@ OptionSet<WebCore::EventListenerRegionType> eventListenerTypesAtPoint(UIView *ro
         return { };
 
     RetainPtr<UIView> hitView;
-    for (RetainPtr view : WTF::makeReversedRange(viewsAtPoint)) {
+    for (RetainPtr view : viewsAtPoint | std::views::reverse) {
         if ([view isKindOfClass:[WKCompositingView class]]) {
-            hitView = WTFMove(view);
+            hitView = WTF::move(view);
             break;
         }
     }
@@ -280,11 +286,7 @@ UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayer
 
 static Class scrollViewScrollIndicatorClassSingleton()
 {
-    static dispatch_once_t onceToken;
-    static Class scrollIndicatorClass;
-    dispatch_once(&onceToken, ^{
-        scrollIndicatorClass = NSClassFromString(@"_UIScrollViewScrollIndicator");
-    });
+    static Class scrollIndicatorClass = NSClassFromString(@"_UIScrollViewScrollIndicator");
     return scrollIndicatorClass;
 }
 
@@ -303,7 +305,7 @@ static Class scrollViewScrollIndicatorClassSingleton()
 
     LOG_WITH_STREAM(UIHitTesting, stream << (void*)self << "_web_findDescendantViewAtPoint " << WebCore::FloatPoint(point) << " found " << viewsAtPoint.size() << " views");
 
-    for (RetainPtr view : WTF::makeReversedRange(viewsAtPoint)) {
+    for (RetainPtr view : viewsAtPoint | std::views::reverse) {
         if ([view conformsToProtocol:@protocol(WKNativelyInteractible)]) {
             LOG_WITH_STREAM(UIHitTesting, stream << " " << (void*)view.get() << " is natively interactible");
             CGPoint subviewPoint = [view convertPoint:point fromView:self];
@@ -313,14 +315,14 @@ static Class scrollViewScrollIndicatorClassSingleton()
         if ([view isKindOfClass:[WKChildScrollView class]]) {
             if (WebKit::isScrolledBy((WKChildScrollView *)view.get(), viewsAtPoint.last().get())) {
                 LOG_WITH_STREAM(UIHitTesting, stream << " " << (void*)view.get() << " is child scroll view and scrolled by " << (void*)viewsAtPoint.last().get());
-                return view.unsafeGet();
+                return view.autorelease();
             }
         }
 
         if ([view isKindOfClass:WebKit::scrollViewScrollIndicatorClassSingleton()] && [[view superview] isKindOfClass:WKChildScrollView.class]) {
             if (WebKit::isScrolledBy((WKChildScrollView *)[view superview], viewsAtPoint.last().get())) {
                 LOG_WITH_STREAM(UIHitTesting, stream << " " << (void*)view.get() << " is the scroll indicator of child scroll view, which is scrolled by " << (void*)viewsAtPoint.last().get());
-                return view.unsafeGet();
+                return view.autorelease();
             }
         }
 
@@ -430,6 +432,13 @@ static Class scrollViewScrollIndicatorClassSingleton()
 
 @end
 
+#endif
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+@interface WKSeparatedImageView (WKContentControlled) <WKContentControlled>
+@end
+@implementation WKSeparatedImageView (WKContentControlled)
+@end
 #endif
 
 @implementation WKUIRemoteView

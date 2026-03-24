@@ -105,12 +105,12 @@ std::optional<MediaPlayerIdentifier> PlaybackSessionInterfaceIOS::playerIdentifi
 
 void PlaybackSessionInterfaceIOS::setPlayerIdentifier(std::optional<MediaPlayerIdentifier> identifier)
 {
-    m_playerIdentifier = WTFMove(identifier);
+    m_playerIdentifier = WTF::move(identifier);
 }
 
 void PlaybackSessionInterfaceIOS::setVideoPresentationInterface(WeakPtr<VideoPresentationInterfaceIOS> videoPresentationInterface)
 {
-    m_videoPresentationInterface = WTFMove(videoPresentationInterface);
+    m_videoPresentationInterface = WTF::move(videoPresentationInterface);
 }
 
 void PlaybackSessionInterfaceIOS::startObservingNowPlayingMetadata()
@@ -136,27 +136,6 @@ WTFLogChannel& PlaybackSessionInterfaceIOS::logChannel() const
 {
     return LogMedia;
 }
-
-uint32_t PlaybackSessionInterfaceIOS::checkedPtrCount() const
-{
-    return CanMakeCheckedPtr::checkedPtrCount();
-}
-
-uint32_t PlaybackSessionInterfaceIOS::checkedPtrCountWithoutThreadCheck() const
-{
-    return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck();
-}
-
-void PlaybackSessionInterfaceIOS::incrementCheckedPtrCount() const
-{
-    CanMakeCheckedPtr::incrementCheckedPtrCount();
-}
-
-void PlaybackSessionInterfaceIOS::decrementCheckedPtrCount() const
-{
-    CanMakeCheckedPtr::decrementCheckedPtrCount();
-}
-
 #endif
 
 } // namespace WebCore

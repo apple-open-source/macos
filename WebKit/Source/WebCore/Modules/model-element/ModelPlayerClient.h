@@ -35,23 +35,14 @@
 namespace WebCore {
 
 class FloatPoint3D;
+class GraphicsLayer;
 class HTMLModelElement;
 class ModelPlayer;
 class ResourceError;
 
-#if ENABLE(GPU_PROCESS_MODEL)
-class WEBCORE_EXPORT ModelPlayerClient : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelPlayerClient> {
-#else
 class WEBCORE_EXPORT ModelPlayerClient : public AbstractRefCountedAndCanMakeWeakPtr<ModelPlayerClient> {
-#endif
 public:
     virtual ~ModelPlayerClient();
-
-    virtual void didUpdateLayerHostingContextIdentifier(ModelPlayer&, LayerHostingContextIdentifier) = 0;
-#if ENABLE(GPU_PROCESS_MODEL)
-    // FIXME: Merge with `didUpdateLayerHostingContextIdentifier`, as both just want to trigger `renderer->updateFromElement()` and mean the same thing semantically.
-    virtual void didUpdateDisplayDelegate(ModelPlayer&) const = 0;
-#endif
 
     virtual void didFinishLoading(ModelPlayer&) = 0;
     virtual void didFailLoading(ModelPlayer&, const ResourceError&) = 0;
@@ -60,6 +51,7 @@ public:
     virtual void didFinishEnvironmentMapLoading(ModelPlayer&, bool succeeded) = 0;
 #endif
     virtual void didUnload(ModelPlayer&) = 0;
+    virtual void didUpdate(ModelPlayer&) = 0;
 
 #if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     virtual void didUpdateEntityTransform(ModelPlayer&, const TransformationMatrix&) = 0;
@@ -68,9 +60,9 @@ public:
     virtual void didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D&, const FloatPoint3D&) = 0;
 #endif
 
-    virtual std::optional<PlatformLayerIdentifier> modelContentsLayerID() const = 0;
+    virtual RefPtr<GraphicsLayer> graphicsLayer() const = 0;
+
     virtual bool isVisible() const = 0;
-    virtual bool isIntersectingViewport() const = 0;
     virtual void logWarning(ModelPlayer&, const String& warningMessage) = 0;
 };
 

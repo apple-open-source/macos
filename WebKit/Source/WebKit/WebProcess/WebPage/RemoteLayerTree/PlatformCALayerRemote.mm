@@ -44,7 +44,7 @@
 #import <WebCore/TiledBacking.h>
 #import <wtf/PointerComparison.h>
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #import <WebCore/AcceleratedEffect.h>
 #import <WebCore/AcceleratedEffectValues.h>
 #endif
@@ -130,7 +130,7 @@ Ref<PlatformCALayer> PlatformCALayerRemote::clone(PlatformCALayerClient* owner) 
     updateClonedLayerProperties(clone);
 
     clone->setClonedLayer(this);
-    return WTFMove(clone);
+    return WTF::move(clone);
 }
 
 PlatformCALayerRemote::~PlatformCALayerRemote()
@@ -553,7 +553,7 @@ void PlatformCALayerRemote::setMaskLayer(RefPtr<WebCore::PlatformCALayer>&& laye
     if (isEquivalentLayer(layer.get(), m_properties.maskLayerID))
         return;
 
-    PlatformCALayer::setMaskLayer(WTFMove(layer));
+    PlatformCALayer::setMaskLayer(WTF::move(layer));
 
     if (RefPtr layer = maskLayer())
         m_properties.maskLayerID = layer->layerID();
@@ -968,6 +968,20 @@ void PlatformCALayerRemote::setCornerRadius(float value)
     m_properties.notePropertiesChanged(LayerChange::CornerRadiusChanged);
 }
 
+WebCore::Path PlatformCALayerRemote::shadowPath() const
+{
+    return m_properties.shadowPath;
+}
+
+void PlatformCALayerRemote::setShadowPath(const WebCore::Path& path)
+{
+    if (m_properties.shadowPath.definitelyEqual(path))
+        return;
+
+    m_properties.shadowPath = path;
+    m_properties.notePropertiesChanged(LayerChange::ShadowPathChanged);
+}
+
 void PlatformCALayerRemote::setAntialiasesEdges(bool antialiases)
 {
     if (antialiases == m_properties.antialiasesEdges)
@@ -1189,7 +1203,7 @@ LayerPool* PlatformCALayerRemote::layerPool()
     return m_context ? &m_context->layerPool() : nullptr;
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void PlatformCALayerRemote::clearAcceleratedEffectsAndBaseValues()
 {
     m_properties.animationChanges.effects = { };

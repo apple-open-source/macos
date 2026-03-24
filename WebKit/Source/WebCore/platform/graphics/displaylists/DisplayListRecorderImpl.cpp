@@ -59,7 +59,7 @@ Ref<const DisplayList> RecorderImpl::takeDisplayList()
 {
     appendStateChangeItemIfNecessary();
     m_items.shrinkToFit();
-    return DisplayList::create(WTFMove(m_items));
+    return DisplayList::create(WTF::move(m_items));
 }
 
 Ref<const DisplayList> RecorderImpl::copyDisplayList()
@@ -373,7 +373,7 @@ void RecorderImpl::fillEllipse(const FloatRect& rect)
 }
 
 #if ENABLE(VIDEO)
-void RecorderImpl::drawVideoFrame(VideoFrame&, const FloatRect&, ImageOrientation, bool)
+void RecorderImpl::drawVideoFrame(const VideoFrame&, const FloatRect&, ImageOrientation, bool)
 {
     appendStateChangeItemIfNecessary();
     // FIXME: TODO
@@ -498,7 +498,7 @@ void RecorderImpl::appendStateChangeItemIfNecessary()
 
 void RecorderImpl::drawPlaceholder(Function<void(GraphicsContext&)>&& function)
 {
-    m_items.append(DrawPlaceholder(WTFMove(function)));
+    m_items.append(DrawPlaceholder(WTF::move(function)));
 }
 
 } // namespace DisplayList

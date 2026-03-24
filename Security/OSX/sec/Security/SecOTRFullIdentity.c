@@ -125,7 +125,7 @@ static bool SecKeyDigestAndSignWithError(
                                   CFErrorRef          *error) {
 
     OSStatus status = SecKeyDigestAndSign(key, algId, dataToDigest, dataToDigestLen, sig, sigLen);
-    require_noerr(status, fail);
+    __Require_noErr(status, fail);
     return true;
 fail:
     SecOTRCreateError(secOTRErrorOSError, status, CFSTR("Error signing message. OSStatus in error code."), NULL, error);
@@ -140,7 +140,7 @@ static bool SecOTRFICachePublicHash(SecOTRFullIdentityRef fullID, CFErrorRef *er
 {
     SecOTRPublicIdentityRef pubID = SecOTRPublicIdentityCopyFromPrivate(NULL, fullID, error);
 
-    require(pubID, fail);
+    __Require(pubID, fail);
 
     SecOTRPICopyHash(pubID, fullID->publicIDHash);
 
@@ -173,7 +173,7 @@ static SecKeyRef SecOTRCreateSigningKey(CFAllocatorRef allocator) {
                                            signing_keygen_keys, signing_keygen_vals, array_size(signing_keygen_vals),
                                            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
     CFReleaseNull(signing_bitsize);
-    require_noerr_action(SecKeyGeneratePair(keygen_parameters, &publicKey, &fullKey),
+    __Require_noErr_Action(SecKeyGeneratePair(keygen_parameters, &publicKey, &fullKey),
                          errOut,
                          secerror("keygen failed"));
     SecOTRFIPurgeFromKeychainByValue(publicKey, sSigningKeyName);
@@ -200,15 +200,15 @@ OSStatus SecOTRFICreatePrivateKeyReadPersistentRef(const uint8_t **bytes, size_t
     uint16_t dataSize;
     CFDataRef foundPersistentRef = NULL;
 
-    require_quiet(newPersistentRef, fail);
+    __Require_Quiet(newPersistentRef, fail);
 
-    require_noerr_quiet(readSize(bytes, size, &dataSize), fail);
-    require_quiet(dataSize <= *size, fail);
+    __Require_noErr_Quiet(readSize(bytes, size, &dataSize), fail);
+    __Require_Quiet(dataSize <= *size, fail);
 
     foundPersistentRef = CFDataCreate(kCFAllocatorDefault, *bytes, dataSize);
-    require_quiet(foundPersistentRef, fail);
+    __Require_Quiet(foundPersistentRef, fail);
 
-    require_noerr_quiet(status = SecKeyFindWithPersistentRef(foundPersistentRef, privateKey), fail);
+    __Require_noErr_Quiet(status = SecKeyFindWithPersistentRef(foundPersistentRef, privateKey), fail);
 
     *bytes += dataSize;
     *size -= dataSize;
@@ -230,9 +230,9 @@ OSStatus SecOTRFICreateKeysFromReadPersistentRef(const uint8_t **bytes, size_t *
     CFDataRef foundRef = NULL;
 
     OSStatus status = SecOTRFICreatePrivateKeyReadPersistentRef(bytes, size, &foundKey, &foundRef);
-    require_noerr_quiet(status, fail);
+    __Require_noErr_Quiet(status, fail);
 
-    require_action_quiet(*publicKey = SecKeyCreatePublicFromPrivate(foundKey), fail, status = errSecInternalComponent);
+    __Require_Action_Quiet(*publicKey = SecKeyCreatePublicFromPrivate(foundKey), fail, status = errSecInternalComponent);
 
     *privateKey = foundKey;
     foundKey = NULL;
@@ -254,9 +254,9 @@ OSStatus SecOTRFICreateKeysFromReadPersistentRefAndPublicKey(const uint8_t **byt
     CFDataRef foundRef = NULL;
 
     OSStatus status = SecOTRFICreatePrivateKeyReadPersistentRef(bytes, size, &foundKey, &foundRef);
-    require_noerr_quiet(status, fail);
+    __Require_noErr_Quiet(status, fail);
 
-    require_action_quiet(*publicKey = createPublic(NULL, bytes, size), fail, status = errSecInternalComponent);
+    __Require_Action_Quiet(*publicKey = createPublic(NULL, bytes, size), fail, status = errSecInternalComponent);
 
     *privateKey = foundKey;
     foundKey = NULL;
@@ -273,11 +273,11 @@ static
 OSStatus SecOTRFIInitFromV1Bytes(SecOTRFullIdentityRef newID, CFAllocatorRef allocator,
                                 const uint8_t **bytes,size_t *size) {
     OSStatus status;
-    require_action(**bytes == 1, fail, status = errSecParam);
+    __Require_Action(**bytes == 1, fail, status = errSecParam);
     ++*bytes;
     --*size;
 
-    require_noerr_quiet(status = SecOTRFICreateKeysFromReadPersistentRef(bytes, size, &newID->publicSigningKey, &newID->privateSigningKey, &newID->privateKeyPersistentRef), fail);
+    __Require_noErr_Quiet(status = SecOTRFICreateKeysFromReadPersistentRef(bytes, size, &newID->publicSigningKey, &newID->privateSigningKey, &newID->privateKeyPersistentRef), fail);
 
     return status;
 
@@ -293,11 +293,11 @@ static
 OSStatus SecOTRFIInitFromV2Bytes(SecOTRFullIdentityRef newID, CFAllocatorRef allocator,
                                 const uint8_t **bytes,size_t *size) {
     OSStatus status;
-    require_action(**bytes == 2, fail, status = errSecParam);
+    __Require_Action(**bytes == 2, fail, status = errSecParam);
     ++*bytes;
     --*size;
 
-    require_noerr_quiet(status = SecOTRFICreateKeysFromReadPersistentRefAndPublicKey(bytes, size, &newID->publicSigningKey, &newID->privateSigningKey, &newID->privateKeyPersistentRef, &CreateECPublicKeyFrom), fail);
+    __Require_noErr_Quiet(status = SecOTRFICreateKeysFromReadPersistentRefAndPublicKey(bytes, size, &newID->publicSigningKey, &newID->privateSigningKey, &newID->privateKeyPersistentRef, &CreateECPublicKeyFrom), fail);
     newID->isMessageProtectionKey = false;
     
     return status;
@@ -314,12 +314,12 @@ static
 OSStatus SecOTRFIInitFromV3Bytes(SecOTRFullIdentityRef newID, CFAllocatorRef allocator,
                                 const uint8_t **bytes,size_t *size) {
     OSStatus status = errSecInvalidData;
-    require_action(**bytes == 3, fail, status = errSecParam);
+    __Require_Action(**bytes == 3, fail, status = errSecParam);
     ++*bytes;
     --*size;
     
     uint16_t dataSize;
-    require_noerr_quiet(readSize(bytes, size, &dataSize), fail);
+    __Require_noErr_Quiet(readSize(bytes, size, &dataSize), fail);
     
     int32_t keysz32 = 256;
     CFNumberRef ksizeNumber = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
@@ -367,13 +367,13 @@ SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRef(CFAllocatorRef alloc
       // TODO - make sure this is an appropriate key type
       SecOTRFullIdentityRef newID = CFTypeAllocate(SecOTRFullIdentity, struct _SecOTRFullIdentity, allocator);
       CFRetainAssign(newID->privateSigningKey, privateKey);
-      require_action(newID->publicSigningKey = SecKeyCreatePublicFromPrivate(privateKey), fail,
+      __Require_Action(newID->publicSigningKey = SecKeyCreatePublicFromPrivate(privateKey), fail,
                      SecError(errSecInternalComponent, error, CFSTR("Failed to extract public key from private key")));
       // MessageProtection keys are no longer having persistent references.
       newID->privateKeyPersistentRef = NULL;
       newID->isMessageProtectionKey = true;
       
-      require(SecOTRFICachePublicHash(newID, error), fail);
+      __Require(SecOTRFICachePublicHash(newID, error), fail);
       return newID;
   fail:
       CFReleaseNull(newID);
@@ -383,7 +383,7 @@ SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRef(CFAllocatorRef alloc
 SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRefSOS(CFAllocatorRef allocator, SecKeyRef privateKey,
                                                             CFErrorRef *error) {
     SecOTRFullIdentityRef newID = SecOTRFullIdentityCreateFromSecKeyRef(allocator, privateKey, error);
-    require(newID->privateKeyPersistentRef = SecKeyCreatePersistentRef(privateKey, error), fail);
+    __Require(newID->privateKeyPersistentRef = SecKeyCreatePersistentRef(privateKey, error), fail);
     newID->isMessageProtectionKey = false;
     return newID;
 fail:
@@ -396,17 +396,17 @@ SecOTRFullIdentityRef SecOTRFullIdentityCreateFromBytes(CFAllocatorRef allocator
     SecOTRFullIdentityRef newID = CFTypeAllocate(SecOTRFullIdentity, struct _SecOTRFullIdentity, allocator);
     EnsureOTRAlgIDInited();
 
-    require(*size > 0, fail);
+    __Require(*size > 0, fail);
     OSStatus status;
     switch (**bytes) {
         case 1:
-            require_noerr_action_quiet(status = SecOTRFIInitFromV1Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v1 otr session: %d"), (int)status));
+            __Require_noErr_Action_Quiet(status = SecOTRFIInitFromV1Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v1 otr session: %d"), (int)status));
             break;
         case 2:
-            require_noerr_action_quiet(status = SecOTRFIInitFromV2Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v2 otr session: %d"), (int)status));
+            __Require_noErr_Action_Quiet(status = SecOTRFIInitFromV2Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v2 otr session: %d"), (int)status));
             break;
         case 3:
-            require_noerr_action_quiet(status = SecOTRFIInitFromV3Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v3 otr session: %d"), (int)status));
+            __Require_noErr_Action_Quiet(status = SecOTRFIInitFromV3Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v3 otr session: %d"), (int)status));
             break;
         case 0: // Version 0 was used in seeds of 5.0, transition from those seeds unsupported - keys were in exported data.
         default:
@@ -414,7 +414,7 @@ SecOTRFullIdentityRef SecOTRFullIdentityCreateFromBytes(CFAllocatorRef allocator
             goto fail;
     }
 
-    require(SecOTRFICachePublicHash(newID, error), fail);
+    __Require(SecOTRFICachePublicHash(newID, error), fail);
 
     return newID;
 
@@ -500,7 +500,7 @@ static OSStatus SecOTRFIAppendV3Serialization(SecOTRFullIdentityRef fullID, CFMu
     CFDataAppendBytes(serializeInto, &version, sizeof(version));
     CFErrorRef error = nil;
     CFDataRef privKeyBytes = SecKeyCopyExternalRepresentation(fullID->privateSigningKey, &error);
-    require(privKeyBytes != nil, fail);
+    __Require(privKeyBytes != nil, fail);
     appendSizeAndData(privKeyBytes, serializeInto);
     CFReleaseSafe(privKeyBytes);
     return errSecSuccess;
@@ -518,7 +518,7 @@ static OSStatus SecOTRFIAppendV2Serialization(SecOTRFullIdentityRef fullID, CFMu
 
     CFDataAppendBytes(serializeInto, &version, sizeof(version));
     appendSizeAndData(fullID->privateKeyPersistentRef, serializeInto);
-    require(errSecSuccess == appendPublicOctetsAndSize(fullID->publicSigningKey, serializeInto), fail);
+    __Require(errSecSuccess == appendPublicOctetsAndSize(fullID->publicSigningKey, serializeInto), fail);
     return errSecSuccess;
 
 fail:
@@ -565,7 +565,7 @@ bool SecOTRFIAppendSignature(SecOTRFullIdentityRef fullID,
 
     CFIndex start = CFDataGetLength(appendTo);
 
-    require(((CFIndex)signatureSize) >= 0, fail);
+    __Require(((CFIndex)signatureSize) >= 0, fail);
 
     CFDataIncreaseLength(appendTo, (CFIndex)signatureSize + 1);
 
@@ -573,12 +573,12 @@ bool SecOTRFIAppendSignature(SecOTRFullIdentityRef fullID,
     uint8_t* signatureStart = size + 1;
     size_t signatureUsed = signatureSize;
 
-   require(SecKeyDigestAndSignWithError(fullID->privateSigningKey, kOTRSignatureAlgIDPtr,
+   __Require(SecKeyDigestAndSignWithError(fullID->privateSigningKey, kOTRSignatureAlgIDPtr,
                                     sourceData, (size_t)sourceLength,
                                     signatureStart, &signatureUsed, error), fail);
 
-    require(signatureUsed < 256, fail);
-    require(((CFIndex)signatureUsed) >= 0, fail);
+    __Require(signatureUsed < 256, fail);
+    __Require(((CFIndex)signatureUsed) >= 0, fail);
     *size = signatureUsed;
 
     CFDataSetLength(appendTo, start + (CFIndex)signatureUsed + 1);

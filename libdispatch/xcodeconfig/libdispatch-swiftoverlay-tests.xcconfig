@@ -1,0 +1,38 @@
+//
+//  DispatchXCTests.xcconfig
+//  Dispatch-swiftoverlay
+//
+//  Copyright © 2019 Apple. All rights reserved.
+//
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+
+SDKROOT = macosx.internal
+SDKROOT[sdk=iphoneos*] = iphoneos.internal
+SDKROOT[sdk=appletv*] = appletvos.internal
+SDKROOT[sdk=watchos*] = watchos.internal
+
+ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+ENABLE_TESTABILITY = YES
+
+
+INFOPLIST_FILE = tests/swift/Info.plist
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.libispatch_swiftoverlay_tests
+PRODUCT_NAME = $(TARGET_NAME)
+
+ALWAYS_SEARCH_USER_PATHS = NO
+GCC_DYNAMIC_NO_PIC = NO
+GCC_NO_COMMON_BLOCKS = YES
+
+GCC_C_LANGUAGE_STANDARD = gnu11
+CLANG_CXX_LANGUAGE_STANDARD = gnu++14
+CLANG_ENABLE_MODULES = YES
+CLANG_ENABLE_OBJC_ARC = YES
+CLANG_ENABLE_OBJC_ARC = YES
+
+ENABLE_NS_ASSERTIONS = NO
+ENABLE_STRICT_OBJC_MSGSEND = YES
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1
+SKIP_INSTALL = NO
+INSTALL_PATH = /AppleInternal/XCTests/com.apple.libdispatch_swiftoverlay/

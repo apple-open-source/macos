@@ -26,8 +26,6 @@
 
 #pragma once
 
-#if ENABLE(WEB_AUTHN)
-
 #include "AbortSignal.h"
 #include "MediationRequirement.h"
 #include "PublicKeyCredentialCreationOptions.h"
@@ -43,5 +41,3 @@ struct CredentialCreationOptions {
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_AUTHN)

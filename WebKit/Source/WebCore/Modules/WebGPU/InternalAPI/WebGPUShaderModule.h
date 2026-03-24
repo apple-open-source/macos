@@ -44,11 +44,12 @@ public:
 
     void setLabel(String&& label)
     {
-        m_label = WTFMove(label);
+        m_label = WTF::move(label);
         setLabelInternal(m_label);
     }
 
     virtual void compilationInfo(CompletionHandler<void(Ref<CompilationInfo>&&)>&&) = 0;
+    virtual bool isRemoteShaderModuleProxy() const { return false; }
 
 protected:
     ShaderModule() = default;

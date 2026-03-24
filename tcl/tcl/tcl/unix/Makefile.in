@@ -765,7 +765,7 @@ install-libraries: libraries $(INSTALL_TZDATA) install-msgs
 		$(GENERIC_DIR)/tclTomMath.h \
 		$(GENERIC_DIR)/tclTomMathDecls.h ; \
 	    do \
-	    $(INSTALL_DATA) $$i "$(INCLUDE_INSTALL_DIR)"; \
+	    unifdef $(AC_FLAGS) -UUSE_DTRACE -x 2 -o "$(INCLUDE_INSTALL_DIR)/$$(basename $$i)" $$i ; \
 	    done;
 	@echo "Installing library files to $(SCRIPT_INSTALL_DIR)";
 	@for i in $(TOP_DIR)/library/*.tcl $(TOP_DIR)/library/tclIndex \
@@ -863,7 +863,7 @@ install-private-headers: libraries
 		$(GENERIC_DIR)/tclIntPlatDecls.h $(GENERIC_DIR)/tclPort.h \
 		$(UNIX_DIR)/tclUnixPort.h; \
 	    do \
-	    $(INSTALL_DATA) $$i "$(PRIVATE_INCLUDE_INSTALL_DIR)"; \
+	    unifdef $(AC_FLAGS) -UUSE_DTRACE -x 2 -o "$(PRIVATE_INCLUDE_INSTALL_DIR)/$$(basename $$i)" $$i ; \
 	    done;
 	@if test -f tclConfig.h; then\
 	    $(INSTALL_DATA) tclConfig.h "$(PRIVATE_INCLUDE_INSTALL_DIR)"; \

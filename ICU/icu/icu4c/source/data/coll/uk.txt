@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 uk{
     collations{
         search{
@@ -8,7 +8,7 @@ uk{
                 "[import und-u-co-search]"
                 "&’=ʼ"
             }
-            Version{"46"}
+            Version{"48"}
         }
         standard{
             Sequence{
@@ -16,7 +16,7 @@ uk{
                 "&Г<ґ<<<Ґ"
                 "&ꙇ<ї<<<\uA676<<<Ї"
             }
-            Version{"46"}
+            Version{"48"}
         }
     }
 }

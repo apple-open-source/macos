@@ -60,7 +60,7 @@ connection_create(process_t proc)
     connection_t conn = NULL;
     
     conn = (connection_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, connection_get_type_id(), AUTH_CLASS_SIZE(connection), NULL);
-    require(conn != NULL, done);
+    __Require(conn != NULL, done);
     
     conn->proc = (process_t)CFRetain(proc);
     conn->dispatch_queue = dispatch_queue_create("Connection Dispatch Queue", DISPATCH_QUEUE_SERIAL);

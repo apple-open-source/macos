@@ -135,7 +135,7 @@ const String& Page::presentingApplicationBundleIdentifier() const
 
 void Page::setPresentingApplicationBundleIdentifier(String&& bundleIdentifier)
 {
-    m_presentingApplicationBundleIdentifier = WTFMove(bundleIdentifier);
+    m_presentingApplicationBundleIdentifier = WTF::move(bundleIdentifier);
     if (RefPtr manager = mediaSessionManagerIfExists())
         manager->updateNowPlayingInfoIfNecessary();
 }

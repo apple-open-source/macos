@@ -36,6 +36,7 @@
 #include <WebCore/Timer.h>
 #include <pal/SessionID.h>
 #include <time.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/TypeCasts.h>
@@ -197,8 +198,9 @@ public:
     bool isLoaded() const { return !m_loading; } // FIXME. Method name is inaccurate. Loading might not have started yet.
 
     bool isLoading() const { return m_loading; }
-    void setLoading(bool b) { m_loading = b; }
+    void setLoading(bool);
     virtual bool stillNeedsLoad() const { return false; }
+    void whenLoaded(CompletionHandler<void()>&&);
 
     SubresourceLoader* loader() const { return m_loader.get(); }
 
@@ -317,7 +319,7 @@ public:
 
     std::optional<ResourceLoaderIdentifier> identifierForLoadWithoutResourceLoader() const { return m_identifierForLoadWithoutResourceLoader; }
 
-    void setOriginalRequest(std::unique_ptr<ResourceRequest>&& originalRequest) { m_originalRequest = WTFMove(originalRequest); }
+    void setOriginalRequest(std::unique_ptr<ResourceRequest>&& originalRequest) { m_originalRequest = WTF::move(originalRequest); }
     const std::unique_ptr<ResourceRequest>& originalRequest() const { return m_originalRequest; }
 
 #if USE(QUICK_LOOK)
@@ -450,6 +452,7 @@ private:
     unsigned m_lruIndex { 0 };
 #endif
 
+    Vector<CompletionHandler<void()>> m_loadedCallbacks;
     mutable std::array<std::optional<ResourceCryptographicDigest>, ResourceCryptographicDigest::algorithmCount> m_cryptographicDigests;
 };
 

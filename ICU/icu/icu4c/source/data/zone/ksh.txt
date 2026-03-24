@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ksh{
     zoneStrings{
         "Africa:Cairo"{
@@ -283,9 +283,7 @@ ksh{
             ls{"Söd-Affrekaanesche Zigg"}
         }
         "meta:Africa_Western"{
-            ld{"Wäß-Affrekaanesche Sommerzigg"}
-            lg{"Wäß-Affrekaanesche Zigg"}
-            ls{"Jewöhnlijje Wäß-Affrekaanesche Zigg"}
+            ls{"Wäß-Affrekaanesche Zigg"}
         }
         "meta:Azores"{
             ld{"de Azore ier Summerzick"}

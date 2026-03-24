@@ -43,17 +43,22 @@ Data::Data(std::span<const uint8_t> data)
 }
 
 Data::Data(OSObjectPtr<dispatch_data_t>&& dispatchData, Backing backing)
-    : m_dispatchData(WTFMove(dispatchData))
+    : m_dispatchData(WTF::move(dispatchData))
     , m_isMap(backing == Backing::Map && dispatch_data_get_size(m_dispatchData.get()))
 {
 }
 
 Data::Data(Vector<uint8_t>&& data)
-    : Data(makeDispatchData(WTFMove(data)).get(), Backing::Buffer)
+    : Data(makeDispatchData(WTF::move(data)).get(), Backing::Buffer)
 {
 }
 
-RetainPtr<dispatch_data_t> Data::protectedDispatchData() const
+Data Data::copyData() const
+{
+    return { protectedDispatchData(), m_isMap ? Backing::Map : Backing::Buffer };
+}
+
+OSObjectPtr<dispatch_data_t> Data::protectedDispatchData() const
 {
     return dispatchData();
 }
@@ -116,7 +121,7 @@ Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::FileHan
     auto bodyMap = adoptOSObject(dispatch_data_create(span.data(), span.size(), globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [span] {
         munmap(span.data(), span.size());
     }));
-    return { WTFMove(bodyMap), Data::Backing::Map };
+    return { WTF::move(bodyMap), Data::Backing::Map };
 }
 
 RefPtr<WebCore::SharedMemory> Data::tryCreateSharedMemory() const

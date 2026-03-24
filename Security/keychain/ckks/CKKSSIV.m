@@ -239,7 +239,7 @@
     uint8_t buffer[CKKSWrappedKeySize] = {};
 
     size_t ciphertextLength = ccsiv_ciphertext_size(ccaes_siv_encrypt_mode(), CKKSKeySize);
-    require_action_quiet(ciphertextLength == CKKSWrappedKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
+    __Require_Action_Quiet(ciphertextLength == CKKSWrappedKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                                                        code:errSecParam
                                                                                                    userInfo:@{NSLocalizedDescriptionKey: @"wrapped key size does not match key size"}]);
 
@@ -250,7 +250,7 @@
              bufferLength: sizeof(buffer)
         authenticatedData: nil
                     error: error];
-    require_quiet(success, out);
+    __Require_Quiet(success, out);
 
     wrappedKey = [[CKKSWrappedAESSIVKey alloc] initWithBytes:buffer len:sizeof(buffer)];
 out:
@@ -269,7 +269,7 @@ out:
     uint8_t buffer[CKKSKeySize] = {};
 
     size_t plaintextLength = ccsiv_plaintext_size(ccaes_siv_decrypt_mode(), CKKSWrappedKeySize);
-    require_action_quiet(plaintextLength == CKKSKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
+    __Require_Action_Quiet(plaintextLength == CKKSKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                                                code:errSecParam
                                                                                            userInfo:@{NSLocalizedDescriptionKey: @"unwrapped key size does not match key size"}]);
 
@@ -280,7 +280,7 @@ out:
         authenticatedData: nil
                     error: error];
 
-    require_quiet(success, out);
+    __Require_Quiet(success, out);
 
     unwrappedKey = [[CKKSAESSIVKey alloc] initWithBytes: buffer len:sizeof(buffer)];
 out:
@@ -392,18 +392,18 @@ out:
 
     ccsiv_ctx_decl(mode->size, ctx);
 
-    require_action_quiet(mode, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
+    __Require_Action_Quiet(mode, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                      code:1
                                                                  userInfo:@{NSLocalizedDescriptionKey: @"no mode given"}]);
 
     status = ccsiv_init(mode, ctx, self->size, self->key);
-    require_action_quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
+    __Require_Action_Quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
                                                                             code:status
                                                                         userInfo:@{NSLocalizedDescriptionKey: @"could not ccsiv_init"}]);
 
     if(nonce) {
         status = ccsiv_set_nonce(mode, ctx, nonce.length, nonce.bytes);
-        require_action_quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
+        __Require_Action_Quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
                                                                                 code:status
                                                                             userInfo:@{NSLocalizedDescriptionKey: @"could not ccsiv_set_nonce"}]);
     }
@@ -413,14 +413,14 @@ out:
     for(NSString* adKey in adKeys) {
         NSData* adValue = [ad objectForKey: adKey];
         status = ccsiv_aad(mode, ctx, adValue.length, adValue.bytes);
-        require_action_quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
+        __Require_Action_Quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
                                                                                 code:status
                                                                             userInfo:@{NSLocalizedDescriptionKey: @"could not ccsiv_aad"}]);
     }
 
     // Actually go.
     status = ccsiv_crypt(mode, ctx, text.length, text.bytes, buffer);
-    require_action_quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
+    __Require_Action_Quiet(status == 0, out, localerror = [NSError errorWithDomain:@"corecrypto"
                                                                             code:status
                                                                         userInfo:@{NSLocalizedDescriptionKey: @"could not ccsiv_crypt"}]);
 out:

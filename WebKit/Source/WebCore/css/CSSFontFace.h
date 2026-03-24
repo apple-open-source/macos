@@ -121,7 +121,7 @@ public:
 
     void opportunisticallyStartFontDataURLLoading(DownloadableBinaryFontTrustedTypes);
 
-    void adoptSource(std::unique_ptr<CSSFontFaceSource>&&);
+    void adoptSource(std::unique_ptr<CSSFontFaceSource>);
     void sourcesPopulated() { m_sourcesPopulated = true; }
     size_t sourceCount() const { return m_sources.size(); }
 

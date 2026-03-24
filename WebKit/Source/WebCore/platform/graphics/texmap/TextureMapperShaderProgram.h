@@ -45,6 +45,7 @@ namespace WebCore {
     macro(yuvToRgb) \
     macro(filterAmount) \
     macro(texelSize) \
+    macro(uvMax) \
     macro(gaussianKernel) \
     macro(gaussianKernelOffset) \
     macro(gaussianKernelHalfSize) \
@@ -108,6 +109,8 @@ public:
         TextureYUVA      = 1L << 25,
         TextureCopy      = 1L << 26,
         AlphaToShadow    = 1L << 27,
+        ToneMapPQ        = 1L << 28,
+        ClampUVBounds    = 1L << 29,
     };
 
     enum class VariableID {

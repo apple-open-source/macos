@@ -134,7 +134,7 @@ void JSTestCEReactionsStringifierPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestCEReactionsStringifier::s_info = { "TestCEReactionsStringifier"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestCEReactionsStringifier) };
 
 JSTestCEReactionsStringifier::JSTestCEReactionsStringifier(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestCEReactionsStringifier>&& impl)
-    : JSDOMWrapper<TestCEReactionsStringifier>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestCEReactionsStringifier>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -325,7 +325,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestCEReactionsStringifier>(impl.ptr());
 #endif
-    return createWrapper<TestCEReactionsStringifier>(globalObject, WTFMove(impl));
+    return createWrapper<TestCEReactionsStringifier>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestCEReactionsStringifier& impl)

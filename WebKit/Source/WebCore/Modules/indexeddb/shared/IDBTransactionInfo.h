@@ -73,8 +73,8 @@ public:
         , m_mode(mode)
         , m_durability(durability)
         , m_newVersion(newVersion)
-        , m_objectStores(WTFMove(objectStores))
-        , m_originalDatabaseInfo(WTFMove(originalDatabaseInfo)) { }
+        , m_objectStores(WTF::move(objectStores))
+        , m_originalDatabaseInfo(WTF::move(originalDatabaseInfo)) { }
 
 #if !LOG_DISABLED
     String loggingString() const;

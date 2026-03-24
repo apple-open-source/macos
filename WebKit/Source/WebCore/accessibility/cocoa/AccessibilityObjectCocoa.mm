@@ -36,11 +36,11 @@
 
 namespace WebCore {
 
-OptionSet<SpeakAs> AccessibilityObject::speakAs() const
+Style::SpeakAs AccessibilityObject::speakAs() const
 {
     if (auto* style = this->style())
         return style->speakAs();
-    return { };
+    return CSS::Keyword::Normal { };
 }
 
 FloatPoint AccessibilityObject::screenRelativePosition() const
@@ -194,12 +194,12 @@ RetainPtr<CTFontRef> fontFrom(const RenderStyle& style)
 
 Color textColorFrom(const RenderStyle& style)
 {
-    return style.visitedDependentColor(CSSPropertyColor);
+    return style.visitedDependentColor();
 }
 
 Color backgroundColorFrom(const RenderStyle& style)
 {
-    return style.visitedDependentColor(CSSPropertyBackgroundColor);
+    return style.visitedDependentBackgroundColor();
 }
 
 RetainPtr<CTFontRef> AccessibilityObject::font() const

@@ -118,16 +118,6 @@ public:
     void TestSwedishSpellout();
 
     /**
-     * Perform a simple spot check on the Gujarati spellout rules
-     */
-    void TestGujaratiSpellout();
-
-    /**
-     * Perform a simple spot check on the Marathi spellout rules
-     */
-    void TestMarathiSpellout();
-
-    /**
      * Perform a simple spot check on small values
      */
     void TestSmallValues();
@@ -172,8 +162,24 @@ public:
     void TestMinMaxIntegerDigitsIgnored();
     void TestNumberingSystem();
     void TestMemoryLeak22899();
+    void TestParseRuleDescriptorOverflow23002();
     void TestInfiniteRecursion();
     void testOmissionReplacementWithPluralRules();
+    void TestNullDereferenceWRITE23149();
+    void TestNullDereferenceREAD23184();
+
+#if APPLE_ICU_CHANGES
+// rdar://
+    /**
+     * Perform a simple spot check on the Gujarati spellout rules
+     */
+    void TestGujaratiSpellout();
+
+    /**
+     * Perform a simple spot check on the Marathi spellout rules
+     */
+    void TestMarathiSpellout();
+#endif // APPLE_ICU_CHANGES
 
 protected:
     virtual void doTest(RuleBasedNumberFormat* formatter, const char* const testData[][2], UBool testParsing);

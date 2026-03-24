@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -97,6 +97,7 @@
 				5F74F1922AE571B200CFEA90 /* ShellScript */,
 			);
 			dependencies = (
+				C4C61E1B2E2686E20029242C /* PBXTargetDependency */,
 			);
 			name = Tests;
 			productName = Tests;
@@ -187,6 +188,12 @@
 		B19B23A421C8DFD50001F35C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		B19B23A521C8DFE10001F35C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041052091EE980061D05A /* CoreFoundation.framework */; };
 		B1EBE452298BF127006FF901 /* UserManagementLayout.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1EBE451298BF127006FF901 /* UserManagementLayout.framework */; platformFilters = (ios, tvos, watchos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		C47147102E02CD1200B05372 /* libdisk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D07DD49153CA9A0002B57CB /* libdisk.a */; };
+		C47147172E02CD5D00B05372 /* mount.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D55936C153CE58E009F2584 /* mount.c */; platformFilters = (macos, ); };
+		C47147192E02CD9F00B05372 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C47147182E02CD9F00B05372 /* IOKit.framework */; };
+		C471471B2E02CDA400B05372 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C471471A2E02CDA400B05372 /* CoreFoundation.framework */; };
+		C471471C2E02EBB400B05372 /* mount_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 072AAAA42167CE8E004ED4E2 /* mount_flags.c */; platformFilters = (macos, ); };
+		C471471D2E02EC9A00B05372 /* fskit_support.m in Sources */ = {isa = PBXBuildFile; fileRef = DB255C1B2B1FD58E00F37A3C /* fskit_support.m */; platformFilters = (macos, ); };
 		D30F20C62C32B75200CF4ECF /* fsck_fskit.c in Sources */ = {isa = PBXBuildFile; fileRef = D30F20C52C32B75200CF4ECF /* fsck_fskit.c */; };
 		D3B3EBE02C33D6EC00CC4ED6 /* fskit_support.m in Sources */ = {isa = PBXBuildFile; fileRef = DB255C1B2B1FD58E00F37A3C /* fskit_support.m */; };
 		D3B3EBE72C33E00B00CC4ED6 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B3EBE12C33DEEE00CC4ED6 /* FSKit.framework */; platformFilters = (ios, macos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
@@ -407,6 +414,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D5593F7153DC0DE009F2584;
 			remoteInfo = repquota;
+		};
+		C47147112E02CD1200B05372 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D07DD48153CA9A0002B57CB;
+			remoteInfo = libdisk;
+		};
+		C47147152E02CD5400B05372 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D55935F153CE561009F2584;
+			remoteInfo = mount;
+		};
+		C4C61E1A2E2686E20029242C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C471470B2E02CD1200B05372;
+			remoteInfo = XCTests;
 		};
 		D353C4172C3D2A890000A2AD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -849,6 +877,9 @@
 		B19B239A21C8DEF90001F35C /* edt_fstab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = edt_fstab.c; sourceTree = "<group>"; };
 		B19B239B21C8DEFA0001F35C /* edt_fstab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = edt_fstab.h; sourceTree = "<group>"; };
 		B1EBE451298BF127006FF901 /* UserManagementLayout.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagementLayout.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/PrivateFrameworks/UserManagementLayout.framework; sourceTree = DEVELOPER_DIR; };
+		C471470C2E02CD1200B05372 /* XCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47147182E02CD9F00B05372 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS19.0.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		C471471A2E02CDA400B05372 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS19.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		D30F20C32C32B75200CF4ECF /* fsck_fskit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fsck_fskit; sourceTree = BUILT_PRODUCTS_DIR; };
 		D30F20C52C32B75200CF4ECF /* fsck_fskit.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fsck_fskit.c; sourceTree = "<group>"; };
 		D3B3EBE12C33DEEE00CC4ED6 /* FSKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FSKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -864,6 +895,10 @@
 		DB55FAB32B2E66B9007FD123 /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
 		DB7D31132DB0202500A2F4F0 /* newfs_fskit.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = newfs_fskit.8; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C471470D2E02CD1200B05372 /* XCTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = XCTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		33DE5A4225D34CC800360074 /* Frameworks */ = {
@@ -1030,6 +1065,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C47147092E02CD1200B05372 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C471471B2E02CDA400B05372 /* CoreFoundation.framework in Frameworks */,
+				C47147192E02CD9F00B05372 /* IOKit.framework in Frameworks */,
+				C47147102E02CD1200B05372 /* libdisk.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D30F20C02C32B75200CF4ECF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1065,6 +1110,8 @@
 		1A9041002091EE820061D05A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C471471A2E02CDA400B05372 /* CoreFoundation.framework */,
+				C47147182E02CD9F00B05372 /* IOKit.framework */,
 				D3B3EBE82C33E01300CC4ED6 /* LiveFS.framework */,
 				D3B3EBE12C33DEEE00CC4ED6 /* FSKit.framework */,
 				DB55FAB32B2E66B9007FD123 /* LiveFS.framework */,
@@ -1120,6 +1167,7 @@
 				4D559450153DC634009F2584 /* vsdbutil */,
 				4D559429153DC3F3009F2584 /* Libraries */,
 				33DE5A4625D34CC800360074 /* dirs_cleaner */,
+				C471470D2E02CD1200B05372 /* XCTests */,
 				4D07DD35153CA616002B57CB /* Products */,
 				1A9041002091EE820061D05A /* Frameworks */,
 			);
@@ -1151,6 +1199,7 @@
 				33DE5A4525D34CC800360074 /* dirs_cleaner */,
 				D30F20C32C32B75200CF4ECF /* fsck_fskit */,
 				D3B3EC1E2C3546EC00CC4ED6 /* newfs_fskit */,
+				C471470C2E02CD1200B05372 /* XCTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1805,6 +1854,30 @@
 			productReference = 4D5594D5153DCC66009F2584 /* fuser */;
 			productType = "com.apple.product-type.tool";
 		};
+		C471470B2E02CD1200B05372 /* XCTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C47147142E02CD1200B05372 /* Build configuration list for PBXNativeTarget "XCTests" */;
+			buildPhases = (
+				C47147082E02CD1200B05372 /* Sources */,
+				C47147092E02CD1200B05372 /* Frameworks */,
+				C471470A2E02CD1200B05372 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C47147162E02CD5400B05372 /* PBXTargetDependency */,
+				C47147122E02CD1200B05372 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C471470D2E02CD1200B05372 /* XCTests */,
+			);
+			name = XCTests;
+			packageProductDependencies = (
+			);
+			productName = Tests_mount;
+			productReference = C471470C2E02CD1200B05372 /* XCTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		D30F20C22C32B75200CF4ECF /* fsck_fskit */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D30F20C72C32B75200CF4ECF /* Build configuration list for PBXNativeTarget "fsck_fskit" */;
@@ -1860,6 +1933,9 @@
 					5F975B4E2AE0367B005A0CA9 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					C471470B2E02CD1200B05372 = {
+						CreatedOnToolsVersion = 17.0;
+					};
 					D30F20C22C32B75200CF4ECF = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -1907,9 +1983,20 @@
 				33DE5A4425D34CC800360074 /* dirs_cleaner */,
 				5939BB7229A9919B002CA3D5 /* tmp_cleaner */,
 				5F975B4E2AE0367B005A0CA9 /* Tests */,
+				C471470B2E02CD1200B05372 /* XCTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C471470A2E02CD1200B05372 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		4D5594E4153DCCD3009F2584 /* Copy fuser */ = {
@@ -2160,6 +2247,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C47147082E02CD1200B05372 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C47147172E02CD5D00B05372 /* mount.c in Sources */,
+				C471471C2E02EBB400B05372 /* mount_flags.c in Sources */,
+				C471471D2E02EC9A00B05372 /* fskit_support.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D30F20BF2C32B75200CF4ECF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2326,6 +2423,24 @@
 			target = 4D5593F7153DC0DE009F2584 /* repquota */;
 			targetProxy = B12C9C9B22A7CDE300B9F497 /* PBXContainerItemProxy */;
 		};
+		C47147122E02CD1200B05372 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D07DD48153CA9A0002B57CB /* libdisk */;
+			targetProxy = C47147112E02CD1200B05372 /* PBXContainerItemProxy */;
+		};
+		C47147162E02CD5400B05372 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D55935F153CE561009F2584 /* mount */;
+			targetProxy = C47147152E02CD5400B05372 /* PBXContainerItemProxy */;
+		};
+		C4C61E1B2E2686E20029242C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = C471470B2E02CD1200B05372 /* XCTests */;
+			targetProxy = C4C61E1A2E2686E20029242C /* PBXContainerItemProxy */;
+		};
 		D353C4182C3D2A890000A2AD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D3B3EC122C3546EC00CC4ED6 /* newfs_fskit */;
@@ -2382,6 +2497,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = dirs_cleaner/dirs_cleaner.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEVELOPMENT_TEAM = "";
@@ -2480,8 +2596,12 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = mount.tproj/mount.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -2739,6 +2859,66 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = Tests;
+			};
+			name = Release;
+		};
+		C47147132E02CD1200B05372 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/diskdev_cmds/;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "diskdev-cmds.XCTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 			};
 			name = Release;
 		};
@@ -3111,6 +3291,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5FB8078D2AEA4C8B0011C191 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C47147142E02CD1200B05372 /* Build configuration list for PBXNativeTarget "XCTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47147132E02CD1200B05372 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

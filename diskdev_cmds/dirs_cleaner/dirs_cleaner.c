@@ -626,6 +626,9 @@ dc_clean_sync(dir_ctx_t *ctx, bool input_path)
 
 static const char*
 get_tmp_path(char *path) {
+#if TARGET_OS_OSX
+	return CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
+#else
 	struct statfs sfsbuf = {};
 	char realpath_name[MAXPATHLEN] = {};
 	int tmp_err = 0;
@@ -663,6 +666,7 @@ get_tmp_path(char *path) {
 
 	//any unexpected vends NULL;
 	return NULL;
+#endif
 }
 
 static void

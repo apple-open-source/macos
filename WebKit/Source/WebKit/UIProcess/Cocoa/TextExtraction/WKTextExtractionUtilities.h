@@ -38,6 +38,7 @@ namespace WebCore {
 class FloatRect;
 
 namespace TextExtraction {
+struct FilterRuleData;
 struct Item;
 }
 }
@@ -48,6 +49,8 @@ using RootViewToWebViewConverter = Function<WebCore::FloatRect(const WebCore::Fl
 RetainPtr<WKTextExtractionItem> createItem(const WebCore::TextExtraction::Item&, RootViewToWebViewConverter&&);
 
 std::optional<double> computeSimilarity(NSString *a, NSString *b, unsigned minimumLength = 1);
+
+void requestTextExtractionFilterRuleData(CompletionHandler<void(Vector<WebCore::TextExtraction::FilterRuleData>&&)>&&);
 
 } // namespace WebKit
 

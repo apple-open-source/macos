@@ -71,9 +71,9 @@ CFMutableSetRef SOSAccountCopyOutstandingViews(SOSAccount* account) {
 }
 bool SOSAccountIsViewOutstanding(SOSAccount* account, CFStringRef view) {
     bool isOutstandingView;
-    require_action_quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done, isOutstandingView = true);
+    __Require_Action_Quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done, isOutstandingView = true);
     CFTypeRef unsyncedObject = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, NULL);
-    require_action_quiet(unsyncedObject, done, isOutstandingView = false);
+    __Require_Action_Quiet(unsyncedObject, done, isOutstandingView = false);
     CFBooleanRef unsyncedBool = asBoolean(unsyncedObject, NULL);
     if (unsyncedBool) {
         isOutstandingView = CFBooleanGetValue(unsyncedBool);
@@ -87,7 +87,7 @@ done:
 CFMutableSetRef SOSAccountCopyIntersectionWithOustanding(SOSAccount* account, CFSetRef inSet) {
     CFTypeRef unsyncedObject = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, NULL);
     CFMutableSetRef result = NULL;
-    require_quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done);
+    __Require_Quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done);
     CFBooleanRef unsyncedBool = asBoolean(unsyncedObject, NULL);
     if (unsyncedBool) {
         if (!CFBooleanGetValue(unsyncedBool)) {
@@ -115,9 +115,9 @@ bool SOSAccountIntersectsWithOutstanding(SOSAccount* account, CFSetRef views) {
 }
 bool SOSAccountHasOustandingViews(SOSAccount* account) {
     bool hasOutstandingViews;
-    require_action_quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done, hasOutstandingViews = true);
+    __Require_Action_Quiet([account getCircleStatus:NULL] == kSOSCCInCircle, done, hasOutstandingViews = true);
     CFTypeRef unsyncedObject = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, NULL);
-    require_action_quiet(unsyncedObject, done, hasOutstandingViews = false);
+    __Require_Action_Quiet(unsyncedObject, done, hasOutstandingViews = false);
     CFBooleanRef unsyncedBool = asBoolean(unsyncedObject, NULL);
     if (unsyncedBool) {
         hasOutstandingViews = CFBooleanGetValue(unsyncedBool);
@@ -420,9 +420,9 @@ void SOSAccountCancelSyncChecking(SOSAccount* account) {
 bool SOSAccountCheckForAlwaysOnViews(SOSAccount* account) {
     bool changed = false;
     SOSPeerInfoRef myPI = account.peerInfo;
-    require_quiet(myPI, done);
-    require_quiet([account isInCircle:NULL], done);
-    require_quiet(SOSAccountHasCompletedInitialSync(account), done);
+    __Require_Quiet(myPI, done);
+    __Require_Quiet([account isInCircle:NULL], done);
+    __Require_Quiet(SOSAccountHasCompletedInitialSync(account), done);
     CFMutableSetRef viewsToEnsure = SOSViewCopyViewSet(kViewSetAlwaysOn);
     // Previous version PeerInfo if we were syncing legacy keychain, ensure we include those legacy views.
     if(!SOSPeerInfoVersionIsCurrent(myPI)) {

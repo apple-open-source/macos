@@ -114,9 +114,14 @@ __removefile_rename_unlink(const char *path, removefile_state_t state) {
 	return -1;
   }
 
-  if (S_ISDIR(statbuf.st_mode))
-    return rmdir(new_name);
-
+  if (S_ISDIR(statbuf.st_mode)) {
+#if __APPLE__
+    if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED)
+      return unlinkat(AT_FDCWD, new_name, (AT_SYSTEM_DISCARDED|AT_REMOVEDIR));
+    else
+#endif
+      return rmdir(new_name);
+  }
 #if __APPLE__
   if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED)
     return unlinkat(AT_FDCWD, new_name, AT_SYSTEM_DISCARDED);

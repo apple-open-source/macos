@@ -49,7 +49,7 @@ namespace WebCore::WebGPU {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUImpl);
 
 GPUImpl::GPUImpl(WebGPUPtr<WGPUInstance>&& instance, ConvertToBackingContext& convertToBackingContext, DDModel::ConvertToBackingContext& modelConvertToBackingContext)
-    : m_backing(WTFMove(instance))
+    : m_backing(WTF::move(instance))
     , m_convertToBackingContext(convertToBackingContext)
     , m_modelConvertToBackingContext(modelConvertToBackingContext)
 {
@@ -80,7 +80,7 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHan
         .xrCompatible = options.xrCompatible,
     };
 
-    auto blockPtr = makeBlockPtr([convertToBackingContext = convertToBackingContext.copyRef(), callback = WTFMove(callback)](WGPURequestAdapterStatus status, WGPUAdapter adapter, const char*) mutable {
+    auto blockPtr = makeBlockPtr([convertToBackingContext = convertToBackingContext.copyRef(), callback = WTF::move(callback)](WGPURequestAdapterStatus status, WGPUAdapter adapter, const char*) mutable {
         if (status == WGPURequestAdapterStatus_Success)
             callback(AdapterImpl::create(adoptWebGPU(adapter), convertToBackingContext));
         else
@@ -97,11 +97,11 @@ static Vector<UniqueRef<WebCore::IOSurface>> createIOSurfaces(unsigned width, un
     Vector<UniqueRef<WebCore::IOSurface>> ioSurfaces;
 
     if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
-        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTF::move(buffer)));
     if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
-        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTF::move(buffer)));
     if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
-        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTF::move(buffer)));
 
     return ioSurfaces;
 }
@@ -116,19 +116,19 @@ RefPtr<DDModel::DDMesh> GPUImpl::createModelBacking(unsigned width, unsigned hei
     WGPUDDCreateMeshDescriptor backingDescriptor {
         .width = width,
         .height = height,
-        .ioSurfaces = WTFMove(ioSurfaces)
+        .ioSurfaces = WTF::move(ioSurfaces)
     };
 
     Ref convertToBackingContext = m_modelConvertToBackingContext;
-    auto mesh = DDModel::DDMeshImpl::create(adoptWebGPU(wgpuDDMeshCreate(m_backing.get(), &backingDescriptor)), WTFMove(ioSurfaceVector), convertToBackingContext);
+    auto mesh = DDModel::DDMeshImpl::create(adoptWebGPU(wgpuDDMeshCreate(m_backing.get(), &backingDescriptor)), WTF::move(ioSurfaceVector), convertToBackingContext);
     callback(mesh->ioSurfaceHandles());
     return mesh;
 }
 
 static WTF::Function<void(CompletionHandler<void()>&&)> convert(WGPUOnSubmittedWorkScheduledCallback&& onSubmittedWorkScheduledCallback)
 {
-    return [onSubmittedWorkScheduledCallback = makeBlockPtr(WTFMove(onSubmittedWorkScheduledCallback))](CompletionHandler<void()>&& completionHandler) {
-        onSubmittedWorkScheduledCallback(makeBlockPtr(WTFMove(completionHandler)).get());
+    return [onSubmittedWorkScheduledCallback = makeBlockPtr(WTF::move(onSubmittedWorkScheduledCallback))](CompletionHandler<void()>&& completionHandler) {
+        onSubmittedWorkScheduledCallback(makeBlockPtr(WTF::move(completionHandler)).get());
     };
 }
 
@@ -137,7 +137,7 @@ RefPtr<PresentationContext> GPUImpl::createPresentationContext(const Presentatio
     Ref compositorIntegration = m_convertToBackingContext->convertToBacking(Ref { presentationContextDescriptor.compositorIntegration }.get());
 
     auto registerCallbacksBlock = makeBlockPtr([&](WGPURenderBuffersWereRecreatedBlockCallback renderBuffersWereRecreatedCallback, WGPUOnSubmittedWorkScheduledCallback onSubmittedWorkScheduledCallback) {
-        compositorIntegration->registerCallbacks(makeBlockPtr(WTFMove(renderBuffersWereRecreatedCallback)), convert(WTFMove(onSubmittedWorkScheduledCallback)));
+        compositorIntegration->registerCallbacks(makeBlockPtr(WTF::move(renderBuffersWereRecreatedCallback)), convert(WTF::move(onSubmittedWorkScheduledCallback)));
     });
 
     WGPUSurfaceDescriptor surfaceDescriptor {

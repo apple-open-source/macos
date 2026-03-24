@@ -36,20 +36,20 @@ namespace WebCore {
     
 using namespace SVGNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGGradientStop);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGGradientStop);
 
 RenderSVGGradientStop::RenderSVGGradientStop(SVGStopElement& element, RenderStyle&& style)
-    : RenderElement(Type::SVGGradientStop, element, WTFMove(style), { }, { })
+    : RenderElement(Type::SVGGradientStop, element, WTF::move(style), { }, { })
 {
     ASSERT(isRenderSVGGradientStop());
 }
 
 RenderSVGGradientStop::~RenderSVGGradientStop() = default;
 
-void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+void RenderSVGGradientStop::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     RenderElement::styleDidChange(diff, oldStyle);
-    if (diff == StyleDifference::Equal)
+    if (diff == Style::DifferenceResult::Equal)
         return;
 
     // <stop> elements should only be allowed to make renderers under gradient elements

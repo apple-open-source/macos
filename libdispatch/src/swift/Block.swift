@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2016 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -10,10 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CDispatch
-import _SwiftDispatchOverlayShims
+@_implementationOnly import _DispatchOverlayShims
 
-public struct DispatchWorkItemFlags : OptionSet, RawRepresentable {
+public struct DispatchWorkItemFlags : OptionSet, RawRepresentable, Sendable {
 	public let rawValue: UInt
 	public init(rawValue: UInt) { self.rawValue = rawValue }
 
@@ -35,29 +34,29 @@ public struct DispatchWorkItemFlags : OptionSet, RawRepresentable {
 	public static let enforceQoS = DispatchWorkItemFlags(rawValue: 0x20)
 }
 
+// NOTE: older overlays had Dispatch.DispatchWorkItem as the ObjC name.
+// The two must coexist, so it was renamed. The old name must not be
+// used in the new runtime. _TtC8Dispatch17_DispatchWorkItem is the
+// mangled name for Dispatch._DispatchWorkItem.
 @available(macOS 10.10, iOS 8.0, *)
+@_objcRuntimeName(_TtC8Dispatch17_DispatchWorkItem)
 public class DispatchWorkItem {
 	internal var _block: _DispatchBlock
 
-	public init(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], block: @escaping @convention(block) () -> ()) {
-#if os(Windows) && (arch(arm64) || arch(x86_64))
-		let flags = dispatch_block_flags_t(UInt32(flags.rawValue))
-#else
-		let flags: dispatch_block_flags_t = numericCast(flags.rawValue)
-#endif
-		_block =  dispatch_block_create_with_qos_class(flags,
-			qos.qosClass.rawValue.rawValue, Int32(qos.relativePriority), block)
+	public init(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], block: @escaping @convention(block) () -> Void) {
+		if (qos == .unspecified) {
+			// The underlying dispatch_block_create backdates to macOS 10.10, iOS 8.0.
+			_block =  _swift_dispatch_block_create(__dispatch_block_flags_t(rawValue: flags.rawValue), block)
+		} else {
+			_block =  _swift_dispatch_block_create_with_qos_class(
+				__dispatch_block_flags_t(rawValue: flags.rawValue),
+				qos.qosClass.rawValue, Int32(qos.relativePriority), block)
+		}
 	}
 
-	// Used by DispatchQueue.synchronously<T> to provide a path through
-	// dispatch_block_t, as we know the lifetime of the block in question.
-	internal init(flags: DispatchWorkItemFlags = [], noescapeBlock: () -> ()) {
-#if os(Windows) && (arch(arm64) || arch(x86_64))
-		let flags = dispatch_block_flags_t(UInt32(flags.rawValue))
-#else
-		let flags: dispatch_block_flags_t = numericCast(flags.rawValue)
-#endif
-		_block = _swift_dispatch_block_create_noescape(flags, noescapeBlock)
+	@available(macOS 11.3, iOS 14.5, watchOS 7.4, tvOS 14.5, *)
+	public init(flags: DispatchWorkItemFlags = [], block: @escaping @convention(block) () -> Void) {
+		_block =  _swift_dispatch_block_create(__dispatch_block_flags_t(rawValue: flags.rawValue), block)
 	}
 
 	public func perform() {
@@ -65,41 +64,41 @@ public class DispatchWorkItem {
 	}
 
 	public func wait() {
-		_ = dispatch_block_wait(_block, DispatchTime.distantFuture.rawValue)
+		_ = _swift_dispatch_block_wait(_block, DispatchTime.distantFuture.rawValue)
 	}
 
 	public func wait(timeout: DispatchTime) -> DispatchTimeoutResult {
-		return dispatch_block_wait(_block, timeout.rawValue) == 0 ? .success : .timedOut
+		return _swift_dispatch_block_wait(_block, timeout.rawValue) == 0 ? .success : .timedOut
 	}
 
 	public func wait(wallTimeout: DispatchWallTime) -> DispatchTimeoutResult {
-		return dispatch_block_wait(_block, wallTimeout.rawValue) == 0 ? .success : .timedOut
+		return _swift_dispatch_block_wait(_block, wallTimeout.rawValue) == 0 ? .success : .timedOut
 	}
 
 	public func notify(
 		qos: DispatchQoS = .unspecified,
 		flags: DispatchWorkItemFlags = [],
 		queue: DispatchQueue,
-		execute: @escaping @convention(block) () -> ())
+		execute: @escaping @convention(block) () -> Void)
 	{
 		if qos != .unspecified || !flags.isEmpty {
 			let item = DispatchWorkItem(qos: qos, flags: flags, block: execute)
-			dispatch_block_notify(_block, queue.__wrapped, item._block)
+			_swift_dispatch_block_notify(_block, queue, item._block)
 		} else {
-			dispatch_block_notify(_block, queue.__wrapped, execute)
+			_swift_dispatch_block_notify(_block, queue, execute)
 		}
 	}
 
 	public func notify(queue: DispatchQueue, execute: DispatchWorkItem) {
-		dispatch_block_notify(_block, queue.__wrapped, execute._block)
+		_swift_dispatch_block_notify(_block, queue, execute._block)
 	}
 
 	public func cancel() {
-		dispatch_block_cancel(_block)
+		_swift_dispatch_block_cancel(_block)
 	}
 
 	public var isCancelled: Bool {
-		return dispatch_block_testcancel(_block) != 0
+		return _swift_dispatch_block_testcancel(_block) != 0
 	}
 }
 
@@ -108,4 +107,4 @@ public class DispatchWorkItem {
 /// C blocks and Swift closures, which interferes with dispatch APIs that depend
 /// on the referential identity of a block. Particularly, dispatch_block_create.
 internal typealias _DispatchBlock = @convention(block) () -> Void
-internal typealias dispatch_block_t = @convention(block) () -> Void
+

@@ -147,7 +147,9 @@ private:
     Ref<GenericPromise> m_pendingAction { GenericPromise::createAndResolve() };
 
     struct PageSources {
+#if PLATFORM(IOS_FAMILY)
         ThreadSafeWeakPtr<WebCore::RealtimeMediaSource> microphoneSource;
+#endif
         ThreadSafeWeakHashSet<WebCore::RealtimeMediaSource> cameraSources;
     };
     HashMap<WebCore::PageIdentifier, PageSources> m_pageSources;

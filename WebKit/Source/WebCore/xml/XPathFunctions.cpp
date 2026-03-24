@@ -326,7 +326,7 @@ void Function::setArguments(const String& name, Vector<std::unique_ptr<Expressio
     if (name != "lang"_s && !arguments.isEmpty())
         setIsContextNodeSensitive(false);
 
-    setSubexpressions(WTFMove(arguments));
+    setSubexpressions(WTF::move(arguments));
 }
 
 Value FunLast::evaluate() const
@@ -374,14 +374,14 @@ Value FunId::evaluate() const
         // In WebKit, getElementById behaves so, too, although its behavior in this case is formally undefined.
         RefPtr node = contextScope->getElementById(StringView(idList).substring(startPos, endPos - startPos));
         if (node && resultSet.add(*node).isNewEntry)
-            result.append(WTFMove(node));
+            result.append(WTF::move(node));
         
         startPos = endPos;
     }
     
     result.markSorted(false);
     
-    return Value(WTFMove(result));
+    return Value(WTF::move(result));
 }
 
 static inline String expandedNameLocalPart(Node& node)
@@ -408,7 +408,7 @@ Value FunLocalName::evaluate() const
         return node ? expandedNameLocalPart(*node) : emptyString();
     }
 
-    return expandedNameLocalPart(*evaluationContext().node);
+    return expandedNameLocalPart(*evaluationContext().protectedNode());
 }
 
 Value FunNamespaceURI::evaluate() const
@@ -422,7 +422,7 @@ Value FunNamespaceURI::evaluate() const
         return node ? node->namespaceURI().string() : emptyString();
     }
 
-    return evaluationContext().node->namespaceURI().string();
+    return evaluationContext().protectedNode()->namespaceURI().string();
 }
 
 Value FunName::evaluate() const
@@ -436,7 +436,7 @@ Value FunName::evaluate() const
         return node ? expandedName(*node) : emptyString();
     }
 
-    return expandedName(*evaluationContext().node);
+    return expandedName(*evaluationContext().protectedNode());
 }
 
 Value FunCount::evaluate() const
@@ -764,7 +764,7 @@ static MemoryCompactLookupOnlyRobinHoodHashMap<String, FunctionMapValue> createF
         FunctionMapValue function;
     };
 
-    static const FunctionMapping functions[] = {
+    static const auto functions = std::to_array<FunctionMapping>({
         { "boolean"_s, { createFunctionBoolean, 1 } },
         { "ceiling"_s, { createFunctionCeiling, 1 } },
         { "concat"_s, { createFunctionConcat, Interval(2, Interval::Inf) } },
@@ -792,7 +792,7 @@ static MemoryCompactLookupOnlyRobinHoodHashMap<String, FunctionMapValue> createF
         { "sum"_s, { createFunctionSum, 1 } },
         { "translate"_s, { createFunctionTranslate, 3 } },
         { "true"_s, { createFunctionTrue, 0 } },
-    };
+    });
 
     MemoryCompactLookupOnlyRobinHoodHashMap<String, FunctionMapValue> map;
     for (auto& function : functions)
@@ -823,7 +823,7 @@ std::unique_ptr<Function> Function::create(const String& name, Vector<std::uniqu
 {
     auto function = create(name, arguments.size());
     if (function)
-        function->setArguments(name, WTFMove(arguments));
+        function->setArguments(name, WTF::move(arguments));
     return function;
 }
 

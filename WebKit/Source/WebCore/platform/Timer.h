@@ -27,6 +27,7 @@
 
 #include <WebCore/ThreadTimers.h>
 #include <functional>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompactRefPtrTuple.h>
 #include <wtf/Function.h>
@@ -46,20 +47,11 @@
 #endif
 
 namespace WebCore {
-class TimerAlignment;
-}
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::TimerAlignment> : std::true_type { };
-}
-
-namespace WebCore {
-
-class TimerAlignment : public CanMakeWeakPtr<TimerAlignment> {
+class TimerAlignment : public CanMakeWeakPtr<TimerAlignment>, public AbstractCanMakeCheckedPtr {
 public:
     virtual ~TimerAlignment() = default;
-    virtual std::optional<MonotonicTime> alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime) const = 0;
+    virtual MonotonicTime alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime) const = 0;
 };
 
 class TimerBase {
@@ -150,7 +142,7 @@ public:
     static void schedule(Seconds delay, Function<void()>&& function)
     {
         auto* timer = new Timer([] { });
-        timer->m_function = [timer, function = WTFMove(function)] {
+        timer->m_function = [timer, function = WTF::move(function)] {
             function();
             delete timer;
         };
@@ -186,19 +178,8 @@ public:
     {
     }
 
-    // FIXME: This constructor isn't as safe as the other ones and should ideally be removed.
-    template <typename TimerFiredClass, typename TimerFiredBaseClass>
-    requires (!WTF::HasRefPtrMemberFunctions<TimerFiredClass>::value && !WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>::value)
-    Timer(TimerFiredClass& object, void (TimerFiredBaseClass::*function)())
-        : m_function(std::bind(function, &object))
-    {
-        static_assert(WTF::IsDeprecatedTimerSmartPointerException<std::remove_cv_t<TimerFiredClass>>::value,
-            "Classes that use Timer should be ref-counted or CanMakeCheckedPtr. Please do not add new exceptions."
-        );
-    }
-
     Timer(Function<void()>&& function)
-        : m_function(WTFMove(function))
+        : m_function(WTF::move(function))
     {
     }
 
@@ -245,7 +226,7 @@ public:
     }
 
     DeferrableOneShotTimer(Function<void()>&& function, Seconds delay)
-        : m_function(WTFMove(function))
+        : m_function(WTF::move(function))
         , m_delay(delay)
     {
     }

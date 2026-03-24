@@ -2475,6 +2475,12 @@ static void handleTokResults(const char* testItem, const char* tokClass, const c
 }
 
 static void TestRuleBasedTokenizer(void) {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (getTestOption(QUICK_OPTION)) {
+        log_verbose("Skipping in quick mode (use -e for exhaustive tests)\n");
+        return;
+    }
+#endif
     const TokRulesAndTests* ruleTypePtr;
 #if !U_PLATFORM_HAS_WIN32_API
     uint64_t start, duration;

@@ -44,7 +44,7 @@ RefPtr<NativeImage> NativeImage::create(PlatformImagePtr&& image)
         return nullptr;
     if (CGImageGetWidth(image.get()) > std::numeric_limits<int>::max() || CGImageGetHeight(image.get()) > std::numeric_limits<int>::max())
         return nullptr;
-    return adoptRef(*new NativeImage(WTFMove(image)));
+    return adoptRef(*new NativeImage(WTF::move(image)));
 }
 
 RefPtr<NativeImage> NativeImage::createTransient(PlatformImagePtr&& image)
@@ -59,7 +59,7 @@ RefPtr<NativeImage> NativeImage::createTransient(PlatformImagePtr&& image)
         return nullptr;
     image = nullptr;
     CGImageSetCachingFlags(transientImage.get(), kCGImageCachingTransient);
-    return create(WTFMove(transientImage));
+    return create(WTF::move(transientImage));
 }
 
 IntSize NativeImage::size() const

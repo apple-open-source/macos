@@ -68,11 +68,6 @@ void DateConstructor::finishCreation(VM& vm, DatePrototype* datePrototype)
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, datePrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
 }
 
-static inline double toIntegerOrInfinity(double d)
-{
-    return trunc(std::isnan(d) ? 0.0 : d + 0.0);
-}
-
 static double millisecondsFromComponents(JSGlobalObject* globalObject, const ArgList& args, TimeType timeType)
 {
     VM& vm = globalObject->vm();
@@ -82,23 +77,23 @@ static double millisecondsFromComponents(JSGlobalObject* globalObject, const Arg
     double doubleArguments[7] {
         0, 0, 1, 0, 0, 0, 0
     };
+    bool hasNonFinite = false;
     unsigned numberOfUsedArguments = std::max(std::min<unsigned>(7U, args.size()), 1U);
     for (unsigned i = 0; i < numberOfUsedArguments; ++i) {
         doubleArguments[i] = args.at(i).toNumber(globalObject);
         RETURN_IF_EXCEPTION(scope, 0);
+
+        hasNonFinite |= !std::isfinite(doubleArguments[i]);
+        doubleArguments[i] = std::trunc(doubleArguments[i] + 0.0);
     }
-    for (unsigned i = 0; i < numberOfUsedArguments; ++i) {
-        if (!std::isfinite(doubleArguments[i]))
-            return PNaN;
-        doubleArguments[i] = toIntegerOrInfinity(doubleArguments[i]);
-    }
+
+    if (hasNonFinite)
+        return PNaN;
 
     if (0 <= doubleArguments[0] && doubleArguments[0] <= 99)
         doubleArguments[0] += 1900;
 
     double time = makeDate(makeDay(doubleArguments[0], doubleArguments[1], doubleArguments[2]), makeTime(doubleArguments[3], doubleArguments[4], doubleArguments[5], doubleArguments[6]));
-    if (!std::isfinite(time))
-        return PNaN;
     return timeClip(vm.dateCache.localTimeToMS(time, timeType));
 }
 
@@ -158,7 +153,7 @@ JSC_DEFINE_HOST_FUNCTION(callDate, (JSGlobalObject* globalObject, CallFrame*))
     VM& vm = globalObject->vm();
     GregorianDateTime ts;
     vm.dateCache.msToGregorianDateTime(WallTime::now().secondsSinceEpoch().milliseconds(), TimeType::LocalTime, ts);
-    return JSValue::encode(jsNontrivialString(vm, formatDateTime(ts, DateTimeFormatDateAndTime, false, vm.dateCache)));
+    return JSValue::encode(jsNontrivialString(vm, formatDateTime(ts, DateTimeFormat::DateAndTime, false, vm.dateCache)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(dateParse, (JSGlobalObject* globalObject, CallFrame* callFrame))

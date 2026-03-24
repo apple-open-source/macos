@@ -48,7 +48,7 @@ class ServiceWorkerContainer;
 template<typename> class ExceptionOr;
 
 class PushSubscription : public RefCounted<PushSubscription> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(PushSubscription, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(PushSubscription, WEBCORE_EXPORT);
 public:
     template<typename... Args> static Ref<PushSubscription> create(Args&&... args) { return adoptRef(*new PushSubscription(std::forward<Args>(args)...)); }
     WEBCORE_EXPORT ~PushSubscription();

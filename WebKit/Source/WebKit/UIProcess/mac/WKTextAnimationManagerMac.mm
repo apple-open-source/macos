@@ -99,7 +99,7 @@
     }
 
     RetainPtr<id<_WTTextEffect>> effect;
-    RetainPtr chunk = adoptNS([PAL::alloc_WTTextChunkInstance() initChunkWithIdentifier:uuid.UUIDString]);
+    RetainPtr chunk = adoptNS([PAL::alloc_WTTextChunkInstance() initChunkWithIdentifier:retainPtr(uuid.UUIDString).get()]);
 
     switch (data.style) {
     case WebCore::TextAnimationType::Initial:
@@ -189,7 +189,7 @@
 {
     RetainPtr effectData = [_chunkToEffect objectForKey:uuid];
     if (effectData) {
-        [_effectView removeEffect:[effectData effectID]];
+        [_effectView removeEffect:retainPtr([effectData effectID]).get()];
         [_chunkToEffect removeObjectForKey:uuid];
     }
 }
@@ -208,7 +208,7 @@
 {
     for (NSUUID *chunkID in [_chunkToEffect allKeys]) {
         RetainPtr effectData = [_chunkToEffect objectForKey:chunkID];
-        [_effectView removeEffect:[effectData effectID]];
+        [_effectView removeEffect:retainPtr([effectData effectID]).get()];
 
         if ([effectData type] != WebCore::TextAnimationType::Initial)
             [_chunkToEffect removeObjectForKey:chunkID];
@@ -228,7 +228,7 @@
 
 - (void)textPreviewsForChunk:(_WTTextChunk *)chunk completion:(void (^)(NSArray <_WTTextPreview *> *previews))completionHandler
 {
-    RetainPtr nsUUID = adoptNS([[NSUUID alloc] initWithUUIDString:chunk.identifier]);
+    RetainPtr nsUUID = adoptNS([[NSUUID alloc] initWithUUIDString:retainPtr(chunk.identifier).get()]);
     auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
     if (!uuid || !uuid->isValid()) {
         completionHandler(nil);
@@ -286,7 +286,7 @@
 
 - (void)updateIsTextVisible:(BOOL)isTextVisible forChunk:(_WTTextChunk *)chunk completion:(void (^)(void))completionHandler
 {
-    RetainPtr nsUUID = adoptNS([[NSUUID alloc] initWithUUIDString:chunk.identifier]);
+    RetainPtr nsUUID = adoptNS([[NSUUID alloc] initWithUUIDString:retainPtr(chunk.identifier).get()]);
     auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
     if (!uuid || !uuid->isValid()) {
         if (completionHandler)

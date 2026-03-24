@@ -33,7 +33,7 @@
 #include "HTMLDetailsElement.h"
 #include "HTMLSlotElement.h"
 #include "NodeRenderStyle.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "Settings.h"
 #include "UserAgentParts.h"
 
@@ -53,12 +53,12 @@ bool revealClosedDetailsAndHiddenUntilFoundAncestors(Node& node)
     if (node.renderStyle() && !node.renderStyle()->autoRevealsWhenFound())
         return false;
 
-    auto closedDetailsElementAncestor = [](Node& node) -> HTMLDetailsElement* {
+    auto closedDetailsElementAncestor = [](Node& node) -> RefPtr<HTMLDetailsElement> {
         RefPtr slot = node.assignedSlot();
         if (slot && slot->userAgentPart() == UserAgentParts::detailsContent() && slot->shadowHost()) {
             Ref details = downcast<HTMLDetailsElement>(*slot->shadowHost());
             if (!details->hasAttributeWithoutSynchronization(HTMLNames::openAttr))
-                return details.unsafePtr();
+                return details;
         }
         return nullptr;
     };

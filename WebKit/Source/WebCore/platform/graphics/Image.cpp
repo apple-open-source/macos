@@ -148,7 +148,7 @@ RefPtr<FragmentedSharedBuffer> Image::protectedData() const
 
 EncodedDataStatus Image::setData(RefPtr<FragmentedSharedBuffer>&& data, bool allDataReceived)
 {
-    m_encodedImageData = WTFMove(data);
+    m_encodedImageData = WTF::move(data);
 
     // Don't do anything; it is an empty image.
     if (!m_encodedImageData.get() || !m_encodedImageData->size())
@@ -258,7 +258,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
             visibleSrcRect.setY((destRect.y() - oneTileRect.y()) / scale.height());
             visibleSrcRect.setWidth(1);
             visibleSrcRect.setHeight(destRect.height() / scale.height());
-            return draw(ctxt, destRect, visibleSrcRect, { options, BlendMode::Normal });
+            return draw(ctxt, destRect, visibleSrcRect, options);
         }
         if (size().height() == 1 && intersection(oneTileRect, destRect).width() == destRect.width()) {
             FloatRect visibleSrcRect;
@@ -266,7 +266,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
             visibleSrcRect.setY(0);
             visibleSrcRect.setWidth(destRect.width() / scale.width());
             visibleSrcRect.setHeight(1);
-            return draw(ctxt, destRect, visibleSrcRect, { options, BlendMode::Normal });
+            return draw(ctxt, destRect, visibleSrcRect, options);
         }
     }
 #endif
@@ -298,7 +298,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
                 FloatRect fromRect(toFloatPoint(currentTileRect.location() - oneTileRect.location()), currentTileRect.size());
                 fromRect.scale(1 / scale.width(), 1 / scale.height());
 
-                result = draw(ctxt, toRect, fromRect, { options, BlendMode::Normal });
+                result = draw(ctxt, toRect, fromRect, options);
                 if (result == ImageDrawResult::DidRequestDecoding)
                     return result;
                 toX += currentTileRect.width();

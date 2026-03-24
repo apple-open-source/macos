@@ -40,7 +40,7 @@ RetainPtr<CFStringRef> defaultSearchProviderDisplayName()
     if (!providerInfo)
         return CFSTR("Google");
 
-    auto displayName = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(providerInfo.get(), kCFWebServicesProviderDefaultDisplayNameKey));
+    RetainPtr displayName = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(providerInfo.get(), kCFWebServicesProviderDefaultDisplayNameKey));
     if (!displayName)
         return CFSTR("Google");
 

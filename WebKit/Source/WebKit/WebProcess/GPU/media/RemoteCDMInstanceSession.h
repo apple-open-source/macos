@@ -65,9 +65,9 @@ private:
     void sendMessage(WebCore::CDMMessageType, RefPtr<WebCore::SharedBuffer>&&);
     void sessionIdChanged(const String&);
 
-    void setClient(WeakPtr<WebCore::CDMInstanceSessionClient>&& client) final { m_client = WTFMove(client); }
+    void setClient(WeakPtr<WebCore::CDMInstanceSessionClient>&& client) final { m_client = WTF::move(client); }
     void clearClient() final { m_client = nullptr; }
-    void requestLicense(LicenseType, KeyGroupingStrategy, const AtomString& initDataType, Ref<WebCore::SharedBuffer>&& initData, LicenseCallback&&) final;
+    void requestLicense(LicenseType, KeyGroupingStrategy, const String& initDataType, Ref<WebCore::SharedBuffer>&& initData, LicenseCallback&&) final;
     void updateLicense(const String& sessionId, LicenseType, Ref<WebCore::SharedBuffer>&& response, LicenseUpdateCallback&&) final;
     void loadSession(LicenseType, const String& sessionId, const String& origin, LoadSessionCallback&&) final;
     void closeSession(const String& sessionId, CloseSessionCallback&&) final;

@@ -63,39 +63,13 @@ cp -p $CLDR_ROOT/common/dtd/ldml.dtd  $SRC_ROOT/data/dtd/cldr/common/dtd/
 cp -p $CLDR_ROOT/common/dtd/ldmlICU.dtd $SRC_ROOT/data/dtd/cldr/common/dtd/
 
 # Build the CLDR API library
-# (TODO: Peter's original instructions have us using "ant install-cldr-libs" in $TOOLS_ROOT/cldr,
-# but I've never been able to get that to work.  Similarly, doing "mvn package" in $CLDR_ROOT/tools
-# doesn't completely work either, because we get an error when we try to build the Survey Tool.
-# What I'm doing here is just building $CLDR_ROOT/tools/cldr-code and manually exporting it to
-# $TOOLS_ROOT/cldr/lib.)
 echo "### Building CLDR API library..."
-cd $CLDR_ROOT/tools/cldr-code
-mvn package -DskipTests=true
+cd $CLDR_ROOT
+mvn clean install -pl :cldr-all,:cldr-code -DskipTests -DskipITs
 if [ "$?" -ne "0" ]; then
 	echo Failed to build CLDR API library
 	exit 1
 fi
-
-echo "### Exporting CLDR API library to CLDR_ROOT..."
-mkdir -p $TOOLS_ROOT/cldr/lib
-cd $TOOLS_ROOT/cldr/lib
-mvn install:install-file \
-  -Dproject.parent.relativePath="" \
-  -DgroupId=org.unicode.cldr \
-  -DartifactId=cldr-api \
-  -Dversion=0.1-SNAPSHOT \
-  -Dpackaging=jar \
-  -DgeneratePom=true \
-  -DlocalRepositoryPath=. \
-  -Dfile="$CLDR_ROOT/tools/cldr-code/target/cldr-code.jar"
-if [ "$?" -ne "0" ]; then
-	echo Failed to export CLDR API library to TOOLS_ROOT
-	exit 1
-fi
-
-mvn dependency:purge-local-repository \
-  -Dproject.parent.relativePath="" \
-  -DmanualIncludes=org.unicode.cldr:cldr-api:jar
 
 # Build the final version (with inheritance in place) of the CLDR stuff to cldr-staging
 (
@@ -116,9 +90,13 @@ fi
 # copy the test files over to their proper locations
 (
 	echo "### Building ICU data source files..."
+	export ICU_DIR=$ICU_ROOT/icu
 	export CLDR_DIR=$CLDR_ROOT
+	export CLDR_TMP_DIR=$CLDR_TMP_ROOT
+	export CLDR_DATA_DIR=$CLDR_TMP_ROOT/production
 	cd $TOOLS_ROOT/cldr/cldr-to-icu
-	ant -f build-icu-data.xml -DcldrDataDir="$CLDR_TMP_ROOT/production" || exit 1
+	mvn clean package -DskipTests -DskipITs || exit 1
+	java -jar target/cldr-to-icu-1.0-SNAPSHOT-jar-with-dependencies.jar --cldrDataDir="$CLDR_TMP_DIR/production" || exit 1
 	cd $TOOLS_ROOT/cldr
 	ant copy-cldr-testdata || exit 1
 )
@@ -127,22 +105,15 @@ if [ "$?" -ne "0" ]; then
 	exit 1
 fi
 
-# Copy localeCanonicalization.txt into $SRC_ROOT
-# (TODO: Not sure why we have to do this.  Is anybody actually using this file?)
-echo "### Copying localeCanonicalization.txt to SRC_ROOT..."
-sed '1 i\
-# File copied from cldr common/testData/localeIdentifiers/localeCanonicalization.txt\
-' $CLDR_ROOT/common/testData/localeIdentifiers/localeCanonicalization.txt >$SRC_ROOT/test/testdata/localeCanonicalization.txt
-
 # Add lstm entries to end of data/brkitr/root.txt
 # (TODO: Is there a better way to do this? I couldn't get the -i option to work.)
-echo "### Adding lstm entry to end of data/brkitr/root.txt"
-sed -i '' '$ i\
-    lstm{\
-        Thai{"Thai_graphclust_model4_heavy.res"}\
-        Mymr{"Burmese_graphclust_model5_heavy.res"}\
-    }\
-' $SRC_ROOT/data/brkitr/root.txt
+# echo "### Adding lstm entry to end of data/brkitr/root.txt"
+# sed -i '' '$ i\
+#    lstm{\
+#         Thai{"Thai_graphclust_model4_heavy.res"}\
+#         Mymr{"Burmese_graphclust_model5_heavy.res"}\
+#    }\
+#' $SRC_ROOT/data/brkitr/root.txt
 
 # Fix the aliases in all the ur_Aran_IN.txt files
 # (TODO: The fact that we have to do this suggests there's a bug in the generator tool that we should fix)

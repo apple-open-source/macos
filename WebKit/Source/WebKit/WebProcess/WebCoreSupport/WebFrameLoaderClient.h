@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/ReferrerPolicy.h>
 #include <WebCore/SandboxFlags.h>
@@ -37,15 +38,18 @@ namespace WebCore {
 enum class AdjustViewSize : bool;
 enum class PolicyAction : uint8_t;
 enum class PolicyDecisionMode;
-enum class IsPerformingHTTPFallback : bool;
+enum class NavigationUpgradeToHTTPSBehavior : uint8_t;
 class FloatSize;
 class FormState;
 class Frame;
+class FrameTreeSyncData;
 class HitTestResult;
 class NavigationAction;
 class ResourceRequest;
 class ResourceResponse;
 using FramePolicyFunction = CompletionHandler<void(PolicyAction)>;
+
+struct FrameTreeSyncSerializationData;
 }
 
 namespace WebKit {
@@ -58,22 +62,25 @@ class WebFrameLoaderClient {
 public:
     WebFrame& webFrame() const { return m_frame.get(); }
 
-    std::optional<NavigationActionData> navigationActionData(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier>, std::optional<WebCore::HitTestResult>&&, bool hasOpener, WebCore::IsPerformingHTTPFallback, WebCore::SandboxFlags) const;
+    std::optional<NavigationActionData> navigationActionData(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier>, std::optional<WebCore::HitTestResult>&&, bool hasOpener, WebCore::NavigationUpgradeToHTTPSBehavior, WebCore::SandboxFlags) const;
 
     virtual void applyWebsitePolicies(WebsitePoliciesData&&) = 0;
 
     virtual ~WebFrameLoaderClient();
 
-    ScopeExit<Function<void()>> takeFrameInvalidator() { return WTFMove(m_frameInvalidator); }
+    ScopeExit<Function<void()>> takeFrameInvalidator() { return WTF::move(m_frameInvalidator); }
 
 protected:
     WebFrameLoaderClient(Ref<WebFrame>&&, ScopeExit<Function<void()>>&& frameInvalidator);
 
-    void dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse, WebCore::FormState*, const String&, std::optional<WebCore::NavigationIdentifier>, std::optional<WebCore::HitTestResult>&&, bool, WebCore::IsPerformingHTTPFallback, WebCore::SandboxFlags, WebCore::PolicyDecisionMode, WebCore::FramePolicyFunction&&);
+    void dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse, WebCore::FormState*, const String&, std::optional<WebCore::NavigationIdentifier>, std::optional<WebCore::HitTestResult>&&, bool, WebCore::NavigationUpgradeToHTTPSBehavior, WebCore::SandboxFlags, WebCore::PolicyDecisionMode, WebCore::FramePolicyFunction&&);
     void updateSandboxFlags(WebCore::SandboxFlags);
     void updateReferrerPolicy(WebCore::ReferrerPolicy);
-    void updateOpener(const WebCore::Frame&);
+    void updateOpener(std::optional<WebCore::FrameIdentifier>);
     void setPrinting(bool printing, WebCore::FloatSize pageSize, WebCore::FloatSize originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSize);
+
+    void broadcastAllFrameTreeSyncDataToOtherProcesses(WebCore::FrameTreeSyncData&);
+    void broadcastFrameTreeSyncDataToOtherProcesses(const WebCore::FrameTreeSyncSerializationData&);
 
     const Ref<WebFrame> m_frame;
     ScopeExit<Function<void()>> m_frameInvalidator;

@@ -147,7 +147,7 @@ static WebViewInsertAction kit(EditorInsertAction action)
     self = [super init];
     if (!self)
         return nil;
-    m_step = WTFMove(step);
+    m_step = WTF::move(step);
     return self;
 }
 
@@ -161,7 +161,7 @@ static WebViewInsertAction kit(EditorInsertAction action)
 
 + (WebUndoStep *)stepWithUndoStep:(Ref<UndoStep>&&)step
 {
-    return adoptNS([[WebUndoStep alloc] initWithUndoStep:WTFMove(step)]).autorelease();
+    return adoptNS([[WebUndoStep alloc] initWithUndoStep:WTF::move(step)]).autorelease();
 }
 
 - (UndoStep&)step
@@ -1267,6 +1267,10 @@ void WebEditorClient::requestCheckingOfString(TextCheckingRequest& request, cons
         }];
     }];
 #endif
+}
+
+void WebEditorClient::requestExtendedCheckingOfString(TextCheckingRequest& request, const VisibleSelection& currentSelection)
+{
 }
 
 #if PLATFORM(IOS_FAMILY)

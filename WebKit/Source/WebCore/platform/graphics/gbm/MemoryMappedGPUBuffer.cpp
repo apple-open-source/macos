@@ -33,10 +33,12 @@
 #include "IntRect.h"
 #include "Logging.h"
 #include "PlatformDisplay.h"
+#include "VivanteSuperTiledTextureInlines.h"
 #include <epoxy/egl.h>
 #include <fcntl.h>
 #include <linux/dma-buf.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/StdLibExtras.h>
 
@@ -51,6 +53,7 @@ MemoryMappedGPUBuffer::MemoryMappedGPUBuffer(const IntSize& size, OptionSet<Buff
     : m_size(size)
     , m_flags(flags)
 {
+    ASSERT(m_flags.contains(BufferFlag::ForceLinear) || m_flags.contains(BufferFlag::ForceVivanteSuperTiled));
 }
 
 MemoryMappedGPUBuffer::~MemoryMappedGPUBuffer()
@@ -80,15 +83,22 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
             if (format.fourcc != preferredDMABufFormat)
                 continue;
 
-            if (!flags.contains(BufferFlag::ForceLinear))
+            if (flags.contains(BufferFlag::ForceLinear)) {
+                if (format.modifiers.contains(DRM_FORMAT_MOD_LINEAR)) {
+                    // If a linear buffer is requested - only allow a single modifier.
+                    auto useFormat = format;
+                    useFormat.modifiers = { DRM_FORMAT_MOD_LINEAR };
+                    return useFormat;
+                }
+            } else if (flags.contains(BufferFlag::ForceVivanteSuperTiled)) {
+                if (format.modifiers.contains(DRM_FORMAT_MOD_VIVANTE_SUPER_TILED)) {
+                    // If a Vivante super-tiled buffer is requested - only allow a single modifier.
+                    auto useFormat = format;
+                    useFormat.modifiers = { DRM_FORMAT_MOD_VIVANTE_SUPER_TILED };
+                    return useFormat;
+                }
+            } else
                 return format;
-
-            if (format.modifiers.contains(DRM_FORMAT_MOD_LINEAR)) {
-                // If a linear buffer is requested - only allow a single modifier.
-                auto useFormat = format;
-                useFormat.modifiers = { DRM_FORMAT_MOD_LINEAR };
-                return useFormat;
-            }
         }
 
         return std::nullopt;
@@ -98,6 +108,11 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
 
     if (flags.contains(BufferFlag::ForceLinear) && (!bufferFormat.has_value() || !bufferFormat->modifiers.contains(DRM_FORMAT_MOD_LINEAR))) {
         WTFLogAlways("ERROR: ForceLinear flag set but DRM_FORMAT_MOD_LINEAR not supported by the negotiated buffer format. Aborting ..."); // NOLINT
+        CRASH();
+    }
+
+    if (flags.contains(BufferFlag::ForceVivanteSuperTiled) && (!bufferFormat.has_value() || !bufferFormat->modifiers.contains(DRM_FORMAT_MOD_VIVANTE_SUPER_TILED))) {
+        WTFLogAlways("ERROR: ForceVivanteSuperTiled flag set but DRM_FORMAT_MOD_VIVANTE_SUPER_TILED not supported by the negotiated buffer format. Aborting ..."); // NOLINT
         CRASH();
     }
 
@@ -122,13 +137,23 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
 
 bool MemoryMappedGPUBuffer::allocate(struct gbm_device* device, const GLDisplay::BufferFormat& bufferFormat)
 {
+    auto allocateSize = m_size;
+    if (m_flags.contains(BufferFlag::ForceVivanteSuperTiled))
+        allocateSize = VivanteSuperTiledTexture::alignToSuperTileIntSize(m_size);
+
     m_modifier = DRM_FORMAT_MOD_INVALID;
     if (!bufferFormat.modifiers.isEmpty())
-        m_bo = gbm_bo_create_with_modifiers2(device, m_size.width(), m_size.height(), bufferFormat.fourcc.value, bufferFormat.modifiers.span().data(), bufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
+        m_bo = gbm_bo_create_with_modifiers2(device, allocateSize.width(), allocateSize.height(), bufferFormat.fourcc.value, bufferFormat.modifiers.span().data(), bufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
 
-    if (m_bo)
+    if (m_flags.contains(BufferFlag::ForceVivanteSuperTiled) && !m_bo) {
+        WTFLogAlways("ERROR: ForceVivanteSuperTiled flag set but GBM couldn't allocate the buffer using gbm_bo_create_with_modifiers2. Aborting ..."); // NOLINT
+        CRASH();
+    }
+
+    if (m_bo) {
         m_modifier = gbm_bo_get_modifier(m_bo);
-    else {
+        ASSERT(allocateSize == allocatedSize());
+    } else {
         m_bo = gbm_bo_create(device, m_size.width(), m_size.height(), bufferFormat.fourcc.value, GBM_BO_USE_LINEAR);
         m_modifier = DRM_FORMAT_MOD_INVALID;
     }
@@ -143,6 +168,18 @@ bool MemoryMappedGPUBuffer::isLinear() const
 {
     ASSERT(m_bo);
     return gbm_bo_get_plane_count(m_bo) == 1 && (m_modifier == DRM_FORMAT_MOD_INVALID || m_modifier == DRM_FORMAT_MOD_LINEAR);
+}
+
+IntSize MemoryMappedGPUBuffer::allocatedSize() const
+{
+    ASSERT(m_bo);
+    return IntSize(gbm_bo_get_width(m_bo), gbm_bo_get_height(m_bo));
+}
+
+bool MemoryMappedGPUBuffer::isVivanteSuperTiled() const
+{
+    ASSERT(m_bo);
+    return gbm_bo_get_plane_count(m_bo) == 1 && m_modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED;
 }
 
 bool MemoryMappedGPUBuffer::createDMABufFromGBMBufferObject()
@@ -163,7 +200,7 @@ bool MemoryMappedGPUBuffer::createDMABufFromGBMBufferObject()
 
 #define ADD_PLANE_ATTRIBUTES(planeIndex) { \
     if (auto fd = exportGBMBufferObjectAsDMABuf(planeIndex)) \
-        fds.append(WTFMove(fd)); \
+        fds.append(WTF::move(fd)); \
     else \
         return false; \
     offsets.append(gbm_bo_get_offset(m_bo, planeIndex)); \
@@ -198,7 +235,7 @@ bool MemoryMappedGPUBuffer::createDMABufFromGBMBufferObject()
     m_eglAttributes.append(EGL_NONE);
 
     ASSERT(!m_dmaBuf);
-    m_dmaBuf = DMABufBuffer::create(m_size, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), m_modifier);
+    m_dmaBuf = DMABufBuffer::create(m_size, format, WTF::move(fds), WTF::move(offsets), WTF::move(strides), m_modifier);
     return true;
 }
 
@@ -232,8 +269,8 @@ bool MemoryMappedGPUBuffer::mapIfNeeded()
     if (isMapped())
         return true;
 
-    ASSERT(isLinear());
-    m_mappedLength = primaryPlaneDmaBufStride() * m_size.height();
+    ASSERT(isLinear() || isVivanteSuperTiled());
+    m_mappedLength = primaryPlaneDmaBufStride() * allocatedSize().height();
     m_mappedData = mmap(nullptr, m_mappedLength, PROT_READ | PROT_WRITE, MAP_SHARED, primaryPlaneDmaBufFD(), 0);
     if (m_mappedData == MAP_FAILED) {
         m_mappedLength = 0;
@@ -284,31 +321,31 @@ UnixFileDescriptor MemoryMappedGPUBuffer::exportGBMBufferObjectAsDMABuf(unsigned
     return UnixFileDescriptor { fd, UnixFileDescriptor::Adopt };
 }
 
-void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const MemoryMappedGPUBuffer& srcBuffer, const IntRect& targetRect)
-{
-    ASSERT_UNUSED(scope, &scope.buffer() == this);
-    ASSERT(scope.mode() == AccessScope::Mode::Write);
-    ASSERT(srcBuffer.isLinear());
-    updateContents(scope, srcBuffer.m_mappedData, targetRect, srcBuffer.primaryPlaneDmaBufStride());
-}
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const void* srcData, const IntRect& targetRect, unsigned bytesPerLine)
 {
     ASSERT_UNUSED(scope, &scope.buffer() == this);
     ASSERT(scope.mode() == AccessScope::Mode::Write);
     ASSERT(isMapped());
-    ASSERT(isLinear());
 
-    uint32_t* dstPixels = static_cast<uint32_t*>(m_mappedData);
+    if (isLinear()) {
+        updateContentsInLinearFormat(srcData, targetRect, bytesPerLine);
+        return;
+    }
+
+    ASSERT(isVivanteSuperTiled());
+    updateContentsInVivanteSuperTiledFormat(srcData, targetRect, bytesPerLine);
+}
+
+void MemoryMappedGPUBuffer::updateContentsInLinearFormat(const void* srcData, const IntRect& targetRect, unsigned bytesPerLine)
+{
     const uint32_t dstPitch = primaryPlaneDmaBufStride() / 4;
-    const auto dstOffset = targetRect.y() * dstPitch + targetRect.x();
-
-    const uint32_t* srcPixels = static_cast<const uint32_t*>(srcData);
+    const size_t dstOffset = targetRect.y() * dstPitch + targetRect.x();
     const uint32_t srcPitch = bytesPerLine / 4;
 
-    const auto srcPixelSpan = unsafeMakeSpan<const uint32_t>(srcPixels, targetRect.height() * srcPitch);
-    auto dstPixelSpan = unsafeMakeSpan<uint32_t>(dstPixels + dstOffset, m_size.height() * dstPitch - dstOffset);
+    auto dstBufferSpan = unsafeMakeSpan<uint32_t>(static_cast<uint32_t*>(m_mappedData), m_mappedLength / sizeof(uint32_t));
+    auto dstPixelSpan = dstBufferSpan.subspan(dstOffset);
+
+    const auto srcPixelSpan = unsafeMakeSpan<const uint32_t>(static_cast<const uint32_t*>(srcData), targetRect.height() * srcPitch);
 
     if (srcPitch == dstPitch) {
         memcpySpan(dstPixelSpan, srcPixelSpan);
@@ -318,16 +355,32 @@ void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const void* srcDa
     for (int32_t y = 0; y < targetRect.height(); ++y)
         memcpySpan(dstPixelSpan.subspan(y * dstPitch, dstPitch - targetRect.x()), srcPixelSpan.subspan(y * srcPitch, srcPitch));
 }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
+void MemoryMappedGPUBuffer::updateContentsInVivanteSuperTiledFormat(const void* srcData, const IntRect& targetRect, unsigned bytesPerLine)
+{
+    auto dstBufferSpan = unsafeMakeSpan<uint32_t>(static_cast<uint32_t*>(m_mappedData), m_mappedLength / sizeof(uint32_t));
+
+    const unsigned srcPitch = bytesPerLine / 4;
+    const auto srcPixelSpan = unsafeMakeSpan<const uint32_t>(static_cast<const uint32_t*>(srcData), targetRect.height() * srcPitch);
+
+    VivanteSuperTiledTexture texture(dstBufferSpan, primaryPlaneDmaBufStride());
+
+    // Write line by line, accounting for source pitch which may differ from target width.
+    unsigned dstX = targetRect.x();
+    unsigned dstY = targetRect.y();
+    unsigned width = targetRect.width();
+    unsigned height = targetRect.height();
+
+    for (unsigned y = 0; y < height; ++y)
+        texture.writeLine(dstX, dstY + y, width, srcPixelSpan.subspan(y * srcPitch, srcPitch));
+}
 
 std::span<uint32_t> MemoryMappedGPUBuffer::mappedDataSpan(AccessScope& scope) const
 {
     ASSERT_UNUSED(scope, &scope.buffer() == this);
     ASSERT(isMapped());
-    ASSERT(isLinear());
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return { static_cast<uint32_t*>(m_mappedData), primaryPlaneDmaBufStride() / 4 };
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    ASSERT(isLinear() || isVivanteSuperTiled());
+    return unsafeMakeSpan<uint32_t>(static_cast<uint32_t*>(m_mappedData), m_mappedLength / sizeof(uint32_t));
 }
 
 MemoryMappedGPUBuffer::AccessScope::AccessScope(MemoryMappedGPUBuffer& buffer, AccessScope::Mode mode)

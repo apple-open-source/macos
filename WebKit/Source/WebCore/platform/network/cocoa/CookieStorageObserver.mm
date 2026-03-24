@@ -106,7 +106,7 @@ void CookieStorageObserver::startObserving(WTF::Function<void()>&& callback)
     ASSERT(!m_observerAdapter);
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
 
-    m_cookieChangeCallback = WTFMove(callback);
+    m_cookieChangeCallback = WTF::move(callback);
     m_observerAdapter = adoptNS([[WebCookieObserverAdapter alloc] initWithObserver:*this]);
 
     if (!m_hasRegisteredInternalsForNotifications) {

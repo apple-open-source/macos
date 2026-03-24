@@ -90,10 +90,10 @@ public:
 private:
     void didPostMessage(WebPageProxy& page, FrameInfoData&& frameInfo, API::ContentWorld&, JavaScriptEvaluationResult&& result, CompletionHandler<void(Expected<JavaScriptEvaluationResult, String>&&)>&& completionHandler) override
     {
-        Ref message = API::ScriptMessage::create(result.toAPI(), page, API::FrameInfo::create(WTFMove(frameInfo)), m_name, API::ContentWorld::pageContentWorldSingleton());
-        Ref listener = API::CompletionListener::create([completionHandler = WTFMove(completionHandler)] (WKTypeRef reply) mutable {
+        Ref message = API::ScriptMessage::create(result.toAPI(), page, API::FrameInfo::create(WTF::move(frameInfo)), m_name, API::ContentWorld::pageContentWorldSingleton());
+        Ref listener = API::CompletionListener::create([completionHandler = WTF::move(completionHandler)] (WKTypeRef reply) mutable {
             if (auto result = JavaScriptEvaluationResult::extract(toProtectedImpl(reply).get()))
-                return completionHandler(WTFMove(*result));
+                return completionHandler(WTF::move(*result));
             completionHandler(makeUnexpected(String()));
         });
         m_callback(toAPI(message.ptr()), toAPI(listener.ptr()), m_context);

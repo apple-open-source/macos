@@ -77,7 +77,7 @@ Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformCALaye
         RefPtr localMainFrameView = context->protectedWebPage()->localMainFrameView();
         result->setContentsFormat(PlatformCALayer::contentsFormatForLayer(owner));
     }
-    return WTFMove(result);
+    return WTF::move(result);
 }
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformLayer* platformLayer, PlatformCALayerClient* owner)
@@ -166,8 +166,8 @@ public:
             m_opaque = opaque;
         }
 
-        RemoteLayerBackingStoreProperties properties(WTFMove(*backendHandle), clone->renderingResourceIdentifier(), opaque);
-        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(*m_layerID, WTFMove(properties)), m_drawingArea.toUInt64());
+        RemoteLayerBackingStoreProperties properties(WTF::move(*backendHandle), clone->renderingResourceIdentifier(), opaque);
+        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(*m_layerID, WTF::move(properties)), m_drawingArea.toUInt64());
         return true;
     }
 
@@ -234,7 +234,7 @@ class ImageBufferFlusherFence final : public WebCore::PlatformCALayerDelegatedCo
 public:
     static Ref<ImageBufferFlusherFence> create(std::unique_ptr<ThreadSafeImageBufferFlusher>&& flusher)
     {
-        return adoptRef(*new ImageBufferFlusherFence(WTFMove(flusher)));
+        return adoptRef(*new ImageBufferFlusherFence(WTF::move(flusher)));
     }
 
     bool waitFor(Seconds) final
@@ -245,7 +245,7 @@ public:
 
 private:
     ImageBufferFlusherFence(std::unique_ptr<ThreadSafeImageBufferFlusher>&& flusher)
-        : m_flusher(WTFMove(flusher))
+        : m_flusher(WTF::move(flusher))
     {
     }
 
@@ -261,7 +261,7 @@ void GraphicsLayerCARemote::setLayerContentsToImageBuffer(PlatformCALayer* layer
 
     RefPtr<PlatformCALayerDelegatedContentsFence> fence;
     if (auto flusher = image->createFlusher())
-        fence = ImageBufferFlusherFence::create(WTFMove(flusher));
+        fence = ImageBufferFlusherFence::create(WTF::move(flusher));
 
     auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(image->toBackendSharing());
     if (!sharing)

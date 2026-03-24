@@ -39,7 +39,7 @@ public:
     static constexpr size_t numberOfComponentIndexes = 14;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCDateComponents, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCDateComponents>;
     CoreIPCDateComponents() = default;
 
     String m_calendarIdentifier;

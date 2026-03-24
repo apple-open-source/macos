@@ -60,7 +60,7 @@ public:
     TimerEvent(TimerEventBasedMock* mock, Ref<MockNotifier>&& notifier)
         : m_mock(mock)
         , m_timer(*this, &TimerEvent::timerFired)
-        , m_notifier(WTFMove(notifier))
+        , m_notifier(WTF::move(notifier))
     {
         m_timer.startOneShot(500_ms);
     }

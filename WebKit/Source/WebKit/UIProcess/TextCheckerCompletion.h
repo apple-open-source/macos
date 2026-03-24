@@ -48,11 +48,9 @@ public:
 private:
     TextCheckerCompletion(TextCheckerRequestID, const WebCore::TextCheckingRequestData&, WebPageProxy&);
 
-    Ref<WebPageProxy> protectedPage() const;
-
     const TextCheckerRequestID m_requestID;
     const WebCore::TextCheckingRequestData m_requestData;
-    WeakRef<WebPageProxy> m_page;
+    WeakPtr<WebPageProxy> m_page;
 };
 
 } // namespace WebKit

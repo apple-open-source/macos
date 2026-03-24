@@ -87,13 +87,11 @@ typedef int ptrdiff_t;
  * built and not outside it (where this is supported by the linker).
  */
 
-#ifndef MODULE_SCOPE
 #   ifdef __cplusplus
-#	define MODULE_SCOPE extern "C"
+#	define MODULE_SCOPE extern "C" __attribute__((__visibility__("hidden")))
 #   else
-#	define MODULE_SCOPE extern
+#	define MODULE_SCOPE extern __attribute__((__visibility__("hidden")))
 #   endif
-#endif
 
 /*
  * When Tcl_WideInt and long are the same type, there's no value in

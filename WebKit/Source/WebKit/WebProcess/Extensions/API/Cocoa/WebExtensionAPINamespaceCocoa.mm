@@ -46,29 +46,30 @@ namespace WebKit {
 
 bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPage* page)
 {
-    if (extensionContext().isUnsupportedAPI(propertyPath(), name)) [[unlikely]]
+    Ref extensionContext = this->extensionContext();
+    if (extensionContext->isUnsupportedAPI(propertyPath(), name)) [[unlikely]]
         return false;
 
     if (name == "action"_s)
-        return extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"action", false);
+        return extensionContext->supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext->manifest(), @"action", false);
 
 #if ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
     if (name == "bookmarks"_s)
-        return page->corePage()->settings().webExtensionBookmarksEnabled() && extensionContext().hasPermission("bookmarks"_s);
+        return page->corePage()->settings().webExtensionBookmarksEnabled() && extensionContext->hasPermission("bookmarks"_s);
 #endif
 
     if (name == "commands"_s)
-        return objectForKey<NSDictionary>(extensionContext().manifest(), @"commands", false);
+        return objectForKey<NSDictionary>(extensionContext->manifest(), @"commands", false);
 
     if (name == "declarativeNetRequest"_s)
-        return extensionContext().hasPermission(name) || extensionContext().hasPermission("declarativeNetRequestWithHostAccess"_s);
+        return extensionContext->hasPermission(name) || extensionContext->hasPermission("declarativeNetRequestWithHostAccess"_s);
 
     if (name == "browserAction"_s)
-        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"browser_action", false);
+        return !extensionContext->supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext->manifest(), @"browser_action", false);
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     if (name == "devtools"_s)
-        return objectForKey<NSString>(extensionContext().manifest(), @"devtools_page") && page && (page->isInspectorPage() || extensionContext().isInspectorBackgroundPage(*page));
+        return objectForKey<NSString>(extensionContext->manifest(), @"devtools_page") && page && (page->isInspectorPage() || extensionContext->isInspectorBackgroundPage(*page));
 #else
     if (name == "devtools"_s)
         return false;
@@ -77,34 +78,34 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
     if (name == "notifications"_s) {
         // FIXME: <rdar://problem/57202210> Add support for browser.notifications.
         // Notifications are currently only available in test mode as an empty stub.
-        if (!extensionContext().inTestingMode())
+        if (!extensionContext->inTestingMode())
             return false;
         goto finish;
     }
 
     if (name == "pageAction"_s)
-        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"page_action", false);
+        return !extensionContext->supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext->manifest(), @"page_action", false);
 
 #if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
     // If the extension requests both sidePanel and sidebarAction, we will give them sidebarAction --
     // we check in sidePanel that there is no sidebar_action key, but we do not check in sidebarAction
     // that there is no sidePanel permission
     if (name == "sidePanel"_s)
-        return page->corePage()->settings().webExtensionSidebarEnabled() && extensionContext().hasPermission("sidePanel"_s) && !objectForKey<NSDictionary>(extensionContext().manifest(), @"sidebar_action", true);
+        return page->corePage()->settings().webExtensionSidebarEnabled() && extensionContext->hasPermission("sidePanel"_s) && !objectForKey<NSDictionary>(extensionContext->manifest(), @"sidebar_action", true);
     if (name == "sidebarAction"_s)
-        return page->corePage()->settings().webExtensionSidebarEnabled() && objectForKey<NSDictionary>(extensionContext().manifest(), @"sidebar_action", true);
+        return page->corePage()->settings().webExtensionSidebarEnabled() && objectForKey<NSDictionary>(extensionContext->manifest(), @"sidebar_action", true);
 #endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     if (name == "storage"_s)
-        return extensionContext().hasPermission(name) || extensionContext().hasPermission("unlimitedStorage"_s);
+        return extensionContext->hasPermission(name) || extensionContext->hasPermission("unlimitedStorage"_s);
 
     if (name == "test"_s)
-        return extensionContext().inTestingMode();
+        return extensionContext->inTestingMode();
 
 finish:
     // The rest of the property names marked dynamic in WebExtensionAPINamespace.idl match permission names.
     // Check for the permission to determine if the property is allowed to be accessed.
-    return extensionContext().hasPermission(name);
+    return extensionContext->hasPermission(name);
 }
 
 WebExtensionAPIAction& WebExtensionAPINamespace::action()
@@ -234,7 +235,7 @@ WebExtensionAPIRuntime& WebExtensionAPINamespace::runtime() const
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime
 
     if (!m_runtime) {
-        m_runtime = WebExtensionAPIRuntime::create(contentWorldType(), extensionContext());
+        m_runtime = WebExtensionAPIRuntime::create(contentWorldType(), protectedExtensionContext());
         m_runtime->setPropertyPath("runtime"_s, this);
     }
 

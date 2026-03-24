@@ -296,7 +296,6 @@ private:
     } m_historyDelegateMethods;
 
 #if USE(RUNNINGBOARD)
-    RefPtr<ProcessThrottler::BackgroundActivity> m_networkActivity;
     RunLoop::Timer m_releaseNetworkActivityTimer;
 #endif
 };

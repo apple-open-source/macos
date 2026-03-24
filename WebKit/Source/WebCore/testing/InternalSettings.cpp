@@ -146,6 +146,8 @@ public:
     InternalSettings* internalSettings() const { return m_internalSettings.get(); }
 
 private:
+    bool isInternalSettingsWrapper() const final { return true; }
+
     RefPtr<InternalSettings> m_internalSettings;
 };
 
@@ -158,7 +160,7 @@ InternalSettings* InternalSettings::from(Page* page)
 {
     if (!Supplement<Page>::from(page, supplementName()))
         Supplement<Page>::provideTo(page, supplementName(), makeUnique<InternalSettingsWrapper>(page));
-    return static_cast<InternalSettingsWrapper*>(Supplement<Page>::from(page, supplementName()))->internalSettings();
+    return downcast<InternalSettingsWrapper>(Supplement<Page>::from(page, supplementName()))->internalSettings();
 }
 
 void InternalSettings::hostDestroyed()
@@ -445,16 +447,16 @@ ExceptionOr<void> InternalSettings::setShouldDisplayTrackKind(TrackKind kind, bo
     if (!m_page)
         return Exception { ExceptionCode::InvalidAccessError };
 #if ENABLE(VIDEO)
-    auto& captionPreferences = m_page->group().ensureCaptionPreferences();
+    Ref captionPreferences = m_page->checkedGroup()->ensureCaptionPreferences();
     switch (kind) {
     case TrackKind::Subtitles:
-        captionPreferences.setUserPrefersSubtitles(enabled);
+        captionPreferences->setUserPrefersSubtitles(enabled);
         break;
     case TrackKind::Captions:
-        captionPreferences.setUserPrefersCaptions(enabled);
+        captionPreferences->setUserPrefersCaptions(enabled);
         break;
     case TrackKind::TextDescriptions:
-        captionPreferences.setUserPrefersTextDescriptions(enabled);
+        captionPreferences->setUserPrefersTextDescriptions(enabled);
         break;
     }
 #else
@@ -469,14 +471,14 @@ ExceptionOr<bool> InternalSettings::shouldDisplayTrackKind(TrackKind kind)
     if (!m_page)
         return Exception { ExceptionCode::InvalidAccessError };
 #if ENABLE(VIDEO)
-    auto& captionPreferences = m_page->group().ensureCaptionPreferences();
+    Ref captionPreferences = m_page->checkedGroup()->ensureCaptionPreferences();
     switch (kind) {
     case TrackKind::Subtitles:
-        return captionPreferences.userPrefersSubtitles();
+        return captionPreferences->userPrefersSubtitles();
     case TrackKind::Captions:
-        return captionPreferences.userPrefersCaptions();
+        return captionPreferences->userPrefersCaptions();
     case TrackKind::TextDescriptions:
-        return captionPreferences.userPrefersTextDescriptions();
+        return captionPreferences->userPrefersTextDescriptions();
     }
 #else
     UNUSED_PARAM(kind);
@@ -623,4 +625,8 @@ ExceptionOr<void> InternalSettings::setAllowedMediaCaptionFormatTypes(const Stri
 // If you add to this class, make sure you are not duplicating functionality in the generated
 // base class InternalSettingsGenerated and that you update the Backup class for test reproducability.
 
-}
+} // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::InternalSettingsWrapper)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isInternalSettingsWrapper(); }
+SPECIALIZE_TYPE_TRAITS_END()

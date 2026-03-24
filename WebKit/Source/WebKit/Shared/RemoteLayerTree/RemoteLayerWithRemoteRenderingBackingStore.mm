@@ -27,11 +27,11 @@
 #import "RemoteLayerWithRemoteRenderingBackingStore.h"
 
 #import "PlatformCALayerRemote.h"
+#import "PrepareBackingStoreBuffersData.h"
 #import "RemoteImageBufferSetProxy.h"
 #import "RemoteLayerBackingStoreCollection.h"
 #import "RemoteLayerTreeContext.h"
 #import "RemoteRenderingBackendProxy.h"
-#import "SwapBuffersDisplayRequirement.h"
 #import <WebCore/PlatformCALayerClient.h>
 #import <wtf/TZoneMallocInlines.h>
 
@@ -141,7 +141,7 @@ void RemoteLayerWithRemoteRenderingBackingStore::ensureBackingStore(const Parame
             .includeDisplayList = m_parameters.includeDisplayList,
 #endif
         };
-        m_bufferSet->setConfiguration(WTFMove(configuration));
+        m_bufferSet->setConfiguration(WTF::move(configuration));
     }
 }
 
@@ -160,6 +160,9 @@ void RemoteLayerWithRemoteRenderingBackingStore::setNeedsDisplay()
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
 std::optional<DynamicContentScalingDisplayList> RemoteLayerWithRemoteRenderingBackingStore::displayListHandle() const
 {
+    if (!m_layer->owner())
+        return { };
+
     if (auto list = m_layer->owner()->platformCALayerDynamicContentScalingDisplayList(m_layer.ptr()))
         return list;
     return m_bufferSet ? m_bufferSet->dynamicContentScalingDisplayList() : std::nullopt;

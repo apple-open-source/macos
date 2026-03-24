@@ -33,11 +33,13 @@ class WebMediaKeySystemClient final : public WebCore::MediaKeySystemClient {
 public:
     static WebMediaKeySystemClient& singleton();
 
+    // Do nothing since this is a singleton object.
+    void ref() const final { }
+    void deref() const final { }
+
 private:
     friend NeverDestroyed<WebMediaKeySystemClient>;
     WebMediaKeySystemClient() = default;
-
-    void pageDestroyed() override { }
 
     void requestMediaKeySystem(WebCore::MediaKeySystemRequest&) override;
     void cancelMediaKeySystemRequest(WebCore::MediaKeySystemRequest&) override { }

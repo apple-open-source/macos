@@ -57,7 +57,7 @@ SharedMemoryHandle::SharedMemoryHandle(const SharedMemoryHandle& handle)
 
 UnixFileDescriptor SharedMemoryHandle::releaseHandle()
 {
-    return WTFMove(m_handle);
+    return WTF::move(m_handle);
 }
 
 static inline int accessModeMMap(SharedMemory::Protection protection)
@@ -99,7 +99,7 @@ RefPtr<SharedMemory> SharedMemory::allocate(size_t size)
 
     RefPtr<SharedMemory> instance = adoptRef(new SharedMemory());
     instance->m_data = data;
-    instance->m_fileDescriptor = WTFMove(fileDescriptor);
+    instance->m_fileDescriptor = WTF::move(fileDescriptor);
     instance->m_size = size;
     return instance;
 }
@@ -160,7 +160,7 @@ auto SharedMemory::createHandle([[maybe_unused]] Protection protection) -> std::
         return std::nullopt;
     }
 
-    return { Handle(WTFMove(duplicate), m_size) };
+    return { Handle(WTF::move(duplicate), m_size) };
 }
 
 } // namespace WebCore

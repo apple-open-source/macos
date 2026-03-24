@@ -55,7 +55,7 @@ RefPtr<PlatformMediaResource> RemoteMediaResourceLoader::requestResource(Resourc
     if (!remoteMediaPlayerProxy)
         return nullptr;
 
-    return remoteMediaPlayerProxy->requestResource(WTFMove(request), options);
+    return remoteMediaPlayerProxy->requestResource(WTF::move(request), options);
 }
 
 void RemoteMediaResourceLoader::sendH2Ping(const URL& url, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&& completionHandler)
@@ -65,7 +65,7 @@ void RemoteMediaResourceLoader::sendH2Ping(const URL& url, CompletionHandler<voi
     if (!remoteMediaPlayerProxy)
         return completionHandler(makeUnexpected(internalError(url)));
     
-    remoteMediaPlayerProxy->sendH2Ping(url, WTFMove(completionHandler));
+    remoteMediaPlayerProxy->sendH2Ping(url, WTF::move(completionHandler));
 }
 
 } // namespace WebKit

@@ -40,10 +40,6 @@ static inline bool
 _dispatch_async_and_wait_should_always_async(dispatch_queue_class_t dqu,
 		uint64_t dq_state);
 
-#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
-static inline void _dispatch_workloop_bound_thread_init(void);
-#endif
-
 #pragma mark -
 #pragma mark dispatch_assert_queue
 
@@ -1663,6 +1659,16 @@ _dispatch_wait_compute_wlh(dispatch_lane_t dq, dispatch_sync_context_t dsc)
 
 	if (_dq_state_is_suspended(tq_state) ||
 			_dq_state_is_base_anon(tq_state)) {
+#if DISPATCH_USE_UL_UNFAIR_LOCK
+		// See comments in __DISPATCH_WAIT_FOR_QUEUE__
+		if (_dispatch_queue_is_main_thread_bound(tq)) {
+			dsc->dsc_event.dte_value = DISPATCH_QUEUE_DRAIN_OWNER(tq);
+			dsc->dsc_event.dte_value &= DTE_VALUE_INIT_MASK;
+			if (likely(dsc->dsc_event.dte_value)) {
+				dsc->dsc_ul_wait = 1;
+			}
+		}
+#endif
 		dsc->dsc_release_storage = false;
 		dsc->dc_data = DISPATCH_WLH_ANON;
 	} else if (_dq_state_is_base_wlh(tq_state)) {
@@ -1703,9 +1709,32 @@ __DISPATCH_WAIT_FOR_QUEUE__(dispatch_sync_context_t dsc, dispatch_queue_t dq)
 	// _dispatch_async_and_wait_invoke
 	_dispatch_thread_frame_save_state(&dsc->dsc_dtf);
 
+	dispatch_assert(dsc->dsc_event.dte_value == 0);
+
 	if (_dq_state_is_suspended(dq_state) ||
 			_dq_state_is_base_anon(dq_state)) {
 		dsc->dc_data = DISPATCH_WLH_ANON;
+#if DISPATCH_USE_UL_UNFAIR_LOCK
+		// If we're syncing to the main queue, and the main queue is still
+		// thread bound, update the DSC to tell it to ulock wait on the main
+		// thread instead of semaphore waiting
+		if (_dispatch_queue_is_main_thread_bound(dq)) {
+			dsc->dsc_event.dte_value = DISPATCH_QUEUE_DRAIN_OWNER(dq);
+			// We clear the bottom bit of the dte value to indicate that we
+			// haven't waited on this event yet. See comment on dte_value
+			// definition.
+			dsc->dsc_event.dte_value &= DTE_VALUE_INIT_MASK;
+			if (likely(dsc->dsc_event.dte_value)) {
+				// It's possible that we're racing with dispatch_main unbinding
+				// the main thread from the main queue, so we only go through
+				// the unfair lock wait path if we found the main queue's
+				// thread port name in the drain lock. It could still unbind
+				// before it gets to this waiter, but that will just result in
+				// a broken turnstile
+				dsc->dsc_ul_wait = 1;
+			}
+		}
+#endif
 	} else if (_dq_state_is_base_wlh(dq_state)) {
 		dsc->dc_data = (dispatch_wlh_t)dq;
 	} else {
@@ -1715,13 +1744,24 @@ __DISPATCH_WAIT_FOR_QUEUE__(dispatch_sync_context_t dsc, dispatch_queue_t dq)
 	if (dsc->dc_data == DISPATCH_WLH_ANON) {
 		dsc->dsc_override_qos_floor = dsc->dsc_override_qos =
 				(uint8_t)_dispatch_get_basepri_override_qos_floor();
-		_dispatch_thread_event_init(&dsc->dsc_event);
+		if (!dsc->dsc_ul_wait) {
+			// If we're in ul wait mode, the event was already initialized
+			_dispatch_thread_event_init(&dsc->dsc_event);
+		}
 	}
 
 	_dispatch_set_current_dsc((void *) dsc);
 	dx_push(dq, dsc, _dispatch_qos_from_pp(dsc->dc_priority));
 
 	_dispatch_trace_runtime_event(sync_wait, dq, 0);
+#if DISPATCH_USE_UL_UNFAIR_LOCK
+	if (dsc->dsc_ul_wait) {
+		// main_queue_push or wait_compute_wlh found that we're waiting for the
+		// main thread, and put its thread port into the dsc_event. Go through
+		// an unfair lock wait to push our turnstile onto the main thread.
+		_dispatch_thread_main_event_wait(&dsc->dsc_event); // acquire
+	} else
+#endif
 	if (dsc->dc_data == DISPATCH_WLH_ANON) {
 		_dispatch_thread_event_wait(&dsc->dsc_event); // acquire
 	} else if (!dsc->dsc_wlh_self_wakeup) {
@@ -2966,14 +3006,11 @@ DISPATCH_NOINLINE
 static void
 _dispatch_queue_dispose(dispatch_queue_class_t dqu, bool *allow_free)
 {
-	dispatch_queue_specific_head_t dqsh;
 	dispatch_queue_t dq = dqu._dq;
 
 	if (dq->dq_label && _dispatch_queue_label_needs_free(dq)) {
 		free((void*)dq->dq_label);
 	}
-	dqsh = os_atomic_xchg(&dq->dq_specific_head, (void *)0x200, relaxed);
-	if (dqsh) _dispatch_queue_specific_head_dispose(dqsh);
 
 	// fast path for queues that never got their storage retained
 	if (likely(os_atomic_load(&dq->dq_sref_cnt, relaxed) == 0)) {
@@ -2982,7 +3019,7 @@ _dispatch_queue_dispose(dispatch_queue_class_t dqu, bool *allow_free)
 		return;
 	}
 
-	// Take over freeing the memory from _dispatch_object_dealloc()
+	// Take over freeing the memory from _dispatch_dispose()
 	//
 	// As soon as we call _dispatch_queue_release_storage(), we forfeit
 	// the possibility for the caller of dx_dispose() to finalize the object
@@ -3036,6 +3073,9 @@ _dispatch_lane_dispose(dispatch_lane_t dq, bool *allow_free)
 {
 	_dispatch_object_debug(dq, "%s", __func__);
 	_dispatch_trace_queue_dispose(dq);
+	dispatch_queue_specific_head_t dqsh;
+	dqsh = os_atomic_xchg(&dq->dq_specific_head, (void *)0x200, relaxed);
+	if (dqsh) _dispatch_queue_specific_head_dispose(dqsh);
 	_dispatch_lane_class_dispose(dq, allow_free);
 }
 
@@ -3356,33 +3396,6 @@ dispatch_queue_get_qos_class(dispatch_queue_t dq, int *relpri_ptr)
 	return _dispatch_qos_to_qos_class(qos);
 }
 
-int
-dispatch_queue_get_threadid_4wdt(dispatch_queue_t dq, uint64_t *thread_id)
-{
-	*thread_id = 0;
-
-	unsigned long type = dx_type(dq);
-	if (type != DISPATCH_QUEUE_SERIAL_TYPE &&
-			type != DISPATCH_WORKLOOP_TYPE &&
-			type != DISPATCH_QUEUE_MAIN_TYPE)
-	{
-		return EINVAL;
-	}
-
-	uint64_t dq_state = os_atomic_load(&dq->dq_state, relaxed);
-	dispatch_lock dl = (dispatch_lock)dq_state;
-	dispatch_tid tid = _dispatch_lock_owner(dl);
-	if (tid == DLOCK_OWNER_NULL) {
-		return ESRCH;
-	}
-
-	pthread_t thread = pthread_from_mach_thread_np(tid);
-	if (!thread) {
-		return ESRCH;
-	}
-
-	return pthread_threadid_np(thread, thread_id);
-}
 
 static void
 _dispatch_lane_set_width(void *ctxt)
@@ -4210,9 +4223,20 @@ static void
 _dispatch_workloop_attributes_dispose(dispatch_workloop_t dwl)
 {
 	if (dwl->dwl_attr) {
+#if HAVE_MACH
 		if (dwl->dwl_attr->workgroup) {
 			_os_object_release(dwl->dwl_attr->workgroup->_as_os_obj);
 		}
+#endif
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+		uint32_t flags = dwl->dwl_attr->dwla_flags;
+		if (flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD) {
+			int c = os_atomic_dec(&_dispatch_thread_bound_kqwl_count, relaxed);
+			if (c < 0) {
+				DISPATCH_INTERNAL_CRASH(c, "Underflow of tbkqwl count");
+			}
+		}
+#endif // DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
 		free(dwl->dwl_attr);
 	}
 }
@@ -4262,51 +4286,38 @@ dispatch_workloop_set_scheduler_priority(dispatch_workloop_t dwl, int priority,
 	}
 }
 
-#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
-DISPATCH_STATIC_GLOBAL(dispatch_once_t _dispatch_workloop_bound_thread_pred);
-
-static void
-_dispatch_workloop_bound_thread_init_once(void *context DISPATCH_UNUSED)
-{
-	int kern_thread_bound_kqwl_enabled = 0;
-	size_t size = sizeof(kern_thread_bound_kqwl_enabled);
-	int r = sysctlbyname("kern.kern_event.thread_bound_kqwl_support_enabled",
-				&kern_thread_bound_kqwl_enabled,
-				&size,
-				NULL, 0);
-	(void)dispatch_assume_zero(r);
-	if (kern_thread_bound_kqwl_enabled != 0) {
-		_dispatch_thread_bound_kqwl_enabled = true;
-	}
-}
-
-DISPATCH_ALWAYS_INLINE
-static inline void
-_dispatch_workloop_bound_thread_init(void)
-{
-	dispatch_once_f(&_dispatch_workloop_bound_thread_pred, NULL,
-			_dispatch_workloop_bound_thread_init_once);
-}
-#endif
-
 int
-dispatch_workloop_set_uses_bound_thread(dispatch_workloop_t dwl)
+dispatch_workloop_set_uses_bound_thread(dispatch_workloop_t dwl,
+		dispatch_workloop_bound_thread_flags_t flags)
 {
 #if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+	_dispatch_queue_setter_assert_inactive(dwl);
+	_dispatch_workloop_attributes_alloc_if_needed(dwl);
 
-	_dispatch_workloop_bound_thread_init();
+	if (dwl->dwl_attr->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD) {
+		DISPATCH_CLIENT_CRASH(dwl->dwl_attr->dwla_flags,
+				"Bound thread attribute set multiple times");
+	}
 
-	if (!_dispatch_thread_bound_kqwl_enabled) {
+	if (flags != DISPATCH_WORKLOOP_PERMANENT_BIND) {
+		// rdar://126995736, we should support DISPATCH_WORKLOOP_ADAPTIVE_BIND
+		dwl->dwl_attr->dwla_flags |= DISPATCH_WORKLOOP_ATTR_THREAD_BIND_FAIL;
+		errno = ENOTSUP;
 		return -1;
 	}
 
-	_dispatch_queue_setter_assert_inactive(dwl);
-	_dispatch_workloop_attributes_alloc_if_needed(dwl);
+	if (os_atomic_inc(&_dispatch_thread_bound_kqwl_count, relaxed) >
+			DISPATCH_MAX_THREAD_BOUND_KQWL) {
+		os_atomic_dec(&_dispatch_thread_bound_kqwl_count, relaxed);
+		dwl->dwl_attr->dwla_flags |= DISPATCH_WORKLOOP_ATTR_THREAD_BIND_FAIL;
+		errno = ENOMEM;
+		return -1;
+	}
 
 	dwl->dwl_attr->dwla_flags |= DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD;
 	return 0;
 #else
-	(void)dwl;
+	(void)dwl; (void)flags;
 	return -1;
 #endif
 }
@@ -4341,6 +4352,7 @@ dispatch_workloop_set_qos_class_floor(dispatch_workloop_t dwl,
 #endif // TARGET_OS_MAC
 }
 
+#if HAVE_MACH
 void
 dispatch_workloop_set_os_workgroup(dispatch_workloop_t dwl, os_workgroup_t wg)
 {
@@ -4356,6 +4368,7 @@ dispatch_workloop_set_os_workgroup(dispatch_workloop_t dwl, os_workgroup_t wg)
 	_os_object_retain(wg->_as_os_obj);
 	dwl->dwl_attr->workgroup = wg;
 }
+#endif
 
 void
 dispatch_workloop_set_qos_class(dispatch_workloop_t dwl,
@@ -4463,7 +4476,9 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 #if defined(_POSIX_THREADS)
 	dispatch_workloop_attr_t dwla = dwl->dwl_attr;
 	pthread_attr_t attr;
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL || TARGET_OS_MAC
 	uint64_t options = 0;
+#endif
 
 	pthread_attr_init(&attr);
 	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_QOS_CLASS) {
@@ -4501,7 +4516,7 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 #endif
 	}
 
-	#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
 	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD) {
 		// We do want workq to be fully initialized before we poke it
 		// for a bound thread.
@@ -4593,6 +4608,10 @@ _dispatch_workloop_dispose(dispatch_workloop_t dwl, bool *allow_free)
 	_dispatch_object_debug(dwl, "%s", __func__);
 	_dispatch_introspection_queue_dispose(dwl);
 
+	dispatch_queue_specific_head_t dqsh;
+	dqsh = os_atomic_xchg(&dwl->dq_specific_head, (void *)0x200, relaxed);
+	if (dqsh) _dispatch_queue_specific_head_dispose(dqsh);
+
 	for (size_t i = 0; i < countof(dwl->dwl_tails); i++) {
 		if (unlikely(dwl->dwl_tails[i])) {
 			DISPATCH_CLIENT_CRASH(dwl->dwl_tails[i],
@@ -4617,6 +4636,7 @@ _dispatch_workloop_dispose(dispatch_workloop_t dwl, bool *allow_free)
 		(void)dispatch_assume_zero(_pthread_workloop_destroy((uint64_t)dwl));
 	}
 #endif // TARGET_OS_MAC
+
 	_dispatch_workloop_attributes_dispose(dwl);
 	_dispatch_queue_dispose(dwl, allow_free);
 }
@@ -6150,11 +6170,11 @@ dispatch_channel_enqueue(dispatch_channel_t dch, void *ctxt)
 
 #ifndef __APPLE__
 #if __BLOCKS__
-void typeof(dispatch_channel_async) dispatch_channel_async
+typeof(dispatch_channel_async) dispatch_channel_async
 		__attribute__((__alias__("dispatch_async")));
 #endif
 
-void typeof(dispatch_channel_async_f) dispatch_channel_async_f
+typeof(dispatch_channel_async_f) dispatch_channel_async_f
 		__attribute__((__alias__("dispatch_async_f")));
 #endif
 
@@ -6495,10 +6515,10 @@ _dispatch_mgr_invoke(void)
 		.ddi_eventlist = evbuf,
 #endif
 	};
-	if (unlikely(_dispatch_deferred_free_unotes_get())) {
+	if (unlikely(_dispatch_deferred_free_items_get())) {
 		// mgr_invoke should only be called on fresh pthread_create()'d
 		// threads, so we shouldn't have previous TSDs from being a wl drainer
-		DISPATCH_INTERNAL_CRASH(_dispatch_deferred_free_unotes_get(),
+		DISPATCH_INTERNAL_CRASH(_dispatch_deferred_free_items_get(),
 				"Unexpected contents in DDI TSD");
 	}
 
@@ -6661,11 +6681,16 @@ _dispatch_wlh_uses_bound_thread_setup(dispatch_wlh_t wlh)
 	// Setup the bound thread's name.
 	if (dwl->dq_label) {
 		if ((uintptr_t)_dispatch_thread_getspecific(dispatch_set_threadname_key) == 0) {
+#ifdef __APPLE__
 			pthread_setname_np(dwl->dq_label);
+#elif HAVE_PTHREAD_SETNAME_NP
+			pthread_setname_np(pthread_self(),dwl->dq_label);
+#endif
 			_dispatch_thread_setspecific(dispatch_set_threadname_key, (void *)1);
 		}
 	}
 
+#if HAVE_MACH
 	// The bound worker thread joins the work interval backing the os workgroup
 	// configured on this dispatch workloop before coming out to userspace for
 	// the first time. We need to make sure to update its userspace object state.
@@ -6677,8 +6702,10 @@ _dispatch_wlh_uses_bound_thread_setup(dispatch_wlh_t wlh)
 			_dispatch_thread_setspecific(os_workgroup_join_token_key, token);
 		}
 	}
+#endif
 }
 
+#if HAVE_MACH
 static inline os_workgroup_t
 _dispatch_wlh_get_workgroup(dispatch_wlh_t wlh)
 {
@@ -6692,6 +6719,7 @@ _dispatch_wlh_get_workgroup(dispatch_wlh_t wlh)
 	}
 	return wg;
 }
+#endif
 
 DISPATCH_ALWAYS_INLINE
 static void
@@ -6719,10 +6747,14 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 
 	bool wlh_uses_bound_thread = _dispatch_wlh_uses_bound_thread(wlh);
 	os_workgroup_join_token_s join_token = {0};
+
+#if HAVE_MACH
 	os_workgroup_t wg = NULL;
+#endif
 
 	if (wlh_uses_bound_thread) {
 		_dispatch_wlh_uses_bound_thread_setup(wlh);
+#if HAVE_MACH
 	} else {
 		wg = _dispatch_wlh_get_workgroup(wlh);
 		if (wg) {
@@ -6740,6 +6772,7 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 					"os_workgroup_join failed");
 			}
 		}
+#endif
 	}
 
 	is_manager = _dispatch_wlh_worker_thread_init(&ddi);
@@ -6753,11 +6786,11 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 		ddi.ddi_wlh = DISPATCH_WLH_ANON;
 	}
 #if DISPATCH_HAVE_DIRECT_KNOTES
-	dispatch_unote_class_t du = _dispatch_deferred_free_unotes_get();
-	if (unlikely(du)) {
+	uintptr_t dfi = _dispatch_deferred_free_items_get();
+	if (unlikely(dfi)) {
 		// don't pay the function call cost in the common case that we didn't
 		// persist unotes across thread park
-		_dispatch_free_deferred_unotes(du);
+		_dispatch_free_deferred_items(dfi);
 	}
 #endif
 	_dispatch_deferred_items_set(&ddi);
@@ -6773,7 +6806,7 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 				ddi.ddi_stashed_dou._do);
 		if (ddi.ddi_wlh == DISPATCH_WLH_ANON) {
 			dispatch_assert(ddi.ddi_nevents == 0);
-			dispatch_assert(ddi.ddi_unote_freelist == NULL);
+			dispatch_assert(ddi.ddi_freelist == (uintptr_t)NULL);
 			_dispatch_deferred_items_set(NULL);
 			_dispatch_trace_runtime_event(worker_unpark, ddi.ddi_stashed_rq, 0);
 			_dispatch_root_queue_drain_deferred_item(&ddi
@@ -6789,12 +6822,14 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 		// The bound thread leaves the workgroup when it terminates.
 		// See _os_workgroup_join_token_tsd_cleanup.
 	} else {
+#if HAVE_MACH
 		if (wg) {
 			os_workgroup_leave(wg, &join_token);
 		}
+#endif
 	}
 
-	_dispatch_deferred_free_unotes_set(ddi.ddi_unote_freelist);
+	_dispatch_deferred_free_items_set(ddi.ddi_freelist);
 	if (!is_manager && !ddi.ddi_stashed_dou._do) {
 		_dispatch_perfmon_end(perfmon_thread_event_no_steal);
 	}
@@ -7468,12 +7503,12 @@ _dispatch_worker_thread2(pthread_priority_t pp)
 	dispatch_assert(pending >= 0);
 
 #if DISPATCH_HAVE_DIRECT_KNOTES
-	dispatch_unote_class_t du = _dispatch_deferred_free_unotes_get();
-	if (unlikely(du)) {
+	uintptr_t dfi = _dispatch_deferred_free_items_get();
+	if (unlikely(dfi)) {
 		// If this thread was previously a workloop servicer, it may have saved
 		// some unotes that needed to be freed once we get back to userspace
-		_dispatch_free_deferred_unotes(du);
-		_dispatch_deferred_free_unotes_set(NULL);
+		_dispatch_free_deferred_items(dfi);
+		_dispatch_deferred_free_items_set((uintptr_t)NULL);
 	}
 #endif
 
@@ -7540,11 +7575,13 @@ _dispatch_worker_thread(void *context)
 				&pqc->dpq_observer_hooks);
 	}
 
+#ifdef __APPLE__
 	/* Set it up before the configure block so that it can get overridden by
 	 * client if they want to name their threads differently */
 	if (dq->_as_dq->dq_label) {
 		pthread_setname_np(dq->_as_dq->dq_label);
 	}
+#endif
 
 	if (pqc->dpq_thread_configure) {
 		pqc->dpq_thread_configure();
@@ -7804,6 +7841,11 @@ _dispatch_pthread_root_queue_dispose(dispatch_queue_global_t dq,
 		Block_release(pqc->dpq_thread_configure);
 	}
 	dq->do_targetq = _dispatch_get_default_queue(false);
+
+	dispatch_queue_specific_head_t dqsh;
+	dqsh = os_atomic_xchg(&dq->dq_specific_head, (void *)0x200, relaxed);
+	if (dqsh) _dispatch_queue_specific_head_dispose(dqsh);
+
 	_dispatch_lane_class_dispose(dq, allow_free);
 }
 
@@ -8546,14 +8588,14 @@ _dispatch_deferred_items_cleanup(void *ctxt)
 	// This destructor should only be called when an idle thread unparks to do
 	// cleanup before exiting. In that case, it might still have a unote
 	// freelist which needs to be freed.
-	if (!((uintptr_t)ctxt & DISPATCH_UNOTE_FREELIST_REF)) {
+	if (!((uintptr_t)ctxt & DISPATCH_DEFERRED_FREELIST_REF)) {
 		// ctxt not having LSb set indicates that it's a ddi, not a freelist,
 		// which means that the thread exited while servicing a workloop.
 		DISPATCH_INTERNAL_CRASH(ctxt,
 				"Premature thread exit with unhandled deferred items");
 	}
-	uintptr_t du = (uintptr_t)ctxt & ~DISPATCH_UNOTE_FREELIST_REF;
-	_dispatch_free_deferred_unotes((dispatch_unote_class_t) du);
+	uintptr_t dfi = (uintptr_t)ctxt & ~DISPATCH_DEFERRED_FREELIST_REF;
+	_dispatch_free_deferred_items(dfi);
 #else
 	// POSIX defines that destructors are only called if 'ctxt' is non-null
 	DISPATCH_INTERNAL_CRASH(ctxt,
@@ -8582,7 +8624,7 @@ _dispatch_context_cleanup(void *ctxt)
 #pragma mark -
 #pragma mark dispatch_init
 
-#if !DISPATCH_USE_COOPERATIVE_WORKQUEUE
+#if defined(__APPLE__) && !DISPATCH_USE_COOPERATIVE_WORKQUEUE
 static void
 _dispatch_cooperative_root_queue_init_fallback(dispatch_queue_global_t dq)
 {

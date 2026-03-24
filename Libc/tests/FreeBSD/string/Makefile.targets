@@ -1,1 +1,1 @@
-CUSTOM_TARGETS += t_strchrnul
+FREEBSD_TESTS += t_strchrnul

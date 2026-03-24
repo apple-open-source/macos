@@ -33,9 +33,9 @@ bool IOHIDEventDummyService::handleStart(IOService* provider)
 {
     bool result = false;
     _interface = OSDynamicCast(IOHIDInterface, provider);
-    require(_interface, exit);
+    __Require(_interface, exit);
 
-    require_action(_interface->open(this, 0,
+    __Require_Action(_interface->open(this, 0,
                                    nullptr,
                                    nullptr),
                    exit,

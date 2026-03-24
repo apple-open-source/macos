@@ -27,11 +27,12 @@ int DATelemetrySendFSCKEvent       ( int status ,
                                      DADiskRef disk ,
                                      uint64_t durationNs );
 
+int DATelemetrySendMountFstabEvent ( int status ,
+                                     CFStringRef fsType );
+
 int DATelemetrySendMountEvent      ( int status ,
-                                     CFStringRef fsType ,
+                                     DADiskRef disk ,
                                      DATelemetryFSImplementation mountType ,
-                                     bool automount ,
-                                     bool isExternal ,
                                      uint64_t durationNs );
 
 int DATelemetrySendEjectEvent      ( int status ,

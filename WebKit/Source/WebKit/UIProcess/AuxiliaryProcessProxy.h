@@ -37,12 +37,12 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
+#include <wtf/RetainReleaseSwift.h>
 #include <wtf/Seconds.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
-#include <wtf/VectorHash.h>
 #include <wtf/WeakPtrFactory.h>
 
 namespace WebCore {
@@ -84,6 +84,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return IPC::Connection::Client::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { IPC::Connection::Client::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { IPC::Connection::Client::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { IPC::Connection::Client::setDidBeginCheckedPtrDeletion(); }
 
     virtual ~AuxiliaryProcessProxy();
 
@@ -109,10 +110,11 @@ public:
 
     template<typename T> bool send(T&& message, uint64_t destinationID, OptionSet<IPC::SendOption> sendOptions = { });
 
-    template<typename T> using SendSyncResult = IPC::Connection::SendSyncResult<T>;
-    template<typename T> SendSyncResult<T> sendSync(T&& message, uint64_t destinationID, IPC::Timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { });
-
     enum class ShouldStartProcessThrottlerActivity : bool { No, Yes };
+
+    template<typename T> using SendSyncResult = IPC::Connection::SendSyncResult<T>;
+    template<typename T> SendSyncResult<T> sendSync(T&& message, uint64_t destinationID, IPC::Timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { }, ShouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes);
+
     using AsyncReplyID = IPC::Connection::AsyncReplyID;
     template<typename T, typename C> std::optional<AsyncReplyID> sendWithAsyncReply(T&&, C&&, uint64_t destinationID = 0, OptionSet<IPC::SendOption> = { }, ShouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes);
 
@@ -129,9 +131,9 @@ public:
     }
 
     template<typename T, typename RawValue>
-    SendSyncResult<T> sendSync(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID, IPC::Timeout timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { })
+    SendSyncResult<T> sendSync(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID, IPC::Timeout timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { }, ShouldStartProcessThrottlerActivity shouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes)
     {
-        return sendSync<T>(std::forward<T>(message), destinationID.toUInt64(), timeout, sendSyncOptions);
+        return sendSync<T>(std::forward<T>(message), destinationID.toUInt64(), timeout, sendSyncOptions, shouldStartProcessThrottlerActivity);
     }
 
     IPC::Connection& connection() const
@@ -151,7 +153,7 @@ public:
     {
         return m_connection == &connection;
     }
-    static AuxiliaryProcessProxy* fromConnection(const IPC::Connection&);
+    static AuxiliaryProcessProxy* WTF_NULLABLE fromConnection(const IPC::Connection&);
 
     void addMessageReceiver(IPC::ReceiverName, IPC::MessageReceiver&);
     void addMessageReceiver(IPC::ReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
@@ -334,7 +336,7 @@ private:
 #endif
     HashMap<Vector<uint8_t>, std::pair<unsigned, std::unique_ptr<IPC::Encoder>>> m_messagesToSendOnResume;
     unsigned m_messagesToSendOnResumeIndex { 0 };
-};
+} SWIFT_SHARED_REFERENCE(refAuxiliaryProcessProxy, derefAuxiliaryProcessProxy);
 
 template<typename T>
 bool AuxiliaryProcessProxy::send(T&& message, uint64_t destinationID, OptionSet<IPC::SendOption> sendOptions)
@@ -349,17 +351,17 @@ bool AuxiliaryProcessProxy::send(T&& message, uint64_t destinationID, OptionSet<
 
             auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
             message.encode(encoder.get());
-            return sendMessageAfterResuming(WTFMove(coalescingKey), WTFMove(encoder));
+            return sendMessageAfterResuming(WTF::move(coalescingKey), WTF::move(encoder));
         }
     }
 
     auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
     message.encode(encoder.get());
-    return sendMessage(WTFMove(encoder), sendOptions);
+    return sendMessage(WTF::move(encoder), sendOptions);
 }
 
 template<typename T>
-AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& message, uint64_t destinationID, IPC::Timeout timeout, OptionSet<IPC::SendSyncOption> sendSyncOptions)
+AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& message, uint64_t destinationID, IPC::Timeout timeout, OptionSet<IPC::SendSyncOption> sendSyncOptions, ShouldStartProcessThrottlerActivity shouldStartProcessThrottlerActivity)
 {
     static_assert(T::isSync, "Sync message expected");
 
@@ -368,6 +370,10 @@ AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& mes
         return { IPC::Error::InvalidConnection };
 
     TraceScope scope(SyncMessageStart, SyncMessageEnd);
+
+    RefPtr<ProcessThrottlerActivity> activity;
+    if (shouldStartProcessThrottlerActivity == ShouldStartProcessThrottlerActivity::Yes)
+        activity = protectedThrottler()->quietBackgroundActivity(description(T::name()));
 
     return connection->sendSync(std::forward<T>(message), destinationID, timeout, sendSyncOptions);
 }
@@ -381,7 +387,7 @@ std::optional<AuxiliaryProcessProxy::AsyncReplyID> AuxiliaryProcessProxy::sendWi
     message.encode(encoder.get());
     auto handler = IPC::Connection::makeAsyncReplyHandler<T>(std::forward<C>(completionHandler));
     auto replyID = handler.replyID;
-    if (sendMessage(WTFMove(encoder), sendOptions, WTFMove(handler), shouldStartProcessThrottlerActivity))
+    if (sendMessage(WTF::move(encoder), sendOptions, WTF::move(handler), shouldStartProcessThrottlerActivity))
         return replyID;
     return std::nullopt;
 }
@@ -398,3 +404,13 @@ inline AuxiliaryProcessProxy::State AuxiliaryProcessProxy::state() const
 }
 
 } // namespace WebKit
+
+inline void refAuxiliaryProcessProxy(WebKit::AuxiliaryProcessProxy* WTF_NONNULL obj)
+{
+    WTF::ref(obj);
+}
+
+inline void derefAuxiliaryProcessProxy(WebKit::AuxiliaryProcessProxy* WTF_NONNULL obj)
+{
+    WTF::deref(obj);
+}

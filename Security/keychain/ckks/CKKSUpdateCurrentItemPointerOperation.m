@@ -469,13 +469,13 @@
     CFErrorRef cferror = NULL;
     __block NSError* localerror = NULL;
 
-    bool ok = kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
+    bool ok = kc_with_dbt(false, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
         // Find the items from their persistent refs.
         CFErrorRef blockcfError = NULL;
         Query *q = query_create_with_limit((__bridge CFDictionaryRef)query,
                                            (__bridge CFDataRef)self.deps.keychainMusrForCurrentAccount,
                                            1,
-                                           NULL, 
+                                           NULL,
                                            &blockcfError);
         if(blockcfError || !q) {
             ckkserror("ckkscurrent", self.viewState.zoneID, "couldn't create query for item persistentRef: %@", blockcfError);

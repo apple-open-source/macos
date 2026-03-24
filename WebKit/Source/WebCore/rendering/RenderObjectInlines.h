@@ -30,7 +30,7 @@
 #include <WebCore/RenderObjectNode.h>
 #include <WebCore/RenderObjectStyle.h>
 #include <WebCore/RenderReplaced.h>
-#include <WebCore/RenderStyleInlines.h>
+#include <WebCore/RenderStyle+GettersInlines.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/VisibleRectContext.h>
 
@@ -75,11 +75,6 @@ inline Page& RenderObject::page() const
 inline Ref<Page> RenderObject::protectedPage() const
 {
     return page();
-}
-
-inline Settings& RenderObject::settings() const
-{
-    return page().settings();
 }
 
 inline FloatQuad RenderObject::localToAbsoluteQuad(const FloatQuad& quad, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const

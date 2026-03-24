@@ -30,8 +30,10 @@
 #include "CachedResourceLoader.h"
 #include "CachedScript.h"
 #include "DocumentInlines.h"
+#include "DocumentLoader.h"
 #include "DocumentResourceLoader.h"
 #include "FrameLoader.h"
+#include "InspectorResourceType.h"
 #include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
@@ -78,7 +80,7 @@ Inspector::Protocol::Page::ResourceType resourceTypeToProtocol(Inspector::Resour
     return Inspector::Protocol::Page::ResourceType::Other;
 }
 
-static bool WARN_UNUSED_RETURN decodeBuffer(std::span<const uint8_t> buffer, const String& textEncodingName, String* result)
+WARN_UNUSED_RETURN static bool decodeBuffer(std::span<const uint8_t> buffer, const String& textEncodingName, String* result)
 {
     if (buffer.data()) {
         PAL::TextEncoding encoding(textEncodingName);

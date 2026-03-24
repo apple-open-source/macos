@@ -53,7 +53,7 @@ static bool isListOrIndentBlockquote(const Node& node)
 }
 
 IndentOutdentCommand::IndentOutdentCommand(Ref<Document>&& document, EIndentType typeOfAction)
-    : ApplyBlockElementCommand(WTFMove(document), blockquoteTag, "margin: 0 0 0 40px; border: none; padding: 0px;"_s)
+    : ApplyBlockElementCommand(WTF::move(document), blockquoteTag, "margin: 0 0 0 40px; border: none; padding: 0px;"_s)
     , m_typeOfAction(typeOfAction)
 {
 }
@@ -67,7 +67,7 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const Position& start, const P
         return false;
 
     // Find the block that we want to indent.  If it's not a list item (e.g., a div inside a list item), we bail out.
-    RefPtr<Element> selectedListItem = enclosingBlock(WTFMove(lastNodeInSelectedParagraph));
+    RefPtr<Element> selectedListItem = enclosingBlock(WTF::move(lastNodeInSelectedParagraph));
 
     if (!selectedListItem || !selectedListItem->hasTagName(liTag))
         return false;

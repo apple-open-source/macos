@@ -36,7 +36,7 @@ class GPU;
 class NavigatorUAData;
 
 class WorkerNavigator final : public NavigatorBase, public Supplementable<WorkerNavigator> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkerNavigator);
+    WTF_MAKE_TZONE_ALLOCATED(WorkerNavigator);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkerNavigator);
 public:
     static Ref<WorkerNavigator> create(ScriptExecutionContext& context, const String& userAgent, bool isOnline) { return adoptRef(*new WorkerNavigator(context, userAgent, isOnline)); }

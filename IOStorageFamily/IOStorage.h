@@ -272,7 +272,7 @@ struct IOStorageAttributes
     UInt8             reserved0024;
     UInt32            reserved0032;
     UInt64            reserved0064;
-    UInt64            adjustedOffset;
+    SInt64            adjustedOffset;
     bufattr_t         bufattr;
 };
 

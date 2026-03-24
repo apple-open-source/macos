@@ -26,6 +26,7 @@
 #pragma once
 
 #include <CoreMedia/CMTime.h>
+#include <wtf/AbstractThreadSafeRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WeakPtr.h>
 
@@ -36,17 +37,8 @@ OBJC_CLASS WebAVSampleBufferListenerPrivate;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 
 namespace WebCore {
-class WebAVSampleBufferListenerClient;
-}
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::WebAVSampleBufferListenerClient> : std::true_type { };
-}
-
-namespace WebCore {
-
-class WebAVSampleBufferListenerClient : public CanMakeWeakPtr<WebAVSampleBufferListenerClient> {
+class WebAVSampleBufferListenerClient : public AbstractThreadSafeRefCountedAndCanMakeWeakPtr {
 public:
     virtual ~WebAVSampleBufferListenerClient() = default;
     virtual void videoRendererDidReceiveError(WebSampleBufferVideoRendering *, NSError *) { }

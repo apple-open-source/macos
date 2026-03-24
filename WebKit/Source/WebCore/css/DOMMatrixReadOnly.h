@@ -43,7 +43,7 @@ class ScriptExecutionContext;
 struct DOMPointInit;
 
 class DOMMatrixReadOnly : public ScriptWrappable, public RefCounted<DOMMatrixReadOnly>, public NoVirtualDestructorBase {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DOMMatrixReadOnly);
+    WTF_MAKE_TZONE_ALLOCATED(DOMMatrixReadOnly);
 public:
     static ExceptionOr<Ref<DOMMatrixReadOnly>> create(ScriptExecutionContext&, std::optional<Variant<String, Vector<double>>>&&);
 
@@ -57,7 +57,7 @@ public:
 
     static Ref<DOMMatrixReadOnly> create(TransformationMatrix&& matrix, Is2D is2D)
     {
-        return adoptRef(*new DOMMatrixReadOnly(WTFMove(matrix), is2D));
+        return adoptRef(*new DOMMatrixReadOnly(WTF::move(matrix), is2D));
     }
 
     static ExceptionOr<Ref<DOMMatrixReadOnly>> fromMatrix(DOMMatrixInit&&);

@@ -70,11 +70,11 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CanvasRenderingContext2D);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CanvasRenderingContext2D);
 
 std::unique_ptr<CanvasRenderingContext2D> CanvasRenderingContext2D::create(CanvasBase& canvas, CanvasRenderingContext2DSettings&& settings, bool usesCSSCompatibilityParseMode)
 {
-    auto renderingContext = std::unique_ptr<CanvasRenderingContext2D>(new CanvasRenderingContext2D(canvas, WTFMove(settings), usesCSSCompatibilityParseMode));
+    auto renderingContext = std::unique_ptr<CanvasRenderingContext2D>(new CanvasRenderingContext2D(canvas, WTF::move(settings), usesCSSCompatibilityParseMode));
 
     InspectorInstrumentation::didCreateCanvasRenderingContext(*renderingContext);
 
@@ -82,7 +82,7 @@ std::unique_ptr<CanvasRenderingContext2D> CanvasRenderingContext2D::create(Canva
 }
 
 CanvasRenderingContext2D::CanvasRenderingContext2D(CanvasBase& canvas, CanvasRenderingContext2DSettings&& settings, bool usesCSSCompatibilityParseMode)
-    : CanvasRenderingContext2DBase(canvas, Type::CanvasElement2D, WTFMove(settings), usesCSSCompatibilityParseMode)
+    : CanvasRenderingContext2DBase(canvas, Type::CanvasElement2D, WTF::move(settings), usesCSSCompatibilityParseMode)
 {
 }
 
@@ -122,14 +122,18 @@ RefPtr<Filter> CanvasRenderingContext2D::createFilter(const FloatRect& bounds) c
     if (!page)
         return nullptr;
 
+    auto outsets = calculateFilterOutsets(bounds);
+    auto filterRegion = bounds + toFloatBoxExtent(outsets);
+
     auto preferredFilterRenderingModes = page->preferredFilterRenderingModes(*context);
-    auto filter = CSSFilterRenderer::create(*renderer, state().filter, preferredFilterRenderingModes, { 1, 1 }, bounds, *context);
+    auto filter = CSSFilterRenderer::create(*renderer, state().filter, {
+            .referenceBox = bounds,
+            .filterRegion = filterRegion,
+            .scale = { 1, 1 },
+        }, preferredFilterRenderingModes, false, *context);
     if (!filter)
         return nullptr;
 
-    auto outsets = calculateFilterOutsets(bounds);
-
-    filter->setFilterRegion(bounds + toFloatBoxExtent(outsets));
     return filter;
 }
 
@@ -209,7 +213,7 @@ void CanvasRenderingContext2D::setFontWithoutUpdatingStyle(const String& newFont
 
     // Map the <canvas> font into the text style. If the font uses keywords like larger/smaller, these will work
     // relative to the canvas.
-    auto fontCascade = Style::resolveForUnresolvedFont(*unresolvedFont, WTFMove(fontDescription), document);
+    auto fontCascade = Style::resolveForUnresolvedFont(*unresolvedFont, WTF::move(fontDescription), document);
     if (!fontCascade)
         return;
 

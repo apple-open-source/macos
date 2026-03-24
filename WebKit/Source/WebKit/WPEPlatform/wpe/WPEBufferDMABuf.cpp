@@ -84,7 +84,7 @@ static void wpeBufferDMABufDisposeEGLImageIfNeeded(WPEBufferDMABuf* buffer)
 static void wpeBufferDMABufDispose(GObject* object)
 {
     auto* dmabufBuffer = WPE_BUFFER_DMA_BUF(object);
-    wpeBufferDMABufDisposeEGLImageIfNeeded(WPE_BUFFER_DMA_BUF(object));
+    wpeBufferDMABufDisposeEGLImageIfNeeded(dmabufBuffer);
 
 #if USE(GBM)
     auto* priv = dmabufBuffer->priv;
@@ -203,7 +203,7 @@ static bool wpeBufferDMABufTryEnsureGBMDevice(WPEBufferDMABuf* buffer)
     if (!device)
         return false;
 
-    priv->deviceFD = WTFMove(fd);
+    priv->deviceFD = WTF::move(fd);
     priv->device = device;
 
     return true;

@@ -41,6 +41,7 @@ class WebFrameProxy;
 class WebFrameInspectorTargetProxy final : public InspectorTargetProxy {
     WTF_MAKE_TZONE_ALLOCATED(WebFrameInspectorTargetProxy);
     WTF_MAKE_NONCOPYABLE(WebFrameInspectorTargetProxy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebFrameInspectorTargetProxy);
 public:
     static std::unique_ptr<WebFrameInspectorTargetProxy> create(WebFrameProxy&, const String& targetId);
     static std::unique_ptr<WebFrameInspectorTargetProxy> create(ProvisionalFrameProxy&, const String& targetId);

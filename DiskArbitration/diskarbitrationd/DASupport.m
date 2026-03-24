@@ -64,6 +64,11 @@
 #include <MobileKeyBag/MobileKeyBag.h>
 #endif
 
+#if TARGET_OS_OSX
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOHibernatePrivate.h>
+#endif
+
 struct __DAAuthorizeWithCallbackContext
 {
     DAAuthorizeCallback callback;
@@ -583,6 +588,11 @@ static void __FSKitProbeStatusCallback( int status ,
      */
     if ( status )
     {
+        if ( status == EILSEQ )
+        {
+            // This was a limited success, treat as failure to continue probe chain
+            status = FSUR_INVAL;
+        }
         /* We are returning from a failed probe with a filesystem previously set */
         if ( context->filesystem )
         {
@@ -668,6 +678,50 @@ static void __FSKitProbeStatusCallback( int status ,
             }
             CFArrayRemoveValueAtIndex( context->candidates , 0 ); /* clear out non-matching candidates */
         }
+
+        // If we've exhausted all candidates and have a fallback, use it.
+        if ( context->probeToRetry_fs ) {
+            // Create a new independent context for the retry probe to avoid use-after-free
+            __DAProbeCallbackContext *retryContext = malloc( sizeof( __DAProbeCallbackContext ) );
+            if ( retryContext ) {
+                bundleID = DAFileSystemCopyFSBundleID( context->probeToRetry_fs );
+                doFsck = context->probeToRetry_match == FSMatchResultUsableButLimited ? true : false;
+                DALogInfo ( "no usable probe result was found, but we have fallback of bundleID %@, with probe match %d, preform a full probe on it", bundleID, context->probeToRetry_match );
+
+                // Copy essential fields from original context
+                CFRetain( context->disk );
+                retryContext->callback        = context->callback;
+                retryContext->callbackContext = context->callbackContext;
+                retryContext->candidates      = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks ); // Create empty array to avoid crashes
+                retryContext->deferredProbes  = NULL;
+                retryContext->disk            = context->disk;
+                retryContext->containerDisk   = context->containerDisk;
+                if ( retryContext->containerDisk ) {
+                    CFRetain( retryContext->containerDisk );
+                }
+                retryContext->filesystem      = context->probeToRetry_fs; // Transfer pointer and ownership (already retained)
+                context->probeToRetry_fs      = NULL;
+
+                retryContext->startTime       = context->startTime;
+                retryContext->gotFSModules    = context->gotFSModules;
+                retryContext->probeToRetry_fs = NULL; // Clear to avoid double-free
+                retryContext->probeToRetry_match = 0;
+                retryContext->skipLimitedProbe = true;
+
+                DAProbeWithFSKit( deviceName ,
+                                  bundleID ,
+                                  doFsck ,
+                                  __FSKitProbeStatusCallback ,
+                                  retryContext );
+                return;
+            } else {
+                // Clean up probeToRetry_fs since we failed to create retry context
+                CFRelease( context->probeToRetry_fs );
+                context->probeToRetry_fs = NULL;
+                DALogError( "Failed to allocate retry context, falling through to cleanup", __FUNCTION__, __LINE__ );
+            }
+        }
+
     }
     else
     {
@@ -729,6 +783,12 @@ static void __FSKitProbeStatusCallback( int status ,
     if ( context->filesystem )
     {
         CFRelease( context->filesystem );
+    }
+
+    if ( context->probeToRetry_fs )
+    {
+        CFRelease( context->probeToRetry_fs );
+        context->probeToRetry_fs = NULL;
     }
 
     free( context );
@@ -825,7 +885,11 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
         CFRelease( probeCallbackContext->deferredProbes );
         probeCallbackContext->deferredProbes = NULL;
     }
-    
+
+    probeCallbackContext->probeToRetry_fs = NULL;
+    probeCallbackContext->probeToRetry_match = 0; // FSMatchResultNotRecognized
+    probeCallbackContext->skipLimitedProbe = false;
+
     /* Kick off the first probe and let the callback process the rest of the probes */
     __FSKitProbeStatusCallback( -1 , -1 , NULL , NULL , NULL , probeCallbackContext );
 
@@ -976,7 +1040,7 @@ int __DAProbeWithFSKit( void *parameter )
     CFStringRef               bundleID         = context->bundleID;
     bool                      doFsck           = context->doFsck;
     DAFileSystemProbeCallback callback         = context->callback;
-    void                      *callbackContext = context->callbackContext;
+    __DAProbeCallbackContext  *callbackContext = context->callbackContext;
     FSAuditToken              *token;
     __block int               status           = 0;
     dispatch_group_t          probeGroup       = dispatch_group_create();
@@ -988,6 +1052,8 @@ int __DAProbeWithFSKit( void *parameter )
     dispatch_group_t          checkGroup       = dispatch_group_create();
     __block NSUUID            *checkTaskID;
     uid_t                     user             = gDAConsoleUserUID;
+    __block FSProbeResult    *probeResult;
+    __block FSMatchResult     probeMatch = FSMatchResultNotRecognized;
 
 /* We don't use the configuration callback on iOS, and diskarbitrationd runs as root, so default to 501 */
 #if TARGET_OS_IOS
@@ -997,49 +1063,75 @@ int __DAProbeWithFSKit( void *parameter )
     res = [FSBlockDeviceResource proxyResourceForBSDName:(__bridge NSString *) deviceName];
     token = [[FSAuditToken alloc] init];
     token = [token tokenWithRuid:user];
-    
-    /* Perform limited probe */
-    res.limited = YES;
-    dispatch_group_enter( probeGroup );
-    [client probeResource:res
-              usingBundle: (__bridge NSString *) bundleID
-               auditToken:token.audit_token
-             replyHandler:^(FSProbeResult * _Nullable result,
-                            NSError * _Nullable probeErr) {
-        if ( probeErr )
-        {
-            status = (int) [probeErr code];
-        }
-        else if ( result )
-        {
-            switch ( result.result )
+
+    if (callbackContext->skipLimitedProbe == false) {
+        /* Perform limited probe */
+        res.limited = YES;
+        dispatch_group_enter( probeGroup );
+        [client probeResource:res
+                  usingBundle: (__bridge NSString *) bundleID
+                   auditToken:token.audit_token
+                 replyHandler:^(FSProbeResult * _Nullable result,
+                                NSError * _Nullable probeErr) {
+            probeResult = result;
+            if ( probeErr )
             {
-                case FSMatchResultUsableButLimited:
-                case FSMatchResultUsable:
-                    status = 0;
-                    break;
-                case FSMatchResultNotRecognized:
-                    status = ENOENT;
-                    break;
-                default:
-                    status = EIO;
+                status = (int) [probeErr code];
             }
-        } else {
-            status = EIO;
-        }
+            else if ( result )
+            {
+                probeMatch = result.result;
+                switch ( result.result )
+                {
+                    case FSMatchResultUsable:
+                        status = 0;
+                        break;
+                    case FSMatchResultNotRecognized:
+                        status = ENOENT;
+                        break;
+                    case FSMatchResultUsableButLimited:
+                        // Set probeToRetry if this is the first FSMatchResultUsableButLimited
+                        if ( callbackContext &&
+                            (callbackContext->probeToRetry_fs == NULL || callbackContext->probeToRetry_match != FSMatchResultUsableButLimited) ) {
+                            DALogInfo( "%s: Found usable but limited result bundleID %@", __FUNCTION__, bundleID);
+                            if (callbackContext->filesystem) {
+                                callbackContext->probeToRetry_fs = (DAFileSystemRef)CFRetain(callbackContext->filesystem);
+                            }
+                            callbackContext->probeToRetry_match = FSMatchResultUsableButLimited;
+                        }
+                        status = EILSEQ; // Special code to signal "continue probing"
+                        break;
+                    case FSMatchResultRecognized:
+                        // Set probeToRetry if this is the first FSMatchResultRecognized, and we still haven't seen FSMatchResultUsableButLimited result
+                        if ( callbackContext &&
+                            (callbackContext->probeToRetry_fs == NULL || callbackContext->probeToRetry_match == FSMatchResultNotRecognized) ) {
+                            DALogInfo( "%s: Found recognized result bundleID %@" , __FUNCTION__, bundleID);
+                            if (callbackContext->filesystem) {
+                                callbackContext->probeToRetry_fs = (DAFileSystemRef)CFRetain(callbackContext->filesystem);
+                            }
+                            callbackContext->probeToRetry_match = FSMatchResultRecognized;
+                        }
+                        status = EILSEQ; // Special code to signal "continue probing"
+                        break;
+                    default:
+                        status = EIO;
+                }
+            } else {
+                status = EIO;
+            }
+            if ( status )
+            {
+                context->checkStatus = status;
+            }
+            dispatch_group_leave( probeGroup );
+        }];
+        dispatch_group_wait( probeGroup , DISPATCH_TIME_FOREVER );
+
         if ( status )
         {
-            context->checkStatus = status;
+            return status;
         }
-        dispatch_group_leave( probeGroup );
-    }];
-    dispatch_group_wait( probeGroup , DISPATCH_TIME_FOREVER );
-    
-    if ( status )
-    {
-        return status;
     }
-    
     /* Perform full probe */
     res.limited = NO;
     dispatch_group_enter( probeGroup );
@@ -1071,8 +1163,9 @@ int __DAProbeWithFSKit( void *parameter )
         } else {
             status = EIO;
         }
-        if ( status )
+        if ( status == ENOENT )
         {
+            DALogInfo( "%s: full probe failed with FSMatchResultNotRecognized for bundleID %@" , __FUNCTION__ , bundleID);
             context->checkStatus = status;
             dispatch_group_leave( probeGroup );
             return;
@@ -1117,11 +1210,18 @@ int __DAProbeWithFSKit( void *parameter )
             context->volUUID = CFUUIDCreateFromString( kCFAllocatorDefault ,
                                                       ( __bridge CFStringRef ) result.containerID.uuid.description );
         }
-        
+
+        if ( status == EIO )
+        {
+            DALogInfo( "%s: full probe failed with FSMatchResultRecognized/UsableButLimited bundleID %@" , __FUNCTION__, bundleID);
+            context->checkStatus = status;
+            dispatch_group_leave( probeGroup );
+            return;
+        }
+
         dispatch_group_leave( probeGroup );
     }];
     dispatch_group_wait( probeGroup , DISPATCH_TIME_FOREVER );
-    
     if ( ( status == 0 ) && context->doFsck )
     {
         // Pass the connection to FSClient
@@ -1162,7 +1262,7 @@ int __DAProbeWithFSKit( void *parameter )
         }
         DALogInfo("FSKit check of resource %@ exited with error %@ %d", res, messageDumper.exitError, context->checkStatus );
     }
-    
+
     return status;
 }
 
@@ -1508,32 +1608,21 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
         if ( map != NULL )
         {
             /* mount map entries are considered automounted, not external volumes, and use the kext path */
-            BOOL automounted = TRUE;
-            BOOL externalVolume = FALSE;
-            
             if ( __DAShouldAddMountMapEntry( ) )
             {
                 if ( !fstabEntryAdded )
                 {
                     // Post telemetry event for the first entry added
                     fstabEntryAdded = YES;
-                    DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_ADDED ,
-                                              CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
-                                              DATelemetryFSImplementationKext ,
-                                              automounted ,
-                                              externalVolume ,
-                                              0 );
+                    DATelemetrySendMountFstabEvent( DA_STATUS_FSTAB_MOUNT_ADDED ,
+                                                   CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) );
                 }
             }
             else
             {
                 DALogInfo( "Skipping mount map entry for %s", fs->fs_file );
-                DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_SKIPPED ,
-                                          CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
-                                          DATelemetryFSImplementationKext ,
-                                          automounted ,
-                                          externalVolume ,
-                                          0 );
+                DATelemetrySendMountFstabEvent( DA_STATUS_FSTAB_MOUNT_SKIPPED ,
+                                               CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) );
                 CFRelease( map );
                 map = NULL;
             }
@@ -1726,6 +1815,7 @@ const CFStringRef kDAPreferenceDisableEjectNotificationKey        = CFSTR( "DADi
 const CFStringRef kDAPreferenceDisableUnreadableNotificationKey   = CFSTR( "DADisableUnreadableNotification" );
 const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey = CFSTR( "DADisableUnrepairableNotification" );
 const CFStringRef kDAPreferenceMountAlwaysRepairKey               = CFSTR( "DAMountAlwaysRepair"   );
+const CFStringRef kDAPreferenceHibernateUnmountKey                = CFSTR( "DAHibernateUnmount" );
 
 void DAPreferenceListRefresh( void )
 {
@@ -1947,6 +2037,16 @@ void DAPreferenceListRefresh( void )
                 if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
                 {
                     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountAlwaysRepairKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences , kDAPreferenceHibernateUnmountKey );
+            
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceHibernateUnmountKey, value );
                 }
             }
             
@@ -2257,3 +2357,107 @@ Boolean DAAPFSNoVolumeRole(DADiskRef disk)
 
     return noRole;
 }
+
+#if TARGET_OS_OSX
+uint64_t __DAGetSleepSubclass( void )
+{
+    uint64_t sleepValue = kIOPMSleepTypeInvalid;
+    io_registry_entry_t pmRoot = IORegistryEntryFromPath( kIOMainPortDefault ,
+                                                          kIOPowerPlane
+                                                          ":/IOPowerConnection/IOPMrootDomain" );
+    CFNumberRef sleepSubclass;
+    
+    if ( pmRoot == MACH_PORT_NULL )
+    {
+        return sleepValue;
+    }
+    
+    sleepSubclass = IORegistryEntryCreateCFProperty( pmRoot ,
+                                                     CFSTR(kIOPMSystemSleepTypeKey) ,
+                                                     kCFAllocatorDefault, 0 );
+
+    if ( sleepSubclass != NULL )
+    {
+        CFNumberGetValue( sleepSubclass , kCFNumberSInt64Type , &sleepValue );
+        CFRelease( sleepSubclass );
+    }
+    IOObjectRelease( pmRoot );
+    return sleepValue;
+}
+
+// <IOKit/pwr_mgt/RootDomain.h> is not available to include for some reason, so define sleep reason key here.
+#ifndef kRootDomainSleepReasonsKey
+#define kRootDomainSleepReasonsKey "Last Sleep Reason"
+#endif
+
+Boolean __DAIsSleepReasonHibernate( void )
+{
+    Boolean isHibernate = FALSE;
+    CFStringRef sleepReason;
+    io_registry_entry_t pmRoot = IORegistryEntryFromPath( kIOMainPortDefault ,
+                                                          kIOPowerPlane
+                                                          ":/IOPowerConnection/IOPMrootDomain" );
+    if ( pmRoot == MACH_PORT_NULL )
+    {
+        return isHibernate;
+    }
+    
+    sleepReason = IORegistryEntryCreateCFProperty( pmRoot ,
+                                                   CFSTR(kRootDomainSleepReasonsKey) ,
+                                                   kCFAllocatorDefault ,
+                                                   0 );
+    
+    if ( sleepReason != NULL )
+    {
+        isHibernate = !CFStringCompare( sleepReason ,
+                                        CFSTR(kIOPMLowPowerSleepKey) ,
+                                        kCFCompareCaseInsensitive )
+                   || !CFStringCompare( sleepReason ,
+                                        CFSTR(kIOPMThermalEmergencySleepKey) ,
+                                        kCFCompareCaseInsensitive );
+        
+        CFRelease( sleepReason );
+    }
+    
+    IOObjectRelease( pmRoot );
+    return isHibernate;
+}
+
+Boolean __DAIsScreenUnlocked( void )
+{
+    Boolean isScreenUnlocked = TRUE;
+    uint32_t lockState = UINT32_MAX;
+    CFDataRef screenLockState;
+    io_registry_entry_t devTreeRoot = IORegistryEntryFromPath( kIOMainPortDefault ,
+                                                               kIODeviceTreePlane
+                                                               ":/chosen" );
+    
+    if ( devTreeRoot == MACH_PORT_NULL )
+    {
+        return isScreenUnlocked;
+    }
+    
+    screenLockState = IORegistryEntryCreateCFProperty( devTreeRoot ,
+                                                       CFSTR(kIOScreenLockStateKey) ,
+                                                       kCFAllocatorDefault ,
+                                                       0 );
+    
+    if ( screenLockState != NULL )
+    {
+        CFDataGetBytes( screenLockState , CFRangeMake( 0 , sizeof(lockState) ) , ( UInt8 *) &lockState );
+        CFRelease( screenLockState );
+        
+        isScreenUnlocked = ( lockState == kIOScreenLockNoLock || lockState == kIOScreenLockUnlocked );
+    }
+    
+    IOObjectRelease( devTreeRoot );
+    return isScreenUnlocked;
+}
+
+Boolean __DADiskIsInternalSDMedia( DADiskRef disk )
+{
+    return ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue
+        && DADiskGetDescription( disk, kDADiskDescriptionMediaEjectableKey ) == kCFBooleanTrue );
+}
+
+#endif

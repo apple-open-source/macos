@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 pcm{
     units{
         acceleration{
@@ -154,6 +154,9 @@ pcm{
                 one{"{0} Karat"}
                 other{"{0} Karat"}
             }
+            katal{
+                dnam{"katáls"}
+            }
             milligram-ofglucose-per-deciliter{
                 dnam{"Mílígram-dẹm Fọ Ẹ́vrí Dẹsílíta"}
                 one{"{0} Mílígram Fọ Ẹ́vrí Dẹsílíta"}
@@ -169,6 +172,24 @@ pcm{
                 one{"{0} Mol"}
                 other{"{0} Mol"}
             }
+            ofglucose{
+                dnam{"ọf glúcọs"}
+                one{"{0} of glúcọs"}
+                other{"{0} of glúcọs"}
+            }
+            part{
+                dnam{"párts"}
+            }
+            part-per-1e6{
+                dnam{"Pat-dẹm Fọ Ích Míliọn"}
+                one{"{0} Pat Fọ Ích Míliọn"}
+                other{"{0} Pat Fọ Ích Míliọn"}
+            }
+            part-per-1e9{
+                dnam{"pat fọ ích bíliọn"}
+                one{"{0} pat fọ ích bíliọn"}
+                other{"{0} pat fọ ích bíliọn"}
+            }
             percent{
                 one{"{0} Pasẹnt"}
                 other{"{0} Pasẹnt"}
@@ -176,11 +197,6 @@ pcm{
             permille{
                 one{"{0} Fọ Ích Taúzan"}
                 other{"{0} Fọ Ích Taúzan"}
-            }
-            permillion{
-                dnam{"Pat-dẹm Fọ Ích Míliọn"}
-                one{"{0} Pat Fọ Ích Míliọn"}
-                other{"{0} Pat Fọ Ích Míliọn"}
             }
             permyriad{
                 one{"{0} Fọ Ích Tẹ́n Taúzan"}
@@ -310,12 +326,6 @@ pcm{
                 dnam{"Nánosẹ́kọn-dẹm"}
                 one{"{0} Nánosẹ́kọn"}
                 other{"{0} Nánosẹ́kọn"}
-            }
-            night{
-                dnam{"nait"}
-                one{"{0} nait"}
-                other{"{0} nait"}
-                per{"{0}/nait"}
             }
             quarter{
                 dnam{"kwọ́ta"}
@@ -618,6 +628,16 @@ pcm{
                 other{"{0} Sólá Luminósíti"}
             }
         }
+        magnetic{
+            tesla{
+                dnam{"tẹslás"}
+            }
+            weber{
+                dnam{"Webers"}
+                one{"{0} Wb"}
+                other{"{0} webers"}
+            }
+        }
         mass{
             carat{
                 dnam{"Kárat-dẹm"}
@@ -783,11 +803,6 @@ pcm{
             }
             knot{
                 dnam{"Nọt-dẹm"}
-            }
-            light-speed{
-                dnam{"laít"}
-                one{"{0} laít"}
-                other{"{0} laít"}
             }
             meter-per-second{
                 dnam{"Míta-dẹm Fọ Ẹ́vrí Sẹ́kọn"}
@@ -1014,14 +1029,25 @@ pcm{
                 one{"{0} kárá"}
                 other{"{0} kárá"}
             }
+            ofglucose{
+                dnam{"glúcọs"}
+            }
+            part{
+                dnam{"párt"}
+            }
+            part-per-1e6{
+                dnam{"Pfim"}
+            }
+            part-per-1e9{
+                dnam{"pfib"}
+                one{"{0}pfib"}
+                other{"{0}pfib"}
+            }
             percent{
                 dnam{"%"}
             }
             permille{
                 dnam{"‰"}
-            }
-            permillion{
-                dnam{"Pfim"}
             }
             permyriad{
                 dnam{"‱"}
@@ -1114,10 +1140,8 @@ pcm{
                 other{"{0}Mọnt"}
             }
             night{
-                dnam{"nait"}
                 one{"{0}nait"}
                 other{"{0}nait"}
-                per{"{0}/nait"}
             }
             second{
                 dnam{"Sẹ́kọn"}
@@ -1191,7 +1215,6 @@ pcm{
                 dnam{"km/áw"}
             }
             light-speed{
-                dnam{"laít"}
                 one{"{0}laít"}
                 other{"{0}laít"}
             }
@@ -1331,16 +1354,27 @@ pcm{
             millimole-per-liter{
                 dnam{"Mílimol/Líta"}
             }
+            ofglucose{
+                dnam{"glúcọs"}
+            }
+            part{
+                dnam{"párt"}
+            }
+            part-per-1e6{
+                dnam{"Pat/Míliọn"}
+                one{"{0} pfim"}
+                other{"{0} pfim"}
+            }
+            part-per-1e9{
+                dnam{"pat/bíliọn"}
+                one{"{0} pfib"}
+                other{"{0} pfib"}
+            }
             percent{
                 dnam{"Pasẹnt"}
             }
             permille{
                 dnam{"Fọ Ích Taúzan"}
-            }
-            permillion{
-                dnam{"Pat/Míliọn"}
-                one{"{0} pfim"}
-                other{"{0} pfim"}
             }
             permyriad{
                 dnam{"Fọ Ích Tẹ́n Taúzan"}
@@ -1703,7 +1737,9 @@ pcm{
                 dnam{"Tọns"}
             }
             tonne{
-                dnam{"T"}
+                dnam{"M. Tọn-dẹm"}
+                one{"{0} M. Tọn"}
+                other{"{0} M. Tọn"}
             }
         }
         power{

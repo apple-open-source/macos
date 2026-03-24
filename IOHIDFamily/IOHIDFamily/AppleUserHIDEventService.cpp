@@ -169,10 +169,10 @@ bool AppleUserHIDEventService::start(IOService * provider)
     
     if (krStart) {
         interface = OSDynamicCast(IOHIDInterface, provider);
-        require(interface, exit);
+        __Require(interface, exit);
         
         _elements = interface->createMatchingElements();
-        require(_elements, exit);
+        __Require(_elements, exit);
         
         _provider = interface;
 
@@ -181,19 +181,19 @@ bool AppleUserHIDEventService::start(IOService * provider)
         STAILQ_INIT(&_setLEDCallers);
 
         _workLoop = getWorkLoop();
-        require_action (_workLoop, exit, HIDEventServiceLogError("workLoop\n"));
+        __Require_Action(_workLoop, exit, HIDEventServiceLogError("workLoop\n"));
         _workLoop->retain();
 
         _commandGate = IOCommandGate::commandGate(this);
-        require_action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDEventServiceLogError("_commandGate"));
+        __Require_Action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDEventServiceLogError("_commandGate"));
     }
     
     if (!dkStart) {
         ret = Start(provider);
-        require_noerr_action(ret, exit, HIDEventServiceLogError("AppleUserHIDEventService::Start:0x%x\n", ret));
+        __Require_noErr_Action(ret, exit, HIDEventServiceLogError("AppleUserHIDEventService::Start:0x%x\n", ret));
     } else if (krStart) {
         ok = super::start(provider);
-        require_action(ok, exit, HIDEventServiceLogError("super::start:0x%x\n", ok));
+        __Require_Action(ok, exit, HIDEventServiceLogError("super::start:0x%x\n", ok));
     } else {
         return super::start(provider);
     }
@@ -258,7 +258,7 @@ IOReturn AppleUserHIDEventService::setElementValue(UInt32 usagePage,
     SetLEDCaller caller;
     static uint64_t callerID = 0;
 
-    require(!isInactive() && _setLEDAction, exit);
+    __Require(!isInactive() && _setLEDAction, exit);
 
     if (!_workLoop->inGate()) {
         _commandGate->runActionBlock(^{
@@ -361,7 +361,7 @@ void AppleUserHIDEventService::dispatchKeyboardEvent(AbsoluteTime               
                                                      UInt32                      value,
                                                      IOOptionBits                options)
 {
-    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    __Require_Action(_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
     super::dispatchKeyboardEvent (timeStamp, usagePage, usage, value, options);
 exit:
     return;
@@ -375,7 +375,7 @@ void AppleUserHIDEventService::dispatchScrollWheelEventWithFixed(AbsoluteTime   
                                                                 IOFixed                     deltaAxis3,
                                                                 IOOptionBits                options)
 {
-    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    __Require_Action(_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
     super::dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1, deltaAxis2, deltaAxis3, options);
 exit:
     return;
@@ -383,7 +383,7 @@ exit:
 
 void AppleUserHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 {
-    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    __Require_Action(_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
     super::dispatchEvent (event, options);
 exit:
     return;
@@ -397,7 +397,7 @@ IOHIDEvent * AppleUserHIDEventService::copyEvent(
     OSDictionary * matchingDict = OSDictionary::withCapacity(3);
     IOHIDEvent * event = NULL;
     
-    require_quiet(!isInactive(), exit);
+    __Require_Quiet(!isInactive(), exit);
     
     SET_DICT_NUM (matchingDict, kIOHIDEventTypeKey, type);
     
@@ -434,7 +434,7 @@ IOHIDEvent * AppleUserHIDEventService::copyMatchingEvent(OSDictionary * matching
     EventCopyCaller      caller;
     static uint64_t callerID = 0;
 
-    require_quiet(!isInactive() && _eventCopyAction, exit);
+    __Require_Quiet(!isInactive() && _eventCopyAction, exit);
 
     if (!_workLoop->inGate()) {
         _commandGate->runActionBlock(^{
@@ -514,7 +514,7 @@ IOReturn AppleUserHIDEventService::setProperties(OSObject *properties)
     SetPropertiesCaller caller;
     static uint64_t callerID = 0;
 
-    require(!isInactive() && _setPropertiesAction && propDict, exit);
+    __Require(!isInactive() && _setPropertiesAction && propDict, exit);
 
     if (!_workLoop->inGate()) {
         _commandGate->runActionBlock(^{
@@ -627,7 +627,7 @@ void AppleUserHIDEventService::updateElementsProperty(OSArray * userElements, OS
     OSNumber * number;
     uint32_t cookie;
 
-    require(userElements && deviceElements, exit);
+    __Require(userElements && deviceElements, exit);
 
     for (uint32_t index = 0; index < userElements->getCount(); index++) {
         if ((number = OSDynamicCast(OSNumber, userElements->getObject(index)))) {
@@ -648,7 +648,7 @@ void AppleUserHIDEventService::setSensorProperties(OSDictionary * sensorProps, O
     static const char *propKeys[] = {"ReportInterval", "MaxFIFOEvents", "ReportLatency", "SniffControl"};
     uint32_t cookie;
 
-    require(sensorProps, exit);
+    __Require(sensorProps, exit);
 
     for (const char * key : propKeys) {
         if ((propertyNum = OSDynamicCast(OSNumber, sensorProps->getObject(key)))) {
@@ -674,7 +674,7 @@ void AppleUserHIDEventService::setDigitizerProperties(OSDictionary * digitizerPr
     static const char * propKeys[] = {"touchCancelElement", "DeviceModeElement", kIOHIDDigitizerSurfaceSwitchKey, "ReportRate"};
     uint32_t cookie;
 
-    require(digitizerProps && deviceElements, exit);
+    __Require(digitizerProps && deviceElements, exit);
 
     if ((digitizerCollections = OSDynamicCast(OSArray, digitizerProps->getObject("Transducers")))) {
         for (uint32_t index = 0; index < digitizerCollections->getCount(); index++) {
@@ -719,7 +719,7 @@ void AppleUserHIDEventService::setUnicodeProperties(OSDictionary * unicodeProps,
     OSDictionary * collection;
     uint32_t cookie;
 
-    require(unicodeProps, exit);
+    __Require(unicodeProps, exit);
 
     if ((propertyNum = OSDynamicCast(OSNumber, unicodeProps->getObject("GestureCharacterStateElement")))) {
         cookie = propertyNum->unsigned32BitValue();
@@ -765,11 +765,11 @@ IOReturn AppleUserHIDEventService::setSystemProperties(OSDictionary * properties
     OSDictionary * existingProperty;
     static const char * propKeys[] = {kIOHIDSurfaceDimensionsKey, kIOHIDEventServiceSensorPropertySupportedKey, kIOHIDKeyboardEnabledKey, kIOHIDKeyboardEnabledByEventKey, kIOHIDReportIntervalKey,
                                       kIOHIDSupportsGlobeKeyKey, kIOHIDGameControllerFormFittingKey, kIOHIDKeyboardEnabledEventKey, kIOHIDPointerAccelerationTypeKey, kIOHIDScrollAccelerationTypeKey,
-                                      kIOHIDGameControllerTypeKey, kIOHIDDigitizerGestureCharacterStateKey, "SupportsInk"};
+                                      kIOHIDGameControllerTypeKey, kIOHIDDigitizerGestureCharacterStateKey, "SupportsInk", kIOHIDSupportedEventMaskKey, kIOHIDSupportedKeyboardUsagePairsKey, kIOHIDSupportedVendorUsagePairsKey};
     static const char * elementKeys[] = {"Biometric", "GameControllerPointer", "MultiAxisPointer", "LED", "Keyboard", "Accel", "Gyro", "Temperature", "Compass",
                                          "Orientation", "RelativePointer", "DeviceOrientation", "Scroll", "PrimaryVendorMessage", "ChildVendorMessage"};
 
-    require(properties, exit);
+    __Require(properties, exit);
 
     // Set simple properties listed above if present
     for (const char * key : propKeys) {
@@ -779,7 +779,7 @@ IOReturn AppleUserHIDEventService::setSystemProperties(OSDictionary * properties
         }
     }
 
-    require_action(interface, exit, ret = kIOReturnNoResources);
+    __Require_Action(interface, exit, ret = kIOReturnNoResources);
     deviceElements = interface->createMatchingElements(NULL, kIOHIDSearchDeviceElements);
 
     // Set "Elements" properties listed above if present

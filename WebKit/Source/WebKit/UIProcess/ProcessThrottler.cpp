@@ -32,6 +32,7 @@
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/EnumTraits.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -66,7 +67,7 @@ public:
         auto type = assertion->type();
         assertion->setInvalidationHandler(nullptr);
         ASSERT(!m_entries.contains(type));
-        m_entries.add(type, CachedAssertion::create(*this, WTFMove(assertion)));
+        m_entries.add(type, CachedAssertion::create(*this, WTF::move(assertion)));
     }
 
     RefPtr<ProcessAssertion> tryTake(ProcessAssertionType type)
@@ -89,12 +90,12 @@ public:
     }
 
 private:
-    class CachedAssertion : public RefCounted<CachedAssertion> {
+    class CachedAssertion : public RefCountedAndCanMakeWeakPtr<CachedAssertion> {
         WTF_MAKE_TZONE_ALLOCATED(CachedAssertion);
     public:
         static Ref<CachedAssertion> create(ProcessAssertionCache& cache, Ref<ProcessAssertion>&& assertion)
         {
-            return adoptRef(*new CachedAssertion(cache, WTFMove(assertion)));
+            return adoptRef(*new CachedAssertion(cache, WTF::move(assertion)));
         }
 
         bool isValid() const { return m_assertion->isValid(); }
@@ -103,7 +104,7 @@ private:
     private:
         CachedAssertion(ProcessAssertionCache& cache, Ref<ProcessAssertion>&& assertion)
             : m_cache(cache)
-            , m_assertion(WTFMove(assertion))
+            , m_assertion(WTF::move(assertion))
             , m_expirationTimer(RunLoop::mainSingleton(), "CachedAssertion::ExpirationTimer"_s, this, &CachedAssertion::entryExpired)
         {
             m_expirationTimer.startOneShot(processAssertionCacheLifetime);
@@ -152,9 +153,36 @@ ProcessThrottler::~ProcessThrottler()
     invalidateAllActivities();
 }
 
+NEVER_INLINE static void crashDueToApplicationCallingMainThreadOnlyWebKitAPIFromBackgroundThread()
+{
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::CrashWhenMutatingProcessAssertionsFromBackgroundThread)) {
+        static bool didLog;
+        if (!didLog) {
+            didLog = true;
+            RELEASE_LOG_FAULT(API, "Detected usage of WebKit APIs off the main thread. This is a misuse of the API that can lead to corruption of WebKit's internal data, and will cause a crash when using newer SDKs.");
+        }
+        return;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED("Terminating process due to improper usage of WebKit APIs off the main thread.");
+#else
+    ASSERT(isMainRunLoop());
+#endif
+}
+
+static void assertIfCalledFromBackgroundThread()
+{
+    if (isMainRunLoop()) [[likely]]
+        return;
+
+    crashDueToApplicationCallingMainThreadOnlyWebKitAPIFromBackgroundThread();
+}
+
 bool ProcessThrottler::addActivity(Activity& activity)
 {
-    ASSERT(isMainRunLoop());
+    assertIfCalledFromBackgroundThread();
+
     if (!m_allowsActivities) {
         if (!activity.isQuietActivity())
             PROCESSTHROTTLER_RELEASE_LOG("addActivity: not allowed to add %s activity %s", activity.isForeground() ? "foreground" : "background", activity.name().characters());
@@ -171,7 +199,8 @@ bool ProcessThrottler::addActivity(Activity& activity)
 
 void ProcessThrottler::removeActivity(Activity& activity)
 {
-    ASSERT(isMainRunLoop());
+    assertIfCalledFromBackgroundThread();
+
     if (!m_allowsActivities) {
         ASSERT(m_foregroundActivities.isEmptyIgnoringNullReferences());
         ASSERT(m_backgroundActivities.isEmptyIgnoringNullReferences());
@@ -192,7 +221,8 @@ void ProcessThrottler::removeActivity(Activity& activity)
 
 void ProcessThrottler::invalidateAllActivities()
 {
-    ASSERT(isMainRunLoop());
+    assertIfCalledFromBackgroundThread();
+
     PROCESSTHROTTLER_RELEASE_LOG("invalidateAllActivities: BEGIN (foregroundActivityCount: %u, backgroundActivityCount: %u)", m_foregroundActivities.computeSize(), m_backgroundActivities.computeSize());
     while (!m_foregroundActivities.isEmptyIgnoringNullReferences())
         Ref { *m_foregroundActivities.begin() }->invalidate(ProcessThrottlerActivity::ForceEnableActivityLogging::Yes);
@@ -264,6 +294,8 @@ ProcessAssertionType ProcessThrottler::assertionTypeForState(ProcessThrottleStat
 
 void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
 {
+    assertIfCalledFromBackgroundThread();
+
     m_state = newState;
 
     ProcessAssertionType newType = assertionTypeForState(newState);
@@ -285,14 +317,14 @@ void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
     m_assertion = m_assertionCache->tryTake(newType);
     if (!m_assertion) {
         if (m_shouldTakeUIBackgroundAssertion) {
-            Ref assertion = ProcessAndUIAssertion::create(process, assertionName(newType), newType, ProcessAssertion::Mode::Async, [previousAssertion = WTFMove(previousAssertion)] { });
+            Ref assertion = ProcessAndUIAssertion::create(process, assertionName(newType), newType, ProcessAssertion::Mode::Async, [previousAssertion = WTF::move(previousAssertion)] { });
             assertion->setUIAssertionExpirationHandler([weakThis = WeakPtr { *this }] {
                 if (weakThis)
                     weakThis->uiAssertionWillExpireImminently();
             });
-            m_assertion = WTFMove(assertion);
+            m_assertion = WTF::move(assertion);
         } else
-            m_assertion = ProcessAssertion::create(process, assertionName(newType), newType, ProcessAssertion::Mode::Async, [previousAssertion = WTFMove(previousAssertion)] { });
+            m_assertion = ProcessAssertion::create(process, assertionName(newType), newType, ProcessAssertion::Mode::Async, [previousAssertion = WTF::move(previousAssertion)] { });
     }
     RefPtr { m_assertion }->setInvalidationHandler([weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get())
@@ -542,20 +574,20 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ProcessThrottlerTimedActivity);
 
 Ref<ProcessThrottlerTimedActivity> ProcessThrottlerTimedActivity::create(Seconds timeout, RefPtr<Activity>&& activity)
 {
-    return adoptRef(*new ProcessThrottlerTimedActivity(timeout, WTFMove(activity)));
+    return adoptRef(*new ProcessThrottlerTimedActivity(timeout, WTF::move(activity)));
 }
 
 ProcessThrottlerTimedActivity::ProcessThrottlerTimedActivity(Seconds timeout, RefPtr<ProcessThrottlerTimedActivity::Activity>&& activity)
     : m_timer(RunLoop::mainSingleton(), "ProcessThrottlerTimedActivity::Timer"_s, this, &ProcessThrottlerTimedActivity::activityTimedOut)
     , m_timeout(timeout)
-    , m_activity(WTFMove(activity))
+    , m_activity(WTF::move(activity))
 {
     updateTimer();
 }
 
 void ProcessThrottlerTimedActivity::setActivity(RefPtr<ProcessThrottlerTimedActivity::Activity>&& activity)
 {
-    m_activity = WTFMove(activity);
+    m_activity = WTF::move(activity);
     updateTimer();
 }
 

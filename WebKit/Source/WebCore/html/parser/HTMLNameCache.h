@@ -100,7 +100,7 @@ private:
         return *slot;
     }
 
-    ALWAYS_INLINE static size_t slotIndex(char16_t firstCharacter, char16_t lastCharacter, char16_t length)
+    ALWAYS_INLINE static size_t slotIndex(char16_t firstCharacter, char16_t lastCharacter, char16_t length, size_t capacity)
     {
         unsigned hash = (firstCharacter << 6) ^ ((lastCharacter << 14) ^ firstCharacter);
         hash += (hash >> 14) + (length << 14);
@@ -110,21 +110,22 @@ private:
 
     ALWAYS_INLINE static AtomString& atomStringCacheSlot(char16_t firstCharacter, char16_t lastCharacter, char16_t length)
     {
-        auto index = slotIndex(firstCharacter, lastCharacter, length);
+        auto index = slotIndex(firstCharacter, lastCharacter, length, atomStringCacheCapacity);
         return atomStringCache()[index];
     }
 
     ALWAYS_INLINE static RefPtr<QualifiedName::QualifiedNameImpl>& qualifiedNameCacheSlot(char16_t firstCharacter, char16_t lastCharacter, char16_t length)
     {
-        auto index = slotIndex(firstCharacter, lastCharacter, length);
+        auto index = slotIndex(firstCharacter, lastCharacter, length, qualifiedNameCacheCapacity);
         return qualifiedNameCache()[index];
     }
 
     static constexpr auto maxStringLengthForCache = 36;
-    static constexpr auto capacity = 512;
+    static constexpr auto atomStringCacheCapacity = 2048;
+    static constexpr auto qualifiedNameCacheCapacity = 512;
 
-    using AtomStringCache = std::array<AtomString, capacity>;
-    using QualifiedNameCache = std::array<RefPtr<QualifiedName::QualifiedNameImpl>, capacity>;
+    using AtomStringCache = std::array<AtomString, atomStringCacheCapacity>;
+    using QualifiedNameCache = std::array<RefPtr<QualifiedName::QualifiedNameImpl>, qualifiedNameCacheCapacity>;
 
     static AtomStringCache& atomStringCache();
     static QualifiedNameCache& qualifiedNameCache();

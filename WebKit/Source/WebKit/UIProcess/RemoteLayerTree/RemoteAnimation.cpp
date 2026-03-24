@@ -26,13 +26,14 @@
 #import "config.h"
 #import "RemoteAnimation.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
+#import "RemoteAnimationUtilities.h"
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimation);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimation);
 
 Ref<RemoteAnimation> RemoteAnimation::create(const WebCore::AcceleratedEffect& effect, const RemoteAnimationTimeline& timeline)
 {
@@ -47,9 +48,47 @@ RemoteAnimation::RemoteAnimation(const WebCore::AcceleratedEffect& effect, const
 
 void RemoteAnimation::apply(WebCore::AcceleratedEffectValues& values)
 {
-    Ref { m_effect }->apply(m_timeline->currentTime(), values);
+    m_effect->apply(values, m_timeline->currentTime(), m_timeline->duration());
+}
+
+Ref<JSON::Object> RemoteAnimation::toJSONForTesting() const
+{
+    auto convertProperties = [](const OptionSet<WebCore::AcceleratedEffectProperty>& properties) {
+        Ref convertedProperties = JSON::Array::create();
+        for (auto property : properties)
+            convertedProperties->pushString(toStringForTesting(property));
+        return convertedProperties;
+    };
+
+    auto convertKeyframes = [](const Vector<WebCore::AcceleratedEffect::Keyframe>& keyframes) {
+        Ref convertedKeyframes = JSON::Array::create();
+        for (auto& keyframe : keyframes) {
+            Ref convertedKeyframe = WebKit::toJSONForTesting(keyframe.values(), keyframe.animatedProperties());
+            convertedKeyframe->setDouble("offset"_s, keyframe.offset());
+            convertedKeyframe->setValue("composite"_s, WebKit::toJSONForTesting(keyframe.compositeOperation()));
+            convertedKeyframe->setValue("easing"_s, WebKit::toJSONForTesting(keyframe.timingFunction()));
+            convertedKeyframes->pushObject(WTF::move(convertedKeyframe));
+        }
+        return convertedKeyframes;
+    };
+
+    auto resolvedTiming = m_effect->resolvedTimingForTesting(m_timeline->currentTime(), m_timeline->duration());
+
+    Ref object = JSON::Object::create();
+    object->setValue("composite"_s, WebKit::toJSONForTesting(m_effect->compositeOperation()));
+    object->setBoolean("paused"_s, m_effect->paused());
+    object->setDouble("playbackRate"_s, m_effect->playbackRate());
+    object->setValue("startTime"_s, WebKit::toJSONForTesting(m_effect->startTime()));
+    object->setValue("holdTime"_s, WebKit::toJSONForTesting(m_effect->holdTime()));
+    object->setArray("properties"_s, convertProperties(animatedProperties()));
+    object->setArray("keyframes"_s, convertKeyframes(keyframes()));
+    object->setObject("timing"_s, WebKit::toJSONForTesting(m_effect->timing()));
+    object->setObject("timeline"_s, m_timeline->toJSONForTesting());
+    if (auto progress = resolvedTiming.transformedProgress)
+        object->setDouble("progress"_s, *progress);
+    return object;
 }
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

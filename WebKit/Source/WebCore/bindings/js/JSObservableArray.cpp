@@ -68,7 +68,7 @@ void JSObservableArray::finishCreation(VM& vm, Ref<ObservableArray>&& array)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
-    m_array = WTFMove(array);
+    m_array = WTF::move(array);
 }
 
 JSObservableArray::~JSObservableArray() = default;
@@ -89,7 +89,7 @@ JSC_DEFINE_CUSTOM_GETTER(arrayLengthGetter, (JSGlobalObject* lexicalGlobalObject
     return JSValue::encode(jsNumber(thisObject->length()));
 }
 
-void JSObservableArray::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
+void JSObservableArray::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)
 {
     VM& vm = lexicalGlobalObject->vm();
     JSObservableArray* thisObject = jsCast<JSObservableArray*>(object);

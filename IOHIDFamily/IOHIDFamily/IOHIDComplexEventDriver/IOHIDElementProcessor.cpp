@@ -90,7 +90,7 @@ void
 IOHIDElementProcessor::setProperty(OSString * key, OSObject * val)
 {
     bool ok = false;
-    require_quiet(key && val, exit);
+    __Require_Quiet(key && val, exit);
 
     // lazily allocate properties dictionary
     if (!_properties) {
@@ -216,8 +216,8 @@ IOHIDRootElementProcessor::init(IOService * owner, IOHIDElement * collection)
 
     assert(collection);
 
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypeApplication, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypeApplication, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     success = super::init(owner, 0, kIOHIDEventTypeCollection, collection->getUsagePage(), collection->getUsage());
 
@@ -270,13 +270,13 @@ IOHIDAccelElementProcessor::init(IOService * owner, IOHIDElement * collection)
     _ts = OSArray::withCapacity(1);
 
     assert(collection);
-    require_quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_Snsr_Motion_Accelerometer3D || collection->getUsage() == kHIDUsage_Snsr_Motion, exit);
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_Snsr_Motion_Accelerometer3D || collection->getUsage() == kHIDUsage_Snsr_Motion, exit);
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     for (unsigned int i = 0, count = children->getCount(); i < count; ++i) {
         IOHIDElement * element = OSRequiredCast(IOHIDElement, children->getObject(i));
@@ -313,15 +313,15 @@ IOHIDAccelElementProcessor::init(IOService * owner, IOHIDElement * collection)
     }
 
     sampleCount = _x->getCount();
-    require_action_quiet(sampleCount > 0, exit, HIDElementProcessorLogError("got no complete (x,y,z,ts) input tuples"));
-    require_action_quiet(sampleCount == _y->getCount(), exit, HIDElementProcessorLogError("x(%d),y(%d) count mismatch", sampleCount, _y->getCount()));
-    require_action_quiet(sampleCount == _z->getCount(), exit, HIDElementProcessorLogError("x(%d),z(%d) count mismatch", sampleCount, _z->getCount()));
-    require_action_quiet(sampleCount == _ts->getCount(), exit, HIDElementProcessorLogError("x(%d),ts(%d) count mismatch", sampleCount, _ts->getCount()));
-    require_action_quiet(reportID >= 0, exit, HIDElementProcessorLogError("bad report id:%d", reportID));
+    __Require_Action_Quiet(sampleCount > 0, exit, HIDElementProcessorLogError("got no complete (x,y,z,ts) input tuples"));
+    __Require_Action_Quiet(sampleCount == _y->getCount(), exit, HIDElementProcessorLogError("x(%d),y(%d) count mismatch", sampleCount, _y->getCount()));
+    __Require_Action_Quiet(sampleCount == _z->getCount(), exit, HIDElementProcessorLogError("x(%d),z(%d) count mismatch", sampleCount, _z->getCount()));
+    __Require_Action_Quiet(sampleCount == _ts->getCount(), exit, HIDElementProcessorLogError("x(%d),ts(%d) count mismatch", sampleCount, _ts->getCount()));
+    __Require_Action_Quiet(reportID >= 0, exit, HIDElementProcessorLogError("bad report id:%d", reportID));
 
     // features
     _reportInterval = copyElement(children, kIOHIDElementTypeFeature, kHIDPage_Sensor, kHIDUsage_Snsr_Property_ReportInterval);
-    require_action_quiet(_reportInterval.get(), exit, HIDElementProcessorLogError("missing report interval element"));
+    __Require_Action_Quiet(_reportInterval.get(), exit, HIDElementProcessorLogError("missing report interval element"));
 
     _sampleInterval = copyElement(children, kIOHIDElementTypeFeature, kHIDPage_Sensor, kHIDUsage_Snsr_Property_SamplingRate);
 
@@ -459,13 +459,13 @@ IOHIDGyroElementProcessor::init(IOService * owner, IOHIDElement * collection)
     _ts = OSArray::withCapacity(1);
 
     assert(collection);
-    require_quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_Snsr_Motion_Gyrometer3D || collection->getUsage() == kHIDUsage_Snsr_Motion, exit);
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_Snsr_Motion_Gyrometer3D || collection->getUsage() == kHIDUsage_Snsr_Motion, exit);
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     for (unsigned int i = 0, count = children->getCount(); i < count; ++i) {
         IOHIDElement * element = OSRequiredCast(IOHIDElement, children->getObject(i));
@@ -502,15 +502,15 @@ IOHIDGyroElementProcessor::init(IOService * owner, IOHIDElement * collection)
     }
 
     sampleCount = _x->getCount();
-    require_action_quiet(sampleCount > 0, exit, HIDElementProcessorLogError("got no complete (x,y,z,ts) tuples"));
-    require_action_quiet(sampleCount == _y->getCount(), exit, HIDElementProcessorLogError("x(%d),y(%d) count mismatch", sampleCount, _y->getCount()));
-    require_action_quiet(sampleCount == _z->getCount(), exit, HIDElementProcessorLogError("x(%d),z(%d) count mismatch", sampleCount, _z->getCount()));
-    require_action_quiet(sampleCount == _ts->getCount(), exit, HIDElementProcessorLogError("x(%d),ts(%d) count mismatch", sampleCount, _ts->getCount()));
-    require_action_quiet(reportID >= 0, exit, HIDElementProcessorLogError("bad report id:%d", reportID));
+    __Require_Action_Quiet(sampleCount > 0, exit, HIDElementProcessorLogError("got no complete (x,y,z,ts) tuples"));
+    __Require_Action_Quiet(sampleCount == _y->getCount(), exit, HIDElementProcessorLogError("x(%d),y(%d) count mismatch", sampleCount, _y->getCount()));
+    __Require_Action_Quiet(sampleCount == _z->getCount(), exit, HIDElementProcessorLogError("x(%d),z(%d) count mismatch", sampleCount, _z->getCount()));
+    __Require_Action_Quiet(sampleCount == _ts->getCount(), exit, HIDElementProcessorLogError("x(%d),ts(%d) count mismatch", sampleCount, _ts->getCount()));
+    __Require_Action_Quiet(reportID >= 0, exit, HIDElementProcessorLogError("bad report id:%d", reportID));
 
     // features
     _reportInterval = copyElement(children, kIOHIDElementTypeFeature, kHIDPage_Sensor, kHIDUsage_Snsr_Property_ReportInterval);
-    require_action_quiet(_reportInterval.get(), exit, HIDElementProcessorLogError("missing report interval element"));
+    __Require_Action_Quiet(_reportInterval.get(), exit, HIDElementProcessorLogError("missing report interval element"));
 
     _sampleInterval = copyElement(children, kIOHIDElementTypeFeature, kHIDPage_Sensor, kHIDUsage_Snsr_Property_SamplingRate);
 
@@ -637,33 +637,33 @@ IOHIDThumbstickElementProcessor::init(IOService * owner, IOHIDElement * collecti
 
     assert(collection);
 
-    require_quiet(collection->getUsagePage() == kHIDPage_GenericDesktop, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_GD_Thumbstick, exit);
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_GenericDesktop, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_GD_Thumbstick, exit);
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     if (children->getCount() == 1) {
         IOHIDElement * child = OSRequiredCast(IOHIDElement, children->getObject(0));
-        require_action_quiet(child->getUsagePage() == kHIDPage_Ordinal, exit, HIDElementProcessorLogError("unexpected page for child:%d", child->getUsagePage()));
-        require_action_quiet(child->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type for child:%d", child->getUsagePage()));
-        require_action_quiet(child->getCollectionType() == kIOHIDElementCollectionTypeLogical, exit, HIDElementProcessorLogError("unexpected collection type for child:%d", child->getCollectionType()));
+        __Require_Action_Quiet(child->getUsagePage() == kHIDPage_Ordinal, exit, HIDElementProcessorLogError("unexpected page for child:%d", child->getUsagePage()));
+        __Require_Action_Quiet(child->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type for child:%d", child->getUsagePage()));
+        __Require_Action_Quiet(child->getCollectionType() == kIOHIDElementCollectionTypeLogical, exit, HIDElementProcessorLogError("unexpected collection type for child:%d", child->getCollectionType()));
 
         _ordinal = child->getUsage();
 
         children = child->getChildElements();
-        require_action_quiet(children, exit, HIDElementProcessorLogError("subcollection has no child elements"));
+        __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("subcollection has no child elements"));
     }
 
     _x = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_GenericDesktop, kHIDUsage_GD_X);
-    require_action_quiet(_x.get(), exit, HIDElementProcessorLogError("missing x-axis element"));
+    __Require_Action_Quiet(_x.get(), exit, HIDElementProcessorLogError("missing x-axis element"));
 
     _y = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_GenericDesktop, kHIDUsage_GD_Y);
-    require_action_quiet(_y.get(), exit, HIDElementProcessorLogError("missing y-axis element"));
+    __Require_Action_Quiet(_y.get(), exit, HIDElementProcessorLogError("missing y-axis element"));
 
-    require_action_quiet(_x->getReportID() == _y->getReportID(), exit, HIDElementProcessorLogError("x,y inputs do not have the same report id (%d/%d)", _x->getReportID(), _y->getReportID()));
+    __Require_Action_Quiet(_x->getReportID() == _y->getReportID(), exit, HIDElementProcessorLogError("x,y inputs do not have the same report id (%d/%d)", _x->getReportID(), _y->getReportID()));
 
     success = super::init(owner, _x->getReportID(), kIOHIDEventTypeMultiAxisPointer, kHIDPage_GenericDesktop, kHIDUsage_GD_Thumbstick);
     if (success) {
@@ -736,37 +736,37 @@ bool IOHIDButtonElementProcessor::init(IOService * owner, IOHIDElement * collect
 
     assert(collection);
 
-    require_quiet(collection->getUsagePage() == kHIDPage_Button, exit);
-    require_quiet(collection->getType() == kIOHIDElementTypeCollection, exit);
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_Button, exit);
+    __Require_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit);
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     if ((_input = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Button, collection->getUsage()))) {
         // SV (multi-bit) element
-        require_action_quiet(_input->getPhysicalMin() == 0, exit, HIDElementProcessorLogError("unexpected physical min:%d for button %u", _input->getPhysicalMin(), collection->getUsage()));
-        require_action_quiet(_input->getPhysicalMax() == 1, exit, HIDElementProcessorLogError("unexpected physical max:%d for button %u", _input->getPhysicalMax(), collection->getUsage()));
+        __Require_Action_Quiet(_input->getPhysicalMin() == 0, exit, HIDElementProcessorLogError("unexpected physical min:%d for button %u", _input->getPhysicalMin(), collection->getUsage()));
+        __Require_Action_Quiet(_input->getPhysicalMax() == 1, exit, HIDElementProcessorLogError("unexpected physical max:%d for button %u", _input->getPhysicalMax(), collection->getUsage()));
 
         // For analog buttons, allow the device to report a "press" state in addition to the analog
         // 0-1 value. This is done via a single-bit element with the same button usage.
         if ((_pressState = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Button, collection->getUsage()))) {
-            require_action_quiet(_pressState->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for switch element (button %u)", _pressState->getReportSize(), collection->getUsage()));
-            require_action_quiet(_pressState->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for switch element (button %u)", _pressState->getLogicalMin(), collection->getUsage()));
-            require_action_quiet(_pressState->getLogicalMax() == 1, exit, HIDElementProcessorLogError("unexpected logical max:%d for switch element (button %u)", _pressState->getLogicalMax(), collection->getUsage()));
+            __Require_Action_Quiet(_pressState->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for switch element (button %u)", _pressState->getReportSize(), collection->getUsage()));
+            __Require_Action_Quiet(_pressState->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for switch element (button %u)", _pressState->getLogicalMin(), collection->getUsage()));
+            __Require_Action_Quiet(_pressState->getLogicalMax() == 1, exit, HIDElementProcessorLogError("unexpected logical max:%d for switch element (button %u)", _pressState->getLogicalMax(), collection->getUsage()));
         }
 
         setProperty(key.get(), kOSBooleanTrue);
     }
     else if ((_input = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Button, collection->getUsage()))) {
         // MC element
-        require_action_quiet(_input->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for button %u", _input->getReportSize(), collection->getUsage()));
-        require_action_quiet(_input->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for button %u", _input->getLogicalMin(), collection->getUsage()));
-        require_action_quiet(_input->getLogicalMax() == 1, exit, HIDElementProcessorLogError("unexpected logical max:%d for button %u", _input->getLogicalMax(), collection->getUsage()));
+        __Require_Action_Quiet(_input->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for button %u", _input->getReportSize(), collection->getUsage()));
+        __Require_Action_Quiet(_input->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for button %u", _input->getLogicalMin(), collection->getUsage()));
+        __Require_Action_Quiet(_input->getLogicalMax() == 1, exit, HIDElementProcessorLogError("unexpected logical max:%d for button %u", _input->getLogicalMax(), collection->getUsage()));
 
         setProperty(key.get(), kOSBooleanFalse);
     }
-    require_action_quiet(_input, exit, HIDElementProcessorLogError("missing input element for button %u", collection->getUsage()));
+    __Require_Action_Quiet(_input, exit, HIDElementProcessorLogError("missing input element for button %u", collection->getUsage()));
 
     // arbitrary default thresholds to use if there is no press state element
     _pressThreshold = CAST_DOUBLE_TO_FIXED(0.5);
@@ -788,17 +788,17 @@ IOHIDButtonElementProcessor::setProperty(OSString * key, OSObject * val)
     OSNumber * num = OSDynamicCast(OSNumber, val);
 
     if (key && key->isEqualTo("ButtonPressThreshold")) {
-        require_quiet(num, exit);
-        require_quiet(num->doubleValue() >= _input->getPhysicalMin(), exit);
-        require_quiet(num->doubleValue() <= _input->getPhysicalMax(), exit);
-        require_action_quiet(num->doubleValue() >= CAST_FIXED_TO_DOUBLE(_releaseThreshold), exit, HIDElementProcessorLogError("cannot set press threshold (%f) lower than release (%f)", num->doubleValue(), CAST_FIXED_TO_DOUBLE(_releaseThreshold)));
+        __Require_Quiet(num, exit);
+        __Require_Quiet(num->doubleValue() >= _input->getPhysicalMin(), exit);
+        __Require_Quiet(num->doubleValue() <= _input->getPhysicalMax(), exit);
+        __Require_Action_Quiet(num->doubleValue() >= CAST_FIXED_TO_DOUBLE(_releaseThreshold), exit, HIDElementProcessorLogError("cannot set press threshold (%f) lower than release (%f)", num->doubleValue(), CAST_FIXED_TO_DOUBLE(_releaseThreshold)));
         _pressThreshold = CAST_DOUBLE_TO_FIXED(num->doubleValue());
     }
     else if (key && key->isEqualTo("ButtonReleaseThreshold")) {
-        require_quiet(num, exit);
-        require_quiet(num->doubleValue() >= _input->getPhysicalMin(), exit);
-        require_quiet(num->doubleValue() <= _input->getPhysicalMax(), exit);
-        require_action_quiet(num->doubleValue() <= CAST_FIXED_TO_DOUBLE(_pressThreshold), exit, HIDElementProcessorLogError("cannot set release threshold (%f) higher than press (%f)", num->doubleValue(), CAST_FIXED_TO_DOUBLE(_pressThreshold)));
+        __Require_Quiet(num, exit);
+        __Require_Quiet(num->doubleValue() >= _input->getPhysicalMin(), exit);
+        __Require_Quiet(num->doubleValue() <= _input->getPhysicalMax(), exit);
+        __Require_Action_Quiet(num->doubleValue() <= CAST_FIXED_TO_DOUBLE(_pressThreshold), exit, HIDElementProcessorLogError("cannot set release threshold (%f) higher than press (%f)", num->doubleValue(), CAST_FIXED_TO_DOUBLE(_pressThreshold)));
         _releaseThreshold = CAST_DOUBLE_TO_FIXED(num->doubleValue());
     }
 
@@ -887,17 +887,17 @@ IOHIDForceSensorElementProcessor::init(IOService * owner, IOHIDElement * collect
 
     assert(collection);
 
-    require_quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_Snsr_Mechanical_Force, exit);
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_Snsr_Mechanical_Force, exit);
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     // inputs
     _force = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Sensor, kHIDUsage_Snsr_Data_Mechanical_Force);
-    require_action_quiet(_force.get(), exit, HIDElementProcessorLogError("missing force element"));
+    __Require_Action_Quiet(_force.get(), exit, HIDElementProcessorLogError("missing force element"));
 
     key = OSString::withCString("PhysicalMin");
     num = OSNumber::withNumber(_force->getPhysicalMin(), 32);
@@ -959,21 +959,21 @@ IOHIDProximityElementProcessor::init(IOService * owner, IOHIDElement * collectio
 
     assert(collection);
 
-    require_quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_Snsr_Biometric_HumanProximity, exit);
-    require_action_quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_Sensor, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_Snsr_Biometric_HumanProximity, exit);
+    __Require_Action_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit, HIDElementProcessorLogError("unexpected element type:%d", collection->getUsagePage()));
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypePhysical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     _touch = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Sensor, kHIDUsage_Snsr_Data_Biometric_HumanTouchState);
-    require_action_quiet(_touch.get(), exit, HIDElementProcessorLog("missing touch element"));
+    __Require_Action_Quiet(_touch.get(), exit, HIDElementProcessorLog("missing touch element"));
 
     _prox = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Sensor, kHIDUsage_Snsr_Data_Biometric_HumanProximityRange);
 
     if (_prox) {
-        require_action_quiet(_touch->getReportID() == _prox->getReportID(), exit, HIDElementProcessorLogError("touch,prox inputs do not have the same report id (%d/%d)", _touch->getReportID(), _prox->getReportID()));
+        __Require_Action_Quiet(_touch->getReportID() == _prox->getReportID(), exit, HIDElementProcessorLogError("touch,prox inputs do not have the same report id (%d/%d)", _touch->getReportID(), _prox->getReportID()));
     }
 
     success = super::init(owner, _touch->getReportID(), kIOHIDEventTypeProximity, kHIDPage_Sensor, _prox ? kHIDUsage_Snsr_Biometric_HumanProximity : kHIDUsage_Snsr_Biometric_HumanTouch);
@@ -1036,44 +1036,44 @@ IOHIDLEDConstellationElementProcessor::init(IOService * owner, IOHIDElement * co
 
     assert(collection);
 
-    require_quiet(collection->getUsagePage() == kHIDPage_AppleVendorLED, exit);
-    require_quiet(collection->getUsage() == kHIDUsage_AppleVendorLED_Constellation, exit);
-    require_quiet(collection->getType() == kIOHIDElementTypeCollection, exit);
-    require_action_quiet(collection->getCollectionType() == kIOHIDElementCollectionTypeLogical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
+    __Require_Quiet(collection->getUsagePage() == kHIDPage_AppleVendorLED, exit);
+    __Require_Quiet(collection->getUsage() == kHIDUsage_AppleVendorLED_Constellation, exit);
+    __Require_Quiet(collection->getType() == kIOHIDElementTypeCollection, exit);
+    __Require_Action_Quiet(collection->getCollectionType() == kIOHIDElementCollectionTypeLogical, exit, HIDElementProcessorLogError("unexpected collection type:%d", collection->getCollectionType()));
 
     children = collection->getChildElements();
-    require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
+    __Require_Action_Quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
     modeCollection = copyElement(children, kIOHIDElementTypeCollection, kHIDPage_LEDs, kHIDUsage_LED_UsageMultiModeIndicator);
-    require_action_quiet(modeCollection->getCollectionType() == kIOHIDElementCollectionTypeUsageModifier, exit, HIDElementProcessorLogError("unexpected collection type for mode:%d", modeCollection->getCollectionType()));
+    __Require_Action_Quiet(modeCollection->getCollectionType() == kIOHIDElementCollectionTypeUsageModifier, exit, HIDElementProcessorLogError("unexpected collection type for mode:%d", modeCollection->getCollectionType()));
 
     modeCollectionChildren = modeCollection->getChildElements();
-    require_action_quiet(modeCollectionChildren, exit, HIDElementProcessorLogError("missing mode selector elements"));
+    __Require_Action_Quiet(modeCollectionChildren, exit, HIDElementProcessorLogError("missing mode selector elements"));
 
     _modeOn = copyElement(modeCollectionChildren, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_IndicatorOn);
-    require_action_quiet(_modeOn, exit, HIDElementProcessorLogError("missing On Mode element"));
+    __Require_Action_Quiet(_modeOn, exit, HIDElementProcessorLogError("missing On Mode element"));
 
     _modeOff = copyElement(modeCollectionChildren, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_IndicatorOff);
-    require_action_quiet(_modeOff, exit, HIDElementProcessorLogError("missing Off Mode element"));
+    __Require_Action_Quiet(_modeOff, exit, HIDElementProcessorLogError("missing Off Mode element"));
 
     _modeBlink = copyElement(modeCollectionChildren, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_IndicatorFastBlink);
-    require_action_quiet(_modeBlink, exit, HIDElementProcessorLogError("missing Fast Blink Mode element"));
+    __Require_Action_Quiet(_modeBlink, exit, HIDElementProcessorLogError("missing Fast Blink Mode element"));
 
     _intensity = copyElement(children, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_LEDIntensity);
-    require_action_quiet(_intensity.get(), exit, HIDElementProcessorLogError("missing intensity element"));
-    require_action_quiet(_intensity->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, intensity elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _intensity->getReportID()));
+    __Require_Action_Quiet(_intensity.get(), exit, HIDElementProcessorLogError("missing intensity element"));
+    __Require_Action_Quiet(_intensity->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, intensity elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _intensity->getReportID()));
 
     _blinkOnTime = copyElement(children, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_FastBlinkOnTime);
-    require_action_quiet(_blinkOnTime.get(), exit, HIDElementProcessorLogError("missing fast blink on time element"));
-    require_action_quiet(_blinkOnTime->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, blink on time elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _blinkOnTime->getReportID()));
+    __Require_Action_Quiet(_blinkOnTime.get(), exit, HIDElementProcessorLogError("missing fast blink on time element"));
+    __Require_Action_Quiet(_blinkOnTime->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, blink on time elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _blinkOnTime->getReportID()));
 
     _blinkOffTime = copyElement(children, kIOHIDElementTypeOutput, kHIDPage_LEDs, kHIDUsage_LED_FastBlinkOffTime);
-    require_action_quiet(_blinkOffTime.get(), exit, HIDElementProcessorLogError("missing fast blink off time element"));
-    require_action_quiet(_blinkOffTime->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, blink off time elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _blinkOffTime->getReportID()));
+    __Require_Action_Quiet(_blinkOffTime.get(), exit, HIDElementProcessorLogError("missing fast blink off time element"));
+    __Require_Action_Quiet(_blinkOffTime->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, blink off time elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _blinkOffTime->getReportID()));
 
     _ts = copyElement(children, kIOHIDElementTypeOutput, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp);
-    require_action_quiet(_ts.get(), exit, HIDElementProcessorLogError("missing time-sync timestamp element"));
-    require_action_quiet(_ts->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, time-sync elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _ts->getReportID()));
+    __Require_Action_Quiet(_ts.get(), exit, HIDElementProcessorLogError("missing time-sync timestamp element"));
+    __Require_Action_Quiet(_ts->getReportID() == _modeOn->getReportID(), exit, HIDElementProcessorLogError("mode, time-sync elements do not have the same report id (%d/%d)", _modeOn->getReportID(), _ts->getReportID()));
 
     success = super::init(owner, 0, 0, kHIDPage_AppleVendorLED, kHIDUsage_AppleVendorLED_Constellation);
     if (success) {

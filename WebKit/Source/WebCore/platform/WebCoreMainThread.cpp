@@ -42,14 +42,31 @@ bool shouldUseWebThread()
 #endif
 }
 
-void initializeMainThreadIfNeeded()
+static inline void initializeMainThreadWebCore()
 {
-    if (shouldUseWebThread())
-        return;
-
     JSC::initialize();
     WTF::initializeMainThread();
     WebCore::populateJITOperations();
+}
+
+void initializeMainThreadIfNeeded()
+{
+#if ENABLE(WEB_THREAD_DISABLEMENT)
+    if (pthread_main_np()) [[likely]]
+        initializeMainThreadWebCore();
+    else {
+        RetainPtr mainRunLoop = CFRunLoopGetMain();
+        CFRunLoopPerformBlock(mainRunLoop.get(), kCFRunLoopDefaultMode, ^{
+            initializeMainThreadWebCore();
+        });
+        CFRunLoopWakeUp(mainRunLoop.get());
+    }
+#else
+    if (shouldUseWebThread())
+        return;
+
+    initializeMainThreadWebCore();
+#endif
 }
 
 }

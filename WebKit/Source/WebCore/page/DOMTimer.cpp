@@ -139,7 +139,7 @@ struct NestedTimersMap {
     void add(int timeoutId, Ref<DOMTimer>&& timer)
     {
         if (isTrackingNestedTimers)
-            nestedTimers.add(timeoutId, WTFMove(timer));
+            nestedTimers.add(timeoutId, WTF::move(timer));
     }
 
     void remove(int timeoutId)
@@ -148,8 +148,8 @@ struct NestedTimersMap {
             nestedTimers.remove(timeoutId);
     }
 
-    const_iterator begin() const { return nestedTimers.begin(); }
-    const_iterator end() const { return nestedTimers.end(); }
+    const_iterator begin() const LIFETIME_BOUND { return nestedTimers.begin(); }
+    const_iterator end() const LIFETIME_BOUND { return nestedTimers.end(); }
 
 private:
     static NestedTimersMap& instance()
@@ -167,7 +167,7 @@ bool NestedTimersMap::isTrackingNestedTimers = false;
 DOMTimer::DOMTimer(ScriptExecutionContext& context, Function<void(ScriptExecutionContext&)>&& action, Seconds interval, Type type)
     : ActiveDOMObject(&context)
     , m_nestingLevel(context.timerNestingLevel())
-    , m_action(WTFMove(action))
+    , m_action(WTF::move(action))
     , m_originalInterval(interval)
     , m_throttleState(Undetermined)
     , m_oneShot(type == Type::SingleShot)
@@ -193,15 +193,15 @@ DOMTimer::~DOMTimer() = default;
 
 int DOMTimer::install(ScriptExecutionContext& context, std::unique_ptr<ScheduledAction> action, Seconds timeout, Type type)
 {
-    auto actionFunction = [action = WTFMove(action)](ScriptExecutionContext& context) mutable {
+    auto actionFunction = [action = WTF::move(action)](ScriptExecutionContext& context) mutable {
         action->execute(context);
     };
-    return DOMTimer::install(context, WTFMove(actionFunction), timeout, type);
+    return DOMTimer::install(context, WTF::move(actionFunction), timeout, type);
 }
 
 int DOMTimer::install(ScriptExecutionContext& context, Function<void(ScriptExecutionContext&)>&& action, Seconds timeout, Type type)
 {
-    Ref timer = adoptRef(*new DOMTimer(context, WTFMove(action), timeout, type));
+    Ref timer = adoptRef(*new DOMTimer(context, WTF::move(action), timeout, type));
     timer->suspendIfNeeded();
     timer->makeImminentlyScheduledWorkScopeIfPossible(context);
 
@@ -324,7 +324,7 @@ void DOMTimer::fired()
 
     DOMTimerFireState fireState(context, std::min(m_nestingLevel + 1, maxTimerNestingLevel));
 
-    if (m_userGestureTokenToForward && m_userGestureTokenToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
+    if (RefPtr userGestureTokenToForward = m_userGestureTokenToForward; userGestureTokenToForward && userGestureTokenToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
         m_userGestureTokenToForward = nullptr;
 
     ASSERT(!context->activeDOMObjectsAreSuspended());
@@ -431,11 +431,11 @@ Seconds DOMTimer::intervalClampedToMinimum() const
     return interval;
 }
 
-std::optional<MonotonicTime> ScriptExecutionContext::alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime fireTime) const
+MonotonicTime ScriptExecutionContext::alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime fireTime) const
 {
     Seconds alignmentInterval = domTimerAlignmentInterval(hasReachedMaxNestingLevel);
     if (!alignmentInterval)
-        return std::nullopt;
+        return fireTime;
     
     static const double randomizedProportion = cryptographicallyRandomUnitInterval();
 

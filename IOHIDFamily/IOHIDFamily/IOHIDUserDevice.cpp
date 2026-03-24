@@ -137,12 +137,15 @@ void IOHIDUserDevice::handleStop(  IOService * provider )
 OSString *IOHIDUserDevice::newTransportString() const
 {
     OSString * string = OSDynamicCast(OSString, _properties->getObject(kIOHIDTransportKey));
-    
-    if ( !string ) 
-        return NULL;
-        
+    OSBoolean * privilegedEntitlement = OSDynamicCast(OSBoolean, getProperty(kIOHIDDevicePrivilegedKey));
+
+    if ( !string || (privilegedEntitlement != kOSBooleanTrue) ) {
+        // Default to "Virtual" for user devices unless entitled to override
+        return OSString::withCString(kIOHIDTransportVirtualValue);
+    }
+
     string->retain();
-        
+
     return string;
 }
 

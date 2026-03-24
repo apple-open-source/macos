@@ -222,7 +222,7 @@ SourceBufferParserAVFObjC::SourceBufferParserAVFObjC(const MediaSourceConfigurat
 
 #if USE(MEDIAPARSERD)
     if ([m_parser.get() respondsToSelector:@selector(setPreferSandboxedParsing:)])
-        [m_parser.get() setPreferSandboxedParsing:YES];
+        [m_parser.get() setPreferSandboxedParsing:!m_configuration.demuxInProcess];
 #endif
 }
 
@@ -300,12 +300,12 @@ void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
                 SourceBufferPrivateClient::InitializationSegment::VideoTrackInformation info;
                 info.track = VideoTrackPrivateMediaSourceAVFObjC::create(track);
                 info.description = MediaDescriptionAVFObjC::create(track);
-                segment.videoTracks.append(WTFMove(info));
+                segment.videoTracks.append(WTF::move(info));
             } else if ([mediaType isEqualToString:AVMediaTypeAudio]) {
                 SourceBufferPrivateClient::InitializationSegment::AudioTrackInformation info;
                 info.track = AudioTrackPrivateMediaSourceAVFObjC::create(track);
                 info.description = MediaDescriptionAVFObjC::create(track);
-                segment.audioTracks.append(WTFMove(info));
+                segment.audioTracks.append(WTF::move(info));
             } else if ([mediaType isEqualToString:AVMediaTypeText] && m_configuration.textTracksEnabled) {
                 SourceBufferPrivateClient::InitializationSegment::TextTrackInformation info;
                 Ref description = MediaDescriptionAVFObjC::create(track);
@@ -315,13 +315,13 @@ void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
                     break;
                 }
                 info.track = TextTrackPrivateMediaSourceAVFObjC::create(track, InbandTextTrackPrivate::CueFormat::WebVTT);
-                segment.textTracks.append(WTFMove(info));
+                segment.textTracks.append(WTF::move(info));
             } else {
                 ALWAYS_LOG_IF_POSSIBLE(identifier, "Ignoring track of type ", String(mediaType));
             }
         }
 
-        m_didParseInitializationDataCallback(WTFMove(segment));
+        m_didParseInitializationDataCallback(WTF::move(segment));
     });
 }
 
@@ -342,34 +342,45 @@ void SourceBufferParserAVFObjC::didProvideMediaDataForTrackID(TrackID trackID, C
         auto mediaSample = MediaSampleAVFObjC::create(sampleBuffer.get(), trackID);
 
         if (mediaSample->isHomogeneous()) {
-            m_didProvideMediaDataCallback(WTFMove(mediaSample), trackID, mediaType);
+            m_didProvideMediaDataCallback(WTF::move(mediaSample), trackID, mediaType);
             return;
         }
 
         for (auto& sample : mediaSample->divideIntoHomogeneousSamples())
-            m_didProvideMediaDataCallback(WTFMove(sample), trackID, mediaType);
+            m_didProvideMediaDataCallback(WTF::move(sample), trackID, mediaType);
     });
 }
 
 void SourceBufferParserAVFObjC::willProvideContentKeyRequestInitializationDataForTrackID(uint64_t trackID)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "trackID = ", trackID);
-    m_willProvideContentKeyRequestInitializationDataForTrackIDCallback(trackID);
+    m_callOnClientThreadCallback([protectedThis = Ref { *this }, trackID] {
+        protectedThis->m_willProvideContentKeyRequestInitializationDataForTrackIDCallback(trackID);
+    });
 }
 
 void SourceBufferParserAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(NSData* nsInitData, uint64_t trackID)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "trackID = ", trackID);
-    m_didProvideContentKeyRequestInitializationDataForTrackIDCallback(SharedBuffer::create(nsInitData), trackID);
+    m_callOnClientThreadCallback([protectedThis = Ref { *this }, initData = SharedBuffer::create(nsInitData), trackID]() mutable {
+        protectedThis->m_didProvideContentKeyRequestInitializationDataForTrackIDCallback(WTF::move(initData), trackID);
+    });
 }
 
 void SourceBufferParserAVFObjC::didProvideContentKeyRequestSpecifierForTrackID(NSData* nsInitData, uint64_t trackID)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "trackID = ", trackID);
-    m_callOnClientThreadCallback([this, protectedThis = Ref { *this }, nsInitData = retainPtr(nsInitData), trackID] {
-        m_didProvideContentKeyRequestIdentifierForTrackIDCallback(SharedBuffer::create(nsInitData.get()), trackID);
+    m_callOnClientThreadCallback([protectedThis = Ref { *this }, initData = SharedBuffer::create(nsInitData), trackID]() mutable {
+        protectedThis->m_didProvideContentKeyRequestIdentifierForTrackIDCallback(WTF::move(initData), trackID);
     });
 }
+
+#if !RELEASE_LOG_DISABLED
+WTFLogChannel& SourceBufferParserAVFObjC::logChannel() const
+{
+    return LogMedia;
+}
+#endif // !RELEASE_LOG_DISABLED
 
 }
 

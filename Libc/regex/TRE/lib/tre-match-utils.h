@@ -81,7 +81,7 @@
 	str_user_end = str_source->get_next_char(&next_c, &pos_add_next,      \
                                                  str_source->context);	      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #else /* !TRE_STR_USER */
 /*
  * Because all multibyte encodings are exclusively single-shift encoding,
@@ -146,7 +146,7 @@
 	  }								      \
 	break;								      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #endif /* !TRE_STR_USER */
 
 #else /* !TRE_MULTIBYTE */
@@ -180,7 +180,7 @@
 	str_user_end = str_source->get_next_char(&next_c, &pos_add_next,      \
                                                  str_source->context);	      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #else /* !TRE_STR_USER */
 #define GET_NEXT_WCHAR()						      \
   do {									      \
@@ -201,7 +201,7 @@
 	else								      \
 	  next_c = *str_wide++;						      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #endif /* !TRE_STR_USER */
 
 #endif /* !TRE_MULTIBYTE */
@@ -229,7 +229,7 @@
 	str_user_end = str_source->get_next_char(&next_c, &pos_add_next,      \
 						 str_source->context);	      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #else /* !TRE_STR_USER */
 #define GET_NEXT_WCHAR()						      \
   do {									      \
@@ -242,7 +242,7 @@
 	else								      \
 	  next_c = (unsigned char)(*str_byte++);			      \
       }									      \
-  } while(/*CONSTCOND*/0)
+  } while(/*CONSTCOND*/(void)0,0)
 #endif /* !TRE_STR_USER */
 
 #endif /* !TRE_WCHAR */

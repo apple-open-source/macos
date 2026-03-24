@@ -81,7 +81,7 @@ webrtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::create
     networkManager->setEnumeratingAllNetworkInterfacesEnabled(isEnumeratingAllNetworkInterfacesEnabled());
     networkManager->setEnumeratingVisibleNetworkInterfacesEnabled(isEnumeratingVisibleNetworkInterfacesEnabled());
 
-    return WebCore::LibWebRTCProvider::createPeerConnection(observer, *networkManager, *socketFactory, WTFMove(configuration), makeUnique<LibWebRTCDnsResolverFactory>());
+    return WebCore::LibWebRTCProvider::createPeerConnection(observer, *networkManager, *socketFactory, WTF::move(configuration), makeUnique<LibWebRTCDnsResolverFactory>());
 }
 
 void LibWebRTCProvider::disableNonLocalhostConnections()
@@ -111,9 +111,9 @@ public:
 
 private:
     // SuspendableSocketFactory
-    webrtc::AsyncPacketSocket* CreateUdpSocket(const webrtc::SocketAddress&, uint16_t minPort, uint16_t maxPort) final;
-    webrtc::AsyncListenSocket* CreateServerTcpSocket(const webrtc::SocketAddress&, uint16_t minPort, uint16_t maxPort, int options) final { return nullptr; }
-    webrtc::AsyncPacketSocket* CreateClientTcpSocket(const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, const webrtc::PacketSocketTcpOptions&) final;
+    std::unique_ptr<webrtc::AsyncPacketSocket> CreateUdpSocket(const webrtc::Environment&, const webrtc::SocketAddress&, uint16_t minPort, uint16_t maxPort) final;
+    std::unique_ptr<webrtc::AsyncListenSocket> CreateServerTcpSocket(const webrtc::Environment&, const webrtc::SocketAddress&, uint16_t minPort, uint16_t maxPort, int options) final { return nullptr; }
+    std::unique_ptr<webrtc::AsyncPacketSocket> CreateClientTcpSocket(const webrtc::Environment&, const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, const webrtc::PacketSocketTcpOptions&) final;
     std::unique_ptr<webrtc::AsyncDnsResolverInterface> CreateAsyncDnsResolver() final;
     void suspend() final;
     void resume() final;
@@ -130,19 +130,19 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RTCSocketFactory);
 
 RTCSocketFactory::RTCSocketFactory(WebPageProxyIdentifier pageIdentifier, String&& userAgent, ScriptExecutionContextIdentifier identifier, bool isFirstParty, RegistrableDomain&& domain)
     : m_pageIdentifier(pageIdentifier)
-    , m_userAgent(WTFMove(userAgent))
+    , m_userAgent(WTF::move(userAgent))
     , m_contextIdentifier(identifier)
-    , m_domain(WTFMove(domain))
+    , m_domain(WTF::move(domain))
 {
     m_flags.isFirstParty = isFirstParty;
 }
 
-webrtc::AsyncPacketSocket* RTCSocketFactory::CreateUdpSocket(const webrtc::SocketAddress& address, uint16_t minPort, uint16_t maxPort)
+std::unique_ptr<webrtc::AsyncPacketSocket> RTCSocketFactory::CreateUdpSocket(const webrtc::Environment&, const webrtc::SocketAddress& address, uint16_t minPort, uint16_t maxPort)
 {
     return WebProcess::singleton().libWebRTCNetwork().checkedSocketFactory()->createUdpSocket(m_contextIdentifier, address, minPort, maxPort, m_pageIdentifier, m_flags, m_domain);
 }
 
-webrtc::AsyncPacketSocket* RTCSocketFactory::CreateClientTcpSocket(const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, const webrtc::PacketSocketTcpOptions& options)
+std::unique_ptr<webrtc::AsyncPacketSocket> RTCSocketFactory::CreateClientTcpSocket(const webrtc::Environment&, const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, const webrtc::PacketSocketTcpOptions& options)
 {
     return WebProcess::singleton().libWebRTCNetwork().checkedSocketFactory()->createClientTcpSocket(m_contextIdentifier, localAddress, remoteAddress, String { m_userAgent }, options, m_pageIdentifier, m_flags, m_domain);
 }
@@ -178,7 +178,7 @@ void LibWebRTCProvider::startedNetworkThread()
 std::unique_ptr<LibWebRTCProvider::SuspendableSocketFactory> LibWebRTCProvider::createSocketFactory(String&& userAgent, ScriptExecutionContextIdentifier identifier, bool isFirstParty, RegistrableDomain&& domain)
 {
     Ref webPage { m_webPage.get() };
-    auto factory = makeUnique<RTCSocketFactory>(webPage->webPageProxyIdentifier(), WTFMove(userAgent), identifier, isFirstParty, WTFMove(domain));
+    auto factory = makeUnique<RTCSocketFactory>(webPage->webPageProxyIdentifier(), WTF::move(userAgent), identifier, isFirstParty, WTF::move(domain));
 
     RefPtr page = webPage->corePage();
     if (!page || !page->settings().webRTCSocketsProxyingEnabled())

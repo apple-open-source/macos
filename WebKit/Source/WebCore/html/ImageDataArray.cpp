@@ -56,21 +56,21 @@ static auto visitArrayBufferView(JSC::ArrayBufferView& bufferView, F&& f)
 }
 
 ImageDataArray::ImageDataArray(Ref<JSC::ArrayBufferView>&& arrayBufferView)
-    : m_arrayBufferView(WTFMove(arrayBufferView))
+    : m_arrayBufferView(WTF::move(arrayBufferView))
 {
     ASSERT(isSupported(m_arrayBufferView.get()));
 }
 
 ImageDataArray::ImageDataArray(Ref<JSC::Uint8ClampedArray>&& data)
-    : ImageDataArray(Ref<JSC::ArrayBufferView>(WTFMove(data)))
+    : ImageDataArray(Ref<JSC::ArrayBufferView>(WTF::move(data)))
 { }
 
 ImageDataArray::ImageDataArray(Ref<JSC::Float16Array>&& data)
-    : ImageDataArray(Ref<JSC::ArrayBufferView>(WTFMove(data)))
+    : ImageDataArray(Ref<JSC::ArrayBufferView>(WTF::move(data)))
 { }
 
 ImageDataArray::ImageDataArray(ImageDataArray&& original, std::optional<ImageDataPixelFormat> overridingPixelFormat)
-    : m_arrayBufferView(WTFMove(original).extractBufferViewWithPixelFormat(overridingPixelFormat))
+    : m_arrayBufferView(WTF::move(original).extractBufferViewWithPixelFormat(overridingPixelFormat))
 { }
 
 template <typename TypedArray>
@@ -190,7 +190,7 @@ Ref<JSON::Value> ImageDataArray::copyToJSONArray() const
 Ref<ArrayBufferView> ImageDataArray::extractBufferViewWithPixelFormat(std::optional<ImageDataPixelFormat> overridingPixelFormat) &&
 {
     if (!overridingPixelFormat)
-        return WTFMove(m_arrayBufferView);
+        return WTF::move(m_arrayBufferView);
 
     switch (*overridingPixelFormat) {
     case ImageDataPixelFormat::RgbaUnorm8: return asUint8ClampedArray();

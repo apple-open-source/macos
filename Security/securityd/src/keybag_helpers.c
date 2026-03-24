@@ -198,15 +198,15 @@ _stash_set_key(service_context_t * context, const uint8_t *keydata, size_t keyda
     io_connect_t conn = IO_OBJECT_NULL;
     size_t len;
 
-    require(keydata, done);
-    require(keydata_len <= MAX_KEY_SIZE, done);
+    __Require(keydata, done);
+    __Require(keydata_len <= MAX_KEY_SIZE, done);
 
     applekeystored_context_t aksd_ctx = AKSD_CTX(context);
     aksd_rc = applekeystored_client_stash_create(&aksd_ctx, keydata, (unsigned)keydata_len);
-    require_action(aksd_rc == kAKSReturnSuccess || aksd_rc == kAKSReturnUnsupported, done, secerror("stash create failed with 0x%08x", kr); kr = aksd_rc);
+    __Require_Action(aksd_rc == kAKSReturnSuccess || aksd_rc == kAKSReturnUnsupported, done, secerror("stash create failed with 0x%08x", kr); kr = aksd_rc);
 
     conn = open_fdekeystore();
-    require(conn, done);
+    __Require(conn, done);
 
     // Store the key in the keystore and get its uuid
     setKeyGetUUID_InStruct_t inStruct1;
@@ -221,7 +221,7 @@ _stash_set_key(service_context_t * context, const uint8_t *keydata, size_t keyda
                              &inStruct1, sizeof(inStruct1),
                              NULL, NULL,
                              &outStruct1, &len);
-    require_action(kr == KERN_SUCCESS, done, secerror("setKeyGetUUID failed with 0x%08x", kr));
+    __Require_Action(kr == KERN_SUCCESS, done, secerror("setKeyGetUUID failed with 0x%08x", kr));
 
     // Now using the uuid stash it as the master key
     setStashKey_InStruct_t inStruct2;
@@ -234,7 +234,7 @@ _stash_set_key(service_context_t * context, const uint8_t *keydata, size_t keyda
                              &inStruct2, sizeof(inStruct2),
                              NULL, NULL,
                              NULL, NULL);
-    require_action(kr == KERN_SUCCESS, done, secerror("setStashKey failed with 0x%08x", kr));
+    __Require_Action(kr == KERN_SUCCESS, done, secerror("setStashKey failed with 0x%08x", kr));
 
 done:
     secinfo("keybag", "set stashkey %d", (int)kr);
@@ -287,7 +287,7 @@ _stash_get_key(service_context_t * context, void ** key, size_t * key_len)
     kern_return_t kr = KERN_INVALID_ARGUMENT;
 
     io_connect_t conn = open_fdekeystore();
-    require(conn, done);
+    __Require(conn, done);
     inStruct.type = kAppleFDEKeyStoreStash_master;
 
     kr = IOConnectCallMethod(conn, kAppleFDEKeyStore_getStashKey,

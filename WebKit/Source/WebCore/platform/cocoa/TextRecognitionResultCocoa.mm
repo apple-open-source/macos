@@ -44,8 +44,8 @@ namespace WebCore {
 std::optional<WebCore::AttributedString> TextRecognitionResult::extractAttributedString(VKCImageAnalysis *analysis)
 {
     if ([analysis isKindOfClass:PAL::getVKCImageAnalysisClassSingleton()]; [analysis respondsToSelector:@selector(_attributedStringForRange:)]) {
-        if (auto attributedString = [analysis _attributedStringForRange:NSMakeRange(0, NSIntegerMax)])
-            return { AttributedString::fromNSAttributedString(attributedString) };
+        if (RetainPtr attributedString = [analysis _attributedStringForRange:NSMakeRange(0, NSIntegerMax)])
+            return { AttributedString::fromNSAttributedString(attributedString.get()) };
     }
     return std::nullopt;
 }
@@ -55,8 +55,13 @@ RetainPtr<NSAttributedString> stringForRange(const TextRecognitionResult& result
     if (!result.imageAnalysisData)
         return nil;
 
-    auto everything = result.imageAnalysisData->nsAttributedString();
-    return [everything attributedSubstringFromRange:range];
+    RetainPtr wholeString = result.imageAnalysisData->nsAttributedString();
+    NSUInteger stringLength = [wholeString length];
+    if (range.location >= stringLength)
+        return nil;
+
+    NSUInteger clampedLength = std::min<NSUInteger>(range.length, stringLength - range.location);
+    return [wholeString attributedSubstringFromRange:NSMakeRange(range.location, clampedLength)];
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)

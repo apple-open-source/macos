@@ -45,7 +45,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemotePresentationContext);
 RemotePresentationContext::RemotePresentationContext(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteGPU& gpu, WebCore::WebGPU::PresentationContext& presentationContext, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(presentationContext)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_identifier(identifier)
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_gpu(gpu)
@@ -109,7 +109,7 @@ Ref<WebCore::WebGPU::PresentationContext> RemotePresentationContext::protectedBa
 
 Ref<WebGPU::ObjectHeap> RemotePresentationContext::protectedObjectHeap() const
 {
-    return m_objectHeap.get();
+    return m_objectHeap;
 }
 
 Ref<IPC::StreamServerConnection> RemotePresentationContext::protectedStreamConnection() const

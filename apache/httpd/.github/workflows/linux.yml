@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: 
+        include:
           # -------------------------------------------------------------------------
           - name: Empty APLOGNO() test
             env: |
@@ -53,6 +53,10 @@ jobs:
           - name: Event MPM, all-modules, mod_cgid fdpassing
             config: --enable-mods-shared=reallyall --with-mpm=event --disable-cgi --enable-cgid-fdpassing
           # -------------------------------------------------------------------------
+          - name: Shared MPMs, all-modules, 64-bit ARM
+            config: --enable-mods-shared=reallyall --enable-mpms-shared=all
+            os: ubuntu-24.04-arm
+          # -------------------------------------------------------------------------
           - name: Event MPM, all-modules, mod_cgid w/o fdpassing
             config: --enable-mods-shared=reallyall --with-mpm=event --disable-cgi
           # -------------------------------------------------------------------------
@@ -67,11 +71,11 @@ jobs:
             env: |
               TEST_ARGS=-order=random
           # -------------------------------------------------------------------------
-          - name: GCC 10 maintainer-mode w/-Werror, install + VPATH
+          - name: GCC 12 maintainer-mode w/-Werror, install + VPATH
             config: --enable-mods-shared=reallyall --enable-maintainer-mode
             notest-cflags: -Werror -O2
             env: |
-              CC=gcc-10
+              CC=gcc-12
               TEST_VPATH=1
               TEST_INSTALL=1
               SKIP_TESTING=1
@@ -153,6 +157,20 @@ jobs:
               TEST_ARGS="-defines LDAP"
               TESTS="t/modules/"
           # -------------------------------------------------------------------------
+          - name: APR 1.7.x, APR-util 1.7.x, LDAP
+            config: --enable-mods-shared=reallyall
+            pkgs: ldap-utils
+            env: |
+              APR_VERSION=1.7.x
+              APU_VERSION=1.7.x
+              APU_CONFIG="--with-crypto --with-ldap"
+              TEST_MALLOC=1
+              TEST_LDAP=1
+              TEST_ARGS="-defines LDAP"
+              TESTS="t/modules/"
+              CLEAR_CACHE=1
+          # -------------------------------------------------------------------------
+          ### TODO: if: *condition_not_24x
           - name: APR trunk thread debugging
             config: --enable-mods-shared=reallyall --with-mpm=event
             env: |
@@ -210,17 +228,6 @@ jobs:
           #     TEST_MD=1
           # -------------------------------------------------------------------------
           ### TODO: if: *condition_not_24x
-          - name: MOD_TLS test suite
-            config: --enable-mods-shared=reallyall --with-mpm=event --enable-mpms-shared=event
-            pkgs: curl python3-pytest nghttp2-client python3-cryptography python3-requests python3-multipart python3-filelock python3-websockets cargo cbindgen
-            env: |
-              APR_VERSION=1.7.4
-              APU_VERSION=1.6.3
-              APU_CONFIG="--with-crypto"
-              RUSTLS_VERSION="v0.13.0"
-              NO_TEST_FRAMEWORK=1
-              TEST_INSTALL=1
-              TEST_MOD_TLS=1
           # -------------------------------------------------------------------------
           ### TODO if: *condition_not_24x
           ### TODO: Fails because :i386 packages are not being found.
@@ -237,17 +244,21 @@ jobs:
           #     APR_VERSION=1.7.3
           #     APU_VERSION=1.6.3
           # APU_CONFIG="--with-crypto --with-ldap"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os == '' && 'ubuntu-latest' || matrix.os }}
     timeout-minutes: 30
     env:
       NOTEST_CFLAGS: ${{ matrix.notest-cflags }}
       CONFIG: ${{ matrix.config }}
     name: ${{ matrix.name }}
     steps:
+    # JOBID is used in the cache keys, created here as a hash of all
+    # properties of the environment, including the image OS version,
+    # compiler flags and any job-specific properties.
     - name: Set environment variables
       run: |
         echo "${{ matrix.env }}" >> $GITHUB_ENV
-        echo JOBID=`echo "${{ matrix.notest-cflags }} ${{ matrix.env }} ${{ matrix.config }}'"| md5sum - | sed 's/ .*//'` >> $GITHUB_ENV
+        echo JOBID=`echo "OS=$ImageOS ${{ matrix.notest-cflags }} ${{ matrix.env }} ${{ matrix.config }}" \
+           | md5sum - | sed 's/ .*//'` >> $GITHUB_ENV
     # https://github.com/actions/runner-images/issues/9491#issuecomment-1989718917
     - name: Workaround ASAN issue in Ubuntu 22.04
       run: sudo sysctl vm.mmap_rnd_bits=28
@@ -258,7 +269,7 @@ jobs:
                     cpanminus libtool-bin libapr1-dev libaprutil1-dev
                     liblua5.3-dev libbrotli-dev libcurl4-openssl-dev     
                     libnghttp2-dev libjansson-dev libpcre2-dev gdb
-                    perl-doc ${{ matrix.pkgs }}
+                    perl-doc libsasl2-dev ${{ matrix.pkgs }}
     - uses: actions/checkout@v4
     - name: Cache installed libraries
       uses: actions/cache@v4
@@ -285,5 +296,6 @@ jobs:
       if: failure()
       with:
         name: error_log-${{ env.JOBID }}
-        path: test/perl-framework/t/logs/error_log
-
+        path: |
+          **/config.log
+          test/perl-framework/t/logs/error_log

@@ -35,10 +35,11 @@
 #include "MediaList.h"
 #include "NodeDocument.h"
 #include "NodeRenderStyle.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "StyleRule.h"
 #include "StyleScope.h"
+#include <ranges>
 
 namespace WebCore::Style {
 
@@ -55,6 +56,9 @@ bool ContainerQueryEvaluator::evaluate(const CQ::ContainerQuery& containerQuery)
     auto context = featureEvaluationContextForQuery(containerQuery);
     if (!context)
         return false;
+
+    if (containerQuery.condition.queries.isEmpty() && !containerQuery.name.isEmpty())
+        return true;
 
     return evaluateCondition(containerQuery.condition, *context) == MQ::EvaluationResult::True;
 }
@@ -103,7 +107,7 @@ auto ContainerQueryEvaluator::featureEvaluationContextForQuery(const CQ::Contain
     };
 }
 
-const Element* ContainerQueryEvaluator::selectContainer(OptionSet<CQ::Axis> requiredAxes, const String& name, const Element& element, SelectionMode selectionMode, ScopeOrdinal scopeOrdinal, const ContainerQueryEvaluationState* evaluationState)
+RefPtr<const Element> ContainerQueryEvaluator::selectContainer(OptionSet<CQ::Axis> requiredAxes, const String& name, const Element& element, SelectionMode selectionMode, ScopeOrdinal scopeOrdinal, const ContainerQueryEvaluationState* evaluationState)
 {
     // "For each element, the query container to be queried is selected from among the element’s
     // ancestor query containers that have a valid container-type for all the container features
@@ -180,13 +184,13 @@ const Element* ContainerQueryEvaluator::selectContainer(OptionSet<CQ::Axis> requ
         // https://drafts.csswg.org/css-conditional-5/#container-queries
         for (RefPtr ancestor = originatingElement; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
             if (isContainerForQuery(*ancestor.get(), originatingElement.get()))
-                return ancestor.unsafeGet();
+                return ancestor;
         }
         return nullptr;
     }
 
     if (evaluationState && !requiredAxes.isEmpty()) {
-        for (auto& container : makeReversedRange(evaluationState->sizeQueryContainers)) {
+        for (auto& container : evaluationState->sizeQueryContainers | std::views::reverse) {
             if (isContainerForQuery(container))
                 return container.ptr();
         }
@@ -195,7 +199,7 @@ const Element* ContainerQueryEvaluator::selectContainer(OptionSet<CQ::Axis> requ
 
     for (RefPtr ancestor = element.parentElementInComposedTree(); ancestor; ancestor = ancestor->parentElementInComposedTree()) {
         if (isContainerForQuery(*ancestor.get()))
-            return ancestor.unsafeGet();
+            return ancestor;
     }
     return { };
 }

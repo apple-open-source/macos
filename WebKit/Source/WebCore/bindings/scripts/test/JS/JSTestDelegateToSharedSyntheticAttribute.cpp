@@ -131,7 +131,7 @@ void JSTestDelegateToSharedSyntheticAttributePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestDelegateToSharedSyntheticAttribute::s_info = { "TestDelegateToSharedSyntheticAttribute"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDelegateToSharedSyntheticAttribute) };
 
 JSTestDelegateToSharedSyntheticAttribute::JSTestDelegateToSharedSyntheticAttribute(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestDelegateToSharedSyntheticAttribute>&& impl)
-    : JSDOMWrapper<TestDelegateToSharedSyntheticAttribute>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestDelegateToSharedSyntheticAttribute>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -307,7 +307,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestDelegateToSharedSyntheticAttribute>(impl.ptr());
 #endif
-    return createWrapper<TestDelegateToSharedSyntheticAttribute>(globalObject, WTFMove(impl));
+    return createWrapper<TestDelegateToSharedSyntheticAttribute>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestDelegateToSharedSyntheticAttribute& impl)

@@ -1311,10 +1311,10 @@ SOSViewResultCode SOSAccountVirtualV0Behavior(SOSAccount*  account, SOSViewActio
     // The V0 view switches on and off all on it's own, we allow people the delusion
     // of control and status if it's what we're stuck at., otherwise error.
     if (SOSAccountSyncingV0(account)) {
-        require_action_quiet(actionCode == kSOSCCViewDisable, errOut, CFSTR("Can't disable V0 view and it's on right now"));
+        __Require_Action_Quiet(actionCode == kSOSCCViewDisable, errOut, CFSTR("Can't disable V0 view and it's on right now"));
         retval = kSOSCCViewMember;
     } else {
-        require_action_quiet(actionCode == kSOSCCViewEnable, errOut, CFSTR("Can't enable V0 and it's off right now"));
+        __Require_Action_Quiet(actionCode == kSOSCCViewEnable, errOut, CFSTR("Can't enable V0 and it's off right now"));
         retval = kSOSCCViewNotMember;
     }
 errOut:
@@ -1924,9 +1924,9 @@ static bool SOSAccountJoinCircle(SOSAccountTransaction* aTxn, SecKeyRef user_key
     SOSAccountTrustClassic *trust = account.trust;
     __block bool result = false;
     __block SOSFullPeerInfoRef cloud_full_peer = NULL;
-    require_action_quiet(trust.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
+    __Require_Action_Quiet(trust.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
 
-    require_quiet([account.trust ensureFullPeerAvailable: account err:error], fail);
+    __Require_Quiet([account.trust ensureFullPeerAvailable: account err:error], fail);
         
     if (account.accountInScriptBypassMode) {
         account.trust.fullPeerInfo = nil;
@@ -1954,9 +1954,9 @@ static bool SOSAccountJoinCircle(SOSAccountTransaction* aTxn, SecKeyRef user_key
             if(result && cloud_full_peer) {
                 CFErrorRef localError = NULL;
                 CFStringRef cloudid = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(cloud_full_peer));
-                require_quiet(cloudid, finish);
-                require_quiet(SOSCircleHasActivePeerWithID(circle, cloudid, &localError), finish);
-                require_quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, SOSFullPeerInfoGetPeerInfo(myCirclePeer), &localError), finish);
+                __Require_Quiet(cloudid, finish);
+                __Require_Quiet(SOSCircleHasActivePeerWithID(circle, cloudid, &localError), finish);
+                __Require_Quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, SOSFullPeerInfoGetPeerInfo(myCirclePeer), &localError), finish);
             finish:
                 if (localError){
                     secerror("Failed to join with cloud identity: %@", localError);
@@ -1981,7 +1981,7 @@ static bool SOSAccountJoinCircles_internal(SOSAccountTransaction* aTxn, bool use
     bool success = false;
 
     SecKeyRef user_key = SOSAccountGetPrivateCredential(account, error);
-    require_quiet(user_key, done); // Fail if we don't get one.
+    __Require_Quiet(user_key, done); // Fail if we don't get one.
 
     if(!trust.trustedCircle || SOSCircleCountPeers(trust.trustedCircle) == 0 ) {
         secnotice("resetToOffering", "Resetting circle to offering because it's empty and we're joining");
@@ -2005,7 +2005,7 @@ static bool SOSAccountJoinCircles_internal(SOSAccountTransaction* aTxn, bool use
         if (trust.fullPeerInfo != NULL) {
             SOSPeerInfoRef myPeer = trust.peerInfo;
             success = SOSCircleHasPeer(trust.trustedCircle, myPeer, NULL);
-            require_quiet(!success, done);
+            __Require_Quiet(!success, done);
             
             SOSCircleRemoveRejectedPeer(trust.trustedCircle, myPeer, NULL); // If we were rejected we should remove it now.
             
@@ -2018,7 +2018,7 @@ static bool SOSAccountJoinCircles_internal(SOSAccountTransaction* aTxn, bool use
     }
     success = SOSAccountJoinCircle(aTxn, user_key, use_cloud_identity, error);
 
-    require_quiet(success, done);
+    __Require_Quiet(success, done);
 
     trust.departureCode = kSOSNeverLeftCircle;
 
@@ -2076,7 +2076,7 @@ bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, CFE
         bool success = false;
 
         if (CFSetGetCount(peersToRemove) != 0) {
-            require_quiet(SOSCircleRemovePeers(circle, user_key, me_full, peersToRemove, error), done);
+            __Require_Quiet(SOSCircleRemovePeers(circle, user_key, me_full, peersToRemove, error), done);
             success = SOSAccountGenerationSignatureUpdate(account, error);
         } else {
             success = true;
@@ -2204,8 +2204,8 @@ CFArrayRef SOSAccountCopyGeneration(SOSAccount*  account, CFErrorRef *error) {
     CFNumberRef generation = NULL;
     SOSAccountTrustClassic *trust = account.trust;
 
-    require_quiet(SOSAccountHasPublicKey(account, error), fail);
-    require_action_quiet(trust.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle")));
+    __Require_Quiet(SOSAccountHasPublicKey(account, error), fail);
+    __Require_Action_Quiet(trust.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle")));
 
     generation = (CFNumberRef)SOSCircleGetGeneration(trust.trustedCircle);
     result = CFArrayCreateForCFTypes(kCFAllocatorDefault, generation, NULL);
@@ -3061,9 +3061,9 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSI
     }
 
     SecKeyRef userKey = SOSAccountGetTrustedPublicCredential(account, error);
-    require_quiet(userKey, errOut);
+    __Require_Quiet(userKey, errOut);
 
-    require_action_quiet(applicant, errOut, SOSCreateError(kSOSErrorProcessingFailure, CFSTR("No applicant provided"), (error != NULL) ? *error : NULL, error));
+    __Require_Action_Quiet(applicant, errOut, SOSCreateError(kSOSErrorProcessingFailure, CFSTR("No applicant provided"), (error != NULL) ? *error : NULL, error));
 
     eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
                                                                       altDSID:altDSID
@@ -3073,27 +3073,27 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSI
                                                                canSendMetrics:canSendMetrics
                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     
-    require_action_quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), verifyFail,
+    __Require_Action_Quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), verifyFail,
                          secnotice("circleOps", "Peer application wasn't signed with the correct userKey"));
     [eventS sendMetricWithResult:YES error:nil];
 
     {
         SOSFullPeerInfoRef fpi = account.fullPeerInfo;
         ourKey = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-        require_quiet(ourKey, errOut);
+        __Require_Quiet(ourKey, errOut);
     }
 
     SOSCircleRef currentCircle = [account.trust getCircle:error];
-    require_quiet(currentCircle, errOut);
+    __Require_Quiet(currentCircle, errOut);
 
     prunedCircle = SOSCircleCopyCircle(NULL, currentCircle, error);
-    require_quiet(prunedCircle, errOut);
-    require_quiet(SOSCirclePreGenerationSign(prunedCircle, userKey, error), errOut);
+    __Require_Quiet(prunedCircle, errOut);
+    __Require_Quiet(SOSCirclePreGenerationSign(prunedCircle, userKey, error), errOut);
 
     gencount = SOSGenerationIncrementAndCreate(SOSCircleGetGeneration(prunedCircle));
 
     signature = SOSCircleCopyNextGenSignatureWithPeerAdded(prunedCircle, applicant, ourKey, error);
-    require_quiet(signature, errOut);
+    __Require_Quiet(signature, errOut);
     pbNotice(CFSTR("Accepting"), account, gencount, ourKey, signature, kPiggyV1);
     pbblob = SOSPiggyBackBlobCopyEncodedData(gencount, ourKey, signature, error);
     
@@ -3211,7 +3211,7 @@ void SOSAccountLogState(SOSAccount*  account) {
 
 void SOSAccountLogViewState(SOSAccount*  account) {
     bool isInCircle = [account.trust isInCircleOnly:NULL];
-    require_quiet(isInCircle, imOut);
+    __Require_Quiet(isInCircle, imOut);
     SOSPeerInfoRef mpi = account.peerInfo;
     bool isInitialComplete = SOSAccountHasCompletedInitialSync(account);
     bool isBackupComplete = SOSAccountHasCompletedRequiredBackupSync(account);

@@ -93,7 +93,8 @@ enum class MediaPlayerMediaEngineIdentifier : uint8_t {
     HolePunch,
     MediaFoundation,
     MockMSE,
-    CocoaWebM
+    CocoaWebM,
+    WirelessPlayback,
 };
 
 enum class MediaPlayerWirelessPlaybackTargetType : uint8_t {

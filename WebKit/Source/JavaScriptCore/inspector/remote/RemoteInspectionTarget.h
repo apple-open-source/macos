@@ -25,8 +25,11 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(REMOTE_INSPECTOR)
 
+#include <JavaScriptCore/JSExportMacros.h>
 #include <JavaScriptCore/JSRemoteInspector.h>
 #include <JavaScriptCore/RemoteControllableTarget.h>
 #include <wtf/ProcessID.h>
@@ -69,6 +72,8 @@ public:
 
     std::optional<ProcessID> presentingApplicationPID() const { return m_presentingApplicationPID; }
     JS_EXPORT_PRIVATE void setPresentingApplicationPID(std::optional<ProcessID>&&);
+
+    virtual std::optional<ProcessID> webContentProcessPID() const { return std::nullopt; }
 
 protected:
     bool m_isPausedWaitingForAutomaticInspection { false };

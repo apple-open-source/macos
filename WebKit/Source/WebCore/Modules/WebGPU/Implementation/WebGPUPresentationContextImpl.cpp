@@ -45,7 +45,7 @@ namespace WebCore::WebGPU {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PresentationContextImpl);
 
 PresentationContextImpl::PresentationContextImpl(WebGPUPtr<WGPUSurface>&& surface, ConvertToBackingContext& convertToBackingContext)
-    : m_backing(WTFMove(surface))
+    : m_backing(WTF::move(surface))
     , m_convertToBackingContext(convertToBackingContext)
 {
 }

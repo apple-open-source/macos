@@ -84,11 +84,8 @@ unsigned alignmentContextForBaselineAlignment(const GridSpan&, const ItemPositio
 bool hasAutoMarginsInColumnAxis(const RenderBox&, WritingMode parentWritingMode);
 bool hasAutoMarginsInRowAxis(const RenderBox&, WritingMode parentWritingMode);
 
-bool hasAutoSizeInColumnAxis(const RenderBox&, WritingMode parentWritingMode);
-bool hasAutoSizeInRowAxis(const RenderBox&, WritingMode parentWritingMode);
-
-bool allowedToStretchGridItemAlongColumnAxis(const RenderBox&, ItemPosition, WritingMode);
-bool allowedToStretchGridItemAlongRowAxis(const RenderBox&, ItemPosition, WritingMode);
+bool hasStretchableSizeInColumnAxis(const RenderBox&, const RenderGrid& gridContainer);
+bool hasStretchableSizeInRowAxis(const RenderBox&, const RenderGrid& gridContainer);
 
 LayoutUnit availableAlignmentSpaceForGridItemBeforeStretching(const RenderGrid&, LayoutUnit gridAreaBreadthForGridItem, const RenderBox&, Style::GridTrackSizingDirection);
 

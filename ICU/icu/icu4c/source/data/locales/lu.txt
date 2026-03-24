@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 lu{
     AuxExemplarCharacters{"[g r x]"}
     ExemplarCharacters{
@@ -149,12 +149,12 @@ lu{
             }
             eras{
                 abbreviated{
-                    "kmp. Y.K.",
-                    "kny. Y. K.",
+                    0{"kmp. Y.K."}
+                    1{"kny. Y. K."}
                 }
                 wide{
-                    "Kumpala kwa Yezu Kli",
-                    "Kunyima kwa Yezu Kli",
+                    0{"Kumpala kwa Yezu Kli"}
+                    1{"Kunyima kwa Yezu Kli"}
                 }
             }
             monthNames{

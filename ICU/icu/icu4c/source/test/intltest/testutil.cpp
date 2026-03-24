@@ -19,6 +19,9 @@
 #include "cmemory.h"
 #include "testutil.h"
 #include "intltest.h"
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include <malloc/malloc.h> // rdar://162810290
+#endif
 
 static const char16_t HEX[] = u"0123456789ABCDEF";
 
@@ -301,3 +304,115 @@ void TestUtility::checkEditsIter(
         }
     }
 }
+
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290
+void TestUtility::checkObjectForUninitializedMemory(
+    IntlTest &test,
+    const void* objPtr,
+    const char* objName,
+    size_t objSizeOf)
+{
+    // Detect which memory analysis tools are enabled.
+    // ASAN fills new memory with 0xBE.
+    // MallocScribble fills new memory with 0xAA.
+    // MallocStackLogging increases malloc_size.
+    UBool asanEnabled = false;
+    UBool mallocScribbleEnabled = false;
+    uint8_t fillPattern = 0;
+    size_t objMallocSize;
+
+    const char *mallocStackLogging = getenv("MallocStackLogging");
+    if ((mallocStackLogging != NULL) && !(strcmp(mallocStackLogging, "full") == 0)) {
+        test.infoln("Skipping uninitialized memory check for %s because MallocStackLogging lite is enabled and it increases malloc_size(). (Note that MallocStackLogging full does not increase malloc_size().)", objName);
+        return;
+    }
+
+    if (getenv("MallocScribble") != nullptr) {
+        mallocScribbleEnabled = true;
+        fillPattern = 0xAA; // MallocScribble fill pattern
+    }
+
+#if defined(__has_feature)
+#  if __has_feature(address_sanitizer)
+    asanEnabled = true;
+    fillPattern = 0xBE; // ASAN fill pattern
+    // If both Malloc Scribble and ASAN are enabled,
+    // ASAN's pattern takes precedence.
+#  endif
+#endif
+
+    // Skip if neither tool is enabled
+    if (!asanEnabled && !mallocScribbleEnabled) {
+        test.infoln("Skipping uninitialized memory check for %s because neither ASAN nor Malloc Scribble is enabled and they are needed to fill new memory with known patterns.", objName);
+        return;
+    }
+
+    // Check for null pointer
+    if (objPtr == nullptr) {
+        test.errln("Cannot check uninitialized memory for %s: null pointer", objName);
+        return;
+    }
+    
+    objMallocSize = malloc_size(objPtr);
+
+    // Confirm that sizeof == malloc_size so that
+    // we can fully initialize the allocated memory.
+    // If this fails, adjust the length of the
+    // padding_bytes[] at the end of the object.
+    if (objSizeOf != objMallocSize) {
+        test.errln("sizeof %zu != malloc_size %zu for %s", objSizeOf, objMallocSize, objName);
+    }
+
+    // A run of 8 or more uninitialized bytes could pick up a pointer from the heap,
+    // causing memory analysis tools to incorrectly identify references to other objects.
+    // Note that the compiler can add up to 7 uninitialized padding bytes between
+    // data members to ensure alignment to 8-byte boundaries.
+
+    // In my testing on iOS, I also saw problems where 7 padding bytes + a data member
+    // byte were interpreted as a pointer, so I've set the threshold to 7. -- CJC
+
+    const size_t runLengthThreshold = 7;
+    const uint8_t* memPtr = reinterpret_cast<const uint8_t*>(objPtr);
+    int32_t uninitializedByteCount = 0;
+    size_t runStart = 0;
+    size_t runLength = 0;
+    UBool inRun = false;
+
+    for (size_t i = 0; i < objMallocSize; i++) {
+        UBool isUninitializedByte = (memPtr[i] == fillPattern);
+
+        if (isUninitializedByte) {
+            uninitializedByteCount++;
+
+            if (!inRun) {
+                // Start a new run
+                runStart = i;
+                runLength = 1;
+                inRun = true;
+            } else {
+                // Continue the current run
+                runLength++;
+            }
+        } else {
+            // Not an uninitialized byte
+            if (inRun && runLength >= runLengthThreshold) {
+                test.errln("Found an uninitialized run >= %zu bytes in %s: offset 0x%zx (%zu), length %zu",
+                           runLengthThreshold, objName, runStart, runStart, runLength);
+            }
+            inRun = false;
+            runLength = 0;
+        }
+    }
+    // Check final run if we ended in one
+    if (inRun && runLength >= runLengthThreshold) {
+        test.errln("Found an uninitialized run >= %zu bytes in %s: offset 0x%zx (%zu), length %zu",
+                   runLengthThreshold, objName, runStart, runStart, runLength);
+    }
+#if 0 // I'm keeping this for future use. -- CJC
+    double uninitializedPercentage = (100.0 * uninitializedByteCount) / objSize;
+    test.infoln("%s: total bytes: %zu, uninitialized bytes: %d (%.1f%%)",
+               objName, objSize, uninitializedByteCount, uninitializedPercentage);
+#endif
+}
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED

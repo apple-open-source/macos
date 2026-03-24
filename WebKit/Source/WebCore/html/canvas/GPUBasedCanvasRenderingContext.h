@@ -34,7 +34,7 @@ namespace WebCore {
 class HTMLCanvasElement;
 
 class GPUBasedCanvasRenderingContext : public CanvasRenderingContext, public ActiveDOMObject {
-    WTF_MAKE_TZONE_OR_ISO_NON_HEAP_ALLOCATABLE(GPUBasedCanvasRenderingContext);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(GPUBasedCanvasRenderingContext);
 public:
     // ContextDestructionObserver.
     void ref() const final { CanvasRenderingContext::ref(); }

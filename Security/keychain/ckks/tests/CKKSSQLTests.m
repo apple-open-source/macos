@@ -326,7 +326,8 @@
                                                                   lastFixup:CKKSCurrentFixupNumber
                                                          encodedRateLimiter:nil
                                                     fetchNewestChangesFirst:YES
-                                                        initialSyncFinished:NO];
+                                                        initialSyncFinished:NO
+                                                                    altDSID:@"fake-altDSID"];
     zse.rateLimiter = [[CKKSRateLimiter alloc] init];
 
     CKKSZoneStateEntry* zse2 = [[CKKSZoneStateEntry alloc] initWithContextID:@"other_context"
@@ -340,7 +341,8 @@
                                                                    lastFixup:1
                                                           encodedRateLimiter:nil
                                                      fetchNewestChangesFirst:NO
-                                                         initialSyncFinished:YES];
+                                                         initialSyncFinished:YES
+                                                                     altDSID:@"another-fake-altDSID"];
 
     CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithContextID:context1
                                                                         zoneName:@"sqltest"
@@ -353,7 +355,8 @@
                                                                        lastFixup:CKKSCurrentFixupNumber
                                                               encodedRateLimiter:zse.encodedRateLimiter
                                                          fetchNewestChangesFirst:YES
-                                                             initialSyncFinished:NO];
+                                                             initialSyncFinished:NO
+                                                                         altDSID:@"fake-altDSID"];
 
     CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithContextID:context1
                                                                             zoneName:@"sqltest"
@@ -366,7 +369,8 @@
                                                                            lastFixup:CKKSCurrentFixupNumber
                                                                   encodedRateLimiter:zse.encodedRateLimiter
                                                              fetchNewestChangesFirst:YES
-                                                                 initialSyncFinished:NO];
+                                                                 initialSyncFinished:NO
+                                                                             altDSID:@"another-different-altDSID"];
     XCTAssertEqualObjects(zse, zseClone, "CKKSZoneStateEntry isEqual of equal objects seems okay");
     XCTAssertNotEqualObjects(zse, zseDifferent, "CKKSZoneStateEntry isEqual of nonequal objects seems okay");
 
@@ -395,6 +399,7 @@
     XCTAssertEqualObjects(zse.encodedChangeToken, loaded.encodedChangeToken, "encodedChangeToken persisted through db save and load");
     XCTAssertEqual       (zse.fetchNewestChangesFirst, loaded.fetchNewestChangesFirst, "fetchNewestChangesFirst persisted through db save and load");
     XCTAssertEqual       (zse.initialSyncFinished, loaded.initialSyncFinished, "initialSyncFinished persisted through db save and load");
+    XCTAssertEqualObjects(zse.altDSID,             loaded.altDSID,              "altDSID persisted through db save and load");
 
     secnotice("ckkstests", "zse.lastFetchTime: %@", zse.lastFetchTime);
     secnotice("ckkstests", "loaded.lastFetchTime: %@", loaded.lastFetchTime);

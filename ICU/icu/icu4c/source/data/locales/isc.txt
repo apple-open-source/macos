@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 isc{
     AuxExemplarCharacters{"[á é í ó]"}
     ExemplarCharacters{"[a b {ch} e h i k m n o p r s {sh} t {ts} w y]"}

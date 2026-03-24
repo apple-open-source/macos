@@ -3459,6 +3459,13 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 					DBG_ASSERT(0);
 				}
 
+                /* Lock the parent */
+                dnp = VTOSMB(dvp);
+                if (smbnode_lock(dnp, SMBFS_SHARED_LOCK) != 0) {
+                    error = ENOENT;
+                    goto done;
+                }
+
 				error = smb2fs_smb_cmpd_query_dir_one(share, VTOSMB(dvp),
 													  namep, name_len,
 													  fap, (char **) &namep, &name_len, &name_allocsize,
@@ -3468,13 +3475,6 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
                                0xabc002, error, 0, 0, 0);
                 
                 if (error == 0) {
-                    /* Lock the parent */
-                    dnp = VTOSMB(dvp);
-                    if (smbnode_lock(dnp, SMBFS_EXCLUSIVE_LOCK) != 0) {
-                        error = ENOENT;
-                        goto done;
-                    }
-                    
                     /* 
                      * Found item on server, see if its in the hash.
                      * If it is in hash, then update its meta data and return vp
@@ -3503,6 +3503,9 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
                     }
                 }
                 else {
+                    /* Unlock the parent */
+                    smbnode_unlock(dnp);
+
                     if (!(fmode & O_CREAT)) {
                         /*
                          * File is not found and not allowed to be created
@@ -10530,7 +10533,7 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			 */
 			VTOSMB(ap->a_vp)->n_flag |= NNEEDS_FLUSH;
 
-			error = smbfs_fsync(share, vp, 0, 0, ap->a_context);
+			error = smbfs_fsync(share, vp, MNT_WAIT, 0, ap->a_context);
 			if (error) {
 				SMBERROR_LOCK(np, "smbfs_fsync failed %d on <%s> \n", error, np->n_name);
 				break;
@@ -12673,7 +12676,6 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
     uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
     uint32_t max_io_size = 0;
     user_ssize_t len = 0;
-    off_t offset = uio? uio_offset(uio): 0;
 
 	DBG_ASSERT(!vnode_isnamedstream(vp));
 	
@@ -12998,8 +13000,13 @@ multiple_transactions:
 		       0xabc005, error, stype, 0, 0);
 
 out:
-    if (uio && sizep && (*sizep - offset > rq_resid)) {
-        error = ERANGE;
+    if (!(stype & kResourceFrk)) {
+        /*
+         * Partial reading of a resource fork is allowed
+         */
+        if (uio && sizep && (*sizep > rq_resid)) {
+            error = ERANGE;
+        }
     }
 
 	/* Even an error can leave the file open. */

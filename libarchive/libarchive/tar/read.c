@@ -256,8 +256,19 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 			&passphrase_callback);
 	if (r != ARCHIVE_OK)
 		lafe_errc(1, 0, "%s", archive_error_string(a));
+#ifdef __APPLE__
+	if (bsdtar->filename == NULL || *bsdtar->filename == '\0' ||
+	    strcmp(bsdtar->filename, "-") == 0)
+		bsdtar->fd = STDIN_FILENO;
+	else
+		bsdtar->fd = open(bsdtar->filename, O_RDONLY);
+	if (bsdtar->fd < 0)
+		lafe_errc(1, errno, "%s: %m", bsdtar->filename);
+	if (archive_read_open_fd(a, bsdtar->fd, bsdtar->bytes_per_block))
+#else /* !__APPLE__ */
 	if (archive_read_open_filename(a, bsdtar->filename,
 					bsdtar->bytes_per_block))
+#endif /* __APPLE__ */
 		lafe_errc(1, 0, "Error opening archive: %s",
 		    archive_error_string(a));
 
@@ -290,8 +301,7 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 #ifdef HAVE_MAC_QUARANTINE
 	if (mode == 'x' && bsdtar->filename != NULL && !(bsdtar->flags & OPTFLAG_STDOUT)) {
 		if ((qf = qtn_file_alloc()) != NULL) {
-			int qstatus = qtn_file_init_with_path(qf, bsdtar->filename);
-			if (qstatus != 0) {
+			if (qtn_file_init_with_fd(qf, bsdtar->fd) != 0) {
 				qtn_file_free(qf);
 				qf = NULL;
 			}
@@ -458,6 +468,11 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 		qf = NULL;
 	}
 #endif /* HAVE_MAC_QUARANTINE */
+#ifdef __APPLE__
+	if (bsdtar->fd != STDIN_FILENO)
+		close(bsdtar->fd);
+	bsdtar->fd = -1;
+#endif /* __APPLE__ */
 }
 
 

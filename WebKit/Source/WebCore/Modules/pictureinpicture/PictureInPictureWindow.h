@@ -40,7 +40,7 @@ class PictureInPictureWindow final
     : public ActiveDOMObject
     , public EventTarget
     , public RefCounted<PictureInPictureWindow> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PictureInPictureWindow);
+    WTF_MAKE_TZONE_ALLOCATED(PictureInPictureWindow);
 public:
     static Ref<PictureInPictureWindow> create(Document&);
     virtual ~PictureInPictureWindow();
@@ -68,5 +68,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(PictureInPictureWindow)
 
 #endif // ENABLE(PICTURE_IN_PICTURE_API)

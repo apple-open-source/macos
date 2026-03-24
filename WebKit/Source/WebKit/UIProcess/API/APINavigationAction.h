@@ -89,18 +89,18 @@ private:
         : m_sourceFrame(sourceFrame)
         , m_targetFrame(targetFrame)
         , m_targetFrameName(targetFrameName)
-        , m_request(WTFMove(request))
+        , m_request(WTF::move(request))
         , m_originalURL(originalURL)
         , m_shouldOpenAppLinks(shouldOpenAppLinks)
-        , m_userInitiatedAction(WTFMove(userInitiatedAction))
-        , m_navigationActionData(WTFMove(navigationActionData))
+        , m_userInitiatedAction(WTF::move(userInitiatedAction))
+        , m_navigationActionData(WTF::move(navigationActionData))
         , m_mainFrameNavigation(mainFrameNavigation)
         , m_mainFrameIDBeforeNavigationDecision(mainFrameIDBeforeNavigationActionDecision)
     {
     }
 
     NavigationAction(WebKit::NavigationActionData&& navigationActionData, API::FrameInfo* sourceFrame, API::FrameInfo* targetFrame, const WTF::String& targetFrameName, WebCore::ResourceRequest&& request, const WTF::URL& originalURL, bool shouldOpenAppLinks, RefPtr<UserInitiatedAction>&& userInitiatedAction)
-        : NavigationAction(WTFMove(navigationActionData), sourceFrame, targetFrame, targetFrameName, WTFMove(request), originalURL, shouldOpenAppLinks, WTFMove(userInitiatedAction), nullptr, std::nullopt)
+        : NavigationAction(WTF::move(navigationActionData), sourceFrame, targetFrame, targetFrameName, WTF::move(request), originalURL, shouldOpenAppLinks, WTF::move(userInitiatedAction), nullptr, std::nullopt)
     {
     }
 

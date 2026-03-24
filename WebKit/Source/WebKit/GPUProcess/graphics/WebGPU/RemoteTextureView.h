@@ -54,7 +54,7 @@ class RemoteTextureView final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteTextureView> create(WebCore::WebGPU::TextureView& textureView, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteTextureView(textureView, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteTextureView(textureView, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteTextureView();

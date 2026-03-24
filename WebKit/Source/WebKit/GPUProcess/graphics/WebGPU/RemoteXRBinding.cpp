@@ -46,7 +46,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteXRBinding);
 RemoteXRBinding::RemoteXRBinding(GPUConnectionToWebProcess& gpuConnectionToWebProcess, WebCore::WebGPU::XRBinding& xrBinding, WebGPU::ObjectHeap& objectHeap, RemoteGPU& gpu, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(xrBinding)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_identifier(identifier)
     , m_gpu(gpu)
@@ -80,11 +80,11 @@ void RemoteXRBinding::createProjectionLayer(WebCore::WebGPU::TextureFormat color
 {
     WebCore::WebGPU::XRProjectionLayerInit init {
         .colorFormat = colorFormat,
-        .depthStencilFormat = WTFMove(depthStencilFormat),
+        .depthStencilFormat = WTF::move(depthStencilFormat),
         .textureUsage = textureUsage,
         .scaleFactor = scaleFactor
     };
-    RefPtr projectionLayer = protectedBacking()->createProjectionLayer(WTFMove(init));
+    RefPtr projectionLayer = protectedBacking()->createProjectionLayer(WTF::move(init));
     if (!projectionLayer) {
         // FIXME: Add MESSAGE_CHECK call
         return;

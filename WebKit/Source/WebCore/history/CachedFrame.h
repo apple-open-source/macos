@@ -93,6 +93,7 @@ public:
 
     using CachedFrameBase::document;
     using CachedFrameBase::view;
+    using CachedFrameBase::protectedView;
     using CachedFrameBase::url;
     DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
 

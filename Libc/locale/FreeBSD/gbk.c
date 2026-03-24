@@ -81,6 +81,15 @@ _gbk_check(u_int c)
 	return ((c >= 0x81 && c <= 0xfe) ? 2 : 1);
 }
 
+#ifdef __APPLE__
+static __inline bool
+_gbk_valid_trailer(u_int c)
+{
+	c &= 0xff;
+	return ((c >= 0x40 && c <= 0x7e) || (c >= 0x80 && c <= 0xfe));
+}
+#endif
+
 static size_t
 _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
     mbstate_t * __restrict ps, locale_t loc __unused)
@@ -108,7 +117,15 @@ _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 		return ((size_t)-2);
 
 	if (gs->ch != 0) {
+#ifdef __APPLE__
+		/*
+		 * It would be better to refactor mbrtowc to avoid this
+		 * repetition with the bits down below.
+		 */
+		if (!_gbk_valid_trailer(*s)) {
+#else
 		if (*s == '\0') {
+#endif
 			errno = EILSEQ;
 			return ((size_t)-1);
 		}
@@ -127,7 +144,11 @@ _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 			gs->ch = wc;
 			return ((size_t)-2);
 		}
+#ifdef __APPLE__
+		if (!_gbk_valid_trailer(*s)) {
+#else
 		if (*s == '\0') {
+#endif
 			errno = EILSEQ;
 			return ((size_t)-1);
 		}

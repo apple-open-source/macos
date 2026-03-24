@@ -124,8 +124,8 @@ static bool SOSBackupEventWrite(FILE *journalFile, CFErrorRef *error,
     const uint8_t *der = der_end;
     der_end += len;
 
-    require(der_end = encode(der, der_end), xit);
-    require_action(der == der_end, xit, SecError(-1, error, CFSTR("size mismatch der_end - der: %td"), der_end - der));
+    __Require(der_end = encode(der, der_end), xit);
+    __Require_Action(der == der_end, xit, SecError(-1, error, CFSTR("size mismatch der_end - der: %td"), der_end - der));
 
     ok = SecCheckErrno(1 != fwrite(der, len, 1, journalFile), error, CFSTR("fwrite SOSBackupEventWrite"));
 xit:

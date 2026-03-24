@@ -18,6 +18,8 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 
+#include "libdispatch.xcconfig"
+
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 PRODUCT_NAME = $(TARGET_NAME)
 INSTALL_PATH = /usr/local/lib/

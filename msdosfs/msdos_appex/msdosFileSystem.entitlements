@@ -2,6 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+#ifdef RUNNING_CODE_COVERAGE
+#if TARGET_OS_IPHONE
+    <key>com.apple.security.exception.files.absolute-path.read-write</key>
+    <array>
+        <string>/private/var/tmp/coverage/</string>
+    </array>
+#elif TARGET_OS_OSX
+    <key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+    <array>
+        <string>/private/tmp/coverage/</string>
+    </array>
+#endif
+#endif
     <key>com.apple.application-identifier</key>
     <string>com.apple.fskit.msdos</string>
     <key>com.apple.developer.fskit.fsmodule</key>

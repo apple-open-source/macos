@@ -65,7 +65,7 @@ public:
     virtual void deviceWillBeRemoved(const String& persistentId) = 0;
 };
 
-class WEBCORE_EXPORT RealtimeMediaSourceCenter : public ThreadSafeRefCounted<RealtimeMediaSourceCenter, WTF::DestructionThread::MainRunLoop> {
+class WEBCORE_EXPORT RealtimeMediaSourceCenter : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RealtimeMediaSourceCenter, WTF::DestructionThread::MainRunLoop> {
 public:
     ~RealtimeMediaSourceCenter();
 
@@ -107,7 +107,7 @@ public:
     WEBCORE_EXPORT static bool shouldInterruptAudioOnPageVisibilityChange();
 
 #if ENABLE(APP_PRIVACY_REPORT)
-    void setIdentity(OSObjectPtr<tcc_identity_t>&& identity) { m_identity = WTFMove(identity); }
+    void setIdentity(OSObjectPtr<tcc_identity_t>&& identity) { m_identity = WTF::move(identity); }
     OSObjectPtr<tcc_identity_t> identity() const { return m_identity; }
     bool hasIdentity() const { return !!m_identity; }
 #endif

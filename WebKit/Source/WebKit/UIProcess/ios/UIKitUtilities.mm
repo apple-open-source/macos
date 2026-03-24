@@ -233,7 +233,7 @@ static UIAxis axesForDelta(WebCore::FloatSize delta)
 {
     for (RetainPtr parent = [self superview]; parent; parent = [parent superview]) {
         if (RetainPtr scrollView = dynamic_objc_cast<UIScrollView>(parent.get()))
-            return scrollView.unsafeGet();
+            return scrollView.autorelease();
     }
     return nil;
 }

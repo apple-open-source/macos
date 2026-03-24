@@ -1,13 +1,10 @@
 @macos
 Feature: SecurityAgent 3rd-party plugins
   3rd-party plugins are stored in /Library/Security/SecurityAgentPlugins, as a .bundle files.
-  For testing purposes, we will use NameAndPassword plugin which is used as example plugin on Apple dev portal:
-  https://developer.apple.com/library/archive/samplecode/NameAndPassword/Introduction/Intro.html
+  For testing purposes, we will use NameAndPassword plugin which is stored in the QA/configuration folder
 
   Background:
     # /Library/Security/SecurityAgentPlugins
-    # To build the plugin, download the example project above, and build it in Xcode - you may need to change macOS SDK in project Build Settings as there is macOS SDK 10.15 hardcoded in the build settings, just pick 'macOS' from the dropdown menu.
-    # You will find the .bundle file in Products folder of the project afterwards
     Given plugin is stored in SecurityAgent plugins folder
     And FileVault is disabled
     # Scenarios below are modifying system.login.console right - there is a chance that you will make the device unable to land to LoginWindow or login if something goes wrong
@@ -62,3 +59,50 @@ Feature: SecurityAgent 3rd-party plugins
     # No logs like this should be present in the logs:
     # (com.apple.CryptoTokenKit.ahp.agent): launchd.development[1]: Service did not exit 5 seconds after SIGTERM. Sending SIGKILL.
     Then I succesfully login
+
+  @core
+  Scenario: SIP-protected plugins are not staged
+    # $ sudo darwinup -f NameAndPasswordAuthPluginSystem.tar.gz
+    Given Plugin is installed under SIP path
+    # $ sudo security authorizationdb write NameTestRight <com.apple.nap.plist
+    And Right which uses the plugin is defined in authdb
+    # $ security authorize -u NameTestRight
+    When Right which uses the plugin is being authorized
+    # /Library/Security/SecurityAgentPlugins/StagedPlugins
+    Then Plugin has not been copied to Staging directory 
+    # $ sudo log stream --info --debug --predicate 'subsystem="com.apple.Authorization"'
+    # Look for '.bundle' and check that bundle is being loaded from correct directory
+    # Process name should be SecurityAgent
+    And Logs verify that plugin is not staged
+
+  @core
+  Scenario: Verify Plugin Staging and Unstaging
+    # $ sudo security authorizationdb write NameTestRight <com.apple.nap.plist
+    Given Right which uses the plugin is defined in authdb
+    # $ sudo darwinup install -f NameAndPassword.tar.gz
+    And NameAndPasswordAuthPluginLocal is installed
+    # $ security authorize -u NameTestRight
+    When Right which uses the plugin is authorized
+    # /Library/Security/SecurityAgentPlugins/StagedPlugins
+    And Verify that plugin is copied to Staging Directory
+    Then Authorization process completes
+    And Plugin is removed from the staging directory
+
+  Scenario: Verify Cleanup on authd restart
+    # ditto /path/to/dummy/file /Library/Security/SecurityAgentPlugins/StagedPlugins
+    Given A dummy file/bundle is placed into Staging Directory
+    # sudo killall authd
+    When authd process is restarded
+    Then dummy file/bundle has been removed upon auth's restart
+
+  Scenario: Verify Cleanup on authd restart
+    # $ sudo security authorizationdb write NameTestRight <com.apple.nap.plist
+    Given Right which uses the plugin is defined in authdb
+    # $ sudo darwinup install -f NameAndPassword.tar.gz
+    And NameAndPasswordAuthPluginLocal plugin is installed
+    # $ security authorize -u NameTestRight
+    When Right which uses the plugin is being authorized
+    And Verify that plugin is copied to Staging Directory
+    # sudo killall authd
+    Then authd process is restarded
+    And Staged plugin has been removed from the Staging Directory 

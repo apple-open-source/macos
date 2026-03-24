@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -101,8 +102,7 @@ public:
     WebCore::ModelPlayerIdentifier identifier() const final { return m_id; }
     void load(WebCore::Model&, WebCore::LayoutSize) final;
     void sizeDidChange(WebCore::LayoutSize) final;
-    PlatformLayer* layer() final;
-    std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier() final;
+    void configureGraphicsLayer(WebCore::GraphicsLayer&, WebCore::ModelPlayerGraphicsLayerConfiguration&&) final;
     void setEntityTransform(WebCore::TransformationMatrix) final;
     void enterFullscreen() final;
     bool supportsMouseInteraction() final;
@@ -142,6 +142,11 @@ public:
     void stageModeInteractionDidUpdateModel();
     void animateModelToFitPortal(CompletionHandler<void(bool)>&&) final;
 
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    void ensureImmersivePresentation(CompletionHandler<void(std::optional<WebCore::LayerHostingContextIdentifier>)>&&) final;
+    void exitImmersivePresentation(CompletionHandler<void()>&&) final;
+#endif
+
     USING_CAN_MAKE_WEAKPTR(WebCore::REModelLoaderClient);
 
     void disableUnloadDelayForTesting() { m_unloadDelayDisabledForTesting = true; }
@@ -152,13 +157,14 @@ private:
 
     void computeTransform(bool);
     void updateTransform();
-    void applyEnvironmentMapDataAndRelease();
+    void applyEnvironmentMapDataAndRelease(CompletionHandler<void()>&&);
     void applyStageModeOperationToDriver();
     bool stageModeInteractionInProgress() const;
     void updateTransformSRT();
     void notifyModelPlayerOfEntityTransformChange();
     void applyDefaultIBL();
     void updateForCurrentStageMode();
+    std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier();
 
     WebCore::ModelPlayerIdentifier m_id;
     bool m_isVisible { true };
@@ -202,6 +208,16 @@ private:
     // For testing
     bool m_unloadDelayDisabledForTesting { false };
     static uint64_t gObjectCountForTesting;
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    bool m_immersivePresentation { false };
+    WebCore::LayoutSize m_layoutSize { };
+    Vector<CompletionHandler<void(bool)>> m_modelLoadedCallbacks;
+
+    void triggerModelLoadedCallbacks(bool);
+    void ensureModelLoaded(CompletionHandler<void(bool)>&&);
+    void setImmersivePresentation(bool);
+#endif
 };
 
 } // namespace WebKit

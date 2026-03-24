@@ -29,44 +29,48 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "ArgumentCoders.h"
-#include "MessageSenderInlines.h"
 #include "RemoteBarcodeDetectorMessages.h"
 #include "RemoteRenderingBackendProxy.h"
 #include "StreamClientConnection.h"
 #include "WebProcess.h"
-#include <WebCore/ImageBuffer.h>
+#include <WebCore/DestinationColorSpace.h>
+#include <WebCore/NativeImage.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::ShapeDetection {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteBarcodeDetectorProxy);
 
-Ref<RemoteBarcodeDetectorProxy> RemoteBarcodeDetectorProxy::create(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions)
+Ref<RemoteBarcodeDetectorProxy> RemoteBarcodeDetectorProxy::create(RemoteRenderingBackendProxy& renderingBackend)
 {
-    streamClientConnection->send(Messages::RemoteRenderingBackend::CreateRemoteBarcodeDetector(identifier, barcodeDetectorOptions), renderingBackendIdentifier);
-    return adoptRef(*new RemoteBarcodeDetectorProxy(WTFMove(streamClientConnection), renderingBackendIdentifier, identifier));
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    return adoptRef(*new RemoteBarcodeDetectorProxy(renderingBackend));
 }
 
-RemoteBarcodeDetectorProxy::RemoteBarcodeDetectorProxy(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier)
-    : m_backing(identifier)
-    , m_streamClientConnection(WTFMove(streamClientConnection))
-    , m_renderingBackendIdentifier(renderingBackendIdentifier)
+RemoteBarcodeDetectorProxy::RemoteBarcodeDetectorProxy(RemoteRenderingBackendProxy& renderingBackend)
+    : m_renderingBackend(renderingBackend)
 {
 }
 
 RemoteBarcodeDetectorProxy::~RemoteBarcodeDetectorProxy()
 {
-    m_streamClientConnection->send(Messages::RemoteRenderingBackend::ReleaseRemoteBarcodeDetector(m_backing), m_renderingBackendIdentifier);
+    if (RefPtr renderingBackend = m_renderingBackend.get())
+        renderingBackend->releaseBarcodeDetector(*this);
 }
 
-void RemoteBarcodeDetectorProxy::getSupportedFormats(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&& completionHandler)
+void RemoteBarcodeDetectorProxy::detect(const WebCore::NativeImage& image, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedBarcode>&&)>&& completionHandler)
 {
-    streamClientConnection->sendWithAsyncReply(Messages::RemoteRenderingBackend::GetRemoteBarcodeDetectorSupportedFormats(), WTFMove(completionHandler), renderingBackendIdentifier);
-}
-
-void RemoteBarcodeDetectorProxy::detect(Ref<WebCore::ImageBuffer>&& imageBuffer, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedBarcode>&&)>&& completionHandler)
-{
-    m_streamClientConnection->sendWithAsyncReply(Messages::RemoteBarcodeDetector::Detect(imageBuffer->renderingResourceIdentifier()), WTFMove(completionHandler), m_backing);
+    RefPtr renderingBackend = m_renderingBackend.get();
+    RefPtr connection = renderingBackend ? renderingBackend->connection() : nullptr;
+    if (!connection) [[unlikely]] {
+        completionHandler({ });
+        return;
+    }
+    if (!renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(const_cast<WebCore::NativeImage&>(image), WebCore::DestinationColorSpace::SRGB())) {
+        completionHandler({ });
+        return;
+    }
+    connection->sendWithAsyncReply(Messages::RemoteBarcodeDetector::Detect(image.renderingResourceIdentifier()), WTF::move(completionHandler), identifier());
 }
 
 } // namespace WebKit::WebGPU

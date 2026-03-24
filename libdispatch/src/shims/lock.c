@@ -544,21 +544,71 @@ _dispatch_thread_event_signal_slow(dispatch_thread_event_t dte)
 #endif
 }
 
+#if HAVE_UL_COMPARE_AND_WAIT && HAVE_UL_UNFAIR_LOCK
+void
+_dispatch_thread_main_event_signal_slow(dispatch_thread_event_t dte)
+{
+	void *uaddr = &dte->dte_value;
+	uint32_t flags = UL_UNFAIR_LOCK | ULF_WAKE_ALLOW_NON_OWNER | ULF_NO_ERRNO;
+	int rc = __ulock_wake(flags, uaddr, 0);
+	if (rc == 0 || rc == -ENOENT) return;
+	DISPATCH_INTERNAL_CRASH(-rc, "ulock_wake() failed");
+}
+
+void
+_dispatch_thread_main_event_wait_slow(dispatch_thread_event_t dte)
+{
+	for (;;) {
+		uint32_t value = os_atomic_load(&dte->dte_value, acquire);
+		if (likely((value & DTE_VALUE_CHECK_MASK) == DTE_VALUE_SIGNALLED)) {
+			return;
+		}
+		if (unlikely((value & DTE_VALUE_CHECK_MASK) != DTE_VALUE_WAITING)) {
+			DISPATCH_INTERNAL_CRASH(value, "Corrupt thread event value");
+		}
+		uint32_t flags = UL_UNFAIR_LOCK | ULF_NO_ERRNO;
+		int rc = __ulock_wait(flags, &dte->dte_value, value, 0);
+		if (likely((rc == 0) || (rc == -EFAULT) || (rc == -EINTR))) {
+			continue;
+		}
+		if (rc == -EOWNERDEAD) {
+			// The main thread exited between when we decided to do an unfair
+			// lock wait and when we tried to block. We need to transition to
+			// doing a normal thread event wait, so we try to swap the value
+			// from the current TP + 2 bit encoding over to -1 (the unsignalled
+			// thread event value) and do that transition. This needs to be
+			// done with acquire ordering because we do an early bail if the
+			// main queue drainer signals us before the swap.
+			value = os_atomic_xchg(&dte->dte_value,
+					DTE_VALUE_COMPARE_AND_WAIT_WAITED, acquire);
+			if ((value & DTE_VALUE_CHECK_MASK) == DTE_VALUE_SIGNALLED) {
+				// Main queue drainer beat us to the swap
+				return;
+			} else {
+				return _dispatch_thread_event_wait_slow(dte);
+			}
+		}
+		DISPATCH_INTERNAL_CRASH(rc, "Unexpected __ulock_wait error");
+	}
+}
+#endif
+
 void
 _dispatch_thread_event_wait_slow(dispatch_thread_event_t dte)
 {
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 	for (;;) {
 		uint32_t value = os_atomic_load(&dte->dte_value, acquire);
-		if (likely(value == 0)) return;
-		if (unlikely(value != UINT32_MAX)) {
+		if (likely(value == DTE_VALUE_COMPARE_AND_WAIT_SIGNALLED)) return;
+		if (unlikely(value != DTE_VALUE_COMPARE_AND_WAIT_WAITED)) {
 			DISPATCH_CLIENT_CRASH(value, "Corrupt thread event value");
 		}
 #if HAVE_UL_COMPARE_AND_WAIT
-		int rc = _dispatch_ulock_wait(&dte->dte_value, UINT32_MAX, 0, 0);
+		int rc = _dispatch_ulock_wait(&dte->dte_value,
+				DTE_VALUE_COMPARE_AND_WAIT_WAITED, 0, 0);
 		dispatch_assert(rc == 0 || rc == EFAULT || rc == EINTR);
 #elif HAVE_FUTEX
-		_dispatch_futex_wait(&dte->dte_value, UINT32_MAX,
+		_dispatch_futex_wait(&dte->dte_value, DTE_VALUE_COMPARE_AND_WAIT_WAITED,
 				NULL, FUTEX_PRIVATE_FLAG);
 #endif
 	}

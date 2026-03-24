@@ -504,7 +504,7 @@ TestLocaleStructure(void) {
     // This test checks the locale structure against a key file located
     // at source/test/testdata/structLocale.txt. When adding new data to
     // a locale file such as en.txt, the structLocale.txt file must be changed
-    // too to include the the template of the new data. Otherwise this test
+    // too to include the template of the new data. Otherwise this test
     // will fail!
 
     UResourceBundle *root, *currentLocale;
@@ -988,13 +988,14 @@ static void VerifyTranslation(void) {
             langSize = uloc_getDisplayLanguage(currLoc, currLoc, langBuffer, UPRV_LENGTHOF(langBuffer), &errorCode);
             if (U_FAILURE(errorCode)) {
                 log_err("error uloc_getDisplayLanguage returned %s\n", u_errorName(errorCode));
+            } else if (uprv_strncmp(currLoc,"shn",3) == 0) {
+                log_knownIssue("CLDR-18922", "shn: Language autonym, month/day names use chars not in exemplars");
 #if APPLE_ICU_CHANGES
 // rdar://
             } else if (uprv_strncmp(currLoc,"gez",3) == 0 || uprv_strcmp(currLoc,"sa") == 0 || uprv_strncmp(currLoc,"sa_",3) == 0 || uprv_strncmp(currLoc,"sjd",3) == 0) { // Apple xtra locales
                 log_verbose("skipping DisplayLanguage test for %s, name or exemplars may need adjustment\n", currLoc);
 #endif  // APPLE_ICU_CHANGES
-            }
-            else {
+            } else {
                 strIdx = findStringSetMismatch(currLoc, langBuffer, langSize, mergedExemplarSet, false, &badChar);
                 if (strIdx >= 0) {
 #if APPLE_ICU_CHANGES
@@ -1041,7 +1042,13 @@ static void VerifyTranslation(void) {
                     uprv_strncmp(currLoc,"hch",3) == 0 ||
                     uprv_strncmp(currLoc,"isc",3) == 0 ||
                     uprv_strncmp(currLoc,"shp",3) == 0 ||
-                    uprv_strncmp(currLoc,"nez",3) == 0) {
+                    uprv_strncmp(currLoc,"nez",3) == 0 || // nez, apw, pqm, & sm added in rdar://167651963
+                    uprv_strcmp(currLoc, "apw") == 0 ||
+                        uprv_strncmp(currLoc,"apw_",4) == 0 ||
+                    uprv_strcmp(currLoc, "pqm") == 0 ||
+                        uprv_strncmp(currLoc,"pqm_",4) == 0 ||
+                    uprv_strcmp(currLoc, "sm") == 0 ||
+                        uprv_strncmp(currLoc,"sm_",3) == 0) {
                 log_verbose("skipping day/month tests for %s, missing some translated names\n", currLoc);
             } else
 #endif  // APPLE_ICU_CHANGES
@@ -1070,18 +1077,14 @@ static void VerifyTranslation(void) {
                         log_knownIssue("cldrbug:14995", "mai/sd_Deva day names use chars not in exemplars")) {
                     end = 0;
                 }
-                if (uprv_strncmp(currLoc,"ks_Deva",7) == 0 && 
-                        log_knownIssue("cldrbug:15355", "ks_Deva day names use chars not in exemplars")) {
-                    end = 0;
-                }
                 if (uprv_strncmp(currLoc,"kxv",3) == 0 &&  // Unnecessarily also skips kxv_Orya/kxv_Telu, that is ok for now
                         log_knownIssue("CLDR-17203", "Some day names in kxv(_Deva)? use chars not in exemplars")) {
                     end = 0;
                 }
-                if (uprv_strncmp(currLoc,"ak",2) == 0 &&  
-                        log_knownIssue("CLDR-17852", "Some month names in ax(_GH) use chars not in exemplars")) {
+                if (uprv_strncmp(currLoc,"shn",3) == 0) {
+                    log_knownIssue("CLDR-18922", "shn: Language autonym, month/day names use chars not in exemplars");
                     end = 0;
-                }                
+                }              
 
                 for (idx = 0; idx < end; idx++) {
                     const UChar *fromBundleStr = ures_getStringByIndex(resArray, idx, &langSize, &errorCode);
@@ -1115,18 +1118,14 @@ static void VerifyTranslation(void) {
                         log_knownIssue("cldrbug:14995", "sd_Deva month names use chars not in exemplars")) {
                     end = 0;
                 }
-                if (uprv_strncmp(currLoc,"ks_Deva",7) == 0 && 
-                        log_knownIssue("cldrbug:15355", "ks_Deva month names use chars not in exemplars")) {
-                    end = 0;
-                }
                 if (uprv_strncmp(currLoc,"kxv",3) == 0 &&  // Unnecessarily also skips kxv_Orya/kxv_Telu, that is ok for now
                         log_knownIssue("CLDR-17203", "Some month names in kxv(_Deva)? use chars not in exemplars")) {
                     end = 0;
                 }
-                if (uprv_strncmp(currLoc,"ak",2) == 0 &&  
-                        log_knownIssue("CLDR-17852", "Some month names in ax(_GH) use chars not in exemplars")) {
+                if (uprv_strncmp(currLoc,"shn",3) == 0) {
+                    log_knownIssue("CLDR-18922", "shn: Language autonym, month/day names use chars not in exemplars");
                     end = 0;
-                }  
+                }              
 
                 for (idx = 0; idx < end; idx++) {
                     const UChar *fromBundleStr = ures_getStringByIndex(resArray, idx, &langSize, &errorCode);

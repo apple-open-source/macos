@@ -43,7 +43,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorCookieConsent);
 
 void NavigatorCookieConsent::requestCookieConsent(Navigator& navigator, RequestCookieConsentOptions&& options, Ref<DeferredPromise>&& promise)
 {
-    from(navigator).requestCookieConsent(WTFMove(options), WTFMove(promise));
+    from(navigator).requestCookieConsent(WTF::move(options), WTF::move(promise));
 }
 
 void NavigatorCookieConsent::requestCookieConsent(RequestCookieConsentOptions&& options, Ref<DeferredPromise>&& promise)
@@ -57,7 +57,7 @@ void NavigatorCookieConsent::requestCookieConsent(RequestCookieConsentOptions&& 
         return;
     }
 
-    frame->page()->chrome().client().requestCookieConsent([promise = WTFMove(promise)] (CookieConsentDecisionResult result) {
+    frame->page()->chrome().client().requestCookieConsent([promise = WTF::move(promise)] (CookieConsentDecisionResult result) {
         switch (result) {
         case CookieConsentDecisionResult::NotSupported:
             promise->reject(ExceptionCode::NotSupportedError);
@@ -79,7 +79,7 @@ NavigatorCookieConsent& NavigatorCookieConsent::from(Navigator& navigator)
 
     auto newSupplement = makeUnique<NavigatorCookieConsent>(navigator);
     auto supplement = newSupplement.get();
-    provideTo(&navigator, supplementName(), WTFMove(newSupplement));
+    provideTo(&navigator, supplementName(), WTF::move(newSupplement));
     return *supplement;
 }
 

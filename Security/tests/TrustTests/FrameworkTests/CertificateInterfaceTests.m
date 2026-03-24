@@ -25,6 +25,7 @@
 #include <AssertMacros.h>
 #import <XCTest/XCTest.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecKeyInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include "OSX/utilities/SecCFWrappers.h"
@@ -472,7 +473,7 @@
     __block CFDictionaryRef trustedLogs = NULL;
     __block int matched = 0;
 
-    require_action(trustedLogs = SecCertificateCopyTrustedCTLogs(),
+    __Require_Action(trustedLogs = SecCertificateCopyTrustedCTLogs(),
                    errOut, fail("failed to copy trusted CT logs"));
     /* look for some known CT log ids to ensure functionality */
     for (int ix = 0; ix < CTLOG_KEYID_COUNT; ix++) {
@@ -484,7 +485,7 @@
         }
         CFReleaseSafe(logIDData);
     }
-    require_action(matched > 0,
+    __Require_Action(matched > 0,
                    errOut, fail("failed to match any known CT log ids"));
 errOut:
     CFReleaseSafe(trustedLogs);
@@ -500,13 +501,13 @@ errOut:
         CFDataRef logIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, _ctlogids[ix], CTLOG_KEYID_LENGTH, kCFAllocatorNull);
         CFDictionaryRef logDict = NULL;
         const void *operator = NULL;
-        require_action(logDict = SecCertificateCopyCTLogForKeyID(logIDData),
+        __Require_Action(logDict = SecCertificateCopyCTLogForKeyID(logIDData),
                        errContinue, NSLog(@"failed to match CT log"));
-        require_action(isDictionary(logDict),
+        __Require_Action(isDictionary(logDict),
                        errContinue, NSLog(@"returned CT log is not a dictionary"));
-        require_action(CFDictionaryGetValueIfPresent(logDict, CFSTR("operator"), &operator),
+        __Require_Action(CFDictionaryGetValueIfPresent(logDict, CFSTR("operator"), &operator),
                        errContinue, NSLog(@"operator value is not present"));
-        require_action(isString(operator),
+        __Require_Action(isString(operator),
                        errContinue, NSLog(@"operator value is not a string"));
 
         ++matched;
@@ -515,7 +516,7 @@ errContinue:
         CFReleaseNull(logDict);
         CFReleaseNull(logIDData);
     }
-    require_action(matched > 0,
+    __Require_Action(matched > 0,
                    errOut, fail("failed to match any known CT log ids"));
 errOut:
     return;
@@ -899,7 +900,7 @@ errOut:
     CFReleaseNull(cert0);
 }
 
-- (void)testCopySignatureAlgorithm {
+- (void)testCopySignatureAlgorithm_supportedAlgorithms {
     SecCertificateRef cert = NULL;
     SecKeyAlgorithm algorithm = NULL;
 
@@ -908,6 +909,15 @@ errOut:
     XCTAssertEqual(algorithm, NULL, "NULL cert should return NULL algorithm");
     CFReleaseNull(algorithm);
 
+    // RSA with various hash algorithms
+    // RSA-MD2 (deprecated/legacy)
+    isnt(cert = SecCertificateCreateWithBytes(NULL, RSA_MD2, sizeof(RSA_MD2)),
+         NULL, "create RSA_MD2 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertEqual(algorithm, NULL, "RSA-MD2 is unsupported and should return NULL");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
     // RSA-SHA1
     isnt(cert = SecCertificateCreateWithBytes(NULL, RSA_SHA1, sizeof(RSA_SHA1)),
          NULL, "create RSA_SHA1 cert");
@@ -915,6 +925,46 @@ errOut:
     XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for RSA_SHA1");
     XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1,
                           "RSA_SHA1 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // RSA-SHA256
+    isnt(cert = SecCertificateCreateWithBytes(NULL, RSA_SHA256, sizeof(RSA_SHA256)),
+         NULL, "create RSA_SHA256 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for RSA_SHA256");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256,
+                          "RSA_SHA256 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // RSA-SHA512
+    isnt(cert = SecCertificateCreateWithBytes(NULL, RSA_SHA512, sizeof(RSA_SHA512)),
+         NULL, "create RSA_SHA512 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for RSA_SHA512");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512,
+                          "RSA_SHA512 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // DSA-SHA1
+    isnt(cert = SecCertificateCreateWithBytes(NULL, DSA_SHA1, sizeof(DSA_SHA1)),
+         NULL, "create DSA_SHA1 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    // DSA is not supported in modern SecKey APIs, so this should return NULL
+    XCTAssertEqual(algorithm, NULL, "DSA signature algorithms are unsupported");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // ECDSA with various hash algorithms
+    // ECDSA-SHA1
+    isnt(cert = SecCertificateCreateWithBytes(NULL, ECDSA_SHA1, sizeof(ECDSA_SHA1)),
+         NULL, "create ECDSA_SHA1 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for ECDSA_SHA1");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
+                          "ECDSA_SHA1 algorithm mismatch");
     CFReleaseNull(algorithm);
     CFReleaseNull(cert);
 
@@ -928,13 +978,83 @@ errOut:
     CFReleaseNull(algorithm);
     CFReleaseNull(cert);
 
-    // Valid certificate with unsupported/unrecognized signature algorithm (RSAPSS)
+    // ECDSA-SHA384
+    isnt(cert = SecCertificateCreateWithBytes(NULL, ECDSA_SHA384, sizeof(ECDSA_SHA384)),
+         NULL, "create ECDSA_SHA384 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for ECDSA_SHA384");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmECDSASignatureMessageX962SHA384,
+                          "ECDSA_SHA384 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // RSAPSS (currently unsupported)
     isnt(cert = SecCertificateCreateWithBytes(NULL, RSAPSS_SHA256, sizeof(RSAPSS_SHA256)),
          NULL, "create RSAPSS_SHA256 cert");
     algorithm = SecCertificateCopySignatureAlgorithm(cert);
-    XCTAssertEqual(algorithm, NULL, "Unsupported signature algorithm should return NULL");
+    XCTAssertEqual(algorithm, NULL, "RSAPSS signature algorithm should return NULL (currently unsupported)");
     CFReleaseNull(algorithm);
     CFReleaseNull(cert);
+
+    // Returned algorithm is a CFString that can be used with SecKey APIs
+    cert = SecCertificateCreateWithBytes(NULL, ECDSA_SHA256, sizeof(ECDSA_SHA256));
+    XCTAssertNotEqual(cert, NULL, "Failed to create test cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get algorithm");
+
+    // Valid CFString
+    XCTAssertEqual(CFGetTypeID(algorithm), CFStringGetTypeID(), "Algorithm should be a CFString");
+
+    // String is non-empty
+    XCTAssertGreaterThan(CFStringGetLength(algorithm), 0, "Algorithm string should not be empty");
+
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // Test with Ed25519 certificate
+    cert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ed25519_root"
+                                                                 subdirectory:@"si-18-certificate-parse/KeySuccessCerts"];
+    if (cert != NULL) {
+        algorithm = SecCertificateCopySignatureAlgorithm(cert);
+        XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for ed25519_root.cer");
+
+        // Valid CFString
+        XCTAssertEqual(CFGetTypeID(algorithm), CFStringGetTypeID(), "Ed25519 algorithm should be a CFString");
+        XCTAssertGreaterThan(CFStringGetLength(algorithm), 0, "Ed25519 algorithm string should not be empty");
+
+        // Check for specific EdDSA algorithm
+        XCTAssertEqualObjects((__bridge NSString *)algorithm,
+                              (__bridge NSString *)kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512,
+                              "Ed25519 algorithm mismatch");
+
+        CFReleaseNull(algorithm);
+        CFReleaseNull(cert);
+    }
+}
+
+- (void)testCopySignatureAlgorithm_mixedAlgorithmCert {
+    SecCertificateRef cert = NULL;
+    SecKeyAlgorithm algorithm = NULL;
+
+    // Test with a mixed-algorithm certificate (ECC Leaf, RSA issuing CA)
+    cert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"google"
+                                                                 subdirectory:@"si-82-sectrust-ct-data"];
+    if (cert != NULL) {
+        algorithm = SecCertificateCopySignatureAlgorithm(cert);
+        XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for google.cer");
+
+        // Valid CFString
+        XCTAssertEqual(CFGetTypeID(algorithm), CFStringGetTypeID(), "Algorithm should be a CFString");
+        XCTAssertGreaterThan(CFStringGetLength(algorithm), 0, "Algorithm string should not be empty");
+
+        // SigAlg should be RSA-SHA256
+        XCTAssertEqualObjects((__bridge NSString *)algorithm,
+                              (__bridge NSString *)kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256,
+                              "Cert should use RSA-SHA256 signature algorithm");
+
+        CFReleaseNull(algorithm);
+        CFReleaseNull(cert);
+    }
 }
 
 @end

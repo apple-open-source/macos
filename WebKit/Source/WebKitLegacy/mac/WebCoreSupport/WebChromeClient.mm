@@ -738,11 +738,11 @@ RefPtr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserCl
     return nullptr;
 }
 
-void WebChromeClient::setTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
+void WebChromeClient::setTextIndicator(RefPtr<TextIndicator>&& textIndicator) const
 {
 }
 
-void WebChromeClient::updateTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
+void WebChromeClient::updateTextIndicator(RefPtr<TextIndicator>&& textIndicator) const
 {
 }
 
@@ -1076,14 +1076,14 @@ void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaEleme
 {
     SEL selector = @selector(webView:enterFullScreenForElement:listener:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
-        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:&element initialCompletionHandler:WTFMove(willEnterFullscreen) finalCompletionHandler:[didEnterFullscreen = WTFMove(didEnterFullscreen)] (bool result) mutable {
+        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:&element initialCompletionHandler:WTF::move(willEnterFullscreen) finalCompletionHandler:[didEnterFullscreen = WTF::move(didEnterFullscreen)] (bool result) mutable {
             didEnterFullscreen(result);
         }]);
         CallUIDelegate(m_webView, selector, kit(&element), listener.get());
     }
 #if !PLATFORM(IOS_FAMILY)
     else
-        [m_webView _enterFullScreenForElement:&element willEnterFullscreen:WTFMove(willEnterFullscreen) didEnterFullscreen:[didEnterFullscreen = WTFMove(didEnterFullscreen)] (bool result) mutable {
+        [m_webView _enterFullScreenForElement:&element willEnterFullscreen:WTF::move(willEnterFullscreen) didEnterFullscreen:[didEnterFullscreen = WTF::move(didEnterFullscreen)] (bool result) mutable {
             didEnterFullscreen(result);
         }];
 #endif
@@ -1093,14 +1093,14 @@ void WebChromeClient::exitFullScreenForElement(Element* element, CompletionHandl
 {
     SEL selector = @selector(webView:exitFullScreenForElement:listener:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
-        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element initialCompletionHandler:[completionHandler = WTFMove(completionHandler)] (auto) mutable {
+        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element initialCompletionHandler:[completionHandler = WTF::move(completionHandler)] (auto) mutable {
             completionHandler();
         } finalCompletionHandler:nullptr]);
         CallUIDelegate(m_webView, selector, kit(element), listener.get());
     }
 #if !PLATFORM(IOS_FAMILY)
     else
-        [m_webView _exitFullScreenForElement:element completionHandler:WTFMove(completionHandler)];
+        [m_webView _exitFullScreenForElement:element completionHandler:WTF::move(completionHandler)];
 #endif
 }
 
@@ -1147,7 +1147,7 @@ void WebChromeClient::setMockMediaPlaybackTargetPickerEnabled(bool enabled)
     [m_webView _setMockMediaPlaybackTargetPickerEnabled:enabled];
 }
 
-void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetContext::MockState state)
+void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetMockState state)
 {
     [m_webView _setMockMediaPlaybackTargetPickerName:name.createNSString().get() state:state];
 }
@@ -1184,7 +1184,7 @@ RefPtr<WebCore::ShapeDetection::BarcodeDetector> WebChromeClient::createBarcodeD
 void WebChromeClient::getBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&& completionHandler) const
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
-    WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTFMove(completionHandler));
+    WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTF::move(completionHandler));
 #else
     completionHandler({ });
 #endif

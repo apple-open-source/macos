@@ -36,7 +36,7 @@ class Document;
 template<typename> class ExceptionOr;
 
 class CSSRotate : public CSSTransformComponent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSRotate);
+    WTF_MAKE_TZONE_ALLOCATED(CSSRotate);
 public:
     static ExceptionOr<Ref<CSSRotate>> create(CSSNumberish, CSSNumberish, CSSNumberish, Ref<CSSNumericValue>);
     static ExceptionOr<Ref<CSSRotate>> create(Ref<CSSNumericValue>);

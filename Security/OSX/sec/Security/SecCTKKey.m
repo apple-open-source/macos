@@ -123,8 +123,7 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
                         tempParams[getTKClientTokenParameterForceSystemSession()] = @YES;
                     }
 
-                    // TODO: Replace with CTK symbol TKClientTokenParameterAuthenticationContextProvidedBySecCaller once available
-                    tempParams[@"authenticationContextProvidedBySecCaller"] = @(self.wasAuthenticationContextProvidedBySecCaller);
+                    tempParams[getTKClientTokenParameterAuthenticationContextProvidedBySecCaller()] = @(self.wasAuthenticationContextProvidedBySecCaller);
 
                     NSDictionary *params = [tempParams copy];
                     TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:attributes[(id)kSecAttrTokenID]];
@@ -201,7 +200,11 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
             }
         }
 
-        _sessionParameters = @{};
+        if (_tokenObject != nil && _tokenObject.session != nil && _tokenObject.session.parameters != nil) {
+            _sessionParameters = _tokenObject.session.parameters;
+        } else {
+            _sessionParameters = @{};
+        }
 
         // Get resulting attributes, by merging input attributes from keychain and token object attributes. Keychain attributes have preference.
         NSMutableDictionary *attrs = self.tokenObject ? self.tokenObject.keychainAttributes.mutableCopy : @{}.mutableCopy;
@@ -271,8 +274,7 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
             tempParams[getTKClientTokenParameterForceSystemSession()] = @YES;
         }
 
-        // TODO: Replace symbol with CTK symbol
-        tempParams[@"authenticationContextProvidedBySecCaller"] = @(self.wasAuthenticationContextProvidedBySecCaller);
+        tempParams[getTKClientTokenParameterAuthenticationContextProvidedBySecCaller()] = @(self.wasAuthenticationContextProvidedBySecCaller);
         NSDictionary *params = [tempParams copy];
 
         TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:self.keychainAttributes[(id)kSecAttrTokenID]];

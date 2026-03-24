@@ -1846,11 +1846,19 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 
 		linkStatus  = configRead16(bridge, bridge->expressCapBlock + 0x12);
 		if ((kLinkCapDataLinkLayerActiveReportingCapable & bridge->linkCaps)
+#if ACPI_SUPPORT
 			&& !(kLinkStatusDataLinkLayerLinkActive & linkStatus)
+#else
+			&& (!(kLinkStatusDataLinkLayerLinkActive & linkStatus) || (kLinkStatusLinkTraining & linkStatus))
+#endif
 			&& !ignoreNoLink)
 		{
 			noLink = kPCIDeviceStateNoLink;
+#if ACPI_SUPPORT
 			if (endpointPresent(bridge))
+#else
+			if (endpointPresent(bridge) || (kLinkStatusLinkTraining & linkStatus))
+#endif
 			{
 				// some endpoint take a long time to train so we wait rdar://103579149
 				linkStatus = waitForLinkUp(bridge);

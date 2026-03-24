@@ -101,24 +101,24 @@ static CFArrayRef copy_anchor_offsets(void)
 
     result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (!result) { secerror("Unable to allocate anchor array"); }
-    require_quiet(result, errOut);
+    __Require_Quiet(result, errOut);
 
     otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
     if (!otapkiref) { secerror("Unable to retrieve current OTAPKIRef"); }
-    require_quiet(otapkiref, errOut);
+    __Require_Quiet(otapkiref, errOut);
 
     lookupTable = SecOTAPKICopyAnchorLookupTable(otapkiref);
     if (!lookupTable) { secerror("Unable to retrieve anchor lookup table"); }
-    require_quiet(lookupTable, errOut);
+    __Require_Quiet(lookupTable, errOut);
 
     CFIndex ix, jx, count = CFDictionaryGetCount(lookupTable);
     bool countOk = (count >= 1 && count <= 8192);
     if (!countOk) { secerror("Unexpected system store count: %lld", (long long)count); }
-    require_quiet(countOk, errOut);
+    __Require_Quiet(countOk, errOut);
 
     values = (CFTypeRef*)calloc((size_t)count, sizeof(CFTypeRef*));
     if (!values) { secerror("Failed to allocate buffer for %lld values", (long long)count); }
-    require_quiet(values, errOut);
+    __Require_Quiet(values, errOut);
 
     CFDictionaryGetKeysAndValues(lookupTable, NULL, (const void **)values);
     for (ix = 0; ix < count; ix++) {
@@ -232,11 +232,11 @@ CopyAnchorRecordsForKey(CFStringRef anchorLookupKey) {
     CFArrayRef anchorRecords = NULL;
 
     anchorLookupTable = SecOTAPKICopyConstrainedAnchorLookupTable();
-    require_quiet(isDictionary(anchorLookupTable), errOut);
-    require_quiet(isString(anchorLookupKey), errOut);
+    __Require_Quiet(isDictionary(anchorLookupTable), errOut);
+    __Require_Quiet(isString(anchorLookupKey), errOut);
     anchorRecords = (CFArrayRef)CFDictionaryGetValue(anchorLookupTable, anchorLookupKey);
     CFRetainSafe(anchorRecords);
-    require_quiet(isArray(anchorRecords), errOut);
+    __Require_Quiet(isArray(anchorRecords), errOut);
 
 errOut:
     CFReleaseSafe(anchorLookupTable);
@@ -249,13 +249,13 @@ CopyAnchorRecordsForKeyWithHash(CFStringRef anchorLookupKey, CFDataRef hash, CFS
     CFStringRef hashKey = NULL;
     CFMutableArrayRef matchingAnchorRecords = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-    require_quiet(isData(hash), errOut);
+    __Require_Quiet(isData(hash), errOut);
     hashKey = CFDataCopyHexString(hash);
-    require_quiet(isString(hashKey), errOut);
+    __Require_Quiet(isString(hashKey), errOut);
 
-    require_quiet(anchorLookupKey, errOut);
+    __Require_Quiet(anchorLookupKey, errOut);
     anchorRecords = CopyAnchorRecordsForKey(anchorLookupKey);
-    require_quiet(isArray(anchorRecords), errOut);
+    __Require_Quiet(isArray(anchorRecords), errOut);
 
     CFIndex idx, count = CFArrayGetCount(anchorRecords);
     for (idx = 0; idx < count; idx++) {
@@ -290,11 +290,11 @@ CopyAnchorRecordsForCertificate(SecCertificateRef certificate) {
     CFStringRef anchorLookupKey = NULL;
     CFDataRef certificateHash = NULL;
 
-    require_quiet(certificate, errOut);
+    __Require_Quiet(certificate, errOut);
     certificateHash = SecCertificateCopySHA256Digest(certificate);
-    require_quiet(isData(certificateHash), errOut);
+    __Require_Quiet(isData(certificateHash), errOut);
     anchorLookupKey = SecCertificateCopyAnchorLookupKey(certificate);
-    require_quiet(anchorLookupKey, errOut);
+    __Require_Quiet(anchorLookupKey, errOut);
 
     anchorRecords = CopyAnchorRecordsForKeyWithHash(anchorLookupKey, certificateHash, CFSTR("sha2"));
 
@@ -313,11 +313,11 @@ CopyAnchorRecordsForSPKI(SecCertificateRef certificate) {
     CFStringRef anchorLookupKey = NULL;
     CFDataRef spkiHash = NULL;
 
-    require_quiet(certificate, errOut);
+    __Require_Quiet(certificate, errOut);
     spkiHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(certificate);
-    require_quiet(isData(spkiHash), errOut);
+    __Require_Quiet(isData(spkiHash), errOut);
     anchorLookupKey = SecCertificateCopyAnchorLookupKey(certificate);
-    require_quiet(anchorLookupKey, errOut);
+    __Require_Quiet(anchorLookupKey, errOut);
 
     anchorRecords = CopyAnchorRecordsForKeyWithHash(anchorLookupKey, spkiHash, CFSTR("spki-sha2"));
 
@@ -332,11 +332,11 @@ static CFMutableArrayRef CopyUsageConstraintsForSystemAnchor(void) {
     CFMutableDictionaryRef options = NULL, strengthConstraints = NULL, trustRoot = NULL;
     CFNumberRef trustResult = NULL;
 
-    require_quiet(options = CFDictionaryCreateMutable(NULL, 1,
+    __Require_Quiet(options = CFDictionaryCreateMutable(NULL, 1,
                                                       &kCFTypeDictionaryKeyCallBacks,
                                                       &kCFTypeDictionaryValueCallBacks),
                   out);
-    require_quiet(strengthConstraints = CFDictionaryCreateMutable(NULL, 1,
+    __Require_Quiet(strengthConstraints = CFDictionaryCreateMutable(NULL, 1,
                                                              &kCFTypeDictionaryKeyCallBacks,
                                                              &kCFTypeDictionaryValueCallBacks),
                   out);
@@ -345,7 +345,7 @@ static CFMutableArrayRef CopyUsageConstraintsForSystemAnchor(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakKey, kCFBooleanTrue);
     CFDictionaryAddValue(strengthConstraints, kSecTrustSettingsPolicyOptions, options);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks), out);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks), out);
     CFArrayAppendValue(result, strengthConstraints);
 
 out:
@@ -361,16 +361,16 @@ static CFArrayRef CopyUsageConstraintsForUnconstrainedSystemAnchor(void) {
     CFMutableDictionaryRef trustRoot = NULL;
     CFNumberRef trustResult = NULL;
 
-    require_quiet(trustRoot = CFDictionaryCreateMutable(NULL, 1,
+    __Require_Quiet(trustRoot = CFDictionaryCreateMutable(NULL, 1,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks),
                   out);
 
     uint32_t temp = kSecTrustSettingsResultTrustRoot;
-    require_quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &temp), out);
+    __Require_Quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &temp), out);
     CFDictionaryAddValue(trustRoot, kSecTrustSettingsResult, trustResult);
 
-    require_quiet(result = CopyUsageConstraintsForSystemAnchor(), out);
+    __Require_Quiet(result = CopyUsageConstraintsForSystemAnchor(), out);
     CFArrayAppendValue(result, trustRoot);
 
 out:
@@ -421,7 +421,7 @@ static _Nullable CFArrayRef
 CreatePolicyTrustSettingsForAnchorRecord(CFDictionaryRef anchorRecord, CFNumberRef trustResult) {
     CFMutableArrayRef result = NULL;
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     /* Add policy constraints if specified (regardless of anchor type) */
     CFArrayRef policyOids = (CFArrayRef)CFDictionaryGetValue(anchorRecord, CFSTR("oids"));
     CFIndex numPolicyOids = (isArray(policyOids)) ? CFArrayGetCount(policyOids) : 0;
@@ -430,7 +430,7 @@ CreatePolicyTrustSettingsForAnchorRecord(CFDictionaryRef anchorRecord, CFNumberR
             CFStringRef policyOidStr = (CFStringRef)CFArrayGetValueAtIndex(policyOids, idx);
             if (!isString(policyOidStr)) { continue; }
             CFMutableDictionaryRef trustSetting = NULL;
-            require_quiet(trustSetting = CFDictionaryCreateMutable(NULL, 0,
+            __Require_Quiet(trustSetting = CFDictionaryCreateMutable(NULL, 0,
                                                                    &kCFTypeDictionaryKeyCallBacks,
                                                                    &kCFTypeDictionaryValueCallBacks),
                           errOut);
@@ -498,13 +498,13 @@ CopyUsageConstraintsForCertificate(SecCertificateRef certificate) {
     if (!SecCertificateIsSelfSignedCA(certificate)) {
         trustResultValue = kSecTrustSettingsResultTrustAsRoot;
     }
-    require_quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
+    __Require_Quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
 
-    require_quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
+    __Require_Quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
     CFIndex numRecords = CFArrayGetCount(anchorRecords);
-    require_quiet(numRecords > 0, errOut);
+    __Require_Quiet(numRecords > 0, errOut);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     for (CFIndex recordIX = 0; recordIX < numRecords; recordIX++) {
         CFDictionaryRef anchorRecord = CFArrayGetValueAtIndex(anchorRecords, recordIX);
         if (!isDictionary(anchorRecord)) {
@@ -655,11 +655,11 @@ static bool SecSystemConstrainedAnchorSourceCopyParents(SecCertificateSourceRef 
     CFStringRef anchorLookupKey = NULL;
 
     CFDataRef normalizedIssuerContent = SecCertificateGetNormalizedIssuerContent(certificate);
-    require_quiet(normalizedIssuerContent, errOut);
+    __Require_Quiet(normalizedIssuerContent, errOut);
     normalizedIssuerHash = CFDataCreateWithHash(kCFAllocatorDefault, ccsha1_di(), CFDataGetBytePtr(normalizedIssuerContent), CFDataGetLength(normalizedIssuerContent));
-    require_quiet(normalizedIssuerHash, errOut);
+    __Require_Quiet(normalizedIssuerHash, errOut);
     anchorLookupKey = CFDataCopyHexString(normalizedIssuerHash);
-    require_quiet(anchorLookupKey, errOut);
+    __Require_Quiet(anchorLookupKey, errOut);
 
     parents = SecAnchorCacheCopyParentCertificates(anchorLookupKey);
 
@@ -689,7 +689,7 @@ static bool SecSystemConstrainedAnchorSourceContains(SecCertificateSourceRef sou
      * by policy to determine "Anchor-ness". */
     bool result = false;
     CFArrayRef anchorRecords = CopyAnchorRecordsForCertificate(certificate);
-    require_quiet(isArray(anchorRecords), errOut);
+    __Require_Quiet(isArray(anchorRecords), errOut);
 
     /* Determine whether policy allows this anchor record. If no policy specified use the basic policy. */
     SecPolicyRef policy = pvc ?  (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0) : NULL;
@@ -708,7 +708,7 @@ errOut:
 bool SecSystemConstrainedAnchorSourceContainsAnchorByKey(SecCertificateRef certificate) {
     bool result = false;
     CFArrayRef anchorRecord = CopyAnchorRecordsForSPKI(certificate);
-    require_quiet(isArray(anchorRecord), errOut);
+    __Require_Quiet(isArray(anchorRecord), errOut);
     result = true;
 
 errOut:
@@ -746,13 +746,13 @@ static CFArrayRef SecAppleAnchorSourceCopyUsageConstraints(SecCertificateSourceR
     }
 
     uint32_t trustResultValue = kSecTrustSettingsResultTrustRoot;
-    require_quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
+    __Require_Quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
 
-    require_quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
+    __Require_Quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
     CFIndex numRecords = CFArrayGetCount(anchorRecords);
-    require_quiet(numRecords > 0, errOut);
+    __Require_Quiet(numRecords > 0, errOut);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     for (CFIndex recordIX = 0; recordIX < numRecords; recordIX++) {
         CFDictionaryRef anchorRecord = CFArrayGetValueAtIndex(anchorRecords, recordIX);
         if (!isDictionary(anchorRecord)) {
@@ -787,7 +787,7 @@ static bool SecAppleAnchorSourceContains(SecCertificateSourceRef source,
 
     bool result = false;
     CFArrayRef anchorRecords = CopyAnchorRecordsForCertificate(certificate);
-    require_quiet(isArray(anchorRecords), errOut);
+    __Require_Quiet(isArray(anchorRecords), errOut);
 
     /* Determine whether policy allows this anchor record. If no policy specified use the basic policy. */
     SecPolicyRef policy = pvc ?  (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0) : NULL;
@@ -829,7 +829,7 @@ static bool SecSystemAnchorSourceCopyParents(SecCertificateSourceRef source, Sec
     assert((unsigned long)CFDataGetLength(nic)<UINT_MAX); /* Debug check. correct as long as CFIndex is signed long */
 
     anchors = subject_to_anchors(nic);
-    require_quiet(anchors, errOut);
+    __Require_Quiet(anchors, errOut);
     parents = CopyCertsFromIndices(anchors);
 
 errOut:
@@ -858,11 +858,11 @@ static bool SecSystemAnchorSourceContains(SecCertificateSourceRef source,
     assert((unsigned long)CFDataGetLength(nic)<UINT_MAX); /* Debug check. correct as long as CFIndex is signed long */
 
     otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-    require_quiet(otapkiref, errOut);
+    __Require_Quiet(otapkiref, errOut);
     anchors = subject_to_anchors(nic);
-    require_quiet(anchors, errOut);
+    __Require_Quiet(anchors, errOut);
     cert_datas = CopyCertDataFromIndices(anchors);
-    require_quiet(cert_datas, errOut);
+    __Require_Quiet(cert_datas, errOut);
 
     CFIndex cert_length = SecCertificateGetLength(certificate);
     const UInt8 *cert_data_ptr = SecCertificateGetBytePtr(certificate);
@@ -903,11 +903,11 @@ CFArrayRef SecSystemAnchorSourceCopyCertificates(void) {
     CFArrayRef certDatas = NULL;
 
     otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-    require_quiet(otapkiref, errOut);
+    __Require_Quiet(otapkiref, errOut);
     anchors = copy_anchor_offsets();
-    require_quiet(anchors, errOut);
+    __Require_Quiet(anchors, errOut);
     certDatas = CopyCertDataFromIndices(anchors);
-    require_quiet(certDatas, errOut);
+    __Require_Quiet(certDatas, errOut);
 
 errOut:
     CFReleaseNull(anchors);

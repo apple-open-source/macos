@@ -25,6 +25,8 @@
 
 #pragma once
 
+#import <wtf/Platform.h>
+
 #if HAVE(VK_IMAGE_ANALYSIS)
 
 #import <pal/spi/cocoa/VisionKitCoreSPI.h>

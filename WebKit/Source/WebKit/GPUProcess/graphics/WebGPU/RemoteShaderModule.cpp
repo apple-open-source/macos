@@ -43,7 +43,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteShaderModule);
 RemoteShaderModule::RemoteShaderModule(WebCore::WebGPU::ShaderModule& shaderModule, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(shaderModule)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -64,7 +64,7 @@ void RemoteShaderModule::stopListeningForIPC()
 
 void RemoteShaderModule::compilationInfo(CompletionHandler<void(Vector<WebGPU::CompilationMessage>&&)>&& callback)
 {
-    protectedBacking()->compilationInfo([callback = WTFMove(callback)] (Ref<WebCore::WebGPU::CompilationInfo>&& compilationMessage) mutable {
+    protectedBacking()->compilationInfo([callback = WTF::move(callback)] (Ref<WebCore::WebGPU::CompilationInfo>&& compilationMessage) mutable {
         auto convertedMessages = compilationMessage->messages().map([] (const Ref<WebCore::WebGPU::CompilationMessage>& message) {
             return WebGPU::CompilationMessage {
                 message->message(),
@@ -75,13 +75,13 @@ void RemoteShaderModule::compilationInfo(CompletionHandler<void(Vector<WebGPU::C
                 message->length(),
             };
         });
-        callback(WTFMove(convertedMessages));
+        callback(WTF::move(convertedMessages));
     });
 }
 
 void RemoteShaderModule::setLabel(String&& label)
 {
-    protectedBacking()->setLabel(WTFMove(label));
+    protectedBacking()->setLabel(WTF::move(label));
 }
 
 Ref<WebCore::WebGPU::ShaderModule> RemoteShaderModule::protectedBacking()

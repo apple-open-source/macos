@@ -88,31 +88,17 @@ struct sudoers_parser_config {
     uid_t sudoers_uid;
     gid_t sudoers_gid;
 };
-
-#ifdef __APPLE__
-// ignore_perms set to true
 #define SUDOERS_PARSER_CONFIG_INITIALIZER {				\
     .sudoers_path = NULL,						\
     .strict = false,							\
     .verbose = 1,							\
     .recovery = true,							\
-    .ignore_perms = true,						\
+    .ignore_perms = false,						\
     .sudoers_mode = SUDOERS_MODE,					\
     .sudoers_uid = SUDOERS_UID,						\
     .sudoers_gid = SUDOERS_GID						\
 }
-#else
-#define SUDOERS_PARSER_CONFIG_INITIALIZER {                \
-    .sudoers_path = NULL,                        \
-    .strict = false,                            \
-    .verbose = 1,                            \
-    .recovery = true,                            \
-    .ignore_perms = false,                        \
-    .sudoers_mode = SUDOERS_MODE,                    \
-    .sudoers_uid = SUDOERS_UID,                        \
-    .sudoers_gid = SUDOERS_GID                        \
-}
-#endif
+
 /*
  * Settings passed in from the sudo front-end.
  */

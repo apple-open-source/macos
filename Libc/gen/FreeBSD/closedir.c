@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,12 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)closedir.c	8.1 (Berkeley) 6/10/93";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "namespace.h"
 #include <sys/types.h>
 #include <dirent.h>
@@ -42,13 +38,16 @@ __FBSDID("$FreeBSD$");
 #include "un-namespace.h"
 
 #include "libc_private.h"
+#ifndef __APPLE__
+#include "gen-private.h"
+#endif /* !__APPLE__ */
 #include "telldir.h"
 
 /*
  * close a directory.
  */
-static int
-_fdclosedir(DIR *dirp)
+int
+fdclosedir(DIR *dirp)
 {
 	int fd;
 
@@ -58,6 +57,9 @@ _fdclosedir(DIR *dirp)
 	dirp->dd_fd = -1;
 	dirp->dd_loc = 0;
 	free((void *)dirp->dd_buf);
+#ifndef __APPLE__
+	free(dirp->dd_compat_de);
+#endif /* __APPLE__ */
 	_reclaim_telldir(dirp);
 	if (__isthreaded) {
 		_pthread_mutex_unlock(&dirp->dd_lock);
@@ -71,5 +73,5 @@ int
 closedir(DIR *dirp)
 {
 
-	return (_close(_fdclosedir(dirp)));
+	return (_close(fdclosedir(dirp)));
 }

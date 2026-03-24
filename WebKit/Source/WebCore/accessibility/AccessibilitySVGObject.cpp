@@ -130,11 +130,11 @@ void AccessibilitySVGObject::accessibilityText(Vector<AccessibilityText>& textOr
 {
     String description = this->description();
     if (!description.isEmpty())
-        textOrder.append(AccessibilityText(WTFMove(description), AccessibilityTextSource::Alternative));
+        textOrder.append(AccessibilityText(WTF::move(description), AccessibilityTextSource::Alternative));
 
     String helptext = helpText();
     if (!helptext.isEmpty())
-        textOrder.append(AccessibilityText(WTFMove(helptext), AccessibilityTextSource::Help));
+        textOrder.append(AccessibilityText(WTF::move(helptext), AccessibilityTextSource::Help));
 }
 
 String AccessibilitySVGObject::description() const

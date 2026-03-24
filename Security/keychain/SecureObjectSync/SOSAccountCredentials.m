@@ -45,7 +45,7 @@
 bool SOSAccountGenerationSignatureUpdate(SOSAccount* account, CFErrorRef *error) {
     bool result = false;
     SecKeyRef priv_key = SOSAccountGetPrivateCredential(account, error);
-    require_quiet(priv_key, bail);
+    __Require_Quiet(priv_key, bail);
 
     [account.trust generationSignatureUpdateWith:account key:priv_key];
     
@@ -327,11 +327,11 @@ static void sosAccountSetTrustedCredentials(SOSAccount* account, CFDataRef user_
 
 static SecKeyRef sosAccountCreateKeyIfPasswordIsCorrect(SOSAccount* account, CFDataRef user_password, CFErrorRef *error) {
     SecKeyRef user_private = NULL;
-    require_quiet(account.accountKey && account.accountKeyDerivationParameters, errOut);
+    __Require_Quiet(account.accountKey && account.accountKeyDerivationParameters, errOut);
     user_private = SOSUserKeygen(user_password, (__bridge CFDataRef)(account.accountKeyDerivationParameters), error);
-    require_quiet(user_private, errOut);
+    __Require_Quiet(user_private, errOut);
 
-    require_action_quiet(SOSAccountValidateAccountCredential(account, user_private, error), errOut, CFReleaseNull(user_private));
+    __Require_Action_Quiet(SOSAccountValidateAccountCredential(account, user_private, error), errOut, CFReleaseNull(user_private));
 errOut:
     return user_private;
 }
@@ -399,13 +399,13 @@ bool SOSAccountAssertStashedAccountCredential(SOSAccount* account, CFErrorRef *e
     SecKeyRef accountPrivateKey = NULL, publicCandidate = NULL;
     bool result = false;
 
-    require_action(account.accountKey, fail, SOSCreateError(kSOSErrorWrongPassword, CFSTR("account public key missing, can't check stashed copy"), NULL, error));
-    require_action(account.accountKeyIsTrusted, fail, SOSCreateError(kSOSErrorWrongPassword, CFSTR("public key no not valid, can't check stashed copy"), NULL, error));
+    __Require_Action(account.accountKey, fail, SOSCreateError(kSOSErrorWrongPassword, CFSTR("account public key missing, can't check stashed copy"), NULL, error));
+    __Require_Action(account.accountKeyIsTrusted, fail, SOSCreateError(kSOSErrorWrongPassword, CFSTR("public key no not valid, can't check stashed copy"), NULL, error));
 
     accountPrivateKey = SOSAccountCopyStashedUserPrivateKey(account, error);
-    require_action_quiet(accountPrivateKey, fail, secnotice("circleOps", "Looked for a stashed private key, didn't find one"));
+    __Require_Action_Quiet(accountPrivateKey, fail, secnotice("circleOps", "Looked for a stashed private key, didn't find one"));
 
-    require(SOSAccountValidateAccountCredential(account, accountPrivateKey, error), fail);
+    __Require(SOSAccountValidateAccountCredential(account, accountPrivateKey, error), fail);
 
     sosAccountSetTrustedCredentials(account, NULL, accountPrivateKey, true);
 
@@ -427,7 +427,7 @@ bool SOSAccountAssertUserCredentials(SOSAccount* account, CFStringRef user_accou
     CFDataRef parameters = NULL;
     
     // if this succeeds, skip to the end.  Success will update account.accountKeyIsTrusted by side-effect.
-    require_quiet(!sosAccountValidatePasswordOrFail(account, user_password, error), recordCred);
+    __Require_Quiet(!sosAccountValidatePasswordOrFail(account, user_password, error), recordCred);
     
     // We may or may not have parameters here.
     // In any case we tried using them and they didn't match
@@ -438,7 +438,7 @@ bool SOSAccountAssertUserCredentials(SOSAccount* account, CFStringRef user_accou
     }
     
     parameters = SOSUserKeyCreateGenerateParameters(error);
-    require_quiet(user_private = SOSUserKeygen(user_password, parameters, error), errOut);
+    __Require_Quiet(user_private = SOSUserKeygen(user_password, parameters, error), errOut);
     SOSAccountSetParameters(account, parameters);
     sosAccountSetTrustedCredentials(account, user_password, user_private, public_was_trusted);
 

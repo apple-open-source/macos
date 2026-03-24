@@ -3773,6 +3773,9 @@ IOReturn IOFramebuffer::createSharedCursor(
         if (numCursorFrames > kIOFBMaxCursorFrames)
             return (kIOReturnNoMemory);
 
+        if (0 == numCursorFrames)
+            return (kIOReturnBadArgument);
+
         setProperty(kIOFBWaitCursorFramesKey, (numCursorFrames - 1), 32);
         setProperty(kIOFBWaitCursorPeriodKey, 33333333, 32);    /* 30 fps */
     }
@@ -3825,6 +3828,11 @@ IOReturn IOFramebuffer::createSharedCursor(
            + maxImageSize
            + max(maxImageSize, maxWaitImageSize)
            + ((numCursorFrames - 1) * maxWaitImageSize);
+
+    if (sharedCursor && sharedCursor->getLength() != size) {
+        OSSafeReleaseNULL(sharedCursor);
+        sharedCursor = NULL;
+    }
 
     if (!sharedCursor)
     {

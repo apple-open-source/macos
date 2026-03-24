@@ -48,7 +48,7 @@ class IDBTransactionInfo;
 struct EventNames;
 
 class IDBDatabase final : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<IDBDatabase>, public EventTarget, public IDBActiveDOMObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(IDBDatabase);
+    WTF_MAKE_TZONE_ALLOCATED(IDBDatabase);
 public:
     static Ref<IDBDatabase> create(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBResultData&);
 
@@ -145,3 +145,5 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(IDBDatabase)

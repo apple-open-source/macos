@@ -70,7 +70,7 @@ public:
         // FIXME <https://webkit.org/b/205536>: this should infer more useful data about the debug target.
         Ref<API::DebuggableInfo> debuggableInfo = API::DebuggableInfo::create(DebuggableInfoData::empty());
         debuggableInfo->setDebuggableType(debuggableType);
-        m_proxy->initialize(WTFMove(debuggableInfo), m_inspectorClient.backendCommandsURL());
+        m_proxy->initialize(WTF::move(debuggableInfo), m_inspectorClient.backendCommandsURL());
     }
 
     void show()
@@ -156,7 +156,7 @@ const SocketConnection::MessageHandlers& RemoteInspectorClient::messageHandlers(
                 if (!g_strcmp0(type, "JavaScript") || !g_strcmp0(type, "ServiceWorker") || !g_strcmp0(type, "WebPage"))
                     targetList.append({ targetID, type, name, url });
             }
-            client.setTargetList(connectionID, WTFMove(targetList));
+            client.setTargetList(connectionID, WTF::move(targetList));
         }}
     },
     { "SendMessageToFrontend", std::pair<CString, SocketConnection::MessageCallback> { "(tts)",
@@ -173,7 +173,7 @@ const SocketConnection::MessageHandlers& RemoteInspectorClient::messageHandlers(
 }
 
 RemoteInspectorClient::RemoteInspectorClient(String&& hostAndPort, RemoteInspectorObserver& observer)
-    : m_hostAndPort(WTFMove(hostAndPort))
+    : m_hostAndPort(WTF::move(hostAndPort))
     , m_observer(observer)
     , m_cancellable(adoptGRef(g_cancellable_new()))
 {
@@ -186,7 +186,7 @@ RemoteInspectorClient::RemoteInspectorClient(String&& hostAndPort, RemoteInspect
                 return;
             auto* client = static_cast<RemoteInspectorClient*>(userData);
             if (connection)
-                client->setupConnection(SocketConnection::create(WTFMove(connection), messageHandlers(), client));
+                client->setupConnection(SocketConnection::create(WTF::move(connection), messageHandlers(), client));
             else {
                 WTFLogAlways("RemoteInspectorClient failed to connect to inspector server: %s", error->message);
                 client->m_observer.connectionClosed(*client);
@@ -203,7 +203,7 @@ RemoteInspectorClient::~RemoteInspectorClient()
 
 void RemoteInspectorClient::setupConnection(Ref<SocketConnection>&& connection)
 {
-    m_socketConnection = WTFMove(connection);
+    m_socketConnection = WTF::move(connection);
     m_socketConnection->sendMessage("SetupInspectorClient", g_variant_new("(@ay)", g_variant_new_bytestring(Inspector::backendCommandsHash().data())));
 }
 
@@ -284,7 +284,7 @@ void RemoteInspectorClient::setTargetList(uint64_t connectionID, Vector<Target>&
     for (auto targetID : targetsToRemove)
         m_inspectorProxyMap.remove(std::make_pair(connectionID, targetID));
 
-    m_targets.set(connectionID, WTFMove(targetList));
+    m_targets.set(connectionID, WTF::move(targetList));
     m_observer.targetListChanged(*this);
 }
 

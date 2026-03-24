@@ -76,6 +76,8 @@ Ref<Element> JSCustomElementInterface::constructElementWithFallback(Document& do
     auto element = HTMLUnknownElement::create(QualifiedName(nullAtom(), localName, HTMLNames::xhtmlNamespaceURI), document);
     element->setIsCustomElementUpgradeCandidate();
     element->setIsFailedCustomElement();
+    if (registry.isScoped())
+        CustomElementRegistry::addToScopedCustomElementRegistryMap(element, registry);
 
     return element;
 }
@@ -91,6 +93,8 @@ Ref<Element> JSCustomElementInterface::constructElementWithFallback(Document& do
     auto element = HTMLUnknownElement::create(name, document);
     element->setIsCustomElementUpgradeCandidate();
     element->setIsFailedCustomElement();
+    if (registry.isScoped())
+        CustomElementRegistry::addToScopedCustomElementRegistryMap(element, registry);
 
     return element;
 }
@@ -120,15 +124,15 @@ RefPtr<Element> JSCustomElementInterface::tryToConstructCustomElement(Document& 
     if (!m_constructor)
         return nullptr;
 
-    ASSERT(&document == scriptExecutionContext());
-    auto* lexicalGlobalObject = document.globalObject();
+    RefPtr contextDocument = downcast<Document>(scriptExecutionContext());
+    auto* lexicalGlobalObject = scriptExecutionContext()->globalObject();
     ASSERT(lexicalGlobalObject);
     if (!lexicalGlobalObject)
         return nullptr;
-    auto* oldRegistry = document.activeCustomElementRegistry();
-    document.setActiveCustomElementRegistry(&registry);
+    auto* oldRegistry = contextDocument->activeCustomElementRegistry();
+    contextDocument->setActiveCustomElementRegistry(&registry);
     auto element = constructCustomElementSynchronously(document, vm, *lexicalGlobalObject, m_constructor.get(), localName, parserConstructElementWithEmptyStack);
-    document.setActiveCustomElementRegistry(oldRegistry);
+    contextDocument->setActiveCustomElementRegistry(oldRegistry);
     EXCEPTION_ASSERT(!!scope.exception() == !element);
     if (!element) {
         auto* exception = scope.exception();
@@ -359,8 +363,8 @@ void JSCustomElementInterface::setAttributeChangedCallback(JSC::JSObject* callba
 {
     m_attributeChangedCallback = callback;
     m_observedAttributes.clear();
-    for (auto&& name : WTFMove(observedAttributes))
-        m_observedAttributes.add(WTFMove(name));
+    for (auto&& name : WTF::move(observedAttributes))
+        m_observedAttributes.add(WTF::move(name));
 }
 
 void JSCustomElementInterface::invokeAttributeChangedCallback(Element& element, const QualifiedName& attributeName, const AtomString& oldValue, const AtomString& newValue)

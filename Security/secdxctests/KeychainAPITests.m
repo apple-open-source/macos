@@ -54,6 +54,7 @@
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemDataSource.h"
 #include "keychain/securityd/SOSCloudCircleServer.h"
+#include "keychain/analytics/SecItemAttrLogger.h"
 
 #import "SecItemRateLimit_tests.h"
 #include "der_plist.h"
@@ -62,6 +63,7 @@
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecEntitlements.h>
+#include "keychain/analytics/SecDbStorageMetrics.h"
 
 #if USE_KEYSTORE
 
@@ -2806,6 +2808,1135 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"account2");
     }
 }
+
+- (void)testDeleteInternalItemsOnSignOut {
+    OctagonSetSOSFeatureEnabled(true);
+    enableSOSCompatibilityForTests();
+
+    NSArray *allowedAccessGroups = @[
+        @"com.apple.hap.pairing",
+    ];
+    SecurityClient client = {
+        .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
+    };
+
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrAccount: @"account-homekit",
+        (id)kSecValueData:[@"homekit" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert generated password to remove");
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept one Home password");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"account-homekit");
+    }
+
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+    NSString* uuid = [NSUUID UUID].UUIDString;
+    SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)uuid);
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrAccount: @"guest-account-homekit",
+        (id)kSecValueData:[@"homekit" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert generated password to remove");
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+            (id)kSecAttrAccount: @"guest-account-homekit",
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept one Home password for guest account");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"guest-account-homekit");
+    }
+    SecSecuritySetPersonaMusrForTests(NULL);
+#endif // KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+    {
+        dispatch_queue_t notificationQueue = dispatch_queue_create("com.apple.security.secdxctests.KeychainAPITests.testDeleteInternalItemsOnSignOut", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        dispatch_group_t notificationGroup = dispatch_group_create();
+        __auto_type notificationBlock = ^(int token) {
+            dispatch_group_leave(notificationGroup);
+            notify_cancel(token);
+        };
+
+        int keychainChangedNotificationToken = NOTIFY_TOKEN_INVALID;
+        notify_register_dispatch(kSecServerKeychainChangedNotification, &keychainChangedNotificationToken, notificationQueue, notificationBlock);
+        dispatch_group_enter(notificationGroup);
+
+        // rdar://94321820: Password Manager uses this SOS view change
+        // notification to update its UI, instead of the Keychain
+        // changed notification (rdar://32744057). See rdar://89843653
+        // for a related issue with the same cause.
+        int passwordsViewChangeNotificationToken = NOTIFY_TOKEN_INVALID;
+        notify_register_dispatch("com.apple.security.view-change.Passwords", &passwordsViewChangeNotificationToken, notificationQueue, notificationBlock);
+        dispatch_group_enter(notificationGroup);
+
+        CFErrorRef rawError = NULL;
+        XCTAssertTrue(SecServerDeleteInternalItemsOnSignOut(&client, CFSTR("NULL"), &rawError), "Should remove items on sign out");
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertNil(error, "Should not return error for removing items on sign out");
+
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+        rawError = NULL;
+        XCTAssertTrue(SecServerDeleteInternalItemsOnSignOut(&client, (__bridge CFStringRef)uuid, &rawError), "Should remove items on sign out for guest account");
+        error = CFBridgingRelease(rawError);
+        XCTAssertNil(error, "Should not return error for removing items on sign out");
+#endif // KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+        XCTAssertFalse(!dispatch_group_wait(notificationGroup, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), "Should not fire Keychain changed and view change notifications for removed items with no tombstones within 5 seconds");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all Home passwords");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+    {
+        SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)uuid);
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all Home passwords for guest account");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+        SecSecuritySetPersonaMusrForTests(NULL);
+    }
+#endif // KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+}
+
+#pragma mark - SecItemAttrLogger Tests
+
+- (void)testSecItemAttrVectorEmptyDictionary
+{
+    NSDictionary *query = @{};
+
+    SecItemAttrLoggerInfo *loggerInfo = [SecItemAttrLoggerInfo loggerInfoWithDictionary:query];
+    XCTAssertNotNil(loggerInfo, @"Logger info should be created");
+
+    // Empty dictionary should produce empty encoding string
+    XCTAssertEqual(loggerInfo.encoding.length, (NSUInteger)0, @"Encoding should be empty for empty dictionary");
+    XCTAssertEqualObjects(loggerInfo.encoding, @"", @"Encoding should be empty string");
+
+    // Print the logger info
+    [SecItemAttrLoggerInfo printEncodingInfo:loggerInfo];
+}
+
+- (void)testSecItemAttrVectorNullTerminated
+{
+    NSDictionary *query = @{
+        (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrAccount: @"test",
+    };
+
+    SecItemAttrLoggerInfo *loggerInfo = [SecItemAttrLoggerInfo loggerInfoWithDictionary:query];
+    XCTAssertNotNil(loggerInfo, @"Logger info should be created");
+
+    // Verify the encoding string exists and has content
+    XCTAssertNotNil(loggerInfo.encoding, @"Encoding should not be nil");
+    // Verify it ends with semicolon (compressed format)
+    XCTAssertTrue([loggerInfo.encoding hasSuffix:@";"], @"Encoding should end with semicolon");
+    XCTAssertTrue(loggerInfo.encoding.length > 0, @"Encoding length should be positive");
+    // Print the logger info
+    [SecItemAttrLoggerInfo printEncodingInfo:loggerInfo];
+}
+
+- (void)testSecItemAttrVectorPopulateGenericPassword
+{
+    // Doesn't matter what order we pass in attributes, final encoding should be sorted w.r.t key indexes
+    NSDictionary *query = @{
+        (id)kSecReturnData: @YES,
+        (id)kSecAttrService: @"testservice",
+        (id)kSecAttrAccount: @"testuser",
+        (id)kSecAttrAccessGroup: @"test.group",
+        (id)kSecClass: (id)kSecClassGenericPassword,
+    };
+
+    SecItemAttrLoggerInfo *loggerInfo = [SecItemAttrLoggerInfo loggerInfoWithDictionary:query];
+    XCTAssertNotNil(loggerInfo, @"Logger info should be created");
+    XCTAssertNotNil(loggerInfo.encoding, @"Should have encoding");
+
+    // Expected keys (in sorted order):
+    // - kSecClass (index 0): present with value 0 (kSecClassGenericPassword) -> "0,0;"
+    // - kSecAttrAccessGroup (index 2): present -> "2;"
+    // - kSecAttrAccount (index 12): present -> "12;"
+    // - kSecAttrService (index 13): present -> "13;"
+    // - kSecReturnData (index 88): present -> "88;"
+
+    NSString *expectedEncoding = @"0,0;2;12;13;88;";
+    XCTAssertEqualObjects(loggerInfo.encoding, expectedEncoding, @"Encoding should match compressed format");
+
+    // Verify encoding is sorted
+    NSArray *segments = [loggerInfo.encoding componentsSeparatedByString:@";"];
+    int lastKeyIndex = -1;
+    for (NSUInteger i = 0; i < segments.count - 1; i++) {  // -1 to skip empty segment after final ;
+        NSString *segment = segments[i];
+        if (segment.length > 0) {
+            // Parse key_index from segment
+            NSArray *parts = [segment componentsSeparatedByString:@","];
+            int keyIndex = [parts[0] intValue];
+            XCTAssertTrue(keyIndex > lastKeyIndex, @"Keys should be sorted by index");
+            lastKeyIndex = keyIndex;
+        }
+    }
+
+    // Print the logger info
+    [SecItemAttrLoggerInfo printEncodingInfo:loggerInfo];
+}
+
+- (void)testSecItemAttrVectorPopulateKey
+{
+    // Doesn't matter what order we pass in attributes, final encoding should be sorted w.r.t key indexes
+    NSDictionary *query = @{
+        (__bridge id)kSecAttrLabel: @"My Private Key",
+        (__bridge id)kSecAttrKeySizeInBits: @2048,
+        (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeRSA,
+        (__bridge id)kSecAttrKeyClass: (__bridge id)kSecAttrKeyClassPrivate,
+        (__bridge id)kSecReturnRef: @YES,
+        (__bridge id)kSecAttrSynchronizable: @YES,
+        (__bridge id)kSecReturnAttributes: @YES,
+        (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+    };
+
+    SecItemAttrLoggerInfo *loggerInfo = [SecItemAttrLoggerInfo loggerInfoWithDictionary:query];
+    XCTAssertNotNil(loggerInfo, @"Logger info should be created");
+    XCTAssertNotNil(loggerInfo.encoding, @"Should have encoding");
+    
+    // Expected keys (in sorted order):
+    // - kSecClass (index 0): present with value 4 (kSecClassKey) -> "0,4;"
+    // - kSecAttrLabel (index 9): present -> "9;"
+    // - kSecReturnAttributes (index 89): present -> "89;"
+    // - kSecReturnRef (index 90): present -> "90;"
+    // - kSecAttrKeyClass (index 111): present with value 1 (kSecAttrKeyClassPrivate) -> "111,1;"
+    // - kSecAttrKeyType (index 112): present with value 0 (kSecAttrKeyTypeRSA) -> "112,0;"
+    // - kSecAttrKeySizeInBits (index 113): present -> "113;"
+    // - kSecAttrSynchronizable (index 120): present with value 1 (@YES) -> "120,1;"
+
+    NSString *expectedEncoding = @"0,4;9;89;90;111,1;112,0;113;120,1;";
+    XCTAssertEqualObjects(loggerInfo.encoding, expectedEncoding, @"Encoding should match compressed format");
+
+    // Verify encoding is not empty
+    XCTAssertTrue(loggerInfo.encoding.length > 0, @"Encoding should not be empty");
+
+    // Verify the encoding ends with semicolon
+    XCTAssertTrue([loggerInfo.encoding hasSuffix:@";"], @"Encoding should end with semicolon");
+
+    // Verify the encoding contains only valid characters (decimal digits, semicolons, commas, and minus sign for negative error constants)
+    NSCharacterSet *validChars = [NSCharacterSet characterSetWithCharactersInString:@"0123456789;,-"];
+    NSCharacterSet *encodingChars = [NSCharacterSet characterSetWithCharactersInString:loggerInfo.encoding];
+    XCTAssertTrue([validChars isSupersetOfSet:encodingChars],
+                  @"Encoding should only contain valid characters (digits, ;, comma, minus)");
+
+    // Verify encoding is sorted
+    NSArray *segments = [loggerInfo.encoding componentsSeparatedByString:@";"];
+    int lastKeyIndex = -1;
+    for (NSUInteger i = 0; i < segments.count - 1; i++) {
+        NSString *segment = segments[i];
+        if (segment.length > 0) {
+            NSArray *parts = [segment componentsSeparatedByString:@","];
+            int keyIndex = [parts[0] intValue];
+            XCTAssertTrue(keyIndex > lastKeyIndex, @"Keys should be sorted by index");
+            lastKeyIndex = keyIndex;
+        }
+    }
+
+    // Print the logger info
+    [SecItemAttrLoggerInfo printEncodingInfo:loggerInfo];
+}
+
+// helper method to verify attribute encoding for a specific key
+- (void)verifyAttributeEncoding:(CFStringRef)attributeKey
+                  attributeValue:(id)attributeValue
+                     customQuery:(NSDictionary *)customQuery
+                        keyIndex:(NSUInteger)keyIndex
+                 expectedSegment:(NSString *)expectedSegment
+                     description:(NSString *)description
+                       printName:(NSString *)printName
+{
+    NSDictionary *query = nil;
+
+    if (customQuery) {
+        // Use custom query for error cases or special scenarios
+        query = customQuery;
+    } else {
+        // Build standard query for simple attribute testing
+        NSMutableDictionary *mutableQuery = [@{
+            (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+            (__bridge id)kSecAttrAccount: @"test",
+        } mutableCopy];
+
+        // Add the attribute only if a value is provided
+        if (attributeValue) {
+            mutableQuery[(__bridge id)attributeKey] = attributeValue;
+        }
+
+        query = mutableQuery;
+    }
+
+    SecItemAttrLoggerInfo *loggerInfo = [SecItemAttrLoggerInfo loggerInfoWithDictionary:query];
+    XCTAssertNotNil(loggerInfo, @"Logger info should be created");
+    XCTAssertNotNil(loggerInfo.encoding, @"Should have encoding");
+
+    // Find the segment that starts with the keyIndex
+    NSArray *segments = [loggerInfo.encoding componentsSeparatedByString:@";"];
+
+    NSString *foundSegment = nil;
+    NSString *keyIndexPrefix = [NSString stringWithFormat:@"%lu", (unsigned long)keyIndex];
+    for (NSString *segment in segments) {
+        if ([segment hasPrefix:keyIndexPrefix]) {
+            foundSegment = segment;
+            break;
+        }
+    }
+
+    XCTAssertEqualObjects(foundSegment, expectedSegment, @"%@", description);
+
+    [SecItemAttrLoggerInfo printEncodingInfo:loggerInfo];
+}
+
+- (void)testSecItemAttrVectorSynchronizableHandling
+{
+    // Test 1: kSecAttrSynchronizable with CFBoolean NO (value_index = 0)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:@NO
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,0"
+                      description:@"kSecAttrSynchronizable=NO should be encoded as '120,0'"
+                        printName:@"testSynchronizable_NO"];
+
+    // Test 2: kSecAttrSynchronizable with CFBoolean YES (value_index = 1)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:@YES
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,1"
+                      description:@"kSecAttrSynchronizable=YES should be encoded as '120,1'"
+                        printName:@"testSynchronizable_YES"];
+
+    // Test 3: kSecAttrSynchronizable with kSecAttrSynchronizableAny (value_index = 2)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:(__bridge id)kSecAttrSynchronizableAny
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,2"
+                      description:@"kSecAttrSynchronizable=kSecAttrSynchronizableAny should be encoded as '120,2'"
+                        printName:@"testSynchronizable_Any"];
+
+    // Test 4: Without kSecAttrSynchronizable (should not appear in compressed encoding)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:nil
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:nil
+                      description:@"Without kSecAttrSynchronizable should not appear in encoding"
+                        printName:@"testSynchronizable_NotSet"];
+
+    // Test 5: kSecAttrSynchronizable with NSNumber 1 (should encode as CFBoolean YES, value_index = 1)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:(id)kCFBooleanTrue
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,1"
+                      description:@"kSecAttrSynchronizable=@(1) should be encoded as '120,1'"
+                        printName:@"testSynchronizable_Number1"];
+
+    // Test 6: kSecAttrSynchronizable with NSNumber 0 (should encode as CFBoolean NO, value_index = 0)
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:(id)kCFBooleanFalse
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,0"
+                      description:@"kSecAttrSynchronizable=@(0) should be encoded as '120,0'"
+                        printName:@"testSynchronizable_Number0"];
+
+    // Test 7: kSecAttrSynchronizable with invalid NSNumber value (should encode as error)
+    // NSNumber with value other than 0 or 1 should cause type mismatch error
+    [self verifyAttributeEncoding:kSecAttrSynchronizable
+                   attributeValue:@(42)
+                      customQuery:nil
+                         keyIndex:120
+                  expectedSegment:@"120,-3"
+                      description:@"kSecAttrSynchronizable=@(42) should be encoded as '120,-3' (KEY_INVALID_VALUE_TYPE)"
+                        printName:@"testSynchronizable_InvalidNumber"];
+}
+
+
+- (void)testSecItemAttrVectorMatchLimitHandling
+{
+    // Test 1: kSecMatchLimit with kSecMatchLimitOne (value_index = 0)
+    [self verifyAttributeEncoding:kSecMatchLimit
+                   attributeValue:(__bridge id)kSecMatchLimitOne
+                      customQuery:nil
+                         keyIndex:87
+                  expectedSegment:@"87,0"
+                      description:@"kSecMatchLimit=kSecMatchLimitOne should be encoded as '87,0'"
+                        printName:@"testMatchLimit_One"];
+
+    // Test 2: kSecMatchLimit with kSecMatchLimitAll (value_index = 1)
+    [self verifyAttributeEncoding:kSecMatchLimit
+                   attributeValue:(__bridge id)kSecMatchLimitAll
+                      customQuery:nil
+                         keyIndex:87
+                  expectedSegment:@"87,1"
+                      description:@"kSecMatchLimit=kSecMatchLimitAll should be encoded as '87,1'"
+                        printName:@"testMatchLimit_All"];
+
+    // Test 3: kSecMatchLimit with CFNumber @(0) (value_index = value_count + 0 = 2 + 0 = 2)
+    [self verifyAttributeEncoding:kSecMatchLimit
+                   attributeValue:@(0)
+                      customQuery:nil
+                         keyIndex:87
+                  expectedSegment:@"87,2"
+                      description:@"kSecMatchLimit=@(0) should be encoded as '87,2' (value_count=2 + 0)"
+                        printName:@"testMatchLimit_Number0"];
+
+    // Test 4: kSecMatchLimit with CFNumber @(100) (value_index = value_count + 100 = 2 + 100 = 102)
+    [self verifyAttributeEncoding:kSecMatchLimit
+                   attributeValue:@(100)
+                      customQuery:nil
+                         keyIndex:87
+                  expectedSegment:@"87,102"
+                      description:@"kSecMatchLimit=@(100) should be encoded as '87,102' (value_count=2 + 100)"
+                        printName:@"testMatchLimit_Number100"];
+
+}
+
+
+- (void)testSecItemAttrVectorInvalidValueTypes
+{
+    // Error constants from SecItemAttrLogger.m
+    const NSInteger KEY_INVALID_VALUE = -2;        // Invalid/unrecognized value for value-tracking key
+    const NSInteger KEY_INVALID_VALUE_TYPE = -3;   // Wrong type for value-tracking key
+
+    // Test 1: kSecAttrSynchronizable with invalid CFString value (should encode as KEY_INVALID_VALUE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+                          (__bridge id)kSecAttrAccount: @"test",
+                          (__bridge id)kSecAttrSynchronizable: @"invalid_string_value",
+                      }
+                         keyIndex:120  // kSecAttrSynchronizable
+                  expectedSegment:[NSString stringWithFormat:@"120,%ld", (long)KEY_INVALID_VALUE]
+                      description:[NSString stringWithFormat:@"kSecAttrSynchronizable with invalid string should be encoded as '120,%ld'", (long)KEY_INVALID_VALUE]
+                        printName:@"testSynchronizable_InvalidString"];
+
+    // Test 2: kSecClass with unrecognized string value (should encode as KEY_INVALID_VALUE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: @"com.apple.custom.unknown.class",
+                          (__bridge id)kSecAttrAccount: @"test",
+                      }
+                         keyIndex:0  // kSecClass
+                  expectedSegment:[NSString stringWithFormat:@"0,%ld", (long)KEY_INVALID_VALUE]
+                      description:[NSString stringWithFormat:@"kSecClass with unrecognized value should be encoded as '0,%ld'", (long)KEY_INVALID_VALUE]
+                        printName:@"testClass_UnrecognizedValue"];
+
+    // Test 3: kSecAttrAccessible with CFData instead of CFString (should encode as KEY_INVALID_VALUE_TYPE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+                          (__bridge id)kSecAttrAccount: @"test",
+                          (__bridge id)kSecAttrAccessible: [@"data" dataUsingEncoding:NSUTF8StringEncoding],
+                      }
+                         keyIndex:108  // kSecAttrAccessible
+                  expectedSegment:[NSString stringWithFormat:@"108,%ld", (long)KEY_INVALID_VALUE_TYPE]
+                      description:[NSString stringWithFormat:@"kSecAttrAccessible with CFData should be encoded as '108,%ld'", (long)KEY_INVALID_VALUE_TYPE]
+                        printName:@"testAccessible_TypeMismatch"];
+
+    // Test 4: kSecAttrProtocol with wrong parent key value (should encode as KEY_INVALID_VALUE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+                          (__bridge id)kSecAttrAccount: @"test",
+                          (__bridge id)kSecAttrProtocol: (__bridge id)kSecAttrAccessibleWhenUnlocked, // Wrong! This is for kSecAttrAccessible
+                      }
+                         keyIndex:109  // kSecAttrProtocol
+                  expectedSegment:[NSString stringWithFormat:@"109,%ld", (long)KEY_INVALID_VALUE]
+                      description:[NSString stringWithFormat:@"kSecAttrProtocol with wrong value should be encoded as '109,%ld'", (long)KEY_INVALID_VALUE]
+                        printName:@"testProtocol_WrongParentIndex"];
+}
+
+- (void)testSecItemAttrVectorTypeFieldHandling
+{
+    // Error constants from SecItemAttrLogger.m
+    const NSInteger KEY_INVALID_VALUE_TYPE = -3;   // Wrong type for value-tracking key
+
+    // kSecAttrTypeIndex = 8 (for genp, inet)
+    // kSecAttrKeyTypeIndex = 112 (for keys, identity)
+
+    // Test 1: genp class with kSecAttrType - should NOT track value (KEY_NOT_TRACKS_VALUE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+                          (__bridge id)kSecAttrAccount: @"test",
+                          (__bridge id)kSecAttrType: @(1), // CFNumber value
+                      }
+                         keyIndex:8  // kSecAttrType
+                  expectedSegment:@"8"  // No value tracked, so just "8;"
+                      description:@"genp class with kSecAttrType should NOT track value (encoded as '8')"
+                        printName:@"testTypeField_Genp_NotTracked"];
+
+    // Test 2: inet class with kSecAttrType - should NOT track value (KEY_NOT_TRACKS_VALUE)
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassInternetPassword,
+                          (__bridge id)kSecAttrAccount: @"test",
+                          (__bridge id)kSecAttrServer: @"test.example.com",
+                          (__bridge id)kSecAttrType: @(2), // CFNumber value
+                      }
+                         keyIndex:8  // kSecAttrType
+                  expectedSegment:@"8"  // No value tracked
+                      description:@"inet class with kSecAttrType should NOT track value (encoded as '8')"
+                        printName:@"testTypeField_Inet_NotTracked"];
+
+    // Test 3: keys class with kSecAttrKeyType and CFNumber - should return KEY_INVALID_VALUE_TYPE
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: @(42), // CFNumber - INVALID TYPE!
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:[NSString stringWithFormat:@"112,%ld", (long)KEY_INVALID_VALUE_TYPE]
+                      description:[NSString stringWithFormat:@"keys class with kSecAttrKeyType as CFNumber should be encoded as '112,%ld' (KEY_INVALID_VALUE_TYPE)", (long)KEY_INVALID_VALUE_TYPE]
+                        printName:@"testTypeField_Keys_InvalidType"];
+
+    // Test 4: keys class with kSecAttrKeyType and valid CFString (kSecAttrKeyTypeRSA) - should return value index 0
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeRSA,
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:@"112,0"  // kSecAttrKeyTypeRSA has value_index = 0
+                      description:@"keys class with kSecAttrKeyType=kSecAttrKeyTypeRSA should be encoded as '112,0'"
+                        printName:@"testTypeField_Keys_RSA"];
+
+    // Test 5: keys class with kSecAttrKeyType and valid CFString (kSecAttrKeyTypeSecureEnclaveAttestation) - should return value index 4
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeSecureEnclaveAttestation,
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:@"112,4"  // kSecAttrKeyTypeEC has value_index = 4
+                      description:@"keys class with kSecAttrKeyType=kSecAttrKeyTypeEC should be encoded as '112,4'"
+                        printName:@"testTypeField_Keys_EC"];
+
+    // Test 6: identity class with kSecAttrKeyType and CFNumber - should return KEY_INVALID_VALUE_TYPE
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassIdentity,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: @(42), // CFNumber - INVALID TYPE!
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:[NSString stringWithFormat:@"112,%ld", (long)KEY_INVALID_VALUE_TYPE]
+                      description:[NSString stringWithFormat:@"identity class with kSecAttrKeyType as CFNumber should be encoded as '112,%ld' (KEY_INVALID_VALUE_TYPE)", (long)KEY_INVALID_VALUE_TYPE]
+                        printName:@"testTypeField_Identity_InvalidType"];
+
+    // Test 7: identity class with kSecAttrKeyType and valid CFString (kSecAttrKeyTypeRSA) - should return value index 0
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassIdentity,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeRSA,
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:@"112,0"  // kSecAttrKeyTypeRSA has value_index = 0
+                      description:@"identity class with kSecAttrKeyType=kSecAttrKeyTypeRSA should be encoded as '112,0'"
+                        printName:@"testTypeField_Identity_RSA"];
+
+    // Test 8: identity class with kSecAttrKeyType and valid CFString (kSecAttrKeyTypeEd25519) - should return value index 6
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassIdentity,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeEd25519,
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:@"112,6"  // kSecAttrKeyTypeEd25519 has value_index = 6
+                      description:@"identity class with kSecAttrKeyType=kSecAttrKeyTypeEd25519 should be encoded as '112,6'"
+                        printName:@"testTypeField_Identity_Ed25519"];
+
+    
+    // Test 9: keys class with kSecAttrKeyType and invalid CFString - should return KEY_INVALID_VALUE
+    const NSInteger KEY_INVALID_VALUE = -2;
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: @"com.apple.invalid.keytype", // Invalid CFString!
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:[NSString stringWithFormat:@"112,%ld", (long)KEY_INVALID_VALUE]
+                      description:[NSString stringWithFormat:@"keys class with invalid CFString for kSecAttrKeyType should be encoded as '112,%ld' (KEY_INVALID_VALUE)", (long)KEY_INVALID_VALUE]
+                        printName:@"testTypeField_Keys_InvalidString"];
+
+    // Test 10: identity class with kSecAttrKeyType and invalid CFString - should return KEY_INVALID_VALUE
+    [self verifyAttributeEncoding:NULL
+                   attributeValue:nil
+                      customQuery:@{
+                          (__bridge id)kSecClass: (__bridge id)kSecClassIdentity,
+                          (__bridge id)kSecAttrApplicationLabel: @"test",
+                          (__bridge id)kSecAttrKeyType: @"com.apple.unknown.keytype", // Invalid CFString!
+                      }
+                         keyIndex:112  // kSecAttrKeyType
+                  expectedSegment:[NSString stringWithFormat:@"112,%ld", (long)KEY_INVALID_VALUE]
+                      description:[NSString stringWithFormat:@"identity class with invalid CFString for kSecAttrKeyType should be encoded as '112,%ld' (KEY_INVALID_VALUE)", (long)KEY_INVALID_VALUE]
+                        printName:@"testTypeField_Identity_InvalidString"];
+}
+
+// Helper method to add generic password items
+- (void)addK:(NSUInteger)count tombstone:(BOOL)tombstone GenpItemsWithAccessGroup:(NSString*)agrp
+{
+    for (NSUInteger i = 0; i < count; i++) {
+        NSDictionary *query = @{
+            (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+            (__bridge id)kSecAttrAccount: [NSString stringWithFormat:@"testAccount-%lu-%d", (unsigned long)i, tombstone],
+            (__bridge id)kSecAttrService: [NSString stringWithFormat:@"testService-%lu-%d", (unsigned long)i, tombstone],
+            (__bridge id)kSecAttrAccessGroup: agrp,
+            (__bridge id)kSecValueData: [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+            (__bridge id)kSecUseDataProtectionKeychain: @YES,
+            (__bridge id)kSecAttrTombstone: tombstone ? @YES : @NO,
+        };
+
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+    }
+}
+
+// Helper method to add internet password items
+- (void)addK:(NSUInteger)count tombstone:(BOOL)tombstone InetItemsWithAccessGroup:(NSString*)agrp
+{
+    for (NSUInteger i = 0; i < count; i++) {
+        NSDictionary *query = @{
+            (__bridge id)kSecClass: (__bridge id)kSecClassInternetPassword,
+            (__bridge id)kSecAttrAccount: [NSString stringWithFormat:@"testAccount-%lu-%d", (unsigned long)i, tombstone],
+            (__bridge id)kSecAttrServer: [NSString stringWithFormat:@"testserver-%lu-%d.com", (unsigned long)i, tombstone],
+            (__bridge id)kSecAttrAccessGroup: agrp,
+            (__bridge id)kSecValueData: [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+            (__bridge id)kSecUseDataProtectionKeychain: @YES,
+            (__bridge id)kSecAttrTombstone: tombstone ? @YES : @NO,
+        };
+
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+    }
+}
+
+// Helper method to add certificate items
+- (void)addK:(NSUInteger)count tombstone:(BOOL)tombstone CertItemsWithAccessGroup:(NSString*)agrp
+{
+    for (NSUInteger i = 0; i < count; i++) {
+        NSDictionary *query = @{
+            (__bridge id)kSecClass: (__bridge id)kSecClassCertificate,
+            (__bridge id)kSecValueData: [[NSString stringWithFormat:@"certdata-%lu-%d", (unsigned long)i, tombstone] dataUsingEncoding:NSUTF8StringEncoding],
+            (__bridge id)kSecAttrAccessGroup: agrp,
+            (__bridge id)kSecUseDataProtectionKeychain: @YES,
+            (__bridge id)kSecAttrTombstone: tombstone ? @YES : @NO,
+            (__bridge id)kSecAttrSyncViewHint: [[NSString stringWithFormat:@"certviewHint-%lu-%d", (unsigned long)i, tombstone] dataUsingEncoding:NSUTF8StringEncoding],
+        };
+
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+    }
+}
+
+// Helper method to add key items
+- (void)addK:(NSUInteger)count tombstone:(BOOL)tombstone KeysItemsWithAccessGroup:(NSString*)agrp
+{
+    for (NSUInteger i = 1; i <= count; i++) {
+        CFErrorRef error = NULL;
+        id newKey = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)@{
+            (__bridge id)kSecUseDataProtectionKeychain: @YES,
+            (__bridge id)kSecAttrSynchronizable: @YES,
+            (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge id)kSecAttrKeySizeInBits: @256,
+            (__bridge id)kSecAttrTombstone: @(tombstone),
+            (__bridge id)kSecPrivateKeyAttrs: @{
+                (__bridge id)kSecAttrIsPermanent: @YES,
+                (__bridge id)kSecAttrAccessGroup: agrp,
+                (__bridge id)kSecAttrLabel: [NSString stringWithFormat:@"example_%lu_%d.com", (unsigned long)i, tombstone],
+            },
+        }, &error));
+        XCTAssertNotNil(newKey, @"Should generate new key");
+        XCTAssertNil((__bridge NSError*)error, @"Should not have error while creating key");
+    }
+}
+
+- (void)testKeychainDBStorageInfo
+{
+    // Define access groups
+    NSString *agrp1 = @"com.apple.security.testOne";
+    NSString *agrp2 = @"com.apple.security.testTwo";
+    NSString *agrp3 = @"com.apple.security.testThree";
+    
+    // Set current access groups
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)@[agrp1, agrp2, agrp3]);
+    
+    // Get initial counts
+    NSDictionary *initialCounts = SecDbStatsGetAccessGroupItemCounts();
+    
+    // agrp1 - mix of regular and tombstone items
+    [self addK:2 tombstone:NO GenpItemsWithAccessGroup:agrp1];
+    [self addK:1 tombstone:YES GenpItemsWithAccessGroup:agrp1];
+    [self addK:3 tombstone:NO InetItemsWithAccessGroup:agrp1];
+    [self addK:1 tombstone:NO CertItemsWithAccessGroup:agrp1];
+    [self addK:2 tombstone:YES CertItemsWithAccessGroup:agrp1];
+    [self addK:1 tombstone:NO KeysItemsWithAccessGroup:agrp1];
+    
+    // agrp2 - only regular items
+    [self addK:3 tombstone:NO GenpItemsWithAccessGroup:agrp2];
+    [self addK:2 tombstone:NO InetItemsWithAccessGroup:agrp2];
+    [self addK:1 tombstone:NO CertItemsWithAccessGroup:agrp2];
+    [self addK:4 tombstone:NO KeysItemsWithAccessGroup:agrp2];
+    
+    //agrp3 - only tombstone items
+    [self addK:2 tombstone:YES GenpItemsWithAccessGroup:agrp3];
+    [self addK:3 tombstone:YES InetItemsWithAccessGroup:agrp3];
+    [self addK:1 tombstone:YES CertItemsWithAccessGroup:agrp3];
+    [self addK:2 tombstone:YES KeysItemsWithAccessGroup:agrp3];
+    
+    // Get final counts
+    NSDictionary *finalCounts = SecDbStatsGetAccessGroupItemCounts();
+    // Test storage byte calculations
+    NSDictionary *finalStorage = SecDbStatsGetAccessGroupStorage();
+    
+    {
+        // Assert on genp counts
+        NSDictionary *genpCounts = finalCounts[@"genp"];
+        XCTAssertNotNil(genpCounts, @"genp table counts should not be nil");
+        
+        // agrp1: 2 regular + 1 tombstone
+        NSDictionary *initialGenpAgrp1 = initialCounts[@"genp"][agrp1];
+        int initialTomb0_genp1 = [initialGenpAgrp1[@"tomb_0"] intValue];
+        int initialTomb1_genp1 = [initialGenpAgrp1[@"tomb_1"] intValue];
+        XCTAssertEqual([genpCounts[agrp1][@"tomb_0"] intValue], initialTomb0_genp1 + 2, @"genp agrp1 should have 2 regular items");
+        XCTAssertEqual([genpCounts[agrp1][@"tomb_1"] intValue], initialTomb1_genp1 + 1, @"genp agrp1 should have 1 tombstone");
+        
+        // agrp2: 3 regular + 0 tombstone
+        NSDictionary *initialGenpAgrp2 = initialCounts[@"genp"][agrp2];
+        int initialTomb0_genp2 = [initialGenpAgrp2[@"tomb_0"] intValue];
+        int initialTomb1_genp2 = [initialGenpAgrp2[@"tomb_1"] intValue];
+        XCTAssertEqual([genpCounts[agrp2][@"tomb_0"] intValue], initialTomb0_genp2 + 3, @"genp agrp2 should have 3 regular items");
+        XCTAssertEqual([genpCounts[agrp2][@"tomb_1"] intValue], initialTomb1_genp2 + 0, @"genp agrp2 should have 0 tombstones");
+        
+        // agrp3: 0 regular + 2 tombstone
+        NSDictionary *initialGenpAgrp3 = initialCounts[@"genp"][agrp3];
+        int initialTomb0_genp3 = [initialGenpAgrp3[@"tomb_0"] intValue];
+        int initialTomb1_genp3 = [initialGenpAgrp3[@"tomb_1"] intValue];
+        XCTAssertEqual([genpCounts[agrp3][@"tomb_0"] intValue], initialTomb0_genp3 + 0, @"genp agrp3 should have 0 regular items");
+        XCTAssertEqual([genpCounts[agrp3][@"tomb_1"] intValue], initialTomb1_genp3 + 2, @"genp agrp3 should have 2 tombstones");
+        
+        // Size comparison
+        NSDictionary *genpStorage = finalStorage[@"genp"];
+        XCTAssertNotNil(genpStorage, @"genp storage should not be nil");
+
+        long long genpStorage1 = [genpStorage[agrp1] longLongValue];
+        long long genpStorage2 = [genpStorage[agrp2] longLongValue];
+        long long genpStorage3 = [genpStorage[agrp3] longLongValue];
+
+        // agrp1 has 3 items, agrp2 has 3 items, agrp3 has 2 items
+        XCTAssertTrue(genpStorage1 > 0, @"genp agrp1 should have storage for 3 items");
+        XCTAssertTrue(genpStorage2 > 0, @"genp agrp2 should have storage for 3 items");
+        XCTAssertTrue(genpStorage3 > 0, @"genp agrp3 should have storage for 2 items");
+
+        // agrp1 and agrp2 should have similar storage (both have 3 items)
+        XCTAssertEqualWithAccuracy(genpStorage1, genpStorage2, genpStorage2 * 0.5, @"genp agrp1 and agrp2 should have similar storage (both 3 items)");
+        // agrp3 should have less storage than agrp1/agrp2 (2 items vs 3 items)
+        XCTAssertLessThan(genpStorage3, genpStorage1, @"genp agrp3 should have less storage (2 items vs 3 items)");
+    }
+    
+    {
+        // Assert on inet counts
+        NSDictionary *inetCounts = finalCounts[@"inet"];
+        XCTAssertNotNil(inetCounts, @"inet table counts should not be nil");
+        
+        // agrp1: 3 regular + 0 tombstone
+        NSDictionary *initialInetAgrp1 = initialCounts[@"inet"][agrp1];
+        int initialTomb0_inet1 = [initialInetAgrp1[@"tomb_0"] intValue];
+        int initialTomb1_inet1 = [initialInetAgrp1[@"tomb_1"] intValue];
+        XCTAssertEqual([inetCounts[agrp1][@"tomb_0"] intValue], initialTomb0_inet1 + 3, @"inet agrp1 should have 3 regular items");
+        XCTAssertEqual([inetCounts[agrp1][@"tomb_1"] intValue], initialTomb1_inet1 + 0, @"inet agrp1 should have 0 tombstones");
+        
+        // agrp2: 2 regular + 0 tombstone
+        NSDictionary *initialInetAgrp2 = initialCounts[@"inet"][agrp2];
+        int initialTomb0_inet2 = [initialInetAgrp2[@"tomb_0"] intValue];
+        int initialTomb1_inet2 = [initialInetAgrp2[@"tomb_1"] intValue];
+        XCTAssertEqual([inetCounts[agrp2][@"tomb_0"] intValue], initialTomb0_inet2 + 2, @"inet agrp2 should have 2 regular items");
+        XCTAssertEqual([inetCounts[agrp2][@"tomb_1"] intValue], initialTomb1_inet2 + 0, @"inet agrp2 should have 0 tombstones");
+        
+        // agrp3: 0 regular + 3 tombstone
+        NSDictionary *initialInetAgrp3 = initialCounts[@"inet"][agrp3];
+        int initialTomb0_inet3 = [initialInetAgrp3[@"tomb_0"] intValue];
+        int initialTomb1_inet3 = [initialInetAgrp3[@"tomb_1"] intValue];
+        XCTAssertEqual([inetCounts[agrp3][@"tomb_0"] intValue], initialTomb0_inet3 + 0, @"inet agrp3 should have 0 regular items");
+        XCTAssertEqual([inetCounts[agrp3][@"tomb_1"] intValue], initialTomb1_inet3 + 3, @"inet agrp3 should have 3 tombstones");
+        
+        // Size comparison
+        NSDictionary *inetStorage = finalStorage[@"inet"];
+        XCTAssertNotNil(inetStorage, @"inet storage should not be nil");
+
+        long long inetStorage1 = [inetStorage[agrp1] longLongValue];
+        long long inetStorage2 = [inetStorage[agrp2] longLongValue];
+        long long inetStorage3 = [inetStorage[agrp3] longLongValue];
+
+        XCTAssertTrue(inetStorage1 > 0, @"inet agrp1 should have storage for 3 items");
+        XCTAssertTrue(inetStorage2 > 0, @"inet agrp2 should have storage for 2 items");
+        XCTAssertTrue(inetStorage3 > 0, @"inet agrp3 should have storage for 3 items");
+
+        // agrp1 and agrp3 should have similar storage (both have 3 items)
+        XCTAssertEqualWithAccuracy(inetStorage1, inetStorage3, inetStorage3 * 0.5, @"inet agrp1 and agrp3 should have similar storage (both 3 items)");
+        // agrp2 should have less storage than agrp1/agrp3 (2 items vs 3 items)
+        XCTAssertLessThan(inetStorage2, inetStorage1, @"inet agrp2 should have less storage (2 items vs 3 items)");
+    }
+    
+    {
+        // Assert on cert counts
+        NSDictionary *certCounts = finalCounts[@"cert"];
+        XCTAssertNotNil(certCounts, @"cert table counts should not be nil");
+        
+        // agrp1: 1 regular + 2 tombstone
+        NSDictionary *initialCertAgrp1 = initialCounts[@"cert"][agrp1];
+        int initialTomb0_cert1 = [initialCertAgrp1[@"tomb_0"] intValue];
+        int initialTomb1_cert1 = [initialCertAgrp1[@"tomb_1"] intValue];
+        XCTAssertEqual([certCounts[agrp1][@"tomb_0"] intValue], initialTomb0_cert1 + 1, @"cert agrp1 should have 1 regular item");
+        XCTAssertEqual([certCounts[agrp1][@"tomb_1"] intValue], initialTomb1_cert1 + 2, @"cert agrp1 should have 2 tombstones");
+        
+        // agrp2: 1 regular + 0 tombstone
+        NSDictionary *initialCertAgrp2 = initialCounts[@"cert"][agrp2];
+        int initialTomb0_cert2 = [initialCertAgrp2[@"tomb_0"] intValue];
+        int initialTomb1_cert2 = [initialCertAgrp2[@"tomb_1"] intValue];
+        XCTAssertEqual([certCounts[agrp2][@"tomb_0"] intValue], initialTomb0_cert2 + 1, @"cert agrp2 should have 1 regular item");
+        XCTAssertEqual([certCounts[agrp2][@"tomb_1"] intValue], initialTomb1_cert2 + 0, @"cert agrp2 should have 0 tombstones");
+        
+        // agrp3: 0 regular + 1 tombstone
+        NSDictionary *initialCertAgrp3 = initialCounts[@"cert"][agrp3];
+        int initialTomb0_cert3 = [initialCertAgrp3[@"tomb_0"] intValue];
+        int initialTomb1_cert3 = [initialCertAgrp3[@"tomb_1"] intValue];
+        XCTAssertEqual([certCounts[agrp3][@"tomb_0"] intValue], initialTomb0_cert3 + 0, @"cert agrp3 should have 0 regular items");
+        XCTAssertEqual([certCounts[agrp3][@"tomb_1"] intValue], initialTomb1_cert3 + 1, @"cert agrp3 should have 1 tombstone");
+        
+        // Size comparison
+        NSDictionary *certStorage = finalStorage[@"cert"];
+        XCTAssertNotNil(certStorage, @"cert storage should not be nil");
+
+        long long certStorage1 = [certStorage[agrp1] longLongValue];
+        long long certStorage2 = [certStorage[agrp2] longLongValue];
+        long long certStorage3 = [certStorage[agrp3] longLongValue];
+
+        XCTAssertTrue(certStorage1 > 0, @"cert agrp1 should have storage for 3 items");
+        XCTAssertTrue(certStorage2 > 0, @"cert agrp2 should have storage for 1 item");
+        XCTAssertTrue(certStorage3 > 0, @"cert agrp3 should have storage for 1 item");
+
+        // agrp2 and agrp3 should have similar storage (both have 1 item)
+        XCTAssertEqualWithAccuracy(certStorage2, certStorage3, certStorage3 * 0.5, @"cert agrp2 and agrp3 should have similar storage (both 1 item)");
+        // agrp1 should have more storage than agrp2/agrp3 (3 items vs 1 item)
+        XCTAssertGreaterThan(certStorage1, certStorage2, @"cert agrp1 should have more storage (3 items vs 1 item)");
+    }
+    
+    {
+        // Assert on keys counts
+        NSDictionary *keysCounts = finalCounts[@"keys"];
+        XCTAssertNotNil(keysCounts, @"keys table counts should not be nil");
+        
+        // agrp1: 1 regular + 0 tombstone
+        NSDictionary *initialKeysAgrp1 = initialCounts[@"keys"][agrp1];
+        int initialTomb0_keys1 = [initialKeysAgrp1[@"tomb_0"] intValue];
+        int initialTomb1_keys1 = [initialKeysAgrp1[@"tomb_1"] intValue];
+        XCTAssertEqual([keysCounts[agrp1][@"tomb_0"] intValue], initialTomb0_keys1 + 1, @"keys agrp1 should have 1 regular item");
+        XCTAssertEqual([keysCounts[agrp1][@"tomb_1"] intValue], initialTomb1_keys1 + 0, @"keys agrp1 should have 0 tombstones");
+
+        // agrp2: 4 regular + 0 tombstone
+        NSDictionary *initialKeysAgrp2 = initialCounts[@"keys"][agrp2];
+        int initialTomb0_keys2 = [initialKeysAgrp2[@"tomb_0"] intValue];
+        int initialTomb1_keys2 = [initialKeysAgrp2[@"tomb_1"] intValue];
+        XCTAssertEqual([keysCounts[agrp2][@"tomb_0"] intValue], initialTomb0_keys2 + 4, @"keys agrp2 should have 4 regular items");
+        XCTAssertEqual([keysCounts[agrp2][@"tomb_1"] intValue], initialTomb1_keys2 + 0, @"keys agrp2 should have 0 tombstones");
+
+        // agrp3: 0 regular + 2 tombstone
+        NSDictionary *initialKeysAgrp3 = initialCounts[@"keys"][agrp3];
+        int initialTomb0_keys3 = [initialKeysAgrp3[@"tomb_0"] intValue];
+        int initialTomb1_keys3 = [initialKeysAgrp3[@"tomb_1"] intValue];
+        XCTAssertEqual([keysCounts[agrp3][@"tomb_0"] intValue], initialTomb0_keys3 + 0, @"keys agrp3 should have 0 regular items");
+        XCTAssertEqual([keysCounts[agrp3][@"tomb_1"] intValue], initialTomb1_keys3 + 2, @"keys agrp3 should have 2 tombstones");
+        
+        // Size comparison
+        NSDictionary *keysStorage = finalStorage[@"keys"];
+        XCTAssertNotNil(keysStorage, @"keys storage should not be nil");
+
+        long long keysStorage1 = [keysStorage[agrp1] longLongValue];
+        long long keysStorage2 = [keysStorage[agrp2] longLongValue];
+        long long keysStorage3 = [keysStorage[agrp3] longLongValue];
+
+        XCTAssertTrue(keysStorage1 > 0, @"keys agrp1 should have storage for 1 item");
+        XCTAssertTrue(keysStorage2 > 0, @"keys agrp2 should have storage for 4 items");
+        XCTAssertTrue(keysStorage3 > 0, @"keys agrp3 should have storage for 2 items");
+
+        // agrp2 should have more storage than agrp1 (4 items vs 1 item)
+        XCTAssertGreaterThan(keysStorage2, keysStorage1, @"keys agrp2 should have more storage (4 items vs 1 item)");
+        // agrp3 should have more storage than agrp1 but less than agrp2 (2 items vs 1 and 4)
+        XCTAssertGreaterThan(keysStorage3, keysStorage1, @"keys agrp3 should have more storage than agrp1 (2 items vs 1 item)");
+        XCTAssertLessThan(keysStorage3, keysStorage2, @"keys agrp3 should have less storage than agrp2 (2 items vs 4 items)");
+    }
+    
+    // Now get db stats through stat() command
+    // Get keychain db file size info
+    NSDictionary *fileSizeInfo = SecDbStatsGetDatabaseFileSizeInfo();
+
+    NSLog(@"File sizes: %@", fileSizeInfo);
+    // Verify that the dictionary is not nil
+    XCTAssertNotNil(fileSizeInfo, @"File size info should not be nil");
+
+    // Verify that expected keys are present (or have negative errno values)
+    // mainDbFileSize should always exist since we added items
+    XCTAssertNotNil(fileSizeInfo[@"mainDBFileSize"], @"mainDBFileSize entry should exist");
+    // walDbFileSize and shmDbFileSize may not exist depending on database state
+    // totalDbFileSize should always exist
+    XCTAssertNotNil(fileSizeInfo[@"totalDBFileSize"], @"totalDBFileSize should exist");
+
+    // Verify main_db file size
+    NSNumber *mainDbSize = fileSizeInfo[@"mainDBFileSize"];
+    // Since we added some items, we should always have main db
+    if (mainDbSize && [mainDbSize intValue] < 0) {
+        XCTFail(@"main_db file should exist, errno: %d", -[mainDbSize intValue]);
+    } else {
+        XCTAssertNotNil(mainDbSize, @"mainDBFileSize should exist");
+        // Verify size is a number
+        long long sizeValue = [mainDbSize longLongValue];
+        XCTAssertGreaterThan(sizeValue, 0, @"mainDBFileSize should be greater than 0");
+    }
+
+    // WAL and SHM files may or may not exist depending on database state
+    NSNumber *walSize = fileSizeInfo[@"walDBFileSize"];
+    if (walSize && [walSize intValue] >= 0) {
+        XCTAssertNotNil(walSize, @"walDBFileSize should exist when file exists");
+        XCTAssertTrue([walSize isKindOfClass:[NSNumber class]], @"walDBFileSize should be a number");
+    }
+
+    NSNumber *shmSize = fileSizeInfo[@"shmDBFileSize"];
+    if (shmSize && [shmSize intValue] >= 0) {
+        XCTAssertNotNil(shmSize, @"shmDBFileSize should exist when file exists");
+        XCTAssertTrue([shmSize isKindOfClass:[NSNumber class]], @"shmDBFileSize should be a number");
+    }
+
+    // Verify totalDbFileSize exists and is a number
+    XCTAssertNotNil(fileSizeInfo[@"totalDBFileSize"], @"totalDBFileSize should exist");
+    NSNumber *totalSize = fileSizeInfo[@"totalDBFileSize"];
+    long long totalSizeValue = [totalSize longLongValue];
+    XCTAssertGreaterThanOrEqual(totalSizeValue, 0, @"totalDBFileSize should be non-negative");
+
+    // Verify totalDbFileSize equals sum of individual file sizes
+    long long expectedTotal = 0;
+    if (mainDbSize && [mainDbSize longLongValue] >= 0) {
+        expectedTotal += [mainDbSize longLongValue];
+    }
+    if (walSize && [walSize longLongValue] >= 0) {
+        expectedTotal += [walSize longLongValue];
+    }
+    if (shmSize && [shmSize longLongValue] >= 0) {
+        expectedTotal += [shmSize longLongValue];
+    }
+
+    XCTAssertEqual(totalSizeValue, expectedTotal, @"totalDBFileSize should equal sum of individual file sizes");
+}
+
+- (void)testSecDbStatsGetMetricsInfo
+{
+    // Define access groups
+    NSString *agrp1 = @"com.apple.security.metricsTest1";
+    NSString *agrp2 = @"com.apple.security.metricsTest2";
+
+    // Set current access groups
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)@[agrp1, agrp2]);
+
+    // Add some test data
+    [self addK:3 tombstone:NO GenpItemsWithAccessGroup:agrp1];
+    [self addK:2 tombstone:YES GenpItemsWithAccessGroup:agrp1];
+    [self addK:5 tombstone:NO GenpItemsWithAccessGroup:agrp2];
+    [self addK:2 tombstone:NO InetItemsWithAccessGroup:agrp1];
+
+    // Also test that we can get metrics directly
+    NSDictionary *metrics = SecDbStatsGetMetrics();
+
+    NSLog(@"metrics: %@", metrics);
+    XCTAssertNotNil(metrics, @"Metrics should not be nil");
+
+    // Verify individual database file size fields are present
+    XCTAssertNotNil(metrics[@"mainDBFileSize"], @"mainDBFileSize should be present");
+    XCTAssertNotNil(metrics[@"totalDBFileSize"], @"totalDBFileSize should be present");
+
+    // Verify tablesStorageInfo is now a delimited string
+    NSString *tablesStorageInfoString = metrics[@"tablesStorageInfo"];
+    XCTAssertNotNil(tablesStorageInfoString, @"tablesStorageInfo should be present");
+    XCTAssertTrue([tablesStorageInfoString isKindOfClass:[NSString class]], @"tablesStorageInfo should be a string");
+
+    // Verify it doesn't contain JSON characters (no braces)
+    XCTAssertFalse([tablesStorageInfoString containsString:@"{"], @"tablesStorageInfo should not contain JSON braces");
+    XCTAssertFalse([tablesStorageInfoString containsString:@"}"], @"tablesStorageInfo should not contain JSON braces");
+
+    // Verify the format: table_name: [agrp: (tomb_0, tomb_1, storage); ...] \n
+    NSArray *lines = [tablesStorageInfoString componentsSeparatedByString:@"\n"];
+    XCTAssertGreaterThan([lines count], 0, @"Should have at least one line");
+
+    // Track what we've seen for validation
+    BOOL foundGenpTable = NO;
+    BOOL foundInetTable = NO;
+    BOOL foundCertTable = NO;
+    BOOL foundKeysTable = NO;
+    BOOL foundAgrp1InGenp = NO;
+    BOOL foundAgrp2InGenp = NO;
+    BOOL foundAgrp1InInet = NO;
+
+    // Parse and verify each line has expected format
+    for (NSString *line in lines) {
+        if ([line length] == 0) continue; // Skip empty lines
+
+        // Expected format: tableName: [agrp1: (tomb_0, tomb_1, storage); agrp2: (...); ...] or tableName: []
+        NSRange colonRange = [line rangeOfString:@": ["];
+        XCTAssertNotEqual(colonRange.location, NSNotFound, @"Line should contain ': [' pattern: %@", line);
+
+        NSString *tableName = [line substringToIndex:colonRange.location];
+        XCTAssertTrue([tableName length] > 0, @"Table name should not be empty");
+
+        // Mark that we found this table
+        if ([tableName isEqualToString:@"genp"]) {
+            foundGenpTable = YES;
+        } else if ([tableName isEqualToString:@"inet"]) {
+            foundInetTable = YES;
+        } else if ([tableName isEqualToString:@"cert"]) {
+            foundCertTable = YES;
+        } else if ([tableName isEqualToString:@"keys"]) {
+            foundKeysTable = YES;
+        }
+
+        // Extract the content between [ and ]
+        NSString *content = [line substringFromIndex:colonRange.location + 3]; // Skip ": ["
+        XCTAssertTrue([content hasSuffix:@"]"], @"Line should end with ']': %@", line);
+
+        content = [content substringToIndex:[content length] - 1]; // Remove trailing ]
+
+        // If content is empty, this table has no access groups - that's valid
+        if ([content length] == 0) {
+            continue;
+        }
+
+        // Parse access group entries separated by semicolons: agrp1: (1, 2, 3); agrp2: (4, 5, 6); ...
+        NSArray *agentEntries = [content componentsSeparatedByString:@"; "];
+
+        for (NSString *entry in agentEntries) {
+            if ([entry length] == 0) continue;
+
+            NSRange entryColonRange = [entry rangeOfString:@": ("];
+            XCTAssertNotEqual(entryColonRange.location, NSNotFound, @"Entry should contain ': (' pattern: %@", entry);
+
+            NSString *agrp = [entry substringToIndex:entryColonRange.location];
+            NSString *values = [entry substringFromIndex:entryColonRange.location + 3]; // Skip ": ("
+            XCTAssertTrue([values hasSuffix:@")"], @"Entry should end with ')': %@", entry);
+
+            values = [values substringToIndex:[values length] - 1]; // Remove trailing )
+            NSArray *valueComponents = [values componentsSeparatedByString:@", "];
+            XCTAssertEqual([valueComponents count], 3, @"Should have exactly 3 values (tomb_0, tomb_1, storage)");
+
+            int tomb0Count = [valueComponents[0] intValue];
+            int tomb1Count = [valueComponents[1] intValue];
+            long long storage = [valueComponents[2] longLongValue];
+
+            // Verify all values are non-negative
+            XCTAssertGreaterThanOrEqual(tomb0Count, 0, @"tomb_0 should be non-negative for %@ in %@", agrp, tableName);
+            XCTAssertGreaterThanOrEqual(tomb1Count, 0, @"tomb_1 should be non-negative for %@ in %@", agrp, tableName);
+            XCTAssertGreaterThanOrEqual(storage, 0, @"storage should be non-negative for %@ in %@", agrp, tableName);
+
+            // Check specific test data we added
+            if ([tableName isEqualToString:@"genp"]) {
+                if ([agrp isEqualToString:agrp1]) {
+                    foundAgrp1InGenp = YES;
+                    XCTAssertEqual(tomb0Count, 3, @"Should have 3 non-tombstone items for %@ in genp", agrp1);
+                    XCTAssertEqual(tomb1Count, 2, @"Should have 2 tombstone items for %@ in genp", agrp1);
+                    XCTAssertGreaterThan(storage, 0, @"Storage should be greater than 0 for %@ in genp", agrp1);
+                } else if ([agrp isEqualToString:agrp2]) {
+                    foundAgrp2InGenp = YES;
+                    XCTAssertEqual(tomb0Count, 5, @"Should have 5 non-tombstone items for %@ in genp", agrp2);
+                    XCTAssertGreaterThan(storage, 0, @"Storage should be greater than 0 for %@ in genp", agrp2);
+                }
+            } else if ([tableName isEqualToString:@"inet"]) {
+                if ([agrp isEqualToString:agrp1]) {
+                    foundAgrp1InInet = YES;
+                    XCTAssertEqual(tomb0Count, 2, @"Should have 2 non-tombstone items for %@ in inet", agrp1);
+                }
+            }
+        }
+    }
+
+    // Verify we found all expected tables
+    XCTAssertTrue(foundGenpTable, @"Should have found genp table");
+    XCTAssertTrue(foundInetTable, @"Should have found inet table");
+    XCTAssertTrue(foundCertTable, @"Should have found cert table");
+    XCTAssertTrue(foundKeysTable, @"Should have found keys table");
+
+    // Verify we found the specific test data we added
+    XCTAssertTrue(foundAgrp1InGenp, @"Should have found %@ in genp table", agrp1);
+    XCTAssertTrue(foundAgrp2InGenp, @"Should have found %@ in genp table", agrp2);
+    XCTAssertTrue(foundAgrp1InInet, @"Should have found %@ in inet table", agrp1);
+}
+
 @end
 
 #endif

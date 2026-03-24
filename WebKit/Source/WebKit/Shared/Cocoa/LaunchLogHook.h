@@ -29,13 +29,13 @@
 
 #import <wtf/Lock.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/OSObjectPtr.h>
+#import <wtf/darwin/XPCObjectPtr.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
 namespace WebKit {
 
 class LaunchLogHook {
-    friend class LazyNeverDestroyed<LaunchLogHook>;
+    friend class NeverDestroyed<LaunchLogHook>;
 public:
     static LaunchLogHook& singleton();
 
@@ -46,7 +46,7 @@ private:
     LaunchLogHook() = default;
 
     UnfairLock m_lock;
-    OSObjectPtr<xpc_connection_t> m_connection WTF_GUARDED_BY_LOCK(m_lock);
+    XPCObjectPtr<xpc_connection_t> m_connection WTF_GUARDED_BY_LOCK(m_lock);
 };
 
 } // namespace WebKit

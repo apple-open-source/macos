@@ -27,7 +27,6 @@
 
 #if PLATFORM(MAC)
 
-#include "FrameInfoData.h"
 #include "WebContextMenuProxy.h"
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakObjCPtr.h>
@@ -36,6 +35,7 @@ OBJC_CLASS NSMenu;
 OBJC_CLASS NSMenuItem;
 OBJC_CLASS NSView;
 OBJC_CLASS NSWindow;
+OBJC_CLASS WKCaptionStyleMenuController;
 OBJC_CLASS WKMenuDelegate;
 
 #if ENABLE(WRITING_TOOLS)
@@ -52,7 +52,7 @@ class WebContextMenuProxyMac final : public WebContextMenuProxy {
 public:
     static auto create(NSView *webView, WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     {
-        return adoptRef(*new WebContextMenuProxyMac(webView, page, WTFMove(frameInfo), WTFMove(context), userData));
+        return adoptRef(*new WebContextMenuProxyMac(webView, page, WTF::move(frameInfo), WTF::move(context), userData));
     }
     ~WebContextMenuProxyMac();
 
@@ -74,6 +74,11 @@ public:
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     RetainPtr<CGImageRef> imageForCopySubject() const final { return m_copySubjectResult; }
 #endif
+
+    void didShowContextMenu(NSMenu *);
+    void didDismissContextMenu(NSMenu *);
+    void captionStyleMenuWillOpen();
+    void captionStyleMenuDidClose();
 
 private:
     WebContextMenuProxyMac(NSView *, WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&);
@@ -99,13 +104,21 @@ private:
     NSMenu *platformMenu() const override;
     RetainPtr<NSArray> platformData() const override;
 
+#if ENABLE(VIDEO)
+    WKCaptionStyleMenuController *captionStyleMenuController();
+#endif
+
+    WKMenuDelegate *menuDelegate();
+
     RetainPtr<NSMenu> m_menu;
     RetainPtr<WKMenuDelegate> m_menuDelegate;
     WeakObjCPtr<NSView> m_webView;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     RetainPtr<CGImageRef> m_copySubjectResult;
 #endif
-    const FrameInfoData m_frameInfo;
+#if ENABLE(VIDEO)
+    RetainPtr<WKCaptionStyleMenuController> m_captionStyleMenuController;
+#endif
 };
 
 } // namespace WebKit

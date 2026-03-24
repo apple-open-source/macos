@@ -45,6 +45,10 @@ class WebKit::ContextMenuContextData {
     bool hasEntireImage();
     bool allowsFollowingLink();
     bool allowsFollowingImageURL();
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    std::optional<WebCore::MediaPlayerClientIdentifier> mediaElementIdentifier();
+#endif
+
 };
 
 #endif // ENABLE(CONTEXT_MENUS)

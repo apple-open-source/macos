@@ -52,19 +52,21 @@ UniqueIDBDatabaseTransaction::UniqueIDBDatabaseTransaction(UniqueIDBDatabaseConn
     if (m_transactionInfo.mode() == IDBTransactionMode::Versionchange)
         m_originalDatabaseInfo = makeUnique<IDBDatabaseInfo>(checkedDatabase()->info());
 
-    if (!m_databaseConnection)
+    RefPtr databaseConnection = m_databaseConnection.get();
+    if (!databaseConnection)
         return;
 
-    if (CheckedPtr manager = m_databaseConnection->manager())
+    if (CheckedPtr manager = databaseConnection->manager())
         manager->registerTransaction(*this);
 }
 
 UniqueIDBDatabaseTransaction::~UniqueIDBDatabaseTransaction()
 {
-    if (!m_databaseConnection)
+    RefPtr databaseConnection = m_databaseConnection.get();
+    if (!databaseConnection)
         return;
 
-    if (CheckedPtr manager = m_databaseConnection->manager())
+    if (CheckedPtr manager = databaseConnection->manager())
         manager->unregisterTransaction(*this);
 }
 
@@ -578,8 +580,8 @@ void UniqueIDBDatabaseTransaction::didActivateInBackingStore(const IDBError& err
 {
     LOG(IndexedDB, "UniqueIDBDatabaseTransaction::didActivateInBackingStore");
 
-    if (m_databaseConnection)
-        m_databaseConnection->protectedConnectionToClient()->didStartTransaction(m_transactionInfo.identifier(), error);
+    if (RefPtr connection = m_databaseConnection.get())
+        connection->protectedConnectionToClient()->didStartTransaction(m_transactionInfo.identifier(), error);
 }
 
 void UniqueIDBDatabaseTransaction::createIndex(const IDBRequestData& requestData, const IDBIndexInfo& indexInfo)
@@ -641,6 +643,11 @@ void UniqueIDBDatabaseTransaction::didGenerateIndexKeyForRecord(IDBResourceIdent
         return;
 
     database->didGenerateIndexKeyForRecord(*this, indexInfo, key, value, recordID);
+}
+
+void UniqueIDBDatabaseTransaction::addOpenRequestResult(const IDBError& error)
+{
+    m_requestResults.append(error);
 }
 
 } // namespace IDBServer

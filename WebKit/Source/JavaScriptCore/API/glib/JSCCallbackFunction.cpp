@@ -69,7 +69,7 @@ JSC_DEFINE_HOST_FUNCTION(constructJSCCallbackFunction, (JSGlobalObject* globalOb
 JSCCallbackFunction* JSCCallbackFunction::create(VM& vm, JSGlobalObject* globalObject, const String& name, Type type, JSCClass* jscClass, GRefPtr<GClosure>&& closure, GType returnType, std::optional<Vector<GType>>&& parameters)
 {
     Structure* structure = globalObject->glibCallbackFunctionStructure();
-    JSCCallbackFunction* function = new (NotNull, allocateCell<JSCCallbackFunction>(vm)) JSCCallbackFunction(vm, structure, type, jscClass, WTFMove(closure), returnType, WTFMove(parameters));
+    JSCCallbackFunction* function = new (NotNull, allocateCell<JSCCallbackFunction>(vm)) JSCCallbackFunction(vm, structure, type, jscClass, WTF::move(closure), returnType, WTF::move(parameters));
     function->finishCreation(vm, 0, name);
     return function;
 }
@@ -80,9 +80,9 @@ JSCCallbackFunction::JSCCallbackFunction(VM& vm, Structure* structure, Type type
     , m_constructCallback(callAsConstructor)
     , m_type(type)
     , m_class(jscClass)
-    , m_closure(WTFMove(closure))
+    , m_closure(WTF::move(closure))
     , m_returnType(returnType)
-    , m_parameters(WTFMove(parameters))
+    , m_parameters(WTF::move(parameters))
 {
     ASSERT(type != Type::Constructor || jscClass);
     if (G_CLOSURE_NEEDS_MARSHAL(m_closure.get()))
@@ -154,7 +154,7 @@ JSValueRef JSCCallbackFunction::call(JSContextRef callerContext, JSObjectRef thi
     if (auto* jscException = jsc_context_get_exception(context.get()))
         *exception = jscExceptionGetJSValue(jscException);
 
-    jscContextPopCallback(context.get(), WTFMove(callbackData));
+    jscContextPopCallback(context.get(), WTF::move(callbackData));
 
     if (m_returnType == G_TYPE_NONE)
         return JSValueMakeUndefined(jsContext);
@@ -212,7 +212,7 @@ JSObjectRef JSCCallbackFunction::construct(JSContextRef callerContext, size_t ar
     if (auto* jscException = jsc_context_get_exception(context.get()))
         *exception = jscExceptionGetJSValue(jscException);
 
-    jscContextPopCallback(context.get(), WTFMove(callbackData));
+    jscContextPopCallback(context.get(), WTF::move(callbackData));
 
     if (*exception) {
         g_value_unset(&returnValue);

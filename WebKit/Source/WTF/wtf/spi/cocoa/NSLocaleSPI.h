@@ -25,7 +25,13 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
 DECLARE_SYSTEM_HEADER
+
+#include <wtf/Platform.h>
+
+#ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
 
@@ -40,3 +46,4 @@ DECLARE_SYSTEM_HEADER
 + (nonnull NSArray<NSString *> *)matchedLanguagesFromAvailableLanguages:(nonnull NSArray<NSString *> *)availableLanguages forPreferredLanguages:(nonnull NSArray<NSString *> *)preferredLanguages;
 @end
 
+#endif // __OBJC__

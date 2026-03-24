@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/WasmCallProfile.h>
@@ -48,11 +50,18 @@ public:
         return adoptRef(*new (fastMalloc(allocationSize(callee.numCallProfiles()))) BaselineData(callee.numCallProfiles()));
     }
 
+    uint32_t totalCount() const { return m_totalCount; }
+    void incrementTotalCount() { ++m_totalCount; }
+
+    static constexpr ptrdiff_t offsetOfTotalCount() { return OBJECT_OFFSETOF(BaselineData, m_totalCount); }
+
 private:
     BaselineData(unsigned size)
         : TrailingArrayType(size)
     {
     }
+
+    uint32_t m_totalCount { 0 };
 };
 
 } // namespace JSC::Wasm

@@ -37,8 +37,8 @@ template<typename> class ExceptionOr;
 
 class WebCodecsEncodedVideoChunkStorage : public ThreadSafeRefCounted<WebCodecsEncodedVideoChunkStorage> {
 public:
-    static Ref<WebCodecsEncodedVideoChunkStorage> create(WebCodecsEncodedVideoChunkType type, int64_t timestamp, std::optional<uint64_t> duration, Vector<uint8_t>&& buffer) { return create(WebCodecsEncodedVideoChunkData { type, timestamp, duration, WTFMove(buffer) }); }
-    static Ref<WebCodecsEncodedVideoChunkStorage> create(WebCodecsEncodedVideoChunkData&& data) { return adoptRef(* new WebCodecsEncodedVideoChunkStorage(WTFMove(data))); }
+    static Ref<WebCodecsEncodedVideoChunkStorage> create(WebCodecsEncodedVideoChunkType type, int64_t timestamp, std::optional<uint64_t> duration, Vector<uint8_t>&& buffer) { return create(WebCodecsEncodedVideoChunkData { type, timestamp, duration, WTF::move(buffer) }); }
+    static Ref<WebCodecsEncodedVideoChunkStorage> create(WebCodecsEncodedVideoChunkData&& data) { return adoptRef(* new WebCodecsEncodedVideoChunkStorage(WTF::move(data))); }
 
     const WebCodecsEncodedVideoChunkData& data() const { return m_data; }
     uint64_t memoryCost() const { return m_data.buffer.size(); }
@@ -58,8 +58,8 @@ public:
         BufferSource data;
     };
 
-    static Ref<WebCodecsEncodedVideoChunk> create(Init&& init) { return adoptRef(*new WebCodecsEncodedVideoChunk(WTFMove(init))); }
-    static Ref<WebCodecsEncodedVideoChunk> create(Ref<WebCodecsEncodedVideoChunkStorage>&& storage) { return adoptRef(*new WebCodecsEncodedVideoChunk(WTFMove(storage))); }
+    static Ref<WebCodecsEncodedVideoChunk> create(Init&& init) { return adoptRef(*new WebCodecsEncodedVideoChunk(WTF::move(init))); }
+    static Ref<WebCodecsEncodedVideoChunk> create(Ref<WebCodecsEncodedVideoChunkStorage>&& storage) { return adoptRef(*new WebCodecsEncodedVideoChunk(WTF::move(storage))); }
 
     WebCodecsEncodedVideoChunkType type() const { return m_storage->data().type; };
     int64_t timestamp() const { return m_storage->data().timestamp; }
@@ -79,12 +79,12 @@ private:
 };
 
 inline WebCodecsEncodedVideoChunkStorage::WebCodecsEncodedVideoChunkStorage(WebCodecsEncodedVideoChunkData&& data)
-    : m_data { WTFMove(data) }
+    : m_data { WTF::move(data) }
 {
 }
 
 inline WebCodecsEncodedVideoChunk::WebCodecsEncodedVideoChunk(Ref<WebCodecsEncodedVideoChunkStorage>&& storage)
-    : m_storage(WTFMove(storage))
+    : m_storage(WTF::move(storage))
 {
 }
 

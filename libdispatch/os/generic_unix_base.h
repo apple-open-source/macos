@@ -39,6 +39,12 @@
 #ifndef API_DEPRECATED_WITH_REPLACEMENT
 #define API_DEPRECATED_WITH_REPLACEMENT(...)
 #endif
+#ifndef SPI_AVAILABLE
+#define SPI_AVAILABLE(...)
+#endif
+#ifndef SPI_DEPRECATED
+#define SPI_DEPRECATED(...)
+#endif
 
 #if __GNUC__
 #define OS_EXPECT(x, v) __builtin_expect((x), (v))
@@ -124,5 +130,21 @@ enum { __VA_ARGS__ }; typedef _type _name##_t
 #undef OS_NOTHROW
 #endif
 #define OS_NOTHROW
+
+#ifdef OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+#undef OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+#endif
+#define OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+
+#ifdef OS_ASSUME_PTR_ABI_SINGLE_END
+#undef OS_ASSUME_PTR_ABI_SINGLE_END
+#endif
+#define OS_ASSUME_PTR_ABI_SINGLE_END
+
+#ifdef OS_UNSAFE_INDEXABLE
+#undef OS_UNSAFE_INDEXABLE
+#endif
+#define OS_UNSAFE_INDEXABLE
+
 
 #endif /* __OS_GENERIC_UNIX_BASE__ */

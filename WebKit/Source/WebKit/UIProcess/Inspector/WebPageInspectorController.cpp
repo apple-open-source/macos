@@ -60,9 +60,9 @@ WebPageInspectorController::WebPageInspectorController(WebPageProxy& inspectedPa
     , m_backendDispatcher(BackendDispatcher::create(m_frontendRouter.copyRef()))
     , m_inspectedPage(inspectedPage)
 {
-    auto targetAgent = makeUnique<InspectorTargetAgent>(m_frontendRouter, m_backendDispatcher);
-    m_targetAgent = targetAgent.get();
-    m_agents.append(WTFMove(targetAgent));
+    auto targetAgent = makeUniqueRef<InspectorTargetAgent>(m_frontendRouter, m_backendDispatcher);
+    m_targetAgent = targetAgent.ptr();
+    m_agents.append(WTF::move(targetAgent));
 }
 
 WebPageInspectorController::~WebPageInspectorController() = default;
@@ -183,7 +183,7 @@ void WebPageInspectorController::destroyInspectorTarget(const String& targetId)
     auto it = m_targets.find(targetId);
     if (it == m_targets.end())
         return;
-    checkedTargetAgent()->targetDestroyed(*it->value);
+    checkedTargetAgent()->targetDestroyed(CheckedRef { *it->value });
     m_targets.remove(it);
 }
 
@@ -197,16 +197,16 @@ bool WebPageInspectorController::shouldPauseLoading(const ProvisionalPageProxy& 
     if (!m_frontendRouter->hasFrontends())
         return false;
 
-    auto* target = m_targets.get(getTargetID(provisionalPage));
+    CheckedPtr target = m_targets.get(getTargetID(provisionalPage));
     ASSERT(target);
     return target->isPaused();
 }
 
 void WebPageInspectorController::setContinueLoadingCallback(const ProvisionalPageProxy& provisionalPage, WTF::Function<void()>&& callback)
 {
-    auto* target = m_targets.get(getTargetID(provisionalPage));
+    CheckedPtr target = m_targets.get(getTargetID(provisionalPage));
     ASSERT(target);
-    target->setResumeCallback(WTFMove(callback));
+    target->setResumeCallback(WTF::move(callback));
 }
 
 void WebPageInspectorController::didCreateProvisionalPage(ProvisionalPageProxy& provisionalPage)
@@ -235,7 +235,7 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
     for (auto& target : m_targets.values())
         targetAgent->targetDestroyed(*target);
     m_targets.clear();
-    m_targets.set(newTarget->identifier(), WTFMove(newTarget));
+    m_targets.set(newTarget->identifier(), WTF::move(newTarget));
 }
 
 InspectorBrowserAgent* WebPageInspectorController::enabledBrowserAgent() const
@@ -261,13 +261,13 @@ void WebPageInspectorController::createLazyAgents()
 
     auto webPageContext = webPageAgentContext();
 
-    m_agents.append(makeUnique<InspectorBrowserAgent>(webPageContext));
+    m_agents.append(makeUniqueRef<InspectorBrowserAgent>(webPageContext));
 }
 
 void WebPageInspectorController::addTarget(std::unique_ptr<InspectorTargetProxy>&& target)
 {
     checkedTargetAgent()->targetCreated(*target);
-    m_targets.set(target->identifier(), WTFMove(target));
+    m_targets.set(target->identifier(), WTF::move(target));
 }
 
 void WebPageInspectorController::setEnabledBrowserAgent(InspectorBrowserAgent* agent)
@@ -287,13 +287,13 @@ void WebPageInspectorController::setEnabledBrowserAgent(InspectorBrowserAgent* a
 void WebPageInspectorController::browserExtensionsEnabled(HashMap<String, String>&& extensionIDToName)
 {
     if (CheckedPtr enabledBrowserAgent = m_enabledBrowserAgent)
-        enabledBrowserAgent->extensionsEnabled(WTFMove(extensionIDToName));
+        enabledBrowserAgent->extensionsEnabled(WTF::move(extensionIDToName));
 }
 
 void WebPageInspectorController::browserExtensionsDisabled(HashSet<String>&& extensionIDs)
 {
     if (CheckedPtr enabledBrowserAgent = m_enabledBrowserAgent)
-        enabledBrowserAgent->extensionsDisabled(WTFMove(extensionIDs));
+        enabledBrowserAgent->extensionsDisabled(WTF::move(extensionIDs));
 }
 
 } // namespace WebKit

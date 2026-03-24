@@ -67,6 +67,7 @@ const NSString* kSecAnchorTypeUndefined = @"none";
 const NSString* kSecAnchorTypeSystem = @"system";
 const NSString* kSecAnchorTypePlatform = @"platform";
 const NSString* kSecAnchorTypeCustom = @"custom";
+const NSString* kSecAnchorTypeCustomTEST = @"test-custom";
 const NSString* kSecAnchorTypeSystemTEST = @"test-system";
 const NSString* kSecAnchorTypePlatformTEST = @"test-platform";
 
@@ -114,7 +115,11 @@ const NSString* kSecAnchorTypePlatformTEST = @"test-platform";
                 _anchor_type = kSecAnchorTypePlatform;
             }
         } else if (isCustom & assetFlags) {
-            _anchor_type = kSecAnchorTypeCustom;
+            if (isTest & assetFlags) {
+                _anchor_type = kSecAnchorTypeCustomTEST;
+            } else {
+                _anchor_type = kSecAnchorTypeCustom;
+            }
         } else {
             _anchor_type = kSecAnchorTypeUndefined;
         }

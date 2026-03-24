@@ -174,7 +174,7 @@ void WebMediaSessionManager::setMockMediaPlaybackTargetPickerEnabled(bool enable
     m_mockPickerEnabled = enabled;
 }
 
-void WebMediaSessionManager::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetContext::MockState state)
+void WebMediaSessionManager::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetMockState state)
 {
     ALWAYS_LOG_MEDIASESSIONMANAGER(__func__);
     checkedMockPicker()->setState(name, state);
@@ -347,7 +347,7 @@ void WebMediaSessionManager::clientStateDidChange(WebMediaSessionManagerClient& 
 void WebMediaSessionManager::setPlaybackTarget(Ref<MediaPlaybackTarget>&& target)
 {
     ALWAYS_LOG_MEDIASESSIONMANAGER(__func__, "has active route = ", target->hasActiveRoute());
-    m_playbackTarget = WTFMove(target);
+    m_playbackTarget = WTF::move(target);
     m_targetChanged = true;
     scheduleDelayedTask(ConfigurationTaskFlags::TargetClientsConfiguration);
 }

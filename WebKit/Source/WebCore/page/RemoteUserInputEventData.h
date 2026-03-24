@@ -25,14 +25,14 @@
 
 #pragma once
 
+#include <WebCore/DoublePoint.h>
 #include <WebCore/FrameIdentifier.h>
-#include <WebCore/IntPoint.h>
 
 namespace WebCore {
 
 struct RemoteUserInputEventData {
     FrameIdentifier targetFrameID;
-    IntPoint transformedPoint;
+    DoublePoint transformedPoint;
 };
 
 }

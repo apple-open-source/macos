@@ -16,7 +16,7 @@ class OctagonTestsMidRoll: OctagonTestsBase {
         XCTAssertFalse(OctagonTestsMidRoll.isEnabled(), "feature flag should be disabled")
     }
 
-    func testFeatureFlagOverride () throws {
+    func testFeatureFlagOverride() throws {
         XCTAssertFalse(IsRollOctagonIdentityEnabled(), "feaature flag should be disabled")
 
         SetRollOctagonIdentityEnabled(true)

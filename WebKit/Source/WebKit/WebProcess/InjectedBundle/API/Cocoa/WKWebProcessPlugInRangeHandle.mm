@@ -38,11 +38,16 @@
     AlignedStorage<WebKit::InjectedBundleRangeHandle> _rangeHandle;
 }
 
+static Ref<WebKit::InjectedBundleRangeHandle> protectedRangeHandle(WKWebProcessPlugInRangeHandle *handle)
+{
+    return *handle->_rangeHandle;
+}
+
 - (void)dealloc
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInRangeHandle.class, self))
         return;
-    _rangeHandle->~InjectedBundleRangeHandle();
+    SUPPRESS_UNCOUNTED_ARG _rangeHandle->~InjectedBundleRangeHandle();
     [super dealloc];
 }
 
@@ -55,12 +60,12 @@
 
 - (WKWebProcessPlugInFrame *)frame
 {
-    return wrapper(_rangeHandle->document()->documentFrame()).autorelease();
+    return wrapper(protectedRangeHandle(self)->document()->documentFrame()).autorelease();
 }
 
 - (NSString *)text
 {
-    return _rangeHandle->text().createNSString().autorelease();
+    return protectedRangeHandle(self)->text().createNSString().autorelease();
 }
 
 #if TARGET_OS_IPHONE

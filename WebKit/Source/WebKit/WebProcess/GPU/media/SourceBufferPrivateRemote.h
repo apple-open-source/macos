@@ -86,7 +86,6 @@ public:
         void sourceBufferPrivateBufferedChanged(Vector<WebCore::PlatformTimeRanges>&&, CompletionHandler<void()>&&);
         void sourceBufferPrivateDurationChanged(const MediaTime&, CompletionHandler<void()>&&);
         void sourceBufferPrivateDidDropSample();
-        void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode);
         void sourceBufferPrivateEvictionDataChanged(WebCore::SourceBufferEvictionData&&);
         void sourceBufferPrivateDidAttach(InitializationSegmentInfo&&, CompletionHandler<void(WebCore::MediaPromise::Result&&)>&&);
         RefPtr<WebCore::SourceBufferPrivateClient> client() const;
@@ -99,7 +98,6 @@ private:
 
     // SourceBufferPrivate overrides
     void setActive(bool) final;
-    bool isActive() const final;
     Ref<WebCore::MediaPromise> append(Ref<WebCore::SharedBuffer>&&) final;
     Ref<WebCore::MediaPromise> appendInternal(Ref<WebCore::SharedBuffer>&&) final;
     void resetParserStateInternal() final;
@@ -122,18 +120,14 @@ private:
     void resetTimestampOffsetInTrackBuffers() final;
     void startChangingType() final;
     void setTimestampOffset(const MediaTime&) final;
-    MediaTime timestampOffset() const final;
     void setAppendWindowStart(const MediaTime&) final;
     void setAppendWindowEnd(const MediaTime&) final;
     Ref<GenericPromise> setMaximumBufferSize(size_t) final;
-    bool isBufferFullFor(uint64_t requiredSize) const final;
-    bool canAppend(uint64_t requiredSize) const final;
 
     Ref<ComputeSeekPromise> computeSeekTime(const WebCore::SeekTarget&) final;
     void seekToTime(const MediaTime&) final;
 
     void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&&) final;
-    uint64_t totalTrackBufferSizeInBytes() const final;
 
     void memoryPressure(const MediaTime& currentTime) final;
 
@@ -146,7 +140,6 @@ private:
     MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID) final;
     void setMaximumQueueDepthForTrackID(TrackID, uint64_t) final;
 
-    void ensureOnDispatcherSync(Function<void()>&&);
     void ensureWeakOnDispatcher(Function<void(SourceBufferPrivateRemote&)>&&);
 
     template<typename T> void sendToProxy(T&& message);
@@ -164,15 +157,8 @@ private:
     const Ref<MessageReceiver> m_receiver;
     const RemoteSourceBufferIdentifier m_remoteSourceBufferIdentifier;
 
-    std::atomic<uint64_t> m_totalTrackBufferSizeInBytes = { 0 };
-
     bool isGPURunning() const { return !m_removed; }
     std::atomic<bool> m_removed { false };
-
-    mutable Lock m_lock;
-    // We mirror some members from the base class, as we require them to be atomic.
-    MediaTime m_timestampOffset WTF_GUARDED_BY_LOCK(m_lock);
-    std::atomic<bool> m_isActive { false };
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
@@ -190,7 +176,7 @@ private:
 template<typename T>
 void SourceBufferPrivateRemote::sendToProxy(T&& message)
 {
-    m_gpuProcessConnection.get()->connection().send(WTFMove(message), m_remoteSourceBufferIdentifier);
+    m_gpuProcessConnection.get()->connection().send(WTF::move(message), m_remoteSourceBufferIdentifier);
 }
 
 } // namespace WebKit

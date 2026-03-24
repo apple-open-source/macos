@@ -11,3 +11,29 @@ OTHER_MIGFLAGS = -DMACH_NOTIFY_SEND_POSSIBLE_EXPECTED=1
 
 
 CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist
+
+// ObjC settings
+CLANG_ENABLE_OBJC_WEAK = YES
+
+// UBSAN (Undefined Behavior Sanitizer) settings
+// Debug builds use fewer checks for better debugging experience
+LIBNOTIFY_UBSAN_DEBUG_CFLAGS = -fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum
+// Release builds add object-size checking on top of debug checks
+LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = $(LIBNOTIFY_UBSAN_DEBUG_CFLAGS) -fsanitize=object-size -fsanitize-trap=object-size
+
+// Base compiler flags (applies to macOS and bridgeOS)
+OTHER_CFLAGS = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1
+
+// Embedded platforms add UBSAN (Undefined Behavior Sanitizer)
+// Release: includes object-size checking
+OTHER_CFLAGS[sdk=appletvos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)
+OTHER_CFLAGS[sdk=iphoneos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)
+OTHER_CFLAGS[sdk=watchos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)
+
+// Debug: fewer UBSAN checks for better debugging
+OTHER_CFLAGS[config=Debug][sdk=appletvos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)
+OTHER_CFLAGS[config=Debug][sdk=iphoneos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)
+OTHER_CFLAGS[config=Debug][sdk=watchos*] = $(inherited) -DSINGLE_THREADED_NOTIFY_STATE=1 $(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)
+
+// C++ flags simply inherit C flags (no additional settings needed)
+OTHER_CPLUSPLUSFLAGS = $(OTHER_CFLAGS)

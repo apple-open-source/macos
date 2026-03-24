@@ -67,11 +67,11 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/text/enchant/TextCheckerEnchant.h
 )
 
+list(APPEND WebCore_PRIVATE_LIBRARIES
+    Tasn1::Tasn1
+)
+
 list(APPEND WebCore_LIBRARIES
-    ${ENCHANT_LIBRARIES}
-    ${LIBSECRET_LIBRARIES}
-    ${LIBTASN1_LIBRARIES}
-    ${HYPHEN_LIBRARIES}
     ${UPOWERGLIB_LIBRARIES}
     ${X11_X11_LIB}
     Cairo::Cairo
@@ -79,9 +79,6 @@ list(APPEND WebCore_LIBRARIES
 )
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-    ${ENCHANT_INCLUDE_DIRS}
-    ${LIBSECRET_INCLUDE_DIRS}
-    ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
 
@@ -146,6 +143,10 @@ if (ENABLE_SMOOTH_SCROLLING)
     )
 endif ()
 
+if (ENABLE_SPELLCHECK)
+    list(APPEND WebCore_LIBRARIES Enchant::Enchant)
+endif ()
+
 if (USE_ATSPI)
     set(WebCore_AtspiInterfaceFiles
         ${WEBCORE_DIR}/accessibility/atspi/xml/Accessible.xml
@@ -188,4 +189,12 @@ if (USE_GBM)
     list(APPEND WebCore_LIBRARIES GBM::GBM)
 elseif (USE_LIBDRM)
     list(APPEND WebCore_LIBRARIES LibDRM::LibDRM)
+endif ()
+
+if (USE_LIBHYPHEN)
+    list(APPEND WebCore_PRIVATE_LIBRARIES Hyphen::Hyphen)
+endif ()
+
+if (USE_LIBSECRET)
+    list(APPEND WebCore_PRIVATE_LIBRARIES Secret::Secret)
 endif ()

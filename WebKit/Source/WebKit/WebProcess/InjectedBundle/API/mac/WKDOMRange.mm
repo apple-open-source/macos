@@ -36,6 +36,11 @@
 #import <wtf/MainThread.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+static Ref<WebCore::Range> protectedImpl(WKDOMRange *range)
+{
+    return *range->_impl;
+}
+
 @implementation WKDOMRange
 
 - (id)_initWithImpl:(WebCore::Range*)impl
@@ -52,12 +57,12 @@
 
 - (id)initWithDocument:(WKDOMDocument *)document
 {
-    return [self _initWithImpl:WebCore::Range::create(*WebKit::toWebCoreDocument(document)).ptr()];
+    return [self _initWithImpl:WebCore::Range::create(*WebKit::toProtectedWebCoreDocument(document)).ptr()];
 }
 
 - (void)dealloc
 {
-    ensureOnMainRunLoop([range = WTFMove(_impl)] {
+    ensureOnMainRunLoop([range = std::exchange(_impl, nullptr)] {
         WebKit::WKDOMRangeCache().remove(range.get());
     });
     [super dealloc];
@@ -67,77 +72,77 @@
 {
     if (!node)
         return;
-    _impl->setStart(*WebKit::toWebCoreNode(node), offset);
+    protectedImpl(self)->setStart(*WebKit::toWebCoreNode(node), offset);
 }
 
 - (void)setEnd:(WKDOMNode *)node offset:(int)offset
 {
     if (!node)
         return;
-    _impl->setEnd(*WebKit::toWebCoreNode(node), offset);
+    protectedImpl(self)->setEnd(*WebKit::toWebCoreNode(node), offset);
 }
 
 - (void)collapse:(BOOL)toStart
 {
-    _impl->collapse(toStart);
+    protectedImpl(self)->collapse(toStart);
 }
 
 - (void)selectNode:(WKDOMNode *)node
 {
     if (!node)
         return;
-    _impl->selectNode(*WebKit::toWebCoreNode(node));
+    protectedImpl(self)->selectNode(*WebKit::toProtectedWebCoreNode(node));
 }
 
 - (void)selectNodeContents:(WKDOMNode *)node
 {
     if (!node)
         return;
-    _impl->selectNodeContents(*WebKit::toWebCoreNode(node));
+    protectedImpl(self)->selectNodeContents(*WebKit::toProtectedWebCoreNode(node));
 }
 
 - (WKDOMNode *)startContainer
 {
-    return WebKit::toWKDOMNode(&_impl->startContainer());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedStartContainer().ptr());
 }
 
 - (NSInteger)startOffset
 {
-    return _impl->startOffset();
+    return protectedImpl(self)->startOffset();
 }
 
 - (WKDOMNode *)endContainer
 {
-    return WebKit::toWKDOMNode(&_impl->endContainer());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedEndContainer().ptr());
 }
 
 - (NSInteger)endOffset
 {
-    return _impl->endOffset();
+    return protectedImpl(self)->endOffset();
 }
 
 - (NSString *)text
 {
-    auto range = makeSimpleRange(*_impl);
-    range.start.document().updateLayout();
+    auto range = makeSimpleRange(protectedImpl(self));
+    range.start.protectedDocument()->updateLayout();
     return plainText(range).createNSString().autorelease();
 }
 
 - (BOOL)isCollapsed
 {
-    return _impl->collapsed();
+    return protectedImpl(self)->collapsed();
 }
 
 - (NSArray *)textRects
 {
-    auto range = makeSimpleRange(*_impl);
-    range.start.document().updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
+    auto range = makeSimpleRange(protectedImpl(self));
+    range.start.protectedDocument()->updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
     return createNSArray(WebCore::RenderObject::absoluteTextRects(range)).autorelease();
 }
 
 - (WKDOMRange *)rangeByExpandingToWordBoundaryByCharacters:(NSUInteger)characters inDirection:(WKDOMRangeDirection)direction
 {
-    auto range = makeSimpleRange(*_impl);
+    auto range = makeSimpleRange(protectedImpl(self));
     auto newRange = rangeExpandedByCharactersInDirectionAtWordBoundary(makeDeprecatedLegacyPosition(direction == WKDOMRangeDirectionForward ? range.end : range.start), characters, direction == WKDOMRangeDirectionForward ? WebCore::SelectionDirection::Forward : WebCore::SelectionDirection::Backward);
     return adoptNS([[WKDOMRange alloc] _initWithImpl:createLiveRange(newRange).get()]).autorelease();
 }
@@ -148,8 +153,8 @@
 
 - (WKBundleRangeHandleRef)_copyBundleRangeHandleRef
 {
-    auto rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(_impl.get());
-    return toAPI(rangeHandle.leakRef());
+    auto rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(protectedImpl(self).ptr());
+    return toAPILeakingRef(WTF::move(rangeHandle));
 }
 
 @end

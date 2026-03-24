@@ -1229,6 +1229,64 @@ static NSArray *savedAccessGroups;
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testResetLocalOnAltDSIDMismatch {
+    // If the altDSID we have in our CKSEs doesn't match our current altDSID, make sure we do a reset.
+
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // Tear down the CKKS object
+    [self.defaultCKKS halt];
+
+    // Now mess with the altDSID from the CKSE.
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        NSError* localerror = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&localerror];
+
+        XCTAssertNil(localerror, "no error pulling ckse from database");
+        XCTAssertNotNil(ckse, "received a ckse");
+
+        ckse.altDSID = @"SOME-OTHER-RANDOM-ALTDSID";
+        [ckse saveToDatabase: &localerror];
+        XCTAssertNil(localerror, "no error saving to database");
+        return CKKSDatabaseTransactionCommit;
+    }];
+    
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
+    // Sneakily set a TPSpecific user
+    NSError* error = nil;
+    TPSpecificUser* user = [self.mockAccountsAuthKitAdapter findAccountForCurrentThread:self.mockPersonaAdapter optionalAltDSID:nil cloudkitContainerName:OTCKContainerName octagonContextID:OTDefaultContext error:&error];
+    self.defaultCKKS.operationDependencies.activeAccount = user;
+
+    self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
+    
+    // Observe CKKS go thru a local reset
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingLocalData];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingLocalData] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'reset-local'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingLocalData];
+
+    // Wait for CKKS to get back into ready after a refetch.
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    // Ensure we have the right altDSID
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
+        NSError* localerror = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&localerror];
+        XCTAssertNil(error, "no error pulling ckse from database");
+        XCTAssertNotNil(ckse, "received a ckse");
+        XCTAssertEqualObjects(ckse.altDSID, self.defaultCKKS.operationDependencies.activeAccount.altDSID, "CKSE should have altDSID filled in");
+    }];
+}
+
 -(void)testResetCloudKitZone {
     self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMExpect([self.suggestTLKUpload trigger]);

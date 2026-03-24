@@ -54,7 +54,7 @@ private:
     void inspectedPageDestroyed() override;
     void frontendCountChanged(unsigned) override;
 
-    Inspector::FrontendChannel* openLocalFrontend(WebCore::InspectorController*) override;
+    Inspector::FrontendChannel* openLocalFrontend(WebCore::PageInspectorController*) override;
     void bringFrontendToFront() override;
     void didResizeMainFrame(WebCore::LocalFrame*) override;
 

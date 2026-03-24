@@ -52,7 +52,7 @@ public:
 
     VM* vm() const { return m_vm; }
     CodeBlock* codeBlock() const { return m_codeBlock; }
-    JITWorklistThread* thread() const { return m_thread; }
+    JITWorklistThread* thread() const { return m_thread.get(); }
 
     JITCompilationMode mode() const { return m_mode; }
 
@@ -138,7 +138,7 @@ protected:
     MonotonicTime m_timeBeforeFTL;
     VM* m_vm;
     CodeBlock* m_codeBlock;
-    JITWorklistThread* m_thread { nullptr };
+    CheckedPtr<JITWorklistThread> m_thread;
     Vector<RefPtr<SharedTask<void()>>> m_mainThreadFinalizationTasks;
     CString m_signpostMessage; // Non-null iff Options::useCompilerSignpost()
 };

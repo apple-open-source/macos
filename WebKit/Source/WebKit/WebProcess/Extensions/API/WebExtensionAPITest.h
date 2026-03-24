@@ -103,4 +103,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPITest, test);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

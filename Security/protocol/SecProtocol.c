@@ -31,9 +31,11 @@
 #define SEC_PROTOCOL_OPTIONS_KEY_minimum_rsa_key_size "minimum_rsa_key_size"
 #define SEC_PROTOCOL_OPTIONS_KEY_minimum_ecdsa_key_size "minimum_ecdsa_key_size"
 #define SEC_PROTOCOL_OPTIONS_KEY_minimum_signature_algorithm "minimum_signature_algorithm"
+#define SEC_PROTOCOL_OPTIONS_KEY_tls_compliance_policy "tls_compliance_policy"
 #define SEC_PROTOCOL_OPTIONS_KEY_ats_required "ats_required"
 #define SEC_PROTOCOL_OPTIONS_KEY_ats_minimum_tls_version_allowed "ats_minimum_tls_version_allowed"
 #define SEC_PROTOCOL_OPTIONS_KEY_ats_non_pfs_ciphersuite_allowed "ats_non_pfs_ciphersuite_allowed"
+#define SEC_PROTOCOL_OPTIONS_KEY_legacy_ats_applicable "legacy_ats_applicable"
 #define SEC_PROTOCOL_OPTIONS_KEY_trusted_peer_certificate "trusted_peer_certificate"
 #define SEC_PROTOCOL_OPTIONS_KEY_disable_sni "disable_sni"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_fallback_attempt "enable_fallback_attempt"
@@ -239,10 +241,12 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
     CHECK_FIELD(minimum_rsa_key_size);
     CHECK_FIELD(minimum_ecdsa_key_size);
     CHECK_FIELD(minimum_signature_algorithm);
+    CHECK_FIELD(tls_compliance_policy);
     CHECK_FIELD(tls_ticket_request_count);
     CHECK_FIELD(ats_required);
     CHECK_FIELD(ats_minimum_tls_version_allowed);
     CHECK_FIELD(ats_non_pfs_ciphersuite_allowed);
+    CHECK_FIELD(legacy_ats_applicable);
     CHECK_FIELD(trusted_peer_certificate);
     CHECK_FIELD(disable_sni);
     CHECK_FIELD(enable_fallback_attempt);
@@ -1611,6 +1615,38 @@ _set_minimum_signature_algorithm(sec_protocol_options_t options, uint64_t algori
     sec_protocol_options_set_minimum_signature_algorithm(options, (SecSignatureHashAlgorithm)algorithm);
 }
 
+static bool
+_policy_is_valid(sec_protocol_options_compliance_policy_t policy) {
+    if (policy == sec_protocol_options_compliance_policy_none ||
+        policy == sec_protocol_options_compliance_policy_fcs_v2) {
+        return true;
+    }
+    return false;
+}
+
+void
+sec_protocol_options_set_tls_compliance_policy(sec_protocol_options_t options, sec_protocol_options_compliance_policy_t policy)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+    if (!_policy_is_valid(policy)) {
+        return;
+    }
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->tls_compliance_policy = policy;
+        return true;
+    });
+}
+
+static void
+_set_tls_compliance_policy(sec_protocol_options_t options, uint64_t algorithm)
+{
+    sec_protocol_options_set_tls_compliance_policy(options, (sec_protocol_options_compliance_policy_t)algorithm);
+}
+
 void
 sec_protocol_options_set_trusted_peer_certificate(sec_protocol_options_t options, bool trusted_peer_certificate)
 {
@@ -1879,6 +1915,20 @@ sec_protocol_options_set_ats_non_pfs_ciphersuite_allowed(sec_protocol_options_t 
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
         content->ats_non_pfs_ciphersuite_allowed = ats_non_pfs_ciphersuite_allowed;
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_legacy_ats_applicable(sec_protocol_options_t options, bool legacy_ats_applicable)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->legacy_ats_applicable = legacy_ats_applicable;
         return true;
     });
 }
@@ -2911,6 +2961,7 @@ static const char *_options_uint64_keys[] = {
     SEC_PROTOCOL_OPTIONS_KEY_minimum_rsa_key_size,
     SEC_PROTOCOL_OPTIONS_KEY_minimum_ecdsa_key_size,
     SEC_PROTOCOL_OPTIONS_KEY_minimum_signature_algorithm,
+    SEC_PROTOCOL_OPTIONS_KEY_tls_compliance_policy,
     SEC_PROTOCOL_OPTIONS_KEY_tls_ticket_request_count,
     SEC_PROTOCOL_OPTIONS_KEY_pqtls_mode,
 };
@@ -2920,6 +2971,7 @@ static const char *_options_bool_keys[] = {
     SEC_PROTOCOL_OPTIONS_KEY_ats_required,
     SEC_PROTOCOL_OPTIONS_KEY_ats_minimum_tls_version_allowed,
     SEC_PROTOCOL_OPTIONS_KEY_ats_non_pfs_ciphersuite_allowed,
+    SEC_PROTOCOL_OPTIONS_KEY_legacy_ats_applicable,
     SEC_PROTOCOL_OPTIONS_KEY_trusted_peer_certificate,
     SEC_PROTOCOL_OPTIONS_KEY_disable_sni,
     SEC_PROTOCOL_OPTIONS_KEY_enable_fallback_attempt,
@@ -3008,12 +3060,14 @@ _serialize_options(xpc_object_t dictionary, sec_protocol_options_content_t optio
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(minimum_rsa_key_size));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(minimum_ecdsa_key_size));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(minimum_signature_algorithm));
+    xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(tls_compliance_policy));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(tls_ticket_request_count));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(pqtls_mode));
 
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_required));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_minimum_tls_version_allowed));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_non_pfs_ciphersuite_allowed));
+    xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(legacy_ats_applicable));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(trusted_peer_certificate));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(disable_sni));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_fallback_attempt));
@@ -3055,6 +3109,10 @@ static struct _options_bool_key_setter {
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_ats_non_pfs_ciphersuite_allowed,
         .setter_pointer = sec_protocol_options_set_ats_non_pfs_ciphersuite_allowed,
+    },
+    {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_legacy_ats_applicable,
+        .setter_pointer = sec_protocol_options_set_legacy_ats_applicable,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_trusted_peer_certificate,
@@ -3162,6 +3220,10 @@ static struct _options_uint64_key_setter {
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_minimum_signature_algorithm,
         .setter_pointer = _set_minimum_signature_algorithm,
+    },
+    {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_tls_compliance_policy,
+        .setter_pointer = _set_tls_compliance_policy,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_tls_ticket_request_count,

@@ -254,7 +254,7 @@ void ShareableBitmap::releaseBitmapContextData(void* typelessBitmap, void* typel
 RefPtr<Image> ShareableBitmap::createImage()
 {
     if (RetainPtr platformImage = createPlatformImage(DontCopyBackingStore))
-        return BitmapImage::create(WTFMove(platformImage));
+        return BitmapImage::create(WTF::move(platformImage));
     return nullptr;
 }
 

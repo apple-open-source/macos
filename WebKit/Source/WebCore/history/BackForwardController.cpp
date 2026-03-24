@@ -40,7 +40,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(BackForwardController);
 
 BackForwardController::BackForwardController(Page& page, Ref<BackForwardClient>&& client)
     : m_page(page)
-    , m_client(WTFMove(client))
+    , m_client(WTF::move(client))
 {
 }
 
@@ -136,12 +136,12 @@ bool BackForwardController::goForward()
 
 void BackForwardController::addItem(Ref<HistoryItem>&& item)
 {
-    m_client->addItem(WTFMove(item));
+    m_client->addItem(WTF::move(item));
 }
 
 void BackForwardController::setChildItem(BackForwardFrameItemIdentifier frameItemID, Ref<HistoryItem>&& item)
 {
-    m_client->setChildItem(frameItemID, WTFMove(item));
+    m_client->setChildItem(frameItemID, WTF::move(item));
 }
 
 void BackForwardController::setCurrentItem(HistoryItem& item)

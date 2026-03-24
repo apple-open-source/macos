@@ -30,7 +30,7 @@
 #import "WebNodeHighlightView.h"
 #import "WebNSViewExtras.h"
 
-#import <WebCore/InspectorController.h>
+#import <WebCore/PageInspectorController.h>
 #import <wtf/Assertions.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -81,7 +81,7 @@ using namespace WebCore;
 
 @implementation WebNodeHighlight
 
-- (id)initWithTargetView:(NSView *)targetView inspectorController:(NakedPtr<InspectorController>)inspectorController
+- (id)initWithTargetView:(NSView *)targetView inspectorController:(NakedPtr<PageInspectorController>)inspectorController
 {
     self = [super init];
     if (!self)
@@ -252,7 +252,7 @@ using namespace WebCore;
     return _targetView;
 }
 
-- (NakedPtr<InspectorController>)inspectorController
+- (NakedPtr<PageInspectorController>)inspectorController
 {
     return _inspectorController;
 }

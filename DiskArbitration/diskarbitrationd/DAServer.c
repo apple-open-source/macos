@@ -54,6 +54,9 @@
 #include <dlfcn.h>
 #if TARGET_OS_OSX
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOHibernatePrivate.h>
 #endif
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 
@@ -568,10 +571,30 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
     return NULL;
 }
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_OSX
 static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo )
 {
+#if TARGET_OS_IOS
     gDAUnlockedState = DADeviceIsUnlocked();
+#elif TARGET_OS_OSX
+    // Screen unlock state may not be updated yet during unlock event, so check the distinct event names first
+    if ( CFStringCompare( name ,
+                          CFSTR("com.apple.sessionagent.screenIsUnlocked") ,
+                          kCFCompareCaseInsensitive ) == 0 )
+    {
+        gDAUnlockedState = TRUE;
+    }
+    else if ( CFStringCompare( name ,
+                               CFSTR("com.apple.sessionagent.screenIsLocked") ,
+                               kCFCompareCaseInsensitive ) == 0 )
+    {
+        gDAUnlockedState = FALSE;
+    }
+    else
+    {
+        gDAUnlockedState = __DAIsScreenUnlocked();
+    }
+#endif
     DALogInfo( "Lock notification received - device is %slocked" , ( gDAUnlockedState ) ? "un" : "");
     
     if ( gDAUnlockedState == TRUE )
@@ -582,6 +605,13 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
         dispatch_async( DAServerWorkLoop() , ^{
             CFIndex count;
             CFIndex index;
+            
+#if TARGET_OS_OSX
+            /*
+             * Clear all known volume uuids from before hibernation.
+             */
+            CFSetRemoveAllValues( gDAHibernateVolumes );
+#endif
             
             count = CFArrayGetCount( gDADiskList );
 
@@ -630,24 +660,192 @@ void DARegisterForUnlockNotification( void )
     CFNotificationCenterAddObserver( CFNotificationCenterGetDarwinNotifyCenter(),
                                     (void *)nil,
                                     __DAUnlockNotificationCallback,
+#if TARGET_OS_IOS
                                     CFSTR("com.apple.mobile.keybagd.lock_status"),
+#elif TARGET_OS_OSX
+                                    CFSTR("com.apple.sessionagent.screenIsUnlocked"),
+#endif
                                     NULL,
                                     CFNotificationSuspensionBehaviorDeliverImmediately );
-
-    gDAUnlockedState = DADeviceIsUnlocked();
-    if ( gDAUnlockedState == FALSE )
-    {
-        DALogInfo(" Device is locked" );
-    }
-    else
-    {
-        DALogInfo(" Device is unlocked" );
-    }
+    
+#if TARGET_OS_OSX
+    // Screen lock event has a separate notification on macOS.
+    CFNotificationCenterAddObserver( CFNotificationCenterGetDarwinNotifyCenter(),
+                                    (void *)nil,
+                                    __DAUnlockNotificationCallback,
+                                    CFSTR("com.apple.sessionagent.screenIsLocked"),
+                                    NULL,
+                                    CFNotificationSuspensionBehaviorDeliverImmediately );
+#endif
 }
 
 #endif
 
 #if TARGET_OS_OSX
+static bool __DAShouldUnmountDiskOnHibernate( DADiskRef disk )
+{
+    // Unmount external devices that would send termination events to diskarbitrationd on wake
+    // Also include internal SD Card reader media based on ejectable property
+    return ( DADiskIsExternalVolume( disk ) || __DADiskIsInternalSDMedia( disk ) )
+        && DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue
+        && DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) != NULL;
+}
+
+#define DA_UNMOUNT_TIMEOUT 25 // acknowledge sleep events within 30 seconds, so add a 5 second margin to be safe
+static CFIndex __gDAOutstandingUnmounts;
+static dispatch_block_t __gDAHibernateBlock = NULL;
+static pthread_mutex_t __gDAOutstandingUnmountLock = PTHREAD_MUTEX_INITIALIZER;
+
+static void __DAInitOutstandingUnmountCount( dispatch_block_t hibernateBlock )
+{
+    pthread_mutex_lock( &__gDAOutstandingUnmountLock );
+    __gDAOutstandingUnmounts = 0;
+    pthread_mutex_unlock( &__gDAOutstandingUnmountLock );
+
+    __gDAHibernateBlock = Block_copy( hibernateBlock );
+}
+
+static void __DASetOutstandingUnmountCount( void )
+{
+    CFIndex currentOutstandingUnmounts;
+
+    pthread_mutex_lock( &__gDAOutstandingUnmountLock );
+    currentOutstandingUnmounts = ++__gDAOutstandingUnmounts;
+    pthread_mutex_unlock( &__gDAOutstandingUnmountLock );
+}
+
+void __DACompleteOutstandingUnmount( Boolean timedOut )
+{
+    bool allUnmountsCompleted = false;
+    bool callHibernationBlock = false;
+
+    pthread_mutex_lock( &__gDAOutstandingUnmountLock );
+    if ( __gDAOutstandingUnmounts > 0 && !timedOut )
+    {
+        __gDAOutstandingUnmounts--;
+    }
+    allUnmountsCompleted = ( __gDAOutstandingUnmounts == 0 );
+    pthread_mutex_unlock( &__gDAOutstandingUnmountLock );
+
+    // We will schedule the timeout block 30 seconds after the hibernation notification.
+    // If all the unmounts had finished by then, do not try to acknowledge the notification again.
+    if ( !timedOut && allUnmountsCompleted )
+    {
+        DALogInfo( "All unmounts completed - continuing hibernation" );
+        callHibernationBlock = true;
+    }
+
+    if ( timedOut && !allUnmountsCompleted )
+    {
+        DALogInfo( "Timed out waiting for unmounts - continuing hibernation" );
+        callHibernationBlock = true;
+    }
+
+    if ( callHibernationBlock && __gDAHibernateBlock )
+    {
+        __gDAHibernateBlock( );
+        Block_release( __gDAHibernateBlock );
+        __gDAHibernateBlock = NULL;
+    }
+}
+
+void __DAPowerNotificationCallback( void        *context ,
+                                    io_service_t service ,
+                                    natural_t    messageType ,
+                                    void         *messageArgument )
+{
+    struct __DAPowerContext *data = context;
+    bool acknowledgeEvent = ( messageType == kIOMessageCanSystemSleep ||
+                              messageType == kIOMessageSystemWillSleep );
+    CFIndex count = CFArrayGetCount( gDADiskList );
+    CFIndex index;
+    
+    if ( messageType == kIOMessageSystemWillSleep )
+    {
+        uint64_t sleepType;
+        uint64_t numHibernateUnmounts = 0;
+        bool systemWillHibernate = false;
+        CFBooleanRef checkHibernate = CFDictionaryGetValue( gDAPreferenceList ,
+                                                            kDAPreferenceHibernateUnmountKey );
+        
+        checkHibernate = ( checkHibernate ) ? ( checkHibernate ) : kCFBooleanTrue;
+        
+        /* Gate hibernation unmount logic behind "DAHibernateUnmount" preference */
+        if ( CFBooleanGetValue( checkHibernate ) )
+        {
+            systemWillHibernate = __DAIsSleepReasonHibernate();
+            
+            if ( systemWillHibernate )
+            {
+                __DAInitOutstandingUnmountCount( ^{
+                    IOAllowPowerChange( data->power_session , ( intptr_t ) messageArgument );
+                } );
+                
+                gDAUnlockedState = FALSE;
+                
+                DALogInfo( "hibernation pending - unmounting disks" );
+            }
+        }
+        
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+            CFUUIDRef uuid;
+            
+            // Mark external volumes to evaluate wake state telemetry later
+            if ( DADiskIsExternalVolume( disk ) || __DADiskIsInternalSDMedia( disk ) )
+            {
+                DADiskSetState( disk , _kDADiskStateWillSleep , TRUE );
+                
+                // Kick off the unmount requests for external volumes that are expected to be terminated
+                if ( systemWillHibernate && __DAShouldUnmountDiskOnHibernate( disk ) )
+                {
+                    uuid = DADiskGetDescription( disk , kDADiskDescriptionVolumeUUIDKey );
+                    
+                    if ( uuid )
+                    {
+                        CFSetAddValue( gDAHibernateVolumes , uuid );
+                    }
+                    numHibernateUnmounts++;
+                    __DASetOutstandingUnmountCount();
+                    DADiskSetState( disk , _kDADiskStateHibernateUnmount , TRUE );
+                    DADiskUnmount( disk , kDADiskUnmountOptionHibernate , NULL );
+                }
+            }
+        }
+        
+        if ( systemWillHibernate && numHibernateUnmounts )
+        {
+            DALogInfo( "Pending unmounts before hibernation: %llu" , numHibernateUnmounts );
+            acknowledgeEvent = false; // Need to perform outstanding unmounts first
+                        
+            dispatch_time_t timer = dispatch_time( DISPATCH_TIME_NOW,
+                                                   (int64_t) ( DA_UNMOUNT_TIMEOUT * NSEC_PER_SEC ) );
+            dispatch_after( timer , DAServerWorkLoop() , ^{
+                __DACompleteOutstandingUnmount( TRUE );
+            } );
+        }
+    }
+    else if ( messageType == kIOMessageSystemHasPoweredOn )
+    {
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+            
+            // If the disk previously went to sleep, remove this flag for telemetry purposes
+            if ( DADiskGetState( disk , _kDADiskStateWillSleep ) )
+            {
+                DADiskSetState( disk , _kDADiskStateWillSleep , FALSE );
+            }
+        }
+    }
+    
+    if ( acknowledgeEvent )
+    {
+        IOAllowPowerChange( data->power_session , ( intptr_t ) messageArgument );
+    }
+}
+
 void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void * info )
 {
     /*

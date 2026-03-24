@@ -266,7 +266,7 @@ WI.SourceMap = class SourceMap
         if (!urlComponents.path)
             urlComponents.path = this._sourceMappingURL || "";
 
-        urlComponents.path = urlComponents.path.substr(0, urlComponents.path.lastIndexOf(urlComponents.lastPathComponent));
+        urlComponents.path = urlComponents.path.substring(0, urlComponents.path.lastIndexOf(urlComponents.lastPathComponent));
         urlComponents.lastPathComponent = null;
         this._sourceMappingURLBasePathComponents = urlComponents;
         return this._sourceMappingURLBasePathComponents;

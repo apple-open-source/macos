@@ -40,7 +40,7 @@ const Font* FontRanges::Range::font(ExternalResourceDownloadPolicy policy) const
 }
 
 FontRanges::FontRanges(FontRanges&& other, IsGenericFontFamily isGenericFontFamily)
-    : m_ranges { WTFMove(other.m_ranges) }
+    : m_ranges { WTF::move(other.m_ranges) }
     , m_isGenericFontFamily { isGenericFontFamily }
 {
 }
@@ -49,12 +49,12 @@ class TrivialFontAccessor final : public FontAccessor {
 public:
     static Ref<TrivialFontAccessor> create(Ref<Font>&& font)
     {
-        return adoptRef(*new TrivialFontAccessor(WTFMove(font)));
+        return adoptRef(*new TrivialFontAccessor(WTF::move(font)));
     }
 
 private:
     TrivialFontAccessor(RefPtr<Font>&& font)
-        : m_font(WTFMove(font))
+        : m_font(WTF::move(font))
     {
     }
 

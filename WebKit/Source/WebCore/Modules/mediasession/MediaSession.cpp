@@ -74,7 +74,7 @@ static ASCIILiteral logClassName()
 
 static PlatformMediaSession::RemoteControlCommandType platformCommandForMediaSessionAction(MediaSessionAction action)
 {
-    static constexpr std::pair<MediaSessionAction, PlatformMediaSession::RemoteControlCommandType> mappings[] {
+    static constexpr SortedArrayMap map { std::to_array<std::pair<MediaSessionAction, PlatformMediaSession::RemoteControlCommandType>>({
         { MediaSessionAction::Play, PlatformMediaSession::RemoteControlCommandType::PlayCommand },
         { MediaSessionAction::Pause, PlatformMediaSession::RemoteControlCommandType::PauseCommand },
         { MediaSessionAction::Seekbackward, PlatformMediaSession::RemoteControlCommandType::SkipBackwardCommand },
@@ -84,8 +84,7 @@ static PlatformMediaSession::RemoteControlCommandType platformCommandForMediaSes
         { MediaSessionAction::Skipad, PlatformMediaSession::RemoteControlCommandType::NextTrackCommand },
         { MediaSessionAction::Stop, PlatformMediaSession::RemoteControlCommandType::StopCommand },
         { MediaSessionAction::Seekto, PlatformMediaSession::RemoteControlCommandType::SeekToPlaybackPositionCommand },
-    };
-    static constexpr SortedArrayMap map { mappings };
+    }) };
     return map.get(action, PlatformMediaSession::RemoteControlCommandType::NoCommand);
 }
 
@@ -206,7 +205,7 @@ void MediaSession::setMetadata(RefPtr<MediaMetadata>&& metadata)
     ALWAYS_LOG(LOGIDENTIFIER);
     if (m_metadata)
         m_metadata->resetMediaSession();
-    m_metadata = WTFMove(metadata);
+    m_metadata = WTF::move(metadata);
     if (m_metadata)
         m_metadata->setMediaSession(*this);
     notifyMetadataObservers(m_metadata);
@@ -241,7 +240,7 @@ ExceptionOr<void> MediaSession::setPlaylist(ScriptExecutionContext& context, Vec
         resolvedPlaylist.append(resolvedEntry.releaseReturnValue());
     }
 
-    m_playlist = WTFMove(resolvedPlaylist);
+    m_playlist = WTF::move(resolvedPlaylist);
 
     return { };
 }
@@ -375,7 +374,7 @@ ExceptionOr<void> MediaSession::setPositionState(std::optional<MediaPositionStat
         && state->playbackRate))
         return Exception { ExceptionCode::TypeError };
 
-    m_positionState = WTFMove(state);
+    m_positionState = WTF::move(state);
     m_lastReportedPosition = m_positionState->position;
     m_timeAtLastPositionUpdate = MonotonicTime::now();
     notifyPositionStateObservers();
@@ -547,7 +546,7 @@ void MediaSession::updateNowPlayingInfo(NowPlayingInfo& info)
     if (!m_defaultArtworkAttempted && (!m_metadata || m_metadata->artwork().isEmpty())) {
         m_defaultArtworkAttempted = true;
         if (auto images = fallbackArtwork(protectedDocument() ? protectedDocument()->loader() : nullptr); images.size())
-            m_defaultMetadata = MediaMetadata::create(*this, WTFMove(images));
+            m_defaultMetadata = MediaMetadata::create(*this, WTF::move(images));
     }
 
     if (RefPtr metadataWithImage = m_metadata && m_metadata->artworkImage() ? m_metadata : (m_defaultMetadata && m_defaultMetadata->artworkImage() ? m_defaultMetadata : nullptr)) {
@@ -586,13 +585,13 @@ void MediaSession::updateCaptureState(bool isActive, DOMPromiseDeferred<void>&& 
         return;
     }
 
-    controller->updateCaptureState(*document, isActive, kind, [weakDocument = WeakPtr { document.get() }, promise = WTFMove(promise)] (auto&& exception) mutable {
+    controller->updateCaptureState(*document, isActive, kind, [weakDocument = WeakPtr { document.get() }, promise = WTF::move(promise)] (auto&& exception) mutable {
         RefPtr protectedDocument = weakDocument.get();
         if (!protectedDocument)
             return;
-        protectedDocument->eventLoop().queueTask(TaskSource::MediaElement, [promise = WTFMove(promise), exception = WTFMove(exception)] () mutable {
+        protectedDocument->eventLoop().queueTask(TaskSource::MediaElement, [promise = WTF::move(promise), exception = WTF::move(exception)] () mutable {
             if (exception) {
-                promise.reject(WTFMove(*exception));
+                promise.reject(WTF::move(*exception));
                 return;
             }
             promise.resolve();

@@ -52,7 +52,7 @@ struct SVGPropertyTraits<SVGStitchOptions> {
         return emptyString();
     }
 
-    static SVGStitchOptions fromString(const String& value)
+    static SVGStitchOptions fromString(SVGElement&, const String& value)
     {
         if (value == "stitch"_s)
             return SVG_STITCHTYPE_STITCH;
@@ -81,7 +81,7 @@ struct SVGPropertyTraits<TurbulenceType> {
         return emptyString();
     }
 
-    static TurbulenceType fromString(const String& value)
+    static TurbulenceType fromString(SVGElement&, const String& value)
     {
         if (value == "fractalNoise"_s)
             return TurbulenceType::FractalNoise;
@@ -92,7 +92,7 @@ struct SVGPropertyTraits<TurbulenceType> {
 };
 
 class SVGFETurbulenceElement final : public SVGFilterPrimitiveStandardAttributes {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGFETurbulenceElement);
+    WTF_MAKE_TZONE_ALLOCATED(SVGFETurbulenceElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGFETurbulenceElement);
 public:
     static Ref<SVGFETurbulenceElement> create(const QualifiedName&, Document&);

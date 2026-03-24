@@ -28,6 +28,7 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
+#include <ranges>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -35,7 +36,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TransparencyLayerContextSwitcher);
 
 TransparencyLayerContextSwitcher::TransparencyLayerContextSwitcher(GraphicsContext& destinationContext, const FloatRect& sourceImageRect, RefPtr<Filter>&& filter)
-    : GraphicsContextSwitcher(WTFMove(filter))
+    : GraphicsContextSwitcher(WTF::move(filter))
 {
     if (m_filter)
         m_filterStyles = m_filter->createFilterStyles(destinationContext, sourceImageRect);
@@ -69,7 +70,7 @@ void TransparencyLayerContextSwitcher::beginDrawSourceImage(GraphicsContext& des
 
 void TransparencyLayerContextSwitcher::endDrawSourceImage(GraphicsContext& destinationContext, const DestinationColorSpace&)
 {
-    for ([[maybe_unused]] auto& filterStyle : makeReversedRange(m_filterStyles)) {
+    for ([[maybe_unused]] auto& filterStyle : m_filterStyles) {
         destinationContext.endTransparencyLayer();
         destinationContext.restore();
     }

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 keyTypeData:table(nofallback){
     bcpTypeAlias{
         ca{
@@ -73,13 +73,20 @@ keyTypeData:table(nofallback){
     typeInfo{
         deprecated{
             co{
+                big5han{"true"}
                 direct{"true"}
+                gb2312{"true"}
                 reformed{"true"}
+            }
+            hc{
+                c12{"true"}
+                c24{"true"}
             }
         }
     }
     typeMap{
         calendar{
+            bangla{""}
             buddhist{""}
             chinese{""}
             coptic{""}
@@ -87,6 +94,7 @@ keyTypeData:table(nofallback){
             ethiopic{""}
             ethiopic-amete-alem{"ethioaa"}
             gregorian{"gregory"}
+            gujarati{""}
             hebrew{""}
             indian{""}
             islamic{""}
@@ -96,8 +104,16 @@ keyTypeData:table(nofallback){
             islamic-umalqura{""}
             iso8601{""}
             japanese{""}
+            kannada{""}
+            malayalam{"malayalm"}
+            marathi{""}
+            odia{""}
             persian{""}
             roc{""}
+            tamil{""}
+            telugu{""}
+            vietnamese{"vietnam"}
+            vikram{""}
         }
         cf{
             account{""}
@@ -523,6 +539,8 @@ keyTypeData:table(nofallback){
             hybrid{""}
         }
         hours{
+            c12{""}
+            c24{""}
             h11{""}
             h12{""}
             h23{""}
@@ -722,6 +740,7 @@ keyTypeData:table(nofallback){
             tibt{""}
             tirh{""}
             tnsa{""}
+            tols{""}
             traditional{"traditio"}
             vaii{""}
             wara{""}

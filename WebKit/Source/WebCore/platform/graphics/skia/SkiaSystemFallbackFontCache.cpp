@@ -158,7 +158,7 @@ public:
 
     struct Font {
         Font(String&& path, int ttcIndex, FcCharSet* charSet)
-            : path(WTFMove(path))
+            : path(WTF::move(path))
             , ttcIndex(ttcIndex)
             , charSet(charSet)
         {
@@ -238,7 +238,7 @@ private:
                 if (FcPatternGetInteger(pattern, FC_INDEX, 0, &ttcIndex) != FcResultMatch)
                     ttcIndex = 0;
 
-                m_fallbackList.append(Font(WTFMove(filepath), ttcIndex, charSet));
+                m_fallbackList.append(Font(WTF::move(filepath), ttcIndex, charSet));
             }
         }
 

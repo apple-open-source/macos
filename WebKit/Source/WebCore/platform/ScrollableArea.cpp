@@ -96,7 +96,7 @@ void ScrollableArea::internalCreateScrollbarsController()
         auto mockController = makeUnique<ScrollbarsControllerMock>(const_cast<ScrollableArea&>(*this), [this](const String& message) {
             logMockScrollbarsControllerMessage(message);
         });
-        setScrollbarsController(WTFMove(mockController));
+        setScrollbarsController(WTF::move(mockController));
     } else
         createScrollbarsController();
 }
@@ -104,12 +104,12 @@ void ScrollableArea::internalCreateScrollbarsController()
 void ScrollableArea::createScrollbarsController()
 {
     auto controller = ScrollbarsController::create(const_cast<ScrollableArea&>(*this));
-    setScrollbarsController(WTFMove(controller));
+    setScrollbarsController(WTF::move(controller));
 }
 
 void ScrollableArea::setScrollbarsController(std::unique_ptr<ScrollbarsController>&& scrollbarsController)
 {
-    m_scrollbarsController = WTFMove(scrollbarsController);
+    m_scrollbarsController = WTF::move(scrollbarsController);
 }
 
 void ScrollableArea::setScrollOrigin(const IntPoint& origin)

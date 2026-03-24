@@ -75,8 +75,8 @@ void WebExtensionAPICommands::getAll(Ref<WebExtensionCallbackHandler>&& callback
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/commands/getAll
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::CommandsGetAll(), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Vector<WebExtensionCommandParameters> commands) {
-        callback->call(toAPI(commands));
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::CommandsGetAll(), [protectedThis = Ref { *this }, callback = WTF::move(callback)](Vector<WebExtensionCommandParameters> commands) {
+        callback->call(toJSValueRef(callback->globalContext(), toAPI(commands)));
     }, extensionContext().identifier());
 }
 

@@ -53,7 +53,7 @@ enum class WorkletGlobalScopeIdentifierType { };
 using WorkletGlobalScopeIdentifier = ObjectIdentifier<WorkletGlobalScopeIdentifierType>;
 
 class WorkletGlobalScope : public WorkerOrWorkletGlobalScope {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkletGlobalScope);
+    WTF_MAKE_TZONE_ALLOCATED(WorkletGlobalScope);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkletGlobalScope);
 public:
     virtual ~WorkletGlobalScope();
@@ -130,4 +130,6 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::WorkletGlobalScope)
 static bool isType(const WebCore::ScriptExecutionContext& context) { return context.isWorkletGlobalScope(); }
+static bool isType(const WebCore::WorkerOrWorkletGlobalScope& context) { return context.isWorkletGlobalScope(); }
+static bool isType(const WebCore::EventTarget& context) { return context.eventTargetInterface() == WebCore::EventTargetInterfaceType::WorkletGlobalScope; }
 SPECIALIZE_TYPE_TRAITS_END()

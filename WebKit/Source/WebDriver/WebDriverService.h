@@ -27,9 +27,11 @@
 
 #include "HTTPServer.h"
 #include "Session.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/JSONValues.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/text/StringHash.h>
 
 #if ENABLE(WEBDRIVER_BIDI)
@@ -42,11 +44,13 @@ struct Capabilities;
 class CommandResult;
 class Session;
 
-class WebDriverService final : public HTTPRequestHandler
+class WebDriverService final : public HTTPRequestHandler, public CanMakeWeakPtr<WebDriverService>, public CanMakeCheckedPtr<WebDriverService>
 #if ENABLE(WEBDRIVER_BIDI)
     , public WebSocketMessageHandler
 #endif
 {
+    WTF_MAKE_TZONE_ALLOCATED(WebDriverService);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebDriverService);
 public:
     WebDriverService();
     ~WebDriverService();
@@ -176,7 +180,7 @@ private:
     HTTPServer m_server;
 #if ENABLE(WEBDRIVER_BIDI)
     const Ref<WebSocketServer> m_bidiServer;
-    SessionHost::BrowserTerminatedObserver m_browserTerminatedObserver;
+    const Ref<SessionHost::BrowserTerminatedObserver> m_browserTerminatedObserver;
 #endif
     RefPtr<Session> m_session;
 

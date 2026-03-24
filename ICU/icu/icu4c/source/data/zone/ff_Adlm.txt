@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ff_Adlm{
     %%Parent{"root"}
     zoneStrings{
@@ -1166,7 +1166,7 @@ ff_Adlm{
             ec{"𞤉𞤬𞤢𞤼𞤵"}
         }
         "Pacific:Enderbury"{
-            ec{"𞤉𞤲𞤣𞤫𞤪𞤦𞤵𞥅𞤪𞤭"}
+            ec{"𞤑𞤢𞤲𞤼𞤮𞤲"}
         }
         "Pacific:Fakaofo"{
             ec{"𞤊𞤢𞤳𞤢𞤱𞤬𞤮"}
@@ -1188,14 +1188,6 @@ ff_Adlm{
         }
         "Pacific:Guam"{
             ec{"𞤘𞤵𞤱𞤢𞥄𞤥"}
-        }
-        "Pacific:Honolulu"{
-            sd{"𞤑𞤕𞤖"}
-            sg{"𞤑𞤖𞤖"}
-            ss{"𞤑𞤖𞤖"}
-        }
-        "Pacific:Kanton"{
-            ec{"𞤑𞤢𞤲𞤼𞤮𞤲"}
         }
         "Pacific:Kiritimati"{
             ec{"𞤑𞤭𞤪𞤭𞤼𞤭𞤥𞤢𞤼𞤭"}
@@ -1284,12 +1276,7 @@ ff_Adlm{
             ls{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤖𞤢𞤱𞤪𞤵𞤲𞥋𞤣𞤫 𞤐𞤢𞤲𞥆𞤢𞥄𞤲𞤺𞤫 𞤀𞤬𞤪𞤭𞤳𞤢𞥄"}
         }
         "meta:Africa_Western"{
-            ld{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤕𞤫𞥅𞤯𞤵 𞤖𞤭𞥅𞤪𞤲𞤢𞥄𞤲𞤺𞤫 𞤀𞤬𞤪𞤭𞤳𞤢𞥄"}
-            lg{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤖𞤭𞥅𞤪𞤲𞤢𞥄𞤲𞤺𞤫 𞤀𞤬𞤪𞤭𞤳𞤢𞥄"}
-            ls{
-                "𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤖𞤢𞤱𞤪𞤵𞤲𞥋𞤣𞤫 𞤖𞤭𞥅𞤪𞤲𞤢𞥄𞤲𞤺𞤫 "
-                "𞤀𞤬𞤪𞤭𞤳𞤢𞥄"
-            }
+            ls{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤖𞤭𞥅𞤪𞤲𞤢𞥄𞤲𞤺𞤫 𞤀𞤬𞤪𞤭𞤳𞤢𞥄"}
         }
         "meta:Alaska"{
             ld{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤕𞤫𞥅𞤯𞤵 𞤀𞤤𞤢𞤧𞤳𞤢𞥄 𞤲𞤣𞤫𞤲"}
@@ -1616,6 +1603,9 @@ ff_Adlm{
         }
         "meta:Guyana"{
             ls{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤘𞤢𞤴𞤢𞤲𞤢𞥄"}
+        }
+        "meta:Hawaii"{
+            ls{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤖𞤢𞤱𞤪𞤵𞤲𞥋𞤣𞤫 𞤖𞤢𞤱𞤢𞥄𞤴𞤭𞥅-𞤀𞤤𞤮𞤧𞤭𞤴𞤢𞤲"}
         }
         "meta:Hawaii_Aleutian"{
             ld{"𞤑𞤭𞤶𞤮𞥅𞤪𞤫 𞤕𞤫𞥅𞤯𞤵 𞤖𞤢𞤱𞤢𞥄𞤴𞤭𞥅-𞤀𞤤𞤮𞤧𞤭𞤴𞤢𞤲"}

@@ -51,7 +51,7 @@ enum class PermissionState : uint8_t;
 template<typename IDLType> class DOMPromiseDeferred;
 
 class Permissions : public RefCounted<Permissions> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Permissions);
+    WTF_MAKE_TZONE_ALLOCATED(Permissions);
 public:
     static Ref<Permissions> create(NavigatorBase&);
     ~Permissions();

@@ -221,6 +221,8 @@ private:
     };
     void adjustObservedState(Event);
 
+    enum class ElementVisibility : bool { Hidden, Visible };
+
     const CheckedRef<Document> m_document;
     Timer m_contentObservationTimer;
     WeakHashSet<const DOMTimer> m_DOMTimerList;
@@ -230,6 +232,7 @@ private:
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_hiddenTouchTargetElement;
     WeakPtr<Node, WeakPtrImplWithEventTargetData> m_clickTarget;
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_visibilityCandidateList;
+    WeakHashMap<Element, ElementVisibility, WeakPtrImplWithEventTargetData> m_initialElementVisibility;
     bool m_touchEventIsBeingDispatched { false };
     bool m_isWaitingForStyleRecalc { false };
     bool m_isInObservedStyleRecalc { false };

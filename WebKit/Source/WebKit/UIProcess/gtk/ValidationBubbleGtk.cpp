@@ -35,7 +35,7 @@ namespace WebKit {
 ValidationBubbleGtk::ValidationBubbleGtk(GtkWidget* webView, String&& message, const WebCore::ValidationBubble::Settings& settings)
     : m_webView(webView)
 {
-    m_message = WTFMove(message);
+    m_message = WTF::move(message);
     static constexpr double minFontSize = 11;
     m_fontSize = std::max(settings.minimumFontSize, minFontSize);
 

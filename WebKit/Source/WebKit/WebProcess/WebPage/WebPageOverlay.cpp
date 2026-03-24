@@ -45,12 +45,12 @@ static HashMap<WeakRef<PageOverlay>, WeakRef<WebPageOverlay>>& overlayMap()
 
 Ref<WebPageOverlay> WebPageOverlay::create(std::unique_ptr<WebPageOverlay::Client> client, PageOverlay::OverlayType overlayType)
 {
-    return adoptRef(*new WebPageOverlay(WTFMove(client), overlayType));
+    return adoptRef(*new WebPageOverlay(WTF::move(client), overlayType));
 }
 
 WebPageOverlay::WebPageOverlay(std::unique_ptr<WebPageOverlay::Client> client, PageOverlay::OverlayType overlayType)
     : m_overlay(PageOverlay::create(*this, overlayType))
-    , m_client(WTFMove(client))
+    , m_client(WTF::move(client))
 {
     ASSERT(m_client);
     overlayMap().add(*m_overlay, *this);

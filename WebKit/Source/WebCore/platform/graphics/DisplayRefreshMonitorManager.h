@@ -61,7 +61,7 @@ private:
 
     size_t findMonitorForDisplayID(PlatformDisplayID) const;
     DisplayRefreshMonitor* monitorForDisplayID(PlatformDisplayID) const;
-    DisplayRefreshMonitor* monitorForClient(DisplayRefreshMonitorClient&);
+    RefPtr<DisplayRefreshMonitor> monitorForClient(DisplayRefreshMonitorClient&);
 
     DisplayRefreshMonitor* ensureMonitorForDisplayID(PlatformDisplayID, DisplayRefreshMonitorFactory*);
 

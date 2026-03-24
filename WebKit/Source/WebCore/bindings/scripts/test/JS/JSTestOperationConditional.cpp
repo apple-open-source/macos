@@ -147,7 +147,7 @@ void JSTestOperationConditionalPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestOperationConditional::s_info = { "TestOperationConditional"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestOperationConditional) };
 
 JSTestOperationConditional::JSTestOperationConditional(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestOperationConditional>&& impl)
-    : JSDOMWrapper<TestOperationConditional>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestOperationConditional>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -291,7 +291,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestOperationConditional>(impl.ptr());
 #endif
-    return createWrapper<TestOperationConditional>(globalObject, WTFMove(impl));
+    return createWrapper<TestOperationConditional>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestOperationConditional& impl)

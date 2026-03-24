@@ -229,7 +229,7 @@
 
 -(bool) ensureFullPeerAvailable:(SOSAccount*) account err:(CFErrorRef *) error
 {
-    require_action_quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("Don't have circle")));
+    __Require_Action_Quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("Don't have circle")));
 
     if (self.fullPeerInfo == NULL || !SOSFullPeerInfoPrivKeyExists(self.fullPeerInfo)) {
         if(self.fullPeerInfo) { // fullPeerInfo where privkey is gone

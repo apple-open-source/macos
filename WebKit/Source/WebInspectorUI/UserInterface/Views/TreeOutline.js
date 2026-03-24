@@ -998,9 +998,12 @@ WI.TreeOutline = class TreeOutline extends WI.Object
             treeElement._listItemNode.remove();
 
         for (let treeElement of treeElementsToAttach) {
-            treeElement.parent._childrenListNode.appendChild(treeElement._listItemNode);
-            if (treeElement._childrenListNode)
-                treeElement.parent._childrenListNode.appendChild(treeElement._childrenListNode);
+            // FIXME: <webkit.org/b/303914> Refactor logic for appending TreeElement nodes so the private member isn't accessed directly.
+            if (treeElement.parent._childrenListNode) {
+                treeElement.parent._childrenListNode.appendChild(treeElement._listItemNode);
+                if (treeElement._childrenListNode)
+                    treeElement.parent._childrenListNode.appendChild(treeElement._childrenListNode);
+            }
         }
 
         let attachedCount = treeElementsToAttach.size;

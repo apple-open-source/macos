@@ -35,7 +35,7 @@ xzm_segment_group_segment_foreach_span(xzm_segment_t segment,
 		xzm_slice_kind_t kind = slice->xzc_bits.xzcb_kind;
 		if (_xzm_slice_kind_is_chunk_safe(kind) ||
 				// Guard pages aren't chunks, but should be enumerated like them
-				kind == XZM_SLICE_KIND_GUARD) {
+				kind == XZM_SLICE_KIND_GUARD_PAGE) {
 			xzm_slice_count_t slice_count;
 			if (kind == XZM_SLICE_KIND_TINY_CHUNK) {
 				slice_count = 1;
@@ -55,7 +55,7 @@ xzm_segment_group_segment_foreach_span(xzm_segment_t segment,
 			do {
 				slice++;
 			} while (!_xzm_slice_kind_is_chunk_safe(slice->xzc_bits.xzcb_kind) &&
-					slice->xzc_bits.xzcb_kind != XZM_SLICE_KIND_GUARD &&
+					slice->xzc_bits.xzcb_kind != XZM_SLICE_KIND_GUARD_PAGE &&
 					slice < end);
 
 			// Report the free span.
@@ -176,6 +176,42 @@ _xzm_introspect_small_chunk_blocks(xzm_malloc_zone_t zone,
 
 	return chunk_enumerator(segment_addr, segment, chunk, slice_count,
 			start_addr, xz, (vm_range_t *)blocks, (unsigned)range_idx);
+}
+
+static kern_return_t
+_xzm_introspect_guard_chunk_slots(xzm_malloc_zone_t zone,
+		vm_address_t segment_addr, xzm_segment_t segment, xzm_chunk_t chunk,
+		xzm_slice_count_t slice_count, uintptr_t start, vm_address_t start_addr,
+		xzm_gzone_t gz, MALLOC_NOESCAPE xzm_chunk_enumerator_t chunk_enumerator)
+{
+	xzm_gzone_chunk_slot_index_t capacity = gz->xgz_guard_config.xxgc_length;
+
+	union {
+		vm_range_t range;
+		bool free;
+	} blocks[XZM_CHUNK_MAX_BLOCK_COUNT] = { 0 };
+
+	size_t range_idx = 0;
+
+	for (xzm_gzone_chunk_slot_index_t slot_index = 0; slot_index < capacity;
+			slot_index++) {
+		if (_xzm_get_guard_chunk_slot_state(&gz->xgz_guard_config,
+				chunk->xzc_slot_state, slot_index) !=
+				XZM_GUARD_CHUNK_SLOT_STATE_ALLOCATED) {
+			continue;
+		}
+		xzm_slice_t slice = _xzm_get_guard_slot_slice(gz, chunk, slot_index);
+		size_t user_size = _xzm_get_guard_slot_user_size(slice);
+		xzm_debug_assert(user_size <= gz->xgz_block_size);
+		blocks[range_idx].range = (vm_range_t){
+			.address = start_addr + slot_index * gz->xgz_block_size,
+			.size = user_size,
+		};
+		range_idx++;
+	}
+
+	return chunk_enumerator(segment_addr, segment, chunk, slice_count,
+			start_addr, gz, (vm_range_t *)blocks, (unsigned)range_idx);
 }
 
 static kern_return_t
@@ -423,21 +459,27 @@ static kern_return_t
 _xzm_introspect_chunk_blocks(task_t task, memory_reader_t reader,
 		xzm_malloc_zone_t zone, vm_address_t segment_addr,
 		xzm_segment_t segment, xzm_chunk_t chunk, xzm_slice_count_t slice_count,
-		uintptr_t start, vm_address_t start_addr, xzm_xzone_t xz,
+		uintptr_t start, vm_address_t start_addr, xzm_gxzone_u gxz,
 		MALLOC_NOESCAPE xzm_chunk_enumerator_t chunk_enumerator)
 {
 	xzm_slice_kind_t kind = chunk->xzc_bits.xzcb_kind;
-	if (!_xzm_slice_kind_uses_xzones(kind)) {
+	if (kind == XZM_SLICE_KIND_GUARD_CHUNK) {
+		return _xzm_introspect_guard_chunk_slots(zone, segment_addr, segment,
+				chunk, slice_count, start, start_addr, gxz.gz,
+				chunk_enumerator);
+	} else if (!_xzm_slice_kind_uses_xzones(kind)) {
 		// This is a large or huge chunk, which has exactly one block
 		vm_range_t range = {
 			.address = start_addr,
 			.size = slice_count * XZM_SEGMENT_SLICE_SIZE,
 		};
 
+		xzm_debug_assert(!gxz.xz);
 		return chunk_enumerator(segment_addr, segment, chunk, slice_count,
-				start_addr, NULL, &range, 1);
+				start_addr, gxz, &range, 1);
 	}
 
+	xzm_xzone_t xz = gxz.xz;
 	uint32_t block_size = (uint32_t)xz->xz_block_size;
 	size_t capacity = xz->xz_chunk_capacity;
 	// Sanity check
@@ -503,8 +545,15 @@ _xzm_introspect_enumerate(task_t task, memory_reader_t reader,
 					return kr;
 				}
 
+				vm_size_t slab_size = 0;
+				if (slab_addr == (vm_address_t)mp->xzmp_start_space) {
+					slab_size = mp->xzmp_start_space_size;
+				} else {
+					slab_size = mp->xzmp_slab_size;
+				}
+
 				kr = metapool_slab_enumerator((vm_address_t)slab->xzmps_base,
-						mp->xzmp_slab_size, mp->xzmp_id);
+						slab_size, mp->xzmp_id);
 				if (kr) {
 					return kr;
 				}
@@ -540,10 +589,19 @@ _xzm_introspect_enumerate(task_t task, memory_reader_t reader,
 
 		// Map in the segment metadata to see how big it is.
 		kern_return_t kr = reader(task, segment_addr,
-				sizeof(struct xzm_segment_s), (void **)&segment);
+				XZM_SEGMENT_NORMAL_STRUCT_SIZE, (void **)&segment);
 		if (kr) {
-			xzm_debug_abort("failed to map segment header");
+			xzm_debug_abort("failed to map normal segment header");
 			return kr;
+		}
+
+		if (segment->xzs_kind == XZM_SEGMENT_KIND_MULTI) {
+			kern_return_t kr = reader(task, segment_addr,
+				XZM_SEGMENT_MULTI_STRUCT_SIZE, (void **)&segment);
+			if (kr) {
+				xzm_debug_abort("failed to map multi segment header");
+				return kr;
+			}
 		}
 
 		void *segment_body;
@@ -575,12 +633,22 @@ _xzm_introspect_enumerate(task_t task, memory_reader_t reader,
 				// This is a chunk that belongs to this zone.
 				xzm_chunk_t chunk = span;
 
-				xzm_xzone_t xz = NULL;
-				if (_xzm_slice_kind_uses_xzones(kind)) {
-					xz = (xzm_xzone_t)_xzm_introspect_rebase(zone_address, zone,
-							zone_size, &zone->xzz_xzones[chunk->xzc_xzone_idx],
+				xzm_gxzone_u gxz = { 0 };
+				if (kind == XZM_SLICE_KIND_GUARD_CHUNK) {
+					gxz.gz = (xzm_gzone_t)_xzm_introspect_rebase(zone_address,
+							zone, zone_size,
+							_xzm_get_guard_chunk_gzone(zone, chunk),
+							sizeof(struct xzm_gzone_s));
+					if (!gxz.gz) {
+						xzm_debug_abort("failed to rebase gzone");
+						return KERN_FAILURE;
+					}
+				} else if (_xzm_slice_kind_uses_xzones(kind)) {
+					gxz.xz = (xzm_xzone_t)_xzm_introspect_rebase(zone_address,
+							zone, zone_size,
+							&zone->xzz_xzones[chunk->xzc_xzone_idx],
 							sizeof(struct xzm_xzone_s));
-					if (!xz) {
+					if (!gxz.xz) {
 						xzm_debug_abort("failed to rebase xzone");
 						return KERN_FAILURE;
 					}
@@ -589,10 +657,10 @@ _xzm_introspect_enumerate(task_t task, memory_reader_t reader,
 				if (include_blocks) {
 					return _xzm_introspect_chunk_blocks(task, reader, zone,
 							segment_addr, segment, chunk, slice_count, start,
-							start_addr, xz, chunk_enumerator);
+							start_addr, gxz, chunk_enumerator);
 				} else {
 					return chunk_enumerator(segment_addr, segment, chunk,
-							slice_count, start_addr, xz, NULL, 0);
+							slice_count, start_addr, gxz, NULL, 0);
 				}
 			} else if (zone_is_main &&
 					span->xzc_mzone_idx == XZM_MZONE_INDEX_INVALID) {
@@ -830,7 +898,7 @@ xzm_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 		return KERN_SUCCESS;
 	}, ^(vm_address_t segment_addr, xzm_segment_t segment, xzm_chunk_t chunk,
 			xzm_slice_count_t slice_count, vm_address_t start_addr,
-			xzm_xzone_t xz, vm_range_t *ranges, size_t count){
+			xzm_gxzone_u gxz, vm_range_t *ranges, size_t count){
 		// Chunk enumerator
 		xzm_slice_kind_t kind = chunk->xzc_bits.xzcb_kind;
 		if (record_admin && kind == XZM_SLICE_KIND_HUGE_CHUNK) {
@@ -852,7 +920,8 @@ xzm_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 			.address = start_addr,
 			.size = slice_count * XZM_SEGMENT_SLICE_SIZE,
 		};
-		if (_xzm_slice_kind_uses_xzones(kind)) {
+		if (_xzm_slice_kind_uses_xzones(kind) ||
+				kind == XZM_SLICE_KIND_GUARD_CHUNK) {
 			if (record_ptr_region) {
 				recorder(task, context, MALLOC_PTR_REGION_RANGE_TYPE,
 						&region_range, 1);
@@ -982,7 +1051,8 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 	printer("{\n");
 	printer("\"desc\": \"xzone malloc\", \n");
 	printer("\"addr\": \"%p\", \n", zone_address);
-	printer("\"segment_size\": %zu, \n", XZM_SEGMENT_SIZE);
+	printer("\"segment_size\": %zu, \n", XZM_NORMAL_SEGMENT_SIZE);
+	printer("\"multi_segment_size\": %zu, \n", XZM_MULTI_SEGMENT_SIZE);
 	printer("\"slice_size\": %zu, \n", XZM_SEGMENT_SLICE_SIZE);
 	printer("\"mzone\": %d, \n", (int)zone->xzz_mzone_idx);
 	printer("\"is_main\": %d, \n", zone_is_main);
@@ -1017,8 +1087,8 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 			// This interface is usually used to query the disposition of a
 			// full segment, so to reduce the number of calls into the vm, request at least a segment
 			size_t request_pages = howmany(size, vm_page_size);
-			if (request_pages < (XZM_SEGMENT_SIZE / vm_page_size)) {
-				request_pages = XZM_SEGMENT_SIZE / vm_page_size;
+			if (request_pages < (XZM_NORMAL_SEGMENT_SIZE / vm_page_size)) {
+				request_pages = XZM_NORMAL_SEGMENT_SIZE / vm_page_size;
 			}
 
 			// TODO: mixed page size difficulties
@@ -1043,7 +1113,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 
 			mach_vm_size_t mvs_page_span = (mach_vm_size_t)request_pages;
 			kr = mach_vm_page_range_query(task,
-					(mach_vm_address_t)addr, MAX(size, XZM_SEGMENT_SIZE),
+					(mach_vm_address_t)addr, MAX(size, XZM_NORMAL_SEGMENT_SIZE),
 					(mach_vm_address_t)dispositions, &mvs_page_span);
 			if (kr) {
 				xzm_debug_abort("Failed to query vm stats");
@@ -1092,7 +1162,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		// Segment enumerator
 
 		if (!first_span) {
-			printer(", ");
+			printer(",\n");
 		}
 
 		printer("%s\"%p\": {\n", indent, (void *)segment_addr);
@@ -1124,7 +1194,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		printer("%s    \"slice_entry_count\": %u \n", indent,
 				segment->xzs_slice_entry_count);
 
-		printer("%s}\n", indent); // segment
+		printer("%s}", indent); // segment
 		first_span = false;
 
 		return KERN_SUCCESS;
@@ -1134,23 +1204,41 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		printer("\"bucketing_key\": \"%016llx%016llx\", \n",
 				main->xzmz_bucketing_keys.xbk_key_data[0],
 				main->xzmz_bucketing_keys.xbk_key_data[1]);
-		printer("\"guard_config\": {\n");
-		printer("    \"guards_enabled\": %d, \n",
-				main->xzmz_guard_config.xgpc_enabled);
+
+		printer("\"guard_page_config\": {\n");
+		printer("    \"guard_pages_enabled\": %d, \n",
+				main->xzmz_guard_page_config.xgpc_enabled);
 		printer("    \"data_guards_enabled\": %d, \n",
-				main->xzmz_guard_config.xgpc_enabled_for_data);
+				main->xzmz_guard_page_config.xgpc_enabled_for_data);
 		printer("    \"tiny_run_size\": %d, \n",
-				main->xzmz_guard_config.xgpc_max_run_tiny);
+				main->xzmz_guard_page_config.xgpc_max_run_tiny);
 		printer("    \"tiny_guard_density\": %d, \n",
-				main->xzmz_guard_config.xgpc_tiny_guard_density);
+				main->xzmz_guard_page_config.xgpc_tiny_guard_density);
 		printer("    \"small_run_size\": %d, \n",
-				main->xzmz_guard_config.xgpc_max_run_small);
+				main->xzmz_guard_page_config.xgpc_max_run_small);
 		printer("    \"small_guard_density\": %d \n",
-				main->xzmz_guard_config.xgpc_small_guard_density);
+				main->xzmz_guard_page_config.xgpc_small_guard_density);
 		printer("}, \n");
+
+		printer("\"guard_object_config\": {\n");
+		printer("    \"large_guards_enabled\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_enabled);
+		printer("    \"large_chunk_slots\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_chunk_slots);
+		printer("    \"large_max_chunks\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_max_chunks);
+		printer("    \"large_guard_density\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_guard_density);
+		printer("    \"large_guard_force_quarantine\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_guard_force_quarantine);
+		printer("    \"large_guard_reinit\": %d,\n",
+				main->xzmz_guard_object_config.xgoc_large_guard_reinit_threshold);
+		printer("    \"large_guard_reuse\": %d\n",
+				main->xzmz_guard_object_config.xgoc_large_guard_reuse);
+		printer("},\n");
+
 		printer("\"chunk_threshold\": %u, \n", main->xzmz_xzone_chunk_threshold);
 		printer("\"ptr_bucket_count\": %d, \n", main->xzmz_ptr_bucket_count);
-		// guard_config
 
 #if CONFIG_MTE
 		printer("\"mte_config\": {\n");
@@ -1314,6 +1402,8 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 			printer("        \"front\": %d, \n", (int)sg->xzsg_front);
 			printer("        \"range_group\": \"%p\", \n",
 					sg->xzsg_range_group);
+			printer("        \"last_dealloc_ts\": \"%llu\", \n",
+					sg->xzsg_last_dealloc_ts);
 			printer("        \"segment_cache\": { \n");
 			printer("            \"max_count\": %u, \n",
 					(unsigned)sg->xzsg_cache.xzsc_max_count);
@@ -1387,7 +1477,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 			return;
 		}
 
-		for (uint8_t xzidx = XZM_XZONE_INDEX_FIRST;
+		for (xzm_xzone_index_t xzidx = XZM_XZONE_INDEX_FIRST;
 				xzidx < zone->xzz_xzone_count; xzidx++) {
 			xzm_xzone_t xz = &mapped_xzones[xzidx];
 			printer("    \"%d\": {\n", (int)xzidx);
@@ -1405,6 +1495,9 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 			printer("        \"chunk_count\": %llu, \n", xz->xz_chunk_count);
 			printer("        \"chunk_capacity\": %u, \n", xz->xz_chunk_capacity);
 			printer("        \"sequestered\": %d,\n", (int)xz->xz_sequestered);
+#if CONFIG_MTE
+			printer("        \"tagged\": %d,\n", (int)xz->xz_tagged);
+#endif
 			printer("        \"list_config\": \"%s\",\n",
 					_xzm_slot_config_to_string(xz->xz_list_config));
 			printer("        \"slot_config\": \"%s\",\n",
@@ -1465,6 +1558,77 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 
 		printer("}, \n"); // xzones
 
+		printer("\"guard_zones\": {\n");
+
+		if (main->xzmz_base.xzz_gzones) {
+			struct xzm_gzone_s *mapped_gzones = NULL;
+			size_t gzones_size = sizeof(*main->xzmz_base.xzz_gzones) *
+					XZM_NUM_GZONES;
+			uintptr_t rebased_gzones = _xzm_introspect_rebase(main_address,
+					main, main->xzmz_total_size, main->xzmz_base.xzz_gzones,
+					gzones_size);
+			if (!rebased_gzones) {
+				xzm_debug_abort("failed to map main gzones");
+				return;
+			}
+			mapped_gzones = (struct xzm_gzone_s *)rebased_gzones;
+
+			for (xzm_gzone_index_t gzidx = 0; gzidx < XZM_NUM_GZONES; ++gzidx) {
+				xzm_gzone_t gz = &mapped_gzones[gzidx];
+				printer("    \"%u\": {\n", gzidx); // guard_zone
+
+				printer("        \"runq_partial\": [\n");
+				for (unsigned i = 0; i < XZM_SEGMENT_GROUP_IDS_COUNT; ++i) {
+					printer("            { \"count\": %u }",
+							gz->xgz_chunkqs[i].xgzc_partial_count);
+					if (i < XZM_SEGMENT_GROUP_IDS_COUNT - 1) {
+						printer(",");
+					}
+					printer("\n");
+				}
+				printer("        ],\n");
+				printer("        \"runq_full\": [\n");
+				for (unsigned i = 0; i < XZM_SEGMENT_GROUP_IDS_COUNT; ++i) {
+					printer("            { \"count\": %u }",
+							gz->xgz_chunkqs[i].xgzc_full_count);
+					if (i < XZM_SEGMENT_GROUP_IDS_COUNT - 1) {
+						printer(",");
+					}
+					printer("\n");
+				}
+				printer("        ],\n");
+				printer("        \"runq_quarantine\": [\n");
+				for (unsigned i = 0; i < XZM_SEGMENT_GROUP_IDS_COUNT; ++i) {
+					printer("            { \"count\": %u }",
+							gz->xgz_chunkqs[i].xgzc_quarantine_count);
+					if (i < XZM_SEGMENT_GROUP_IDS_COUNT - 1) {
+						printer(",");
+					}
+					printer("\n");
+				}
+				printer("        ],\n");
+				printer("        \"block_size\": %u,\n", gz->xgz_block_size);
+				printer("        \"guard_config\": {\n");
+				printer("            \"type\": %u,\n",
+						gz->xgz_guard_config.xxgc_type);
+				printer("            \"length\": %u,\n",
+						gz->xgz_guard_config.xxgc_length);
+				printer("            \"density\": %u,\n",
+						gz->xgz_guard_config.xxgc_density);
+				printer("            \"reuse\": %u\n",
+						gz->xgz_guard_config.xxgc_reuse);
+				printer("        }\n"); // guard_config
+
+				printer("    }"); // guard_zone
+				if (gzidx < XZM_NUM_GZONES - 1) {
+					printer(",");
+				}
+				printer("\n");
+			}
+		}
+
+		printer("}, \n"); // guard_zones
+
 #if CONFIG_XZM_THREAD_CACHE
 		printer("\"thread_cache_enabled\": %s, \n",
 				zone->xzz_thread_cache_enabled ?  "true" : "false");
@@ -1489,7 +1653,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 				printer("{\n");
 				printer("        \"thread\": \"%p\",\n", (void *)tc->xtc_thread);
 				printer("        \"xz_caches\": {\n", (void *)tc->xtc_thread);
-				for (uint8_t xzidx = XZM_XZONE_INDEX_FIRST;
+				for (xzm_xzone_index_t xzidx = XZM_XZONE_INDEX_FIRST;
 						xzidx < zone->xzz_thread_cache_xzone_count; xzidx++) {
 					xzm_xzone_thread_cache_t cache = &tc->xtc_xz_caches[xzidx];
 
@@ -1575,15 +1739,14 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 	segment_enumerator,
 	^(vm_address_t segment_addr, xzm_segment_t segment, xzm_chunk_t chunk,
 			xzm_slice_count_t slice_count, vm_address_t start_addr,
-			xzm_xzone_t xz, vm_range_t *ranges, size_t count){
+			xzm_gxzone_u gxz, vm_range_t *ranges, size_t count){
 		// Chunk enumerator
 
-		printer("    ");
 		if (!first_span) {
-			printer(", ");
+			printer(",\n");
 		}
 
-		printer("\"%p\": {\n", (void *)start_addr);
+		printer("    \"%p\": {\n", (void *)start_addr);
 		printer("        \"addr\": \"%p\", \n", (void *)start_addr);
 		printer("        \"metadata_addr\": \"%p\", \n", (void *)(segment_addr +
 				((vm_address_t)chunk - (vm_address_t)segment)));
@@ -1594,17 +1757,22 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 				segment->xzs_segment_group - main->xzmz_segment_groups);
 
 		xzm_slice_kind_t kind = chunk->xzc_bits.xzcb_kind;
+		size_t block_size = 0;
+		if (_xzm_slice_kind_uses_xzones(kind)) {
+			block_size = gxz.xz->xz_block_size;
+		} else if (kind == XZM_SLICE_KIND_GUARD_CHUNK) {
+			block_size = gxz.gz->xgz_block_size;
+		}
 		const char *kind_str = _xzm_slice_kind_to_string(kind);
 		printer("        \"kind\": \"%s\", \n", kind_str);
 		printer("        \"slice_count\": %u, \n", slice_count);
-		printer("        \"block_size\": %u, \n",
-				xz ? (unsigned)xz->xz_block_size : 0);
+		printer("        \"block_size\": %u, \n", block_size);
 		printer("        \"in_use\": 1, \n");
 
 		xzm_slice_count_t slice_index = (xzm_slice_count_t)
 				(chunk - segment->xzs_slices);
 		xzm_xzone_slice_metadata_u *metadata =
-				&segment->xzs_slice_metadata[slice_index];
+				&segment->xzs_slices[slice_index].xzcs_slice_metadata;
 		printer("        \"slice_metadata\": \"%p\", \n",
 				metadata->xzsm_batch_next);
 
@@ -1615,7 +1783,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		}
 
 		if (_xzm_slice_kind_uses_xzones(kind)) {
-			printer("        \"bucket\": %u,\n", (unsigned)xz->xz_bucket);
+			printer("        \"bucket\": %u,\n", (unsigned)gxz.xz->xz_bucket);
 		}
 
 		switch (kind) {
@@ -1646,15 +1814,26 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 			printer("        \"alloc_idx\": %u,\n",
 					(unsigned)chunk->xzc_alloc_idx);
 			break;
+		case XZM_SLICE_KIND_GUARD_CHUNK:
+			printer("        \"slot_state\": \"0x%llx\",\n",
+					chunk->xzc_slot_state);
+			printer("        \"guards\": %u,\n", chunk->xzc_guard_count);
+			printer("        \"empty\": %u,\n", chunk->xzc_empty_count);
+			printer("        \"quarantine\": %u,\n",
+					chunk->xzc_quarantine_count);
+			printer("        \"slot_slices\": %u,\n", chunk->xzc_slot_slices);
+			break;
 		default:
 			break;
 		}
 
+		printer("        \"on_multi_segment\": %d,\n",
+				(int)chunk->xzc_bits.xzcb_on_multi_segment);
 		printer("        \"is_preallocated\": %d,\n",
 				(int)chunk->xzc_bits.xzcb_preallocated);
 		printer("        \"is_pristine\": %d\n",
 				(int)chunk->xzc_bits.xzcb_is_pristine);
-		printer("    }\n");
+		printer("    }");
 		first_span = false;
 
 		return KERN_SUCCESS;
@@ -1664,12 +1843,11 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		// Main zone span enumerator
 
 		// TODO: better sharing with the chunk enumerator
-		printer("    ");
 		if (!first_span) {
-			printer(", ");
+			printer(",\n");
 		}
 
-		printer("\"%p\": {\n", (void *)start_addr);
+		printer("    \"%p\": {\n", (void *)start_addr);
 		printer("        \"addr\": \"%p\", \n", (void *)start_addr);
 		printer("        \"metadata_addr\": \"%p\", \n", (void *)(segment_addr +
 				((vm_address_t)span - (vm_address_t)segment)));
@@ -1687,7 +1865,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		xzm_slice_count_t slice_index = (xzm_slice_count_t)
 				(span - segment->xzs_slices);
 		xzm_xzone_slice_metadata_u *metadata =
-				&segment->xzs_slice_metadata[slice_index];
+				&segment->xzs_slices[slice_index].xzcs_slice_metadata;
 		printer("        \"slice_metadata\": \"%p\", \n",
 				metadata->xzsm_batch_next);
 
@@ -1700,7 +1878,7 @@ xzm_print(task_t task, unsigned level, vm_address_t zone_address,
 		printer("        \"is_preallocated\": %d,\n",
 				(int)span->xzc_bits.xzcb_preallocated);
 		printer("        \"in_use\": 0 \n");
-		printer("    }\n"); // span
+		printer("    }"); // span
 		first_span = false;
 
 		return KERN_SUCCESS;
@@ -1809,7 +1987,7 @@ xzm_statistics(task_t task, vm_address_t zone_address,
 		return KERN_SUCCESS;
 	}, ^(vm_address_t segment_addr, xzm_segment_t segment, xzm_chunk_t chunk,
 			xzm_slice_count_t slice_count, vm_address_t start_addr,
-			xzm_xzone_t xz, vm_range_t *ranges, size_t count){
+			xzm_gxzone_u gxz, vm_range_t *ranges, size_t count){
 		// Chunk enumerator
 		size_t chunk_size = slice_count * XZM_SEGMENT_SLICE_SIZE;
 		size_t used = 0;
@@ -1819,18 +1997,34 @@ xzm_statistics(task_t task, vm_address_t zone_address,
 		case XZM_SLICE_KIND_TINY_CHUNK:
 		case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK:;
 			xzm_chunk_atomic_meta_u meta = chunk->xzc_atomic_meta;
-			uint32_t capacity = xz->xz_chunk_capacity;
+			uint32_t capacity = gxz.xz->xz_chunk_capacity;
 			if (meta.xca_alloc_head != XZM_FREE_MADVISING &&
 					meta.xca_alloc_head != XZM_FREE_MADVISED) {
 				used = (size_t)(capacity - meta.xca_free_count);
 				stats->blocks_in_use += used;
-				stats->size_in_use += used * xz->xz_block_size;
+				stats->size_in_use += used * gxz.xz->xz_block_size;
 			}
 			break;
 		case XZM_SLICE_KIND_SMALL_CHUNK:
 			used = chunk->xzc_used;
 			stats->blocks_in_use += used;
-			stats->size_in_use += used * xz->xz_block_size;
+			stats->size_in_use += used * gxz.xz->xz_block_size;
+			break;
+		case XZM_SLICE_KIND_GUARD_CHUNK:
+			for (xzm_gzone_chunk_slot_index_t index = 0;
+					index < gxz.gz->xgz_guard_config.xxgc_length; index++) {
+				if (_xzm_get_guard_chunk_slot_state(&gxz.gz->xgz_guard_config,
+						chunk->xzc_slot_state, index) !=
+						XZM_GUARD_CHUNK_SLOT_STATE_ALLOCATED) {
+					continue;
+				}
+				xzm_slice_t slice = _xzm_get_guard_slot_slice(gxz.gz, chunk,
+						index);
+				size_t user_size = _xzm_get_guard_slot_user_size(slice);
+				xzm_debug_assert(user_size <= gxz.gz->xgz_block_size);
+				stats->blocks_in_use++;
+				stats->size_in_use += user_size;
+			}
 			break;
 		default:
 			stats->blocks_in_use++;

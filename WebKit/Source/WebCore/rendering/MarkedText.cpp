@@ -34,7 +34,7 @@
 #include "RenderBoxModelObject.h"
 #include "RenderHighlight.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderText.h"
 #include "RenderedDocumentMarker.h"
 #include "TextBoxSelectableRange.h"
@@ -158,37 +158,31 @@ Vector<MarkedText> MarkedText::collectForHighlights(const RenderText& renderer, 
             }
         }
     }
-    
+
+    auto appendMarkedTextHighlights = [&](const HighlightRegistry& registry, MarkedText::Type markedTextType) {
+        for (Ref highlight : registry.map().values()) {
+            for (Ref highlightRange : highlight->highlightRanges()) {
+                if (!renderHighlight.setRenderRange(highlightRange))
+                    continue;
+
+                auto [highlightStart, highlightEnd] = renderHighlight.rangeForTextBox(renderer, selectableRange);
+                if (highlightStart < highlightEnd)
+                    markedTexts.append({ highlightStart, highlightEnd, markedTextType });
+            }
+        }
+    };
+
     if (renderer.document().settings().scrollToTextFragmentEnabled()) {
-        if (auto fragmentHighlightRegistry = renderer.document().fragmentHighlightRegistryIfExists()) {
-            for (auto& highlight : fragmentHighlightRegistry->map()) {
-                for (auto& highlightRange : highlight.value->highlightRanges()) {
-                    if (!renderHighlight.setRenderRange(highlightRange))
-                        continue;
-
-                    auto [highlightStart, highlightEnd] = renderHighlight.rangeForTextBox(renderer, selectableRange);
-                    if (highlightStart < highlightEnd)
-                        markedTexts.append({ highlightStart, highlightEnd, MarkedText::Type::FragmentHighlight });
-                }
-            }
-        }
+        if (RefPtr registry = renderer.document().fragmentHighlightRegistryIfExists())
+            appendMarkedTextHighlights(*registry, MarkedText::Type::FragmentHighlight);
     }
-    
+
+    if (RefPtr registry = renderer.document().textExtractionHighlightRegistryIfExists())
+        appendMarkedTextHighlights(*registry, MarkedText::Type::TextExtractionHighlight);
+
 #if ENABLE(APP_HIGHLIGHTS)
-    if (auto appHighlightRegistry = renderer.document().appHighlightRegistryIfExists()) {
-        if (appHighlightRegistry->highlightsVisibility() == HighlightVisibility::Visible) {
-            for (auto& highlight : appHighlightRegistry->map()) {
-                for (auto& highlightRange : highlight.value->highlightRanges()) {
-                    if (!renderHighlight.setRenderRange(highlightRange))
-                        continue;
-
-                    auto [highlightStart, highlightEnd] = renderHighlight.rangeForTextBox(renderer, selectableRange);
-                    if (highlightStart < highlightEnd)
-                        markedTexts.append({ highlightStart, highlightEnd, MarkedText::Type::AppHighlight });
-                }
-            }
-        }
-    }
+    if (RefPtr registry = renderer.document().appHighlightRegistryIfExists(); registry && registry->highlightsVisibility() == HighlightVisibility::Visible)
+        appendMarkedTextHighlights(*registry, MarkedText::Type::AppHighlight);
 #endif
     return markedTexts;
 }

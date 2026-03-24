@@ -95,7 +95,7 @@ void BackingStore::incorporateUpdate(UpdateInfo&& updateInfo)
     if (!updateInfo.bitmapHandle)
         return;
 
-    auto bitmap = ShareableBitmap::create(WTFMove(*updateInfo.bitmapHandle));
+    auto bitmap = ShareableBitmap::create(WTF::move(*updateInfo.bitmapHandle));
     if (!bitmap)
         return;
 

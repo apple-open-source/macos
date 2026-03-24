@@ -77,17 +77,19 @@ private:
     RemoteCompositorIntegrationProxy& operator=(const RemoteCompositorIntegrationProxy&) = delete;
     RemoteCompositorIntegrationProxy& operator=(RemoteCompositorIntegrationProxy&&) = delete;
 
+    bool isRemoteCompositorIntegrationProxy() const final { return true; }
+
     WebGPUIdentifier backing() const { return m_backing; }
     
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().protectedStreamClientConnection()->send(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->send(WTF::move(message), backing());
     }
     template<typename T>
     WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
     {
-        return root().protectedStreamClientConnection()->sendSync(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->sendSync(WTF::move(message), backing());
     }
 
 #if PLATFORM(COCOA)
@@ -104,5 +106,9 @@ private:
 };
 
 } // namespace WebKit::WebGPU
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebGPU::RemoteCompositorIntegrationProxy)
+    static bool isType(const WebCore::WebGPU::CompositorIntegration& integration) { return integration.isRemoteCompositorIntegrationProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GPU_PROCESS)

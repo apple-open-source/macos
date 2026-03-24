@@ -3,7 +3,6 @@
  */
 
 #import <Foundation/Foundation.h>
-#import <dispatch/semaphore.h>
 #import <zlib.h>
 
 #import "DirNameCache.h"
@@ -274,7 +273,7 @@ out_err:
 @interface DirNameCachePool ()
 
 @property NSMutableArray<DNCPoolEntry*> *pool;
-@property dispatch_semaphore_t poolSemaphore;
+@property uint32_t slotsUsed;
 @property uint32_t capacity;
 
 @end
@@ -312,9 +311,9 @@ out_err:
 {
     self = [super init];
     if (self) {
+        _slotsUsed = 0;
         _capacity = DIR_NAME_CACHES_LIMIT;
         _pool = [[NSMutableArray alloc] initWithCapacity:DIR_NAME_CACHES_LIMIT];
-        self.poolSemaphore = dispatch_semaphore_create(DIR_NAME_CACHES_LIMIT);
     }
     return self;
 }
@@ -339,7 +338,7 @@ out_err:
             /* In use by someone, don't touch it */
             continue;
         }
-        if (!entryToRemove || entry.timestamp < entryToRemove.timestamp) {
+        if (!entryToRemove || entry.timestamp.timeIntervalSince1970 < entryToRemove.timestamp.timeIntervalSince1970) {
             entryToRemove = entry;
         }
     }
@@ -357,23 +356,14 @@ out_err:
                                     DirNameCache * _Nullable cache,
                                     bool isNew))reply;
 {
-    /* The pool has <size> available slots, we need to hold onto one of them. */
-    if (dispatch_semaphore_wait(_poolSemaphore, DISPATCH_TIME_NOW)) {
-        os_log_debug(OS_LOG_DEFAULT, "%s: dispatch_semaphore_wait timed out", __func__);
-        return reply(nil, nil, false);
-    }
-
     @synchronized (_pool) {
         DNCPoolEntry *entry = nil;
         DirNameCache *dnc = nil;
 
-        /* Getting here means we hold onto one of the pool slots */
         entry = [self getDNCEntryByKey:dir.firstCluster];
         if (entry == nil) {
             /* No such DNC cached */
             if (cachedOnly) {
-                /* Must release the semaphore as we're not using the cache */
-                dispatch_semaphore_signal(_poolSemaphore);
                 return reply(nil, nil, false); // TODO: Maybe some return value?
             }
             /* Find a free cache slot to use or we should free one */
@@ -384,12 +374,11 @@ out_err:
                 entry = [[DNCPoolEntry alloc] initWithDNC:dnc cacheKey:dir.firstCluster];
                 entry.timestamp = [NSDate now];
                 [_pool addObject:entry];
-            } else {
+            } else if (_slotsUsed < _capacity) {
                 /* Need to find the LRU one which is not in use */
                 entry = [self getAvailableEntry];
                 if (entry == nil) {
                     os_log_fault(OS_LOG_DEFAULT, "%s: No available entry", __func__);
-                    dispatch_semaphore_signal(_poolSemaphore);
                     return reply(fs_errorForPOSIXError(EFAULT), nil, false);
                 }
                 /* We have an entry we can use */
@@ -397,18 +386,22 @@ out_err:
                 entry.timestamp = [NSDate now];
                 entry.dnc = dnc = [[DirNameCache alloc] initWithDirEntrySize:[dir dirEntrySize]];
                 entry.dnc.isInUse = true;
+            } else {
+                /* All cache slots are in use. Exit. */
+                return reply(nil, nil, false);
             }
+            _slotsUsed++;
             return reply(nil, entry.dnc, true);
         }
         /* Getting here means we found a DNC for our directory */
         if (entry.dnc.isInUse) {
-            /* This shouldn't happen! Signal the semaphore and report an error. */
-            dispatch_semaphore_signal(_poolSemaphore);
+            /* This shouldn't happen! */
             os_log_fault(OS_LOG_DEFAULT, "%s: DNC for current dir is in use (%u)", __func__, dir.firstCluster);
             return reply(fs_errorForPOSIXError(EFAULT), nil, false);
         }
         entry.dnc.isInUse = true; /* Will be cleared when doneWithNameCacheForDir:reply is called */
         entry.timestamp = [NSDate now];
+        _slotsUsed++;
         return reply(nil, entry.dnc, false);
     }
 }
@@ -442,7 +435,7 @@ out_err:
             os_log_error(OS_LOG_DEFAULT, "%s: Entry for key %u is already set as not in use", __func__, dir.firstCluster);
         }
         entry.dnc.isInUse = false;
-        dispatch_semaphore_signal(_poolSemaphore);
+        _slotsUsed--;
     }
 }
 

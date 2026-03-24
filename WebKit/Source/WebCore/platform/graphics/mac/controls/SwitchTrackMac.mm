@@ -139,7 +139,8 @@ void SwitchTrackMac::draw(GraphicsContext& context, const FloatRoundedRect& bord
 {
     GraphicsContextStateSaver stateSaver(context);
 
-    auto isOn = owningPart().isOn();
+    Ref owningPart = this->owningPart();
+    auto isOn = owningPart->isOn();
     auto isInlineFlipped = style.states.contains(ControlStyle::State::InlineFlippedWritingMode);
     auto isVertical = style.states.contains(ControlStyle::State::VerticalWritingMode);
     auto isEnabled = style.states.contains(ControlStyle::State::Enabled);
@@ -147,7 +148,7 @@ void SwitchTrackMac::draw(GraphicsContext& context, const FloatRoundedRect& bord
     auto isInActiveWindow = style.states.contains(ControlStyle::State::WindowActive);
     auto isFocused = style.states.contains(ControlStyle::State::Focused);
     auto needsOnOffLabels = userPrefersWithoutColorDifferentiation();
-    auto progress = SwitchMacUtilities::easeInOut(owningPart().progress());
+    auto progress = SwitchMacUtilities::easeInOut(owningPart->progress());
 
     auto logicalBounds = SwitchMacUtilities::rectWithTransposedSize(borderRect.rect(), isVertical);
     auto controlSize = controlSizeForSize(logicalBounds.size(), style);
@@ -194,16 +195,16 @@ void SwitchTrackMac::draw(GraphicsContext& context, const FloatRoundedRect& bord
         // also because that class is not supposed to be used in GPUP.
         // FIXME: As above, not using context().platformContext() here is likely dubious.
         trackImage->context().setAlpha(1.0f - progress);
-        trackImage->context().drawConsumingImageBuffer(WTFMove(fromImage), IntPoint(), ImagePaintingOptions { CompositeOperator::SourceOver });
+        trackImage->context().drawConsumingImageBuffer(WTF::move(fromImage), IntPoint(), ImagePaintingOptions { CompositeOperator::SourceOver });
         trackImage->context().setAlpha(progress);
-        trackImage->context().drawConsumingImageBuffer(WTFMove(toImage), IntPoint(), ImagePaintingOptions { CompositeOperator::PlusLighter });
+        trackImage->context().drawConsumingImageBuffer(WTF::move(toImage), IntPoint(), ImagePaintingOptions { CompositeOperator::PlusLighter });
     }
 
     {
         GraphicsContextStateSaver rotationStateSaver(context);
         if (isVertical)
             SwitchMacUtilities::rotateContextForVerticalWritingMode(context, inflatedTrackRect);
-        context.drawConsumingImageBuffer(WTFMove(trackImage), inflatedTrackRect.location());
+        context.drawConsumingImageBuffer(WTF::move(trackImage), inflatedTrackRect.location());
     }
 
     if (isFocused) {

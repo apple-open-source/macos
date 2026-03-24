@@ -50,7 +50,7 @@
 
 - (NSView *)_webcore_effectiveFirstResponder
 {
-    NSView *view = [self documentView];
+    RetainPtr<NSView> view = [self documentView];
     return view ? [view _webcore_effectiveFirstResponder] : [super _webcore_effectiveFirstResponder];
 }
 
@@ -60,7 +60,7 @@
 
 - (NSView *)_webcore_effectiveFirstResponder
 {
-    NSView *view = [self contentView];
+    RetainPtr<NSView> view = [self contentView];
     return view ? [view _webcore_effectiveFirstResponder] : [super _webcore_effectiveFirstResponder];
 }
 

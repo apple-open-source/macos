@@ -18,6 +18,8 @@
 #ifndef USTRING_H
 #define USTRING_H
 
+DECLARE_SYSTEM_HEADER
+
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
 #include "unicode/uiter.h"

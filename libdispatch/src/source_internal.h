@@ -55,7 +55,9 @@ DISPATCH_CLASS_DECL(channel, QUEUE);
 		/* set under the send queue lock */ \
 		dm_needs_mgr:1, \
 		dm_disconnected:1, \
-		__dm_flags_pad : 14
+		__dm_flags_pad : 14; \
+	/* threads hold a list of sources they hold an sref on across park */ \
+	uintptr_t ds_sref_linkage
 
 struct dispatch_source_s {
 	DISPATCH_SOURCE_CLASS_HEADER(source);
@@ -71,6 +73,7 @@ dispatch_static_assert(sizeof(struct dispatch_channel_s) <= 128);
 
 bool _dispatch_source_is_timer(dispatch_source_t ds);
 void _dispatch_source_xref_dispose(dispatch_source_t ds);
+void _dispatch_source_dealloc(dispatch_object_t dou);
 void _dispatch_source_dispose(dispatch_source_t ds, bool *allow_free);
 void _dispatch_source_activate(dispatch_source_t ds);
 void _dispatch_source_invoke(dispatch_source_t ds,

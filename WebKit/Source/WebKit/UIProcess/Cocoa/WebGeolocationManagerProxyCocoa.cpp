@@ -42,7 +42,7 @@ void WebGeolocationManagerProxy::positionChanged(const String& websiteIdentifier
         return;
 
     auto& perDomainData = *it->value;
-    perDomainData.lastPosition = WTFMove(position);
+    perDomainData.lastPosition = WTF::move(position);
     for (auto& webProcessProxy : perDomainData.watchers)
         webProcessProxy.send(Messages::WebGeolocationManager::DidChangePosition(registrableDomain, perDomainData.lastPosition.value()), 0);
 }

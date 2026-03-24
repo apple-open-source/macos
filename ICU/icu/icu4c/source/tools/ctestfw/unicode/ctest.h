@@ -14,6 +14,7 @@
 
 #include "unicode/testtype.h"
 #include "unicode/utrace.h"
+#include <stdlib.h>
 
 
 /* prototypes *********************************/
@@ -87,6 +88,18 @@ U_CDECL_END
  * Use with set/getTestOption().
  */
 #define WRITE_GOLDEN_DATA_OPTION 7
+
+#if APPLE_ICU_CHANGES // rdar://168155160
+/**
+ * This is used to set or get the option value for SLEEP_FOR_MEMORY_CHECK.
+ * When option is nonzero, enable sleep() calls for heap/leak checking.
+ * Otherwise, sleep() calls are skipped to speed up test execution.
+ * Use with set/getTestOption().
+ *
+ * @internal
+ */
+#define SLEEP_OPTION 8
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Maximum amount of memory uprv_malloc should allocate before returning NULL.
@@ -354,5 +367,32 @@ ctest_xml_fini(void);
 T_CTEST_API int32_t
 T_CTEST_EXPORT2
 ctest_xml_testcase(const char *classname, const char *name, const char *time, const char *failMsg);
+
+#if APPLE_ICU_CHANGES
+// rdar://167651963
+/**
+ * Constructs argv array for XCTest wrappers based on ICU_EXHAUSTIVE environment variable.
+ * When ICU_EXHAUSTIVE is set, adds "-e" flag for exhaustive testing.
+ *
+ * @param argv0 The program name (e.g., "cintltst", "intltest", "iotest")
+ * @param argv Array to populate (must have space for 4 elements)
+ * @param testname The test name to pass to the underlying executable
+ * @return argc count (2 for quick mode, 3 for exhaustive mode)
+ * @internal
+ */
+static inline int ctest_setup_xctest_argv(const char *argv0, const char *argv[4], const char *testname) {
+    argv[0] = argv0;
+    if (getenv("ICU_EXHAUSTIVE") == NULL) {
+        argv[1] = testname;
+        argv[2] = NULL;
+        return 2;
+    } else {
+        argv[1] = "-e";
+        argv[2] = testname;
+        argv[3] = NULL;
+        return 3;
+    }
+}
+#endif  // APPLE_ICU_CHANGES
 
 #endif

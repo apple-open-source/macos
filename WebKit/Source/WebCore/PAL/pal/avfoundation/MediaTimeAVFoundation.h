@@ -25,9 +25,12 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if USE(AVFOUNDATION)
 
 #include <CoreMedia/CMTime.h>
+#include <pal/ExportMacros.h>
 #include <wtf/MediaTime.h>
 
 namespace PAL {

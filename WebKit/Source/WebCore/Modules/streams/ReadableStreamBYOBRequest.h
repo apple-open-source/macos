@@ -27,6 +27,7 @@
 
 #include "ExceptionOr.h"
 #include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 namespace JSC {
 class ArrayBufferView;

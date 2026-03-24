@@ -1024,7 +1024,7 @@ NSString* Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& p
             newEntry.visibility = visibility;
             makeBindingLayout(newEntry, entry.bindingMember, bufferTypeOverride, bufferSizeForBinding);
 
-            entries.append(WTFMove(newEntry));
+            entries.append(WTF::move(newEntry));
         }
     }
 
@@ -1045,7 +1045,7 @@ Ref<PipelineLayout> Device::generatePipelineLayout(const Vector<Vector<WGPUBindG
         auto bindGroupLayout = createBindGroupLayout(bindGroupLayoutDescriptor, true);
         if (!bindGroupLayout->isValid())
             return PipelineLayout::createInvalid(*this);
-        bindGroupLayoutsRefs.append(WTFMove(bindGroupLayout));
+        bindGroupLayoutsRefs.append(WTF::move(bindGroupLayout));
         bindGroupLayouts.append(&bindGroupLayoutsRefs[bindGroupLayoutsRefs.size() - 1].get());
     }
 
@@ -1719,7 +1719,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
 
     NSError *error = nil;
 #if !defined(NDEBUG) || (defined(ENABLE_LIBFUZZER) && ENABLE_LIBFUZZER && defined(ASAN_ENABLED) && ASAN_ENABLED)
-    if (dumpMetalReproCaseRenderPSO(WTFMove(vertexShaderSource), mtlRenderPipelineDescriptor.vertexFunction.name, WTFMove(fragmentShaderSource), mtlRenderPipelineDescriptor.fragmentFunction.name, mtlRenderPipelineDescriptor, shaderLocations, *this)) {
+    if (dumpMetalReproCaseRenderPSO(WTF::move(vertexShaderSource), mtlRenderPipelineDescriptor.vertexFunction.name, WTF::move(fragmentShaderSource), mtlRenderPipelineDescriptor.fragmentFunction.name, mtlRenderPipelineDescriptor, shaderLocations, *this)) {
         mtlRenderPipelineDescriptor.supportIndirectCommandBuffers = YES;
         id<MTLRenderPipelineState> renderPipelineState = [m_device newRenderPipelineStateWithDescriptor:mtlRenderPipelineDescriptor error:&error];
         UNUSED_PARAM(renderPipelineState);
@@ -1738,21 +1738,21 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
         if (!generatedPipelineLayout->isValid())
             return returnInvalidRenderPipeline(*this, isAsync, "Generated pipeline layout is not valid"_s);
 
-        return std::make_pair(RenderPipeline::create(mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, WTFMove(generatedPipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
+        return std::make_pair(RenderPipeline::create(mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, WTF::move(generatedPipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTF::move(requiredBufferIndices), WTF::move(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
     }
 
-    return std::make_pair(RenderPipeline::create(mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
+    return std::make_pair(RenderPipeline::create(mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTF::move(requiredBufferIndices), WTF::move(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
 }
 
 void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<RenderPipeline>&&, String&& message)>&& callback)
 {
     auto pipelineAndError = createRenderPipeline(descriptor, true);
     if (auto inst = instance(); inst.get()) {
-        inst->scheduleWork([protectedThis = Ref { *this }, pipeline = WTFMove(pipelineAndError.first), callback = WTFMove(callback), error = WTFMove(pipelineAndError.second)]() mutable {
-            callback((protectedThis->isDestroyed() || pipeline->isValid()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipeline), WTFMove(error));
+        inst->scheduleWork([protectedThis = Ref { *this }, pipeline = WTF::move(pipelineAndError.first), callback = WTF::move(callback), error = WTF::move(pipelineAndError.second)]() mutable {
+            callback((protectedThis->isDestroyed() || pipeline->isValid()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTF::move(pipeline), WTF::move(error));
         });
     } else
-        callback(WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipelineAndError.first), WTFMove(pipelineAndError.second));
+        callback(WGPUCreatePipelineAsyncStatus_ValidationError, WTF::move(pipelineAndError.first), WTF::move(pipelineAndError.second));
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderPipeline);
@@ -1772,8 +1772,8 @@ RenderPipeline::RenderPipeline(MTLPrimitiveType primitiveType, std::optional<MTL
     , m_colorAttachmentCount(colorAttachmentCount)
     , m_depthStencilDescriptor(depthStencilDescriptor)
     , m_depthStencilState(depthStencilDescriptor ? [device.device() newDepthStencilStateWithDescriptor:depthStencilDescriptor] : nil)
-    , m_requiredBufferIndices(WTFMove(requiredBufferIndices))
-    , m_pipelineLayout(WTFMove(pipelineLayout))
+    , m_requiredBufferIndices(WTF::move(requiredBufferIndices))
+    , m_pipelineLayout(WTF::move(pipelineLayout))
     , m_descriptor(descriptor)
     , m_descriptorDepthStencil(descriptor.depthStencil ? *descriptor.depthStencil : WGPUDepthStencilState())
     , m_descriptorFragment(descriptor.fragment ? *descriptor.fragment : WGPUFragmentState())
@@ -1968,7 +1968,7 @@ RefPtr<RenderPipeline> RenderPipeline::recomputeLastStrideAsStride() const
     }
 
     auto minimumBufferSizes = m_minimumBufferSizes;
-    m_lastStrideAsStridePipeline = RenderPipeline::create(m_primitiveType, m_indexType, m_frontFace, m_cullMode, m_clipMode, m_depthStencilDescriptor, m_pipelineLayout.copyRef(), m_depthBias, m_depthBiasSlopeScale, m_depthBiasClamp, m_sampleMask, clonedRenderPipelineDescriptor, m_colorAttachmentCount, m_descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), m_uniqueId, m_vertexShaderBindingCount, m_device);
+    m_lastStrideAsStridePipeline = RenderPipeline::create(m_primitiveType, m_indexType, m_frontFace, m_cullMode, m_clipMode, m_depthStencilDescriptor, m_pipelineLayout.copyRef(), m_depthBias, m_depthBiasSlopeScale, m_depthBiasClamp, m_sampleMask, clonedRenderPipelineDescriptor, m_colorAttachmentCount, m_descriptor, WTF::move(requiredBufferIndices), WTF::move(minimumBufferSizes), m_uniqueId, m_vertexShaderBindingCount, m_device);
 
     return m_lastStrideAsStridePipeline;
 }
@@ -1979,6 +1979,9 @@ id<MTLRenderPipelineState> RenderPipeline::renderPipelineState() const
         return m_renderPipelineState;
 
     m_renderPipelineState = [m_device->device() newRenderPipelineStateWithDescriptor:m_renderPipelineDescriptor error:nil];
+    if (!m_renderPipelineState)
+        m_device->generateAnOutOfMemoryError("Render pipeline failed compilation likely due to being too complex, please reduce its size"_s);
+
     return m_renderPipelineState;
 }
 
@@ -1989,6 +1992,9 @@ id<MTLRenderPipelineState> RenderPipeline::icbRenderPipelineState() const
 
     m_renderPipelineDescriptor.supportIndirectCommandBuffers = YES;
     m_renderPipelineState = [m_device->device() newRenderPipelineStateWithDescriptor:m_renderPipelineDescriptor error:nil];
+    if (!m_renderPipelineState)
+        m_device->generateAnOutOfMemoryError("Render pipeline failed compilation likely due to being too complex, please reduce its size"_s);
+
     return m_renderPipelineState;
 }
 

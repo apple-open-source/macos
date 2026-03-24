@@ -156,12 +156,11 @@ template<> std::optional<TestObj::EnumType> parseEnumerationFromString<TestObj::
 {
     if (stringValue.isEmpty())
         return TestObj::EnumType::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumType>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue2"_s, TestObj::EnumType::EnumValue2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue3"_s, TestObj::EnumType::EnumValue3 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "enumValue1"_s, TestObj::EnumType::EnumValue1 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumType>>({
+        { "EnumValue2"_s, TestObj::EnumType::EnumValue2 },
+        { "EnumValue3"_s, TestObj::EnumType::EnumValue3 },
+        { "enumValue1"_s, TestObj::EnumType::EnumValue1 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -196,11 +195,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumTrailingComma e
 
 template<> std::optional<TestObj::EnumTrailingComma> parseEnumerationFromString<TestObj::EnumTrailingComma>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue1"_s, TestObj::EnumTrailingComma::EnumValue1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue2"_s, TestObj::EnumTrailingComma::EnumValue2 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma>>({
+        { "enumValue1"_s, TestObj::EnumTrailingComma::EnumValue1 },
+        { "enumValue2"_s, TestObj::EnumTrailingComma::EnumValue2 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -241,12 +239,11 @@ template<> std::optional<TestObj::Optional> parseEnumerationFromString<TestObj::
 {
     if (stringValue.isEmpty())
         return TestObj::Optional::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Optional>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue1"_s, TestObj::Optional::OptionalValue1 },
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue2"_s, TestObj::Optional::OptionalValue2 },
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue3"_s, TestObj::Optional::OptionalValue3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::Optional>>({
+        { "OptionalValue1"_s, TestObj::Optional::OptionalValue1 },
+        { "OptionalValue2"_s, TestObj::Optional::OptionalValue2 },
+        { "OptionalValue3"_s, TestObj::Optional::OptionalValue3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -281,11 +278,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, AlternateEnumName enumeratio
 
 template<> std::optional<AlternateEnumName> parseEnumerationFromString<AlternateEnumName>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, AlternateEnumName>, 2> mappings {
-        std::pair<ComparableASCIILiteral, AlternateEnumName> { "EnumValue2"_s, AlternateEnumName::EnumValue2 },
-        std::pair<ComparableASCIILiteral, AlternateEnumName> { "enumValue1"_s, AlternateEnumName::EnumValue1 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, AlternateEnumName>>({
+        { "EnumValue2"_s, AlternateEnumName::EnumValue2 },
+        { "enumValue1"_s, AlternateEnumName::EnumValue1 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -320,10 +316,9 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumA enumerationVa
 
 template<> std::optional<TestObj::EnumA> parseEnumerationFromString<TestObj::EnumA>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumA>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumA> { "A"_s, TestObj::EnumA::A },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumA>>({
+        { "A"_s, TestObj::EnumA::A },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -360,10 +355,9 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumB enumerationVa
 
 template<> std::optional<TestObj::EnumB> parseEnumerationFromString<TestObj::EnumB>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumB>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumB> { "B"_s, TestObj::EnumB::B },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumB>>({
+        { "B"_s, TestObj::EnumB::B },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -400,10 +394,9 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumC enumerationVa
 
 template<> std::optional<TestObj::EnumC> parseEnumerationFromString<TestObj::EnumC>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumC>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumC> { "C"_s, TestObj::EnumC::C },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumC>>({
+        { "C"_s, TestObj::EnumC::C },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -440,11 +433,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Kind enumerationVal
 
 template<> std::optional<TestObj::Kind> parseEnumerationFromString<TestObj::Kind>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Kind>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Kind> { "dead"_s, TestObj::Kind::Dead },
-        std::pair<ComparableASCIILiteral, TestObj::Kind> { "quick"_s, TestObj::Kind::Quick },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::Kind>>({
+        { "dead"_s, TestObj::Kind::Dead },
+        { "quick"_s, TestObj::Kind::Quick },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -479,11 +471,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Size enumerationVal
 
 template<> std::optional<TestObj::Size> parseEnumerationFromString<TestObj::Size>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Size>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Size> { "much-much-larger"_s, TestObj::Size::MuchMuchLarger },
-        std::pair<ComparableASCIILiteral, TestObj::Size> { "small"_s, TestObj::Size::Small },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::Size>>({
+        { "much-much-larger"_s, TestObj::Size::MuchMuchLarger },
+        { "small"_s, TestObj::Size::Small },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -518,11 +509,10 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Confidence enumerat
 
 template<> std::optional<TestObj::Confidence> parseEnumerationFromString<TestObj::Confidence>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Confidence>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "high"_s, TestObj::Confidence::High },
-        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "kinda-low"_s, TestObj::Confidence::KindaLow },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::Confidence>>({
+        { "high"_s, TestObj::Confidence::High },
+        { "kinda-low"_s, TestObj::Confidence::KindaLow },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -563,12 +553,11 @@ template<> std::optional<TestObj::EnumWithMissingValueDefault> parseEnumerationF
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithMissingValueDefault::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefault>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefault> { "value1"_s, TestObj::EnumWithMissingValueDefault::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefault> { "value2"_s, TestObj::EnumWithMissingValueDefault::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefault> { "value3"_s, TestObj::EnumWithMissingValueDefault::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefault>>({
+        { "value1"_s, TestObj::EnumWithMissingValueDefault::Value1 },
+        { "value2"_s, TestObj::EnumWithMissingValueDefault::Value2 },
+        { "value3"_s, TestObj::EnumWithMissingValueDefault::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -609,12 +598,11 @@ template<> std::optional<TestObj::EnumWithInvalidValueDefault> parseEnumerationF
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithInvalidValueDefault::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithInvalidValueDefault>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithInvalidValueDefault> { "value1"_s, TestObj::EnumWithInvalidValueDefault::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithInvalidValueDefault> { "value2"_s, TestObj::EnumWithInvalidValueDefault::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithInvalidValueDefault> { "value3"_s, TestObj::EnumWithInvalidValueDefault::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithInvalidValueDefault>>({
+        { "value1"_s, TestObj::EnumWithInvalidValueDefault::Value1 },
+        { "value2"_s, TestObj::EnumWithInvalidValueDefault::Value2 },
+        { "value3"_s, TestObj::EnumWithInvalidValueDefault::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -655,12 +643,11 @@ template<> std::optional<TestObj::EnumWithMissingAndInvalidValueDefault> parseEn
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithMissingAndInvalidValueDefault::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingAndInvalidValueDefault>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingAndInvalidValueDefault> { "value1"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingAndInvalidValueDefault> { "value2"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingAndInvalidValueDefault> { "value3"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingAndInvalidValueDefault>>({
+        { "value1"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value1 },
+        { "value2"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value2 },
+        { "value3"_s, TestObj::EnumWithMissingAndInvalidValueDefault::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -701,12 +688,11 @@ template<> std::optional<TestObj::EnumWithMissingValueDefaultNoQuotes> parseEnum
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithMissingValueDefaultNoQuotes::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNoQuotes>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNoQuotes> { "value1"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNoQuotes> { "value2"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNoQuotes> { "value3"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNoQuotes>>({
+        { "value1"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value1 },
+        { "value2"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value2 },
+        { "value3"_s, TestObj::EnumWithMissingValueDefaultNoQuotes::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -747,12 +733,11 @@ template<> std::optional<TestObj::EnumWithMissingValueDefaultAsEmptyValue> parse
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithMissingValueDefaultAsEmptyValue::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultAsEmptyValue>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultAsEmptyValue> { "value1"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultAsEmptyValue> { "value2"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultAsEmptyValue> { "value3"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultAsEmptyValue>>({
+        { "value1"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value1 },
+        { "value2"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value2 },
+        { "value3"_s, TestObj::EnumWithMissingValueDefaultAsEmptyValue::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -793,12 +778,11 @@ template<> std::optional<TestObj::EnumWithMissingValueDefaultNotInEnumValues> pa
 {
     if (stringValue.isEmpty())
         return TestObj::EnumWithMissingValueDefaultNotInEnumValues::EmptyString;
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNotInEnumValues>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNotInEnumValues> { "value1"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNotInEnumValues> { "value2"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNotInEnumValues> { "value3"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value3 },
-    };
-    static constexpr SortedArrayMap enumerationMapping { mappings };
+    static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, TestObj::EnumWithMissingValueDefaultNotInEnumValues>>({
+        { "value1"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value1 },
+        { "value2"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value2 },
+        { "value3"_s, TestObj::EnumWithMissingValueDefaultNotInEnumValues::Value3 },
+    }) };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
@@ -2606,7 +2590,7 @@ template<> EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSTestObjDOMConstructor::cons
     if constexpr (IsExceptionOr<decltype(object)>)
         RETURN_IF_EXCEPTION(throwScope, { });
     static_assert(TypeOrExceptionOrUnderlyingType<decltype(object)>::isRef);
-    auto jsValue = toJSNewlyCreated<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTFMove(object));
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTF::move(object));
     if constexpr (IsExceptionOr<decltype(object)>)
         RETURN_IF_EXCEPTION(throwScope, { });
     setSubclassStructureIfNeeded<TestObj>(lexicalGlobalObject, callFrame, asObject(jsValue));
@@ -3034,14 +3018,14 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #endif
-    if (!(worldForDOMObject(*this).someWorld() && DeprecatedGlobalSettings::testFeatureEnabled())) {
+    if (!(worldForDOMObject(*globalObject()).someWorld() && DeprecatedGlobalSettings::testFeatureEnabled())) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "enabledInSpecificWorldWhenRuntimeFeatureEnabled"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
-    if (!worldForDOMObject(*this).someWorld()) {
+    if (!worldForDOMObject(*globalObject()).someWorld()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "worldSpecificMethod"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -3131,7 +3115,7 @@ void JSTestObjPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestObj::s_info = { "TestObject"_s, &Base::s_info, &JSTestObjTable, nullptr, CREATE_METHOD_TABLE(JSTestObj) };
 
 JSTestObj::JSTestObj(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestObj>&& impl)
-    : JSDOMWrapper<TestObj>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestObj>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -3168,7 +3152,7 @@ bool JSTestObj::legacyPlatformObjectGetOwnProperty(JSObject* object, JSGlobalObj
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     if (auto index = parseIndex(propertyName)) {
         if (auto item = thisObject->wrapped().nullableStringSpecialMethod(index.value()); !!item) [[likely]] {
-            auto value = toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, throwScope, WTFMove(item));
+            auto value = toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, throwScope, WTF::move(item));
             RETURN_IF_EXCEPTION(throwScope, false);
             slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
             return true;
@@ -3191,7 +3175,7 @@ bool JSTestObj::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* lexi
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     if (index <= MAX_ARRAY_INDEX) [[likely]] {
         if (auto item = thisObject->wrapped().nullableStringSpecialMethod(index); !!item) [[likely]] {
-            auto value = toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, throwScope, WTFMove(item));
+            auto value = toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, throwScope, WTF::move(item));
             RETURN_IF_EXCEPTION(throwScope, false);
             slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
             return true;
@@ -3200,7 +3184,7 @@ bool JSTestObj::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* lexi
     return JSObject::getOwnPropertySlotByIndex(object, lexicalGlobalObject, index, slot);
 }
 
-void JSTestObj::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
+void JSTestObj::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)
 {
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto* thisObject = jsCast<JSTestObj*>(object);
@@ -3239,7 +3223,7 @@ bool JSTestObj::put(JSCell* cell, JSGlobalObject* lexicalGlobalObject, PropertyN
         ownDescriptor.setPropertySlot(lexicalGlobalObject, propertyName, slot);
         RETURN_IF_EXCEPTION(throwScope, false);
     }
-    RELEASE_AND_RETURN(throwScope, ordinarySetWithOwnDescriptor(lexicalGlobalObject, thisObject, propertyName, value, putPropertySlot.thisValue(), WTFMove(ownDescriptor), putPropertySlot.isStrictMode()));
+    RELEASE_AND_RETURN(throwScope, ordinarySetWithOwnDescriptor(lexicalGlobalObject, thisObject, propertyName, value, putPropertySlot.thisValue(), WTF::move(ownDescriptor), putPropertySlot.isStrictMode()));
 }
 
 bool JSTestObj::putByIndex(JSCell* cell, JSGlobalObject* lexicalGlobalObject, unsigned index, JSValue value, bool shouldThrow)
@@ -7437,7 +7421,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_returnsPromisePairB
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLDictionary<TestObj::PromisePair>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.returnsPromisePair(WTFMove(promise), WTFMove(promise2)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLDictionary<TestObj::PromisePair>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.returnsPromisePair(WTF::move(promise), WTF::move(promise2)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_returnsPromisePair, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -7580,7 +7564,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_calculateSecretResu
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLDouble>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.calculateSecretResult(WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLDouble>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.calculateSecretResult(WTF::move(promise)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_calculateSecretResult, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -9667,7 +9651,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethod13B
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     auto blobArgs = convertVariadicArguments<IDLInterface<Blob>>(*lexicalGlobalObject, *callFrame, 0);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.overloadedMethod(WTFMove(blobArgs)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.overloadedMethod(WTF::move(blobArgs)); })));
 }
 
 static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodOverloadDispatcher(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestObj>::ClassParameter castedThis)
@@ -10625,7 +10609,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_variadicStringMetho
        return encodedJSValue();
     auto tail = convertVariadicArguments<IDLDOMString>(*lexicalGlobalObject, *callFrame, 1);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicStringMethod(headConversionResult.releaseReturnValue(), WTFMove(tail)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicStringMethod(headConversionResult.releaseReturnValue(), WTF::move(tail)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_variadicStringMethod, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10648,7 +10632,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_variadicDoubleMetho
        return encodedJSValue();
     auto tail = convertVariadicArguments<IDLUnrestrictedDouble>(*lexicalGlobalObject, *callFrame, 1);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicDoubleMethod(headConversionResult.releaseReturnValue(), WTFMove(tail)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicDoubleMethod(headConversionResult.releaseReturnValue(), WTF::move(tail)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_variadicDoubleMethod, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10671,7 +10655,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_variadicNodeMethodB
        return encodedJSValue();
     auto tail = convertVariadicArguments<IDLInterface<Node>>(*lexicalGlobalObject, *callFrame, 1);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicNodeMethod(*headConversionResult.releaseReturnValue(), WTFMove(tail)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicNodeMethod(*headConversionResult.releaseReturnValue(), WTF::move(tail)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_variadicNodeMethod, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10694,7 +10678,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_variadicUnionMethod
        return encodedJSValue();
     auto tail = convertVariadicArguments<IDLUnion<IDLInterface<Node>, IDLDOMString>>(*lexicalGlobalObject, *callFrame, 1);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicUnionMethod(headConversionResult.releaseReturnValue(), WTFMove(tail)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicUnionMethod(headConversionResult.releaseReturnValue(), WTF::move(tail)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_variadicUnionMethod, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10711,7 +10695,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_variadicUnionElemen
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     auto nodes = convertVariadicArguments<IDLUnion<IDLInterface<Element>, IDLInterface<Text>>>(*lexicalGlobalObject, *callFrame, 0);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicUnionElementOrTextMethod(WTFMove(nodes)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.variadicUnionElementOrTextMethod(WTF::move(nodes)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_variadicUnionElementOrTextMethod, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10751,7 +10735,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseFunction
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunction(WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunction(WTF::move(promise)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_testPromiseFunction, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10772,7 +10756,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseFunction
     auto aConversionResult = convert<IDLFloat>(*lexicalGlobalObject, argument0.value());
     if (aConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunctionWithFloatArgument(aConversionResult.releaseReturnValue(), WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunctionWithFloatArgument(aConversionResult.releaseReturnValue(), WTF::move(promise)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_testPromiseFunctionWithFloatArgument, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10791,7 +10775,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseFunction
     auto aConversionResult = convert<IDLOptional<IDLLong>>(*lexicalGlobalObject, argument0.value());
     if (aConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunctionWithOptionalIntArgument(aConversionResult.releaseReturnValue(), WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseFunctionWithOptionalIntArgument(aConversionResult.releaseReturnValue(), WTF::move(promise)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_testPromiseFunctionWithOptionalIntArgument, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10810,7 +10794,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverload
     auto aConversionResult = convert<IDLFloat>(*lexicalGlobalObject, argument0.value());
     if (aConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseOverloadedFunction(aConversionResult.releaseReturnValue(), WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseOverloadedFunction(aConversionResult.releaseReturnValue(), WTF::move(promise)); })));
 }
 
 static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverloadedFunction2Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperationReturningPromise<JSTestObj>::ClassParameter castedThis, Ref<DeferredPromise>&& promise)
@@ -10824,7 +10808,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverload
     auto requestConversionResult = convert<IDLInterface<FetchRequest>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "request"_s, "TestObject"_s, "testPromiseOverloadedFunction"_s, "FetchRequest"_s); });
     if (requestConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseOverloadedFunction(*requestConversionResult.releaseReturnValue(), WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, [&]() -> decltype(auto) { return impl.testPromiseOverloadedFunction(*requestConversionResult.releaseReturnValue(), WTF::move(promise)); })));
 }
 
 static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverloadedFunctionOverloadDispatcher(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperationReturningPromise<JSTestObj>::ClassParameter castedThis, Ref<DeferredPromise>&& promise)
@@ -10837,10 +10821,10 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverload
     if (argsCount == 1) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSFetchRequest>())
-            RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction2Body(lexicalGlobalObject, callFrame, castedThis, WTFMove(promise))));
+            RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction2Body(lexicalGlobalObject, callFrame, castedThis, WTF::move(promise))));
         if (distinguishingArg.isNumber())
-            RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction1Body(lexicalGlobalObject, callFrame, castedThis, WTFMove(promise))));
-        RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction1Body(lexicalGlobalObject, callFrame, castedThis, WTFMove(promise))));
+            RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction1Body(lexicalGlobalObject, callFrame, castedThis, WTF::move(promise))));
+        RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction1Body(lexicalGlobalObject, callFrame, castedThis, WTF::move(promise))));
     }
     return argsCount < 1 ? throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject)) : throwVMTypeError(lexicalGlobalObject, throwScope);
 }
@@ -10856,7 +10840,7 @@ static inline JSC::EncodedJSValue jsTestObjConstructorFunction_testStaticPromise
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(lexicalGlobalObject), throwScope, [&]() -> decltype(auto) { return TestObj::testStaticPromiseFunction(WTFMove(promise)); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLPromise<IDLUndefined>>(*lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(lexicalGlobalObject), throwScope, [&]() -> decltype(auto) { return TestObj::testStaticPromiseFunction(WTF::move(promise)); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjConstructorFunction_testStaticPromiseFunction, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10870,7 +10854,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testCustomPromiseFu
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
-    RELEASE_AND_RETURN(throwScope, (JSValue::encode(castedThis->testCustomPromiseFunction(*lexicalGlobalObject, *callFrame, WTFMove(promise)))));
+    RELEASE_AND_RETURN(throwScope, (JSValue::encode(castedThis->testCustomPromiseFunction(*lexicalGlobalObject, *callFrame, WTF::move(promise)))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_testCustomPromiseFunction, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -10884,7 +10868,7 @@ static inline JSC::EncodedJSValue jsTestObjConstructorFunction_testStaticCustomP
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
-    RELEASE_AND_RETURN(throwScope, (JSValue::encode(JSTestObj::testStaticCustomPromiseFunction(*lexicalGlobalObject, *callFrame, WTFMove(promise)))));
+    RELEASE_AND_RETURN(throwScope, (JSValue::encode(JSTestObj::testStaticCustomPromiseFunction(*lexicalGlobalObject, *callFrame, WTF::move(promise)))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsTestObjConstructorFunction_testStaticCustomPromiseFunction, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -11466,7 +11450,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestObj>(impl.ptr());
 #endif
-    return createWrapper<TestObj>(globalObject, WTFMove(impl));
+    return createWrapper<TestObj>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestObj& impl)

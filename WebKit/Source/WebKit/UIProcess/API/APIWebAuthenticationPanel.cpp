@@ -81,7 +81,7 @@ void WebAuthenticationPanel::handleRequest(WebAuthenticationRequestData&& reques
 {
     ASSERT(m_manager);
     request.weakPanel = *this;
-    protectedManager()->handleRequest(WTFMove(request), WTFMove(callback));
+    protectedManager()->handleRequest(WTF::move(request), WTF::move(callback));
 }
 
 void WebAuthenticationPanel::cancel() const
@@ -99,18 +99,18 @@ void WebAuthenticationPanel::setMockConfiguration(WebCore::MockWebAuthentication
     ASSERT(m_manager);
 
     if (RefPtr mockManager = dynamicDowncast<MockAuthenticatorManager>(*m_manager)) {
-        mockManager->setTestConfiguration(WTFMove(configuration));
+        mockManager->setTestConfiguration(WTF::move(configuration));
         return;
     }
 
-    Ref manager = MockAuthenticatorManager::create(WTFMove(configuration));
+    Ref manager = MockAuthenticatorManager::create(WTF::move(configuration));
     manager->enableNativeSupport();
-    m_manager = WTFMove(manager);
+    m_manager = WTF::move(manager);
 }
 
 void WebAuthenticationPanel::setClient(Ref<WebAuthenticationPanelClient>&& client)
 {
-    m_client = WTFMove(client);
+    m_client = WTF::move(client);
 }
 
 } // namespace API

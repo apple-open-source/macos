@@ -156,15 +156,15 @@ public:
     virtual void scrollBySimulatingWheelEventForTesting(ScrollingNodeID, FloatSize) { }
 
     struct NodeLayers {
-        GraphicsLayer* layer { nullptr };
-        GraphicsLayer* scrollContainerLayer { nullptr };
-        GraphicsLayer* scrolledContentsLayer { nullptr };
-        GraphicsLayer* counterScrollingLayer { nullptr };
-        GraphicsLayer* insetClipLayer { nullptr };
-        GraphicsLayer* rootContentsLayer { nullptr };
-        GraphicsLayer* horizontalScrollbarLayer { nullptr };
-        GraphicsLayer* verticalScrollbarLayer { nullptr };
-        GraphicsLayer* viewportAnchorLayer { nullptr };
+        RefPtr<GraphicsLayer> layer { nullptr };
+        RefPtr<GraphicsLayer> scrollContainerLayer { nullptr };
+        RefPtr<GraphicsLayer> scrolledContentsLayer { nullptr };
+        RefPtr<GraphicsLayer> counterScrollingLayer { nullptr };
+        RefPtr<GraphicsLayer> insetClipLayer { nullptr };
+        RefPtr<GraphicsLayer> rootContentsLayer { nullptr };
+        RefPtr<GraphicsLayer> horizontalScrollbarLayer { nullptr };
+        RefPtr<GraphicsLayer> verticalScrollbarLayer { nullptr };
+        RefPtr<GraphicsLayer> viewportAnchorLayer { nullptr };
     };
     virtual void setNodeLayers(ScrollingNodeID, const NodeLayers&) { }
 

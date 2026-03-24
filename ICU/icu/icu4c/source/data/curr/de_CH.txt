@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 de_CH{
     Currencies{
         BYN{
@@ -35,6 +35,10 @@ de_CH{
         STN{
             one{"São-toméischer Dobra (2018)"}
             other{"São-toméischer Dobra (2018)"}
+        }
+        XCG{
+            one{"Karibischer Gulden"}
+            other{"Karibischer Gulden"}
         }
     }
 }

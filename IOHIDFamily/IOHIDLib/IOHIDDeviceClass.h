@@ -73,6 +73,8 @@ enum {
     uint8_t                                 *_inputReportBuffer;
     CFIndex                                 _inputReportBufferLength;
     NSDictionary                            *_protectedEvent;
+
+    NSMutableSet                            *_pendingCallbacks;
 }
 
 - (mach_port_t)getPort;

@@ -29,25 +29,17 @@
 #pragma once
 
 #include <WebCore/ResourceLoader.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Function.h>
 #include <wtf/Forward.h>
 #include <wtf/WeakPtr.h>
-
-namespace WebCore {
-class NetscapePlugInStreamLoaderClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::NetscapePlugInStreamLoaderClient> : std::true_type { };
-}
 
 namespace WebCore {
 
 class NetscapePlugInStreamLoader;
 class SharedBuffer;
 
-class NetscapePlugInStreamLoaderClient : public CanMakeWeakPtr<NetscapePlugInStreamLoaderClient> {
+class NetscapePlugInStreamLoaderClient : public AbstractRefCountedAndCanMakeWeakPtr<NetscapePlugInStreamLoaderClient> {
 public:
     virtual void willSendRequest(NetscapePlugInStreamLoader*, ResourceRequest&&, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&&) = 0;
     virtual void didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse&) = 0;

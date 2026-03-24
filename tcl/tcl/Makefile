@@ -54,8 +54,8 @@ Manpage_Suffix        = tcl
 Configure_Flags       += --enable-man-suffix=$(Manpage_Suffix)
 
 extra-int-headers:
-	$(_v) $(INSTALL_FILE) "$(Sources)/generic/tclCompile.h" \
-	        "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
+	$(_v) $(UNIFDEF) -DHAVE_SIGNED_CHAR=1 -x 2 -o "$(DSTROOT)$(FmwkDir)/PrivateHeaders/tclCompile.h" \
+	        "$(Sources)/generic/tclCompile.h"
 	$(_v) $(MKDIR) "$(DSTROOT)$(FmwkDir)/Headers/tcl-private"
 	$(_v) $(MV) -f $(foreach f,$(PrivateHeaderItems),"$(DSTROOT)$(FmwkDir)/PrivateHeaders/$(f)") "$(DSTROOT)$(FmwkDir)/Headers/tcl-private"
 	$(_v) $(RMDIR) "$(DSTROOT)$(FmwkDir)/PrivateHeaders"

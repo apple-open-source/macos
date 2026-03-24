@@ -87,7 +87,7 @@ void NetworkMDNSRegister::registerMDNSName(WebCore::ScriptExecutionContextIdenti
     }).iterator->value.append(name);
 
     Ref connection = m_connection.get();
-    auto request = makeUnique<PendingRegistrationRequest>(connection.get(), WTFMove(name), ipAddress, sessionID(), WTFMove(completionHandler));
+    auto request = makeUnique<PendingRegistrationRequest>(connection.get(), WTF::move(name), ipAddress, sessionID(), WTF::move(completionHandler));
 
     request->cancellable = m_cancellable;
 

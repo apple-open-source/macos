@@ -135,7 +135,7 @@ _malloc_put(uint32_t flags, const char * __null_terminated msg)
 	_simple_sfree(b);
 #else
 	if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-		printf("(0x%lx) malloc: ", pthread_self());
+		printf("(%p) malloc: ", pthread_self());
 	}
 
 	printf("%s", msg);
@@ -252,7 +252,7 @@ malloc_vreport(uint32_t flags, unsigned sleep_time,
 	}
 #else
 	if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-		printf("(0x%lx) malloc: ", pthread_self());
+		printf("(%p) malloc: ", pthread_self());
 	}
 	if (prefix_msg) {
 #pragma GCC diagnostic push

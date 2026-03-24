@@ -66,7 +66,8 @@ protected:
     InjectedScriptBase(const String& name);
     InjectedScriptBase(const String& name, JSC::JSGlobalObject*, JSC::JSObject*, InspectorEnvironment*);
 
-    InspectorEnvironment* inspectorEnvironment() const { return m_environment; }
+    InspectorEnvironment& inspectorEnvironment() const { return *m_environment.get(); }
+    CheckedRef<InspectorEnvironment> checkedInspectorEnvironment() const { return inspectorEnvironment(); }
 
     bool hasAccessToInspectedScriptState() const;
 
@@ -83,7 +84,7 @@ private:
     String m_name;
     JSC::JSGlobalObject* m_globalObject { nullptr };
     JSC::Strong<JSC::JSObject> m_injectedScriptObject;
-    InspectorEnvironment* m_environment { nullptr };
+    WeakPtr<InspectorEnvironment> m_environment;
 };
 
 } // namespace Inspector

@@ -29,11 +29,13 @@
 #if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
 
 #import "CDMInstance.h"
-#import "CDMSessionMediaSourceAVFObjC.h"
+#import "CDMSessionAVContentKeySession.h"
 #import "ContentType.h"
 #import "Logging.h"
 #import "MediaPlayerPrivateMediaSourceAVFObjC.h"
 #import "MediaSourcePrivateClient.h"
+#import "MediaStrategy.h"
+#import "PlatformStrategies.h"
 #import "SourceBufferParserAVFObjC.h"
 #import "SourceBufferPrivateAVFObjC.h"
 #import "VideoMediaSampleRenderer.h"
@@ -49,6 +51,16 @@ namespace WebCore {
 #pragma mark -
 #pragma mark MediaSourcePrivateAVFObjC
 
+WorkQueue& MediaSourcePrivateAVFObjC::queueSingleton()
+{
+    static std::once_flag onceKey;
+    static LazyNeverDestroyed<Ref<WorkQueue>> workQueue;
+    std::call_once(onceKey, [] {
+        workQueue.construct(hasPlatformStrategies() && platformStrategies()->mediaStrategy()->hasRemoteRendererFor(MediaPlayerMediaEngineIdentifier::AVFoundationMSE) ? WorkQueue::create("MediaSourcePrivateAVFObjC"_s) : Ref { WorkQueue::mainSingleton() });
+    });
+    return workQueue.get();
+}
+
 Ref<MediaSourcePrivateAVFObjC> MediaSourcePrivateAVFObjC::create(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient& client)
 {
     auto mediaSourcePrivate = adoptRef(*new MediaSourcePrivateAVFObjC(parent, client));
@@ -57,8 +69,9 @@ Ref<MediaSourcePrivateAVFObjC> MediaSourcePrivateAVFObjC::create(MediaPlayerPriv
 }
 
 MediaSourcePrivateAVFObjC::MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient& client)
-    : MediaSourcePrivate(client)
+    : MediaSourcePrivate(client, queueSingleton())
     , m_player(parent)
+    , m_renderer(parent.audioVideoRenderer())
 #if !RELEASE_LOG_DISABLED
     , m_logger(parent.mediaPlayerLogger())
     , m_logIdentifier(parent.mediaPlayerLogIdentifier())
@@ -77,9 +90,16 @@ MediaSourcePrivateAVFObjC::~MediaSourcePrivateAVFObjC()
 
 void MediaSourcePrivateAVFObjC::setPlayer(MediaPlayerPrivateInterface* player)
 {
-    m_player = downcast<MediaPlayerPrivateMediaSourceAVFObjC>(player);
-    for (RefPtr sourceBuffer : m_sourceBuffers)
-        downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->setAudioVideoRenderer(m_player->audioVideoRenderer());
+    assertIsMainThread();
+    RefPtr newPlayer = downcast<MediaPlayerPrivateMediaSourceAVFObjC>(player);
+    ASSERT(newPlayer);
+    m_player = newPlayer.copyRef();
+    Ref renderer = newPlayer->audioVideoRenderer();
+    m_renderer = renderer.get();
+    ensureOnDispatcher([protectedThis = Ref { *this }, renderer = WTF::move(renderer)] {
+        for (Ref sourceBuffer : protectedThis->sourceBuffers())
+            downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->setAudioVideoRenderer(renderer);
+    });
 }
 
 MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const ContentType& contentType, const MediaSourceConfiguration& configuration, RefPtr<SourceBufferPrivate>& outPrivate)
@@ -89,104 +109,78 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const C
     MediaEngineSupportParameters parameters;
     parameters.isMediaSource = true;
     parameters.type = contentType;
-    if (MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported)
-        return AddStatus::NotSupported;
 
-    auto parser = SourceBufferParser::create(contentType, configuration);
+    AddStatus returnedStatus = AddStatus::InvalidState;
+    RefPtr<AudioVideoRenderer> renderer;
+
+    callOnMainRunLoopAndWait([&] {
+        RefPtr player = platformPlayer();
+        if (!player)
+            return;
+
+        if (MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported) {
+            returnedStatus = AddStatus::NotSupported;
+            return;
+        }
+        renderer = player->audioVideoRenderer();
+        returnedStatus = AddStatus::Ok;
+    });
+    if (returnedStatus != AddStatus::Ok)
+        return returnedStatus;
+
+    RefPtr parser = SourceBufferParser::create(contentType, configuration);
     if (!parser)
         return AddStatus::NotSupported;
 #if !RELEASE_LOG_DISABLED
     parser->setLogger(m_logger, m_logIdentifier);
 #endif
 
-    auto newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, parser.releaseNonNull(), platformPlayer()->audioVideoRenderer());
-#if ENABLE(ENCRYPTED_MEDIA)
-    newSourceBuffer->setCDMInstance(m_cdmInstance.get());
-#endif
+    Ref newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, configuration, parser.releaseNonNull(), *renderer);
     newSourceBuffer->setResourceOwner(m_resourceOwner);
     outPrivate = newSourceBuffer.copyRef();
     newSourceBuffer->setMediaSourceDuration(duration());
-    m_sourceBuffers.append(WTFMove(newSourceBuffer));
-
+    {
+        Locker locker { m_lock };
+        m_sourceBuffers.append(WTF::move(newSourceBuffer));
+    }
     return AddStatus::Ok;
 }
 
 void MediaSourcePrivateAVFObjC::removeSourceBuffer(SourceBufferPrivate& sourceBuffer)
 {
-    if (downcast<SourceBufferPrivateAVFObjC>(&sourceBuffer) == m_sourceBufferWithSelectedVideo)
+    assertIsCurrent(m_dispatcher.get());
+    if (downcast<SourceBufferPrivateAVFObjC>(&sourceBuffer) == m_sourceBufferWithSelectedVideo.get().get())
         m_sourceBufferWithSelectedVideo = nullptr;
-    if (m_bufferedRanges.contains(&sourceBuffer))
-        m_bufferedRanges.remove(&sourceBuffer);
-
     MediaSourcePrivate::removeSourceBuffer(sourceBuffer);
 }
 
 void MediaSourcePrivateAVFObjC::notifyActiveSourceBuffersChanged()
 {
-    if (auto player = this->player())
-        player->notifyActiveSourceBuffersChanged();
+    callOnMainThreadWithPlayer([](auto& player) {
+        player.notifyActiveSourceBuffersChanged();
+    });
 }
 
 RefPtr<MediaPlayerPrivateInterface> MediaSourcePrivateAVFObjC::player() const
 {
+    assertIsMainThread();
     return m_player.get();
 }
 
 void MediaSourcePrivateAVFObjC::durationChanged(const MediaTime& duration)
 {
     MediaSourcePrivate::durationChanged(duration);
-    if (auto player = platformPlayer())
-        player->durationChanged();
-}
-
-void MediaSourcePrivateAVFObjC::markEndOfStream(EndOfStreamStatus status)
-{
-    if (auto player = platformPlayer(); status == EndOfStreamStatus::NoError && player)
-        player->setNetworkState(MediaPlayer::NetworkState::Loaded);
-    MediaSourcePrivate::markEndOfStream(status);
-}
-
-MediaPlayer::ReadyState MediaSourcePrivateAVFObjC::mediaPlayerReadyState() const
-{
-    if (auto player = this->player())
-        return player->readyState();
-    return MediaPlayer::ReadyState::HaveNothing;
-}
-
-void MediaSourcePrivateAVFObjC::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
-{
-    if (auto player = platformPlayer())
-        player->setReadyState(readyState);
-}
-
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC* buffer, const SharedBuffer& initData)
-{
-    m_sourceBuffersNeedingSessions.append(buffer);
-
-    if (auto player = platformPlayer())
-        player->keyNeeded(initData);
-}
-
-void MediaSourcePrivateAVFObjC::keyAdded()
-{
-    for (auto& sourceBuffer : m_sourceBuffers)
-        sourceBuffer->attemptToDecrypt();
-}
-#endif
-
-bool MediaSourcePrivateAVFObjC::hasSelectedVideo() const
-{
-    return std::ranges::any_of(m_activeSourceBuffers, [](auto* sourceBuffer) {
-        return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->hasSelectedVideo();
+    callOnMainThreadWithPlayer([](auto& player) {
+        player.durationChanged();
     });
 }
 
 FloatSize MediaSourcePrivateAVFObjC::naturalSize() const
 {
+    assertIsCurrent(m_dispatcher.get());
     FloatSize result;
 
-    for (auto* sourceBuffer : m_activeSourceBuffers)
+    for (RefPtr sourceBuffer : m_activeSourceBuffers)
         result = result.expandedTo(downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->naturalSize());
 
     return result;
@@ -194,70 +188,45 @@ FloatSize MediaSourcePrivateAVFObjC::naturalSize() const
 
 void MediaSourcePrivateAVFObjC::hasSelectedVideoChanged(SourceBufferPrivateAVFObjC& sourceBuffer)
 {
+    assertIsCurrent(m_dispatcher.get());
     bool hasSelectedVideo = sourceBuffer.hasSelectedVideo();
-    if (m_sourceBufferWithSelectedVideo == &sourceBuffer && !hasSelectedVideo)
+    if (m_sourceBufferWithSelectedVideo.get().get() == &sourceBuffer && !hasSelectedVideo)
         setSourceBufferWithSelectedVideo(nullptr);
-    else if (m_sourceBufferWithSelectedVideo != &sourceBuffer && hasSelectedVideo)
+    else if (m_sourceBufferWithSelectedVideo.get().get() != &sourceBuffer && hasSelectedVideo)
         setSourceBufferWithSelectedVideo(&sourceBuffer);
 }
 
 void MediaSourcePrivateAVFObjC::flushAndReenqueueActiveVideoSourceBuffers()
 {
-    for (auto* sourceBuffer : m_activeSourceBuffers)
-        downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->flushAndReenqueueVideo();
-}
-
-#if ENABLE(ENCRYPTED_MEDIA)
-void MediaSourcePrivateAVFObjC::cdmInstanceAttached(CDMInstance& instance)
-{
-    if (m_cdmInstance.get() == &instance)
-        return;
-
-    ASSERT(!m_cdmInstance);
-    m_cdmInstance = instance;
-    for (auto& sourceBuffer : m_sourceBuffers)
-        sourceBuffer->setCDMInstance(&instance);
-}
-
-void MediaSourcePrivateAVFObjC::cdmInstanceDetached(CDMInstance& instance)
-{
-    ASSERT_UNUSED(instance, m_cdmInstance && m_cdmInstance == &instance);
-    for (auto& sourceBuffer : m_sourceBuffers)
-        sourceBuffer->setCDMInstance(nullptr);
-
-    m_cdmInstance = nullptr;
-}
-
-void MediaSourcePrivateAVFObjC::attemptToDecryptWithInstance(CDMInstance& instance)
-{
-    ASSERT_UNUSED(instance, m_cdmInstance && m_cdmInstance == &instance);
-    for (auto& sourceBuffer : m_sourceBuffers)
-        sourceBuffer->attemptToDecrypt();
-}
-
-bool MediaSourcePrivateAVFObjC::waitingForKey() const
-{
-    return std::ranges::any_of(m_sourceBuffers, [](auto& sourceBuffer) {
-        return sourceBuffer->waitingForKey();
+    ensureOnDispatcher([weakThis = ThreadSafeWeakPtr { *this }] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        assertIsCurrent(protectedThis->m_dispatcher.get());
+        for (RefPtr sourceBuffer : protectedThis->m_activeSourceBuffers)
+            downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->flushAndReenqueueVideo();
     });
 }
 
-void MediaSourcePrivateAVFObjC::outputObscuredDueToInsufficientExternalProtectionChanged(bool obscured)
+#if ENABLE(ENCRYPTED_MEDIA)
+bool MediaSourcePrivateAVFObjC::waitingForKey() const
 {
-    if (m_cdmInstance)
-        m_cdmInstance->setHDCPStatus(obscured ? CDMInstance::HDCPStatus::OutputRestricted : CDMInstance::HDCPStatus::Valid);
+    return std::ranges::any_of(sourceBuffers(), [](auto& sourceBuffer) {
+        return sourceBuffer->waitingForKey();
+    });
 }
 #endif
 
 void MediaSourcePrivateAVFObjC::setSourceBufferWithSelectedVideo(SourceBufferPrivateAVFObjC* sourceBuffer)
 {
-    if (m_sourceBufferWithSelectedVideo)
-        m_sourceBufferWithSelectedVideo->setVideoRenderer(false);
+    assertIsCurrent(m_dispatcher.get());
+    if (RefPtr sourceBufferWithSelectedVideo = m_sourceBufferWithSelectedVideo.get())
+        sourceBufferWithSelectedVideo->setVideoRenderer(false);
 
     m_sourceBufferWithSelectedVideo = sourceBuffer;
 
-    if (auto player = platformPlayer(); m_sourceBufferWithSelectedVideo && player)
-        m_sourceBufferWithSelectedVideo->setVideoRenderer(true);
+    if (sourceBuffer)
+        sourceBuffer->setVideoRenderer(true);
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -275,7 +244,8 @@ void MediaSourcePrivateAVFObjC::failedToCreateRenderer(RendererType type)
 
 bool MediaSourcePrivateAVFObjC::needsVideoLayer() const
 {
-    return std::ranges::any_of(m_sourceBuffers, [](auto& sourceBuffer) {
+    assertIsMainThread();
+    return std::ranges::any_of(sourceBuffers(), [](auto& sourceBuffer) {
         return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->needsVideoLayer();
     });
 }
@@ -283,24 +253,38 @@ bool MediaSourcePrivateAVFObjC::needsVideoLayer() const
 void MediaSourcePrivateAVFObjC::bufferedChanged(const PlatformTimeRanges& buffered)
 {
     MediaSourcePrivate::bufferedChanged(buffered);
-    if (RefPtr player = m_player.get())
-        player->bufferedChanged();
+    callOnMainThreadWithPlayer([](auto& player) {
+        player.bufferedChanged();
+    });
 }
 
-void MediaSourcePrivateAVFObjC::trackBufferedChanged(SourceBufferPrivate& sourceBuffer, Vector<PlatformTimeRanges>&& ranges)
+RefPtr<MediaPlayerPrivateMediaSourceAVFObjC> MediaSourcePrivateAVFObjC::platformPlayer() const
 {
-    auto it = m_bufferedRanges.find(&sourceBuffer);
-    if (it == m_bufferedRanges.end())
-        m_bufferedRanges.add(&sourceBuffer, WTFMove(ranges));
-    else
-        it->value = WTFMove(ranges);
+    assertIsMainThread();
+    return m_player.get();
+}
 
-    PlatformTimeRanges intersectionRange { MediaTime::zeroTime(), MediaTime::positiveInfiniteTime() };
-    for (auto& ranges : m_bufferedRanges.values()) {
-        for (auto& range : ranges)
-            intersectionRange.intersectWith(range);
-    }
-    bufferedChanged(intersectionRange);
+MediaTime MediaSourcePrivateAVFObjC::currentTime() const
+{
+    RefPtr renderer = m_renderer.get();
+    return renderer ? renderer->currentTime() : MediaTime::zeroTime();
+}
+
+bool MediaSourcePrivateAVFObjC::timeIsProgressing() const
+{
+    RefPtr renderer = m_renderer.get();
+    return renderer && renderer->timeIsProgressing();
+}
+
+void MediaSourcePrivateAVFObjC::callOnMainThreadWithPlayer(Function<void(MediaPlayerPrivateMediaSourceAVFObjC&)>&& callback)
+{
+    ensureOnMainThread([callback = WTF::move(callback), weakThis = ThreadSafeWeakPtr { *this }] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        if (RefPtr player = protectedThis->platformPlayer())
+            callback(*player);
+    });
 }
 
 }

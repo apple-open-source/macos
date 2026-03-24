@@ -144,7 +144,7 @@ public:
     const WebPageProxySet& allPages() const { return m_pages; }
 
     const WebsiteDataStoreSet& allWebsiteDataStores() const { return m_websiteDataStores; }
-    WebsiteDataStore* websiteDataStore(std::optional<PAL::SessionID> = std::nullopt) const;
+    RefPtr<WebsiteDataStore> websiteDataStore(std::optional<PAL::SessionID> = std::nullopt) const;
 
     // Includes both non-private and private browsing content controllers.
     const UserContentControllerProxySet& allUserContentControllers() const { return m_allUserContentControllers; }
@@ -260,7 +260,7 @@ private:
             // FIXME: <https://webkit.org/b/267514> Add support for changeInfo.
 
 #if PLATFORM(COCOA)
-            if (RefPtr extensionController = m_extensionController.get())
+            if (RefPtr extensionController = m_extensionController)
                 extensionController->cookiesDidChange(cookieStore);
 #endif
         }

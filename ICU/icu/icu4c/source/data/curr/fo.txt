@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fo{
     Currencies{
         AED{
@@ -635,6 +635,10 @@ fo{
             "EC$",
             "Eystur Karibia dollari",
         }
+        XCG{
+            "Cg.",
+            "Karibia gyllin",
+        }
         XOF{
             "F CFA",
             "Vesturafrika CFA frankur",
@@ -666,6 +670,10 @@ fo{
         ZMW{
             "ZMW",
             "Sambia kwacha",
+        }
+        ZWG{
+            "ZWG",
+            "Simbabvi gull",
         }
     }
     Currencies%narrow{
@@ -911,6 +919,10 @@ fo{
         XCD{
             one{"Eystur Karibia dollari"}
             other{"Eystur Karibia dollarar"}
+        }
+        XCG{
+            one{"Karibia gyllin"}
+            other{"Karibia gyllin"}
         }
         XOF{
             one{"Vesturafrika CFA frankur"}

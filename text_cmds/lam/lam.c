@@ -29,20 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT(
-"@(#) Copyright (c) 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)lam.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-__FBSDID("$FreeBSD$");
-
 /*
  *	lam - laminate files
  *	Author:  John Kunze, UCB
@@ -237,11 +223,8 @@ gatherline(struct openfile *ip)
 	*p = '\0';
 	if (c == EOF) {
 		ip->eof = 1;
-		if (ferror(ip->fp)) {
+		if (ferror(ip->fp))
 			err(EX_IOERR, NULL);
-		}
-		if (ip->fp == stdin)
-			fclose(stdin);
 		morefiles--;
 		return (pad(ip));
 	}

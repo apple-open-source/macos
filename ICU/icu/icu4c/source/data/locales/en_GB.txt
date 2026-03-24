@@ -1,8 +1,164 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en_GB{
     %%Parent{"en_001"}
+    NumberElements{
+        latn{
+            patternsShort{
+                currencyFormat{
+                    1000{
+                        one{"¤0k"}
+                        other{"¤0k"}
+                    }
+                    10000{
+                        one{"¤00k"}
+                        other{"¤00k"}
+                    }
+                    100000{
+                        one{"¤000k"}
+                        other{"¤000k"}
+                    }
+                    1000000{
+                        one{"¤0m"}
+                        other{"¤0m"}
+                    }
+                    10000000{
+                        one{"¤00m"}
+                        other{"¤00m"}
+                    }
+                    100000000{
+                        one{"¤000m"}
+                        other{"¤000m"}
+                    }
+                    1000000000{
+                        one{"¤0bn"}
+                        other{"¤0bn"}
+                    }
+                    10000000000{
+                        one{"¤00bn"}
+                        other{"¤00bn"}
+                    }
+                    100000000000{
+                        one{"¤000bn"}
+                        other{"¤000bn"}
+                    }
+                    1000000000000{
+                        one{"¤0tn"}
+                        other{"¤0tn"}
+                    }
+                    10000000000000{
+                        one{"¤00tn"}
+                        other{"¤00tn"}
+                    }
+                    100000000000000{
+                        one{"¤000tn"}
+                        other{"¤000tn"}
+                    }
+                }
+                currencyFormat%alphaNextToNumber{
+                    1000{
+                        one{"¤ 0k"}
+                        other{"¤ 0k"}
+                    }
+                    10000{
+                        one{"¤ 00k"}
+                        other{"¤ 00k"}
+                    }
+                    100000{
+                        one{"¤ 000k"}
+                        other{"¤ 000k"}
+                    }
+                    1000000{
+                        one{"¤ 0m"}
+                        other{"¤ 0m"}
+                    }
+                    10000000{
+                        one{"¤ 00m"}
+                        other{"¤ 00m"}
+                    }
+                    100000000{
+                        one{"¤ 000m"}
+                        other{"¤ 000m"}
+                    }
+                    1000000000{
+                        one{"¤ 0bn"}
+                        other{"¤ 0bn"}
+                    }
+                    10000000000{
+                        one{"¤ 00bn"}
+                        other{"¤ 00bn"}
+                    }
+                    100000000000{
+                        one{"¤ 000bn"}
+                        other{"¤ 000bn"}
+                    }
+                    1000000000000{
+                        one{"¤ 0tn"}
+                        other{"¤ 0tn"}
+                    }
+                    10000000000000{
+                        one{"¤ 00tn"}
+                        other{"¤ 00tn"}
+                    }
+                    100000000000000{
+                        one{"¤ 000tn"}
+                        other{"¤ 000tn"}
+                    }
+                }
+                decimalFormat{
+                    1000{
+                        one{"0k"}
+                        other{"0k"}
+                    }
+                    10000{
+                        one{"00k"}
+                        other{"00k"}
+                    }
+                    100000{
+                        one{"000k"}
+                        other{"000k"}
+                    }
+                    1000000{
+                        one{"0m"}
+                        other{"0m"}
+                    }
+                    10000000{
+                        one{"00m"}
+                        other{"00m"}
+                    }
+                    100000000{
+                        one{"000m"}
+                        other{"000m"}
+                    }
+                    1000000000{
+                        one{"0bn"}
+                        other{"0bn"}
+                    }
+                    10000000000{
+                        one{"00bn"}
+                        other{"00bn"}
+                    }
+                    100000000000{
+                        one{"000bn"}
+                        other{"000bn"}
+                    }
+                    1000000000000{
+                        one{"0tn"}
+                        other{"0tn"}
+                    }
+                    10000000000000{
+                        one{"00tn"}
+                        other{"00tn"}
+                    }
+                    100000000000000{
+                        one{"000tn"}
+                        other{"000tn"}
+                    }
+                }
+            }
+        }
+    }
     calendar{
         chinese{
             intervalFormats{
@@ -16,6 +172,7 @@ en_GB{
         }
         generic{
             availableFormats{
+                GyMEd{"E, d/M/y G"}
                 GyMMMEEEEd{"EEEE, d MMM y G"}
                 MEd{"E dd/MM"}
                 MMMEEEEd{"EEEE d MMM"}
@@ -85,6 +242,7 @@ en_GB{
             }
             availableFormats{
                 EMMMMd{"E d MMMM"}
+                GyMEd{"E, d/M/y G"}
                 GyMMMEEEEd{"EEEE, d MMM y G"}
                 GyMd{"dd/MM/y G"}
                 MEd{"E dd/MM"}
@@ -121,9 +279,7 @@ en_GB{
         }
         islamic{
             availableFormats{
-                GyMMMEEEEd{"EEEE, d MMM y G"}
-                yyyyMMMEEEEd{"EEEE, d MMM y G"}
-                yyyyMMMMEEEEd{"EEEE, d MMMM y G"}
+                GyMEd{"E, d/M/y G"}
             }
         }
         japanese{
@@ -137,8 +293,8 @@ en_GB{
                 "d MMM G y",
                 "dd/MM/GGGGGy",
                 "{1}, {0}",
-                "{1}, {0}",
-                "{1}, {0}",
+                "{1} 'at' {0}",
+                "{1} 'at' {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
@@ -151,6 +307,18 @@ en_GB{
                 "GyMMMMd",
                 "GyMMMd",
                 "GGGGGyMMdd",
+            }
+            availableFormats{
+                GyMEd{"E, d/M/y GGGGG"}
+                GyMMMEEEEd{"EEEE, d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
+                M{"L"}
+                MEEEEd{"EEEE, d/M"}
+                MEd{"E, d/M"}
+                MMMEEEEd{"EEEE, d MMM"}
+                MMMMEEEEd{"EEEE, d MMMM"}
+                Md{"d/M"}
+                yyyyMMMEEEEd{"EEEE, d MMMM y G"}
             }
         }
     }

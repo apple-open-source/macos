@@ -35,7 +35,7 @@
 namespace WebCore {
 
 class IDBGetAllResult {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(IDBGetAllResult, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(IDBGetAllResult, WEBCORE_EXPORT);
 public:
     IDBGetAllResult() = default;
 
@@ -60,12 +60,12 @@ public:
     WEBCORE_EXPORT Vector<String> allBlobFilePaths() const;
 
 private:
-    friend struct IPC::ArgumentCoder<IDBGetAllResult, void>;
+    friend struct IPC::ArgumentCoder<IDBGetAllResult>;
     IDBGetAllResult(IndexedDB::GetAllType type, Vector<IDBKeyData>&& keys, Vector<IDBValue>&& values, std::optional<IDBKeyPath>&& keyPath)
         : m_type(type)
-        , m_keys(WTFMove(keys))
-        , m_values(WTFMove(values))
-        , m_keyPath(WTFMove(keyPath))
+        , m_keys(WTF::move(keys))
+        , m_values(WTF::move(values))
+        , m_keyPath(WTF::move(keyPath))
     {
     }
 

@@ -41,7 +41,7 @@ class WorkletGlobalScopeProxy;
 class WorkletPendingTasks;
 
 class Worklet : public RefCounted<Worklet>, public ScriptWrappable, public ActiveDOMObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Worklet);
+    WTF_MAKE_TZONE_ALLOCATED(Worklet);
 public:
     virtual ~Worklet();
 

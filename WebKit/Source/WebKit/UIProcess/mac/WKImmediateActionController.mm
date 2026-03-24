@@ -180,7 +180,7 @@
     if (!_page->mainFrame())
         return;
 
-    RefPtr { _page.get() }->performImmediateActionHitTestAtLocation(_page->mainFrame()->frameID(), [immediateActionRecognizer locationInView:immediateActionRecognizer.view]);
+    RefPtr { _page.get() }->performImmediateActionHitTestAtLocation(_page->mainFrame()->frameID(), [immediateActionRecognizer locationInView:retainPtr(immediateActionRecognizer.view).get()]);
 }
 
 - (void)immediateActionRecognizerWillBeginAnimation:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer
@@ -305,7 +305,7 @@
             _currentQLPreviewMenuItem = item.get();
 
             if (RefPtr textIndicator = _hitTestResultData.linkTextIndicator)
-                RefPtr { _page.get() }->setTextIndicator(textIndicator->data(), WebCore::TextIndicatorLifetime::Permanent);
+                RefPtr { _page.get() }->setTextIndicator(WTF::move(textIndicator), WebCore::TextIndicatorLifetime::Permanent);
 
             return (id<NSImmediateActionAnimationController>)item.autorelease();
         }
@@ -435,14 +435,14 @@
         page->protectedLegacyMainFrameProcess()->send(Messages::WebPage::DataDetectorsDidPresentUI(overlayID), page->webPageIDInMainFrameProcess());
     } interactionChangedHandler:^() {
         if (RefPtr detectedDataTextIndicator = _hitTestResultData.platformData.detectedDataTextIndicator)
-            page->setTextIndicator(detectedDataTextIndicator->data(), WebCore::TextIndicatorLifetime::Permanent);
+            page->setTextIndicator(WTF::move(detectedDataTextIndicator), WebCore::TextIndicatorLifetime::Permanent);
         page->protectedLegacyMainFrameProcess()->send(Messages::WebPage::DataDetectorsDidChangeUI(overlayID), page->webPageIDInMainFrameProcess());
     } interactionStoppedHandler:^() {
         page->protectedLegacyMainFrameProcess()->send(Messages::WebPage::DataDetectorsDidHideUI(overlayID), page->webPageIDInMainFrameProcess());
         [self _clearImmediateActionState];
     }];
 
-    [_currentActionContext setHighlightFrame:[view.get().window convertRectToScreen:[view convertRect:_hitTestResultData.platformData.detectedDataBoundingBox toView:nil]]];
+    [_currentActionContext setHighlightFrame:[retainPtr(view.get().window) convertRectToScreen:[view convertRect:_hitTestResultData.platformData.detectedDataBoundingBox toView:nil]]];
 
     RetainPtr menuItems = [[PAL::getDDActionsManagerClassSingleton() sharedManager] menuItemsForResult:RetainPtr { [_currentActionContext mainResult] }.get() actionContext:_currentActionContext.get()];
 
@@ -469,12 +469,12 @@
     _currentActionContext = (WKDDActionContext *)[actionContext contextForView:view.get() altMode:YES interactionStartedHandler:^() {
     } interactionChangedHandler:^() {
         if (RefPtr linkTextIndicator = _hitTestResultData.linkTextIndicator)
-            page->setTextIndicator(linkTextIndicator->data(), WebCore::TextIndicatorLifetime::Permanent);
+            page->setTextIndicator(WTF::move(linkTextIndicator), WebCore::TextIndicatorLifetime::Permanent);
     } interactionStoppedHandler:^() {
         [self _clearImmediateActionState];
     }];
 
-    [_currentActionContext setHighlightFrame:[view.get().window convertRectToScreen:[view convertRect:_hitTestResultData.elementBoundingBox toView:nil]]];
+    [_currentActionContext setHighlightFrame:[retainPtr(view.get().window) convertRectToScreen:[view convertRect:_hitTestResultData.elementBoundingBox toView:nil]]];
 
     RefPtr<API::HitTestResult> hitTestResult = [self _webHitTestResult];
     if (!hitTestResult)
@@ -507,7 +507,7 @@
 
     CheckedPtr { _viewImpl.get() }->prepareForDictionaryLookup();
     return WebCore::DictionaryLookup::animationControllerForPopup(dictionaryPopupInfo, _view.get().get(), [self](WebCore::TextIndicator& textIndicator) {
-        RefPtr { _page.get() }->setTextIndicator(textIndicator.data(), WebCore::TextIndicatorLifetime::Permanent);
+        RefPtr { _page.get() }->setTextIndicator(textIndicator, WebCore::TextIndicatorLifetime::Permanent);
     }, nullptr, [strongSelf = retainPtr(self)]() {
         RefPtr { strongSelf->_page.get() }->clearTextIndicatorWithAnimation(WebCore::TextIndicatorDismissalAnimation::None);
     });

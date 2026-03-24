@@ -1141,7 +1141,7 @@ _CreateAttributesDictionaryFromInternetPasswordItem(
 
 	// copy the item's attributes
 	status = SecKeychainItemCopyContent(item, NULL, &attrList, NULL, NULL);
-	require_noerr(status, SecKeychainItemCopyContent_failed);
+	__Require_noErr(status, SecKeychainItemCopyContent_failed);
 
 	numValues = 0;
 
@@ -1412,7 +1412,7 @@ _CFDataCreateAttribute(
 
 	// allocate memory for the attribute bytes
 	attr->data = malloc(attr->length);
-	require_action(attr->data != NULL, malloc_failed, status = errSecBufferTooSmall);
+	__Require_Action(attr->data != NULL, malloc_failed, status = errSecBufferTooSmall);
 
 	// get the attribute bytes
 	CFDataGetBytes(data, range, (UInt8 *)attr->data);
@@ -1447,7 +1447,7 @@ _CFStringCreateAttribute(
 
 	// allocate memory for the attribute bytes
 	attr->data = malloc(attr->length);
-	require_action(attr->data != NULL, malloc_failed, status = errSecBufferTooSmall);
+	__Require_Action(attr->data != NULL, malloc_failed, status = errSecBufferTooSmall);
 
 	// get the attribute bytes
 	CFStringGetBytes(string, range, kCFStringEncodingUTF8, 0, FALSE, (UInt8 *)attr->data, attr->length, NULL);
@@ -1515,10 +1515,10 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	SecKeychainAttributeList *attrListPtr;
 
 	attrListPtr = (SecKeychainAttributeList*)calloc(1, sizeof(SecKeychainAttributeList));
-	require_action(attrListPtr != NULL, calloc_attrListPtr_failed, status = errSecBufferTooSmall);
+	__Require_Action(attrListPtr != NULL, calloc_attrListPtr_failed, status = errSecBufferTooSmall);
 
 	attrListPtr->attr = (SecKeychainAttribute*)calloc(MaxSecKeyAttributes, sizeof(SecKeychainAttribute));
-	require_action(attrListPtr->attr != NULL, malloc_attrPtr_failed, status = errSecBufferTooSmall);
+	__Require_Action(attrListPtr->attr != NULL, malloc_attrPtr_failed, status = errSecBufferTooSmall);
 
 	// [0] get the kSecKeyKeyClass value
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrKeyClass, (const void **)&value) && value) {
@@ -1533,7 +1533,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 		// only use this attribute if we recognize the value!
 		if (keyRecordValue != 0) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyKeyClass;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1546,7 +1546,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	// [1] get the kSecKeyPrintName string
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrLabel, (const void **)&value) && value) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecKeyPrintName, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1554,7 +1554,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	// [2] get the kSecKeyPermanent boolean
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrIsPermanent, (const void **)&value) && value) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 		attrListPtr->attr[attrListPtr->count].tag = kSecKeyPermanent;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1572,7 +1572,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
         else
             status = errSecParam;
 
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1586,7 +1586,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 		else
 			status = errSecParam;
 
-		require_noerr_quiet(status, CFDataCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFDataCreateAttribute_failed);
 		++attrListPtr->count;
 	}
 
@@ -1595,7 +1595,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 		UInt32 keyAlgValue = _SecAlgorithmTypeFromSecAttrKeyType(value);
 		if (keyAlgValue != 0) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyKeyType;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1609,7 +1609,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrKeySizeInBits, (const void **)&value) && value) {
 		if (CFNumberGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyKeySizeInBits;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1623,7 +1623,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrEffectiveKeySize, (const void **)&value) && value) {
 		if (CFNumberGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyEffectiveKeySize;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1637,7 +1637,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanEncrypt, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyEncrypt;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1651,7 +1651,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanDecrypt, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyDecrypt;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1665,7 +1665,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanDerive, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyDerive;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1679,7 +1679,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanSign, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeySign;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1693,7 +1693,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanVerify, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyVerify;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1707,7 +1707,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanWrap, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyWrap;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1721,7 +1721,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCanUnwrap, (const void **)&value) && value) {
 		if (CFBooleanGetTypeID() == CFGetTypeID(value)) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
+			__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
 
 			attrListPtr->attr[attrListPtr->count].tag = kSecKeyUnwrap;
 			attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1809,16 +1809,16 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	SecKeychainAttributeList *attrListPtr;
 
 	attrListPtr = (SecKeychainAttributeList*)calloc(1, sizeof(SecKeychainAttributeList));
-	require_action(attrListPtr != NULL, calloc_attrListPtr_failed, status = errSecBufferTooSmall);
+	__Require_Action(attrListPtr != NULL, calloc_attrListPtr_failed, status = errSecBufferTooSmall);
 
 	attrListPtr->attr = (SecKeychainAttribute*)calloc(MaxSecKeychainAttributes, sizeof(SecKeychainAttribute));
-	require_action(attrListPtr->attr != NULL, malloc_attrPtr_failed, status = errSecBufferTooSmall);
+	__Require_Action(attrListPtr->attr != NULL, malloc_attrPtr_failed, status = errSecBufferTooSmall);
 
 
 	// [0] get the serverName string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrServer, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecServerItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1826,7 +1826,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [1] get the securityDomain string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrSecurityDomain, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecSecurityDomainItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1834,7 +1834,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [2] get the accountName string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrAccount, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecAccountItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1842,7 +1842,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [3] get the path string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrPath, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecPathItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1850,10 +1850,10 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [4] get the port number
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrPort, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt16));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
 
         CFTypeRef num = copyNumber(value);
-		require_action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
+		__Require_Action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
 		attrListPtr->attr[attrListPtr->count].tag = kSecPortItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt16);
 		CFNumberGetValue((CFNumberRef)num, kCFNumberSInt16Type, attrListPtr->attr[attrListPtr->count].data);
@@ -1865,7 +1865,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [5] get the protocol
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrProtocol, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(SecProtocolType));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_protocol_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_protocol_failed, status = errSecBufferTooSmall);
 
 		attrListPtr->attr[attrListPtr->count].tag = kSecProtocolItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(SecProtocolType);
@@ -1877,7 +1877,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [6] get the authenticationType
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrAuthenticationType, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(SecAuthenticationType));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_authenticationType_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_authenticationType_failed, status = errSecBufferTooSmall);
 
 		attrListPtr->attr[attrListPtr->count].tag = kSecAuthenticationTypeItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(SecAuthenticationType);
@@ -1889,7 +1889,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [7] get the comment string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrComment, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecCommentItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1897,7 +1897,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [8] get the description string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrDescription, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecDescriptionItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1905,7 +1905,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [9] get the label string
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrLabel, (const void **)&value) ) {
 		status = _CFStringCreateAttribute((CFStringRef)value, kSecLabelItemAttr, &attrListPtr->attr[attrListPtr->count]);
-		require_noerr_quiet(status, CFStringCreateAttribute_failed);
+		__Require_noErr_Quiet(status, CFStringCreateAttribute_failed);
 
 		++attrListPtr->count;
 	}
@@ -1913,10 +1913,10 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [10] get the creator code
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrCreator, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
 
         CFTypeRef num = copyNumber(value);
-		require_action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
+		__Require_Action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
 		attrListPtr->attr[attrListPtr->count].tag = kSecCreatorItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
 		CFNumberGetValue((CFNumberRef)num, kCFNumberSInt32Type, attrListPtr->attr[attrListPtr->count].data);
@@ -1928,10 +1928,10 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [11] get the type code
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrType, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
 
         CFTypeRef num = copyNumber(value);
-		require_action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
+		__Require_Action(num != NULL, CFStringCreateAttribute_failed, status = errSecParam);
 		attrListPtr->attr[attrListPtr->count].tag = kSecTypeItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
 		CFNumberGetValue((CFNumberRef)num, kCFNumberSInt32Type, attrListPtr->attr[attrListPtr->count].data);
@@ -1943,7 +1943,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [12] get the invisible flag
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrIsInvisible, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
 
 		attrListPtr->attr[attrListPtr->count].tag = kSecInvisibleItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -1955,7 +1955,7 @@ _CreateSecKeychainInternetPasswordAttributeListFromDictionary(
 	// [13] get the negative flag
 	if ( CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrIsNegative, (const void **)&value) ) {
 		attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
-		require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
+		__Require_Action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_port_failed, status = errSecBufferTooSmall);
 
 		attrListPtr->attr[attrListPtr->count].tag = kSecNegativeItemAttr;
 		attrListPtr->attr[attrListPtr->count].length = sizeof(UInt32);
@@ -2217,29 +2217,29 @@ _SafeSecKeychainItemDelete(
 
 	// copy the access of the keychain item
 	status = SecKeychainItemCopyAccess(itemRef, &access);
-	require_noerr(status, finish);
-	require_quiet(access != NULL, finish);
+	__Require_noErr(status, finish);
+	__Require_Quiet(access != NULL, finish);
 
 	// copy the decrypt access control lists -- this is what has access to the keychain item
 	status = SecAccessCopySelectedACLList(access, CSSM_ACL_AUTHORIZATION_DECRYPT, &aclList);
-	require_noerr(status, finish);
-	require_quiet(aclList != NULL, finish);
+	__Require_noErr(status, finish);
+	__Require_Quiet(aclList != NULL, finish);
 
 	// get the access control list
 	acl = (SecACLRef)CFArrayGetValueAtIndex(aclList, 0);
-	require_quiet(acl != NULL, finish);
+	__Require_Quiet(acl != NULL, finish);
 
 	// copy the application list, description, and CSSM prompt selector for a given access control list entry
 	status = SecACLCopySimpleContents(acl, &appList, &description, &promptSelector);
-	require_noerr(status, finish);
-	require_quiet(appList != NULL, finish);
+	__Require_noErr(status, finish);
+	__Require_Quiet(appList != NULL, finish);
 
 	// does the calling application/tool have decrypt access to this item?
 	count = CFArrayGetCount(appList);
 	for ( idx = 0; idx < count; idx++ ) {
 		// get SecTrustedApplicationRef for this entry
 		SecTrustedApplicationRef itemAppRef = (SecTrustedApplicationRef)CFArrayGetValueAtIndex(appList, idx);
-		require_quiet(itemAppRef != NULL, finish);
+		__Require_Quiet(itemAppRef != NULL, finish);
 
 		// copy the name out
 		CFReleaseSafe(itemAppName);
@@ -2256,13 +2256,13 @@ _SafeSecKeychainItemDelete(
 		// create SecTrustedApplicationRef for current application/tool
 		CFReleaseNull(currentAppRef);
 		status = SecTrustedApplicationCreateFromPath(NULL, &currentAppRef);
-		require_noerr(status, finish);
-		require_quiet(currentAppRef != NULL, finish);
+		__Require_noErr(status, finish);
+		__Require_Quiet(currentAppRef != NULL, finish);
 
 		// copy the name out
 		CFReleaseSafe(currentAppName);
 		currentAppName = _AppNameFromSecTrustedApplication(CFGetAllocator(itemRef), currentAppRef);
-		require_quiet(currentAppName != NULL, finish);
+		__Require_Quiet(currentAppName != NULL, finish);
 
 		// compare the names to see if we own the decrypt access
 		// TBD: validation of membership in an application group
@@ -2314,12 +2314,12 @@ _ReplaceKeychainItem(
 	// get existing item's keychain
 	status = SecKeychainItemCopyKeychain(itemToUpdate, &keychain);
 	if (status) { secitemlog(priority, format, 1, (int)status); }
-	require_noerr(status, replace_failed);
+	__Require_noErr(status, replace_failed);
 
 	// get attribute info (i.e. database schema) for the item class
 	status = SecKeychainItemCopyAttributesAndData(itemToUpdate, NULL, &itemClass, NULL, NULL, NULL);
 	if (status) { secitemlog(priority, format, 2, (int)status); }
-	require_noerr(status, replace_failed);
+	__Require_noErr(status, replace_failed);
 
 	switch (itemClass)
 	{
@@ -2339,7 +2339,7 @@ _ReplaceKeychainItem(
 	// get item's existing attributes (but not data!)
 	status = SecKeychainItemCopyAttributesAndData(itemToUpdate, info, &itemClass, &attrList, NULL, NULL);
 	if (status) { secitemlog(priority, format, 4, (int)status); }
-	require(attrList != NULL, replace_failed);
+	__Require(attrList != NULL, replace_failed);
 
 	// move aside the item by changing a primary attribute
     // (currently only for passwords)
@@ -2368,7 +2368,7 @@ _ReplaceKeychainItem(
 			CFReleaseSafe(uuidStr);
 		}
 	}
-	require_noerr(status, replace_failed);
+	__Require_noErr(status, replace_failed);
 
 	// make attribute list for new item (the data is still owned by attrList)
 	newAttrList.count = attrList->count;
@@ -2387,7 +2387,7 @@ _ReplaceKeychainItem(
 		(const void *)((itemData) ? CFDataGetBytePtr(itemData) : NULL),
 		keychain, NULL, &newItem);
 	if (status) { secitemlog(priority, format, 7, (int)status); }
-	require_noerr(status, replace_failed);
+	__Require_noErr(status, replace_failed);
 
 	// delete the old item unconditionally once new item exists
 	status = SecKeychainItemDelete(itemToUpdate);
@@ -2463,11 +2463,11 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 		// certificate's attributes, assume we want to update the private key
 		status = SecIdentityCopyPrivateKey((SecIdentityRef)item, (SecKeyRef*)&itemToUpdate);
 	}
-	require_action(itemToUpdate != NULL, update_failed, status = errSecInvalidItemRef);
-	require_noerr(status, update_failed);
+	__Require_Action(itemToUpdate != NULL, update_failed, status = errSecInvalidItemRef);
+	__Require_noErr(status, update_failed);
 
 	status = SecKeychainItemCopyContent(itemToUpdate, &itemClass, NULL, NULL, NULL);
-	require_noerr(status, update_failed);
+	__Require_noErr(status, update_failed);
 
 	// build changeAttrList from changedAttributes dictionary
 	switch (itemClass)
@@ -2475,21 +2475,21 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 		case kSecInternetPasswordItemClass:
 		{
 			status = _CreateSecKeychainInternetPasswordAttributeListFromDictionary(changedAttributes, &changeAttrList);
-			require_noerr(status, update_failed);
+			__Require_noErr(status, update_failed);
 		}
 		break;
 
 		case kSecGenericPasswordItemClass:
 		{
 			status = _CreateSecKeychainGenericPasswordAttributeListFromDictionary(changedAttributes, &changeAttrList);
-			require_noerr(status, update_failed);
+			__Require_noErr(status, update_failed);
 		}
 		break;
 
 		case kSecCertificateItemClass:
 		{
 			status = _CreateSecKeychainCertificateAttributeListFromDictionary(changedAttributes, &changeAttrList);
-			require_noerr(status, update_failed);
+			__Require_noErr(status, update_failed);
 		}
 		break;
 
@@ -2498,7 +2498,7 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 		case kSecSymmetricKeyItemClass:
 		{
 			status = _CreateSecKeychainKeyAttributeListFromDictionary(changedAttributes, &changeAttrList);
-			require_noerr(status, update_failed);
+			__Require_noErr(status, update_failed);
 		}
 		break;
 		case kSecAppleSharePasswordItemClass:
@@ -2513,14 +2513,14 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 	// (if the caller is not updating the password, this value will be NULL)
 	theData = (CFDataRef)CFDictionaryGetValue(changedAttributes, kSecValueData);
 	if (theData != NULL) {
-		require_action(CFDataGetTypeID() == CFGetTypeID(theData), update_failed, status = errSecParam);
+		__Require_Action(CFDataGetTypeID() == CFGetTypeID(theData), update_failed, status = errSecParam);
 	}
 	// update item
 	status = SecKeychainItemModifyContent(itemToUpdate,
 				(!changeAttrList || changeAttrList->count == 0) ? NULL : changeAttrList,
 				(theData != NULL) ? (UInt32)CFDataGetLength(theData) : 0,
 				(theData != NULL) ? CFDataGetBytePtrVoid(theData) : NULL);
-	require_noerr(status, update_failed);
+	__Require_noErr(status, update_failed);
 
 	// one more thing... update access?
 	if (CFDictionaryGetValueIfPresent(changedAttributes, kSecAttrAccess, (const void **)&access)) {
@@ -2970,27 +2970,27 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
     CFDictionaryRef policyDict = NULL;
 	SecItemParams *itemParams = (SecItemParams *)calloc(1, sizeof(struct SecItemParams));
 
-	require_action(itemParams != NULL, error_exit, status = errSecAllocate);
-	require_action(dict && (CFDictionaryGetTypeID() == CFGetTypeID(dict)), error_exit, status = errSecParam);
+	__Require_Action(itemParams != NULL, error_exit, status = errSecAllocate);
+	__Require_Action(dict && (CFDictionaryGetTypeID() == CFGetTypeID(dict)), error_exit, status = errSecParam);
 
 	itemParams->query = (CFDictionaryRef) CFRetain(dict);
 
 	// validate input search parameters
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchPolicy, (const void **)&itemParams->policy, SecPolicyGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchSearchList, (const void **)&itemParams->searchList, CFArrayGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchItemList, (const void **)&itemParams->itemList, CFArrayGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchEmailAddressIfPresent, (const void **)&itemParams->emailAddrToMatch, CFStringGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchValidOnDate, (const void **)&itemParams->validOnDate, CFDateGetTypeID(), CFNullGetTypeID()), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchLimit, (const void **)&itemParams->matchLimit, CFStringGetTypeID(), CFNumberGetTypeID()), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchPolicy, (const void **)&itemParams->policy, SecPolicyGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchSearchList, (const void **)&itemParams->searchList, CFArrayGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchItemList, (const void **)&itemParams->itemList, CFArrayGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchEmailAddressIfPresent, (const void **)&itemParams->emailAddrToMatch, CFStringGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchValidOnDate, (const void **)&itemParams->validOnDate, CFDateGetTypeID(), CFNullGetTypeID()), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchLimit, (const void **)&itemParams->matchLimit, CFStringGetTypeID(), CFNumberGetTypeID()), error_exit);
 
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecUseItemList, (const void **)&itemParams->useItems, CFArrayGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecUseKeychain, (const void **)&itemParams->keychain, SecKeychainGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecUseItemList, (const void **)&itemParams->useItems, CFArrayGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecUseKeychain, (const void **)&itemParams->keychain, SecKeychainGetTypeID(), NULL), error_exit);
 
 	// validate a subset of input attributes (used to create an appropriate search reference)
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecAttrIssuer, (const void **)&itemParams->issuer, CFDataGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecAttrSerialNumber, (const void **)&itemParams->serialNumber, CFDataGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecAttrService, (const void **)&itemParams->service, CFStringGetTypeID(), NULL), error_exit);
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecAttrKeyClass, (const void **)&itemParams->keyClass, CFStringGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecAttrIssuer, (const void **)&itemParams->issuer, CFDataGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecAttrSerialNumber, (const void **)&itemParams->serialNumber, CFDataGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecAttrService, (const void **)&itemParams->service, CFStringGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecAttrKeyClass, (const void **)&itemParams->keyClass, CFStringGetTypeID(), NULL), error_exit);
 
 	if (itemParams->service && CFStringHasPrefix((CFStringRef)itemParams->service, CFSTR("ProtectedCloudStorage"))) {
 		itemParams->isPCSItem = true;
@@ -3001,13 +3001,13 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	}
 
 	// validate the payload (password, key or certificate data), used for SecItemAdd but not for finding items
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValueData, (const void **)&itemParams->itemData, CFDataGetTypeID(), CFStringGetTypeID()), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecValueData, (const void **)&itemParams->itemData, CFDataGetTypeID(), CFStringGetTypeID()), error_exit);
 	if (itemParams->itemData && CFGetTypeID(itemParams->itemData) == CFStringGetTypeID()) {
 		/* If we got a string, convert it into a data object */
 		CFStringRef string = (CFStringRef)itemParams->itemData;
 		CFIndex maxLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(string), kCFStringEncodingUTF8) + 1;
 		CFMutableDataRef data = CFDataCreateMutable(NULL, maxLength);
-		require_action(data, error_exit, status = errSecAllocate);
+		__Require_Action(data, error_exit, status = errSecAllocate);
 
 		CFDataSetLength(data, maxLength);
 
@@ -3023,13 +3023,13 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	}
 
 	// validate item references
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValueRef, (const void **)&itemParams->itemRef, SecKeychainItemGetTypeID(), SecIdentityGetTypeID()), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecValueRef, (const void **)&itemParams->itemRef, SecKeychainItemGetTypeID(), SecIdentityGetTypeID()), error_exit);
 	if (itemParams->itemRef && (CFGetTypeID(itemParams->itemRef) == SecIdentityGetTypeID())) {
 		itemParams->identityRef = (SecIdentityRef)itemParams->itemRef;
 		itemParams->itemRef = NULL;
 		SecIdentityCopyCertificate(itemParams->identityRef, (SecCertificateRef *)&itemParams->itemRef);
 	}
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecValuePersistentRef, (const void **)&itemParams->itemPersistentRef, CFDataGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecValuePersistentRef, (const void **)&itemParams->itemPersistentRef, CFDataGetTypeID(), NULL), error_exit);
 	if (itemParams->itemRef || itemParams->itemPersistentRef) {
 		// Caller is trying to add or find an item by reference.
 		// The supported method for doing that is to provide a kSecUseItemList array
@@ -3064,7 +3064,7 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	// so we can perform a search and see if the results match items in the list.
 	//
 	if (!CFDictionaryGetValueIfPresent(dict, kSecClass, (const void**) &value) && !itemParams->useItems) {
-		require_action(false, error_exit, status = errSecItemClassMissing);
+		__Require_Action(false, error_exit, status = errSecItemClassMissing);
 	}
 	else if (value) {
 		itemParams->itemClass = _ConvertItemClass(value, itemParams->keyClass, &itemParams->returnIdentity);
@@ -3073,15 +3073,15 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
             itemParams->itemClass = kSecSymmetricKeyItemClass;
             itemParams->assumedKeyClass = kSecAttrKeyClassPublic;
 		}
-		require_action(!(itemParams->itemClass == 0 && !itemParams->useItems), error_exit, status = errSecItemClassMissing);
+		__Require_Action(!(itemParams->itemClass == 0 && !itemParams->useItems), error_exit, status = errSecItemClassMissing);
 	}
 
     // kSecMatchIssuers is only permitted with identities or certificates.
     // Convert the input issuers to normalized form.
-    require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchIssuers, (const void **)&itemParams->matchIssuers, CFArrayGetTypeID(), NULL), error_exit);
+    __Require_noErr(status = _ValidateDictionaryEntry(dict, kSecMatchIssuers, (const void **)&itemParams->matchIssuers, CFArrayGetTypeID(), NULL), error_exit);
     if (itemParams->matchIssuers) {
         CFTypeRef allowCerts = CFDictionaryGetValue(itemParams->query, kSecUseCertificatesWithMatchIssuers);
-        require_action(itemParams->returnIdentity || (allowCerts && CFEqual(allowCerts, kCFBooleanTrue)), error_exit, status = errSecParam);
+        __Require_Action(itemParams->returnIdentity || (allowCerts && CFEqual(allowCerts, kCFBooleanTrue)), error_exit, status = errSecParam);
         CFMutableArrayRef canonical_issuers = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
         CFArrayRef issuers = (CFArrayRef)itemParams->matchIssuers;
         if (canonical_issuers) {
@@ -3108,10 +3108,10 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	itemParams->issuerAndSNToMatch = (itemParams->issuer != NULL && itemParams->serialNumber != NULL);
 
 	// other input attributes, used for SecItemAdd but not for finding items
-	require_noerr(status = _ValidateDictionaryEntry(dict, kSecAttrAccess, (const void **)&itemParams->access, SecAccessGetTypeID(), NULL), error_exit);
+	__Require_noErr(status = _ValidateDictionaryEntry(dict, kSecAttrAccess, (const void **)&itemParams->access, SecAccessGetTypeID(), NULL), error_exit);
 	if (itemParams->access == NULL) {
 		// check for the old definition of kSecAttrAccess from SecItem-shim (see <rdar://7987447>)
-		require_noerr(status = _ValidateDictionaryEntry(dict, CFSTR("kSecAttrAccess"), (const void **)&itemParams->access, SecAccessGetTypeID(), NULL), error_exit);
+		__Require_noErr(status = _ValidateDictionaryEntry(dict, CFSTR("kSecAttrAccess"), (const void **)&itemParams->access, SecAccessGetTypeID(), NULL), error_exit);
 	}
 
 	// determine how to return the result
@@ -3140,7 +3140,7 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 		}
 		else if (CFNumberGetTypeID() == CFGetTypeID(itemParams->matchLimit)) {
 			CFNumberGetValue((CFNumberRef)itemParams->matchLimit, kCFNumberIntType, &itemParams->maxMatches);
-			require_action(!(itemParams->maxMatches < 0), error_exit, status = errSecMatchLimitUnsupported);
+			__Require_Action(!(itemParams->maxMatches < 0), error_exit, status = errSecMatchLimitUnsupported);
 		}
 	}
 	if (itemParams->returnAllMatches) {
@@ -3148,7 +3148,7 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 		// if we're returning all matches, then we don't support getting passwords as data (which could require authentication for each)
 		if ((itemParams->itemClass==kSecInternetPasswordItemClass || itemParams->itemClass==kSecGenericPasswordItemClass) && itemParams->returningData)
 			status = errSecReturnDataUnsupported;
-		require_noerr(status, error_exit);
+		__Require_noErr(status, error_exit);
 	}
 
     // if we already have an item list (to add or find items in), we don't need a search reference
@@ -3167,14 +3167,14 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	}
 
 	// build a SecKeychainAttributeList from the query dictionary for the specified item class
-	require_noerr(status = _CreateSecKeychainAttributeListFromDictionary(dict, itemParams->itemClass, &itemParams->attrList), error_exit);
+	__Require_noErr(status = _CreateSecKeychainAttributeListFromDictionary(dict, itemParams->itemClass, &itemParams->attrList), error_exit);
 	
     // if policy is a SMIME policy, copy email address in policy into emailAddrToMatch parameter
     if(itemParams->policy) {
         policyDict = SecPolicyCopyProperties(itemParams->policy);
         CFStringRef oidStr = (CFStringRef) CFDictionaryGetValue(policyDict, kSecPolicyOid);
         if(oidStr && CFStringCompare(kSecPolicyAppleSMIME,oidStr,0) == 0) {
-            require_noerr(status = _ValidateDictionaryEntry(policyDict, kSecPolicyName, (const void **)&itemParams->emailAddrToMatch, CFStringGetTypeID(), NULL), error_exit);
+            __Require_noErr(status = _ValidateDictionaryEntry(policyDict, kSecPolicyName, (const void **)&itemParams->emailAddrToMatch, CFStringGetTypeID(), NULL), error_exit);
         }
         CFReleaseNull(policyDict);
     }
@@ -3464,13 +3464,13 @@ static bool items_matching_issuer_parent(CFDataRef issuer, CFArrayRef issuers, i
     CFTypeRef parents = NULL;
     bool found = false;
 
-    require_quiet(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 4, &kCFTypeDictionaryKeyCallBacks,
+    __Require_Quiet(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 4, &kCFTypeDictionaryKeyCallBacks,
                                       &kCFTypeDictionaryValueCallBacks), out);
     CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
     CFDictionaryAddValue(query, kSecReturnRef, kCFBooleanTrue);
     CFDictionaryAddValue(query, kSecAttrSubject, issuer);
     CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitAll);
-    require_noerr_quiet(SecItemCopyMatching(query, &parents), out);
+    __Require_noErr_Quiet(SecItemCopyMatching(query, &parents), out);
 
     if (parents && CFArrayGetTypeID() == CFGetTypeID(parents)) {
         CFIndex i, count = CFArrayGetCount((CFArrayRef)parents);
@@ -3489,7 +3489,7 @@ static bool items_matching_issuer_parent(CFDataRef issuer, CFArrayRef issuers, i
     } else if (parents && SecCertificateGetTypeID() == CFGetTypeID(parents)) {
         SecCertificateRef cert = (SecCertificateRef)parents;
         CFDataRef cert_issuer = SecCertificateCopyNormalizedIssuerSequence(cert);
-        require_action_quiet(!CFEqual(cert_issuer, issuer), out, CFReleaseNull(cert_issuer));
+        __Require_Action_Quiet(!CFEqual(cert_issuer, issuer), out, CFReleaseNull(cert_issuer));
         found = items_matching_issuer_parent(cert_issuer, issuers, recurse);
         CFReleaseNull(cert_issuer);
     }
@@ -4848,11 +4848,11 @@ _CopyMatchingIssuers(CFArrayRef matchIssuers) {
     SecPolicyRef policy = NULL;
     CFTypeRef matchedCertificates = NULL;
 
-    require_quiet(policyProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
+    __Require_Quiet(policyProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
     CFDictionarySetValue(policyProperties, kSecPolicyKU_KeyCertSign, kCFBooleanTrue);
-    require_quiet(policy = SecPolicyCreateWithProperties(kSecPolicyAppleX509Basic, policyProperties), out);
+    __Require_Quiet(policy = SecPolicyCreateWithProperties(kSecPolicyAppleX509Basic, policyProperties), out);
     
-    require_quiet(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
+    __Require_Quiet(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
     CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
     CFDictionarySetValue(query, kSecMatchIssuers, matchIssuers);
     CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
@@ -4861,7 +4861,7 @@ _CopyMatchingIssuers(CFArrayRef matchIssuers) {
     CFDictionarySetValue(query, kSecMatchPolicy, policy);
     
     if (SecItemCopyMatching_osx(query, &matchedCertificates) == errSecSuccess && CFGetTypeID(matchedCertificates) == CFArrayGetTypeID()) {
-        require_quiet(result = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, (CFArrayRef)matchedCertificates), out);
+        __Require_Quiet(result = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, (CFArrayRef)matchedCertificates), out);
         for(CFIndex i = 0; i < CFArrayGetCount((CFArrayRef)matchedCertificates); ++i) {
             CFDictionaryRef attributes = (CFDictionaryRef)CFArrayGetValueAtIndex((CFArrayRef)matchedCertificates, i);
             CFTypeRef subject = CFDictionaryGetValue(attributes, kSecAttrSubject);
@@ -5201,7 +5201,7 @@ SecItemCopyMatching_osx(
 
 	// validate input query parameters and create the search reference
 	SecItemParams *itemParams = _CreateSecItemParamsFromDictionary(query, &status);
-	require_action(itemParams != NULL, error_exit, itemParams = NULL);
+	__Require_Action(itemParams != NULL, error_exit, itemParams = NULL);
 
 	// find the next match until we hit maxMatches, or no more matches found
 	while ( !(!itemParams->returnAllMatches && matchCount >= itemParams->maxMatches) &&
@@ -5273,17 +5273,17 @@ SecItemAdd_osx(
 
 	// validate input attribute parameters
 	SecItemParams *itemParams = _CreateSecItemParamsFromDictionary(attributes, &status);
-	require_action(itemParams != NULL, error_exit, itemParams = NULL);
+	__Require_Action(itemParams != NULL, error_exit, itemParams = NULL);
 
 	// currently, we don't support adding SecIdentityRef items (an aggregate item class),
 	// since the private key should already be in a keychain by definition. We could support
 	// this as a copy operation for the private key if a different keychain is specified,
 	// but in any case it should try to add the certificate. See <rdar://8317887>.
-	require_action(!itemParams->returnIdentity, error_exit, status = errSecItemInvalidValue);
+	__Require_Action(!itemParams->returnIdentity, error_exit, status = errSecItemInvalidValue);
 
 	if (itemParams->useItems == NULL) {
 
-		require_action(itemParams->itemData == NULL || CFGetTypeID(itemParams->itemData) == CFDataGetTypeID(),
+		__Require_Action(itemParams->itemData == NULL || CFGetTypeID(itemParams->itemData) == CFDataGetTypeID(),
 					   error_exit, status = errSecItemInvalidValue);
 
 		// create a single keychain item specified by the input attributes
@@ -5294,7 +5294,7 @@ SecItemAdd_osx(
 			itemParams->keychain,
 			itemParams->access,
 			&item);
-		require_noerr(status, error_exit);
+		__Require_noErr(status, error_exit);
 
 		// return results (if requested)
 		if (result) {

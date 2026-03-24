@@ -27,6 +27,7 @@
 #include <Security/SecItemPriv.h>
 #include "featureflags/featureflags.h"
 #include "c++utils.h"
+#include "SVOTelemetryWithCoreAnalytics.h"
 
 using namespace CssmClient;
 using namespace SecurityServer;
@@ -109,17 +110,27 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
 {
     if (_SecProtectLoginKeychainWithDP()) {
         if (isLoginKeychain()) {
-            secnotice("dp_login", "attempting to unlock keybag");
+            bool rekey = password.Data != NULL;
+
+            SVOTelemetryWithCoreAnalytics telemetry;
+            secnotice("dp_login", "attempting to unlock with %sempty %s rekey", password.Length == 0 ? "" : "non-", rekey ? "might" : "will not");
+            //secnotice("dp_login", "🤫 %s", password.Data);
             try {
                 // This may fail in chrooted environments with MIG_BAD_ID
+                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_otherError;
                 mClientSession.unlockKeybag(dbHandle(), CssmData::overlay(password));
+                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_unlocked;
             } catch (MachPlusPlus::Error mppe) {
                 secnotice("dp_login", "caught MachPlusPlus error: %d", mppe.error);
+                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_machError;
+                telemetry.initialKeybagUnlockErrorCode = mppe.error;
                 if (mppe.error != MIG_BAD_ID) {
                     throw;
                 }
                 secnotice("dp_login", "proceeding with original unlock");
+                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_failure;
                 mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_success;
                 return;
             }
 
@@ -133,30 +144,41 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
             CFStringRef identifier = CFStringCreateWithCString(NULL, salt.toHex().c_str(), kCFStringEncodingUTF8);
             CFTypeRefHolder _identifier(identifier); // will release identifier no matter how we exit this function
             OSStatus status = _SecLookupIndirectUnlockKey(identifier, &kh);
+            telemetry.indirectUnlockKeyLookup = status;
             secnotice("dp_login", "_SecLookupIndirectUnlockKey returned %d %u", status, kh);
             if (kh != noKey) {
                 DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
-                // indirect password found, use that to unlock
-                mClientSession.unlock(dbHandle(), kh);
-                return;
+                // indirect password found, try to use that to unlock
+                try {
+                    telemetry.cachedEntropyUnlockValue = SVOTelemetry::entropyUnlock_failure;
+                    secnotice("dp_login", "attempting to unlock with cached value handle %u", kh);
+                    mClientSession.unlock(dbHandle(), kh);
+                    telemetry.cachedEntropyUnlockValue = SVOTelemetry::entropyUnlock_success;
+                    secnotice("dp_login", "unlocking with cached value succeeded");
+                    return;
+                } catch (...) {
+                    secnotice("dp_login", "unlocking with cached value failed, trying other methods");
+                }
             } else if (status != errSecItemNotFound) {
-                // error finding indirect password, no choice but to try password
+                // Error finding indirect password, e.g. sandbox blocked the call from a 3rd party loginwindow replacement.
+                // But we can try more things below.
                 secerror("dp_login: error looking up indirect passphrase: %d", status);
-                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
-                return;
             }
-            // Indirect passphrase not found, try to unlock keychain first.
+            // Indirect passphrase not found, or it didn't work.
+            // Try to unlock keychain with the password directly.
             // This throws if the provided password is incorrect, which it might be if we just upgraded,
-            // or the DerivedEntropy is not in the DP keychain.
-            // But the keychain may already encrypted with a DerivedEntropy.
+            // or the DerivedEntropy was not in cached the DP keychain, or that cached value didn't work.
+            // But the keychain may already encrypted with a (different) DerivedEntropy.
             // So we have to catch that unlock error here.
-            secnotice("dp_login", "indirect passphrase not found, attempting to unlock with password");
+            secnotice("dp_login", "indirect passphrase issue, attempting to unlock with password");
 
-            bool needRekey = false;
+            bool passwordSucceeded = false;
             try {
+                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_failure;
                 mClientSession.unlock(dbHandle(), CssmData::overlay(password));
-                secnotice("dp_login", "unlocking with password succeeded, will need to rekey");
-                needRekey = true;
+                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_success;
+                passwordSucceeded = true;
+                secnotice("dp_login", "unlocking with password succeeded");
             } catch (...) {
                 secnotice("dp_login", "unlocking with password failed, hopefully there's recourse");
             }
@@ -164,21 +186,40 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
             // Then generate the indirect passphrase
             CssmData opw(CssmData::overlay(password));
             secnotice("dp_login", "calling generateDerivedEntropy");
-            kh = mClientSession.generateDerivedEntropy(salt, opw);
+            kh = mClientSession.generateDerivedEntropy(dbHandle(), salt, opw);
             DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
             secnotice("dp_login", "generateDerivedEntropy returned handle %u", kh);
 
-            if (needRekey) {
-                secnotice("dp_login", "changing to indirect passphrase");
-                changePassphrase(kh);
+            if (passwordSucceeded) {
+                if (rekey) {
+                    telemetry.rekeyValue = SVOTelemetry::rekey_failure;
+                    secnotice("dp_login", "need to rekey, changing to indirect passphrase");
+                    changePassphrase(kh);
+                    telemetry.rekeyValue = SVOTelemetry::rekey_success;
+                    // fall through to cache entropy in DP keychain
+                } else {
+                    secnotice("dp_login", "not going to rekey");
+                    return;
+                }
             } else {
                 // (hopefully) unlock with the indirect passphrase, because the raw password didn't work above
-                mClientSession.unlock(dbHandle(), kh);
-                secnotice("dp_login", "successfully unlocked with handle %u", kh);
+                try {
+                    telemetry.derivedEntropyUnlockValue = SVOTelemetry::entropyUnlock_failure;
+                    secnotice("dp_login", "attempting to unlock with handle %u", kh);
+                    mClientSession.unlock(dbHandle(), kh);
+                    telemetry.derivedEntropyUnlockValue = SVOTelemetry::entropyUnlock_success;
+                    secnotice("dp_login", "successfully unlocked with handle %u", kh);
+                } catch (...) {
+                    secnotice("dp_login", "failed to unlock with handle %u", kh);
+                    throw;
+                }
             }
 
-            status = _SecAssociateIndirectUnlockKey(identifier, kh);
-            secnotice("dp_login", "_SecAssociateIndirectUnlockKey %u returned %d", kh, status);
+            if (kh != noKey) {
+                status = _SecAssociateIndirectUnlockKey(identifier, kh);
+                telemetry.indirectUnlockKeyAssociate = status;
+                secnotice("dp_login", "_SecAssociateIndirectUnlockKey %u returned %d", kh, status);
+            }
 
             return;
         } else {
@@ -287,8 +328,12 @@ SSDatabaseImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
 
         unlock(oldPassword); // throws if unlock with this password fails
 
+        // now change (just) the keybag password
+        secnotice("dp_login", "changePassphrase changing keybag passphrase");
+        mClientSession.changeKeybagPassphrase(dbHandle(), oldPassword, newPassword);
+
         secnotice("dp_login", "changePassphrase calling generateDerivedEntropy");
-        KeyHandle kh = mClientSession.generateDerivedEntropy(salt, newPassword);
+        KeyHandle kh = mClientSession.generateDerivedEntropy(dbHandle(), salt, newPassword);
         DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
         secnotice("dp_login", "changePassphrase generateDerivedEntropy returned handle %u", kh);
         mClientSession.changePassphrase(dbHandle(), kh);
@@ -296,8 +341,6 @@ SSDatabaseImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
         OSStatus status = _SecAssociateIndirectUnlockKey(identifier, kh);
         secnotice("dp_login", "changePassphrase _SecAssociateIndirectUnlockKey %u returned %d", kh, status);
 
-        // now change (just) the keybag password
-        mClientSession.changeKeybagPassphrase(dbHandle(), oldPassword, newPassword);
     } else {
         mClientSession.changePassphrase(dbHandle(), innerCreds);
     }

@@ -105,7 +105,8 @@ void UIGamepadProvider::scheduleGamepadStateSync()
 void UIGamepadProvider::platformGamepadConnected(PlatformGamepad& gamepad, EventMakesGamepadsVisible eventVisibility)
 {
     RELEASE_ASSERT(isMainRunLoop());
-    RELEASE_LOG(Gamepad, "UIGamepadProvider::platformGamepadConnected - Gamepad index %i attached (visibility: %i, currently m_gamepads.size: %i)\n", gamepad.index(), (int)eventVisibility, (int)m_gamepads.size());
+    RELEASE_LOG(Gamepad, "UIGamepadProvider::platformGamepadConnected - Gamepad index %u attached (visibility: %s, currently m_gamepads.size: %zu)\n",
+        gamepad.index(), eventVisibility == EventMakesGamepadsVisible::Yes ? "yes" : "no", m_gamepads.size());
 
     if (m_gamepads.size() <= gamepad.index())
         m_gamepads.grow(gamepad.index() + 1);
@@ -122,7 +123,7 @@ void UIGamepadProvider::platformGamepadConnected(PlatformGamepad& gamepad, Event
 void UIGamepadProvider::platformGamepadDisconnected(PlatformGamepad& gamepad)
 {
     RELEASE_ASSERT(isMainRunLoop());
-    RELEASE_LOG(Gamepad, "UIGamepadProvider::platformGamepadConnected - Detaching gamepad index %i (Current m_gamepads size: %i)\n", gamepad.index(), (int)m_gamepads.size());
+    RELEASE_LOG(Gamepad, "UIGamepadProvider::platformGamepadConnected - Detaching gamepad index %u (Current m_gamepads size: %zu)\n", gamepad.index(), m_gamepads.size());
 
     ASSERT(gamepad.index() < m_gamepads.size());
     ASSERT(m_gamepads[gamepad.index()]);
@@ -130,14 +131,14 @@ void UIGamepadProvider::platformGamepadDisconnected(PlatformGamepad& gamepad)
     if (gamepad.index() >= m_gamepads.size()) {
 #if PLATFORM(COCOA)
         auto reason = makeString("Unknown platform gamepad disconnect: Index "_s, gamepad.index(), " with "_s, m_gamepads.size(), " known gamepads"_s);
-        os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, reason.utf8().data(), 0);
+        RELEASE_LOG_FAULT_WITH_PAYLOAD(Gamepad, reason.utf8().data());
 #else
-        RELEASE_LOG_ERROR(Gamepad, "Unknown platform gamepad disconnect: Index %zu with %zu known gamepads", gamepad.index(), m_gamepads.size());
+        RELEASE_LOG_ERROR(Gamepad, "Unknown platform gamepad disconnect: Index %u with %zu known gamepads", gamepad.index(), m_gamepads.size());
 #endif
         return;
     }
 
-    std::unique_ptr<UIGamepad> disconnectedGamepad = WTFMove(m_gamepads[gamepad.index()]);
+    std::unique_ptr<UIGamepad> disconnectedGamepad = WTF::move(m_gamepads[gamepad.index()]);
 
     scheduleGamepadStateSync();
 
@@ -151,10 +152,11 @@ void UIGamepadProvider::platformGamepadInputActivity(EventMakesGamepadsVisible e
 
     auto end = std::min(m_gamepads.size(), platformGamepads.size());
     for (size_t i = 0; i < end; ++i) {
-        if (!m_gamepads[i] || !platformGamepads[i])
+        CheckedPtr platformGamepad = platformGamepads[i].get();
+        if (!m_gamepads[i] || !platformGamepad)
             continue;
 
-        m_gamepads[i]->updateFromPlatformGamepad(*platformGamepads[i]);
+        m_gamepads[i]->updateFromPlatformGamepad(*platformGamepad);
     }
 
     if (eventVisibility == EventMakesGamepadsVisible::Yes)
@@ -231,7 +233,7 @@ void UIGamepadProvider::stopMonitoringGamepads()
     if (!m_isMonitoringGamepads)
         return;
 
-    RELEASE_LOG(Gamepad, "UIGamepadProvider::stopMonitoringGamepads - Clearing m_gamepads vector of size %i", (int)m_gamepads.size());
+    RELEASE_LOG(Gamepad, "UIGamepadProvider::stopMonitoringGamepads - Clearing m_gamepads vector of size %zu", m_gamepads.size());
 
     m_isMonitoringGamepads = false;
 

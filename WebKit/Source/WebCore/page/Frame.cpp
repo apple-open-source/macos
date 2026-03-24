@@ -42,6 +42,7 @@
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "WindowProxy.h"
+#include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -118,7 +119,7 @@ Frame::Frame(Page& page, FrameIdentifier frameID, FrameType frameType, HTMLFrame
     , m_frameType(frameType)
     , m_navigationScheduler(makeUniqueRefWithoutRefCountedCheck<NavigationScheduler>(*this))
     , m_opener(opener)
-    , m_frameTreeSyncData(WTFMove(frameTreeSyncData))
+    , m_frameTreeSyncData(WTF::move(frameTreeSyncData))
 {
     relaxAdoptionRequirement();
     if (parent && addToFrameTree == AddToFrameTree::Yes)
@@ -209,6 +210,35 @@ Ref<NavigationScheduler> Frame::protectedNavigationScheduler() const
     return m_navigationScheduler.get();
 }
 
+std::optional<uint64_t> Frame::indexInFrameTreeSiblings() const
+{
+    if (!tree().parent())
+        return std::nullopt;
+
+    for (uint64_t i = 0; i < tree().parent()->tree().childCount(); i++) {
+        if (RefPtr child = tree().parent()->tree().child(i); child->frameID() == this->frameID())
+            return i;
+    }
+
+    ASSERT_NOT_REACHED("This frame should be in its own tree");
+    return std::nullopt;
+}
+
+Vector<uint64_t> Frame::pathToFrame() const
+{
+    Vector<uint64_t> path;
+    RefPtr current = this;
+
+    while (current) {
+        if (auto index = current->indexInFrameTreeSiblings())
+            path.append(*index);
+        current = current->tree().parent();
+    }
+
+    path.reverse();
+    return path;
+}
+
 RenderWidget* Frame::ownerRenderer() const
 {
     RefPtr ownerElement = this->ownerElement();
@@ -236,7 +266,7 @@ bool Frame::isRootFrameIdentifier(FrameIdentifier identifier)
 void Frame::updateOpener(Frame& newOpener, NotifyUIProcess notifyUIProcess)
 {
     if (notifyUIProcess == NotifyUIProcess::Yes)
-        loaderClient().updateOpener(newOpener);
+        loaderClient().updateOpener(newOpener.frameID());
     if (m_opener)
         m_opener->m_openedFrames.remove(*this);
     newOpener.m_openedFrames.add(*this);
@@ -247,10 +277,14 @@ void Frame::updateOpener(Frame& newOpener, NotifyUIProcess notifyUIProcess)
     reinitializeDocumentSecurityContext();
 }
 
-void Frame::disownOpener()
+void Frame::disownOpener(NotifyUIProcess notifyUIProcess)
 {
-    if (m_opener)
+    if (m_opener) {
+        if (notifyUIProcess == NotifyUIProcess::Yes)
+            loaderClient().updateOpener(std::nullopt);
         m_opener->m_openedFrames.remove(*this);
+    }
+
     m_opener = nullptr;
 
     reinitializeDocumentSecurityContext();
@@ -288,7 +322,7 @@ void Frame::setOwnerElement(HTMLFrameOwnerElement* element)
 
 void Frame::setOwnerPermissionsPolicy(OwnerPermissionsPolicyData&& ownerPermissionsPolicy)
 {
-    m_ownerPermisssionsPolicyOverride = makeUnique<OwnerPermissionsPolicyData>(WTFMove(ownerPermissionsPolicy));
+    m_ownerPermisssionsPolicyOverride = makeUnique<OwnerPermissionsPolicyData>(WTF::move(ownerPermissionsPolicy));
 }
 
 std::optional<OwnerPermissionsPolicyData> Frame::ownerPermissionsPolicy() const
@@ -305,7 +339,7 @@ std::optional<OwnerPermissionsPolicyData> Frame::ownerPermissionsPolicy() const
 
     RefPtr iframe = dynamicDowncast<HTMLIFrameElement>(owner);
     auto containerPolicy = iframe ? PermissionsPolicy::processPermissionsPolicyAttribute(*iframe) : PermissionsPolicy::PolicyDirective { };
-    return OwnerPermissionsPolicyData { WTFMove(documentOrigin), WTFMove(documentPolicy), WTFMove(containerPolicy) };
+    return OwnerPermissionsPolicyData { WTF::move(documentOrigin), WTF::move(documentPolicy), WTF::move(containerPolicy) };
 }
 
 void Frame::updateSandboxFlags(SandboxFlags flags, NotifyUIProcess notifyUIProcess)
@@ -326,7 +360,12 @@ void Frame::stopForBackForwardCache()
 
 void Frame::updateFrameTreeSyncData(Ref<FrameTreeSyncData>&& data)
 {
-    m_frameTreeSyncData = WTFMove(data);
+    m_frameTreeSyncData = WTF::move(data);
+}
+
+void Frame::updateFrameTreeSyncData(const FrameTreeSyncSerializationData& data)
+{
+    protectedFrameTreeSyncData()->update(data);
 }
 
 bool Frame::frameCanCreatePaymentSession() const

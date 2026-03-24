@@ -31,7 +31,7 @@ namespace WebCore {
 class GStreamerAudioStreamDescription final: public AudioStreamDescription {
 public:
     GStreamerAudioStreamDescription(GstAudioInfo&& info)
-        : m_info(WTFMove(info))
+        : m_info(WTF::move(info))
     {
     }
 

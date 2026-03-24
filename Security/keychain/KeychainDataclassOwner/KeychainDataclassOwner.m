@@ -81,7 +81,7 @@
             secnotice("ItemDelete", "Deleted items on sign out");
         } else {
             NSError* localError = CFBridgingRelease(cfLocalError);
-            secwarning("ItemDelete: Failed to delete items on sign out: %@", localError);
+            secerror("ItemDelete: Failed to delete items on sign out: %@", localError);
         }
     }
 

@@ -56,8 +56,7 @@ public:
     WEBCORE_EXPORT ContentFilterUnblockHandler(String unblockURLHost, UnblockRequesterFunction&&);
 #if HAVE(WEBCONTENTRESTRICTIONS)
     ContentFilterUnblockHandler(const URL& evaluatedURL);
-#endif
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+#elif HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
     ContentFilterUnblockHandler(String unblockURLHost, RetainPtr<WebFilterEvaluator>);
 #endif
 
@@ -66,9 +65,8 @@ public:
         URL&& unreachableURL,
 #if HAVE(WEBCONTENTRESTRICTIONS)
         std::optional<URL>&& evaluatedURL,
-#endif
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
-        Vector<uint8_t>&& webFilterEvaluatorData,
+#elif HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+        RetainPtr<WebFilterEvaluator>&&,
 #endif
         bool unblockedAfterRequest
     );
@@ -87,35 +85,27 @@ public:
 
 #if HAVE(WEBCONTENTRESTRICTIONS)
     std::optional<URL> evaluatedURL() const { return m_evaluatedURL; }
-#endif
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
     const String& configurationPath() const { return m_configurationPath; }
     void setConfigurationPath(const String& path) { m_configurationPath = path; }
 #endif
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
-    WEBCORE_EXPORT Vector<uint8_t> webFilterEvaluatorData() const;
+#elif HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+    RetainPtr<WebFilterEvaluator> webFilterEvaluator() const { return m_webFilterEvaluator; }
 #endif
 
     WEBCORE_EXPORT void setUnblockedAfterRequest(bool);
     bool unblockedAfterRequest() const { return m_unblockedAfterRequest; }
 
 private:
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
-    bool hasWebFilterEvaluator() const;
-    RetainPtr<WebFilterEvaluator> webFilterEvaluator();
-#endif
-
     String m_unblockURLHost;
     URL m_unreachableURL;
     UnblockRequesterFunction m_unblockRequester;
 #if HAVE(WEBCONTENTRESTRICTIONS)
     std::optional<URL> m_evaluatedURL;
-#endif
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
     String m_configurationPath;
 #endif
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
-    Vector<uint8_t> m_webFilterEvaluatorData;
+#elif HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
     RetainPtr<WebFilterEvaluator> m_webFilterEvaluator;
 #endif
     bool m_unblockedAfterRequest { false };

@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cmd1.c	8.2 (Berkeley) 4/20/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include "extern.h"
 
@@ -211,7 +203,7 @@ printhead(int mesg)
  * Print out the value of dot.
  */
 int
-pdot(void)
+pdot(void *arg __unused)
 {
 	printf("%td\n", dot - &message[0] + 1);
 	return (0);
@@ -221,7 +213,7 @@ pdot(void)
  * Print out all the possible commands.
  */
 int
-pcmdlist(void)
+pcmdlist(void *arg __unused)
 {
 	extern const struct cmd cmdtab[];
 	const struct cmd *cp;
@@ -439,7 +431,7 @@ mboxit(void *v)
  * List the folders the user currently has.
  */
 int
-folders(void)
+folders(void *arg __unused)
 {
 	char dirname[PATHSIZE];
 	char *cmd;

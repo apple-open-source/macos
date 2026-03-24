@@ -77,10 +77,10 @@ static CFStringRef copy_keychain_uuid_path(CFURLRef keyChainBaseURL)
     CFStringRef baseURLString = NULL;
     CFStringRef uuid_path = NULL;
 
-    require(keyChainBaseURL, done);
+    __Require(keyChainBaseURL, done);
 
     baseURLString = CFURLCopyFileSystemPath(keyChainBaseURL, kCFURLPOSIXPathStyle);
-    require(baseURLString, done);
+    __Require(baseURLString, done);
 
     uuid_path = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@/%s"), baseURLString, get_host_uuid());
 
@@ -112,7 +112,7 @@ static bool keychain_verify_create_path(const char *keychainBasePath)
     }
     if (!created) {
         errno_t err = mkpath_np(kb_path, 0700);
-        require_action(err == 0 || err == EEXIST, done, secerror("could not create path: %s (%s)", kb_path, strerror(err)));
+        __Require_Action(err == 0 || err == EEXIST, done, secerror("could not create path: %s (%s)", kb_path, strerror(err)));
         created = true;
     }
 
@@ -262,7 +262,7 @@ static CFURLRef SecCopyURLForFileInParameterizedKeychainDirectory(CFStringRef fi
     CFStringPerformWithCString(uuid_path, ^(const char *utf8Str) {
         directoryExists = keychain_verify_create_path(utf8Str);
     });
-    require(directoryExists, done);
+    __Require(directoryExists, done);
     if (fileName)
         resultStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@/%@"), uuid_path, fileName);
     else

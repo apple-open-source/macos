@@ -97,7 +97,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (id)copyWithZone:(NSZone *)zone
 {
-    _WKInspectorConfiguration *configuration = [(_WKInspectorConfiguration *)[[self class] allocWithZone:zone] init];
+    RetainPtr<_WKInspectorConfiguration> configuration = adoptNS([(_WKInspectorConfiguration *)[[self class] allocWithZone:zone] init]);
 
     for (auto pair : _configuration->urlSchemeHandlers()) {
         Ref handler = downcast<WebKit::WebURLSchemeHandlerCocoa>(pair.first.get());
@@ -110,7 +110,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (auto* groupIdentifier = self.groupIdentifier)
         [configuration setGroupIdentifier:groupIdentifier];
 
-    return configuration;
+    return configuration.leakRef();
 }
 
 @end

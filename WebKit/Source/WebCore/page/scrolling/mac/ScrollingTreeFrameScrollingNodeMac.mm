@@ -26,7 +26,7 @@
 #import "config.h"
 #import "ScrollingTreeFrameScrollingNodeMac.h"
 
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#if PLATFORM(MAC)
 
 #import "LayoutSize.h"
 #import "LocalFrameView.h"
@@ -198,12 +198,18 @@ void ScrollingTreeFrameScrollingNodeMac::repositionRelatedLayers()
 
     auto obscuredContentInsets = this->obscuredContentInsets();
     if (m_insetClipLayer && m_rootContentsLayer) {
+        auto insetClipLayerRect = LocalFrameView::insetClipLayerRect(scrollPosition, obscuredContentInsets, sizeForVisibleContent());
         [m_insetClipLayer setPosition:[&] {
-            auto position = LocalFrameView::positionForInsetClipLayer(scrollPosition, obscuredContentInsets);
+            auto position = insetClipLayerRect.location();
             if (!obscuredContentInsets.left())
                 position.setX([m_insetClipLayer position].x);
             return position;
         }()];
+
+        auto adjustedBounds = [m_insetClipLayer bounds];
+        adjustedBounds.size = insetClipLayerRect.size();
+        [m_insetClipLayer setBounds:adjustedBounds];
+
         [m_rootContentsLayer setPosition:LocalFrameView::positionForRootContentLayer(scrollPosition, scrollOrigin(), obscuredContentInsets, headerHeight())];
         if (m_contentShadowLayer)
             m_contentShadowLayer.get().position = m_rootContentsLayer.get().position;
@@ -265,7 +271,7 @@ unsigned ScrollingTreeFrameScrollingNodeMac::exposedUnfilledArea() const
         auto sublayers = adoptNS([[layer sublayers] copy]);
 
         // If this layer is the parent of a tile, it is the parent of all of the tiles and nothing else.
-        if ([[[sublayers objectAtIndex:0] valueForKey:@"isTile"] boolValue]) {
+        if ([[retainPtr([sublayers objectAtIndex:0]) valueForKey:@"isTile"] boolValue]) {
             for (CALayer* sublayer in sublayers.get())
                 tiles.append(sublayer);
         } else {
@@ -281,4 +287,4 @@ unsigned ScrollingTreeFrameScrollingNodeMac::exposedUnfilledArea() const
 
 } // namespace WebCore
 
-#endif // ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#endif // PLATFORM(MAC)

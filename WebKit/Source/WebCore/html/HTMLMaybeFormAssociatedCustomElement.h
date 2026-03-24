@@ -32,13 +32,10 @@ namespace WebCore {
 class FormAssociatedCustomElement;
 
 class HTMLMaybeFormAssociatedCustomElement final : public HTMLElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLMaybeFormAssociatedCustomElement);
+    WTF_MAKE_TZONE_ALLOCATED(HTMLMaybeFormAssociatedCustomElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLMaybeFormAssociatedCustomElement);
 public:
     static Ref<HTMLMaybeFormAssociatedCustomElement> create(const QualifiedName& tagName, Document&);
-
-    using Node::ref;
-    using Node::deref;
 
     bool isMaybeFormAssociatedCustomElement() const final { return true; }
     bool isFormListedElement() const final;

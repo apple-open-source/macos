@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,8 @@
 #include "pas_segregated_shared_handle_inlines.h"
 #include "pas_thread_local_cache_node.h"
 #include "pas_zero_memory.h"
+
+#if LIBPAS_ENABLED
 
 PAS_BEGIN_EXTERN_C;
 
@@ -373,7 +375,7 @@ pas_segregated_page_deallocate_with_page(pas_segregated_page* page,
 #if !PAS_ARM && !PAS_RISCV
         new_word = word;
         
-        asm volatile (
+        __asm__ volatile (
             "btrl %1, %0\n\t"
             "jc 0f\n\t"
             "movq %2, %%rdi\n\t"
@@ -643,5 +645,5 @@ static PAS_ALWAYS_INLINE void pas_segregated_page_log_or_deallocate(
 
 PAS_END_EXTERN_C;
 
+#endif /* LIBPAS_ENABLED */
 #endif /* PAS_SEGREGATED_PAGE_INLINES_H */
-

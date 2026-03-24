@@ -199,8 +199,8 @@
 /* Define to 1 if you have the 'RAND_egd' function. */
 #undef HAVE_RAND_EGD
 
-/* Define if rustls is available */
-#undef HAVE_RUSTLS
+/* Defined if SELinux is supported */
+#undef HAVE_SELINUX
 
 /* Define to 1 if you have the 'setsid' function. */
 #undef HAVE_SETSID

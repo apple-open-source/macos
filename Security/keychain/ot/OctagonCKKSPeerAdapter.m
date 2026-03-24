@@ -198,18 +198,24 @@
                 localerror = operror;
 
             } else {
-                peers = [NSMutableSet set];
+                // Check selfPeerState against our own peerID.
+                if (selfPeerState.peerID && ![selfPeerState.peerID isEqualToString:self.peerID]) {
+                    secerror("octagon: Mismatch between TPH's egoPeerID (%@) and Octagon's self peerID (%@)", selfPeerState.peerID, self.peerID);
+                    localerror = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorTPHEgoPeerMismatchesSelfPeer description:@"TPH reports having a different egoPeerID from Octagon"];
+                } else {
+                    peers = [NSMutableSet set];
 
-                // Turn these peers into CKKSPeers
-                for(TrustedPeersHelperPeer* peer in trustedPeers) {
-                    SFECPublicKey* signingKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:peer.signingSPKI];
-                    SFECPublicKey* encryptionKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:peer.encryptionSPKI];
+                    // Turn these peers into CKKSPeers
+                    for(TrustedPeersHelperPeer* peer in trustedPeers) {
+                        SFECPublicKey* signingKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:peer.signingSPKI];
+                        SFECPublicKey* encryptionKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:peer.encryptionSPKI];
 
-                    CKKSActualPeer* ckkspeer = [[CKKSActualPeer alloc] initWithPeerID:peer.peerID
-                                                                  encryptionPublicKey:encryptionKey
-                                                                     signingPublicKey:signingKey
-                                                                             viewList:peer.viewList];
-                    [peers addObject:ckkspeer];
+                        CKKSActualPeer* ckkspeer = [[CKKSActualPeer alloc] initWithPeerID:peer.peerID
+                                                                      encryptionPublicKey:encryptionKey
+                                                                         signingPublicKey:signingKey
+                                                                                 viewList:peer.viewList];
+                        [peers addObject:ckkspeer];
+                    }
                 }
             }
         }];

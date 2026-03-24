@@ -9,25 +9,11 @@
     </dict>
 	<key>workgroup_interval_force_enabled</key>
     <dict>
-		<key>Attributes</key>
-		<dict>
-			<key>TargetRelease</key>
-			<string>Fall2025</string>
-			<key>FeatureRadar</key>
-			<string>139889436</string>
-		</dict>
         <key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
 	</dict>
 	<key>workgroup_interval_force_disable</key>
     <dict>
-		<key>Attributes</key>
-		<dict>
-			<key>TargetRelease</key>
-			<string>Fall2025</string>
-			<key>FeatureRadar</key>
-			<string>139889436</string>
-		</dict>
         <key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
 	</dict>

@@ -83,12 +83,12 @@ static const Seconds PostAnimationDelay { 100_ms };
     [super dealloc];
 }
 
-- (WebKit::VideoLayerRemoteParent*)parent
+- (RefPtr<WebKit::VideoLayerRemoteParent>)parent
 {
-    return _parent.get().unsafeGet();
+    return _parent.get();
 }
 
-- (void)setParent:(WebKit::VideoLayerRemoteParent*)parent
+- (void)setParent:(RefPtr<WebKit::VideoLayerRemoteParent>)parent
 {
     _parent = *parent;
 }
@@ -114,8 +114,8 @@ static const Seconds PostAnimationDelay { 100_ms };
 
 - (void)layoutSublayers
 {
-    auto* sublayers = [self sublayers];
-    
+    RetainPtr sublayers = [self sublayers];
+
     if ([sublayers count] != 1) {
         ASSERT_NOT_REACHED();
         return;
@@ -155,7 +155,7 @@ static const Seconds PostAnimationDelay { 100_ms };
     } else
         transform = CGAffineTransformMakeScale(targetVideoFrame.width() / sourceVideoFrame.width(), targetVideoFrame.height() / sourceVideoFrame.height());
 
-    auto* videoSublayer = [sublayers objectAtIndex:0];
+    RetainPtr videoSublayer = [sublayers objectAtIndex:0];
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     [videoSublayer setPosition:CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds))];
@@ -182,14 +182,14 @@ static const Seconds PostAnimationDelay { 100_ms };
         return;
     }
 
-    auto* sublayers = [self sublayers];
+    RetainPtr sublayers = [self sublayers];
     if ([sublayers count] != 1) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    auto* videoSublayer = [sublayers objectAtIndex:0];
-    if (!CGRectIsEmpty(self.videoLayerFrame) && CGRectEqualToRect(self.videoLayerFrame, videoSublayer.bounds) && CGAffineTransformIsIdentity(videoSublayer.affineTransform))
+    RetainPtr videoSublayer = [sublayers objectAtIndex:0];
+    if (!CGRectIsEmpty(self.videoLayerFrame) && CGRectEqualToRect(self.videoLayerFrame, videoSublayer.get().bounds) && CGAffineTransformIsIdentity(videoSublayer.get().affineTransform))
         return;
 
     [CATransaction begin];
@@ -199,7 +199,7 @@ static const Seconds PostAnimationDelay { 100_ms };
         self.videoLayerFrame = self.bounds;
         if (RefPtr<WebKit::VideoLayerRemoteParent> parent = self.parent) {
             MachSendRight fenceSendRight = MachSendRight::adopt([_context createFencePort]);
-            parent->setVideoLayerSizeFenced(WebCore::FloatSize(self.videoLayerFrame.size), { WTFMove(fenceSendRight), { } });
+            parent->setVideoLayerSizeFenced(WebCore::FloatSize(self.videoLayerFrame.size), { WTF::move(fenceSendRight), { } });
         }
     }
 

@@ -64,10 +64,10 @@ private:
 
     void triggerRenderingUpdate();
 
-    Page& m_page;
+    WeakRef<Page> m_page;
     std::unique_ptr<Timer> m_refreshTimer;
     unsigned m_rescheduledRenderingUpdateCount { 0 };
     bool m_useTimer { false };
 };
 
-}
+} // namespace WebCore

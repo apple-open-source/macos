@@ -82,6 +82,12 @@ enum class FileAccessPermission : bool {
     All
 };
 
+#if OS(WINDOWS)
+constexpr char pathSeparator = '\\';
+#else
+constexpr char pathSeparator = '/';
+#endif
+
 WTF_EXPORT_PRIVATE bool fileExists(const String&);
 WTF_EXPORT_PRIVATE bool deleteFile(const String&);
 WTF_EXPORT_PRIVATE void deleteAllFilesModifiedSince(const String&, WallTime);
@@ -109,6 +115,7 @@ WTF_EXPORT_PRIVATE std::optional<int32_t> getFileDeviceId(const String&);
 WTF_EXPORT_PRIVATE bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath);
 WTF_EXPORT_PRIVATE String createTemporaryZipArchive(const String& directory);
 WTF_EXPORT_PRIVATE String extractTemporaryZipArchive(const String& filePath);
+WTF_EXPORT_PRIVATE FileHandle createDumpFile(StringView filename, StringView extension, StringView path = StringView());
 
 enum class FileType { Regular, Directory, SymbolicLink };
 WTF_EXPORT_PRIVATE std::optional<FileType> fileType(const String&);
@@ -192,7 +199,7 @@ WTF_EXPORT_PRIVATE bool deleteNonEmptyDirectory(const String&);
 WTF_EXPORT_PRIVATE String realPath(const String&);
 
 WTF_EXPORT_PRIVATE bool isSafeToUseMemoryMapForPath(const String&);
-WTF_EXPORT_PRIVATE WARN_UNUSED_RETURN bool makeSafeToUseMemoryMapForPath(const String&);
+WARN_UNUSED_RETURN WTF_EXPORT_PRIVATE bool makeSafeToUseMemoryMapForPath(const String&);
 
 WTF_EXPORT_PRIVATE std::optional<MappedFileData> mapFile(const String& path, MappedFileMode);
 

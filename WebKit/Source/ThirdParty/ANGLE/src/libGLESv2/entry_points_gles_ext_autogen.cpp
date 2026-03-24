@@ -20206,7 +20206,6 @@ void GL_APIENTRY GL_GenVertexArraysOES(GLsizei n, GLuint *arrays)
     if (ANGLE_LIKELY(context != nullptr))
     {
         VertexArrayID *arraysPacked = PackParam<VertexArrayID *>(arrays);
-        SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = context->skipValidation();
         if (!isCallValid)
         {
@@ -20216,9 +20215,10 @@ void GL_APIENTRY GL_GenVertexArraysOES(GLsizei n, GLuint *arrays)
                 const uint32_t errorCount = context->getPushedErrorCount();
 #endif
                 isCallValid = ValidateGenVertexArraysOES(
-                    context, angle::EntryPoint::GLGenVertexArraysOES, n, arraysPacked);
+                    context->getPrivateState(), context->getMutableErrorSetForValidation(),
+                    angle::EntryPoint::GLGenVertexArraysOES, n, arraysPacked);
 #if defined(ANGLE_ENABLE_ASSERTS)
-                ASSERT(context->getPushedErrorCount() - errorCount == (isCallValid ? 0 : 1));
+                ASSERT(isCallValid || context->getPushedErrorCount() != errorCount);
 #endif
             }
             else
@@ -20228,7 +20228,8 @@ void GL_APIENTRY GL_GenVertexArraysOES(GLsizei n, GLuint *arrays)
         }
         if (ANGLE_LIKELY(isCallValid))
         {
-            context->genVertexArrays(n, arraysPacked);
+            ContextPrivateGenVertexArrays(context->getMutablePrivateState(),
+                                          context->getMutablePrivateStateCache(), n, arraysPacked);
         }
         ANGLE_CAPTURE_GL(GenVertexArraysOES, isCallValid, context, n, arraysPacked);
     }
@@ -20249,7 +20250,6 @@ GLboolean GL_APIENTRY GL_IsVertexArrayOES(GLuint array)
     if (ANGLE_LIKELY(context != nullptr))
     {
         VertexArrayID arrayPacked = PackParam<VertexArrayID>(array);
-        SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid = context->skipValidation();
         if (!isCallValid)
         {
@@ -20259,9 +20259,10 @@ GLboolean GL_APIENTRY GL_IsVertexArrayOES(GLuint array)
                 const uint32_t errorCount = context->getPushedErrorCount();
 #endif
                 isCallValid = ValidateIsVertexArrayOES(
-                    context, angle::EntryPoint::GLIsVertexArrayOES, arrayPacked);
+                    context->getPrivateState(), context->getMutableErrorSetForValidation(),
+                    angle::EntryPoint::GLIsVertexArrayOES, arrayPacked);
 #if defined(ANGLE_ENABLE_ASSERTS)
-                ASSERT(context->getPushedErrorCount() - errorCount == (isCallValid ? 0 : 1));
+                ASSERT(isCallValid || context->getPushedErrorCount() != errorCount);
 #endif
             }
             else
@@ -20271,7 +20272,9 @@ GLboolean GL_APIENTRY GL_IsVertexArrayOES(GLuint array)
         }
         if (ANGLE_LIKELY(isCallValid))
         {
-            returnValue = context->isVertexArray(arrayPacked);
+            returnValue =
+                ContextPrivateIsVertexArray(context->getMutablePrivateState(),
+                                            context->getMutablePrivateStateCache(), arrayPacked);
         }
         else
         {

@@ -61,7 +61,7 @@ private:
     void close() final;
 
     void onMessageData(GBytes*);
-    void onMessageString(const char*);
+    void onMessageString(CStringView);
     void onError(GError*);
     void onClose();
 

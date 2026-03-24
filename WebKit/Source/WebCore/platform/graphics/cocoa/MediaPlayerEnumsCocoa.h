@@ -31,7 +31,7 @@ OBJC_CLASS NSString;
 
 namespace WebCore {
 
-WEBCORE_EXPORT NSString *convertMediaPlayerToAVLayerVideoGravity(MediaPlayerVideoGravity);
+WEBCORE_EXPORT RetainPtr<NSString> convertMediaPlayerToAVLayerVideoGravity(MediaPlayerVideoGravity);
 WEBCORE_EXPORT MediaPlayerVideoGravity convertAVLayerToMediaPlayerVideoGravity(NSString *);
 
 }

@@ -86,21 +86,22 @@ void WebGamepadProvider::gamepadConnected(const GamepadData& gamepadData, EventM
     m_gamepads[gamepadData.index()] = makeUnique<WebGamepad>(gamepadData);
     m_rawGamepads[gamepadData.index()] = m_gamepads[gamepadData.index()].get();
 
-    for (auto& client : m_clients)
-        client.platformGamepadConnected(*m_gamepads[gamepadData.index()], eventVisibility);
+    CheckedRef gamepadRef = *m_gamepads[gamepadData.index()];
+    for (Ref client : m_clients)
+        client->platformGamepadConnected(gamepadRef, eventVisibility);
 }
 
 void WebGamepadProvider::gamepadDisconnected(unsigned index)
 {
     WP_MESSAGE_CHECK((m_gamepads.size() > index), index, m_gamepads.size());
 
-    std::unique_ptr<WebGamepad> disconnectedGamepad = WTFMove(m_gamepads[index]);
+    std::unique_ptr<WebGamepad> disconnectedGamepad = WTF::move(m_gamepads[index]);
     m_rawGamepads[index] = nullptr;
 
     LOG(Gamepad, "WebGamepadProvider::gamepadDisconnected - Gamepad index %u detached (m_gamepads size %zu, m_rawGamepads size %zu\n", index, m_gamepads.size(), m_rawGamepads.size());
 
-    for (auto& client : m_clients)
-        client.platformGamepadDisconnected(*disconnectedGamepad);
+    for (Ref client : m_clients)
+        client->platformGamepadDisconnected(*disconnectedGamepad);
 }
 
 void WebGamepadProvider::gamepadActivity(const Vector<std::optional<GamepadData>>& gamepadDatas, EventMakesGamepadsVisible eventVisibility)
@@ -110,12 +111,12 @@ void WebGamepadProvider::gamepadActivity(const Vector<std::optional<GamepadData>
     ASSERT(m_gamepads.size() == gamepadDatas.size());
 
     for (size_t i = 0; i < m_gamepads.size(); ++i) {
-        if (m_gamepads[i] && gamepadDatas[i])
-            m_gamepads[i]->updateValues(*gamepadDatas[i]);
+        if (CheckedPtr gamepad = m_gamepads[i].get(); gamepad && gamepadDatas[i])
+            gamepad->updateValues(*gamepadDatas[i]);
     }
 
-    for (auto& client : m_clients)
-        client.platformGamepadInputActivity(eventVisibility);
+    for (Ref client : m_clients)
+        client->platformGamepadInputActivity(eventVisibility);
 }
 
 void WebGamepadProvider::startMonitoringGamepads(GamepadProviderClient& client)
@@ -149,12 +150,12 @@ const Vector<WeakPtr<PlatformGamepad>>& WebGamepadProvider::platformGamepads()
 
 void WebGamepadProvider::playEffect(unsigned gamepadIndex, const String& gamepadID, GamepadHapticEffectType type, const GamepadEffectParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
 {
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebProcessPool::PlayGamepadEffect(gamepadIndex, gamepadID, type, parameters), WTFMove(completionHandler));
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebProcessPool::PlayGamepadEffect(gamepadIndex, gamepadID, type, parameters), WTF::move(completionHandler));
 }
 
 void WebGamepadProvider::stopEffects(unsigned gamepadIndex, const String& gamepadID, CompletionHandler<void()>&& completionHandler)
 {
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebProcessPool::StopGamepadEffects(gamepadIndex, gamepadID), WTFMove(completionHandler));
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebProcessPool::StopGamepadEffects(gamepadIndex, gamepadID), WTF::move(completionHandler));
 }
 
 }

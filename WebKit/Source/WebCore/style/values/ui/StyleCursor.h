@@ -53,7 +53,7 @@ struct Cursor {
     CursorType predefined { CursorType::Auto };
 
     Cursor(Images&& images, CursorType predefined)
-        : images { WTFMove(images) }
+        : images { WTF::move(images) }
         , predefined { predefined }
     {
     }

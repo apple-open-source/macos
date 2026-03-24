@@ -56,6 +56,8 @@ NetworkProcess/webrtc/NetworkRTCMonitor.cpp
 NetworkProcess/webrtc/NetworkRTCProvider.cpp
 NetworkProcess/webrtc/NetworkRTCSharedMonitor.cpp
 
+NetworkProcess/webrtc/rice/RiceBackend.cpp
+
 Platform/IPC/glib/ConnectionGLib.cpp
 
 Platform/IPC/unix/ArgumentCodersUnix.cpp
@@ -88,6 +90,7 @@ Shared/glib/JavaScriptEvaluationResultGLib.cpp
 Shared/glib/ProcessExecutablePathGLib.cpp
 Shared/glib/UserMessage.cpp
 Shared/glib/WebContextMenuItemGlib.cpp
+Shared/glib/WebKitContextMenuGAction.cpp @no-unify
 
 Shared/gtk/ArgumentCodersGtk.cpp
 Shared/gtk/NativeWebKeyboardEventGtk.cpp
@@ -148,6 +151,7 @@ UIProcess/API/glib/WebKitFormSubmissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitGeolocationManager.cpp @no-unify
 UIProcess/API/glib/WebKitGeolocationPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitIconLoadingClient.cpp @no-unify
+UIProcess/API/glib/WebKitImage.cpp @no-unify
 UIProcess/API/glib/WebKitInitialize.cpp @no-unify
 UIProcess/API/glib/WebKitInjectedBundleClient.cpp @no-unify
 UIProcess/API/glib/WebKitInputMethodContext.cpp @no-unify
@@ -230,7 +234,9 @@ UIProcess/Automation/gtk/WebAutomationSessionGtk.cpp @no-unify
 
 UIProcess/CoordinatedGraphics/DrawingAreaProxyCoordinatedGraphics.cpp
 
-UIProcess/Extensions/gtk/WebExtensionGtk.cpp
+UIProcess/Extensions/glib/WebExtensionGLib.cpp
+
+UIProcess/Extensions/gtk/WebExtensionGTK.cpp
 
 UIProcess/Gamepad/gtk/UIGamepadProviderGtk.cpp
 UIProcess/Gamepad/manette/UIGamepadProviderManette.cpp
@@ -308,6 +314,7 @@ UIProcess/gtk/WebTextCheckerClient.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
 
 UIProcess/XR/openxr/OpenXRExtensions.cpp
+UIProcess/XR/openxr/OpenXRHitTestManager.cpp
 UIProcess/XR/openxr/OpenXRInput.cpp
 UIProcess/XR/openxr/OpenXRInputSource.cpp
 UIProcess/XR/openxr/OpenXRLayer.cpp
@@ -335,6 +342,8 @@ WebProcess/Inspector/gtk/WebInspectorUIGtk.cpp
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
 
+WebProcess/Network/webrtc/rice/RiceBackendProxy.cpp
+
 WebProcess/WebCoreSupport/WebValidationMessageClient.cpp
 
 WebProcess/WebCoreSupport/glib/WebEditorClientGLib.cpp
@@ -348,7 +357,6 @@ WebProcess/WebCoreSupport/soup/WebFrameNetworkingContext.cpp
 WebProcess/WebPage/ViewGestureGeometryCollector.cpp
 
 WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.cpp @no-unify
-WebProcess/WebPage/CoordinatedGraphics/CompositingRunLoop.cpp
 WebProcess/WebPage/CoordinatedGraphics/CoordinatedSceneState.cpp
 WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphics.cpp
 WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp

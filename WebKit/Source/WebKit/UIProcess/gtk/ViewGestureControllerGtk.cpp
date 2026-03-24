@@ -113,7 +113,7 @@ bool ViewGestureController::handleScrollWheelEvent(PlatformGtkScrollData* event)
 
 void ViewGestureController::trackSwipeGesture(PlatformScrollEvent event, SwipeDirection direction, RefPtr<WebBackForwardListItem> targetItem)
 {
-    m_swipeProgressTracker.startTracking(WTFMove(targetItem), direction);
+    m_swipeProgressTracker.startTracking(WTF::move(targetItem), direction);
     m_swipeProgressTracker.handleEvent(event);
 }
 
@@ -624,7 +624,7 @@ void ViewGestureController::draw(cairo_t* cr, cairo_pattern_t* pageGroup)
 
 void ViewGestureController::removeSwipeSnapshot()
 {
-    m_snapshotRemovalTracker.reset();
+    m_snapshotRemovalTracker->reset();
 
     m_hasOutstandingRepaintRequest = false;
 

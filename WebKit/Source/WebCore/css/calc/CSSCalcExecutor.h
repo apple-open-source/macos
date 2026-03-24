@@ -26,8 +26,10 @@
 #pragma once
 
 #include "CSSCalcOperator.h"
+#include "CSSValueKeywords.h"
 #include <numbers>
 #include <numeric>
+#include <ranges>
 #include <wtf/Forward.h>
 #include <wtf/MathExtras.h>
 
@@ -41,45 +43,6 @@ template<auto> struct OperatorExecutor;
 template<auto Op, typename... Args> inline auto executeOperation(Args&&... args)
 {
     return OperatorExecutor<Op>()(std::forward<Args>(args)...);
-}
-
-template<typename Container, typename Transform> class SizedTransformRange {
-public:
-    SizedTransformRange(const Container& container, Transform&& transform)
-        : m_container(container)
-        , m_transform(WTFMove(transform))
-    {
-    }
-
-    struct const_iterator {
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-        const_iterator& operator++() { ++it; return *this; }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
-
-        auto operator*() const { return transform(*it); }
-
-        bool operator==(const const_iterator& other) const { return it == other.it; }
-
-        typename Container::const_iterator it;
-        const Transform& transform;
-    };
-
-    using value_type = decltype(*std::declval<const_iterator>());
-
-    auto size() const -> decltype(std::declval<Container>().size()) { return m_container.size(); }
-    bool isEmpty() const { return m_container.isEmpty(); }
-
-    const_iterator begin() const { return const_iterator { m_container.begin(), m_transform }; }
-    const_iterator end() const { return const_iterator { m_container.end(), m_transform }; }
-
-private:
-    const Container& m_container;
-    Transform m_transform;
-};
-
-template<typename T, std::invocable<const T&> Function> decltype(auto) makeSizedTransformRange(const Vector<T>& vector, Function&& evaluate)
-{
-    return SizedTransformRange { vector, std::forward<Function>(evaluate) };
 }
 
 // Helper for rounding functions.
@@ -108,7 +71,7 @@ template<> struct OperatorExecutor<Operator::Sum> {
 
     template<typename T, std::invocable<const T&> Functor> double operator()(const Vector<T>& range, Functor&& functor)
     {
-        return executeOperation<Operator::Sum>(makeSizedTransformRange(range, std::forward<Functor>(functor)));
+        return executeOperation<Operator::Sum>(range | std::views::transform(std::forward<Functor>(functor)));
     }
 
     double operator()(double a, double b)
@@ -135,7 +98,7 @@ template<> struct OperatorExecutor<Operator::Product> {
 
     template<typename T, std::invocable<const T&> Functor> double operator()(const Vector<T>& range, Functor&& functor)
     {
-        return executeOperation<Operator::Product>(makeSizedTransformRange(range, std::forward<Functor>(functor)));
+        return executeOperation<Operator::Product>(range | std::views::transform(std::forward<Functor>(functor)));
     }
 
     double operator()(double a, double b)
@@ -156,8 +119,8 @@ template<> struct OperatorExecutor<Operator::Min> {
 
     template<FloatingPointRange R> auto operator()(R&& range)
     {
-        if (range.isEmpty())
-            return std::numeric_limits<typename R::value_type>::quiet_NaN();
+        if (range.empty())
+            return std::numeric_limits<std::ranges::range_value_t<R>>::quiet_NaN();
 
         auto&& it = range.begin();
         auto&& end = range.end();
@@ -183,7 +146,7 @@ template<> struct OperatorExecutor<Operator::Min> {
 
     template<typename T, std::invocable<const T&> Functor> double operator()(const Vector<T>& range, Functor&& functor)
     {
-        return executeOperation<Operator::Min>(makeSizedTransformRange(range, std::forward<Functor>(functor)));
+        return executeOperation<Operator::Min>(range | std::views::transform(std::forward<Functor>(functor)));
     }
 };
 
@@ -192,8 +155,8 @@ template<> struct OperatorExecutor<Operator::Max> {
 
     template<FloatingPointRange R> auto operator()(R&& range)
     {
-        if (range.isEmpty())
-            return std::numeric_limits<typename R::value_type>::quiet_NaN();
+        if (range.empty())
+            return std::numeric_limits<std::ranges::range_value_t<R>>::quiet_NaN();
 
         auto&& it = range.begin();
         auto&& end = range.end();
@@ -219,7 +182,7 @@ template<> struct OperatorExecutor<Operator::Max> {
 
     template<typename T, std::invocable<const T&> Functor> double operator()(const Vector<T>& range, Functor&& functor)
     {
-        return executeOperation<Operator::Max>(makeSizedTransformRange(range, std::forward<Functor>(functor)));
+        return executeOperation<Operator::Max>(range | std::views::transform(std::forward<Functor>(functor)));
     }
 };
 
@@ -420,7 +383,7 @@ template<> struct OperatorExecutor<Operator::Sqrt> {
 template<> struct OperatorExecutor<Operator::Hypot> {
     template<typename Range> double operator()(Range&& range)
     {
-        if (range.isEmpty())
+        if (range.empty())
             return std::numeric_limits<double>::quiet_NaN();
         if (range.size() == 1)
             return std::abs(*range.begin());
@@ -433,7 +396,7 @@ template<> struct OperatorExecutor<Operator::Hypot> {
 
     template<typename T, std::invocable<const T&> Functor> double operator()(const Vector<T>& range, Functor&& functor)
     {
-        return executeOperation<Operator::Hypot>(makeSizedTransformRange(range, std::forward<Functor>(functor)));
+        return executeOperation<Operator::Hypot>(range | std::views::transform(std::forward<Functor>(functor)));
     }
 };
 

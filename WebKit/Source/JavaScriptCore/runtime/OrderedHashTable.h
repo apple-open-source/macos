@@ -143,6 +143,11 @@ public:
         return m_storage.get();
     }
 
+    ALWAYS_INLINE JSCell* storage()
+    {
+        return m_storage.get();
+    }
+
     ALWAYS_INLINE JSCell* storageOrSentinel(VM& vm)
     {
         if (m_storage)

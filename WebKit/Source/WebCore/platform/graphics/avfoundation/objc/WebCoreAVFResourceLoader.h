@@ -33,7 +33,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 OBJC_CLASS AVAssetResourceLoadingRequest;
 
@@ -48,7 +48,7 @@ class PlatformResourceMediaLoader;
 class ResourceError;
 class ResourceResponse;
 
-class WebCoreAVFResourceLoader : public ThreadSafeRefCounted<WebCoreAVFResourceLoader> {
+class WebCoreAVFResourceLoader : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebCoreAVFResourceLoader> {
     WTF_MAKE_TZONE_ALLOCATED(WebCoreAVFResourceLoader);
     WTF_MAKE_NONCOPYABLE(WebCoreAVFResourceLoader);
 public:
@@ -75,7 +75,7 @@ private:
     ThreadSafeWeakPtr<MediaPlayerPrivateAVFoundationObjC> m_parent;
     RetainPtr<AVAssetResourceLoadingRequest> m_avRequest;
     std::unique_ptr<DataURLResourceMediaLoader> m_dataURLMediaLoader;
-    std::unique_ptr<CachedResourceMediaLoader> m_resourceMediaLoader;
+    RefPtr<CachedResourceMediaLoader> m_resourceMediaLoader;
     RefPtr<PlatformResourceMediaLoader> m_platformMediaLoader;
     bool m_isBlob { false };
     size_t m_responseOffset { 0 };

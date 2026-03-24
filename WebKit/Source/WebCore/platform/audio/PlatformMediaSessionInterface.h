@@ -54,7 +54,7 @@ class PlatformMediaSession;
 class PlatformMediaSessionInterface;
 class PlatformMediaSessionManager;
 
-class PlatformMediaSessionClient : public CanMakeCheckedPtr<PlatformMediaSessionClient> {
+class WEBCORE_EXPORT PlatformMediaSessionClient : public CanMakeCheckedPtr<PlatformMediaSessionClient> {
     WTF_MAKE_NONCOPYABLE(PlatformMediaSessionClient);
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PlatformMediaSessionClient);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlatformMediaSessionClient);
@@ -105,7 +105,7 @@ public:
     virtual std::optional<NowPlayingInfo> nowPlayingInfo() const { return { }; }
     virtual WeakPtr<PlatformMediaSessionInterface> selectBestMediaSession(const Vector<WeakPtr<PlatformMediaSessionInterface>>&, PlatformMediaSessionPlaybackControlsPurpose) { return nullptr; }
 
-    virtual void isActiveNowPlayingSessionChanged() = 0;
+    virtual bool isRemoteSessionClientProxy() const;
 
 #if !RELEASE_LOG_DISABLED
     virtual const Logger& logger() const = 0;
@@ -117,9 +117,11 @@ protected:
     virtual ~PlatformMediaSessionClient();
 };
 
+inline bool PlatformMediaSessionClient::isRemoteSessionClientProxy() const { return false; }
+
 PlatformMediaSessionClient& emptyPlatformMediaSessionClient();
 
-class PlatformMediaSessionInterface
+class WEBCORE_EXPORT PlatformMediaSessionInterface
     : public RefCountedAndCanMakeWeakPtr<PlatformMediaSessionInterface>
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     , public MediaPlaybackTargetClient
@@ -156,7 +158,7 @@ public:
     virtual void clientCharacteristicsChanged(bool) = 0;
 
     virtual void clientWillBeginAutoplaying() = 0;
-    virtual bool clientWillBeginPlayback() = 0;
+    virtual void clientWillBeginPlayback(CompletionHandler<void(bool)>&&) = 0;
     virtual bool clientWillPausePlayback() = 0;
 
     virtual void clientWillBeDOMSuspended() = 0;
@@ -225,6 +227,7 @@ public:
 
     virtual bool isLongEnoughForMainContent() const { return false; }
 
+    void setMediaSessionIdentifier(MediaSessionIdentifier);
     virtual MediaSessionIdentifier mediaSessionIdentifier() const { return m_mediaSessionIdentifier; }
 
     virtual bool isActiveNowPlayingSession() const = 0;
@@ -236,8 +239,14 @@ public:
     virtual String description() const = 0;
 #endif
 
+    virtual std::optional<MediaSessionGroupIdentifier> mediaSessionGroupIdentifier() const { return client().mediaSessionGroupIdentifier(); }
+    virtual bool isPlayingOnSecondScreen() const { return client().isPlayingOnSecondScreen(); }
+
+    virtual bool isRemoteSessionProxy() const;
+
     void invalidateClient() { m_client = emptyPlatformMediaSessionClient(); }
-    PlatformMediaSessionClient& client() const { return m_client; }
+    PlatformMediaSessionClient& client() const;
+    CheckedRef<PlatformMediaSessionClient> checkedClient() const;
 
 #if !RELEASE_LOG_DISABLED
     virtual const Logger& logger() const = 0;
@@ -261,5 +270,10 @@ private:
     MediaSessionIdentifier m_mediaSessionIdentifier;
     bool m_hasPlayedAudiblySinceLastInterruption { false };
 };
+
+inline void PlatformMediaSessionInterface::setMediaSessionIdentifier(MediaSessionIdentifier identifier) { m_mediaSessionIdentifier = identifier; }
+inline PlatformMediaSessionClient& PlatformMediaSessionInterface::client() const { return m_client; }
+inline CheckedRef<PlatformMediaSessionClient> PlatformMediaSessionInterface::checkedClient() const { return m_client; }
+inline bool PlatformMediaSessionInterface::isRemoteSessionProxy() const { return false; }
 
 } // namespace WebCore

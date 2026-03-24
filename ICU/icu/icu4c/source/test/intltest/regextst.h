@@ -61,6 +61,7 @@ public:
     virtual void TestBug13632();
     virtual void TestBug20359();
     virtual void TestBug20863();
+    virtual void TestBug23143();
 #if APPLE_ICU_CHANGES
     virtual void TestForHang(); // rdar://131705700 (see also: ICU-23047)
 #endif // APPLE_ICU_CHANGES

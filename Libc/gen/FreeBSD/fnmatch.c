@@ -1,9 +1,16 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Guido van Rossum.
+ *
+ * Copyright (c) 2011 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by David Chisnall
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +20,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -29,14 +36,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)fnmatch.c	8.2 (Berkeley) 4/16/94";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.19 2010/04/16 22:29:24 jilles Exp $");
-
-#include "xlocale_private.h"
 
 /*
  * Function fnmatch() as specified in POSIX 1003.2-1992, section B.6.
@@ -64,31 +63,37 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.19 2010/04/16 22:29:24 jilles
 
 #define	EOS	'\0'
 
-#define RETURN_ERROR	2	/* neither 0 or FNM_NOMATCH */
+#if defined(__APPLE__) && __DARWIN_UNIX03
+#define RETURN_ERROR	2
+#endif
 #define RANGE_MATCH     1
 #define RANGE_NOMATCH   0
 #define RANGE_ERROR     (-1)
 
-#define RECURSION_MAX	64
-
-__private_extern__ int rangematch(const char *, wchar_t, const char *, int, char **, char **, mbstate_t *, mbstate_t *, locale_t);
+#ifdef __APPLE__
+__private_extern__ int rangematch(const char *, wchar_t, const char *, int, char **,
+#else
+static int rangematch(const char *, wchar_t, const char *, int, char **,
+#endif
+    char **, mbstate_t *, mbstate_t *);
 static int fnmatch1(const char *, const char *, const char *, int, mbstate_t,
-		mbstate_t, locale_t, int);
+		mbstate_t);
 
 int
 fnmatch(const char *pattern, const char *string, int flags)
 {
 	static const mbstate_t initial;
-#if __DARWIN_UNIX03
-	return (fnmatch1(pattern, string, string, flags, initial, initial, __current_locale(), RECURSION_MAX));
+
+#if defined(__APPLE__) && __DARWIN_UNIX03
+	return (fnmatch1(pattern, string, string, flags, initial, initial));
 #else /* !__DARWIN_UNIX03 */
-	return (fnmatch1(pattern, string, string, flags, initial, initial, __current_locale(), RECURSION_MAX) != 0 ? FNM_NOMATCH : 0);
+	return (fnmatch1(pattern, string, string, flags, initial, initial) != 0 ? FNM_NOMATCH : 0);
 #endif /* __DARWIN_UNIX03 */
 }
 
 static int
 fnmatch1(const char *pattern, const char *string, const char *stringstart,
-    int flags, mbstate_t patmbs, mbstate_t strmbs, locale_t loc, int recursion)
+    int flags, mbstate_t patmbs, mbstate_t strmbs)
 {
 	const char *bt_pattern, *bt_string;
 	mbstate_t bt_patmbs, bt_strmbs;
@@ -98,18 +103,16 @@ fnmatch1(const char *pattern, const char *string, const char *stringstart,
 	size_t pclen, sclen;
 
 	bt_pattern = bt_string = NULL;
-	if (recursion-- <= 0)
-		return RETURN_ERROR;
 	for (;;) {
-		pclen = mbrtowc_l(&pc, pattern, MB_LEN_MAX, &patmbs, loc);
+		pclen = mbrtowc(&pc, pattern, MB_LEN_MAX, &patmbs);
 		if (pclen == (size_t)-1 || pclen == (size_t)-2)
-#if __DARWIN_UNIX03
+#if defined(__APPLE__) && __DARWIN_UNIX03
 			return (RETURN_ERROR);
 #else /* !__DARWIN_UNIX03 */
 			return (FNM_NOMATCH);
 #endif /* __DARWIN_UNIX03 */
 		pattern += pclen;
-		sclen = mbrtowc_l(&sc, string, MB_LEN_MAX, &strmbs, loc);
+		sclen = mbrtowc(&sc, string, MB_LEN_MAX, &strmbs);
 		if (sclen == (size_t)-1 || sclen == (size_t)-2) {
 			sc = (unsigned char)*string;
 			sclen = 1;
@@ -180,9 +183,9 @@ fnmatch1(const char *pattern, const char *string, const char *stringstart,
 				goto backtrack;
 
 			switch (rangematch(pattern, sc, string + sclen, flags,
-			    &newp, &news, &patmbs, &strmbs, loc)) {
+			    &newp, &news, &patmbs, &strmbs)) {
 			case RANGE_ERROR:
-#if __DARWIN_UNIX03
+#if defined(__APPLE__) && __DARWIN_UNIX03
 				return (RETURN_ERROR);
 #else /* !__DARWIN_UNIX03 */
 				goto norm;
@@ -197,16 +200,15 @@ fnmatch1(const char *pattern, const char *string, const char *stringstart,
 			break;
 		case '\\':
 			if (!(flags & FNM_NOESCAPE)) {
-				pclen = mbrtowc_l(&pc, pattern, MB_LEN_MAX,
-				    &patmbs, loc);
-				if (pclen == (size_t)-1 || pclen == (size_t)-2)
-#if __DARWIN_UNIX03
+				pclen = mbrtowc(&pc, pattern, MB_LEN_MAX,
+				    &patmbs);
+				if (pclen == 0 || pclen == (size_t)-1 ||
+				    pclen == (size_t)-2)
+#if defined(__APPLE__) && __DARWIN_UNIX03
 					return (RETURN_ERROR);
 #else /* !__DARWIN_UNIX03 */
 					return (FNM_NOMATCH);
 #endif /* __DARWIN_UNIX03 */
-				if (pclen == 0)
-					pc = '\\';
 				pattern += pclen;
 			}
 			/* FALLTHROUGH */
@@ -218,7 +220,7 @@ fnmatch1(const char *pattern, const char *string, const char *stringstart,
 			if (pc == sc)
 				;
 			else if ((flags & FNM_CASEFOLD) &&
-				 (towlower_l(pc, loc) == towlower_l(sc, loc)))
+				 (towlower(pc) == towlower(sc)))
 				;
 			else {
 		backtrack:
@@ -256,17 +258,31 @@ fnmatch1(const char *pattern, const char *string, const char *stringstart,
 }
 
 #ifndef BUILDING_VARIANT
+#ifdef __APPLE__
 __private_extern__ int
+#else
+static int
+#endif
 rangematch(const char *pattern, wchar_t test, const char *string, int flags,
-    char **newp, char **news, mbstate_t *patmbs, mbstate_t *strmbs,
-    locale_t loc)
+    char **newp, char **news, mbstate_t *patmbs, mbstate_t *strmbs)
 {
-	int negate, ok, special;
+	int negate, ok;
 	wchar_t c, c2;
-	wchar_t buf[COLLATE_STR_LEN];	/* COLLATE_STR_LEN defined in collate.h */
-	size_t pclen, sclen, len;
-	const char *origpat, *cp, *savestring;
+	size_t pclen;
+	const char *origpat;
+#ifdef __APPLE__
+	locale_t loc = __current_locale();
+	struct xlocale_collate *table =
+	    XLOCALE_COLLATE(loc);
+#else
+	struct xlocale_collate *table =
+	    (struct xlocale_collate *)__get_locale()->components[XLC_COLLATE];
+#endif
+	wchar_t buf[COLLATE_STR_LEN];	/* STR_LEN defined in collate.h */
+	const char *cp, *savestring;
+	int special;
 	mbstate_t save;
+	size_t sclen, len;
 
 	/*
 	 * A bracket expression starting with an unquoted circumflex
@@ -275,11 +291,11 @@ rangematch(const char *pattern, wchar_t test, const char *string, int flags,
 	 * consistency with the regular expression syntax.
 	 * J.T. Conklin (conklin@ngai.kaleida.com)
 	 */
-	if ( (negate = (*pattern == '!' || *pattern == '^')) )
+	if ((negate = (*pattern == '!' || *pattern == '^')))
 		++pattern;
 
 	if (flags & FNM_CASEFOLD)
-		test = towlower_l(test, loc);
+		test = towlower(test);
 
 	/*
 	 * A right bracket shall lose its special meaning and represent
@@ -296,11 +312,13 @@ rangematch(const char *pattern, wchar_t test, const char *string, int flags,
 			return (RANGE_ERROR);
 		} else if (*pattern == '/' && (flags & FNM_PATHNAME)) {
 			return (RANGE_NOMATCH);
-		} else if (*pattern == '\\' && !(flags & FNM_NOESCAPE))
+		} else if (*pattern == '\\' && !(flags & FNM_NOESCAPE)) {
 			pattern++;
-		else if (*pattern == '[' && ((special = *(pattern + 1)) == '.' || special == '=' || special == ':')) {
+		} else if (*pattern == '[' &&
+		    ((special = *(pattern + 1)) == '.' ||
+		    special == '=' || special == ':')) {
 			cp = (pattern += 2);
-			while((cp = strchr(cp, special))) {
+			while ((cp = strchr(cp, special))) {
 				if (*(cp + 1) == ']')
 					break;
 				cp++;
@@ -309,15 +327,27 @@ rangematch(const char *pattern, wchar_t test, const char *string, int flags,
 				return (RANGE_ERROR);
 			if (special == '.') {
 treat_like_collating_symbol:
-				len = __collate_collating_symbol(buf, COLLATE_STR_LEN, pattern, cp - pattern, patmbs, loc);
+				len = __collate_collating_symbol(buf,
+				    COLLATE_STR_LEN, pattern,
+#ifdef __APPLE__
+				    cp - pattern, patmbs,
+				    loc);
+#else
+				    cp - pattern, patmbs);
+#endif
 				if (len == (size_t)-1 || len == 0)
 					return (RANGE_ERROR);
 				pattern = cp + 2;
 				if (len > 1) {
 					wchar_t *wp, sc;
-					/* no multi-character collation symbols as start of range */
-					if (*(cp + 2) == '-' && *(cp + 3) != EOS
-					    && *(cp + 3) != ']')
+
+					/*
+					 * No multi-character collation
+					 * symbols as start of range.
+					 */
+					if (*(cp + 2) == '-' &&
+					    *(cp + 3) != EOS &&
+					    *(cp + 3) != ']')
 						return (RANGE_ERROR);
 					wp = buf;
 					if (test != *wp++)
@@ -329,14 +359,18 @@ treat_like_collating_symbol:
 					memcpy(&save, strmbs, sizeof(save));
 					savestring = string;
 					while (--len > 0) {
-						sclen = mbrtowc_l(&sc, string, MB_LEN_MAX, strmbs, loc);
-						if (sclen == (size_t)-1 || sclen == (size_t)-2) {
+						sclen = mbrtowc(&sc, string,
+						    MB_LEN_MAX, strmbs);
+						if (sclen == (size_t)-1 ||
+						    sclen == (size_t)-2) {
 							sc = (unsigned char)*string;
 							sclen = 1;
-							memset(&strmbs, 0, sizeof(strmbs));
+							memset(&strmbs, 0,
+							    sizeof(strmbs));
 						}
 						if (sc != *wp++) {
-							memcpy(strmbs, &save, sizeof(save));
+							memcpy(strmbs, &save,
+							    sizeof(save));
 							string = savestring;
 							break;
 						}
@@ -352,7 +386,13 @@ treat_like_collating_symbol:
 			} else if (special == '=') {
 				int ec;
 				memcpy(&save, patmbs, sizeof(save));
-				ec = __collate_equiv_class(pattern, cp - pattern, patmbs, loc);
+				ec = __collate_equiv_class(pattern,
+#ifdef __APPLE__
+				    cp - pattern, patmbs,
+				    loc);
+#else
+				    cp - pattern, patmbs);
+#endif
 				if (ec < 0)
 					return (RANGE_ERROR);
 				if (ec == 0) {
@@ -364,10 +404,15 @@ treat_like_collating_symbol:
 				if (*(cp + 2) == '-' && *(cp + 3) != EOS &&
 				    *(cp + 3) != ']')
 					return (RANGE_ERROR);
-				len = __collate_equiv_match(ec, NULL, 0, test, string, strlen(string), strmbs, &sclen, loc);
-				if (len == (size_t)-1) {
+				len = __collate_equiv_match(ec, NULL, 0, test,
+#ifdef __APPLE__
+				    string, strlen(string), strmbs, &sclen,
+				    loc);
+#else
+				    string, strlen(string), strmbs, &sclen);
+#endif
+				if (len < 0)
 					return (RANGE_ERROR);
-				}
 				if (len > 0) {
 					ok = 1;
 					string += sclen;
@@ -388,7 +433,7 @@ treat_like_collating_symbol:
 				pattern = cp + 2;
 				if ((charclass = wctype(name)) == 0)
 					return (RANGE_ERROR);
-				if (iswctype_l(test, charclass, loc)) {
+				if (iswctype(test, charclass)) {
 					ok = 1;
 					break;
 				}
@@ -396,41 +441,64 @@ treat_like_collating_symbol:
 			}
 		}
 		if (!c) {
-			pclen = mbrtowc_l(&c, pattern, MB_LEN_MAX, patmbs, loc);
+			pclen = mbrtowc(&c, pattern, MB_LEN_MAX, patmbs);
 			if (pclen == (size_t)-1 || pclen == (size_t)-2)
+#if defined(__APPLE__) && __DARWIN_UNIX03
 				return (RANGE_ERROR);
+#else
+				return (RANGE_NOMATCH);
+#endif
 			pattern += pclen;
 		}
-
 		if (flags & FNM_CASEFOLD)
-			c = towlower_l(c, loc);
+			c = towlower(c);
 
 		if (*pattern == '-' && *(pattern + 1) != EOS &&
 		    *(pattern + 1) != ']') {
 			if (*++pattern == '\\' && !(flags & FNM_NOESCAPE))
 				if (*pattern != EOS)
 					pattern++;
-			pclen = mbrtowc_l(&c2, pattern, MB_LEN_MAX, patmbs, loc);
+			pclen = mbrtowc(&c2, pattern, MB_LEN_MAX, patmbs);
 			if (pclen == (size_t)-1 || pclen == (size_t)-2)
+#if defined(__APPLE__) && __DARWIN_UNIX03
 				return (RANGE_ERROR);
+#else
+				return (RANGE_NOMATCH);
+#endif
 			pattern += pclen;
 			if (c2 == EOS)
 				return (RANGE_ERROR);
 
-			if ((c2 == '[' && (special = *pattern) == '.') || special == '=' || special == ':') {
-				/* no equivalence classes or character classes as end of range */
+			if ((c2 == '[' && (special = *pattern) == '.') ||
+			    special == '=' || special == ':') {
+
+				/*
+				 * No equivalence classes or character
+				 * classes as end of range.
+				 */
 				if (special == '=' || special == ':')
 					return (RANGE_ERROR);
 				cp = ++pattern;
-				while((cp = strchr(cp, special))) {
+				while ((cp = strchr(cp, special))) {
 					if (*(cp + 1) == ']')
 						break;
 					cp++;
 				}
 				if (!cp)
 					return (RANGE_ERROR);
-				len = __collate_collating_symbol(buf, COLLATE_STR_LEN, pattern, cp - pattern, patmbs, loc);
-				/* no multi-character collation symbols as end of range */
+				len = __collate_collating_symbol(buf,
+				    COLLATE_STR_LEN, pattern,
+#ifdef __APPLE__
+				    cp - pattern, patmbs,
+				    loc);
+#else
+				    cp - pattern, patmbs);
+#endif
+
+				/*
+				 * No multi-character collation symbols
+				 *  as end of range.
+				 */
 				if (len != 1)
 					return (RANGE_ERROR);
 				pattern = cp + 2;
@@ -438,12 +506,12 @@ treat_like_collating_symbol:
 			}
 
 			if (flags & FNM_CASEFOLD)
-				c2 = towlower_l(c2, loc);
+				c2 = towlower(c2);
 
-			if (XLOCALE_COLLATE(loc)->__collate_load_error ?
+			if (table->__collate_load_error ?
 			    c <= test && test <= c2 :
-			       __collate_range_cmp(c, test, loc) <= 0
-			    && __collate_range_cmp(test, c2, loc) <= 0
+			       __wcollate_range_cmp(c, test) <= 0
+			    && __wcollate_range_cmp(test, c2) <= 0
 			   ) {
 				ok = 1;
 				break;
@@ -453,9 +521,10 @@ treat_like_collating_symbol:
 			break;
 		}
 	}
+
 	/* go to end of bracket expression */
 	special = 0;
-	while(*pattern != ']') {
+	while (*pattern != ']') {
 		if (*pattern == 0)
 			return (RANGE_ERROR);
 		if (*pattern == special) {
@@ -473,14 +542,19 @@ treat_like_collating_symbol:
 				pattern++;
 			continue;
 		}
-		pclen = mbrtowc_l(&c, pattern, MB_LEN_MAX, patmbs, loc);
+		pclen = mbrtowc(&c, pattern, MB_LEN_MAX, patmbs);
 		if (pclen == (size_t)-1 || pclen == (size_t)-2)
+#if defined(__APPLE__) && __DARWIN_UNIX03
 			return (RANGE_ERROR);
+#else
+			return (RANGE_NOMATCH);
+#endif
 		pattern += pclen;
- 	}
+	}
 
 	*newp = (char *)++pattern;
 	*news = (char *)string;
+
 	return (ok == negate ? RANGE_NOMATCH : RANGE_MATCH);
 }
 #endif /* BUILDING_VARIANT */

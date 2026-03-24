@@ -21,12 +21,14 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 INCLUDE(CheckSymbolExists)
 INCLUDE(CheckCSourceCompiles)
+INCLUDE("build/build-modules-c.cmake")
 
 FIND_PACKAGE(LibXml2)
 FIND_PACKAGE(Lua51)
 FIND_PACKAGE(OpenSSL)
 FIND_PACKAGE(ZLIB)
 FIND_PACKAGE(CURL)
+FIND_PACKAGE(PCRE2 COMPONENTS 8BIT)
 
 # Options for support libraries not supported by cmake-bundled FindFOO
 
@@ -47,7 +49,10 @@ ENDIF()
 # PCRE names its libraries differently for debug vs. release builds.
 # We can't query our own CMAKE_BUILD_TYPE at configure time.
 # If the debug version exists in PREFIX/lib, default to that one.
-IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/pcre2-8d.lib")
+IF(PCRE2_FOUND)
+  SET(default_pcre_libraries "PCRE2::8BIT")
+  SET(default_pcre_cflags "-DHAVE_PCRE2")
+ELSEIF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/pcre2-8d.lib")
   SET(default_pcre_libraries ${CMAKE_INSTALL_PREFIX}/lib/pcre2-8d.lib)
   SET(default_pcre_cflags "-DHAVE_PCRE2")
 ELSEIF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/pcre2-8.lib")
@@ -497,7 +502,7 @@ SET(mod_md_extra_sources
   modules/md/md_ocsp.c               modules/md/md_util.c               
   modules/md/mod_md_config.c         modules/md/mod_md_drive.c
   modules/md/mod_md_os.c             modules/md/mod_md_status.c
-  modules/md/mod_md_ocsp.c           modules/md/md_tailscale.c
+  modules/md/mod_md_ocsp.c
 )
 SET(mod_optional_hook_export_extra_defines AP_DECLARE_EXPORT) # bogus reuse of core API prefix
 SET(mod_proxy_extra_defines          PROXY_DECLARE_EXPORT)
@@ -603,36 +608,29 @@ SET(install_targets)
 SET(install_bin_pdb)
 SET(install_modules) # special handling vs. other installed targets
 SET(install_modules_pdb)
-SET(builtin_module_shortnames "win32 mpm_winnt http so") # core added automatically
+SET(builtin_module_shortnames)
+LIST(APPEND builtin_module_shortnames "win32" "mpm_winnt" "http" "so") # core added automatically
 SET(extra_builtin_modules) # the ones specified with -DWITH_MODULES=
 
-IF(WITH_MODULES) # modules statically linked with the server
-  STRING(REPLACE "," ";" WITH_MODULE_LIST ${WITH_MODULES})
-  FOREACH(static_mod ${WITH_MODULE_LIST})
-    STRING(REGEX MATCH   "[^/]+\\.c"           mod_basename    ${static_mod})
-    STRING(REGEX REPLACE "^mod_(.*)\\.c" "\\1" mod_module_name ${mod_basename})     
-    SET(builtin_module_shortnames "${builtin_module_shortnames} ${mod_module_name}")
-    CONFIGURE_FILE(${static_mod} ${PROJECT_BINARY_DIR}/ COPYONLY)
-    SET(extra_builtin_modules ${extra_builtin_modules} ${PROJECT_BINARY_DIR}/${mod_basename})
-  ENDFOREACH()
-  EXECUTE_PROCESS(COMMAND cmd /c "echo ${builtin_module_shortnames}| awk -f ${CMAKE_CURRENT_SOURCE_DIR}/build/build-modules-c.awk > ${PROJECT_BINARY_DIR}/modules.c" RESULT_VARIABLE rv)
-  IF(rv)
-    MESSAGE(FATAL_ERROR "build-modules-c.awk failed (${rv})")
-  ENDIF()
-ELSE()
-  # no extra built-in modules; use the default modules.c to avoid the awk prereq
-  CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/os/win32/modules.c ${PROJECT_BINARY_DIR}/ COPYONLY)
-ENDIF()
+STRING(REPLACE "," ";" WITH_MODULE_LIST "${WITH_MODULES}")
+FOREACH(static_mod ${WITH_MODULE_LIST})
+  STRING(REGEX MATCH   "[^/]+\\.c"           mod_basename    ${static_mod})
+  STRING(REGEX REPLACE "^mod_(.*)\\.c" "\\1" mod_module_name ${mod_basename})
+  LIST(APPEND builtin_module_shortnames "${mod_module_name}")
+  CONFIGURE_FILE(${static_mod} ${PROJECT_BINARY_DIR}/ COPYONLY)
+  SET(extra_builtin_modules ${extra_builtin_modules} ${PROJECT_BINARY_DIR}/${mod_basename})
+ENDFOREACH()
+
+generate_builtin_modules_c("${PROJECT_BINARY_DIR}/modules.c" "${builtin_module_shortnames}")
 
 # for easy reference from .dll/.so builds
 CONFIGURE_FILE(os/win32/BaseAddr.ref ${PROJECT_BINARY_DIR}/ COPYONLY)
 
 ADD_EXECUTABLE(gen_test_char server/gen_test_char.c)
-GET_TARGET_PROPERTY(GEN_TEST_CHAR_EXE gen_test_char LOCATION)
 ADD_CUSTOM_COMMAND(
   COMMENT "Generating character tables, test_char.h, for current locale"
   DEPENDS gen_test_char
-  COMMAND ${GEN_TEST_CHAR_EXE} > ${PROJECT_BINARY_DIR}/test_char.h
+  COMMAND $<TARGET_FILE:gen_test_char> > ${PROJECT_BINARY_DIR}/test_char.h
   OUTPUT ${PROJECT_BINARY_DIR}/test_char.h
 )
 ADD_CUSTOM_TARGET(

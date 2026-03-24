@@ -285,6 +285,13 @@ download_cleanup_partial_dir(struct sess *sess, struct download *p,
 	struct stat st;
 	int ret;
 
+	/*
+	 * We don't cleanup partial paths that were specified as absolute
+	 * paths; those are assumed to be managed by the system / someone else.
+	 */
+	if (sess->opts->partial_dir[0] == '/')
+		return;
+
 	partial_dir = download_partial_path(sess, f, partial_reldir,
 	    sizeof(partial_reldir));
 	ret = fstatat(p->rootfd, partial_dir, &st, AT_SYMLINK_NOFOLLOW);
@@ -315,7 +322,11 @@ download_cleanup_partial(struct sess *sess, struct download *p)
 		return 1;
 
 	f = &p->fl[p->idx];
-	if (p->fd == -1) {
+	if (p->fd == -1 || (f->flstate & FLIST_SUCCESS) != 0) {
+		/*
+		 * If we resumed from a partial dir and the transfer did
+		 * finish, then we'll cleanup the partial dir now.
+		 */
 		if (f->pdfd >= 0)
 			download_cleanup_partial_dir(sess, p, f);
 		return 1;
@@ -415,7 +426,14 @@ download_cleanup(struct sess *sess, struct download *p, int cleanup)
 			ERR("%s: partial cleanup failed, left at %s",
 			    p->fl[p->idx].path, p->fname);
 		}
-	} else if (p->fd != -1) {
+	}
+
+	/*
+	 * download_cleanup_partial() may not close the fd if we did succeed
+	 * and we just want to cleanup the partial dir that we resumed out of,
+	 * so we double-check here just in case.
+	 */
+	if (p->fd != -1) {
 		close(p->fd);
 		p->fd = -1;
 	}
@@ -2170,9 +2188,11 @@ again:
 done:
 	/*
 	 * If we're redoing it, then we need to go ahead and clean up the file
-	 * or move it into a --partial-dir.
+	 * or move it into a --partial-dir.  If we succeeded, we can also go
+	 * ahead and cleanup the --partial-dir if it was a relative path.
 	 */
-	download_cleanup(sess, p, (f->flstate & FLIST_REDO) != 0);
+	download_cleanup(sess, p,
+	    (f->flstate & (FLIST_REDO | FLIST_SUCCESS)) != 0);
 
 	if ((f->flstate & FLIST_REDO) == 0) {
 		bool newfile;

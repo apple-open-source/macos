@@ -63,7 +63,7 @@ PositionIterator::operator Position() const
         return atStartOfNode() ? positionBeforeNode(anchorNode.get()) : positionAfterNode(anchorNode.get());
     if (anchorNode->hasChildNodes())
         return lastPositionInOrAfterNode(anchorNode.get());
-    return makeDeprecatedLegacyPosition(WTFMove(anchorNode), m_offsetInAnchor);
+    return makeDeprecatedLegacyPosition(WTF::move(anchorNode), m_offsetInAnchor);
 }
 
 void PositionIterator::increment()
@@ -82,7 +82,7 @@ void PositionIterator::increment()
     if (anchorNode->renderer() && !anchorNode->hasChildNodes() && m_offsetInAnchor < lastOffsetForEditing(*anchorNode))
         m_offsetInAnchor = Position::uncheckedNextOffset(anchorNode.get(), m_offsetInAnchor);
     else {
-        m_nodeAfterPositionInAnchor = WTFMove(anchorNode);
+        m_nodeAfterPositionInAnchor = WTF::move(anchorNode);
         m_anchorNode = m_nodeAfterPositionInAnchor->parentNode();
         m_nodeAfterPositionInAnchor = m_nodeAfterPositionInAnchor->nextSibling();
         m_offsetInAnchor = 0;

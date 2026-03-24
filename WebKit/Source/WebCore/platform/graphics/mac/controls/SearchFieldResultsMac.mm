@@ -66,7 +66,7 @@ void SearchFieldResultsMac::draw(GraphicsContext& context, const FloatRoundedRec
         context.scale(style.zoomFactor);
     }
 
-    drawCell(context, logicalRect, deviceScaleFactor, style, [m_searchFieldCell searchButtonCell], true);
+    drawCell(context, logicalRect, deviceScaleFactor, style, retainPtr([m_searchFieldCell searchButtonCell]).get(), true);
 }
 
 } // namespace WebCore

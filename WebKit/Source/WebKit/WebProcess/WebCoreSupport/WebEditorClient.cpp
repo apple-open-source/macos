@@ -157,13 +157,13 @@ bool WebEditorClient::shouldApplyStyle(const StyleProperties& style, const std::
 void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& preferredFileName, Ref<FragmentedSharedBuffer>&& data)
 {
     if (RefPtr page = m_page.get())
-        page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromData(identifier, contentType, preferredFileName, IPC::SharedBufferReference(WTFMove(data))));
+        page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromData(identifier, contentType, preferredFileName, IPC::SharedBufferReference(WTF::move(data))));
 }
 
 void WebEditorClient::registerAttachments(Vector<WebCore::SerializedAttachmentData>&& data)
 {
     if (RefPtr page = m_page.get())
-        page->send(Messages::WebPageProxy::RegisterAttachmentsFromSerializedData(WTFMove(data)));
+        page->send(Messages::WebPageProxy::RegisterAttachmentsFromSerializedData(WTF::move(data)));
 }
 
 void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& filePath)
@@ -338,7 +338,7 @@ void WebEditorClient::registerUndoStep(UndoStep& step)
     auto webStep = WebUndoStep::create(step);
     auto stepID = webStep->stepID();
 
-    page->addWebUndoStep(stepID, WTFMove(webStep));
+    page->addWebUndoStep(stepID, WTF::move(webStep));
     page->send(Messages::WebPageProxy::RegisterEditCommandForUndo(stepID, step.label()), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
@@ -382,16 +382,34 @@ bool WebEditorClient::canRedo() const
     return result;
 }
 
+static void applyPendingUndoRedo(WebPage& page, uint32_t undoVersion, const Vector<std::pair<WebKit::WebUndoStepID, WebKit::UndoOrRedo>>& pendingUndoRedo)
+{
+    for (auto undoRedo : pendingUndoRedo) {
+        if (undoRedo.second == UndoOrRedo::Undo)
+            page.unapplyEditCommand(undoVersion, undoRedo.first, [] { });
+        else {
+            ASSERT(undoRedo.second == UndoOrRedo::Redo);
+            page.reapplyEditCommand(undoVersion, undoRedo.first, [] { });
+        }
+    }
+}
+
 void WebEditorClient::undo()
 {
-    if (RefPtr page = m_page.get())
-        page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Undo));
+    if (RefPtr page = m_page.get()) {
+        auto result = page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Undo));
+        if (result.succeeded())
+            applyPendingUndoRedo(*page, std::get<0>(result.reply()), std::get<1>(result.reply()));
+    }
 }
 
 void WebEditorClient::redo()
 {
-    if (RefPtr page = m_page.get())
-        page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Redo));
+    if (RefPtr page = m_page.get()) {
+        auto result = page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Redo));
+        if (result.succeeded())
+            applyPendingUndoRedo(*page, std::get<0>(result.reply()), std::get<1>(result.reply()));
+    }
 }
 
 WebCore::DOMPasteAccessResponse WebEditorClient::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::FrameIdentifier frameID, const String& originIdentifier)
@@ -456,6 +474,9 @@ void WebEditorClient::textDidChangeInTextField(Element& element)
 
     if (RefPtr page = m_page.get())
         page->injectedBundleFormClient().textDidChangeInTextField(page.get(), *inputElement, webFrame.get(), initiatedByUserTyping);
+
+    if (initiatedByUserTyping)
+        inputElement->dispatchUserTextInputEvent();
 }
 
 void WebEditorClient::textDidChangeInTextArea(Element& element)
@@ -469,6 +490,9 @@ void WebEditorClient::textDidChangeInTextArea(Element& element)
 
     if (RefPtr page = m_page.get())
         page->injectedBundleFormClient().textDidChangeInTextArea(page.get(), *textAreaElement, webFrame.get());
+
+    if (UserTypingGestureIndicator::processingUserTypingGesture())
+        textAreaElement->dispatchUserTextInputEvent();
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -673,6 +697,17 @@ void WebEditorClient::requestCheckingOfString(TextCheckingRequest& request, cons
     page->addTextCheckingRequest(requestID, request);
 
     page->send(Messages::WebPageProxy::RequestCheckingOfString(requestID, request.data(), insertionPointFromCurrentSelection(currentSelection)));
+}
+
+void WebEditorClient::requestExtendedCheckingOfString(TextCheckingRequest& request, const WebCore::VisibleSelection& currentSelection)
+{
+    auto requestID = TextCheckerRequestID::generate();
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+    page->addTextCheckingRequest(requestID, request);
+
+    page->send(Messages::WebPageProxy::RequestExtendedCheckingOfString(requestID, request.data(), insertionPointFromCurrentSelection(currentSelection)));
 }
 
 void WebEditorClient::willChangeSelectionForAccessibility()

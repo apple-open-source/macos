@@ -44,6 +44,7 @@ enum class GraphicsLayerType : uint8_t;
 enum class TiledBackingScrollability : uint8_t;
 class GraphicsLayer;
 class GraphicsLayerClient;
+class Path;
 };
 
 namespace WebKit {
@@ -93,7 +94,7 @@ public:
     void setNeedsRepaintForPageCoverage(RepaintRequirements, const PDFPageCoverage&);
 
     virtual std::optional<PDFLayoutRow> visibleRow() const { return { }; }
-    virtual std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer*) const { return { }; }
+    virtual std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer&) const { return { }; }
 
     enum class AnchorPoint : uint8_t { TopLeft, Center };
     std::optional<VisiblePDFPosition> pdfPositionForCurrentView(AnchorPoint, bool preservePosition = true) const;
@@ -140,7 +141,8 @@ protected:
     void clearAsyncRenderer();
 
     bool shouldUseInProcessBackingStore() const;
-    bool shouldAddPageBackgroundLayerShadow() const;
+
+    WebCore::Path shadowPathForLayer(const WebCore::GraphicsLayer&) const;
 
     const Ref<UnifiedPDFPlugin> m_plugin;
     RefPtr<AsyncPDFRenderer> m_asyncRenderer;

@@ -2,30 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.MobileAsset.PKITrustStore</string>
-	<key>CFBundleName</key>
-	<string>PKITrustStore</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>1.0</string>
+	<key>CFBundleName</key>
+	<string>PKITrustStore</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.7</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
 	<key>MobileAssetProperties</key>
 	<dict>
-		<key>__ContainsCryptexContents</key>
-		<true/>
-		<key>__RequiresPersonalization</key>
-		<true/>
 		<key>AssetSpecifier</key>
 		<string>PKITrustStore</string>
 		<key>AssetVersion</key>
-		<string>1.2.3.0.0,0</string>
+		<string>1.2.7.0.0,0</string>
 		<key>ContentVersion</key>
-		<integer>2025082000</integer>
-		<key>__AssetDefaultGarbageCollectionBehavior</key>
-		<string>NeverCollected</string>
+		<integer>2026020500</integer>
 		<key>_IsMAAutoAsset</key>
 		<true/>
 		<key>_OSVersionCompatibilities</key>
@@ -77,6 +71,12 @@
 			</dict>
 		</dict>
 		<key>_PreSoftwareUpdateAssetStaging</key>
+		<true/>
+		<key>__AssetDefaultGarbageCollectionBehavior</key>
+		<string>NeverCollected</string>
+		<key>__ContainsCryptexContents</key>
+		<true/>
+		<key>__RequiresPersonalization</key>
 		<true/>
 	</dict>
 	<key>_DisableAFSCCompression</key>

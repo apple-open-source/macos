@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -875,6 +875,9 @@ eapmschapv2_request(EAPClientPluginDataRef plugin,
 	       in_length, sizeof(*mschap_in_p));
 	goto done;
     }
+
+    EAPLOG_FL(LOG_DEBUG, "[EAP-MSCHAPv2]: received %s request", MSCHAPv2OpCodeStr(mschap_in_p->op_code));
+
     switch (mschap_in_p->op_code) {
     case kMSCHAPv2OpCodeChallenge:
 	mschap_out_p = eapmschapv2_challenge(plugin, mschap_in_p, in_length,

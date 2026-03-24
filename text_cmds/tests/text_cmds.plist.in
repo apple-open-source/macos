@@ -32,6 +32,87 @@
 #if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
+			<string>text_cmds.lam_test.sh.basic</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/lam/lam_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/lam</string>
+				<string>-r</string>
+				<string>lam_test.sh.basic.results.txt</string>
+				<string>basic</string>
+			</array>
+			<key>Description</key>
+			<string>Test basic lam(1) functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.lam_test.sh.sep</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/lam/lam_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/lam</string>
+				<string>-r</string>
+				<string>lam_test.sh.sep.results.txt</string>
+				<string>sep</string>
+			</array>
+			<key>Description</key>
+			<string>Test lam(1) -s and -S options</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.lam_test.sh.stdin</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/lam/lam_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/lam</string>
+				<string>-r</string>
+				<string>lam_test.sh.stdin.results.txt</string>
+				<string>stdin</string>
+			</array>
+			<key>Description</key>
+			<string>Test lam(1) using stdin</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>text_cmds.md5_test.sh.self_test_md5</string>
 			<key>ShellEnv</key>
 			<dict>

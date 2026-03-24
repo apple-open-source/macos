@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(BroadcastChannel);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BroadcastChannel);
 
 static Lock allBroadcastChannelsLock;
 static HashMap<BroadcastChannelIdentifier, ThreadSafeWeakPtr<BroadcastChannel>>& allBroadcastChannels() WTF_REQUIRES_LOCK(allBroadcastChannelsLock)
@@ -120,7 +120,7 @@ void BroadcastChannel::MainThreadBridge::ensureOnMainThread(Function<void(Page*)
     if (!workerLoaderProxy)
         return;
 
-    workerLoaderProxy->postTaskToLoader([task = WTFMove(task)](auto& context) {
+    workerLoaderProxy->postTaskToLoader([task = WTF::move(task)](auto& context) {
         task(downcast<Document>(context).protectedPage().get());
     });
 }
@@ -145,12 +145,12 @@ void BroadcastChannel::MainThreadBridge::unregisterChannel()
 
 void BroadcastChannel::MainThreadBridge::postMessage(Ref<SerializedScriptValue>&& message)
 {
-    ensureOnMainThread([this, protectedThis = Ref { *this }, message = WTFMove(message)](auto* page) mutable {
+    ensureOnMainThread([this, protectedThis = Ref { *this }, message = WTF::move(message)](auto* page) mutable {
         if (!page)
             return;
 
         auto blobHandles = message->blobHandles();
-        page->protectedBroadcastChannelRegistry()->postMessage(m_origin, m_name, identifier(), WTFMove(message), [blobHandles = WTFMove(blobHandles)] {
+        page->protectedBroadcastChannelRegistry()->postMessage(m_origin, m_name, identifier(), WTF::move(message), [blobHandles = WTF::move(blobHandles)] {
             // Keeps Blob data inside messageData alive until the message has been delivered.
         });
     });
@@ -218,22 +218,22 @@ void BroadcastChannel::close()
 void BroadcastChannel::dispatchMessageTo(BroadcastChannelIdentifier channelIdentifier, Ref<SerializedScriptValue>&& message, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(isMainThread());
-    auto completionHandlerCallingScope = makeScopeExit([completionHandler = WTFMove(completionHandler)]() mutable {
-        callOnMainThread(WTFMove(completionHandler));
+    auto completionHandlerCallingScope = makeScopeExit([completionHandler = WTF::move(completionHandler)]() mutable {
+        callOnMainThread(WTF::move(completionHandler));
     });
 
     auto contextIdentifier = channelToContextIdentifier().get(channelIdentifier);
     if (!contextIdentifier)
         return;
 
-    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [channelIdentifier, message = WTFMove(message), completionHandlerCallingScope = WTFMove(completionHandlerCallingScope)](auto&) mutable {
+    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [channelIdentifier, message = WTF::move(message), completionHandlerCallingScope = WTF::move(completionHandlerCallingScope)](auto&) mutable {
         RefPtr<BroadcastChannel> channel;
         {
             Locker locker { allBroadcastChannelsLock };
             channel = allBroadcastChannels().get(channelIdentifier).get();
         }
         if (channel)
-            channel->dispatchMessage(WTFMove(message));
+            channel->dispatchMessage(WTF::move(message));
     });
 }
 
@@ -245,7 +245,7 @@ void BroadcastChannel::dispatchMessage(Ref<SerializedScriptValue>&& message)
     if (m_isClosed)
         return;
 
-    queueTaskKeepingObjectAlive(*this, TaskSource::PostedMessageQueue, [message = WTFMove(message)](auto& channel) mutable {
+    queueTaskKeepingObjectAlive(*this, TaskSource::PostedMessageQueue, [message = WTF::move(message)](auto& channel) mutable {
         if (channel.m_isClosed || !channel.scriptExecutionContext())
             return;
 
@@ -255,7 +255,7 @@ void BroadcastChannel::dispatchMessage(Ref<SerializedScriptValue>&& message)
 
         auto& vm = globalObject->vm();
         auto scope = DECLARE_CATCH_SCOPE(vm);
-        auto event = MessageEvent::create(*globalObject, WTFMove(message), channel.scriptExecutionContext()->securityOrigin()->toString());
+        auto event = MessageEvent::create(*globalObject, WTF::move(message), channel.scriptExecutionContext()->securityOrigin());
         if (scope.exception()) [[unlikely]] {
             // Currently, we assume that the only way we can get here is if we have a termination.
             RELEASE_ASSERT(vm.hasPendingTerminationException());

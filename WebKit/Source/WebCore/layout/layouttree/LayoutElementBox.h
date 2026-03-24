@@ -38,16 +38,16 @@ class RenderStyle;
 namespace Layout {
 
 class ElementBox : public Box {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ElementBox);
+    WTF_MAKE_TZONE_ALLOCATED(ElementBox);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ElementBox);
 public:
-    ElementBox(ElementAttributes&&, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle = nullptr, OptionSet<BaseTypeFlag> = { ElementBoxFlag });
+    ElementBox(ElementAttributes&&, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle = nullptr, EnumSet<BaseTypeFlag> = { ElementBoxFlag });
 
-    enum class ListMarkerAttribute : uint8_t {
-        Image = 1 << 0,
-        Outside = 1 << 1,
+    enum class ListMarkerAttribute : bool {
+        Image,
+        Outside,
     };
-    ElementBox(ElementAttributes&&, OptionSet<ListMarkerAttribute>, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle = nullptr);
+    ElementBox(ElementAttributes&&, EnumSet<ListMarkerAttribute>, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle = nullptr);
 
     struct ReplacedAttributes {
         LayoutSize intrinsicSize;
@@ -90,7 +90,7 @@ public:
     LayoutUnit intrinsicRatio() const;
     bool hasAspectRatio() const;
 
-    void setListMarkerAttributes(OptionSet<ListMarkerAttribute> listMarkerAttributes) { m_replacedData->listMarkerAttributes = listMarkerAttributes; }
+    void setListMarkerAttributes(EnumSet<ListMarkerAttribute> listMarkerAttributes) { m_replacedData->listMarkerAttributes = listMarkerAttributes; }
 
     bool isListMarkerImage() const { return m_replacedData && m_replacedData->listMarkerAttributes.contains(ListMarkerAttribute::Image); }
     bool isListMarkerOutside() const { return m_replacedData && m_replacedData->listMarkerAttributes.contains(ListMarkerAttribute::Outside); }
@@ -110,7 +110,7 @@ private:
     struct ReplacedData {
         WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ReplacedData);
 
-        OptionSet<ListMarkerAttribute> listMarkerAttributes;
+        EnumSet<ListMarkerAttribute> listMarkerAttributes;
         std::pair<int, int> layoutBounds;
 
         std::optional<LayoutSize> intrinsicSize;

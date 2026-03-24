@@ -25,12 +25,11 @@
 
 #pragma once
 
-#include "RemoteRenderingBackendIdentifier.h"
 #include "ShapeDetectionIdentifier.h"
 #include <WebCore/FaceDetectorInterface.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Identified.h>
 #include <wtf/Ref.h>
-#include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
@@ -42,33 +41,26 @@ class StreamClientConnection;
 
 namespace WebCore::ShapeDetection {
 struct DetectedFace;
-struct FaceDetectorOptions;
+}
+
+namespace WebKit {
+class RemoteRenderingBackendProxy;
 }
 
 namespace WebKit::ShapeDetection {
 
-class RemoteFaceDetectorProxy : public WebCore::ShapeDetection::FaceDetector {
+class RemoteFaceDetectorProxy : public WebCore::ShapeDetection::FaceDetector, public Identified<ShapeDetectionIdentifier> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteFaceDetectorProxy);
+    WTF_MAKE_NONCOPYABLE(RemoteFaceDetectorProxy);
 public:
-    static Ref<RemoteFaceDetectorProxy> create(Ref<IPC::StreamClientConnection>&&, RemoteRenderingBackendIdentifier, ShapeDetectionIdentifier, const WebCore::ShapeDetection::FaceDetectorOptions&);
-
+    static Ref<RemoteFaceDetectorProxy> create(RemoteRenderingBackendProxy&);
     virtual ~RemoteFaceDetectorProxy();
 
 private:
-    RemoteFaceDetectorProxy(Ref<IPC::StreamClientConnection>&&, RemoteRenderingBackendIdentifier, ShapeDetectionIdentifier);
+    RemoteFaceDetectorProxy(RemoteRenderingBackendProxy&);
+    void detect(const WebCore::NativeImage&, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedFace>&&)>&&) final;
 
-    RemoteFaceDetectorProxy(const RemoteFaceDetectorProxy&) = delete;
-    RemoteFaceDetectorProxy(RemoteFaceDetectorProxy&&) = delete;
-    RemoteFaceDetectorProxy& operator=(const RemoteFaceDetectorProxy&) = delete;
-    RemoteFaceDetectorProxy& operator=(RemoteFaceDetectorProxy&&) = delete;
-
-    ShapeDetectionIdentifier backing() const { return m_backing; }
-
-    void detect(Ref<WebCore::ImageBuffer>&&, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedFace>&&)>&&) final;
-
-    ShapeDetectionIdentifier m_backing;
-    const Ref<IPC::StreamClientConnection> m_streamClientConnection;
-    RemoteRenderingBackendIdentifier m_renderingBackendIdentifier;
+    WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
 };
 
 } // namespace WebKit::ShapeDetection

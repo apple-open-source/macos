@@ -42,9 +42,10 @@ class GeolocationClient;
 class GeolocationError;
 class GeolocationPositionData;
 
-class GeolocationController : public Supplement<Page>, private ActivityStateChangeObserver {
+class GeolocationController final : public Supplement<Page>, public ActivityStateChangeObserver {
     WTF_MAKE_TZONE_ALLOCATED(GeolocationController);
     WTF_MAKE_NONCOPYABLE(GeolocationController);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GeolocationController);
 public:
     GeolocationController(Page&, GeolocationClient&);
     ~GeolocationController();
@@ -65,6 +66,7 @@ public:
 
     WEBCORE_EXPORT static ASCIILiteral supplementName();
     static GeolocationController* from(Page* page) { return downcast<GeolocationController>(Supplement<Page>::from(page, supplementName())); }
+    static CheckedPtr<GeolocationController> checkedFrom(Page* page) { return from(page); }
 
     void revokeAuthorizationToken(const String&);
 

@@ -62,7 +62,7 @@ private:
     HashMap<URL, Ref<GroupActivitiesSession>> m_sessions;
     RetainPtr<WKGroupSessionObserver> m_sessionObserver;
     WeakHashSet<WebPageProxy> m_webPages;
-    GroupActivitiesSession::StateChangeObserver m_stateChangeObserver;
+    const Ref<GroupActivitiesSession::StateChangeObserver> m_stateChangeObserver;
 };
 
 }

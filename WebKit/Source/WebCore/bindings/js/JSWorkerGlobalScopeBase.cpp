@@ -85,7 +85,7 @@ const GlobalObjectMethodTable* JSWorkerGlobalScopeBase::globalObjectMethodTable(
 
 JSWorkerGlobalScopeBase::JSWorkerGlobalScopeBase(JSC::VM& vm, JSC::Structure* structure, RefPtr<WorkerGlobalScope>&& impl)
     : JSDOMGlobalObject(vm, structure, normalWorld(vm), globalObjectMethodTable())
-    , m_wrapped(WTFMove(impl))
+    , m_wrapped(WTF::move(impl))
 {
 }
 
@@ -155,7 +155,7 @@ void JSWorkerGlobalScopeBase::queueMicrotaskToEventLoop(JSGlobalObject& object, 
     JSWorkerGlobalScopeBase& thisObject = static_cast<JSWorkerGlobalScopeBase&>(object);
     auto& context = thisObject.wrapped();
     task.setDispatcher(context.eventLoop().jsMicrotaskDispatcher(task));
-    context.eventLoop().queueMicrotask(WTFMove(task));
+    context.eventLoop().queueMicrotask(WTF::move(task));
 }
 
 JSValue toJS(JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject*, WorkerGlobalScope& workerGlobalScope)

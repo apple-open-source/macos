@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -453,6 +453,76 @@ bridge_mac_nat(int s, const char *prefix)
 	free(buf);
 }
 
+#ifndef BRDGGDHCPXIDLIST
+#define BRDGGDHCPXIDLIST        38      /* get DHCP XID list (ifbrdxelist) */
+
+#pragma pack(4)
+struct ifbrdxe {
+	char            ifbdxe_ifname[IFNAMSIZ]; /* member if name */
+	uint64_t        ifbdxe_expire;           /* expiration time */
+	uint8_t         ifbdxe_mac[ETHER_ADDR_LEN];/* MAC address */
+	uint8_t         ifbdxe_reserved[2];
+	uint32_t	ifbdxe_xid;		/* DHCP XID */
+};
+
+struct ifbrdxelist {
+	uint32_t        ifbdl_len;      /* buffer size (multiple of elsize) */
+	uint16_t        ifbdl_elsize;   /* sizeof(ifbrdxe) */
+	uint16_t        ifbdl_pad;
+	caddr_t         ifbdl_buf;
+};
+#pragma pack()
+
+
+#endif /* BRDGGDHCPXIDLIST */
+
+static void
+bridge_dhcp_xid(int s, const char *prefix)
+{
+	char *buf;
+	unsigned int count;
+	struct ether_addr ea;
+	unsigned int i;
+	struct ifbrdxelist dxl;
+	char *scan;
+
+	bzero(&dxl, sizeof(dxl));
+	if (do_cmd(s, BRDGGDHCPXIDLIST, &dxl, sizeof(dxl), 0) < 0) {
+		/* err(1, "unable to get DHCP XID list"); */
+		return;
+	}
+	if (dxl.ifbdl_len == 0) {
+		return;
+	}
+	printf("\tDHCP XID list:\n");
+	if (dxl.ifbdl_elsize == 0) {
+		err(1, "kernel reported zero length element size");
+	}
+	if (dxl.ifbdl_elsize < sizeof(struct ifbrdxe)) {
+		err(1, "struct element size too small, kernel mismatch");
+	}
+	buf = malloc(dxl.ifbdl_len);
+	if (buf == NULL) {
+		err(1, "unable to allocate mac nat list buffer");
+	}
+	dxl.ifbdl_buf = buf;
+	if (do_cmd(s, BRDGGDHCPXIDLIST, &dxl, sizeof(dxl), 0) < 0) {
+		err(1, "unable to DHCP XID list");
+	}
+	count = dxl.ifbdl_len / dxl.ifbdl_elsize;
+	for (i = 0, scan = buf; i < count; i++, scan += dxl.ifbdl_elsize) {
+		struct ifbrdxe *ifbdxe = (struct ifbrdxe *)scan;
+
+		memcpy(ea.octet, ifbdxe->ifbdxe_mac,
+		    sizeof(ea.octet));
+		printf("%s%s %s 0x%x %qu\n",
+		       prefix, ifbdxe->ifbdxe_ifname, ether_ntoa(&ea),
+		       ifbdxe->ifbdxe_xid,
+		       ifbdxe->ifbdxe_expire);
+	}
+	free(buf);
+}
+
 static void
 bridge_status(int s)
 {
@@ -504,6 +574,7 @@ bridge_status(int s)
 		printf("\tAddress cache:\n");
 		bridge_addresses(s, "\t\t");
 		bridge_mac_nat(s, "\t\t");
+		bridge_dhcp_xid(s, "\t\t");
 	}
 	return;
 

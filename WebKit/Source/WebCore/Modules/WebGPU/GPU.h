@@ -50,7 +50,7 @@ class GPU : public RefCounted<GPU> {
 public:
     static Ref<GPU> create(Ref<WebGPU::GPU>&& backing)
     {
-        return adoptRef(*new GPU(WTFMove(backing)));
+        return adoptRef(*new GPU(WTF::move(backing)));
     }
     ~GPU();
 

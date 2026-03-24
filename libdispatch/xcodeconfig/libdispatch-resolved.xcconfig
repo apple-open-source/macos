@@ -18,6 +18,8 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 
+#include "libdispatch.xcconfig"
+
 SUPPORTED_PLATFORMS = iphoneos
 PRODUCT_NAME = libdispatch_$(DISPATCH_RESOLVED_VARIANT)
 OTHER_LDFLAGS =

@@ -29,13 +29,22 @@
 #include "AnimationEventBase.h"
 #include "CSSAnimation.h"
 #include "CSSTransition.h"
+#include "ContainerNodeInlines.h"
+#include "DocumentEventLoop.h"
 #include "DocumentPage.h"
 #include "DocumentTimeline.h"
+#include "DocumentWindow.h"
 #include "ElementInlines.h"
 #include "EventLoop.h"
+#include "EventTargetInlines.h"
+#include "GraphicsLayer.h"
 #include "KeyframeEffect.h"
 #include "LocalDOMWindow.h"
 #include "Logging.h"
+#include "RenderBoxModelObject.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
+#include "RenderObject.h"
 #include "ScrollTimeline.h"
 #include "Settings.h"
 #include "StyleOriginatedTimelinesController.h"
@@ -46,7 +55,7 @@
 #include <wtf/Ref.h>
 #include <wtf/text/TextStream.h>
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #include "AcceleratedEffectStackUpdater.h"
 #endif
 
@@ -205,7 +214,7 @@ void AnimationTimelinesController::updateAnimationsAndSendEvents(ReducedResoluti
     }
 
     // 3. Perform a microtask checkpoint.
-    protectedDocument()->eventLoop().performMicrotaskCheckpoint();
+    protectedDocument()->checkedEventLoop()->performMicrotaskCheckpoint();
 
     if (RefPtr documentTimeline = m_document->existingTimeline()) {
         // FIXME: pending animation events should be owned by this controller rather
@@ -220,7 +229,7 @@ void AnimationTimelinesController::updateAnimationsAndSendEvents(ReducedResoluti
 
         // 7. Dispatch each of the events in events to dispatch at their corresponding target using the order established in the previous step.
         for (auto& event : events)
-            event->target()->dispatchEvent(event);
+            event->protectedTarget()->dispatchEvent(event);
     }
 
     // This will cancel any scheduled invalidation if we end up removing all animations.
@@ -238,7 +247,7 @@ void AnimationTimelinesController::updateAnimationsAndSendEvents(ReducedResoluti
     // removed from the list of completed transitions otherwise.
     for (auto& completedTransition : completedTransitions) {
         if (RefPtr documentTimeline = dynamicDowncast<DocumentTimeline>(completedTransition->timeline()))
-            documentTimeline->transitionDidComplete(WTFMove(completedTransition));
+            documentTimeline->transitionDidComplete(WTF::move(completedTransition));
     }
 
     for (auto& timeline : timelinesToUpdate) {
@@ -254,6 +263,19 @@ void AnimationTimelinesController::updateStaleScrollTimelines()
     for (auto scrollTimeline : scrollTimelines)
         scrollTimeline->updateCurrentTimeIfStale();
 }
+
+#if ENABLE(THREADED_ANIMATIONS)
+void AnimationTimelinesController::runPostRenderingUpdateTasks()
+{
+    Ref settings = m_document->settings();
+    if (!settings->threadedScrollDrivenAnimationsEnabled() && !settings->threadedTimeBasedAnimationsEnabled())
+        return;
+    for (Ref timeline : m_timelines)
+        timeline->runPostRenderingUpdateTasks();
+    if (m_acceleratedEffectStackUpdater)
+        m_acceleratedEffectStackUpdater->update();
+}
+#endif
 
 std::optional<Seconds> AnimationTimelinesController::timeUntilNextTickForAnimationsWithFrameRate(FramesPerSecond frameRate) const
 {
@@ -293,7 +315,7 @@ void AnimationTimelinesController::resumeAnimations()
 
 ReducedResolutionSeconds AnimationTimelinesController::liveCurrentTime() const
 {
-    return m_document->window()->nowTimestamp();
+    return protectedDocument()->protectedWindow()->nowTimestamp();
 }
 
 std::optional<Seconds> AnimationTimelinesController::currentTime(UseCachedCurrentTime useCachedCurrentTime)
@@ -333,7 +355,7 @@ void AnimationTimelinesController::cacheCurrentTime(ReducedResolutionSeconds new
     // start time.
     if (!m_pendingAnimationsProcessingTaskCancellationGroup.hasPendingTask()) {
         CancellableTask task(m_pendingAnimationsProcessingTaskCancellationGroup, std::bind(&AnimationTimelinesController::processPendingAnimations, this));
-        m_document->eventLoop().queueTask(TaskSource::InternalAsyncTask, WTFMove(task));
+        protectedDocument()->checkedEventLoop()->queueTask(TaskSource::InternalAsyncTask, WTF::move(task));
     }
 
     if (!m_isSuspended) {
@@ -371,14 +393,28 @@ bool AnimationTimelinesController::isPendingTimelineAttachment(const WebAnimatio
     return styleOriginatedTimelinesController && styleOriginatedTimelinesController->isPendingTimelineAttachment(animation);
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-AcceleratedEffectStackUpdater& AnimationTimelinesController::acceleratedEffectStackUpdater()
+#if ENABLE(THREADED_ANIMATIONS)
+void AnimationTimelinesController::scheduleAcceleratedEffectStackUpdateForTarget(const Styleable& target)
 {
     if (!m_acceleratedEffectStackUpdater)
-        m_acceleratedEffectStackUpdater = makeUnique<AcceleratedEffectStackUpdater>(m_document.get());
-    return *m_acceleratedEffectStackUpdater;
+        m_acceleratedEffectStackUpdater = makeUnique<AcceleratedEffectStackUpdater>();
+    m_acceleratedEffectStackUpdater->scheduleUpdateForTarget(target);
+
+    if (RefPtr documentTimeline = m_document->existingTimeline())
+        documentTimeline->scheduleAcceleratedEffectStackUpdate();
 }
 #endif
+
+Vector<GraphicsLayer::AcceleratedAnimationForTesting> AnimationTimelinesController::acceleratedAnimationsForElement(const Element& element) const
+{
+    CheckedPtr renderer = element.renderer();
+    if (renderer && renderer->isComposited()) {
+        CheckedPtr compositedRenderer = downcast<RenderBoxModelObject>(renderer.get());
+        if (RefPtr graphicsLayer = compositedRenderer->layer()->backing()->graphicsLayer())
+            return graphicsLayer->acceleratedAnimationsForTesting();
+    }
+    return { };
+}
 
 } // namespace WebCore
 

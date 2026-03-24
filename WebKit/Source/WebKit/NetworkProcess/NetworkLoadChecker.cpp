@@ -56,20 +56,20 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkLoadChecker);
 
 NetworkLoadChecker::NetworkLoadChecker(NetworkProcess& networkProcess, NetworkResourceLoader* networkResourceLoader, NetworkSchemeRegistry* schemeRegistry, FetchOptions&& options, PAL::SessionID sessionID, std::optional<WebPageProxyIdentifier> webPageProxyID, HTTPHeaderMap&& originalRequestHeaders, URL&& url, DocumentURL&& documentURL, RefPtr<SecurityOrigin>&& sourceOrigin, RefPtr<SecurityOrigin>&& topOrigin, RefPtr<SecurityOrigin>&& parentOrigin, PreflightPolicy preflightPolicy, String&& referrer, bool allowPrivacyProxy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections, bool shouldCaptureExtraNetworkLoadMetrics, LoadType requestLoadType)
-    : m_options(WTFMove(options))
+    : m_options(WTF::move(options))
     , m_allowPrivacyProxy(allowPrivacyProxy)
     , m_advancedPrivacyProtections(advancedPrivacyProtections)
     , m_sessionID(sessionID)
     , m_networkProcess(networkProcess)
     , m_webPageProxyID(webPageProxyID)
-    , m_originalRequestHeaders(WTFMove(originalRequestHeaders))
-    , m_url(WTFMove(url))
-    , m_documentURL(WTFMove(documentURL))
-    , m_origin(WTFMove(sourceOrigin))
-    , m_topOrigin(WTFMove(topOrigin))
-    , m_parentOrigin(WTFMove(parentOrigin))
+    , m_originalRequestHeaders(WTF::move(originalRequestHeaders))
+    , m_url(WTF::move(url))
+    , m_documentURL(WTF::move(documentURL))
+    , m_origin(WTF::move(sourceOrigin))
+    , m_topOrigin(WTF::move(topOrigin))
+    , m_parentOrigin(WTF::move(parentOrigin))
     , m_preflightPolicy(preflightPolicy)
-    , m_referrer(WTFMove(referrer))
+    , m_referrer(WTF::move(referrer))
     , m_shouldCaptureExtraNetworkLoadMetrics(shouldCaptureExtraNetworkLoadMetrics)
     , m_requestLoadType(requestLoadType)
     , m_schemeRegistry(schemeRegistry)
@@ -122,12 +122,12 @@ void NetworkLoadChecker::check(ResourceRequest&& request, ContentSecurityPolicyC
         m_loadInformation.request = request;
 
     m_firstRequestHeaders = request.httpHeaderFields();
-    checkRequest(WTFMove(request), client, WTFMove(handler));
+    checkRequest(WTF::move(request), client, WTF::move(handler));
 }
 
 static inline NetworkLoadChecker::RedirectionRequestOrError redirectionError(const ResourceResponse& redirectResponse, String&& errorMessage)
 {
-    return makeUnexpected(ResourceError { String { }, 0, redirectResponse.url(), WTFMove(errorMessage), ResourceError::Type::AccessControl });
+    return makeUnexpected(ResourceError { String { }, 0, redirectResponse.url(), WTF::move(errorMessage), ResourceError::Type::AccessControl });
 }
 
 void NetworkLoadChecker::checkRedirection(ResourceRequest&& request, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse, ContentSecurityPolicyClient* client, RedirectionValidationHandler&& handler)
@@ -145,7 +145,7 @@ void NetworkLoadChecker::checkRedirection(ResourceRequest&& request, ResourceReq
         return;
     }
     if (m_options.redirect == FetchOptions::Redirect::Manual) {
-        handler(RedirectionTriplet { WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse) });
+        handler(RedirectionTriplet { WTF::move(request), WTF::move(redirectRequest), WTF::move(redirectResponse) });
         return;
     }
 
@@ -169,20 +169,20 @@ void NetworkLoadChecker::checkRedirection(ResourceRequest&& request, ResourceReq
         return;
     }
 
-    m_previousURL = WTFMove(m_url);
+    m_previousURL = WTF::move(m_url);
     m_url = redirectRequest.url();
 
-    checkRequest(WTFMove(redirectRequest), client, [handler = WTFMove(handler), request = WTFMove(request), redirectResponse](auto&& result) mutable {
+    checkRequest(WTF::move(redirectRequest), client, [handler = WTF::move(handler), request = WTF::move(request), redirectResponse](auto&& result) mutable {
         WTF::switchOn(result,
             [&handler] (ResourceError& error) mutable {
-                handler(makeUnexpected(WTFMove(error)));
+                handler(makeUnexpected(WTF::move(error)));
             },
             [&handler, &request, &redirectResponse] (RedirectionTriplet& triplet) mutable {
                 // FIXME: if checkRequest returns a RedirectionTriplet, it means the requested URL has changed and we should update the redirectResponse to match.
-                handler(RedirectionTriplet { WTFMove(request), WTFMove(triplet.redirectRequest), WTFMove(redirectResponse) });
+                handler(RedirectionTriplet { WTF::move(request), WTF::move(triplet.redirectRequest), WTF::move(redirectResponse) });
             },
             [&handler, &request, &redirectResponse] (ResourceRequest& redirectRequest) mutable {
-                handler(RedirectionTriplet { WTFMove(request), WTFMove(redirectRequest), WTFMove(redirectResponse) });
+                handler(RedirectionTriplet { WTF::move(request), WTF::move(redirectRequest), WTF::move(redirectResponse) });
             }
         );
     });
@@ -224,7 +224,7 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
         if (!checkTAO(response)) {
             if (auto metrics = response.takeNetworkLoadMetrics()) {
                 metrics->failsTAOCheck = true;
-                response.setDeprecatedNetworkLoadMetrics(WTFMove(metrics));
+                response.setDeprecatedNetworkLoadMetrics(WTF::move(metrics));
             }
         }
     });
@@ -240,7 +240,7 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
     if (m_options.mode == FetchOptions::Mode::Navigate || m_isSameOriginRequest) {
         if (RefPtr parentOrigin = m_parentOrigin; parentOrigin && m_options.mode == FetchOptions::Mode::Navigate) {
             if (auto error = performCORPCheck(m_parentCrossOriginEmbedderPolicy, *parentOrigin, m_url, response, ForNavigation::Yes, RefPtr { m_networkResourceLoader.get() }.get(), originAccessPatterns()))
-                return WTFMove(*error);
+                return WTF::move(*error);
         }
         response.setTainting(ResourceResponse::Tainting::Basic);
         return { };
@@ -251,7 +251,7 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
 
     if (m_options.mode == FetchOptions::Mode::NoCors) {
         if (auto error = performCORPCheck(m_crossOriginEmbedderPolicy, *origin(), m_url, response, ForNavigation::No, RefPtr { m_networkResourceLoader.get() }.get(), originAccessPatterns()))
-            return WTFMove(*error);
+            return WTF::move(*error);
 
         response.setTainting(ResourceResponse::Tainting::Opaque);
         return { };
@@ -267,7 +267,7 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
 
     auto result = passesAccessControlCheck(response, m_storedCredentialsPolicy, *origin(), m_networkResourceLoader.get());
     if (!result)
-        return ResourceError { String { }, 0, m_url, WTFMove(result.error()), ResourceError::Type::AccessControl };
+        return ResourceError { String { }, 0, m_url, WTF::move(result.error()), ResourceError::Type::AccessControl };
 
     response.setTainting(ResourceResponse::Tainting::Cors);
     return { };
@@ -299,7 +299,7 @@ bool NetworkLoadChecker::checkTAO(const ResourceResponse& response)
 
 auto NetworkLoadChecker::accessControlErrorForValidationHandler(String&& message) -> RequestOrRedirectionTripletOrError
 {
-    return ResourceError { String { }, 0, m_url, WTFMove(message), ResourceError::Type::AccessControl };
+    return ResourceError { String { }, 0, m_url, WTF::move(message), ResourceError::Type::AccessControl };
 }
 
 void NetworkLoadChecker::checkRequest(ResourceRequest&& request, ContentSecurityPolicyClient* client, ValidationHandler&& handler)
@@ -320,10 +320,10 @@ void NetworkLoadChecker::checkRequest(ResourceRequest&& request, ContentSecurity
     }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    this->processContentRuleListsForLoad(WTFMove(request), [weakThis = WeakPtr { *this }, handler = WTFMove(handler), originalRequest = WTFMove(originalRequest)](auto&& result) mutable {
+    this->processContentRuleListsForLoad(WTF::move(request), [weakThis = WeakPtr { *this }, handler = WTF::move(handler), originalRequest = WTF::move(originalRequest)](auto&& result) mutable {
         if (!result.has_value()) {
             ASSERT(result.error().isCancellation());
-            handler(WTFMove(result.error()));
+            handler(WTF::move(result.error()));
             return;
         }
 
@@ -335,10 +335,10 @@ void NetworkLoadChecker::checkRequest(ResourceRequest&& request, ContentSecurity
             return;
         }
 
-        weakThis->continueCheckingRequestOrDoSyntheticRedirect(WTFMove(originalRequest), WTFMove(result.value().request), WTFMove(handler));
+        weakThis->continueCheckingRequestOrDoSyntheticRedirect(WTF::move(originalRequest), WTF::move(result.value().request), WTF::move(handler));
     });
 #else
-    this->continueCheckingRequestOrDoSyntheticRedirect(WTFMove(originalRequest), WTFMove(request), WTFMove(handler));
+    this->continueCheckingRequestOrDoSyntheticRedirect(WTF::move(originalRequest), WTF::move(request), WTF::move(handler));
 #endif
 }
 
@@ -347,10 +347,10 @@ void NetworkLoadChecker::continueCheckingRequestOrDoSyntheticRedirect(ResourceRe
     // If main frame load and request has been modified, trigger a synthetic redirect.
     if (m_requestLoadType == LoadType::MainFrame && currentRequest.url() != originalRequest.url()) {
         ResourceResponse redirectResponse = ResourceResponse::syntheticRedirectResponse(originalRequest.url(), currentRequest.url());
-        handler(RedirectionTriplet { WTFMove(originalRequest), WTFMove(currentRequest), WTFMove(redirectResponse) });
+        handler(RedirectionTriplet { WTF::move(originalRequest), WTF::move(currentRequest), WTF::move(redirectResponse) });
         return;
     }
-    this->continueCheckingRequest(WTFMove(currentRequest), WTFMove(handler));
+    this->continueCheckingRequest(WTF::move(currentRequest), WTF::move(handler));
 }
 
 bool NetworkLoadChecker::isAllowedByContentSecurityPolicy(const ResourceRequest& request, WebCore::ContentSecurityPolicyClient* client)
@@ -409,7 +409,7 @@ void NetworkLoadChecker::continueCheckingRequest(ResourceRequest&& request, Vali
     m_isSameOriginRequest = m_isSameOriginRequest && isSameOrigin(request.url(), m_origin.get());
 
     if (doesNotNeedCORSCheck(request.url())) {
-        handler(WTFMove(request));
+        handler(WTF::move(request));
         return;
     }
 
@@ -420,11 +420,11 @@ void NetworkLoadChecker::continueCheckingRequest(ResourceRequest&& request, Vali
 
     if (isRedirected()) {
         LOAD_CHECKER_RELEASE_LOG("checkRequest - Redirect requires CORS checks");
-        checkCORSRedirectedRequest(WTFMove(request), WTFMove(handler));
+        checkCORSRedirectedRequest(WTF::move(request), WTF::move(handler));
         return;
     }
 
-    checkCORSRequest(WTFMove(request), WTFMove(handler));
+    checkCORSRequest(WTF::move(request), WTF::move(handler));
 }
 
 void NetworkLoadChecker::checkCORSRequest(ResourceRequest&& request, ValidationHandler&& handler)
@@ -434,17 +434,17 @@ void NetworkLoadChecker::checkCORSRequest(ResourceRequest&& request, ValidationH
     // Except in case where preflight is needed, loading should be able to continue on its own.
     switch (m_preflightPolicy) {
     case PreflightPolicy::Force:
-        checkCORSRequestWithPreflight(WTFMove(request), WTFMove(handler));
+        checkCORSRequestWithPreflight(WTF::move(request), WTF::move(handler));
         break;
     case PreflightPolicy::Consider:
         if (!m_isSimpleRequest || !isSimpleCrossOriginAccessRequest(request.httpMethod(), m_originalRequestHeaders)) {
-            checkCORSRequestWithPreflight(WTFMove(request), WTFMove(handler));
+            checkCORSRequestWithPreflight(WTF::move(request), WTF::move(handler));
             return;
         }
         [[fallthrough]];
     case PreflightPolicy::Prevent:
         updateRequestForAccessControl(request, *origin(), m_storedCredentialsPolicy);
-        handler(WTFMove(request));
+        handler(WTF::move(request));
         break;
     }
 }
@@ -471,7 +471,7 @@ void NetworkLoadChecker::checkCORSRedirectedRequest(ResourceRequest&& request, V
         m_firstRequestHeaders.remove(HTTPHeaderName::Authorization);
     request.setHTTPHeaderFields(m_firstRequestHeaders);
 
-    checkCORSRequest(WTFMove(request), WTFMove(handler));
+    checkCORSRequest(WTF::move(request), WTF::move(handler));
 }
 
 void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request, ValidationHandler&& handler)
@@ -482,7 +482,7 @@ void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request
     if (CrossOriginPreflightResultCache::singleton().canSkipPreflight(m_sessionID, { m_topOrigin->data(), m_origin->data() }, request.url(), m_storedCredentialsPolicy, request.httpMethod(), m_originalRequestHeaders)) {
         LOAD_CHECKER_RELEASE_LOG("checkCORSRequestWithPreflight - preflight can be skipped thanks to cached result");
         updateRequestForAccessControl(request, *origin(), m_storedCredentialsPolicy);
-        handler(WTFMove(request));
+        handler(WTF::move(request));
         return;
     }
 
@@ -490,7 +490,7 @@ void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request
     // We need to set header fields to m_originalRequestHeaders to correctly compute Access-Control-Request-Headers header value.
     requestForPreflight.setHTTPHeaderFields(m_originalRequestHeaders);
     NetworkCORSPreflightChecker::Parameters parameters = {
-        WTFMove(requestForPreflight),
+        WTF::move(requestForPreflight),
         *m_origin,
         *m_topOrigin,
         request.httpReferrer(),
@@ -503,17 +503,17 @@ void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request
         request.hasHTTPHeaderField(HTTPHeaderName::SecFetchSite)
     };
     RefPtr networkResourceLoader = m_networkResourceLoader.get();
-    m_corsPreflightChecker = NetworkCORSPreflightChecker::create(m_networkProcess.get(), networkResourceLoader.get(), WTFMove(parameters), m_shouldCaptureExtraNetworkLoadMetrics, [weakThis = WeakPtr { *this }, request = WTFMove(request), handler = WTFMove(handler), isRedirected = isRedirected()](auto&& error) mutable {
+    m_corsPreflightChecker = NetworkCORSPreflightChecker::create(m_networkProcess.get(), networkResourceLoader.get(), WTF::move(parameters), m_shouldCaptureExtraNetworkLoadMetrics, [weakThis = WeakPtr { *this }, request = WTF::move(request), handler = WTF::move(handler), isRedirected = isRedirected()](auto&& error) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
-            handler(WTFMove(request));
+            handler(WTF::move(request));
             return;
         }
 
         LOAD_CHECKER_RELEASE_LOG_WITH_THIS(protectedThis.get(), "checkCORSRequestWithPreflight - makeCrossOriginAccessRequestWithPreflight preflight complete, success=%d forRedirect=%d", error.isNull(), isRedirected);
 
         if (!error.isNull()) {
-            handler(WTFMove(error));
+            handler(WTF::move(error));
             return;
         }
 
@@ -522,7 +522,7 @@ void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request
 
         auto corsPreflightChecker = std::exchange(protectedThis->m_corsPreflightChecker, nullptr);
         updateRequestForAccessControl(request, *protectedThis->origin(), protectedThis->m_storedCredentialsPolicy);
-        handler(WTFMove(request));
+        handler(WTF::move(request));
     });
     protectedCORSPreflightChecker()->startPreflight();
 }
@@ -556,11 +556,11 @@ void NetworkLoadChecker::processContentRuleListsForLoad(ResourceRequest&& reques
     // FIXME: Enable content blockers for navigation loads.
     if (!m_checkContentExtensions || !m_userContentControllerIdentifier || m_options.mode == FetchOptions::Mode::Navigate) {
         ContentRuleListResults results;
-        callback(ContentExtensionResult { WTFMove(request), results });
+        callback(ContentExtensionResult { WTF::move(request), results });
         return;
     }
 
-    m_networkProcess->protectedNetworkContentRuleListManager()->contentExtensionsBackend(*m_userContentControllerIdentifier, [weakThis = WeakPtr { *this }, request = WTFMove(request), callback = WTFMove(callback)](auto& backend) mutable {
+    m_networkProcess->protectedNetworkContentRuleListManager()->contentExtensionsBackend(*m_userContentControllerIdentifier, [weakThis = WeakPtr { *this }, request = WTF::move(request), callback = WTF::move(callback)](auto& backend) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
             callback(makeUnexpected(ResourceError { ResourceError::Type::Cancellation }));
@@ -569,7 +569,7 @@ void NetworkLoadChecker::processContentRuleListsForLoad(ResourceRequest&& reques
 
         auto results = backend.processContentRuleListsForPingLoad(request.url(), protectedThis->m_mainDocumentURL, protectedThis->m_frameURL, request.httpMethod());
         WebCore::ContentExtensions::applyResultsToRequest(ContentRuleListResults { results }, nullptr, request);
-        callback(ContentExtensionResult { WTFMove(request), results });
+        callback(ContentExtensionResult { WTF::move(request), results });
     });
 }
 #endif // ENABLE(CONTENT_EXTENSIONS)

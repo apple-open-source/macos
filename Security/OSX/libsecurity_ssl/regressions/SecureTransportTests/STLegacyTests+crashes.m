@@ -198,23 +198,23 @@ static void *securetransport_ssl_thread(void *arg)
         ortn = SSLHandshake(ctx);
 
         if (ortn == errSSLServerAuthCompleted) {
-            require_string(!got_server_auth, out, "second server auth");
+            __Require_String(!got_server_auth, out, "second server auth");
             got_server_auth = true;
         }
     } while (ortn == errSSLWouldBlock
              || ortn == errSSLServerAuthCompleted);
 
-    require_noerr_quiet(ortn, out);
+    __Require_noErr_Quiet(ortn, out);
 
     unsigned char ibuf[8], obuf[8];
     size_t len;
     if (ssl->is_server) {
-        require_action_quiet(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf), out, ortn = -1);
-        require_noerr_quiet(ortn = SSLWrite(ctx, obuf, sizeof(obuf), &len), out);
-        require_action_quiet(len == sizeof(obuf), out, ortn = -1);
+        __Require_Action_Quiet(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf), out, ortn = -1);
+        __Require_noErr_Quiet(ortn = SSLWrite(ctx, obuf, sizeof(obuf), &len), out);
+        __Require_Action_Quiet(len == sizeof(obuf), out, ortn = -1);
     } else {
-        require_noerr_quiet(ortn = SSLRead(ctx, ibuf, sizeof(ibuf), &len), out);
-        require_action_quiet(len == sizeof(ibuf), out, ortn = -1);
+        __Require_noErr_Quiet(ortn = SSLRead(ctx, ibuf, sizeof(ibuf), &len), out);
+        __Require_Action_Quiet(len == sizeof(ibuf), out, ortn = -1);
     }
 
 out:
@@ -232,17 +232,17 @@ ssl_test_handle_create(bool server, int comm, CFArrayRef certs)
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
 
     if (server)
-        require_noerr(SSLSetCertificate(ctx, certs), out);
+        __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
-    require_noerr(SSLSetSessionOption(ctx,
+    __Require_noErr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
 
     handle->is_server = server;
@@ -282,11 +282,11 @@ out:
         server->test = i;
         client->test = i;
 
-        require(client, out);
-        require(server, out);
+        __Require(client, out);
+        __Require(server, out);
 
         SSLCipherSuite cipher = TLS_RSA_WITH_AES_128_CBC_SHA256;
-        require_noerr(SSLSetEnabledCiphers(client->st, &cipher, 1), out);
+        __Require_noErr(SSLSetEnabledCiphers(client->st, &cipher, 1), out);
 
         pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
         pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);

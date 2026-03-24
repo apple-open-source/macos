@@ -80,7 +80,7 @@ public:
     }
 
 private:
-    friend struct IPC::ArgumentCoder<FilterEffectGeometry, void>;
+    friend struct IPC::ArgumentCoder<FilterEffectGeometry>;
     FloatRect m_boundaries;
     OptionSet<Flags> m_flags;
 };

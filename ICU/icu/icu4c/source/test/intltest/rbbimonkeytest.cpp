@@ -976,6 +976,12 @@ RBBIMonkeyTest::~RBBIMonkeyTest() {
 //           intltest rbbi/RBBIMonkeyTest/testMonkey@rules=line.txt,loop=-1
 //
 void RBBIMonkeyTest::testMonkey() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     // printf("Test parameters: %s\n", fParams);
     UnicodeString params(fParams);
     UErrorCode status = U_ZERO_ERROR;

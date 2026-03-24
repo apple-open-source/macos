@@ -42,7 +42,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteXRSubImageProxy);
 RemoteXRSubImageProxy::RemoteXRSubImageProxy(Ref<RemoteGPUProxy>&& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     : m_backing(identifier)
     , m_convertToBackingContext(convertToBackingContext)
-    , m_parent(WTFMove(parent))
+    , m_parent(WTF::move(parent))
 {
 }
 

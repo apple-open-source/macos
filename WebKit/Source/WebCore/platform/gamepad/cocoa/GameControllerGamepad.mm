@@ -29,13 +29,17 @@
 #if ENABLE(GAMEPAD)
 #import "GameControllerGamepadProvider.h"
 #import "GameControllerHapticEngines.h"
-#import "GameControllerSoftLink.h"
 #import "GamepadConstants.h"
 #import <GameController/GCControllerElement.h>
 #import <GameController/GameController.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/MakeString.h>
 
+#import "GameControllerSoftLink.h"
+
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GameControllerGamepad);
 
 GameControllerGamepad::GameControllerGamepad(GCController *controller, unsigned index)
     : PlatformGamepad(index)
@@ -60,7 +64,7 @@ static void disableDefaultSystemAction(GCControllerButtonInput *button)
 
 void GameControllerGamepad::setupElements()
 {
-    auto *profile = m_gcController.get().physicalInputProfile;
+    RetainPtr<GCPhysicalInputProfile> profile = m_gcController.get().physicalInputProfile;
     WeakPtr weakThis { *this };
 
     // The user can expose an already-connected game controller to a web page by expressing explicit intent.
@@ -74,19 +78,20 @@ void GameControllerGamepad::setupElements()
         }];
     }
 
-    auto *homeButton = profile.buttons[GCInputButtonHome];
+    RetainPtr<GCControllerButtonInput> homeButton = profile.get().buttons[GCInputButtonHome];
     m_buttonValues.resize(homeButton ? numberOfStandardGamepadButtonsWithHomeButton : numberOfStandardGamepadButtonsWithoutHomeButton);
 
     m_id = makeString(String(m_gcController.get().vendorName), m_gcController.get().extendedGamepad ? " Extended Gamepad"_s : " Gamepad"_s);
 
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
-    if (auto *haptics = [m_gcController haptics]) {
+    if (RetainPtr haptics = [m_gcController haptics]) {
+        RetainPtr<NSSet<NSString *>> supportedLocalities = haptics.get().supportedLocalities;
         if (canLoad_GameController_GCHapticsLocalityLeftHandle() && canLoad_GameController_GCHapticsLocalityRightHandle()) {
-            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftHandleSingleton()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightHandleSingleton()])
+            if ([supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftHandleSingleton()] && [supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightHandleSingleton()])
                 m_supportedEffectTypes.add(GamepadHapticEffectType::DualRumble);
         }
         if (canLoad_GameController_GCHapticsLocalityLeftTrigger() && canLoad_GameController_GCHapticsLocalityRightTrigger()) {
-            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftTriggerSingleton()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightTriggerSingleton()])
+            if ([supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftTriggerSingleton()] && [supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightTriggerSingleton()])
                 m_supportedEffectTypes.add(GamepadHapticEffectType::TriggerRumble);
         }
     }
@@ -116,70 +121,72 @@ void GameControllerGamepad::setupElements()
     };
 
     // Button Pad
-    bindButton(profile.buttons[GCInputButtonA], GamepadButtonRole::RightClusterBottom);
-    bindButton(profile.buttons[GCInputButtonB], GamepadButtonRole::RightClusterRight);
-    bindButton(profile.buttons[GCInputButtonX], GamepadButtonRole::RightClusterLeft);
-    bindButton(profile.buttons[GCInputButtonY], GamepadButtonRole::RightClusterTop);
+    bindButton(profile.get().buttons[GCInputButtonA], GamepadButtonRole::RightClusterBottom);
+    bindButton(profile.get().buttons[GCInputButtonB], GamepadButtonRole::RightClusterRight);
+    bindButton(profile.get().buttons[GCInputButtonX], GamepadButtonRole::RightClusterLeft);
+    bindButton(profile.get().buttons[GCInputButtonY], GamepadButtonRole::RightClusterTop);
 
     // Shoulders, Triggers
-    bindButton(profile.buttons[GCInputLeftShoulder], GamepadButtonRole::LeftShoulderFront);
-    bindButton(profile.buttons[GCInputRightShoulder], GamepadButtonRole::RightShoulderFront);
-    bindButton(profile.buttons[GCInputLeftTrigger], GamepadButtonRole::LeftShoulderBack);
-    bindButton(profile.buttons[GCInputRightTrigger], GamepadButtonRole::RightShoulderBack);
+    bindButton(profile.get().buttons[GCInputLeftShoulder], GamepadButtonRole::LeftShoulderFront);
+    bindButton(profile.get().buttons[GCInputRightShoulder], GamepadButtonRole::RightShoulderFront);
+    bindButton(profile.get().buttons[GCInputLeftTrigger], GamepadButtonRole::LeftShoulderBack);
+    bindButton(profile.get().buttons[GCInputRightTrigger], GamepadButtonRole::RightShoulderBack);
 
     // D Pad
-    bindButton(profile.dpads[GCInputDirectionPad].up, GamepadButtonRole::LeftClusterTop);
-    bindButton(profile.dpads[GCInputDirectionPad].down, GamepadButtonRole::LeftClusterBottom);
-    bindButton(profile.dpads[GCInputDirectionPad].left, GamepadButtonRole::LeftClusterLeft);
-    bindButton(profile.dpads[GCInputDirectionPad].right, GamepadButtonRole::LeftClusterRight);
+    bindButton(profile.get().dpads[GCInputDirectionPad].up, GamepadButtonRole::LeftClusterTop);
+    bindButton(profile.get().dpads[GCInputDirectionPad].down, GamepadButtonRole::LeftClusterBottom);
+    bindButton(profile.get().dpads[GCInputDirectionPad].left, GamepadButtonRole::LeftClusterLeft);
+    bindButton(profile.get().dpads[GCInputDirectionPad].right, GamepadButtonRole::LeftClusterRight);
     
     // Home, Select, Start
     if (homeButton) {
-        bindButton(homeButton, GamepadButtonRole::CenterClusterCenter);
-        disableDefaultSystemAction(homeButton);
+        bindButton(homeButton.get(), GamepadButtonRole::CenterClusterCenter);
+        disableDefaultSystemAction(homeButton.get());
     }
-    bindButton(profile.buttons[GCInputButtonOptions], GamepadButtonRole::CenterClusterLeft);
-    disableDefaultSystemAction(profile.buttons[GCInputButtonOptions]);
-    bindButton(profile.buttons[GCInputButtonMenu], GamepadButtonRole::CenterClusterRight);
-    disableDefaultSystemAction(profile.buttons[GCInputButtonMenu]);
+    RetainPtr<GCControllerButtonInput> optionButton = profile.get().buttons[GCInputButtonOptions];
+    bindButton(optionButton.get(), GamepadButtonRole::CenterClusterLeft);
+    disableDefaultSystemAction(optionButton.get());
+    RetainPtr<GCControllerButtonInput> menuButton = profile.get().buttons[GCInputButtonMenu];
+    bindButton(menuButton.get(), GamepadButtonRole::CenterClusterRight);
+    disableDefaultSystemAction(menuButton.get());
 
     // L3, R3
-    bindButton(profile.buttons[GCInputLeftThumbstickButton], GamepadButtonRole::LeftStick);
-    bindButton(profile.buttons[GCInputRightThumbstickButton], GamepadButtonRole::RightStick);
+    bindButton(profile.get().buttons[GCInputLeftThumbstickButton], GamepadButtonRole::LeftStick);
+    bindButton(profile.get().buttons[GCInputRightThumbstickButton], GamepadButtonRole::RightStick);
 
     m_axisValues.resize(4);
-    m_axisValues[0].setValue(profile.dpads[GCInputLeftThumbstick].xAxis.value);
-    m_axisValues[1].setValue(-profile.dpads[GCInputLeftThumbstick].yAxis.value);
-    m_axisValues[2].setValue(profile.dpads[GCInputRightThumbstick].xAxis.value);
-    m_axisValues[3].setValue(-profile.dpads[GCInputRightThumbstick].yAxis.value);
+    m_axisValues[0].setValue(profile.get().dpads[GCInputLeftThumbstick].xAxis.value);
+    m_axisValues[1].setValue(-profile.get().dpads[GCInputLeftThumbstick].yAxis.value);
+    m_axisValues[2].setValue(profile.get().dpads[GCInputRightThumbstick].xAxis.value);
+    m_axisValues[3].setValue(-profile.get().dpads[GCInputRightThumbstick].yAxis.value);
 
-    profile.dpads[GCInputLeftThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
+    profile.get().dpads[GCInputLeftThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
         if (!weakThis)
             return;
         weakThis->m_axisValues[0].setValue(value);
         weakThis->m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
     };
-    profile.dpads[GCInputLeftThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
+    profile.get().dpads[GCInputLeftThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
         if (!weakThis)
             return;
         weakThis->m_axisValues[1].setValue(-value);
         weakThis->m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
     };
-    profile.dpads[GCInputRightThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
+    profile.get().dpads[GCInputRightThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
         if (!weakThis)
             return;
         weakThis->m_axisValues[2].setValue(value);
         weakThis->m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
     };
-    profile.dpads[GCInputRightThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
+    profile.get().dpads[GCInputRightThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
         if (!weakThis)
             return;
         weakThis->m_axisValues[3].setValue(-value);
         weakThis->m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
     };
 }
 
@@ -216,7 +223,7 @@ GameControllerHapticEngines& GameControllerGamepad::ensureHapticEngines()
 void GameControllerGamepad::playEffect(GamepadHapticEffectType type, const GamepadEffectParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
 {
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
-    ensureProtectedHapticEngines()->playEffect(type, parameters, WTFMove(completionHandler));
+    ensureProtectedHapticEngines()->playEffect(type, parameters, WTF::move(completionHandler));
 #else
     UNUSED_PARAM(type);
     UNUSED_PARAM(parameters);

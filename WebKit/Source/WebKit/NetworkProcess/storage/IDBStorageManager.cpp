@@ -199,7 +199,7 @@ bool IDBStorageManager::migrateOriginData(const String& oldOriginDirectory, cons
 IDBStorageManager::IDBStorageManager(const String& path, IDBStorageRegistry& registry, QuotaCheckFunction&& quotaCheckFunction)
     : m_path(path)
     , m_registry(registry)
-    , m_quotaCheckFunction(WTFMove(quotaCheckFunction))
+    , m_quotaCheckFunction(WTF::move(quotaCheckFunction))
 {
 }
 
@@ -281,7 +281,7 @@ Vector<WebCore::IDBDatabaseNameAndVersion> IDBStorageManager::getAllDatabaseName
             visitedDatabasePaths.add(path);
 
         if (auto nameAndVersion = database->nameAndVersion())
-            result.append(WTFMove(*nameAndVersion));
+            result.append(WTF::move(*nameAndVersion));
     }
 
     auto databaseIdentifiers = FileSystem::listDirectory(m_path);
@@ -292,7 +292,7 @@ Vector<WebCore::IDBDatabaseNameAndVersion> IDBStorageManager::getAllDatabaseName
             continue;
 
         if (auto nameAndVersion = WebCore::IDBServer::SQLiteIDBBackingStore::databaseNameAndVersionFromFile(databasePath))
-            result.append(WTFMove(*nameAndVersion));
+            result.append(WTF::move(*nameAndVersion));
     }
 
     return result;
@@ -347,7 +347,7 @@ std::unique_ptr<WebCore::IDBServer::IDBBackingStore> IDBStorageManager::createBa
 
 void IDBStorageManager::requestSpace(const WebCore::ClientOrigin&, uint64_t size, CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_quotaCheckFunction(size, WTFMove(completionHandler));
+    m_quotaCheckFunction(size, WTF::move(completionHandler));
 }
 
 void IDBStorageManager::handleLowMemoryWarning()

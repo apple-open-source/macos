@@ -45,6 +45,13 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
+inline JSCell* getJSFunction(JSValue value)
+{
+    if (value.isCell() && (value.asCell()->type() == JSFunctionType))
+        return value.asCell();
+    return nullptr;
+}
+
 inline Structure* JSObject::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
     return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
@@ -782,6 +789,22 @@ inline CallData getConstructData(JSValue value)
     return result;
 }
 
+ALWAYS_INLINE CallData getConstructDataInline(JSCell* cell)
+{
+    if (cell->type() == JSFunctionType)
+        return JSFunction::getConstructDataInline(cell);
+    CallData result = cell->methodTable()->getConstructData(cell);
+    ASSERT(result.type == CallData::Type::None || cell->isValidCallee());
+    return result;
+}
+
+ALWAYS_INLINE CallData getConstructDataInline(JSValue value)
+{
+    if (!value.isCell())
+        return { };
+    return getConstructDataInline(value.asCell());
+}
+
 inline bool JSObject::deleteProperty(JSGlobalObject* globalObject, PropertyName propertyName)
 {
     DeletePropertySlot slot;
@@ -894,7 +917,7 @@ inline void JSObject::definePrivateField(JSGlobalObject* globalObject, PropertyN
     putDirect(vm, propertyName, value, putSlot);
 }
 
-ALWAYS_INLINE void JSObject::getNonReifiedStaticPropertyNames(VM& vm, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
+ALWAYS_INLINE void JSObject::getNonReifiedStaticPropertyNames(VM& vm, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)
 {
     if (staticPropertiesReified())
         return;
@@ -1025,7 +1048,7 @@ void JSObject::forEachOwnIndexedProperty(JSGlobalObject* globalObject, const Fun
                     }
                 }
 
-                std::sort(propertyAndValueIndexTuples.begin(), propertyAndValueIndexTuples.end(), [](auto a, auto b) {
+                std::ranges::sort(propertyAndValueIndexTuples, [](auto a, auto b) {
                     return std::get<0>(a) < std::get<0>(b);
                 });
                 for (size_t i = 0; i < propertyAndValueIndexTuples.size(); ++i) {

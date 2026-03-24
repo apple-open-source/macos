@@ -38,7 +38,7 @@ namespace JSC {
     macro(live, Live) /* The set of block indices that have actual blocks. */\
     macro(empty, Empty) /* The set of all blocks that have no live objects and are not free listed. */ \
     macro(allocated, Allocated) /* The set of all blocks that are full of live objects. */\
-    macro(canAllocate, CanAllocate) /* The set of all blocks are live, not allocated yet, and not retired (i.e. are more than minMarkedBlockUtilization full). */ \
+    macro(canAllocate, CanAllocate) /* The set of all blocks are live and not retired (i.e. are more than minMarkedBlockUtilization full). Note: This also implies they wouldn't be allocated. */ \
     macro(destructible, Destructible) /* The set of all blocks that may have destructors to run. */\
     macro(eden, Eden) /* The set of all blocks that have new objects since the last GC. */\
     macro(unswept, Unswept) /* The set of all blocks that could be swept by the incremental sweeper. */\

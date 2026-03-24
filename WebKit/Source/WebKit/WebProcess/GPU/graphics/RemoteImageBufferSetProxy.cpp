@@ -29,7 +29,6 @@
 #include "BufferAndBackendInfo.h"
 #include "Logging.h"
 #include "RemoteImageBufferSetMessages.h"
-#include "RemoteImageBufferSetProxyMessages.h"
 #include "RemoteRenderingBackendProxy.h"
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -60,7 +59,7 @@ public:
     void setHandles(BufferSetBackendHandle&& handles)
     {
         Locker locker { m_lock };
-        m_handles = WTFMove(handles);
+        m_handles = WTF::move(handles);
         m_condition.notifyOne();
     }
 
@@ -93,7 +92,7 @@ class RemoteImageBufferSetProxyFlusher final : public ThreadSafeImageBufferSetFl
 public:
     RemoteImageBufferSetProxyFlusher(ImageBufferSetIdentifier identifier, Ref<RemoteImageBufferSetProxyFlushFence> flushState, unsigned)
         : m_identifier(identifier)
-        , m_flushState(WTFMove(flushState))
+        , m_flushState(WTF::move(flushState))
     { }
 
     bool flushAndCollectHandles(HashMap<ImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>& handlesMap) final
@@ -154,6 +153,16 @@ ALWAYS_INLINE auto RemoteImageBufferSetProxy::sendSync(T&& message)
     return result;
 }
 
+template<typename T, typename C>
+ALWAYS_INLINE auto RemoteImageBufferSetProxy::sendWithAsyncReply(T&& message, C&& reply)
+{
+    RefPtr connection = this->connection();
+    if (!connection) [[unlikely]]
+        return;
+
+    connection->sendWithAsyncReplyOnDispatcher(std::forward<T>(message), m_remoteRenderingBackendProxy->workQueue(), std::forward<C>(reply), identifier());
+}
+
 ALWAYS_INLINE RefPtr<IPC::StreamClientConnection> RemoteImageBufferSetProxy::connection() const
 {
     RefPtr backend = m_remoteRenderingBackendProxy.get();
@@ -209,37 +218,6 @@ void RemoteImageBufferSetProxy::prepareToDisplay(const WebCore::Region& dirtyReg
     if (RefPtr remoteRenderingBackendProxy = m_remoteRenderingBackendProxy.get())
         remoteRenderingBackendProxy->prepareImageBufferSetForDisplay({ *this, dirtyRegion, supportsPartialRepaint, hasEmptyDirtyRegion, drawingRequiresClearedPixels });
 }
-
-void RemoteImageBufferSetProxy::didPrepareForDisplay(ImageBufferSetPrepareBufferForDisplayOutputData outputData, RenderingUpdateID renderingUpdateID)
-{
-    ASSERT(!isMainRunLoop());
-    Locker locker { m_lock };
-    RefPtr pendingFlush = m_pendingFlush;
-
-    if (pendingFlush && pendingFlush->renderingUpdateID() == renderingUpdateID) {
-        BufferSetBackendHandle handle;
-
-        handle.bufferHandle = WTFMove(outputData.backendHandle);
-
-        auto createBufferAndBackendInfo = [&](const std::optional<WebCore::RenderingResourceIdentifier>& bufferIdentifier) {
-            if (bufferIdentifier)
-                return std::optional { BufferAndBackendInfo { *bufferIdentifier, m_generation } };
-            return std::optional<BufferAndBackendInfo>();
-        };
-
-        handle.frontBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.front);
-        handle.backBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.back);
-        handle.secondaryBackBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.secondaryBack);
-
-        pendingFlush->setHandles(WTFMove(handle));
-        m_prepareForDisplayIsPending = false;
-
-        if (RefPtr streamConnection = m_streamConnection; m_closed && streamConnection) {
-            streamConnection->removeWorkQueueMessageReceiver(Messages::RemoteImageBufferSetProxy::messageReceiverName(), identifier().toUInt64());
-            m_streamConnection = nullptr;
-        }
-    }
-}
 #endif
 
 void RemoteImageBufferSetProxy::close()
@@ -249,17 +227,13 @@ void RemoteImageBufferSetProxy::close()
     m_closed = true;
     m_client = nullptr;
 
-    if (RefPtr streamConnection = m_streamConnection; !m_prepareForDisplayIsPending && streamConnection) {
-        streamConnection->removeWorkQueueMessageReceiver(Messages::RemoteImageBufferSetProxy::messageReceiverName(), identifier().toUInt64());
-        m_streamConnection = nullptr;
-    }
     if (RefPtr remoteRenderingBackendProxy = m_remoteRenderingBackendProxy.get())
         remoteRenderingBackendProxy->releaseImageBufferSet(*this);
 }
 
 void RemoteImageBufferSetProxy::setConfiguration(RemoteImageBufferSetConfiguration&& configuration)
 {
-    m_configuration = WTFMove(configuration);
+    m_configuration = WTF::move(configuration);
     m_remoteNeedsConfigurationUpdate = true;
 }
 
@@ -269,14 +243,26 @@ std::unique_ptr<ThreadSafeImageBufferSetFlusher> RemoteImageBufferSetProxy::flus
     if (!connection)
         return nullptr;
     Ref pendingFlush = RemoteImageBufferSetProxyFlushFence::create(m_remoteRenderingBackendProxy->renderingUpdateID(), connection->defaultTimeoutDuration());
-    {
-        Locker locker { m_lock };
-        m_pendingFlush = pendingFlush.ptr();
-    }
-    auto result = send(Messages::RemoteImageBufferSet::EndPrepareForDisplay(m_remoteRenderingBackendProxy->renderingUpdateID()));
-    if (result != IPC::Error::NoError)
-        return nullptr;
-    return makeUnique<RemoteImageBufferSetProxyFlusher>(identifier(), WTFMove(pendingFlush), m_generation);
+
+    sendWithAsyncReply(Messages::RemoteImageBufferSet::EndPrepareForDisplay(m_remoteRenderingBackendProxy->renderingUpdateID()), [pendingFlush, generation = m_generation](ImageBufferSetPrepareBufferForDisplayOutputData outputData, RenderingUpdateID renderingUpdateID) {
+        RELEASE_ASSERT(!isMainRunLoop());
+
+        BufferSetBackendHandle handle;
+        handle.bufferHandle = WTF::move(outputData.backendHandle);
+
+        auto createBufferAndBackendInfo = [&](const std::optional<WebCore::RenderingResourceIdentifier>& bufferIdentifier) {
+            if (bufferIdentifier)
+                return std::optional { BufferAndBackendInfo { *bufferIdentifier, generation }    };
+            return std::optional<BufferAndBackendInfo>();
+        };
+
+        handle.frontBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.front);
+        handle.backBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.back);
+        handle.secondaryBackBufferInfo = createBufferAndBackendInfo(outputData.bufferCacheIdentifiers.secondaryBack);
+
+        pendingFlush->setHandles(WTF::move(handle));
+    });
+    return makeUnique<RemoteImageBufferSetProxyFlusher>(identifier(), WTF::move(pendingFlush), m_generation);
 }
 
 void RemoteImageBufferSetProxy::willPrepareForDisplay()
@@ -299,10 +285,6 @@ void RemoteImageBufferSetProxy::willPrepareForDisplay()
 
     Locker locker { m_lock };
 
-    if (!m_streamConnection) {
-        m_streamConnection = connection;
-        RefPtr { m_streamConnection }->addWorkQueueMessageReceiver(Messages::RemoteImageBufferSetProxy::messageReceiverName(), m_remoteRenderingBackendProxy->workQueue(), *this, identifier().toUInt64());
-    }
     m_prepareForDisplayIsPending = true;
 }
 
@@ -315,14 +297,6 @@ void RemoteImageBufferSetProxy::setNeedsDisplay()
 void RemoteImageBufferSetProxy::disconnect()
 {
     Locker locker { m_lock };
-    if (RefPtr pendingFlush = m_pendingFlush) {
-        pendingFlush->setHandles(BufferSetBackendHandle { });
-        m_pendingFlush = nullptr;
-    }
-    if (RefPtr streamConnection = m_streamConnection) {
-        streamConnection->removeWorkQueueMessageReceiver(Messages::RemoteImageBufferSetProxy::messageReceiverName(), identifier().toUInt64());
-        m_streamConnection = nullptr;
-    }
     m_prepareForDisplayIsPending = false;
     m_generation++;
     m_remoteNeedsConfigurationUpdate = true;
@@ -346,7 +320,7 @@ std::optional<WebCore::DynamicContentScalingDisplayList> RemoteImageBufferSetPro
     auto [handle] = sendResult.takeReply();
     if (!handle)
         return std::nullopt;
-    return WTFMove(handle);
+    return WTF::move(handle);
 }
 #endif
 

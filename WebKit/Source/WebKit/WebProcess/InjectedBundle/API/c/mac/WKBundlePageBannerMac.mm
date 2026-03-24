@@ -99,12 +99,12 @@ WKBundlePageBannerRef WKBundlePageBannerCreateBannerWithCALayer(CALayer *layer, 
         return 0;
 
     auto clientImpl = makeUnique<WebKit::PageBannerClientImpl>(wkClient);
-    return toAPI(&WebKit::PageBanner::create(layer, height, WTFMove(clientImpl)).leakRef());
+    return toAPILeakingRef(WebKit::PageBanner::create(layer, height, WTF::move(clientImpl)));
 }
 
 CALayer *WKBundlePageBannerGetLayer(WKBundlePageBannerRef pageBanner)
 {
-    return WebKit::toImpl(pageBanner)->layer();
+    return WebKit::toProtectedImpl(pageBanner)->layer();
 }
 
 #endif // !PLATFORM(IOS_FAMILY)

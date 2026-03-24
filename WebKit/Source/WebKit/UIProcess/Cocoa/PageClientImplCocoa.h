@@ -26,6 +26,7 @@
 #pragma once
 
 #include "PageClient.h"
+#include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/PlatformTextAlternatives.h>
 #include <wtf/Forward.h>
 #include <wtf/WeakObjCPtr.h>
@@ -51,6 +52,7 @@ struct TextAnimationData;
 enum class TextAnimationType : uint8_t;
 
 class PageClientImplCocoa : public PageClient {
+    WTF_MAKE_TZONE_ALLOCATED(PageClientImplCocoa);
 public:
     PageClientImplCocoa(WKWebView *);
     virtual ~PageClientImplCocoa();
@@ -71,10 +73,18 @@ public:
 
     void themeColorWillChange() final;
     void themeColorDidChange() final;
+
 #if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
     void spatialBackdropSourceWillChange() final;
     void spatialBackdropSourceDidChange() final;
 #endif
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    void allowImmersiveElementFromURL(const URL&, CompletionHandler<void(bool)>&&) const final;
+    void presentImmersiveElement(const WebCore::LayerHostingContextIdentifier, CompletionHandler<void(bool)>&&) const final;
+    void dismissImmersiveElement(CompletionHandler<void()>&&) const final;
+#endif
+
     void underPageBackgroundColorWillChange() final;
     void underPageBackgroundColorDidChange() final;
     void sampledPageTopColorWillChange() final;
@@ -102,7 +112,8 @@ public:
     void storeAppHighlight(const WebCore::AppHighlight&) final;
 #endif
 
-    void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
+    void didCommitLayerTree(const RemoteLayerTreeTransaction&, const std::optional<MainFrameData>&, const PageData&, const TransactionID&) override;
+    void didCommitMainFrameData(const MainFrameData&) override;
 
     void microphoneCaptureWillChange() final;
     void cameraCaptureWillChange() final;

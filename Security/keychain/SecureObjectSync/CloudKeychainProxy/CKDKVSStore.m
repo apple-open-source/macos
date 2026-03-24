@@ -113,13 +113,13 @@ struct CKDKVSCounters {
     secnoticeq("pushWrites", "requesting force synchronization with KVS on CloudKit");
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSError *error = nil;
-        bool success = [self pullUpdates:&error];
-        if(!success || error != nil) {
-            secerror("pushWrites: failed to synchronize with KVS: %@", error);
-        } else {
-            secnoticeq("pushWrites", "successfully synced with KVS!");
-        }
+        [self pullUpdates:^(BOOL success, NSError *error) {
+            if(!success || error != nil) {
+                secerror("pushWrites: failed to synchronize with KVS: %@", error);
+            } else {
+                secnoticeq("pushWrites", "successfully synced with KVS!");
+            }
+        }];
     });
     dispatch_async(self.perfQueue, ^{
         self.perfCounters->synchronize++;
@@ -241,12 +241,8 @@ struct CKDKVSCounters {
     });
 }
 
-- (BOOL) pullUpdates:(NSError **)failure
+- (void)pullUpdates:(void (^)(BOOL success, NSError* error))reply
 {
-    __block NSError *tempFailure = nil;
-    
-    dispatch_semaphore_t freshSemaphore = dispatch_semaphore_create(0);
-    
     secnoticeq("fresh", "%s CALLING OUT TO syncdefaultsd SWCH: %@", kWAIT2MINID, self);
     
     dispatch_async(self.perfQueue, ^{
@@ -258,7 +254,6 @@ struct CKDKVSCounters {
             dispatch_async(self.perfQueue, ^{
                 self.perfCounters->synchronizeFailures++;
             });
-            tempFailure = error;
             secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@: %@", kWAIT2MINID, self, error);
         } else {
             dispatch_async(self.perfQueue, ^{
@@ -266,15 +261,9 @@ struct CKDKVSCounters {
             });
             secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
         }
-        dispatch_semaphore_signal(freshSemaphore);
+
+        reply(error == nil, error);
     }];
-    dispatch_semaphore_wait(freshSemaphore, DISPATCH_TIME_FOREVER);
-    
-    if (failure && (*failure == NULL)) {
-        *failure = tempFailure;
-    }
-    
-    return tempFailure == nil;
 }
 
 - (void)perfCounters:(void(^)(NSDictionary *counters))callback

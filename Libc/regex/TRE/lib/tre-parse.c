@@ -98,7 +98,7 @@ tre_expand_macro(const tre_char_t *regex, const tre_char_t *regex_end,
 	  unsigned int j;
 	  DPRINT(("Expanding macro '%c' => '%s'\n",
 		  tre_macros[i].c, tre_macros[i].expansion));
-	  for (j = 0; tre_macros[i].expansion[j] && j < buf_len; j++)
+	  for (j = 0; tre_macros[i].expansion[j] && j < buf_len - 1; j++)
 	    buf[j] = tre_macros[i].expansion[j];
 	  buf[j] = 0;
 	  break;
@@ -157,7 +157,15 @@ int tre_iscntrl_func(tre_cint_t c) { return tre_iscntrl(c); }
 int tre_isdigit_func(tre_cint_t c) { return tre_isdigit(c); }
 int tre_isgraph_func(tre_cint_t c) { return tre_isgraph(c); }
 int tre_islower_func(tre_cint_t c) { return tre_islower(c); }
-int tre_isprint_func(tre_cint_t c) { return tre_isprint(c); }
+int tre_isprint_func(tre_cint_t c)
+{
+  return
+#if defined(WIN32) && TRE_WCHAR
+    /* On Windows, iswprint(L'\t') incorrectly returns true. */
+    c != L'\t' &&
+#endif
+    tre_isprint(c);
+}
 int tre_ispunct_func(tre_cint_t c) { return tre_ispunct(c); }
 int tre_isspace_func(tre_cint_t c) { return tre_isspace(c); }
 int tre_isupper_func(tre_cint_t c) { return tre_isupper(c); }
@@ -545,11 +553,11 @@ tre_parse_bracket_items(tre_parse_ctx_t *ctx, tre_bracket_match_list_t **items,
 				  {
 				    char tmp_str[64];
 				    tre_ctype_t class;
-				    int len = MIN(re - start, 63);
+				    size_t len = MIN(re - start, 63);
 #ifdef TRE_WCHAR
 				    {
 				      tre_char_t tmp_wcs[64];
-				      wcsncpy(tmp_wcs, start, (size_t)len);
+				      wcsncpy(tmp_wcs, start, len);
 				      tmp_wcs[len] = L'\0';
 #if defined HAVE_WCSRTOMBS
 				      {
@@ -727,8 +735,7 @@ tre_parse_bracket(tre_parse_ctx_t *ctx, tre_ast_node_t **result)
       && ctx->re[5] == CHAR_RBRACKET)
     {
       *result = tre_ast_new_literal(ctx->mem, ASSERTION,
-		      (ctx->re[2] == L'<') ? ASSERT_AT_BOW : ASSERT_AT_EOW,
-		      -1);
+		      (ctx->re[2] == L'<') ? ASSERT_AT_BOW : ASSERT_AT_EOW);
       DPRINT(("tre_parse_bracket: special case %s\n", (ctx->re[2] == L'<') ?
 	      "[[:<:]]" : "[[:>:]]"));
       ctx->re += 6;
@@ -826,7 +833,6 @@ tre_parse_bracket(tre_parse_ctx_t *ctx, tre_ast_node_t **result)
 	  return status;
 	}
       ctx->re = col_syms->start;
-      ctx->position = subctx.position;
       xfree(col_syms);
       *result = subctx.result;
       DPRINT(("tre_parse_bracket: Returning to original string\n"));
@@ -834,7 +840,7 @@ tre_parse_bracket(tre_parse_ctx_t *ctx, tre_ast_node_t **result)
     }
 
   DPRINT(("tre_parse_bracket: creating bracket expression literal\n"));
-  node = tre_ast_new_literal(ctx->mem, 0, TRE_CHAR_MAX, ctx->position);
+  node = tre_ast_new_literal(ctx->mem, 0, TRE_CHAR_MAX);
   if (node == NULL)
     {
       status = REG_ESPACE;
@@ -870,28 +876,40 @@ tre_parse_bracket(tre_parse_ctx_t *ctx, tre_ast_node_t **result)
 
  parse_bracket_done:
   xfree(items);
-  ctx->position++;
   *result = node;
   return status;
 }
 
 
-/* Parses a positive decimal integer.  Returns -1 if the string does not
-   contain a valid number. */
+/* Parses a positive decimal integer capped at INT_MAX.  Returns -1 if the
+   string does not contain a valid number. */
 static int
 tre_parse_int(const tre_char_t **regex, const tre_char_t *regex_end)
 {
-  int num = -1;
+  unsigned long num = 0;
+  int overflow = 0;
   const tre_char_t *r = *regex;
   while (r < regex_end && *r >= L'0' && *r <= L'9')
     {
-      if (num < 0)
-	num = 0;
-      num = num * 10 + *r - L'0';
+      if (!overflow)
+	{
+	  if (num * 10 + *r - L'0' < num)
+	    {
+	      overflow = 1;
+	    }
+	  else
+	    {
+	      num = num * 10 + *r - L'0';
+	      if (num > INT_MAX)
+		overflow = 1;
+	    }
+	}
       r++;
     }
+  if (r == *regex)
+    return -1;
   *regex = r;
-  return num;
+  return overflow ? INT_MAX : (int)num;
 }
 
 
@@ -943,14 +961,18 @@ tre_parse_bound(tre_parse_ctx_t *ctx, tre_ast_node_t **result)
   max = min;
   if (r < ctx->re_end && *r == CHAR_COMMA)
     {
+      if (min < 0)
+	min = 0;
       r++;
       DPRINT(("tre_parse:   max count: '%.*" STRF "'\n", REST(r)));
       max = tre_parse_int(&r, ctx->re_end);
     }
 
   /* Check that the repeat counts are sane. */
-  if ((max >= 0 && min > max) || min > RE_DUP_MAX || max > RE_DUP_MAX)
+  if (max >= 0 && min > max)
     return REG_BADBR;
+  if (min > RE_DUP_MAX || max > RE_DUP_MAX)
+    return REG_BADMAX;
 
 
 #ifdef TRE_APPROX
@@ -1691,610 +1713,592 @@ tre_parse(tre_parse_ctx_t *ctx)
 	  break;
 
 	case PARSE_ATOM:
-	  {
-	    /* Parse an atom.  An atom is a regular expression enclosed in `()',
-	       an empty set of `()', a bracket expression, `.', `^', `$',
-	       a `\' followed by a character, or a single character. */
+	  /* Parse an atom.  An atom is a regular expression enclosed in `()',
+	     an empty set of `()', a bracket expression, `.', `^', `$',
+	     a `\' followed by a character, or a single character. */
 
-	    /* The stack contains a boolean value, whether PARSE_ATOM is
-	       being called just after the start of a group (left paren)
-	       in a BRE */
-	    bre_branch_begin = tre_stack_pop_int(stack);
+	  /* The stack contains a boolean value, whether PARSE_ATOM is
+	     being called just after the start of a group (left paren)
+	     in a BRE */
+	  bre_branch_begin = tre_stack_pop_int(stack);
 
-	    /* End of regexp? (empty string). */
-	    if (ctx->re >= ctx->re_end)
-	      goto parse_literal;
+	  /* End of regexp? (empty string). */
+	  if (ctx->re >= ctx->re_end)
+	    goto parse_literal;
 
 #ifdef REG_LITERAL
-	    if (ctx->cflags & REG_LITERAL)
-	      goto parse_literal;
+	  if (ctx->cflags & REG_LITERAL)
+	    goto parse_literal;
 #endif /* REG_LITERAL */
 
-	    switch (*ctx->re)
-	      {
-	      case CHAR_LPAREN:  /* parenthesized subexpression */
+	  switch (*ctx->re)
+	    {
+	    case CHAR_LPAREN:  /* parenthesized subexpression */
 
-		/* Handle "(?...)" extensions.  They work in a way similar
-		   to Perls corresponding extensions. */
-		if ((ctx->cflags & (REG_EXTENDED|REG_ENHANCED)) ==
-		    (REG_EXTENDED|REG_ENHANCED)
-		    && *(ctx->re + 1) == CHAR_QUESTIONMARK)
-		  {
-		    int new_cflags = ctx->cflags;
-		    int bit = 1;
-		    int invisible_submatch = 0;
-		    DPRINT(("tre_parse:	extension: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    ctx->re += 2;
-		    while (/*CONSTCOND*/1)
-		      {
-			if (*ctx->re == L'i')
-			  {
-			    DPRINT(("tre_parse:	    icase: '%.*" STRF "'\n",
-				    REST(ctx->re)));
-			    if (bit)
-			      new_cflags |= REG_ICASE;
-			    else
-			      new_cflags &= ~REG_ICASE;
-			    ctx->re++;
-			  }
-			else if (*ctx->re == L'n')
-			  {
-			    DPRINT(("tre_parse:	  newline: '%.*" STRF "'\n",
-				    REST(ctx->re)));
-			    if (bit)
-			      new_cflags |= REG_NEWLINE;
-			    else
-			      new_cflags &= ~REG_NEWLINE;
-			    ctx->re++;
-			  }
+	      /* Handle "(?...)" extensions.  They work in a way similar
+		 to Perls corresponding extensions. */
+	      if ((ctx->cflags & (REG_EXTENDED|REG_ENHANCED)) ==
+		  (REG_EXTENDED|REG_ENHANCED)
+		  && *(ctx->re + 1) == CHAR_QUESTIONMARK)
+		{
+		  int new_cflags = ctx->cflags;
+		  int bit = 1;
+		  int invisible_submatch = 0;
+		  DPRINT(("tre_parse: extension: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  ctx->re += 2;
+		  while (/*CONSTCOND*/(void)1,1)
+		    {
+		      if (*ctx->re == L'i')
+			{
+			  DPRINT(("tre_parse:     icase: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  if (bit)
+			    new_cflags |= REG_ICASE;
+			  else
+			    new_cflags &= ~REG_ICASE;
+			  ctx->re++;
+			}
+		      else if (*ctx->re == L'n')
+			{
+			  DPRINT(("tre_parse:   newline: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  if (bit)
+			    new_cflags |= REG_NEWLINE;
+			  else
+			    new_cflags &= ~REG_NEWLINE;
+			  ctx->re++;
+			}
 #ifdef REG_LEFT_ASSOC
-			else if (*ctx->re == L'l')
-			  {
-			    DPRINT(("tre_parse: left assoc: '%.*" STRF "'\n",
-				    REST(ctx->re)));
-			    if (bit)
-			      new_cflags |= REG_LEFT_ASSOC;
-			    else
-			      new_cflags &= ~REG_LEFT_ASSOC;
-			    ctx->re++;
-			  }
+		      else if (*ctx->re == L'l')
+			{
+			  DPRINT(("tre_parse: left assoc: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  if (bit)
+			    new_cflags |= REG_LEFT_ASSOC;
+			  else
+			    new_cflags &= ~REG_LEFT_ASSOC;
+			  ctx->re++;
+			}
 #endif /* REG_LEFT_ASSOC */
 #ifdef REG_UNGREEDY
-			else if (*ctx->re == L'U')
-			  {
-			    DPRINT(("tre_parse:    ungreedy: '%.*" STRF "'\n",
-				    REST(ctx->re)));
-			    if (bit)
-			      new_cflags |= REG_UNGREEDY;
-			    else
-			      new_cflags &= ~REG_UNGREEDY;
-			    ctx->re++;
-			  }
+		      else if (*ctx->re == L'U')
+			{
+			  DPRINT(("tre_parse:    ungreedy: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  if (bit)
+			    new_cflags |= REG_UNGREEDY;
+			  else
+			    new_cflags &= ~REG_UNGREEDY;
+			  ctx->re++;
+			}
 #endif /* REG_UNGREEDY */
-			else if (*ctx->re == CHAR_MINUS)
-			  {
-			    DPRINT(("tre_parse:	 turn off: '%.*" STRF "'\n",
-				    REST(ctx->re)));
+		      else if (*ctx->re == CHAR_MINUS)
+			{
+			  DPRINT(("tre_parse:  turn off: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  ctx->re++;
+			  bit = 0;
+			}
+		      else if (*ctx->re == CHAR_COLON)
+			{
+			  DPRINT(("tre_parse:  no group: '%.*" STRF
+				  "', (invisible submatch %d)\n",
+				  REST(ctx->re), ctx->submatch_id_invisible));
+			  ctx->re++;
+			  depth++;
+			  invisible_submatch = 1;
+			  break;
+			}
+		      else if (*ctx->re == CHAR_HASH)
+			{
+			  DPRINT(("tre_parse:    comment: '%.*" STRF "'\n",
+				  REST(ctx->re)));
+			  /* A comment can contain any character except a
+			     right parenthesis */
+			  while (*ctx->re != CHAR_RPAREN
+				 && ctx->re < ctx->re_end)
 			    ctx->re++;
-			    bit = 0;
-			  }
-			else if (*ctx->re == CHAR_COLON)
-			  {
-			    DPRINT(("tre_parse:	 no group: '%.*" STRF
-				    "', (invisible submatch %d)\n",
-				    REST(ctx->re), ctx->submatch_id_invisible));
-			    ctx->re++;
-			    depth++;
-			    invisible_submatch = 1;
-			    break;
-			  }
-			else if (*ctx->re == CHAR_HASH)
-			  {
-			    DPRINT(("tre_parse:    comment: '%.*" STRF "'\n",
-				    REST(ctx->re)));
-			    /* A comment can contain any character except a
-			       right parenthesis */
-			    while (*ctx->re != CHAR_RPAREN
-				   && ctx->re < ctx->re_end)
+			  if (*ctx->re == CHAR_RPAREN && ctx->re < ctx->re_end)
+			    {
 			      ctx->re++;
-			    if (*ctx->re == CHAR_RPAREN && ctx->re < ctx->re_end)
-			      {
-				ctx->re++;
-				break;
-			      }
-			    else
-			      return REG_BADPAT;
-			  }
-			else if (*ctx->re == CHAR_RPAREN)
-			  {
-			    ctx->re++;
-			    break;
-			  }
-			else
-			  return REG_BADRPT;
-		      }
-
-		    /* Turn on the cflags changes for the rest of the
-		       enclosing group. */
-		    if (invisible_submatch)
-		      {
-			STACK_PUSHX(stack, int, ctx->cflags);
-			STACK_PUSHX(stack, int, ctx->submatch_id_invisible);
-			STACK_PUSHX(stack, int, PARSE_MARK_FOR_SUBMATCH);
-			ctx->submatch_id_invisible++;
-			STACK_PUSHX(stack, int, 0); // bre_branch_begin
-			STACK_PUSHX(stack, int, PARSE_RE);
-		      }
-		    else {
-			STACK_PUSHX(stack, int, 0); // bre_branch_begin
-			STACK_PUSHX(stack, int, PARSE_ATOM);
+			      break;
+			    }
+			  else
+			    return REG_BADPAT;
+			}
+		      else if (*ctx->re == CHAR_RPAREN)
+			{
+			  ctx->re++;
+			  break;
+			}
+		      else
+			return REG_BADRPT;
 		    }
-		    ctx->cflags = new_cflags;
-		    break;
-		  }
 
-		if (ctx->cflags & REG_EXTENDED)
-		  {
-		parse_bre_lparen:
-		    DPRINT(("tre_parse: group begin: '%.*" STRF
-			    "', submatch %d\n", REST(ctx->re),
-			    ctx->submatch_id));
-		    ctx->re++;
-		    /* First parse a whole RE, then mark the resulting tree
-		       for submatching. */
-		    STACK_PUSHX(stack, int, ctx->cflags);
-		    STACK_PUSHX(stack, int, ctx->submatch_id);
-		    STACK_PUSHX(stack, int, PARSE_MARK_FOR_SUBMATCH);
-		    /* We need to pass a boolean (eventually) to PARSE_ATOM to
-		       indicate if this is the beginning of a BRE group. */
-		    STACK_PUSHX(stack, int, !(ctx->cflags & REG_EXTENDED));
-		    STACK_PUSHX(stack, int, PARSE_RE);
-		    ctx->submatch_id++;
-		    depth++;
-		  }
-		else
-		  goto parse_literal;
-		break;
-
-	      case CHAR_RPAREN:  /* end of current subexpression */
-		if (ctx->cflags & REG_EXTENDED && depth > 0)
-		  {
-	      parse_bre_rparen_empty:
-		    if (!(ctx->cflags & REG_EXTENDED) && depth == 0)
-		      return REG_EPAREN;
-		    DPRINT(("tre_parse:	    empty: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    /* We were expecting an atom, but instead the current
-		       subexpression was closed.  POSIX leaves the meaning of
-		       this to be implementation-defined.  We interpret this as
-		       an empty expression (which matches an empty string).  */
-		    result = tre_ast_new_literal(ctx->mem, EMPTY, -1, -1);
-		    if (result == NULL)
-		      return REG_ESPACE;
-		    if (!(ctx->cflags & REG_EXTENDED))
-		      ctx->re--;
-		  }
-		else
-		  goto parse_literal;
-		break;
-
-	      case CHAR_LBRACKET: /* bracket expression */
-		DPRINT(("tre_parse:     bracket: '%.*" STRF "'\n",
-			REST(ctx->re)));
-		ctx->re++;
-		status = tre_parse_bracket(ctx, &result);
-		if (status != REG_OK)
-		  return status;
-		break;
-
-	      case CHAR_BACKSLASH:
-		/* Deal with "\(", "\)" or "\{" for BREs */
-		if (!(ctx->cflags & REG_EXTENDED)
-		    && ctx->re + 1 < ctx->re_end)
-		  {
-		    if (*(ctx->re + 1) == CHAR_LPAREN)
-		      {
-			ctx->re++;
-			goto parse_bre_lparen;
-		      }
-		    else if (*(ctx->re + 1) == CHAR_RPAREN)
-		      {
-			ctx->re++;
-			goto parse_bre_rparen_empty;
-		      }
-		    if (*(ctx->re + 1) == CHAR_LBRACE) goto parse_literal;
-		  }
-
-		if (ctx->re + 1 >= ctx->re_end)
-		  /* Trailing backslash. */
-		  return REG_EESCAPE;
-
-		if (!(ctx->cflags & REG_ENHANCED))
-		  {
-		    DPRINT(("tre_parse:  unenhanced bleep: '%.*" STRF "'\n", REST(ctx->re)));
-		    ctx->re++;
-		    goto unenhanced_backslash;
-		  }
-
-		/* If a macro is used, parse the expanded macro recursively. */
-		{
-		  tre_char_t buf[64];
-		  tre_expand_macro(ctx->re + 1, ctx->re_end,
-				   buf, elementsof(buf));
-		  if (buf[0] != 0)
+		  /* Turn on the cflags changes for the rest of the
+		     enclosing group. */
+		  if (invisible_submatch)
 		    {
-		      tre_parse_ctx_t subctx;
-		      memcpy(&subctx, ctx, sizeof(subctx));
-		      subctx.re = buf;
-		      subctx.len = tre_strlen(buf);
-		      subctx.nofirstsub = 1;
-		      status = tre_parse(&subctx);
-		      if (status != REG_OK)
-			return status;
-		      ctx->re += 2;
-		      ctx->position = subctx.position;
-		      result = subctx.result;
-		      break;
+		      STACK_PUSHX(stack, int, ctx->cflags);
+		      STACK_PUSHX(stack, int, ctx->submatch_id_invisible);
+		      STACK_PUSHX(stack, int, PARSE_MARK_FOR_SUBMATCH);
+		      ctx->submatch_id_invisible++;
+		      STACK_PUSHX(stack, int, 0); // bre_branch_begin
+		      STACK_PUSHX(stack, int, PARSE_RE);
 		    }
+		  else {
+		      STACK_PUSHX(stack, int, 0); // bre_branch_begin
+		      STACK_PUSHX(stack, int, PARSE_ATOM);
+		  }
+		  ctx->cflags = new_cflags;
+		  break;
 		}
 
-#ifdef REG_LITERAL
-		if (*(ctx->re + 1) == L'Q')
+	      if (ctx->cflags & REG_EXTENDED)
+		{
+	      parse_bre_lparen:
+		  DPRINT(("tre_parse: group begin: '%.*" STRF
+			  "', submatch %d\n", REST(ctx->re),
+			  ctx->submatch_id));
+		  ctx->re++;
+		  /* First parse a whole RE, then mark the resulting tree
+		     for submatching. */
+		  STACK_PUSHX(stack, int, ctx->cflags);
+		  STACK_PUSHX(stack, int, ctx->submatch_id);
+		  STACK_PUSHX(stack, int, PARSE_MARK_FOR_SUBMATCH);
+		  /* We need to pass a boolean (eventually) to PARSE_ATOM to
+		     indicate if this is the beginning of a BRE group. */
+		  STACK_PUSHX(stack, int, !(ctx->cflags & REG_EXTENDED));
+		  STACK_PUSHX(stack, int, PARSE_RE);
+		  ctx->submatch_id++;
+		  depth++;
+		}
+	      else
+		goto parse_literal;
+	      break;
+
+	    case CHAR_RPAREN:  /* end of current subexpression */
+	      if (ctx->cflags & REG_EXTENDED && depth > 0)
+		{
+	    parse_bre_rparen_empty:
+		  if (!(ctx->cflags & REG_EXTENDED) && depth == 0)
+		    return REG_EPAREN;
+		  DPRINT(("tre_parse:     empty: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  /* We were expecting an atom, but instead the current
+		     subexpression was closed.  POSIX leaves the meaning of
+		     this to be implementation-defined.  We interpret this as
+		     an empty expression (which matches an empty string).  */
+		  result = tre_ast_new_literal(ctx->mem, EMPTY, -1);
+		  if (result == NULL)
+		    return REG_ESPACE;
+		  if (!(ctx->cflags & REG_EXTENDED))
+		    ctx->re--;
+		}
+	      else
+		goto parse_literal;
+	      break;
+
+	    case CHAR_LBRACKET: /* bracket expression */
+	      DPRINT(("tre_parse:     bracket: '%.*" STRF "'\n",
+		      REST(ctx->re)));
+	      ctx->re++;
+	      status = tre_parse_bracket(ctx, &result);
+	      if (status != REG_OK)
+		return status;
+	      break;
+
+	    case CHAR_BACKSLASH:
+	      /* Deal with "\(", "\)" or "\{" for BREs */
+	      if (!(ctx->cflags & REG_EXTENDED)
+		  && ctx->re + 1 < ctx->re_end)
+		{
+		  if (*(ctx->re + 1) == CHAR_LPAREN)
+		    {
+		      ctx->re++;
+		      goto parse_bre_lparen;
+		    }
+		  else if (*(ctx->re + 1) == CHAR_RPAREN)
+		    {
+		      ctx->re++;
+		      goto parse_bre_rparen_empty;
+		    }
+		  if (*(ctx->re + 1) == CHAR_LBRACE) goto parse_literal;
+		}
+
+	      if (ctx->re + 1 >= ctx->re_end)
+		/* Trailing backslash. */
+		return REG_EESCAPE;
+
+	      if (!(ctx->cflags & REG_ENHANCED))
+		{
+		  DPRINT(("tre_parse:  unenhanced bleep: '%.*" STRF "'\n", REST(ctx->re)));
+		  ctx->re++;
+		  goto unenhanced_backslash;
+		}
+
+	      /* If a macro is used, parse the expanded macro recursively. */
+	      {
+		tre_char_t buf[64];
+		tre_expand_macro(ctx->re + 1, ctx->re_end,
+				 buf, elementsof(buf));
+		if (buf[0] != 0)
 		  {
-		    DPRINT(("tre_parse: tmp literal: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    ctx->cflags |= REG_LITERAL;
-		    temporary_cflags |= REG_LITERAL;
+		    tre_parse_ctx_t subctx;
+		    memcpy(&subctx, ctx, sizeof(subctx));
+		    subctx.re = buf;
+		    subctx.len = tre_strlen(buf);
+		    subctx.nofirstsub = 1;
+		    status = tre_parse(&subctx);
+		    if (status != REG_OK)
+		      return status;
 		    ctx->re += 2;
-		    STACK_PUSHX(stack, int, 0);
-		    STACK_PUSHX(stack, int, PARSE_ATOM);
+		    result = subctx.result;
 		    break;
 		  }
-#endif /* REG_LITERAL */
-
-		DPRINT(("tre_parse:  bleep: '%.*" STRF "'\n", REST(ctx->re)));
-		ctx->re++;
-		switch (*ctx->re)
-		  {
-		  case L'b':
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_WB, -1);
-		    ctx->re++;
-		    break;
-		  case L'B':
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_WB_NEG, -1);
-		    ctx->re++;
-		    break;
-		  case L'<':
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_BOW, -1);
-		    ctx->re++;
-		    break;
-		  case L'>':
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_EOW, -1);
-		    ctx->re++;
-		    break;
-		  case L'x':
-		    ctx->re++;
-		    if (ctx->re[0] != CHAR_LBRACE && ctx->re < ctx->re_end)
-		      {
-			/* 8 bit hex char. */
-			char tmp[3] = {0, 0, 0};
-			long val;
-			DPRINT(("tre_parse:  8 bit hex: '%.*" STRF "'\n",
-				REST(ctx->re - 2)));
-
-			if (tre_isxdigit_l(ctx->re[0], ctx->loc) &&
-			    ctx->re < ctx->re_end)
-			  {
-			    tmp[0] = (char)ctx->re[0];
-			    ctx->re++;
-			  }
-			if (tre_isxdigit_l(ctx->re[0], ctx->loc) &&
-			    ctx->re < ctx->re_end)
-			  {
-			    tmp[1] = (char)ctx->re[0];
-			    ctx->re++;
-			  }
-			val = strtol(tmp, NULL, 16);
-			result = tre_ast_new_literal(ctx->mem, (int)val,
-						     (int)val, ctx->position);
-			ctx->position++;
-			break;
-		      }
-		    else if (ctx->re < ctx->re_end)
-		      {
-			/* Wide char. */
-			char tmp[32];
-			long val;
-			int i = 0;
-			ctx->re++;
-			while (ctx->re_end - ctx->re >= 0)
-			  {
-			    if (i == sizeof(tmp))
-				return REG_EBRACE;
-			    if (ctx->re[0] == CHAR_RBRACE)
-			      break;
-			    if (tre_isxdigit_l(ctx->re[0], ctx->loc))
-			      {
-				tmp[i] = (char)ctx->re[0];
-				i++;
-				ctx->re++;
-				continue;
-			      }
-			    return REG_EBRACE;
-			  }
-			ctx->re++;
-			tmp[i] = 0;
-			val = strtol(tmp, NULL, 16);
-			result = tre_ast_new_literal(ctx->mem, (int)val, (int)val,
-						     ctx->position);
-			ctx->position++;
-			break;
-		      }
-		    /*FALLTHROUGH*/
-
-		  default:
-		  unenhanced_backslash:
-		    if ((ctx->cflags & (REG_EXTENDED | REG_ENHANCED)) !=
-			REG_EXTENDED &&
-			tre_isdigit_l(*ctx->re, ctx->loc) && *ctx->re != L'0')
-		      {
-			/* Back reference (only in BRE or enhanced). */
-			int val = *ctx->re - L'0';
-			DPRINT(("tre_parse:     backref: '%.*" STRF "'\n",
-				REST(ctx->re - 1)));
-			result = tre_ast_new_literal(ctx->mem, BACKREF, val,
-						     ctx->position);
-			if (result == NULL)
-			  return REG_ESPACE;
-
-			/* Set the backref with a submatch id in the invisible
-			 * range (which will be overridden if a real submatch
-			 * is needed) */
-			result->submatch_id = ctx->submatch_id_invisible++;
-
-			ctx->position++;
-			ctx->num_reorder_tags++;
-			ctx->max_backref = MAX(val, ctx->max_backref);
-			ctx->re++;
-		      }
-		    else
-		      {
-			/* Escaped character. */
-			DPRINT(("tre_parse:     escaped: '%.*" STRF "'\n",
-				REST(ctx->re - 1)));
-			result = tre_ast_new_literal(ctx->mem, *ctx->re, *ctx->re,
-						     ctx->position);
-			ctx->position++;
-			ctx->re++;
-		      }
-		    break;
-		  }
-		if (result == NULL)
-		  return REG_ESPACE;
-		break;
-
-	      case CHAR_PERIOD:	 /* the any-symbol */
-		DPRINT(("tre_parse:	  any: '%.*" STRF "'\n",
-			REST(ctx->re)));
-		if (ctx->cflags & REG_NEWLINE)
-		  {
-		    tre_ast_node_t *tmp1;
-		    tre_ast_node_t *tmp2;
-		    tmp1 = tre_ast_new_literal(ctx->mem, 0, L'\n' - 1,
-					       ctx->position);
-		    if (!tmp1)
-		      return REG_ESPACE;
-		    tmp2 = tre_ast_new_literal(ctx->mem, L'\n' + 1, TRE_CHAR_MAX,
-					       ctx->position + 1);
-		    if (!tmp2)
-		      return REG_ESPACE;
-		    result = tre_ast_new_union(ctx->mem, tmp1, tmp2);
-		    if (!result)
-		      return REG_ESPACE;
-		    ctx->position += 2;
-		  }
-		else
-		  {
-		    result = tre_ast_new_literal(ctx->mem, 0, TRE_CHAR_MAX,
-						 ctx->position);
-		    if (!result)
-		      return REG_ESPACE;
-		    ctx->position++;
-		  }
-		ctx->re++;
-		break;
-
-	      case CHAR_CARET:	 /* beginning of line assertion */
-		/* '^' has a special meaning everywhere in EREs, at the
-		   beginning of the RE and after \( is BREs.  It is also
-		   special in enhanced BREs at the beginning of each branches
-		   of a union */
-		if (ctx->cflags & REG_EXTENDED
-		    || bre_branch_begin
-		    || ctx->re == ctx->re_start)
-		  {
-		    DPRINT(("tre_parse:	      BOL: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_BOL, -1);
-		    if (result == NULL)
-		      return REG_ESPACE;
-		    ctx->re++;
-		  }
-		else
-		  goto parse_literal;
-		break;
-
-	      case CHAR_DOLLAR:	 /* end of line assertion. */
-		/* '$' is special everywhere in EREs, and in the end of the
-		   string and before \) is BREs. */
-		if (ctx->cflags & REG_EXTENDED
-		    || (ctx->re + 2 < ctx->re_end
-			&& *(ctx->re + 1) == CHAR_BACKSLASH
-			&& *(ctx->re + 2) == CHAR_RPAREN)
-		    || ctx->re + 1 == ctx->re_end)
-		  {
-		    DPRINT(("tre_parse:	      EOL: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    result = tre_ast_new_literal(ctx->mem, ASSERTION,
-						 ASSERT_AT_EOL, -1);
-		    if (result == NULL)
-		      return REG_ESPACE;
-		    ctx->re++;
-		  }
-		else
-		  goto parse_literal;
-		break;
-
-	      default:
-	      parse_literal:
-
-		if (temporary_cflags && ctx->re + 1 < ctx->re_end
-		    && *ctx->re == CHAR_BACKSLASH && *(ctx->re + 1) == L'E')
-		  {
-		    DPRINT(("tre_parse:	 end tmps: '%.*" STRF "'\n",
-			    REST(ctx->re)));
-		    ctx->cflags &= ~temporary_cflags;
-		    temporary_cflags = 0;
-		    ctx->re += 2;
-		    if (ctx->re < ctx->re_end)
-		      {
-			STACK_PUSHX(stack, int, 0);
-			STACK_PUSHX(stack, int, PARSE_ATOM);
-		      }
-		    else
-		      {
-			result = tre_ast_new_literal(ctx->mem, EMPTY, -1, -1);
-			if (!result) return REG_ESPACE;
-		      }
-		    break;
-		  }
-
-
-		/* We are expecting an atom.  If the subexpression (or the whole
-		   regexp ends here, we interpret it as an empty expression
-		   (which matches an empty string), which is an error.
-		   Iterations of an empty expression is also an error. */
-#ifdef REG_LITERAL
-		if (!(ctx->cflags & REG_LITERAL))
-		  {
-#endif /* REG_LITERAL */
-		    /* error on end of string */
-		    if (ctx->re >= ctx->re_end) return depth > 0 ? REG_EPAREN
-						       : REG_EMPTY;
-		    /* error on unions and iterations of empty expressions */
-		    if (ctx->cflags & REG_EXTENDED)
-		      {
-			if (ctx->re < ctx->re_end)
-			  {
-			    if (*ctx->re == CHAR_PIPE) return REG_EMPTY;
-			    if (*ctx->re == CHAR_LBRACE)
-			      {
-				ctx->re++;
-		  empty_parse_bound:
-				/* We need to parse the bound first and return
-				   any error, before returning REG_BADRPT */
-				status = tre_parse_bound(ctx, NULL);
-#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
-				/* For ERE, if REG_NOMATCH is returned, we
-				   treat the lbrace as a literal. */
-				if (status == REG_NOMATCH)
-				  {
-				    status = REG_OK;
-				    ctx->re--;
-				    /* Drop down to literal-handling code */
-				  }
-				else
-				  {
-#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
-				    if (status != REG_OK)
-				      return status;
-				    return REG_BADRPT;
-#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
-				  }
-#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
-			      }
-#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
-			    else
-#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
-			    if (*ctx->re == CHAR_STAR
-				|| *ctx->re == CHAR_PLUS
-				|| *ctx->re == CHAR_QUESTIONMARK)
-			      {
-				return REG_BADRPT;
-			      }
-			  }
-		      }
-		    else if (ctx->re + 1 < ctx->re_end
-			     && *ctx->re == CHAR_BACKSLASH
-			     && *(ctx->re + 1) == CHAR_LBRACE)
-		      {
-			ctx->re += 2;
-			goto empty_parse_bound;
-		      }
-#ifdef REG_LITERAL
-		  }
-#endif /* REG_LITERAL */
-
-		DPRINT(("tre_parse:     literal: '%.*" STRF "'\n",
-			REST(ctx->re)));
-		/* Note that we can't use an tre_isalpha() test here, since there
-		   may be characters which are alphabetic but neither upper or
-		   lower case. */
-		if (ctx->cflags & REG_ICASE
-		    && (tre_isupper_l(*ctx->re, ctx->loc) ||
-		    tre_islower_l(*ctx->re, ctx->loc)))
-		  {
-		    tre_ast_node_t *tmp1;
-		    tre_ast_node_t *tmp2;
-
-		    /* XXX - Can there be more than one opposite-case
-		       counterpoints for some character in some locale?  Or
-		       more than two characters which all should be regarded
-		       the same character if case is ignored?  If yes, there
-		       does not seem to be a portable way to detect it.  I guess
-		       that at least for multi-character collating elements there
-		       could be several opposite-case counterpoints, but they
-		       cannot be supported portably anyway. */
-		    tmp1 = tre_ast_new_literal(ctx->mem,
-					       tre_toupper_l(*ctx->re, ctx->loc),
-					       tre_toupper_l(*ctx->re, ctx->loc),
-					       ctx->position);
-		    if (!tmp1)
-		      return REG_ESPACE;
-		    tmp2 = tre_ast_new_literal(ctx->mem,
-					       tre_tolower_l(*ctx->re, ctx->loc),
-					       tre_tolower_l(*ctx->re, ctx->loc),
-					       ctx->position);
-		    if (!tmp2)
-		      return REG_ESPACE;
-		    result = tre_ast_new_union(ctx->mem, tmp1, tmp2);
-		    if (!result)
-		      return REG_ESPACE;
-		  }
-		else
-		  {
-		    result = tre_ast_new_literal(ctx->mem, *ctx->re, *ctx->re,
-						 ctx->position);
-		    if (!result)
-		      return REG_ESPACE;
-		  }
-		ctx->position++;
-		ctx->re++;
-		break;
 	      }
-	    break;
-	  }
+
+#ifdef REG_LITERAL
+	      if (*(ctx->re + 1) == L'Q')
+		{
+		  DPRINT(("tre_parse: tmp literal: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  ctx->cflags |= REG_LITERAL;
+		  temporary_cflags |= REG_LITERAL;
+		  ctx->re += 2;
+		  STACK_PUSHX(stack, int, 0);
+		  STACK_PUSHX(stack, int, PARSE_ATOM);
+		  break;
+		}
+#endif /* REG_LITERAL */
+
+	      DPRINT(("tre_parse:  bleep: '%.*" STRF "'\n", REST(ctx->re)));
+	      ctx->re++;
+	      switch (*ctx->re)
+		{
+		case L'b':
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_WB);
+		  ctx->re++;
+		  break;
+		case L'B':
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_WB_NEG);
+		  ctx->re++;
+		  break;
+		case L'<':
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_BOW);
+		  ctx->re++;
+		  break;
+		case L'>':
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_EOW);
+		  ctx->re++;
+		  break;
+		case L'x':
+		  ctx->re++;
+		  if (ctx->re[0] != CHAR_LBRACE && ctx->re < ctx->re_end)
+		    {
+		      /* 8 bit hex char. */
+		      char tmp[3] = {0, 0, 0};
+		      long val;
+		      DPRINT(("tre_parse:  8 bit hex: '%.*" STRF "'\n",
+			      REST(ctx->re - 2)));
+
+		      if (tre_isxdigit_l(ctx->re[0], ctx->loc) &&
+			  ctx->re < ctx->re_end)
+			{
+			  tmp[0] = (char)ctx->re[0];
+			  ctx->re++;
+			}
+		      if (tre_isxdigit_l(ctx->re[0], ctx->loc) &&
+			  ctx->re < ctx->re_end)
+			{
+			  tmp[1] = (char)ctx->re[0];
+			  ctx->re++;
+			}
+		      val = strtol(tmp, NULL, 16);
+		      result = tre_ast_new_literal(ctx->mem, (int)val,
+						   (int)val);
+		      break;
+		    }
+		  else if (ctx->re < ctx->re_end)
+		    {
+		      /* Wide char. */
+		      char tmp[9]; /* max 8 hex digits + terminator */
+		      long val;
+		      size_t i = 0;
+		      ctx->re++;
+		      while (ctx->re_end - ctx->re >= 0)
+			{
+			  if (i == sizeof(tmp))
+			      return REG_EBRACE;
+			  if (ctx->re[0] == CHAR_RBRACE)
+			    break;
+			  if (tre_isxdigit_l(ctx->re[0], ctx->loc) && i < sizeof(tmp) - 1)
+			    {
+			      tmp[i] = (char)ctx->re[0];
+			      i++;
+			      ctx->re++;
+			      continue;
+			    }
+			  return REG_EBRACE;
+			}
+		      ctx->re++;
+		      tmp[i] = 0;
+		      val = strtol(tmp, NULL, 16);
+		      result = tre_ast_new_literal(ctx->mem, (int)val, (int)val);
+		      break;
+		    }
+		  /*FALLTHROUGH*/
+
+		default:
+		unenhanced_backslash:
+		  if ((ctx->cflags & (REG_EXTENDED | REG_ENHANCED)) !=
+		      REG_EXTENDED &&
+		      tre_isdigit_l(*ctx->re, ctx->loc) && *ctx->re != L'0')
+		    {
+		      /* Back reference (only in BRE or enhanced). */
+		      int val = *ctx->re - L'0';
+		      DPRINT(("tre_parse:     backref: '%.*" STRF "'\n",
+			      REST(ctx->re - 1)));
+		      result = tre_ast_new_literal(ctx->mem, BACKREF, val);
+		      if (result == NULL)
+			return REG_ESPACE;
+
+		      /* Set the backref with a submatch id in the invisible
+		       * range (which will be overridden if a real submatch
+		       * is needed) */
+		      result->submatch_id = ctx->submatch_id_invisible++;
+
+		      ctx->num_reorder_tags++;
+		      ctx->max_backref = MAX(val, ctx->max_backref);
+		      ctx->re++;
+		    }
+		  else
+		    {
+		      /* Escaped character. */
+		      DPRINT(("tre_parse:     escaped: '%.*" STRF "'\n",
+			      REST(ctx->re - 1)));
+		      result = tre_ast_new_literal(ctx->mem, *ctx->re, *ctx->re);
+		      ctx->re++;
+		    }
+		  break;
+		}
+	      if (result == NULL)
+		return REG_ESPACE;
+	      break;
+
+	    case CHAR_PERIOD:  /* the any-symbol */
+	      DPRINT(("tre_parse:       any: '%.*" STRF "'\n",
+		      REST(ctx->re)));
+	      if (ctx->cflags & REG_NEWLINE)
+		{
+		  tre_ast_node_t *tmp1;
+		  tre_ast_node_t *tmp2;
+		  tmp1 = tre_ast_new_literal(ctx->mem, 0, L'\n' - 1);
+		  if (!tmp1)
+		    return REG_ESPACE;
+		  tmp2 = tre_ast_new_literal(ctx->mem, L'\n' + 1, TRE_CHAR_MAX);
+		  if (!tmp2)
+		    return REG_ESPACE;
+		  result = tre_ast_new_union(ctx->mem, tmp1, tmp2);
+		  if (!result)
+		    return REG_ESPACE;
+		}
+	      else
+		{
+		  result = tre_ast_new_literal(ctx->mem, 0, TRE_CHAR_MAX);
+		  if (!result)
+		    return REG_ESPACE;
+		}
+	      ctx->re++;
+	      break;
+
+	    case CHAR_CARET:   /* beginning of line assertion */
+	      /* '^' has a special meaning everywhere in EREs, at the
+		 beginning of the RE and after \( is BREs.  It is also
+		 special in enhanced BREs at the beginning of each branches
+		 of a union */
+	      if (ctx->cflags & REG_EXTENDED
+		  || bre_branch_begin
+		  || ctx->re == ctx->re_start)
+		{
+		  DPRINT(("tre_parse:       BOL: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_BOL);
+		  if (result == NULL)
+		    return REG_ESPACE;
+		  ctx->re++;
+		}
+	      else
+		goto parse_literal;
+	      break;
+
+	    case CHAR_DOLLAR:  /* end of line assertion. */
+	      /* '$' is special everywhere in EREs, and in the end of the
+		 string and before \) is BREs. */
+	      if (ctx->cflags & REG_EXTENDED
+		  || (ctx->re + 2 < ctx->re_end
+		      && *(ctx->re + 1) == CHAR_BACKSLASH
+		      && *(ctx->re + 2) == CHAR_RPAREN)
+		  || ctx->re + 1 == ctx->re_end)
+		{
+		  DPRINT(("tre_parse:       EOL: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  result = tre_ast_new_literal(ctx->mem, ASSERTION,
+					       ASSERT_AT_EOL);
+		  if (result == NULL)
+		    return REG_ESPACE;
+		  ctx->re++;
+		}
+	      else
+		goto parse_literal;
+	      break;
+
+	    default:
+	    parse_literal:
+
+	      if (temporary_cflags && ctx->re + 1 < ctx->re_end
+		  && *ctx->re == CHAR_BACKSLASH && *(ctx->re + 1) == L'E')
+		{
+		  DPRINT(("tre_parse:  end tmps: '%.*" STRF "'\n",
+			  REST(ctx->re)));
+		  ctx->cflags &= ~temporary_cflags;
+		  temporary_cflags = 0;
+		  ctx->re += 2;
+		  if (ctx->re < ctx->re_end)
+		    {
+		      STACK_PUSHX(stack, int, 0);
+		      STACK_PUSHX(stack, int, PARSE_ATOM);
+		    }
+		  else
+		    {
+		      result = tre_ast_new_literal(ctx->mem, EMPTY, -1);
+		      if (!result) return REG_ESPACE;
+		    }
+		  break;
+		}
+
+
+	      /* We are expecting an atom.  If the subexpression (or the whole
+		 regexp) ends here, we interpret it as an empty expression
+		 (which matches an empty string), which is an error.
+		 Iterations of an empty expression is also an error. */
+#ifdef REG_LITERAL
+	      if (!(ctx->cflags & REG_LITERAL))
+		{
+#endif /* REG_LITERAL */
+		  /* error on end of string */
+		  if (ctx->re >= ctx->re_end) return depth > 0 ? REG_EPAREN
+						     : REG_EMPTY;
+		  /* error on unions and iterations of empty expressions */
+		  if (ctx->cflags & REG_EXTENDED)
+		    {
+		      if (ctx->re < ctx->re_end)
+			{
+			  if (*ctx->re == CHAR_PIPE) return REG_EMPTY;
+			  if (*ctx->re == CHAR_LBRACE)
+			    {
+			      ctx->re++;
+		empty_parse_bound:
+			      /* We need to parse the bound first and return
+				 any error, before returning REG_BADRPT */
+			      status = tre_parse_bound(ctx, NULL);
+#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
+			      /* For ERE, if REG_NOMATCH is returned, we
+				 treat the lbrace as a literal. */
+			      if (status == REG_NOMATCH)
+				{
+				  status = REG_OK;
+				  ctx->re--;
+				  /* Drop down to literal-handling code */
+				}
+			      else
+				{
+#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
+				  if (status != REG_OK)
+				    return status;
+				  return REG_BADRPT;
+#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
+				}
+#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
+			    }
+#ifdef ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND
+			  else
+#endif /* ERE_LITERAL_LBRACE_ON_NON_NUMERIC_BOUND */
+			  if (*ctx->re == CHAR_STAR
+			      || *ctx->re == CHAR_PLUS
+			      || *ctx->re == CHAR_QUESTIONMARK)
+			    {
+			      return REG_BADRPT;
+			    }
+			}
+		    }
+		  else if (ctx->re + 1 < ctx->re_end
+			   && *ctx->re == CHAR_BACKSLASH
+			   && *(ctx->re + 1) == CHAR_LBRACE)
+		    {
+		      ctx->re += 2;
+		      goto empty_parse_bound;
+		    }
+#ifdef REG_LITERAL
+		}
+#endif /* REG_LITERAL */
+
+	      DPRINT(("tre_parse:     literal: '%.*" STRF "'\n",
+		      REST(ctx->re)));
+	      /* Note that we can't use an tre_isalpha() test here, since there
+		 may be characters which are alphabetic but neither upper or
+		 lower case. */
+	      if (ctx->cflags & REG_ICASE
+		  && (tre_isupper_l(*ctx->re, ctx->loc) ||
+		  tre_islower_l(*ctx->re, ctx->loc)))
+		{
+		  tre_ast_node_t *tmp1;
+		  tre_ast_node_t *tmp2;
+
+		  /* XXX - Can there be more than one opposite-case
+		     counterpoints for some character in some locale?  Or
+		     more than two characters which all should be regarded
+		     the same character if case is ignored?  If yes, there
+		     does not seem to be a portable way to detect it.  I guess
+		     that at least for multi-character collating elements there
+		     could be several opposite-case counterpoints, but they
+		     cannot be supported portably anyway. */
+		  tmp1 = tre_ast_new_literal(ctx->mem,
+					     tre_toupper_l(*ctx->re, ctx->loc),
+					     tre_toupper_l(*ctx->re, ctx->loc));
+		  if (!tmp1)
+		    return REG_ESPACE;
+		  tmp2 = tre_ast_new_literal(ctx->mem,
+					     tre_tolower_l(*ctx->re, ctx->loc),
+					     tre_tolower_l(*ctx->re, ctx->loc));
+		  if (!tmp2)
+		    return REG_ESPACE;
+		  result = tre_ast_new_union(ctx->mem, tmp1, tmp2);
+		  if (!result)
+		    return REG_ESPACE;
+		}
+	      else
+		{
+		  result = tre_ast_new_literal(ctx->mem, *ctx->re, *ctx->re);
+		  if (!result)
+		    return REG_ESPACE;
+		}
+	      ctx->re++;
+	      break;
+	    }
+	  break;
 
 	case PARSE_MARK_FOR_SUBMATCH:
 	  {
 	    int submatch_id = tre_stack_pop_int(stack);
 
+	    assert(result);
 	    ctx->cflags = tre_stack_pop_int(stack); /* restore cflags */
 	    if (result->submatch_id >= 0 &&
 		result->submatch_id < SUBMATCH_ID_INVISIBLE_START)
@@ -2302,7 +2306,7 @@ tre_parse(tre_parse_ctx_t *ctx)
 		tre_ast_node_t *n, *tmp_node;
 		if (submatch_id >= SUBMATCH_ID_INVISIBLE_START)
 		  break;
-		n = tre_ast_new_literal(ctx->mem, EMPTY, -1, -1);
+		n = tre_ast_new_literal(ctx->mem, EMPTY, -1);
 		if (n == NULL)
 		  return REG_ESPACE;
 		tmp_node = tre_ast_new_catenation(ctx->mem, n, result);

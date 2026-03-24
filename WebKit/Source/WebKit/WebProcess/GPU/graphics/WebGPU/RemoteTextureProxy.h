@@ -45,7 +45,7 @@ class RemoteTextureProxy final : public WebCore::WebGPU::Texture {
 public:
     static Ref<RemoteTextureProxy> create(Ref<RemoteGPUProxy>&& root, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, bool isCanvasBacking = false)
     {
-        return adoptRef(*new RemoteTextureProxy(WTFMove(root), convertToBackingContext, identifier, isCanvasBacking));
+        return adoptRef(*new RemoteTextureProxy(WTF::move(root), convertToBackingContext, identifier, isCanvasBacking));
     }
 
     virtual ~RemoteTextureProxy();
@@ -63,12 +63,14 @@ private:
     RemoteTextureProxy& operator=(const RemoteTextureProxy&) = delete;
     RemoteTextureProxy& operator=(RemoteTextureProxy&&) = delete;
 
+    bool isRemoteTextureProxy() const final { return true; }
+
     WebGPUIdentifier backing() const { return m_backing; }
     
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().protectedStreamClientConnection()->send(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->send(WTF::move(message), backing());
     }
 
     RefPtr<WebCore::WebGPU::TextureView> createView(const std::optional<WebCore::WebGPU::TextureViewDescriptor>&) final;
@@ -86,5 +88,9 @@ private:
 };
 
 } // namespace WebKit::WebGPU
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebGPU::RemoteTextureProxy)
+    static bool isType(const WebCore::WebGPU::Texture& texture) { return texture.isRemoteTextureProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GPU_PROCESS)

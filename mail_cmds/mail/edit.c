@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)edit.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include <fcntl.h>
 #include "extern.h"
@@ -51,7 +43,7 @@ __FBSDID("$FreeBSD$");
  * Edit a message list.
  */
 int
-editor(int *msgvec)
+editor(void *msgvec)
 {
 
 	return (edit1(msgvec, 'e'));
@@ -61,7 +53,7 @@ editor(int *msgvec)
  * Invoke the visual editor on a message list.
  */
 int
-visual(int *msgvec)
+visual(void *msgvec)
 {
 
 	return (edit1(msgvec, 'v'));
@@ -180,9 +172,12 @@ run_editor(FILE *fp, off_t size, int type, int readonly)
 		goto out;
 	}
 	nf = NULL;
+#ifdef __APPLE__
 	if (((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL) || *edit == '\0')
+#else
+	if (((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL))
+#endif
 		edit = type == 'e' ? _PATH_EX : _PATH_VI;
-
 	if (run_command(edit, 0, -1, -1, tempname, NULL) < 0) {
 		(void)rm(tempname);
 		goto out;

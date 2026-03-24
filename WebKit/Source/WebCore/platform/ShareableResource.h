@@ -49,7 +49,7 @@ public:
     WEBCORE_EXPORT RefPtr<SharedBuffer> tryWrapInSharedBuffer() &&;
 
 private:
-    friend struct IPC::ArgumentCoder<ShareableResourceHandle, void>;
+    friend struct IPC::ArgumentCoder<ShareableResourceHandle>;
     friend class ShareableResource;
 
     SharedMemory::Handle m_handle;

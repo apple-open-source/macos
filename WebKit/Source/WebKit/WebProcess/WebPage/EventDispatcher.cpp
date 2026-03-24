@@ -103,7 +103,7 @@ void EventDispatcher::addScrollingTreeForPage(WebPage& webPage)
     Ref scrollingCoordinator = downcast<AsyncScrollingCoordinator>(*webPage.scrollingCoordinator());
     RefPtr scrollingTree = dynamicDowncast<ThreadedScrollingTree>(scrollingCoordinator->scrollingTree());
     ASSERT(scrollingTree);
-    m_scrollingTrees.set(webPage.identifier(), WTFMove(scrollingTree));
+    m_scrollingTrees.set(webPage.identifier(), WTF::move(scrollingTree));
 }
 
 void EventDispatcher::removeScrollingTreeForPage(WebPage& webPage)
@@ -213,8 +213,8 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
 #if ENABLE(MAC_GESTURE_EVENTS)
 void EventDispatcher::gestureEvent(FrameIdentifier frameID, PageIdentifier pageID, const WebGestureEvent& gestureEvent, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
-    RunLoop::mainSingleton().dispatch([this, frameID, pageID, gestureEvent, completionHandler = WTFMove(completionHandler)] mutable {
-        dispatchGestureEvent(frameID, pageID, gestureEvent, WTFMove(completionHandler));
+    RunLoop::mainSingleton().dispatch([this, frameID, pageID, gestureEvent, completionHandler = WTF::move(completionHandler)] mutable {
+        dispatchGestureEvent(frameID, pageID, gestureEvent, WTF::move(completionHandler));
     });
 }
 #endif
@@ -223,7 +223,7 @@ void EventDispatcher::gestureEvent(FrameIdentifier frameID, PageIdentifier pageI
 TouchEventData::TouchEventData(WebCore::FrameIdentifier frameID, const WebTouchEvent& event, CompletionHandler<void(bool, std::optional<RemoteWebTouchEvent>)>&& completionHandler)
     : frameID(frameID)
     , event(event)
-    , completionHandler(WTFMove(completionHandler)) { }
+    , completionHandler(WTF::move(completionHandler)) { }
 
 TouchEventData::TouchEventData(TouchEventData&&) = default;
 
@@ -236,7 +236,7 @@ void EventDispatcher::takeQueuedTouchEventsForPage(const WebPage& webPage, Uniqu
     Locker locker { m_touchEventsLock };
 
     if (auto queue = m_touchEvents.take(webPage.identifier()); queue)
-        destinationQueue = makeUniqueRefFromNonNullUniquePtr(WTFMove(queue));
+        destinationQueue = makeUniqueRefFromNonNullUniquePtr(WTF::move(queue));
 }
 
 void EventDispatcher::touchEvent(PageIdentifier pageID, FrameIdentifier frameID, const WebTouchEvent& touchEvent, CompletionHandler<void(bool, std::optional<RemoteWebTouchEvent>)>&& completionHandler)
@@ -247,7 +247,7 @@ void EventDispatcher::touchEvent(PageIdentifier pageID, FrameIdentifier frameID,
         updateListWasEmpty = m_touchEvents.isEmpty();
         auto addResult = m_touchEvents.add(pageID, makeUniqueRef<TouchEventQueue>());
         if (addResult.isNewEntry)
-            addResult.iterator->value->append({ frameID, touchEvent, WTFMove(completionHandler) });
+            addResult.iterator->value->append({ frameID, touchEvent, WTF::move(completionHandler) });
         else {
             auto& queuedEvents = addResult.iterator->value;
             ASSERT(!queuedEvents->isEmpty());
@@ -261,9 +261,9 @@ void EventDispatcher::touchEvent(PageIdentifier pageID, FrameIdentifier frameID,
                 auto touchEventWithCoalescedEvents = touchEvent;
                 touchEventWithCoalescedEvents.setCoalescedEvents(coalescedEvents);
 
-                queuedEvents->last() = { frameID, touchEventWithCoalescedEvents, WTFMove(completionHandler) };
+                queuedEvents->last() = { frameID, touchEventWithCoalescedEvents, WTF::move(completionHandler) };
             } else
-                queuedEvents->append({ frameID, touchEvent, WTFMove(completionHandler) });
+                queuedEvents->append({ frameID, touchEvent, WTF::move(completionHandler) });
         }
     }
 
@@ -287,7 +287,7 @@ void EventDispatcher::dispatchTouchEvents()
 
     for (auto& slot : localCopy) {
         if (RefPtr webPage = WebProcess::singleton().webPage(slot.key))
-            webPage->dispatchAsynchronousTouchEvents(WTFMove(slot.value));
+            webPage->dispatchAsynchronousTouchEvents(WTF::move(slot.value));
         else {
             for (auto& data : slot.value.get())
                 data.completionHandler(false, std::nullopt);
@@ -332,7 +332,7 @@ void EventDispatcher::dispatchGestureEvent(FrameIdentifier frameID, PageIdentifi
     if (!webPage)
         return completionHandler(gestureEvent.type(), false, std::nullopt);
 
-    webPage->gestureEvent(frameID, gestureEvent, WTFMove(completionHandler));
+    webPage->gestureEvent(frameID, gestureEvent, WTF::move(completionHandler));
 }
 #endif
 
@@ -383,9 +383,9 @@ void EventDispatcher::pageScreenDidChange(PageIdentifier pageID, PlatformDisplay
 }
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
-void EventDispatcher::setScrollingAccelerationCurve(PageIdentifier pageID, std::optional<ScrollingAccelerationCurve> curve)
+void EventDispatcher::setScrollingAccelerationCurve(PageIdentifier pageID, std::optional<ScrollingAccelerationCurve>&& curve)
 {
-    m_momentumEventDispatcher->setScrollingAccelerationCurve(pageID, curve);
+    m_momentumEventDispatcher->setScrollingAccelerationCurve(pageID, WTF::move(curve));
 }
 
 void EventDispatcher::handleSyntheticWheelEvent(WebCore::PageIdentifier pageIdentifier, const WebWheelEvent& event, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges)

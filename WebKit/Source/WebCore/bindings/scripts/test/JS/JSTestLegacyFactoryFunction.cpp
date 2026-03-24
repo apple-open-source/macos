@@ -135,7 +135,7 @@ template<> EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSTestLegacyFactoryFunctionLe
     if constexpr (IsExceptionOr<decltype(object)>)
         RETURN_IF_EXCEPTION(throwScope, { });
     static_assert(TypeOrExceptionOrUnderlyingType<decltype(object)>::isRef);
-    auto jsValue = toJSNewlyCreated<IDLInterface<TestLegacyFactoryFunction>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTFMove(object));
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestLegacyFactoryFunction>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTF::move(object));
     if constexpr (IsExceptionOr<decltype(object)>)
         RETURN_IF_EXCEPTION(throwScope, { });
     setSubclassStructureIfNeeded<TestLegacyFactoryFunction>(lexicalGlobalObject, callFrame, asObject(jsValue));
@@ -179,7 +179,7 @@ void JSTestLegacyFactoryFunctionPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestLegacyFactoryFunction::s_info = { "TestLegacyFactoryFunction"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestLegacyFactoryFunction) };
 
 JSTestLegacyFactoryFunction::JSTestLegacyFactoryFunction(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestLegacyFactoryFunction>&& impl)
-    : JSDOMWrapper<TestLegacyFactoryFunction>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestLegacyFactoryFunction>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -298,7 +298,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestLegacyFactoryFunction>(impl.ptr());
 #endif
-    return createWrapper<TestLegacyFactoryFunction>(globalObject, WTFMove(impl));
+    return createWrapper<TestLegacyFactoryFunction>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestLegacyFactoryFunction& impl)

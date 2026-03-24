@@ -61,12 +61,14 @@ private:
     RemoteComputePipelineProxy& operator=(const RemoteComputePipelineProxy&) = delete;
     RemoteComputePipelineProxy& operator=(RemoteComputePipelineProxy&&) = delete;
 
+    bool isRemoteComputePipelineProxy() const final { return true; }
+
     WebGPUIdentifier backing() const { return m_backing; }
     
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().protectedStreamClientConnection()->send(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->send(WTF::move(message), backing());
     }
 
     Ref<WebCore::WebGPU::BindGroupLayout> getBindGroupLayout(uint32_t index) final;
@@ -79,5 +81,9 @@ private:
 };
 
 } // namespace WebKit::WebGPU
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebGPU::RemoteComputePipelineProxy)
+    static bool isType(const WebCore::WebGPU::ComputePipeline& pipeline) { return pipeline.isRemoteComputePipelineProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GPU_PROCESS)

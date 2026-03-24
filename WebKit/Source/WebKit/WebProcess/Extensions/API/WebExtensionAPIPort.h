@@ -147,11 +147,13 @@ private:
     RetainPtr<JSValue> m_error;
     std::optional<WebExtensionMessageSenderParameters> m_senderParameters;
 
-    RefPtr<WebExtensionAPIEvent> m_onMessage;
-    RefPtr<WebExtensionAPIEvent> m_onDisconnect;
+    const RefPtr<WebExtensionAPIEvent> m_onMessage;
+    const RefPtr<WebExtensionAPIEvent> m_onDisconnect;
 #endif
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIPort, port);
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

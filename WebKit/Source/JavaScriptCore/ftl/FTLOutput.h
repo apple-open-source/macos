@@ -397,9 +397,11 @@ public:
     LValue call(LType type, LValue function) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function); }
     LValue call(LType type, LValue function, LValue arg1) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function, arg1); }
     template<typename... Args>
+    requires (std::is_convertible_v<Args, LValue> && ...)
     LValue call(LType type, LValue function, LValue arg1, Args... args) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function, arg1, args...); }
 
     template<typename Function, typename... Args>
+    requires (std::is_convertible_v<Args, LValue> && ...)
     LValue callWithoutSideEffects(B3::Type type, Function function, LValue arg1, Args... args)
     {
         static_assert(!std::is_same<Function, LValue>::value);

@@ -287,9 +287,9 @@ struct ExpressionInfo::Diff {
 // The type for divot, line, and column is intentionally int, not unsigned. These are
 // diff values which can be negative. These asserts are just here to draw attention to
 // this comment in case anyone naively changes their type.
-static_assert(std::is_same_v<decltype(ExpressionInfo::Diff::divot), int>);
-static_assert(std::is_same_v<decltype(ExpressionInfo::Diff::line), int>);
-static_assert(std::is_same_v<decltype(ExpressionInfo::Diff::column), int>);
+static_assert(std::same_as<decltype(ExpressionInfo::Diff::divot), int>);
+static_assert(std::same_as<decltype(ExpressionInfo::Diff::line), int>);
+static_assert(std::same_as<decltype(ExpressionInfo::Diff::column), int>);
 
 bool ExpressionInfo::EncodedInfo::isAbsInstPC() const
 {
@@ -681,7 +681,7 @@ std::unique_ptr<ExpressionInfo> ExpressionInfo::Encoder::createExpressionInfo()
     size_t numberOfEncodedInfo = m_expressionInfoEncodedInfo.size() - m_numberOfEncodedInfoExtensions;
     size_t totalSize = ExpressionInfo::totalSizeInBytes(numberOfChapters, numberOfEncodedInfo, m_numberOfEncodedInfoExtensions);
     void* allocation = FastMalloc::malloc(totalSize);
-    return std::unique_ptr<ExpressionInfo>(new (allocation) ExpressionInfo(WTFMove(m_expressionInfoChapters), WTFMove(m_expressionInfoEncodedInfo), m_numberOfEncodedInfoExtensions));
+    return std::unique_ptr<ExpressionInfo>(new (allocation) ExpressionInfo(WTF::move(m_expressionInfoChapters), WTF::move(m_expressionInfoEncodedInfo), m_numberOfEncodedInfoExtensions));
 }
 
 ExpressionInfo::Decoder::Decoder(const ExpressionInfo& expressionInfo)

@@ -546,10 +546,44 @@ internal func traceError(_ error: Error?) -> String {
     }
 }
 
+func doPeerSecretsFixUps() throws {
+    let updateQuery: [CFString: Any] = [
+        kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+    ]
+
+    // Update keys (Escrow + Recovery keys)
+    let keysQuery: [CFString: Any] = [
+        kSecClass: kSecClassKey,
+        kSecAttrAccessGroup: "com.apple.security.octagon",
+        kSecUseDataProtectionKeychain: true,
+        kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+        kSecAttrSynchronizable: false,
+    ]
+
+    let keysStatus = SecItemUpdate(keysQuery as CFDictionary, updateQuery as CFDictionary)
+    if keysStatus != errSecSuccess && keysStatus != errSecItemNotFound {
+        throw ContainerError.failedToStoreSecret(errorCode: Int(keysStatus))
+    }
+
+    // Update secrets (bottle entropy)
+    let secretsQuery: [CFString: Any] = [
+        kSecClass: kSecClassInternetPassword,
+        kSecAttrAccessGroup: "com.apple.security.octagon",
+        kSecUseDataProtectionKeychain: true,
+        kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+        kSecAttrSynchronizable: false,
+    ]
+
+    let secretsStatus = SecItemUpdate(secretsQuery as CFDictionary, updateQuery as CFDictionary)
+    if secretsStatus != errSecSuccess && secretsStatus != errSecItemNotFound {
+        throw ContainerError.failedToStoreSecret(errorCode: Int(secretsStatus))
+    }
+}
+
 func saveSecret(_ secret: Data, label: String) throws {
     let query: [CFString: Any] = [
         kSecClass: kSecClassInternetPassword,
-        kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+        kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         kSecUseDataProtectionKeychain: true,
         kSecAttrAccessGroup: "com.apple.security.octagon",
         kSecAttrSynchronizable: false,
@@ -557,7 +591,10 @@ func saveSecret(_ secret: Data, label: String) throws {
         kSecAttrPath: label,
         kSecValueData: secret,
         ]
+    try saveSecretInKeychain(query: query, secret: secret, label: label)
+}
 
+func saveSecretInKeychain(query: [CFString: Any], secret: Data, label: String) throws {
     var results: CFTypeRef?
     var status = SecItemAdd(query as CFDictionary, &results)
 
@@ -2525,6 +2562,229 @@ class Container: NSObject, ConfiguredCloudKit {
                 }
             }
         }
+    }
+
+    func fetchChangesAfterWalrusStateChange(changes: Changes, reply: @escaping (Error?) -> Void) throws {
+        guard changes.more == false else {
+            logger.info("walrus state change succeeded, but more changes need fetching...")
+            self.fetchAndPersistChanges(forceRefetch: true) { fetchError in
+                guard fetchError == nil else {
+                    logger.info("fetch-after-walrus-state-change failed: \(String(describing: fetchError), privacy: .public)")
+                    reply(fetchError)
+                    return
+                }
+                logger.info("fetch-after-walrus-state-change succeeded")
+                reply(nil)
+            }
+            return
+        }
+        reply(nil)
+    }
+
+    func enableWalrus(preRecords: [OTSerializedPlistEscrowRecord], extraArgs: TPWalrusExtraArguments, flowID: String?, deviceSessionID: String?, reply: @escaping (Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .info : .error
+            logger.log(level: logType, "enableWalrus complete \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+
+        self.moc.performAndWait {
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                logger.error("no prepared identity, cannot enable walrus")
+                reply(ContainerError.noPreparedIdentity)
+                return
+            }
+
+            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                guard let signingKeyPair = signingKeyPair else {
+                    logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                    reply(error)
+                    return
+                }
+
+                do {
+                    // Check our current walrus state before proceeding. If walrus is already enabled, exit.
+                    guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
+                        logger.info("stableInfo does not exist")
+                        throw ContainerError.nonMember
+                    }
+                    guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                        logger.info("stableInfoSig does not exist")
+                        throw ContainerError.nonMember
+                    }
+                    guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
+                        logger.info("cannot create TPPeerStableInfo")
+                        throw ContainerError.invalidStableInfoOrSig
+                    }
+
+                    // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
+                    let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
+                        EscrowRecordFormatQuery.with {
+                            $0.label = preRecord.label
+                            $0.metadata = preRecord.metadata
+                            $0.blob = preRecord.blob
+                        }
+                    }
+                    var request = EnableWalrusRequest.with {
+                        $0.escrowRecords = cuttlefishPreRecords
+                        $0.changeToken = self.changeToken()
+                        $0.peerID = egoPeerID
+                        $0.metrics = Metrics.with {
+                            $0.deviceSessionID = deviceSessionID ?? ""
+                            $0.flowID = flowID ?? ""
+                        }
+                    }
+#if APPLE_FEATURE_DBR
+                    request.isDbrv2 = extraArgs.isDBRv2
+#endif
+                    let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: true)
+                    request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
+
+                    self.cuttlefish.enableWalrus(request) { response in
+                        switch response {
+                        case .success(let response):
+                            logger.notice("enableWalrus success")
+                            do {
+                                let responseChangesJson = try response.changes.jsonString()
+                                logger.info("EnableWalrus returned changes: \(responseChangesJson, privacy: .public)")
+                            } catch {
+                                logger.info("EnableWalrus returned changes, but they can't be serialized")
+                            }
+                            do {
+                                try self.persist(changes: response.changes)
+                                try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
+                            } catch {
+                                logger.error("enableWalrus handling failed: \(String(describing: error), privacy: .public)")
+                                reply(error)
+                            }
+                        case .failure(let error):
+                            logger.error("enableWalrus failed: \(String(describing: error), privacy: .public)")
+                            reply(error)
+                            return
+                        }
+                    }
+                } catch {
+                    logger.info("Could not attempt to enable walrus: \(error)")
+                    reply(error)
+                }
+            }
+        }
+    }
+
+    func disableWalrus(preRecords: [OTSerializedPlistEscrowRecord], extraArgs: TPWalrusExtraArguments, flowID: String?, deviceSessionID: String?, reply: @escaping (Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .info : .error
+            logger.log(level: logType, "disableWalrus complete \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+        self.moc.performAndWait {
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                logger.info("no prepared identity, cannot disable walrus")
+                reply(ContainerError.noPreparedIdentity)
+                return
+            }
+
+            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                guard let signingKeyPair = signingKeyPair else {
+                    logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                    reply(error)
+                    return
+                }
+
+                do {
+                    // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
+                    let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
+                        EscrowRecordFormatQuery.with {
+                            $0.label = preRecord.label
+                            $0.metadata = preRecord.metadata
+                            $0.blob = preRecord.blob
+                        }
+                    }
+                    var request = DisableWalrusRequest.with {
+                        $0.escrowRecords = cuttlefishPreRecords
+                        $0.changeToken = self.changeToken()
+                        $0.peerID = egoPeerID
+                        $0.metrics = Metrics.with {
+                            $0.deviceSessionID = deviceSessionID ?? ""
+                            $0.flowID = flowID ?? ""
+                        }
+                    }
+#if APPLE_FEATURE_DBR
+                    request.isDbrv2 = extraArgs.isDBRv2
+#endif
+                    let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: false)
+                    request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
+
+                    self.cuttlefish.disableWalrus(request) { response in
+                        switch response {
+                        case .success(let response):
+                            logger.notice("disableWalrus success")
+                            do {
+                                let responseChangesJson = try response.changes.jsonString()
+                                logger.info("DisableWalrus returned changes: \(responseChangesJson, privacy: .public)")
+                            } catch {
+                                logger.info("DisableWalrus returned changes, but they can't be serialized")
+                            }
+                            do {
+                                try self.persist(changes: response.changes)
+                                try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
+                            } catch {
+                                logger.error("disableWalrus handling failed: \(String(describing: error), privacy: .public)")
+                                reply(error)
+                            }
+                        case .failure(let error):
+                            logger.error("disableWalrus failed: \(String(describing: error), privacy: .public)")
+                            reply(error)
+                            return
+                        }
+                    }
+                } catch {
+                    reply(error)
+                }
+            }
+        }
+    }
+
+    func onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: TPKeyPair, walrusValue: Bool) throws -> TPPeerStableInfo {
+        guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
+            logger.info("stableInfo does not exist")
+            throw ContainerError.nonMember
+        }
+        guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+            logger.info("stableInfoSig does not exist")
+            throw ContainerError.nonMember
+        }
+        guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
+            logger.info("cannot create TPPeerStableInfo")
+            throw ContainerError.invalidStableInfoOrSig
+        }
+        let policyVersion = stableInfo.bestPolicyVersion()
+        let policyDoc = try self.getPolicyDoc(policyVersion.versionNumber)
+
+        let newWalrusSetting = TPPBPeerStableInfoSetting()
+        newWalrusSetting?.clock = stableInfo.walrusSetting?.clock ?? 0
+        newWalrusSetting?.clock += 1
+        newWalrusSetting?.value = walrusValue
+
+        return try TPPeerStableInfo(clock: stableInfo.clock + 1,
+                                     frozenPolicyVersion: frozenPolicyVersion,
+                                     flexiblePolicyVersion: policyDoc.version,
+                                     policySecrets: stableInfo.policySecrets,
+                                     syncUserControllableViews: stableInfo.syncUserControllableViews,
+                                     secureElementIdentity: stableInfo.secureElementIdentity,
+                                     walrusSetting: newWalrusSetting,
+                                     webAccess: stableInfo.webAccess,
+                                     deviceName: stableInfo.deviceName,
+                                     serialNumber: stableInfo.serialNumber,
+                                     osVersion: stableInfo.osVersion,
+                                     signing: signingKeyPair,
+                                     recoverySigningPubKey: stableInfo.recoverySigningPublicKey,
+                                     recoveryEncryptionPubKey: stableInfo.recoveryEncryptionPublicKey,
+                                     isInheritedAccount: stableInfo.isInheritedAccount)
     }
 
     func localReset(reply: @escaping (Error?) -> Void) {
@@ -7727,9 +7987,7 @@ class Container: NSObject, ConfiguredCloudKit {
         if let count = bottleMOs?.count {
             if count > 1 {
                 throw ContainerError.tooManyBottlesForPeer
-                // swiftlint:disable empty_count
             } else if count == 0 {
-                // swiftlint:enable empty_count
                 throw ContainerError.noBottleForPeer
             }
         } else {
@@ -8107,6 +8365,26 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.error("fetchPCSIdentityByKey failed: \(String(describing: error), privacy: .public)")
                 reply([], [], error)
                 return
+            }
+        }
+    }
+
+    func performPeerSecretsFixUps(reply: @escaping (Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .info : .error
+            logger.log(level: logType, "performPeerSecretsFixUps complete: \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+        self.moc.performAndWait {
+            do {
+                try doPeerSecretsFixUps()
+                logger.info("performPeerSecretsFixUps succeeded")
+                reply(nil)
+            } catch {
+                logger.error("performPeerSecretsFixUps failed: \(String(describing: error), privacy: .public)")
+                reply(error)
             }
         }
     }

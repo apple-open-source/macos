@@ -103,7 +103,9 @@
 #include <netkey/keysock.h>
 #endif
 
+#include <err.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include "netstat.h"
@@ -111,6 +113,7 @@
 #if defined(__APPLE__) && !defined(__unused)
 #define __unused
 #endif
+
 /*
  * portability issues:
  * - bsdi[34] uses PLURAL(), not plural().
@@ -122,7 +125,23 @@
 #define LLU	"%llu"
 #define CAST	unsigned long long
 
-#ifdef IPSEC 
+#ifdef IPSEC
+
+#ifdef XSO_KEYPCB
+#include <netkey/keysock_private.h>
+
+#define ROUNDUP64(a) \
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
+#define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
+
+#define ALL_XGN_KIND_ROUTEPCB (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_KEYPCB)
+
+struct xgen_n {
+	u_int32_t	xgn_len;	/* length of this structure */
+	u_int32_t	xgn_kind;	/* type of structure */
+};
+#endif /* XSO_KEYPCB */
+
 struct val2str {
 	int val;
 	const char *str;
@@ -396,5 +415,143 @@ pfkey_stats(struct netstat_parameters *params, uint32_t off __unused, char *name
 	}
 
 	return 0;
+}
+
+int
+keysockpr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
+{
+	int error = 0;
+
+	printf("Active pfkey sockets\n");
+
+#ifdef XSO_KEYPCB
+	char *buf = NULL, *next;
+	size_t len;
+	struct xrtsockgen *xrg, *oxrg;
+	struct xgen_n *xgn;
+	struct xrtsockpcb *xrp = NULL;
+	struct xsocket_n *so = NULL;
+	struct xsockbuf_n *so_rcv = NULL;
+	struct xsockbuf_n *so_snd = NULL;
+	struct xsockstat_n *so_stat = NULL;
+	const char *mibvar = "net.route.pcblist";
+	int which = 0;
+	int first = 1;
+
+	len = 0;
+	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
+		warn("sysctl: %s for len", mibvar);
+		return -1;
+	}
+	if ((buf = malloc(len)) == 0) {
+		warn("malloc %lu bytes", (u_long)len);
+		return -1;
+	}
+	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
+		warn("sysctl: %s for buf len %zd", mibvar, len);
+		free(buf);
+		return -1;
+	}
+
+	oxrg = xrg = (struct xrtsockgen *)buf;
+	xgn = (struct xgen_n*)buf;
+
+	for (next = buf + ROUNDUP64(xgn->xgn_len); next < buf + len; next += ROUNDUP64(xgn->xgn_len)) {
+		xgn = (struct xgen_n*)next;
+
+		if (xgn->xgn_len <= sizeof(struct xgen_n))
+			break;
+		if ((which & xgn->xgn_kind) == 0) {
+			which |= xgn->xgn_kind;
+			switch (xgn->xgn_kind) {
+				case XSO_SOCKET:
+					so = (struct xsocket_n *)xgn;
+					break;
+				case XSO_RCVBUF:
+					so_rcv = (struct xsockbuf_n *)xgn;
+					break;
+				case XSO_SNDBUF:
+					so_snd = (struct xsockbuf_n *)xgn;
+					break;
+				case XSO_STATS:
+					so_stat = (struct xsockstat_n *)xgn;
+					break;
+				case XSO_KEYPCB:
+					xrp = (struct xrtsockpcb *)xgn;
+					break;
+				default:
+					/* It's OK to have some extra bytes at the end */
+					if (which != 0 && params->vflag > 2) {
+						printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
+					}
+					break;
+			}
+		}
+		if (first) {
+			printf("%-6.6s %-6.6s %-6.6s ",
+				   "Proto", "Recv-Q", "Send-Q");
+			if (params->lflag) {
+				printf("%-40.40s %-40.40s ",
+					   "Local Address", "Foreign Address");
+			} else {
+				printf("%-18.18s %-18.18s ",
+					   "Local Address", "Foreign Address");
+			}
+			print_socket_stats_format(params);
+
+			printf("\n");
+			first = 0;
+		}
+		if (which == ALL_XGN_KIND_ROUTEPCB) {
+			which = 0;
+			char buffer[10];
+
+			if (xrp->xrp_laddr.sa_family == PF_KEY_V2) {
+				snprintf(buffer, sizeof(buffer), "%s", "v2");
+			} else {
+				snprintf(buffer, sizeof(buffer), "%d", xrp->xrp_laddr.sa_family);
+			}
+
+			printf("%-6s %6u %6u ", buffer, so_rcv->sb_cc, so_snd->sb_cc);
+
+#define SIN(x) ((struct sockaddr_in *)(x))
+#define SIN6(x) ((struct sockaddr_in6 *)(x))
+			if (xrp->xrp_laddr.sa_family == AF_INET) {
+				in_addr_print(params, &SIN(&xrp->xrp_laddr)->sin_addr);
+			} else if (xrp->xrp_laddr.sa_family == AF_INET6) {
+				in6_addr_print(params, &SIN6(&xrp->xrp_laddr)->sin6_addr);
+			} else {
+				if (params->lflag) {
+					printf("%-40.40s ",
+						   "");
+				} else {
+					printf("%-18.18s ",
+						   "");
+				}
+			}
+
+			if (xrp->xrp_faddr.sa_family == AF_INET) {
+				in_addr_print(params, &SIN(&xrp->xrp_faddr)->sin_addr);
+			} else if (xrp->xrp_faddr.sa_family == AF_INET6) {
+				in6_addr_print(params, &SIN6(&xrp->xrp_faddr)->sin6_addr);
+			} else {
+				if (params->lflag) {
+					printf("%-40.40s ",
+						   "");
+				} else {
+					printf("%-18.18s ",
+						   "");
+				}
+			}
+#undef SIN
+#undef SIN6
+
+			print_socket_stats_data(params, so, so_rcv, so_snd, so_stat);
+			printf("\n");
+		}
+	}
+	free(buf);
+#endif /* XSO_KEYPCB */
+	return error;
 }
 #endif /*IPSEC*/

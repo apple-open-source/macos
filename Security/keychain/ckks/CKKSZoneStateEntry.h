@@ -60,6 +60,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSDate* lastLocalKeychainScanTime;
 @property BOOL fetchNewestChangesFirst;
 @property BOOL initialSyncFinished;
+@property (nullable) NSString* altDSID;
 
 @property CKKSFixup lastFixup;
 
@@ -89,7 +90,8 @@ NS_ASSUME_NONNULL_BEGIN
                         lastFixup:(CKKSFixup)lastFixup
                encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter
           fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
-              initialSyncFinished:(BOOL)initialSyncFinished;
+              initialSyncFinished:(BOOL)initialSyncFinished
+                          altDSID:(NSString* _Nullable)altDSID;
 
 - (CKServerChangeToken* _Nullable)getChangeToken;
 - (void)setChangeToken:(CKServerChangeToken* _Nullable)token;

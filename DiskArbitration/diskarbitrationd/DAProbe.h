@@ -55,6 +55,9 @@ struct __DAProbeCallbackContext
     uint64_t          startTime;
 #ifdef DA_FSKIT
     int               gotFSModules;
+    DAFileSystemRef   probeToRetry_fs;
+    int               probeToRetry_match;
+    bool              skipLimitedProbe;
 #endif
 };
 

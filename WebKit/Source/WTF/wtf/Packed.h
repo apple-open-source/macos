@@ -26,6 +26,7 @@
 #pragma once
 
 #include <array>
+#include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
 #include <wtf/HashFunctions.h>
@@ -84,7 +85,8 @@ public:
         m_storage.swap(other.m_storage);
     }
 
-    template<typename Other, typename = std::enable_if_t<Other::isPackedType>>
+    template<typename Other>
+        requires Other::isPackedType
     void swap(Other& other)
     {
         T t1 = get();
@@ -188,8 +190,9 @@ public:
 
     T* operator->() const { return get(); }
 
-    template <typename U = T>
-    typename std::enable_if<!std::is_void_v<U>, U&>::type operator*() const { return *get(); }
+    template<typename U = T>
+        requires (!std::is_void_v<U>)
+    U& operator*() const { return *get(); }
 
     bool operator!() const { return !get(); }
 
@@ -219,7 +222,8 @@ public:
         m_storage.swap(other.m_storage);
     }
 
-    template<typename Other, typename = std::enable_if_t<Other::isPackedType>>
+    template<typename Other>
+        requires Other::isPackedType
     void swap(Other& other)
     {
         T* t1 = get();

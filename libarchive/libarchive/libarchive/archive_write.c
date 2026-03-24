@@ -471,6 +471,9 @@ static int
 archive_write_client_free(struct archive_write_filter *f)
 {
 	struct archive_write *a = (struct archive_write *)f->archive;
+#ifdef __APPLE__
+	struct archive_none *state = (struct archive_none *)f->data;
+#endif /* __APPLE__ */
 
 	if (a->client_freer)
 		(*a->client_freer)(&a->archive, a->client_data);
@@ -482,6 +485,12 @@ archive_write_client_free(struct archive_write_filter *f)
 		free(a->passphrase);
 		a->passphrase = NULL;
 	}
+#ifdef __APPLE__
+	if (state != NULL) {
+		free(state->buffer);
+		free(state);
+	}
+#endif /* __APPLE__ */
 
 	return (ARCHIVE_OK);
 }
@@ -541,6 +550,9 @@ archive_write_client_close(struct archive_write_filter *f)
 		(*a->client_closer)(&a->archive, a->client_data);
 	free(state->buffer);
 	free(state);
+#ifdef __APPLE__
+	f->data = NULL;
+#endif /* __APPLE__ */
 
 	/* Clear the close handler myself not to be called again. */
 	f->state = ARCHIVE_WRITE_FILTER_STATE_CLOSED;

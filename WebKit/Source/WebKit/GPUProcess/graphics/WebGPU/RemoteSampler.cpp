@@ -41,7 +41,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteSampler);
 RemoteSampler::RemoteSampler(WebCore::WebGPU::Sampler& sampler, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(sampler)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -62,7 +62,7 @@ void RemoteSampler::stopListeningForIPC()
 
 void RemoteSampler::setLabel(String&& label)
 {
-    Ref { m_backing }->setLabel(WTFMove(label));
+    Ref { m_backing }->setLabel(WTF::move(label));
 }
 
 Ref<IPC::StreamServerConnection> RemoteSampler::protectedStreamConnection() const

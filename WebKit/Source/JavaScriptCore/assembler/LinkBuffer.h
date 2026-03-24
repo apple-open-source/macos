@@ -158,7 +158,8 @@ public:
     
     // These methods are used to link or set values at code generation time.
 
-    template<PtrTag tag, typename Func, typename = std::enable_if_t<std::is_function<typename std::remove_pointer<Func>::type>::value>>
+    template<PtrTag tag, typename Func>
+        requires (std::is_function_v<typename std::remove_pointer_t<Func>>)
     void link(Call call, Func funcName)
     {
         CodePtr<tag> function(funcName);

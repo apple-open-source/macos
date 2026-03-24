@@ -32,7 +32,7 @@ public:
     static JSTestCallTracer* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestCallTracer>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestCallTracer* ptr = new (NotNull, JSC::allocateCell<JSTestCallTracer>(vm)) JSTestCallTracer(structure, *globalObject, WTFMove(impl));
+        JSTestCallTracer* ptr = new (NotNull, JSC::allocateCell<JSTestCallTracer>(vm)) JSTestCallTracer(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

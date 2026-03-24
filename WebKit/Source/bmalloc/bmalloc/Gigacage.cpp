@@ -274,7 +274,7 @@ bool shouldBeEnabled()
             RELEASE_BASSERT(!g_gigacageConfig.shouldBeEnabledHasBeenCalled);
             g_gigacageConfig.shouldBeEnabledHasBeenCalled = true;
 
-            bool systemHeapEnabled = Environment::get()->isSystemHeapEnabled();
+            bool systemHeapEnabled = Environment::get()->shouldBmallocAllocateThroughSystemHeap();
             if (systemHeapEnabled)
                 return;
 

@@ -25,8 +25,7 @@
 
 #pragma once
 
-#include <WebCore/DigitalCredentialsProtocols.h>
-#include <WebCore/UnvalidatedDigitalCredentialRequest.h>
+#include <WebCore/MobileDocumentRequest.h>
 #include <WebCore/ValidatedMobileDocumentRequest.h>
 #include <wtf/Vector.h>
 
@@ -39,7 +38,7 @@ struct ValidatedMobileDocumentRequest;
 namespace WebKit {
 namespace DigitalCredentials {
 
-Vector<WebCore::ValidatedDigitalCredentialRequest> validateRequests(const WebCore::SecurityOrigin&, const WebCore::Document&, const Vector<WebCore::UnvalidatedDigitalCredentialRequest>&);
+Vector<WebCore::ValidatedMobileDocumentRequest> validateRequests(const WebCore::SecurityOrigin&, const WebCore::Document&, const Vector<WebCore::MobileDocumentRequest>&);
 
 } // namespace DigitalCredentials
 } // namespace WebKit

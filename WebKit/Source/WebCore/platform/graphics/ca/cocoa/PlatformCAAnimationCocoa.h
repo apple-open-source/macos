@@ -39,9 +39,9 @@ typedef CAAnimation* PlatformAnimationRef;
 
 namespace WebCore {
 
-WEBCORE_EXPORT NSString* toCAFillModeType(PlatformCAAnimation::FillModeType);
-WEBCORE_EXPORT NSString* toCAValueFunctionType(PlatformCAAnimation::ValueFunctionType);
-WEBCORE_EXPORT CAMediaTimingFunction* toCAMediaTimingFunction(const TimingFunction&, bool reverse);
+WEBCORE_EXPORT RetainPtr<NSString> toCAFillModeType(PlatformCAAnimation::FillModeType);
+WEBCORE_EXPORT RetainPtr<NSString> toCAValueFunctionType(PlatformCAAnimation::ValueFunctionType);
+WEBCORE_EXPORT RetainPtr<CAMediaTimingFunction> toCAMediaTimingFunction(const TimingFunction&, bool reverse);
 
 bool hasExplicitBeginTime(CAAnimation *);
 void setHasExplicitBeginTime(CAAnimation *, bool);

@@ -86,9 +86,9 @@ bool assetTrackMeetsHardwareDecodeRequirements(AVAssetTrack *track, const Vector
 {
     Vector<FourCC> codecs;
     for (NSUInteger i = 0, count = track.formatDescriptions.count; i < count; ++i) {
-        CMFormatDescriptionRef description = (__bridge CMFormatDescriptionRef)track.formatDescriptions[i];
-        if (PAL::CMFormatDescriptionGetMediaType(description) == kCMMediaType_Video)
-            codecs.append(FourCC(PAL::CMFormatDescriptionGetMediaSubType(description)));
+        RetainPtr description = (__bridge CMFormatDescriptionRef)track.formatDescriptions[i];
+        if (PAL::CMFormatDescriptionGetMediaType(description.get()) == kCMMediaType_Video)
+            codecs.append(FourCC(PAL::CMFormatDescriptionGetMediaSubType(description.get())));
     }
     return codecsMeetHardwareDecodeRequirements(codecs, contentTypesRequiringHardwareDecode);
 }

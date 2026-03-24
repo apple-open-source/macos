@@ -64,6 +64,19 @@ extension WebPage {
             case errorOnFailure
         }
 
+        /// Security restriction modes for WebView content.
+        @available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+        @available(watchOS, unavailable)
+        @available(tvOS, unavailable)
+        public enum SecurityRestrictionMode: Sendable {
+            /// No additional security restrictions beyond WebKit defaults.
+            case none
+            /// Enhanced security protections optimized for maintaining web compatibility. Disables JIT compilation and enables increased MTE adoption.
+            case maximizeCompatibility
+            /// Maximum security restrictions including feature disablement. Applied automatically by the system in Lockdown Mode.
+            case lockdown
+        }
+
         /// Creates a new NavigationPreferences value.
         public init() {
         }
@@ -95,6 +108,26 @@ extension WebPage {
         public var isLockdownModeEnabled: Bool {
             get { backingIsLockdownModeEnabled ?? false }
             set { backingIsLockdownModeEnabled = newValue }
+        }
+
+        var backingSecurityRestrictionMode: SecurityRestrictionMode? = nil
+
+        /// Security restriction mode for this navigation.
+        ///
+        /// Security restriction modes provide different levels of security hardening for high-risk browsing contexts.
+        /// `SecurityRestrictionMode.maximizeCompatibility` provides additional hardening while maintaining full web compatibility:
+        /// - JavaScript JIT compilation disabled (interpreter-only execution)
+        /// - Increased Memory Tagging Extension (MTE) coverage across allocations in the WebContent process
+        /// Setting a security restriction mode creates separate, isolated WebContent processes for the specified protection level.
+        /// This preference only applies to main frame navigations and will be ignored for subframe navigations. When set for a main frame, all subframe content and opened windows inherit the same security restrictions.
+        /// When the system has chosen `SecurityRestrictionMode.lockdown` (e.g., in Lockdown Mode), attempts to set a less restrictive mode will fail silently.
+        /// The default value is `SecurityRestrictionMode.none`.
+        @available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+        @available(watchOS, unavailable)
+        @available(tvOS, unavailable)
+        public var securityRestrictionMode: SecurityRestrictionMode {
+            get { backingSecurityRestrictionMode ?? .none }
+            set { backingSecurityRestrictionMode = newValue }
         }
     }
 }
@@ -128,6 +161,20 @@ extension WebPage.NavigationPreferences.UpgradeToHTTPSPolicy {
     }
 }
 
+@available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+extension WebPage.NavigationPreferences.SecurityRestrictionMode {
+    init(_ wrapped: WKSecurityRestrictionMode) {
+        self =
+            switch wrapped {
+            case .none: .none
+            case .maximizeCompatibility: .maximizeCompatibility
+            case .lockdown: .lockdown
+            @unknown default:
+                fatalError()
+            }
+    }
+}
+
 extension WebPage.NavigationPreferences {
     @MainActor
     init(_ wrapped: WKWebpagePreferences) {
@@ -138,6 +185,7 @@ extension WebPage.NavigationPreferences {
 
         self.allowsContentJavaScript = wrapped.allowsContentJavaScript
         self.isLockdownModeEnabled = wrapped.isLockdownModeEnabled
+        self.securityRestrictionMode = .init(wrapped.securityRestrictionMode)
     }
 }
 

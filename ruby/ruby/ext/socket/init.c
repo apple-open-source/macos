@@ -655,6 +655,15 @@ rsock_make_fd_nonblock(int fd)
     }
 }
 
+#if defined(__APPLE__)
+/*
+ * Build system workaround: even when the SDK exports accept4, the build
+ * host may be running an older OS that doesn't and miniruby will fail.
+ * Remove this workaround when the builder supports accept4.
+ */
+#undef HAVE_ACCEPT4
+#endif
+
 static int
 cloexec_accept(int socket, struct sockaddr *address, socklen_t *address_len,
 	       int nonblock)

@@ -40,7 +40,7 @@
 #include "LegacyRenderSVGResource.h"
 #include "LegacyRenderSVGRoot.h"
 #include "PointerEventsHitRules.h"
-#include "RenderBoxModelObjectInlines.h"
+#include "RenderBoxInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderIterator.h"
 #include "RenderObjectInlines.h"
@@ -49,7 +49,6 @@
 #include "RenderSVGInlineText.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGTextPath.h"
-#include "RenderStyleInlines.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGInlineFlowBox.h"
 #include "SVGInlineTextBox.h"
@@ -74,10 +73,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGText);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGText);
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, RenderStyle&& style)
-    : RenderSVGBlock(Type::SVGText, element, WTFMove(style))
+    : RenderSVGBlock(Type::SVGText, element, WTF::move(style))
 {
     ASSERT(isRenderSVGText());
 }
@@ -404,7 +403,7 @@ void RenderSVGText::layout()
     LayoutUnit repaintLogicalTop;
     LayoutUnit repaintLogicalBottom;
     rebuildFloatingObjectSetFromIntrudingFloats();
-    layoutInlineChildren(RelayoutChildren::Yes, repaintLogicalTop, repaintLogicalBottom);
+    layoutInlineChildren(RelayoutChildren::Yes, logicalHeight(), repaintLogicalTop, repaintLogicalBottom);
 
     computePerCharacterLayoutInformation();
 
@@ -443,7 +442,8 @@ void RenderSVGText::layout()
 
 void RenderSVGText::computePerCharacterLayoutInformation()
 {
-    if (!hasLines())
+    auto hasSVGContent = legacyRootBox() || (inlineLayout() && inlineLayout()->hasContentfulInlineLine());
+    if (!hasSVGContent)
         return;
 
     if (m_layoutAttributes.isEmpty())
@@ -469,7 +469,7 @@ void RenderSVGText::computePerCharacterLayoutInformation()
     }
 
     if (inlineLayout()) {
-        auto boundaries = inlineLayout()->applySVGTextFragments(WTFMove(fragmentMap));
+        auto boundaries = inlineLayout()->applySVGTextFragments(WTF::move(fragmentMap));
         updatePositionAndOverflow(boundaries);
     }
 }
@@ -521,7 +521,7 @@ FloatRect RenderSVGText::layoutChildBoxes(LegacyInlineFlowBox* start, SVGTextFra
 
             auto it = fragmentMap.find(makeKey(*InlineIterator::svgTextBoxFor(textBox)));
             if (it != fragmentMap.end())
-                textBox->setTextFragments(WTFMove(it->value));
+                textBox->setTextFragments(WTF::move(it->value));
 
             boxRect = textBox->calculateBoundaries();
             textBox->setX(boxRect.x());
@@ -717,8 +717,8 @@ bool RenderSVGText::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 bool RenderSVGText::hitTestInlineChildren(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction)
 {
     auto hitTestInlineBoxes = [&] {
-        for (auto& box : InlineIterator::boxesFor(*this)) {
-            auto* textBox = dynamicDowncast<InlineIterator::SVGTextBox>(box);
+        for (auto boxIterator = InlineIterator::lastBoxFor(*this); boxIterator; --boxIterator) {
+            auto* textBox = dynamicDowncast<InlineIterator::SVGTextBox>(*boxIterator);
             if (!textBox)
                 continue;
 
@@ -770,7 +770,7 @@ bool RenderSVGText::hitTestInlineChildren(const HitTestRequest& request, HitTest
     return false;
 }
 
-void RenderSVGText::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
+void RenderSVGText::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<Style::TransformResolverOption> options) const
 {
     ASSERT(document().settings().layerBasedSVGEngineEnabled());
     applySVGTransform(transform, protectedTextElement(), style, boundingBox, std::nullopt, std::nullopt, options);
@@ -913,9 +913,12 @@ void RenderSVGText::paintInlineChildren(PaintInfo& paintInfo, const LayoutPoint&
             auto* renderer = dynamicDowncast<RenderElement>(box->renderer());
             contextStack.append({ const_cast<RenderElement&>(*renderer), paintInfo, SVGRenderingContext::SaveGraphicsContext });
 
-            if (!contextStack.last().isRenderingPrepared() || renderer->hasSelfPaintingLayer()) {
-                box.traverseLineRightwardOnLineSkippingChildren();
-                continue;
+            // FIXME: find out if we can skip children too in LBSE case.
+            if (!document().settings().layerBasedSVGEngineEnabled()) {
+                if (!contextStack.last().isRenderingPrepared() || renderer->hasSelfPaintingLayer()) {
+                    box.traverseLineRightwardOnLineSkippingChildren();
+                    continue;
+                }
             }
         }
 
@@ -934,8 +937,13 @@ FloatRect RenderSVGText::strokeBoundingBox() const
 
     Ref textElement = this->textElement();
     SVGLengthContext lengthContext(textElement.ptr());
-    strokeBoundaries.inflate(lengthContext.valueForLength(style().strokeWidth()));
+    strokeBoundaries.inflate(lengthContext.valueForLength(style().strokeWidth(), style().usedZoomForLength()));
     return strokeBoundaries;
+}
+
+FloatRect RenderSVGText::decoratedBoundingBox() const
+{
+    return SVGBoundingBoxComputation::computeDecoratedBoundingBox(*this);
 }
 
 FloatRect RenderSVGText::repaintRectInLocalCoordinates(RepaintRectCalculation repaintRectCalculation) const
@@ -984,12 +992,12 @@ void RenderSVGText::updatePositionAndOverflow(const FloatRect& boundaries)
     ASSERT(m_objectBoundingBox == frameRect());
 }
 
-void RenderSVGText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+void RenderSVGText::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     auto needsTransformUpdate = [&]() {
         if (document().settings().layerBasedSVGEngineEnabled())
             return false;
-        if (diff != StyleDifference::Layout)
+        if (diff != Style::DifferenceResult::Layout)
             return false;
 
         auto& newStyle = style();

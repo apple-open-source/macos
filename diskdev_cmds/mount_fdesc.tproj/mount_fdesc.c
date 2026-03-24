@@ -102,7 +102,7 @@ main(int argc, char *argv[])
 		usage();
 
 	if (realpath(argv[1], dir) == NULL)
-		err(1, "realpath %s", dir);
+		err(1, "realpath %s", argv[1]);
 
 	/*
 	 * fdesc mount happens automatically now, so no need to do anything.

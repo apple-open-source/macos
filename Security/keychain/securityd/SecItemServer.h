@@ -48,6 +48,7 @@ bool SecServerItemDeleteAll(CFErrorRef *error);
 bool SecServerItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error);
 CFTypeRef SecServerItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error) CF_RETURNS_RETAINED;
 bool SecServerDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error);
+bool SecServerDeleteInternalItemsOnSignOut(SecurityClient *client, CFStringRef persona, CFErrorRef *error);
 
 bool SecServerRestoreKeychain(CFErrorRef *error);
 bool SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
@@ -62,11 +63,8 @@ bool SecItemServerUpdateTokenItemsForAccessGroups(CFStringRef tokenID, CFArrayRe
 bool SecItemServerUpdateTokenItemsForSystemKeychain(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
 
 CF_RETURNS_RETAINED CFArrayRef SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
-CF_RETURNS_RETAINED CFDictionaryRef SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
 int SecServerKeychainTakeOverBackupFD(CFStringRef backupName, CFErrorRef *error);
-
-bool SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
 #if TARGET_OS_IOS
 bool SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error);
@@ -87,7 +85,8 @@ SecDbRef SecServerKeychainDbInitialize(SecDbRef db);
 
 bool kc_with_dbt(bool writeAndRead, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 bool kc_with_dbt_non_item_tables(bool writeAndRead, SecDbRef customDB, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemServerDataSourceFactoryGetDefault()
-bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
+bool kc_with_backup_dbt(bool writeAndRead, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt)); // acquires backup lock (readerLocks[0]) for serialized backup operations
+bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, bool isBackupOperation, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 
 bool SecServerUpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error);
 

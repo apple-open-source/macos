@@ -2909,6 +2909,7 @@ template<class T, class... Types> constexpr add_pointer_t<const T> get_if(const 
 
 namespace WTF {
 template<typename... Ts> using Variant = mpark::variant<Ts...>;
+template<size_t I, class T> using variant_alternative_t = typename mpark::variant_alternative<I, T>::type;
 template<typename T> constexpr mpark::in_place_type_t<T> InPlaceType { };
 template<typename T> using InPlaceTypeT = mpark::in_place_type_t<T>;
 template<size_t I> constexpr mpark::in_place_index_t<I> InPlaceIndex { };

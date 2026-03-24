@@ -47,10 +47,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyRenderSVGImage);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LegacyRenderSVGImage);
 
 LegacyRenderSVGImage::LegacyRenderSVGImage(SVGImageElement& element, RenderStyle&& style)
-    : LegacyRenderSVGModelObject(Type::LegacySVGImage, element, WTFMove(style), SVGModelObjectFlag::UsesBoundaryCaching)
+    : LegacyRenderSVGModelObject(Type::LegacySVGImage, element, WTF::move(style), SVGModelObjectFlag::UsesBoundaryCaching)
     , m_needsBoundariesUpdate(true)
     , m_needsTransformUpdate(true)
     , m_imageResource(makeUniqueRef<RenderImageResource>())
@@ -92,22 +92,24 @@ FloatRect LegacyRenderSVGImage::calculateObjectBoundingBox() const
     Ref imageElement = this->imageElement();
     SVGLengthContext lengthContext(imageElement.ptr());
 
-    auto& width = style().width();
-    auto& height = style().height();
+    CheckedRef style = this->style();
+    auto& width = style->width();
+    auto& height = style->height();
+    auto usedZoom = style->usedZoomForLength();
 
     float concreteWidth;
     if (!width.isAuto())
-        concreteWidth = lengthContext.valueForLength(width, SVGLengthMode::Width);
+        concreteWidth = lengthContext.valueForLength(width, usedZoom, SVGLengthMode::Width);
     else if (!height.isAuto() && !intrinsicSize.isEmpty())
-        concreteWidth = lengthContext.valueForLength(height, SVGLengthMode::Height) * intrinsicSize.width() / intrinsicSize.height();
+        concreteWidth = lengthContext.valueForLength(height, usedZoom, SVGLengthMode::Height) * intrinsicSize.width() / intrinsicSize.height();
     else
         concreteWidth = intrinsicSize.width();
 
     float concreteHeight;
     if (!height.isAuto())
-        concreteHeight = lengthContext.valueForLength(height, SVGLengthMode::Height);
+        concreteHeight = lengthContext.valueForLength(height, usedZoom, SVGLengthMode::Height);
     else if (!width.isAuto() && !intrinsicSize.isEmpty())
-        concreteHeight = lengthContext.valueForLength(width, SVGLengthMode::Width) * intrinsicSize.height() / intrinsicSize.width();
+        concreteHeight = lengthContext.valueForLength(width, usedZoom, SVGLengthMode::Width) * intrinsicSize.height() / intrinsicSize.width();
     else
         concreteHeight = intrinsicSize.height();
 
@@ -205,7 +207,7 @@ void LegacyRenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
         }
     }
 
-    if (style().outlineWidth())
+    if (style().usedOutlineWidth())
         paintOutline(childPaintInfo, IntRect(boundingBox));
 }
 

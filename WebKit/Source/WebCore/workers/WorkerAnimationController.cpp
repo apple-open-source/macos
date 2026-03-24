@@ -88,7 +88,7 @@ WorkerAnimationController::CallbackId WorkerAnimationController::requestAnimatio
     WorkerAnimationController::CallbackId callbackId = ++m_nextAnimationCallbackId;
     callback->m_firedOrCancelled = false;
     callback->m_id = callbackId;
-    m_animationCallbacks.append(WTFMove(callback));
+    m_animationCallbacks.append(WTF::move(callback));
 
     InspectorInstrumentation::didRequestAnimationFrame(m_workerGlobalScope.get(), callbackId);
 

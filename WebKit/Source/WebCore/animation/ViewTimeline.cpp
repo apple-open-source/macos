@@ -68,7 +68,7 @@ ExceptionOr<Ref<ViewTimeline>> ViewTimeline::create(Document& document, ViewTime
     if (!isValidInset(specifiedInsets.start) || !isValidInset(specifiedInsets.end))
         return Exception { ExceptionCode::TypeError };
 
-    viewTimeline->m_specifiedInsets = WTFMove(specifiedInsets);
+    viewTimeline->m_specifiedInsets = WTF::move(specifiedInsets);
     viewTimeline->setSubject(options.subject.get());
     if (auto subject = options.subject)
         subject->protectedDocument()->updateLayoutIgnorePendingStylesheets();
@@ -414,10 +414,8 @@ void ViewTimeline::cacheCurrentTime()
         || previousCurrentTimeData.insetEnd != m_cachedCurrentTimeData.insetEnd
         || previousCurrentTimeData.stickinessData != m_cachedCurrentTimeData.stickinessData;
 
-    if (metricsChanged) {
-        for (auto& animation : m_animations)
-            animation->progressBasedTimelineSourceDidChangeMetrics();
-    }
+    if (metricsChanged)
+        sourceMetricsDidChange();
 }
 
 AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ViewTimeline::documentWillUpdateAnimationsAndSendEvents()
@@ -433,14 +431,14 @@ Style::SingleAnimationRange ViewTimeline::defaultRange() const
     return Style::SingleAnimationRange::defaultForViewTimeline();
 }
 
-Element* ViewTimeline::bindingsSource() const
+RefPtr<Element> ViewTimeline::bindingsSource() const
 {
     if (auto subject = m_subject.styleable())
         subject->element.protectedDocument()->updateStyleIfNeeded();
     return ScrollTimeline::bindingsSource();
 }
 
-Element* ViewTimeline::source() const
+RefPtr<Element> ViewTimeline::source() const
 {
     if (CheckedPtr sourceRender = sourceScrollerRenderer())
         return sourceRender->element();
@@ -479,8 +477,9 @@ CheckedPtr<const RenderElement> ViewTimeline::stickyContainer() const
     return nullptr;
 }
 
-ScrollTimeline::Data ViewTimeline::computeTimelineData() const
+ScrollTimeline::Data ViewTimeline::computeTimelineData(UseCachedCurrentTime) const
 {
+    // FIXME: account for UseCachedCurrentTime parameter.
     if (!m_cachedCurrentTimeData.scrollOffset && !m_cachedCurrentTimeData.scrollContainerSize)
         return { };
 

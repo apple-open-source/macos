@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include <WebCore/AcceleratedEffectOffsetAnchor.h>
 #include <WebCore/AcceleratedEffectOffsetDistance.h>
@@ -75,20 +75,20 @@ struct AcceleratedEffectValues {
     AcceleratedEffectValues(const RenderStyle&, const IntRect&, const RenderLayerModelObject* = nullptr);
     AcceleratedEffectValues(AcceleratedEffectOpacity opacity, std::optional<TransformOperationData>&& transformOperationData, AcceleratedEffectTransformOrigin transformOrigin, AcceleratedEffectTransformBox transformBox, TransformOperations&& transform, RefPtr<TransformOperation>&& translate, RefPtr<TransformOperation>&& scale, RefPtr<TransformOperation>&& rotate, RefPtr<PathOperation>&& offsetPath, AcceleratedEffectOffsetDistance offsetDistance, AcceleratedEffectOffsetPosition offsetPosition, AcceleratedEffectOffsetAnchor offsetAnchor, AcceleratedEffectOffsetRotate offsetRotate, FilterOperations&& filter, FilterOperations&& backdropFilter)
         : opacity(opacity)
-        , transformOperationData(WTFMove(transformOperationData))
+        , transformOperationData(WTF::move(transformOperationData))
         , transformOrigin(transformOrigin)
         , transformBox(transformBox)
-        , transform(WTFMove(transform))
-        , translate(WTFMove(translate))
-        , scale(WTFMove(scale))
-        , rotate(WTFMove(rotate))
-        , offsetPath(WTFMove(offsetPath))
+        , transform(WTF::move(transform))
+        , translate(WTF::move(translate))
+        , scale(WTF::move(scale))
+        , rotate(WTF::move(rotate))
+        , offsetPath(WTF::move(offsetPath))
         , offsetDistance(offsetDistance)
         , offsetPosition(offsetPosition)
         , offsetAnchor(offsetAnchor)
         , offsetRotate(offsetRotate)
-        , filter(WTFMove(filter))
-        , backdropFilter(WTFMove(backdropFilter))
+        , filter(WTF::move(filter))
+        , backdropFilter(WTF::move(backdropFilter))
     {
     }
 
@@ -98,4 +98,4 @@ struct AcceleratedEffectValues {
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

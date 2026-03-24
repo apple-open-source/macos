@@ -73,7 +73,7 @@ void WKBundlePostSynchronousMessage(WKBundleRef bundleRef, WKStringRef messageNa
     RefPtr<API::Object> returnData;
     WebKit::toProtectedImpl(bundleRef)->postSynchronousMessage(WebKit::toWTFString(messageNameRef), WebKit::toProtectedImpl(messageBodyRef).get(), returnData);
     if (returnRetainedDataRef)
-        SUPPRESS_UNCOUNTED_ARG *returnRetainedDataRef = WebKit::toAPI(returnData.leakRef());
+        *returnRetainedDataRef = WebKit::toAPILeakingRef(WTF::move(returnData));
 }
 
 void WKBundleGarbageCollectJavaScriptObjects(WKBundleRef bundleRef)
@@ -153,7 +153,7 @@ void WKBundleReleaseMemory(WKBundleRef)
 
 WKDataRef WKBundleCreateWKDataFromUInt8Array(WKBundleRef bundle, JSContextRef context, JSValueRef data)
 {
-    SUPPRESS_UNCOUNTED_ARG return WebKit::toAPI(&WebKit::toProtectedImpl(bundle)->createWebDataFromUint8Array(context, data).leakRef());
+    return WebKit::toAPILeakingRef(WebKit::toProtectedImpl(bundle)->createWebDataFromUint8Array(context, data));
 }
 
 int WKBundleNumberOfPages(WKBundleRef bundleRef, WKBundleFrameRef frameRef, double pageWidthInPixels, double pageHeightInPixels)

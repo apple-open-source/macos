@@ -123,7 +123,12 @@ private:
 
     bool allowsFileAccess() const
     {
+#if PLATFORM(COCOA)
         return !forDrag() || forFileDrag();
+#else
+        // Check https://webkit.org/b/271957 before allowing file access for your port.
+        return false;
+#endif
     }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -156,7 +161,7 @@ private:
     IntPoint m_dragLocation;
     CachedResourceHandle<CachedImage> m_dragImage;
     RefPtr<Element> m_dragImageElement;
-    std::unique_ptr<DragImageLoader> m_dragImageLoader;
+    RefPtr<DragImageLoader> m_dragImageLoader;
 #endif
 };
 

@@ -86,7 +86,7 @@ void WebScreenOrientationManager::orientationDidChange(WebCore::ScreenOrientatio
 
 void WebScreenOrientationManager::lock(WebCore::ScreenOrientationLockType lockType, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
 {
-    protectedPage()->sendWithAsyncReply(Messages::WebScreenOrientationManagerProxy::Lock { lockType }, WTFMove(completionHandler));
+    protectedPage()->sendWithAsyncReply(Messages::WebScreenOrientationManagerProxy::Lock { lockType }, WTF::move(completionHandler));
 }
 
 void WebScreenOrientationManager::unlock()

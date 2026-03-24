@@ -259,7 +259,7 @@ static void webkitURISchemeRequestReadCallback(GInputStream* inputStream, GAsync
             response.setMimeType(MIMETypeRegistry::mimeTypeForPath(response.url().path()));
         if (auto* headers = webKitURISchemeResponseGetHeaders(resp))
             response.updateFromSoupMessageHeaders(headers);
-        priv->task->didReceiveResponse(WTFMove(response));
+        priv->task->didReceiveResponse(WTF::move(response));
     }
 
     if (!bytesRead) {

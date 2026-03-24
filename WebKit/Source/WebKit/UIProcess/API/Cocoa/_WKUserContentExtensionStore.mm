@@ -42,15 +42,16 @@ static NSError *toUserContentRuleListStoreError(const NSError *error)
         return nil;
 
     ASSERT(error.domain == WKErrorDomain);
+    RetainPtr<NSDictionary<NSString *, id>> userInfo = error.userInfo;
     switch (error.code) {
     case WKErrorContentRuleListStoreLookUpFailed:
-        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorLookupFailed userInfo:error.userInfo];
+        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorLookupFailed userInfo:userInfo.get()];
     case WKErrorContentRuleListStoreVersionMismatch:
-        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorVersionMismatch userInfo:error.userInfo];
+        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorVersionMismatch userInfo:userInfo.get()];
     case WKErrorContentRuleListStoreCompileFailed:
-        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorCompileFailed userInfo:error.userInfo];
+        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorCompileFailed userInfo:userInfo.get()];
     case WKErrorContentRuleListStoreRemoveFailed:
-        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorRemoveFailed userInfo:error.userInfo];
+        return [NSError errorWithDomain:_WKUserContentExtensionsDomain code:_WKUserContentExtensionStoreErrorRemoveFailed userInfo:userInfo.get()];
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }

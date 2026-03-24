@@ -66,7 +66,7 @@ public:
     void requestLAContextForUserVerification(CompletionHandler<void(LAContext *)>&&);
     void dimissPresenter(WebAuthenticationResult);
 
-    void setCredentialRequestHandler(CredentialRequestHandler&& handler) { m_credentialRequestHandler = WTFMove(handler); }
+    void setCredentialRequestHandler(CredentialRequestHandler&& handler) { m_credentialRequestHandler = WTF::move(handler); }
     void setLAContext(LAContext *);
     void didSelectAssertionResponse(const String& credentialName, LAContext *);
     void setPin(const String&);

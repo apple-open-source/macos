@@ -73,8 +73,8 @@ namespace ax = WebCore::Accessibility;
     if (!WebCore::AXObjectCache::accessibilityEnabled())
         WebCore::AXObjectCache::enableAccessibility();
 
-    if (m_page)
-        m_page->enableAccessibilityForAllProcesses();
+    if (RefPtr page = m_page.get())
+        page->enableAccessibilityForAllProcesses();
 }
 
 - (id)accessibilityPluginObject
@@ -99,7 +99,7 @@ namespace ax = WebCore::Accessibility;
 // Called directly by Accessibility framework.
 - (id)accessibilityRootObjectWrapper
 {
-    return [self accessibilityRootObjectWrapper:[self focusedLocalFrame]];
+    return [self accessibilityRootObjectWrapper:[self protectedFocusedLocalFrame].get()];
 }
 
 - (id)accessibilityRootObjectWrapper:(WebCore::LocalFrame*)frame
@@ -124,14 +124,14 @@ namespace ax = WebCore::Accessibility;
             // is built, so that when text annotations are created on-the-fly as users focus on text fields,
             // isolated objects are able to be attached to those text annotation object wrappers.
             // If they aren't, we never have a backing object to serve any requests from.
-            if (auto cache = protectedSelf.get().axObjectCache)
+            if (CheckedPtr cache = protectedSelf.get().axObjectCache.get())
                 cache->buildIsolatedTreeIfNeeded();
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
             if (![protectedSelf shouldFallbackToWebContentAXObjectForMainFramePlugin])
                 return [protectedSelf accessibilityPluginObject];
         }
 
-        RefPtr frame = protectedFrame ? WTFMove(protectedFrame) : [protectedSelf focusedLocalFrame];
+        RefPtr frame = protectedFrame ? protectedFrame : [protectedSelf focusedLocalFrame];
         if (RefPtr document = frame ? frame->document() : nullptr) {
             if (CheckedPtr cache = document->axObjectCache()) {
                 if (RefPtr root = cache->rootObjectForFrame(*frame))
@@ -139,11 +139,11 @@ namespace ax = WebCore::Accessibility;
             }
         }
 
-        if (auto cache = protectedSelf.get().axObjectCache) {
+        if (CheckedPtr cache = protectedSelf.get().axObjectCache.get()) {
             // It's possible we were given a null frame (this is explicitly expected when off the main-thread, since
             // we can't access the webpage off the main-thread to get a frame). Now that we are actually on the main-thread,
             // try again if necessary.
-            RefPtr frame = protectedFrame ? WTFMove(protectedFrame) : [protectedSelf focusedLocalFrame];
+            RefPtr frame = protectedFrame ? protectedFrame : [protectedSelf focusedLocalFrame];
 
             if (RefPtr root = frame ? cache->rootObjectForFrame(*frame) : nullptr)
                 return root->wrapper();
@@ -153,19 +153,19 @@ namespace ax = WebCore::Accessibility;
     });
 }
 
-- (void)setWebPage:(NakedPtr<WebKit::WebPage>)page
+- (void)setWebPage:(NakedPtr<WebKit::WebPage>)nakedPage
 {
     ASSERT(isMainRunLoop());
 
-    m_page = page.get();
+    m_page = nakedPage.get();
 
-    if (page) {
-        m_pageID = page->identifier();
+    if (RefPtr webPage = nakedPage.get()) {
+        m_pageID = webPage->identifier();
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-        [self setPosition:page->accessibilityPosition()];
-        [self setSize:page->size()];
+        [self setPosition:webPage->accessibilityPosition()];
+        [self setSize:webPage->size()];
 #endif
-        RefPtr frame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
+        RefPtr frame = dynamicDowncast<WebCore::LocalFrame>(webPage->mainFrame());
         m_hasMainFramePlugin = frame && frame->document() ? frame->document()->isPluginDocument() : false;
     } else {
         m_pageID = std::nullopt;
@@ -206,7 +206,7 @@ namespace ax = WebCore::Accessibility;
     if (!isolatedTreeFrameID)
         return;
 
-    RefPtr mainFrame = m_page ? m_page->mainFrame() : nullptr;
+    RefPtr mainFrame = m_page ? Ref { *m_page }->mainFrame() : nullptr;
     if (!mainFrame)
         return;
 
@@ -216,6 +216,11 @@ namespace ax = WebCore::Accessibility;
         return;
 
     m_isolatedTree = tree.get();
+}
+
+- (RefPtr<WebCore::AXIsolatedTree>)isolatedTree
+{
+    return m_isolatedTree.get();
 }
 
 - (void)setWindow:(id)window
@@ -228,7 +233,7 @@ namespace ax = WebCore::Accessibility;
 - (void)_buildIsolatedTreeIfNeeded
 {
     ensureOnMainThread([protectedSelf = RetainPtr { self }] {
-        if (auto cache = protectedSelf.get().axObjectCache)
+        if (CheckedPtr cache = protectedSelf.get().axObjectCache.get())
             cache->buildIsolatedTreeIfNeeded();
     });
 }
@@ -274,7 +279,7 @@ namespace ax = WebCore::Accessibility;
 
 - (id)accessibilityFocusedUIElement
 {
-    return [[self accessibilityRootObjectWrapper:[self focusedLocalFrame]] accessibilityFocusedUIElement];
+    return [[self accessibilityRootObjectWrapper:[self protectedFocusedLocalFrame].get()] accessibilityFocusedUIElement];
 }
 
 - (WebCore::LocalFrame *)focusedLocalFrame
@@ -283,13 +288,14 @@ namespace ax = WebCore::Accessibility;
     if (!isMainRunLoop())
         return nullptr;
 #endif
-    if (!m_page)
+    RefPtr webPage = m_page.get();
+    if (!webPage)
         return nullptr;
 
     if (!m_frameID)
-        return dynamicDowncast<WebCore::LocalFrame>(m_page->mainFrame());
+        return dynamicDowncast<WebCore::LocalFrame>(webPage->mainFrame());
 
-    RefPtr page = m_page->corePage();
+    RefPtr page = webPage->corePage();
     if (!page)
         return nullptr;
     ASSERT(page->settings().siteIsolationEnabled());
@@ -301,6 +307,11 @@ namespace ax = WebCore::Accessibility;
     }
 
     return nullptr;
+}
+
+- (RefPtr<WebCore::LocalFrame>)protectedFocusedLocalFrame
+{
+    return [self focusedLocalFrame];
 }
 
 @end

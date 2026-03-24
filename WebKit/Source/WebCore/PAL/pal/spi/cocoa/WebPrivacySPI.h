@@ -25,11 +25,17 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
 
-#if HAVE(WEB_PRIVACY_FRAMEWORK)
+// FIXME: (rdar://167350643) Remove the `__has_feature(modules)` condition when possible.
+#if HAVE(WEB_PRIVACY_FRAMEWORK) && !__has_feature(modules)
 #import <WebPrivacy/WebPrivacy.h>
 #else
 
@@ -180,7 +186,7 @@ typedef void (^WKWPResourcesGetSourceCompletionHandler)(NSString *, NSError *);
 - (void)requestResourceMonitorRulesSource:(WPResourceRequestOptions *)options completionHandler:(WKWPResourcesGetSourceCompletionHandler)completion;
 @end
 
-#if !__has_include(<WebPrivacy/WPFingerprintingScript.h>)
+#if !__has_include(<WebPrivacy/WPFingerprintingScript.h>) || __has_feature(modules)
 
 #define WPResourceTypeFingerprintingScripts ((WPResourceType)9)
 
@@ -197,7 +203,7 @@ using WPFingerprintingScriptCompletionHandler = void (^)(NSArray<WPFingerprintin
 - (void)requestFingerprintingScripts:(WPResourceRequestOptions *)options completionHandler:(WPFingerprintingScriptCompletionHandler)completion;
 @end
 
-#endif // !__has_include(<WebPrivacy/WPFingerprintingScript.h>)
+#endif // !__has_include(<WebPrivacy/WPFingerprintingScript.h>) || __has_feature(modules)
 
 #if !defined(WP_SUPPORTS_SCRIPT_ACCESS_CATEGORY)
 
@@ -230,3 +236,5 @@ extern NSNotificationName const WPResourceDataChangedNotificationName;
 WTF_EXTERN_C_END
 
 #endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+
+#endif // __cplusplus

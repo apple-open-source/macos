@@ -185,7 +185,7 @@ on the system setting.
  picture-in-picture.
  @discussion The default value is YES.
  */
-@property (nonatomic) BOOL allowsPictureInPictureMediaPlayback WK_API_AVAILABLE(ios(9_0));
+@property (nonatomic) BOOL allowsPictureInPictureMediaPlayback WK_API_AVAILABLE(ios(9.0));
 
 /*! @abstract An enum value indicating the type of data detection desired.
  @discussion The default value is WKDataDetectorTypeNone.

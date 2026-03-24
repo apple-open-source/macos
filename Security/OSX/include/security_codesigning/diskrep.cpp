@@ -100,13 +100,18 @@ DiskRep *DiskRep::bestGuess(const char *path, const Context *ctx)
 				
 			// if it's a directory, assume it's a bundle
 			if ((st.st_mode & S_IFMT) == S_IFDIR) {	// directory - assume bundle
-				return new BundleDiskRep(path, ctx);
+				if (CFRef<CFBundleRef> bundle = BundleDiskRep::createCFBundle(CFTempURL(path), false)) {
+					return new BundleDiskRep(bundle, ctx);
+				}
+				// If it's a directory and CFBundle can't manage it, just throw an error
+				// for compatibilty with old behavior.
+				MacOSError::throwMe(errSecCSBadBundleFormat);
 			}
 			
 			// see if it's the main executable of a recognized bundle
 			if (CFRef<CFURLRef> pathURL = makeCFURL(path)) {
-				if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfMightBeBundle(NULL, pathURL)) {
-						return new BundleDiskRep(bundle, ctx);
+				if (CFRef<CFBundleRef> bundle = BundleDiskRep::createCFBundle(pathURL, true)) {
+					return new BundleDiskRep(bundle, ctx);
 				}
 			}
 		}
@@ -164,11 +169,14 @@ DiskRep *DiskRep::bestGuess(const char *path, size_t archOffset)
 {
 	try {
 		// is it the main executable of a bundle?
-		if (CFRef<CFURLRef> pathURL = makeCFURL(path))
-			if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfMightBeBundle(NULL, pathURL)) {
-				Context ctx; ctx.offset = archOffset;
+		if (CFRef<CFURLRef> pathURL = makeCFURL(path)) {
+			CFRef<CFBundleRef> bundle = BundleDiskRep::createCFBundle(pathURL, true);
+			if (bundle.get()) {
+				Context ctx;
+				ctx.offset = archOffset;
 				return new BundleDiskRep(bundle, &ctx);	// ask bundle to make bundle-with-MachO-at-offset
 			}
+		}
 		// else, must be a Mach-O binary
 		Context ctx; ctx.offset = archOffset;
 		return new MachORep(path, &ctx);

@@ -59,10 +59,10 @@ ccaudit_create(process_t proc, auth_token_t auth, int32_t event)
 {
     ccaudit_t ccaudit = NULL;
 
-    require(auth != NULL, done);
+    __Require(auth != NULL, done);
     
     ccaudit = (ccaudit_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, ccaudit_get_type_id(), AUTH_CLASS_SIZE(ccaudit), NULL);
-    require(ccaudit != NULL, done);
+    __Require(ccaudit != NULL, done);
     
     ccaudit->auth = (auth_token_t)CFRetain(auth);
     ccaudit->proc = (process_t)CFRetain(proc);

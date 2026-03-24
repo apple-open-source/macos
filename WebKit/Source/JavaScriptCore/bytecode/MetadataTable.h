@@ -129,7 +129,7 @@ public:
 
     void validate() const;
 
-    RefPtr<UnlinkedMetadataTable> unlinkedMetadata() const { return static_reference_cast<UnlinkedMetadataTable>(linkingData().unlinkedMetadata); }
+    RefPtr<UnlinkedMetadataTable> unlinkedMetadata() const { return linkingData().unlinkedMetadata.copyRef(); }
 
     SUPPRESS_ASAN bool isDestroyed() const
     {

@@ -29,6 +29,8 @@
 #if PLATFORM(COCOA) && ENABLE(AV1)
 
 #import "AV1Utilities.h"
+#import "BitReader.h"
+#import "CMUtilities.h"
 #import "MediaCapabilitiesInfo.h"
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cf/VectorCF.h>
@@ -36,6 +38,7 @@
 #import <wtf/text/StringToIntegerConversion.h>
 
 #import "VideoToolboxSoftLink.h"
+#import <pal/cf/CoreMediaSoftLink.h>
 
 namespace WebCore {
 
@@ -185,10 +188,19 @@ bool av1HardwareDecoderAvailable()
 {
     ASSERT(isMainThread() || !!s_av1HardwareDecoderAvailable);
 
-    if (!s_av1HardwareDecoderAvailable)
-        s_av1HardwareDecoderAvailable = canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported('av01');
+    if (s_av1HardwareDecoderAvailable)
+        return *s_av1HardwareDecoderAvailable;
+    return av1HardwareDecoderAvailableInProcess();
+}
 
-    return *s_av1HardwareDecoderAvailable;
+static std::optional<bool> s_av1HardwareDecoderAvailableInProcess = { };
+bool av1HardwareDecoderAvailableInProcess()
+{
+    ASSERT(isMainThread() || !!s_av1HardwareDecoderAvailableInProcess);
+
+    if (!s_av1HardwareDecoderAvailableInProcess)
+        s_av1HardwareDecoderAvailableInProcess = canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported('av01');
+    return *s_av1HardwareDecoderAvailableInProcess;
 }
 
 }

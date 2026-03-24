@@ -46,7 +46,7 @@ struct SubscribeOptions;
 struct SubscriptionObserver;
 
 class Observable final : public ScriptWrappable, public RefCounted<Observable> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Observable);
+    WTF_MAKE_TZONE_ALLOCATED(Observable);
 
 public:
     using ObserverUnion = Variant<RefPtr<JSSubscriptionObserverCallback>, SubscriptionObserver>;

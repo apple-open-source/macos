@@ -31,7 +31,7 @@
 
 #include <wtf/Platform.h>
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
-#include "PlatformTouchEventIOS.h"
+#include <WebKitAdditions/PlatformTouchEventIOS.h>
 #endif
 
 namespace JSC {
@@ -50,7 +50,7 @@ bool isAnyClick(const AtomString& eventType);
 bool isAnyClick(const Event&);
 
 class MouseEvent : public MouseRelatedEvent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MouseEvent);
+    WTF_MAKE_TZONE_ALLOCATED(MouseEvent);
 public:
     WEBCORE_EXPORT static Ref<MouseEvent> create(const AtomString& type, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
         const DoublePoint& screenLocation, const DoublePoint& windowLocation, double movementX, double movementY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
@@ -107,10 +107,10 @@ protected:
 
     MouseEvent(enum EventInterfaceType, const AtomString& type, const MouseEventInit&, IsTrusted);
 
-    MouseEvent(enum EventInterfaceType);
+    explicit MouseEvent(enum EventInterfaceType);
 
 private:
-    bool isMouseEvent() const final;
+    bool isMouseEvent() const final { return true; }
 
     void setRelatedTarget(RefPtr<EventTarget>&&) final;
 
@@ -126,4 +126,4 @@ private:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_EVENT(MouseEvent)
+SPECIALIZE_TYPE_TRAITS_EVENT_POLYMORPHIC(MouseEvent)

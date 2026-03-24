@@ -52,7 +52,7 @@ void WebExtensionAPIDevToolsPanels::createPanel(WebPageProxyIdentifier webPagePr
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/devtools/panels/create
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsPanelsCreate(webPageProxyIdentifier, title, iconPath, pagePath), [this, protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Inspector::ExtensionTabID, WebExtensionError>&& result) mutable {
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsPanelsCreate(webPageProxyIdentifier, title, iconPath, pagePath), [this, protectedThis = Ref { *this }, callback = WTF::move(callback)](Expected<Inspector::ExtensionTabID, WebExtensionError>&& result) mutable {
         if (!result) {
             callback->reportError(result.error().createNSString().get());
             return;
@@ -61,10 +61,7 @@ void WebExtensionAPIDevToolsPanels::createPanel(WebPageProxyIdentifier webPagePr
         Ref extensionPanel = WebExtensionAPIDevToolsExtensionPanel::create(*this);
         m_extensionPanels.set(result.value(), extensionPanel);
 
-        auto globalContext = callback->globalContext();
-        auto *panelValue = toJSValue(globalContext, toJS(globalContext, extensionPanel.ptr()));
-
-        callback->call(panelValue);
+        callback->call(toJS(callback->globalContext(), extensionPanel.ptr()));
     }, extensionContext().identifier());
 }
 

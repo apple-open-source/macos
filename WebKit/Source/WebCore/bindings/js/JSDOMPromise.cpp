@@ -40,7 +40,9 @@ namespace WebCore {
 
 auto DOMPromise::whenSettled(Function<void()>&& callback) -> IsCallbackRegistered
 {
-    return whenPromiseIsSettled(globalObject(), promise(), WTFMove(callback));
+    if (isSuspended())
+        return IsCallbackRegistered::No;
+    return whenPromiseIsSettled(globalObject(), promise(), WTF::move(callback));
 }
 
 auto DOMPromise::whenPromiseIsSettled(JSDOMGlobalObject* globalObject, JSC::JSPromise* promise, Function<void()>&& callback) -> IsCallbackRegistered
@@ -48,8 +50,9 @@ auto DOMPromise::whenPromiseIsSettled(JSDOMGlobalObject* globalObject, JSC::JSPr
     auto& lexicalGlobalObject = *globalObject;
     auto& vm = lexicalGlobalObject.vm();
     JSLockHolder lock(vm);
-    auto* handler = JSC::JSNativeStdFunction::create(vm, globalObject, 1, String { }, [callback = WTFMove(callback)] (JSGlobalObject*, CallFrame*) mutable {
-        callback();
+    auto* handler = JSC::JSNativeStdFunction::create(vm, globalObject, 1, String { }, [callback = WTF::move(callback)] (JSGlobalObject*, CallFrame*) mutable {
+        // We exchange callback so that all captured variables are deallocated after the call. This is quicker than waiting for the handler function to be GCed.
+        std::exchange(callback, { })();
         return JSC::JSValue::encode(JSC::jsUndefined());
     });
 

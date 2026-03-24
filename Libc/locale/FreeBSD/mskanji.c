@@ -78,6 +78,15 @@ _MSKanji_mbsinit(const mbstate_t *ps, locale_t loc __unused)
 	return (ps == NULL || ((const _MSKanjiState *)ps)->ch == 0);
 }
 
+#ifdef __APPLE__
+static bool __inline
+_MSKanji_valid_trailer(u_int c)
+{
+	c &= 0xff;
+	return ((c >= 0x40 && c <= 0x7e) || (c >= 0x80 && c <= 0xfc));
+}
+#endif
+
 static size_t
 _MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
     mbstate_t * __restrict ps, locale_t loc __unused)
@@ -121,7 +130,11 @@ _MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 			ms->ch = wc;
 			return ((size_t)-2);
 		}
+#ifdef __APPLE__
+		if (!_MSKanji_valid_trailer(*s)) {
+#else
 		if (*s == '\0') {
+#endif
 			errno = EILSEQ;
 			return ((size_t)-1);
 		}

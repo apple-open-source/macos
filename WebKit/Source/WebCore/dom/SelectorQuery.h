@@ -82,7 +82,7 @@ private:
     static bool compileSelector(const SelectorData&);
 #endif // ENABLE(CSS_SELECTOR_JIT)
 
-    Vector<SelectorData> m_selectors;
+    FixedVector<SelectorData> m_selectors;
     mutable enum MatchType {
         CompilableSingle,
         CompilableSingleWithRootFilter,

@@ -125,7 +125,7 @@ static rule_t
 _rule_create(void)
 {
     rule_t rule = (rule_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, rule_get_type_id(), AUTH_CLASS_SIZE(rule), NULL);
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     rule->data = auth_items_create();
     rule->delegations = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -139,10 +139,10 @@ static rule_t
 _rule_create_with_sql(auth_items_t sql)
 {
     rule_t rule = NULL;
-    require(sql != NULL, done);
+    __Require(sql != NULL, done);
     
     rule = _rule_create();
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     auth_items_copy(rule->data, sql);
     
@@ -154,7 +154,7 @@ rule_t
 rule_create_default(void)
 {
     rule_t rule = _rule_create();
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
 
     auth_items_set_int64(rule->data, RULE_TYPE, RT_RIGHT);
     auth_items_set_string(rule->data, RULE_NAME, "(default)");
@@ -279,10 +279,10 @@ rule_t
 rule_create_with_string(const char * str, authdb_connection_t dbconn)
 {
     rule_t rule = NULL;
-    require(str != NULL, done);
+    __Require(str != NULL, done);
     
     rule = _rule_create();
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     auth_items_set_string(rule->data, RULE_NAME, str);
 
@@ -308,14 +308,14 @@ rule_t
 rule_create_with_plist(RuleType type, CFStringRef name, CFDictionaryRef plist, authdb_connection_t dbconn)
 {
     rule_t rule = NULL;
-    require(name != NULL, done);
-    require(plist != NULL, done);
+    __Require(name != NULL, done);
+    __Require(plist != NULL, done);
             
     rule = _rule_create();
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     _set_data_string(rule, RULE_NAME, name);
-    require_action(rule_get_name(rule) != NULL, done, CFReleaseSafe(rule));
+    __Require_Action(rule_get_name(rule) != NULL, done, CFReleaseSafe(rule));
     
     _sql_get_id(rule, dbconn);
 
@@ -431,7 +431,7 @@ _copy_cf_rule_delegations(rule_t rule, CFTypeRef value, authdb_connection_t dbco
 {
     bool result = false;
     char * tmp_str = NULL;
-    require(value != NULL, done);
+    __Require(value != NULL, done);
     
     if (CFGetTypeID(value) == CFStringGetTypeID()) {
         tmp_str = _copy_cf_string(value, NULL);
@@ -464,8 +464,8 @@ static bool
 _copy_cf_rule_mechanisms(rule_t rule, CFTypeRef array, authdb_connection_t dbconn)
 {
     bool result = false;
-    require(array != NULL, done);
-    require(CFGetTypeID(array) == CFArrayGetTypeID(), done);
+    __Require(array != NULL, done);
+    __Require(CFGetTypeID(array) == CFArrayGetTypeID(), done);
     
     CFIndex count = CFArrayGetCount(array);
     for (CFIndex i = 0; i < count; i++) {
@@ -493,8 +493,8 @@ static RuleClass
 _get_cf_rule_class(CFTypeRef str)
 {
     RuleClass rc = RC_RULE;
-    require(str != NULL, done);
-    require(CFGetTypeID(str) == CFStringGetTypeID(), done);
+    __Require(str != NULL, done);
+    __Require(CFGetTypeID(str) == CFStringGetTypeID(), done);
 
     if (CFEqual(str, CFSTR(kAuthorizationRuleClassUser)))
         return RC_USER;
@@ -520,70 +520,70 @@ _sql_bind(rule_t rule, sqlite3_stmt * stmt)
 {
     int64_t n;
     int32_t rc = 0;
-    require(stmt != NULL, err);
+    __Require(stmt != NULL, err);
 
     int32_t column = 1;
     rc = sqlite3_bind_text(stmt, column++, rule_get_name(rule), -1, NULL);
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_int(stmt, column++, rule_get_type(rule));
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_int(stmt, column++, rule_get_class(rule));
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     
     switch (rule_get_class(rule)) {
         case RC_USER:
             rc = sqlite3_bind_text(stmt, column++, rule_get_group(rule), -1, NULL);
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // kofn
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, rule_get_timeout(rule));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, auth_items_get_int64(rule->data, RULE_FLAGS));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, rule_get_tries(rule));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             break;
         case RC_RULE:
             rc = sqlite3_bind_null(stmt, column++); // group
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             n = rule_get_kofn(rule);
             if (n) {
                 rc = sqlite3_bind_int64(stmt, column++, n);
             } else {
                 rc = sqlite3_bind_null(stmt, column++);
             }
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // timeout
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, auth_items_get_int64(rule->data, RULE_FLAGS));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // tries
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             break;
         case RC_MECHANISM:
             rc = sqlite3_bind_null(stmt, column++); // group
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // kofn
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // timeout
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, auth_items_get_int64(rule->data, RULE_FLAGS));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, rule_get_tries(rule));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             break;
         case RC_DENY:
         case RC_ALLOW:
             rc = sqlite3_bind_null(stmt, column++); // group
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // kofn
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // timeout
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_int64(stmt, column++, auth_items_get_int64(rule->data, RULE_FLAGS));
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             rc = sqlite3_bind_null(stmt, column++); // tries
-            require_noerr(rc, err);
+            __Require_noErr(rc, err);
             break;
         default:
             os_log_error(AUTHD_LOG, "rule: sql bind, invalid rule class");
@@ -591,15 +591,15 @@ _sql_bind(rule_t rule, sqlite3_stmt * stmt)
     }
 
     rc = sqlite3_bind_int64(stmt, column++, rule_get_version(rule)); // version
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_double(stmt, column++, rule_get_created(rule)); // created
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_double(stmt, column++, rule_get_modified(rule)); // modified
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_null(stmt, column++); // hash
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
     rc = sqlite3_bind_text(stmt, column++, rule_get_identifier(rule), -1, NULL);
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
 
     CFDataRef data = rule_get_requirement_data(rule);
     if (data) {
@@ -607,10 +607,10 @@ _sql_bind(rule_t rule, sqlite3_stmt * stmt)
     } else {
         rc = sqlite3_bind_null(stmt, column++);
     }
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
 
     rc = sqlite3_bind_text(stmt, column++, rule_get_comment(rule), -1, NULL);
-    require_noerr(rc, err);
+    __Require_noErr(rc, err);
 
     return true;
     
@@ -725,7 +725,7 @@ _sql_commit_mechanisms_map(rule_t rule, authdb_connection_t dbconn)
     result = authdb_step(dbconn, "DELETE FROM mechanisms_map WHERE r_id = ?", ^(sqlite3_stmt *stmt) {
         sqlite3_bind_int64(stmt, 1, rule_get_id(rule));
     }, NULL);
-    require(result == true, done);
+    __Require(result == true, done);
     
     CFIndex count = CFArrayGetCount(rule->mechanisms);
     for(CFIndex i = 0; i < count; i++) {
@@ -735,7 +735,7 @@ _sql_commit_mechanisms_map(rule_t rule, authdb_connection_t dbconn)
             sqlite3_bind_int64(stmt, 2, mechanism_get_id(mech));
             sqlite3_bind_int64(stmt, 3, i);
         }, NULL);
-        require(result == true, done);
+        __Require(result == true, done);
     }
     
 done:
@@ -750,7 +750,7 @@ _sql_commit_delegates_map(rule_t rule, authdb_connection_t dbconn)
     result = authdb_step(dbconn, "DELETE FROM delegates_map WHERE r_id = ?", ^(sqlite3_stmt *stmt) {
         sqlite3_bind_int64(stmt, 1, rule_get_id(rule));
     }, NULL);
-    require(result == true, done);
+    __Require(result == true, done);
     
     CFIndex count = CFArrayGetCount(rule->delegations);
     for(CFIndex i = 0; i < count; i++) {
@@ -760,7 +760,7 @@ _sql_commit_delegates_map(rule_t rule, authdb_connection_t dbconn)
             sqlite3_bind_int64(stmt, 2, rule_get_id(delegate));
             sqlite3_bind_int64(stmt, 3, i);
         }, NULL);
-        require(result == true, done);
+        __Require(result == true, done);
     }
     
 done:
@@ -823,8 +823,8 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
     __block bool insert = false;
     // type and class required else rule is name only?
     RuleClass rule_class = rule_get_class(rule);
-    require(rule_get_type(rule) != 0, done);
-    require(rule_class != 0, done);
+    __Require(rule_get_type(rule) != 0, done);
+    __Require(rule_class != 0, done);
     
     CFIndex mechCount = 0;
     if (rule_class == RC_USER || rule_class == RC_MECHANISM) {
@@ -841,7 +841,7 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
             if (!mechanism_exists(mech) && !isInFVUnlockOrRecovery()) {
                 os_log_error(AUTHD_LOG, "Warning mechanism not found on disk %{public}s during import of %{public}s", mechanism_get_string(mech), rule_get_name(rule));
             }
-            require_action(mechanism_get_id(mech) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, invalid mechanism %{public}s:%{public}s for %{public}s", mechanism_get_plugin(mech), mechanism_get_param(mech), rule_get_name(rule)));
+            __Require_Action(mechanism_get_id(mech) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, invalid mechanism %{public}s:%{public}s for %{public}s", mechanism_get_plugin(mech), mechanism_get_param(mech), rule_get_name(rule)));
         }
     }
     
@@ -854,7 +854,7 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
             if (rule_get_id(delegate) == 0) {
                 rule_sql_fetch(delegate, dbconn);
             }
-            require_action(rule_get_id(delegate) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, missing delegate %{public}s for %{public}s", rule_get_name(delegate), rule_get_name(rule)));
+            __Require_Action(rule_get_id(delegate) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, missing delegate %{public}s for %{public}s", rule_get_name(delegate), rule_get_name(rule)));
         }
     }
     
@@ -914,7 +914,7 @@ rule_sql_remove(rule_t rule, authdb_connection_t dbconn, process_t proc)
     if (id == 0) {
         rule_sql_fetch(rule, dbconn);
         id = rule_get_id(rule);
-        require(id != 0, done);
+        __Require(id != 0, done);
     }
 
     result = authdb_step(dbconn, "DELETE FROM rules WHERE id = ?",

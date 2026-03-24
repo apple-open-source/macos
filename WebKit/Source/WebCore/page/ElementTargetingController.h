@@ -69,6 +69,9 @@ public:
 
     WEBCORE_EXPORT RefPtr<Image> snapshotIgnoringVisibilityAdjustment(NodeIdentifier, ScriptExecutionContextIdentifier);
 
+    WEBCORE_EXPORT static RefPtr<Element> elementFromSelectors(Document&, const TargetedElementSelectors&);
+    WEBCORE_EXPORT static TargetedElementSelectors selectorsForElement(Element&);
+
 private:
     void cleanUpAdjustmentClientRects();
 
@@ -79,6 +82,7 @@ private:
         String lastSelectorIncludingPseudo;
     };
     FindElementFromSelectorsResult findElementFromSelectors(const TargetedElementSelectors&);
+    static FindElementFromSelectorsResult findElementFromSelectors(Document&, const TargetedElementSelectors&);
 
     RefPtr<Document> mainDocument() const;
 

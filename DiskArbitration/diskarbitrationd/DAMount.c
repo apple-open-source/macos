@@ -243,16 +243,10 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
     __DAMountCallbackContext * context = parameter;
     DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
     DADiskSetState( context->disk , kDADiskStateMountOngoing , FALSE );
-    CFStringRef kind = NULL;
-    Boolean automount = DADiskGetState( context->disk , _kDADiskStateMountAutomatic );
-    Boolean isExternal = DADiskIsExternalVolume( context->disk );
     DATelemetryFSImplementation mountType = DATelemetryFSImplementationKext;
     
     if ( filesystem != NULL )
     {
-        kind = DAGetFSTypeWithUUID( filesystem ,
-                                    DADiskGetDescription( context->disk, kDADiskDescriptionVolumeUUIDKey ) );
-        
         if ( context->useUserFS )
         {
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -279,10 +273,8 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
     }
     
     DATelemetrySendMountEvent( status ,
-                               kind ,
+                               context->disk ,
                                mountType ,
-                               automount ,
-                               isExternal ,
                                clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->mountStartTime );
     
     if ( context->mountpoint )

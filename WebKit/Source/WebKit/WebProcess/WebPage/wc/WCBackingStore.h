@@ -38,11 +38,11 @@ class WCBackingStore {
 public:
     WCBackingStore() = default;
     WebCore::ImageBuffer* imageBuffer() { return m_imageBuffer.get(); }
-    void setImageBuffer(RefPtr<WebCore::ImageBuffer>&& image) { m_imageBuffer = WTFMove(image); }
+    void setImageBuffer(RefPtr<WebCore::ImageBuffer>&& image) { m_imageBuffer = WTF::move(image); }
     WebCore::ShareableBitmap* bitmap() const { return m_bitmap.get(); }
 
 private:
-    friend struct IPC::ArgumentCoder<WCBackingStore, void>;
+    friend struct IPC::ArgumentCoder<WCBackingStore>;
 
     WCBackingStore(std::optional<ImageBufferBackendHandle>&&);
     std::optional<ImageBufferBackendHandle> handle() const;

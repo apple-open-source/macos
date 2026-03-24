@@ -35,7 +35,7 @@ namespace WebCore {
 
 template <typename HTMLCollectionClass, CollectionTraversalType traversalType>
 class CachedHTMLCollection : public HTMLCollection {
-    WTF_MAKE_TZONE_OR_ISO_NON_HEAP_ALLOCATABLE(CachedHTMLCollection);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(CachedHTMLCollection);
 public:
     CachedHTMLCollection(ContainerNode& base, CollectionType);
     

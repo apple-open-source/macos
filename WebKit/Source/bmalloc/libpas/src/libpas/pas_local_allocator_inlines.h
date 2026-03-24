@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,10 +45,13 @@
 #include "pas_segregated_shared_view_inlines.h"
 #include "pas_segregated_size_directory_inlines.h"
 #include "pas_segregated_view_allocator_inlines.h"
+#include "pas_stats.h"
 #include "pas_system_heap.h"
 #include "pas_thread_local_cache.h"
 #include "pas_thread_local_cache_node.h"
 #include "pas_zero_memory.h"
+
+#if LIBPAS_ENABLED
 
 PAS_BEGIN_EXTERN_C;
 
@@ -917,7 +920,8 @@ pas_local_allocator_try_allocate_in_primordial_partial_view(
 
     if (result.did_succeed) {
         PAS_PROFILE(PRIMORDIAL_BUMP_ALLOCATION, &page_config, result.begin, allocator->object_size, allocation_mode);
-        PAS_MTE_HANDLE(PRIMORDIAL_BUMP_ALLOCATION, &page_config, result.begin, allocator->object_size, allocation_mode);
+        PAS_MTE_HANDLE(PRIMORDIAL_BUMP_ALLOCATION, page_config, result.begin, allocator->object_size, allocation_mode);
+        PAS_RECORD_STAT_MALLOC(pas_stats_heap_type_segregated, allocator->object_size);
     }
 
     pas_lock_switch(&held_lock, NULL);
@@ -1517,7 +1521,8 @@ pas_local_allocator_try_allocate_with_free_bits(
     }
 
     PAS_PROFILE(LOCAL_FREEBITS_ALLOCATION, &page_config, result, allocator, allocation_mode);
-    PAS_MTE_HANDLE(LOCAL_FREEBITS_ALLOCATION, &page_config, result, allocator, allocation_mode);
+    PAS_MTE_HANDLE(LOCAL_FREEBITS_ALLOCATION, page_config, result, allocator, allocation_mode);
+    PAS_RECORD_STAT_MALLOC(pas_stats_heap_type_segregated, allocator->object_size);
     
     return pas_allocation_result_create_success(result);
 }
@@ -1564,6 +1569,7 @@ pas_local_allocator_try_allocate_inline_cases(pas_local_allocator* allocator,
 
         PAS_PROFILE(LOCAL_BUMP_ALLOCATION, config, allocator, result, object_size, allocation_mode);
         PAS_MTE_HANDLE(LOCAL_BUMP_ALLOCATION, config, allocator, result, object_size, allocation_mode);
+        PAS_RECORD_STAT_MALLOC(pas_stats_heap_type_segregated, object_size);
 
         return pas_allocation_result_create_success(result);
     }
@@ -1584,7 +1590,7 @@ pas_local_allocator_try_allocate_small_segregated_slow_impl(
     pas_heap_config config,
     pas_allocator_counts* counts)
 {
-    PAS_ASSERT(!pas_system_heap_is_enabled(config.kind));
+    PAS_ASSERT(!pas_system_heap_should_supplant_bmalloc(config.kind));
     
     pas_local_allocator_commit_if_necessary(allocator, config);
     
@@ -1716,7 +1722,7 @@ pas_local_allocator_try_allocate_slow_impl(pas_local_allocator* allocator,
                 pas_local_allocator_config_kind_get_string(allocator->config_kind));
     }
     
-    PAS_ASSERT(!pas_system_heap_is_enabled(config.kind));
+    PAS_ASSERT(!pas_system_heap_should_supplant_bmalloc(config.kind));
     
     pas_local_allocator_commit_if_necessary(allocator, config);
     
@@ -1735,8 +1741,6 @@ pas_local_allocator_try_allocate_slow_impl(pas_local_allocator* allocator,
                     pas_local_allocator_config_kind_get_string(allocator->config_kind));
         }
 
-        PAS_TESTING_ASSERT(allocator->config_kind != pas_local_allocator_config_kind_unselected);
-        
         PAS_TESTING_ASSERT(allocator->config_kind != pas_local_allocator_config_kind_unselected);
         PAS_TESTING_ASSERT(allocator->config_kind != pas_local_allocator_config_kind_null);
         PAS_TESTING_ASSERT(!pas_local_allocator_has_bitfit(allocator));
@@ -1860,7 +1864,7 @@ pas_local_allocator_try_allocate(pas_local_allocator* allocator,
             pas_allocation_result_create_success_with_zero_mode(result.begin, result.zero_mode));
     }
 
-    if (PAS_UNLIKELY(pas_system_heap_is_enabled(config.kind)))
+    if (PAS_UNLIKELY(pas_system_heap_should_supplant_bmalloc(config.kind)))
         return pas_system_heap_allocate(size, alignment, allocation_mode);
     
     if (config.small_segregated_config.base.is_enabled &&
@@ -1891,5 +1895,5 @@ pas_local_allocator_try_allocate(pas_local_allocator* allocator,
 
 PAS_END_EXTERN_C;
 
+#endif /* LIBPAS_ENABLED */
 #endif /* PAS_LOCAL_ALLOCATOR_INLINES_H */
-

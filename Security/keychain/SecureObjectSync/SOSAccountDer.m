@@ -85,9 +85,9 @@ const uint8_t* der_decode_fullpeer_or_null(CFAllocatorRef allocator, SOSFullPeer
 {
     ccder_tag tag;
 
-    require_action_quiet(ccder_decode_tag(&tag, der, der_end), fail, der = NULL);
+    __Require_Action_Quiet(ccder_decode_tag(&tag, der, der_end), fail, der = NULL);
 
-    require_action_quiet(full_peer, fail, der = NULL);
+    __Require_Action_Quiet(full_peer, fail, der = NULL);
 
     if (tag == CCDER_NULL) {
         der = ccder_decode_null(der, der_end);

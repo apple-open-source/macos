@@ -27,7 +27,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "config.h"
 #include "FrameSnapshotting.h"
 
@@ -46,7 +45,7 @@
 #include "Page.h"
 #include "RenderAncestorIterator.h"
 #include "RenderObject.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -63,13 +62,13 @@ struct ScopedFramePaintingState {
 
     ~ScopedFramePaintingState()
     {
-        frame.view()->setPaintBehavior(paintBehavior);
-        frame.view()->setBaseBackgroundColor(backgroundColor);
-        frame.view()->setNodeToDraw(nullptr);
+        frame->view()->setPaintBehavior(paintBehavior);
+        frame->view()->setBaseBackgroundColor(backgroundColor);
+        frame->view()->setNodeToDraw(nullptr);
     }
 
-    const LocalFrame& frame;
-    const Node* node;
+    const WeakRef<LocalFrame> frame;
+    const WeakPtr<Node, WeakPtrImplWithEventTargetData> node;
     const OptionSet<PaintBehavior> paintBehavior;
     const Color backgroundColor;
 };
@@ -77,7 +76,7 @@ struct ScopedFramePaintingState {
 RefPtr<ImageBuffer> snapshotFrameRect(LocalFrame& frame, const IntRect& imageRect, SnapshotOptions&& options)
 {
     Vector<FloatRect> clipRects;
-    return snapshotFrameRectWithClip(frame, imageRect, clipRects, WTFMove(options));
+    return snapshotFrameRectWithClip(frame, imageRect, clipRects, WTF::move(options));
 }
 
 RefPtr<ImageBuffer> snapshotFrameRectWithClip(LocalFrame& frame, const IntRect& imageRect, const Vector<FloatRect>& clipRects, SnapshotOptions&& options)
@@ -164,7 +163,7 @@ RefPtr<ImageBuffer> snapshotSelection(LocalFrame& frame, SnapshotOptions&& optio
         return nullptr;
 
     options.flags.add(SnapshotFlags::PaintSelectionOnly);
-    return snapshotFrameRect(frame, enclosingIntRect(selectionBounds), WTFMove(options));
+    return snapshotFrameRect(frame, enclosingIntRect(selectionBounds), WTF::move(options));
 }
 
 RefPtr<ImageBuffer> snapshotNode(LocalFrame& frame, Node& node, SnapshotOptions&& options)
@@ -178,7 +177,7 @@ RefPtr<ImageBuffer> snapshotNode(LocalFrame& frame, Node& node, SnapshotOptions&
     frame.view()->setNodeToDraw(&node);
 
     LayoutRect topLevelRect;
-    return snapshotFrameRect(frame, snappedIntRect(node.renderer()->paintingRootRect(topLevelRect)), WTFMove(options));
+    return snapshotFrameRect(frame, snappedIntRect(node.renderer()->paintingRootRect(topLevelRect)), WTF::move(options));
 }
 
 static bool styleContainsComplexBackground(const RenderStyle& style)
@@ -221,7 +220,7 @@ Color estimatedBackgroundColorForRange(const SimpleRange& range, const LocalFram
         if (styleContainsComplexBackground(style))
             return estimatedBackgroundColor;
 
-        auto visitedDependentBackgroundColor = style.visitedDependentColor(CSSPropertyBackgroundColor);
+        auto visitedDependentBackgroundColor = style.visitedDependentBackgroundColor();
         if (visitedDependentBackgroundColor != Color::transparentBlack)
             parentRendererBackgroundColors.append(visitedDependentBackgroundColor);
     }

@@ -33,11 +33,6 @@
 
 namespace WebKit {
 
-ScrollingAccelerationCurve::ScrollingAccelerationCurve(float gainLinear, float gainParabolic, float gainCubic, float gainQuartic, float tangentSpeedLinear, float tangentSpeedParabolicRoot, float resolution, float frameRate)
-    : m_parameters { gainLinear, gainParabolic, gainCubic, gainQuartic, tangentSpeedLinear, tangentSpeedParabolicRoot, resolution, frameRate }
-{
-}
-
 ScrollingAccelerationCurve ScrollingAccelerationCurve::interpolate(const ScrollingAccelerationCurve& from, const ScrollingAccelerationCurve& to, float amount)
 {
     auto interpolate = [&] (float a, float b) -> float {

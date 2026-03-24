@@ -28,6 +28,8 @@
 
 namespace WebCore {
 
+class SVGElement;
+
 class SVGZoomAndPan {
     WTF_MAKE_NONCOPYABLE(SVGZoomAndPan);
 public:
@@ -43,7 +45,7 @@ public:
     ExceptionOr<void> setZoomAndPan(unsigned) { return Exception { ExceptionCode::NoModificationAllowedError }; }
     void reset() { m_zoomAndPan = SVGPropertyTraits<SVGZoomAndPanType>::initialValue(); }
 
-    void parseAttribute(const QualifiedName&, const AtomString&);
+    void parseAttribute(SVGElement&, const QualifiedName&, const AtomString&);
 
 protected:
     SVGZoomAndPan() = default;

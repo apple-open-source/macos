@@ -93,7 +93,7 @@ void ConstantPropertyMap::setValueForProperty(ConstantProperty property, Ref<CSS
         buildValues();
 
     auto& name = nameForProperty(property);
-    m_values->set(name, Style::CustomProperty::createForVariableData(name, WTFMove(data)));
+    m_values->set(name, Style::CustomProperty::createForVariableData(name, WTF::move(data)));
 }
 
 void ConstantPropertyMap::buildValues()

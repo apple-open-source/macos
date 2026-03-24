@@ -75,7 +75,7 @@ RemoteSharedResourceCache::~RemoteSharedResourceCache() = default;
 bool RemoteSharedResourceCache::addSerializedImageBuffer(RemoteSerializedImageBufferIdentifier identifier, Ref<ImageBuffer> imageBuffer)
 {
     didCreateImageBuffer(imageBuffer->renderingPurpose(), imageBuffer->renderingMode());
-    return m_serializedImageBuffers.add({ identifier, 0 }, WTFMove(imageBuffer));
+    return m_serializedImageBuffers.add({ identifier, 0 }, WTF::move(imageBuffer));
 }
 
 RefPtr<ImageBuffer> RemoteSharedResourceCache::takeSerializedImageBuffer(RemoteSerializedImageBufferIdentifier identifier)
@@ -84,6 +84,16 @@ RefPtr<ImageBuffer> RemoteSharedResourceCache::takeSerializedImageBuffer(RemoteS
     if (imageBuffer)
         didReleaseImageBuffer(imageBuffer->renderingPurpose(), imageBuffer->renderingMode());
     return imageBuffer;
+}
+
+bool RemoteSharedResourceCache::addNativeImage(RenderingResourceIdentifier identifier, Ref<NativeImage> image)
+{
+    return m_nativeImages.add({ identifier, 0 }, WTF::move(image));
+}
+
+RefPtr<NativeImage> RemoteSharedResourceCache::takeNativeImage(RenderingResourceIdentifier identifier)
+{
+    return m_nativeImages.take({ { identifier, 0 }, 0 }, defaultRemoteSharedResourceCacheTimeout);
 }
 
 void RemoteSharedResourceCache::releaseSerializedImageBuffer(RemoteSerializedImageBufferIdentifier identifier)

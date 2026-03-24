@@ -64,7 +64,7 @@ DOMCache<WebCore::Range*, __unsafe_unretained WKDOMRange *>& WKDOMRangeCache()
 
 // -- Node and classes derived from Node. --
 
-static Class WKDOMNodeClass(WebCore::Node* impl)
+static Class WKDOMNodeClassSingleton(WebCore::Node* impl)
 {
     switch (impl->nodeType()) {
     case WebCore::Node::ELEMENT_NODE:
@@ -87,12 +87,17 @@ static Class WKDOMNodeClass(WebCore::Node* impl)
 
 static RetainPtr<WKDOMNode> createWrapper(WebCore::Node* impl)
 {
-    return adoptNS([[WKDOMNodeClass(impl) alloc] _initWithImpl:impl]);
+    return adoptNS([[WKDOMNodeClassSingleton(impl) alloc] _initWithImpl:impl]);
 }
 
 WebCore::Node* toWebCoreNode(WKDOMNode *wrapper)
 {
     return wrapper ? wrapper->_impl.get() : 0;
+}
+
+RefPtr<WebCore::Node> toProtectedWebCoreNode(WKDOMNode *wrapper)
+{
+    return toWebCoreNode(wrapper);
 }
 
 WKDOMNode *toWKDOMNode(WebCore::Node* impl)
@@ -113,6 +118,11 @@ WKDOMElement *toWKDOMElement(WebCore::Element* impl)
 WebCore::Document* toWebCoreDocument(WKDOMDocument *wrapper)
 {
     return wrapper ? downcast<WebCore::Document>(wrapper->_impl.get()) : 0;
+}
+
+RefPtr<WebCore::Document> toProtectedWebCoreDocument(WKDOMDocument *wrapper)
+{
+    return toWebCoreDocument(wrapper);
 }
 
 WKDOMDocument *toWKDOMDocument(WebCore::Document* impl)
@@ -137,9 +147,14 @@ static RetainPtr<WKDOMRange> createWrapper(WebCore::Range* impl)
     return adoptNS([[WKDOMRange alloc] _initWithImpl:impl]);
 }
 
-WebCore::Range* toWebCoreRange(WKDOMRange * wrapper)
+WebCore::Range* toWebCoreRange(WKDOMRange *wrapper)
 {
     return wrapper ? wrapper->_impl.get() : 0;
+}
+
+RefPtr<WebCore::Range> toProtectedWebCoreRange(WKDOMRange *wrapper)
+{
+    return toWebCoreRange(wrapper);
 }
 
 WKDOMRange *toWKDOMRange(WebCore::Range* impl)

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 yue{
     Keys{
         calendar{"曆法"}
@@ -14,10 +14,13 @@ yue{
         colStrength{"排序強度"}
         collation{"排序"}
         currency{"貨幣"}
+        em{"Emoji 顯示方式"}
         hc{"時間週期（12 小時制與 24 小時制）"}
         lb{"換行樣式"}
+        lw{"單字強制換行"}
         ms{"度量單位系統"}
         numbers{"數字"}
+        ss{"縮寫後斷句"}
         timezone{"時區"}
         va{"區域變異"}
         x{"專用區"}
@@ -328,7 +331,7 @@ yue{
         ksb{"尚巴拉文"}
         ksf{"巴菲亞文"}
         ksh{"科隆文"}
-        ku{"庫爾德文"}
+        ku{"庫德文"}
         kum{"庫密克文"}
         kut{"庫特奈文"}
         kv{"科米文"}
@@ -675,6 +678,12 @@ yue{
         zxx{"無語言內容"}
         zza{"扎扎文"}
     }
+    Languages%core{
+        ku{"庫德文"}
+    }
+    Languages%extension{
+        ku{"北庫德文"}
+    }
     Languages%long{
         zh_Hans{"簡體中文 (普通話)"}
         zh_Hant{"繁體中文 (普通話)"}
@@ -869,17 +878,33 @@ yue{
             chinese{"農曆"}
             coptic{"科普特曆"}
             dangi{"檀紀曆"}
-            ethiopic{"衣索比亞曆"}
-            ethiopic-amete-alem{"衣索比亞曆 (Amete Alem)"}
+            ethiopic{"埃塞俄比亞曆"}
+            ethiopic-amete-alem{"埃塞俄比亞阿美德阿萊姆曆"}
             gregorian{"公曆"}
             hebrew{"希伯來曆"}
             indian{"印度國曆"}
             islamic{"伊斯蘭曆"}
-            islamic-civil{"伊斯蘭民用曆"}
+            islamic-civil{"伊斯蘭民用曆 (表格式)"}
             islamic-rgsa{"伊斯蘭新月曆"}
             islamic-tbla{"伊斯蘭天文曆"}
             islamic-umalqura{"伊斯蘭曆（烏姆庫拉）"}
-            iso8601{"國際標準 ISO 8601"}
+            iso8601{"公曆 (元年)"}
+            japanese{"日本曆"}
+            persian{"波斯曆"}
+            roc{"民國曆"}
+        }
+        calendar%core{
+            buddhist{"佛曆"}
+            chinese{"農曆"}
+            coptic{"科普特曆"}
+            dangi{"檀紀曆"}
+            ethiopic{"埃塞俄比亞曆"}
+            ethiopic-amete-alem{"埃塞俄比亞阿美德阿萊姆"}
+            gregorian{"公曆"}
+            hebrew{"希伯來曆"}
+            islamic{"伊斯蘭曆"}
+            islamic-civil{"伊斯蘭民用曆 (表格式)"}
+            islamic-umalqura{"伊斯蘭曆 (烏姆庫拉)"}
             japanese{"日本曆"}
             persian{"波斯曆"}
             roc{"民國曆"}
@@ -887,6 +912,10 @@ yue{
         cf{
             account{"會計貨幣格式"}
             standard{"標準貨幣格式"}
+        }
+        cf%core{
+            account{"會計"}
+            standard{"標準"}
         }
         colAlternate{
             non-ignorable{"排序符號"}
@@ -921,11 +950,9 @@ yue{
             tertiary{"排序重音/大小寫/全半形"}
         }
         collation{
-            big5han{"繁體中文排序 - Big5"}
             dictionary{"字典排序"}
             ducet{"預設 Unicode 排序"}
             eor{"歐洲排序規則"}
-            gb2312han{"簡體中文排序 - GB2312"}
             phonebook{"電話簿排序"}
             phonetic{"發音排序"}
             pinyin{"拼音排序"}
@@ -937,10 +964,20 @@ yue{
             unihan{"部首筆畫排序"}
             zhuyin{"注音排序"}
         }
+        collation%core{
+            ducet{"預設 Unicode"}
+            search{"搜尋"}
+            standard{"標準"}
+        }
         d0{
             fwidth{"全形"}
             hwidth{"半形"}
             npinyin{"數值"}
+        }
+        em%core{
+            default{"預設"}
+            emoji{"Emoji"}
+            text{"文字"}
         }
         hc{
             h11{"12 小時制 (0–11)"}
@@ -948,10 +985,27 @@ yue{
             h23{"24 小時制 (0–23)"}
             h24{"24 小時制 (1–24)"}
         }
+        hc%core{
+            h11{"12 (0–11)"}
+            h12{"12 (1–12)"}
+            h23{"24 (0–23)"}
+            h24{"24 (1–24)"}
+        }
         lb{
             loose{"寬鬆換行樣式"}
             normal{"一般換行樣式"}
             strict{"強制換行樣式"}
+        }
+        lb%core{
+            loose{"寬鬆"}
+            normal{"一般"}
+            strict{"強制"}
+        }
+        lw%core{
+            breakall{"任意換行"}
+            keepall{"全部保留"}
+            normal{"一般"}
+            phrase{"唔拆開詞組"}
         }
         m0{
             bgn{"美國地名委員會"}
@@ -961,6 +1015,11 @@ yue{
             metric{"公制"}
             uksystem{"英制度量單位系統"}
             ussystem{"美制度量單位系統"}
+        }
+        ms%core{
+            metric{"公制"}
+            uksystem{"英制"}
+            ussystem{"美制"}
         }
         numbers{
             arab{"阿拉伯-印度數字"}
@@ -1024,6 +1083,10 @@ yue{
             tibt{"西藏數字"}
             traditional{"傳統數字"}
             vaii{"瓦伊文數字"}
+        }
+        ss%core{
+            none{"閂"}
+            standard{"開"}
         }
     }
     Variants{

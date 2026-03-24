@@ -54,7 +54,6 @@ public:
     Ref<JSC::ArrayBufferView> protectedArrayBufferView() const { return m_arrayBufferView; }
     auto byteLength() const { return protectedArrayBufferView()->byteLength(); }
     auto isDetached() const { return protectedArrayBufferView()->isDetached(); }
-    auto span() const { return protectedArrayBufferView()->span(); }
 
     Ref<JSC::Uint8ClampedArray> asUint8ClampedArray() const;
     Ref<JSC::Float16Array> asFloat16Array() const;

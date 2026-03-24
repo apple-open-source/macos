@@ -203,7 +203,7 @@
             "contextsAllowed": ["attribute", "operation", "interface"]
         },
         "EnabledForWorld": {
-            "contextsAllowed": ["attribute", "operation", "interface"],
+            "contextsAllowed": ["attribute", "operation", "interface", "dictionary-member"],
             "values": ["*"],
             "supportsConjunction": true
         },
@@ -436,6 +436,10 @@
         "Plugin": {
             "contextsAllowed": ["interface"],
             "notes" : "Should only be used by elements that forward to Netscape plug-ins"
+        },
+        "PermissiveInvalidValue": {
+            "contextsAllowed": ["dictionary-member"],
+            "notes": "For optional enum dictionary members, return nullopt instead of throwing TypeError on invalid enum values. Non-standard extension for forward-compatibility."
         },
         "PrivateIdentifier": {
             "contextsAllowed": ["interface", "attribute", "operation"]

@@ -31,7 +31,7 @@
 #include "InlineIteratorLineBox.h"
 #include "PlacedFloats.h"
 #include "RenderBlockFlow.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleOrphans.h"
 #include "StyleWidows.h"
 
@@ -170,7 +170,7 @@ void adjustLinePositionsForPagination(InlineContent& inlineContent, const Vector
     for (size_t lineIndex = 0; lineIndex < displayContent.lines.size(); ++lineIndex) {
         auto& line = displayContent.lines[lineIndex];
         auto& adjustment = adjustments[lineIndex];
-        line.moveInBlockDirection(adjustment.offset, isHorizontalWritingMode);
+        displayContent.moveLineInBlockDirection(lineIndex, adjustment.offset);
         if (adjustment.isFirstAfterPageBreak)
             line.setIsFirstAfterPageBreak();
     }

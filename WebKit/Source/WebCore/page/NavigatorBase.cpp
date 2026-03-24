@@ -73,7 +73,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(NavigatorBase);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorBase);
 
 NavigatorBase::NavigatorBase(ScriptExecutionContext* context)
     : ContextDestructionObserver(context)
@@ -97,12 +97,10 @@ String NavigatorBase::appVersion() const
 String NavigatorBase::platform() const
 {
 #if OS(LINUX)
-    static LazyNeverDestroyed<String> platformName;
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [] {
+    static NeverDestroyed<String> platformName = [] {
         struct utsname osname;
-        platformName.construct(uname(&osname) >= 0 ? makeString(unsafeSpan(osname.sysname), " "_s, unsafeSpan(osname.machine)) : emptyString());
-    });
+        return uname(&osname) >= 0 ? makeString(unsafeSpan(osname.sysname), " "_s, unsafeSpan(osname.machine)) : emptyString();
+    }();
     return platformName->isolatedCopy();
 #elif PLATFORM(IOS_FAMILY)
     return PAL::deviceName();
@@ -110,6 +108,8 @@ String NavigatorBase::platform() const
     return "MacIntel"_s;
 #elif OS(WINDOWS)
     return "Win32"_s;
+#elif OS(HAIKU)
+    return "Haiku"_s;
 #else
     return ""_s;
 #endif
@@ -184,26 +184,17 @@ ExceptionOr<ServiceWorkerContainer&> NavigatorBase::serviceWorker(ScriptExecutio
 
 int NavigatorBase::hardwareConcurrency(ScriptExecutionContext& context)
 {
-    static int numberOfCores;
-
     if (context.requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::HardwareConcurrency)) {
         auto randomSeed = static_cast<unsigned>(context.noiseInjectionHashSalt().value_or(0));
         return 1 + WeakRandom { randomSeed }.getUint32(63);
     }
 
-    static std::once_flag once;
-    std::call_once(once, [] {
-        // Enforce a maximum for the number of cores reported to mitigate
-        // fingerprinting for the minority of machines with large numbers of cores.
-        // If machines with more than 8 cores become commonplace, we should bump this number.
-        // see https://bugs.webkit.org/show_bug.cgi?id=132588 for the
-        // rationale behind this decision.
-        if (WTF::numberOfProcessorCores() < 8)
-            numberOfCores = 4;
-        else
-            numberOfCores = 8;
-    });
-
+    // Enforce a maximum for the number of cores reported to mitigate
+    // fingerprinting for the minority of machines with large numbers of cores.
+    // If machines with more than 8 cores become commonplace, we should bump this number.
+    // see https://bugs.webkit.org/show_bug.cgi?id=132588 for the
+    // rationale behind this decision.
+    static int numberOfCores = WTF::numberOfProcessorCores() < 8 ? 4 : 8;
     return numberOfCores;
 }
 

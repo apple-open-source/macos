@@ -103,6 +103,7 @@ GRefPtr<WPEDRMDevice> wpeDRMDeviceCreateForDevice(const char* deviceFilename)
 
     return drmDevice;
 #else
+    UNUSED_PARAM(deviceFilename);
     return nullptr;
 #endif
 }

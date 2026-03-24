@@ -119,7 +119,7 @@ private:
         HashMap<KeyType, size_t> resultMap;
     
         // 4. Let keys be ? O.[[OwnPropertyKeys]]().
-        JSC::PropertyNameArray keys(vm, JSC::PropertyNameMode::StringsAndSymbols, JSC::PrivateSymbolMode::Exclude);
+        JSC::PropertyNameArrayBuilder keys(vm, JSC::PropertyNameMode::StringsAndSymbols, JSC::PrivateSymbolMode::Exclude);
         object->methodTable()->getOwnPropertyNames(object, &lexicalGlobalObject, keys, JSC::DontEnumPropertiesMode::Include);
         RETURN_IF_EXCEPTION(scope, Result::exception());
 
@@ -159,7 +159,7 @@ private:
                         auto addResult = resultMap.add(typedKey, result.size());
                         if (!addResult.isNewEntry) {
                             ASSERT(result[addResult.iterator->value].key == typedKey);
-                            result[addResult.iterator->value].value = ValueAdjuster<V>::adjust(WTFMove(typedValue));
+                            result[addResult.iterator->value].value = ValueAdjuster<V>::adjust(WTF::move(typedValue));
                             continue;
                         }
                     }
@@ -167,7 +167,7 @@ private:
                     UNUSED_VARIABLE(resultMap);
                 
                 // 5. Otherwise, append to result a mapping (typedKey, typedValue).
-                result.append({ WTFMove(typedKey), ValueAdjuster<V>::adjust(WTFMove(typedValue)) });
+                result.append({ WTF::move(typedKey), ValueAdjuster<V>::adjust(WTF::move(typedValue)) });
             }
         }
 

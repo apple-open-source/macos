@@ -67,6 +67,7 @@ protected:
     const InlineLayoutState& layoutState() const;
     InlineLayoutState& layoutState();
     const BlockLayoutState& blockLayoutState() const { return layoutState().parentBlockLayoutState(); }
+    BlockLayoutState& blockLayoutState() { return layoutState().parentBlockLayoutState(); }
     const ElementBox& root() const { return m_rootBox; }
     const RenderStyle& rootStyle() const;
 

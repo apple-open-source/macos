@@ -57,12 +57,12 @@ sslCreateSecTrust(
 	OSStatus status = errSecAllocate;
 	SecTrustRef trust = NULL;
 
-    require_noerr(status = tls_helper_create_peer_trust(ctx->hdsk, ctx->protocolSide==kSSLServerSide, &trust), errOut);
+    __Require_noErr(status = tls_helper_create_peer_trust(ctx->hdsk, ctx->protocolSide==kSSLServerSide, &trust), errOut);
 
 	/* If we have trustedAnchors we set them here. */
     if (trust && ctx->trustedCerts) {
-        require_noerr(status = SecTrustSetAnchorCertificates(trust, ctx->trustedCerts), errOut);
-        require_noerr(status = SecTrustSetAnchorCertificatesOnly(trust, ctx->trustedCertsOnly), errOut);
+        __Require_noErr(status = SecTrustSetAnchorCertificates(trust, ctx->trustedCerts), errOut);
+        __Require_noErr(status = SecTrustSetAnchorCertificatesOnly(trust, ctx->trustedCertsOnly), errOut);
     }
 
     status = errSecSuccess;
@@ -148,7 +148,7 @@ static OSStatus sslVerifyCertChain(
 	}
 
 	SecTrustResultType secTrustResult;
-    require_noerr(status = SecTrustEvaluate(trust, &secTrustResult), errOut);
+    __Require_noErr(status = SecTrustEvaluate(trust, &secTrustResult), errOut);
 
 	switch (secTrustResult) {
         case kSecTrustResultUnspecified:

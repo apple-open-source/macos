@@ -192,7 +192,7 @@
         variantElement = downcast<WebCore::HTMLOptGroupElement>(coreElement);
     else
         raiseTypeErrorException();
-    raiseOnDOMError(IMPL->add(WTFMove(variantElement), WebCore::HTMLSelectElement::HTMLElementOrInt(core(before))));
+    raiseOnDOMError(IMPL->add(WTF::move(variantElement), WebCore::HTMLSelectElement::HTMLElementOrInt(core(before))));
 }
 
 - (void)remove:(int)index

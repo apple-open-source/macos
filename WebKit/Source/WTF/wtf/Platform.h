@@ -70,7 +70,15 @@
 /* ==== Platform additions: additions to Platform.h from outside the main repository ==== */
 
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/AdditionalPlatform.h>)
+/* FIXME: Properly support using WKA in modules. */
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#endif
 #include <WebKitAdditions/AdditionalPlatform.h>
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic pop
+#endif
 #endif
 
 /* IWYU pragma: end_exports */
@@ -157,4 +165,11 @@
 /* FIXME: This is used to "turn on a specific feature of WebKit", so should be converted to an ENABLE macro. */
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
 #define USE_ACCESSIBILITY_CONTEXT_MENUS 1
+#endif
+
+#if OS(WINDOWS)
+// https://github.com/MicrosoftDocs/cpp-docs/blob/main/docs/cpp/empty-bases.md
+#define WTF_EMPTY_BASE_CLASS __declspec(empty_bases)
+#else
+#define WTF_EMPTY_BASE_CLASS
 #endif

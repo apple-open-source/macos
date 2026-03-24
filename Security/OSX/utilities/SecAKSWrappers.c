@@ -145,15 +145,15 @@ CFDataRef SecAKSCopyBackupBagWithSecret(size_t size, uint8_t *secret, CFErrorRef
     keybag_handle_t backupKeybagHandle = -1;
     kern_return_t ret;
 
-    require_quiet(SecRequirementError(0 <= size && size <= INT_MAX, error, CFSTR("Invalid size: %zu"), size), fail);
+    __Require_Quiet(SecRequirementError(0 <= size && size <= INT_MAX, error, CFSTR("Invalid size: %zu"), size), fail);
 
     ret = aks_create_bag(secret, (int) size, kAppleKeyStoreAsymmetricBackupBag, &backupKeybagHandle);
 
-    require_quiet(SecKernError(ret, error, CFSTR("bag allocation failed: %d"), ret), fail);
+    __Require_Quiet(SecKernError(ret, error, CFSTR("bag allocation failed: %d"), ret), fail);
 
     ret = aks_save_bag(backupKeybagHandle, &keybagBytes, &keybagSize);
 
-    require_quiet(SecKernError(ret, error, CFSTR("save bag failed: %d"), ret), fail);
+    __Require_Quiet(SecKernError(ret, error, CFSTR("save bag failed: %d"), ret), fail);
 
     ret = aks_unload_bag(backupKeybagHandle);
     
@@ -163,7 +163,7 @@ CFDataRef SecAKSCopyBackupBagWithSecret(size_t size, uint8_t *secret, CFErrorRef
 
     result = CFDataCreate(kCFAllocatorDefault, keybagBytes, keybagSize);
 
-    require_quiet(SecAllocationError(result, error, CFSTR("Bag CFData Allocation Failed")), fail);
+    __Require_Quiet(SecAllocationError(result, error, CFSTR("Bag CFData Allocation Failed")), fail);
 
 fail:
     if (keybagBytes)

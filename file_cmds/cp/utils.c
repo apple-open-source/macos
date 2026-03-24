@@ -64,6 +64,12 @@
 
 #define	cp_pct(x, y)	((y == 0) ? 0 : (int)(100.0 * (x) / (y)))
 
+#ifdef __APPLE__
+#ifndef COPYFILE_NOCACHE
+#define COPYFILE_NOCACHE	(1<<14)
+#endif
+#endif
+
 /*
  * Memory strategy threshold, in pages: if physmem is larger then this, use a 
  * large buffer.
@@ -280,7 +286,7 @@ copy_file(const FTSENT *entp, bool dne, bool beneath)
 		ret = clonefileat(cwd, entp->fts_accpath, to.dir, to.path, 0);
 		if (ret == 0)
 			goto done;
-		if (errno != ENOTSUP) {
+		if (errno != EXDEV && errno != ENOTSUP) {
 			warn("%s%s: clonefile failed", to.base, to.path);
 			rval = 1;
 			goto done;
@@ -402,7 +408,7 @@ copy_file(const FTSENT *entp, bool dne, bool beneath)
 			    &cpctx);
 			(void)copyfile_state_set(cpfs, COPYFILE_STATE_STATUS_CB,
 			    copyfile_callback);
-			cpflags = COPYFILE_DATA;
+			cpflags = COPYFILE_DATA | COPYFILE_NOCACHE;
 			if (!Sflag)
 				cpflags |= COPYFILE_DATA_SPARSE;
 			ret = fcopyfile(from_fd, to_fd, cpfs, cpflags);

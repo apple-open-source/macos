@@ -82,7 +82,7 @@
     [result setDrawsBackground:NO];
 
     if ((NSUInteger)row < [_siteList count]) {
-        [[result textStorage].mutableString setString:_siteList.get()[row]];
+        [retainPtr([result textStorage].mutableString) setString:retainPtr(_siteList.get()[row]).get()];
         [result textStorage].font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
         [result textStorage].foregroundColor = NSColor.whiteColor;
     }
@@ -97,7 +97,7 @@
         frame.size.height -= _tableView.get().frame.size.height;
     else
         frame.size.height += _tableView.get().frame.size.height;
-    [_alert.get().window setFrame:frame display:YES];
+    [retainPtr(_alert.get().window) setFrame:frame display:YES];
     [_alert layout];
 }
 @end
@@ -118,7 +118,7 @@ void presentStorageAccessAlert(WKWebView *webView, const WebCore::RegistrableDom
 
     SUPPRESS_UNRETAINED_ARG RetainPtr informativeText = adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"This will allow “%@” to track your activity.", @"Informative text for requesting cross-site cookie and website data access."), requestingDomain.get()]);
 
-    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), nil, nil, WTFMove(completionHandler));
+    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), nil, nil, WTF::move(completionHandler));
 }
 
 void presentStorageAccessAlertQuirk(WKWebView *webView, const WebCore::RegistrableDomain& firstRequesting, const WebCore::RegistrableDomain& secondRequesting, const WebCore::RegistrableDomain& current, CompletionHandler<void(bool)>&& completionHandler)
@@ -134,7 +134,7 @@ void presentStorageAccessAlertQuirk(WKWebView *webView, const WebCore::Registrab
 #endif
 
     SUPPRESS_UNRETAINED_ARG RetainPtr informativeText = adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"This will allow “%@” and “%@” to track your activity.", @"Informative text for requesting cross-site cookie and website data access."), firstRequestingDomain.get(), secondRequestingDomain.get()]);
-    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), nil, nil, WTFMove(completionHandler));
+    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), nil, nil, WTF::move(completionHandler));
 }
 
 void presentStorageAccessAlertSSOQuirk(WKWebView *webView, const String& organizationName, const HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>>& domainPairings, CompletionHandler<void(bool)>&& completionHandler)
@@ -179,12 +179,12 @@ void presentStorageAccessAlertSSOQuirk(WKWebView *webView, const String& organiz
             [accessoryTextList addObject:domains.createNSString().get()];
     }
 
-    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), relatedWebsitesString.get(), accessoryTextList.get(), WTFMove(completionHandler));
+    displayStorageAccessAlert(webView, alertTitle.get(), informativeText.get(), relatedWebsitesString.get(), accessoryTextList.get(), WTF::move(completionHandler));
 }
 
 void displayStorageAccessAlert(WKWebView *webView, NSString *alertTitle, NSString *informativeText, NSString *accessoryLabel, NSArray<NSString *> *accessoryTextList, CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto completionBlock = makeBlockPtr([completionHandler = WTFMove(completionHandler)](bool shouldAllow) mutable {
+    auto completionBlock = makeBlockPtr([completionHandler = WTF::move(completionHandler)](bool shouldAllow) mutable {
         completionHandler(shouldAllow);
     });
 
@@ -223,14 +223,14 @@ void displayStorageAccessAlert(WKWebView *webView, NSString *alertTitle, NSStrin
 
         NSRect frame = alert.get().window.frame;
         frame.size.width += 100.;
-        [alert.get().window setFrame:frame display:YES];
+        [retainPtr(alert.get().window) setFrame:frame display:YES];
 
         [alert setAccessoryView:accessoryStackView.get()];
         [alert layout];
     }
     [alert addButtonWithTitle:allowButtonString.get()];
     [alert addButtonWithTitle:doNotAllowButtonString.get()];
-    [alert beginSheetModalForWindow:webView.window completionHandler:makeBlockPtr([ssoSiteList, completionBlock](NSModalResponse returnCode) {
+    [alert beginSheetModalForWindow:retainPtr(webView.window).get() completionHandler:makeBlockPtr([ssoSiteList, completionBlock](NSModalResponse returnCode) {
         auto shouldAllow = returnCode == NSAlertFirstButtonReturn;
         completionBlock(shouldAllow);
     }).get()];

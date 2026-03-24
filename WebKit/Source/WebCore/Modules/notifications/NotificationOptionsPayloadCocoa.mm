@@ -43,22 +43,22 @@ std::optional<NotificationOptionsPayload> NotificationOptionsPayload::fromDictio
     if (![dictionary isKindOfClass:[NSDictionary class]])
         return std::nullopt;
 
-    NSNumber *dir = dictionary[WebDirKey];
+    RetainPtr<NSNumber> dir = dictionary[WebDirKey];
     if (![dir isKindOfClass:[NSNumber class]])
         return std::nullopt;
 
     auto dirValue = [dir unsignedCharValue];
     if (!isValidNotificationDirection(dirValue))
         return std::nullopt;
-    auto rawDir = (NotificationDirection)dirValue;
+    auto rawDir = static_cast<NotificationDirection>(dirValue);
 
-    NSString *lang = dictionary[WebLangKey];
-    NSString *body = dictionary[WebBodyKey];
-    NSString *tag = dictionary[WebTagKey];
-    NSString *icon = dictionary[WebIconKey];
-    NSString *dataJSON = dictionary[WebDataJSONKey];
+    RetainPtr<NSString> lang = dictionary[WebLangKey];
+    RetainPtr<NSString> body = dictionary[WebBodyKey];
+    RetainPtr<NSString> tag = dictionary[WebTagKey];
+    RetainPtr<NSString> icon = dictionary[WebIconKey];
+    RetainPtr<NSString> dataJSON = dictionary[WebDataJSONKey];
 
-    NSNumber *silent = dictionary[WebSilentKey];
+    RetainPtr<NSNumber> silent = dictionary[WebSilentKey];
     if (!silent)
         return std::nullopt;
 
@@ -70,7 +70,7 @@ std::optional<NotificationOptionsPayload> NotificationOptionsPayload::fromDictio
         rawSilent = [silent boolValue];
     }
 
-    return NotificationOptionsPayload { (NotificationDirection)rawDir, lang, body, tag, icon, dataJSON, rawSilent };
+    return NotificationOptionsPayload { rawDir, lang.get(), body.get(), tag.get(), icon.get(), dataJSON.get(), rawSilent };
 }
 
 NSDictionary *NotificationOptionsPayload::dictionaryRepresentation() const

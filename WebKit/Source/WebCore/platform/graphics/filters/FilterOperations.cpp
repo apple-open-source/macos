@@ -40,7 +40,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FilterOperations);
 
 FilterOperations::FilterOperations(Vector<Ref<FilterOperation>>&& operations)
-    : m_operations(WTFMove(operations))
+    : m_operations(WTF::move(operations))
 {
 }
 
@@ -154,7 +154,7 @@ FilterOperations FilterOperations::blend(const FilterOperations& to, const Blend
         operations.appendVector(m_operations);
         operations.appendVector(to.m_operations);
 
-        return FilterOperations { WTFMove(operations) };
+        return FilterOperations { WTF::move(operations) };
     }
 
     if (context.isDiscrete) {
@@ -187,17 +187,17 @@ FilterOperations FilterOperations::blend(const FilterOperations& to, const Blend
                 if (toOp)
                     operations.append(toOp.releaseNonNull());
                 else
-                    operations.append(WTFMove(identityOp));
+                    operations.append(WTF::move(identityOp));
             } else {
                 if (fromOp)
                     operations.append(fromOp.releaseNonNull());
                 else
-                    operations.append(WTFMove(identityOp));
+                    operations.append(WTF::move(identityOp));
             }
         }
     }
 
-    return FilterOperations { WTFMove(operations) };
+    return FilterOperations { WTF::move(operations) };
 }
 
 TextStream& operator<<(TextStream& ts, const FilterOperations& filters)

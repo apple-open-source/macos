@@ -58,8 +58,13 @@ class WebXRViewerSpace;
 struct XRCanvasConfiguration;
 struct XRRenderStateInit;
 
+#if ENABLE(WEBXR_HIT_TEST)
+struct XRHitTestOptionsInit;
+struct XRTransientInputHitTestOptionsInit;
+#endif
+
 class WebXRSession final : public RefCounted<WebXRSession>, public EventTarget, public ActiveDOMObject, public PlatformXR::TrackingAndRenderingClient, VisibilityChangeClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRSession);
+    WTF_MAKE_TZONE_ALLOCATED(WebXRSession);
 public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
@@ -116,6 +121,13 @@ public:
     bool isHandTrackingEnabled() const;
 #endif
 
+#if ENABLE(WEBXR_HIT_TEST)
+    using RequestHitTestSourcePromise = DOMPromiseDeferred<IDLInterface<WebXRHitTestSource>>;
+    void requestHitTestSource(const XRHitTestOptionsInit&, RequestHitTestSourcePromise&&);
+    using RequestHitTestSourceForTransientInputPromise = DOMPromiseDeferred<IDLInterface<WebXRTransientInputHitTestSource>>;
+    void requestHitTestSourceForTransientInput(const XRTransientInputHitTestOptionsInit&, RequestHitTestSourceForTransientInputPromise&&);
+#endif
+
     void initializeTrackingAndRendering(std::optional<XRCanvasConfiguration>&&);
 
 private:
@@ -149,7 +161,6 @@ private:
     void applyPendingRenderState();
     void minimalUpdateRendering();
 
-    XREnvironmentBlendMode m_environmentBlendMode { XREnvironmentBlendMode::Opaque };
     XRInteractionMode m_interactionMode { XRInteractionMode::WorldSpace };
     XRVisibilityState m_visibilityState { XRVisibilityState::Visible };
     const UniqueRef<WebXRInputSourceArray> m_inputSources;
@@ -188,5 +199,7 @@ private:
 WebCoreOpaqueRoot root(WebXRSession*);
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(WebXRSession)
 
 #endif // ENABLE(WEBXR)

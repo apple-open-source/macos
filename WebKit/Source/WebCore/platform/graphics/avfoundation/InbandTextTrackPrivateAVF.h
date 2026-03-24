@@ -50,8 +50,8 @@ public:
 
     TrackID id() const final { return m_trackID; }
     Kind kind() const override { return m_kind; }
-    AtomString label() const override { return m_label; }
-    AtomString language() const override { return m_language; }
+    String label() const override { return m_label; }
+    String language() const override { return m_language; }
 
     void setMode(InbandTextTrackPrivate::Mode) final;
 
@@ -92,8 +92,8 @@ protected:
 
     void setKind(Kind kind) { m_kind = kind; }
     void setId(TrackID newId) { m_trackID = newId; }
-    void setLabel(const AtomString& label) { m_label = label; }
-    void setLanguage(const AtomString& language) { m_language = language; }
+    void setLabel(const String& label) { m_label = label; }
+    void setLanguage(const String& language) { m_language = language; }
 
     Ref<InbandGenericCue> processCueAttributes(CFAttributedStringRef);
     void processAttributedStrings(CFArrayRef, const MediaTime&);
@@ -124,8 +124,8 @@ private:
     PendingCueStatus m_pendingCueStatus { None };
 
     Kind m_kind { Kind::None };
-    AtomString m_label;
-    AtomString m_language;
+    String m_label;
+    String m_language;
     int m_index { 0 };
     TrackID m_trackID { 0 };
     bool m_hasBeenReported { false };

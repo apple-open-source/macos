@@ -18,6 +18,31 @@
 
 - (void)dealloc
 {
+    if (_device.propertyNotificationHandler) {
+        Block_release(_device.propertyNotificationHandler);
+        _device.propertyNotificationHandler = NULL;
+    }
+
+    if (_device.propertyNotificationKeys) {
+        CFRelease(_device.propertyNotificationKeys);
+        _device.propertyNotificationKeys = NULL;
+    }
+
+    if (_device.previousPropertyValues) {
+        CFRelease(_device.previousPropertyValues);
+        _device.previousPropertyValues = NULL;
+    }
+
+    if (_device.propertyNotify) {
+        IOObjectRelease(_device.propertyNotify);
+        _device.propertyNotify = IO_OBJECT_NULL;
+    }
+
+    if (_device.propertyPort) {
+        IONotificationPortDestroy(_device.propertyPort);
+        _device.propertyPort = NULL;
+    }
+
     _IOHIDDeviceReleasePrivate((__bridge IOHIDDeviceRef)self);
     [super dealloc];
 }

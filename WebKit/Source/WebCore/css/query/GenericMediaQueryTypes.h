@@ -47,6 +47,8 @@ struct FeatureSchema;
 struct Comparison {
     ComparisonOperator op;
     RefPtr<CSSValue> value;
+
+    RefPtr<CSSValue> protectedValue() const { return value; }
 };
 
 struct Feature {
@@ -107,7 +109,7 @@ struct FeatureSchema {
         , type(type)
         , valueType(valueType)
         , dependencies(dependencies)
-        , valueIdentifiers(WTFMove(valueIdentifiers))
+        , valueIdentifiers(WTF::move(valueIdentifiers))
     { }
     virtual ~FeatureSchema() = default;
 };

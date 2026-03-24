@@ -38,11 +38,11 @@ using namespace WebCore;
 
 Ref<PageBanner> PageBanner::create(CALayer *layer, int height, std::unique_ptr<Client>&& client)
 {
-    return adoptRef(*new PageBanner(layer, height, WTFMove(client)));
+    return adoptRef(*new PageBanner(layer, height, WTF::move(client)));
 }
 
 PageBanner::PageBanner(CALayer *layer, int height, std::unique_ptr<Client>&& client)
-    : m_client(WTFMove(client))
+    : m_client(WTF::move(client))
     , m_layer(layer)
     , m_height(height)
 {
@@ -74,7 +74,7 @@ void PageBanner::didAddParentLayer(GraphicsLayer* parentLayer)
         return;
 
     m_layer.get().bounds = CGRectMake(0, 0, parentLayer->size().width(), parentLayer->size().height());
-    [parentLayer->platformLayer() addSublayer:m_layer.get()];
+    [parentLayer->protectedPlatformLayer() addSublayer:m_layer.get()];
 }
 
 void PageBanner::detachFromPage()

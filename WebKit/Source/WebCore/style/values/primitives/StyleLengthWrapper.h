@@ -82,7 +82,7 @@ template<typename Numeric, CSS::PrimitiveKeyword... Ks> struct LengthWrapperBase
     explicit LengthWrapperBase(WTF::HashTableEmptyValueType token) : m_value(token) { }
 
     // IPC Support
-    explicit LengthWrapperBase(LengthWrapperData::IPCData&& data) : m_value { toData(WTFMove(data)) } { }
+    explicit LengthWrapperBase(LengthWrapperData::IPCData&& data) : m_value { toData(WTF::move(data)) } { }
     LengthWrapperData::IPCData ipcData() const { return m_value.ipcData(); }
 
     ALWAYS_INLINE bool isFixed() const { return holdsAlternative<Fixed>(); }
@@ -186,7 +186,7 @@ private:
             RELEASE_ASSERT(CSS::isWithinRange<Percentage::range>(ipcData.value));
         }
 
-        return LengthWrapperData { WTFMove(ipcData) };
+        return LengthWrapperData { WTF::move(ipcData) };
     }
 
     LengthWrapperDataEvaluationKind evaluationKind() const

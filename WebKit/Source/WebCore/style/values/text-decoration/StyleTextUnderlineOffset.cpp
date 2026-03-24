@@ -26,7 +26,7 @@
 #include "StyleTextUnderlineOffset.h"
 
 #include "AnimationUtilities.h"
-#include "RenderStyle.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleBuilderState.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 
@@ -42,7 +42,10 @@ float TextUnderlineOffset::resolve(const RenderStyle& style, float autoValue) co
         [&](const Fixed& fixed) -> float {
             return Style::evaluate<float>(fixed, style.usedZoomForLength());
         },
-        [&](const auto& percentage) -> float {
+        [&](const Calc& calc) -> float {
+            return Style::evaluate<float>(calc, style.computedFontSize(), style.usedZoomForLength());
+        },
+        [&](const Percentage& percentage) -> float {
             return Style::evaluate<float>(percentage, style.computedFontSize());
         }
     );

@@ -55,7 +55,7 @@ class StorageAreaMap final : public RefCounted<StorageAreaMap>, public IPC::Mess
 public:
     static Ref<StorageAreaMap> create(StorageNamespaceImpl& storageNamespace, Ref<const WebCore::SecurityOrigin>&& securityOrigin)
     {
-        return adoptRef(*new StorageAreaMap(storageNamespace, WTFMove(securityOrigin)));
+        return adoptRef(*new StorageAreaMap(storageNamespace, WTF::move(securityOrigin)));
     }
 
     ~StorageAreaMap();

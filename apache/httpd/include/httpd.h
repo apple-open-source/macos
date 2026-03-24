@@ -249,6 +249,10 @@ extern "C" {
 #define DOCTYPE_HTML_4_0F "<!DOCTYPE HTML PUBLIC \"-//W3C//" \
                           "DTD HTML 4.0 Frameset//EN\"\n" \
                           "\"http://www.w3.org/TR/REC-html40/frameset.dtd\">\n"
+/** HTML 4.01 Doctype */
+#define DOCTYPE_HTML_4_01 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n"
+/** HTML 5 Doctype */
+#define DOCTYPE_HTML_5 "<!DOCTYPE html>\n"
 /** XHTML 1.0 Strict Doctype */
 #define DOCTYPE_XHTML_1_0S "<!DOCTYPE html PUBLIC \"-//W3C//" \
                            "DTD XHTML 1.0 Strict//EN\"\n" \
@@ -453,13 +457,13 @@ AP_DECLARE(const char *) ap_get_server_built(void);
 
 /* non-HTTP status codes returned by hooks */
 
-#define OK 0                    /**< Module has handled this stage. */
-#define DECLINED -1             /**< Module declines to handle */
-#define DONE -2                 /**< Module has served the response completely
-                                 *  - it's safe to die() with no more output
-                                 */
-#define SUSPENDED -3 /**< Module will handle the remainder of the request.
-                      * The core will never invoke the request again, */
+#define OK           0  /**< Module has handled this stage. */
+#define DECLINED    -1  /**< Module declines to handle */
+#define DONE        -2  /**< Module has served the response completely
+                         *   - it's safe to die() with no more output
+                         */
+#define SUSPENDED   -3  /**< Module will handle the remainder of the request.
+                         *   The core will never invoke the request again */
 
 /** Returned by the bottom-most filter if no data was written.
  *  @see ap_pass_brigade(). */
@@ -1114,7 +1118,7 @@ struct request_rec {
      */
     int double_reverse;
     /** Request flags associated with this request. Use
-     * AP_REQUEST_GET_FLAGS() and AP_REQUEST_SET_FLAGS() to access
+     * AP_REQUEST_GET_BNOTE() and AP_REQUEST_SET_BNOTE() to access
      * the elements of this field.
      */
     ap_request_bnotes_t bnotes;
@@ -1256,16 +1260,25 @@ struct conn_rec {
  * only be set by the MPM. Use CONN_STATE_LINGER outside of the MPM.
  */
 typedef enum  {
-    CONN_STATE_CHECK_REQUEST_LINE_READABLE,
-    CONN_STATE_READ_REQUEST_LINE,
-    CONN_STATE_HANDLER,
-    CONN_STATE_WRITE_COMPLETION,
-    CONN_STATE_SUSPENDED,
-    CONN_STATE_LINGER,          /* connection may be closed with lingering */
-    CONN_STATE_LINGER_NORMAL,   /* MPM has started lingering close with normal timeout */
-    CONN_STATE_LINGER_SHORT,    /* MPM has started lingering close with short timeout */
+    CONN_STATE_KEEPALIVE,           /* Kept alive in the MPM (using KeepAliveTimeout) */
+    CONN_STATE_PROCESSING,          /* Processed by process_connection hooks */
+    CONN_STATE_HANDLER,             /* Processed by the modules handlers */
+    CONN_STATE_WRITE_COMPLETION,    /* Flushed by the MPM before entering CONN_STATE_KEEPALIVE */
+    CONN_STATE_SUSPENDED,           /* Suspended in the MPM until ap_run_resume_suspended() */
+    CONN_STATE_LINGER,              /* MPM flushes then closes the connection with lingering */
+    CONN_STATE_LINGER_NORMAL,       /* MPM has started lingering close with normal timeout */
+    CONN_STATE_LINGER_SHORT,        /* MPM has started lingering close with short timeout */
 
-    CONN_STATE_NUM              /* Number of states (keep/kept last) */
+    CONN_STATE_ASYNC_WAITIO,        /* Returning this state to the MPM will make it wait for
+                                     * the connection to be readable or writable according to
+                                     * c->cs->sense (resp. CONN_SENSE_WANT_READ or _WRITE),
+                                     * using the configured Timeout */
+
+    CONN_STATE_NUM,                 /* Number of states (keep here before aliases) */
+
+    /* Aliases (legacy) */
+    CONN_STATE_CHECK_REQUEST_LINE_READABLE  = CONN_STATE_KEEPALIVE,
+    CONN_STATE_READ_REQUEST_LINE            = CONN_STATE_PROCESSING,
 } conn_state_e;
 
 typedef enum  {
@@ -2698,6 +2711,15 @@ AP_DECLARE(apr_status_t) ap_filepath_merge(char **newpath,
 #define AP_IS_SLASH(s) (s == '/')
 #define AP_SLASHES "/"
 #endif
+
+/**
+ * Validates the path parameter is safe to pass to stat-like calls.
+ * @param path The filesystem path to cehck
+ * @param p a pool for temporary allocations
+ * @return APR_SUCCESS if the stat-like call should be allowed
+ */
+AP_DECLARE(apr_status_t) ap_stat_check(const char *path, apr_pool_t *pool);
+
 
 #ifdef __cplusplus
 }

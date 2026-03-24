@@ -48,7 +48,7 @@ class MediaController final
     , public MediaControllerInterface
     , public ContextDestructionObserver
     , public EventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaController);
+    WTF_MAKE_TZONE_ALLOCATED(MediaController);
 public:
     static Ref<MediaController> create(ScriptExecutionContext&);
     virtual ~MediaController();
@@ -84,9 +84,6 @@ public:
     void setMuted(bool) final;
 
     const AtomString& playbackState() const;
-
-    using RefCounted::ref;
-    using RefCounted::deref;
 
 private:
     explicit MediaController(ScriptExecutionContext&);
@@ -164,5 +161,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaController)
 
 #endif

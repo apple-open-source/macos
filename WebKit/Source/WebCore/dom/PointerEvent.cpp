@@ -35,7 +35,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(PointerEvent);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PointerEvent);
 
 AtomString PointerEvent::typeFromMouseEventType(const AtomString& mouseEventType)
 {
@@ -175,7 +175,7 @@ static Vector<Ref<PointerEvent>> createCoalescedPointerEvents(const AtomString& 
     Vector<Ref<PointerEvent>> result;
     for (Ref coalescedMouseEvent : mouseEvent.coalescedEvents()) {
         Ref pointerEvent = PointerEvent::create(type, button, coalescedMouseEvent.get(), pointerId, pointerType, Event::CanBubble::No, Event::IsCancelable::No);
-        result.append(WTFMove(pointerEvent));
+        result.append(WTF::move(pointerEvent));
     }
 
     return result;
@@ -191,7 +191,7 @@ static Vector<Ref<PointerEvent>> createPredictedPointerEvents(const AtomString& 
     Vector<Ref<PointerEvent>> result;
     for (Ref predictedMouseEvent : mouseEvent.predictedEvents()) {
         Ref pointerEvent = PointerEvent::create(type, button, predictedMouseEvent.get(), pointerId, pointerType, Event::CanBubble::No, Event::IsCancelable::No);
-        result.append(WTFMove(pointerEvent));
+        result.append(WTF::move(pointerEvent));
     }
 
     return result;

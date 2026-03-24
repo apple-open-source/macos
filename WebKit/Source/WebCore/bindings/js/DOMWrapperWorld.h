@@ -125,7 +125,7 @@ DOMWrapperWorld& worldForDOMObject(JSC::JSObject&);
 Ref<DOMWrapperWorld> protectedWorldForDOMObject(JSC::JSObject&);
 
 // Helper function for code paths that must not share objects across isolated DOM worlds.
-bool isWorldCompatible(JSC::JSGlobalObject&, JSC::JSValue);
+WEBCORE_EXPORT bool isWorldCompatible(JSC::JSGlobalObject&, JSC::JSValue);
 
 inline DOMWrapperWorld& currentWorld(JSC::JSGlobalObject& lexicalGlobalObject)
 {
@@ -140,11 +140,6 @@ inline DOMWrapperWorld& worldForDOMObject(JSC::JSObject& object)
 inline Ref<DOMWrapperWorld> protectedWorldForDOMObject(JSC::JSObject& object)
 {
     return worldForDOMObject(object);
-}
-
-inline bool isWorldCompatible(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSValue value)
-{
-    return !value.isObject() || &worldForDOMObject(*value.getObject()) == &currentWorld(lexicalGlobalObject);
 }
 
 } // namespace WebCore

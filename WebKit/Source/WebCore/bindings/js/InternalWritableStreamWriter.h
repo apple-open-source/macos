@@ -41,7 +41,7 @@ public:
         return adoptRef(*new InternalWritableStreamWriter(globalObject, writer));
     }
 
-    void whenReady(Function<void()>&&);
+    void whenReady(Function<void(bool)>&&);
     void onClosedPromiseRejection(Function<void(JSDOMGlobalObject&, JSC::JSValue)>&&);
     void onClosedPromiseResolution(Function<void()>&&);
 

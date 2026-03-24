@@ -727,7 +727,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
                                               CFSTR( "AppleTDMLocked" ),
                                               allocator,
                                               kIORegistryIterateParents | kIORegistryIterateRecursively );
-
+    
     if ( object )
     {
         CFDictionarySetValue( disk->_description, kDADiskDescriptionDeviceTDMLockedKey, object );

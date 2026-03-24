@@ -34,10 +34,12 @@
 #endif
 
 #include "keychain/securityd/SecItemServer.h"
+#include "keychain/analytics/SecItemAttrLogger.h"
 
 #include <CoreFoundation/CFPriv.h>
 #include <notify.h>
 #include <os/lock_private.h>
+#include <mach/mach_time.h>
 #include "keychain/securityd/SecItemDataSource.h"
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemSchema.h"
@@ -175,7 +177,7 @@ bool SecServerKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFError
             *stop = true;
         });
     });
-    require_action(ok, out, SecDbError(SQLITE_CORRUPT, error, CFSTR("Failed to read sqlite_master table: %@"), localError));
+    __Require_Action(ok, out, SecDbError(SQLITE_CORRUPT, error, CFSTR("Failed to read sqlite_master table: %@"), localError));
     if (!found) {
         secnotice("upgr", "no tversion table, will setup a new database: %@", localError);
         *version = 0;
@@ -501,7 +503,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     });
 
     if(CFStringGetLength(sql) > 0) {
-        require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+        __Require_Action_Quiet(ok &= SecDbExec(dbt, sql, error), out,
                              bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1AlterTables, error ? *error : NULL));
     }
     CFReleaseNull(sql);
@@ -516,12 +518,12 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             }
         }
     }
-    require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+    __Require_Action_Quiet(ok &= SecDbExec(dbt, sql, error), out,
                          bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropIndices, error ? *error : NULL));
     CFReleaseNull(sql);
 
     // Create tables for new schema.
-    require_action_quiet(ok &= SecItemDbCreateSchema(dbt, newSchema, classIndexesForNewTables, false, error), out,
+    __Require_Action_Quiet(ok &= SecItemDbCreateSchema(dbt, newSchema, classIndexesForNewTables, false, error), out,
                          bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1CreateSchema, error ? *error : NULL));
 
     // Go through all classes of current schema to transfer all items to new tables.
@@ -558,7 +560,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             // Prepare query to iterate through all items in cur_class.
             if (query != NULL)
                 query_destroy(query, NULL);
-            require_quiet(query = query_create(renamedOldClass, SecMUSRGetAllViews(), NULL, NULL, error), out);
+            __Require_Quiet(query = query_create(renamedOldClass, SecMUSRGetAllViews(), NULL, NULL, error), out);
 
             ok &= SecDbItemSelect(query, dbt, error, ^bool(const SecDbAttr *attr) {
                 // We are interested in all attributes which are physically present in the DB.
@@ -578,11 +580,11 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 if (isClassD(item)) {
                     // Decrypt the item.
                     ok &= SecDbItemEnsureDecrypted(item, true, &localError);
-                    require_quiet(ok, out);
+                    __Require_Quiet(ok, out);
 
                     // Delete SHA1 field from the item, so that it is newly recalculated before storing
                     // the item into the new table.
-                    require_quiet(ok &= SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, error),
+                    __Require_Quiet(ok &= SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, error),
                                                               kCFNull, error), out);
                 } else {
                     // Leave item encrypted, do not ever try to decrypt it since it will fail.
@@ -636,7 +638,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
 
             });
 
-            require_action_quiet(ok, out,
+            __Require_Action_Quiet(ok, out,
                                  bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1Items, error ? *error : NULL));
         } else {
             // This table does not contain secdb items, and must be transferred without using SecDbItemSelect.
@@ -658,7 +660,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             CFStringAppendFormat(sql, NULL, CFSTR("INSERT OR REPLACE INTO %@ (%@) SELECT %@ FROM %@;"), newClass->name, columns, columns, renamedOldClass->name);
 
             CFReleaseNull(columns);
-            require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+            __Require_Action_Quiet(ok &= SecDbExec(dbt, sql, error), out,
                                  bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1NonItems, error ? *error : NULL));
         }
     }
@@ -674,7 +676,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     });
 
     if(CFStringGetLength(sql) > 0) {
-        require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+        __Require_Action_Quiet(ok &= SecDbExec(dbt, sql, error), out,
                              bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropOld, error ? *error : NULL));
     }
 
@@ -732,7 +734,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
         if (query != NULL) {
             query_destroy(query, NULL);
         }
-        require_action_quiet(query = query_create(*class, SecMUSRGetAllViews(), NULL, NULL, error), out, ok = false);
+        __Require_Action_Quiet(query = query_create(*class, SecMUSRGetAllViews(), NULL, NULL, error), out, ok = false);
         ok &= SecDbItemSelect(query, threadDbt, error, NULL, ^bool(const SecDbAttr *attr) {
             // No simple per-attribute filtering.
             return false;
@@ -756,7 +758,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
 
                 // Delete SHA1 field from the item, so that it is newly recalculated before storing
                 // the item into the new table.
-                require_quiet(ok = SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, error),
+                __Require_Quiet(ok = SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, error),
                                                      kCFNull, &localError), out);
                 // Drop items with kSecAttrAccessGroupToken, as these items should not be there at all. Since agrp attribute
                 // is always stored as cleartext in the DB column, we can always rely on this attribute being present in item->attributes.
@@ -842,7 +844,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
             *stop = *stop || !ok;
 
         });
-        require_action(ok, out, bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase2, error ? *error : NULL));
+        __Require_Action(ok, out, bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase2, error ? *error : NULL));
     }
 
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -1148,58 +1150,58 @@ void SecServerClearRowIDAndErrorDictionary(void) {
 // There's no data-driven approach for this. Let's think about it more if it gets unwieldy
 static void performCustomIndexProcessing(SecDbConnectionRef dbt) {
     CFErrorRef cfErr = NULL;
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpagrp; DROP INDEX IF EXISTS genpsync;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetagrp; DROP INDEX IF EXISTS inetsync;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certagrp; DROP INDEX IF EXISTS certsync;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysagrp; DROP INDEX IF EXISTS keyssync;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpagrp; DROP INDEX IF EXISTS genpsync;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetagrp; DROP INDEX IF EXISTS inetsync;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certagrp; DROP INDEX IF EXISTS certsync;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysagrp; DROP INDEX IF EXISTS keyssync;"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpsync0;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetsync0;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certsync0;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keyssync0;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpsync0;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetsync0;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certsync0;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keyssync0;"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS item_backupmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keybagmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keyarchivemusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS archived_key_backupmusr;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS agrp_musr_tomb_svce;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS agrp_musr_tomb_srvr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS item_backupmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keybagmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keyarchivemusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS archived_key_backupmusr;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS agrp_musr_tomb_svce;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS agrp_musr_tomb_srvr;"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_svce_acct ON genp(agrp, musr, tomb, svce, acct);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_srvr_acct ON inet(agrp, musr, tomb, srvr, acct);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_type ON inet(agrp, musr, tomb, type);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_svce_acct ON genp(agrp, musr, tomb, svce, acct);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_srvr_acct ON inet(agrp, musr, tomb, srvr, acct);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_type ON inet(agrp, musr, tomb, type);"), &cfErr), errhandler);
     // inet and genp prefix in following two indexes are just for distinction. They don't represent any column name unlike others.
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS genpagrp_musr_tomb_acct ON genp(agrp, musr, tomb, acct);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS inetagrp_musr_tomb_acct ON inet(agrp, musr, tomb, acct);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS genpagrp_musr_tomb_acct ON genp(agrp, musr, tomb, acct);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS inetagrp_musr_tomb_acct ON inet(agrp, musr, tomb, acct);"), &cfErr), errhandler);
     
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_subj ON cert(agrp, musr, tomb, subj);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_atag ON keys(agrp, musr, tomb, atag);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_subj ON cert(agrp, musr, tomb, subj);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_atag ON keys(agrp, musr, tomb, atag);"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS synckeys_contextID_ckzone_keyclass_state ON synckeys(contextID, ckzone, keyclass, state);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS synckeys_contextID_ckzone_keyclass_state ON synckeys(contextID, ckzone, keyclass, state);"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_UUID ON incomingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_state ON incomingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_parentkeyUUID ON incomingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_UUID ON outgoingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_state ON outgoingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_parentkeyUUID ON outgoingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_UUID ON ckmirror(contextID, ckzone, UUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_parentkeyUUID ON ckmirror(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_pcss_pcsk ON ckmirror(pcss, pcsk);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_UUID ON incomingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_state ON incomingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_parentkeyUUID ON incomingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_UUID ON outgoingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_state ON outgoingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_parentkeyUUID ON outgoingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_UUID ON ckmirror(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_parentkeyUUID ON ckmirror(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_pcss_pcsk ON ckmirror(pcss, pcsk);"), &cfErr), errhandler);
 
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS tlksharecontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentitemscontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckdevicestatecontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS outgoingqueuecontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS incomingqueuecontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS synckeyscontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckmirrorcontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentkeyscontextID;"), &cfErr), errhandler);
-    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckstatecontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS tlksharecontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentitemscontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckdevicestatecontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS outgoingqueuecontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS incomingqueuecontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS synckeyscontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckmirrorcontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentkeyscontextID;"), &cfErr), errhandler);
+    __Require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckstatecontextID;"), &cfErr), errhandler);
 
     
     
@@ -1225,7 +1227,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
     bool skipped_upgrade = false;
 
     // If DB schema is the one we want, we are done.
-    require_action_quiet(SCHEMA_VERSION(newSchema) != version, out, skipped_upgrade = true);
+    __Require_Action_Quiet(SCHEMA_VERSION(newSchema) != version, out, skipped_upgrade = true);
 
     // Check if the schema of the database on disk is the same major, but newer version then what we have
     // in code, lets just skip this since a newer version of the OS have upgrade it. Since its the same
@@ -1241,21 +1243,21 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
 
         // Get version again once we start a transaction, someone else might change the migration state.
         int version2 = 0;
-        require_quiet(ok = SecServerKeychainDbGetVersion(dbt, &version2, &localError), out);
+        __Require_Quiet(ok = SecServerKeychainDbGetVersion(dbt, &version2, &localError), out);
         // Check if someone has raced us to the migration of the database
-        require_action(version == version2, out, CFReleaseNull(localError); ok = true);
+        __Require_Action(version == version2, out, CFReleaseNull(localError); ok = true);
 
-        require_quiet(SCHEMA_VERSION(newSchema) != version2, out);
+        __Require_Quiet(SCHEMA_VERSION(newSchema) != version2, out);
 
         // If this is empty database, just create table according to schema and be done with it.
-        require_action_quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError);
+        __Require_Action_Quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError);
                              performCustomIndexProcessing(dbt);
                              bounceLKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNewDb, localError));
 
         int oldVersion = VERSION_OLD(version2);
         version2 = VERSION_NEW(version2);
 
-        require_action_quiet(version2 == SCHEMA_VERSION(newSchema) || oldVersion == 0, out,
+        __Require_Action_Quiet(version2 == SCHEMA_VERSION(newSchema) || oldVersion == 0, out,
                              ok = SecDbError(SQLITE_CORRUPT, &localError,
                                              CFSTR("Half migrated but obsolete DB found: found 0x%x(0x%x) but 0x%x is needed"),
                                              version2, oldVersion, SCHEMA_VERSION(newSchema));
@@ -1277,14 +1279,14 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
             }
 
             // If we are attempting to upgrade from a version for which we have no schema, fail.
-            require_action_quiet(oldSchema != NULL, out,
+            __Require_Action_Quiet(oldSchema != NULL, out,
                                  ok = SecDbError(SQLITE_CORRUPT, &localError, CFSTR("no schema for version: 0x%x"), oldVersion);
                                  secerror("no schema for version 0x%x", oldVersion);
                                  bounceLKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNoSchema, NULL));
 
             secnotice("upgr", "Upgrading from version 0x%x to 0x%x", oldVersion, SCHEMA_VERSION(newSchema));
             SecSignpostStart(SecSignpostUpgradePhase1);
-            require_action(ok = UpgradeSchemaPhase1(dbt, oldSchema, &localError), out, secerror("upgrade: Upgrade phase1 failed: %@", localError));
+            __Require_Action(ok = UpgradeSchemaPhase1(dbt, oldSchema, &localError), out, secerror("upgrade: Upgrade phase1 failed: %@", localError));
             SecSignpostStop(SecSignpostUpgradePhase1);
 
             didPhase1 = true;
@@ -1308,7 +1310,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
                     SecErrorPropagate(phase2Error, &localError);
                 }
             }
-            require_action(ok, out, secerror("upgrade: Upgrade phase2 (%d) failed: %@", didPhase1, localError));
+            __Require_Action(ok, out, secerror("upgrade: Upgrade phase2 (%d) failed: %@", didPhase1, localError));
 
             if (!*inProgress) {
                 // If either migration path we did reported that the migration was complete, signalize that
@@ -1327,7 +1329,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         secnotice("upgr", "Upgrading saving version major 0x%x minor 0x%x", major, minor);
         sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("UPDATE tversion SET version='%d', minor='%d'"),
                                        major, minor);
-        require_action_quiet(ok = SecDbExec(dbt, sql, &localError), out, secerror("upgrade: Setting version failed: %@", localError));
+        __Require_Action_Quiet(ok = SecDbExec(dbt, sql, &localError), out, secerror("upgrade: Setting version failed: %@", localError));
 
     out:
         if (!ok) {
@@ -1558,9 +1560,9 @@ static CFDataRef SecItemServerKeychainCreateBackup(SecDbConnectionRef dbt, Secur
 
 #if USE_KEYSTORE
     MKBKeyBagHandleRef mkbhandle = NULL;
-    require(mkb_open_keybag(keybag, password, &mkbhandle, emcs, error), out);
+    __Require(mkb_open_keybag(keybag, password, &mkbhandle, emcs, error), out);
 
-    require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
+    __Require_noErr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
 
 #else
     backup_keybag = KEYBAG_NONE;
@@ -1613,7 +1615,7 @@ static bool SecItemServerKeychainRestore(SecDbConnectionRef dbt,
 
     /* Import from backup keybag to system keybag. */
     struct backup_keypair* src_bkp = backup_keybag == bad_keybag_handle ? &bkp : NULL;
-    require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, src_bkp, KEYBAG_DEVICE, backup, error), out);
+    __Require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, src_bkp, KEYBAG_DEVICE, backup, error), out);
 
     ok = true;
 out:
@@ -1954,16 +1956,16 @@ void SecServerKeychainDbReset(dispatch_block_t inbetween)
     });
 }
 
-static bool kc_acquire_dbt(bool writeAndRead, SecDbConnectionRef* dbconn, CFErrorRef *error) {
+static bool kc_acquire_dbt(bool writeAndRead, bool isBackupOperation, SecDbConnectionRef* dbconn, CFErrorRef *error) {
     SecDbRef db = kc_dbhandle(error);
     if (db == NULL) {
         if(error && !(*error)) {
             SecError(errSecDataNotAvailable, error, CFSTR("failed to get a db handle"));
         }
-        return NULL;
+        return false;
     }
 
-    return SecDbConnectionAcquireRefMigrationSafe(db, !writeAndRead, dbconn, error);
+    return SecDbConnectionAcquireRefMigrationSafe(db, !writeAndRead, dbconn, isBackupOperation, error);
 }
 
 /* Return a per thread dbt handle for the keychain.  If create is true create
@@ -1971,15 +1973,20 @@ static bool kc_acquire_dbt(bool writeAndRead, SecDbConnectionRef* dbconn, CFErro
  error if it fails to auto-create. */
 bool kc_with_dbt(bool writeAndRead, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
 {
-    return kc_with_custom_db(writeAndRead, true, customDB, error, perform);
+    return kc_with_custom_db(writeAndRead, true, customDB, false, error, perform);
 }
 
 bool kc_with_dbt_non_item_tables(bool writeAndRead, SecDbRef customDB, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt))
 {
-    return kc_with_custom_db(writeAndRead, false, customDB, error, perform);
+    return kc_with_custom_db(writeAndRead, false, customDB, false, error, perform);
 }
 
-bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
+bool kc_with_backup_dbt(bool writeAndRead, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
+{
+    return kc_with_custom_db(writeAndRead, true, customDB, true, error, perform);
+}
+
+bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef customDB, bool isBackupOperation, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt))
 {
     if (customDB && customDB != kc_dbhandle(error)) {
         __block bool result = false;
@@ -2008,7 +2015,7 @@ bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef customDB
 #endif
 
     bool ok = false;
-    if (kc_acquire_dbt(writeAndRead, &threadDbt, error)) {
+    if (kc_acquire_dbt(writeAndRead, isBackupOperation, &threadDbt, error)) {
         ok = perform(threadDbt);
         SecDbConnectionRelease(threadDbt);
         threadDbt = NULL;
@@ -2040,7 +2047,7 @@ items_matching_issuer_parent(SecDbConnectionRef dbt, CFArrayRef accessGroups, CF
     q = query_create_with_limit(query, musrView, kSecMatchUnlimited, NULL, &localError);
     CFRelease(query);
     if (q) {
-        s3dl_copy_matching(dbt, q, (CFTypeRef*)&results, accessGroups, &localError);
+        s3dl_copy_matching(dbt, q, (CFTypeRef*)&results, accessGroups, &localError, NULL, NULL);
         query_destroy(q, &localError);
     }
     if (localError) {
@@ -2083,11 +2090,11 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
     if (!policy || !cert) return false;
 
     certs = CFArrayCreate(NULL, (const void **)&cert, (CFIndex)1, &kCFTypeArrayCallBacks);
-    require_noerr_quiet(SecTrustCreateWithCertificates(certs, policy, &trust), cleanup);
+    __Require_noErr_Quiet(SecTrustCreateWithCertificates(certs, policy, &trust), cleanup);
 
     /* Set evaluation date, if specified (otherwise current date is implied) */
     if (date && (CFGetTypeID(date) == CFDateGetTypeID())) {
-        require_noerr_quiet(SecTrustSetVerifyDate(trust, date), cleanup);
+        __Require_noErr_Quiet(SecTrustSetVerifyDate(trust, date), cleanup);
     }
 
     /* Check whether this is the X509 Basic policy, which means chain building */
@@ -2101,12 +2108,12 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
     }
 
     if (!needChain) {
-        require_noerr_quiet(SecTrustEvaluateLeafOnly(trust, &trustResult), cleanup);
+        __Require_noErr_Quiet(SecTrustEvaluateLeafOnly(trust, &trustResult), cleanup);
     } else {
-        require_noerr_quiet(SecTrustEvaluate(trust, &trustResult), cleanup);
+        __Require_noErr_Quiet(SecTrustEvaluate(trust, &trustResult), cleanup);
     }
 
-    require_quiet((trustResult == kSecTrustResultProceed ||
+    __Require_Quiet((trustResult == kSecTrustResultProceed ||
                          trustResult == kSecTrustResultUnspecified), cleanup);
     ok = true;
 
@@ -2185,13 +2192,13 @@ _FilterWithTrust(Boolean trustedOnly, SecCertificateRef cert)
     CFArrayRef certArray = CFArrayCreate(NULL, (const void**)&cert, 1, &kCFTypeArrayCallBacks);
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
-    require_quiet(policy, out);
+    __Require_Quiet(policy, out);
 
-    require_noerr_quiet(SecTrustCreateWithCertificates(certArray, policy, &trust), out);
+    __Require_noErr_Quiet(SecTrustCreateWithCertificates(certArray, policy, &trust), out);
     SecTrustResultType trustResult;
-    require_noerr_quiet(SecTrustEvaluate(trust, &trustResult), out);
+    __Require_noErr_Quiet(SecTrustEvaluate(trust, &trustResult), out);
 
-    require_quiet((trustResult == kSecTrustResultProceed ||
+    __Require_Quiet((trustResult == kSecTrustResultProceed ||
                    trustResult == kSecTrustResultUnspecified), out);
     ok = true;
 out:
@@ -2218,13 +2225,13 @@ CopyCertificateFromItem(Query *q, CFDictionaryRef item) {
         tokenID = CFDictionaryGetValue(item, kSecAttrTokenID);
     }
 
-    require_quiet(certData, out);
+    __Require_Quiet(certData, out);
     if (tokenID != NULL) {
         CFErrorRef error = NULL;
         itemValue = SecTokenItemValueCopy(certData, &error);
-        require_action_quiet(itemValue, out, { secerror("function SecTokenItemValueCopy failed with: %@", error); CFReleaseSafe(error); });
+        __Require_Action_Quiet(itemValue, out, { secerror("function SecTokenItemValueCopy failed with: %@", error); CFReleaseSafe(error); });
         CFDataRef tokenCertData = CFDictionaryGetValue(itemValue, kSecTokenValueDataKey);
-        require_action_quiet(tokenCertData, out, { secerror("token item doesn't contain token value data");});
+        __Require_Action_Quiet(tokenCertData, out, { secerror("token item doesn't contain token value data");});
         certRef = SecCertificateCreateWithData(kCFAllocatorDefault, tokenCertData);
     }
     else
@@ -2264,30 +2271,30 @@ bool SecServerMatch_Item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGrou
     if (q->q_match_policy && (q->q_class == identity_class() || q->q_class == cert_class())) {
         if (!certRef)
             certRef = CopyCertificateFromItem(q, item);
-        require_quiet(certRef, out);
-        require_quiet(_FilterWithPolicy(q->q_match_policy, q->q_match_valid_on_date, certRef), out);
+        __Require_Quiet(certRef, out);
+        __Require_Quiet(_FilterWithPolicy(q->q_match_policy, q->q_match_valid_on_date, certRef), out);
     }
 
     if (q->q_match_valid_on_date && (q->q_class == identity_class() || q->q_class == cert_class())) {
         if (!certRef)
             certRef = CopyCertificateFromItem(q, item);
-        require_quiet(certRef, out);
-        require_quiet(_FilterWithDate(q->q_match_valid_on_date, certRef), out);
+        __Require_Quiet(certRef, out);
+        __Require_Quiet(_FilterWithDate(q->q_match_valid_on_date, certRef), out);
     }
 
     if (q->q_match_trusted_only && (q->q_class == identity_class() || q->q_class == cert_class())) {
         if (!certRef)
             certRef = CopyCertificateFromItem(q, item);
-        require_quiet(certRef, out);
-        require_quiet(_FilterWithTrust(CFBooleanGetValue(q->q_match_trusted_only), certRef), out);
+        __Require_Quiet(certRef, out);
+        __Require_Quiet(_FilterWithTrust(CFBooleanGetValue(q->q_match_trusted_only), certRef), out);
     }
 
     if (q->q_match_email_address && (q->q_class == identity_class() || q->q_class == cert_class())) {
         if (!certRef) {
             certRef = CopyCertificateFromItem(q, item);
         }
-        require_quiet(certRef, out);
-        require_quiet(_FilterWithEmailAddress(q->q_match_email_address, certRef), out);
+        __Require_Quiet(certRef, out);
+        __Require_Quiet(_FilterWithEmailAddress(q->q_match_email_address, certRef), out);
     }
 
     if (q->q_match_host_or_subdomain && (q->q_class == inet_class())){
@@ -2324,7 +2331,7 @@ void SecServerDeleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef table
 
     dispatch_block_t deleteAsync = ^{
         __block CFErrorRef localErr = NULL;
-        kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt2) {
+        kc_with_custom_db(true, true, db, false, &localErr, ^bool(SecDbConnectionRef dbt2) {
             CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
             __block bool ok = true;
             ok &= SecDbPrepare(dbt2, sql, &localErr, ^(sqlite3_stmt *stmt) {
@@ -2650,9 +2657,19 @@ bool SecServerItemCopyMatchingWithCustomDb(CFDictionaryRef query, SecDbRef db, C
         } else if (q->q_skip_shared_items && CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("can't copy shared items without Keychain Sharing client entitlement"));
         } else if (!q->q_error) {
+            // Measure database query time and collect statistics
+            uint64_t start_time = mach_absolute_time();
+            __block int result_count = 0;
+            __block size_t result_size = 0;
+
             ok = kc_with_dbt(false, db , error, ^(SecDbConnectionRef dbt) {
-                return s3dl_copy_matching(dbt, q, result, accessGroups, error);
+                return s3dl_copy_matching(dbt, q, result, accessGroups, error, &result_count, &result_size);
             });
+
+            uint64_t end_time = mach_absolute_time();
+
+            // Report attributes pattern with performance metrics
+            reportQueryAccessStructure(query, NULL, "SecItemCopyMatching", client, agrp, start_time, end_time, result_count, result_size, error ? *error : NULL);
         }
 
         if (!query_destroy(q, error)) {
@@ -2772,13 +2789,23 @@ bool SecServerItemAddWithCustomDb(CFDictionaryRef attributes, SecDbRef db, Secur
             } else if (!q->q_error) {
                 // Log to power logs whenever we interact with db
                 performPowerLogging(CFSTR("SecItem"), CFSTR("add"), agrp, client);
+
+                // Measure database operation time and collect statistics
+                uint64_t start_time = mach_absolute_time();
+                __block size_t result_size = 0;
+
                 // Pass the SecDbRef db, it ensures to interact with given DB. If NULL it will interact with default DB, otherwise a custom DB.
                 ok = kc_with_dbt(true, db, error, ^(SecDbConnectionRef dbt){
                     return kc_transaction(dbt, error, ^{
                         query_pre_add(q, true);
-                        return s3dl_query_add(dbt, q, result, error);
+                        return s3dl_query_add(dbt, q, result, error, &result_size);
                     });
                 });
+
+                uint64_t end_time = mach_absolute_time();
+
+                // Report attributes pattern with performance metrics
+                reportQueryAccessStructure(attributes, NULL, "SecItemAdd", client, agrp, start_time, end_time, -1, result_size, error ? *error : NULL);
             }
         }
         ok = query_notify_and_destroy(q, ok, error);
@@ -3089,7 +3116,7 @@ SecServerDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
             );
 
             for (size_t classIndex = 0; didDelete && classIndex < array_size(classes); classIndex++) {
-                secinfo("SecDeleteItemsOnSignOut", "Deleting items from class=%@ with multi-user view=%@", classes[classIndex]->name, musr);
+                secnotice("SecDeleteItemsOnSignOut", "Deleting items from class=%@ with multi-user view=%@", classes[classIndex]->name, musr);
 
                 Query *query = query_create(classes[classIndex], musr, NULL, client, error);
                 if (!query) {
@@ -3109,10 +3136,89 @@ SecServerDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
                         *stop = true;
                     }
                 });
+
                 (void)query_destroy(query, NULL);
             }
 
             CFReleaseNull(accessGroups);
+
+            return didDelete;
+        });
+    });
+
+    if (ok) {
+        SecServerKeychainChanged();
+        SecServerSharedItemsChanged();
+    }
+
+    return ok;
+}
+
+bool SecServerDeleteInternalItemsOnSignOut(SecurityClient *client, CFStringRef persona, CFErrorRef *error) {
+    bool ok = kc_with_dbt(true, NULL , error, ^bool (SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, error, ^bool {
+            __block bool didDelete = true;
+
+            CFDataRef musr = NULL;
+            if (persona && CFStringCompare(persona, CFSTR("NULL"), 0) != 0) {
+                CFUUIDRef u = CFUUIDCreateFromString(NULL, persona);
+                if (u == NULL) {
+                    return false;
+                }
+                CFUUIDBytes ubytes = CFUUIDGetUUIDBytes(u);
+                CFReleaseNull(u);
+                musr = CFDataCreate(NULL, (const void *)&ubytes, sizeof(ubytes));
+            } else {
+                musr = CFRetainSafe(client->musr ?: SecMUSRGetSingleUserKeychainUUID());
+            }
+            const SecDbClass *classes[] = {
+                inet_class(),
+                genp_class(),
+                cert_class(),
+                keys_class(),
+            };
+
+            CFArrayRef accessGroupsWithoutPropagatingDeletions = CFArrayCreateForCFTypes(NULL, CFSTR("com.apple.hap.pairing"), NULL);
+
+            for (size_t classIndex = 0; didDelete && classIndex < array_size(classes); classIndex++) {
+                secnotice("SecDeleteInternalItemsOnSignOut", "Deleting items from class=%@ with multi-user view=%@", classes[classIndex]->name, musr);
+
+                Query *query = query_create(classes[classIndex], musr, NULL, client, error);
+                if (!query) {
+                    didDelete = false;
+                    break;
+                }
+                query_add_attribute(kSecAttrMultiUser, musr, query);
+                query_add_attribute(kSecAttrSynchronizable, kCFBooleanTrue, query);
+                CFErrorRef attrError = NULL;
+                const SecDbAttr *attr = SecDbClassAttrWithKind(classes[classIndex], kSecDbUTombAttr, &attrError);
+                if (attr == NULL || attrError) {
+                    secerror("Failed to create uTomb attr: %@", attrError);
+                } else {
+                    for (CFIndex groupIndex = 0; groupIndex < CFArrayGetCount(accessGroupsWithoutPropagatingDeletions); groupIndex++) {
+                        query_add_or_attribute(kSecAttrAccessGroup, CFArrayGetValueAtIndex(accessGroupsWithoutPropagatingDeletions, groupIndex), query);
+                    }
+                    didDelete &= SecDbItemSelect(query, dbt, error, NULL, ^bool(const SecDbAttr *selectAttr) {
+                        return CFDictionaryContainsKey(query->q_item, selectAttr->name);
+                    }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {
+                        CFErrorRef setError = NULL;
+                        bool result = SecDbItemSetValue(item, attr, kCFBooleanFalse, &setError);
+                        if (result == false || setError) {
+                            secerror("Failed to set uTomb attribute: %@", attrError);
+                            *stop = true;
+                        } else {
+                            didDelete &= SecDbItemDelete(item, dbt, kCFBooleanFalse, false, error);
+                            if (!didDelete) {
+                                *stop = true;
+                            } 
+                        }
+                    });
+                }
+                
+                (void)query_destroy(query, NULL);
+            }
+            CFReleaseNull(musr);
+            CFReleaseNull(accessGroupsWithoutPropagatingDeletions);
 
             return didDelete;
         });
@@ -3216,11 +3322,20 @@ bool SecServerItemUpdateWithCustomDb(CFDictionaryRef query, SecDbRef db, CFDicti
     if (ok) {
         // Log to power logs whenever we interact with db
         performPowerLogging(CFSTR("SecItem"), CFSTR("update"), q_agrp, client);
+
+        // Measure database operation time
+        uint64_t start_time = mach_absolute_time();
+
         ok = kc_with_dbt(true, db , error, ^(SecDbConnectionRef dbt) {
             return kc_transaction(dbt, error, ^{
                 return s3dl_query_update(dbt, q, attributesToUpdate, accessGroups, error);
             });
         });
+
+        uint64_t end_time = mach_absolute_time();
+
+        // Report attributes pattern with timing metrics
+        reportQueryAccessStructure(query, attributesToUpdate, "SecItemUpdate", client, q_agrp, start_time, end_time, -1, 0, error ? *error : NULL);
     }
     if (q) {
         ok = query_notify_and_destroy(q, ok, error);
@@ -3304,11 +3419,20 @@ bool SecServerItemDeleteWithCustomDb(CFDictionaryRef query, SecDbRef db, Securit
         } else {
             // Log to power logs whenever we interact with db
             performPowerLogging(CFSTR("SecItem"), CFSTR("delete"), q_agrp, client);
+
+            // Measure database operation time
+            uint64_t start_time = mach_absolute_time();
+
             ok = kc_with_dbt(true, db , error, ^(SecDbConnectionRef dbt) {
                 return kc_transaction(dbt, error, ^{
                     return s3dl_query_delete(dbt, q, accessGroups, error);
                 });
             });
+
+            uint64_t end_time = mach_absolute_time();
+
+            // Report attributes pattern with timing metrics
+            reportQueryAccessStructure(query, NULL, "SecItemDelete", client, q_agrp, start_time, end_time, -1, 0, error ? *error : NULL);
         }
         ok = query_notify_and_destroy(q, ok, error);
     } else {
@@ -3325,6 +3449,7 @@ bool SecServerItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorR
 {
     return SecServerItemDeleteWithCustomDb(query, NULL, client, error);
 }
+
 static bool SecItemDeleteTokenItems(SecDbConnectionRef dbt, CFTypeRef classToDelete, CFTypeRef tokenID, CFArrayRef accessGroups, bool useSystemKeychain, SecurityClient *client, CFErrorRef *error) {
     CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecClass, classToDelete, kSecAttrTokenID, tokenID, NULL);
     Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
@@ -3355,7 +3480,7 @@ static bool SecItemAddTokenItemToAccessGroups(SecDbConnectionRef dbt, CFDictiona
     Query *q;
     bool ok = false;
     for (CFIndex i = 0; i < CFArrayGetCount(accessGroups); ++i) {
-        require_quiet(q = query_create_with_limit(attributes, client->musr, 0, client, error), out);
+        __Require_Quiet(q = query_create_with_limit(attributes, client->musr, 0, client, error), out);
 #if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         if (useSystemKeychain) {
             if (!client->allowSystemKeychain) {
@@ -3373,9 +3498,9 @@ static bool SecItemAddTokenItemToAccessGroups(SecDbConnectionRef dbt, CFDictiona
         bool added = false;
         if (!q->q_error) {
             query_pre_add(q, true);
-            added = s3dl_query_add(dbt, q, NULL, error);
+            added = s3dl_query_add(dbt, q, NULL, error, NULL);
         }
-        require_quiet(query_notify_and_destroy(q, added, error), out);
+        __Require_Quiet(query_notify_and_destroy(q, added, error), out);
     }
     ok = true;
 out:
@@ -3395,14 +3520,14 @@ static bool _SecItemServerUpdateTokenItemsForAccessGroups(CFStringRef tokenID, C
             const CFTypeRef classToDelete[] = { kSecClassGenericPassword, kSecClassInternetPassword, kSecClassCertificate, kSecClassKey };
             for (size_t i = 0; i < sizeof(classToDelete) / sizeof(classToDelete[0]); ++i) {
                 if (!SecItemDeleteTokenItems(dbt, classToDelete[i], tokenID, accessGroups, useSystemKeychain, client, &localError)) {
-                    require_action_quiet(CFErrorGetCode(localError) == errSecItemNotFound, out, CFErrorPropagate(localError, error));
+                    __Require_Action_Quiet(CFErrorGetCode(localError) == errSecItemNotFound, out, CFErrorPropagate(localError, error));
                     CFReleaseNull(localError);
                 }
             }
 
             if (items) {
                 for (CFIndex i = 0; i < CFArrayGetCount(items); ++i) {
-                    require_quiet(SecItemAddTokenItemToAccessGroups(dbt, CFArrayGetValueAtIndex(items, i), accessGroups, useSystemKeychain, client, error), out);
+                    __Require_Quiet(SecItemAddTokenItemToAccessGroups(dbt, CFArrayGetValueAtIndex(items, i), accessGroups, useSystemKeychain, client, error), out);
                 }
             }
 
@@ -3509,13 +3634,13 @@ SecServerItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *
     // have to do another layer of indirection because the block below cannot refer to a declaration with an array type
     const CFTypeRef* qclasses = qclassesPtrs;
 
-    require_action_quiet(isArray(accessGroups), fail,
+    __Require_Action_Quiet(isArray(accessGroups), fail,
                          ok = false;
                          SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("accessGroups not CFArray, got %@"), accessGroups));
 
     // TODO: allowlist instead? look for dev IDs like 7123498YQX.com.somedev.app
 
-    require_action(CFArrayGetCount(accessGroups) != 0, fail,
+    __Require_Action(CFArrayGetCount(accessGroups) != 0, fail,
                    ok = false;
                    SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("accessGroups e empty")));
 
@@ -3534,7 +3659,7 @@ SecServerItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *
             ok &= false;
         }
     });
-    require(ok,fail);
+    __Require(ok,fail);
 
     ok = kc_with_dbt(true, NULL , error, ^bool(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, error, ^bool {
@@ -3546,7 +3671,7 @@ SecServerItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *
                 Query *q;
 
                 q = query_create(qclasses[n], client->musr, NULL, client, error);
-                require(q, fail2);
+                __Require(q, fail2);
 
                 (void)s3dl_query_delete(dbt, q, accessGroups, &localError);
             fail2:
@@ -3889,7 +4014,7 @@ bool SecServerAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient 
 CF_RETURNS_RETAINED CFDataRef
 SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error) {
     __block CFDataRef backup = NULL;
-    kc_with_dbt(false, NULL , error, ^bool (SecDbConnectionRef dbt) {
+    kc_with_backup_dbt(false, NULL , error, ^bool (SecDbConnectionRef dbt) {
 
         LKABackupReportStart(!!keybag, !!passcode, emcs);
 
@@ -3978,191 +4103,6 @@ SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error) {
     return SOSCCHandleUpdateMessage(updates);
 }
 
-//
-// Truthiness in the cloud backup/restore support.
-//
-
-static CFDictionaryRef
-_SecServerCopyTruthInTheCloud(CFDataRef keybag, CFDataRef password,
-    CFDictionaryRef backup, CFErrorRef *error)
-{
-    SOSManifestRef mold = NULL, mnow = NULL, mdelete = NULL, madd = NULL;
-    __block CFMutableDictionaryRef backup_new = NULL;
-    keybag_handle_t bag_handle;
-    if (!ks_open_keybag(keybag, password, &bag_handle, error))
-        return backup_new;
-
-    // We need to have a datasource singleton for protection domain
-    // kSecAttrAccessibleWhenUnlocked and keep a single shared engine
-    // instance around which we create in the datasource constructor as well.
-    SOSDataSourceFactoryRef dsf = SecItemServerDataSourceFactoryGetDefault();
-    SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, error);
-    if (ds) {
-        backup_new = backup ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, backup) : CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        mold = SOSCreateManifestWithBackup(backup, error);
-        SOSEngineRef engine = SOSDataSourceGetSharedEngine(ds, error);
-        mnow = SOSEngineCopyManifest(engine, NULL);
-        if (!mnow) {
-            mnow = SOSDataSourceCopyManifestWithViewNameSet(ds, SOSViewsGetV0ViewSet(), error);
-        }
-        if (!mnow) {
-            CFReleaseNull(backup_new);
-            secerror("failed to obtain manifest for keychain: %@", error ? *error : NULL);
-        } else {
-            SOSManifestDiff(mold, mnow, &mdelete, &madd, error);
-        }
-
-        // Delete everything from the new_backup that is no longer in the datasource according to the datasources manifest.
-        SOSManifestForEach(mdelete, ^(CFDataRef digest_data, bool *stop) {
-            CFStringRef deleted_item_key = CFDataCopyHexString(digest_data);
-            CFDictionaryRemoveValue(backup_new, deleted_item_key);
-            CFRelease(deleted_item_key);
-        });
-
-        CFMutableArrayRef changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-        SOSDataSourceForEachObject(ds, NULL, madd, error, ^void(CFDataRef digest, SOSObjectRef object, bool *stop) {
-            CFErrorRef localError = NULL;
-            CFDataRef digest_data = NULL;
-            CFTypeRef value = NULL;
-            if (!object) {
-                // Key in our manifest can't be found in db, remove it from our manifest
-                SOSChangesAppendDelete(changes, digest);
-            } else if (!(digest_data = SOSObjectCopyDigest(ds, object, &localError))
-                || !(value = SOSObjectCopyBackup(ds, object, bag_handle, &localError))) {
-                if (SecErrorGetOSStatus(localError) == errSecDecode) {
-                    // Ignore decode errors, pretend the objects aren't there
-                    CFRelease(localError);
-                    // Object undecodable, remove it from our manifest
-                    SOSChangesAppendDelete(changes, digest);
-                } else {
-                    // Stop iterating and propagate out all other errors.
-                    *stop = true;
-                    *error = localError;
-                    CFReleaseNull(backup_new);
-                }
-            } else {
-                // TODO: Should we skip tombstones here?
-                CFStringRef key = CFDataCopyHexString(digest_data);
-                CFDictionarySetValue(backup_new, key, value);
-                CFReleaseSafe(key);
-            }
-            CFReleaseSafe(digest_data);
-            CFReleaseSafe(value);
-        }) || CFReleaseNull(backup_new);
-
-        if (CFArrayGetCount(changes)) {
-            if (!SOSEngineUpdateChanges(engine, kSOSDataSourceSOSTransaction, changes, error)) {
-                CFReleaseNull(backup_new);
-            }
-        }
-        CFReleaseSafe(changes);
-
-        SOSDataSourceRelease(ds, error) || CFReleaseNull(backup_new);
-    }
-
-    CFReleaseSafe(mold);
-    CFReleaseSafe(mnow);
-    CFReleaseSafe(madd);
-    CFReleaseSafe(mdelete);
-    ks_close_keybag(bag_handle, error) || CFReleaseNull(backup_new);
-
-    return backup_new;
-}
-
-static bool
-_SecServerRestoreTruthInTheCloud(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFErrorRef *error) {
-    __block bool ok = true;
-    keybag_handle_t bag_handle;
-    if (!ks_open_keybag(keybag, password, &bag_handle, error))
-        return false;
-
-    SOSManifestRef mbackup = SOSCreateManifestWithBackup(backup_in, error);
-    if (mbackup) {
-        SOSDataSourceFactoryRef dsf = SecItemServerDataSourceFactoryGetDefault();
-        SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, error);
-        ok &= ds && SOSDataSourceWith(ds, error, ^(SOSTransactionRef txn, bool *commit) {
-            SOSManifestRef mnow = SOSDataSourceCopyManifestWithViewNameSet(ds, SOSViewsGetV0BackupViewSet(), error);
-            SOSManifestRef mdelete = NULL, madd = NULL;
-            SOSManifestDiff(mnow, mbackup, &mdelete, &madd, error);
-            
-            // Don't delete everything in datasource not in backup.
-            
-            // Add items from the backup
-            SOSManifestForEach(madd, ^void(CFDataRef e, bool *stop) {
-                CFDictionaryRef item = NULL;
-                CFStringRef sha1 = CFDataCopyHexString(e);
-                if (sha1) {
-                    item = CFDictionaryGetValue(backup_in, sha1);
-                    CFRelease(sha1);
-                }
-                if (item) {
-                    CFErrorRef localError = NULL;
-                    
-                    if (!SOSObjectRestoreObject(ds, txn, bag_handle, item, &localError)) {
-                        OSStatus status = SecErrorGetOSStatus(localError);
-                        if (status == errSecDuplicateItem) {
-                            // Log and ignore duplicate item errors during restore
-                            secnotice("titc", "restore " SECDBITEM_FMT " not replacing existing item", item);
-                        } else if (status == errSecDecode) {
-                            // Log and ignore corrupted item errors during restore
-                            secnotice("titc", "restore " SECDBITEM_FMT " skipping corrupted item %@", item, localError);
-                        } else {
-                            if (status == errSecInteractionNotAllowed)
-                                *stop = true;
-                            // Propagate the first other error upwards (causing the restore to fail).
-                            secerror("restore " SECDBITEM_FMT " failed %@", item, localError);
-                            ok = false;
-                            if (error && !*error) {
-                                *error = localError;
-                                localError = NULL;
-                            }
-                        }
-                        CFReleaseSafe(localError);
-                    }
-                }
-            });
-            ok &= SOSDataSourceRelease(ds, error);
-            CFReleaseNull(mdelete);
-            CFReleaseNull(madd);
-            CFReleaseNull(mnow);
-        });
-        CFRelease(mbackup);
-    }
-
-    ok &= ks_close_keybag(bag_handle, error);
-
-    return ok;
-}
-
-
-CF_RETURNS_RETAINED CFDictionaryRef
-SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error) {
-    require_action_quiet(isData(keybag), errOut, SecError(errSecParam, error, CFSTR("keybag %@ not a data"), keybag));
-    require_action_quiet(!backup || isDictionary(backup), errOut, SecError(errSecParam, error, CFSTR("backup %@ not a dictionary"), backup));
-    require_action_quiet(!password || isData(password), errOut, SecError(errSecParam, error, CFSTR("password %@ not a data"), password));
-
-    return _SecServerCopyTruthInTheCloud(keybag, password, backup, error);
-
-errOut:
-    return NULL;
-}
-
-bool
-SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error) {
-    bool ok;
-    require_action_quiet(isData(keybag), errOut, ok = SecError(errSecParam, error, CFSTR("keybag %@ not a data"), keybag));
-    require_action_quiet(isDictionary(backup), errOut, ok = SecError(errSecParam, error, CFSTR("backup %@ not a dictionary"), backup));
-    if (password) {
-        
-        require_action_quiet(isData(password), errOut, ok = SecError(errSecParam, error, CFSTR("password not a data")));
-    }
-
-    ok = _SecServerRestoreTruthInTheCloud(keybag, password, backup, error);
-
-errOut:
-    return ok;
-}
-
 #else /* SECUREOBJECTSYNC */
 
 SOSDataSourceFactoryRef SecItemServerDataSourceFactoryGetDefault(void) {
@@ -4209,7 +4149,7 @@ InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp,
     Query *q = NULL;
 
     q = query_create(qclass, NULL, NULL, NULL, error);
-    require(q, fail);
+    __Require(q, fail);
 
     q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
     q->q_limit = kSecMatchUnlimited;
@@ -4290,26 +4230,26 @@ SecServerCopyInitialSyncCredentials(uint32_t flags, uint64_t* tlks, uint64_t* pc
     uint64_t numberOfBluetooth = 0;
 
     if (flags & SecServerInitialSyncCredentialFlagTLK) {
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.security.ckks"), NULL, inet_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, false, CFSTR("com.apple.security.ckks"), NULL, inet_class(), error), fail,
                        secerror("failed to collect CKKS-inet keys: %@", error ? *error : NULL));
         numberOfTlks = CFArrayGetCount(items);
     }
     if (flags & SecServerInitialSyncCredentialFlagPCS) {
         bool onlyCurrent = !(flags & SecServerInitialSyncCredentialFlagPCSNonCurrent);
 
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.ProtectedCloudStorage"), NULL, genp_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, false, CFSTR("com.apple.ProtectedCloudStorage"), NULL, genp_class(), error), fail,
                        secerror("failed to collect PCS-genp keys: %@", error ? *error : NULL));
-        require_action(InitialSyncItems(items, onlyCurrent, CFSTR("com.apple.ProtectedCloudStorage"), NULL, inet_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, onlyCurrent, CFSTR("com.apple.ProtectedCloudStorage"), NULL, inet_class(), error), fail,
                        secerror("failed to collect PCS-inet keys: %@", error ? *error : NULL));
         numberOfPCS = CFArrayGetCount(items) - numberOfTlks;
 
     }
     if (flags & SecServerInitialSyncCredentialFlagBluetoothMigration) {
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration"), NULL, genp_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration"), NULL, genp_class(), error), fail,
                        secerror("failed to collect com.apple.nanoregistry.migration-genp item: %@", error ? *error : NULL));
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration2"), NULL, genp_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration2"), NULL, genp_class(), error), fail,
                        secerror("failed to collect com.apple.nanoregistry.migration2-genp item: %@", error ? *error : NULL));
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.bluetooth"), CFSTR("BluetoothLESync"), genp_class(), error), fail,
+        __Require_Action(InitialSyncItems(items, false, CFSTR("com.apple.bluetooth"), CFSTR("BluetoothLESync"), genp_class(), error), fail,
                        secerror("failed to collect com.apple.bluetooth-genp item: %@", error ? *error : NULL));
 
         numberOfBluetooth = CFArrayGetCount(items) - numberOfTlks - numberOfPCS;
@@ -4404,10 +4344,10 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
     CFIndex n;
 
     syncBubbleView = SecMUSRCreateSyncBubbleUserUUID(uid);
-    require(syncBubbleView, fail);
+    __Require(syncBubbleView, fail);
 
     activeUserView = SecMUSRCreateActiveUserUUID(uid);
-    require(activeUserView, fail);
+    __Require(activeUserView, fail);
 
 
     if ((onlyDelete && !copyToo) || !onlyDelete) {
@@ -4419,7 +4359,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
         secnotice("syncbubble", "cleaning out old items");
 
         q = query_create(qclass, NULL, NULL, client, error);
-        require(q, fail);
+        __Require(q, fail);
 
         q->q_limit = kSecMatchUnlimited;
         q->q_keybag = KEYBAG_DEVICE; //keybag when querying in the normal user keychain in edu mode
@@ -4428,7 +4368,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
             query_add_attribute(items[n].attribute, items[n].value, q);
         }
         q->q_musrView = CFRetain(syncBubbleView);
-        require(q->q_musrView, fail);
+        __Require(q->q_musrView, fail);
 
         kc_with_dbt(true, NULL , error, ^(SecDbConnectionRef dbt) {
             return kc_transaction(dbt, error, ^{
@@ -4451,7 +4391,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
         secnotice("syncbubble", "migrating sync bubble items");
 
         q = query_create(qclass, NULL, NULL, client, error);
-        require(q, fail);
+        __Require(q, fail);
 
         q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
         q->q_limit = kSecMatchUnlimited;
@@ -4464,7 +4404,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
         q->q_musrView = CFRetain(activeUserView);
 
         updateAttributes = CFDictionaryCreateMutableForCFTypes(NULL);
-        require(updateAttributes, fail);
+        __Require(updateAttributes, fail);
 
         CFDictionarySetValue(updateAttributes, CFSTR("musr"), syncBubbleView); /* XXX should use kSecAttrMultiUser */
 
@@ -4689,21 +4629,21 @@ SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClient
      */
 
     res = TransmogrifyItemsToSyncBubble(client, uid, onlyDelete, copyPCS, inet_class(), PCSItems, sizeof(PCSItems)/sizeof(PCSItems[0]), error);
-    require(res, fail);
+    __Require(res, fail);
     res = TransmogrifyItemsToSyncBubble(client, uid, onlyDelete, copyPCS, genp_class(), PCSItems, sizeof(PCSItems)/sizeof(PCSItems[0]), error);
-    require(res, fail);
+    __Require(res, fail);
 
     /* mail */
     res = TransmogrifyItemsToSyncBubble(client, uid, onlyDelete, copyMobileMail, genp_class(), MobileMailItems, sizeof(MobileMailItems)/sizeof(MobileMailItems[0]), error);
-    require(res, fail);
+    __Require(res, fail);
 
     /* accountsd */
     res = TransmogrifyItemsToSyncBubble(client, uid, onlyDelete, copyCloudAuthToken, genp_class(), AccountsdItems, sizeof(AccountsdItems)/sizeof(AccountsdItems[0]), error);
-    require(res, fail);
+    __Require(res, fail);
 
     /* nsurlsessiond */
     res = TransmogrifyItemsToSyncBubble(client, uid, onlyDelete, copyNSURLSesssion, inet_class(), NSURLSesssiond, sizeof(NSURLSesssiond)/sizeof(NSURLSesssiond[0]), error);
-    require(res, fail);
+    __Require(res, fail);
 
 fail:
     secnotice("syncbubble", "migration for uid %d complete", (int)uid);
@@ -4856,13 +4796,13 @@ SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error)
         bool ok = false;
 
         syncBubbleView = SecMUSRCreateSyncBubbleUserUUID(uid);
-        require(syncBubbleView, fail);
+        __Require(syncBubbleView, fail);
 
         musrView = SecMUSRCreateActiveUserUUID(uid);
-        require(musrView, fail);
+        __Require(musrView, fail);
 
-        require(ok = SecServerDeleteAllForUser(dbt, syncBubbleView, false, error), fail);
-        require(ok = SecServerDeleteAllForUser(dbt, musrView, false, error), fail);
+        __Require(ok = SecServerDeleteAllForUser(dbt, syncBubbleView, false, error), fail);
+        __Require(ok = SecServerDeleteAllForUser(dbt, musrView, false, error), fail);
 
     fail:
         CFReleaseNull(syncBubbleView);

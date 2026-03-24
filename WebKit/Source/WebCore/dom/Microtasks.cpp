@@ -66,7 +66,7 @@ MicrotaskQueue::~MicrotaskQueue() = default;
 
 void MicrotaskQueue::append(JSC::QueuedTask&& task)
 {
-    m_microtaskQueue.enqueue(WTFMove(task));
+    m_microtaskQueue.enqueue(WTF::move(task));
 }
 
 void MicrotaskQueue::runJSMicrotaskWithDebugger(JSC::JSGlobalObject* globalObject, JSC::VM& vm, JSC::QueuedTask& task)
@@ -96,7 +96,7 @@ void MicrotaskQueue::runJSMicrotaskWithDebugger(JSC::JSGlobalObject* globalObjec
 void MicrotaskQueue::runJSMicrotask(JSC::JSGlobalObject* globalObject, JSC::VM& vm, JSC::QueuedTask& task)
 {
     auto scope = DECLARE_CATCH_SCOPE(vm);
-    JSC::runInternalMicrotask(globalObject, task.job(), task.arguments());
+    JSC::runInternalMicrotask(globalObject, task.job(), task.payload(), task.arguments());
     if (scope.exception()) [[unlikely]] {
         auto* exception = scope.exception();
         if (!scope.clearExceptionExceptTermination()) [[unlikely]]
@@ -164,12 +164,12 @@ void MicrotaskQueue::performMicrotaskCheckpoint()
     if (!vm->executionForbidden()) {
         auto checkpointTasks = std::exchange(m_checkpointTasks, { });
         for (auto& checkpointTask : checkpointTasks) {
-            auto* group = checkpointTask->group();
+            CheckedPtr group = checkpointTask->group();
             if (!group || group->isStoppedPermanently())
                 continue;
 
             if (group->isSuspended()) {
-                m_checkpointTasks.append(WTFMove(checkpointTask));
+                m_checkpointTasks.append(WTF::move(checkpointTask));
                 continue;
             }
 
@@ -195,7 +195,7 @@ void MicrotaskQueue::performMicrotaskCheckpoint()
 
 void MicrotaskQueue::addCheckpointTask(std::unique_ptr<EventLoopTask>&& task)
 {
-    m_checkpointTasks.append(WTFMove(task));
+    m_checkpointTasks.append(WTF::move(task));
 }
 
 bool MicrotaskQueue::hasMicrotasksForFullyActiveDocument() const

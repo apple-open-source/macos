@@ -36,6 +36,7 @@
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/TextureMapperFPSCounter.h>
 #include <WebCore/Timer.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -48,20 +49,12 @@ class Page;
 }
 
 namespace WebKit {
-class LayerTreeHost;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedTimerSmartPointerException;
-template<> struct IsDeprecatedTimerSmartPointerException<WebKit::LayerTreeHost> : std::true_type { };
-}
-
-namespace WebKit {
 
 class WebPage;
 
-class LayerTreeHost : public WebCore::GraphicsLayerClient {
+class LayerTreeHost final : public WebCore::GraphicsLayerClient, public CanMakeCheckedPtr<LayerTreeHost> {
     WTF_MAKE_TZONE_ALLOCATED(LayerTreeHost);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LayerTreeHost);
 public:
     explicit LayerTreeHost(WebPage&);
     ~LayerTreeHost();
@@ -69,14 +62,13 @@ public:
     const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
     void setLayerTreeStateIsFrozen(bool);
     void setShouldNotifyAfterNextScheduledLayerFlush(bool);
-    void scheduleLayerFlush();
-    void cancelPendingLayerFlush();
+    void scheduleRenderingUpdate();
     void setRootCompositingLayer(WebCore::GraphicsLayer*);
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*);
     void setNonCompositedContentsNeedDisplay(const WebCore::IntRect&);
     void scrollNonCompositedContents(const WebCore::IntRect&);
-    void forceRepaint();
-    void forceRepaintAsync(CompletionHandler<void()>&&);
+    void updateRenderingWithForcedRepaint();
+    void updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&&);
     void sizeDidChange();
     void pauseRendering();
     void resumeRendering();
@@ -89,7 +81,7 @@ public:
 
 private:
     // GraphicsLayerClient
-    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& rectToPaint, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
+    void paintContents(const WebCore::GraphicsLayer&, WebCore::GraphicsContext&, const WebCore::FloatRect& rectToPaint, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
     float deviceScaleFactor() const override;
 
     void initialize();

@@ -93,9 +93,9 @@ RefPtr<ImageBuffer> GPUProcessWebWorkerClient::sinkIntoImageBuffer(std::unique_p
         return nullptr;
     if (is<RemoteSerializedImageBufferProxy>(imageBuffer)) {
         auto remote = std::unique_ptr<RemoteSerializedImageBufferProxy>(static_cast<RemoteSerializedImageBufferProxy*>(imageBuffer.release()));
-        return RemoteSerializedImageBufferProxy::sinkIntoImageBuffer(WTFMove(remote), ensureProtectedRenderingBackend());
+        return RemoteSerializedImageBufferProxy::sinkIntoImageBuffer(WTF::move(remote), ensureProtectedRenderingBackend());
     }
-    return WebWorkerClient::sinkIntoImageBuffer(WTFMove(imageBuffer));
+    return WebWorkerClient::sinkIntoImageBuffer(WTF::move(imageBuffer));
 }
 
 RefPtr<ImageBuffer> GPUProcessWebWorkerClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferFormat pixelFormat) const
@@ -168,7 +168,7 @@ PlatformDisplayID WebWorkerClient::displayID() const
 RefPtr<ImageBuffer> WebWorkerClient::sinkIntoImageBuffer(std::unique_ptr<SerializedImageBuffer> imageBuffer)
 {
     assertIsCurrent(*dispatcher().get());
-    return SerializedImageBuffer::sinkIntoImageBuffer(WTFMove(imageBuffer));
+    return SerializedImageBuffer::sinkIntoImageBuffer(WTF::move(imageBuffer));
 }
 
 RefPtr<ImageBuffer> WebWorkerClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferFormat pixelFormat) const

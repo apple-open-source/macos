@@ -1,0 +1,33 @@
+#include "base.xcconfig"
+
+// Testing preprocessor definitions
+OTHER_CFLAGS = $(inherited) -DNOTIFYD_TESTING=1
+OTHER_CFLAGS = $(OTHER_CFLAGS) -DDEVELOPMENT=1 -DDEBUG=1 -DTESTING=1
+OTHER_CFLAGS = $(OTHER_CFLAGS) -DBUILDING_TESTS=1
+
+// Disable optimizations for debugging
+OTHER_CFLAGS = $(OTHER_CFLAGS) -O0 -fno-inline
+
+// Header search paths for internal headers
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/notifyd $(PROJECT_DIR)
+
+// Linker flags
+OTHER_LDFLAGS = -framework Foundation
+
+// Test bundle settings
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.notifyd-xctests
+INSTALL_PATH = /AppleInternal/Tests/Libnotify/
+STRIP_INSTALLED_PRODUCT = NO
+
+// ObjC settings
+CLANG_ENABLE_OBJC_ARC = YES
+GCC_ENABLE_OBJC_EXCEPTIONS = YES
+
+// Disable LTO for tests (faster builds)
+LLVM_LTO = NO
+
+// Code signing
+CODE_SIGN_IDENTITY = -
+
+// Generate Info.plist automatically
+GENERATE_INFOPLIST_FILE = YES

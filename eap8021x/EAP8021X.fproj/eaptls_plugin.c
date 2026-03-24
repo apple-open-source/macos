@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017, 2022-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017, 2022-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -300,6 +300,7 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
 					     context->server_certs,
 					     revocation_check,
 					     sec_trust,
+					     NULL,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
 	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted status %d %d",

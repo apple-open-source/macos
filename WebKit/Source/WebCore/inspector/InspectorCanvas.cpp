@@ -230,7 +230,7 @@ void InspectorCanvas::recordAction(String&& name, InspectorCanvasProcessedArgume
             .setActions(*m_currentActions)
             .release();
 
-        m_frames->addItem(WTFMove(frame));
+        m_frames->addItem(WTF::move(frame));
         ++m_framesCaptured;
 
         m_currentFrameStartTime = MonotonicTime::now();
@@ -249,7 +249,7 @@ void InspectorCanvas::recordAction(String&& name, InspectorCanvasProcessedArgume
         m_contentChanged = true;
 #endif
 
-    m_lastRecordedAction = buildAction(WTFMove(name), WTFMove(arguments));
+    m_lastRecordedAction = buildAction(WTF::move(name), WTF::move(arguments));
     m_bufferUsed += m_lastRecordedAction->memoryCost();
     m_currentActions->addItem(*m_lastRecordedAction);
 }
@@ -259,7 +259,7 @@ void InspectorCanvas::finalizeFrame()
     appendActionSnapshotIfNeeded();
 
     if (m_frames && m_frames->length() && !m_currentFrameStartTime.isNaN()) {
-        auto currentFrame = static_reference_cast<Inspector::Protocol::Recording::Frame>(m_frames->get(m_frames->length() - 1));
+        auto currentFrame = unsafeRefDowncast<Inspector::Protocol::Recording::Frame>(m_frames->get(m_frames->length() - 1));
         currentFrame->setDuration((MonotonicTime::now() - m_currentFrameStartTime).milliseconds());
 
         m_currentFrameStartTime = MonotonicTime::nan();
@@ -273,7 +273,7 @@ void InspectorCanvas::markCurrentFrameIncomplete()
     if (!m_currentActions || !m_frames || !m_frames->length())
         return;
 
-    auto currentFrame = static_reference_cast<Inspector::Protocol::Recording::Frame>(m_frames->get(m_frames->length() - 1));
+    auto currentFrame = unsafeRefDowncast<Inspector::Protocol::Recording::Frame>(m_frames->get(m_frames->length() - 1));
     currentFrame->setIncomplete(true);
 }
 
@@ -592,7 +592,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
             auto callFrames = JSON::ArrayOf<double>::create();
             for (size_t i = 0; i < scriptCallStack->size(); ++i)
                 callFrames->addItem(indexForData(scriptCallStack->at(i)));
-            stackTrace->addItem(WTFMove(callFrames));
+            stackTrace->addItem(WTF::move(callFrames));
 
             stackTrace->addItem(/* topCallFrameIsBoundary */ false);
 
@@ -601,7 +601,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
             if (const auto& parentStackTrace = scriptCallStack->parentStackTrace())
                 stackTrace->addItem(indexForData(parentStackTrace));
 
-            item = WTFMove(stackTrace);
+            item = WTF::move(stackTrace);
         },
         [&] (const RefPtr<AsyncStackTrace>& parentStackTrace) {
             auto stackTrace = JSON::ArrayOf<JSON::Value>::create();
@@ -609,7 +609,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
             auto callFrames = JSON::ArrayOf<double>::create();
             for (size_t i = 0; i < parentStackTrace->size(); ++i)
                 callFrames->addItem(indexForData(parentStackTrace->at(i)));
-            stackTrace->addItem(WTFMove(callFrames));
+            stackTrace->addItem(WTF::move(callFrames));
 
             stackTrace->addItem(parentStackTrace->topCallFrameIsBoundary());
 
@@ -618,7 +618,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
             if (const auto& grandparentStackTrace = parentStackTrace->parentStackTrace())
                 stackTrace->addItem(indexForData(grandparentStackTrace));
 
-            item = WTFMove(stackTrace);
+            item = WTF::move(stackTrace);
         },
         [&] (const RefPtr<CSSStyleImageValue>& cssImageValue) {
             String dataURL = "data:,"_s;
@@ -640,7 +640,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
             array->addItem(indexForData(scriptCallFrame.sourceURL()));
             array->addItem(static_cast<int>(scriptCallFrame.lineNumber()));
             array->addItem(static_cast<int>(scriptCallFrame.columnNumber()));
-            item = WTFMove(array);
+            item = WTF::move(array);
         },
 #if ENABLE(OFFSCREEN_CANVAS)
         [&] (const RefPtr<OffscreenCanvas> offscreenCanvas) {
@@ -725,7 +725,7 @@ Ref<Inspector::Protocol::Recording::InitialState> InspectorCanvas::buildInitialS
             // list in an array to allow spreading.
             auto setLineDash = JSON::ArrayOf<JSON::Value>::create();
             setLineDash->addItem(buildArrayForVector(state.lineDash));
-            statePayload->setArray(stringIndexForKey("setLineDash"_s), WTFMove(setLineDash));
+            statePayload->setArray(stringIndexForKey("setLineDash"_s), WTF::move(setLineDash));
 
             statePayload->setDouble(stringIndexForKey("lineDashOffset"_s), state.lineDashOffset);
             statePayload->setInteger(stringIndexForKey("font"_s), indexForData(state.fontString()));
@@ -757,22 +757,22 @@ Ref<Inspector::Protocol::Recording::InitialState> InspectorCanvas::buildInitialS
             // FIXME: This is wrong: it will repeat the context's current path for every level in the stack, ignoring saved paths.
             auto setPath = JSON::ArrayOf<JSON::Value>::create();
             setPath->addItem(indexForData(buildStringFromPath(context2d->getPath()->path())));
-            statePayload->setArray(stringIndexForKey("setPath"_s), WTFMove(setPath));
+            statePayload->setArray(stringIndexForKey("setPath"_s), WTF::move(setPath));
 
-            statesPayload->addItem(WTFMove(statePayload));
+            statesPayload->addItem(WTF::move(statePayload));
         }
     }
 
     if (auto contextAttributes = buildObjectForCanvasContextAttributes(m_context.get()))
         parametersPayload->addItem(contextAttributes.releaseNonNull());
 
-    initialStatePayload->setAttributes(WTFMove(attributesPayload));
+    initialStatePayload->setAttributes(WTF::move(attributesPayload));
 
     if (statesPayload->length())
-        initialStatePayload->setStates(WTFMove(statesPayload));
+        initialStatePayload->setStates(WTF::move(statesPayload));
 
     if (parametersPayload->length())
-        initialStatePayload->setParameters(WTFMove(parametersPayload));
+        initialStatePayload->setParameters(WTF::move(parametersPayload));
 
     if (auto content = getContentAsDataURL())
         initialStatePayload->setContent(*content);
@@ -783,19 +783,19 @@ Ref<Inspector::Protocol::Recording::InitialState> InspectorCanvas::buildInitialS
 Ref<JSON::ArrayOf<JSON::Value>> InspectorCanvas::buildAction(String&& name, InspectorCanvasProcessedArguments&& arguments)
 {
     auto action = JSON::ArrayOf<JSON::Value>::create();
-    action->addItem(indexForData(WTFMove(name)));
+    action->addItem(indexForData(WTF::move(name)));
 
     auto parametersData = JSON::ArrayOf<JSON::Value>::create();
     auto swizzleTypes = JSON::ArrayOf<int>::create();
-    for (auto&& argument : WTFMove(arguments)) {
+    for (auto&& argument : WTF::move(arguments)) {
         if (!argument)
             continue;
 
         parametersData->addItem(argument->value.copyRef());
         swizzleTypes->addItem(static_cast<int>(argument->swizzleType));
     }
-    action->addItem(WTFMove(parametersData));
-    action->addItem(WTFMove(swizzleTypes));
+    action->addItem(WTF::move(parametersData));
+    action->addItem(WTF::move(swizzleTypes));
 
     auto stackTrace = Inspector::createScriptCallStack(JSExecState::currentState());
     action->addItem(indexForData(stackTrace.ptr()));
@@ -836,13 +836,13 @@ Ref<JSON::ArrayOf<JSON::Value>> InspectorCanvas::buildArrayForCanvasGradient(con
         auto stop = JSON::ArrayOf<JSON::Value>::create();
         stop->addItem(colorStop.offset);
         stop->addItem(indexForData(serializationForCSS(colorStop.color)));
-        stops->addItem(WTFMove(stop));
+        stops->addItem(WTF::move(stop));
     }
 
     auto array = JSON::ArrayOf<JSON::Value>::create();
     array->addItem(indexForData(type));
-    array->addItem(WTFMove(parameters));
-    array->addItem(WTFMove(stops));
+    array->addItem(WTF::move(parameters));
+    array->addItem(WTF::move(stops));
     return array;
 }
 

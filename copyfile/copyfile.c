@@ -1078,6 +1078,12 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 
 	(void)copyfile_quarantine(s);
 
+	if (flags & COPYFILE_NOCACHE) {
+		// note - this may change the caching policy of the fds even after returning from fcopyfile()
+		(void)fcntl(s->src_fd, F_NOCACHE, 1);
+		(void)fcntl(s->dst_fd, F_NOCACHE, 1);
+	}
+
 	ret = copyfile_internal(s, flags);
 
 	if (dst_stat_ok && !(s->flags & COPYFILE_STAT))

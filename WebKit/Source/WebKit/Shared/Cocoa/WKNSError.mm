@@ -34,8 +34,8 @@
 {
     RefPtr underlyingError = downcast<API::Error>(&self._apiObject)->underlyingError();
     if (underlyingError)
-        return [(__bridge NSError *)downcast<API::Error>(&self._apiObject)->platformError().cfError((__bridge CFErrorRef)wrapper(*underlyingError)) copy];
-    return [(__bridge NSError *)downcast<API::Error>(&self._apiObject)->platformError().cfError() copy];
+        return [bridge_cast(downcast<API::Error>(&self._apiObject)->platformError().protectedCFError(bridge_cast(protectedWrapper(*underlyingError)).get())) copy];
+    return [bridge_cast(downcast<API::Error>(&self._apiObject)->platformError().protectedCFError()) copy];
 }
 
 #pragma mark NSCopying protocol implementation

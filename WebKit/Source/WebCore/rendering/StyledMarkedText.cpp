@@ -29,7 +29,7 @@
 #include "ColorBlending.h"
 #include "ElementRuleCollector.h"
 #include "RenderElement.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
 
@@ -40,9 +40,9 @@ static void computeStyleForPseudoElementStyle(StyledMarkedText::Style& style, co
     if (!pseudoElementStyle)
         return;
 
-    style.backgroundColor = pseudoElementStyle->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor, paintInfo.paintBehavior);
-    style.textStyles.fillColor = pseudoElementStyle->computedStrokeColor();
-    style.textStyles.strokeColor = pseudoElementStyle->computedStrokeColor();
+    style.backgroundColor = pseudoElementStyle->visitedDependentBackgroundColorApplyingColorFilter(paintInfo.paintBehavior);
+    style.textStyles.fillColor = pseudoElementStyle->usedStrokeColor();
+    style.textStyles.strokeColor = pseudoElementStyle->usedStrokeColor();
     style.textStyles.hasExplicitlySetFillColor = pseudoElementStyle->hasExplicitlySetColor();
 
     auto color = TextDecorationPainter::decorationColor(*pseudoElementStyle, paintInfo.paintBehavior);
@@ -65,6 +65,8 @@ static void computeStyleForPseudoElementStyle(StyledMarkedText::Style& style, co
 
 static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, const StyledMarkedText::Style& baseStyle, const RenderText& renderer, const RenderStyle& lineStyle, const PaintInfo& paintInfo)
 {
+    static constexpr OptionSet systemAppearanceOptions { StyleColorOptions::UseSystemAppearance };
+
     auto style = baseStyle;
     switch (markedText.type) {
     case MarkedText::Type::Correction:
@@ -99,16 +101,20 @@ static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, 
             break;
         }
 
-        OptionSet<StyleColorOptions> styleColorOptions = { StyleColorOptions::UseSystemAppearance };
-        style.backgroundColor = renderer.theme().annotationHighlightBackgroundColor(styleColorOptions);
-        style.textStyles.fillColor = renderer.theme().annotationHighlightForegroundColor(styleColorOptions);
+        style.backgroundColor = renderer.theme().annotationHighlightBackgroundColor(systemAppearanceOptions);
+        style.textStyles.fillColor = renderer.theme().annotationHighlightForegroundColor(systemAppearanceOptions);
+        break;
+    }
+    case MarkedText::Type::TextExtractionHighlight: {
+        // FIXME: This just uses the same color as annotation highlights for now, but we may eventually require a different appearance.
+        style.backgroundColor = renderer.theme().annotationHighlightBackgroundColor(systemAppearanceOptions);
+        style.textStyles.fillColor = renderer.theme().annotationHighlightForegroundColor(systemAppearanceOptions);
         break;
     }
 #if ENABLE(APP_HIGHLIGHTS)
     case MarkedText::Type::AppHighlight: {
-        OptionSet<StyleColorOptions> styleColorOptions = { StyleColorOptions::UseSystemAppearance };
-        style.backgroundColor = renderer.theme().annotationHighlightBackgroundColor(styleColorOptions);
-        style.textStyles.fillColor = renderer.theme().annotationHighlightForegroundColor(styleColorOptions);
+        style.backgroundColor = renderer.theme().annotationHighlightBackgroundColor(systemAppearanceOptions);
+        style.textStyles.fillColor = renderer.theme().annotationHighlightForegroundColor(systemAppearanceOptions);
         break;
     }
 #endif
@@ -129,16 +135,15 @@ static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, 
     }
     case MarkedText::Type::TextMatch: {
         // Text matches always use the light system appearance.
-        OptionSet<StyleColorOptions> styleColorOptions = { StyleColorOptions::UseSystemAppearance };
 #if PLATFORM(MAC)
-        style.textStyles.fillColor = renderer.theme().systemColor(CSSValueAppleSystemLabel, styleColorOptions);
+        style.textStyles.fillColor = renderer.theme().systemColor(CSSValueAppleSystemLabel, systemAppearanceOptions);
 #endif
-        style.backgroundColor = renderer.theme().textSearchHighlightColor(styleColorOptions);
+        style.backgroundColor = renderer.theme().textSearchHighlightColor(systemAppearanceOptions);
         break;
     }
     }
     StyledMarkedText styledMarkedText = markedText;
-    styledMarkedText.style = WTFMove(style);
+    styledMarkedText.style = WTF::move(style);
     return styledMarkedText;
 }
 
@@ -210,7 +215,7 @@ static Vector<StyledMarkedText> coalesceAdjacentWithSameRanges(Vector<StyledMark
             }
             continue;
         }
-        frontmostMarkedTexts.append(WTFMove(text));
+        frontmostMarkedTexts.append(WTF::move(text));
     }
     return frontmostMarkedTexts;
 }
@@ -258,7 +263,7 @@ Vector<StyledMarkedText> StyledMarkedText::subdivideAndResolve(const Vector<Mark
 
     if (textsToSubdivide.size() == 1 && textsToSubdivide[0].type == MarkedText::Type::Unmarked) {
         StyledMarkedText styledMarkedText = textsToSubdivide[0];
-        styledMarkedText.style = WTFMove(baseStyle);
+        styledMarkedText.style = WTF::move(baseStyle);
         return { styledMarkedText };
     }
 
@@ -281,7 +286,7 @@ Vector<StyledMarkedText> StyledMarkedText::subdivideAndResolve(const Vector<Mark
                 return resolveStyleForMarkedText(markedText, baseStyle, renderer, lineStyle, paintInfo);
             });
 
-            return coalesceAdjacentWithSameRanges(WTFMove(frontmostMarkedTexts));
+            return coalesceAdjacentWithSameRanges(WTF::move(frontmostMarkedTexts));
         }
     }
 

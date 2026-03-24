@@ -32,13 +32,14 @@ namespace WebCore {
 class RenderView;
 
 class RenderIFrame final : public RenderFrameBase {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderIFrame);
+    WTF_MAKE_TZONE_ALLOCATED(RenderIFrame);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderIFrame);
 public:
     RenderIFrame(HTMLIFrameElement&, RenderStyle&&);
     virtual ~RenderIFrame();
 
     HTMLIFrameElement& iframeElement() const;
+    Ref<HTMLIFrameElement> protectedIframeElement() const;
 
 private:
     void frameOwnerElement() const = delete;

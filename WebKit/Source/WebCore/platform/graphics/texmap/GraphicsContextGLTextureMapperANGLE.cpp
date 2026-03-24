@@ -36,6 +36,7 @@
 #include "PixelBuffer.h"
 #include "PlatformDisplay.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
 #include "VideoFrame.h"
@@ -67,6 +68,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsContextGLTextureMapperANGLE);
 
 GraphicsContextGLANGLE::~GraphicsContextGLANGLE()
 {
@@ -166,15 +169,11 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
             eglExtensions.ANDROID_get_native_client_buffer ? "found" : "missing", eglExtensions.ANDROID_image_native_buffer ? "found" : "missing");
     }
 #elif USE(GBM)
-    auto& display = PlatformDisplay::sharedDisplay();
-    if (display.type() == PlatformDisplay::Type::GBM && display.eglExtensions().KHR_image_base && display.eglExtensions().EXT_image_dma_buf_import) {
-        static const char* disableGBM = getenv("WEBKIT_WEBGL_DISABLE_GBM");
-        if (!disableGBM || *disableGBM == '0') {
-            RefPtr delegate = GraphicsLayerContentsDisplayDelegateCoordinated::create();
-            if (auto context = GraphicsContextGLTextureMapperGBM::create(GraphicsContextGLAttributes { attributes }, WTFMove(delegate)))
-                return context;
-            WTFLogAlways("Failed to create a graphics context for WebGL using GBM, falling back to textures");
-        }
+    if (GraphicsContextGLTextureMapperGBM::checkRequirements()) {
+        RefPtr delegate = GraphicsLayerContentsDisplayDelegateCoordinated::create();
+        if (auto context = GraphicsContextGLTextureMapperGBM::create(GraphicsContextGLAttributes { attributes }, WTF::move(delegate)))
+            return context;
+        WTFLogAlways("Failed to create a graphics context for WebGL using GBM, falling back to textures");
     }
 #endif
     return GraphicsContextGLTextureMapperANGLE::create(GraphicsContextGLAttributes { attributes });
@@ -182,14 +181,14 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
 
 RefPtr<GraphicsContextGLTextureMapperANGLE> GraphicsContextGLTextureMapperANGLE::create(GraphicsContextGLAttributes&& attributes)
 {
-    auto context = adoptRef(*new GraphicsContextGLTextureMapperANGLE(WTFMove(attributes)));
+    auto context = adoptRef(*new GraphicsContextGLTextureMapperANGLE(WTF::move(attributes)));
     if (!context->initialize())
         return nullptr;
     return context;
 }
 
 GraphicsContextGLTextureMapperANGLE::GraphicsContextGLTextureMapperANGLE(GraphicsContextGLAttributes&& attributes)
-    : GraphicsContextGLANGLE(WTFMove(attributes))
+    : GraphicsContextGLANGLE(WTF::move(attributes))
 {
 }
 
@@ -429,7 +428,7 @@ void GraphicsContextGLTextureMapperANGLE::prepareForDisplay()
         flags.add(TextureMapperFlags::ShouldBlend);
     auto fboSize = getInternalFramebufferSize();
     auto fence = GLFence::create(PlatformDisplay::sharedDisplay().glDisplay());
-    m_layerContentsDisplayDelegate->setDisplayBuffer(CoordinatedPlatformLayerBufferRGB::create(m_compositorTextureID, fboSize, flags, WTFMove(fence)));
+    m_layerContentsDisplayDelegate->setDisplayBuffer(CoordinatedPlatformLayerBufferRGB::create(m_compositorTextureID, fboSize, flags, WTF::move(fence)));
 #endif
 }
 
@@ -510,11 +509,13 @@ bool GraphicsContextGLTextureMapperANGLE::enableRequiredWebXRExtensions()
     if (!makeContextCurrent())
         return false;
 
-    return enableExtension("GL_ANGLE_framebuffer_multisample"_s)
-        && enableExtension("GL_ANGLE_framebuffer_blit"_s)
-        && enableExtension("GL_EXT_discard_framebuffer"_s)
-        && enableExtension("GL_OES_EGL_image"_s)
-        && enableExtension("GL_OES_rgb8_rgba8"_s);
+    return enableExtensionsImpl({
+        "GL_ANGLE_framebuffer_multisample"_s,
+        "GL_ANGLE_framebuffer_blit"_s,
+        "GL_EXT_discard_framebuffer"_s,
+        "GL_OES_EGL_image"_s,
+        "GL_OES_rgb8_rgba8"_s
+    });
 }
 #endif
 

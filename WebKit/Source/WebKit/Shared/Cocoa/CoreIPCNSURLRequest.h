@@ -161,7 +161,7 @@ public:
 
     RetainPtr<id> toID() const;
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSURLRequest, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSURLRequest>;
     CoreIPCNSURLRequestData m_data;
 };
 

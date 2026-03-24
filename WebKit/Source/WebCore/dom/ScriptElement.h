@@ -59,6 +59,7 @@ public:
     void executeModuleScript(LoadableModuleScript&);
     void registerImportMap(const ScriptSourceCode&);
     void registerSpeculationRules(const ScriptSourceCode&);
+    void unregisterSpeculationRules();
 
     void executePendingScript(PendingScript&);
 

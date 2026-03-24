@@ -47,7 +47,7 @@ static inline CFMutableDataRef CFDataCreateMutableWithRandom(CFAllocatorRef allo
     CFMutableDataRef result = NULL;
     CFMutableDataRef data = CFDataCreateMutableWithScratch(allocator, size);
 
-    require_quiet(errSecSuccess == SecRandomCopyBytes(kSecRandomDefault, size, CFDataGetMutableBytePtr(data)), fail);
+    __Require_Quiet(errSecSuccess == SecRandomCopyBytes(kSecRandomDefault, size, CFDataGetMutableBytePtr(data)), fail);
 
     CFTransferRetained(result, data);
 

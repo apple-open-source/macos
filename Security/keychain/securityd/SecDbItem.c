@@ -288,13 +288,13 @@ static CFTypeRef SecDbAttrCopyValueForDb(const SecDbAttr *attr, CFTypeRef value,
 
     if (CFEqual(value, kCFNull) && attr->flags & kSecDbPrimaryKeyFlag) {
         // SQLITE3 doesn't like NULL for primary key attributes, pretend kSecDbDefaultEmptyFlag was specified
-        require_quiet(result = SecDbAttrCopyDefaultValue(attr, error), out);
+        __Require_Quiet(result = SecDbAttrCopyDefaultValue(attr, error), out);
     } else {
         result = CFRetain(value);
     }
 
     if (attr->flags & kSecDbSHA1ValueInFlag && !CFEqual(result, kCFNull)) {
-        require_action_quiet(data = copyData(result), out,
+        __Require_Action_Quiet(data = copyData(result), out,
                              SecError(errSecInternal, error, CFSTR("failed to get attribute %@ data"), attr->name);
                              CFReleaseNull(result));
         CFAssignRetained(result, CFDataCopySHA1Digest(data, error));
@@ -620,8 +620,8 @@ static CFTypeRef SecDbItemCopyValueForDb(SecDbItemRef item, const SecDbAttr *des
     }
 
     if (value == NULL) {
-        require_quiet(value = SecDbItemGetValue(item, desc, error), out);
-        require_action_quiet(value = SecDbAttrCopyValueForDb(desc, value, error), out, CFReleaseNull(value));
+        __Require_Quiet(value = SecDbItemGetValue(item, desc, error), out);
+        __Require_Action_Quiet(value = SecDbAttrCopyValueForDb(desc, value, error), out, CFReleaseNull(value));
         if ((desc->flags & kSecDbSHA1ValueInFlag) != 0) {
             CFDictionarySetValue(item->attributes, hash_name, value);
         }
@@ -1117,7 +1117,7 @@ SecDbItemRef SecDbItemCreateWithColumnMapper(CFAllocatorRef allocator, const Sec
         }
 
         CFTypeRef value = SecDbColumnCopyValueWithAttr(allocator, stmt, attr, col, error);
-        require_action_quiet(value, errOut, CFReleaseNull(item));
+        __Require_Action_Quiet(value, errOut, CFReleaseNull(item));
 
         CFDictionarySetValue(item->attributes, SecDbAttrGetHashName(attr), value);
         CFRelease(value);
@@ -1138,7 +1138,7 @@ SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbC
     SecDbForEachAttr(class, attr) {
         if (return_attr(attr)) {
             CFTypeRef value = SecDbColumnCopyValueWithAttr(allocator, stmt, attr, col++, error);
-            require_action_quiet(value, errOut, CFReleaseNull(item));
+            __Require_Action_Quiet(value, errOut, CFReleaseNull(item));
 
             CFDictionarySetValue(item->attributes, SecDbAttrGetHashName(attr), value);
             CFRelease(value);
@@ -1488,17 +1488,17 @@ CFDataRef SecDbItemCopyKeyprint(SecDbItemRef item, CFErrorRef *error) {
 
     SecDbForEachAttrWithMask(item->class, attr, kSecDbInFlag | kSecDbPrimaryKeyFlag) {
         CFTypeRef value = SecDbItemCopyValueForDb(item, attr, error);
-        require_quiet(value, out);
+        __Require_Quiet(value, out);
 
         CFDictionarySetValue(attrs, attr->name, value);
         CFReleaseNull(value);
     }
 
     data = CFPropertyListCreateDERData(kCFAllocatorDefault, attrs, error);
-    require_quiet(data, out);
+    __Require_Quiet(data, out);
 
     keyprint = CFDataCopySHA256Digest(data, error);
-    require_quiet(keyprint, out);
+    __Require_Quiet(keyprint, out);
 
 out:
     CFReleaseNull(attrs);

@@ -39,16 +39,7 @@
 - (NSDictionary* _Nullable)enableWithSecureBackupAndReturnHint:(id)sb error:(NSError**)error
 {
     SecureBackup* securebackup = (SecureBackup*)sb;
-    if ([securebackup respondsToSelector:@selector(enableAndReturnNetworkReachedHint:)]) {
-        return [securebackup enableAndReturnNetworkReachedHint:error];
-    }
-    return nil;
-}
-
-- (bool)enableWithSecureBackup:(id)sb error:(NSError**)error
-{
-    SecureBackup* securebackup = (SecureBackup*)sb;
-    return [securebackup enableWithError:error];
+    return [securebackup enableAndReturnNetworkReachedHint:error];
 }
 
 - (NSDictionary*)getAccountInfoWithSecureBackup:(id)sb error:(NSError **)error

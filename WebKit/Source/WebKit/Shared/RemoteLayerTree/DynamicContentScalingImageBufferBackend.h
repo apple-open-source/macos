@@ -35,7 +35,7 @@
 namespace WebKit {
 
 class DynamicContentScalingImageBufferBackend : public WebCore::ImageBufferCGBackend, public ImageBufferBackendHandleSharing {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DynamicContentScalingImageBufferBackend);
+    WTF_MAKE_TZONE_ALLOCATED(DynamicContentScalingImageBufferBackend);
     WTF_MAKE_NONCOPYABLE(DynamicContentScalingImageBufferBackend);
 public:
     static size_t calculateMemoryCost(const Parameters&);

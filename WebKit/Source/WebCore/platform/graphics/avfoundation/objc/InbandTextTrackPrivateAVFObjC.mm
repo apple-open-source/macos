@@ -54,7 +54,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InbandTextTrackPrivateAVFObjC);
 
 InbandTextTrackPrivateAVFObjC::InbandTextTrackPrivateAVFObjC(AVMediaSelectionGroup *group, AVMediaSelectionOption *selection, TrackID trackID, InbandTextTrackPrivate::CueFormat format, ModeChangedCallback&& callback)
-    : InbandTextTrackPrivateAVF(trackID, format, WTFMove(callback))
+    : InbandTextTrackPrivateAVF(trackID, format, WTF::move(callback))
     , m_mediaSelectionGroup(group)
     , m_mediaSelectionOption(selection)
 {
@@ -138,7 +138,7 @@ bool InbandTextTrackPrivateAVFObjC::isEasyToRead() const
     return hasMediaCharacteristic(AVMediaCharacteristicEasyToRead);
 }
 
-AtomString InbandTextTrackPrivateAVFObjC::label() const
+String InbandTextTrackPrivateAVFObjC::label() const
 {
     NSArray<AVMetadataItem*>* commonMetadata = nil;
     if (m_mediaSelectionOption)
@@ -146,13 +146,13 @@ AtomString InbandTextTrackPrivateAVFObjC::label() const
     else if (m_assetTrack)
         commonMetadata = [m_assetTrack commonMetadata];
     if (!commonMetadata)
-        return emptyAtom();
+        return emptyString();
 
-    NSString *title = 0;
-    NSArray *titles = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
+    RetainPtr<NSString> title;
+    RetainPtr<NSArray> titles = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
     if ([titles count]) {
         // If possible, return a title in one of the user's preferred languages.
-        NSArray *titlesForPreferredLanguages = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:titles filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
+        RetainPtr<NSArray> titlesForPreferredLanguages = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:titles.get() filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
         if ([titlesForPreferredLanguages count])
             title = [[titlesForPreferredLanguages objectAtIndex:0] stringValue];
 
@@ -160,18 +160,18 @@ AtomString InbandTextTrackPrivateAVFObjC::label() const
             title = [[titles objectAtIndex:0] stringValue];
     }
 
-    return title ? AtomString(title) : emptyAtom();
+    return title.get();
 }
 
-AtomString InbandTextTrackPrivateAVFObjC::language() const
+String InbandTextTrackPrivateAVFObjC::language() const
 {
     if (m_mediaSelectionOption)
-        return AtomString(AVTrackPrivateAVFObjCImpl::languageForAVMediaSelectionOption(m_mediaSelectionOption.get()));
+        return AVTrackPrivateAVFObjCImpl::languageForAVMediaSelectionOption(m_mediaSelectionOption.get());
 
     if (m_assetTrack)
-        return AtomString(AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(m_assetTrack.get()));
+        return AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(m_assetTrack.get());
 
-    return emptyAtom();
+    return emptyString();
 }
 
 bool InbandTextTrackPrivateAVFObjC::isDefault() const

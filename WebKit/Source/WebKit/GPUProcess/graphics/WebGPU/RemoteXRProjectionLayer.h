@@ -75,7 +75,7 @@ class RemoteXRProjectionLayer final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteXRProjectionLayer> create(WebCore::WebGPU::XRProjectionLayer& xrProjectionLayer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteXRProjectionLayer(xrProjectionLayer, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteXRProjectionLayer(xrProjectionLayer, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteXRProjectionLayer();

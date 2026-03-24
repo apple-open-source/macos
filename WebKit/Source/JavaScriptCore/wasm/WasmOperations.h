@@ -50,6 +50,7 @@ namespace Wasm {
 enum class UseDefaultValue : bool { No, Yes };
 enum class ArrayGetKind : unsigned { New, NewDefault, NewFixed };
 
+class CallProfile;
 class TypeDefinition;
 class JSToWasmCallee;
 
@@ -58,10 +59,8 @@ typedef int64_t EncodedWasmValue;
 JSC_DECLARE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildFrame, JSToWasmCallee*, (void*, CallFrame*, WebAssemblyFunction*));
 JSC_DECLARE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildReturnFrame, EncodedJSValue, (void*, CallFrame*));
 JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationGetWasmCalleeStackSize, UCPUStrictInt32, (JSWebAssemblyInstance*, WasmCallableFunction*));
-JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationWasmToJSExitNeedToUnpack, const TypeDefinition*, (WasmOrJSImportableFunctionCallLinkInfo*));
-JSC_DECLARE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void*, CallFrame*, void*, JSWebAssemblyInstance*));
-JSC_DECLARE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, void, (void* sp, CallFrame* cfr, JSWebAssemblyInstance*));
-JSC_DECLARE_JIT_OPERATION(operationWasmToJSExitIterateResults, void, (JSWebAssemblyInstance*, const TypeDefinition*, uint64_t* registerResults, uint64_t* calleeFramePointer));
+JSC_DECLARE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, void, (void*, CallFrame*, void*, JSWebAssemblyInstance*));
+JSC_DECLARE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, void, (void* sp, CallFrame*, JSWebAssemblyInstance*));
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
 void loadValuesIntoBuffer(Probe::Context&, const StackMap&, Wasm::Context::ScratchBufferEntry*);
@@ -73,6 +72,7 @@ JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe
 #endif
 #if ENABLE(WEBASSEMBLY_BBQJIT)
 JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationWasmMaterializeBaselineData, void, (CallFrame*, JSWebAssemblyInstance*));
+JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationWasmMaterializePolymorphicCallee, WasmOrJSImportableFunction*, (CallProfile*, WasmOrJSImportableFunction*));
 #endif
 JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationWasmUnwind, void*, (JSWebAssemblyInstance*));
 

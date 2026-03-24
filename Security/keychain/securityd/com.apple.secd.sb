@@ -78,6 +78,7 @@
         (global-name "com.apple.UNCUserNotification")
         (global-name "com.apple.CoreAuthentication.agent")
         (global-name "com.apple.CoreAuthentication.agent.libxpc")
+        (global-name "com.apple.duetactivityscheduler")
 )
 
 ;; Used to send logs for MoiC.

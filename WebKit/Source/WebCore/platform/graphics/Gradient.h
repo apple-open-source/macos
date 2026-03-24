@@ -33,6 +33,8 @@
 #include <WebCore/GradientColorStops.h>
 #include <WebCore/GraphicsTypes.h>
 #include <WebCore/RenderingResource.h>
+#include <wtf/CheckedRef.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
@@ -63,7 +65,9 @@ class FloatRect;
 class GraphicsContext;
 
 // Note: currently this class is not usable from multiple threads due to mutating interface.
-class Gradient final : public ThreadSafeRefCounted<Gradient> {
+class Gradient final : public ThreadSafeRefCounted<Gradient>, public CanMakeThreadSafeCheckedPtr<NativeImage> {
+    WTF_MAKE_TZONE_ALLOCATED(Gradient);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Gradient);
 public:
     struct LinearData {
         FloatPoint point0;
@@ -123,7 +127,7 @@ public:
 
     void addObserver(WeakRef<RenderingResourceObserver>&& observer) const
     {
-        m_observers.add(WTFMove(observer));
+        m_observers.add(WTF::move(observer));
     }
 
 private:

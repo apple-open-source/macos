@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CSSUnitValue);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CSSUnitValue);
 
 CSSUnitType CSSUnitValue::parseUnit(const String& unit)
 {
@@ -87,7 +87,7 @@ ExceptionOr<Ref<CSSUnitValue>> CSSUnitValue::create(double value, const String& 
     if (!type)
         return Exception { ExceptionCode::TypeError };
     auto unitValue = adoptRef(*new CSSUnitValue(value, parsedUnit));
-    unitValue->m_type = WTFMove(*type);
+    unitValue->m_type = WTF::move(*type);
     return unitValue;
 }
 
@@ -402,11 +402,11 @@ RefPtr<CSSValue> CSSUnitValue::toCSSValueWithProperty(CSSPropertyID propertyID) 
         }
 
         Vector<CSSCalc::Child> sumChildren;
-        sumChildren.append(WTFMove(*node));
-        auto sum = CSSCalc::makeChild(CSSCalc::Sum { .children = WTFMove(sumChildren) }, type);
+        sumChildren.append(WTF::move(*node));
+        auto sum = CSSCalc::makeChild(CSSCalc::Sum { .children = WTF::move(sumChildren) }, type);
 
         return CSSPrimitiveValue::create(CSSCalc::Value::create(category, range, CSSCalc::Tree {
-            .root = WTFMove(sum),
+            .root = WTF::move(sum),
             .type = type,
             .stage = CSSCalc::Stage::Specified,
         }));

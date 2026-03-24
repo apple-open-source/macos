@@ -13,27 +13,7 @@
 
 #define TESTING_XZONE_MALLOC 1
 
-// On exclavekit, we only want one copy of the code enclosed here, which we'll
-// arbitrarily build into the metapool tests - they just have to be built into
-// one of them
-
-#if !TARGET_OS_EXCLAVEKIT || defined(TESTING_METAPOOL)
-
-#include "../src/vm.c"
-
-void
-malloc_report(uint32_t flags, const char *fmt, ...)
-{
-	T_LOG("malloc_report(): %s", fmt);
-}
-
-void
-malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
-{
-	__builtin_trap();
-}
-
-#endif // !TARGET_OS_EXCLAVEKIT || defined(TESTING_METAPOOL)
+#include "mvm_testing.h"
 
 static void test_malloc_lock_lock(_malloc_lock_s *lock) {
 #if MALLOC_HAS_OS_LOCK
@@ -54,6 +34,10 @@ static void test_malloc_lock_unlock(_malloc_lock_s *lock) {
 #define _malloc_lock_unlock(lock) test_malloc_lock_unlock(lock);
 
 #if !MALLOC_TARGET_EXCLAVES && !defined(TESTING_METAPOOL)
+
+// On exclavekit, we only want one copy of the code enclosed here, which we'll
+// arbitrarily build into the metapool tests - they just have to be built into
+// one of them
 
 // When not specifically testing the metapool, stub out these functions so that
 // we can build code that uses them.

@@ -156,11 +156,11 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
 static SSLContextRef make_ssl_ref(bool server, int sock, CFArrayRef certs)
 {
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
-    require(ctx, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx, (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
-    require_noerr(SSLSetCertificate(ctx, certs), out);
+    __Require_noErr(SSLSetIOFuncs(ctx, (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
+    __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
     return ctx;
 out:
@@ -200,7 +200,7 @@ static void *securetransport_ssl_thread(void *arg)
         ortn = SSLHandshake(ctx);
     } while (ortn == errSSLWouldBlock);
 
-    require_noerr_action_quiet(ortn, out,
+    __Require_noErr_Action_Quiet(ortn, out,
                                fprintf(stderr, "Fell out of SSLHandshake with error: %d\n", (int)ortn));
 
     //uint64_t elapsed = mach_absolute_time() - start;
@@ -211,7 +211,7 @@ static void *securetransport_ssl_thread(void *arg)
     require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out); */
 
     SSLCipherSuite cipherSuite;
-    require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
+    __Require_noErr_Quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
     //fprintf(stderr, "st negotiated %s\n", sslcipher_itoa(cipherSuite));
 
 

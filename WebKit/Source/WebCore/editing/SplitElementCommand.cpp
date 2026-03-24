@@ -36,8 +36,8 @@ namespace WebCore {
 
 SplitElementCommand::SplitElementCommand(Ref<Element>&& element, Ref<Node>&& atChild)
     : SimpleEditCommand(element->document())
-    , m_element2(WTFMove(element))
-    , m_atChild(WTFMove(atChild))
+    , m_element2(WTF::move(element))
+    , m_atChild(WTF::move(atChild))
 {
     ASSERT(m_atChild->parentNode() == m_element2.ptr());
 }

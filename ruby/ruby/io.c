@@ -298,6 +298,15 @@ rb_cloexec_dup(int oldfd)
     return rb_cloexec_fcntl_dupfd(oldfd, 3);
 }
 
+#if defined(__APPLE__)
+/*
+ * Build system workaround: even when the SDK exports dup3, the build
+ * host may be running an older OS that doesn't and miniruby will fail.
+ * Remove this workaround when the builder supports dup3.
+ */
+#undef HAVE_DUP3
+#endif
+
 int
 rb_cloexec_dup2(int oldfd, int newfd)
 {
@@ -350,6 +359,15 @@ rb_fd_set_nonblock(int fd)
 #endif
     return 0;
 }
+
+#if defined(__APPLE__)
+/*
+ * Build system workaround: even when the SDK exports pipe2, the build
+ * host may be running an older OS that doesn't and miniruby will fail.
+ * Remove this workaround when the builder supports pipe2.
+ */
+#undef HAVE_PIPE2
+#endif
 
 int
 rb_cloexec_pipe(int fildes[2])

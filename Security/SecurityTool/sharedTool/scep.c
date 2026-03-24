@@ -176,8 +176,8 @@ static CF_RETURNS_RETAINED CFURLRef scep_url_operation(CFStringRef base, CFStrin
     CFURLRef url = NULL, base_url = NULL;
     CFMutableStringRef query_string = 
         CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("?"));
-    require(query_string, out);
-    require(operation, out);
+    __Require(query_string, out);
+    __Require(operation, out);
     _query_string_apply(query_string, CFSTR("operation"), operation);
     if (message)
         _query_string_apply(query_string, CFSTR("message"), message);
@@ -202,13 +202,13 @@ static CF_RETURNS_RETAINED CFDataRef perform_pki_op(CFStringRef scep_base_url, C
         SecBase64Result base64_result;
         size_t buffer_length = CFDataGetLength(scep_request)*2+1;
         char *buffer = malloc(buffer_length);
-        require(buffer, out);
+        __Require(buffer, out);
         size_t output_size = SecBase64Encode2(CFDataGetBytePtr(scep_request), CFDataGetLength(scep_request), buffer, buffer_length,
             kSecB64_F_LINE_LEN_INFINITE, -1, &base64_result);
         *(buffer + output_size) = '\0';
-        require(!base64_result, out);
+        __Require(!base64_result, out);
         CFStringRef message = CFStringCreateWithCString(kCFAllocatorDefault, buffer, kCFStringEncodingASCII);
-        require(message, out);
+        __Require(message, out);
 		pki_op = scep_url_operation(scep_base_url, CFSTR("PKIOperation"), message);
         CFRelease(message);
         fprintf(stderr, "Performing PKIOperation using GET\n");
@@ -236,10 +236,10 @@ static void make_subject_pairs(const void *value, void *context)
     if (!CFStringGetLength(value))
         return; /* skip '/'s that aren't separating key/vals */
     entries = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, value, CFSTR("="));
-    require(entries, out);
+    __Require(entries, out);
     if (CFArrayGetCount(entries)) {
         array = CFArrayCreate(kCFAllocatorDefault, (const void **)&entries, 1, &kCFTypeArrayCallBacks);
-        require(array, out);
+        __Require(array, out);
         CFArrayAppendValue((CFMutableArrayRef)context, array);
     }
 out:
@@ -250,10 +250,10 @@ out:
 static CFArrayRef make_scep_subject(CFStringRef scep_subject_name)
 {
     CFMutableArrayRef subject = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    require(subject, out);
+    __Require(subject, out);
     CFArrayRef entries = NULL;
     entries = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, scep_subject_name, CFSTR("/"));
-    require(entries, out);
+    __Require(entries, out);
     CFArrayApplyFunction(entries, CFRangeMake(0, CFArrayGetCount(entries)), make_subject_pairs, subject);
     CFRelease(entries);
     if (CFArrayGetCount(subject))
@@ -355,7 +355,7 @@ extern int command_scep(int argc, char * const *argv)
 
 #if 0
     CFStringRef uuid_cfstr = uuid_cfstring();
-    require(uuid_cfstr, out);
+    __Require(uuid_cfstr, out);
     const void * ca_cn[] = { kSecOidCommonName, uuid_cfstr };
     CFArrayRef ca_cn_dn = CFArrayCreate(kCFAllocatorDefault, ca_cn, 2, NULL);
     const void *ca_dn_array[1];
@@ -363,7 +363,7 @@ extern int command_scep(int argc, char * const *argv)
     CFArrayRef scep_subject = CFArrayCreate(kCFAllocatorDefault, ca_dn_array, array_size(ca_dn_array), NULL);
 #else
     CFArrayRef scep_subject = make_scep_subject(scep_subject_name);
-    require(scep_subject, out);
+    __Require(scep_subject, out);
     CFShow(scep_subject);
 #endif
 
@@ -376,7 +376,7 @@ extern int command_scep(int argc, char * const *argv)
         keygen_keys, keygen_vals, array_size(keygen_vals),
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
     CFRelease(scep_key_bitsize);
-    require_noerr(SecKeyGeneratePair(keygen_parameters, &phone_publicKey, &phone_privateKey), out);
+    __Require_noErr(SecKeyGeneratePair(keygen_parameters, &phone_publicKey, &phone_privateKey), out);
     CFRelease(keygen_parameters);
 
     /* GetCACert
@@ -405,7 +405,7 @@ extern int command_scep(int argc, char * const *argv)
         } else if (CFEqual(ctype, CFSTR("application/x-x509-ca-ra-cert"))) {
             cert_array = SecCMSCertificatesOnlyMessageCopyCertificates(data);
             
-            require_noerr(SecSCEPValidateCACertMessage(cert_array,
+            __Require_noErr(SecSCEPValidateCACertMessage(cert_array,
                 NULL,
                 &ca_certificate,
                 &ra_certificate,
@@ -483,12 +483,12 @@ extern int command_scep(int argc, char * const *argv)
     CFArrayRef caps = NULL;
     if (!scep_capabilities) {
         CFURLRef ca_caps_url = scep_url_operation(scep_base_url, CFSTR("GetCACaps"), scep_instance_name);
-        require(ca_caps_url, out);
+        __Require(ca_caps_url, out);
         caps_data = MCNetworkLoadRequest(ca_caps_url, NULL, NULL, NULL, validate_cert);
         CFRelease(ca_caps_url);
         if (caps_data) {
             CFStringRef caps_data_string = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, caps_data, kCFStringEncodingASCII);
-            require(caps_data_string, out);
+            __Require(caps_data_string, out);
             caps = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, caps_data_string, CFSTR("\n"));
             if (!caps) {
                 fprintf(stderr, "GetCACaps couldn't be parsed:\n");
@@ -555,9 +555,9 @@ extern int command_scep(int argc, char * const *argv)
     // store encryption identity in the keychain because the decrypt function looks in there only
     identity_add = CFDictionaryCreate(NULL,
         (const void **)&kSecValueRef, (const void **)&self_signed_identity, 1, NULL, NULL);
-	require_noerr(SecItemAdd(identity_add, NULL), out);
+	__Require_noErr(SecItemAdd(identity_add, NULL), out);
 
-    require(scep_request = SecSCEPGenerateCertificateRequest((CFArrayRef)scep_subject, 
+    __Require(scep_request = SecSCEPGenerateCertificateRequest((CFArrayRef)scep_subject, 
         csr_parameters, phone_publicKey, phone_privateKey, self_signed_identity,
         scep_certificates), out);
 
@@ -565,9 +565,9 @@ extern int command_scep(int argc, char * const *argv)
     write_data("scep_request.der", scep_request);
 
 	scep_reply = perform_pki_op(scep_base_url, scep_request, scep_can_use_post, validate_cert);
-    require(scep_reply, out);
+    __Require(scep_reply, out);
 
-    require_action(CFDataGetLength(scep_reply), out, fprintf(stderr, "Empty scep_reply, exiting.\n"));
+    __Require_Action(CFDataGetLength(scep_reply), out, fprintf(stderr, "Empty scep_reply, exiting.\n"));
     fprintf(stderr, "Storing scep_reply.der\n");
     write_data("scep_reply.der", scep_reply);
 
@@ -588,11 +588,11 @@ extern int command_scep(int argc, char * const *argv)
         CFReleaseSafe(retry_get_cert_initial);
 	}
 
-    require(issued_certs, out);
-	require_string(CFArrayGetCount(issued_certs) > 0, out, "No certificates issued.");
+    __Require(issued_certs, out);
+	__Require_String(CFArrayGetCount(issued_certs) > 0, out, "No certificates issued.");
     
     leaf = (SecCertificateRef)CFArrayGetValueAtIndex(issued_certs, 0);
-    require(leaf, out);
+    __Require(leaf, out);
     CFDataRef leaf_data = SecCertificateCopyData(leaf);
     if (leaf_data) {
         fprintf(stderr, "Storing issued_cert.der\n");
@@ -613,7 +613,7 @@ extern int command_scep(int argc, char * const *argv)
             array_size(keys_ref_to_persist),
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     OSStatus status = SecItemAdd(dict, NULL);
-    require_noerr_action(status, out, fprintf(stderr, "failed to store new identity, SecItemAdd: %" PRIdOSStatus, status));
+    __Require_noErr_Action(status, out, fprintf(stderr, "failed to store new identity, SecItemAdd: %" PRIdOSStatus, status));
     result = 0;
     
 out:

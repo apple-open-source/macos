@@ -35,11 +35,6 @@
 
 namespace WebGPU {
 
-__attribute__((no_destroy)) std::unique_ptr<Sampler::CachedSamplerStateContainer> Sampler::cachedSamplerStates = nullptr;
-__attribute__((no_destroy)) std::unique_ptr<Sampler::RetainedSamplerStateContainer> Sampler::retainedSamplerStates = nullptr;
-__attribute__((no_destroy)) std::unique_ptr<Sampler::CachedKeyContainer> Sampler::lastAccessedKeys = nullptr;
-Lock Sampler::samplerStateLock;
-
 static bool validateCreateSampler(Device& device, const WGPUSamplerDescriptor& descriptor)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpusamplerdescriptor
@@ -176,8 +171,7 @@ static Sampler::UniqueSamplerIdentifier computeDescriptorHash(MTLSamplerDescript
     auto floatToUint32 = ^(float f) {
         return *reinterpret_cast<uint32_t*>(&f);
     };
-    std::array<uint32_t, 4> uintData = { miscHash(descriptor), floatToUint32(descriptor.lodMinClamp), floatToUint32(descriptor.lodMaxClamp), floatToUint32(descriptor.maxAnisotropy) };
-    return base64EncodeToString(asByteSpan(std::span { uintData }));
+    return std::array<uint32_t, 4> { miscHash(descriptor), floatToUint32(descriptor.lodMinClamp), floatToUint32(descriptor.lodMaxClamp), floatToUint32(descriptor.maxAnisotropy) };
 }
 
 static MTLSamplerDescriptor *createMetalDescriptorFromDescriptor(const WGPUSamplerDescriptor &descriptor)
@@ -203,6 +197,84 @@ static MTLSamplerDescriptor *createMetalDescriptorFromDescriptor(const WGPUSampl
     return samplerDescriptor;
 }
 
+static Lock samplerStatesLock;
+
+struct SamplerState {
+    RetainPtr<id<MTLSamplerState>> strong;
+    WeakObjCPtr<id<MTLSamplerState>> weak;
+    size_t useCount { 0 };
+};
+
+static HashMap<GenericHashKey<Sampler::UniqueSamplerIdentifier>, SamplerState>& samplerStates() WTF_REQUIRES_LOCK(samplerStatesLock)
+{
+    static NeverDestroyed<HashMap<GenericHashKey<Sampler::UniqueSamplerIdentifier>, SamplerState>> samplerStates WTF_GUARDED_BY_LOCK(samplerStatesLock);
+    return samplerStates.get();
+}
+
+static NSUInteger samplerStateHardLimit(id<MTLDevice> device)
+{
+    static constexpr NSUInteger samplerStateHardLimit = 2048;
+
+    return std::min(samplerStateHardLimit, device.maxArgumentBufferSamplerCount) / 2; // Reserve space for other frameworks using Metal
+}
+
+// Most programs allocate one or two Samplers and that's it. But extreme test cases, at least,
+// can churn through more. We want to be robust in the face of the hard limit Metal puts on the
+// number of MTLSamplerStates that can be live at the same time.
+static id<MTLSamplerState> tryCacheSamplerState(const Sampler::UniqueSamplerIdentifier& samplerIdentifier, id<MTLDevice> device, const WGPUSamplerDescriptor& descriptor)
+{
+    Locker locker { samplerStatesLock };
+    auto& samplerStates = WebGPU::samplerStates();
+
+    if (auto it = samplerStates.find(samplerIdentifier); it != samplerStates.end()) {
+        if (auto mtlSamplerState = it->value.weak.get()) {
+            ++it->value.useCount;
+            return mtlSamplerState.get();
+        }
+    }
+
+    auto hardLimit = samplerStateHardLimit(device);
+    if (samplerStates.size() > hardLimit) {
+        samplerStates.removeIf([&] (auto& bucket) {
+            bucket.value.strong = nil;
+            // Eviction can fail because of live references from running shaders, or other
+            // refcounting shenanigans. When eviction fails, we keep the live weak reference
+            // in our map to continue to track our footprint relative to our hard limit.
+            return !bucket.value.weak;
+        });
+    }
+
+    // Exceeding Metal's hard limit crashes when Metal validation is enabled, so fail the shader instead.
+    if (samplerStates.size() > hardLimit)
+        return nil;
+
+    auto samplerState = [device newSamplerStateWithDescriptor:createMetalDescriptorFromDescriptor(descriptor)];
+    if (!samplerState)
+        return nil;
+
+    samplerStates.set(samplerIdentifier, SamplerState {
+        .strong = samplerState,
+        .weak = samplerState,
+        .useCount = 1,
+    });
+
+    return samplerState;
+}
+
+static void uncacheSamplerState(const Sampler::UniqueSamplerIdentifier& samplerIdentifier, id<MTLSamplerState> samplerState)
+{
+    Locker locker { samplerStatesLock };
+    auto& samplerStates = WebGPU::samplerStates();
+
+    auto it = samplerStates.find(samplerIdentifier);
+    RELEASE_ASSERT(it != samplerStates.end());
+    RELEASE_ASSERT(it->value.weak.get().get() == samplerState);
+
+    --it->value.useCount;
+    if (!it->value.useCount)
+        samplerStates.remove(it);
+}
+
 Ref<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
 {
     if (!isValid())
@@ -226,7 +298,7 @@ Sampler::Sampler(UniqueSamplerIdentifier&& samplerIdentifier, const WGPUSamplerD
     , m_descriptor(descriptor)
     , m_device(device)
 {
-    m_cachedSamplerState = samplerState();
+    tryCacheSamplerState();
 }
 
 Sampler::Sampler(Device& device)
@@ -236,15 +308,8 @@ Sampler::Sampler(Device& device)
 
 Sampler::~Sampler()
 {
-    if (!m_samplerIdentifier)
-        return;
-
-    Locker locker { samplerStateLock };
-    if (auto it = retainedSamplerStates->find(*m_samplerIdentifier); it != retainedSamplerStates->end()) {
-        it->value.apiSamplerList.remove(this);
-        if (!it->value.apiSamplerList.size())
-            retainedSamplerStates->remove(it);
-    }
+    if (id<MTLSamplerState> samplerState = m_cachedSamplerState)
+        uncacheSamplerState(*m_samplerIdentifier, samplerState);
 }
 
 void Sampler::setLabel(String&& label)
@@ -257,66 +322,20 @@ bool Sampler::isValid() const
     return !!m_samplerIdentifier;
 }
 
-id<MTLSamplerState> Sampler::samplerState() const
+id<MTLSamplerState> Sampler::tryCacheSamplerState() const
 {
+    if (auto cachedSamplerState = m_cachedSamplerState)
+        return cachedSamplerState;
+
     if (!m_samplerIdentifier)
         return nil;
-
-    if (m_cachedSamplerState)
-        return m_cachedSamplerState;
-
-    Locker locker { samplerStateLock };
-    if (!cachedSamplerStates) {
-        cachedSamplerStates = WTF::makeUnique<CachedSamplerStateContainer>();
-        retainedSamplerStates = WTF::makeUnique<RetainedSamplerStateContainer>();
-        lastAccessedKeys = WTF::makeUnique<CachedKeyContainer>();
-    }
-
-    id<MTLSamplerState> samplerState = nil;
-    auto samplerIdentifier = *m_samplerIdentifier;
-    if (auto it = retainedSamplerStates->find(samplerIdentifier); it != retainedSamplerStates->end()) {
-        samplerState = it->value.samplerState.get();
-        it->value.apiSamplerList.add(this);
-        lastAccessedKeys->appendOrMoveToLast(samplerIdentifier);
-        if ((m_cachedSamplerState = samplerState))
-            return samplerState;
-    }
 
     id<MTLDevice> device = m_device->device();
     if (!device)
         return nil;
-    auto maxArgumentBufferSamplerCount = std::min<NSUInteger>(2048, device.maxArgumentBufferSamplerCount);
-    if (cachedSamplerStates->size() >= maxArgumentBufferSamplerCount / 2) {
-        cachedSamplerStates->removeIf([&] (auto& pair) {
-            if (!pair.value.get().get()) {
-                lastAccessedKeys->remove(pair.key);
-                return true;
-            }
-            return false;
-        });
-    }
-    if (cachedSamplerStates->size() >= maxArgumentBufferSamplerCount)
-        return nil;
 
-    samplerState = [device newSamplerStateWithDescriptor:createMetalDescriptorFromDescriptor(m_descriptor)];
-    if (!samplerState)
-        return nil;
-
-    cachedSamplerStates->set(samplerIdentifier, samplerState);
-    auto addResult = retainedSamplerStates->add(samplerIdentifier, SamplerStateWithReferences {
-        .samplerState = samplerState,
-        .apiSamplerList = { }
-    });
-    addResult.iterator->value.apiSamplerList.add(this);
-    lastAccessedKeys->appendOrMoveToLast(samplerIdentifier);
-
-    m_cachedSamplerState = samplerState;
-
-    return samplerState;
-}
-
-id<MTLSamplerState> Sampler::cachedSampler() const
-{
+    auto cachedSamplerState = WebGPU::tryCacheSamplerState(*m_samplerIdentifier, device, m_descriptor);
+    m_cachedSamplerState = cachedSamplerState;
     return m_cachedSamplerState;
 }
 

@@ -44,21 +44,21 @@ struct _WPEBufferAndroidPrivate {
 };
 WEBKIT_DEFINE_FINAL_TYPE(WPEBufferAndroid, wpe_buffer_android, WPE_TYPE_BUFFER, WPEBuffer)
 
-static std::function<EGLImage(EGLDisplay, AHardwareBuffer*)> s_createImage = nullptr;
+static std::function<EGLImage(EGLDisplay, EGLClientBuffer)> s_createImage = nullptr;
 static PFNEGLDESTROYIMAGEKHRPROC s_eglDestroyImage = nullptr;
 static PFNEGLCREATEIMAGEKHRPROC s_eglCreateImageKHR = nullptr;
 static PFNEGLCREATEIMAGEPROC s_eglCreateImage = nullptr;
 
-static EGLImage createImageEGL15(EGLDisplay display, AHardwareBuffer * ahb)
+static EGLImage createImageEGL15(EGLDisplay display, EGLClientBuffer clientBuffer)
 {
     static constexpr std::array<EGLAttrib, 3> attributes = { EGL_IMAGE_PRESERVED, EGL_TRUE, EGL_NONE };
-    return s_eglCreateImage(display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, ahb, attributes.data());
+    return s_eglCreateImage(display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attributes.data());
 }
 
-static EGLImage createImageKHRImageBase(EGLDisplay display, AHardwareBuffer* ahb)
+static EGLImage createImageKHRImageBase(EGLDisplay display, EGLClientBuffer clientBuffer)
 {
     static constexpr std::array<EGLint, 3> attributes = { EGL_IMAGE_PRESERVED, EGL_TRUE, EGL_NONE };
-    return s_eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, ahb, attributes.data());
+    return s_eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attributes.data());
 }
 
 static void wpeBufferAndroidDisposeEGLImageIfNeeded(WPEBufferAndroid* androidBuffer)
@@ -129,8 +129,14 @@ static gpointer wpeBufferAndroidImportToEGLImage(WPEBuffer* buffer, GError** err
     RELEASE_ASSERT(s_createImage);
     RELEASE_ASSERT(s_eglDestroyImage);
 
-    priv->eglImage = s_createImage(eglDisplay, priv->ahb);
-    if (!priv->eglImage)
+    EGLClientBuffer clientBuffer = eglGetNativeClientBufferANDROID(priv->ahb);
+    if (!clientBuffer) [[unlikely]] {
+        g_set_error(error, WPE_BUFFER_ERROR, WPE_BUFFER_ERROR_IMPORT_FAILED, "Failed to import buffer to EGL image: eglGetNativeClientBufferANDROID failed with error %#04x", eglGetError());
+        return EGL_NO_IMAGE;
+    }
+
+    priv->eglImage = s_createImage(eglDisplay, clientBuffer);
+    if (priv->eglImage == EGL_NO_IMAGE)
         g_set_error(error, WPE_BUFFER_ERROR, WPE_BUFFER_ERROR_IMPORT_FAILED, "Failed to import buffer to EGL image: eglCreateImageKHR failed with error %#04x", eglGetError());
     return priv->eglImage;
 }

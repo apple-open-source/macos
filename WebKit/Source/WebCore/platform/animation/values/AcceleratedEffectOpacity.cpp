@@ -26,7 +26,7 @@
 #include "config.h"
 #include "AcceleratedEffectOpacity.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include "AnimationUtilities.h"
 
@@ -39,4 +39,4 @@ AcceleratedEffectOpacity blend(const AcceleratedEffectOpacity& from, const Accel
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

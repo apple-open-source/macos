@@ -55,14 +55,14 @@ typedef struct {
 	int gl_flags;		/* Copy of flags parameter to glob. */
 	char *_LIBC_CSTR *_LIBC_COUNT(gl_matchc)	gl_pathv; /* List of paths matching pattern. */
 				/* Copy of errfunc parameter to glob. */
-#ifdef __BLOCKS__
 	union {
-#endif /* __BLOCKS__ */
 		int (*gl_errfunc)(const char *, int);
 #ifdef __BLOCKS__
 		int (^gl_errblk)(const char *, int);
+#else
+		void *gl_errblk;
+#endif
 	};
-#endif /* __BLOCKS__ */
 
 	/*
 	 * Alternate filesystem access methods for glob; replacement
@@ -107,9 +107,11 @@ typedef struct {
 #define	GLOB_QUOTE	0x0400	/* Quote special chars with \. */
 #define	GLOB_TILDE	0x0800	/* Expand tilde names from the passwd file. */
 #define	GLOB_LIMIT	0x1000	/* limit number of returned paths */
-#ifdef __BLOCKS__
+#ifdef __APPLE__
 #define	_GLOB_ERR_BLOCK	0x80000000 /* (internal) error callback is a block */
-#endif /* __BLOCKS__ */
+#else
+#define	_GLOB_ERR_BLOCK	0x08000000 /* (internal) error callback is a block */
+#endif
 
 /* source compatibility, these are the old names */
 #define GLOB_MAXPATH	GLOB_LIMIT

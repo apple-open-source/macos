@@ -30,13 +30,18 @@
 #ifndef PMCoreSmartPowerNapClient_h
 #define PMCoreSmartPowerNapClient_h
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PMCoreSmartPowerNapClient : NSObject
 @property (nonatomic, retain, readonly) NSXPCConnection *connection;
 @property (nonatomic) BOOL isTestClient;
+@property (nonatomic, nullable) dispatch_block_t onInterruption;
 
 
 - (instancetype)initWithConnection: (NSXPCConnection *)conn;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* PMCoreSmartPowerNapClient_h */

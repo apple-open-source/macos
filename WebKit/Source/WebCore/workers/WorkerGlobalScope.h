@@ -82,7 +82,7 @@ class IDBConnectionProxy;
 }
 
 class WorkerGlobalScope : public Supplementable<WorkerGlobalScope>, public WindowOrWorkerGlobalScope, public WorkerOrWorkletGlobalScope, public ReportingClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkerGlobalScope);
+    WTF_MAKE_TZONE_ALLOCATED(WorkerGlobalScope);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkerGlobalScope);
 public:
     virtual ~WorkerGlobalScope();
@@ -159,7 +159,7 @@ public:
     CSSValuePool& cssValuePool() final;
     CSSFontSelector* cssFontSelector() final;
     Ref<FontFaceSet> fonts();
-    std::unique_ptr<FontLoadRequest> fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource) final;
+    RefPtr<FontLoadRequest> fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource) final;
     void beginLoadingFontSoon(FontLoadRequest&) final;
 
     const SettingsValues& settingsValues() const final { return m_settingsValues; }

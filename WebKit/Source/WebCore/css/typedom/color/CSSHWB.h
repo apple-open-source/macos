@@ -30,7 +30,7 @@
 namespace WebCore {
 
 class CSSHWB final : public CSSOMColorValue {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSHWB);
+    WTF_MAKE_TZONE_ALLOCATED(CSSHWB);
 public:
     static ExceptionOr<Ref<CSSHWB>> create(Ref<CSSNumericValue>&& hue, CSSNumberish&& whiteness, CSSNumberish&& blackness, CSSNumberish&& alpha);
 

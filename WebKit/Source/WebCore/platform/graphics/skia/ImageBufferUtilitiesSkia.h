@@ -29,11 +29,11 @@
 
 #include <wtf/Vector.h>
 
-class SkImage;
-
 namespace WebCore {
 
-Vector<uint8_t> encodeData(SkImage*, const String& mimeType, std::optional<double> quality);
+class NativeImage;
+
+Vector<uint8_t> encodeData(NativeImage&, const String& mimeType, std::optional<double> quality);
 
 } // namespace WebCore
 

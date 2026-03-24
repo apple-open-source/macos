@@ -2,11 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>VersionNumber</key>
-	<integer>2025082000</integer>
 	<key>MobileAssetContentVersion</key>
-	<integer>1012</integer>
+	<integer>1013</integer>
 	<key>PKITrustStoreAssetsVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.7</string>
+	<key>VersionNumber</key>
+	<integer>2026020500</integer>
 </dict>
 </plist>

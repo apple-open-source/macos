@@ -9,7 +9,8 @@
 #define LARGE_BLOCK_SIZE_MAX XZM_LARGE_BLOCK_SIZE_MAX
 #else
 #define LARGE_BLOCK_SIZE_MAX MiB(2)
-#define XZM_SEGMENT_SIZE MiB(4)
+#define XZM_NORMAL_SEGMENT_SIZE MiB(4)
+#define XZM_SEGMENT_SLICE_SIZE KiB(16)
 #endif
 
 // Xzone malloc currently tries to realloc any LARGE or HUGE allocations (>32K)
@@ -38,9 +39,19 @@ static bool memchk(void *ptr, uint8_t contents, size_t size)
 	return true;
 }
 
-T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
-		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
+static bool has_sanitizer_zone(void)
 {
+	bool has_sanitizer = false;
+#if CONFIG_SANITIZER
+	has_sanitizer = malloc_sanitizer_is_enabled();
+#endif
+	return has_sanitizer;
+}
+
+static void do_realloc_test(void)
+{
+	const bool has_sanitizer = has_sanitizer_zone();
+
 	// Large allocation shrink in place
 	size_t size1 = LARGE_BLOCK_SIZE_MAX;
 	size_t size2 = LARGE_BLOCK_SIZE_MAX / 4;
@@ -49,11 +60,19 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	void *ptr2 = realloc(ptr1, size2);
 	T_ASSERT_TRUE(memchk(ptr2, 'A', size2), "contents unchanged after realloc");
 	T_ASSERT_LE(size2, malloc_size(ptr2), "realloc LARGE smaller");
+	if (!has_sanitizer) {
+		T_ASSERT_EQ(ptr1, ptr2, "realloc LARGE smaller in-place");
+	}
+	free(ptr2);
 
-	bool has_sanitizer = false;
-#if CONFIG_SANITIZER
-	has_sanitizer = malloc_sanitizer_is_enabled();
-#endif
+	// Large allocation shrink in place by one slice
+	size1 = LARGE_BLOCK_SIZE_MAX;
+	size2 = LARGE_BLOCK_SIZE_MAX - XZM_SEGMENT_SLICE_SIZE;
+	ptr1 = malloc(size1);
+	memset(ptr1, 'B', size1);
+	ptr2 = realloc(ptr1, size2);
+	T_ASSERT_TRUE(memchk(ptr2, 'B', size2), "contents unchanged after realloc");
+	T_ASSERT_LE(size2, malloc_size(ptr2), "realloc LARGE smaller");
 	if (!has_sanitizer) {
 		T_ASSERT_EQ(ptr1, ptr2, "realloc LARGE smaller in-place");
 	}
@@ -66,6 +85,7 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	memset(ptr1, 'B', size1);
 	ptr2 = realloc(ptr1, size2);
 	T_ASSERT_TRUE(memchk(ptr2, 'B', size1), "contents unchanged after realloc");
+	memset(ptr2 + size1, 'B', size2 - size1);
 	T_ASSERT_LE(size2, malloc_size(ptr2),
 			"realloc LARGE larger");
 	// realloc-ing to a larger size can't always be done in-place
@@ -101,7 +121,7 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	free(ptr2);
 
 	// Huge allocation grow in place, size not a multiple of segment granule
-	_Static_assert(XZM_SEGMENT_SIZE == MiB(4),
+	_Static_assert(XZM_NORMAL_SEGMENT_SIZE == MiB(4),
 			"revise constants if changing segment size");
 	size1 = MiB(3);
 	size2 = MiB(5);
@@ -159,6 +179,20 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	T_ASSERT_LE(size2, malloc_size(ptr2),
 		"realloc HUGE aligned");
 	free(ptr2);
+}
+
+T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
+{
+	do_realloc_test();
+}
+
+T_DECL(realloc_large_huge_guard_objects, "call realloc on LARGE and HUGE allocations with guard objects enabled",
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
+{
+	do_realloc_test();
 }
 
 #if CONFIG_MTE

@@ -41,7 +41,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKFrameTreeNode.class, self))
         return;
-    _node->API::FrameTreeNode::~FrameTreeNode();
+    SUPPRESS_UNRETAINED_ARG _node->API::FrameTreeNode::~FrameTreeNode();
     [super dealloc];
 }
 
@@ -53,7 +53,7 @@
 - (NSArray<_WKFrameTreeNode *> *)childFrames
 {
     return createNSArray(_node->childFrames(), [&] (auto& child) {
-        return wrapper(API::FrameTreeNode::create(WebKit::FrameTreeNodeData(child), _node->page()));
+        return wrapper(API::FrameTreeNode::create(WebKit::FrameTreeNodeData(child), Ref { *_node }->protectedPage()));
     }).autorelease();
 }
 

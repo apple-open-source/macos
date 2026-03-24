@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-struct VideoInfo;
+class VideoInfo;
 
 class VideoTrackPrivateWebM final : public VideoTrackPrivate {
     WTF_MAKE_TZONE_ALLOCATED(VideoTrackPrivateWebM);
@@ -42,8 +42,8 @@ public:
     virtual ~VideoTrackPrivateWebM() = default;
 
     TrackID id() const final;
-    AtomString label() const final;
-    AtomString language() const final;
+    String label() const final;
+    String language() const final;
     int trackIndex() const final;
     std::optional<bool> defaultEnabled() const final;
     uint32_t width() const;
@@ -60,8 +60,8 @@ private:
     void updateConfiguration();
 
     webm::TrackEntry m_track;
-    mutable AtomString m_label;
-    mutable AtomString m_language;
+    mutable String m_label;
+    mutable String m_language;
     RefPtr<VideoInfo> m_formatDescription;
 };
 

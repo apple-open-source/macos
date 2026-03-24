@@ -39,7 +39,7 @@ class QualifiedName;
 inline bool shouldInvalidateTypeOnAttributeChange(NodeListInvalidationType, const QualifiedName&);
 
 class LiveNodeList : public NodeList {
-    WTF_MAKE_TZONE_OR_ISO_NON_HEAP_ALLOCATABLE(LiveNodeList);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(LiveNodeList);
 public:
     virtual ~LiveNodeList();
 
@@ -73,7 +73,7 @@ private:
 
 template <class NodeListType, CollectionTraversalType traversalType = CollectionTraversalType::Descendants>
 class CachedLiveNodeList : public LiveNodeList {
-    WTF_MAKE_TZONE_OR_ISO_NON_HEAP_ALLOCATABLE(CachedLiveNodeList);
+    WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(CachedLiveNodeList);
 public:
     inline virtual ~CachedLiveNodeList();
 

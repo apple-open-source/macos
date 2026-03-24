@@ -30,10 +30,7 @@
 
 #import "UIKitSPI.h"
 #import "WKWebViewIOS.h"
-#import <WebCore/GraphicsTypes.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/PlatformCAFilters.h>
-#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/RetainPtr.h>
@@ -42,7 +39,6 @@
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
 static constexpr CGFloat indicatorFontSize = 16;
-static constexpr CGFloat indicatorCornerRadius = 7;
 static constexpr CGFloat indicatorMargin = 20;
 static constexpr CGFloat indicatorVerticalPadding = 6;
 static constexpr CGFloat indicatorHorizontalPadding = 10;
@@ -69,8 +65,6 @@ static constexpr Seconds indicatorMoveDuration { 0.3_s };
 
     self.alpha = 0;
     self.userInteractionEnabled = NO;
-    self.layer.allowsGroupOpacity = NO;
-    self.layer.allowsGroupBlending = NO;
 
 #if HAVE(UI_GLASS_EFFECT)
     bool shouldUseBlurEffectForBackdrop = PAL::currentUserInterfaceIdiomIsVision();
@@ -90,7 +84,7 @@ static constexpr Seconds indicatorMoveDuration { 0.3_s };
     _backdropView =  adoptNS([[UIVisualEffectView alloc] initWithEffect:visualEffect.get()]);
     [_backdropView setFrame:self.bounds];
     [_backdropView setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
-    [[_backdropView layer] setCornerRadius:indicatorCornerRadius];
+    [_backdropView setCornerConfiguration:[UICornerConfiguration capsuleConfiguration]];
     [_backdropView setClipsToBounds:YES];
     [self addSubview:_backdropView.get()];
 
@@ -103,7 +97,6 @@ static constexpr Seconds indicatorMoveDuration { 0.3_s };
         [_label setTextColor:[UIColor blackColor]];
     [_label setAdjustsFontSizeToFitWidth:YES];
     [_label setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
-    WebCore::PlatformCAFilters::setBlendingFiltersOnLayer([_label layer], WebCore::BlendMode::PlusDarker);
     [[_backdropView contentView] addSubview:_label.get()];
 
     [self updatePosition:self.frame];
@@ -200,7 +193,7 @@ static constexpr Seconds indicatorMoveDuration { 0.3_s };
     };
 
     if (animated) {
-        [UIView animateWithDuration:indicatorMoveDuration.seconds() animations:animations completion:makeBlockPtr([&originMoved, completionHandler = WTFMove(completionHandler)](BOOL finished) mutable {
+        [UIView animateWithDuration:indicatorMoveDuration.seconds() animations:animations completion:makeBlockPtr([&originMoved, completionHandler = WTF::move(completionHandler)](BOOL finished) mutable {
             completionHandler(originMoved, static_cast<bool>(finished));
         }).get()];
     } else {

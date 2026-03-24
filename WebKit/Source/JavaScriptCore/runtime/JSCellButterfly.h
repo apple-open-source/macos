@@ -27,6 +27,7 @@
 
 #include <JavaScriptCore/Butterfly.h>
 #include <JavaScriptCore/IndexingHeader.h>
+#include <JavaScriptCore/JSArray.h>
 #include <JavaScriptCore/JSCJSValueInlines.h>
 #include <JavaScriptCore/JSCell.h>
 #include <JavaScriptCore/ResourceExhaustion.h>

@@ -239,12 +239,12 @@ class DOMPromiseDeferredBase {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(DOMPromiseDeferredBase, WEBCORE_EXPORT);
 public:
     DOMPromiseDeferredBase(Ref<DeferredPromise>&& genericPromise)
-        : m_promise(WTFMove(genericPromise))
+        : m_promise(WTF::move(genericPromise))
     {
     }
 
     DOMPromiseDeferredBase(DOMPromiseDeferredBase&& promise)
-        : m_promise(WTFMove(promise.m_promise))
+        : m_promise(WTF::move(promise.m_promise))
     {
     }
 
@@ -261,7 +261,7 @@ public:
 
     DOMPromiseDeferredBase& operator=(DOMPromiseDeferredBase&& other)
     {
-        m_promise = WTFMove(other.m_promise);
+        m_promise = WTF::move(other.m_promise);
         return *this;
     }
 
@@ -292,7 +292,7 @@ public:
 
     void whenSettled(Function<void()>&& function)
     {
-        m_promise->whenSettled(WTFMove(function));
+        m_promise->whenSettled(WTF::move(function));
     }
 
 protected:
@@ -427,7 +427,7 @@ using BindingPromiseFunction = JSC::EncodedJSValue(JSC::JSGlobalObject*, JSC::Ca
 template<BindingPromiseFunction bindingFunction>
 inline void bindingPromiseFunctionAdapter(JSC::JSGlobalObject& lexicalGlobalObject, JSC::CallFrame& callFrame, Ref<DeferredPromise>&& promise)
 {
-    bindingFunction(&lexicalGlobalObject, &callFrame, WTFMove(promise));
+    bindingFunction(&lexicalGlobalObject, &callFrame, WTF::move(promise));
 }
 
 template<BindingPromiseFunction bindingPromiseFunction>

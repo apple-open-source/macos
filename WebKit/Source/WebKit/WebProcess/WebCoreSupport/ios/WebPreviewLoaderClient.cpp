@@ -67,7 +67,7 @@ void WebPreviewLoaderClient::didFinishLoading()
     if (!webPage)
         return;
 
-    webPage->didFinishLoadForQuickLookDocumentInMainFrame(m_buffer.take().get());
+    webPage->didFinishLoadForQuickLookDocumentInMainFrame(m_buffer.takeBuffer().get());
 }
 
 void WebPreviewLoaderClient::didFail()
@@ -83,7 +83,7 @@ void WebPreviewLoaderClient::didRequestPassword(Function<void(const String&)>&& 
         return;
     }
 
-    webPage->requestPasswordForQuickLookDocumentInMainFrame(m_fileName, WTFMove(completionHandler));
+    webPage->requestPasswordForQuickLookDocumentInMainFrame(m_fileName, WTF::move(completionHandler));
 }
 
 } // namespace WebKit

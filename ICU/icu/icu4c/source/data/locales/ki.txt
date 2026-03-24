@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ki{
     AuxExemplarCharacters{"[f l p q s v x z]"}
     ExemplarCharacters{"[a b c d e g h iĩ j k m n o r t uũ w y]"}
@@ -115,12 +115,12 @@ ki{
             }
             eras{
                 abbreviated{
-                    "MK",
-                    "TK",
+                    0{"MK"}
+                    1{"TK"}
                 }
                 wide{
-                    "Mbere ya Kristo",
-                    "Thutha wa Kristo",
+                    0{"Mbere ya Kristo"}
+                    1{"Thutha wa Kristo"}
                 }
             }
             monthNames{

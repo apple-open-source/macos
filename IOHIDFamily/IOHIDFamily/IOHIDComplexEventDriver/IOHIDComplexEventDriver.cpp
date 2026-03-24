@@ -46,18 +46,18 @@ static IOHIDEvent * getMatchingChildEvent(IOHIDEvent * event, IOHIDEventType typ
 {
     IOHIDEvent * ret = nullptr;
     OSArray * children = event->getChildren();
-    require_quiet(children, exit);
+    __Require_Quiet(children, exit);
 
     for (unsigned int i = 0, count = children->getCount(); i < count; ++i) {
         IOHIDEvent * child = OSRequiredCast(IOHIDEvent, children->getObject(i));
-        require_quiet(type == child->getType(), loop);
+        __Require_Quiet(type == child->getType(), loop);
         if (type == kIOHIDEventTypeVendorDefined) {
-            require_quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsagePage), loop);
-            require_quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsage), loop);
+            __Require_Quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsagePage), loop);
+            __Require_Quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsage), loop);
         }
         else if (type == kIOHIDEventTypeCollection) {
-            require_quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldCollectionUsagePage), loop);
-            require_quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldCollectionUsage), loop);
+            __Require_Quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldCollectionUsagePage), loop);
+            __Require_Quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldCollectionUsage), loop);
         }
         ret = child;
         break;
@@ -90,7 +90,7 @@ IOHIDComplexEventDriver::handleStart(IOService * provider)
     bool success = false;
 
     started = super::handleStart(provider);
-    require_action_quiet(started, exit, HIDServiceLogError("handleStart: super::handleStart failed"));
+    __Require_Action_Quiet(started, exit, HIDServiceLogError("handleStart: super::handleStart failed"));
 
     _workloop = OSSharedPtr<IOWorkLoop>(getWorkLoop(), OSRetain);
     assert(_workloop);
@@ -101,20 +101,20 @@ IOHIDComplexEventDriver::handleStart(IOService * provider)
     }
 
     _interface = OSSharedPtr<IOHIDInterface>(OSDynamicCast(IOHIDInterface, provider), OSRetain);
-    require_action_quiet(_interface, exit, HIDServiceLogError("handleStart: unexpected provider type %s", provider->getMetaClass()->getClassName()));
+    __Require_Action_Quiet(_interface, exit, HIDServiceLogError("handleStart: unexpected provider type %s", provider->getMetaClass()->getClassName()));
 
     _elements = OSSharedPtr<OSArray>(_interface->createMatchingElements(), OSNoRetain);
-    require_action_quiet(_elements && _elements->getCount() > 0, exit, HIDServiceLogError("handleStart: failed to get elements from IOHIDInterface"));
+    __Require_Action_Quiet(_elements && _elements->getCount() > 0, exit, HIDServiceLogError("handleStart: failed to get elements from IOHIDInterface"));
 
     initProcessors();
-    require_action_quiet(_processors && _processors->getCount() > 1, exit, HIDServiceLogError("handleStart: failed to create any input processors"));
+    __Require_Action_Quiet(_processors && _processors->getCount() > 1, exit, HIDServiceLogError("handleStart: failed to create any input processors"));
 
     _rootProcessor = OSSharedPtr<IOHIDElementProcessor>(OSRequiredCast(IOHIDRootElementProcessor, _processors->getObject(0)), OSRetain);
     ok = setProperty("ElementProcessors", _rootProcessor.get());
-    require_action_quiet(ok, exit, HIDServiceLogError("handleStart: set ElementProcessors property failed"));
+    __Require_Action_Quiet(ok, exit, HIDServiceLogError("handleStart: set ElementProcessors property failed"));
 
     opened = _interface->open(this, 0, OSMemberFunctionCast(IOHIDInterface::InterruptReportAction, this, &IOHIDComplexEventDriver::handleInterruptReport), nullptr);
-    require_action_quiet(opened, exit, HIDServiceLogError("handleStart: failed to open provider"));
+    __Require_Action_Quiet(opened, exit, HIDServiceLogError("handleStart: failed to open provider"));
 
     success = true;
 
@@ -169,7 +169,7 @@ IOHIDComplexEventDriver::setProperties(OSObject * properties)
 {
     IOReturn ret = kIOReturnInvalid;
     OSDictionary * dict = OSDynamicCast(OSDictionary, properties);
-    require_action_quiet(dict, exit, ret = kIOReturnBadArgument);
+    __Require_Action_Quiet(dict, exit, ret = kIOReturnBadArgument);
 
     if (dict->getObject(kIOHIDProcessorPropertyAccessKey) != nullptr) {
         OSSharedPtr<OSArray> requests = arrayFromObject(dict->getObject(kIOHIDProcessorPropertyAccessKey));
@@ -177,7 +177,7 @@ IOHIDComplexEventDriver::setProperties(OSObject * properties)
 
         // validate all requests first, bail out if any are malformed
         for (unsigned int i = 0; i < requests->getCount(); ++i) {
-            require_action_quiet(isValidProcessorPropertyRequest(requests->getObject(i)), exit, ret = kIOReturnBadArgument);
+            __Require_Action_Quiet(isValidProcessorPropertyRequest(requests->getObject(i)), exit, ret = kIOReturnBadArgument);
         }
 
         ret = dispatchWorkloopSync(^IOReturn{
@@ -211,19 +211,19 @@ IOHIDComplexEventDriver::isValidProcessorPropertyRequest(OSObject * object)
     OSDictionary * request = OSDynamicCast(OSDictionary, object);
     OSNumber * cookie = nullptr;
 
-    require_action_quiet(request, exit,
+    __Require_Action_Quiet(request, exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: request is not dictionary"));
-    require_action_quiet(request->getCount() == 3, exit,
+    __Require_Action_Quiet(request->getCount() == 3, exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: request has %d keys (expected 3)", request->getCount()));
 
-    require_action_quiet(cookie = OSDynamicCast(OSNumber, request->getObject(kIOHIDProcessorID)), exit,
+    __Require_Action_Quiet(cookie = OSDynamicCast(OSNumber, request->getObject(kIOHIDProcessorID)), exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: missing key kIOHIDProcessorID"));
-    require_action_quiet(getProcessor(cookie->unsigned32BitValue()), exit,
+    __Require_Action_Quiet(getProcessor(cookie->unsigned32BitValue()), exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: unknown processor:%u", cookie->unsigned32BitValue()));
 
-    require_action_quiet(OSDynamicCast(OSString, request->getObject(kIOHIDProcessorPropertyKey)), exit,
+    __Require_Action_Quiet(OSDynamicCast(OSString, request->getObject(kIOHIDProcessorPropertyKey)), exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: missing key kIOHIDProcessorPropertyKey"));
-    require_action_quiet(request->getObject(kIOHIDProcessorPropertyValue), exit,
+    __Require_Action_Quiet(request->getObject(kIOHIDProcessorPropertyValue), exit,
                          HIDServiceLogError("isValidProcessorPropertyRequest: missing key kIOHIDProcessorPropertyValue"));
 
     valid = true;
@@ -266,9 +266,9 @@ IOHIDComplexEventDriver::convertDeviceToMachTimestamp(OSData * timestamp, UInt64
 {
     return dispatchWorkloopSync(^IOReturn{
         IOReturn ret = kIOReturnInvalid;
-        require_action_quiet(_timeSyncSupported, exit, ret = kIOReturnUnsupported);
-        require_action_quiet(_timeSyncState & kTimeSyncStateOpened, exit, ret = kIOReturnNotReady; _debug.ts.notOpenCnt++);
-        require_action_quiet(_timeSyncState & kTimeSyncStateActive, exit, ret = kIOReturnNotReady; _debug.ts.notActiveCnt++);
+        __Require_Action_Quiet(_timeSyncSupported, exit, ret = kIOReturnUnsupported);
+        __Require_Action_Quiet(_timeSyncState & kTimeSyncStateOpened, exit, ret = kIOReturnNotReady; _debug.ts.notOpenCnt++);
+        __Require_Action_Quiet(_timeSyncState & kTimeSyncStateActive, exit, ret = kIOReturnNotReady; _debug.ts.notActiveCnt++);
 
         ret = _timeSync->toSyncedTime(timestamp, outTime);
         if (ret == kIOReturnSuccess) {
@@ -285,9 +285,9 @@ IOHIDComplexEventDriver::convertMachToDeviceTimestamp(AbsoluteTime timestamp, OS
 {
     return dispatchWorkloopSync(^IOReturn{
         IOReturn ret = kIOReturnInvalid;
-        require_action_quiet(_timeSyncSupported, exit, ret = kIOReturnUnsupported);
-        require_action_quiet(_timeSyncState & kTimeSyncStateOpened, exit, ret = kIOReturnNotReady; _debug.ts.notOpenCnt++);
-        require_action_quiet(_timeSyncState & kTimeSyncStateActive, exit, ret = kIOReturnNotReady; _debug.ts.notActiveCnt++);
+        __Require_Action_Quiet(_timeSyncSupported, exit, ret = kIOReturnUnsupported);
+        __Require_Action_Quiet(_timeSyncState & kTimeSyncStateOpened, exit, ret = kIOReturnNotReady; _debug.ts.notOpenCnt++);
+        __Require_Action_Quiet(_timeSyncState & kTimeSyncStateActive, exit, ret = kIOReturnNotReady; _debug.ts.notActiveCnt++);
 
         ret = _timeSync->toTimeData(timestamp, outTime);
         if (ret == kIOReturnSuccess) {
@@ -400,7 +400,7 @@ IOHIDComplexEventDriver::sharesHIDDeviceWith(IOHIDTimeSyncService * service) con
         }
         provider = provider->getProvider();
     }
-    require_quiet(device, exit);
+    __Require_Quiet(device, exit);
 
     provider = this->getProvider();
     while (provider) {
@@ -432,7 +432,7 @@ IOHIDComplexEventDriver::setupTimeSync()
     IOServiceMatchingNotificationHandlerBlock handler = ^bool(IOService * newService, IONotifier * notifier) {
         if (OSDynamicCast(IOHIDTimeSyncService, newService) && sharesHIDDeviceWith(OSDynamicCast(IOHIDTimeSyncService, newService))) {
             os_atomic(UInt32) state = atomic_fetch_or(&_timeSyncState, kTimeSyncStateMatched);
-            require_quiet(!(state & kTimeSyncStateMatched), exit);
+            __Require_Quiet(!(state & kTimeSyncStateMatched), exit);
 
             assert(!_timeSync);
             _timeSync = OSSharedPtr<IOHIDTimeSyncService>(OSDynamicCast(IOHIDTimeSyncService, newService), OSRetain);

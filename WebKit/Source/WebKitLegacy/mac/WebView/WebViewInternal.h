@@ -80,6 +80,10 @@ template<typename> class ExceptionOr;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
+enum class MediaPlaybackTargetMockState : uint8_t;
+#endif
 }
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
@@ -90,9 +94,9 @@ struct DragItem;
 
 class WebMediaPlaybackTargetPicker;
 class WebSelectionServiceController;
+class LegacyWebPageInspectorController;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
-#import <WebCore/MediaPlaybackTargetContext.h>
 #import <WebCore/MediaProducer.h>
 #endif
 
@@ -187,6 +191,8 @@ WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 - (void)_windowVisibilityChanged:(NSNotification *)notification;
 
 - (void)_closeWindow;
+
+- (LegacyWebPageInspectorController*)inspectorController;
 
 @end
 
@@ -355,7 +361,7 @@ WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 - (void)_showPlaybackTargetPicker:(WebCore::PlaybackTargetClientContextIdentifier)contextId location:(const WebCore::IntPoint&)location hasVideo:(BOOL)hasVideo;
 - (void)_playbackTargetPickerClientStateDidChange:(WebCore::PlaybackTargetClientContextIdentifier)contextId state:(WebCore::MediaProducerMediaStateFlags)state;
 - (void)_setMockMediaPlaybackTargetPickerEnabled:(bool)enabled;
-- (void)_setMockMediaPlaybackTargetPickerName:(NSString *)name state:(WebCore::MediaPlaybackTargetContext::MockState)state;
+- (void)_setMockMediaPlaybackTargetPickerName:(NSString *)name state:(WebCore::MediaPlaybackTargetMockState)state;
 - (void)_mockMediaPlaybackTargetPickerDismissPopup;
 #endif
 

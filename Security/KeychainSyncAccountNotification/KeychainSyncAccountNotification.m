@@ -26,8 +26,10 @@
 
 #endif // OCTAGON
 
+#import <Security/SecItemPriv.h>
 #import "utilities/debugging.h"
 #import "OT.h"
+#import "featureflags/featureflags.h"
 
 @implementation KeychainSyncAccountNotification
 
@@ -232,6 +234,26 @@
                             secerror("octagon-account: error signing out: %s", [[signedInError description] UTF8String]);
                         } else {
                             secnotice("octagon-account", "signed out of octagon trust");
+                            if (_SecDeleteInternalKeychainItemsOnSignoutIsEnabled()) {
+                                // double check and fetch clique status to make sure we are signed out of Octagon
+                                [otcontrol fetchCliqueStatus:arguments
+                                               configuration:[[OTOperationConfiguration alloc] init]
+                                                       reply:^(CliqueStatus cliqueStatus, NSError* fetchError) {
+                                    if (fetchError || cliqueStatus != CliqueStatusIn) {
+                                        CFErrorRef cfLocalError = NULL;
+
+                                        CFStringRef musr = [self accountIsPrimary:oldAccount] ? NULL : (__bridge CFStringRef)oldAccount.personaIdentifier;
+                                        if (SecDeleteInternalItemsOnSignOut(musr,  &cfLocalError)) {
+                                            secnotice("ItemDelete", "Deleted items on sign out");
+                                        } else {
+                                            NSError* localError = CFBridgingRelease(cfLocalError);
+                                            secerror("ItemDelete: Failed to delete items on sign out: %@", localError);
+                                        }
+                                    } else {
+                                        secnotice("octagon-account", "device is still trusted, not deleting keychain items");
+                                    }
+                                }];
+                            }
                         }
                     }];
                 }

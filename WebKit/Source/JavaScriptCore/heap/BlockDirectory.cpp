@@ -28,6 +28,7 @@
 
 #include "BlockDirectoryInlines.h"
 #include "Heap.h"
+#include "HeapInlines.h"
 #include "MarkedSpaceInlines.h"
 #include "SubspaceInlines.h"
 #include "SuperSampler.h"
@@ -296,7 +297,7 @@ void BlockDirectory::endMarking()
     
     // Sweeper is suspended so we don't need the lock here.
     emptyBits() = liveBits() & ~markingNotEmptyBits();
-    canAllocateBits() = (liveBits() & markingNotEmptyBits() & ~markingRetiredBits()) | emptyBits();
+    canAllocateBits() = liveBits() & ~markingRetiredBits();
 
     switch (m_attributes.destruction) {
     case NeedsDestruction: {

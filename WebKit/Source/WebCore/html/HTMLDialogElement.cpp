@@ -49,7 +49,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLDialogElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLDialogElement);
 
 using namespace HTMLNames;
 
@@ -136,13 +136,14 @@ ExceptionOr<void> HTMLDialogElement::showModal()
 
     {
         CheckedPtr<RenderBlock> containingBlockBeforeStyleResolution;
-        if (auto* renderer = this->renderer())
+        CheckedPtr renderer = this->renderer();
+        if (renderer)
             containingBlockBeforeStyleResolution = renderer->containingBlock();
 
         if (!isInTopLayer())
             addToTopLayer();
 
-        RenderElement::markRendererDirtyAfterTopLayerChange(this->checkedRenderer().get(), containingBlockBeforeStyleResolution.get());
+        RenderElement::markRendererDirtyAfterTopLayerChange(renderer.get(), containingBlockBeforeStyleResolution.get());
     }
 
     m_previouslyFocusedElement = document->focusedElement();

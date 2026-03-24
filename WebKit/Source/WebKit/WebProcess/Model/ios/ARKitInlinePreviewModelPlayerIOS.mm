@@ -31,6 +31,7 @@
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
 #import <WebCore/GraphicsLayer.h>
+#import <WebCore/ModelPlayerGraphicsLayerConfiguration.h>
 #import <wtf/WeakHashSet.h>
 
 namespace WebKit {
@@ -66,7 +67,7 @@ ARKitInlinePreviewModelPlayerIOS* ARKitInlinePreviewModelPlayerIOS::modelPlayerF
         if (&page != modelPlayer.page())
             continue;
 
-        if (modelPlayer.client()->modelContentsLayerID() != layerID)
+        if (RefPtr graphicsLayer = modelPlayer.client()->graphicsLayer(); graphicsLayer && graphicsLayer->contentsLayerIDForModel() != layerID)
             continue;
 
         return &modelPlayer;
@@ -92,13 +93,23 @@ std::optional<ModelIdentifier> ARKitInlinePreviewModelPlayerIOS::modelIdentifier
     if (!client())
         return { };
 
-    if (auto layerId = client()->modelContentsLayerID())
+    RefPtr graphicsLayer = client()->graphicsLayer();
+    if (!graphicsLayer)
+        return { };
+
+    if (auto layerId = graphicsLayer->contentsLayerIDForModel())
         return { { *layerId } };
 
     return { };
 }
 
 // MARK: - WebCore::ModelPlayer overrides.
+
+void ARKitInlinePreviewModelPlayerIOS::configureGraphicsLayer(WebCore::GraphicsLayer& graphicsLayer, WebCore::ModelPlayerGraphicsLayerConfiguration&& configuration)
+{
+    if (configuration.model)
+        graphicsLayer.setContentsToModel(WTF::move(configuration.model), configuration.isInteractive ? WebCore::GraphicsLayer::ModelInteraction::Enabled : WebCore::GraphicsLayer::ModelInteraction::Disabled);
+}
 
 void ARKitInlinePreviewModelPlayerIOS::enterFullscreen()
 {

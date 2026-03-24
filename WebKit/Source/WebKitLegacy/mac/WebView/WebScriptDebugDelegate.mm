@@ -146,7 +146,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
         return nil;
 
     String functionName = _private->functionName;
-    return nsStringNilIfEmpty(functionName);
+    return nsStringNilIfEmpty(functionName).autorelease();
 }
 
 // Returns the pending exception for this frame (nil if none).

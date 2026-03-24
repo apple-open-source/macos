@@ -25,7 +25,7 @@
 #include "NodeInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderSVGInlineText.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGLengthContext.h"
 #include "SVGTextMetrics.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"

@@ -46,7 +46,7 @@ class StreamPipeToState : public RefCounted<StreamPipeToState>, public ContextDe
 public:
     static Ref<StreamPipeToState> create(JSDOMGlobalObject& globalObject, Ref<ReadableStream>&& source, Ref<WritableStream>&& destination, Ref<ReadableStreamDefaultReader>&& reader, Ref<InternalWritableStreamWriter>&& writer, StreamPipeOptions&& options, RefPtr<DeferredPromise>&& promise)
     {
-        Ref state = adoptRef(*new StreamPipeToState(globalObject.protectedScriptExecutionContext().get(), WTFMove(source), WTFMove(destination), WTFMove(reader), WTFMove(writer), WTFMove(options), WTFMove(promise)));
+        Ref state = adoptRef(*new StreamPipeToState(globalObject.protectedScriptExecutionContext().get(), WTF::move(source), WTF::move(destination), WTF::move(reader), WTF::move(writer), WTF::move(options), WTF::move(promise)));
 
         state->handleSignal();
 
@@ -66,6 +66,8 @@ public:
 
     void doWrite(JSC::JSValue);
     JSDOMGlobalObject* globalObject();
+
+    void readableStreamIsClosing();
 
 private:
     StreamPipeToState(ScriptExecutionContext*, Ref<ReadableStream>&&, Ref<WritableStream>&&, Ref<ReadableStreamDefaultReader>&&, Ref<InternalWritableStreamWriter>&&, StreamPipeOptions&&, RefPtr<DeferredPromise>&&);
@@ -96,13 +98,13 @@ private:
     const RefPtr<DeferredPromise> m_promise;
 
     bool m_shuttingDown { false };
-    RefPtr<PipeToDefaultReadRequest> m_pendingReadRequest;
+    WeakPtr<PipeToDefaultReadRequest> m_pendingReadRequest;
     RefPtr<DOMPromise> m_pendingWritePromise;
 };
 
-class PipeToDefaultReadRequest : public ReadableStreamReadRequest {
+class PipeToDefaultReadRequest : public ReadableStreamReadRequest, public CanMakeWeakPtr<PipeToDefaultReadRequest> {
 public:
-    static Ref<PipeToDefaultReadRequest> create(Ref<StreamPipeToState>&& state) { return adoptRef(*new PipeToDefaultReadRequest(WTFMove(state))); }
+    static Ref<PipeToDefaultReadRequest> create(Ref<StreamPipeToState>&& state) { return adoptRef(*new PipeToDefaultReadRequest(WTF::move(state))); }
 
     void whenSettled(Function<void()>&& callback)
     {
@@ -113,19 +115,19 @@ public:
 
         if (m_whenSettledCallback) {
             auto oldCallback = std::exchange(m_whenSettledCallback, { });
-            m_whenSettledCallback = [oldCallback = WTFMove(oldCallback), newCallback = WTFMove(callback)] {
+            m_whenSettledCallback = [oldCallback = WTF::move(oldCallback), newCallback = WTF::move(callback)] {
                 oldCallback();
                 newCallback();
             };
             return;
         }
 
-        m_whenSettledCallback = WTFMove(callback);
+        m_whenSettledCallback = WTF::move(callback);
     }
 
 private:
     explicit PipeToDefaultReadRequest(Ref<StreamPipeToState>&& state)
-        : m_state(WTFMove(state))
+        : m_state(WTF::move(state))
     {
     }
 
@@ -137,17 +139,17 @@ private:
 
     void runCloseSteps() final
     {
-        settle();
+        settleAsClosing();
     }
 
     void runErrorSteps(JSC::JSValue) final
     {
-        settle();
+        settleAsClosing();
     }
 
     void runErrorSteps(Exception&&) final
     {
-        settle();
+        settleAsClosing();
     }
 
     JSDOMGlobalObject* globalObject() final
@@ -162,6 +164,12 @@ private:
             m_whenSettledCallback();
     }
 
+    void settleAsClosing()
+    {
+        settle();
+        m_state->readableStreamIsClosing();
+    }
+
     const Ref<StreamPipeToState> m_state;
     bool m_isPending { true };
     Function<void()> m_whenSettledCallback;
@@ -170,7 +178,7 @@ private:
 // https://streams.spec.whatwg.org/#readable-stream-pipe-to
 void readableStreamPipeTo(JSDOMGlobalObject& globalObject, Ref<ReadableStream>&& source, Ref<WritableStream>&& destination, Ref<ReadableStreamDefaultReader>&& reader, Ref<InternalWritableStreamWriter>&& writer, StreamPipeOptions&& options, RefPtr<DeferredPromise>&& promise)
 {
-    StreamPipeToState::create(globalObject, WTFMove(source), WTFMove(destination), WTFMove(reader), WTFMove(writer), WTFMove(options), WTFMove(promise));
+    StreamPipeToState::create(globalObject, WTF::move(source), WTF::move(destination), WTF::move(reader), WTF::move(writer), WTF::move(options), WTF::move(promise));
 }
 
 static RefPtr<DOMPromise> cancelReadableStream(JSDOMGlobalObject& globalObject, ReadableStream& stream, JSC::JSValue reason)
@@ -180,6 +188,9 @@ static RefPtr<DOMPromise> cancelReadableStream(JSDOMGlobalObject& globalObject, 
         return stream.cancel(globalObject, reason);
 
     auto value = internalReadableStream->cancel(globalObject, reason);
+    if (!value)
+        return nullptr;
+
     auto* promise = jsCast<JSC::JSPromise*>(value);
     if (!promise)
         return nullptr;
@@ -189,12 +200,12 @@ static RefPtr<DOMPromise> cancelReadableStream(JSDOMGlobalObject& globalObject, 
 
 StreamPipeToState::StreamPipeToState(ScriptExecutionContext* context, Ref<ReadableStream>&& source, Ref<WritableStream>&& destination, Ref<ReadableStreamDefaultReader>&& reader, Ref<InternalWritableStreamWriter>&& writer, StreamPipeOptions&& options, RefPtr<DeferredPromise>&& promise)
     : ContextDestructionObserver(context)
-    , m_source(WTFMove(source))
-    , m_destination(WTFMove(destination))
-    , m_reader(WTFMove(reader))
-    , m_writer(WTFMove(writer))
-    , m_options(WTFMove(options))
-    , m_promise(WTFMove(promise))
+    , m_source(WTF::move(source))
+    , m_destination(WTF::move(destination))
+    , m_reader(WTF::move(reader))
+    , m_writer(WTF::move(writer))
+    , m_options(WTF::move(options))
+    , m_promise(WTF::move(promise))
 {
 }
 
@@ -284,7 +295,7 @@ void StreamPipeToState::handleSignal()
                 });
             }
 
-            return RefPtr { WTFMove(result) };
+            return RefPtr { WTF::move(result) };
         }, [signal](auto&) { return signal->reason().getValue(); });
     };
 
@@ -293,7 +304,7 @@ void StreamPipeToState::handleSignal()
         return;
     }
 
-    signal->addAlgorithm([algorithmSteps = WTFMove(algorithmSteps)](auto&&) mutable {
+    signal->addAlgorithm([algorithmSteps = WTF::move(algorithmSteps)](auto&&) mutable {
         algorithmSteps();
     });
 }
@@ -308,13 +319,20 @@ void StreamPipeToState::doRead()
 {
     ASSERT(!m_shuttingDown);
 
-    m_writer->whenReady([protectedThis = Ref { *this }] {
+    m_writer->whenReady([protectedThis = Ref { *this }](bool isRunning) {
+        if (!isRunning) {
+            // We need to protect |this| until the error callback is called.
+            protectedThis->m_writer->onClosedPromiseRejection([protectedThis](auto&, auto&&) { });
+            return;
+        }
+
         auto* globalObject = protectedThis->globalObject();
         if (protectedThis->m_shuttingDown || !globalObject)
             return;
 
-        protectedThis->m_pendingReadRequest = PipeToDefaultReadRequest::create(protectedThis.get());
-        protectedThis->m_reader->read(*globalObject, *protectedThis->m_pendingReadRequest);
+        Ref readRequest = PipeToDefaultReadRequest::create(protectedThis.get());
+        protectedThis->m_pendingReadRequest = readRequest.get();
+        protectedThis->m_reader->read(*globalObject, readRequest.get());
     });
 }
 
@@ -352,7 +370,7 @@ void StreamPipeToState::errorsMustBePropagatedForward(JSDOMGlobalObject& globalO
                 if (!promise) {
                     auto [result, deferred] = createPromiseAndWrapper(*globalObject);
                     deferred->resolve();
-                    return RefPtr { WTFMove(result) };
+                    return RefPtr { WTF::move(result) };
                 }
                 return DOMPromise::create(*globalObject, *promise);
             }, [error](auto&) { return error.get(); });
@@ -367,7 +385,7 @@ void StreamPipeToState::errorsMustBePropagatedForward(JSDOMGlobalObject& globalO
         return;
     }
 
-    m_reader->onClosedPromiseRejection([propagateErrorSteps = WTFMove(propagateErrorSteps)](auto& globalObject, auto&& error) mutable {
+    m_reader->onClosedPromiseRejection([propagateErrorSteps = WTF::move(propagateErrorSteps)](auto& globalObject, auto&& error) mutable {
         // FIXME: Check whether ok to take a strong.
         propagateErrorSteps(JSC::Strong<JSC::Unknown> { Ref { globalObject.vm() }, error });
     });
@@ -396,19 +414,19 @@ void StreamPipeToState::errorsMustBePropagatedBackward()
                 auto [result, deferred] = createPromiseAndWrapper(*globalObject);
                 auto cancelPromise = cancelReadableStream(*globalObject, protectedThis->m_source, error.get());
                 if (!cancelPromise)
-                    deferred->rejectWithCallback(WTFMove(getError2), RejectAsHandled::Yes);
+                    deferred->rejectWithCallback(WTF::move(getError2), RejectAsHandled::Yes);
                 else {
-                    cancelPromise->whenSettled([deferred = WTFMove(deferred), cancelPromise, getError2 = WTFMove(getError2)]() mutable {
+                    cancelPromise->whenSettled([deferred = WTF::move(deferred), cancelPromise, getError2 = WTF::move(getError2)]() mutable {
                         if (cancelPromise->status() == DOMPromise::Status::Rejected) {
                             deferred->rejectWithCallback([&](auto&) {
                                 return cancelPromise->result();
                             }, RejectAsHandled::Yes);
                             return;
                         }
-                        deferred->rejectWithCallback(WTFMove(getError2), RejectAsHandled::Yes);
+                        deferred->rejectWithCallback(WTF::move(getError2), RejectAsHandled::Yes);
                     });
                 }
-                return RefPtr { WTFMove(result) };
+                return RefPtr { WTF::move(result) };
             }, [error](auto&) { return error.get(); });
             return;
         }
@@ -425,10 +443,16 @@ void StreamPipeToState::errorsMustBePropagatedBackward()
         return;
     }
 
-    m_writer->onClosedPromiseRejection([propagateErrorSteps = WTFMove(propagateErrorSteps)](auto& globalObject, auto&& error) mutable {
+    m_writer->onClosedPromiseRejection([propagateErrorSteps = WTF::move(propagateErrorSteps)](auto& globalObject, auto&& error) mutable {
         // FIXME: Check whether ok to take a strong.
         propagateErrorSteps(JSC::Strong<JSC::Unknown> { Ref { globalObject.vm() }, error });
     });
+}
+
+void StreamPipeToState::readableStreamIsClosing()
+{
+    // We extend the lifetime of |this| so that StreamPipeToState::closingMustBePropagatedForward lambda is called.
+    m_reader->onClosedPromiseResolution([protectedThis = RefPtr { this }] { });
 }
 
 void StreamPipeToState::closingMustBePropagatedForward()
@@ -451,7 +475,7 @@ void StreamPipeToState::closingMustBePropagatedForward()
         return;
     }
 
-    m_reader->onClosedPromiseResolution(WTFMove(propagateClosedSteps));
+    m_reader->onClosedPromiseResolution(WTF::move(propagateClosedSteps));
 }
 
 void StreamPipeToState::closingMustBePropagatedBackward()
@@ -466,7 +490,7 @@ void StreamPipeToState::closingMustBePropagatedBackward()
     };
 
     if (!m_options.preventCancel) {
-        shutdownWithAction([protectedThis = Ref { *this }, getError = WTFMove(getError)]() mutable -> RefPtr<DOMPromise> {
+        shutdownWithAction([protectedThis = Ref { *this }, getError = WTF::move(getError)]() mutable -> RefPtr<DOMPromise> {
             RefPtr internalReadableStream = protectedThis->m_source->internalReadableStream();
             if (!internalReadableStream)
                 return nullptr;
@@ -479,33 +503,35 @@ void StreamPipeToState::closingMustBePropagatedBackward()
             // FIXME: Check whether ok to take a strong.
             JSC::Strong<JSC::Unknown> error { vm, getError(*globalObject) };
             auto value = internalReadableStream->cancel(*globalObject, error.get());
+            if (!value)
+                return nullptr;
 
-            auto getError2 = [error = WTFMove(error)](auto&) {
+            auto getError2 = [error = WTF::move(error)](auto&) {
                 return error.get();
             };
 
             auto [result, deferred] = createPromiseAndWrapper(*globalObject);
             auto* promise = jsCast<JSC::JSPromise*>(value);
             if (!promise)
-                deferred->rejectWithCallback(WTFMove(getError2), RejectAsHandled::Yes);
+                deferred->rejectWithCallback(WTF::move(getError2), RejectAsHandled::Yes);
             else {
                 Ref cancelPromise = DOMPromise::create(*globalObject, *promise);
-                cancelPromise->whenSettled([deferred = WTFMove(deferred), cancelPromise, getError2 = WTFMove(getError2)]() mutable {
+                cancelPromise->whenSettled([deferred = WTF::move(deferred), cancelPromise, getError2 = WTF::move(getError2)]() mutable {
                     if (cancelPromise->status() == DOMPromise::Status::Rejected) {
                         deferred->rejectWithCallback([&](auto&) {
                             return cancelPromise->result();
                         }, RejectAsHandled::Yes);
                         return;
                     }
-                    deferred->rejectWithCallback(WTFMove(getError2), RejectAsHandled::Yes);
+                    deferred->rejectWithCallback(WTF::move(getError2), RejectAsHandled::Yes);
                 });
             }
-            return RefPtr { WTFMove(result) };
+            return RefPtr { WTF::move(result) };
         });
         return;
     }
 
-    shutdown(WTFMove(getError));
+    shutdown(WTF::move(getError));
 }
 
 RefPtr<DOMPromise> StreamPipeToState::waitForPendingReadAndWrite(Action&& action)
@@ -517,14 +543,14 @@ RefPtr<DOMPromise> StreamPipeToState::waitForPendingReadAndWrite(Action&& action
     RefPtr<DOMPromise> finalizePromise;
     if (m_destination->state() == WritableStream::State::Writable && !Ref { m_destination->internalWritableStream() }->closeQueuedOrInFlight()) {
         if (m_pendingReadRequest || m_pendingWritePromise) {
-            auto handlePendingWritePromise = [this, protectedThis = Ref { *this }, action = WTFMove(action)](auto&& deferred) mutable {
-                auto waitForAction = [action = WTFMove(action)](auto&& deferred) {
+            auto handlePendingWritePromise = [this, protectedThis = Ref { *this }, action = WTF::move(action)](auto&& deferred) mutable {
+                auto waitForAction = [action = WTF::move(action)](auto&& deferred) {
                     RefPtr promise = action();
                     if (!promise) {
                         deferred->resolve();
                         return;
                     }
-                    promise->whenSettled([deferred = WTFMove(deferred), promise] {
+                    promise->whenSettled([deferred = WTF::move(deferred), promise] {
                         switch (promise->status()) {
                         case DOMPromise::Status::Rejected:
                             deferred->rejectWithCallback([&](auto&) { return promise->result(); }, RejectAsHandled::Yes);
@@ -540,31 +566,31 @@ RefPtr<DOMPromise> StreamPipeToState::waitForPendingReadAndWrite(Action&& action
                 };
 
                 if (!m_pendingWritePromise) {
-                    waitForAction(WTFMove(deferred));
+                    waitForAction(WTF::move(deferred));
                     return;
                 }
 
                 auto* globalObject = protectedThis->globalObject();
                 if (!globalObject) {
-                    waitForAction(WTFMove(deferred));
+                    waitForAction(WTF::move(deferred));
                     return;
                 }
 
-                m_pendingWritePromise->whenSettled([waitForAction = WTFMove(waitForAction), pendingWritePromise = m_pendingWritePromise, deferred = WTFMove(deferred)]() mutable {
+                m_pendingWritePromise->whenSettled([waitForAction = WTF::move(waitForAction), pendingWritePromise = m_pendingWritePromise, deferred = WTF::move(deferred)]() mutable {
                     ASSERT(pendingWritePromise->status() != DOMPromise::Status::Pending);
-                    waitForAction(WTFMove(deferred));
+                    waitForAction(WTF::move(deferred));
                 });
             };
 
             auto [promise, deferred] = createPromiseAndWrapper(*globalObject);
-            if (RefPtr readRequest = m_pendingReadRequest) {
-                readRequest->whenSettled([handlePendingWritePromise = WTFMove(handlePendingWritePromise), deferred = WTFMove(deferred)]() mutable {
-                    handlePendingWritePromise(WTFMove(deferred));
+            if (RefPtr readRequest = m_pendingReadRequest.get()) {
+                readRequest->whenSettled([handlePendingWritePromise = WTF::move(handlePendingWritePromise), deferred = WTF::move(deferred)]() mutable {
+                    handlePendingWritePromise(WTF::move(deferred));
                 });
             } else
-                handlePendingWritePromise(WTFMove(deferred));
+                handlePendingWritePromise(WTF::move(deferred));
 
-            finalizePromise = WTFMove(promise);
+            finalizePromise = WTF::move(promise);
         }
     }
 
@@ -580,16 +606,16 @@ void StreamPipeToState::shutdownWithAction(Action&& action, GetError&& getError)
         return;
     m_shuttingDown = true;
 
-    RefPtr finalizePromise = waitForPendingReadAndWrite(WTFMove(action));
+    RefPtr finalizePromise = waitForPendingReadAndWrite(WTF::move(action));
     if (!finalizePromise) {
-        finalize(WTFMove(getError));
+        finalize(WTF::move(getError));
         return;
     }
 
-    finalizePromise->whenSettled([protectedThis = Ref { *this }, finalizePromise, getError = WTFMove(getError)]() mutable {
+    finalizePromise->whenSettled([protectedThis = Ref { *this }, finalizePromise, getError = WTF::move(getError)]() mutable {
         switch (finalizePromise->status()) {
         case DOMPromise::Status::Fulfilled:
-            protectedThis->finalize(WTFMove(getError));
+            protectedThis->finalize(WTF::move(getError));
             return;
         case DOMPromise::Status::Rejected:
             protectedThis->finalize([&](auto&) {
@@ -611,13 +637,13 @@ void StreamPipeToState::shutdown(GetError&& getError)
 
     RefPtr finalizePromise = waitForPendingReadAndWrite([] { return nullptr; });
     if (!finalizePromise) {
-        finalize(WTFMove(getError));
+        finalize(WTF::move(getError));
         return;
     }
 
-    finalizePromise->whenSettled([protectedThis = Ref { *this }, finalizePromise, getError = WTFMove(getError)]() mutable {
+    finalizePromise->whenSettled([protectedThis = Ref { *this }, finalizePromise, getError = WTF::move(getError)]() mutable {
         ASSERT(finalizePromise->status() != DOMPromise::Status::Pending);
-        protectedThis->finalize(WTFMove(getError));
+        protectedThis->finalize(WTF::move(getError));
     });
 }
 
@@ -630,11 +656,14 @@ void StreamPipeToState::finalize(GetError&& getError)
     writableStreamDefaultWriterRelease(m_writer);
     m_reader->releaseLock(*globalObject);
 
+    m_pendingReadRequest = nullptr;
+    m_pendingWritePromise = nullptr;
+
     if (!m_promise)
         return;
 
     if (getError) {
-        m_promise->rejectWithCallback(WTFMove(getError), RejectAsHandled::No);
+        m_promise->rejectWithCallback(WTF::move(getError), RejectAsHandled::No);
         return;
     }
 

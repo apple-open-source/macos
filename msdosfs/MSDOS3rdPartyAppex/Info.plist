@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EXAppExtensionAttributes</key>
+	<dict>
+		<key>EXExtensionPointIdentifier</key>
+		<string>com.apple.fskit.fsmodule</string>
+		<key>FSActivateOptionSyntax</key>
+		<dict>
+			<key>shortOptions</key>
+			<string>u:g:m:o:</string>
+		</dict>
+		<key>FSCheckOptionSyntax</key>
+		<dict>
+			<key>shortOptions</key>
+			<string>pynfqM:</string>
+		</dict>
+		<key>FSFormatOptionSyntax</key>
+		<dict>
+			<key>shortOptions</key>
+			<string>NB:F:I:O:S:P:a:b:c:e:f:h:i:k:m:n:o:r:s:u:v:</string>
+		</dict>
+		<key>FSMediaTypes</key>
+		<dict>
+			<key>C12A7328-F81F-11D2-BA4B-00A0C93EC93C</key>
+			<dict>
+				<key>FSMediaProperties</key>
+				<dict>
+					<key>Content Hint</key>
+					<string>C12A7328-F81F-11D2-BA4B-00A0C93EC93C</string>
+					<key>Leaf</key>
+					<true/>
+				</dict>
+				<key>autodiskmount</key>
+				<false/>
+			</dict>
+			<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C8</key>
+			<dict>
+				<key>FSMediaProperties</key>
+				<dict>
+					<key>Content Hint</key>
+					<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C8</string>
+					<key>Leaf</key>
+					<true/>
+				</dict>
+			</dict>
+			<key>Partitionless</key>
+			<dict>
+				<key>FSMediaProperties</key>
+				<dict>
+					<key>Leaf</key>
+					<true/>
+					<key>Whole</key>
+					<true/>
+				</dict>
+			</dict>
+		</dict>
+		<key>FSPersonalities</key>
+		<dict>
+			<key>MS-DOS3P</key>
+			<dict>
+				<key>FSFormatArguments</key>
+				<string></string>
+				<key>FSFormatContentMask</key>
+				<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C8</string>
+				<key>FSFormatMaximumSize</key>
+				<integer>8796093022208</integer>
+				<key>FSFormatMinimumSize</key>
+				<integer>32768</integer>
+				<key>FSMountArguments</key>
+				<string></string>
+				<key>FSName</key>
+				<string>MS-DOS3P (FAT)</string>
+				<key>FSRepairArguments</key>
+				<string>-y</string>
+				<key>FSVerificationArguments</key>
+				<string>-n</string>
+			</dict>
+			<key>MS-DOS3P FAT12</key>
+			<dict>
+				<key>FSFormatArguments</key>
+				<string>-F 12</string>
+				<key>FSFormatContentMask</key>
+				<string>C12A7328-F81F-11D2-BA4B-00A0C93EC93C</string>
+				<key>FSFormatMaximumSize</key>
+				<integer>133169152</integer>
+				<key>FSFormatMinimumSize</key>
+				<integer>32768</integer>
+				<key>FSMountArguments</key>
+				<string></string>
+				<key>FSName</key>
+				<string>MS-DOS3P (FAT12)</string>
+				<key>FSRepairArguments</key>
+				<string>-y</string>
+				<key>FSSubType</key>
+				<integer>0</integer>
+				<key>FSVerificationArguments</key>
+				<string>-n</string>
+			</dict>
+			<key>MS-DOS3P FAT16</key>
+			<dict>
+				<key>FSFormatArguments</key>
+				<string>-F 16</string>
+				<key>FSFormatContentMask</key>
+				<string>C12A7328-F81F-11D2-BA4B-00A0C93EC93C</string>
+				<key>FSFormatMaximumSize</key>
+				<integer>2147483648</integer>
+				<key>FSFormatMinimumSize</key>
+				<integer>4299161</integer>
+				<key>FSMountArguments</key>
+				<string></string>
+				<key>FSName</key>
+				<string>MS-DOS3P (FAT16)</string>
+				<key>FSRepairArguments</key>
+				<string>-y</string>
+				<key>FSSubType</key>
+				<integer>1</integer>
+				<key>FSVerificationArguments</key>
+				<string>-n</string>
+			</dict>
+			<key>MS-DOS3P FAT32</key>
+			<dict>
+				<key>FSFormatArguments</key>
+				<string>-F 32</string>
+				<key>FSFormatContentMask</key>
+				<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C8</string>
+				<key>FSFormatMaximumSize</key>
+				<integer>8796093022208</integer>
+				<key>FSFormatMinimumSize</key>
+				<integer>34603008</integer>
+				<key>FSMountArguments</key>
+				<string></string>
+				<key>FSName</key>
+				<string>MS-DOS3P (FAT32)</string>
+				<key>FSRepairArguments</key>
+				<string>-y</string>
+				<key>FSSubType</key>
+				<integer>2</integer>
+				<key>FSVerificationArguments</key>
+				<string>-n</string>
+			</dict>
+		</dict>
+		<key>FSShortName</key>
+		<string>msdos3p</string>
+		<key>FSSupportsBlockResources</key>
+		<true/>
+		<key>FSSupportsKernelOffloadedIO</key>
+		<true/>
+		<key>FSSupportsServerURLs</key>
+		<false/>
+	</dict>
+</dict>
+</plist>

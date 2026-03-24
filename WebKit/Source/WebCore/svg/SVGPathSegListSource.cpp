@@ -42,17 +42,15 @@ bool SVGPathSegListSource::hasMoreData() const
 SVGPathSegType SVGPathSegListSource::nextCommand(SVGPathSegType)
 {
     m_segment = m_pathSegList->at(m_itemCurrent);
-    SVGPathSegType pathSegType = static_cast<SVGPathSegType>(m_segment->pathSegType());
     ++m_itemCurrent;
-    return pathSegType;
+    return m_segment->pathSegType();
 }
 
 std::optional<SVGPathSegType> SVGPathSegListSource::parseSVGSegmentType()
 {
     m_segment = m_pathSegList->at(m_itemCurrent);
-    SVGPathSegType pathSegType = static_cast<SVGPathSegType>(m_segment->pathSegType());
     ++m_itemCurrent;
-    return pathSegType;
+    return m_segment->pathSegType();
 }
 
 std::optional<SVGPathSource::MoveToSegment> SVGPathSegListSource::parseMoveToSegment(FloatPoint)

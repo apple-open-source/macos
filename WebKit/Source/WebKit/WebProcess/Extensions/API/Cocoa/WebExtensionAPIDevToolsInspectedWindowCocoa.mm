@@ -67,29 +67,36 @@ void WebExtensionAPIDevToolsInspectedWindow::eval(WebPageProxyIdentifier webPage
         frameURL = URL { url };
 
         if (!frameURL.value().isValid()) {
-            *outExceptionString = toErrorString(nullString(), frameURLKey, @"'%@' is not a valid URL", url).createNSString().autorelease();
+            *outExceptionString = toErrorString(nullString(), frameURLKey, makeString("'"_s, String(url), "' is not a valid URL"_s)).createNSString().autorelease();
             return;
         }
     }
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsInspectedWindowEval(webPageProxyIdentifier, expression, frameURL), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>, WebExtensionError>&& result) mutable {
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsInspectedWindowEval(webPageProxyIdentifier, expression, frameURL), [protectedThis = Ref { *this }, callback = WTF::move(callback)](Expected<Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>, WebExtensionError>&& result) mutable {
         if (!result) {
             callback->reportError(result.error().createNSString().get());
             return;
         }
 
-        auto *undefinedValue = [JSValue valueWithUndefinedInContext:[JSContext contextWithJSGlobalContextRef:callback->globalContext()]];
+        auto globalContext = callback->globalContext();
+        auto undefinedValue = JSValueMakeUndefined(globalContext);
 
         if (!result.value()) {
             // If an error occurred, element 0 will be undefined, and element 1 will contain an object giving details about the error.
-            callback->call(@[ undefinedValue, @{ isExceptionKey: @YES, valueKey: result.value().error() ? result.value().error()->message.createNSString().get() : @"" } ]);
+            String valueKey = result.value().error() ? result.value().error()->message : emptyString();
+            SUPPRESS_UNCOUNTED_ARG auto valueData = JSValueMakeString(globalContext, toJSString(valueKey).get());
+            SUPPRESS_UNCOUNTED_ARG auto resultObject = fromObject(globalContext, {
+                { "isExceptionKey"_s, Protected(globalContext, JSValueMakeBoolean(globalContext, true)) },
+                { "valueKey"_s, Protected(globalContext, valueData) }
+            });
+            callback->call(fromArray(globalContext, { Protected(globalContext, undefinedValue), Protected(globalContext, resultObject) }));
             return;
         }
 
-        RetainPtr scriptResult = result.value()->toID();
+        auto scriptResult = result.value()->toJS(globalContext);
 
         // If no error occurred, element 0 will contain the result of evaluating the expression, and element 1 will be undefined.
-        callback->call(@[ scriptResult ? scriptResult.get() : undefinedValue, undefinedValue ]);
+        callback->call(fromArray(globalContext, { Protected(globalContext, scriptResult.get()), Protected(globalContext, undefinedValue) }));
     }, extensionContext().identifier());
 }
 
@@ -117,7 +124,7 @@ double WebExtensionAPIDevToolsInspectedWindow::tabId(WebPage& page)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/devtools/inspectedWindow/tabId
 
-    auto result = extensionContext().tabIdentifier(page);
+    auto result = protectedExtensionContext()->tabIdentifier(page);
     return toWebAPI(result ? result.value() : WebExtensionTabConstants::NoneIdentifier);
 }
 

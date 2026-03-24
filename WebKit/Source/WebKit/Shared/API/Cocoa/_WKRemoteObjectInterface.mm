@@ -53,8 +53,8 @@ struct MethodInfo {
 };
 
 @implementation _WKRemoteObjectInterface {
-    RetainPtr<NSString> _identifier;
-
+    const RetainPtr<NSString> _identifier;
+    const RetainPtr<Protocol> _protocol;
     HashMap<SEL, MethodInfo> _methods;
 }
 
@@ -158,10 +158,10 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
     if (!(self = [super init]))
         return nil;
 
-    _protocol = protocol;
-    _identifier = adoptNS([identifier copy]);
+    lazyInitialize(_protocol, RetainPtr { protocol });
+    lazyInitialize(_identifier, adoptNS([identifier copy]));
 
-    initializeMethods(self, _protocol);
+    initializeMethods(self, protocol);
 
     return self;
 }
@@ -176,12 +176,17 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
     return _identifier.get();
 }
 
+- (Protocol *)protocol
+{
+    return _protocol.get();
+}
+
 - (NSString *)debugDescription
 {
-    auto result = adoptNS([[NSMutableString alloc] initWithFormat:@"<%@: %p; protocol = \"%@\"; identifier = \"%@\"\n", NSStringFromClass(self.class), self, _identifier.get(), NSStringFromProtocol(_protocol)]);
+    RetainPtr result = adoptNS([[NSMutableString alloc] initWithFormat:@"<%@: %p; protocol = \"%@\"; identifier = \"%@\"\n", NSStringFromClass(self.class), self, _identifier.get(), NSStringFromProtocol(_protocol.get())]);
 
     auto descriptionForClasses = [](auto& allowedClasses) {
-        auto result = adoptNS([[NSMutableString alloc] initWithString:@"["]);
+        RetainPtr result = adoptNS([[NSMutableString alloc] initWithString:@"["]);
         bool needsComma = false;
 
         auto descriptionForArgument = [](auto& allowedArgumentClasses) {
@@ -189,7 +194,7 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
 
             auto orderedArgumentClasses = copyToVector(allowedArgumentClasses);
             std::ranges::sort(orderedArgumentClasses, [](CFTypeRef a, CFTypeRef b) {
-                return CString(class_getName((__bridge Class)a)) < CString(class_getName((__bridge Class)b));
+                return is_lt(compareSpans(unsafeSpan(class_getName((__bridge Class)a)), unsafeSpan(class_getName((__bridge Class)b))));
             });
 
             bool needsComma = false;
@@ -202,26 +207,26 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
             }
 
             [result appendString:@"}"];
-            return result.autorelease();
+            return result;
         };
 
         for (auto& argumentClasses : allowedClasses) {
             if (needsComma)
                 [result appendString:@", "];
 
-            [result appendString:descriptionForArgument(argumentClasses)];
+            [result appendString:descriptionForArgument(argumentClasses).get()];
             needsComma = true;
         }
 
         [result appendString:@"]"];
-        return result.autorelease();
+        return result;
     };
 
     for (auto& selectorAndMethod : _methods) {
-        [result appendFormat:@" selector = %s\n  argument classes = %@\n", sel_getName(selectorAndMethod.key), descriptionForClasses(selectorAndMethod.value.allowedArgumentClasses)];
+        [result appendFormat:@" selector = %s\n  argument classes = %@\n", sel_getName(selectorAndMethod.key), descriptionForClasses(selectorAndMethod.value.allowedArgumentClasses).get()];
 
         if (auto& replyInvocation = selectorAndMethod.value.replyInvocation)
-            [result appendFormat:@"  reply block = (argument '%@') %@\n", [replyInvocation methodSignature]._typeString, descriptionForClasses(selectorAndMethod.value.allowedReplyClasses)];
+            [result appendFormat:@"  reply block = (argument '%@') %@\n", [replyInvocation methodSignature]._typeString, descriptionForClasses(selectorAndMethod.value.allowedReplyClasses).get()];
     }
 
     [result appendString:@">\n"];
@@ -267,7 +272,7 @@ static HashSet<CFTypeRef>& classesForSelectorArgument(_WKRemoteObjectInterface *
     for (Class allowedClass in classes)
         allowedClasses.add((__bridge CFTypeRef)allowedClass);
 
-    classesForSelectorArgument(self, selector, argumentIndex, ofReply) = WTFMove(allowedClasses);
+    classesForSelectorArgument(self, selector, argumentIndex, ofReply) = WTF::move(allowedClasses);
 }
 
 - (NSSet *)classesForSelector:(SEL)selector argumentIndex:(NSUInteger)argumentIndex

@@ -74,18 +74,6 @@ namespace JSC {
 
             bool isHashTableDeletedValue() const { return m_source.isHashTableDeletedValue(); }
 
-            struct Hash {
-                static unsigned hash(const CacheKey& key)
-                {
-                    return key.hash();
-                }
-                static bool equal(const CacheKey& lhs, const CacheKey& rhs)
-                {
-                    return lhs == rhs;
-                }
-                static constexpr bool safeToCompareToEmptyOrDeleted = false;
-            };
-
             typedef SimpleClassHashTraits<CacheKey> HashTraits;
 
         private:
@@ -159,7 +147,7 @@ namespace JSC {
 
         void setSlow(JSGlobalObject*, JSCell* owner, const CacheLookupKey& cacheKey, DirectEvalExecutable*);
 
-        typedef UncheckedKeyHashMap<CacheKey, WriteBarrier<DirectEvalExecutable>, CacheKey::Hash, CacheKey::HashTraits> EvalCacheMap;
+        typedef UncheckedKeyHashMap<CacheKey, WriteBarrier<DirectEvalExecutable>, DefaultHash<CacheKey>, CacheKey::HashTraits> EvalCacheMap;
         EvalCacheMap m_cacheMap;
         Lock m_lock;
     };

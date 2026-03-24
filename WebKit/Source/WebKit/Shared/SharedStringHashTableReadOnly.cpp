@@ -50,7 +50,7 @@ SharedStringHashTableReadOnly::~SharedStringHashTableReadOnly() = default;
 
 void SharedStringHashTableReadOnly::setSharedMemory(RefPtr<SharedMemory>&& sharedMemory)
 {
-    m_sharedMemory = WTFMove(sharedMemory);
+    m_sharedMemory = WTF::move(sharedMemory);
 
     if (m_sharedMemory) {
         ASSERT(!(m_sharedMemory->size() % sizeof(SharedStringHash)));

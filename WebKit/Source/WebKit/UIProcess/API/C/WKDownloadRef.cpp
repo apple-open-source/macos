@@ -137,14 +137,14 @@ void WKDownloadSetClient(WKDownloadRef download, WKDownloadClientBase* client)
         void willSendRequest(WebKit::DownloadProxy& download, WebCore::ResourceRequest&& request, const WebCore::ResourceResponse& response, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler) override
         {
             if (!m_client.willPerformHTTPRedirection) {
-                completionHandler(WTFMove(request));
+                completionHandler(WTF::move(request));
                 return;
             }
             if (!m_client.willPerformHTTPRedirection(toAPI(download), toAPI(response), toAPI(request), m_client.base.clientInfo)) {
                 completionHandler({ });
                 return;
             }
-            completionHandler(WTFMove(request));
+            completionHandler(WTF::move(request));
         }
     };
 

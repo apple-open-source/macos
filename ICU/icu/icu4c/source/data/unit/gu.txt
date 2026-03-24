@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 gu{
     units{
         acceleration{
@@ -139,6 +139,25 @@ gu{
             mole{
                 gender{"masculine"}
             }
+            ofglucose{
+                dnam{"ગ્લૂકોઝ"}
+                one{"{0} ગ્લૂકોઝ"}
+                other{"{0} ગ્લૂકોઝ"}
+            }
+            part{
+                dnam{"ભાગ"}
+                one{"{0} ભાગ"}
+                other{"{0} ભાગ"}
+            }
+            part-per-1e6{
+                dnam{"કણ પ્રતિ મિલિયન"}
+                gender{"masculine"}
+                one{"{0} કણ પ્રતિ મિલિયન"}
+                other{"{0} કણ પ્રતિ મિલિયન"}
+            }
+            part-per-1e9{
+                dnam{"પ્રતિ અબજ ભાગ"}
+            }
             percent{
                 gender{"masculine"}
                 one{"{0} ટકા"}
@@ -148,12 +167,6 @@ gu{
                 gender{"feminine"}
                 one{"{0} પ્રતિમાઈલ"}
                 other{"{0} પ્રતિમાઈલ"}
-            }
-            permillion{
-                dnam{"કણ પ્રતિ મિલિયન"}
-                gender{"masculine"}
-                one{"{0} કણ પ્રતિ મિલિયન"}
-                other{"{0} કણ પ્રતિ મિલિયન"}
             }
             permyriad{
                 gender{"masculine"}
@@ -285,12 +298,6 @@ gu{
                 one{"{0} નેનોસેકંડ"}
                 other{"{0} નેનોસેકંડ"}
             }
-            night{
-                dnam{"રાત"}
-                one{"{0} રાત"}
-                other{"{0} રાત"}
-                per{"{0}/રાત"}
-            }
             quarter{
                 dnam{"ત્રિમાસિક"}
                 one{"{0} ત્રિમાસિક"}
@@ -344,6 +351,9 @@ gu{
                 gender{"feminine"}
                 one{"{0} કેલરી"}
                 other{"{0} કેલરી"}
+            }
+            calorie-it{
+                dnam{"કૅલરિ [IT]"}
             }
             electronvolt{
                 one{"{0} ઇલેક્ટ્રોનવૉલ્ટ"}
@@ -537,6 +547,11 @@ gu{
                 other{"{0} સૌર તેજસ્વિતા"}
             }
         }
+        magnetic{
+            tesla{
+                dnam{"ટેસ્લા"}
+            }
+        }
         mass{
             carat{
                 gender{"masculine"}
@@ -684,11 +699,6 @@ gu{
                 one{"{0} કિલોમીટર પ્રતિ કલાક"}
                 other{"{0} કિલોમીટર પ્રતિ કલાક"}
             }
-            light-speed{
-                dnam{"લાઇટ"}
-                one{"{0} લાઇટ"}
-                other{"{0} લાઇટ"}
-            }
             meter-per-second{
                 dnam{"મીટર પ્રતિ સેકન્ડ"}
                 one{"{0} મીટર પ્રતિ સેકન્ડ"}
@@ -779,6 +789,9 @@ gu{
                 one{"{0} ઇમ્પીરિયલ પ્રવાહી ઔંસ"}
                 other{"{0} ઇમ્પીરિયલ પ્રવાહી ઔંસ"}
             }
+            fluid-ounce-metric{
+                dnam{"મેટ્રિક ફ્લુઇડ ઔંસ"}
+            }
             gallon{
                 per{"{0} પ્રતિ ગૅલન"}
             }
@@ -868,14 +881,24 @@ gu{
             millimole-per-liter{
                 dnam{"mmol/L"}
             }
+            ofglucose{
+                dnam{"ગ્લૂકોઝ"}
+                one{"{0} ગ્લૂકોઝ"}
+                other{"{0} ગ્લૂકોઝ"}
+            }
+            part{
+                dnam{"ભાગ"}
+                one{"{0} ભાગ"}
+                other{"{0} ભાગ"}
+            }
+            part-per-1e6{
+                dnam{"ppm"}
+            }
             percent{
                 dnam{"%"}
             }
             permille{
                 dnam{"‰"}
-            }
-            permillion{
-                dnam{"ppm"}
             }
             permyriad{
                 dnam{"‱"}
@@ -906,14 +929,14 @@ gu{
                 per{"{0}/ દિ"}
             }
             hour{
-                one{"{0} ક"}
-                other{"{0} ક"}
-                per{"{0}/ક"}
+                one{"{0} ક૰"}
+                other{"{0} ક૰"}
+                per{"{0}/ક૰"}
             }
             minute{
-                one{"{0} મિ"}
-                other{"{0} મિ"}
-                per{"{0}/મિ"}
+                one{"{0} મિ૰"}
+                other{"{0} મિ૰"}
+                per{"{0}/મિ૰"}
             }
             month{
                 one{"{0} મ"}
@@ -921,12 +944,6 @@ gu{
             }
             nanosecond{
                 dnam{"ns"}
-            }
-            night{
-                dnam{"રાત"}
-                one{"{0} રાત"}
-                other{"{0} રાત"}
-                per{"{0}/રાત"}
             }
             second{
                 one{"{0} સે"}
@@ -939,6 +956,9 @@ gu{
             }
         }
         energy{
+            calorie-it{
+                dnam{"કૅલ૰ [IT]"}
+            }
             electronvolt{
                 dnam{"eV"}
             }
@@ -1022,11 +1042,6 @@ gu{
             kilometer-per-hour{
                 one{"{0} કિપ્રક"}
                 other{"{0} કિપ્રક"}
-            }
-            light-speed{
-                dnam{"લાઇટ"}
-                one{"{0} લાઇટ"}
-                other{"{0} લાઇટ"}
             }
         }
         temperature{
@@ -1192,14 +1207,29 @@ gu{
                 one{"{0} મોલ"}
                 other{"{0} મોલ"}
             }
+            ofglucose{
+                dnam{"ગ્લૂકોઝ"}
+                one{"{0} ગ્લૂકોઝ"}
+                other{"{0} ગ્લૂકોઝ"}
+            }
+            part{
+                dnam{"ભાગ"}
+                one{"{0} ભાગ"}
+                other{"{0} ભાગ"}
+            }
+            part-per-1e6{
+                dnam{"કણ/મિલિયન"}
+            }
+            part-per-1e9{
+                dnam{"ભાગ/અબજ"}
+                one{"{0} પ્રતિ અબજ ભાગ"}
+                other{"{0} પ્રતિ અબજ ભાગ"}
+            }
             percent{
                 dnam{"ટકા"}
             }
             permille{
                 dnam{"પ્રતિમાઈલ"}
-            }
-            permillion{
-                dnam{"કણ/મિલિયન"}
             }
             permyriad{
                 dnam{"પરમિરિયડ"}
@@ -1339,6 +1369,9 @@ gu{
             calorie{
                 one{"{0} Cal"}
                 other{"{0} cal"}
+            }
+            calorie-it{
+                dnam{"કૅલ [IT]"}
             }
             electronvolt{
                 dnam{"ઇલેક્ટ્રોનવૉલ્ટ"}

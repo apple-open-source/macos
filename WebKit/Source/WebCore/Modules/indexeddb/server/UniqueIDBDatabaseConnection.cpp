@@ -162,7 +162,7 @@ void UniqueIDBDatabaseConnection::establishTransaction(const IDBTransactionInfo&
     m_transactionMap.set(transaction->info().identifier(), &transaction.get());
 
     ASSERT(m_database);
-    checkedDatabase()->enqueueTransaction(WTFMove(transaction));
+    checkedDatabase()->enqueueTransaction(WTF::move(transaction));
 }
 
 void UniqueIDBDatabaseConnection::didAbortTransaction(UniqueIDBDatabaseTransaction& transaction, const IDBError& error)

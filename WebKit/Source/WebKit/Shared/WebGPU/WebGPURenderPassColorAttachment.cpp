@@ -64,7 +64,7 @@ std::optional<RenderPassColorAttachment> ConvertToBackingContext::convertToBacki
             return std::nullopt;
     }
 
-    return { { identifier, renderPassColorAttachment.depthSlice, resolveTarget, WTFMove(clearValue), renderPassColorAttachment.loadOp, renderPassColorAttachment.storeOp } };
+    return { { identifier, renderPassColorAttachment.depthSlice, resolveTarget, WTF::move(clearValue), renderPassColorAttachment.loadOp, renderPassColorAttachment.storeOp } };
 }
 
 std::optional<WebCore::WebGPU::RenderPassColorAttachment> ConvertFromBackingContext::convertFromBacking(const RenderPassColorAttachment& renderPassColorAttachment)
@@ -100,7 +100,7 @@ std::optional<WebCore::WebGPU::RenderPassColorAttachment> ConvertFromBackingCont
 
         return *texture;
     }();
-    return { { viewTextureVariant, renderPassColorAttachment.depthSlice, resolveTarget, WTFMove(clearValue), renderPassColorAttachment.loadOp, renderPassColorAttachment.storeOp } };
+    return { { viewTextureVariant, renderPassColorAttachment.depthSlice, resolveTarget, WTF::move(clearValue), renderPassColorAttachment.loadOp, renderPassColorAttachment.storeOp } };
 }
 
 } // namespace WebKit

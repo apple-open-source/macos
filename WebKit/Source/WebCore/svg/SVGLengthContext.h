@@ -41,6 +41,8 @@ struct SVGRadiusComponent;
 struct SVGStrokeDasharrayValue;
 struct SVGStrokeDashoffset;
 struct StrokeWidth;
+struct ZoomFactor;
+struct ZoomNeeded;
 }
 
 class SVGLengthContext {
@@ -64,14 +66,14 @@ public:
     static FloatPoint resolvePoint(const SVGElement*, SVGUnitTypes::SVGUnitType, const SVGLengthValue& x, const SVGLengthValue& y);
     static float resolveLength(const SVGElement*, SVGUnitTypes::SVGUnitType, const SVGLengthValue&);
 
-    float valueForLength(const Style::PreferredSize&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGCenterCoordinateComponent&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGCoordinateComponent&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGRadius&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGRadiusComponent&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGStrokeDasharrayValue&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::SVGStrokeDashoffset&, SVGLengthMode = SVGLengthMode::Other);
-    float valueForLength(const Style::StrokeWidth&, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::PreferredSize&, Style::ZoomFactor usedZoom, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGCenterCoordinateComponent&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGCoordinateComponent&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGRadius&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGRadiusComponent&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGStrokeDasharrayValue&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::SVGStrokeDashoffset&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
+    float valueForLength(const Style::StrokeWidth&, Style::ZoomFactor usedZoom, SVGLengthMode = SVGLengthMode::Other);
 
     ExceptionOr<float> resolveValueToUserUnits(float, const CSS::LengthPercentageUnit&, SVGLengthMode) const;
     ExceptionOr<CSS::LengthPercentage<>> resolveValueFromUserUnits(float, const CSS::LengthPercentageUnit&, SVGLengthMode) const;
@@ -93,7 +95,8 @@ private:
     std::optional<CSSToLengthConversionData> cssConversionData() const;
     RefPtr<const SVGElement> protectedContext() const;
 
-    template<typename SizeType> float valueForSizeType(const SizeType&, SVGLengthMode = SVGLengthMode::Other);
+    template<typename SizeType> float valueForSizeType(const SizeType&, Style::ZoomFactor usedZoom, SVGLengthMode = SVGLengthMode::Other) requires (SizeType::Fixed::zoomOptions == CSS::RangeZoomOptions::Unzoomed || SizeType::Calc::range.zoomOptions == CSS::RangeZoomOptions::Unzoomed);
+    template<typename SizeType> float valueForSizeType(const SizeType&, Style::ZoomNeeded, SVGLengthMode = SVGLengthMode::Other);
 
     WeakPtr<const SVGElement, WeakPtrImplWithEventTargetData> m_context;
     mutable std::optional<FloatSize> m_viewportSize;

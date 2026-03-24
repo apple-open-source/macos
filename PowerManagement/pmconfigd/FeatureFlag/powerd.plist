@@ -32,6 +32,11 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>CoreSmartPowerNapIPad</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 	<key>dossier</key>
 	<dict>
 		<key>DevelopmentPhase</key>

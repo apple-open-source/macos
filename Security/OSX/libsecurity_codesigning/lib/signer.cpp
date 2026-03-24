@@ -202,6 +202,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		ref.retain();
 	}
 	if ((inherit & kSecCodeSignerPreserveLaunchConstraints) &&
+		launchConstraints.size() >= 3 &&
 		!launchConstraints[0] &&
 		!launchConstraints[1] &&
 		!launchConstraints[2]) {

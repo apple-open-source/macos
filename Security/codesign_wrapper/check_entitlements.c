@@ -48,9 +48,9 @@ extract_entitlements_blob(const uint8_t *data, size_t length)
     CFDataRef entitlements = NULL;
     cs_blob_index *csbi = (cs_blob_index *)data;
 
-    require(data && length, out);
-    require(csbi->type == ntohl(CSMAGIC_EMBEDDED_ENTITLEMENTS), out);
-    require(length == ntohl(csbi->offset), out);
+    __Require(data && length, out);
+    __Require(csbi->type == ntohl(CSMAGIC_EMBEDDED_ENTITLEMENTS), out);
+    __Require(length == ntohl(csbi->offset), out);
     entitlements = CFDataCreate(kCFAllocatorDefault,
         (uint8_t*)(data + sizeof(cs_blob_index)),
         (CFIndex)(length - sizeof(cs_blob_index)));
@@ -314,36 +314,36 @@ main(int argc, char *argv[])
             0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
         // empty
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
 
         CFDictionarySetValue(dict, CFSTR("get-task-allow"), kCFBooleanTrue);
 
         // no get-task-allow allowed
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         CFDictionaryRemoveValue(dict, CFSTR("get-task-allow"));
 
         CFDictionarySetValue(dict, CFSTR("application-identifier"), empty_array);
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
 
         CFDictionarySetValue(dict, CFSTR("application-identifier"), CFSTR("apple"));
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         CFDictionarySetValue(dict, CFSTR("application-identifier"), CFSTR("AJ$K#GK$.AJ$K#GK$.hoi"));
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         CFDictionarySetValue(dict, CFSTR("application-identifier"), CFSTR("AJ$K#GK$."));
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         CFDictionarySetValue(dict, CFSTR("application-identifier"), CFSTR("AJ$K#GK$.hoi"));
-        require(filter_entitlements(dict), fail_test);
+        __Require(filter_entitlements(dict), fail_test);
 
         CFDictionarySetValue(dict, CFSTR("keychain-access-groups"), CFSTR("apple"));
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         const void *ary[] = { CFSTR("test"), CFSTR("apple") };
         CFArrayRef ka_array = CFArrayCreate(NULL, ary, sizeof(ary)/sizeof(*ary), NULL);
         CFDictionarySetValue(dict, CFSTR("keychain-access-groups"), ka_array);
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
         CFDictionarySetValue(dict, CFSTR("keychain-access-groups"), CFSTR("AJ$K#GK$.joh"));
-        require(filter_entitlements(dict), fail_test);
+        __Require(filter_entitlements(dict), fail_test);
         CFDictionarySetValue(dict, CFSTR("this-should-not"), CFSTR("be-there"));
-        require(!filter_entitlements(dict), fail_test);
+        __Require(!filter_entitlements(dict), fail_test);
 
         exit(0);
 fail_test:
@@ -380,12 +380,12 @@ fail_test:
         if (entitlements && entitlements_size) {
             CFDataRef ent = extract_entitlements_blob(entitlements, entitlements_size);
             free(entitlements);
-            require(ent, out);
+            __Require(ent, out);
             CFPropertyListRef entitlements_dict =
                 CFPropertyListCreateFromXMLData(kCFAllocatorDefault,
                 ent, kCFPropertyListImmutable, NULL);
             CFRelease(ent);
-            require(entitlements_dict, out);
+            __Require(entitlements_dict, out);
             if (!filter_entitlements(entitlements_dict)) {
                 fprintf(stderr, "ERR: bad entitlements\n");
                 exit(1);

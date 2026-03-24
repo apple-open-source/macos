@@ -137,7 +137,7 @@ static PPSTelemetryIdentifier * streamId = nil; /// PPS telemetry stream identif
         NSString * procName = nil;
         NSNumber * interval = nil;
         
-        require_quiet(value && [value isKindOfClass:[NSNumber class]], exit);
+        __Require_Quiet(value && [value isKindOfClass:[NSNumber class]], exit);
         
         interval = (NSNumber *)value;
         procName = client ? [IOHIDSensorPowerLoggingFilter getClientProcessName:client] : @(kUnknownClientName);
@@ -217,11 +217,11 @@ exit:
     NSString     * procName    = nil;
     
     // ignore unidentifiable clients
-    require_quiet(!added && client && client.uuid, exit);
+    __Require_Quiet(!added && client && client.uuid, exit);
     
     // ignore clients who never set a report interval
     clientInfo = [_clients objectForKey:client.uuid];
-    require_quiet(clientInfo, exit);
+    __Require_Quiet(clientInfo, exit);
     
     HIDLogDebug("IOHIDSensorPowerLoggingFilter: client removed:%@", client);
     [_clients removeObjectForKey:client.uuid];

@@ -78,17 +78,17 @@ BufferMemoryResult BufferMemoryManager::tryAllocateFastMemory()
     BufferMemoryResult result = [&] {
         Locker locker { m_lock };
         if (m_fastMemories.size() >= m_maxFastMemoryCount)
-            return BufferMemoryResult(nullptr, BufferMemoryResult::SyncTryToReclaimMemory);
+            return BufferMemoryResult(nullptr, BufferMemoryResult::Kind::SyncTryToReclaimMemory);
 
         void* result = Gigacage::tryAllocateZeroedVirtualPages(Gigacage::Primitive, BufferMemoryHandle::fastMappedBytes());
         if (!result)
-            return BufferMemoryResult(nullptr, BufferMemoryResult::SyncTryToReclaimMemory);
+            return BufferMemoryResult(nullptr, BufferMemoryResult::Kind::SyncTryToReclaimMemory);
 
         m_fastMemories.append(result);
 
         return BufferMemoryResult(
             result,
-            m_fastMemories.size() >= m_maxFastMemoryCount / 2 ? BufferMemoryResult::SuccessAndNotifyMemoryPressure : BufferMemoryResult::Success);
+            m_fastMemories.size() >= m_maxFastMemoryCount / 2 ? BufferMemoryResult::Kind::SuccessAndNotifyMemoryPressure : BufferMemoryResult::Kind::Success);
     }();
 
     dataLogLnIf(Options::logWasmMemory(), "Allocated virtual: ", result, "; state: ", *this);
@@ -113,11 +113,11 @@ BufferMemoryResult BufferMemoryManager::tryAllocateGrowableBoundsCheckingMemory(
         Locker locker { m_lock };
         void* result = Gigacage::tryAllocateZeroedVirtualPages(Gigacage::Primitive, mappedCapacity);
         if (!result)
-            return BufferMemoryResult(nullptr, BufferMemoryResult::SyncTryToReclaimMemory);
+            return BufferMemoryResult(nullptr, BufferMemoryResult::Kind::SyncTryToReclaimMemory);
 
         m_growableBoundsCheckingMemories.insert(std::make_pair(std::bit_cast<uintptr_t>(result), mappedCapacity));
 
-        return BufferMemoryResult(result, BufferMemoryResult::Success);
+        return BufferMemoryResult(result, BufferMemoryResult::Kind::Success);
     }();
 
     dataLogLnIf(Options::logWasmMemory(), "Allocated virtual: ", result, "; state: ", *this);
@@ -165,14 +165,14 @@ BufferMemoryResult::Kind BufferMemoryManager::tryAllocatePhysicalBytes(size_t by
     BufferMemoryResult::Kind result = [&] {
         Locker locker { m_lock };
         if (m_physicalBytes + bytes > memoryLimit())
-            return BufferMemoryResult::SyncTryToReclaimMemory;
+            return BufferMemoryResult::Kind::SyncTryToReclaimMemory;
 
         m_physicalBytes += bytes;
 
         if (m_physicalBytes >= memoryLimit() / 2)
-            return BufferMemoryResult::SuccessAndNotifyMemoryPressure;
+            return BufferMemoryResult::Kind::SuccessAndNotifyMemoryPressure;
 
-        return BufferMemoryResult::Success;
+        return BufferMemoryResult::Kind::Success;
     }();
 
     dataLogLnIf(Options::logWasmMemory(), "Allocated physical: ", bytes, ", ", result, "; state: ", *this);

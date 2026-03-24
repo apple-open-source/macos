@@ -207,12 +207,12 @@ void WebExtensionContextProxy::enumerateFramesAndNamespaceObjects(NOESCAPE const
         auto globalObject = JSContextGetGlobalObject(context);
 
         RefPtr<WebExtensionAPINamespace> namespaceObjectImpl;
-        auto browserNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser").get(), nullptr);
+        auto browserNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser"_s).get(), nullptr);
         if (browserNamespaceObject && JSValueIsObject(context, browserNamespaceObject))
             namespaceObjectImpl = toWebExtensionAPINamespace(context, browserNamespaceObject);
 
         if (!namespaceObjectImpl) {
-            auto chromeNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("chrome").get(), nullptr);
+            auto chromeNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("chrome"_s).get(), nullptr);
             if (chromeNamespaceObject && JSValueIsObject(context, chromeNamespaceObject))
                 namespaceObjectImpl = toWebExtensionAPINamespace(context, chromeNamespaceObject);
         }
@@ -231,7 +231,7 @@ void WebExtensionContextProxy::enumerateFramesAndWebPageNamespaceObjects(NOESCAP
         auto globalObject = JSContextGetGlobalObject(context);
 
         RefPtr<WebExtensionAPIWebPageNamespace> namespaceObjectImpl;
-        auto browserNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser").get(), nullptr);
+        auto browserNamespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser"_s).get(), nullptr);
         if (browserNamespaceObject && JSValueIsObject(context, browserNamespaceObject))
             namespaceObjectImpl = toWebExtensionAPIWebPageNamespace(context, browserNamespaceObject);
 

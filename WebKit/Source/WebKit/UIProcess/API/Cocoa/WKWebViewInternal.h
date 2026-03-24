@@ -33,6 +33,7 @@
 #import <WebCore/CocoaView.h>
 #import <WebCore/CocoaWritingToolsTypes.h>
 #import <WebCore/ColorCocoa.h>
+#import <WebCore/CornerRadii.h>
 #import <WebCore/FixedContainerEdges.h>
 #import <WebKit/WKShareSheet.h>
 #import <WebKit/WKWebViewConfiguration.h>
@@ -123,7 +124,6 @@ enum class TextSuggestionState : uint8_t;
 struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
-struct OpenID4VPRequest;
 #endif
 
 struct NodeIdentifierType;
@@ -137,6 +137,7 @@ class IconLoadingDelegate;
 class NavigationState;
 class PointerTouchCompatibilitySimulator;
 class ResourceLoadDelegate;
+class TextExtractionURLCache;
 class UIDelegate;
 class ViewSnapshot;
 class WebPageProxy;
@@ -201,6 +202,10 @@ enum class PreferSolidColorHardPocketReason : uint8_t {
 @protocol _WKInputDelegate;
 @protocol _WKAppHighlightDelegate;
 
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+@protocol _WKImmersiveEnvironmentDelegate;
+#endif
+
 enum class SimilarToOriginalTextTag : uint8_t { Value };
 using TextValidationMapValue = Variant<String, SimilarToOriginalTextTag>;
 
@@ -251,8 +256,6 @@ struct PerWebProcessState {
     BOOL hasScheduledVisibleRectUpdate { NO };
     BOOL commitDidRestoreScrollPosition { NO };
 
-    BOOL avoidsUnsafeArea { YES };
-
     BOOL viewportMetaTagWidthWasExplicit { NO };
     BOOL viewportMetaTagCameFromImageDocument { NO };
     BOOL lastTransactionWasInStableState { NO };
@@ -294,6 +297,10 @@ struct PerWebProcessState {
     WeakObjCPtr<id <_WKTextManipulationDelegate>> _textManipulationDelegate;
     WeakObjCPtr<id <_WKInputDelegate>> _inputDelegate;
     WeakObjCPtr<id <_WKAppHighlightDelegate>> _appHighlightDelegate;
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    WeakObjCPtr<id <_WKImmersiveEnvironmentDelegate>> _immersiveEnvironmentDelegate;
+#endif
 
     RetainPtr<_WKWarningView> _warningView;
 
@@ -339,6 +346,9 @@ struct PerWebProcessState {
 #if HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
     BlockPtr<void()> _windowSnapshotReadinessHandler;
 #endif
+#if HAVE(NSVIEW_CORNER_CONFIGURATION)
+    WebCore::CornerRadii _lastViewCornerRadii;
+#endif
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(IOS_FAMILY)
@@ -375,6 +385,7 @@ struct PerWebProcessState {
 #if PLATFORM(IOS_FAMILY)
     BOOL _forcesInitialScaleFactor;
     BOOL _automaticallyAdjustsViewLayoutSizesWithObscuredInset;
+    BOOL _avoidsUnsafeArea;
 #endif
     CGRect _inputViewBoundsInWindow;
 
@@ -502,6 +513,7 @@ struct PerWebProcessState {
 #if ENABLE(TEXT_EXTRACTION_FILTER)
     HashMap<unsigned /* string hash */, TextValidationMapValue> _textValidationCache;
 #endif
+    RefPtr<WebKit::TextExtractionURLCache> _textExtractionURLCache;
 }
 
 - (BOOL)_isValid;
@@ -513,6 +525,12 @@ struct PerWebProcessState {
 
 #if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
 - (void)_spatialBackdropSourceDidChange;
+#endif
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+- (void)_allowImmersiveElementFromURL:(const URL&)url completion:(CompletionHandler<void(bool)>&&)completion;
+- (void)_presentImmersiveElement:(const WebCore::LayerHostingContextIdentifier)contextID completion:(CompletionHandler<void(bool)>&&)completion;
+- (void)_dismissImmersiveElement:(CompletionHandler<void()>&&)completion;
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -632,6 +650,16 @@ struct PerWebProcessState {
 
 @end
 
+@interface WKWebView (WKTextExtraction)
+
+- (void)_requestTextExtractionInternal:(_WKTextExtractionConfiguration *)configuration completion:(CompletionHandler<void(std::optional<WebCore::TextExtraction::Item>&&)>&&)completion;
+- (void)_requestJSHandleForNodeIdentifier:(NSString *)nodeIdentifier searchText:(NSString *)searchText completionHandler:(void (^)(_WKJSHandle *))completionHandler;
+#if ENABLE(TEXT_EXTRACTION_FILTER)
+- (void)_validateText:(const String&)text inNode:(std::optional<WebCore::NodeIdentifier>&&)nodeIdentifier completionHandler:(CompletionHandler<void(const String&)>&&)completionHandler;
+#endif
+
+@end
+
 RetainPtr<NSError> nsErrorFromExceptionDetails(const std::optional<WebCore::ExceptionDetails>&);
 
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
@@ -662,6 +690,8 @@ WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContai
 #endif // !__has_feature(modules)
 #endif // __cplusplus
 
+@class WKTextExtractionItem;
+
 @interface WKWebView (NonCpp)
 
 #if PLATFORM(MAC)
@@ -681,7 +711,7 @@ WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContai
 
 - (void)_scrollToEdge:(_WKRectEdge)edge animated:(BOOL)animated;
 
-- (void)_requestTextExtraction:(_WKTextExtractionConfiguration *)configuration completionHandler:(void (^)(WKTextExtractionResult *))completionHandler;
+- (void)_requestTextExtraction:(_WKTextExtractionConfiguration *)configuration completionHandler:(void (^)(WKTextExtractionItem *))completionHandler;
 - (void)_describeInteraction:(_WKTextExtractionInteraction *)interaction completionHandler:(void (^)(NSString *, NSError *))completionHandler;
 
 @end

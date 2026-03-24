@@ -58,7 +58,7 @@ public:
     using Value = Variant<IPCRange, WebCore::DoubleRect, UniqueRef<CoreIPCNSCFObject>>;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCNSValue, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCNSValue>;
 
     static Value valueFromNSValue(NSValue *);
 

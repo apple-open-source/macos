@@ -81,4 +81,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIWebNavigationEvent, webNavigationEvent);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

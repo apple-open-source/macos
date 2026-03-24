@@ -44,7 +44,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(IDBOpenDBRequest);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IDBOpenDBRequest);
 
 Ref<IDBOpenDBRequest> IDBOpenDBRequest::createDeleteRequest(ScriptExecutionContext& context, IDBClient::IDBConnectionProxy& connectionProxy, const IDBDatabaseIdentifier& databaseIdentifier)
 {
@@ -107,7 +107,7 @@ void IDBOpenDBRequest::fireSuccessAfterVersionChangeCommit()
     Ref event = IDBRequestCompletionEvent::create(eventNames().successEvent, Event::CanBubble::No, Event::IsCancelable::No, *this);
     m_openDatabaseSuccessEvent = event.get();
 
-    enqueueEvent(WTFMove(event));
+    enqueueEvent(WTF::move(event));
 }
 
 void IDBOpenDBRequest::fireErrorAfterVersionChangeCompletion()
@@ -169,7 +169,7 @@ void IDBOpenDBRequest::onUpgradeNeeded(const IDBResultData& resultData)
 
     LOG(IndexedDB, "IDBOpenDBRequest::onUpgradeNeeded() - current version is %" PRIu64 ", new is %" PRIu64, oldVersion, newVersion);
 
-    setResult(WTFMove(database));
+    setResult(WTF::move(database));
     setReadyState(ReadyState::Done);
     m_transaction = transaction.copyRef();
     transaction->addRequest(*this);

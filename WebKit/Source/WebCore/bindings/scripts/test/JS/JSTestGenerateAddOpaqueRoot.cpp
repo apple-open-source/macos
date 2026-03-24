@@ -124,7 +124,7 @@ void JSTestGenerateAddOpaqueRootPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestGenerateAddOpaqueRoot::s_info = { "TestGenerateAddOpaqueRoot"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRoot) };
 
 JSTestGenerateAddOpaqueRoot::JSTestGenerateAddOpaqueRoot(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
-    : JSDOMWrapper<TestGenerateAddOpaqueRoot>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestGenerateAddOpaqueRoot>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -256,7 +256,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestGenerateAddOpaqueRoot>(impl.ptr());
 #endif
-    return createWrapper<TestGenerateAddOpaqueRoot>(globalObject, WTFMove(impl));
+    return createWrapper<TestGenerateAddOpaqueRoot>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestGenerateAddOpaqueRoot& impl)

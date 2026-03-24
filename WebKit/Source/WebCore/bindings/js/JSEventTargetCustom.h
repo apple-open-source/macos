@@ -72,7 +72,7 @@ public:
             return throwThisTypeError(lexicalGlobalObject, throwScope, "EventTarget", operationName);
 
         auto& wrapped = thisObject.wrapped();
-        if (auto window = dynamicDowncast<LocalDOMWindow>(wrapped)) {
+        if (auto window = dynamicDowncast<DOMWindow>(wrapped)) {
             if (!window->frame() || !BindingSecurity::shouldAllowAccessToDOMWindow(&lexicalGlobalObject, *window, ThrowSecurityError))
                 return JSC::JSValue::encode(JSC::jsUndefined());
         }

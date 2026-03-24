@@ -103,18 +103,18 @@ const uint8_t* der_decode_RecoveryKeyBag(CFAllocatorRef allocator,
     const uint8_t *result = NULL;
     
     SOSRecoveryKeyBagRef rb = CFTypeAllocate(SOSRecoveryKeyBag, struct __OpaqueSOSRecoveryKeyBag, allocator);
-    require_quiet(SecAllocationError(rb, error, CFSTR("Recovery bag allocation failed")), fail);
+    __Require_Quiet(SecAllocationError(rb, error, CFSTR("Recovery bag allocation failed")), fail);
     
     const uint8_t *sequence_end = NULL;
     der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
-    require_quiet(sequence_end == der_end, fail);
+    __Require_Quiet(sequence_end == der_end, fail);
     
     der = der_decode_string(kCFAllocatorDefault, &rb->accountDSID, error, der, sequence_end);
     rb->generation = SOSGenCountCreateFromDER(kCFAllocatorDefault, error, &der, sequence_end);
     der = ccder_decode_uint64(&rb->rkbVersion, der, sequence_end);
     der = der_decode_data(allocator, &rb->recoveryKeyBag, error, der, sequence_end);
     
-    require_quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
+    __Require_Quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
     if (RecoveryKeyBag) CFTransferRetained(*RecoveryKeyBag, rb);
     result = der;
 fail:
@@ -166,7 +166,7 @@ uint8_t* der_encode_RecoveryKeyBag(SOSRecoveryKeyBagRef RecoveryKeyBag, CFErrorR
                     ccder_encode_uint64(RecoveryKeyBag->rkbVersion, der,
                     der_encode_data(RecoveryKeyBag->recoveryKeyBag, error, der, der_end)))));
         
-        require_quiet(der_end == der, errOut);
+        __Require_Quiet(der_end == der, errOut);
         result = der_end;
     }
 errOut:
@@ -176,7 +176,7 @@ errOut:
 SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator, CFTypeRef account, CFDataRef pubData, CFErrorRef *error) {
     SOSRecoveryKeyBagRef retval = NULL;
     SOSGenCountRef gencount = NULL;
-    require_action_quiet(account, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Null Account Object"), NULL, error));
+    __Require_Action_Quiet(account, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Null Account Object"), NULL, error));
     CFStringRef dsid = NULL;
     dsid = SOSAccountGetCurrentDSID((__bridge SOSAccount*) account);
 #if !TARGET_OS_BRIDGE
@@ -186,13 +186,13 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator,
         SOSAccountSetValue((__bridge SOSAccount*) account, kSOSDSIDKey, dsid, NULL);
     }
 #endif
-    require_action_quiet(dsid, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get dsid for recovery keybag components"), NULL, error));
+    __Require_Action_Quiet(dsid, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get dsid for recovery keybag components"), NULL, error));
 
     gencount = SOSGenerationCreate();
     
-    require_action_quiet(pubData && dsid && gencount, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get recovery keybag components"), NULL, error));
+    __Require_Action_Quiet(pubData && dsid && gencount, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get recovery keybag components"), NULL, error));
     retval = CFTypeAllocate(SOSRecoveryKeyBag, struct __OpaqueSOSRecoveryKeyBag, allocator);
-    require_action_quiet(retval, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get memory for recoveryKeyBag"), NULL, error));
+    __Require_Action_Quiet(retval, errOut, SOSCreateError(kSOSErrorEncodeFailure, CFSTR("Couldn't get memory for recoveryKeyBag"), NULL, error));
     retval->rkbVersion = CURRENT_RKB_VERSION;
     retval->accountDSID = CFStringCreateCopy(allocator, dsid);
     CFRetainAssign(retval->generation, gencount);
@@ -208,13 +208,13 @@ errOut:
 
 CFDataRef SOSRecoveryKeyCopyKeyForAccount(CFAllocatorRef allocator, CFTypeRef account, SOSRecoveryKeyBagRef recoveryKeyBag, CFErrorRef *error) {
     CFDataRef retval = NULL;
-    require_action_quiet(recoveryKeyBag && recoveryKeyBag->recoveryKeyBag && recoveryKeyBag->accountDSID,
+    __Require_Action_Quiet(recoveryKeyBag && recoveryKeyBag->recoveryKeyBag && recoveryKeyBag->accountDSID,
                          errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Null recoveryKeyBag Object"), NULL, error));
     CFStringRef dsid = NULL;
     dsid = SOSAccountGetCurrentDSID((__bridge SOSAccount *) account);
 
-    require_action_quiet(dsid, errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No DSID in Account"), NULL, error));
-    require_action_quiet(CFEqual(dsid, recoveryKeyBag->accountDSID), errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Account/RecoveryKeybag DSID miss-match"), NULL, error));
+    __Require_Action_Quiet(dsid, errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No DSID in Account"), NULL, error));
+    __Require_Action_Quiet(CFEqual(dsid, recoveryKeyBag->accountDSID), errOut, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Account/RecoveryKeybag DSID miss-match"), NULL, error));
     retval = CFDataCreateCopy(allocator, recoveryKeyBag->recoveryKeyBag);
 errOut:
     if(error && *error) {
@@ -228,16 +228,16 @@ CFDataRef SOSRecoveryKeyBagCopyEncoded(SOSRecoveryKeyBagRef RecoveryKeyBag, CFEr
     CFDataRef result = NULL;
     CFMutableDataRef encoded = NULL;
 
-    require_quiet(RecoveryKeyBag, errOut);
+    __Require_Quiet(RecoveryKeyBag, errOut);
     size_t encodedSize = der_sizeof_RecoveryKeyBag(RecoveryKeyBag, error);
-    require_quiet(encodedSize, errOut);
+    __Require_Quiet(encodedSize, errOut);
     
     encoded = CFDataCreateMutableWithScratch(kCFAllocatorDefault, encodedSize);
-    require_quiet(SecAllocationError(encoded, error, CFSTR("Failed to create scratch")), errOut);
+    __Require_Quiet(SecAllocationError(encoded, error, CFSTR("Failed to create scratch")), errOut);
     
     uint8_t *encode_to = CFDataGetMutableBytePtr(encoded);
     uint8_t *encode_to_end = encode_to + CFDataGetLength(encoded);
-    require_quiet(encode_to == der_encode_RecoveryKeyBag(RecoveryKeyBag, error, encode_to, encode_to_end), errOut);
+    __Require_Quiet(encode_to == der_encode_RecoveryKeyBag(RecoveryKeyBag, error, encode_to, encode_to_end), errOut);
     
     CFTransferRetained(result, encoded);
     
@@ -257,7 +257,7 @@ SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateFromData(CFAllocatorRef allocator, C
     
     der = der_decode_RecoveryKeyBag(allocator, &decodedBag, error, der, der_end);
     
-    require_quiet(SecRequirementError(der == der_end, error, CFSTR("Didn't consume all data supplied")), fail);
+    __Require_Quiet(SecRequirementError(der == der_end, error, CFSTR("Didn't consume all data supplied")), fail);
     
     CFTransferRetained(result, decodedBag);
     

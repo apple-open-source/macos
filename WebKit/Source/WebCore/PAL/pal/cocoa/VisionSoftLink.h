@@ -25,6 +25,8 @@
 
 #pragma once
 
+#import <wtf/Platform.h>
+
 #if HAVE(VISION)
 
 #import <Vision/Vision.h>

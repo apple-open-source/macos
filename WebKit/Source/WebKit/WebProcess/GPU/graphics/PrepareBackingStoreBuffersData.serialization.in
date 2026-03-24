@@ -20,10 +20,16 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
+#if ENABLE(GPU_PROCESS)
 
 header: "ImageBufferSetIdentifier.h"
 header: "PrepareBackingStoreBuffersData.h"
+
+enum class WebKit::SwapBuffersDisplayRequirement : uint8_t {
+    NeedsFullDisplay,
+    NeedsNormalDisplay,
+    NeedsNoDisplay
+};
 
 [AdditionalEncoder=StreamConnectionEncoder, CustomHeader] struct WebKit::ImageBufferSetPrepareBufferForDisplayInputData {
     WebKit::ImageBufferSetIdentifier remoteBufferSet;

@@ -87,10 +87,10 @@ TypeInfoBlob JSWebAssemblyStruct::typeInfoBlob()
 
 WebAssemblyGCStructure* JSWebAssemblyStruct::createStructure(VM& vm, JSGlobalObject* globalObject, Ref<const Wasm::TypeDefinition>&& unexpandedType, Ref<const Wasm::RTT>&& rtt)
 {
-    const Wasm::TypeDefinition& type = unexpandedType->expand();
+    Ref<const Wasm::TypeDefinition> type { unexpandedType->expand() };
+    RELEASE_ASSERT(type->is<Wasm::StructType>());
     RELEASE_ASSERT(rtt->kind() == Wasm::RTTKind::Struct);
-    RELEASE_ASSERT(type.is<Wasm::StructType>());
-    return WebAssemblyGCStructure::create(vm, globalObject, TypeInfo(WebAssemblyGCObjectType, StructureFlags), info(), WTFMove(unexpandedType), WTFMove(type), WTFMove(rtt));
+    return WebAssemblyGCStructure::create(vm, globalObject, TypeInfo(WebAssemblyGCObjectType, StructureFlags), info(), WTF::move(unexpandedType), WTF::move(type), WTF::move(rtt));
 }
 
 } // namespace JSC

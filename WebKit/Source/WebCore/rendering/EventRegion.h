@@ -147,6 +147,7 @@ public:
 
 #if ENABLE(TOUCH_EVENT_REGIONS)
     WEBCORE_EXPORT TrackingType eventTrackingTypeForPoint(EventTrackingRegionsEventType, const IntPoint&) const;
+    const EventTrackingRegions& touchEventListenerRegion() const { return m_touchEventListenerRegion; }
 #endif
 
 #if ENABLE(WHEEL_EVENT_REGIONS)
@@ -170,7 +171,7 @@ public:
 #endif
 
 private:
-    friend struct IPC::ArgumentCoder<EventRegion, void>;
+    friend struct IPC::ArgumentCoder<EventRegion>;
 #if ENABLE(TOUCH_ACTION_REGIONS)
     void uniteTouchActions(const Region&, OptionSet<TouchAction>);
 #endif

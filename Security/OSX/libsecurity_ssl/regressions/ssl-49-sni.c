@@ -138,7 +138,7 @@ static void *securetransport_server_thread(void *arg)
         }
 
         SSLProtocol version = 0;
-        require_noerr(SSLGetProtocolVersionMax(ctx, &version), out);
+        __Require_noErr(SSLGetProtocolVersionMax(ctx, &version), out);
         if (version == kSSLProtocol3) {
             ok(sni==NULL, "Unexpected SNI");
         } else {
@@ -147,7 +147,7 @@ static void *securetransport_server_thread(void *arg)
                (memcmp(sni, peername, sizeof(peername))==0),
                "SNI does not match");
         }
-        require_noerr(SSLSetCertificate(ctx, server_certs), out);
+        __Require_noErr(SSLSetCertificate(ctx, server_certs), out);
         free(sni);
     }
 
@@ -191,23 +191,23 @@ ssl_test_handle_create(uint32_t session_id, bool server, int comm)
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
 
     if (server)
-        require_noerr(SSLSetSessionOption(ctx,
+        __Require_noErr(SSLSetSessionOption(ctx,
                                           kSSLSessionOptionBreakOnClientHello, true), out);
     else
-        require_noerr(SSLSetSessionOption(ctx,
+        __Require_noErr(SSLSetSessionOption(ctx,
                                           kSSLSessionOptionBreakOnServerAuth, true), out);
 
     /* Tell SecureTransport to not check certs itself: it will break out of the
      handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
+    __Require_noErr(SSLSetEnableCertVerify(ctx, false), out);
 
     handle->handle = ctx;
     handle->is_server = server;
@@ -247,17 +247,17 @@ tests(void)
         server = ssl_test_handle_create(session_id, true /*server*/, sp[0]);
         client = ssl_test_handle_create(session_id, false/*client*/, sp[1]);
 
-        require_noerr(SSLSetPeerID(server->handle, &session_id, sizeof(session_id)), out);
-        require_noerr(SSLSetPeerID(client->handle, &session_id, sizeof(session_id)), out);
+        __Require_noErr(SSLSetPeerID(server->handle, &session_id, sizeof(session_id)), out);
+        __Require_noErr(SSLSetPeerID(client->handle, &session_id, sizeof(session_id)), out);
 
         /* set fixed cipher on client and server */
-        require_noerr(SSLSetEnabledCiphers(client->handle, &ciphers[0], 1), out);
-        require_noerr(SSLSetEnabledCiphers(server->handle, &ciphers[0], 1), out);
+        __Require_noErr(SSLSetEnabledCiphers(client->handle, &ciphers[0], 1), out);
+        __Require_noErr(SSLSetEnabledCiphers(server->handle, &ciphers[0], 1), out);
 
-        require_noerr(SSLSetProtocolVersionMax(client->handle, versions[j]), out);
-        require_noerr(SSLSetPeerDomainName(client->handle, peername, sizeof(peername)), out);
+        __Require_noErr(SSLSetProtocolVersionMax(client->handle, versions[j]), out);
+        __Require_noErr(SSLSetPeerDomainName(client->handle, peername, sizeof(peername)), out);
 
-        require_noerr(SSLSetProtocolVersionMax(server->handle, versions[j]), out);
+        __Require_noErr(SSLSetProtocolVersionMax(server->handle, versions[j]), out);
 
         pthread_create(&client_thread, NULL, securetransport_client_thread, client);
         pthread_create(&server_thread, NULL, securetransport_server_thread, server);

@@ -36,8 +36,8 @@ class WebProcessPool;
 // inspector level by setting a per-level page group identifier.
 unsigned inspectorLevelForPage(WebPageProxy*);
 String defaultInspectorPageGroupIdentifierForPage(WebPageProxy*);
-void trackInspectorPage(WebPageProxy* inspectorPage, WebPageProxy* inspectedPage);
-void untrackInspectorPage(WebPageProxy* inspectorPage);
+void trackInspectorPage(WebPageProxy& inspectorPage, WebPageProxy* inspectedPage);
+void untrackInspectorPage(WebPageProxy& inspectorPage);
 
 void prepareProcessPoolForInspector(WebProcessPool&);
 WebProcessPool& defaultInspectorProcessPool(unsigned inspectionLevel);

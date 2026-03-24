@@ -38,11 +38,7 @@ namespace WebKit {
 
 LaunchServicesDatabaseManager& LaunchServicesDatabaseManager::singleton()
 {
-    static LazyNeverDestroyed<LaunchServicesDatabaseManager> manager;
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [] {
-        manager.construct();
-    });
+    static NeverDestroyed<LaunchServicesDatabaseManager> manager;
     return manager.get();
 }
 
@@ -51,7 +47,7 @@ void LaunchServicesDatabaseManager::handleEvent(xpc_object_t message)
     String messageName = xpcDictionaryGetString(message, XPCEndpoint::xpcMessageNameKey);
     if (messageName == LaunchServicesDatabaseXPCConstants::xpcUpdateLaunchServicesDatabaseMessageName) {
 #if HAVE(LSDATABASECONTEXT)
-        RetainPtr database = xpc_dictionary_get_value(message, LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseKey);
+        XPCObjectPtr<xpc_object_t> database = xpc_dictionary_get_value(message, LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseKey);
 
         RELEASE_LOG_FORWARDABLE(Loading, RECEIVED_LAUNCH_SERVICES_DATABASE);
 
@@ -65,7 +61,8 @@ void LaunchServicesDatabaseManager::handleEvent(xpc_object_t message)
 
 void LaunchServicesDatabaseManager::didConnect()
 {
-    auto message = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+    // FIXME: This is a false positive. <rdar://164843889>
+    SUPPRESS_RETAINPTR_CTOR_ADOPT auto message = adoptXPCObject(xpc_dictionary_create(nullptr, nullptr, 0));
     xpc_dictionary_set_string(message.get(), XPCEndpoint::xpcMessageNameKey, LaunchServicesDatabaseXPCConstants::xpcRequestLaunchServicesDatabaseUpdateMessageName);
 
     auto connection = this->connection();

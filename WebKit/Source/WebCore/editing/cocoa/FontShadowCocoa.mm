@@ -51,7 +51,7 @@ RetainPtr<NSShadow> FontShadow::createShadow() const
 FontShadow fontShadowFromNSShadow(NSShadow *shadow)
 {
     return {
-        colorFromCocoaColor(shadow.shadowColor),
+        colorFromCocoaColor(retainPtr(shadow.shadowColor).get()),
         FloatSize(shadow.shadowOffset),
         shadow.shadowBlurRadius,
     };

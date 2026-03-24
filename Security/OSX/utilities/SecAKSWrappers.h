@@ -105,7 +105,7 @@ static inline bool SecAKSLockedAnyStateBitIsSet(keybag_handle_t handle, bool* is
     keybag_state_t state;
     bool success = SecAKSGetLockedState(handle, &state, error);
     
-    require_quiet(success, exit);
+    __Require_Quiet(success, exit);
     
     if (isSet)
         *isSet = (state & bits);

@@ -321,20 +321,20 @@ void IOHIDKeyboardFilter::setEjectKeyProperty(uint32_t keyboardID)
     NSNumber *u = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDPrimaryUsageKey)));
     NSNumber *vid = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDVendorIDKey)));
 
-    require(up.unsignedIntValue == kHIDPage_GenericDesktop &&
+    __Require(up.unsignedIntValue == kHIDPage_GenericDesktop &&
             u.unsignedIntValue == kHIDUsage_GD_Keyboard &&
             vid.unsignedIntValue == kIOUSBVendorIDAppleComputer, exit);
 
     // no virtual devices, like DFR keyboard
     val = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDVirtualHIDevice)));
-    require(!val, exit);
+    __Require(!val, exit);
 
     if (((keyboardID >= 0xc3) && (keyboardID <= 0xc9)) ||
         ((keyboardID >= 0x28) && (keyboardID <= 0x2a)) ||
         keyboardID <= 0x1e) {
         supported = true;
     }
-    require(supported, exit);
+    __Require(supported, exit);
 
     IOHIDServiceSetProperty(_service,
                             CFSTR(kIOHIDKeyboardSupportsF12EjectKey),
@@ -2712,9 +2712,9 @@ void IOHIDKeyboardFilter::setCapsLockState(boolean_t state, CFTypeRef client) {
 void IOHIDKeyboardFilter::updateCapslockLED(CFTypeRef client) {
     bool prevCapsLockLEDState = _capsLockLEDState;
     bool didUpdateCapsLockLEDState = false;
-    require ((_supportedModifiers & NX_ALPHASHIFT_STATELESS_MASK), bail);
+    __Require((_supportedModifiers & NX_ALPHASHIFT_STATELESS_MASK), bail);
 
-    require (CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_Inhibit) == false, exit);
+    __Require(CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_Inhibit) == false, exit);
 
      _capsLockLEDState = _capsLockState;
 
@@ -2727,7 +2727,7 @@ void IOHIDKeyboardFilter::updateCapslockLED(CFTypeRef client) {
         _capsLockLEDState = false;
     }
 
-    require (_service, exit);
+    __Require(_service, exit);
 
     IOHIDServiceSetElementValue(_service, kHIDPage_LEDs, kHIDUsage_LED_CapsLock, _capsLockLEDState);
     IOHIDServiceSetProperty(_service, kIOHIDServiceCapsLockLEDOnKey, _capsLockLEDState ? kCFBooleanTrue : kCFBooleanFalse);

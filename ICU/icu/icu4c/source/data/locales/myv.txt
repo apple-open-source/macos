@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 myv{
     AuxExemplarCharacters{"[ӓ ә є җ ѕ і ҥ ў ѡ џ ѣ ѳ ѵѷ]"}
     ExemplarCharacters{"[а б в г д её ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я]"}
@@ -86,12 +86,12 @@ myv{
             }
             eras{
                 wide{
-                    "Христосонь чачомадо икеле",
-                    "Христосонь чачомадо мейле",
+                    0{"Христосонь чачомадо икеле"}
+                    1{"Христосонь чачомадо мейле"}
                 }
                 wide%variant{
-                    "Минек эрадо икеле",
-                    "Минек эрасто",
+                    0{"Минек эрадо икеле"}
+                    1{"Минек эрасто"}
                 }
             }
             monthNames{

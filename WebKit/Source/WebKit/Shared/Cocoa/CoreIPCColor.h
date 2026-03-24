@@ -40,7 +40,7 @@ public:
     }
 
     CoreIPCColor(WebCore::Color&& color)
-        : m_color(WTFMove(color))
+        : m_color(WTF::move(color))
     {
     }
 
@@ -50,7 +50,7 @@ public:
     }
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCColor, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCColor>;
 
     WebCore::Color m_color;
 };

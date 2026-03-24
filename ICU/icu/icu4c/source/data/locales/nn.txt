@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 nn{
     %%Parent{"no"}
     NumberElements{
@@ -68,14 +68,7 @@ nn{
         buddhist{
             eras{
                 abbreviated{
-                    "BE",
-                }
-            }
-        }
-        generic{
-            intervalFormats{
-                yMMMEd{
-                    d{"E d.–E d. MMM y G"}
+                    0{"BE"}
                 }
             }
         }
@@ -85,7 +78,7 @@ nn{
                 "e.m.",
             }
             DateTimePatterns{
-                "'kl'. HH:mm:ss zzzz",
+                "HH:mm:ss zzzz",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
@@ -174,8 +167,8 @@ nn{
             }
             eras{
                 wide%variant{
-                    "før vår tidsrekning",
-                    "etter vår tidsrekning",
+                    0{"før vår tidsrekning"}
+                    1{"etter vår tidsrekning"}
                 }
             }
             intervalFormats{
@@ -828,17 +821,6 @@ nn{
         }
         week-narrow{
             dn{"v."}
-            relativePeriod{"veka med {0}"}
-            relativeTime{
-                future{
-                    one{"om {0} v."}
-                    other{"om {0} v."}
-                }
-                past{
-                    one{"for {0} v. sidan"}
-                    other{"for {0} v. sidan"}
-                }
-            }
         }
         week-short{
             relativePeriod{"veka med {0}"}

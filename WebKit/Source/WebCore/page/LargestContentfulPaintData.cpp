@@ -208,7 +208,7 @@ void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Eleme
     LOG_WITH_STREAM(LargestContentfulPaint, stream << " making new entry for " << element << " image " << (image ? image->url().string() : emptyString()) << " id " << pendingEntry->id() <<
         ": entry size " << pendingEntry->size() << ", loadTime " << pendingEntry->loadTime() << ", renderTime " << pendingEntry->renderTime());
 
-    m_pendingEntry = RefPtr { WTFMove(pendingEntry) };
+    m_pendingEntry = RefPtr { WTF::move(pendingEntry) };
 }
 
 // https://w3c.github.io/largest-contentful-paint/#sec-report-largest-contentful-paint
@@ -358,7 +358,7 @@ void LargestContentfulPaintData::didLoadImage(Element& element, CachedImage* ima
     auto now = MonotonicTime::now();
     if (findIndex == notFound) {
         auto imageData = PerElementImageData { *image, { }, now };
-        lcpData.imageData.append(WTFMove(imageData));
+        lcpData.imageData.append(WTF::move(imageData));
     } else
         lcpData.imageData[findIndex].loadTime = now;
 }
@@ -378,7 +378,7 @@ void LargestContentfulPaintData::didPaintImage(Element& element, CachedImage* im
     if (findIndex == notFound) {
         findIndex = lcpData.imageData.size();
         auto imageData = PerElementImageData { *image, { }, MonotonicTime::now() };
-        lcpData.imageData.append(WTFMove(imageData));
+        lcpData.imageData.append(WTF::move(imageData));
     }
 
     auto& imageData = lcpData.imageData[findIndex];

@@ -63,7 +63,7 @@ public:
     
     bool hasStatistics() const final { return !m_resourceStatisticsMap.isEmpty(); }
 
-    void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains) final { m_domainsWithUserInteraction = WTFMove(domains); }
+    void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains) final { m_domainsWithUserInteraction = WTF::move(domains); }
     void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubFrameDomain>>&&, CompletionHandler<void()>&&) final;
     bool hasHadUserInteraction(const WebCore::RegistrableDomain&) const final;
     bool hasCrossPageStorageAccess(const SubFrameDomain&, const TopFrameDomain&) const final;

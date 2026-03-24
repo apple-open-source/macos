@@ -133,10 +133,10 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
             break;
         }
 
-        require_action_quiet(derKey->parameters && derKey->parametersLength > 2 &&
+        __Require_Action_Quiet(derKey->parameters && derKey->parametersLength > 2 &&
                              derKey->parameters[1] <= derKey->parametersLength - 2, errOut, err = errSecDecode);
         ccec_const_cp_t cp = ccec_cp_for_oid(derKey->parameters);
-        require_action_quiet(cp, errOut, err = errSecDecode);
+        __Require_Action_Quiet(cp, errOut, err = errSecDecode);
 
         err = (ccec_import_pub(cp, derKey->keyLength, derKey->key, pubkey)
                ? errSecDecode : errSecSuccess);
@@ -145,7 +145,7 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
     case kSecKeyEncodingBytes:
     {
         ccec_const_cp_t cp = getCPForPublicSize(keyDataLength);
-        require_action_quiet(cp, errOut, err = errSecDecode);
+        __Require_Action_Quiet(cp, errOut, err = errSecDecode);
         err = (ccec_import_pub(cp, keyDataLength, keyData, pubkey)
                ? errSecDecode : errSecSuccess);
         break;
@@ -155,7 +155,7 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
         ccec_full_ctx_t fullKey = (ccec_full_ctx_t)keyData;
 
         cc_size fullKeyN = ccec_ctx_n(fullKey);
-        require_quiet(fullKeyN <= ccn_nof(kMaximumECKeySize), errOut);
+        __Require_Quiet(fullKeyN <= ccn_nof(kMaximumECKeySize), errOut);
         memcpy(pubkey, fullKey, ccec_pub_ctx_size(ccn_sizeof_n(fullKeyN)));
         err = errSecSuccess;
         break;
@@ -360,7 +360,7 @@ static CFDataRef SecECKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataR
     }
 
     CFMutableDataRef data = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), output_size);
-    require_quiet(data, errOut);
+    __Require_Quiet(data, errOut);
 
     err = ccec_rfc6637_wrap_key(pubkey, CFDataGetMutableBytePtr(data), flags,
                                 sym_alg, CFDataGetLength(unwrappedKey), CFDataGetBytePtr(unwrappedKey),
@@ -433,29 +433,29 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
         size_t n;
         ccec_const_cp_t cp;
 
-        require_noerr_quiet(ccec_der_import_priv_keytype(keyDataLength, keyData, (ccoid_t*)&oid, &n), abort);
+        __Require_noErr_Quiet(ccec_der_import_priv_keytype(keyDataLength, keyData, (ccoid_t*)&oid, &n), abort);
         cp = ccec_cp_for_oid(oid);
         if (cp == NULL) {
             cp = ccec_curve_for_length_lookup(n * 8 /* bytes -> bits */,
                 ccec_cp_192(), ccec_cp_224(), ccec_cp_256(), ccec_cp_384(), ccec_cp_521(), NULL);
         }
-        require_action_quiet(cp != NULL, abort, err = errSecDecode);
+        __Require_Action_Quiet(cp != NULL, abort, err = errSecDecode);
         ccec_ctx_init(cp, fullkey);
 
-        require_noerr_quiet(ccec_der_import_priv(cp, keyDataLength, keyData, fullkey), abort);
+        __Require_noErr_Quiet(ccec_der_import_priv(cp, keyDataLength, keyData, fullkey), abort);
         err = errSecSuccess;
         break;
     }
     case kSecKeyEncodingBytes:
     {
         ccec_const_cp_t cp = getCPForPrivateSize(keyDataLength);
-        require_quiet(cp != NULL, abort);
+        __Require_Quiet(cp != NULL, abort);
 
         ccec_ctx_init(cp, fullkey);
         size_t pubSize = ccec_export_pub_size(ccec_ctx_pub(fullkey));
 
-        require_quiet(pubSize < (size_t) keyDataLength, abort);
-        require_noerr_action_quiet(ccec_import_pub(cp, pubSize, keyData, ccec_ctx_pub(fullkey)),
+        __Require_Quiet(pubSize < (size_t) keyDataLength, abort);
+        __Require_noErr_Action_Quiet(ccec_import_pub(cp, pubSize, keyData, ccec_ctx_pub(fullkey)),
                              abort,
                              err = errSecDecode);
 
@@ -464,7 +464,7 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
         keyDataLength -= pubSize;
 
         cc_unit *k = ccec_ctx_k(fullkey);
-        require_noerr_action_quiet(ccn_read_uint(ccec_ctx_n(fullkey), k, keyDataLength, keyData),
+        __Require_noErr_Action_Quiet(ccn_read_uint(ccec_ctx_n(fullkey), k, keyDataLength, keyData),
                                    abort,
                                    err = errSecDecode);
 
@@ -514,7 +514,7 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                     result = CFDataCreateMutableWithScratch(NULL, size);
                     int err = ccec_sign(fullkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
                                         &size, CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey());
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
+                    __Require_Action_Quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: X962 signing failed (ccerr %d)"),
                                                                   key, err)));
                     CFDataSetLength((CFMutableDataRef)result, size);
@@ -531,17 +531,17 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                 if (mode == kSecKeyOperationModePerform) {
                     int err;
                     ccec_const_cp_t cp = getCPForPublicSize(CFDataGetLength(in1));
-                    require_action_quiet(cp != NULL, out,
+                    __Require_Action_Quiet(cp != NULL, out,
                                          SecError(errSecParam, error, CFSTR("ECpriv sharedsecret: bad public key")));
                     ccec_pub_ctx_decl_cp(cp, pubkey);
                     err = ccec_import_pub(cp, CFDataGetLength(in1), CFDataGetBytePtr(in1), pubkey);
-                    require_noerr_action_quiet(err, out, SecError(errSecParam, error,
+                    __Require_noErr_Action_Quiet(err, out, SecError(errSecParam, error,
                                                                   CFSTR("ECpriv sharedsecret: bad public key (err %d)"), err));
                     size_t size = ccec_ccn_size(cp);
                     result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
                     err = ccecdh_compute_shared_secret(fullkey, pubkey, &size,
                                                        CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey());
-                    require_noerr_action_quiet(err, out, (CFReleaseNull(result),
+                    __Require_noErr_Action_Quiet(err, out, (CFReleaseNull(result),
                                                           SecError(errSecDecode, error,
                                                                    CFSTR("ECpriv failed to compute shared secret (err %d)"), err)));
                     CFDataSetLength((CFMutableDataRef)result, size);
@@ -721,13 +721,13 @@ OSStatus SecECKeyGeneratePair(CFDictionaryRef parameters,
     SecKeyRef privKey = SecKeyCreate(allocator, &kSecECPrivateKeyDescriptor,
                                      (const void*) parameters, 0, kSecGenerateKey);
 
-    require_quiet(privKey, errOut);
+    __Require_Quiet(privKey, errOut);
 
     /* Create SecKeyRef's from the pkcs1 encoded keys. */
     pubKey = SecKeyCreate(allocator, &kSecECPublicKeyDescriptor,
                           privKey->key, 0, kSecExtractPublicFromPrivate);
 
-    require_quiet(pubKey, errOut);
+    __Require_Quiet(pubKey, errOut);
 
     if (publicKey) {
         *publicKey = pubKey;
@@ -753,11 +753,11 @@ errOut:
 SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef key) {
     SecECNamedCurve result = kSecECCurveNone;
     CFDictionaryRef attributes = NULL;
-    require_quiet(SecKeyGetAlgorithmId(key) == kSecECDSAAlgorithmID, out);
-    require_quiet(attributes = SecKeyCopyAttributes(key), out);
+    __Require_Quiet(SecKeyGetAlgorithmId(key) == kSecECDSAAlgorithmID, out);
+    __Require_Quiet(attributes = SecKeyCopyAttributes(key), out);
     CFTypeRef bitsRef = CFDictionaryGetValue(attributes, kSecAttrKeySizeInBits);
     CFIndex bits = 0;
-    require_quiet(bitsRef != NULL && CFGetTypeID(bitsRef) == CFNumberGetTypeID() &&
+    __Require_Quiet(bitsRef != NULL && CFGetTypeID(bitsRef) == CFNumberGetTypeID() &&
                   CFNumberGetValue(bitsRef, kCFNumberCFIndexType, &bits), out);
     switch (bits) {
 #if 0

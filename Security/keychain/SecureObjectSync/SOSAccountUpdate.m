@@ -117,13 +117,13 @@ static void SOSAccountAppendPeerMetasForViewBackups(SOSAccount* account, CFSetRe
                 SOSPeerMetaRef newMeta = NULL;
                 
                 CFDataRef ring_payload = SOSRingGetPayload(ring, NULL);
-                require_quiet(isData(ring_payload), skip);
+                __Require_Quiet(isData(ring_payload), skip);
                 
                 key_bag = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, ring_payload, &create_error);
-                require_quiet(key_bag, skip);
+                __Require_Quiet(key_bag, skip);
                 
                 newMeta = SOSPeerMetaCreateWithComponents(SOSRingGetName(ring), viewNames, ring_payload);
-                require_quiet(SecAllocationError(newMeta, &create_error, CFSTR("Didn't make peer meta for: %@"), ring), skip);
+                __Require_Quiet(SecAllocationError(newMeta, &create_error, CFSTR("Didn't make peer meta for: %@"), ring), skip);
                 CFArrayAppendValue(appendTo, newMeta);
                 
                 CFStringSetPerformWithDescription(viewNames, ^(CFStringRef ringViews) {

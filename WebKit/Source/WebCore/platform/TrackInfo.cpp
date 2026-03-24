@@ -26,6 +26,9 @@
 #include "config.h"
 #include "TrackInfo.h"
 
+#if PLATFORM(COCOA)
+#include <CoreMedia/CMFormatDescription.h>
+#endif
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -49,8 +52,8 @@ String convertEnumerationToString(TrackInfoTrackType type)
 Ref<TrackInfo> TrackInfo::fromVariant(Variant<Ref<AudioInfo>, Ref<VideoInfo>> variant)
 {
     return WTF::visit(WTF::makeVisitor([](auto&& info) -> Ref<TrackInfo> {
-        return WTFMove(info);
-    }), WTFMove(variant));
+        return WTF::move(info);
+    }), WTF::move(variant));
 }
 
 } // namespace WebCore

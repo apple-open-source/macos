@@ -38,8 +38,8 @@
 namespace WebKit {
 
 NavigationSOAuthorizationSession::NavigationSOAuthorizationSession(RetainPtr<WKSOAuthorizationDelegate> delegate, Ref<API::NavigationAction>&& navigationAction, WebPageProxy& page, InitiatingAction action, Callback&& completionHandler)
-    : SOAuthorizationSession(delegate, WTFMove(navigationAction), page, action)
-    , m_callback(WTFMove(completionHandler))
+    : SOAuthorizationSession(delegate, WTF::move(navigationAction), page, action)
+    , m_callback(WTF::move(completionHandler))
 {
 }
 

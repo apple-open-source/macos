@@ -23,15 +23,15 @@
 #include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGResourceGradientInlines.h"
 #include "RenderSVGShape.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGResourceGradient);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGResourceGradient);
 
 RenderSVGResourceGradient::RenderSVGResourceGradient(Type type, SVGElement& element, RenderStyle&& style)
-    : RenderSVGResourcePaintServer(type, element, WTFMove(style))
+    : RenderSVGResourcePaintServer(type, element, WTF::move(style))
 {
 }
 
@@ -39,11 +39,12 @@ RenderSVGResourceGradient::~RenderSVGResourceGradient() = default;
 
 GradientColorStops RenderSVGResourceGradient::stopsByApplyingColorFilter(const GradientColorStops& stops, const RenderStyle& style) const
 {
-    if (!style.hasAppleColorFilter())
+    if (style.appleColorFilter().isNone())
         return stops;
 
-    return stops.mapColors([&] (auto& color) {
-        return style.colorByApplyingColorFilter(color);
+    Style::ColorResolver colorResolver { style };
+    return stops.mapColors([&](auto& color) {
+        return colorResolver.colorApplyingColorFilter(color);
     });
 }
 

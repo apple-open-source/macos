@@ -333,34 +333,26 @@ typedef NS_ENUM(NSInteger, SecureBackupOperationReachedNetwork) {
 
     sb.generateClientMetadata = YES;
 
-    if ([sb respondsToSelector:@selector(entropy)]) {
-        sb.entropy = self.entropy; // kSecureBackupEscrowContentEntropyKey
-    }
-    if ([sb respondsToSelector:@selector(bottleID)]) {
-        sb.bottleID = self.bottleID; // kSecureBackupEscrowContentBottleIDKey
-    }
-    if ([sb respondsToSelector:@selector(escrowSigningPublicKey)]) {
-        sb.escrowSigningPublicKey = self.escrowSigningSPKI; //kSecureBackupEscrowContentSPKIKey
-    }
+    sb.entropy = self.entropy; // kSecureBackupEscrowContentEntropyKey
+    sb.bottleID = self.bottleID; // kSecureBackupEscrowContentBottleIDKey
+    sb.escrowSigningPublicKey = self.escrowSigningSPKI; //kSecureBackupEscrowContentSPKIKey
 
     NSError* enableError = nil;
     bool success = false;
     if(reachedNetwork) {
         *reachedNetwork = SecureBackupOperationReachedNetworkUnknown;
     }
-    if ([sb respondsToSelector:@selector(enableAndReturnNetworkReachedHint:)]) {
-        NSDictionary* hint = [self.deps.secureBackupAdapter enableWithSecureBackupAndReturnHint:sb error:&enableError];
-        if (enableError == nil) {
-            success = true;
-        }
-        if (hint && hint[kSecureBackupNetworkReachedHintKey]) {
-            if (reachedNetwork) {
-                *reachedNetwork = [hint[kSecureBackupNetworkReachedHintKey] isEqualToNumber:@(YES)] ? SecureBackupOperationReachedNetworkSuccess : SecureBackupOperationReachedNetworkFailed;
-            }
-        }
-    } else {
-        success = [self.deps.secureBackupAdapter enableWithSecureBackup:sb error:&enableError];
+
+    NSDictionary* hint = [self.deps.secureBackupAdapter enableWithSecureBackupAndReturnHint:sb error:&enableError];
+    if (enableError == nil) {
+        success = true;
     }
+    if (hint && hint[kSecureBackupNetworkReachedHintKey]) {
+        if (reachedNetwork) {
+            *reachedNetwork = [hint[kSecureBackupNetworkReachedHintKey] isEqualToNumber:@(YES)] ? SecureBackupOperationReachedNetworkSuccess : SecureBackupOperationReachedNetworkFailed;
+        }
+    }
+
     if (success) {
         secnotice("octagon-escrow-repair", "successfully enrolled escrow record");
 

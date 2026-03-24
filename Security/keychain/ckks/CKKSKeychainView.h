@@ -177,7 +177,7 @@ NS_ASSUME_NONNULL_BEGIN
              suggestTLKUpload:(CKKSNearFutureScheduler*)suggestTLKUpload
            requestPolicyCheck:(CKKSNearFutureScheduler*)requestPolicyCheck;
 
-- (void)endTrustedOperation;
+- (void)endTrustedOperation:(BOOL)resetCKKS;
 
 /* CloudKit account management */
 

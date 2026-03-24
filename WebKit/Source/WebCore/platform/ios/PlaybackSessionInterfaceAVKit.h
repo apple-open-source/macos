@@ -70,7 +70,7 @@ private:
     PlaybackSessionInterfaceAVKit(PlaybackSessionModel&);
 
     RetainPtr<WebAVContentSource> m_contentSource;
-    NowPlayingMetadataObserver m_nowPlayingMetadataObserver;
+    const Ref<NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;
 };
 
 } // namespace WebCore

@@ -217,7 +217,7 @@ constexpr auto DocumentMarker::allMarkers() -> OptionSet<DocumentMarkerType>
 inline DocumentMarker::DocumentMarker(DocumentMarkerType type, OffsetRange range, Data&& data)
     : m_type(type)
     , m_range(range)
-    , m_data(WTFMove(data))
+    , m_data(WTF::move(data))
 {
 }
 

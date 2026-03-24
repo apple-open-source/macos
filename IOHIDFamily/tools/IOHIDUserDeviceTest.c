@@ -655,22 +655,22 @@ static void startDevice(CFMutableDictionaryRef properties, uint32_t reportinterv
     uint32_t    value           = 5000000;
     
     descriptorData = CFDataCreate(kCFAllocatorDefault, descriptor, descriptorLength);
-    require(descriptorData, finish);
+    __Require(descriptorData, finish);
     
     timeoutNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &value);
-    require(timeoutNumber, finish);
+    __Require(timeoutNumber, finish);
     
     intervalNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reportinterval);
-    require(intervalNumber, finish);
+    __Require(intervalNumber, finish);
     
-    require(properties, finish);
+    __Require(properties, finish);
     
     CFDictionarySetValue(properties, CFSTR(kIOHIDReportDescriptorKey), descriptorData);
     CFDictionarySetValue(properties, CFSTR(kIOHIDRequestTimeoutKey), timeoutNumber);
     CFDictionarySetValue(properties, CFSTR(kIOHIDReportIntervalKey), intervalNumber);
     
     gDevice = IOHIDUserDeviceCreate(kCFAllocatorDefault, properties);
-    require(gDevice, finish);
+    __Require(gDevice, finish);
     
     IOHIDUserDeviceScheduleWithRunLoop(gDevice, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     

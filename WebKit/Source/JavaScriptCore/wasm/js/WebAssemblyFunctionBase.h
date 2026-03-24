@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/JSFunction.h>
@@ -60,6 +62,7 @@ public:
     const Wasm::FunctionSignature& signature() const;
     WasmOrJSImportableFunctionCallLinkInfo* callLinkInfo() const { return m_callLinkInfo; }
 
+    static constexpr ptrdiff_t offsetOfImportableFunction() { return OBJECT_OFFSETOF(WebAssemblyFunctionBase, m_importableFunction); }
     static constexpr ptrdiff_t offsetOfEntrypointLoadLocation() { return OBJECT_OFFSETOF(WebAssemblyFunctionBase, m_importableFunction) + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation(); }
     static constexpr ptrdiff_t offsetOfBoxedCallee() { return OBJECT_OFFSETOF(WebAssemblyFunctionBase, m_importableFunction) + WasmToWasmImportableFunction::offsetOfBoxedCallee(); }
     static constexpr ptrdiff_t offsetOfTargetInstance() { return OBJECT_OFFSETOF(WebAssemblyFunctionBase, m_importableFunction) + WasmToWasmImportableFunction::offsetOfTargetInstance(); }

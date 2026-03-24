@@ -83,6 +83,7 @@ public:
     std::optional<std::pair<int, int>> portAllocatorRange() const;
 
     virtual bool isLibWebRTCProvider() const { return false; }
+    virtual bool isWebCoreLibWebRTCProvider() const { return false; }
 
 protected:
 #if ENABLE(WEB_RTC)

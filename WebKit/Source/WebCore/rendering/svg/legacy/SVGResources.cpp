@@ -185,7 +185,7 @@ static inline bool isChainableResource(const SVGElement& element, const SVGEleme
     return false;
 }
 
-static inline LegacyRenderSVGResourceContainer* paintingResourceFromSVGPaint(TreeScope& treeScope, const Style::SVGPaint& paint, AtomString& id, bool& hasPendingResource)
+static inline CheckedPtr<LegacyRenderSVGResourceContainer> paintingResourceFromSVGPaint(TreeScope& treeScope, const Style::SVGPaint& paint, AtomString& id, bool& hasPendingResource)
 {
     auto paintURL = paint.tryAnyURL();
     if (!paintURL)
@@ -202,7 +202,7 @@ static inline LegacyRenderSVGResourceContainer* paintingResourceFromSVGPaint(Tre
     if (resourceType != PatternResourceType && resourceType != LinearGradientResourceType && resourceType != RadialGradientResourceType)
         return nullptr;
 
-    return container.unsafeGet();
+    return container;
 }
 
 std::unique_ptr<SVGResources> SVGResources::buildCachedResources(const RenderElement& renderer, const RenderStyle& style)
@@ -255,7 +255,7 @@ std::unique_ptr<SVGResources> SVGResources::buildCachedResources(const RenderEle
 
         if (style.hasPositionedMask()) {
             // FIXME: We should support all the values in the CSS mask property, but for now just use the first mask-image if it's a reference.
-            if (RefPtr maskImage = style.maskLayers().first().image().tryStyleImage()) {
+            if (RefPtr maskImage = style.maskLayers().usedFirst().image().tryStyleImage()) {
                 auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImage->url(), document);
                 if (auto* masker = getRenderSVGResourceById<LegacyRenderSVGResourceMasker>(treeScope, resourceID))
                     ensureResources(foundResources).setMasker(masker);
@@ -282,8 +282,8 @@ std::unique_ptr<SVGResources> SVGResources::buildCachedResources(const RenderEle
         if (style.hasFill()) {
             bool hasPendingResource = false;
             AtomString id;
-            if (auto* fill = paintingResourceFromSVGPaint(treeScope, style.fill(), id, hasPendingResource))
-                ensureResources(foundResources).setFill(fill);
+            if (CheckedPtr fill = paintingResourceFromSVGPaint(treeScope, style.fill(), id, hasPendingResource))
+                ensureResources(foundResources).setFill(fill.get());
             else if (hasPendingResource)
                 treeScope->addPendingSVGResource(id, element);
         }
@@ -291,8 +291,8 @@ std::unique_ptr<SVGResources> SVGResources::buildCachedResources(const RenderEle
         if (style.hasStroke()) {
             bool hasPendingResource = false;
             AtomString id;
-            if (auto* stroke = paintingResourceFromSVGPaint(treeScope, style.stroke(), id, hasPendingResource))
-                ensureResources(foundResources).setStroke(stroke);
+            if (CheckedPtr stroke = paintingResourceFromSVGPaint(treeScope, style.stroke(), id, hasPendingResource))
+                ensureResources(foundResources).setStroke(stroke.get());
             else if (hasPendingResource)
                 treeScope->addPendingSVGResource(id, element);
         }

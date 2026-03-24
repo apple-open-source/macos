@@ -33,11 +33,11 @@ namespace API {
 
 Ref<JSHandle> JSHandle::create(WebKit::JSHandleInfo&& info)
 {
-    return adoptRef(*new JSHandle(WTFMove(info)));
+    return adoptRef(*new JSHandle(WTF::move(info)));
 }
 
 JSHandle::JSHandle(WebKit::JSHandleInfo&& info)
-    : m_info(WTFMove(info))
+    : m_info(WTF::move(info))
 {
 }
 

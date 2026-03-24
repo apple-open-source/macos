@@ -45,7 +45,7 @@ class WebLockManager;
 template<typename> class ExceptionOr;
 
 class NavigatorBase : public RefCounted<NavigatorBase>, public ContextDestructionObserver, public CanMakeCheckedPtr<NavigatorBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(NavigatorBase);
+    WTF_MAKE_TZONE_ALLOCATED(NavigatorBase);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NavigatorBase);
 public:
     virtual ~NavigatorBase();

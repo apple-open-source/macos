@@ -203,15 +203,15 @@ public:
             return result;
         }
         
-        require(device_, exit);
+        __Require(device_, exit);
         
         port = IONotificationPortCreate(kIOMainPortDefault);
-        require(port, exit);
+        __Require(port, exit);
         
         IONotificationPortSetDispatchQueue (port, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
         
         service = IOHIDUserDeviceCopyService(device_);
-        require(service, exit);
+        __Require(service, exit);
         
         semphore = dispatch_semaphore_create(0);
         
@@ -273,20 +273,20 @@ public:
         CFDataRef   descriptorData    = NULL;
         CFPropertyListRef propertiesDict  = NULL;
         CFDataRef   propertyData = CFDataCreate(kCFAllocatorDefault, (const uint8_t*)properties.data(), properties.length());
-        require(propertyData, finish);
+        __Require(propertyData, finish);
 
         propertiesDict = CFPropertyListCreateWithData(kCFAllocatorDefault, propertyData, kCFPropertyListMutableContainers, NULL, NULL);
         CFRelease(propertyData);
-        require(propertiesDict, finish);
+        __Require(propertiesDict, finish);
         
         descriptorData = CFDataCreate(kCFAllocatorDefault, descriptor.data(), descriptor.size());
-        require(descriptorData, finish);
+        __Require(descriptorData, finish);
         
         CFDictionarySetValue((CFMutableDictionaryRef)propertiesDict, CFSTR(kIOHIDReportDescriptorKey), (const void*)descriptorData);
         CFRelease(descriptorData);
         
         device_ = IOHIDUserDeviceCreateWithOptions(kCFAllocatorDefault, (CFDictionaryRef)propertiesDict, options);
-        require_action(device_, finish, printf ("ERROR!IOHIDUserDeviceCreate=NULL\n"));
+        __Require_Action(device_, finish, printf ("ERROR!IOHIDUserDeviceCreate=NULL\n"));
 
     finish:
         

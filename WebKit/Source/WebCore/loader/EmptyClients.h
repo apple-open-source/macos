@@ -126,6 +126,8 @@ class EmptyChromeClient : public ChromeClient {
     IntRect rootViewToAccessibilityScreen(const IntRect& r) const final { return r; };
 #if PLATFORM(IOS_FAMILY)
     void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&) const final { };
+    void relayAriaNotifyNotification(AriaNotifyData&&) const final { };
+    void relayLiveRegionNotification(LiveRegionAnnouncementData&&) const final { };
 #endif
 
     void didFinishLoadingImageForElement(HTMLImageElement&) final { }
@@ -149,8 +151,8 @@ class EmptyChromeClient : public ChromeClient {
 
     RefPtr<DateTimeChooser> createDateTimeChooser(DateTimeChooserClient&) final;
 
-    void setTextIndicator(const TextIndicatorData&) const final;
-    void updateTextIndicator(const TextIndicatorData&) const final;
+    void setTextIndicator(RefPtr<TextIndicator>&&) const final;
+    void updateTextIndicator(RefPtr<TextIndicator>&&) const final;
 
     DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const final;
 
@@ -177,7 +179,7 @@ class EmptyChromeClient : public ChromeClient {
     void AXFinishFrameLoad() final { }
 #endif
 
-#if PLATFORM(PLAYSTATION)
+#if PLATFORM(PLAYSTATION) || PLATFORM(HAIKU)
     void postAccessibilityNotification(AccessibilityObject&, AXNotification) final { }
     void postAccessibilityNodeTextChangeNotification(AccessibilityObject*, AXTextChange, unsigned, const String&) final { }
     void postAccessibilityFrameLoadingEventNotification(AccessibilityObject*, AXLoadingEvent) final { }

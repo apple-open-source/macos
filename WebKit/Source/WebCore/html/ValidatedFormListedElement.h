@@ -53,7 +53,7 @@ public:
     WEBCORE_EXPORT bool willValidate() const override;
     void updateVisibleValidationMessage(Ref<HTMLElement> validationAnchor);
     void hideVisibleValidationMessage();
-    WEBCORE_EXPORT bool checkValidity(Vector<RefPtr<ValidatedFormListedElement>>* unhandledInvalidControls = nullptr);
+    WEBCORE_EXPORT bool checkValidity(Vector<Ref<ValidatedFormListedElement>>* unhandledInvalidControls = nullptr);
     bool reportValidity();
     RefPtr<HTMLElement> focusableValidationAnchorElement();
     void reportNonFocusableControlError();

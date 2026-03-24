@@ -26,13 +26,13 @@
 #include "config.h"
 #include "SkiaRecordingResult.h"
 
-#if USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#if USE(SKIA)
 
 namespace WebCore {
 
 SkiaRecordingResult::SkiaRecordingResult(sk_sp<SkPicture>&& picture, SkiaImageToFenceMap&& imageToFenceMap, const IntRect& recordRect, RenderingMode renderingMode, bool contentsOpaque, float contentsScale)
-    : m_picture(WTFMove(picture))
-    , m_imageToFenceMap(WTFMove(imageToFenceMap))
+    : m_picture(WTF::move(picture))
+    , m_imageToFenceMap(WTF::move(imageToFenceMap))
     , m_recordRect(recordRect)
     , m_renderingMode(renderingMode)
     , m_contentsOpaque(contentsOpaque)
@@ -44,7 +44,7 @@ SkiaRecordingResult::~SkiaRecordingResult() = default;
 
 Ref<SkiaRecordingResult> SkiaRecordingResult::create(sk_sp<SkPicture>&& picture, SkiaImageToFenceMap&& imageToFenceMap, const IntRect& recordRect, RenderingMode renderingMode, bool contentsOpaque, float contentsScale)
 {
-    return adoptRef(*new SkiaRecordingResult(WTFMove(picture), WTFMove(imageToFenceMap), recordRect, renderingMode, contentsOpaque, contentsScale));
+    return adoptRef(*new SkiaRecordingResult(WTF::move(picture), WTF::move(imageToFenceMap), recordRect, renderingMode, contentsOpaque, contentsScale));
 }
 
 bool SkiaRecordingResult::hasFences()
@@ -62,4 +62,4 @@ void SkiaRecordingResult::waitForFenceIfNeeded(const SkImage& image)
 
 } // namespace WebCore
 
-#endif // USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#endif // USE(SKIA)

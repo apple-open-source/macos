@@ -24,11 +24,11 @@
 #include <WebCore/GraphicsTypesGL.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSize.h>
+#include <WebCore/TransformationMatrix.h>
 #include <memory>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Platform.h>
-#include <wtf/Ref.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/UniqueRef.h>
@@ -48,6 +48,10 @@
 #include <wtf/MachSendRight.h>
 #endif
 
+#if ENABLE(WEBXR_HIT_TEST)
+#include <WebCore/ExceptionOr.h>
+#endif
+
 namespace PlatformXR {
 class TrackingAndRenderingClient;
 }
@@ -58,6 +62,7 @@ template<> struct IsDeprecatedWeakRefSmartPointerException<PlatformXR::TrackingA
 }
 
 namespace WebCore {
+enum class XRHitTestTrackableType : uint8_t;
 class SecurityOriginData;
 
 struct XRCanvasConfiguration;
@@ -88,7 +93,6 @@ enum class ReferenceSpaceType : uint8_t {
     LocalFloor,
     BoundedFloor,
     Unbounded,
-    Webgpu
 };
 
 enum class Eye : uint8_t {
@@ -106,6 +110,8 @@ enum class VisibilityState : uint8_t {
 using LayerHandle = int;
 
 #if ENABLE(WEBXR)
+using HitTestSource = unsigned;
+using TransientInputHitTestSource = unsigned;
 using InputSourceHandle = int;
 
 // https://immersive-web.github.io/webxr/#enumdef-xrhandedness
@@ -123,6 +129,12 @@ enum class XRTargetRayMode : uint8_t {
     TransientPointer,
 };
 
+enum class XREnvironmentBlendMode : uint8_t {
+    Opaque,
+    AlphaBlend,
+    Additive
+};
+
 // https://immersive-web.github.io/webxr/#feature-descriptor
 enum class SessionFeature : uint8_t {
     ReferenceSpaceTypeViewer,
@@ -133,7 +145,13 @@ enum class SessionFeature : uint8_t {
 #if ENABLE(WEBXR_HANDS)
     HandTracking,
 #endif
+#if ENABLE(WEBXR_HIT_TEST)
+    HitTest,
+#endif
     WebGPU,
+#if ENABLE(WEBXR_LAYERS)
+    Layers,
+#endif
 };
 
 inline SessionFeature sessionFeatureFromReferenceSpaceType(ReferenceSpaceType referenceSpaceType)
@@ -149,8 +167,6 @@ inline SessionFeature sessionFeatureFromReferenceSpaceType(ReferenceSpaceType re
         return SessionFeature::ReferenceSpaceTypeBoundedFloor;
     case ReferenceSpaceType::Unbounded:
         return SessionFeature::ReferenceSpaceTypeUnbounded;
-    case ReferenceSpaceType::Webgpu:
-        return SessionFeature::WebGPU;
     }
 
     ASSERT_NOT_REACHED();
@@ -175,9 +191,16 @@ inline std::optional<SessionFeature> parseSessionFeatureDescriptor(StringView st
     if (feature == "hand-tracking"_s)
         return SessionFeature::HandTracking;
 #endif
+#if ENABLE(WEBXR_HIT_TEST)
+    if (feature == "hit-test"_s)
+        return SessionFeature::HitTest;
+#endif
     if (feature == "webgpu"_s)
         return SessionFeature::WebGPU;
-
+#if ENABLE(WEBXR_LAYERS)
+    if (feature == "layers"_s)
+        return SessionFeature::Layers;
+#endif
     return std::nullopt;
 }
 
@@ -198,8 +221,16 @@ inline String sessionFeatureDescriptor(SessionFeature sessionFeature)
     case SessionFeature::HandTracking:
         return "hand-tracking"_s;
 #endif
+#if ENABLE(WEBXR_HIT_TEST)
+    case SessionFeature::HitTest:
+        return "hit-test"_s;
+#endif
     case SessionFeature::WebGPU:
         return "webgpu"_s;
+#if ENABLE(WEBXR_LAYERS)
+    case SessionFeature::Layers:
+        return "layers"_s;
+#endif
     default:
         ASSERT_NOT_REACHED();
         return ""_s;
@@ -259,6 +290,38 @@ struct RateMapDescription {
     Vector<float> verticalSamples;
 };
 
+#if ENABLE(WEBXR_HIT_TEST)
+struct Ray {
+    WebCore::FloatPoint3D origin;
+    WebCore::FloatPoint3D direction;
+};
+
+enum class InputSourceSpaceType : uint8_t {
+    TargetRay,
+    Grip,
+};
+
+struct InputSourceSpaceInfo {
+    InputSourceHandle handle;
+    InputSourceSpaceType type;
+};
+
+using NativeOriginInformation = Variant<ReferenceSpaceType, InputSourceSpaceInfo>;
+
+struct HitTestOptions {
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(HitTestOptions);
+    NativeOriginInformation nativeOrigin;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    Ray offsetRay;
+};
+struct TransientInputHitTestOptions {
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(TransientInputHitTestOptions);
+    String profile;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    Ray offsetRay;
+};
+#endif // ENABLE(WEBXR_HIT_TEST)
+
 struct FrameData {
     struct FloatQuaternion {
         float x { 0.0f };
@@ -312,6 +375,8 @@ struct FrameData {
 #if PLATFORM(COCOA)
         MachSendRight handle;
         bool isSharedTexture { false };
+
+        explicit operator bool() const { return !!handle; }
 #else
         Vector<WTF::UnixFileDescriptor> fds;
         Vector<uint32_t> strides;
@@ -374,6 +439,16 @@ struct FrameData {
 #endif
     };
 
+#if ENABLE(WEBXR_HIT_TEST)
+    struct HitTestResult {
+        Pose pose;
+    };
+    struct TransientInputHitTestResult {
+        InputSourceHandle inputSource;
+        Vector<HitTestResult> results;
+    };
+#endif
+
     bool isTrackingValid { false };
     bool isPositionValid { false };
     bool isPositionEmulated { false };
@@ -384,7 +459,12 @@ struct FrameData {
     StageParameters stageParameters;
     Vector<View> views;
     HashMap<LayerHandle, UniqueRef<LayerData>> layers;
+#if ENABLE(WEBXR_HIT_TEST)
+    HashMap<HitTestSource, Vector<HitTestResult>> hitTestResults;
+    HashMap<TransientInputHitTestSource, Vector<TransientInputHitTestResult>> transientInputHitTestResults;
+#endif
     Vector<InputSource> inputSources;
+    XREnvironmentBlendMode environmentBlendMode { XREnvironmentBlendMode::Opaque };
 
     FrameData copy() const;
 };
@@ -420,7 +500,7 @@ public:
     virtual void shutDownTrackingAndRendering() = 0;
     virtual void didCompleteShutdownTriggeredBySystem() { }
     TrackingAndRenderingClient* trackingAndRenderingClient() const { return m_trackingAndRenderingClient.get(); }
-    void setTrackingAndRenderingClient(WeakPtr<TrackingAndRenderingClient>&& client) { m_trackingAndRenderingClient = WTFMove(client); }
+    void setTrackingAndRenderingClient(WeakPtr<TrackingAndRenderingClient>&& client) { m_trackingAndRenderingClient = WTF::move(client); }
 
     // If this method returns true, that means the device will notify TrackingAndRenderingClient
     // when the platform has completed all steps to shut down the XR session.
@@ -428,6 +508,13 @@ public:
     virtual void initializeReferenceSpace(ReferenceSpaceType) = 0;
     virtual std::optional<LayerHandle> createLayerProjection(uint32_t width, uint32_t height, bool alpha) = 0;
     virtual void deleteLayer(LayerHandle) = 0;
+
+#if ENABLE(WEBXR_HIT_TEST)
+    virtual void requestHitTestSource(const HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<HitTestSource>)>&&) = 0;
+    virtual void deleteHitTestSource(HitTestSource) = 0;
+    virtual void requestTransientInputHitTestSource(const TransientInputHitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<TransientInputHitTestSource>)>&&) = 0;
+    virtual void deleteTransientInputHitTestSource(TransientInputHitTestSource) = 0;
+#endif
 
     struct LayerView {
         Eye eye { Eye::None };
@@ -468,6 +555,8 @@ protected:
     WeakPtr<TrackingAndRenderingClient> m_trackingAndRenderingClient;
 };
 
+using DeviceList = Vector<Ref<Device>>;
+
 class TrackingAndRenderingClient : public CanMakeWeakPtr<TrackingAndRenderingClient> {
 public:
     virtual ~TrackingAndRenderingClient() = default;
@@ -479,24 +568,6 @@ public:
     virtual void sessionDidEnd() = 0;
     virtual void updateSessionVisibilityState(VisibilityState) = 0;
     // FIXME: handle frame update
-};
-
-class Instance {
-public:
-    WEBCORE_EXPORT static Instance& singleton();
-
-    using DeviceList = Vector<Ref<Device>>;
-    WEBCORE_EXPORT void enumerateImmersiveXRDevices(CompletionHandler<void(const DeviceList&)>&&);
-
-private:
-    friend LazyNeverDestroyed<Instance>;
-    Instance();
-    ~Instance() = default;
-
-    struct Impl;
-    UniqueRef<Impl> m_impl;
-
-    DeviceList m_immersiveXRDevices;
 };
 
 inline FrameData FrameData::copy() const
@@ -512,6 +583,7 @@ inline FrameData FrameData::copy() const
     frameData.stageParameters = stageParameters;
     frameData.views = views;
     frameData.inputSources = inputSources;
+    frameData.environmentBlendMode = environmentBlendMode;
     return frameData;
 }
 

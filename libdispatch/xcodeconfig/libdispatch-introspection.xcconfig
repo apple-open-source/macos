@@ -18,6 +18,8 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 
+#include "libdispatch.xcconfig"
+
 BUILD_VARIANTS = normal
 INSTALL_PATH = /usr/lib/system/introspection
 

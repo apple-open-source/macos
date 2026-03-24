@@ -39,7 +39,7 @@ accessibility/atspi/AccessibilityObjectValueAtspi.cpp
 accessibility/atspi/AccessibilityRootAtspi.cpp
 accessibility/atspi/AXObjectCacheAtspi.cpp
 
-dom/wpe/PointerEventWPE.cpp
+dom/glib/PointerEventGLib.cpp
 
 editing/atspi/FrameSelectionAtspi.cpp
 
@@ -64,13 +64,16 @@ platform/glib/RunLoopObserverGLib.cpp
 
 platform/graphics/PlatformDisplay.cpp @no-unify
 
+platform/graphics/android/BufferFormatAndroid.cpp @no-unify
+
 platform/graphics/angle/PlatformDisplayANGLE.cpp @no-unify
 
+platform/graphics/glib/IconGLib.cpp
 platform/graphics/glib/ImageAdapterGLib.cpp
 platform/graphics/glib/SystemFontDatabaseGLib.cpp
 
-platform/graphics/android/GraphicsContextGLTextureMapperAndroid.h @no-unify
 platform/graphics/android/GraphicsContextGLTextureMapperAndroid.cpp @no-unify
+platform/graphics/android/PlatformDisplayAndroid.cpp @no-unify
 
 platform/graphics/egl/GLContext.cpp @no-unify
 platform/graphics/egl/GLContextLibWPE.cpp @no-unify
@@ -79,6 +82,7 @@ platform/graphics/egl/GLDisplay.cpp @no-unify
 platform/graphics/egl/GLFence.cpp @no-unify
 platform/graphics/egl/GLFenceEGL.cpp @no-unify
 platform/graphics/egl/GLFenceGL.cpp @no-unify
+platform/graphics/egl/PlatformDisplayDefault.cpp @no-unify
 platform/graphics/egl/PlatformDisplaySurfaceless.cpp @no-unify
 
 platform/graphics/gbm/DMABufBuffer.cpp
@@ -87,6 +91,7 @@ platform/graphics/gbm/GBMDevice.cpp
 platform/graphics/gbm/GraphicsContextGLTextureMapperGBM.cpp @no-unify
 platform/graphics/gbm/MemoryMappedGPUBuffer.cpp
 platform/graphics/gbm/PlatformDisplayGBM.cpp @no-unify
+platform/graphics/gbm/VivanteSuperTiledTexture.cpp
 
 platform/graphics/libwpe/PlatformDisplayLibWPE.cpp
 
@@ -107,5 +112,3 @@ platform/wpe/PasteboardWPE.cpp
 platform/wpe/PlatformScreenWPE.cpp
 
 platform/xdg/MIMETypeRegistryXdg.cpp
-
-platform/xr/openxr/PlatformXROpenXR.cpp

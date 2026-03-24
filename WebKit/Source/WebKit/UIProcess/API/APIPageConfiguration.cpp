@@ -109,7 +109,7 @@ const std::optional<WebCore::WindowFeatures>& PageConfiguration::windowFeatures(
 
 void PageConfiguration::setWindowFeatures(WebCore::WindowFeatures&& windowFeatures)
 {
-    m_data.windowFeatures = WTFMove(windowFeatures);
+    m_data.windowFeatures = WTF::move(windowFeatures);
 }
 
 const WebCore::Site& PageConfiguration::openedSite() const
@@ -139,7 +139,7 @@ auto PageConfiguration::openerInfo() const -> const std::optional<OpenerInfo>&
 
 void PageConfiguration::setOpenerInfo(std::optional<OpenerInfo>&& info)
 {
-    m_data.openerInfo = Box<std::optional<OpenerInfo>>::create(WTFMove(info));
+    m_data.openerInfo = Box<std::optional<OpenerInfo>>::create(WTF::move(info));
 }
 
 void PageConfiguration::consumeOpenerInfo()
@@ -171,7 +171,7 @@ Ref<WebKit::WebProcessPool> PageConfiguration::protectedProcessPool() const
 
 void PageConfiguration::setProcessPool(RefPtr<WebProcessPool>&& processPool)
 {
-    m_data.processPool = WTFMove(processPool);
+    m_data.processPool = WTF::move(processPool);
 }
 
 WebUserContentControllerProxy& PageConfiguration::userContentController() const
@@ -186,7 +186,7 @@ Ref<WebUserContentControllerProxy> PageConfiguration::protectedUserContentContro
 
 void PageConfiguration::setUserContentController(RefPtr<WebUserContentControllerProxy>&& userContentController)
 {
-    m_data.userContentController = WTFMove(userContentController);
+    m_data.userContentController = WTF::move(userContentController);
 }
 
 #if ENABLE(WK_WEB_EXTENSIONS)
@@ -197,7 +197,7 @@ const WTF::URL& PageConfiguration::requiredWebExtensionBaseURL() const
 
 void PageConfiguration::setRequiredWebExtensionBaseURL(WTF::URL&& baseURL)
 {
-    m_data.requiredWebExtensionBaseURL = WTFMove(baseURL);
+    m_data.requiredWebExtensionBaseURL = WTF::move(baseURL);
 }
 
 WebExtensionController* PageConfiguration::webExtensionController() const
@@ -212,7 +212,7 @@ RefPtr<WebExtensionController> PageConfiguration::protectedWebExtensionControlle
 
 void PageConfiguration::setWebExtensionController(RefPtr<WebExtensionController>&& webExtensionController)
 {
-    m_data.webExtensionController = WTFMove(webExtensionController);
+    m_data.webExtensionController = WTF::move(webExtensionController);
 }
 
 WebExtensionController* PageConfiguration::weakWebExtensionController() const
@@ -250,7 +250,7 @@ WebPageGroup* PageConfiguration::pageGroup()
 
 void PageConfiguration::setPageGroup(RefPtr<WebPageGroup>&& pageGroup)
 {
-    m_data.pageGroup = WTFMove(pageGroup);
+    m_data.pageGroup = WTF::move(pageGroup);
 }
 
 WebPreferences& PageConfiguration::preferences() const
@@ -265,7 +265,7 @@ Ref<WebPreferences> PageConfiguration::protectedPreferences() const
 
 void PageConfiguration::setPreferences(RefPtr<WebPreferences>&& preferences)
 {
-    m_data.preferences = WTFMove(preferences);
+    m_data.preferences = WTF::move(preferences);
 }
 
 WebPageProxy* PageConfiguration::relatedPage() const
@@ -285,7 +285,7 @@ WebPageProxy* PageConfiguration::pageToCloneSessionStorageFrom() const
 
 void PageConfiguration::setPageToCloneSessionStorageFrom(WeakPtr<WebPageProxy>&& pageToCloneSessionStorageFrom)
 {
-    m_data.pageToCloneSessionStorageFrom = WTFMove(pageToCloneSessionStorageFrom);
+    m_data.pageToCloneSessionStorageFrom = WTF::move(pageToCloneSessionStorageFrom);
 }
 
 WebPageProxy* PageConfiguration::alternateWebViewForNavigationGestures() const
@@ -295,7 +295,7 @@ WebPageProxy* PageConfiguration::alternateWebViewForNavigationGestures() const
 
 void PageConfiguration::setAlternateWebViewForNavigationGestures(WeakPtr<WebPageProxy>&& alternateWebViewForNavigationGestures)
 {
-    m_data.alternateWebViewForNavigationGestures = WTFMove(alternateWebViewForNavigationGestures);
+    m_data.alternateWebViewForNavigationGestures = WTF::move(alternateWebViewForNavigationGestures);
 }
 
 WebKit::VisitedLinkStore& PageConfiguration::visitedLinkStore() const
@@ -310,7 +310,7 @@ Ref<WebKit::VisitedLinkStore> PageConfiguration::protectedVisitedLinkStore() con
 
 void PageConfiguration::setVisitedLinkStore(RefPtr<WebKit::VisitedLinkStore>&& visitedLinkStore)
 {
-    m_data.visitedLinkStore = WTFMove(visitedLinkStore);
+    m_data.visitedLinkStore = WTF::move(visitedLinkStore);
 }
 
 WebsiteDataStore& PageConfiguration::websiteDataStore() const
@@ -337,7 +337,7 @@ Ref<WebsiteDataStore> PageConfiguration::protectedWebsiteDataStore() const
 
 void PageConfiguration::setWebsiteDataStore(RefPtr<WebsiteDataStore>&& websiteDataStore)
 {
-    m_data.websiteDataStore = WTFMove(websiteDataStore);
+    m_data.websiteDataStore = WTF::move(websiteDataStore);
 }
 
 WebsitePolicies& PageConfiguration::defaultWebsitePolicies() const
@@ -352,7 +352,7 @@ Ref<WebsitePolicies> PageConfiguration::protectedDefaultWebsitePolicies() const
 
 void PageConfiguration::setDefaultWebsitePolicies(RefPtr<WebsitePolicies>&& policies)
 {
-    m_data.defaultWebsitePolicies = WTFMove(policies);
+    m_data.defaultWebsitePolicies = WTF::move(policies);
 }
 
 RefPtr<WebURLSchemeHandler> PageConfiguration::urlSchemeHandlerForURLScheme(const WTF::String& scheme)
@@ -362,7 +362,7 @@ RefPtr<WebURLSchemeHandler> PageConfiguration::urlSchemeHandlerForURLScheme(cons
 
 void PageConfiguration::setURLSchemeHandlerForURLScheme(Ref<WebURLSchemeHandler>&& handler, const WTF::String& scheme)
 {
-    m_data.urlSchemeHandlers.set(scheme, WTFMove(handler));
+    m_data.urlSchemeHandlers.set(scheme, WTF::move(handler));
 }
 
 bool PageConfiguration::lockdownModeEnabled() const
@@ -372,10 +372,10 @@ bool PageConfiguration::lockdownModeEnabled() const
     return lockdownModeEnabledBySystem();
 }
 
-bool PageConfiguration::enhancedSecurityEnabled() const
+bool PageConfiguration::isEnhancedSecurityEnabled() const
 {
     if (RefPtr policies = m_data.defaultWebsitePolicies.getIfExists())
-        return policies->enhancedSecurityEnabled();
+        return policies->isEnhancedSecurityEnabled();
     return false;
 }
 
@@ -437,7 +437,7 @@ RefPtr<ApplicationManifest> PageConfiguration::protectedApplicationManifest() co
 
 void PageConfiguration::setApplicationManifest(RefPtr<ApplicationManifest>&& applicationManifest)
 {
-    m_data.applicationManifest = WTFMove(applicationManifest);
+    m_data.applicationManifest = WTF::move(applicationManifest);
 }
 #endif
 

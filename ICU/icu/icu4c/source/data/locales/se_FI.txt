@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 se_FI{
     NumberElements{
         latn{
@@ -319,20 +319,20 @@ se_FI{
             }
             eras{
                 abbreviated{
-                    "oKr.",
-                    "mKr.",
+                    0{"oKr."}
+                    1{"mKr."}
                 }
                 abbreviated%variant{
-                    "oáá.",
-                    "áá.",
+                    0{"oáá."}
+                    1{"áá."}
                 }
                 wide{
-                    "ovdal Kristusa",
-                    "maŋŋel Kristusa",
+                    0{"ovdal Kristusa"}
+                    1{"maŋŋel Kristusa"}
                 }
                 wide%variant{
-                    "ovdal áigelogu",
-                    "áigelohku",
+                    0{"ovdal áigelogu"}
+                    1{"áigelohku"}
                 }
             }
             intervalFormats{

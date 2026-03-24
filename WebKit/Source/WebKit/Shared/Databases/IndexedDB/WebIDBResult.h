@@ -45,7 +45,7 @@ public:
 
     WebIDBResult(const WebCore::IDBResultData& resultData, Vector<SandboxExtension::Handle>&& handles)
         : m_resultData(resultData)
-        , m_handles(WTFMove(handles))
+        , m_handles(WTF::move(handles))
     {
     }
     
@@ -56,7 +56,7 @@ public:
     const Vector<SandboxExtension::Handle>& handles() const { return m_handles; }
 
 private:
-    friend struct IPC::ArgumentCoder<WebIDBResult, void>;
+    friend struct IPC::ArgumentCoder<WebIDBResult>;
     WebCore::IDBResultData m_resultData;
     Vector<SandboxExtension::Handle> m_handles;
 };

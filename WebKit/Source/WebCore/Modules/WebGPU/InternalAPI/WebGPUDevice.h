@@ -95,7 +95,7 @@ public:
 
     void setLabel(String&& label)
     {
-        m_label = WTFMove(label);
+        m_label = WTF::move(label);
         setLabelInternal(m_label);
     }
 
@@ -147,8 +147,8 @@ public:
 
 protected:
     Device(Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits)
-        : m_features(WTFMove(features))
-        , m_limits(WTFMove(limits))
+        : m_features(WTF::move(features))
+        , m_limits(WTF::move(limits))
     {
     }
 

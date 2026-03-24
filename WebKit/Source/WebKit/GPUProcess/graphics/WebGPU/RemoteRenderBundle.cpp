@@ -41,7 +41,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteRenderBundle);
 RemoteRenderBundle::RemoteRenderBundle(WebCore::WebGPU::RenderBundle& renderBundle, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(renderBundle)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -62,7 +62,7 @@ void RemoteRenderBundle::stopListeningForIPC()
 
 void RemoteRenderBundle::setLabel(String&& label)
 {
-    Ref { m_backing }->setLabel(WTFMove(label));
+    Ref { m_backing }->setLabel(WTF::move(label));
 }
 
 Ref<IPC::StreamServerConnection> RemoteRenderBundle::protectedStreamConnection() const

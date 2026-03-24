@@ -89,14 +89,14 @@ static HTMLElement* invokerForOpenPopover(const Node* candidatePopover)
     return nullptr;
 }
 
-static Element* openPopoverForInvoker(const Node* candidateInvoker)
+static RefPtr<Element> openPopoverForInvoker(const Node* candidateInvoker)
 {
     RefPtr invoker = dynamicDowncast<HTMLElement>(candidateInvoker);
     if (!invoker)
         return nullptr;
     RefPtr popover = invoker->invokedPopover();
     if (popover && popover->isPopoverShowing() && popover->popoverData()->invoker() == invoker)
-        return popover.unsafeGet();
+        return popover;
     return nullptr;
 }
 
@@ -516,8 +516,8 @@ LocalFrame* FocusController::focusedOrMainFrame() const
 {
     if (auto* frame = focusedLocalFrame())
         return frame;
-    if (RefPtr localMainFrame = m_page->localMainFrame())
-        return localMainFrame.unsafeGet();
+    if (auto* localMainFrame = m_page->localMainFrame())
+        return localMainFrame;
     ASSERT(m_page->settings().siteIsolationEnabled());
     return nullptr;
 }
@@ -751,7 +751,7 @@ FocusableElementSearchResult FocusController::findFocusableElementAcrossFocusSco
             auto candidateInInnerScope = findFocusableElementWithinScope(direction, FocusNavigationScope::scopeOwnedByScopeOwner(*currentElement), nullptr, focusEventData);
             if (candidateInInnerScope.element)
                 return candidateInInnerScope;
-        } else if (auto* popover = openPopoverForInvoker(currentNode)) {
+        } else if (RefPtr popover = openPopoverForInvoker(currentNode)) {
             auto candidateInInnerScope = findFocusableElementWithinScope(direction, FocusNavigationScope::scopeOwnedByScopeOwner(*popover), nullptr, focusEventData);
             if (candidateInInnerScope.element)
                 return candidateInInnerScope;
@@ -1047,7 +1047,7 @@ bool FocusController::setFocusedElement(Element* element, Frame* newFocusedFrame
     if (oldFocusedElement && oldFocusedElement->isRootEditableElement() && !relinquishesEditingFocus(*oldFocusedElement))
         return false;
 
-    if (shouldClearSelectionWhenChangingFocusedElement(page, WTFMove(oldFocusedElement), element))
+    if (shouldClearSelectionWhenChangingFocusedElement(page, WTF::move(oldFocusedElement), element))
         clearSelectionIfNeeded(oldFocusedFrame.get(), newFocusedLocalFrame.get(), element);
 
     if (!element) {

@@ -34,8 +34,8 @@ struct CookieListItem {
     CookieListItem() = default;
 
     CookieListItem(Cookie&& cookie)
-        : name(WTFMove(cookie.name))
-        , value(WTFMove(cookie.value))
+        : name(WTF::move(cookie.name))
+        , value(WTF::move(cookie.value))
     { }
 
     String name;

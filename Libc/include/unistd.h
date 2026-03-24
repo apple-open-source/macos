@@ -607,13 +607,13 @@ __END_DECLS
 #define	F_TLOCK         2      /* test and lock a section for exclusive use */
 #define	F_TEST          3      /* test a section for locks by other procs */
 
- __BEGIN_DECLS
-
 /* Begin XSI */
 /* Removed in Issue 7 */
 #if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
 #include <_ctermid.h>
 #endif
+
+__BEGIN_DECLS
 
 /* Removed in Issue 6 */
 #if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L

@@ -1489,7 +1489,6 @@ op :wasm_to_wasm_ipint_wrapper_entry
 op :wasm_to_js_wrapper_entry
 op :ipint_trampoline
 op :ipint_entry
-op :ipint_simd_entry
 op :ipint_catch_entry
 op :ipint_catch_all_entry
 op :ipint_table_catch_entry

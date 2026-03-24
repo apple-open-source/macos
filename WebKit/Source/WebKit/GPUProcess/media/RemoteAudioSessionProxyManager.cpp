@@ -285,7 +285,7 @@ void RemoteAudioSessionProxyManager::updatePresentingProcesses()
         presentingProcesses.append(*token);
 
     if (!presentingProcesses.isEmpty())
-        AudioSession::singleton().setPresentingProcesses(WTFMove(presentingProcesses));
+        AudioSession::singleton().setPresentingProcesses(WTF::move(presentingProcesses));
 }
 
 void RemoteAudioSessionProxyManager::beginInterruptionRemote()

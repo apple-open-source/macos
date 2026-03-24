@@ -34,8 +34,8 @@ namespace WebKit {
 
 class NetworkServiceInitializerDelegate : public XPCServiceInitializerDelegate {
 public:
-    NetworkServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
-        : XPCServiceInitializerDelegate(WTFMove(connection), initializerMessage)
+    NetworkServiceInitializerDelegate(XPCObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+        : XPCServiceInitializerDelegate(WTF::move(connection), initializerMessage)
     {
     }
 };
@@ -43,7 +43,7 @@ public:
 template<>
 void initializeAuxiliaryProcess<NetworkProcess>(AuxiliaryProcessInitializationParameters&& parameters)
 {
-    static NeverDestroyed<NetworkProcess> networkProcess(WTFMove(parameters));
+    static NeverDestroyed<NetworkProcess> networkProcess(WTF::move(parameters));
 }
 
 } // namespace WebKit

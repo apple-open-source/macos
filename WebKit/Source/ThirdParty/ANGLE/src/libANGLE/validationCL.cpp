@@ -592,8 +592,8 @@ cl_int ValidateImageForDevice(const Image &image,
     // CL_INVALID_VALUE if the region being read or written
     // specified by origin and region is out of bounds.
 
-    if (!image.isRegionValid(cl::MemOffsets{origin[0], origin[1], origin[2]},
-                             cl::Coordinate{region[0], region[1], region[2]}))
+    if (!image.isRegionValid(cl::Offset{origin[0], origin[1], origin[2]},
+                             cl::Extents{region[0], region[1], region[2]}))
     {
         return CL_INVALID_VALUE;
     }
@@ -4295,6 +4295,16 @@ cl_int ValidateIcdGetPlatformIDsKHR(cl_uint num_entries,
     {
         return CL_INVALID_VALUE;
     }
+    return CL_SUCCESS;
+}
+
+cl_int ValidateIcdGetFunctionAddressForPlatformKHR(cl_platform_id platform, const char *func_name)
+{
+    return CL_SUCCESS;
+}
+
+cl_int ValidateIcdSetPlatformDispatchDataKHR(cl_platform_id platform, const void *dispatch_data)
+{
     return CL_SUCCESS;
 }
 

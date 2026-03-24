@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
  * Copyright (c) 1994 SigmaSoft, Th. Lockert <tholo@sigmasoft.com>
  * All rights reserved.
  *
@@ -25,9 +27,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/ftok.c,v 1.7 2004/06/01 06:53:07 tjr Exp $");
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ipc.h>
@@ -40,5 +39,6 @@ ftok(const char *path, int id)
 	if (stat(path, &st) < 0)
 		return (key_t)-1;
 
-	return (key_t) (id << 24 | (st.st_dev & 0xff) << 16 | (st.st_ino & 0xffff));
+	return ((key_t)((unsigned int)id << 24 | (st.st_dev & 0xff) << 16 |
+	    (st.st_ino & 0xffff)));
 }

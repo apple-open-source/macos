@@ -32,15 +32,14 @@ namespace WebCore {
 namespace Style {
 
 namespace Calculation {
+class Value;
 struct Child;
 }
 
-class CalculationValue;
-
 // Non-generic base type to allow code sharing and out-of-line definitions.
 struct UnevaluatedCalculationBase {
-    explicit UnevaluatedCalculationBase(CalculationValue&);
-    explicit UnevaluatedCalculationBase(Ref<CalculationValue>&&);
+    explicit UnevaluatedCalculationBase(Calculation::Value&);
+    explicit UnevaluatedCalculationBase(Ref<Calculation::Value>&&);
     explicit UnevaluatedCalculationBase(Calculation::Child&&, CSS::Category, CSS::Range);
 
     WEBCORE_EXPORT UnevaluatedCalculationBase(const UnevaluatedCalculationBase&);
@@ -50,15 +49,15 @@ struct UnevaluatedCalculationBase {
 
     WEBCORE_EXPORT ~UnevaluatedCalculationBase();
 
-    Ref<CalculationValue> protectedCalculation() const;
+    Ref<Calculation::Value> protectedCalculation() const;
 
     bool equal(const UnevaluatedCalculationBase&) const;
 
 private:
-    Ref<CalculationValue> calc;
+    Ref<Calculation::Value> calc;
 };
 
-// Wrapper for `Ref<CalculationValue>` that includes range and category as part of the type.
+// Wrapper for `Ref<Calculation::Value>` that includes range and category as part of the type.
 template<CSS::Numeric CSSType> struct UnevaluatedCalculation : UnevaluatedCalculationBase {
     using UnevaluatedCalculationBase::UnevaluatedCalculationBase;
     using UnevaluatedCalculationBase::operator=;
@@ -67,13 +66,13 @@ template<CSS::Numeric CSSType> struct UnevaluatedCalculation : UnevaluatedCalcul
     static constexpr auto range = CSS::range;
     static constexpr auto category = CSS::category;
 
-    explicit UnevaluatedCalculation(CalculationValue& calculationValue)
+    explicit UnevaluatedCalculation(Calculation::Value& calculationValue)
         : UnevaluatedCalculationBase(calculationValue)
     {
     }
 
     explicit UnevaluatedCalculation(Calculation::Child&& child)
-        : UnevaluatedCalculationBase(WTFMove(child), category, range)
+        : UnevaluatedCalculationBase(WTF::move(child), category, range)
     {
     }
 

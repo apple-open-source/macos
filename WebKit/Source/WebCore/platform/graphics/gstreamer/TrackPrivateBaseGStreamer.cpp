@@ -65,7 +65,7 @@ TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivat
     , m_owner(owner)
     , m_shouldHandleStreamStartEvent(shouldHandleStreamStartEvent)
 {
-    setPad(WTFMove(pad));
+    setPad(WTF::move(pad));
     ASSERT(m_pad);
 
     // We can't call notifyTrackOfTagsChanged() directly, because we need tagsChanged() to setup m_tags.
@@ -81,7 +81,7 @@ TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivat
     , m_shouldUsePadStreamId(false)
     , m_shouldHandleStreamStartEvent(false)
 {
-    setPad(WTFMove(pad));
+    setPad(WTF::move(pad));
     ASSERT(m_pad);
 
     // We can't call notifyTrackOfTagsChanged() directly, because we need tagsChanged() to setup m_tags.
@@ -91,7 +91,7 @@ TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivat
 TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivateBase* owner, unsigned index, GstStream* stream)
     : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
     , m_index(index)
-    , m_gstStreamId(AtomString(unsafeSpan8(gst_stream_get_stream_id(stream))))
+    , m_gstStreamId(byteCast<Latin1Character>(unsafeSpan(gst_stream_get_stream_id(stream))))
     , m_id(parseStreamId(m_gstStreamId).value_or(index))
     , m_stream(stream)
     , m_type(type)
@@ -109,14 +109,14 @@ TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivat
 
 void TrackPrivateBaseGStreamer::setPad(GRefPtr<GstPad>&& pad)
 {
-    ASSERT(isMainThread()); // because this code writes to AtomString members.
+    ASSERT(isMainThread());
 
     if (m_bestUpstreamPad && m_eventProbe)
         gst_pad_remove_probe(m_bestUpstreamPad.get(), m_eventProbe);
 
-    m_pad = WTFMove(pad);
+    m_pad = WTF::move(pad);
     m_bestUpstreamPad = findBestUpstreamPad(m_pad);
-    m_gstStreamId = AtomString(unsafeSpan8(gst_pad_get_stream_id(m_pad.get())));
+    m_gstStreamId = byteCast<Latin1Character>(unsafeSpan(gst_pad_get_stream_id(m_pad.get())));
 
     if (m_shouldUsePadStreamId)
         m_id = parseStreamId(m_gstStreamId).value_or(m_index);
@@ -201,8 +201,8 @@ void TrackPrivateBaseGStreamer::tagsChanged()
                 GstTagList* tagsFromEvent = nullptr;
                 gst_event_parse_tag(tagEvent.get(), &tagsFromEvent);
                 tags = adoptGRef(gst_tag_list_copy(tagsFromEvent));
-                String language;
-                if (getTag(tags.get(), GST_TAG_LANGUAGE_CODE, language))
+                auto language = getTag(tags.get(), ASCIILiteral::fromLiteralUnsafe(GST_TAG_LANGUAGE_CODE));
+                if (language)
                     break;
             }
             i++;
@@ -224,35 +224,30 @@ void TrackPrivateBaseGStreamer::tagsChanged()
     });
 }
 
-bool TrackPrivateBaseGStreamer::getLanguageCode(GstTagList* tags, AtomString& value)
+std::optional<String> TrackPrivateBaseGStreamer::getLanguageCode(GstTagList* tags)
 {
-    String language;
-    if (getTag(tags, GST_TAG_LANGUAGE_CODE, language)) {
-        AtomString convertedLanguage = AtomString(unsafeSpan8(gst_tag_get_language_code_iso_639_1(language.utf8().data())));
-        GST_DEBUG("Converted track %" PRIu64 "'s language code to %s.", m_id, convertedLanguage.string().utf8().data());
-        if (convertedLanguage != value) {
-            value = WTFMove(convertedLanguage);
-            return true;
-        }
+    auto language = getTag(tags, ASCIILiteral::fromLiteralUnsafe(GST_TAG_LANGUAGE_CODE));
+    if (language) {
+        auto convertedLanguage = CStringView::unsafeFromUTF8(gst_tag_get_language_code_iso_639_1(language->utf8().data()));
+        GST_DEBUG("Converted track %" PRIu64 "'s language code to %s.", m_id, convertedLanguage.utf8());
+        return String(convertedLanguage.span());
     }
-    return false;
+    return std::nullopt;
 }
 
-template<class StringType>
-bool TrackPrivateBaseGStreamer::getTag(GstTagList* tags, const gchar* tagName, StringType& value)
+std::optional<String> TrackPrivateBaseGStreamer::getTag(GstTagList* tags, ASCIILiteral tagName)
 {
     GUniqueOutPtr<gchar> tagValue;
-    if (gst_tag_list_get_string(tags, tagName, &tagValue.outPtr())) {
-        GST_DEBUG("Track %" PRIu64 " got %s %s.", m_id, tagName, tagValue.get());
-        value = StringType { String::fromLatin1(tagValue.get()) };
-        return true;
+    if (gst_tag_list_get_string(tags, tagName.characters(), &tagValue.outPtr())) {
+        GST_DEBUG("Track %" PRIu64 " got %s %s.", m_id, tagName.characters(), tagValue.get());
+        return String(byteCast<char8_t>(unsafeSpan(tagValue.get())));
     }
-    return false;
+    return std::nullopt;
 }
 
 void TrackPrivateBaseGStreamer::notifyTrackOfTagsChanged()
 {
-    ASSERT(isMainThread()); // because this code writes to AtomString members.
+    ASSERT(isMainThread());
     GRefPtr<GstTagList> tags;
     {
         Locker locker { m_tagMutex };
@@ -264,20 +259,22 @@ void TrackPrivateBaseGStreamer::notifyTrackOfTagsChanged()
 
     tagsChanged(GRefPtr<GstTagList>(tags));
 
-    if (getTag(tags.get(), GST_TAG_TITLE, m_label)) {
+    auto label = getTag(tags.get(), ASCIILiteral::fromLiteralUnsafe(GST_TAG_TITLE));
+    if (label) {
+        m_label = *label;
         m_owner->notifyMainThreadClient([&](auto& client) {
             client.labelChanged(m_label);
         });
     }
 
-    AtomString language;
-    if (!getLanguageCode(tags.get(), language))
+    auto language = getLanguageCode(tags.get());
+    if (!language)
         return;
 
-    if (language == m_language)
+    if (*language == m_language)
         return;
 
-    m_language = language;
+    m_language = *language;
     m_owner->notifyMainThreadClient([&](auto& client) {
         client.languageChanged(m_language);
     });
@@ -288,15 +285,15 @@ void TrackPrivateBaseGStreamer::notifyTrackOfStreamChanged()
     if (!m_pad)
         return;
 
-    auto gstStreamId = AtomString(unsafeSpan8(gst_pad_get_stream_id(m_pad.get())));
+    String gstStreamId = byteCast<Latin1Character>(unsafeSpan(gst_pad_get_stream_id(m_pad.get())));
     auto streamId = parseStreamId(gstStreamId);
     if (!streamId)
         return;
 
-    ASSERT(isMainThread()); // because this code writes to AtomString members.
+    ASSERT(isMainThread());
     m_gstStreamId = gstStreamId;
     m_id = streamId.value();
-    GST_INFO("Track %" PRIu64 " got stream start. GStreamer stream-id: %s", m_id, m_gstStreamId.string().utf8().data());
+    GST_INFO("Track %" PRIu64 " got stream start. GStreamer stream-id: %s", m_id, m_gstStreamId.utf8().data());
 }
 
 void TrackPrivateBaseGStreamer::streamChanged()
@@ -317,8 +314,8 @@ void TrackPrivateBaseGStreamer::installUpdateConfigurationHandlers()
             if (!caps)
                 return;
 
-            track->m_taskQueue.enqueueTask([track, caps = WTFMove(caps)]() mutable {
-                track->capsChanged(getStreamIdFromPad(track->m_pad.get()).value_or(track->m_index), WTFMove(caps));
+            track->m_taskQueue.enqueueTask([track, caps = WTF::move(caps)]() mutable {
+                track->capsChanged(getStreamIdFromPad(track->m_pad.get()).value_or(track->m_index), WTF::move(caps));
             });
         }), this);
         g_signal_connect_swapped(m_pad.get(), "notify::tags", G_CALLBACK(+[](TrackPrivateBaseGStreamer* track) {
@@ -332,7 +329,7 @@ void TrackPrivateBaseGStreamer::installUpdateConfigurationHandlers()
         g_signal_connect_swapped(m_stream.get(), "notify::caps", G_CALLBACK(+[](TrackPrivateBaseGStreamer* track) {
             track->m_taskQueue.enqueueTask([track]() {
                 auto caps = adoptGRef(gst_stream_get_caps(track->m_stream.get()));
-                track->capsChanged(getStreamIdFromStream(track->m_stream.get()).value_or(track->m_index), WTFMove(caps));
+                track->capsChanged(getStreamIdFromStream(track->m_stream.get()).value_or(track->m_index), WTF::move(caps));
             });
         }), this);
 
@@ -342,12 +339,12 @@ void TrackPrivateBaseGStreamer::installUpdateConfigurationHandlers()
         g_signal_connect_swapped(m_stream.get(), "notify::tags", G_CALLBACK(+[](TrackPrivateBaseGStreamer* track) {
             if (isMainThread()) {
                 auto tags = adoptGRef(gst_stream_get_tags(track->m_stream.get()));
-                track->updateConfigurationFromTags(WTFMove(tags));
+                track->updateConfigurationFromTags(WTF::move(tags));
                 return;
             }
             track->m_taskQueue.enqueueTask([track]() {
                 auto tags = adoptGRef(gst_stream_get_tags(track->m_stream.get()));
-                track->updateConfigurationFromTags(WTFMove(tags));
+                track->updateConfigurationFromTags(WTF::move(tags));
             });
         }), this);
     }
@@ -369,12 +366,12 @@ GRefPtr<GstTagList> TrackPrivateBaseGStreamer::getAllTags(const GRefPtr<GstPad>&
 
 bool TrackPrivateBaseGStreamer::updateTrackIDFromTags(const GRefPtr<GstTagList>& tags)
 {
-    ASSERT(isMainThread()); // because this code writes to AtomString members.
+    ASSERT(isMainThread());
     GUniqueOutPtr<char> trackIDString;
     if (!gst_tag_list_get_string(tags.get(), "container-specific-track-id", &trackIDString.outPtr()))
         return false;
 
-    auto trackID = WTF::parseInteger<TrackID>(StringView { unsafeSpan(trackIDString.get()) });
+    auto trackID = WTF::parseInteger<TrackID>(byteCast<Latin1Character>(unsafeSpan(trackIDString.get())));
     if (trackID && *trackID != m_trackID.value_or(0)) {
         m_trackID = *trackID;
         ASSERT(m_trackID);

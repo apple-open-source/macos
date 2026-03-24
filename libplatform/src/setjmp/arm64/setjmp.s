@@ -86,6 +86,12 @@ ENTRY_POINT(__longjmp)
 	csinc	w0, w1, wzr, ne
 	ret
 
+.macro FUNC_PROLOGUE
+.endmacro
+.macro FUNC_EPILOGUE_TAILCALL f
+	b \f
+.endmacro
+
 /* int sigsetjmp(sigjmp_buf env, int savemask); */
 ENTRY_POINT(_sigsetjmp)
 	str		w1, [x0, JMP_sigflag]
@@ -96,6 +102,7 @@ ENTRY_POINT(_sigsetjmp)
 
 /* int setjmp(jmp_buf env); */
 ENTRY_POINT(_setjmp)
+	FUNC_PROLOGUE
 	stp		x21, lr, [x0] // Store x21 and lr in jmpbuf (for now)
 	mov		x21, x0		  // x21 = x0
 
@@ -116,8 +123,8 @@ ENTRY_POINT(_setjmp)
 
 	mov		x0, x21		// x0 = x21
 	ldp		x21, lr, [x0]
-	b		__setjmp
 
+	FUNC_EPILOGUE_TAILCALL __setjmp
 
 /* void siglongjmp(sigjmp_buf env, int val); */
 ENTRY_POINT(_siglongjmp)

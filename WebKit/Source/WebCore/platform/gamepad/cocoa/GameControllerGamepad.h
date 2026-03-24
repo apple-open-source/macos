@@ -30,6 +30,7 @@
 #include "GameControllerHapticEngines.h"
 #include <WebCore/PlatformGamepad.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 
 OBJC_CLASS GCController;
 OBJC_CLASS GCControllerAxisInput;
@@ -40,17 +41,14 @@ namespace WebCore {
 class GameControllerGamepad;
 }
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::GameControllerGamepad> : std::true_type { };
-}
-
 namespace WebCore {
 
 class GameControllerHapticEngines;
 
-class GameControllerGamepad : public PlatformGamepad {
+class GameControllerGamepad final : public PlatformGamepad {
     WTF_MAKE_NONCOPYABLE(GameControllerGamepad);
+    WTF_MAKE_TZONE_ALLOCATED(GameControllerGamepad);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GameControllerGamepad);
 public:
     GameControllerGamepad(GCController *, unsigned index);
     ~GameControllerGamepad();

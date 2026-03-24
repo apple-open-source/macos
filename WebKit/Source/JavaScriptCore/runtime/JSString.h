@@ -158,7 +158,7 @@ private:
     JSString(VM& vm, Ref<StringImpl>&& value)
         : JSCell(CreatingWellDefinedBuiltinCell, vm.stringStructure.get()->id(), defaultTypeInfoBlob())
     {
-        new (&uninitializedValueInternal()) String(WTFMove(value));
+        new (&uninitializedValueInternal()) String(WTF::move(value));
     }
 
     JSString(VM& vm)
@@ -197,7 +197,7 @@ private:
         unsigned length = value->length();
         ASSERT(length > 0);
         size_t cost = value->cost();
-        JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, WTFMove(value));
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, WTF::move(value));
         newString->finishCreation(vm, length, cost);
         return newString;
     }
@@ -207,14 +207,14 @@ private:
         unsigned length = value->length();
         ASSERT(length > 0);
         size_t cost = value->cost();
-        JSString* newString = new (NotNull, allocateCell<JSString>(vm, deferralContext)) JSString(vm, WTFMove(value));
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm, deferralContext)) JSString(vm, WTF::move(value));
         newString->finishCreation(vm, deferralContext, length, cost);
         return newString;
     }
     static JSString* createHasOtherOwner(VM& vm, Ref<StringImpl>&& value)
     {
         unsigned length = value->length();
-        JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, WTFMove(value));
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, WTF::move(value));
         newString->finishCreation(vm, length);
         return newString;
     }
@@ -792,7 +792,7 @@ inline StringImpl* JSString::tryGetValueImpl() const
 
 inline JSString* asString(JSValue value)
 {
-    ASSERT(value.isString());
+    ASSERT(value.isStringSlow());
     return jsCast<JSString*>(value.asCell());
 }
 
@@ -847,10 +847,10 @@ ALWAYS_INLINE void JSString::swapToAtomString(VM& vm, RefPtr<AtomStringImpl>&& a
     // This is OK since (1) when finishing GC concurrent compiler threads and GC threads are stopped, and (2) AtomString is already held in the atom table,
     // and we anyway keep this old string until this JSString* is GC-ed. So it does not increase any memory pressure, we release at the same timing.
     ASSERT(!isCompilationThread() && !Thread::mayBeGCThread());
-    String target(WTFMove(atom));
+    String target(WTF::move(atom));
     WTF::storeStoreFence(); // Ensure AtomStringImpl's string is fully initialized when it is exposed to concurrent threads.
     valueInternal().swap(target);
-    vm.heap.appendPossiblyAccessedStringFromConcurrentThreads(WTFMove(target));
+    vm.heap.appendPossiblyAccessedStringFromConcurrentThreads(WTF::move(target));
 }
 
 ALWAYS_INLINE Identifier JSString::toIdentifier(JSGlobalObject* globalObject) const
@@ -895,7 +895,7 @@ ALWAYS_INLINE GCOwnedDataScope<AtomStringImpl*> JSString::toExistingAtomString(J
     if (valueInternal().impl()->isAtom())
         return { this, static_cast<AtomStringImpl*>(valueInternal().impl()) };
     if (auto atom = AtomStringImpl::lookUp(valueInternal().impl())) {
-        swapToAtomString(getVM(globalObject), WTFMove(atom));
+        swapToAtomString(getVM(globalObject), WTF::move(atom));
         return { this, static_cast<AtomStringImpl*>(valueInternal().impl()) };
     }
     return { };
@@ -978,22 +978,22 @@ inline JSString* jsString(VM& vm, StringView s)
             return vm.smallStrings.singleCharacterString(c);
     }
     auto impl = s.is8Bit() ? StringImpl::create(s.span8()) : StringImpl::create(s.span16());
-    return JSString::create(vm, WTFMove(impl));
+    return JSString::create(vm, WTF::move(impl));
 }
 
 ALWAYS_INLINE JSString* jsString(VM& vm, RefPtr<AtomStringImpl>&& s)
 {
-    return jsString(vm, String { WTFMove(s) });
+    return jsString(vm, String { WTF::move(s) });
 }
 
 ALWAYS_INLINE JSString* jsString(VM& vm, Ref<AtomStringImpl>&& s)
 {
-    return jsString(vm, String { WTFMove(s) });
+    return jsString(vm, String { WTF::move(s) });
 }
 
 ALWAYS_INLINE JSString* jsString(VM& vm, Ref<StringImpl>&& s)
 {
-    return jsString(vm, String { WTFMove(s) });
+    return jsString(vm, String { WTF::move(s) });
 }
 
 inline JSString* tryJSSubstringImpl(VM& vm, JSGlobalObject* globalObject, JSString* base, unsigned offset, unsigned length)
@@ -1084,8 +1084,8 @@ inline JSString* jsSubstring(VM& vm, const String& s, unsigned offset, unsigned 
     }
     auto impl = StringImpl::createSubstringSharingImpl(*s.impl(), offset, length);
     if (impl->isSubString())
-        return JSString::createHasOtherOwner(vm, WTFMove(impl));
-    return JSString::create(vm, WTFMove(impl));
+        return JSString::createHasOtherOwner(vm, WTF::move(impl));
+    return JSString::create(vm, WTF::move(impl));
 }
 
 inline JSString* jsOwnedString(VM& vm, const String& s)

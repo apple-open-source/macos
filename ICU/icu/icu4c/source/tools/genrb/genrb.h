@@ -36,6 +36,9 @@
 /* The version of genrb */
 #define GENRB_VERSION "56"
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 U_CDECL_BEGIN
 
 U_CAPI void processFile(
@@ -48,5 +51,6 @@ U_CAPI void processFile(
     UErrorCode *status);
 
 U_CDECL_END
+#endif // APPLE_ICU_CHANGES
 
 #endif

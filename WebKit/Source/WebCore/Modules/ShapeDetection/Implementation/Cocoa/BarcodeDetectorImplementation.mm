@@ -168,20 +168,14 @@ void BarcodeDetectorImpl::getSupportedFormats(CompletionHandler<void(Vector<Barc
         barcodeFormatsSet.add(convertSymbology(symbology));
 
     auto barcodeFormatsVector = copyToVector(barcodeFormatsSet);
-    std::sort(std::begin(barcodeFormatsVector), std::end(barcodeFormatsVector));
+    std::ranges::sort(barcodeFormatsVector);
 
-    completionHandler(WTFMove(barcodeFormatsVector));
+    completionHandler(WTF::move(barcodeFormatsVector));
 }
 
-void BarcodeDetectorImpl::detect(Ref<ImageBuffer>&& imageBuffer, CompletionHandler<void(Vector<DetectedBarcode>&&)>&& completionHandler)
+void BarcodeDetectorImpl::detect(const NativeImage& image, CompletionHandler<void(Vector<DetectedBarcode>&&)>&& completionHandler)
 {
-    auto nativeImage = imageBuffer->copyNativeImage();
-    if (!nativeImage) {
-        completionHandler({ });
-        return;
-    }
-
-    auto platformImage = nativeImage->platformImage();
+    auto platformImage = image.platformImage();
     if (!platformImage) {
         completionHandler({ });
         return;
@@ -207,18 +201,19 @@ void BarcodeDetectorImpl::detect(Ref<ImageBuffer>&& imageBuffer, CompletionHandl
         return;
     }
 
+    auto imageSize = image.size();
     Vector<DetectedBarcode> results;
     results.reserveInitialCapacity(request.get().results.count);
     for (VNBarcodeObservation *observation in request.get().results) {
         results.append({
-            convertRectFromVisionToWeb(nativeImage->size(), observation.boundingBox),
+            convertRectFromVisionToWeb(imageSize, observation.boundingBox),
             observation.payloadStringValue,
             convertSymbology(observation.symbology),
-            convertCornerPoints(nativeImage->size(), observation),
+            convertCornerPoints(imageSize, observation),
         });
     }
 
-    completionHandler(WTFMove(results));
+    completionHandler(WTF::move(results));
 }
 
 } // namespace WebCore::ShapeDetection

@@ -30,28 +30,42 @@
 
 #include "ExceptionOr.h"
 #include "RTCEncodedStreams.h"
+#include "ScriptExecutionContextIdentifier.h"
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
+class FrameRateMonitor;
 class JSDOMGlobalObject;
 class RTCRtpTransformBackend;
 class RTCRtpTransformableFrame;
 class ScriptExecutionContext;
 class SimpleReadableStreamSource;
 
+enum class RTCEncodedStreamProducerIdentifierType { };
+using RTCEncodedStreamProducerIdentifier = AtomicObjectIdentifier<RTCEncodedStreamProducerIdentifierType>;
+
 class RTCEncodedStreamProducer final : public RefCounted<RTCEncodedStreamProducer>
     , public CanMakeWeakPtr<RTCEncodedStreamProducer> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RTCEncodedStreamProducer);
+    WTF_MAKE_TZONE_ALLOCATED(RTCEncodedStreamProducer);
 public:
-    static ExceptionOr<Ref<RTCEncodedStreamProducer>> create(ScriptExecutionContext&, Ref<RTCRtpTransformBackend>&&, bool isVideo);
+    static ExceptionOr<Ref<RTCEncodedStreamProducer>> create(ScriptExecutionContext&);
     ~RTCEncodedStreamProducer();
 
+    void start(Ref<RTCRtpTransformBackend>&&, bool isVideo);
+    void clear(bool shouldClearCallback);
+
+    void generateKeyFrame(ScriptExecutionContext&, const String&, Ref<DeferredPromise>&&);
+    void sendKeyFrameRequest();
+
+    bool isVideo() const { return m_isVideo; }
     RTCEncodedStreams streams() { return { m_readable.get(), m_writable.get() }; }
+    ReadableStream& readable() { return m_readable.get(); }
+    WritableStream& writable() { return *m_writable; }
 
 private:
-    RTCEncodedStreamProducer(ScriptExecutionContext&, Ref<ReadableStream>&&, Ref<SimpleReadableStreamSource>&&, Ref<RTCRtpTransformBackend>&&, bool isVideo);
+    RTCEncodedStreamProducer(ScriptExecutionContext&, Ref<ReadableStream>&&, Ref<SimpleReadableStreamSource>&&);
 
     void enqueueFrame(Ref<RTCRtpTransformableFrame>&&);
     ExceptionOr<void> writeFrame(ScriptExecutionContext&, JSC::JSValue);
@@ -59,11 +73,21 @@ private:
     std::optional<Exception> initialize(JSDOMGlobalObject&);
 
     WeakPtr<ScriptExecutionContext> m_context;
+    ScriptExecutionContextIdentifier m_contextIdentifier;
+
     const Ref<ReadableStream> m_readable;
     const Ref<SimpleReadableStreamSource> m_readableSource;
     const RefPtr<WritableStream> m_writable;
-    const Ref<RTCRtpTransformBackend> m_transformBackend;
-    const bool m_isVideo { false };
+
+    RefPtr<RTCRtpTransformBackend> m_transformBackend;
+    Vector<Ref<DeferredPromise>> m_pendingKeyFramePromises;
+    bool m_isVideo { false };
+
+#if !RELEASE_LOG_DISABLED
+    bool m_enableAdditionalLogging { false };
+    RTCEncodedStreamProducerIdentifier m_identifier;
+    std::unique_ptr<FrameRateMonitor> m_readableFrameRateMonitor;
+#endif
 };
 
 } // namespace WebCore

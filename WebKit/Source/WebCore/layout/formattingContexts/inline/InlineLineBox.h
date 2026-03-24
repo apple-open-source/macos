@@ -72,6 +72,7 @@ public:
     InlineRect logicalRectForRootInlineBox() const { return m_rootInlineBox.logicalRect(); }
     InlineRect logicalBorderBoxForAtomicInlineBox(const Box&, const BoxGeometry&) const;
     InlineRect logicalBorderBoxForInlineBox(const Box&, const BoxGeometry&) const;
+    InlineRect logicalContentBoxForInlineBox(const Box&) const;
 
     const InlineLevelBox* inlineLevelBoxFor(const Box& layoutBox) const { return const_cast<LineBox&>(*this).inlineLevelBoxFor(layoutBox); }
     const InlineLevelBox& inlineLevelBoxFor(const Line::Run& lineRun) const { return const_cast<LineBox&>(*this).inlineLevelBoxFor(lineRun); }
@@ -120,7 +121,7 @@ private:
     bool m_hasContent { false };
     bool m_isFirstFormattedLine { true };
     InlineRect m_logicalRect;
-    OptionSet<InlineLevelBox::Type> m_boxTypes;
+    EnumSet<InlineLevelBox::Type> m_boxTypes;
 
     FontBaseline m_baselineType { FontBaseline::Alphabetic };
     InlineLevelBox m_rootInlineBox;

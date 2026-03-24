@@ -24,15 +24,13 @@
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
+#include "IOHIDDevicePrivate.h"
 #include "IOHIDLibPrivate.h"
 #include "IOHIDDevice.h"
 #include "IOHIDTransaction.h"
-
-typedef struct {
-    void              * context;
-    IOHIDCallback       callback;
-    IOHIDTransactionRef transaction;
-} IOHIDTransactionCallbackInfo;
+#include <AssertMacros.h>
+#include <os/lock_private.h>
+#include <os/assumes.h>
 
 static IOHIDTransactionRef  __IOHIDTransactionCreate(
                                     CFAllocatorRef          allocator, 
@@ -40,6 +38,10 @@ static IOHIDTransactionRef  __IOHIDTransactionCreate(
 static void                 __IOHIDTransactionExtRelease( CFTypeRef object );
 static void                 __IOHIDTransactionIntRelease( CFTypeRef object );
 static void                 __IOHIDTransactionCommitCallback(
+                                    void *                  context,
+                                    IOReturn                result,
+                                    void *                  sender);
+static void                 __IOHIDTransactionCommitCallbackAbort(
                                     void *                  context,
                                     IOReturn                result,
                                     void *                  sender);
@@ -140,13 +142,41 @@ void __IOHIDTransactionCommitCallback(
 {
     IOHIDTransactionCallbackInfo * info = (IOHIDTransactionCallbackInfo *)context;
 
-    if (info) {
-        if ((info->transaction->transactionInterface == sender) && info->callback) {
-            info->callback(info->context, result, info->transaction);
-        }
-
-        free(info);
+    if (!info) {
+        return;
     }
+
+    if (info->transaction->transactionInterface == sender && 
+            __IOHIDDeviceUnregisterAsyncCommitCallback(info->transaction->device, info)) {
+            info->callback(info->context, result, info->transaction);
+            free(info);
+    }
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDTransactionCommitCallbackAbort
+//------------------------------------------------------------------------------
+void __IOHIDTransactionCommitCallbackAbort(
+                                    void *                  context,
+                                    IOReturn                result,
+                                    void *                  sender)
+{
+    IOHIDTransactionCallbackInfo * info = (IOHIDTransactionCallbackInfo *)context;
+
+    if (!info) {
+        return;
+    }
+    info->callback(info->context, result, info->transaction);
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDTransactionNoopCallback
+//------------------------------------------------------------------------------
+static void __IOHIDTransactionNoopCallback(
+                                    void *                  context __unused,
+                                    IOReturn                result __unused,
+                                    void *                  sender __unused)
+{
 }
 
 //------------------------------------------------------------------------------
@@ -402,24 +432,36 @@ IOReturn IOHIDTransactionCommit(
 //------------------------------------------------------------------------------
 IOReturn IOHIDTransactionCommitWithCallback(
                                 IOHIDTransactionRef             transaction,
-                                CFTimeInterval                  timeout, 
-                                IOHIDCallback                   callback, 
+                                CFTimeInterval                  timeout,
+                                IOHIDCallback                   callback,
                                 void *                          context)
 {
-    IOReturn                       ret  = kIOReturnNoMemory;
-    IOHIDTransactionCallbackInfo * info = (IOHIDTransactionCallbackInfo *)malloc(sizeof(IOHIDTransactionCallbackInfo));
+    if (!callback) {
+        callback = __IOHIDTransactionNoopCallback;
+    }
+    IOReturn                       ret  = kIOReturnNotReady;
+    IOHIDTransactionCallbackInfo * info;
 
-    if (info) {
-        info->context     = context;
-        info->callback    = callback;
-        info->transaction = transaction;
-        
-        ret = (*transaction->transactionInterface)->commit(transaction->transactionInterface, timeout, __IOHIDTransactionCommitCallback, info, 0);
+    info = (IOHIDTransactionCallbackInfo *)malloc(sizeof(IOHIDTransactionCallbackInfo));
+    require_action(info, exit, ret = kIOReturnNoMemory);
+    info->context     = context;
+    info->callback    = callback;
+    info->transaction = transaction;
+
+    ret = __IOHIDDeviceRegisterAsyncCommitCallback(transaction->device, info);
+
+    if (ret) {
+        free(info);
+        return ret;
     }
 
-    if (ret && info) {
+    ret = (*transaction->transactionInterface)->commit(transaction->transactionInterface, timeout, __IOHIDTransactionCommitCallback, info, 0);
+
+    if (ret) {
+        __IOHIDDeviceUnregisterAsyncCommitCallback(transaction->device, info);
         free(info);
     }
+exit:
     return ret;
 }
 

@@ -1,15 +1,22 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 hi_Latn{
     %%Parent{"en_IN"}
     AuxExemplarCharacters{"[ā ḍ ĕē ḥ ī ḷ{l̥} ṁ{m̐} ñṅṇ ŏō ṛ{r̥}{r̥̄} śṣ ṭ ū]"}
     NumberElements{
+        deva{
+            patterns{
+                currencyFormat%alphaNextToNumber{"¤ #,##,##0.00"}
+                currencyFormat%noCurrency{"#,##,##0.00"}
+            }
+        }
         latn{
             patterns{
                 accountingFormat{"¤#,##,##0.00"}
                 accountingFormat%alphaNextToNumber{"¤ #,##,##0.00"}
                 accountingFormat%noCurrency{"#,##,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##,##0.00"}
                 scientificFormat{"[#E0]"}
             }
         }
@@ -54,8 +61,18 @@ hi_Latn{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%relative{
+                "{1} {0} 'par'",
+                "{1} {0} 'par'",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             availableFormats{
                 Bhms{"h:mm.ss B"}
+                EBh{"E, B h"}
+                Eh{"E, h a"}
+                Hv{"HH'h', v"}
+                hv{"h a, v"}
                 yyyyMd{"d/M/y GGGGG"}
             }
             intervalFormats{
@@ -104,9 +121,15 @@ hi_Latn{
                 "{1} {0}",
             }
             DateTimePatterns%atTime{
-                "{1}, {0} 'baje'",
-                "{1}, {0} 'baje'",
+                "{1}, {0} 'par'",
+                "{1}, {0} 'par'",
                 "{1} 'at' {0}",
+                "{1}, {0}",
+            }
+            DateTimePatterns%relative{
+                "{1}, {0} 'par'",
+                "{1}, {0} 'par'",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -120,15 +143,14 @@ hi_Latn{
                 "yMMdd",
             }
             availableFormats{
-                Gy{"G y"}
-                GyMMM{"G y MMM"}
-                GyMMMEEEEd{"G y, dd MMMM, E"}
-                GyMMMEd{"G y, dd MMM, E"}
-                GyMMMd{"G y, d MMM"}
+                EBh{"E, B h"}
+                Eh{"E, h a"}
+                GyMMMEEEEd{"EEEE, d MMM, y G"}
                 MMMMW{
                     one{"MMMM 'kaa' 'week' W"}
                     other{"MMMM 'kaa' 'week' W"}
                 }
+                hv{"h a, v"}
                 yMMMd{"d MMM, y"}
                 yw{
                     one{"Y 'kaa' 'week' w"}
@@ -294,7 +316,7 @@ hi_Latn{
         islamic{
             eras{
                 abbreviated{
-                    "Hijri",
+                    0{"Hijri"}
                 }
             }
             monthNames{

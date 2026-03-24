@@ -73,7 +73,7 @@ static std::optional<CreateShareableBitmapResult> createShareableBitmapForNative
     }
     if (!platformImage)
         return std::nullopt;
-    return CreateShareableBitmapResult { bitmap.releaseNonNull(), WTFMove(platformImage) };
+    return CreateShareableBitmapResult { bitmap.releaseNonNull(), WTF::move(platformImage) };
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteResourceCacheProxy);
@@ -93,7 +93,7 @@ RemoteResourceCacheProxy::~RemoteResourceCacheProxy() = default;
 Ref<RemoteNativeImageProxy> RemoteResourceCacheProxy::createNativeImage(const IntSize& size, PlatformColorSpace&& colorSpace, bool hasAlpha)
 {
     WeakRef weakThis = m_remoteNativeImageProxyWeakFactory.createWeakPtr(*this).releaseNonNull();
-    Ref nativeImage = RemoteNativeImageProxy::create(size, WTFMove(colorSpace), hasAlpha, WTFMove(weakThis));
+    Ref nativeImage = RemoteNativeImageProxy::create(size, WTF::move(colorSpace), hasAlpha, WTF::move(weakThis));
     m_nativeImages.add(nativeImage.ptr(), NativeImageEntry { nullptr, true });
     return nativeImage;
 }
@@ -136,17 +136,17 @@ bool RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const De
     } else {
         auto result = createShareableBitmapForNativeImage(image, fallbackColorSpace);
         if (result) {
-            Ref bitmap = WTFMove(result->bitmap);
-            PlatformImagePtr platformImage = WTFMove(result->platformImage);
+            Ref bitmap = WTF::move(result->bitmap);
+            PlatformImagePtr platformImage = WTF::move(result->platformImage);
             handle = bitmap->createHandle();
             if (handle) {
                 handle->takeOwnershipOfMemory(MemoryLedger::Graphics);
-                m_nativeImages.add(&image, NativeImageEntry { WTFMove(bitmap), true });
+                m_nativeImages.add(&image, NativeImageEntry { WTF::move(bitmap), true });
                 // Set itself as an observer to NativeImage, so releaseNativeImage()
                 // gets called when NativeImage is being deleted.
                 image.addObserver(m_nativeImageResourceObserverWeakFactory.createWeakPtr(static_cast<RenderingResourceObserver&>(*this)).releaseNonNull());
                 // Replace the contents of the original NativeImage to save memory.
-                image.replacePlatformImage(WTFMove(platformImage));
+                image.replacePlatformImage(WTF::move(platformImage));
             }
         }
     }
@@ -158,7 +158,7 @@ bool RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const De
             << " ShareableBitmap could not be created; bailing.");
         return false;
     }
-    m_remoteRenderingBackendProxy->cacheNativeImage(WTFMove(*handle), image.renderingResourceIdentifier());
+    m_remoteRenderingBackendProxy->cacheNativeImage(WTF::move(*handle), image.renderingResourceIdentifier());
     return true;
 }
 
@@ -241,7 +241,7 @@ PlatformImagePtr RemoteResourceCacheProxy::platformImage(const RemoteNativeImage
         auto bitmap = m_remoteRenderingBackendProxy->nativeImageBitmap(image);
         if (!bitmap)
             return nullptr;
-        entry.bitmap = WTFMove(bitmap);
+        entry.bitmap = WTF::move(bitmap);
     }
     return RefPtr { entry.bitmap }->createPlatformImage();
 }

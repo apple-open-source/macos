@@ -128,14 +128,14 @@ void WebFullScreenManagerProxy::didEnterFullScreen(CompletionHandler<void(bool)>
 
 void WebFullScreenManagerProxy::callCloseCompletionHandlers()
 {
-    auto closeMediaCallbacks = WTFMove(m_closeCompletionHandlers);
+    auto closeMediaCallbacks = WTF::move(m_closeCompletionHandlers);
     for (auto& callback : closeMediaCallbacks)
         callback();
 }
 
 void WebFullScreenManagerProxy::closeWithCallback(CompletionHandler<void()>&& completionHandler)
 {
-    m_closeCompletionHandlers.append(WTFMove(completionHandler));
+    m_closeCompletionHandlers.append(WTF::move(completionHandler));
     close();
 }
 
@@ -153,7 +153,7 @@ void WebFullScreenManagerProxy::requestRestoreFullScreen(CompletionHandler<void(
     RefPtr fullScreenProcess = m_fullScreenProcess.get();
     if (!fullScreenProcess)
         return completionHandler(false);
-    fullScreenProcess->sendWithAsyncReply(Messages::WebFullScreenManager::RequestRestoreFullScreen(), WTFMove(completionHandler), page->webPageIDInProcess(*fullScreenProcess));
+    fullScreenProcess->sendWithAsyncReply(Messages::WebFullScreenManager::RequestRestoreFullScreen(), WTF::move(completionHandler), page->webPageIDInProcess(*fullScreenProcess));
 }
 
 void WebFullScreenManagerProxy::requestExitFullScreen()
@@ -209,7 +209,7 @@ Awaitable<bool> WebFullScreenManagerProxy::enterFullScreen(IPC::Connection& conn
     m_isVideoElement = mediaDetails.type == FullScreenMediaDetails::Type::Video;
 #endif
 #if ENABLE(QUICKLOOK_FULLSCREEN)
-    m_mediaDetails = WTFMove(mediaDetails);
+    m_mediaDetails = WTF::move(mediaDetails);
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
 #endif // PLATFORM(IOS_FAMILY)
 
@@ -218,7 +218,7 @@ Awaitable<bool> WebFullScreenManagerProxy::enterFullScreen(IPC::Connection& conn
         co_return false;
 
     bool success = co_await AwaitableFromCompletionHandler<bool> { [=] (auto completionHandler) {
-        client->enterFullScreen(mediaDetails.mediaDimensions, WTFMove(completionHandler));
+        client->enterFullScreen(mediaDetails.mediaDimensions, WTF::move(completionHandler));
     } };
 
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -229,7 +229,7 @@ Awaitable<bool> WebFullScreenManagerProxy::enterFullScreen(IPC::Connection& conn
         page->fullscreenClient().willEnterFullscreen(page.get());
 
     co_await AwaitableFromCompletionHandler<void> { [this, protectedThis = Ref { *this }, frameID] (auto completionHandler) {
-        enterFullScreenForOwnerElementsInOtherProcesses(frameID, WTFMove(completionHandler));
+        enterFullScreenForOwnerElementsInOtherProcesses(frameID, WTF::move(completionHandler));
     } };
 
     if (RefPtr page = m_page.get(); page && page->protectedPreferences()->siteIsolationEnabled())
@@ -240,7 +240,7 @@ Awaitable<bool> WebFullScreenManagerProxy::enterFullScreen(IPC::Connection& conn
 
 void WebFullScreenManagerProxy::enterFullScreenForOwnerElementsInOtherProcesses(FrameIdentifier frameID, CompletionHandler<void()>&& completionHandler)
 {
-    Ref aggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    Ref aggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     RefPtr webFrame = WebFrameProxy::webFrame(frameID);
     if (!webFrame)
@@ -266,7 +266,7 @@ void WebFullScreenManagerProxy::enterFullScreenForOwnerElementsInOtherProcesses(
 #if ENABLE(QUICKLOOK_FULLSCREEN)
 void WebFullScreenManagerProxy::updateImageSource(FullScreenMediaDetails&& mediaDetails)
 {
-    m_mediaDetails = WTFMove(mediaDetails);
+    m_mediaDetails = WTF::move(mediaDetails);
 
     if (CheckedPtr client = m_client)
         client->updateImageSource();
@@ -283,7 +283,7 @@ Awaitable<void> WebFullScreenManagerProxy::exitFullScreen()
         co_return;
 
     co_await AwaitableFromCompletionHandler<void> { [=] (auto completionHandler) {
-        client->exitFullScreen(WTFMove(completionHandler));
+        client->exitFullScreen(WTF::move(completionHandler));
     } };
 
     m_fullscreenState = FullscreenState::ExitingFullscreen;
@@ -298,7 +298,7 @@ void WebFullScreenManagerProxy::prepareQuickLookImageURL(CompletionHandler<void(
         return completionHandler(URL());
 
     auto mediaDetails = *m_mediaDetails;
-    sharedQuickLookFileQueue().dispatch([mediaDetails, completionHandler = WTFMove(completionHandler)]() mutable {
+    sharedQuickLookFileQueue().dispatch([mediaDetails, completionHandler = WTF::move(completionHandler)]() mutable {
         auto heicData = WTF::switchOn(mediaDetails.imageData,
             [](const ShareableSpatialImage& spatialImage) -> RetainPtr<CFDataRef> {
                 return spatialImage.createHEICData();
@@ -327,7 +327,7 @@ void WebFullScreenManagerProxy::prepareQuickLookImageURL(CompletionHandler<void(
         );
 
         if (!heicData) {
-            RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
+            RunLoop::mainSingleton().dispatch([completionHandler = WTF::move(completionHandler)]() mutable {
                 completionHandler(URL());
             });
             return;
@@ -341,7 +341,7 @@ void WebFullScreenManagerProxy::prepareQuickLookImageURL(CompletionHandler<void(
         ASSERT_UNUSED(byteCount, byteCount == span.size());
         fileHandle = { };
 
-        RunLoop::mainSingleton().dispatch([filePath, completionHandler = WTFMove(completionHandler)]() mutable {
+        RunLoop::mainSingleton().dispatch([filePath, completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(URL::fileURLWithFileSystemPath(filePath));
         });
     });
@@ -361,13 +361,13 @@ Awaitable<bool> WebFullScreenManagerProxy::beganEnterFullScreen(IntRect initialF
         co_return false;
 
     bool success = co_await AwaitableFromCompletionHandler<bool> { [=] (auto completionHandler) {
-        client->beganEnterFullScreen(initialFrame, finalFrame, WTFMove(completionHandler));
+        client->beganEnterFullScreen(initialFrame, finalFrame, WTF::move(completionHandler));
     } };
     if (!success)
         co_return false;
 
     co_return co_await AwaitableFromCompletionHandler<bool> { [this, protectedThis = Ref { *this }] (auto completionHandler) {
-        didEnterFullScreen(WTFMove(completionHandler));
+        didEnterFullScreen(WTF::move(completionHandler));
     } };
 }
 
@@ -378,7 +378,7 @@ Awaitable<void> WebFullScreenManagerProxy::beganExitFullScreen(FrameIdentifier f
         co_return;
 
     co_await AwaitableFromCompletionHandler<void> { [=] (auto completionHandler) {
-        client->beganExitFullScreen(initialFrame, finalFrame, WTFMove(completionHandler));
+        client->beganExitFullScreen(initialFrame, finalFrame, WTF::move(completionHandler));
     } };
 
     m_fullscreenState = FullscreenState::NotInFullscreen;
@@ -390,7 +390,7 @@ Awaitable<void> WebFullScreenManagerProxy::beganExitFullScreen(FrameIdentifier f
     page->fullscreenClient().didExitFullscreen(page.get());
 
     co_await AwaitableFromCompletionHandler<void> { [this, protectedThis = Ref { *this }, frameID] (auto completionHandler) {
-        exitFullScreenInOtherProcesses(frameID, WTFMove(completionHandler));
+        exitFullScreenInOtherProcesses(frameID, WTF::move(completionHandler));
     } };
 
     if (page->isControlledByAutomation()) {
@@ -402,7 +402,7 @@ Awaitable<void> WebFullScreenManagerProxy::beganExitFullScreen(FrameIdentifier f
 
 void WebFullScreenManagerProxy::exitFullScreenInOtherProcesses(FrameIdentifier frameID, CompletionHandler<void()>&& completionHandler)
 {
-    Ref aggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    Ref aggregator = CallbackAggregator::create(WTF::move(completionHandler));
 
     RefPtr webFrame = WebFrameProxy::webFrame(frameID);
     if (!webFrame)

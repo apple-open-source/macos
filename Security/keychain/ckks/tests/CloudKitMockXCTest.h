@@ -321,6 +321,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)failNextZoneCreation:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneCreationSilently:(CKRecordZoneID*)zoneID;
+- (void)failNextZoneCreation:(CKRecordZoneID*)zoneID withError:(NSError*)error;
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error;
 - (void)persistentlyFailNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error;

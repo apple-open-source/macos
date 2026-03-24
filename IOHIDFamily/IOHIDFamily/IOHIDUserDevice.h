@@ -98,6 +98,9 @@ public:
 /*! @function newTransportString
     @abstract Returns a string object that describes the transport
     layer used by the HID device.
+    @discussion Defaults to "Virtual" for all user devices. Custom transport values
+    can only be set by entitled processes (via kIOHIDDevicePrivilegedKey entitlement).
+    Third-party applications will always get "Virtual" transport.
     @result A string object. The caller must decrement the retain count
     on the object returned. */
     virtual OSString * newTransportString() const APPLE_KEXT_OVERRIDE;

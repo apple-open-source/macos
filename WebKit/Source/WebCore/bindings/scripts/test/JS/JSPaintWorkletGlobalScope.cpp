@@ -114,7 +114,7 @@ void JSPaintWorkletGlobalScopePrototype::finishCreation(VM& vm)
 const ClassInfo JSPaintWorkletGlobalScope::s_info = { "PaintWorkletGlobalScope"_s, &Base::s_info, &JSPaintWorkletGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSPaintWorkletGlobalScope) };
 
 JSPaintWorkletGlobalScope::JSPaintWorkletGlobalScope(VM& vm, Structure* structure, Ref<PaintWorkletGlobalScope>&& impl)
-    : JSWorkletGlobalScope(vm, structure, WTFMove(impl))
+    : JSWorkletGlobalScope(vm, structure, WTF::move(impl))
 {
 }
 

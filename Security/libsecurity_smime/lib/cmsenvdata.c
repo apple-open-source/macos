@@ -226,7 +226,7 @@ OSStatus SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
     if (!key_material) {
         goto loser;
     }
-    require_noerr(SecRandomCopyBytes(kSecRandomDefault, (size_t)keysize, key_material), loser);
+    __Require_noErr(SecRandomCopyBytes(kSecRandomDefault, (size_t)keysize, key_material), loser);
     bulkkey = (SecSymmetricKeyRef)CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, key_material, keysize, kCFAllocatorMalloc);
 
     mark = PORT_ArenaMark(poolp);

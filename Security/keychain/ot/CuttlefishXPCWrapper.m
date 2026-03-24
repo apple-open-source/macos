@@ -1616,6 +1616,81 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)enableWalrusWithSpecificUser:(TPSpecificUser * _Nullable)specificUser
+                          preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                           extraArgs:(TPWalrusExtraArguments*)extraArgs
+                              flowID:(NSString * _Nullable)flowID
+                     deviceSessionID:(NSString * _Nullable)deviceSessionID
+                               reply:(nonnull void (^)(NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(error);
+            }
+            ++i;
+        }] enableWalrusWithSpecificUser:specificUser
+         preRecords:preRecords
+         extraArgs:extraArgs
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         reply:reply];
+    } while (retry);
+}
+
+- (void)disableWalrusWithSpecificUser:(TPSpecificUser * _Nullable)specificUser
+                           preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                            extraArgs:(TPWalrusExtraArguments*)extraArgs
+                               flowID:(NSString * _Nullable)flowID
+                      deviceSessionID:(NSString * _Nullable)deviceSessionID
+                                reply:(nonnull void (^)(NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(error);
+            }
+            ++i;
+        }] disableWalrusWithSpecificUser:specificUser
+         preRecords:preRecords
+         extraArgs:extraArgs
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         reply:reply];
+    } while (retry);
+}
+
+- (void)performPeerSecretsFixUpsWithSpecificUser:(TPSpecificUser*)specificUser
+                                            reply:(void (^)(NSError * _Nullable))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(error);
+            }
+            ++i;
+        }] performPeerSecretsFixUpsWithSpecificUser:specificUser reply:reply];
+    } while (retry);
+}
 
 @end
 

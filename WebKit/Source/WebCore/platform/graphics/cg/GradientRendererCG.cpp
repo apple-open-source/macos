@@ -314,7 +314,7 @@ GradientRendererCG::Strategy GradientRendererCG::makeShading(ColorInterpolationM
         if (!hasZero)
             convertedStops[0].colorComponents = convertedStops[1].colorComponents;
 
-        return Shading::Data::create(colorInterpolationMethod, WTFMove(convertedStops), !hasZero, !hasOne);
+        return Shading::Data::create(colorInterpolationMethod, WTF::move(convertedStops), !hasZero, !hasOne);
     };
 
     auto makeFunction = [&] (auto colorInterpolationMethod, auto& data) {
@@ -359,7 +359,7 @@ GradientRendererCG::Strategy GradientRendererCG::makeShading(ColorInterpolationM
     // FIXME: Investigate using bounded sRGB when the input stops are all bounded sRGB.
     auto colorSpace = cachedCGColorSpaceSingleton<ColorSpaceFor<OutputSpaceColorType>>();
 
-    return Shading { WTFMove(data), WTFMove(function), colorSpace };
+    return Shading { WTF::move(data), WTF::move(function), colorSpace };
 }
 
 // MARK: - Drawing functions.

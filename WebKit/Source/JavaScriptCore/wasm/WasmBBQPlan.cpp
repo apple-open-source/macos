@@ -52,10 +52,10 @@ static constexpr bool verbose = false;
 }
 
 BBQPlan::BBQPlan(VM& vm, Ref<ModuleInformation>&& moduleInformation, FunctionCodeIndex functionIndex, Ref<IPIntCallee>&& profiledCallee, Ref<Module>&& module, Ref<CalleeGroup>&& calleeGroup, CompletionTask&& completionTask)
-    : Plan(vm, WTFMove(moduleInformation), WTFMove(completionTask))
-    , m_profiledCallee(WTFMove(profiledCallee))
-    , m_module(WTFMove(module))
-    , m_calleeGroup(WTFMove(calleeGroup))
+    : Plan(vm, WTF::move(moduleInformation), WTF::move(completionTask))
+    , m_profiledCallee(WTF::move(profiledCallee))
+    , m_module(WTF::move(module))
+    , m_calleeGroup(WTF::move(calleeGroup))
     , m_functionIndex(functionIndex)
 {
     ASSERT(Options::useBBQJIT());
@@ -110,12 +110,12 @@ void BBQPlan::work()
     computeExceptionHandlerAndLoopEntrypointLocations(exceptionHandlerLocations, loopEntrypointLocations, function.get(), context, linkBuffer);
 
     if (context.pcToCodeOriginMapBuilder)
-        context.pcToCodeOriginMap = Box<PCToCodeOriginMap>::create(WTFMove(*context.pcToCodeOriginMapBuilder), linkBuffer);
+        context.pcToCodeOriginMap = Box<PCToCodeOriginMap>::create(WTF::move(*context.pcToCodeOriginMapBuilder), linkBuffer);
 
     bool alreadyDumped = dumpDisassembly(context, linkBuffer, signature, functionIndexSpace);
     function->entrypoint.compilation = makeUnique<Compilation>(
         FINALIZE_CODE_IF((!alreadyDumped && shouldDumpDisassemblyFor(CompilationMode::BBQMode)), linkBuffer, JITCompilationPtrTag, nullptr, "BBQ functionIndexSpace:(", functionIndexSpace, "),sig:(", signature.toString().ascii().data(), "),name:(", makeString(IndexOrName(functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace))).ascii().data(), "),wasmSize:(", m_moduleInformation->functionWasmSizeImportSpace(functionIndexSpace), ")"),
-        WTFMove(context.wasmEntrypointByproducts));
+        WTF::move(context.wasmEntrypointByproducts));
 
     CodePtr<WasmEntryPtrTag> entrypoint;
     std::optional<CodeLocationLabel<WasmEntryPtrTag>> sharedLoopEntrypoint;
@@ -123,11 +123,11 @@ void BBQPlan::work()
         sharedLoopEntrypoint = linkBuffer.locationOf<WasmEntryPtrTag>(*function->bbqSharedLoopEntrypoint);
 
     {
-        callee->setEntrypoint(WTFMove(function->entrypoint), WTFMove(unlinkedWasmToWasmCalls), WTFMove(function->stackmaps), WTFMove(function->exceptionHandlers), WTFMove(exceptionHandlerLocations), WTFMove(loopEntrypointLocations), sharedLoopEntrypoint, function->osrEntryScratchBufferSize);
+        callee->setEntrypoint(WTF::move(function->entrypoint), WTF::move(unlinkedWasmToWasmCalls), WTF::move(function->stackmaps), WTF::move(function->exceptionHandlers), WTF::move(exceptionHandlerLocations), WTF::move(loopEntrypointLocations), sharedLoopEntrypoint, function->osrEntryScratchBufferSize);
         entrypoint = callee->entrypoint();
 
         if (context.pcToCodeOriginMap)
-            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(context.pcToCodeOriginMap));
+            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTF::move(context.pcToCodeOriginMap));
 
         {
             Locker locker { m_calleeGroup->m_lock };
@@ -164,7 +164,7 @@ std::unique_ptr<InternalFunction> BBQPlan::compileFunction(FunctionCodeIndex fun
         return nullptr;
     }
 
-    return WTFMove(*parseAndCompileResult);
+    return WTF::move(*parseAndCompileResult);
 }
 
 void BBQPlan::fail(String&& errorMessage, CompilationError error)
@@ -173,7 +173,7 @@ void BBQPlan::fail(String&& errorMessage, CompilationError error)
         Locker locker { m_lock };
         if (!m_errorMessage) {
             // Multiple compiles could fail simultaneously. We arbitrarily choose the first.
-            Base::fail(WTFMove(errorMessage), error);
+            Base::fail(WTF::move(errorMessage), error);
         }
     }
     {

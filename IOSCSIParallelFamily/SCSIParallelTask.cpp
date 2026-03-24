@@ -98,7 +98,7 @@ SCSIParallelTask::Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask )
 	require_nonzero ( newTask, ErrorExit );
 	
 	result = newTask->InitWithSize ( sizeOfHBAData, alignmentMask );
-	require ( result, ReleaseTask );
+	__Require(result, ReleaseTask);
 	
 	return newTask;
 	

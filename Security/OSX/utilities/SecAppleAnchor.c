@@ -43,12 +43,12 @@ SecIsAppleTrustAnchorData(CFDataRef cert,
     bool res = false;
 
     anchors = getAnchors();
-    require(anchors, fail);
+    __Require(anchors, fail);
 
     value = CFDictionaryGetValue(anchors, cert);
-    require_quiet(value, fail);
+    __Require_Quiet(value, fail);
 
-    require(isBoolean(value), fail);
+    __Require(isBoolean(value), fail);
 
     res = CFBooleanGetValue(value);
 
@@ -66,7 +66,7 @@ SecIsAppleTrustAnchor(SecCertificateRef cert,
     bool res = false;
 
     data = SecCertificateCopySHA256Digest(cert);
-    require(data, fail);
+    __Require(data, fail);
 
     res = SecIsAppleTrustAnchorData(data, flags);
     
@@ -118,12 +118,12 @@ SecIsAppleCodeSigningIssuer(CFDataRef issuerHash)
 
     bool result = false;
     CFTypeRef value = NULL;
-    require(issuerHash, fail);
-    require(csAnchors, fail);
+    __Require(issuerHash, fail);
+    __Require(csAnchors, fail);
 
     value = CFDictionaryGetValue(csAnchors, issuerHash);
-    require_quiet(value, fail);
-    require(isBoolean(value), fail);
+    __Require_Quiet(value, fail);
+    __Require(isBoolean(value), fail);
 
     result = CFBooleanGetValue(value);
 fail:

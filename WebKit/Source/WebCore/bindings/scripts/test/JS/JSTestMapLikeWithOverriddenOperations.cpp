@@ -153,7 +153,7 @@ void JSTestMapLikeWithOverriddenOperationsPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestMapLikeWithOverriddenOperations::s_info = { "TestMapLikeWithOverriddenOperations"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestMapLikeWithOverriddenOperations) };
 
 JSTestMapLikeWithOverriddenOperations::JSTestMapLikeWithOverriddenOperations(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestMapLikeWithOverriddenOperations>&& impl)
-    : JSDOMWrapper<TestMapLikeWithOverriddenOperations>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestMapLikeWithOverriddenOperations>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -443,7 +443,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestMapLikeWithOverriddenOperations>(impl.ptr());
 #endif
-    return createWrapper<TestMapLikeWithOverriddenOperations>(globalObject, WTFMove(impl));
+    return createWrapper<TestMapLikeWithOverriddenOperations>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestMapLikeWithOverriddenOperations& impl)

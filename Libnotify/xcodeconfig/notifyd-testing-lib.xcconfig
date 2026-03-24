@@ -1,0 +1,24 @@
+#include "base.xcconfig"
+
+// ObjC settings
+CLANG_ENABLE_OBJC_WEAK = YES
+
+// Testing flags - disable optimizations for debuggability
+OTHER_CFLAGS = $(inherited) -fno-optimize-sibling-calls -fno-inline -O0
+
+// Testing preprocessor definitions
+OTHER_CFLAGS = $(OTHER_CFLAGS) -DNOTIFYD_TESTING=1
+OTHER_CFLAGS = $(OTHER_CFLAGS) -DDEVELOPMENT=1 -DDEBUG=1 -DTESTING=1
+
+// Keep existing server-side optimization flag
+OTHER_CFLAGS = $(OTHER_CFLAGS) -DSINGLE_THREADED_NOTIFY_STATE=1
+
+// MIG flags
+OTHER_MIGFLAGS = -DMACH_NOTIFY_SEND_POSSIBLE_EXPECTED=1
+
+// Don't install the testing library
+SKIP_INSTALL = YES
+DEPLOYMENT_LOCATION = NO
+
+// Header search paths
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/notifyd

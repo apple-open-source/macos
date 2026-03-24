@@ -103,7 +103,7 @@ std::optional<UpdateInfo> WCScene::update(WCUpdateInfo&& update)
 
     for (auto id : update.addedLayers) {
         auto layer = makeUnique<Layer>();
-        m_layers.add(id, WTFMove(layer));
+        m_layers.add(id, WTF::move(layer));
     }
 
     for (auto& layerUpdate : update.changedLayers) {
@@ -282,7 +282,7 @@ std::optional<UpdateInfo> WCScene::update(WCUpdateInfo&& update)
 
     std::optional<UpdateInfo> result;
     if (update.remoteContextHostedIdentifier)
-        WCRemoteFrameHostLayerManager::singleton().updateTexture(*update.remoteContextHostedIdentifier, m_webProcessIdentifier, WTFMove(texture));
+        WCRemoteFrameHostLayerManager::singleton().updateTexture(*update.remoteContextHostedIdentifier, m_webProcessIdentifier, WTF::move(texture));
     else if (m_usesOffscreenRendering) {
         if (auto handle = bitmap->createHandle()) {
             result.emplace();
@@ -292,7 +292,7 @@ std::optional<UpdateInfo> WCScene::update(WCUpdateInfo&& update)
             WebCore::IntRect viewport = { { }, update.viewport };
             result->updateRectBounds = viewport;
             result->updateRects.append(viewport);
-            result->bitmapHandle = WTFMove(*handle);
+            result->bitmapHandle = WTF::move(*handle);
         }
     } else
         m_context->swapBuffers();

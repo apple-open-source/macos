@@ -54,6 +54,12 @@ public:
     WEBCORE_EXPORT static void platformSetCaptionDisplayMode(CaptionDisplayMode);
     WEBCORE_EXPORT static void setCachedCaptionDisplayMode(CaptionDisplayMode);
 
+    WEBCORE_EXPORT static Vector<String> platformProfileIDs();
+    WEBCORE_EXPORT static String platformActiveProfileID();
+    WEBCORE_EXPORT static bool canSetActiveProfileID();
+    WEBCORE_EXPORT static bool setActiveProfileID(const String&);
+    WEBCORE_EXPORT static String nameForProfileID(const String&);
+
     bool userPrefersCaptions() const override;
     bool userPrefersSubtitles() const override;
     bool userPrefersTextDescriptions() const final;
@@ -89,10 +95,11 @@ public:
 #endif
 
     WEBCORE_EXPORT String captionsStyleSheetOverride() const override;
-    Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList*) override;
-    Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList*, HashSet<TextTrack::Kind>) override;
-    String displayNameForTrack(AudioTrack*) const override;
-    String displayNameForTrack(TextTrack*) const override;
+    Vector<Ref<AudioTrack>> sortedTrackListForMenu(AudioTrackList*) override;
+    Vector<Ref<TextTrack>> sortedTrackListForMenu(TextTrackList*, HashSet<TextTrack::Kind>) override;
+    String displayNameForTrack(const AudioTrack&) const override;
+    String displayNameForTrack(const TextTrack&) const override;
+    String captionPreviewTitle() const override;
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     WEBCORE_EXPORT String captionsWindowCSS() const;
@@ -107,7 +114,7 @@ public:
 #endif
 
 private:
-    CaptionUserPreferencesMediaAF(PageGroup&);
+    explicit CaptionUserPreferencesMediaAF(PageGroup&);
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     void updateTimerFired();

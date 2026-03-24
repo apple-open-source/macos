@@ -85,8 +85,8 @@ DetachedRep::DetachedRep(CFDataRef sig, CFDataRef gsig, DiskRep *orig, const std
 
 //
 // We look up components by first checking for a per-architecture item,
-// then for a global item in the detached signature, and finally falling
-// back on the original DiskRep (for static components).
+// then for a global item in the detached signature. Fall back to the base rep if the requested component
+// is the Info.plist or a rep-specific component. Otherwise, we return nothing.
 //
 CFDataRef DetachedRep::component(CodeDirectory::SpecialSlot slot)
 {
@@ -95,7 +95,15 @@ CFDataRef DetachedRep::component(CodeDirectory::SpecialSlot slot)
 	if (mGlobal)
 		if (CFDataRef result = mGlobal->component(slot))
 			return result;
-	return this->base()->component(slot);
+	// The Info.plist lives in different places depending on the base rep, so fall back
+	// to the base rep to get it. Rep-specific components (currently only relevant to disk reps)
+	// also need to come from the base rep.
+	if (slot == cdInfoSlot || slot == cdRepSpecificSlot) {
+		return this->base()->component(slot);
+	}
+	// We should never fall back to the base rep for other components, since their data should already
+	// be in the detached signature itself.
+	return NULL; // not found
 }
 
 

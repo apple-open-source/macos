@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,56 +29,32 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)opendir.c	8.8 (Berkeley) 5/1/95";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "namespace.h"
 #include <sys/param.h>
+#ifdef __APPLE__
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/sysctl.h>
+#endif /* __APPLE__ */
 
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#ifdef __APPLE__
+#include <pthread.h>
+#endif /* __APPLE__ */
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
 #include "un-namespace.h"
 
+#ifdef __APPLE__
+static DIR * __opendir_common(int, int, bool);
+#else
+#include "gen-private.h"
+#endif /* __APPLE__ */
 #include "telldir.h"
 
-static bool
-__kernel_supports_unionfs(void)
-{
-	static int8_t kernel_supports_unionfs = -1;
-	if (kernel_supports_unionfs == -1) {
-		int value = 0;
-		size_t len = sizeof(value);
-		sysctlbyname("kern.secure_kernel", &value, &len, NULL, 0);
-		kernel_supports_unionfs = !value;
-	}
-	return kernel_supports_unionfs;
-}
-
-static int
-__fd_is_on_union_mount(int fd)
-{
-	struct statfs stbuf;
-	int rc;
-
-	rc = fstatfs(fd, &stbuf);
-	if (rc < 0) {
-		return rc;
-	}
-	return (stbuf.f_flags & MNT_UNION) != 0;
-}
-
-static DIR * __opendir_common(int, int, bool);
 
 /*
  * Open a directory.
@@ -85,7 +63,7 @@ DIR *
 opendir(const char *name)
 {
 
-	return (__opendir2(name, DTF_HIDEW|DTF_NODUP));
+	return (__opendir2(name, DTF_HIDEW | DTF_NODUP));
 }
 
 /*
@@ -94,6 +72,7 @@ opendir(const char *name)
 DIR *
 fdopendir(int fd)
 {
+#ifdef __APPLE__
 	struct stat statb;
 
 	/* Check that fd is associated with a directory. */
@@ -103,10 +82,12 @@ fdopendir(int fd)
 		errno = ENOTDIR;
 		return (NULL);
 	}
+#endif /* __APPLE__ */
+
 	/* Make sure CLOEXEC is set on the fd */
 	if (_fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
 		return (NULL);
-	return (__opendir_common(fd, DTF_HIDEW|DTF_NODUP, true));
+	return (__opendir_common(fd, DTF_HIDEW | DTF_NODUP, true));
 }
 
 DIR *
@@ -118,8 +99,7 @@ __opendir2(const char *name, int flags)
 
 	if ((flags & (__DTF_READALL | __DTF_SKIPREAD)) != 0)
 		return (NULL);
-	if ((fd = _open(name,
-	    O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC)) == -1)
+	if ((fd = _open(name, O_DIRECTORY | O_RDONLY | O_CLOEXEC)) == -1)
 		return (NULL);
 
 	dir = __opendir_common(fd, flags, false);
@@ -135,8 +115,8 @@ static int
 opendir_compar(const void *p1, const void *p2)
 {
 
-	return (strcmp((*(const struct dirent **)p1)->d_name,
-	    (*(const struct dirent **)p2)->d_name));
+	return (strcmp((*(const struct dirent * const *)p1)->d_name,
+	    (*(const struct dirent * const *)p2)->d_name));
 }
 
 /*
@@ -156,7 +136,7 @@ _filldir(DIR *dirp, bool use_current_pos)
 	char *buf, *ddptr, *ddeptr;
 	off_t pos;
 	int fd2, incr, len, n, saved_errno, space;
-	
+
 	len = 0;
 	space = 0;
 	buf = NULL;
@@ -168,7 +148,7 @@ _filldir(DIR *dirp, bool use_current_pos)
 	 * trades to user space to be done by _getdirentries().
 	 */
 	incr = getpagesize();
-	if ((incr % DIRBLKSIZ) != 0) 
+	if ((incr % DIRBLKSIZ) != 0)
 		incr = DIRBLKSIZ;
 
 	/*
@@ -185,7 +165,7 @@ _filldir(DIR *dirp, bool use_current_pos)
 	 * the directory descriptor for fchdir or *at
 	 * functions, such as fts.c.
 	 */
-	if ((fd2 = openat(dirp->dd_fd, ".", O_RDONLY | O_CLOEXEC)) == -1)
+	if ((fd2 = _openat(dirp->dd_fd, ".", O_RDONLY | O_CLOEXEC)) == -1)
 		return (false);
 
 	if (use_current_pos) {
@@ -313,16 +293,43 @@ _filldir(DIR *dirp, bool use_current_pos)
 	return (true);
 }
 
+/*
+ * Return true if the file descriptor is associated with a file from a
+ * union file system or from a file system mounted with the union flag.
+ */
+static bool
+is_unionstack(int fd)
+{
+#ifdef __APPLE__
+#if TARGET_OS_OSX
+	struct statfs stbuf;
+
+	if (fstatfs(fd, &stbuf) == 0)
+		return ((stbuf.f_flags & MNT_UNION) != 0);
+#endif /* TARGET_OS_OSX */
+	return (false);
+#else /* !__APPLE__ */
+        /*
+         * This call shouldn't fail, but if it does, just assume that the
+         * answer is no.
+         */
+	return (_fcntl(fd, F_ISUNIONSTACK, 0) > 0);
+#endif /* __APPLE__ */
+}
 
 /*
  * Common routine for opendir(3), __opendir2(3) and fdopendir(3).
  */
-static DIR *
+DIR *
 __opendir_common(int fd, int flags, bool use_current_pos)
 {
 	DIR *dirp;
+	ssize_t ret;
+#ifndef __APPLE__
+	int incr;
+#endif /* __APPLE__ */
 	int saved_errno;
-	int unionstack;
+	bool unionstack;
 
 	if ((dirp = malloc(sizeof(DIR) + sizeof(struct _telldir))) == NULL)
 		return (NULL);
@@ -331,20 +338,33 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 	dirp->dd_fd = fd;
 	dirp->dd_flags = flags;
 	dirp->dd_loc = 0;
+#ifdef __APPLE__
 	dirp->dd_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+#else
+	dirp->dd_lock = NULL;
+#endif /* __APPLE__ */
 	dirp->dd_td = (struct _telldir *)((char *)dirp + sizeof(DIR));
 	LIST_INIT(&dirp->dd_td->td_locq);
 	dirp->dd_td->td_loccnt = 0;
+#ifndef __APPLE__
+	dirp->dd_compat_de = NULL;
+
+	/*
+	 * Use the system page size if that is a multiple of DIRBLKSIZ.
+	 * Hopefully this can be a big win someday by allowing page
+	 * trades to user space to be done by _getdirentries().
+	 */
+	incr = getpagesize();
+	if ((incr % DIRBLKSIZ) != 0)
+		incr = DIRBLKSIZ;
+#endif /* __APPLE__ */
 
 	/*
 	 * Determine whether this directory is the top of a union stack.
 	 */
-	if ((flags & DTF_NODUP) && __kernel_supports_unionfs()) {
-		unionstack = __fd_is_on_union_mount(fd);
-		if (unionstack < 0)
-			goto fail;
-	} else {
-		unionstack = 0;
+	unionstack = false;
+	if (flags & DTF_NODUP) {
+		unionstack = is_unionstack(fd);
 	}
 
 	if (unionstack) {
@@ -352,6 +372,7 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 			goto fail;
 		dirp->dd_flags |= __DTF_READALL;
 	} else {
+#ifdef __APPLE__
 		/*
 		 * Start with a small-ish size to avoid allocating full pages.
 		 * readdir() will allocate a larger buffer if it didn't fit
@@ -360,6 +381,9 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 		_Static_assert(GETDIRENTRIES64_EXTENDED_BUFSIZE <= READDIR_INITIAL_SIZE,
 		    "Make sure we'll get extended metadata");
 		dirp->dd_len = READDIR_INITIAL_SIZE;
+#else
+		dirp->dd_len = incr;
+#endif /* __APPLE__ */
 		dirp->dd_buf = malloc(dirp->dd_len);
 		if (dirp->dd_buf == NULL)
 			goto fail;
@@ -382,23 +406,26 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 			    (getdirentries64_flags_t *)(dirp->dd_buf + dirp->dd_len -
 			    sizeof(getdirentries64_flags_t));
 			*gdeflags = 0;
-			dirp->dd_size = (long)__getdirentries64(dirp->dd_fd,
+			ret = __getdirentries64(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
-			if (dirp->dd_size >= 0 &&
-			    dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
+#else /* !__DARWIN_64_BIT_INO_T */
+			ret = _getdirentries(dirp->dd_fd,
+			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
+#endif /* __DARWIN_64_BIT_INO_T */
+#ifdef __APPLE__
+			if (ret < 0 && errno == EINVAL)
+				errno = ENOTDIR;
+#endif /* __APPLE__ */
+			if (ret < 0)
+				goto fail;
+			dirp->dd_size = (size_t)ret;
+#if __DARWIN_64_BIT_INO_T
+			if (dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
 				if (*gdeflags & GETDIRENTRIES64_EOF) {
 					dirp->dd_flags |= __DTF_ATEND;
 				}
 			}
-#else /* !__DARWIN_64_BIT_INO_T */
-			dirp->dd_size = _getdirentries(dirp->dd_fd,
-			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
 #endif /* __DARWIN_64_BIT_INO_T */
-			if (dirp->dd_size < 0) {
-				if (errno == EINVAL)
-					errno = ENOTDIR;
-				goto fail;
-			}
 			dirp->dd_flags |= __DTF_SKIPREAD;
 		} else {
 			dirp->dd_size = 0;

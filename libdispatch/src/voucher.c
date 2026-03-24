@@ -2074,13 +2074,13 @@ voucher_get_current_persona_proximate_info(struct proc_persona_info *persona_inf
 	(void)persona_info;
 	return -1;
 }
-#endif // __has_include(<mach/mach.h>)
 
 bool
 voucher_process_can_use_arbitrary_personas(void)
 {
 	return false;
 }
+#endif // __has_include(<mach/mach.h>)
 
 void
 _voucher_activity_debug_channel_init(void)

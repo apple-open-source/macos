@@ -82,6 +82,18 @@ extern struct sockaddr *dns_server_list_address(dns_handle_t d, uint32_t i);
 extern void dns_all_server_addrs(dns_handle_t d, struct sockaddr ***addrs, uint32_t *count);
 
 /*
+ * Internal APIs to use the notify API for system configuration changes.  The
+ * _dns_check_sys_config_notify call returns -1 if the token isn't setup
+ * or the notify_check() call failed, 0 if a change was not detected, or 1 if
+ * a change was detected.
+ */
+#pragma GCC visibility push(hidden)
+void _dns_open_sys_config_notify(int *sys_config_token);
+int _dns_check_sys_config_notify(int sys_config_token);
+void _dns_close_sys_config_notify(int *sys_config_token);
+#pragma GCC visibility pop
+
+/*
  * Returns the number of names in the search list.
  */
 uint32_t dns_search_list_count(dns_handle_t d);

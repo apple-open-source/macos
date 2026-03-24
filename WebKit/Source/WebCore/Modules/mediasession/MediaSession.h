@@ -34,22 +34,13 @@
 #include <WebCore/MediaSessionActionHandler.h>
 #include <WebCore/MediaSessionPlaybackState.h>
 #include <WebCore/MediaSessionReadyState.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Logger.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashSet.h>
-#include <wtf/WeakPtr.h>
-
-namespace WebCore {
-class MediaSessionObserver;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::MediaSessionObserver> : std::true_type { };
-}
 
 namespace WebCore {
 
@@ -64,7 +55,7 @@ struct NowPlayingInfo;
 template<typename> class DOMPromiseDeferred;
 template<typename> class ExceptionOr;
 
-class MediaSessionObserver : public CanMakeWeakPtr<MediaSessionObserver> {
+class MediaSessionObserver : public AbstractRefCountedAndCanMakeWeakPtr<MediaSessionObserver> {
 public:
     virtual ~MediaSessionObserver() = default;
 
@@ -143,9 +134,9 @@ public:
     void updateNowPlayingInfo(NowPlayingInfo&);
 
 #if ENABLE(MEDIA_STREAM)
-    void setMicrophoneActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Microphone); }
-    void setCameraActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Camera); }
-    void setScreenshareActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Display); }
+    void setMicrophoneActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTF::move(promise), MediaProducerMediaCaptureKind::Microphone); }
+    void setCameraActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTF::move(promise), MediaProducerMediaCaptureKind::Camera); }
+    void setScreenshareActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTF::move(promise), MediaProducerMediaCaptureKind::Display); }
 #endif
 
     WEBCORE_EXPORT bool hasActionHandler(const MediaSessionAction) const;

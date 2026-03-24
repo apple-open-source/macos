@@ -236,7 +236,7 @@ void PlatformCAAnimationRemote::setFillMode(FillModeType value)
 void PlatformCAAnimationRemote::setTimingFunction(const TimingFunction* value, bool)
 {
     RefPtr<TimingFunction> timingFunction = value->clone();
-    m_properties.timingFunction = WTFMove(timingFunction);
+    m_properties.timingFunction = WTF::move(timingFunction);
 }
 
 void PlatformCAAnimationRemote::copyTimingFunctionFrom(const PlatformCAAnimation& value)
@@ -506,9 +506,9 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         }
 
         if (properties.timingFunctions.size())
-            [basicAnimation setTimingFunction:toCAMediaTimingFunction(properties.timingFunctions[0].get(), properties.reverseTimingFunctions)];
+            [basicAnimation setTimingFunction:toCAMediaTimingFunction(properties.timingFunctions[0].get(), properties.reverseTimingFunctions).get()];
 
-        caAnimation = WTFMove(basicAnimation);
+        caAnimation = WTF::move(basicAnimation);
         break;
     }
     case PlatformCAAnimation::AnimationType::Group: {
@@ -517,7 +517,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         if (properties.animations.size()) {
             [animationGroup setAnimations:createNSArray(properties.animations, [&] (auto& animationProperties) -> CAAnimation * {
                 if (PlatformCAAnimation::isValidKeyPath(properties.keyPath, properties.animationType))
-                    return createAnimation(layer, layerTreeHost, animationProperties).unsafeGet();
+                    return createAnimation(layer, layerTreeHost, animationProperties).autorelease();
                 ASSERT_NOT_REACHED();
                 return nil;
             }).get()];
@@ -542,15 +542,15 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         }
 
         if (properties.timingFunction)
-            [keyframeAnimation setTimingFunction:toCAMediaTimingFunction(Ref { *properties.timingFunction }, false)]; // FIXME: handle reverse.
+            [keyframeAnimation setTimingFunction:toCAMediaTimingFunction(Ref { *properties.timingFunction }, false).get()]; // FIXME: handle reverse.
 
         if (properties.timingFunctions.size()) {
             [keyframeAnimation setTimingFunctions:createNSArray(properties.timingFunctions, [&] (auto& function) {
-                return toCAMediaTimingFunction(function.get(), properties.reverseTimingFunctions);
+                return toCAMediaTimingFunction(function.get(), properties.reverseTimingFunctions).autorelease();
             }).get()];
         }
 
-        caAnimation = WTFMove(keyframeAnimation);
+        caAnimation = WTF::move(keyframeAnimation);
         break;
     }
     case PlatformCAAnimation::AnimationType::Spring: {
@@ -571,7 +571,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
                 [springAnimation setInitialVelocity:function->initialVelocity()];
             }
         }
-        caAnimation = WTFMove(springAnimation);
+        caAnimation = WTF::move(springAnimation);
         break;
     }
     }
@@ -587,11 +587,11 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
     if ([caAnimation isKindOfClass:[CAPropertyAnimation class]]) {
         [(CAPropertyAnimation *)caAnimation setAdditive:properties.additive];
         if (properties.valueFunction != PlatformCAAnimation::ValueFunctionType::NoValueFunction)
-            [(CAPropertyAnimation *)caAnimation setValueFunction:[CAValueFunction functionWithName:toCAValueFunctionType(properties.valueFunction)]];
+            [(CAPropertyAnimation *)caAnimation setValueFunction:[CAValueFunction functionWithName:toCAValueFunctionType(properties.valueFunction).get()]];
     }
 
     if (properties.fillMode != PlatformCAAnimation::FillModeType::NoFillMode)
-        [caAnimation setFillMode:toCAFillModeType(properties.fillMode)];
+        [caAnimation setFillMode:toCAFillModeType(properties.fillMode).get()];
 
     if (properties.hasExplicitBeginTime)
         [caAnimation setValue:@YES forKey:WKExplicitBeginTimeFlag];

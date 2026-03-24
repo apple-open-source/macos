@@ -25,9 +25,13 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
 DECLARE_SYSTEM_HEADER
 
-#if PLATFORM(MAC) || USE(APPLE_INTERNAL_SDK)
+#include <wtf/Platform.h>
+
+#if PLATFORM(MAC) || PLATFORM(IOS) || USE(APPLE_INTERNAL_SDK)
 
 #include <IOKit/IOTypes.h>
 

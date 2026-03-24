@@ -32,7 +32,7 @@
 .\"	@(#)regex.3	8.4 (Berkeley) 3/20/94
 .\" $FreeBSD: src/lib/libc/regex/regex.3,v 1.21 2007/01/09 00:28:04 imp Exp $
 .\"
-.Dd Sept 29, 2011
+.Dd July 11, 2025
 .Dt REGEX 3
 .Os
 .Sh NAME
@@ -869,6 +869,9 @@ cannot happen - you found a bug
 invalid argument, e.g.\& negative-length string
 .It Dv REG_ILLSEQ
 illegal byte sequence (bad multibyte character)
+.It Dv REG_BADMAX
+maximum repetition exceeds
+.Dv RE_DUP_MAX
 .El
 .Sh SEE ALSO
 .Xr grep 1 ,

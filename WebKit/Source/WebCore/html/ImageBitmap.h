@@ -45,7 +45,6 @@ class CanvasBase;
 class CSSStyleImageValue;
 class DestinationColorSpace;
 class FloatSize;
-class GLFence;
 class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLVideoElement;
@@ -88,7 +87,7 @@ private:
 };
 
 class ImageBitmap final : public ScriptWrappable, public RefCounted<ImageBitmap> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageBitmap);
+    WTF_MAKE_TZONE_ALLOCATED(ImageBitmap);
 public:
     using Source = Variant<
         RefPtr<HTMLImageElement>,
@@ -141,11 +140,6 @@ public:
     bool isDetached() const { return !m_bitmap; }
     void close();
 
-#if USE(SKIA)
-    void prepareForCrossThreadTransfer();
-    void finalizeCrossThreadTransfer();
-#endif
-
     size_t memoryCost() const;
 private:
     friend class ImageBitmapImageObserver;
@@ -178,9 +172,6 @@ private:
     const bool m_originClean : 1 { false };
     const bool m_premultiplyAlpha : 1 { false };
     const bool m_forciblyPremultiplyAlpha : 1 { false };
-#if USE(SKIA)
-    std::unique_ptr<GLFence> m_fence;
-#endif
 };
 
 }

@@ -139,7 +139,7 @@ void RemoteRenderBundleEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index
 
 void RemoteRenderBundleEncoderProxy::pushDebugGroup(String&& groupLabel)
 {
-    auto sendResult = send(Messages::RemoteRenderBundleEncoder::PushDebugGroup(WTFMove(groupLabel)));
+    auto sendResult = send(Messages::RemoteRenderBundleEncoder::PushDebugGroup(WTF::move(groupLabel)));
     UNUSED_VARIABLE(sendResult);
 }
 
@@ -151,7 +151,7 @@ void RemoteRenderBundleEncoderProxy::popDebugGroup()
 
 void RemoteRenderBundleEncoderProxy::insertDebugMarker(String&& markerLabel)
 {
-    auto sendResult = send(Messages::RemoteRenderBundleEncoder::InsertDebugMarker(WTFMove(markerLabel)));
+    auto sendResult = send(Messages::RemoteRenderBundleEncoder::InsertDebugMarker(WTF::move(markerLabel)));
     UNUSED_VARIABLE(sendResult);
 }
 

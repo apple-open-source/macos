@@ -33,7 +33,7 @@ namespace WebCore {
 
 Ref<StyleRulePositionTry> StyleRulePositionTry::create(AtomString&& name, Ref<StyleProperties>&& properties)
 {
-    return adoptRef(*new StyleRulePositionTry(WTFMove(name), WTFMove(properties)));
+    return adoptRef(*new StyleRulePositionTry(WTF::move(name), WTF::move(properties)));
 }
 
 StyleRulePositionTry::StyleRulePositionTry(AtomString&& name, Ref<StyleProperties>&& properties)

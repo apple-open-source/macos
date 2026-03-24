@@ -35,7 +35,6 @@
 #include <WebCore/SourceBufferParserWebM.h>
 #include <WebCore/TimeRanges.h>
 #include <WebCore/VideoFrameMetadata.h>
-#include "WebAVSampleBufferListener.h"
 #include "WebMResourceClient.h"
 #include <wtf/HashFunctions.h>
 #include <wtf/LoggerHelper.h>
@@ -73,12 +72,11 @@ class VideoTrackPrivateWebM;
 class MediaPlayerPrivateWebM
     : public MediaPlayerPrivateInterface
     , public WebMResourceClientParent
-    , public WebAVSampleBufferListenerClient
     , private LoggerHelper
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaPlayerPrivateWebM, WTF::DestructionThread::Main> {
     WTF_MAKE_TZONE_ALLOCATED(MediaPlayerPrivateWebM);
 public:
-    MediaPlayerPrivateWebM(MediaPlayer*);
+    static Ref<MediaPlayerPrivateWebM> create(MediaPlayer&);
     ~MediaPlayerPrivateWebM();
 
     constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::CocoaWebM; }
@@ -88,6 +86,8 @@ public:
     WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 
 private:
+    explicit MediaPlayerPrivateWebM(MediaPlayer&);
+
     void setPreload(MediaPlayer::Preload) final;
     void doPreload();
     void load(const URL&, const LoadOptions&) final;
@@ -253,9 +253,9 @@ private:
     bool m_shouldMaintainAspectRatio { true };
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    const String& defaultSpatialTrackingLabel() const final;
+    String defaultSpatialTrackingLabel() const final;
     void setDefaultSpatialTrackingLabel(const String&) final;
-    const String& spatialTrackingLabel() const final;
+    String spatialTrackingLabel() const final;
     void setSpatialTrackingLabel(const String&) final;
     void updateSpatialTrackingLabel();
 #endif
@@ -302,6 +302,8 @@ private:
 
     void maybeFinishLoading();
     void readyToProcessData();
+
+    void monitorReadyState();
 
     static Ref<AudioVideoRenderer> createRenderer(LoggerHelper&, HTMLMediaElementIdentifier, MediaPlayerIdentifier);
 
@@ -357,6 +359,7 @@ private:
     bool m_hasAudio { false };
     bool m_hasVideo { false };
     bool m_hasAvailableVideoFrame { false };
+    bool m_readyStateIsWaitingForAvailableFrame { true };
     bool m_visible { false };
     mutable bool m_loadingProgressed { false };
     bool m_loadFinished { false };
@@ -378,7 +381,7 @@ private:
     MediaTime m_lastSeekTime;
     std::optional<SeekTarget> m_pendingSeek;
     std::optional<GenericPromise::Producer> m_waitForTimeBufferedPromise;
-    NativePromiseRequest m_rendererSeekRequest;
+    const Ref<NativePromiseRequest> m_rendererSeekRequest;
     bool m_seeking { false };
 #if HAVE(SPATIAL_TRACKING_LABEL)
     String m_defaultSpatialTrackingLabel;

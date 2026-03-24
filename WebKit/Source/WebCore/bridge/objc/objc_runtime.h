@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef KJS_BINDINGS_OBJC_RUNTIME_H
-#define KJS_BINDINGS_OBJC_RUNTIME_H
+#pragma once
 
 #include "BridgeJSC.h"
 #include "JSDOMBinding.h"
@@ -32,8 +31,7 @@
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <wtf/RetainPtr.h>
 
-namespace JSC {
-namespace Bindings {
+namespace JSC::Bindings {
 
 ClassStructPtr webScriptObjectClass();
 ClassStructPtr webUndefinedClass();
@@ -69,6 +67,8 @@ public:
     SELStructPtr selector() const { return _selector; }
 
 private:
+    bool isObjcMethod() const final { return true; }
+
     ClassStructPtr _objcClass;
     SELStructPtr _selector;
     RetainPtr<CFStringRef> _javaScriptName;
@@ -147,7 +147,8 @@ private:
     String m_item;
 };
 
-} // namespace Bindings
-} // namespace JSC
+} // namespace JSC::Bindings
 
-#endif
+SPECIALIZE_TYPE_TRAITS_BEGIN(JSC::Bindings::ObjcMethod)
+    static bool isType(const JSC::Bindings::Method& method) { return method.isObjcMethod(); }
+SPECIALIZE_TYPE_TRAITS_END()

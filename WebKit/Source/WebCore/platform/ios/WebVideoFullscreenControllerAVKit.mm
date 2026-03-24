@@ -36,7 +36,7 @@
 #import "PlaybackSessionInterfaceAVKitLegacy.h"
 #import "PlaybackSessionModelMediaElement.h"
 #import "RenderObjectInlines.h"
-#import "RenderVideo.h"
+#import "RenderVideoInlines.h"
 #import "TimeRanges.h"
 #import "VideoPresentationInterfaceAVKitLegacy.h"
 #import "VideoPresentationModelVideoElement.h"
@@ -130,6 +130,7 @@ private:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     // VideoPresentationModelClient
     void hasVideoChanged(bool) override;
@@ -255,7 +256,7 @@ VideoFullscreenControllerContext::~VideoFullscreenControllerContext()
         m_playbackModel = nullptr;
         m_presentationModel = nullptr;
     } else
-        WorkQueue::mainSingleton().dispatchSync(WTFMove(notifyClientsModelWasDestroyed));
+        WorkQueue::mainSingleton().dispatchSync(WTF::move(notifyClientsModelWasDestroyed));
 }
 
 #pragma mark VideoPresentationModel
@@ -266,7 +267,7 @@ void VideoFullscreenControllerContext::requestUpdateInlineRect()
     ASSERT(isUIThread());
     WebThreadRun([protectedThis = Ref { *this }, this] () mutable {
         IntRect clientRect = elementRectInWindow(m_videoElement.get());
-        RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this, clientRect] {
+        RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this, clientRect] {
             m_interface->setInlineRect(clientRect, clientRect != IntRect(0, 0, 0, 0));
         });
     });
@@ -281,8 +282,8 @@ void VideoFullscreenControllerContext::requestVideoContentLayer()
     ASSERT(isUIThread());
     WebThreadRun([protectedThis = Ref { *this }, this, videoFullscreenLayer = retainPtr([m_videoFullscreenView layer])] () mutable {
         [videoFullscreenLayer setBackgroundColor:cachedCGColor(WebCore::Color::transparentBlack).get()];
-        m_presentationModel->setVideoFullscreenLayer(videoFullscreenLayer.get(), [protectedThis = WTFMove(protectedThis), this] () mutable {
-            RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this] {
+        m_presentationModel->setVideoFullscreenLayer(videoFullscreenLayer.get(), [protectedThis = WTF::move(protectedThis), this] () mutable {
+            RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this] {
                 if (!m_interface)
                     return;
 
@@ -301,8 +302,8 @@ void VideoFullscreenControllerContext::returnVideoContentLayer()
     ASSERT(isUIThread());
     WebThreadRun([protectedThis = Ref { *this }, this, videoFullscreenLayer = retainPtr([m_videoFullscreenView layer])] () mutable {
         [videoFullscreenLayer setBackgroundColor:cachedCGColor(WebCore::Color::transparentBlack).get()];
-        m_presentationModel->setVideoFullscreenLayer(nil, [protectedThis = WTFMove(protectedThis), this] () mutable {
-            RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this] {
+        m_presentationModel->setVideoFullscreenLayer(nil, [protectedThis = WTF::move(protectedThis), this] () mutable {
+            RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this] {
                 if (!m_interface)
                     return;
 
@@ -325,8 +326,8 @@ void VideoFullscreenControllerContext::didSetupFullscreen()
 #else
     WebThreadRun([protectedThis = Ref { *this }, this, videoFullscreenLayer = retainPtr([m_videoFullscreenView layer])] () mutable {
         [videoFullscreenLayer setBackgroundColor:cachedCGColor(WebCore::Color::transparentBlack)];
-        m_presentationModel->setVideoFullscreenLayer(videoFullscreenLayer.get(), [protectedThis = WTFMove(protectedThis), this] () mutable {
-            RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this] {
+        m_presentationModel->setVideoFullscreenLayer(videoFullscreenLayer.get(), [protectedThis = WTF::move(protectedThis), this] () mutable {
+            RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this] {
                 m_interface->enterFullscreen();
             });
         });
@@ -353,8 +354,8 @@ void VideoFullscreenControllerContext::didExitFullscreen()
     });
 #else
     WebThreadRun([protectedThis = Ref { *this }, this] () mutable {
-        m_presentationModel->setVideoFullscreenLayer(nil, [protectedThis = WTFMove(protectedThis), this] () mutable {
-            RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this] {
+        m_presentationModel->setVideoFullscreenLayer(nil, [protectedThis = WTF::move(protectedThis), this] () mutable {
+            RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this] {
                 m_interface->cleanupFullscreen();
             });
         });
@@ -387,7 +388,7 @@ void VideoFullscreenControllerContext::fullscreenMayReturnToInline()
     ASSERT(isUIThread());
     WebThreadRun([protectedThis = Ref { *this }, this] () mutable {
         IntRect clientRect = elementRectInWindow(m_videoElement.get());
-        RunLoop::mainSingleton().dispatch([protectedThis = WTFMove(protectedThis), this, clientRect] {
+        RunLoop::mainSingleton().dispatch([protectedThis = WTF::move(protectedThis), this, clientRect] {
             m_interface->preparedToReturnToInline(true, clientRect);
         });
     });
@@ -608,7 +609,7 @@ void VideoFullscreenControllerContext::setVideoLayerFrame(FloatRect frame)
     RetainPtr<CALayer> videoFullscreenLayer = [m_videoFullscreenView layer];
     [videoFullscreenLayer setSublayerTransform:[videoFullscreenLayer transform]];
 
-    dispatchAsyncOnMainThreadWithWebThreadLockIfNeeded([protectedThis = Ref { *this }, this, frame, videoFullscreenLayer = WTFMove(videoFullscreenLayer)] {
+    dispatchAsyncOnMainThreadWithWebThreadLockIfNeeded([protectedThis = Ref { *this }, this, frame, videoFullscreenLayer = WTF::move(videoFullscreenLayer)] {
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         [CATransaction setAnimationDuration:0];

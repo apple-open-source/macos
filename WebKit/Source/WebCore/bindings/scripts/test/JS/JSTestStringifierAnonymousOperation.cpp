@@ -126,7 +126,7 @@ void JSTestStringifierAnonymousOperationPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestStringifierAnonymousOperation::s_info = { "TestStringifierAnonymousOperation"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestStringifierAnonymousOperation) };
 
 JSTestStringifierAnonymousOperation::JSTestStringifierAnonymousOperation(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestStringifierAnonymousOperation>&& impl)
-    : JSDOMWrapper<TestStringifierAnonymousOperation>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestStringifierAnonymousOperation>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -249,7 +249,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifierAnonymousOperation>(impl.ptr());
 #endif
-    return createWrapper<TestStringifierAnonymousOperation>(globalObject, WTFMove(impl));
+    return createWrapper<TestStringifierAnonymousOperation>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestStringifierAnonymousOperation& impl)

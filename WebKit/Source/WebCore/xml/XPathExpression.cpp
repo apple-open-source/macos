@@ -39,13 +39,13 @@
 namespace WebCore {
     
 inline XPathExpression::XPathExpression(std::unique_ptr<XPath::Expression> expression)
-    : m_topExpression(WTFMove(expression))
+    : m_topExpression(WTF::move(expression))
 {
 }
 
 ExceptionOr<Ref<XPathExpression>> XPathExpression::createExpression(const String& expression, RefPtr<XPathNSResolver>&& resolver)
 {
-    auto parseResult = XPath::Parser::parseStatement(expression, WTFMove(resolver));
+    auto parseResult = XPath::Parser::parseStatement(expression, WTF::move(resolver));
     if (parseResult.hasException())
         return parseResult.releaseException();
 

@@ -39,7 +39,8 @@ SKIP_INSTALL_YES = NO;
 
 CLANG_ENABLE_OBJC_ARC = YES;
 
-OTHER_CFLAGS = $(inherited) -isystem icu;
+// Remove -Wno-error=stack-exhausted after rdar://163951890 is fixed in all active toolchains
+OTHER_CFLAGS = $(inherited) -isystem icu -Wno-error=stack-exhausted;
 
 OTHER_LDFLAGS = $(inherited) $(SOURCE_VERSION_LDFLAGS);
 

@@ -44,7 +44,7 @@ AppKitControlSystemImage::AppKitControlSystemImage(AppKitControlSystemImageType 
     , m_controlType(controlType)
 {
     NSAppearance *appearance = [NSAppearance currentDrawingAppearance];
-    m_tintColor = colorFromCocoaColor(appearance.tintColor);
+    m_tintColor = colorFromCocoaColor(retainPtr(appearance.tintColor).get());
     m_useDarkAppearance = [appearance.name isEqualToString:NSAppearanceNameDarkAqua];
 }
 

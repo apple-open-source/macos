@@ -39,6 +39,7 @@
 #include "ScrollingTreeOverflowScrollingNodeCoordinated.h"
 #include "ScrollingTreePositionedNodeCoordinated.h"
 #include "ScrollingTreeStickyNodeCoordinated.h"
+#include <ranges>
 
 namespace WebCore {
 
@@ -88,7 +89,7 @@ void ScrollingTreeCoordinated::applyLayerPositionsInternal()
 
     if (ScrollingThread::isCurrentThread()) {
         auto rootContentsLayer = static_cast<ScrollingTreeFrameScrollingNodeCoordinated*>(rootScrollingNode)->rootContentsLayer();
-        rootContentsLayer->requestComposition();
+        rootContentsLayer->requestComposition(CompositionReason::AsyncScrolling);
     }
 }
 
@@ -151,7 +152,7 @@ RefPtr<ScrollingTreeNode> ScrollingTreeCoordinated::scrollingNodeForPoint(FloatP
         collectDescendantLayersAtPoint(layersAtPoint, Ref { *rootContentsLayer }, point);
     }
 
-    for (auto& layer : makeReversedRange(layersAtPoint)) {
+    for (auto& layer : layersAtPoint | std::views::reverse) {
         Locker locker { layer->lock() };
         auto* scrollingNode = nodeForID(layer->scrollingNodeID());
         if (is<ScrollingTreeScrollingNode>(scrollingNode))

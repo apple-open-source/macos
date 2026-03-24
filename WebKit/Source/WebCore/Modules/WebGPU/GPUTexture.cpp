@@ -56,7 +56,7 @@ static uint32_t getDimension(auto& extent3D)
 }
 
 GPUTexture::GPUTexture(Ref<WebGPU::Texture>&& backing, const GPUTextureDescriptor& descriptor, const GPUDevice& device)
-    : m_backing(WTFMove(backing))
+    : m_backing(WTF::move(backing))
     , m_format(descriptor.format)
     , m_width(getDimension<0>(descriptor.size))
     , m_height(getDimension<1>(descriptor.size))
@@ -78,7 +78,7 @@ String GPUTexture::label() const
 
 void GPUTexture::setLabel(String&& label)
 {
-    m_backing->setLabel(WTFMove(label));
+    m_backing->setLabel(WTF::move(label));
 }
 
 static WebGPU::TextureViewDescriptor convertToBacking(const std::optional<GPUTextureViewDescriptor>& textureViewDescriptor)

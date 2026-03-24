@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>apache</string>
 	<key>OpenSourceVersion</key>
-	<string>2.4.62</string>
+	<string>2.4.66</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://httpd.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>https://archive.apache.org/dist/httpd/httpd-2.4.59.tar.gz</string>
+	<string>https://archive.apache.org/dist/httpd/httpd-2.4.66.tar.bz2</string>
 	<key>OpenSourceSHA256</key>
-	<string>674188e7bf44ced82da8db522da946849e22080d73d16c93f7f4df89e25729ec</string>
+	<string>94d7ff2b42acbb828e870ba29e4cbad48e558a79c623ad3596e4116efcfea25a</string>
 	<key>OpenSourceImportDate</key>
-	<string>2024-08-26</string>
+	<string>2026-01-07</string>
 	<key>OpenSourceModifications</key>
 	<array>
                <string>Removed GPLv3 bison-generated parsers</string>

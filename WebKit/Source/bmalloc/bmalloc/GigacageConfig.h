@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "Algorithm.h"
 #include "GigacageKind.h"
 #include <bit>
@@ -113,3 +115,5 @@ static_assert(bmalloc::roundUpToMultipleOf<alignmentOfGigacageConfig>(startOffse
 #define g_gigacageConfig (*std::bit_cast<Gigacage::Config*>(&WebConfig::g_config[Gigacage::startSlotOfGigacageConfig]))
 
 } // namespace Gigacage
+
+#endif // __cplusplus

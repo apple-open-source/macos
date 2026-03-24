@@ -24,38 +24,32 @@
 
 #pragma once
 
+#include <WebCore/StyleCoordinatedValueListValue.h>
 #include <WebCore/StyleValueTypes.h>
+#include <wtf/IndexedRange.h>
 
 namespace WebCore {
 namespace Style {
 
-// https://www.w3.org/TR/css-values-4/#coordinating-list-property
+// https://drafts.csswg.org/css-values-4/#coordinating-list-property
 template<typename T>
 struct CoordinatedValueList {
     using Container = Vector<T, 0, CrashOnOverflow, 0>;
     using value_type = T;
-    using iterator = typename Container::iterator;
-    using const_iterator = typename Container::const_iterator;
-    using reverse_iterator = typename Container::reverse_iterator;
-    using const_reverse_iterator = typename Container::const_reverse_iterator;
 
-    CoordinatedValueList(CSS::Keyword::None)
-        : CoordinatedValueList { Container { value_type { } } }
+    template<CSSValueID valueID>
+    CoordinatedValueList(Constant<valueID> keyword)
+        : CoordinatedValueList { Container { value_type { keyword } } }
     {
     }
 
     CoordinatedValueList(T&& value)
-        : CoordinatedValueList { Container { WTFMove(value) } }
+        : CoordinatedValueList { Container { WTF::move(value) } }
     {
     }
 
     CoordinatedValueList(std::initializer_list<T>&& values)
-        : CoordinatedValueList { Container { WTFMove(values) } }
-    {
-    }
-
-    CoordinatedValueList(Container&& container)
-        : m_data { Data::create(WTFMove(container)) }
+        : CoordinatedValueList { Container { WTF::move(values) } }
     {
     }
 
@@ -68,35 +62,31 @@ struct CoordinatedValueList {
         return *this;
     }
 
-    void append(T&& value) { m_data->value.append(WTFMove(value)); }
-    void resize(size_t n) { m_data->value.resize(n); }
-    void removeAt(size_t i) { m_data->value.removeAt(i); }
+    // Must be called after modifying the list or its values, before any of the used*() functions are called.
+    void prepareForUse();
 
-    iterator begin() LIFETIME_BOUND { return m_data->value.begin(); }
-    iterator end() LIFETIME_BOUND { return m_data->value.end(); }
-    const_iterator begin() const LIFETIME_BOUND { return m_data->value.begin(); }
-    const_iterator end() const LIFETIME_BOUND { return m_data->value.end(); }
+    void append(T&& value) { m_data->container.append(WTF::move(value)); }
 
-    reverse_iterator rbegin() LIFETIME_BOUND { return m_data->value.rbegin(); }
-    reverse_iterator rend() LIFETIME_BOUND { return m_data->value.rend(); }
-    const_reverse_iterator rbegin() const LIFETIME_BOUND { return m_data->value.rbegin(); }
-    const_reverse_iterator rend() const LIFETIME_BOUND { return m_data->value.rend(); }
+    value_type& usedFirst() LIFETIME_BOUND { return m_data->container.first(); }
+    const value_type& usedFirst() const LIFETIME_BOUND { return m_data->container.first(); }
+    value_type& computedFirst() LIFETIME_BOUND { return m_data->container.first(); }
+    const value_type& computedFirst() const LIFETIME_BOUND { return m_data->container.first(); }
 
-    value_type& first() LIFETIME_BOUND { return m_data->value.first(); }
-    const value_type& first() const LIFETIME_BOUND { return m_data->value.first(); }
+    value_type& usedLast() LIFETIME_BOUND { return m_data->container[m_data->usedLength - 1]; }
+    const value_type& usedLast() const LIFETIME_BOUND { return m_data->container[m_data->usedLength - 1]; }
+    value_type& computedLast() LIFETIME_BOUND { return m_data->container.last(); }
+    const value_type& computedLast() const LIFETIME_BOUND { return m_data->container.last(); }
 
-    value_type& last() LIFETIME_BOUND { return m_data->value.last(); }
-    const value_type& last() const LIFETIME_BOUND { return m_data->value.last(); }
+    T& operator[](size_t i) LIFETIME_BOUND { return m_data->container[i]; }
+    const T& operator[](size_t i) const LIFETIME_BOUND { return m_data->container[i]; }
 
-    value_type& operator[](size_t i) LIFETIME_BOUND { return m_data->value[i]; }
-    const value_type& operator[](size_t i) const LIFETIME_BOUND { return m_data->value[i]; }
+    unsigned usedLength() const { return m_data->usedLength; }
+    unsigned computedLength() const { return m_data->container.size(); }
 
-    unsigned size() const { return m_data->value.size(); }
-    bool isEmpty() const { return m_data->value.isEmpty(); }
+    std::span<const T> usedValues() const LIFETIME_BOUND { return m_data->container.span().first(m_data->usedLength); }
+    std::span<const T> computedValues() const LIFETIME_BOUND { return m_data->container.span(); }
 
-    bool isNone() const { return m_data->value.isEmpty() || (m_data->value.size() == 1 && m_data->value[0].isEmpty()); }
-
-    void fillUnsetProperties() { T::fillUnsetProperties(*this); }
+    bool isInitial() const { return m_data->container.size() == 1 && m_data->container[0].isInitial() && allNonBasePropertiesAreUnsetOrFilled(m_data->container[0]); }
 
     bool operator==(const CoordinatedValueList& other) const
     {
@@ -104,15 +94,23 @@ struct CoordinatedValueList {
     }
 
 private:
+    CoordinatedValueList(Container&& container)
+        : m_data { Data::create(WTF::move(container)) }
+    {
+    }
+
+    void removeEmptyValues();
+    void fillUnsetProperties();
+    void computeUsedLength();
+
     class Data : public RefCounted<Data> {
     public:
-        static Ref<Data> create() { return adoptRef(*new Data); }
-        static Ref<Data> create(Container&& value) { return adoptRef(*new Data(WTFMove(value))); }
+        static Ref<Data> create(Container&& container) { return adoptRef(*new Data(WTF::move(container))); }
 
         Ref<Data> clone() const
         {
             return adoptRef(*new Data(
-                value.template map<Container>([](auto& item) {
+                container.template map<Container>([](auto& item) {
                     return value_type::clone(item);
                 })
             ));
@@ -120,24 +118,80 @@ private:
 
         bool operator==(const Data& other) const
         {
-            return value == other.value;
+            return container == other.container;
         }
 
-        Data() = default;
-        Data(Container&& value) : value { WTFMove(value) } { }
+        Data(Container&& container) : container { WTF::move(container) } { RELEASE_ASSERT(this->container.size() > 0); }
 
-        Container value;
+        Container container;
+        unsigned usedLength { 1 };
     };
 
     Ref<Data> m_data;
 };
+
+template<typename T>
+void CoordinatedValueList<T>::prepareForUse()
+{
+    removeEmptyValues();
+    fillUnsetProperties();
+    computeUsedLength();
+}
+
+template<typename T>
+void CoordinatedValueList<T>::removeEmptyValues()
+{
+    for (auto [i, value] : indexedRange(m_data->container)) {
+        if (i > 0) {
+            if (allPropertiesAreUnsetOrFilled(value)) {
+                m_data->container.resize(i);
+                break;
+            }
+        }
+    }
+}
+
+template<typename T>
+void CoordinatedValueList<T>::fillUnsetProperties()
+{
+    auto fillUnsetProperty = [this]<auto propertyID>() {
+        using PropertyAccessor = CoordinatedValueListPropertyAccessor<propertyID>;
+
+        size_t i = 0;
+        for (; i < m_data->container.size() && PropertyAccessor { m_data->container[i] }.isSet(); ++i) { }
+        if (i) {
+            for (size_t j = 0; i < m_data->container.size(); ++i, ++j)
+                PropertyAccessor { m_data->container[i] }.fill(typename PropertyAccessor::Type { PropertyAccessor { m_data->container[j] }.get() });
+        }
+    };
+
+    eachCoordinatedValueListProperties<T>(fillUnsetProperty);
+}
+
+template<typename T>
+void CoordinatedValueList<T>::computeUsedLength()
+{
+    // The length of the coordinated value list is determined by the number of items
+    // specified in one particular coordinating list property, the coordinating list
+    // base property. (In the case of backgrounds, this is the background-image property.).
+
+    using BasePropertyAccessor = CoordinatedValueListPropertyConstAccessor<T::baseProperty.value>;
+
+    unsigned result = 0;
+    for (auto& value : m_data->container) {
+        if (!BasePropertyAccessor { value }.isSet())
+            break;
+        ++result;
+    }
+    m_data->usedLength = std::max(1u, result);
+}
 
 // MARK: - Logging
 
 template<typename T>
 TextStream& operator<<(TextStream& ts, const CoordinatedValueList<T>& value)
 {
-    logForCSSOnRangeLike(ts, value, ", "_s);
+    logForCSSOnRangeLike(ts, value.computedValues(), ", "_s);
     return ts;
 }
 

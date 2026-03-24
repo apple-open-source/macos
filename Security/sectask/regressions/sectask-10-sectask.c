@@ -122,7 +122,7 @@ int sectask_10_sectask_self(int argc, char *const *argv)
     plan_tests(7);
 
     ok(task=SecTaskCreateFromSelf(kCFAllocatorDefault), "SecTaskCreateFromSelf");
-    require(task, out);
+    __Require(task, out);
 
     /* TODO: remove the todo once xcode signs simulator binaries */
 SKIP: {
@@ -168,7 +168,7 @@ int sectask_10_sectask(int argc, char *const *argv)
     init_self_audittoken();
 
     ok(task=SecTaskCreateWithAuditToken(kCFAllocatorDefault, g_self_audittoken), "SecTaskCreateFromAuditToken");
-    require(task, out);
+    __Require(task, out);
 
     /* TODO: remove the todo once xcode signs simulator binaries */
 SKIP: {

@@ -68,7 +68,7 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
 - (instancetype)init {
     self = [super init];
     //setup logging
-    coresmartpowernap_log = os_log_create("com.apple.powerd", "coresmartpowernap");
+    coresmartpowernap_log = os_log_create("com.apple.powerd", "coreSmartPowerNap");
 
     // establish connection
     if (self) {
@@ -86,6 +86,8 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
             }
             INFO_LOG("Connection to powerd interrupted");
             client.connection_interrupted = YES;
+            [client.connection invalidate];
+            client.connection = nil;
         }];
 
         [_connection setInvalidationHandler:^{
@@ -118,6 +120,11 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
         }
     }
     return self;
+}
+
+- (void)dealloc
+{
+    [_connection invalidate];
 }
 
 - (void)registerWithCallback:(dispatch_queue_t)queue callback:(_PMCoreSmartPowerNapCallback)callback {

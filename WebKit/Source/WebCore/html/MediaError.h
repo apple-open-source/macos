@@ -46,7 +46,7 @@ public:
 
     static Ref<MediaError> create(Code code, String&& message)
     {
-        return adoptRef(*new MediaError(code, WTFMove(message)));
+        return adoptRef(*new MediaError(code, WTF::move(message)));
     }
 
     Code code() const { return m_code; }
@@ -55,7 +55,7 @@ public:
 private:
     MediaError(Code code, String&& message)
         : m_code(code)
-        , m_message(WTFMove(message))
+        , m_message(WTF::move(message))
     { }
 
     Code m_code;

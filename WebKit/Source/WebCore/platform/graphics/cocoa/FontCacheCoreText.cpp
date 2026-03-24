@@ -446,7 +446,7 @@ static const FontDatabase::InstalledFont* findClosestFont(const FontDatabase::In
     auto capabilities = familyFonts.installedFonts.map([](auto& font) {
         return font.capabilities;
     });
-    FontSelectionAlgorithm fontSelectionAlgorithm(fontSelectionRequest, WTFMove(capabilities), familyFonts.capabilities);
+    FontSelectionAlgorithm fontSelectionAlgorithm(fontSelectionRequest, WTF::move(capabilities), familyFonts.capabilities);
     auto index = fontSelectionAlgorithm.indexOfBestCapabilities();
     if (index == notFound)
         return nullptr;
@@ -587,7 +587,7 @@ static std::optional<SpecialCaseFontLookupResult> fontDescriptorWithFamilySpecia
             // because there doesn't seem to be a place to specify the bitmask. That's the reason we're creating the derived CTFontDescriptor here, rather than in UnrealizedCoreTextFont::realize().
             return { { adoptCF(CTFontDescriptorCreateCopyWithSymbolicTraits(descriptor.get(), traits, traits)), FontTypeForPreparation::SystemFont } };
         }
-        return { { WTFMove(descriptor), FontTypeForPreparation::SystemFont } };
+        return { { WTF::move(descriptor), FontTypeForPreparation::SystemFont } };
     }
 
     if (equalLettersIgnoringASCIICase(family, "-apple-menu"_s))
@@ -632,13 +632,13 @@ static RetainPtr<CTFontRef> fontWithFamily(FontDatabase& fontDatabase, const Ato
         lookupResult->unrealizedCoreTextFont.modify([&](CFMutableDictionaryRef attributes) {
             addAttributesForInstalledFonts(attributes, fontDescription.shouldAllowUserInstalledFonts());
         });
-        return preparePlatformFont(WTFMove(lookupResult->unrealizedCoreTextFont), fontDescription, fontCreationContext, lookupResult->fontTypeForPreparation);
+        return preparePlatformFont(WTF::move(lookupResult->unrealizedCoreTextFont), fontDescription, fontCreationContext, lookupResult->fontTypeForPreparation);
     }
     auto fontLookup = platformFontLookupWithFamily(fontDatabase, family, fontDescription.fontSelectionRequest(), options);
-    UnrealizedCoreTextFont unrealizedFont = { WTFMove(fontLookup.result) };
+    UnrealizedCoreTextFont unrealizedFont = { WTF::move(fontLookup.result) };
     unrealizedFont.setSize(size);
     ApplyTraitsVariations applyTraitsVariations = fontLookup.createdFromPostScriptName ? ApplyTraitsVariations::No : ApplyTraitsVariations::Yes;
-    return preparePlatformFont(WTFMove(unrealizedFont), fontDescription, fontCreationContext, FontTypeForPreparation::NonSystemFont, applyTraitsVariations);
+    return preparePlatformFont(WTF::move(unrealizedFont), fontDescription, fontCreationContext, FontTypeForPreparation::NonSystemFont, applyTraitsVariations);
 }
 
 #if PLATFORM(MAC)
@@ -808,7 +808,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription&
         m_fontNamesRequiringSystemFallbackForPrewarming.add(fullName);
 
     auto result = lookupFallbackFont(platformData.ctFont(), description.weight(), description.computedLocale(), description.shouldAllowUserInstalledFonts(), characterCluster);
-    result = preparePlatformFont(UnrealizedCoreTextFont { WTFMove(result) }, description, { });
+    result = preparePlatformFont(UnrealizedCoreTextFont { WTF::move(result) }, description, { });
 
     if (!result)
         return lastResortFallbackFont(description);
@@ -971,7 +971,7 @@ void FontCache::prewarm(PrewarmInformation&& prewarmInformation)
     if (!m_prewarmQueue)
         lazyInitialize(m_prewarmQueue, WorkQueue::create("WebKit font prewarm queue"_s));
 
-    m_prewarmQueue->dispatch([&database = m_databaseDisallowingUserInstalledFonts, prewarmInformation = WTFMove(prewarmInformation).isolatedCopy()] {
+    m_prewarmQueue->dispatch([&database = m_databaseDisallowingUserInstalledFonts, prewarmInformation = WTF::move(prewarmInformation).isolatedCopy()] {
         for (auto& family : prewarmInformation.seenFamilies)
             database.collectionForFamily(family);
 
@@ -1008,8 +1008,8 @@ void FontCache::prewarmGlobally()
     };
 
     FontCache::PrewarmInformation prewarmInfo;
-    prewarmInfo.seenFamilies = WTFMove(families);
-    FontCache::forCurrentThread()->prewarm(WTFMove(prewarmInfo));
+    prewarmInfo.seenFamilies = WTF::move(families);
+    FontCache::forCurrentThread()->prewarm(WTF::move(prewarmInfo));
 #endif
 }
 

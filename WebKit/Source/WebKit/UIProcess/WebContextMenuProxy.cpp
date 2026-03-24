@@ -36,9 +36,10 @@
 
 namespace WebKit {
 
-WebContextMenuProxy::WebContextMenuProxy(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
-    : m_context(WTFMove(context))
+WebContextMenuProxy::WebContextMenuProxy(WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
+    : m_context(WTF::move(context))
     , m_userData(userData)
+    , m_frameInfo(WTF::move(frameInfo))
     , m_page(page)
 {
 }
@@ -84,7 +85,7 @@ void WebContextMenuProxy::useContextMenuItems(Vector<Ref<WebContextMenuItem>>&& 
 
     // Protect |this| from being deallocated if WebPageProxy code is re-entered from the menu runloop or delegates.
     Ref protectedThis { *this };
-    showContextMenuWithItems(WTFMove(items));
+    showContextMenuWithItems(WTF::move(items));
     page->clearWaitingForContextMenuToShow();
 }
 

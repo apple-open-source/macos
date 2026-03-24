@@ -65,7 +65,7 @@ namespace IDBClient {
 class IDBConnectionToServer;
 
 class IDBConnectionProxy final {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(IDBConnectionProxy, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(IDBConnectionProxy, WEBCORE_EXPORT);
 public:
     IDBConnectionProxy(IDBConnectionToServer&, PAL::SessionID);
 
@@ -129,7 +129,7 @@ public:
     void registerDatabaseConnection(IDBDatabase&, ScriptExecutionContextIdentifier);
     void unregisterDatabaseConnection(IDBDatabase&);
 
-    void forgetActiveOperations(const Vector<RefPtr<TransactionOperation>>&);
+    void forgetActiveOperations(const Vector<Ref<TransactionOperation>>&);
     void forgetTransaction(IDBTransaction&);
     void abortActivitiesForCurrentThread();
     void setContextSuspended(ScriptExecutionContext& currentContext, bool isContextSuspended);
@@ -156,7 +156,7 @@ private:
     void postMainThreadTask(Arguments&&... arguments)
     {
         auto task = createCrossThreadTask(arguments...);
-        m_mainThreadQueue.append(WTFMove(task));
+        m_mainThreadQueue.append(WTF::move(task));
 
         scheduleMainThreadTasks();
     }

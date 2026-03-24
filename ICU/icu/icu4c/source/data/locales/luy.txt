@@ -1,13 +1,17 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 luy{
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;¤- #,##0.00"}
+                accountingFormat%noCurrency{"#,##0.00;- #,##0.00"}
                 currencyFormat{"¤#,##0.00;¤- #,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00;¤- #,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00;- #,##0.00"}
             }
         }
     }
@@ -102,12 +106,12 @@ luy{
             }
             eras{
                 abbreviated{
-                    "BC",
-                    "AD",
+                    0{"BC"}
+                    1{"AD"}
                 }
                 wide{
-                    "Imberi ya Kuuza Kwa",
-                    "Muhiga Kuvita Kuuza",
+                    0{"Imberi ya Kuuza Kwa"}
+                    1{"Muhiga Kuvita Kuuza"}
                 }
             }
             monthNames{

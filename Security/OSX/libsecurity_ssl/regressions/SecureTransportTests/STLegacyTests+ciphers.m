@@ -230,46 +230,46 @@ static SSLContextRef make_ssl_ref(bool server, SSLAuthenticate client_side_auth,
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault,
                                          server ? kSSLServerSide : kSSLClientSide,
                                          dtls ? kSSLDatagramType : kSSLStreamType);
-    require(ctx, out);
+    __Require(ctx, out);
 
     if (dtls) {
         size_t mtu;
-        require_noerr(SSLSetMaxDatagramRecordSize(ctx, 400), out);
-        require_noerr(SSLGetMaxDatagramRecordSize(ctx, &mtu), out);
+        __Require_noErr(SSLSetMaxDatagramRecordSize(ctx, 400), out);
+        __Require_noErr(SSLGetMaxDatagramRecordSize(ctx, &mtu), out);
     }
-    require_noerr(SSLSetProtocolVersionMax(ctx, proto), out);
+    __Require_noErr(SSLSetProtocolVersionMax(ctx, proto), out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
         (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
     static const char *peer_domain_name = "localhost";
-    require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
+    __Require_noErr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
-    require_noerr(SSLSetMinimumDHGroupSize(ctx, 512), out);
+    __Require_noErr(SSLSetMinimumDHGroupSize(ctx, 512), out);
 
     if (!dh_anonymous) {
         if (server) {
-            require_noerr(SSLSetCertificate(ctx, certs), out);
+            __Require_noErr(SSLSetCertificate(ctx, certs), out);
         }
         if ((client_side_auth != kNeverAuthenticate) && server) {
             SSLAuthenticate auth;
-            require_noerr(SSLSetClientSideAuthenticate(ctx, client_side_auth), out);
-            require_noerr(SSLGetClientSideAuthenticate(ctx, &auth), out);
-            require(auth == client_side_auth, out);
-            require_noerr(SSLAddDistinguishedName(ctx, dn, dn_len), out);
+            __Require_noErr(SSLSetClientSideAuthenticate(ctx, client_side_auth), out);
+            __Require_noErr(SSLGetClientSideAuthenticate(ctx, &auth), out);
+            __Require(auth == client_side_auth, out);
+            __Require_noErr(SSLAddDistinguishedName(ctx, dn, dn_len), out);
         }
         if ((client_side_auth != kNeverAuthenticate) && !server) { /* enable break from SSLHandshake */
-            require_noerr(SSLSetSessionOption(ctx,
+            __Require_noErr(SSLSetSessionOption(ctx,
                 kSSLSessionOptionBreakOnCertRequested, true), out);
         }
     }
 
     /* Set this option, even if doing anonDH or PSK - it should NOT break out in those case */
-    require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, true), out);
+    __Require_noErr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, true), out);
 
     if (server) {
-        require_noerr(SSLSetDiffieHellmanParams(ctx,
+        __Require_noErr(SSLSetDiffieHellmanParams(ctx,
             dh_param_der, dh_param_der_len), out);
     }
     else /* if client */ {
@@ -289,22 +289,22 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     CFMutableArrayRef orig_peer_cert_array = NULL;
 
     /* verify peer cert chain */
-    require_noerr(SSLCopyPeerTrust(ctx, trust), out);
-    require_noerr(SSLGetPeerSecTrust(ctx, trust), out);
+    __Require_noErr(SSLCopyPeerTrust(ctx, trust), out);
+    __Require_noErr(SSLGetPeerSecTrust(ctx, trust), out);
     SecTrustResultType trust_result = 0;
     /* this won't verify without setting up a trusted anchor */
-    require_noerr(SecTrustEvaluate(*trust, &trust_result), out);
+    __Require_noErr(SecTrustEvaluate(*trust, &trust_result), out);
 
     peer_cert_array = SecTrustCopyCertificateChain(*trust);
     orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(peer_cert_array), ssl->peer_certs);
 
     SecIdentityRef ident = (SecIdentityRef)CFArrayGetValueAtIndex(orig_peer_cert_array, 0);
     SecCertificateRef peer_cert = NULL;
-    require_noerr(SecIdentityCopyCertificate(ident, &peer_cert), out);
+    __Require_noErr(SecIdentityCopyCertificate(ident, &peer_cert), out);
     CFArraySetValueAtIndex(orig_peer_cert_array, 0, peer_cert);
     CFRelease(peer_cert);
 
-    require(CFEqual(orig_peer_cert_array, peer_cert_array), out);
+    __Require(CFEqual(orig_peer_cert_array, peer_cert_array), out);
     CFReleaseNull(orig_peer_cert_array);
     CFReleaseNull(peer_cert_array);
 
@@ -343,21 +343,21 @@ static void *securetransport_ssl_thread(void *arg)
 
     pthread_setname_np(ssl->is_server ? "server thread" : "client thread");
 
-    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
-    require_action(ssl_state == kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    __Require_Action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
-        require_noerr(SSLInternalSetMasterSecretFunction(ctx, test_get_client_server_random, NULL), out);
-        require_noerr(SSLInternalClientRandom(ctx, random, &randomSize), out);
+        __Require_noErr(SSLGetSessionState(ctx, &ssl_state), out);
+        __Require_noErr(SSLInternalSetMasterSecretFunction(ctx, test_get_client_server_random, NULL), out);
+        __Require_noErr(SSLInternalClientRandom(ctx, random, &randomSize), out);
         offset = randomSize;
         randomSize = SSL_CLIENT_SRVR_RAND_SIZE;
-        require_noerr(SSLInternalServerRandom(ctx, random+offset, &randomSize), out);
+        __Require_noErr(SSLInternalServerRandom(ctx, random+offset, &randomSize), out);
         if (ortn == errSSLPeerAuthCompleted) {
-            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
-            require_string(!got_server_auth, out, "second server auth");
-            require_string(!ssl->dh_anonymous, out, "server auth with anon cipher");
+            __Require_Action(ssl_state == kSSLHandshake, out, ortn = -1);
+            __Require_String(!got_server_auth, out, "second server auth");
+            __Require_String(!ssl->dh_anonymous, out, "server auth with anon cipher");
             // Note: Previously, the implementation always returned errSSLPeerAuthCompleted before
             // errSSLClientCertRequested. Due to OCSP stappling implementation, this is no longer guaranteed.
             // This behavior change should not be an issue, but it's possible that some applications will
@@ -366,56 +366,56 @@ static void *securetransport_ssl_thread(void *arg)
             // to implement the former behavior.
             //require_string(!got_client_cert_req, out, "got client cert req before server auth");
             got_server_auth = true;
-            require_string(!trust, out, "Got errSSLServerAuthCompleted twice?");
-            require_string(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed");
+            __Require_String(!trust, out, "Got errSSLServerAuthCompleted twice?");
+            __Require_String(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed");
         } else if (ortn == errSSLClientCertRequested) {
-            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
-            require_string(!got_client_cert_req, out, "second client cert req");
+            __Require_Action(ssl_state == kSSLHandshake, out, ortn = -1);
+            __Require_String(!got_client_cert_req, out, "second client cert req");
             // Note: see Note above.
             //require_string(got_server_auth, out, "didn't get server auth first");
             got_client_cert_req = true;
 
             /* set client cert */
-            require_string(!ssl->is_server, out, "errSSLClientCertRequested while running server");
-            require_string(!ssl->dh_anonymous, out, "errSSLClientCertRequested while running anon DH");
+            __Require_String(!ssl->is_server, out, "errSSLClientCertRequested while running server");
+            __Require_String(!ssl->dh_anonymous, out, "errSSLClientCertRequested while running anon DH");
 
             CFArrayRef DNs = NULL;
-            require_noerr(SSLCopyDistinguishedNames	(ctx, &DNs), out);
-            require(DNs, out);
+            __Require_noErr(SSLCopyDistinguishedNames	(ctx, &DNs), out);
+            __Require(DNs, out);
             CFRelease(DNs);
 
-            require_string(ssl->client_side_auth != kNeverAuthenticate, out, "errSSLClientCertRequested in run not testing that");
+            __Require_String(ssl->client_side_auth != kNeverAuthenticate, out, "errSSLClientCertRequested in run not testing that");
             if(ssl->client_side_auth == kAlwaysAuthenticate) { // Only set a client cert in mode 1.
-                require_noerr(SSLSetCertificate(ctx, ssl->certs), out);
+                __Require_noErr(SSLSetCertificate(ctx, ssl->certs), out);
             }
         } else if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
+            __Require_Action(ssl_state == kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock
         || ortn == errSSLServerAuthCompleted
         || ortn == errSSLClientCertRequested);
-    require_noerr_action_quiet(ortn, out,
+    __Require_noErr_Action_Quiet(ortn, out,
         fprintf(stderr, "Fell out of SSLHandshake with error: %d (%s)\n", (int)ortn, ssl->is_server ? "server" : "client"));
 
-    require_action(ssl_state == kSSLConnected, out, ortn = -1);
+    __Require_Action(ssl_state == kSSLConnected, out, ortn = -1);
 
     if (!ssl->is_server && !ssl->dh_anonymous && !ssl->is_session_resume) {
-        require_string(got_server_auth, out, "never got server auth");
+        __Require_String(got_server_auth, out, "never got server auth");
         if (ssl->client_side_auth != kNeverAuthenticate)
-            require_string(got_client_cert_req, out, "never got client cert req");
+            __Require_String(got_client_cert_req, out, "never got client cert req");
     }
 
     if (!ssl->is_server && !ssl->dh_anonymous && ssl->is_session_resume) {
-        require_string(!got_server_auth, out, "got server auth during resumption??");
-        require_string(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed (resumption case)");
+        __Require_String(!got_server_auth, out, "got server auth during resumption??");
+        __Require_String(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed (resumption case)");
     }
 
     SSLCipherSuite cipherSuite;
-    require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
+    __Require_noErr_Quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
     KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(cipherSuite);
     if (kem == SSL_ECDHE_ECDSA || kem == SSL_ECDHE_RSA) {
         SSL_ECDSA_NamedCurve namedCurve;
-        require_noerr_quiet(ortn = SSLGetNegotiatedCurve(ctx, &namedCurve), out);
+        __Require_noErr_Quiet(ortn = SSLGetNegotiatedCurve(ctx, &namedCurve), out);
     }
     if (ssl->is_dtls) {
         size_t sz;
@@ -425,8 +425,8 @@ static void *securetransport_ssl_thread(void *arg)
 	Boolean	sessionWasResumed = false;
     uint8_t session_id_data[MAX_SESSION_ID_LENGTH];
     size_t session_id_length = sizeof(session_id_data);
-    require_noerr_quiet(ortn = SSLGetResumableSessionInfo(ctx, &sessionWasResumed, session_id_data, &session_id_length), out);
-    require_action(ssl->dh_anonymous || (ssl->is_session_resume == sessionWasResumed), out, ortn = -1);
+    __Require_noErr_Quiet(ortn = SSLGetResumableSessionInfo(ctx, &sessionWasResumed, session_id_data, &session_id_length), out);
+    __Require_Action(ssl->dh_anonymous || (ssl->is_session_resume == sessionWasResumed), out, ortn = -1);
 
 #define BUFSIZE (8*1024)
     unsigned char ibuf[BUFSIZE], obuf[BUFSIZE];
@@ -435,11 +435,11 @@ static void *securetransport_ssl_thread(void *arg)
         size_t len;
         if (ssl->is_server) {
             memset(obuf, i, BUFSIZE);
-            require_noerr(ortn = SSLWrite(ctx, obuf, BUFSIZE, &len), out);
-            require_action(len == BUFSIZE, out, ortn = -1);
+            __Require_noErr(ortn = SSLWrite(ctx, obuf, BUFSIZE, &len), out);
+            __Require_Action(len == BUFSIZE, out, ortn = -1);
 
-            require_noerr(ortn = SSLWrite(ctx, obuf, 0, &len), out);
-            require_action(len == 0, out, ortn = -1);
+            __Require_noErr(ortn = SSLWrite(ctx, obuf, 0, &len), out);
+            __Require_Action(len == 0, out, ortn = -1);
         }
 
         len = 0;
@@ -449,14 +449,14 @@ static void *securetransport_ssl_thread(void *arg)
             len+=l;
         }
 
-        require_noerr(ortn, out);
-        require_action(len == BUFSIZE, out, ortn = -1);
+        __Require_noErr(ortn, out);
+        __Require_Action(len == BUFSIZE, out, ortn = -1);
 
         if (ssl->is_server) {
-            require_noerr(memcmp(ibuf, obuf, BUFSIZE), out);
+            __Require_noErr(memcmp(ibuf, obuf, BUFSIZE), out);
         } else {
-            require_noerr(ortn = SSLWrite(ctx, ibuf, BUFSIZE, &len), out);
-            require_action(len == BUFSIZE, out, ortn = -1);
+            __Require_noErr(ortn = SSLWrite(ctx, ibuf, BUFSIZE, &len), out);
+            __Require_Action(len == BUFSIZE, out, ortn = -1);
         }
     }
 

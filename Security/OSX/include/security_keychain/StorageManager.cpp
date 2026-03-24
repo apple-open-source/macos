@@ -1779,8 +1779,10 @@ void StorageManager::login(UInt32 nameLength, const void *name,
                     
                     if (os_feature_enabled(Security, ProtectLoginKeychainWithDP)) {
                         // keychain will be unlocked with DP thus it should accept any password
-                        char blankPwd[] = "";
-                        theKeychain->unlock(CssmData(static_cast<void *>(blankPwd), strlen(blankPwd)));
+                        // but we also don't want to rekey to the empty string password
+                        // use NULL here, just in case the user's password is legitimately the empty string
+                        secnotice("dp_login", "attempting to unlock with empty and will definitely not rekey");
+                        theKeychain->unlock(CssmData(static_cast<void *>(NULL), 0));
                         unlockedByDp = true;
                     }
 				}

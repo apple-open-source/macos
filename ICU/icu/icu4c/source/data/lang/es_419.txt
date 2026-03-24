@@ -1,9 +1,11 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_419{
     Keys{
         colNormalization{"orden normalizado"}
+        em{"presentación de emojis"}
+        lw{"saltos de línea entre palabras"}
     }
     Languages{
         ady{"adigeo"}
@@ -13,13 +15,11 @@ es_419{
         eu{"vasco"}
         goh{"alemán de la alta edad antigua"}
         grc{"griego clásico"}
-        gu{"gujarati"}
         guc{"wayú"}
         ht{"haitiano"}
         isc{"iskonawa"}
         kbd{"cabardiano"}
         krc{"karachái-bálkaro"}
-        ks{"cachemiro"}
         lij{"genovés"}
         ml{"malabar"}
         mni{"manipuri"}
@@ -31,7 +31,6 @@ es_419{
         shu{"árabe (Chad)"}
         sma{"sami del sur"}
         st{"sesotho del sur"}
-        sw{"swahili"}
         sw_CD{"swahili (Congo)"}
         syr{"siríaco"}
         tet{"tetun"}
@@ -40,6 +39,9 @@ es_419{
         wal{"walamo"}
         xal{"calmuco"}
         zun{"zuni"}
+    }
+    Languages%extension{
+        ku{"kurmanyi"}
     }
     Languages%variant{
         ps{"pashtún"}
@@ -58,6 +60,10 @@ es_419{
         calendar{
             malayalam{"calendario malabar"}
             telugu{"calendario télugu"}
+        }
+        calendar%core{
+            dangi{"dangi"}
+            roc{"calendario chino"}
         }
         colAlternate{
             non-ignorable{"ordenar símbolos"}
@@ -80,10 +86,26 @@ es_419{
             eor{"reglas de orden europeas"}
             phonebook{"orden de agenda telefónica"}
         }
+        collation%core{
+            ducet{"unicode predeterminado"}
+            phonebook{"agenda telefónica"}
+            phonetic{"fonética"}
+            stroke{"trazo"}
+            unihan{"trazo radical"}
+        }
+        lw%core{
+            breakall{"introducir saltos"}
+            keepall{"conservar todos"}
+            phrase{"conservar en frases"}
+        }
         numbers{
             tirh{"dígitos en tirh"}
             traditional{"números traducionales"}
             wara{"dígitos en Warang Citi"}
+        }
+        ss%core{
+            none{"no"}
+            standard{"sí"}
         }
     }
     characterLabelPattern{
@@ -91,7 +113,6 @@ es_419{
         extended{"{0} — Extendido"}
         historic{"{0} — Histórico"}
         miscellaneous{"{0} — Miscelánea"}
-        scripts{"Símbolos de escritura — {0}"}
     }
     codePatterns{
         script{"Alfabeto: {0}"}

@@ -32,7 +32,7 @@
 namespace WebKit {
 
 NetworkResourceLoadMap::NetworkResourceLoadMap(Function<void(bool hasUpload)>&& hasUploadChangeListener)
-    : m_hasUploadChangeListener(WTFMove(hasUploadChangeListener))
+    : m_hasUploadChangeListener(WTF::move(hasUploadChangeListener))
 {
 }
 
@@ -45,7 +45,7 @@ NetworkResourceLoadMap::MapType::AddResult NetworkResourceLoadMap::add(WebCore::
 {
     ASSERT(!m_loaders.contains(identifier));
     bool hasUpload = loader->originalRequest().hasUpload();
-    auto result = m_loaders.add(identifier, WTFMove(loader));
+    auto result = m_loaders.add(identifier, WTF::move(loader));
     if (hasUpload)
         setHasUpload(true);
     return result;

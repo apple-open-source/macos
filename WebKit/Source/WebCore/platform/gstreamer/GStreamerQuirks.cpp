@@ -38,6 +38,7 @@
 #include "GStreamerQuirkWesteros.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/OptionSet.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringCommon.h>
 #include <wtf/text/StringView.h>
@@ -63,6 +64,12 @@ GStreamerQuirksManager::GStreamerQuirksManager(bool isForTesting, bool loadQuirk
 {
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
+        if (isInWebProcess())
+            ensureGStreamerInitialized();
+        else
+            // This is needed, e.g. when running in NetworkProcess to determine MIME type support
+            ensureGStreamerInitializedNonWebProcess();
+
         GST_DEBUG_CATEGORY_INIT(webkit_quirks_debug, "webkitquirks", 0, "WebKit Quirks");
     });
 
@@ -76,16 +83,15 @@ GStreamerQuirksManager::GStreamerQuirksManager(bool isForTesting, bool loadQuirk
     if (!loadQuirksFromEnvironment)
         return;
 
-    const char* quirksList = g_getenv("WEBKIT_GST_QUIRKS");
-    GST_DEBUG("Attempting to parse requested quirks: %s", GST_STR_NULL(quirksList));
-    if (quirksList) {
-        StringView quirks { unsafeSpan(quirksList) };
-        if (WTF::equalLettersIgnoringASCIICase(quirks, "help"_s)) {
+    auto quirksString = CStringView::unsafeFromUTF8(g_getenv("WEBKIT_GST_QUIRKS"));
+    GST_DEBUG("Attempting to parse requested quirks: %s", GST_STR_NULL(quirksString.utf8()));
+    if (quirksString) {
+        if (WTF::equalLettersIgnoringASCIICase(quirksString.span(), "help"_s)) {
             gst_printerrln("Supported quirks for WEBKIT_GST_QUIRKS are: amlogic, broadcom, bcmnexus, openmax, realtek, rialto, westeros");
             return;
         }
 
-        for (const auto& identifier : quirks.split(',')) {
+        for (const auto& identifier : String(quirksString.span()).split(',')) {
             std::unique_ptr<GStreamerQuirk> quirk;
             if (WTF::equalLettersIgnoringASCIICase(identifier, "amlogic"_s))
                 quirk = WTF::makeUnique<GStreamerQuirkAmLogic>();
@@ -102,7 +108,7 @@ GStreamerQuirksManager::GStreamerQuirksManager(bool isForTesting, bool loadQuirk
             else if (WTF::equalLettersIgnoringASCIICase(identifier, "westeros"_s))
                 quirk = WTF::makeUnique<GStreamerQuirkWesteros>();
             else {
-                GST_WARNING("Unknown quirk requested: %s. Skipping", identifier.toStringWithoutCopying().ascii().data());
+                GST_WARNING("Unknown quirk requested: %s. Skipping", identifier.ascii().data());
                 continue;
             }
 
@@ -110,32 +116,31 @@ GStreamerQuirksManager::GStreamerQuirksManager(bool isForTesting, bool loadQuirk
                 GST_WARNING("Quirk %s was requested but is not supported on this platform. Skipping", quirk->identifier().characters());
                 continue;
             }
-            m_quirks.append(WTFMove(quirk));
+            m_quirks.append(WTF::move(quirk));
         }
     }
 
-    const char* holePunchQuirk = g_getenv("WEBKIT_GST_HOLE_PUNCH_QUIRK");
-    GST_DEBUG("Attempting to parse requested hole-punch quirk: %s", GST_STR_NULL(holePunchQuirk));
-    if (!holePunchQuirk)
+    auto identifierString = CStringView::unsafeFromUTF8(g_getenv("WEBKIT_GST_HOLE_PUNCH_QUIRK"));
+    GST_DEBUG("Attempting to parse requested hole-punch quirk: %s", GST_STR_NULL(identifierString.utf8()));
+    if (!identifierString)
         return;
 
-    StringView identifier { unsafeSpan(holePunchQuirk) };
-    if (WTF::equalLettersIgnoringASCIICase(identifier, "help"_s)) {
+    if (WTF::equalLettersIgnoringASCIICase(identifierString.span(), "help"_s)) {
         gst_printerrln("Supported quirks for WEBKIT_GST_HOLE_PUNCH_QUIRK are: fake, bcmnexus, rialto, westeros");
         return;
     }
 
     // TODO: Maybe check this is coherent (somehow) with the quirk(s) selected above.
-    if (WTF::equalLettersIgnoringASCIICase(identifier, "bcmnexus"_s))
+    if (WTF::equalLettersIgnoringASCIICase(identifierString.span(), "bcmnexus"_s))
         m_holePunchQuirk = WTF::makeUnique<GStreamerHolePunchQuirkBcmNexus>();
-    else if (WTF::equalLettersIgnoringASCIICase(identifier, "rialto"_s))
+    else if (WTF::equalLettersIgnoringASCIICase(identifierString.span(), "rialto"_s))
         m_holePunchQuirk = WTF::makeUnique<GStreamerHolePunchQuirkRialto>();
-    else if (WTF::equalLettersIgnoringASCIICase(identifier, "westeros"_s))
+    else if (WTF::equalLettersIgnoringASCIICase(identifierString.span(), "westeros"_s))
         m_holePunchQuirk = WTF::makeUnique<GStreamerHolePunchQuirkWesteros>();
-    else if (WTF::equalLettersIgnoringASCIICase(identifier, "fake"_s))
+    else if (WTF::equalLettersIgnoringASCIICase(identifierString.span(), "fake"_s))
         m_holePunchQuirk = WTF::makeUnique<GStreamerHolePunchQuirkFake>();
     else
-        GST_WARNING("HolePunch quirk %s un-supported.", identifier.toStringWithoutCopying().ascii().data());
+        GST_WARNING("HolePunch quirk %s un-supported.", identifierString.utf8());
 }
 
 bool GStreamerQuirksManager::isEnabled() const
@@ -337,7 +342,7 @@ void GStreamerQuirksManager::setupBufferingPercentageCorrection(MediaPlayerPriva
             // We're moving the element to the inner method. If this loop ever needs to call the method twice,
             // think about a solution to avoid passing a dummy element (after first move) to the method the second
             // time it's called.
-            quirk->setupBufferingPercentageCorrection(playerPrivate, currentState, newState, WTFMove(element));
+            quirk->setupBufferingPercentageCorrection(playerPrivate, currentState, newState, WTF::move(element));
             return;
         }
     }

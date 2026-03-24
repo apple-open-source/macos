@@ -199,7 +199,7 @@ void JSTestConditionallyReadWritePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestConditionallyReadWrite::s_info = { "TestConditionallyReadWrite"_s, &Base::s_info, &JSTestConditionallyReadWriteTable, nullptr, CREATE_METHOD_TABLE(JSTestConditionallyReadWrite) };
 
 JSTestConditionallyReadWrite::JSTestConditionallyReadWrite(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestConditionallyReadWrite>&& impl)
-    : JSDOMWrapper<TestConditionallyReadWrite>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestConditionallyReadWrite>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -525,7 +525,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestConditionallyReadWrite>(impl.ptr());
 #endif
-    return createWrapper<TestConditionallyReadWrite>(globalObject, WTFMove(impl));
+    return createWrapper<TestConditionallyReadWrite>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestConditionallyReadWrite& impl)

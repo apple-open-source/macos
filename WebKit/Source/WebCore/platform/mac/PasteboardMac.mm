@@ -78,7 +78,6 @@ static Vector<String> writableTypesForImage()
 {
     Vector<String> types;
     types.append(String(legacyTIFFPasteboardTypeSingleton()));
-    types.appendVector(writableTypesForURL());
     types.append(String(legacyRTFDPasteboardTypeSingleton()));
     return types;
 }
@@ -89,24 +88,25 @@ NSArray *Pasteboard::supportedFileUploadPasteboardTypes()
 }
 
 Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context)
-    : m_context(WTFMove(context))
+    : m_context(WTF::move(context))
     , m_pasteboardName(emptyString())
     , m_changeCount(0)
 {
 }
 
-Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context, const String& pasteboardName, const Vector<String>& promisedFilePaths)
-    : m_context(WTFMove(context))
+Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context, const String& pasteboardName, const Vector<String>& promisedFilePaths, const Vector<String>& promisedFileMIMETypes)
+    : m_context(WTF::move(context))
     , m_pasteboardName(pasteboardName)
     , m_changeCount(platformStrategies()->pasteboardStrategy()->changeCount(m_pasteboardName, m_context.get()))
     , m_promisedFilePaths(promisedFilePaths)
+    , m_promisedFileMIMETypes(promisedFileMIMETypes)
 {
     ASSERT(pasteboardName);
 }
 
 std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste(std::unique_ptr<PasteboardContext>&& context)
 {
-    return makeUnique<Pasteboard>(WTFMove(context), NSPasteboardNameGeneral);
+    return makeUnique<Pasteboard>(WTF::move(context), NSPasteboardNameGeneral);
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -117,12 +117,12 @@ String Pasteboard::nameOfDragPasteboard()
 
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(std::unique_ptr<PasteboardContext>&& context)
 {
-    return makeUnique<Pasteboard>(WTFMove(context), NSPasteboardNameDrag);
+    return makeUnique<Pasteboard>(WTF::move(context), NSPasteboardNameDrag);
 }
 
 std::unique_ptr<Pasteboard> Pasteboard::create(const DragData& dragData)
 {
-    return makeUnique<Pasteboard>(dragData.createPasteboardContext(), dragData.pasteboardName(), dragData.fileNames());
+    return makeUnique<Pasteboard>(dragData.createPasteboardContext(), dragData.pasteboardName(), dragData.fileNames(), dragData.promisedFileMIMETypes());
 }
 #endif
 
@@ -219,7 +219,9 @@ static long writeURLForTypes(const Vector<String>& types, const String& pasteboa
     RetainPtr title = pasteboardURL.title.createNSString();
     if (![title length]) {
         title = [[nsURL path] lastPathComponent];
-        if (![title length])
+        // Very short titles are not useful, and we commonly get a "/" as the last path component.
+        // Fall back to the full URL in this case.
+        if ([title length] <= 1)
             title = userVisibleString;
     }
 
@@ -268,11 +270,11 @@ static void writeFileWrapperAsRTFDAttachment(NSFileWrapper *wrapper, const Strin
 {
     RetainPtr string = [NSAttributedString attributedStringWithAttachment:adoptNS([[NSTextAttachment alloc] initWithFileWrapper:wrapper]).get()];
 
-    NSData *RTFDData = [string RTFDFromRange:NSMakeRange(0, [string length]) documentAttributes:@{ }];
+    RetainPtr<NSData> RTFDData = [string RTFDFromRange:NSMakeRange(0, [string length]) documentAttributes:@{ }];
     if (!RTFDData)
         return;
 
-    newChangeCount = platformStrategies()->pasteboardStrategy()->setBufferForType(SharedBuffer::create(RTFDData).ptr(), legacyRTFDPasteboardTypeSingleton(), pasteboardName, context);
+    newChangeCount = platformStrategies()->pasteboardStrategy()->setBufferForType(SharedBuffer::create(RTFDData.get()).ptr(), legacyRTFDPasteboardTypeSingleton(), pasteboardName, context);
 }
 
 void Pasteboard::write(const PasteboardImage& pasteboardImage)
@@ -754,9 +756,9 @@ static void setDragImageImpl(NSImage *image, NSPoint offset)
     NSSize imageSize = image.size;
     CGRect imageRect = CGRectMake(0, 0, imageSize.width, imageSize.height);
     NSRect convertedRect = NSRectFromCGRect(imageRect);
-    NSImageRep *imageRep = [image bestRepresentationForRect:convertedRect context:nil hints:nil];
+    RetainPtr<NSImageRep> imageRep = [image bestRepresentationForRect:convertedRect context:nil hints:nil];
     RetainPtr<NSBitmapImageRep> bitmapImage;
-    if (!imageRep || ![imageRep isKindOfClass:[NSBitmapImageRep class]] || !NSEqualSizes(imageRep.size, imageSize)) {
+    if (!imageRep || ![imageRep isKindOfClass:[NSBitmapImageRep class]] || !NSEqualSizes(imageRep.get().size, imageSize)) {
         [image lockFocus];
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         bitmapImage = adoptNS([[NSBitmapImageRep alloc] initWithFocusedViewRect:convertedRect]);
@@ -770,7 +772,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     } else {
         flipImage = false;
-        bitmapImage = checked_objc_cast<NSBitmapImageRep>(imageRep);
+        bitmapImage = checked_objc_cast<NSBitmapImageRep>(imageRep.get());
     }
     ASSERT(bitmapImage);
 
@@ -823,13 +825,11 @@ void Pasteboard::setDragImage(DragImage image, const IntPoint& location)
     // This is the most innocuous event to use, per Kristin Forster.
     // This is only relevant in WK1. Do not execute in the WebContent process, since it is now using
     // NSRunLoop, and not the NSApplication run loop.
-    // This is a safer cpp false positive (rdar://161068288).
-    SUPPRESS_UNRETAINED_ARG if ([NSApp isRunning]) {
+    if ([NSApp isRunning]) {
         ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
         NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSZeroPoint
             modifierFlags:0 timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:0 pressure:0];
-        // This is a safer cpp false positive (rdar://161068288).
-        SUPPRESS_UNRETAINED_ARG [NSApp postEvent:event atStart:YES];
+        [NSApp postEvent:event atStart:YES];
     }
 }
 #endif

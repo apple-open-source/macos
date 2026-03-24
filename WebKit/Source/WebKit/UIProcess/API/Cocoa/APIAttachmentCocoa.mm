@@ -145,7 +145,7 @@ RefPtr<WebCore::FragmentedSharedBuffer> Attachment::associatedElementData() cons
     if (m_associatedElementType == WebCore::AttachmentAssociatedElementType::None)
         return nullptr;
 
-    NSData *data = nil;
+    RetainPtr<NSData> data;
     {
         Locker locker { m_fileWrapperLock };
 
@@ -158,7 +158,7 @@ RefPtr<WebCore::FragmentedSharedBuffer> Attachment::associatedElementData() cons
     if (!data)
         return nullptr;
 
-    return WebCore::SharedBuffer::create(data);
+    return WebCore::SharedBuffer::create(data.get());
 }
 
 RetainPtr<NSData> Attachment::associatedElementNSData() const

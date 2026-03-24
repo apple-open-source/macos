@@ -42,8 +42,8 @@
 namespace WebKit {
 
 AuthenticationChallengeProxy::AuthenticationChallengeProxy(WebCore::AuthenticationChallenge&& authenticationChallenge, AuthenticationChallengeIdentifier challengeID, Ref<IPC::Connection>&& connection, WeakPtrSecKeyProxyStore&& secKeyProxyStore)
-    : m_coreAuthenticationChallenge(WTFMove(authenticationChallenge))
-    , m_listener(AuthenticationDecisionListener::create([challengeID, connection = WTFMove(connection), secKeyProxyStore = WTFMove(secKeyProxyStore)](AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential) {
+    : m_coreAuthenticationChallenge(WTF::move(authenticationChallenge))
+    , m_listener(AuthenticationDecisionListener::create([challengeID, connection = WTF::move(connection), secKeyProxyStore = WTF::move(secKeyProxyStore)](AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential) {
 #if HAVE(SEC_KEY_PROXY)
         if (secKeyProxyStore && secKeyProxyStore->initialize(credential)) {
             sendClientCertificateCredentialOverXpc(connection, *secKeyProxyStore, challengeID, credential);

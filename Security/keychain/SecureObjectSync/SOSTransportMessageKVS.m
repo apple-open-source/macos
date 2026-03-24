@@ -54,7 +54,7 @@
 -(bool) SOSTransportMessageKVSAppendKeyInterest:(SOSMessageKVS*) transport ak:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef) afterFirstUnlockKeys
                                        unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)localError
 {
-    require_quiet(self.engine, fail);
+    __Require_Quiet(self.engine, fail);
 
     CFArrayRef peerInfos = SOSAccountCopyPeersToListenTo( [self SOSTransportMessageGetAccount], localError);
     

@@ -31,13 +31,14 @@
 #import "NativeImage.h"
 #import "WebCoreCALayerExtras.h"
 
+#import <QuartzCore/CALayer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 
 namespace WebCore {
 
 GraphicsLayerAsyncContentsDisplayDelegateCocoa::GraphicsLayerAsyncContentsDisplayDelegateCocoa(GraphicsLayerCA& layer)
 {
-    m_layer = adoptNS([[CALayer alloc] init]);
+    lazyInitialize(m_layer, adoptNS([[CALayer alloc] init]));
     [m_layer setName:@"OffscreenCanvasLayer"];
 
     layer.setContentsToPlatformLayer(m_layer.get(), GraphicsLayer::ContentsLayerPurpose::Canvas);
@@ -45,14 +46,15 @@ GraphicsLayerAsyncContentsDisplayDelegateCocoa::GraphicsLayerAsyncContentsDispla
 
 bool GraphicsLayerAsyncContentsDisplayDelegateCocoa::tryCopyToLayer(ImageBuffer& image, bool opaque)
 {
-    m_image = ImageBuffer::sinkIntoNativeImage(image.clone());
-    if (!m_image)
+    RefPtr nativeImage = ImageBuffer::sinkIntoNativeImage(image.clone());
+    m_image = nativeImage;
+    if (!nativeImage)
         return false;
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
 
-    [m_layer setContents:(__bridge id)m_image->platformImage().get()];
+    [m_layer setContents:(__bridge id)nativeImage->platformImage().get()];
     [m_layer setContentsOpaque:opaque];
 
     [CATransaction commit];
@@ -63,8 +65,8 @@ bool GraphicsLayerAsyncContentsDisplayDelegateCocoa::tryCopyToLayer(ImageBuffer&
 void GraphicsLayerAsyncContentsDisplayDelegateCocoa::updateGraphicsLayerCA(GraphicsLayerCA& layer)
 {
     layer.setContentsToPlatformLayer(m_layer.get(), GraphicsLayer::ContentsLayerPurpose::Canvas);
-    if (m_image)
-        [m_layer setContents:(__bridge id)m_image->platformImage().get()];
+    if (RefPtr image = m_image)
+        [m_layer setContents:(__bridge id)image->platformImage().get()];
 }
 
 }

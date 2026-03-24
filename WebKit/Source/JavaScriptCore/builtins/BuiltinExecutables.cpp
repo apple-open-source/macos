@@ -103,7 +103,7 @@ UnlinkedFunctionExecutable* BuiltinExecutables::createExecutable(VM& vm, const S
     unsigned asyncOffset = isAsyncFunction ? strlen("async ") : 0;
     unsigned parametersStart = strlen("function (") + asyncOffset;
     unsigned startColumn = parametersStart;
-    int functionKeywordStart = strlen("(") + asyncOffset;
+    int functionKeywordStart = strlen("(");
     int functionNameStart = parametersStart;
     bool isInStrictContext = false;
     bool isArrowFunctionBodyExpression = false;
@@ -281,7 +281,7 @@ DEFINE_VISIT_AGGREGATE(BuiltinExecutables);
 
 void BuiltinExecutables::clear()
 {
-    std::fill(std::begin(m_unlinkedExecutables), std::end(m_unlinkedExecutables), nullptr);
+    std::ranges::fill(m_unlinkedExecutables, nullptr);
 }
 
 #define DEFINE_BUILTIN_EXECUTABLES(name, functionName, overrideName, length) \

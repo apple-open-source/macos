@@ -33,6 +33,8 @@
     IOHIDDeviceTransactionInterface *_interface;
     IOHIDTransactionDirectionType   _direction;
     NSMutableArray                  *_elements;
+    os_unfair_recursive_lock        _callbackLock;
+    NSMutableSet                    *_pendingCallbacks;
     __weak IOHIDDeviceClass         *_device;
 }
 

@@ -114,6 +114,18 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 @property (nonatomic, assign) BOOL useCachedAccountStatus;
 @end
 
+// This object is intended for ProtectedCloudStorage and CloudServices to package Escrow Pre-records for use in ADP enablement and disablement.
+@interface OTSerializedPlistEscrowRecord: NSObject <NSSecureCoding>
+@property (nonatomic, copy) NSString* label;
+@property (nonatomic, copy) NSData* blob;
+@property (nonatomic, copy) NSData* metadata;
+
+- (instancetype)init:(NSString*)label
+                blob:(NSData*)blob
+            metadata:(NSData*)metadata;
+
+@end
+
 typedef NSString* OTCliqueCDPContextType NS_STRING_ENUM;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeNone;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeSignIn;
@@ -476,6 +488,15 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(
 // CoreCDP will call this function when they are upgrading an account from SA to HSA2
 - (BOOL)waitForOctagonUpgrade:(NSError** _Nullable)error;
 
+// PCS will call this function when a client wants to enable ADP
+- (void)enableWalrus:(OTConfigurationContext*)ctx
+          preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+               reply:(void (^)(NSError* _Nullable error))reply;
+
+// PCS will call this function when a client wants to disable ADP
+- (void)disableWalrus:(OTConfigurationContext*)ctx
+           preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+                reply:(void (^)(NSError* _Nullable error))reply;
 
 /*
 * @abstract CoreCDP to call this function when they need to reset protected data.

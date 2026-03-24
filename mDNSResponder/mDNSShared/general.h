@@ -1044,4 +1044,25 @@
  */
 #define MDNS_STRINGIFY(X)	MDNS_STRINGIFY_NO_EXPANSION(X)
 
+/*!
+ *	@brief
+ *		Conveys that a char array is not intended to store a C string, so it may or may not contain a null
+ *		character.
+ *
+ *	@discussion
+ *		The nonstring attribute suppresses warnings when initializing the array with a string literal, e.g.:
+ *
+ *			// not_a_string is a char array that intentionally contains 'a', 'b', and 'c' (no terminating '\0').
+ *			char MDNS_NONSTRING not_a_string[3] = "abc";
+ *
+ *		See the following:
+ *		- https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-nonstring-variable-attribute
+ *		- https://clang.llvm.org/docs/AttributeReference.html#nonstring
+ */
+#if __has_attribute(nonstring)
+	#define MDNS_NONSTRING	__attribute__((nonstring))
+#else
+	#define MDNS_NONSTRING
+#endif
+
 #endif	// MDNS_GENERAL_H

@@ -212,8 +212,8 @@ CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFError
 CFStringRef SOSCopyIDOfKey(SecKeyRef key, CFErrorRef *error) {
     CFDataRef publicBytes = NULL;
     CFStringRef result = NULL;
-    require_action_quiet(key, errOut, SOSErrorCreate(kSOSErrorNoKey, error, NULL, CFSTR("NULL key passed to SOSCopyIDOfKey")));
-    require_quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), errOut);
+    __Require_Action_Quiet(key, errOut, SOSErrorCreate(kSOSErrorNoKey, error, NULL, CFSTR("NULL key passed to SOSCopyIDOfKey")));
+    __Require_Quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), errOut);
     result = SOSCopyIDOfDataBuffer(publicBytes, error);
 errOut:
     CFReleaseNull(publicBytes);
@@ -247,7 +247,7 @@ bool SOSPerformWithDeviceBackupFullKey(ccec_const_cp_t cp, CFDataRef entropy, CF
     bool result = false;
     ccec_full_ctx_decl_cp(cp, fullKey);
 
-    require_quiet(SOSGenerateDeviceBackupFullKey(fullKey, cp, entropy, error), exit);
+    __Require_Quiet(SOSGenerateDeviceBackupFullKey(fullKey, cp, entropy, error), exit);
 
     operation(fullKey);
 
@@ -271,7 +271,7 @@ bool SOSGenerateDeviceBackupFullKey(ccec_full_ctx_t generatedKey, ccec_const_cp_
                               sizeof(sBackupKeySalt), sBackupKeySalt,
                               kBackupKeyIterations,
                               drbg_output_size, drbg_output);
-    require_action_quiet(cc_result == 0, exit,
+    __Require_Action_Quiet(cc_result == 0, exit,
                          SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccpbkdf2_hmac failed: %d"), cc_result));
 
     cc_result = ccec_generate_key_deterministic(cp,
@@ -280,7 +280,7 @@ bool SOSGenerateDeviceBackupFullKey(ccec_full_ctx_t generatedKey, ccec_const_cp_
                                                 ccrng(NULL),
                                                 CCEC_GENKEY_DETERMINISTIC_SECBKP,
                                                 generatedKey);
-    require_action_quiet(cc_result == 0, exit,
+    __Require_Action_Quiet(cc_result == 0, exit,
                          SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccec_generate_key_deterministic failed: %d"), cc_result));
 
     result = true;
@@ -295,11 +295,11 @@ CFDataRef SOSCopyDeviceBackupPublicKey(CFDataRef entropy, CFErrorRef *error)
 
     ccec_full_ctx_decl_cp(SOSGetBackupKeyCurveParameters(), fullKey);
 
-    require_quiet(SOSGenerateDeviceBackupFullKey(fullKey, SOSGetBackupKeyCurveParameters(), entropy, error), exit);
+    __Require_Quiet(SOSGenerateDeviceBackupFullKey(fullKey, SOSGetBackupKeyCurveParameters(), entropy, error), exit);
 
     size_t space = ccec_compact_export_size(false, ccec_ctx_pub(fullKey));
     publicKeyData = CFDataCreateMutableWithScratch(kCFAllocatorDefault, space);
-    require_quiet(SecAllocationError(publicKeyData, error, CFSTR("Mutable data allocation")), exit);
+    __Require_Quiet(SecAllocationError(publicKeyData, error, CFSTR("Mutable data allocation")), exit);
 
     ccec_compact_export(false, CFDataGetMutableBytePtr(publicKeyData), fullKey);
 

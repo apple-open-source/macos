@@ -56,11 +56,11 @@ Ref<QuerySet> Device::createQuerySet(const WGPUQuerySetDescriptor& descriptor)
     switch (type) {
     case WGPUQueryType_Timestamp: {
 #if !PLATFORM(WATCHOS)
-        std::pair<id<MTLCounterSampleBuffer>, uint32_t> querySetWithOffset = QuerySet::counterSampleBufferWithOffsetForDevice(count, *this);
-        if (!querySetWithOffset.first)
+        auto querySetWithOffset = QuerySet::counterSampleBufferWithOffsetForDevice(count, *this);
+        if (!querySetWithOffset.buffer)
             return QuerySet::createInvalid(*this);
 
-        return QuerySet::create(WTFMove(querySetWithOffset), count, type, *this);
+        return QuerySet::create(WTF::move(querySetWithOffset), count, type, *this);
 #else
         return QuerySet::createInvalid(*this);
 #endif
@@ -87,7 +87,7 @@ QuerySet::QuerySet(id<MTLBuffer> buffer, uint32_t count, WGPUQueryType type, Dev
 
 QuerySet::QuerySet(CounterSampleBuffer&& buffer, uint32_t count, WGPUQueryType type, Device& device)
     : m_device(device)
-    , m_timestampBufferWithOffset(WTFMove(buffer))
+    , m_timestampBufferWithOffset(WTF::move(buffer))
     , m_count(count)
     , m_type(type)
 {
@@ -107,7 +107,7 @@ QuerySet::~QuerySet()
 
 bool QuerySet::isValid() const
 {
-    return isDestroyed() || m_visibilityBuffer || m_timestampBufferWithOffset.first;
+    return isDestroyed() || m_visibilityBuffer || m_timestampBufferWithOffset.buffer;
 }
 
 bool QuerySet::isDestroyed() const
@@ -121,13 +121,8 @@ void QuerySet::destroy()
     QuerySet::destroyQuerySet(*this);
     // https://gpuweb.github.io/gpuweb/#dom-gpuqueryset-destroy
     m_visibilityBuffer = nil;
-    m_timestampBufferWithOffset.first = nil;
-    for (auto commandEncoder : m_commandEncoders) {
-        if (RefPtr ptr = m_device->commandEncoderFromIdentifier(commandEncoder))
-            ptr->makeSubmitInvalid();
-    }
-
-    m_commandEncoders.clear();
+    m_timestampBufferWithOffset.buffer = nil;
+    m_device->makeSubmitInvalidClearingEncoders(m_commandEncoders);
 }
 
 void QuerySet::setLabel(String&& label)
@@ -144,7 +139,7 @@ void QuerySet::setCommandEncoder(CommandEncoder& commandEncoder) const
 {
     CommandEncoder::trackEncoder(commandEncoder, m_commandEncoders);
     commandEncoder.addBuffer(m_visibilityBuffer);
-    commandEncoder.addBuffer(m_timestampBufferWithOffset.first);
+    commandEncoder.addBuffer(m_timestampBufferWithOffset.buffer);
     if (isDestroyed())
         commandEncoder.makeSubmitInvalid();
 }
@@ -157,16 +152,16 @@ QuerySet::CounterSampleBuffer QuerySet::counterSampleBufferWithOffset() const
 void QuerySet::destroyQuerySet(const QuerySet& querySet)
 {
     auto querySetWithOffset = querySet.counterSampleBufferWithOffset();
-    if (!querySetWithOffset.first)
+    if (!querySetWithOffset.buffer)
         return;
 
     auto sampleCountInBytes = querySet.count() * sizeof(uint64_t);
     Locker locker { querySetLock };
     for (uint32_t i = 0; i < maxCounterSampleBuffers; ++i) {
-        if (querySetWithOffset.first != (*m_counterSampleBuffers)[i])
+        if (querySetWithOffset.buffer != (*m_counterSampleBuffers)[i])
             continue;
 
-        uint32_t offsetInBytes = static_cast<uint32_t>(querySetWithOffset.second * sizeof(uint64_t));
+        uint32_t offsetInBytes = static_cast<uint32_t>(querySetWithOffset.offset * sizeof(uint64_t));
         auto endOffset = static_cast<uint32_t>(offsetInBytes + sampleCountInBytes);
         RELEASE_ASSERT(offsetInBytes < 32 * KB);
         (*m_counterSampleBufferFreeRanges)[i].add({ offsetInBytes, endOffset });
@@ -196,7 +191,7 @@ QuerySet::CounterSampleBuffer QuerySet::counterSampleBufferWithOffsetForDevice(s
             if (result) {
                 (*m_counterSampleBufferFreeRanges)[i] = newRangeSet;
                 RELEASE_ASSERT(*result / sizeof(uint64_t) < 4096);
-                return std::make_pair((*m_counterSampleBuffers)[i], *result / sizeof(uint64_t));
+                return CounterSampleBuffer { (*m_counterSampleBuffers)[i], static_cast<uint32_t>(*result / sizeof(uint64_t)) };
             }
 
             continue;
@@ -210,14 +205,14 @@ QuerySet::CounterSampleBuffer QuerySet::counterSampleBufferWithOffsetForDevice(s
         NSError* error;
         id<MTLCounterSampleBuffer> result = [device.device() newCounterSampleBufferWithDescriptor:sampleBufferDesc error:&error];
         if (error)
-            return std::make_pair(nil, 0);
+            return CounterSampleBuffer { nil, 0 };
 
         (*m_counterSampleBuffers)[i] = result;
         (*m_counterSampleBufferFreeRanges)[i].add({ sampleCountInBytes, maxSampleBufferSize });
-        return std::make_pair(result, 0);
+        return CounterSampleBuffer { result, 0 };
     }
 
-    return std::make_pair(nil, 0);
+    return CounterSampleBuffer { nil, 0 };
 }
 
 void QuerySet::createContainersIfNeeded()

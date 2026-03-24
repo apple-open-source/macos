@@ -15,7 +15,7 @@ import IOKit_Private
 import OSLog
 
 internal extension Logger {
-    static let logger = Logger(subsystem: "com.apple.iohid", category: "P192HIDServiceFilter")
+    static let filter = Logger(subsystem: "com.apple.iohid", category: "P192HIDServiceFilter")
 }
 
 @objc(P192HIDServiceFilter) public class P192HIDServiceFilter: NSObject, HIDServiceFilter

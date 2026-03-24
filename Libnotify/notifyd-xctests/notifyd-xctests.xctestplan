@@ -1,0 +1,54 @@
+{
+  "configurations" : [
+    {
+      "id" : "C1AF0F73-D71E-488F-8FDB-519604B49B25",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    },
+    {
+      "id" : "D7380CA1-4A5A-47AC-A401-FA3CBBA413AB",
+      "name" : "TSan",
+      "options" : {
+        "addressSanitizer" : {
+          "enabled" : false
+        },
+        "threadSanitizerEnabled" : true
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "addressSanitizer" : {
+      "detectStackUseAfterReturn" : true,
+      "enabled" : true
+    },
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:Libnotify.xcodeproj",
+          "identifier" : "EE986A9E2F0C8D6300C51417",
+          "name" : "notifyd-testing-lib"
+        },
+        {
+          "containerPath" : "container:Libnotify.xcodeproj",
+          "identifier" : "EE986C5B2F0C9DE600C51417",
+          "name" : "notifyd-xctests"
+        }
+      ]
+    },
+    "performanceAntipatternCheckerEnabled" : true,
+    "undefinedBehaviorSanitizerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Libnotify.xcodeproj",
+        "identifier" : "EE986C5B2F0C9DE600C51417",
+        "name" : "notifyd-xctests"
+      }
+    }
+  ],
+  "version" : 1
+}

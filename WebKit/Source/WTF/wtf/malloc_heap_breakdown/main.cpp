@@ -296,6 +296,6 @@ size_t malloc_zone_pressure_relief(malloc_zone_t*, size_t)
     return 0;
 }
 
-void malloc_zone_print(malloc_zone_t*, boolean_t)
+void malloc_zone_print(malloc_zone_t*, bool)
 {
 }

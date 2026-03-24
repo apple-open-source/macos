@@ -87,12 +87,12 @@ Ref<NetworkConnectionToWebProcess> NetworkSocketChannel::protectedConnectionToWe
 
 void NetworkSocketChannel::sendString(std::span<const uint8_t> message, CompletionHandler<void()>&& callback)
 {
-    protectedSocket()->sendString(message, WTFMove(callback));
+    protectedSocket()->sendString(message, WTF::move(callback));
 }
 
 void NetworkSocketChannel::sendData(std::span<const uint8_t> data, CompletionHandler<void()>&& callback)
 {
-    protectedSocket()->sendData(data, WTFMove(callback));
+    protectedSocket()->sendData(data, WTF::move(callback));
 }
 
 void NetworkSocketChannel::finishClosingIfPossible()
@@ -139,7 +139,7 @@ void NetworkSocketChannel::didClose(unsigned short code, const String& reason)
 
 void NetworkSocketChannel::didReceiveMessageError(String&& errorMessage)
 {
-    m_errorMessage = WTFMove(errorMessage);
+    m_errorMessage = WTF::move(errorMessage);
     m_errorTimer.startOneShot(NetworkProcess::randomClosedPortDelay());
 }
 

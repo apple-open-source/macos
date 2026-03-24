@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class KHRParallelShaderCompile final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(KHRParallelShaderCompile);
+    WTF_MAKE_TZONE_ALLOCATED(KHRParallelShaderCompile);
 public:
     explicit KHRParallelShaderCompile(WebGLRenderingContextBase&);
     ~KHRParallelShaderCompile();

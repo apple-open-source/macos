@@ -959,9 +959,9 @@ void ScrollbarsControllerMac::updateScrollerImps()
     if (verticalScrollbar && !verticalScrollbar->isCustomScrollbar()) {
         verticalScrollbar->invalidate();
 
-        NSScrollerImp *oldVerticalPainter = [m_scrollerImpPair verticalScrollerImp];
+        RetainPtr<NSScrollerImp> oldVerticalPainter = [m_scrollerImpPair verticalScrollerImp];
         RefPtr verticalScrollbarMac = dynamicDowncast<ScrollbarMac>(verticalScrollbar);
-        verticalScrollbarMac->createScrollerImp(WTFMove(oldVerticalPainter));
+        verticalScrollbarMac->createScrollerImp(oldVerticalPainter.get());
         [m_scrollerImpPair setVerticalScrollerImp:verticalScrollbarMac->protectedScrollerImp().get()];
     }
 
@@ -969,9 +969,9 @@ void ScrollbarsControllerMac::updateScrollerImps()
     if (horizontalScrollbar && !horizontalScrollbar->isCustomScrollbar()) {
         horizontalScrollbar->invalidate();
 
-        NSScrollerImp *oldHorizontalPainter = [m_scrollerImpPair horizontalScrollerImp];
+        RetainPtr<NSScrollerImp> oldHorizontalPainter = [m_scrollerImpPair horizontalScrollerImp];
         RefPtr horizontalScrollbarMac = dynamicDowncast<ScrollbarMac>(horizontalScrollbar);
-        horizontalScrollbarMac->createScrollerImp(WTFMove(oldHorizontalPainter));
+        horizontalScrollbarMac->createScrollerImp(oldHorizontalPainter.get());
         [m_scrollerImpPair setHorizontalScrollerImp:horizontalScrollbarMac->protectedScrollerImp().get()];
     }
 }

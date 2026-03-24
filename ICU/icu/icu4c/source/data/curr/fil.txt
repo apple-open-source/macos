@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fil{
     Currencies{
         AED{
@@ -659,6 +659,10 @@ fil{
             "EC$",
             "Dolyar ng Silangang Caribbean",
         }
+        XCG{
+            "Cg.",
+            "Caribbean guilder",
+        }
         XOF{
             "F CFA",
             "CFA Franc ng Kanlurang Africa",
@@ -686,6 +690,10 @@ fil{
         ZMW{
             "ZMW",
             "Zambian Kwacha",
+        }
+        ZWG{
+            "ZWG",
+            "Zimbabwean Gold",
         }
     }
     Currencies%narrow{
@@ -1325,6 +1333,10 @@ fil{
             one{"dolyar ng Silangang Caribbean"}
             other{"dolyares ng Silangang Caribbean"}
         }
+        XCG{
+            one{"Caribbean guilder"}
+            other{"Caribbean guilders"}
+        }
         XOF{
             one{"CFA franc ng Kanlurang Africa"}
             other{"CFA francs ng Kanlurang Africa"}
@@ -1348,6 +1360,10 @@ fil{
         ZMW{
             one{"Zambian kwacha"}
             other{"Zambian kwachas"}
+        }
+        ZWG{
+            one{"Zimbabwean gold"}
+            other{"Zimbabwean gold"}
         }
     }
 }

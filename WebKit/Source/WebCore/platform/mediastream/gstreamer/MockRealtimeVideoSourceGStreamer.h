@@ -31,8 +31,17 @@ namespace WebCore {
 
 class MockRealtimeVideoSourceGStreamer final : public MockRealtimeVideoSource, GStreamerCapturerObserver {
 public:
-    MockRealtimeVideoSourceGStreamer(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);
+    static Ref<MockRealtimeVideoSourceGStreamer> create(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& salts, std::optional<PageIdentifier> pageID)
+    {
+        return adoptRef(*new MockRealtimeVideoSourceGStreamer(WTF::move(deviceID), WTF::move(name), WTF::move(salts), pageID));
+    }
+
     ~MockRealtimeVideoSourceGStreamer();
+
+    using MockRealtimeVideoSource::ref;
+    using MockRealtimeVideoSource::deref;
+    void virtualRef() const final { MockRealtimeVideoSource::ref(); }
+    void virtualDeref() const final { MockRealtimeVideoSource::deref(); }
 
     // GStreamerCapturerObserver
     void captureEnded() final;
@@ -40,6 +49,8 @@ public:
     std::pair<GstClockTime, GstClockTime> queryCaptureLatency() const final;
 
 private:
+    MockRealtimeVideoSourceGStreamer(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);
+
     friend class MockRealtimeVideoSource;
 
     void startProducingData() final;

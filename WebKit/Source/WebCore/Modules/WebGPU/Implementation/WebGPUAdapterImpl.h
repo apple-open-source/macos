@@ -42,7 +42,7 @@ class AdapterImpl final : public Adapter {
 public:
     static Ref<AdapterImpl> create(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new AdapterImpl(WTFMove(adapter), convertToBackingContext));
+        return adoptRef(*new AdapterImpl(WTF::move(adapter), convertToBackingContext));
     }
 
     virtual ~AdapterImpl();

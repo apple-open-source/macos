@@ -58,6 +58,8 @@ auto CSSValueConversion<BackgroundSize>::operator()(BuilderState& state, const C
 
     if (primitiveValue->isValueID()) {
         switch (primitiveValue->valueID()) {
+        case CSSValueAuto:
+            return CSS::Keyword::Auto { };
         case CSSValueCover:
             return CSS::Keyword::Cover { };
         case CSSValueContain:

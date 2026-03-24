@@ -450,12 +450,15 @@ smb_rq_reply(struct smb_rq *rqp)
 		lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 	}
 	
+    SMBRQ_SLOCK(rqp);
     /* Need bigger buffer? */
 	if (rperror && (rqp->sr_ntstatus == STATUS_BUFFER_TOO_SMALL)) {
 		rqp->sr_flags |= SMBR_MOREDATA;
 	} else {
 		rqp->sr_flags &= ~SMBR_MOREDATA;
 	}
+    SMBRQ_SUNLOCK(rqp);
+
 	
 done:
     SMB_LOG_KTRACE(SMB_DBG_RQ_REPLY | DBG_FUNC_END, (error ? error : rperror), messageid, 0, 0, 0);

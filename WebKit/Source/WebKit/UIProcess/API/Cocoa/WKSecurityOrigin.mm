@@ -47,7 +47,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p; protocol = %@; host = %@; port = %li>", NSStringFromClass(self.class), self, self.protocol, self.host, (long)self.port];
+    return [NSString stringWithFormat:@"<%@: %p; protocol = %@; host = %@; port = %li>", NSStringFromClass(self.class), self, retainPtr(self.protocol).get(), retainPtr(self.host).get(), (long)self.port];
 }
 
 - (NSString *)protocol

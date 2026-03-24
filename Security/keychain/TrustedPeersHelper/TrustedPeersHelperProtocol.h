@@ -34,6 +34,7 @@
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTClique.h"
 
 @class OTAccountSettings;
 @class OTEscrowCheckCallResult;
@@ -209,6 +210,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+@interface TPWalrusExtraArguments : NSObject <NSSecureCoding>
+#if APPLE_FEATURE_DBR
+@property BOOL isDBRv2;
+#endif
+@end
+
 // This protocol describes the interface of the TrustedPeersHelper XPC service.
 @protocol TrustedPeersHelperProtocol
 
@@ -255,6 +262,20 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                                        reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)enableWalrusWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                          preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+                           extraArgs:(TPWalrusExtraArguments*)extraArgs
+                              flowID:(NSString* _Nullable)flowID
+                     deviceSessionID:(NSString* _Nullable)deviceSessionID
+                               reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)disableWalrusWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                           preRecords:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+                            extraArgs:(TPWalrusExtraArguments*)extraArgs
+                               flowID:(NSString* _Nullable)flowID
+                      deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                              reply:(void (^)(NSError * _Nullable error))reply;
@@ -688,6 +709,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchPCSIdentityByPublicKeyWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                         pcsservices:(NSArray<CuttlefishPCSServiceIdentifier*> *)pcsservices
                                               reply:(void (^)(NSArray<CuttlefishPCSIdentity*>* _Nullable pcsIdentities, NSArray<CKRecord*>* _Nullable syncKeyRecords, NSError* _Nullable error))reply;
+
+- (void)performPeerSecretsFixUpsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                            reply:(void (^)(NSError * _Nullable))reply;
 
 @end
 

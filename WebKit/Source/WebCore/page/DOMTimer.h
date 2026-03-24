@@ -52,11 +52,12 @@ public:
 
     WEBCORE_EXPORT virtual ~DOMTimer();
 
-    static Seconds defaultMinimumInterval() { return 4_ms; }
-    static Seconds defaultAlignmentInterval() { return 0_s; }
-    static Seconds defaultAlignmentIntervalInLowPowerOrThermallyMitigatedMode() { return 30_ms; }
-    static Seconds nonInteractedCrossOriginFrameAlignmentInterval() { return 30_ms; }
-    static Seconds hiddenPageAlignmentInterval() { return 1_s; }
+    static constexpr Seconds defaultMinimumInterval() { return 4_ms; }
+    static constexpr Seconds minimumAlignmentForMaximallyNestedTimers() { return 4_ms; }
+    static constexpr Seconds defaultAlignmentInterval() { return 0_s; }
+    static constexpr Seconds defaultAlignmentIntervalInLowPowerOrThermallyMitigatedMode() { return 30_ms; }
+    static constexpr Seconds nonInteractedCrossOriginFrameAlignmentInterval() { return 30_ms; }
+    static constexpr Seconds hiddenPageAlignmentInterval() { return 1_s; }
 
     enum class Type : bool { SingleShot, Repeating };
     static int install(ScriptExecutionContext&, std::unique_ptr<ScheduledAction>, Seconds timeout, Type);

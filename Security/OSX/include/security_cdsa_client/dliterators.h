@@ -25,6 +25,7 @@
 #ifndef _H_CDSA_CLIENT_DLITERATORS
 #define _H_CDSA_CLIENT_DLITERATORS
 
+#include <iterator>
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/refcount.h>

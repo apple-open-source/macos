@@ -250,7 +250,7 @@ public:
         auto buffer = gst_sample_get_buffer(sample.get());
         auto meta = gst_buffer_get_reference_timestamp_meta(buffer, m_rtpTimestampCaps.get());
         RELEASE_ASSERT(meta);
-        auto frame = convertGStreamerSampleToLibWebRTCVideoFrame(WTFMove(sample), meta->timestamp);
+        auto frame = convertGStreamerSampleToLibWebRTCVideoFrame(WTF::move(sample), meta->timestamp);
         GST_TRACE_OBJECT(pipeline(), "Pulled video frame with RTP timestamp %u from %" GST_PTR_FORMAT, static_cast<uint32_t>(meta->timestamp), buffer);
         m_imageReadyCb->Decoded(frame);
         return WEBRTC_VIDEO_CODEC_OK;
@@ -279,9 +279,9 @@ public:
         return { sdpVideoFormat() };
     }
 
-    static GRefPtr<GstElementFactory> GstDecoderFactory(const char* capsStr)
+    static GRefPtr<GstElementFactory> GstDecoderFactory(ASCIILiteral capsStr)
     {
-        return GStreamerRegistryScanner::singleton().isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, String::fromUTF8(capsStr), false).factory;
+        return GStreamerRegistryScanner::singleton().isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, capsStr, false).factory;
     }
 
     bool HasGstDecoder()
@@ -289,10 +289,10 @@ public:
         return GstDecoderFactory(Caps());
     }
 
-    virtual const gchar* Caps() = 0;
+    virtual ASCIILiteral Caps() = 0;
     virtual webrtc::VideoCodecType CodecType() = 0;
     const char* ImplementationName() const override { return "GStreamer"; }
-    virtual const gchar* Name() = 0;
+    virtual ASCIILiteral Name() = 0;
     virtual webrtc::SdpVideoFormat sdpVideoFormat() = 0;
 
 protected:
@@ -341,8 +341,8 @@ public:
         m_caps = adoptGRef(gst_caps_new_simple(Caps(), "width", G_TYPE_INT, width, "height", G_TYPE_INT, height,
             "alignment", G_TYPE_STRING, "au", nullptr));
     }
-    const gchar* Caps() final { return "video/x-h264"; }
-    const gchar* Name() final { return "h264"; }
+    ASCIILiteral Caps() final { return "video/x-h264"_s; }
+    ASCIILiteral Name() final { return "h264"_s; }
     webrtc::SdpVideoFormat sdpVideoFormat() final { return webrtc::SdpVideoFormat::H264(); }
     webrtc::VideoCodecType CodecType() final { return webrtc::kVideoCodecH264; }
 
@@ -355,14 +355,14 @@ public:
 class VP8Decoder : public GStreamerWebRTCVideoDecoder {
 public:
     VP8Decoder() { }
-    const gchar* Caps() final { return "video/x-vp8"; }
-    const gchar* Name() final { return "vp8"; }
+    ASCIILiteral Caps() final { return "video/x-vp8"_s; }
+    ASCIILiteral Name() final { return "vp8"_s; }
     webrtc::SdpVideoFormat sdpVideoFormat() final { return webrtc::SdpVideoFormat::VP8(); }
 
     webrtc::VideoCodecType CodecType() final { return webrtc::kVideoCodecVP8; }
     static std::unique_ptr<webrtc::VideoDecoder> Create(const webrtc::Environment& environment)
     {
-        auto factory = GstDecoderFactory("video/x-vp8");
+        auto factory = GstDecoderFactory("video/x-vp8"_s);
         if (factory) {
             const auto* factoryName = GST_OBJECT_NAME(GST_OBJECT(factory.get()));
             if (!g_strcmp0(factoryName, "vp8dec") || !g_strcmp0(factoryName, "vp8alphadecodebin")) {
@@ -381,8 +381,8 @@ public:
         : m_isSupportingVP9Profile0(isSupportingVP9Profile0)
         , m_isSupportingVP9Profile2(isSupportingVP9Profile2) { };
 
-    const gchar* Caps() final { return "video/x-vp9"; }
-    const gchar* Name() final { return "vp9"; }
+    ASCIILiteral Caps() final { return "video/x-vp9"_s; }
+    ASCIILiteral Name() final { return "vp9"_s; }
     webrtc::SdpVideoFormat sdpVideoFormat() final { return webrtc::SdpVideoFormat::VP9Profile0(); }
 
     webrtc::VideoCodecType CodecType() final { return webrtc::kVideoCodecVP9; }

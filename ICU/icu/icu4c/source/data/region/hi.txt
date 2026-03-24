@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 hi{
     Countries{
         001{"विश्व"}
@@ -85,6 +85,7 @@ hi{
         CN{"चीन मुख्यभूमि"}
         CO{"कोलंबिया"}
         CP{"क्लिपर्टन द्वीप"}
+        CQ{"सार्क"}
         CR{"कोस्टा रीका"}
         CU{"क्यूबा"}
         CV{"केप वर्ड"}

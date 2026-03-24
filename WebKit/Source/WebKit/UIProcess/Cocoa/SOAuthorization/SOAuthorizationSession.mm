@@ -96,7 +96,7 @@ static bool isSameOrigin(const WebCore::ResourceRequest& request, const WebCore:
 
 SOAuthorizationSession::SOAuthorizationSession(RetainPtr<WKSOAuthorizationDelegate> delegate, Ref<API::NavigationAction>&& navigationAction, WebPageProxy& page, InitiatingAction action)
     : m_soAuthorization(adoptNS([PAL::allocSOAuthorizationInstance() init]))
-    , m_navigationAction(WTFMove(navigationAction))
+    , m_navigationAction(WTF::move(navigationAction))
     , m_page(page)
     , m_action(action)
 {
@@ -236,12 +236,18 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
     auto initiatorOrigin = emptyString();
     if (RefPtr sourceOrigin = m_navigationAction->sourceFrame() ? m_navigationAction->sourceFrame()->securityOrigin().securityOrigin().ptr() : nullptr; sourceOrigin && !sourceOrigin->isOpaque())
         initiatorOrigin = sourceOrigin->toString();
-    if (m_action == InitiatingAction::SubFrame && m_page->mainFrame())
-        initiatorOrigin = WebCore::SecurityOrigin::create(m_page->mainFrame()->url())->toString();
+    String initiatingPath = emptyString();
+    if (m_page->mainFrame()) {
+        if (m_action == InitiatingAction::SubFrame)
+            initiatorOrigin = WebCore::SecurityOrigin::create(m_page->mainFrame()->url())->toString();
+        initiatingPath = m_page->mainFrame()->url().path().toString();
+    }
+
     RetainPtr<NSDictionary> authorizationOptions = @{
         SOAuthorizationOptionUserActionInitiated: @(m_navigationAction->isProcessingUserGesture()),
         SOAuthorizationOptionInitiatorOrigin: initiatorOrigin.createNSString().get(),
-        SOAuthorizationOptionInitiatingAction: @(static_cast<NSInteger>(m_action))
+        SOAuthorizationOptionInitiatingAction: @(static_cast<NSInteger>(m_action)),
+        kSOAuthorizationOptionInitiatingPath: initiatingPath.createNSString().get()
     };
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<WKWebView> webView = m_page->cocoaView();
@@ -251,7 +257,7 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
         if (callerSceneID) {
             RetainPtr mutableAuthorizationOptions = adoptNS([authorizationOptions mutableCopy]);
             mutableAuthorizationOptions.get()[@"callerSceneIdentifier"] = callerSceneID;
-            authorizationOptions = WTFMove(mutableAuthorizationOptions);
+            authorizationOptions = WTF::move(mutableAuthorizationOptions);
         }
     }
 #endif
@@ -265,10 +271,10 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
 
     RetainPtr nsRequest = m_navigationAction->request().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
     AUTHORIZATIONSESSION_RELEASE_LOG("continueStartAfterGetAuthorizationHints: Beginning authorization with AppSSO.");
-    [m_soAuthorization beginAuthorizationWithURL:nsRequest.get().URL httpHeaders:nsRequest.get().allHTTPHeaderFields httpBody:nsRequest.get().HTTPBody];
+    [m_soAuthorization beginAuthorizationWithURL:retainPtr(nsRequest.get().URL).get() httpHeaders:retainPtr(nsRequest.get().allHTTPHeaderFields).get() httpBody:retainPtr(nsRequest.get().HTTPBody).get()];
 }
 
-void SOAuthorizationSession::fallBackToWebPath()
+void SOAuthorizationSession::fallBackToWebPath(UserCancel userCancel)
 {
     AUTHORIZATIONSESSION_RELEASE_LOG("fallBackToWebPath");
 
@@ -279,7 +285,10 @@ void SOAuthorizationSession::fallBackToWebPath()
     }
 
     becomeCompleted();
-    fallBackToWebPathInternal();
+    if (userCancel == UserCancel::Yes)
+        this->userCancel();
+    else
+        fallBackToWebPathInternal();
 }
 
 void SOAuthorizationSession::abort()
@@ -330,7 +339,7 @@ void SOAuthorizationSession::complete(NSHTTPURLResponse *httpResponse, NSData *d
     }
 
     // Set cookies.
-    auto cookies = toCookieVector([NSHTTPCookie cookiesWithResponseHeaderFields:httpResponse.allHeaderFields forURL:response.url().createNSURL().get()]);
+    auto cookies = toCookieVector([NSHTTPCookie cookiesWithResponseHeaderFields:retainPtr(httpResponse.allHeaderFields).get() forURL:response.url().createNSURL().get()]);
 
     AUTHORIZATIONSESSION_RELEASE_LOG("complete: (httpStatusCode=%d, hasCookies=%d, hasData=%d)", response.httpStatusCode(), !cookies.isEmpty(), !!data.length);
 
@@ -354,7 +363,7 @@ void SOAuthorizationSession::complete(NSHTTPURLResponse *httpResponse, NSData *d
         AUTHORIZATIONSESSION_RELEASE_LOG("complete: Setting %zu cookies with total header size ~%zu bytes in data store %p", cookies.size(), totalHeaderSize, page->protectedWebsiteDataStore().ptr());
     }
 
-    page->protectedWebsiteDataStore()->protectedCookieStore()->setCookies(WTFMove(cookies), [weakThis = ThreadSafeWeakPtr { *this }, response = WTFMove(response), data = adoptNS([[NSData alloc] initWithData:data])] () mutable {
+    page->protectedWebsiteDataStore()->protectedCookieStore()->setCookies(WTF::move(cookies), [weakThis = ThreadSafeWeakPtr { *this }, response = WTF::move(response), data = adoptNS([[NSData alloc] initWithData:data])] () mutable {
         auto protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -485,14 +494,12 @@ void SOAuthorizationSession::dismissViewController()
         }
     }
 
-    // FIXME: This is a safer cpp false positive (rdar://problem/161068288).
-    SUPPRESS_UNRETAINED_ARG if (!m_isInDestructor && NSApp.hidden) {
+    if (!m_isInDestructor && NSApp.hidden) {
         AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: Application is hidden. Waiting to dismiss until active.");
         if (m_applicationDidUnhideObserver) {
             AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: [Hidden] Already has an Unhide observer (%p). Deminiaturized observer is %p", m_presentingWindowDidDeminiaturizeObserver.get(), m_applicationDidUnhideObserver.get());
             return;
         }
-        // FIXME: We should not need to protect NSApp here (rdar://problem/161068288).
         m_applicationDidUnhideObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidUnhideNotification object:NSApp queue:nil usingBlock:[protectedThis = Ref { *this }, this] (NSNotification *) {
             AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: Application is no longer hidden. Completing the dismissal.");
             dismissViewController();

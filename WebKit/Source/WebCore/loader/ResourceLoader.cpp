@@ -186,7 +186,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
     }
     FrameLoader::addSameSiteInfoToRequestIfNeeded(clientRequest, frame->protectedDocument().get());
 
-    willSendRequestInternal(WTFMove(clientRequest), ResourceResponse(), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](ResourceRequest&& request) mutable {
+    willSendRequestInternal(WTF::move(clientRequest), ResourceResponse(), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)](ResourceRequest&& request) mutable {
 
 #if PLATFORM(IOS_FAMILY)
         // If this ResourceLoader was stopped as a result of willSendRequest, bail out.
@@ -202,7 +202,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
             return completionHandler(false);
         }
 
-        m_request = WTFMove(request);
+        m_request = WTF::move(request);
         m_originalRequest = m_request;
         completionHandler(true);
     });
@@ -210,7 +210,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
 
 void ResourceLoader::deliverResponseAndData(ResourceResponse&& response, RefPtr<FragmentedSharedBuffer>&& buffer)
 {
-    didReceiveResponse(WTFMove(response), [this, protectedThis = Ref { *this }, buffer = WTFMove(buffer)]() mutable {
+    didReceiveResponse(WTF::move(response), [this, protectedThis = Ref { *this }, buffer = WTF::move(buffer)]() mutable {
         if (reachedTerminalState())
             return;
 
@@ -273,7 +273,7 @@ void ResourceLoader::start()
 
     bool isMainFrameNavigation = frame() && frame()->isMainFrame() && options().mode == FetchOptions::Mode::Navigate;
 
-    m_handle = ResourceHandle::create(frameLoader->protectedNetworkingContext().get(), m_request, this, m_defersLoading, m_options.sniffContent == ContentSniffingPolicy::SniffContent, m_options.contentEncodingSniffingPolicy, WTFMove(sourceOrigin), isMainFrameNavigation);
+    m_handle = ResourceHandle::create(frameLoader->protectedNetworkingContext().get(), m_request, this, m_defersLoading, m_options.sniffContent == ContentSniffingPolicy::SniffContent, m_options.contentEncodingSniffingPolicy, WTF::move(sourceOrigin), isMainFrameNavigation);
 }
 
 void ResourceLoader::setDefersLoading(bool defers)
@@ -333,7 +333,7 @@ void ResourceLoader::loadDataURL()
 
         auto dataSize = decodeResult->data.size();
         ResourceResponse dataResponse = ResourceResponse::dataURLResponse(url, decodeResult.value());
-        this->didReceiveResponse(WTFMove(dataResponse), [this, protectedThis = WTFMove(protectedThis), dataSize, data = SharedBuffer::create(WTFMove(decodeResult->data))]() {
+        this->didReceiveResponse(WTF::move(dataResponse), [this, protectedThis = WTF::move(protectedThis), dataSize, data = SharedBuffer::create(WTF::move(decodeResult->data))]() {
             if (!this->reachedTerminalState() && dataSize && m_request.httpMethod() != "HEAD"_s)
                 this->didReceiveBuffer(data, dataSize, DataPayloadWholeResource);
 
@@ -375,7 +375,7 @@ void ResourceLoader::addBuffer(const FragmentedSharedBuffer& buffer, DataPayload
 
 const FragmentedSharedBuffer* ResourceLoader::resourceData() const
 {
-    return m_resourceData.get().unsafeGet();
+    return m_resourceData.buffer();
 }
 
 RefPtr<const FragmentedSharedBuffer> ResourceLoader::protectedResourceData() const
@@ -424,7 +424,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     RefPtr documentLoader = m_documentLoader;
     if (!redirectResponse.isNull() && frameLoader && page && userContentProvider && documentLoader) {
         auto results = userContentProvider->processContentRuleListsForLoad(*page, request.url(), m_resourceType, *documentLoader, redirectResponse.url());
-        ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
+        ContentExtensions::applyResultsToRequest(WTF::move(results), page.get(), request);
         if (results.shouldBlock()) {
             RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: resource load canceled because of content blocker");
             didFail(blockedByContentBlockerError());
@@ -458,7 +458,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
         // If this ResourceLoader was stopped as a result of assignIdentifierToInitialRequest, bail out
         if (m_reachedTerminalState) {
             RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: resource load reached terminal state after calling assignIdentifierToInitialRequest()");
-            completionHandler(WTFMove(request));
+            completionHandler(WTF::move(request));
             return;
         }
 #endif
@@ -498,12 +498,12 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     }
 
     RESOURCELOADER_RELEASE_LOG_FORWARDABLE(RESOURCELOADER_WILLSENDREQUESTINTERNAL);
-    completionHandler(WTFMove(request));
+    completionHandler(WTF::move(request));
 }
 
 void ResourceLoader::willSendRequest(ResourceRequest&& request, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
-    willSendRequestInternal(WTFMove(request), redirectResponse, WTFMove(completionHandler));
+    willSendRequestInternal(WTF::move(request), redirectResponse, WTF::move(completionHandler));
 }
 
 void ResourceLoader::didSendData(unsigned long long, unsigned long long)
@@ -577,7 +577,7 @@ void ResourceLoader::didBlockAuthenticationChallenge()
 void ResourceLoader::didReceiveResponse(ResourceResponse&& r, CompletionHandler<void()>&& policyCompletionHandler)
 {
     ASSERT(!m_reachedTerminalState);
-    CompletionHandlerCallingScope completionHandlerCaller(WTFMove(policyCompletionHandler));
+    CompletionHandlerCallingScope completionHandlerCaller(WTF::move(policyCompletionHandler));
 
     // Protect this in this delegate method since the additional processing can do
     // anything including possibly derefing this; one example of this is Radar 3266216.
@@ -603,7 +603,7 @@ void ResourceLoader::didReceiveResponse(ResourceResponse&& r, CompletionHandler<
 
     logResourceResponseSource(frame.get(), r.source());
 
-    m_response = WTFMove(r);
+    m_response = WTF::move(r);
 
     RefPtr frameLoader = this->frameLoader();
     if (frameLoader && m_options.sendLoadCallbacks == SendCallbackPolicy::SendCallbacks && m_identifier)
@@ -788,7 +788,7 @@ bool ResourceLoader::isPortAllowed(const URL& url)
 void ResourceLoader::willSendRequestAsync(ResourceHandle* handle, ResourceRequest&& request, ResourceResponse&& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
     RefPtr protectedHandle { handle };
-    willSendRequestInternal(WTFMove(request), redirectResponse, WTFMove(completionHandler));
+    willSendRequestInternal(WTF::move(request), redirectResponse, WTF::move(completionHandler));
 }
 
 void ResourceLoader::didSendData(ResourceHandle*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
@@ -798,7 +798,7 @@ void ResourceLoader::didSendData(ResourceHandle*, unsigned long long bytesSent, 
 
 void ResourceLoader::didReceiveResponseAsync(ResourceHandle*, ResourceResponse&& response, CompletionHandler<void()>&& completionHandler)
 {
-    didReceiveResponse(WTFMove(response), WTFMove(completionHandler));
+    didReceiveResponse(WTF::move(response), WTF::move(completionHandler));
 }
 
 void ResourceLoader::didReceiveData(ResourceHandle*, const SharedBuffer& buffer, int encodedDataLength)

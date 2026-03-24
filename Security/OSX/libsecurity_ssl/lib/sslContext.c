@@ -652,7 +652,7 @@ SSLSetIOFuncs				(SSLContextRef		ctx,
 	}
     if(ctx->recFuncs!=&SSLRecordLayerInternal) {
         /* Can Only do this with the internal record layer */
-        check(0);
+        __Check(0);
         return errSecBadReq;
     }
 	if(sslIsSessionActive(ctx)) {
@@ -904,7 +904,7 @@ SSLSetConnection			(SSLContextRef		ctx,
 	}
     if(ctx->recFuncs!=&SSLRecordLayerInternal) {
         /* Can Only do this with the internal record layer */
-        check(0);
+        __Check(0);
         return errSecBadReq;
     }
 	if(sslIsSessionActive(ctx)) {
@@ -1646,7 +1646,7 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
         CFRange range = { 0, count };
         CFArrayAppendArray(ctx->trustedCerts, trustedRoots, range);
     } else {
-        require(ctx->trustedCerts =
+        __Require(ctx->trustedCerts =
             CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, trustedRoots),
             errOut);
     }
@@ -1971,16 +1971,16 @@ sslAddCA(SSLContextRef		ctx,
 #if TARGET_OS_IPHONE
     CFDataRef subjectName = NULL;
     subjectName = SecCertificateCopySubjectSequence(cert);
-    require(subjectName, errOut);
+    __Require(subjectName, errOut);
 #else
     CSSM_DATA_PTR subjectName = NULL;
     ortn = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_X509V1SubjectNameStd, &subjectName);
-    require_noerr(ortn, errOut);
+    __Require_noErr(ortn, errOut);
 #endif
 
 	/* add to acceptableCAs as cert, creating array if necessary */
 	if(ctx->acceptableCAs == NULL) {
-		require(ctx->acceptableCAs = CFArrayCreateMutable(NULL, 0,
+		__Require(ctx->acceptableCAs = CFArrayCreateMutable(NULL, 0,
             &kCFTypeArrayCallBacks), errOut);
 		if(ctx->acceptableCAs == NULL) {
 			return errSecAllocate;

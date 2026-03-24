@@ -222,7 +222,7 @@ static OSStatus bypassLoginPolicy(int argc, char * const *argv)
 
 int psso(int argc, char * const *argv) {
     int result = SHOW_USAGE_MESSAGE;
-    require_quiet(argc > 1, out); // three arguments needed
+    __Require_Quiet(argc > 1, out); // three arguments needed
     @autoreleasepool {
         if (!strcmp("bypass-login-policy", argv[1])) {
             result = bypassLoginPolicy(argc - 1, argv + 1);

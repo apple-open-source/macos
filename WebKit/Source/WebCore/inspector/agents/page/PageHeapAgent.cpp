@@ -62,7 +62,7 @@ Inspector::Protocol::ErrorStringOr<void> PageHeapAgent::disable()
     return WebHeapAgent::disable();
 }
 
-String PageHeapAgent::heapSnapshotBuilderOverrideClassName(JSC::HeapSnapshotBuilder& builder, JSC::JSCell* cell, const String& currentClassName)
+String PageHeapAgent::heapSnapshotBuilderOverrideClassName(const JSC::HeapSnapshotBuilder& builder, JSC::JSCell* cell, const String& currentClassName)
 {
     if (currentClassName == "HTMLElement"_s) {
         if (auto* jsElement = jsDynamicCast<JSElement*>(cell)) {
@@ -86,7 +86,7 @@ String PageHeapAgent::heapSnapshotBuilderOverrideClassName(JSC::HeapSnapshotBuil
     return JSC::HeapSnapshotBuilder::Client::heapSnapshotBuilderOverrideClassName(builder, cell, currentClassName);
 }
 
-bool PageHeapAgent::heapSnapshotBuilderIsElement(JSC::HeapSnapshotBuilder&, JSC::JSCell* cell)
+bool PageHeapAgent::heapSnapshotBuilderIsElement(const JSC::HeapSnapshotBuilder&, JSC::JSCell* cell)
 {
     return jsDynamicCast<JSNode*>(cell);
 }

@@ -95,10 +95,10 @@ void  RBBITableBuilder57::build() {
     //   {bof} fake character.
     // 
     if (fRB->fSetBuilder->sawBOF()) {
-        RBBINode *bofTop    = new RBBINode(RBBINode::opCat);
-        RBBINode *bofLeaf   = new RBBINode(RBBINode::leafChar);
+        RBBINode *bofTop    = new RBBINode(RBBINode::opCat, *fStatus);
+        RBBINode *bofLeaf   = new RBBINode(RBBINode::leafChar, *fStatus);
         // Delete and exit if memory allocation failed.
-        if (bofTop == NULL || bofLeaf == NULL) {
+        if (U_FAILURE(*fStatus) || bofTop == NULL || bofLeaf == NULL) {
             *fStatus = U_MEMORY_ALLOCATION_ERROR;
             delete bofTop;
             delete bofLeaf;
@@ -116,17 +116,17 @@ void  RBBITableBuilder57::build() {
     //   Appears as a cat-node, left child being the original tree,
     //   right child being the end marker.
     //
-    RBBINode *cn = new RBBINode(RBBINode::opCat);
+    RBBINode *cn = new RBBINode(RBBINode::opCat, *fStatus);
     // Exit if memory allocation failed.
-    if (cn == NULL) {
+    if (U_FAILURE(*fStatus) || cn == NULL) {
         *fStatus = U_MEMORY_ALLOCATION_ERROR;
         return;
     }
     cn->fLeftChild = fTree;
     fTree->fParent = cn;
-    cn->fRightChild = new RBBINode(RBBINode::endMark);
+    cn->fRightChild = new RBBINode(RBBINode::endMark, *fStatus);
     // Delete and exit if memory allocation failed.
-    if (cn->fRightChild == NULL) {
+    if (U_FAILURE(*fStatus) || cn->fRightChild == NULL) {
         *fStatus = U_MEMORY_ALLOCATION_ERROR;
         delete cn;
         return;
@@ -138,7 +138,7 @@ void  RBBITableBuilder57::build() {
     //  Replace all references to UnicodeSets with the tree for the equivalent
     //      expression.
     //
-    fTree->flattenSets();
+    fTree->flattenSets(*fStatus);
 #ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "stree")) {
         RBBIDebugPuts("\nParse tree after flattening Unicode Set references.");

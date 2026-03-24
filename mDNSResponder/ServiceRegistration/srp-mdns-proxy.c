@@ -579,7 +579,7 @@ advertise_finished(adv_host_t *host, char *hostname, srp_server_t *server_state,
         dns_u16_to_wire(&towire, dns_opt_update_lease);  // OPTION-CODE
         dns_edns0_option_begin(&towire);                 // OPTION-LENGTH
         dns_u32_to_wire(&towire, client->host_lease);    // LEASE (e.g. 1 hour)
-        dns_u32_to_wire(&towire, client->key_lease);     // KEY-LEASE (7 days)
+        dns_u32_to_wire(&towire, client->host_lease);    // Shorten KEY LEASE to host lease
         dns_edns0_option_end(&towire);                   // Now we know OPTION-LENGTH
         dns_rdlength_end(&towire);
         // It should not be possible for this to happen; if it does, the client
@@ -3842,9 +3842,10 @@ server_state_create(const char *name, int max_lease_time, int min_lease_time,
     server_state->min_lease_time = min_lease_time;
     server_state->key_max_lease_time = key_max_lease_time;
     server_state->key_min_lease_time = key_min_lease_time;
-    server_state->priority = PRIORITY_DEFAULT;
+    server_state->base_priority = PRIORITY_DEFAULT;
 #if TARGET_OS_TV
 #endif
+    server_state->priority = server_state->base_priority;
     INFO("priority set to %d", server_state->priority);
     return server_state;
 }

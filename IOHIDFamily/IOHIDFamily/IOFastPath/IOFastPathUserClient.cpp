@@ -23,7 +23,7 @@ bool
 IOFastPathUserClient::start(IOService * provider)
 {
     bool ok = super::start(provider);
-    require(ok, exit);
+    __Require(ok, exit);
 
     _service = OSSharedPtr<IOFastPathService>(OSRequiredCast(IOFastPathService, provider), OSRetain);
 
@@ -45,7 +45,7 @@ IOFastPathUserClient::start(IOService * provider)
     assert(ok);
 
     ok = provider->open(this);
-    require(ok, exit);
+    __Require(ok, exit);
 
 exit:
     if (!ok && _gate) {

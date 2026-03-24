@@ -524,8 +524,8 @@ typedef any AnyTypedef;
 [
     JSGenerateToJSObject,
     JSGenerateToNativeObject
-] dictionary TestDictionary {
-    TestEnumType enumerationValueWithoutDefault;
+] dictionary _TestDictionary {
+    TestEnumType _enumerationValueWithoutDefault;
     TestEnumType enumerationValueWithDefault = "enumValue1";
     TestEnumType enumerationValueWithEmptyStringDefault = "";
     DOMString stringWithDefault = "defaultString";

@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)temp.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include "extern.h"
 
@@ -85,6 +77,11 @@ tinit(void)
 	else
 		homedir = savestr(cp);
 	if (debug)
+#ifdef __APPLE__
 		fprintf(stderr, "user = %s, homedir = %s\n", myname,
 		    homedir ? homedir : "NONE");
+#else
+		printf("user = %s, homedir = %s\n", myname,
+		    homedir ? homedir : "NONE");
+#endif
 }

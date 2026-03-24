@@ -46,7 +46,7 @@ namespace WebCore {
 
 class DestinatationColorSpace;
 
-class IOSurfacePool : public ThreadSafeRefCounted<IOSurfacePool> {
+class IOSurfacePool : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<IOSurfacePool> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(IOSurfacePool, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(IOSurfacePool);
     friend class LazyNeverDestroyed<IOSurfacePool>;
@@ -76,6 +76,7 @@ private:
 
         MonotonicTime lastUseTime;
         bool hasMarkedPurgeable;
+        bool inCurrentlyUsedSurfaceCache;
     };
 
     using CachedSurfaceQueue = Deque<std::unique_ptr<IOSurface>>;

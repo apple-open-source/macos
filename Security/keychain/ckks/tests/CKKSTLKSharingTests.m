@@ -1339,7 +1339,7 @@
                                                                                          essential:NO];
     brokenAdapter.excludeSelfPeerFromTrustSet = true;
 
-    [self.defaultCKKS endTrustedOperation];
+    [self.defaultCKKS endTrustedOperation:NO];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 
@@ -1365,7 +1365,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self.defaultCKKS endTrustedOperation];
+    [self.defaultCKKS endTrustedOperation:NO];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 
@@ -1436,6 +1436,43 @@
     [self.mockSOSAdapter.trustedPeers addObject:brokenRemotePeer1];
     [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
     
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testTLKShareUploadFailsOnNotAuthenticatedError {
+    // Test starts with no keys in CKKS database, but one in our fake CloudKit.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // Test also starts with the TLK shared to all trusted peers from peer1
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+
+    // We'd expect CKKS to accept the keys, and share the TLK back to itself. But CloudKit indicates we're not authenticated.
+    // Patch in the error.
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorAuthTokenError userInfo:@{
+        NSLocalizedDescriptionKey: @"User rejected a prompt to enter their iCloud account password"}];
+    NSError* authTokenError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:authTokenError];
+
+    // Make sure CKKS gets to the recheck CK account state after it attempts to upload the TLK shares.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateRecheckAccountStatus];
+
+    [self startCKKSSubsystem];
+
+    // CKKS should have gotten to recheck ck account status.
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateRecheckAccountStatus] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of rechecking CK account status");
+    // Verify that no records were uploaded.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // On the next retry, we're going to assume that CK has re-authenticated itself. Set up success expectation before we go let CKKS retry.
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateRecheckAccountStatus];
+
+    // CKKS shold eventually get to ready after uploading the new TLK share.
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 

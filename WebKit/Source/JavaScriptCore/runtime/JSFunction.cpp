@@ -364,7 +364,7 @@ bool JSFunction::getOwnPropertySlot(JSObject* object, JSGlobalObject* globalObje
     RELEASE_AND_RETURN(scope, Base::getOwnPropertySlot(thisObject, globalObject, propertyName, slot));
 }
 
-void JSFunction::getOwnSpecialPropertyNames(JSObject* object, JSGlobalObject* globalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
+void JSFunction::getOwnSpecialPropertyNames(JSObject* object, JSGlobalObject* globalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)
 {
     JSFunction* thisObject = jsCast<JSFunction*>(object);
     VM& vm = globalObject->vm();
@@ -482,32 +482,7 @@ bool JSFunction::defineOwnProperty(JSObject* object, JSGlobalObject* globalObjec
 // ECMA 13.2.2 [[Construct]]
 CallData JSFunction::getConstructData(JSCell* cell)
 {
-    // Keep this function OK for invocation from concurrent compilers.
-    CallData constructData;
-
-    JSFunction* thisObject = jsCast<JSFunction*>(cell);
-    if (thisObject->isHostFunction()) {
-        if (thisObject->inherits<JSBoundFunction>()) {
-            if (jsCast<JSBoundFunction*>(thisObject)->canConstruct()) {
-                constructData.type = CallData::Type::Native;
-                constructData.native.function = thisObject->nativeConstructor();
-                constructData.native.isBoundFunction = true;
-                constructData.native.isWasm = false;
-            }
-        } else if (thisObject->nativeConstructor() != callHostFunctionAsConstructor) {
-            constructData.type = CallData::Type::Native;
-            constructData.native.function = thisObject->nativeConstructor();
-        }
-    } else {
-        FunctionExecutable* functionExecutable = thisObject->jsExecutable();
-        if (functionExecutable->constructAbility() != ConstructAbility::CannotConstruct) {
-            constructData.type = CallData::Type::JS;
-            constructData.js.functionExecutable = functionExecutable;
-            constructData.js.scope = thisObject->scope();
-        }
-    }
-
-    return constructData;
+    return getConstructDataInline(cell);
 }
 
 String getCalculatedDisplayName(VM& vm, JSObject* object)
@@ -612,7 +587,7 @@ JSFunction::PropertyStatus JSFunction::reifyName(VM& vm, JSGlobalObject* globalO
     RETURN_IF_EXCEPTION(throwScope, PropertyStatus::Lazy);
 
     rareData->setHasReifiedName();
-    putDirect(vm, propID, jsString(vm, WTFMove(name)), initialAttributes);
+    putDirect(vm, propID, jsString(vm, WTF::move(name)), initialAttributes);
     return PropertyStatus::Reified;
 }
 

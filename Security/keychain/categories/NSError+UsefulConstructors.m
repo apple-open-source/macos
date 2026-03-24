@@ -40,4 +40,49 @@
     return [NSError errorWithDomain:domain code:code userInfo:mut];
 }
 
+- (NSString*)formatAsNestedJSON {
+    // Handle nil domain safely
+    NSString *domain = self.domain ?: @"(null)";
+    NSString *currentTuple = [NSString stringWithFormat:@"(%@,%ld)", domain, (long)self.code];
+    NSMutableArray<NSString *> *childrenJSON = [NSMutableArray array];
+
+    // Safely access userInfo (could be nil)
+    NSDictionary *userInfo = self.userInfo;
+    if (userInfo) {
+        // Process single underlying error
+        id underlyingErrorObj = userInfo[NSUnderlyingErrorKey];
+        if (underlyingErrorObj && [underlyingErrorObj isKindOfClass:[NSError class]]) {
+            NSError *underlyingError = (NSError *)underlyingErrorObj;
+            NSString *childJSON = [underlyingError formatAsNestedJSON];
+            if (childJSON) {
+                [childrenJSON addObject:childJSON];
+            }
+        }
+
+        // Process multiple underlying errors
+        id underlyingMultipleErrorsObj = userInfo[NSMultipleUnderlyingErrorsKey];
+        if (underlyingMultipleErrorsObj && [underlyingMultipleErrorsObj isKindOfClass:[NSArray class]]) {
+            NSArray *multipleErrorsArray = (NSArray *)underlyingMultipleErrorsObj;
+            for (id errorObj in multipleErrorsArray) {
+                if (errorObj && [errorObj isKindOfClass:[NSError class]]) {
+                    NSError *underlyingMultipleError = (NSError *)errorObj;
+                    NSString *childJSON = [underlyingMultipleError formatAsNestedJSON];
+                    if (childJSON) {
+                        [childrenJSON addObject:childJSON];
+                    }
+                }
+            }
+        }
+    }
+
+    if (childrenJSON.count == 0) {
+        return [NSString stringWithFormat:@"{%@:{}}", currentTuple];
+    } else if (childrenJSON.count == 1) {
+        return [NSString stringWithFormat:@"{%@:%@}", currentTuple, childrenJSON[0]];
+    } else {
+        NSString *childrenString = [NSString stringWithFormat:@"[%@]", [childrenJSON componentsJoinedByString:@","]];
+        return [NSString stringWithFormat:@"{%@:%@}", currentTuple, childrenString];
+    }
+}
+
 @end

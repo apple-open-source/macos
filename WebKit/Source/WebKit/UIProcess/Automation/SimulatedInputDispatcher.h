@@ -31,6 +31,7 @@
 #include <WebCore/IntPoint.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
 #include <wtf/Vector.h>
@@ -128,7 +129,7 @@ public:
     Vector<StateEntry> states;
 };
 
-class SimulatedInputDispatcher : public RefCounted<SimulatedInputDispatcher> {
+class SimulatedInputDispatcher : public RefCountedAndCanMakeWeakPtr<SimulatedInputDispatcher> {
     WTF_MAKE_NONCOPYABLE(SimulatedInputDispatcher);
 public:
     class Client {

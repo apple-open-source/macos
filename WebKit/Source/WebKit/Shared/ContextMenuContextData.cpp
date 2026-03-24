@@ -70,6 +70,11 @@ ContextMenuContextData::ContextMenuContextData(const IntPoint& menuLocation, con
     if (RefPtr image = context.potentialQRCodeViewportSnapshotImage())
         setPotentialQRCodeViewportSnapshotImage(*image);
 #endif
+
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    if (auto identifier = context.mediaElementIdentifier())
+        setMediaElementIdentifier(*identifier);
+#endif
 }
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -79,7 +84,7 @@ ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLoca
     , m_selectionIsEditable(isEditable)
     , m_controlledImageBounds(imageRect)
     , m_controlledImageAttachmentID(attachmentID)
-    , m_controlledImageElementContext(WTFMove(elementContext))
+    , m_controlledImageElementContext(WTF::move(elementContext))
     , m_controlledImageMIMEType(sourceImageMIMEType)
 {
     setImage(image);
@@ -159,35 +164,41 @@ ContextMenuContextData::ContextMenuContextData(WebCore::ContextMenuContext::Type
     , bool hasEntireImage
     , bool allowsFollowingLink
     , bool allowsFollowingImageURL
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    , std::optional<WebCore::HTMLMediaElementIdentifier> mediaElementIdentifier
+#endif
 )
     : m_type(type)
-    , m_menuLocation(WTFMove(menuLocation))
-    , m_menuItems(WTFMove(menuItems))
-    , m_webHitTestResultData(WTFMove(webHitTestResultData))
-    , m_selectedText(WTFMove(selectedText))
+    , m_menuLocation(WTF::move(menuLocation))
+    , m_menuItems(WTF::move(menuItems))
+    , m_webHitTestResultData(WTF::move(webHitTestResultData))
+    , m_selectedText(WTF::move(selectedText))
     , m_hasEntireImage(hasEntireImage)
     , m_allowsFollowingLink(allowsFollowingLink)
     , m_allowsFollowingImageURL(allowsFollowingImageURL)
 #if ENABLE(SERVICE_CONTROLS)
-    , m_controlledSelection(WTFMove(controlledSelection))
-    , m_selectedTelephoneNumbers(WTFMove(selectedTelephoneNumbers))
+    , m_controlledSelection(WTF::move(controlledSelection))
+    , m_selectedTelephoneNumbers(WTF::move(selectedTelephoneNumbers))
     , m_selectionIsEditable(selectionIsEditable)
-    , m_controlledImageBounds(WTFMove(controlledImageBounds))
-    , m_controlledImageAttachmentID(WTFMove(controlledImageAttachmentID))
-    , m_controlledImageElementContext(WTFMove(controlledImageElementContext))
-    , m_controlledImageMIMEType(WTFMove(controlledImageMIMEType))
+    , m_controlledImageBounds(WTF::move(controlledImageBounds))
+    , m_controlledImageAttachmentID(WTF::move(controlledImageAttachmentID))
+    , m_controlledImageElementContext(WTF::move(controlledImageElementContext))
+    , m_controlledImageMIMEType(WTF::move(controlledImageMIMEType))
+#endif
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    , m_mediaElementIdentifier(WTF::move(mediaElementIdentifier))
 #endif
 {
 #if ENABLE(SERVICE_CONTROLS)
     if (controlledImageHandle)
-        m_controlledImage = ShareableBitmap::create(WTFMove(*controlledImageHandle), SharedMemory::Protection::ReadOnly);
+        m_controlledImage = ShareableBitmap::create(WTF::move(*controlledImageHandle), SharedMemory::Protection::ReadOnly);
 #endif // ENABLE(SERVICE_CONTROLS)
 
 #if ENABLE(CONTEXT_MENU_QR_CODE_DETECTION)
     if (potentialQRCodeNodeSnapshotImageHandle)
-        m_potentialQRCodeNodeSnapshotImage = ShareableBitmap::create(WTFMove(*potentialQRCodeNodeSnapshotImageHandle), SharedMemory::Protection::ReadOnly);
+        m_potentialQRCodeNodeSnapshotImage = ShareableBitmap::create(WTF::move(*potentialQRCodeNodeSnapshotImageHandle), SharedMemory::Protection::ReadOnly);
     if (potentialQRCodeViewportSnapshotImageHandle)
-        m_potentialQRCodeViewportSnapshotImage = ShareableBitmap::create(WTFMove(*potentialQRCodeViewportSnapshotImageHandle), SharedMemory::Protection::ReadOnly);
+        m_potentialQRCodeViewportSnapshotImage = ShareableBitmap::create(WTF::move(*potentialQRCodeViewportSnapshotImageHandle), SharedMemory::Protection::ReadOnly);
 #endif
 }
 

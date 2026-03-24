@@ -27,7 +27,7 @@
 static bool sosGhostCheckValid(SOSPeerInfoRef pi) {
 #if DETECT_IOS_ONLY
     bool retval = false;
-    require_quiet(pi, retOut);
+    __Require_Quiet(pi, retOut);
     SOSPeerInfoDeviceClass peerClass = SOSPeerInfoGetClass(pi);
     switch(peerClass) {
         case SOSPeerInfo_iOS:
@@ -52,15 +52,15 @@ retOut:
 
 static CFSetRef SOSCircleCreateGhostsOfPeerSet(SOSCircleRef circle, SOSPeerInfoRef me) {
     CFMutableSetRef ghosts = NULL;
-    require_quiet(me, errOut);
-    require_quiet(sosGhostCheckValid(me), errOut);
-    require_quiet(circle, errOut);
-    require_quiet(SOSPeerInfoSerialNumberIsSet(me), errOut);
+    __Require_Quiet(me, errOut);
+    __Require_Quiet(sosGhostCheckValid(me), errOut);
+    __Require_Quiet(circle, errOut);
+    __Require_Quiet(SOSPeerInfoSerialNumberIsSet(me), errOut);
     CFStringRef mySerial = SOSPeerInfoCopySerialNumber(me);
-    require_quiet(mySerial, errOut);
+    __Require_Quiet(mySerial, errOut);
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(me);
     ghosts = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-    require_quiet(ghosts, errOut1);
+    __Require_Quiet(ghosts, errOut1);
     SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef pi) {
         CFStringRef theirPeerID = SOSPeerInfoGetPeerID(pi);
         if(!CFEqual(myPeerID, theirPeerID)) {
@@ -91,23 +91,23 @@ static void SOSCircleClearMyGhosts(SOSCircleRef circle, SOSPeerInfoRef me) {
 CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle) {
     SOSCircleRef newCircle = NULL;
     CFSetRef ghosts = NULL;
-    require_quiet(account, retOut);
+    __Require_Quiet(account, retOut);
     SecKeyRef userPrivKey = SOSAccountGetPrivateCredential(account, NULL);
-    require_quiet(userPrivKey, retOut);
+    __Require_Quiet(userPrivKey, retOut);
     SOSPeerInfoRef me = account.peerInfo;
-    require_quiet(me, retOut);
+    __Require_Quiet(me, retOut);
     bool iAmApplicant = SOSCircleHasApplicant(startCircle, me, NULL);
     
     ghosts = SOSCircleCreateGhostsOfPeerSet(startCircle, me);
-    require_quiet(ghosts, retOut);
-    require_quiet(CFSetGetCount(ghosts), retOut);
+    __Require_Quiet(ghosts, retOut);
+    __Require_Quiet(CFSetGetCount(ghosts), retOut);
 
     CFStringSetPerformWithDescription(ghosts, ^(CFStringRef description) {
         secnotice("ghostbust", "Removing peers: %@", description);
     });
 
     newCircle = SOSCircleCopyCircle(kCFAllocatorDefault, startCircle, NULL);
-    require_quiet(newCircle, retOut);
+    __Require_Quiet(newCircle, retOut);
     if(iAmApplicant) {
         if(SOSCircleRemovePeersByIDUnsigned(newCircle, ghosts) && (SOSCircleCountPeers(newCircle) == 0)) {
             secnotice("resetToOffering", "Reset to offering with last ghost and me as applicant");

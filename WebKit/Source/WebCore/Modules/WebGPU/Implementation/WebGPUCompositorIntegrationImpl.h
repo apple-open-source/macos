@@ -71,9 +71,9 @@ public:
     void registerCallbacks(WTF::Function<void(CFArrayRef)>&& renderBuffersWereRecreatedCallback, WTF::Function<void(CompletionHandler<void()>&&)>&& onSubmittedWorkScheduledCallback)
     {
         ASSERT(!m_renderBuffersWereRecreatedCallback);
-        m_renderBuffersWereRecreatedCallback = WTFMove(renderBuffersWereRecreatedCallback);
+        m_renderBuffersWereRecreatedCallback = WTF::move(renderBuffersWereRecreatedCallback);
         ASSERT(!m_onSubmittedWorkScheduledCallback);
-        m_onSubmittedWorkScheduledCallback = WTFMove(onSubmittedWorkScheduledCallback);
+        m_onSubmittedWorkScheduledCallback = WTF::move(onSubmittedWorkScheduledCallback);
     }
 
     void withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)>) final;

@@ -40,16 +40,16 @@ public:
 
     explicit SharedBufferReference(RefPtr<WebCore::FragmentedSharedBuffer>&& buffer)
         : m_size(buffer ? buffer->size() : 0)
-        , m_buffer(WTFMove(buffer)) { }
+        , m_buffer(WTF::move(buffer)) { }
     explicit SharedBufferReference(Ref<WebCore::FragmentedSharedBuffer>&& buffer)
         : m_size(buffer->size())
-        , m_buffer(WTFMove(buffer)) { }
+        , m_buffer(WTF::move(buffer)) { }
     explicit SharedBufferReference(RefPtr<WebCore::SharedBuffer>&& buffer)
         : m_size(buffer ? buffer->size() : 0)
-        , m_buffer(WTFMove(buffer)) { }
+        , m_buffer(WTF::move(buffer)) { }
     explicit SharedBufferReference(Ref<WebCore::SharedBuffer>&& buffer)
         : m_size(buffer->size())
-        , m_buffer(WTFMove(buffer)) { }
+        , m_buffer(WTF::move(buffer)) { }
     explicit SharedBufferReference(const WebCore::FragmentedSharedBuffer& buffer)
         : m_size(buffer.size())
         , m_buffer(const_cast<WebCore::FragmentedSharedBuffer*>(&buffer)) { }
@@ -87,7 +87,7 @@ public:
 private:
     SharedBufferReference(Ref<WebCore::SharedMemory>&& memory, size_t size)
         : m_size(size)
-        , m_memory(WTFMove(memory)) { }
+        , m_memory(WTF::move(memory)) { }
 
     size_t m_size { 0 };
     mutable RefPtr<WebCore::FragmentedSharedBuffer> m_buffer;

@@ -57,15 +57,15 @@ const NSString *kSecTestPathPolicyMappingResources = @"si-18-certificate-parse/P
             SecTrustRef trust = NULL;
             SecPolicyRef policy = SecPolicyCreateBasicX509();
             
-            require_noerr_action(SecTrustCreateWithCertificates(cert, policy, &trust), blockOut,
+            __Require_noErr_Action(SecTrustCreateWithCertificates(cert, policy, &trust), blockOut,
                                  fail("Unable to create trust with certificate: %@", url));
-            require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)[NSArray arrayWithObject:(__bridge id)root]),
+            __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)[NSArray arrayWithObject:(__bridge id)root]),
                                  blockOut, fail("Unable to set trust in root cert: %@", url));
-            require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:507200000.0]),
+            __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:507200000.0]),
                                  blockOut, fail("Unable to set verify date: %@", url));
             XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "Got wrong trust result for %@", url);
             
-            require_action(cert, blockOut,
+            __Require_Action(cert, blockOut,
                            fail("Failed to parse cert with SPKI error: %@", url));
             
         blockOut:
@@ -85,11 +85,11 @@ const NSString *kSecTestPathPolicyMappingResources = @"si-18-certificate-parse/P
     CFErrorRef error = NULL;
     NSArray *anchors = @[(__bridge id)root];
 
-    require_noerr_action(SecTrustCreateWithCertificates(leaf, policy, &trust), errOut,
+    __Require_noErr_Action(SecTrustCreateWithCertificates(leaf, policy, &trust), errOut,
                          fail("Unable to create trust with certificate with unparseable extension"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors),
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors),
                          errOut, fail("Unable to set trust anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:620000000.0]),
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:620000000.0]),
                          errOut, fail("Unable to set verify date"));
     XCTAssertFalse(SecTrustEvaluateWithError(trust, &error), "Got wrong trust result cert");
     XCTAssert(error != NULL);

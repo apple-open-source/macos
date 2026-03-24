@@ -58,6 +58,19 @@ typedef NS_ENUM(NSInteger, WKWebpagePreferencesUpgradeToHTTPSPolicy) {
     WKWebpagePreferencesUpgradeToHTTPSPolicyErrorOnFailure
 } NS_SWIFT_NAME(WKWebpagePreferences.UpgradeToHTTPSPolicy) WK_API_AVAILABLE(macos(15.2), ios(18.2), visionos(2.2));
 
+/*!
+ @enum WKSecurityRestrictionMode
+ @abstract Security restriction modes for WebView content.
+ @constant WKSecurityRestrictionModeNone No additional security restrictions beyond WebKit defaults.
+ @constant WKSecurityRestrictionModeMaximizeCompatibility Enhanced security protections optimized for maintaining web compatibility. Disables JIT compilation and enables increased MTE adoption.
+ @constant WKSecurityRestrictionModeLockdown Maximum security restrictions including feature disablement. Applied automatically by the system in Lockdown Mode.
+ */
+typedef NS_ENUM(NSInteger, WKSecurityRestrictionMode) {
+    WKSecurityRestrictionModeNone,
+    WKSecurityRestrictionModeMaximizeCompatibility,
+    WKSecurityRestrictionModeLockdown
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
 /*! A WKWebpagePreferences object is a collection of properties that
  determine the preferences to use when loading and rendering a page.
  @discussion Contains properties used to determine webpage preferences.
@@ -102,5 +115,17 @@ WK_CLASS_AVAILABLE(macos(10.15), ios(13.0))
  supercedes this policy for known hosts.
  */
 @property (nonatomic) WKWebpagePreferencesUpgradeToHTTPSPolicy preferredHTTPSNavigationPolicy WK_API_AVAILABLE(macos(15.2), ios(18.2), visionos(2.2));
+
+/*! @abstract Security restriction mode for this navigation.
+ @discussion Security restriction modes provide different levels of security hardening for high-risk browsing contexts.
+ WKSecurityRestrictionModeMaximizeCompatibility provides additional hardening while maintaining full web compatibility:
+ - JavaScript JIT compilation disabled (interpreter-only execution)
+ - Increased Memory Tagging Extension (MTE) coverage across allocations in the WebContent process
+ Setting a security restriction mode creates separate, isolated WebContent processes for the specified protection level.
+ This preference only applies to main frame navigations and will be ignored for subframe navigations. When set for a main frame, all subframe content and opened windows inherit the same security restrictions.
+ When the system has chosen WKSecurityRestrictionModeLockdown (e.g., in Lockdown Mode), attempts to set a less restrictive mode will fail silently.
+ The default value is WKSecurityRestrictionModeNone.
+ */
+@property (nonatomic) WKSecurityRestrictionMode securityRestrictionMode WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 @end

@@ -37,7 +37,7 @@ SOSCircleRef CF_RETURNS_RETAINED SOSAccountEnsureCircle(SOSAccount* a, CFStringR
         CFRetainSafe(circle);
     }
 
-    require_action_quiet(circle || !isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle), fail,
+    __Require_Action_Quiet(circle || !isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle), fail,
                          if (error) { *error = localError; localError = NULL; });
    
 fail:

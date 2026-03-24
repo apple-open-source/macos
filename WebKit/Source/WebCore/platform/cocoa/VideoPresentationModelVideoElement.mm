@@ -263,7 +263,7 @@ void VideoPresentationModelVideoElement::setVideoFullscreenLayer(PlatformLayer* 
     [m_videoFullscreenLayer setFrame:m_videoFrame];
 
     if (RefPtr videoElement = m_videoElement) {
-        videoElement->setVideoFullscreenLayer(m_videoFullscreenLayer.get(), WTFMove(completionHandler));
+        videoElement->setVideoFullscreenLayer(m_videoFullscreenLayer.get(), WTF::move(completionHandler));
         return;
     }
 
@@ -274,7 +274,7 @@ void VideoPresentationModelVideoElement::waitForPreparedForInlineThen(WTF::Funct
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
     if (RefPtr videoElement = m_videoElement) {
-        videoElement->waitForPreparedForInlineThen(WTFMove(completionHandler));
+        videoElement->waitForPreparedForInlineThen(WTF::move(completionHandler));
         return;
     }
 
@@ -316,7 +316,7 @@ void VideoPresentationModelVideoElement::setVideoSizeFenced(const FloatSize& siz
         return;
 
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, size);
-    videoElement->setVideoLayerSizeFenced(size, WTFMove(fence));
+    videoElement->setVideoLayerSizeFenced(size, WTF::move(fence));
     videoElement->setVideoFullscreenFrame({ { }, size });
 }
 

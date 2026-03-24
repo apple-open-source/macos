@@ -909,7 +909,7 @@ WebKitDOMText* webkit_dom_document_create_text_node(WebKitDOMDocument* self, con
     g_return_val_if_fail(data, 0);
     WebCore::Document* item = WebKit::core(self);
     WTF::String convertedData = WTF::String::fromUTF8(data);
-    RefPtr<WebCore::Text> gobjectResult = WTF::getPtr(item->createTextNode(WTFMove(convertedData)));
+    RefPtr<WebCore::Text> gobjectResult = WTF::getPtr(item->createTextNode(WTF::move(convertedData)));
     return WebKit::kit(gobjectResult.get());
 }
 
@@ -920,7 +920,7 @@ WebKitDOMComment* webkit_dom_document_create_comment(WebKitDOMDocument* self, co
     g_return_val_if_fail(data, 0);
     WebCore::Document* item = WebKit::core(self);
     WTF::String convertedData = WTF::String::fromUTF8(data);
-    RefPtr<WebCore::Comment> gobjectResult = WTF::getPtr(item->createComment(WTFMove(convertedData)));
+    RefPtr<WebCore::Comment> gobjectResult = WTF::getPtr(item->createComment(WTF::move(convertedData)));
     return WebKit::kit(gobjectResult.get());
 }
 
@@ -1139,7 +1139,7 @@ WebKitDOMXPathExpression* webkit_dom_document_create_expression(WebKitDOMDocumen
     WebCore::Document* item = WebKit::core(self);
     WTF::String convertedExpression = WTF::String::fromUTF8(expression);
     RefPtr<WebCore::XPathNSResolver> convertedResolver = WebKit::core(resolver);
-    auto result = item->createExpression(convertedExpression, WTFMove(convertedResolver));
+    auto result = item->createExpression(convertedExpression, WTF::move(convertedResolver));
     if (result.hasException()) {
         auto description = WebCore::DOMException::description(result.releaseException().code());
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);
@@ -1175,7 +1175,7 @@ WebKitDOMXPathResult* webkit_dom_document_evaluate(WebKitDOMDocument* self, cons
     WebCore::Node* convertedContextNode = WebKit::core(contextNode);
     RefPtr<WebCore::XPathNSResolver> convertedResolver = WebKit::core(resolver);
     WebCore::XPathResult* convertedInResult = WebKit::core(inResult);
-    auto result = item->evaluate(convertedExpression, *convertedContextNode, WTFMove(convertedResolver), type, convertedInResult);
+    auto result = item->evaluate(convertedExpression, *convertedContextNode, WTF::move(convertedResolver), type, convertedInResult);
     if (result.hasException()) {
         auto description = WebCore::DOMException::description(result.releaseException().code());
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);

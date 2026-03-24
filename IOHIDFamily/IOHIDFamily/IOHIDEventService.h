@@ -34,6 +34,7 @@
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDPrivateKeys.h>
 #if KERNEL_PRIVATE
 #include <IOKit/hid/IOHIDEvent.h>
 #endif
@@ -130,9 +131,9 @@ private:
     IORecursiveLock *       _nubLock;
     
     void *                  _reserved0;
-    
+
     bool                    _readyForInputReports;
-    
+
     struct ExpansionData {
         IOService *             provider;
         IOWorkLoop *            workLoop;

@@ -143,7 +143,7 @@ void JSTestReadOnlyMapLikePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestReadOnlyMapLike::s_info = { "TestReadOnlyMapLike"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestReadOnlyMapLike) };
 
 JSTestReadOnlyMapLike::JSTestReadOnlyMapLike(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestReadOnlyMapLike>&& impl)
-    : JSDOMWrapper<TestReadOnlyMapLike>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestReadOnlyMapLike>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -365,7 +365,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestReadOnlyMapLike>(impl.ptr());
 #endif
-    return createWrapper<TestReadOnlyMapLike>(globalObject, WTFMove(impl));
+    return createWrapper<TestReadOnlyMapLike>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestReadOnlyMapLike& impl)

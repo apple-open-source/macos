@@ -1328,13 +1328,13 @@ inline void InspectorInstrumentation::interceptRequest(ResourceLoader& loader, F
 {
     ASSERT(InspectorInstrumentation::shouldInterceptRequest(loader));
     if (auto* agents = instrumentingAgents(loader.frame()))
-        interceptRequestImpl(*agents, loader, WTFMove(handler));
+        interceptRequestImpl(*agents, loader, WTF::move(handler));
 }
 
 inline void InspectorInstrumentation::interceptResponse(const LocalFrame& frame, const ResourceResponse& response, ResourceLoaderIdentifier identifier, CompletionHandler<void(const ResourceResponse&, RefPtr<FragmentedSharedBuffer>)>&& handler)
 {
     ASSERT(InspectorInstrumentation::shouldInterceptResponse(frame, response));
-    interceptResponseImpl(instrumentingAgents(frame), response, identifier, WTFMove(handler));
+    interceptResponseImpl(instrumentingAgents(frame), response, identifier, WTF::move(handler));
 }
 
 inline void InspectorInstrumentation::didDispatchDOMStorageEvent(Page& page, const String& key, const String& oldValue, const String& newValue, StorageType storageType, const SecurityOrigin& securityOrigin)
@@ -1540,12 +1540,12 @@ inline void InspectorInstrumentation::willDestroyWebAnimation(WebAnimation& anim
 
 inline void InspectorInstrumentation::addMessageToConsole(LocalFrame& frame, std::unique_ptr<Inspector::ConsoleMessage> message)
 {
-    addMessageToConsoleImpl(instrumentingAgents(frame), WTFMove(message));
+    addMessageToConsoleImpl(instrumentingAgents(frame), WTF::move(message));
 }
 
 inline void InspectorInstrumentation::addMessageToConsole(WorkerOrWorkletGlobalScope& globalScope, std::unique_ptr<Inspector::ConsoleMessage> message)
 {
-    addMessageToConsoleImpl(instrumentingAgents(globalScope), WTFMove(message));
+    addMessageToConsoleImpl(instrumentingAgents(globalScope), WTF::move(message));
 }
 
 inline void InspectorInstrumentation::consoleCount(LocalFrame& frame, JSC::JSGlobalObject* state, const String& label)
@@ -1592,12 +1592,12 @@ inline void InspectorInstrumentation::startConsoleTiming(WorkerOrWorkletGlobalSc
 
 inline void InspectorInstrumentation::logConsoleTiming(LocalFrame& frame, JSC::JSGlobalObject* exec, const String& label, Ref<Inspector::ScriptArguments>&& arguments)
 {
-    logConsoleTimingImpl(instrumentingAgents(frame), exec, label, WTFMove(arguments));
+    logConsoleTimingImpl(instrumentingAgents(frame), exec, label, WTF::move(arguments));
 }
 
 inline void InspectorInstrumentation::logConsoleTiming(WorkerOrWorkletGlobalScope& globalScope, JSC::JSGlobalObject* exec, const String& label, Ref<Inspector::ScriptArguments>&& arguments)
 {
-    logConsoleTimingImpl(instrumentingAgents(globalScope), exec, label, WTFMove(arguments));
+    logConsoleTimingImpl(instrumentingAgents(globalScope), exec, label, WTF::move(arguments));
 }
 
 inline void InspectorInstrumentation::stopConsoleTiming(LocalFrame& frame, JSC::JSGlobalObject* exec, const String& label)
@@ -1613,13 +1613,13 @@ inline void InspectorInstrumentation::stopConsoleTiming(WorkerOrWorkletGlobalSco
 inline void InspectorInstrumentation::consoleTimeStamp(LocalFrame& frame, Ref<Inspector::ScriptArguments>&& arguments)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    consoleTimeStampImpl(instrumentingAgents(frame), WTFMove(arguments));
+    consoleTimeStampImpl(instrumentingAgents(frame), WTF::move(arguments));
 }
 
 inline void InspectorInstrumentation::consoleTimeStamp(WorkerOrWorkletGlobalScope& globalScope, Ref<Inspector::ScriptArguments>&& arguments)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    consoleTimeStampImpl(instrumentingAgents(globalScope), WTFMove(arguments));
+    consoleTimeStampImpl(instrumentingAgents(globalScope), WTF::move(arguments));
 }
 
 inline void InspectorInstrumentation::startProfiling(LocalFrame& frame, const String &title)
@@ -1663,7 +1663,7 @@ inline void InspectorInstrumentation::performanceMark(ScriptExecutionContext& co
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (auto* agents = instrumentingAgents(context))
-        performanceMarkImpl(*agents, label, WTFMove(startTime));
+        performanceMarkImpl(*agents, label, WTF::move(startTime));
 }
 
 inline void InspectorInstrumentation::didEnqueueFirstContentfulPaint(ScriptExecutionContext& context)

@@ -56,19 +56,19 @@ _validatePathFromSecCode(SecCodeRef processRef, const char *path)
 
     /* Get the StaticCodeRef for this SecCodeRef */
     status = SecCodeCopyStaticCode(processRef, kSecCSDefaultFlags, &staticProcessRef);
-    require_noerr_action(status, exit, ret = -1);
+    __Require_noErr_Action(status, exit, ret = -1);
 
     INFO("Successfully created a SecStaticCodeRef");
 
     /* Copy the path of requested service */
     status = SecCodeCopyPath(staticProcessRef, kSecCSDefaultFlags, &pathURL);
-    require_noerr_action(status, exit, ret = -1);
+    __Require_noErr_Action(status, exit, ret = -1);
 
     INFO("Successfully created a CFURLRef");
 
     /* Get the CFStringRef from the CFURLRef */
     pathString = CFURLGetString(pathURL);
-    require_action(pathString, exit, ret = -1);
+    __Require_Action(pathString, exit, ret = -1);
 
     INFO("Successfully created a CFStingRef");
 

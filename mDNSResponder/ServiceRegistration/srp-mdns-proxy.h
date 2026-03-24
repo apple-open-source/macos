@@ -51,6 +51,7 @@ typedef struct dnssd_proxy_advertisements dnssd_proxy_advertisements_t;
 #if SRP_FEATURE_DISCOVERY_PROXY_SERVER
 typedef struct dnssd_dp_proxy_advertisements dnssd_dp_proxy_advertisements_t;
 #endif
+typedef struct adv_connection adv_connection_t;
 typedef struct dnssd_client dnssd_client_t;
 typedef struct probe_state probe_state_t;
 typedef struct srpl_instance srpl_instance_t;
@@ -72,6 +73,7 @@ enum {
     PRIORITY_HOMEPOD_NO_ODEON = 25,
     PRIORITY_APPLETV_WIFI = 50,
     PRIORITY_APPLETV_ETHERNET = 75,
+    PRIORITY_PRIMARY_RESIDENT = 100,
 #endif
 };
 
@@ -115,6 +117,7 @@ struct srp_server {
     int full_dump_count;
 
     uint32_t priority;
+    uint32_t base_priority;
 
 
     bool srp_replication_enabled;
@@ -297,6 +300,7 @@ struct wanted_service {
     wanted_service_t *NULLABLE next;
     char *NULLABLE name;
     char *NULLABLE service_type;
+    adv_connection_t *NULLABLE connections;
 };
 
 // Exported functions.

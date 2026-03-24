@@ -295,7 +295,7 @@ UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String> retrieveImportAttributesF
         return { };
     }
 
-    PropertyNameArray properties(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
+    PropertyNameArrayBuilder properties(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
     attributesObject->methodTable()->getOwnPropertyNames(attributesObject, globalObject, properties, DontEnumPropertiesMode::Exclude);
     RETURN_IF_EXCEPTION(scope, { });
 
@@ -312,7 +312,7 @@ UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String> retrieveImportAttributesF
         String valueString = value.toWTFString(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
 
-        result.add(key.impl(), WTFMove(valueString));
+        result.add(key.impl(), WTF::move(valueString));
     }
 
     for (auto& [key, value] : result) {

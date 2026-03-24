@@ -10,6 +10,9 @@
 #import "keychain/ot/proto/generated_source/OTWalrus.h"
 #import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
+#import "utilities/debugging.h"
+#import "OTConstants.h"
+
 @interface OTCuttlefishAccountStateHolder ()
 @property dispatch_queue_t queue;
 @property dispatch_queue_t notifyQueue;
@@ -274,6 +277,36 @@
         metadata.lastEscrowRepairAttempted = 0ull;
         return metadata;
     } error:error];
+}
+
+- (NSInteger)checkEscrowRepairRateLimitAndReturnTimeLeft:(NSError**)error
+{
+    NSError* accountError = nil;
+    OTAccountMetadataClassC* accountState = [self loadOrCreateAccountMetadata:&accountError];
+    if (!accountState || accountError) {
+        secnotice("octagon", "failed to get account metadata: %@", accountError);
+        if (error) {
+            *error = accountError;
+        }
+        return 0;
+    }
+
+    NSDate* now = [NSDate date];
+    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)accountState.lastEscrowRepairAttempted) / 1000.0];
+
+    NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
+    if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
+        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
+            NSInteger daysLeft = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
+            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)daysLeft);
+            return daysLeft;
+        } else {
+            secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
+        }
+    } else {
+        secnotice("octagon-escrow-repair", "not rate limited");
+    }
+    return 0;
 }
 
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges

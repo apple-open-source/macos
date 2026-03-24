@@ -130,19 +130,19 @@ IOFastPathService::start(IOService * provider)
     IOCircularDataQueueCreateOptions options;
 
     started = super::start(provider);
-    require_action(started, exit, HIDServiceLogError("super::start failed"));
+    __Require_Action(started, exit, HIDServiceLogError("super::start failed"));
 
     _clients = OSSet::withCapacity(1);
     assert(_clients);
 
     _descriptor = createDescriptor();
-    require_action(_descriptor, exit, HIDServiceLogError("createDescriptor failed"));
+    __Require_Action(_descriptor, exit, HIDServiceLogError("createDescriptor failed"));
 
     setProperty(kIOFastPathDescriptorKey, _descriptor.get());
 
     options = isProducer() ? kIOCircularDataQueueCreateProducer : kIOCircularDataQueueCreateConsumer;
     ret = IOCircularDataQueueCreateWithEntries(options, 128, _descriptor->getSampleSize(), &_queue);
-    require_noerr_action(ret, exit, HIDServiceLogError("IOCircularDataQueueCreateWithEntries:0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDServiceLogError("IOCircularDataQueueCreateWithEntries:0x%x", ret));
 
     success = true;
 
@@ -172,16 +172,16 @@ IOFastPathService::newUserClient(task_t owningTask, void * securityID, UInt32 ty
         case kIOFastPathUserClientType:
         {
             OSSharedPtr<IOUserClient> client = OSMakeShared<IOFastPathUserClient>();
-            require_action(client != nullptr, exit, HIDServiceLogError("failed to allocate user client"); ret = kIOReturnNoMemory);
+            __Require_Action(client != nullptr, exit, HIDServiceLogError("failed to allocate user client"); ret = kIOReturnNoMemory);
 
             ok = client->initWithTask(owningTask, securityID, type, properties);
-            require_action(ok, exit, HIDServiceLogError("initWithTask failed"); ret = kIOReturnDeviceError);
+            __Require_Action(ok, exit, HIDServiceLogError("initWithTask failed"); ret = kIOReturnDeviceError);
 
             ok = client->attach(this);
-            require_action(ok, exit, HIDServiceLogError("attach failed"); ret = kIOReturnDeviceError);
+            __Require_Action(ok, exit, HIDServiceLogError("attach failed"); ret = kIOReturnDeviceError);
 
             ok = client->start(this);
-            require_action(ok, exit, HIDServiceLogError("start failed"); ret = kIOReturnDeviceError; client->detach(this));
+            __Require_Action(ok, exit, HIDServiceLogError("start failed"); ret = kIOReturnDeviceError; client->detach(this));
 
             *handler = client.detach();
             ret = kIOReturnSuccess;

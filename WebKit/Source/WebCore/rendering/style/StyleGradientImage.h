@@ -38,7 +38,7 @@ class StyleGradientImage final : public StyleGeneratedImage {
 public:
     static Ref<StyleGradientImage> create(Style::Gradient gradient)
     {
-        return adoptRef(*new StyleGradientImage(WTFMove(gradient)));
+        return adoptRef(*new StyleGradientImage(WTF::move(gradient)));
     }
     virtual ~StyleGradientImage();
 

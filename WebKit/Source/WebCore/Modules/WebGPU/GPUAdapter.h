@@ -44,7 +44,7 @@ class GPUAdapter : public RefCounted<GPUAdapter> {
 public:
     static Ref<GPUAdapter> create(Ref<WebGPU::Adapter>&& backing)
     {
-        return adoptRef(*new GPUAdapter(WTFMove(backing)));
+        return adoptRef(*new GPUAdapter(WTF::move(backing)));
     }
 
     String name() const;

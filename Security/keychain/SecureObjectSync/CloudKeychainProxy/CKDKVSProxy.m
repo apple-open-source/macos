@@ -353,12 +353,11 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
         // We can't talk to synchronize on the _ckdkvsproxy_queue or we deadlock,
         // bounce to a global concurrent queue
         dispatch_after(_nextFreshnessTime, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSError *error = nil;
-            bool success = [self.store pullUpdates:&error];
-
-            dispatch_async(self->_ckdkvsproxy_queue, ^{
-                [self waitForSyncDone: success error: error];
-            });
+            [self.store pullUpdates:^(BOOL success, NSError *error) {
+                dispatch_async(self->_ckdkvsproxy_queue, ^{
+                    [self waitForSyncDone:success error:error];
+                });
+            }];
         });
     }
 }

@@ -306,13 +306,13 @@ static IOReturn _copyNextValue(void *iunknown,
     uint32_t cookie;
     uint32_t dataSize;
     
-    require_action(pValue, exit, ret = kIOReturnBadArgument);
+    __Require_Action(pValue, exit, ret = kIOReturnBadArgument);
 
     os_unfair_lock_lock(&_queueLock);
     [self updateUsageAnalytics];
     
     entry = IODataQueuePeek(_queueMemory);
-    require_action(entry, exit_locked, ret = kIOReturnUnderrun);
+    __Require_Action(entry, exit_locked, ret = kIOReturnUnderrun);
 
     elementValue = (IOHIDElementValue *)&(entry->data);
     cookie = (uint32_t)elementValue->cookie;
@@ -325,7 +325,7 @@ static IOReturn _copyNextValue(void *iunknown,
         [_device releaseReport:*reportAddress];
     }
     IODataQueueDequeue(_queueMemory, NULL, &dataSize);
-    require(*pValue, exit_locked);
+    __Require(*pValue, exit_locked);
     
     ret = kIOReturnSuccess;
 exit_locked:
@@ -466,20 +466,20 @@ static void _queueCallback(CFMachPortRef port,
                                     2,
                                     &output,
                                     &outputCount);
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
     _queueToken = output;
     
     if (port == MACH_PORT_NULL) {
     
         _port = IODataQueueAllocateNotificationPort();
-        require_action(_port, exit, ret = kIOReturnNoMemory);
+        __Require_Action(_port, exit, ret = kIOReturnNoMemory);
         
         _machPort = CFMachPortCreateWithPort(kCFAllocatorDefault,
                                              _port,
                                              (CFMachPortCallBack)_queueCallback,
                                              &context, NULL);
-        require_action(_machPort, exit, ret = kIOReturnNoMemory);
+        __Require_Action(_machPort, exit, ret = kIOReturnNoMemory);
     } else {
         _port = port;
     }
@@ -488,7 +488,7 @@ static void _queueCallback(CFMachPortRef port,
         _runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault,
                                                        _machPort,
                                                        0);
-        require_action(_runLoopSource, exit, ret = kIOReturnNoMemory);
+        __Require_Action(_runLoopSource, exit, ret = kIOReturnNoMemory);
     } else {
         _runLoopSource = source;
         CFRetain(_runLoopSource);
@@ -503,7 +503,7 @@ static void _queueCallback(CFMachPortRef port,
                                          1,
                                          NULL,
                                          NULL);
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
 exit:
     if (ret != kIOReturnSuccess) {
@@ -582,7 +582,7 @@ exit:
     
     _usageAnalytics = IOHIDAnalyticsHistogramEventCreate(CFSTR("com.apple.hid.queueUsage"), (__bridge CFDictionaryRef)eventDesc, CFSTR("UsagePercent"), &analyticsConfig, 1);
 
-    require_action(_usageAnalytics, exit, HIDLogError("Unable to create queue analytics"));
+    __Require_Action(_usageAnalytics, exit, HIDLogError("Unable to create queue analytics"));
     
     IOHIDAnalyticsEventActivate(_usageAnalytics);
    
@@ -599,8 +599,8 @@ exit:
     uint32_t tail;
     uint64_t queueUsage;
 
-    require(_queueHeader && _queueMemory, exit);
-    require(_usageAnalytics, exit);
+    __Require(_queueHeader && _queueMemory, exit);
+    __Require(_usageAnalytics, exit);
 
     head = (uint32_t)_queueMemory->head;
     tail = (uint32_t)_queueMemory->tail;
@@ -791,7 +791,7 @@ static IOReturn _getNextEvent(void *iunknown,
     }
     
     ret = [self copyNextValue:&value];
-    require(ret == kIOReturnSuccess && value, exit);
+    __Require(ret == kIOReturnSuccess && value, exit);
     
     elementRef = IOHIDValueGetElement(value);
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];

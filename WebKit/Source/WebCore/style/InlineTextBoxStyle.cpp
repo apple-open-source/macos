@@ -158,8 +158,7 @@ static float computedUnderlineOffset(const UnderlineOffsetArguments& context)
     if (isAlignedForUnder(styleToUse)) {
         ASSERT(context.textUnderlinePositionUnder);
         // FIXME: This needs to be flipped for sideways-lr.
-        if (styleToUse.writingMode().isVerticalTypographic() && textUnderlinePosition.contains(TextUnderlinePosition::Right)) {
-            ASSERT(!textUnderlinePosition.contains(TextUnderlinePosition::Left));
+        if (styleToUse.writingMode().isVerticalTypographic() && textUnderlinePosition.verticalTypographySide() == Style::TextUnderlinePosition::Side::Right) {
             // In vertical typographic modes, the underline is aligned as for under, except it is always aligned to the right edge of the text.
             underlineOffset = 0.f - (styleToUse.textUnderlineOffset().resolve(styleToUse) + defaultGap(styleToUse));
         } else {
@@ -168,10 +167,9 @@ static float computedUnderlineOffset(const UnderlineOffsetArguments& context)
             desiredOffset += styleToUse.textUnderlineOffset().resolve(styleToUse) + defaultGap(styleToUse);
             underlineOffset = std::max<float>(desiredOffset, fontMetrics.intAscent());
         }
-    } else if (textUnderlinePosition.contains(TextUnderlinePosition::FromFont)) {
-        ASSERT(!textUnderlinePosition.contains(TextUnderlinePosition::Under));
+    } else if (textUnderlinePosition.isFromFont())
         underlineOffset = fontMetrics.intAscent() + fontMetrics.underlinePosition().value_or(0) + styleToUse.textUnderlineOffset().resolve(styleToUse);
-    } else
+    else
         underlineOffset = fontMetrics.intAscent() + styleToUse.textUnderlineOffset().resolve(styleToUse, defaultGap(styleToUse));
     return underlineOffset;
 }
@@ -255,18 +253,23 @@ static GlyphOverflow computedInkOverflowForDecorations(const RenderStyle& lineSt
 bool isAlignedForUnder(const RenderStyle& decoratingBoxStyle)
 {
     auto underlinePosition = decoratingBoxStyle.textUnderlinePosition();
-    if (underlinePosition.contains(TextUnderlinePosition::Under))
+    if (underlinePosition.isUnder())
         return true;
     if (!decoratingBoxStyle.writingMode().isVerticalTypographic()
         || decoratingBoxStyle.writingMode().isSidewaysOrientation())
         return false;
-    if (underlinePosition.contains(TextUnderlinePosition::Left) || underlinePosition.contains(TextUnderlinePosition::Right)) {
+
+    switch (underlinePosition.verticalTypographySide()) {
+    case Style::TextUnderlinePosition::Side::Left:
+    case Style::TextUnderlinePosition::Side::Right:
         // In vertical typographic modes, the underline is aligned as for under for 'left' and 'right'.
         return true;
+    case Style::TextUnderlinePosition::Side::NoPreference:
+        // When left/right support is not enabled.
+        // FIXME: The offset check is mostly about visual overflow, consider splitting out.
+        return underlinePosition.isAuto() && decoratingBoxStyle.textUnderlineOffset().isAuto();
     }
-    // When left/right support is not enabled.
-    // FIXME: The offset check is mostly about visual overflow, consider splitting out.
-    return underlinePosition.isEmpty() && decoratingBoxStyle.textUnderlineOffset().isAuto();
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 GlyphOverflow inkOverflowForDecorations(const InlineIterator::LineBoxIterator& lineBox, const RenderText& renderer, float textBoxLogicalTop, float textBoxLogicalBottom)
@@ -362,7 +365,7 @@ float overlineOffsetForTextBoxPainting(const InlineIterator::InlineBox& inlineBo
 
     // If 'right' causes the underline to be drawn on the "over" side of the text, then an overline also switches sides and is drawn on the "under" side.
     auto underlinePosition = style.textUnderlinePosition();
-    return underlinePosition.contains(TextUnderlinePosition::Right)
+    return underlinePosition.verticalTypographySide() == Style::TextUnderlinePosition::Side::Right
         ? inlineBoxContentBoxHeight(inlineBox) + defaultGap(style)
         : (0.f - defaultGap(style));
 }

@@ -51,7 +51,7 @@ static LayoutUnit unscaledSizeForPrincipleBox(const Style::PreferredSize& comput
 
 struct SizeFeatureSchema : public FeatureSchema {
     SizeFeatureSchema(const AtomString& name, Type type, ValueType valueType, OptionSet<MediaQueryDynamicDependency> dependencies, FixedVector<CSSValueID>&& valueIdentifiers = { })
-        : FeatureSchema(name, type, valueType, dependencies, WTFMove(valueIdentifiers))
+        : FeatureSchema(name, type, valueType, dependencies, WTF::move(valueIdentifiers))
     {
     }
 
@@ -211,7 +211,7 @@ struct StyleFeatureSchema : public FeatureSchema {
             auto dummyStyle = RenderStyle::clone(style);
             auto dummyMatchResult = Style::MatchResult::create();
 
-            auto styleBuilder = Style::Builder { dummyStyle, WTFMove(builderContext), dummyMatchResult };
+            auto styleBuilder = Style::Builder { dummyStyle, WTF::move(builderContext), dummyMatchResult };
             return styleBuilder.resolveCustomPropertyForContainerQueries(*featureValue);
         }();
 

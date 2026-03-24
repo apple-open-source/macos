@@ -32,7 +32,7 @@ public:
     static JSTestSetLikeWithOverriddenOperations* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestSetLikeWithOverriddenOperations>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestSetLikeWithOverriddenOperations* ptr = new (NotNull, JSC::allocateCell<JSTestSetLikeWithOverriddenOperations>(vm)) JSTestSetLikeWithOverriddenOperations(structure, *globalObject, WTFMove(impl));
+        JSTestSetLikeWithOverriddenOperations* ptr = new (NotNull, JSC::allocateCell<JSTestSetLikeWithOverriddenOperations>(vm)) JSTestSetLikeWithOverriddenOperations(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

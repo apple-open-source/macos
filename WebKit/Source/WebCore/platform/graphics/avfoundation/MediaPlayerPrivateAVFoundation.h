@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,7 +66,7 @@ public:
     virtual void seekableTimeRangesChanged();
     virtual void timeChanged(const MediaTime&);
     virtual void seekCompleted(bool);
-    virtual void didEnd();
+    virtual void didEnd(double);
     virtual void contentsNeedsDisplay() { }
     virtual void configureInbandTracks();
     virtual void setCurrentTextTrack(InbandTextTrackPrivateAVF*) { }
@@ -129,7 +129,7 @@ public:
         Notification(Function<void()>&& function)
             : m_type(FunctionType)
             , m_finished(false)
-            , m_function(WTFMove(function))
+            , m_function(WTF::move(function))
         {
         }
         
@@ -165,7 +165,7 @@ public:
     };
 
 protected:
-    explicit MediaPlayerPrivateAVFoundation(MediaPlayer*);
+    explicit MediaPlayerPrivateAVFoundation(MediaPlayer&);
 
     // MediaPlayerPrivatePrivateInterface overrides.
     void load(const String& url) override;

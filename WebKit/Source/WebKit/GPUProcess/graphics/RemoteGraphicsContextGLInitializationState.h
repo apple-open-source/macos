@@ -27,14 +27,15 @@
 
 #if ENABLE(WEBGL)
 
+#include <WebCore/GCGLExtension.h>
 #include <WebCore/GraphicsTypesGL.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/OptionSet.h>
 
 namespace WebKit {
 
 struct RemoteGraphicsContextGLInitializationState {
-    CString availableExtensions;
-    CString requestableExtensions;
+    uint64_t knownActiveExtensions { 0 }; // EnumSet<WebCore::GCGLExtension> when EnumSet serialization works.
+    uint64_t requestableExtensions { 0 }; // EnumSet<WebCore::GCGLExtension> when EnumSet serialization works.
     GCGLenum externalImageTarget { 0 };
     GCGLenum externalImageBindingQuery { 0 };
 };

@@ -25,6 +25,9 @@
 
 #pragma once
 
+#import <wtf/Compiler.h>
+#import <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #if ENABLE(DATA_DETECTION)
@@ -47,8 +50,6 @@ typedef struct CF_BRIDGED_TYPE(id) __DDResult *DDResultRef;
 #endif // PLATFORM(IOS_FAMILY)
 
 #else // !USE(APPLE_INTERNAL_SDK)
-
-#import <wtf/Compiler.h>
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
@@ -156,6 +157,11 @@ struct __DDScanQuery {
 
 #endif // !USE(APPLE_INTERNAL_SDK)
 
+@interface DDScannerResult(WKSecureCoding)
+- (NSDictionary *)_webKitPropertyListData;
+- (instancetype)_initWithWebKitPropertyListData:(NSDictionary *)plist;
+@end
+
 static_assert(sizeof(DDQueryOffset) == 8, "DDQueryOffset is no longer 8 bytes. Update the definition of DDQueryOffset in this file to match the new size.");
 
 typedef struct __DDScanQuery *DDScanQueryRef;
@@ -174,10 +180,10 @@ static inline CFIndex _DDScanQueryGetNumberOfFragments(DDScanQueryRef query)
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
-#endif
-
 typedef CFIndex DDScannerCopyResultsOptions;
 typedef CFIndex DDScannerOptions;
+
+#endif // !USE(APPLE_INTERNAL_SDK)
 
 enum {
     DDScannerSourceSpotlight = 1<<1,

@@ -346,6 +346,7 @@ SEC_EXP_CLASS(OTConfigurationContext)
 SEC_EXP_CLASS(OTControlArguments)
 SEC_EXP_CLASS(OTBottleIDs)
 SEC_EXP_CLASS(OTOperationConfiguration)
+SEC_EXP_CLASS(OTSerializedPlistEscrowRecord)
 _kSecEntitlementPrivateOctagonEscrow
 _kSecEntitlementPrivateOctagonSecureElement
 _kSecEntitlementPrivateOctagonWalrus
@@ -427,7 +428,7 @@ _securityd_send_async_and_do
 
 #if (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
 _SecSecuritySetMusrMode
-_SecSecuritySetPersonaMusr
+_SecSecuritySetPersonaMusrForTests
 #endif
 
 #if TARGET_OS_OSX
@@ -2135,6 +2136,7 @@ _SecCoreAnalyticsSetEnabledForProcess
 _SecCoreAnalyticsSendValue
 _SecCoreAnalyticsSendKernEntropyAnalytics
 _SecCoreAnalyticsSendLegacyKeychainUIEvent
+_SecCoreAnalyticsSendEventDict
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
 _SFAnalyticsSamplerIntervalOncePerReport

@@ -199,7 +199,7 @@ void WebExtensionContext::setUnsupportedAPIs(HashSet<String>&& unsupported)
     if (isLoaded())
         return;
 
-    m_unsupportedAPIs = WTFMove(unsupported);
+    m_unsupportedAPIs = WTF::move(unsupported);
 }
 
 URL WebExtensionContext::optionsPageURL() const
@@ -1057,7 +1057,7 @@ void WebExtensionContext::setPermissionState(PermissionState state, const String
 
     switch (state) {
     case PermissionState::DeniedExplicitly:
-        denyPermissions(WTFMove(permissions), expirationDate);
+        denyPermissions(WTF::move(permissions), expirationDate);
         break;
 
     case PermissionState::Unknown: {
@@ -1067,7 +1067,7 @@ void WebExtensionContext::setPermissionState(PermissionState state, const String
     }
 
     case PermissionState::GrantedExplicitly:
-        grantPermissions(WTFMove(permissions), expirationDate);
+        grantPermissions(WTF::move(permissions), expirationDate);
         break;
 
     case PermissionState::DeniedImplicitly:
@@ -1101,7 +1101,7 @@ void WebExtensionContext::setPermissionState(PermissionState state, const WebExt
 
     switch (state) {
     case PermissionState::DeniedExplicitly:
-        denyPermissionMatchPatterns(WTFMove(patterns), expirationDate, equalityOnly);
+        denyPermissionMatchPatterns(WTF::move(patterns), expirationDate, equalityOnly);
         break;
 
     case PermissionState::Unknown: {
@@ -1111,7 +1111,7 @@ void WebExtensionContext::setPermissionState(PermissionState state, const WebExt
     }
 
     case PermissionState::GrantedExplicitly:
-        grantPermissionMatchPatterns(WTFMove(patterns), expirationDate, equalityOnly);
+        grantPermissionMatchPatterns(WTF::move(patterns), expirationDate, equalityOnly);
         break;
 
     case PermissionState::DeniedImplicitly:
@@ -1364,7 +1364,7 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
 
             auto scriptString = scriptStringResult.value();
 
-            Ref userScript = API::UserScript::create(WebCore::UserScript { WTFMove(scriptString), URL { m_baseURL, scriptPath }, Vector { includeMatchPatterns }, Vector { excludeMatchPatterns }, injectionTime, injectedFrames, matchParentFrame }, executionWorld);
+            Ref userScript = API::UserScript::create(WebCore::UserScript { WTF::move(scriptString), URL { m_baseURL, scriptPath }, Vector { includeMatchPatterns }, Vector { excludeMatchPatterns }, injectionTime, injectedFrames, matchParentFrame }, executionWorld);
             originInjectedScripts.append(userScript);
 
             for (Ref userContentController : userContentControllers)
@@ -1389,7 +1389,7 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
 
             auto styleSheetString = localizedResourceString(styleSheetStringResult.value(), "text/css"_s);
 
-            Ref userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { WTFMove(styleSheetString), URL { m_baseURL, styleSheetPath }, Vector { includeMatchPatterns }, Vector { excludeMatchPatterns }, injectedFrames, matchParentFrame, styleLevel, std::nullopt }, executionWorld);
+            Ref userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { WTF::move(styleSheetString), URL { m_baseURL, styleSheetPath }, Vector { includeMatchPatterns }, Vector { excludeMatchPatterns }, injectedFrames, matchParentFrame, styleLevel, std::nullopt }, executionWorld);
             originInjectedStyleSheets.append(userStyleSheet);
 
             for (Ref userContentController : userContentControllers)
@@ -1555,7 +1555,7 @@ bool WebExtensionContext::purgeMatchedRulesFromBefore(const WallTime& startTime)
             filteredMatchedRules.append(matchedRule);
     }
 
-    m_matchedRules = WTFMove(filteredMatchedRules);
+    m_matchedRules = WTF::move(filteredMatchedRules);
 
     return !m_matchedRules.isEmpty();
 }
@@ -1738,7 +1738,7 @@ void WebExtensionContext::loadBackgroundContent(CompletionHandler<void(RefPtr<AP
         return;
     }
 
-    wakeUpBackgroundContentIfNecessary([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+    wakeUpBackgroundContentIfNecessary([this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)]() mutable {
         if (completionHandler)
             completionHandler(backgroundContentLoadError());
     });
@@ -1806,7 +1806,7 @@ void WebExtensionContext::wakeUpBackgroundContentIfNecessary(Function<void()>&& 
 
     RELEASE_LOG_DEBUG(Extensions, "Scheduled task for after background content loads");
 
-    m_actionsToPerformAfterBackgroundContentLoads.append(WTFMove(completionHandler));
+    m_actionsToPerformAfterBackgroundContentLoads.append(WTF::move(completionHandler));
 
     loadBackgroundWebViewIfNeeded();
 }
@@ -1835,7 +1835,7 @@ void WebExtensionContext::wakeUpBackgroundContentIfNecessaryToFireEvents(EventLi
         }
     }
 
-    wakeUpBackgroundContentIfNecessary(WTFMove(completionHandler));
+    wakeUpBackgroundContentIfNecessary(WTF::move(completionHandler));
 }
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
@@ -1909,6 +1909,13 @@ Ref<WebExtensionStorageSQLiteStore> WebExtensionContext::storageForType(WebExten
     }
 
     return sessionStorageStore();
+}
+
+Ref<WebExtensionRegisteredScriptsSQLiteStore> WebExtensionContext::registeredContentScriptsStore()
+{
+    if (!m_registeredContentScriptsStorage)
+        m_registeredContentScriptsStorage = WebExtensionRegisteredScriptsSQLiteStore::create(m_uniqueIdentifier, storageDirectory(), !storageIsPersistent());
+    return *m_registeredContentScriptsStorage;
 }
 
 } // namespace WebKit

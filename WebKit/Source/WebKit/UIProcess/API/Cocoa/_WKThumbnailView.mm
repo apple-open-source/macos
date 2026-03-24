@@ -318,7 +318,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!self.layer.sublayers.count)
         return nil;
 
-    return [self.layer.sublayers objectAtIndex:0];
+    return [retainPtr(self.layer.sublayers) objectAtIndex:0];
 }
 
 @end

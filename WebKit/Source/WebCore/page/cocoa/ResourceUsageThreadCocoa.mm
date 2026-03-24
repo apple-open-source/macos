@@ -124,7 +124,7 @@ static Vector<ThreadInfo> threadInfos()
 
         auto threadName = String::fromLatin1(threadExtendedInfo.pth_name);
 
-        infos.append(ThreadInfo { WTFMove(sendRight), usage, threadName });
+        infos.append(ThreadInfo { WTF::move(sendRight), usage, threadName });
     }
 
     auto kr = vm_deallocate(mach_task_self(), (vm_offset_t)threadList.data(), threadList.size() * sizeof(thread_t));
@@ -160,9 +160,8 @@ void ResourceUsageThread::platformCollectCPUData(JSC::VM*, ResourceUsageData& da
 
     HashSet<mach_port_t> knownWebKitThreads;
     {
-        Locker locker { Thread::allThreadsLock() };
-        for (auto* thread : Thread::allThreads()) {
-            mach_port_t machThread = thread->machThread();
+        for (auto& thread : Thread::allThreads()) {
+            mach_port_t machThread = thread.machThread();
             if (MACH_PORT_VALID(machThread))
                 knownWebKitThreads.add(machThread);
         }

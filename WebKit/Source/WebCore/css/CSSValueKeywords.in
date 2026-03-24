@@ -165,6 +165,7 @@ xxx-large
 smaller
 larger
 -webkit-xxx-large
+//math
 
 //
 // CSS_PROP_FONT_STRETCH:
@@ -371,7 +372,7 @@ bottom
 -webkit-baseline-middle
 //
 // CSS_PROP_TEXT_ALIGN:
-// The order here must match the order of the TextAlignMode enum in RenderStyleConstants.h.
+// The order here must match the order of the Style::TextAlign enum in StyleTextAlign.h.
 //
 -webkit-auto
 left
@@ -531,6 +532,8 @@ inline-flex
 contents
 grid
 inline-grid
+grid-lanes
+inline-grid-lanes
 flow-root
 flow
 -webkit-inline-flex
@@ -601,6 +604,7 @@ uppercase
 lowercase
 full-size-kana
 // full-width
+math-auto
 // none
 //
 // CSS_PROP_VISIBILITY:
@@ -926,6 +930,7 @@ attachment enable-if=ENABLE_ATTACHMENT_ELEMENT
 borderless-attachment enable-if=ENABLE_ATTACHMENT_ELEMENT
 textarea
 textfield
+-internal-auto-base
 
 //
 // CSS_PROP_BORDER_IMAGE
@@ -1565,7 +1570,6 @@ span
 // grid-template-{columns|rows}
 minmax
 subgrid
-masonry
 
 // grid-auto-flow
 auto-flow
@@ -1765,6 +1769,10 @@ words
 selector
 font-format
 font-tech
+
+// math-depth
+auto-add
+// add
 
 // math-style
 // normal

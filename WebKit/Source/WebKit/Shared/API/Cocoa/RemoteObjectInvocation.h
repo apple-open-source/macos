@@ -44,7 +44,7 @@ public:
 
         ReplyInfo(uint64_t replyID, String&& blockSignature)
             : replyID(replyID)
-            , blockSignature(WTFMove(blockSignature))
+            , blockSignature(WTF::move(blockSignature))
         {
         }
 

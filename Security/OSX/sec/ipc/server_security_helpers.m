@@ -107,7 +107,9 @@ bool SecFillSecurityClientMuser(SecurityClient *client)
          * Use the appropriate musr values for either.
          */
         
-        if (!client->isMusrOverridden) {
+        // If we have overridden the musr value (for tests), then we need to leave
+        // it at that value until set to NULL. See SecSecuritySetPersonaMusrForTests()
+        if (!client->isMusrOverriddenForTests) {
             CFReleaseNull(client->musr);
         }
         
@@ -121,6 +123,13 @@ bool SecFillSecurityClientMuser(SecurityClient *client)
 #error Keychain does not support persona multiuser on this platform
 #endif
         ) {
+            if (client->isMusrOverriddenForTests) {
+                // We should not get here during tests, as we don't expect both our tests to set a fake/temp
+                // musr for testing _and_ get one from UMUserManager.
+                secerror("serverxpc: musr is overridden for tests and one returned by UMUserManager");
+                return false;
+            }
+
             secinfo("serverxpc", "securityd client(%p): persona user %@", client, persona.userPersonaNickName);
             secnotice("serverxpc", "securityd client(%p): persona uuid %@", client, persona.userPersonaUniqueString);
             uuid_t uuid;

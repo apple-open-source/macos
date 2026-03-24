@@ -10,5 +10,9 @@
 	<true/>
 	<key>application-identifier</key>
 	<string>com.apple.security.secbackuptest</string>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
+	<key>com.apple.keystore.keybag.load</key>
+	<true/>
 </dict>
 </plist>

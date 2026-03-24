@@ -375,7 +375,7 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 	range.size = entry->size;
 
 	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
-		mvm_protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
+		mvm_guard((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
 		range.address -= large_vm_page_quanta_size;
 		range.size += 2 * large_vm_page_quanta_size;
 	}
@@ -1048,7 +1048,7 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 			kern_return_t err;
 			err = mprotect((void *)((uintptr_t)ptr + new_good_size), large_vm_page_quanta_size, 0);
 			if (err) {
-				malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(0x0) region for new postlude guard page at %p\n",
+				malloc_report(ASL_LEVEL_ERR, "*** can't mprotect(0x0) region for new postlude guard page at %p\n",
 						  ptr + new_good_size);
 			}
 			new_good_size += large_vm_page_quanta_size;

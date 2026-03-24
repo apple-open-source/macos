@@ -89,6 +89,15 @@
         [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] &&
         underlyingError.code == CKUnderlyingErrorServerHTTPError;
 }
+
+- (BOOL)isCKServerAuthTokenError {
+    NSError* underlyingError = self.userInfo[NSUnderlyingErrorKey];
+    return [self.domain isEqualToString:CKErrorDomain] &&
+        self.code == CKErrorNotAuthenticated &&
+        underlyingError &&
+        [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] &&
+        underlyingError.code == CKUnderlyingErrorAuthTokenError;
+}
 @end
 
 @implementation CKAccountInfo (CKKS)

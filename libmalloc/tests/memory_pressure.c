@@ -133,13 +133,13 @@ T_DECL(medium_mem_pressure, "medium memory pressure thread",
 T_DECL(xzone_mem_pressure, "xzone memory pressure",
 		T_META_ENVVAR("MallocNanoZone=1"),
 		T_META_ENVVAR("MallocProbGuard=0"),
-#if TARGET_OS_WATCH
+#if TARGET_OS_WATCH || TARGET_OS_TV
 		T_META_ENVVAR(PTR_BUCKET_ENVVAR), // disables narrow bucketing
 #endif
 		T_META_TAG("no_debug"),
 		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {
-#define XZM_DATA_RANGE_SIZE    GiB(10)
+#define XZM_DATA_RANGE_SIZE    GiB(12)
 	xzm_malloc_zone_t zone = get_default_xzone_zone();
 	xzm_slice_kind_t kind;
 	xzm_segment_group_id_t sgid;

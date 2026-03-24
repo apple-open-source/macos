@@ -197,7 +197,7 @@ class Pasteboard {
     WTF_MAKE_TZONE_ALLOCATED(Pasteboard);
     WTF_MAKE_NONCOPYABLE(Pasteboard);
 public:
-    Pasteboard(std::unique_ptr<PasteboardContext>&&);
+    explicit Pasteboard(std::unique_ptr<PasteboardContext>&&);
     virtual ~Pasteboard();
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -285,8 +285,9 @@ public:
 #endif
 
 #if PLATFORM(MAC)
-    explicit Pasteboard(std::unique_ptr<PasteboardContext>&&, const String& pasteboardName, const Vector<String>& promisedFilePaths = { });
+    explicit Pasteboard(std::unique_ptr<PasteboardContext>&&, const String& pasteboardName, const Vector<String>& promisedFilePaths = { }, const Vector<String>& promisedFileMIMETypes = { });
 #endif
+    const Vector<String>& promisedFileMIMETypes() const { return m_promisedFileMIMETypes; }
 
 #if PLATFORM(COCOA)
 #if ENABLE(DRAG_SUPPORT)
@@ -385,6 +386,7 @@ private:
 #if PLATFORM(MAC)
     Vector<String> m_promisedFilePaths;
 #endif
+    Vector<String> m_promisedFileMIMETypes;
 
 #if PLATFORM(WIN)
     HWND m_owner;

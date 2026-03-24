@@ -47,7 +47,7 @@ static void ensureTextTrackDebugCategoryInitialized()
 
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index, GRefPtr<GstPad>&& pad, bool shouldHandleStreamStartEvent)
     : InbandTextTrackPrivate(CueFormat::WebVTT)
-    , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, WTFMove(pad), shouldHandleStreamStartEvent)
+    , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, WTF::move(pad), shouldHandleStreamStartEvent)
     , m_kind(Kind::Subtitles)
 {
     ensureTextTrackDebugCategoryInitialized();
@@ -56,7 +56,7 @@ InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index,
 
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index, GRefPtr<GstPad>&& pad, TrackID trackId)
     : InbandTextTrackPrivate(CueFormat::WebVTT)
-    , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, WTFMove(pad), trackId)
+    , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, WTF::move(pad), trackId)
     , m_kind(Kind::Subtitles)
 {
     ensureTextTrackDebugCategoryInitialized();
@@ -70,7 +70,7 @@ InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index,
     ensureTextTrackDebugCategoryInitialized();
     installUpdateConfigurationHandlers();
 
-    GST_INFO("Track %" PRIu64 " got stream start. GStreamer stream-id: %s", m_id, m_gstStreamId.string().utf8().data());
+    GST_INFO("Track %" PRIu64 " got stream start. GStreamer stream-id: %s", m_id, m_gstStreamId.utf8().data());
 
     GST_DEBUG("Stream %" GST_PTR_FORMAT, m_stream.get());
     auto caps = adoptGRef(gst_stream_get_caps(m_stream.get()));
@@ -96,7 +96,7 @@ void InbandTextTrackPrivateGStreamer::handleSample(GRefPtr<GstSample>&& sample)
 {
     {
         Locker locker { m_sampleMutex };
-        m_pendingSamples.append(WTFMove(sample));
+        m_pendingSamples.append(WTF::move(sample));
     }
 
     RefPtr<InbandTextTrackPrivateGStreamer> protectedThis(this);

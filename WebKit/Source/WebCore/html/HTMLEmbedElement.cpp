@@ -45,7 +45,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLEmbedElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLEmbedElement);
 
 using namespace HTMLNames;
 
@@ -74,10 +74,9 @@ static inline RenderWidget* findWidgetRenderer(const Node* node)
     return nullptr;
 }
 
-RenderWidget* HTMLEmbedElement::renderWidgetLoadingPlugin() const
+CheckedPtr<RenderWidget> HTMLEmbedElement::renderWidgetLoadingPlugin() const
 {
-    RenderWidget* widget = HTMLPlugInElement::renderWidgetLoadingPlugin();
-
+    CheckedPtr widget = HTMLPlugInElement::renderWidgetLoadingPlugin();
     return widget ? widget : findWidgetRenderer(this);
 }
 

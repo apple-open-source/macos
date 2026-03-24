@@ -31,7 +31,6 @@
 #include "MessageReceiver.h"
 #include <WebCore/BoxExtents.h>
 #include <WebCore/FrameIdentifier.h>
-#include <WebCore/HTMLMediaElement.h>
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <wtf/CheckedRef.h>

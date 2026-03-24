@@ -82,8 +82,8 @@
                                                                                               length:sizeof(_trust_server_ocsp_response_ca)]);
 
     // Set expire time on responses
-    (void)SecOCSPResponseCalculateValidity(response_leaf, 0.0, 0.0, 632104000.0); // January 11, 2021 at 4:26:40 PM PST
-    (void)SecOCSPResponseCalculateValidity(response_ca, 0.0, 0.0, 632104000.0);
+    (void)SecOCSPResponseCalculateValidity(response_leaf, 0.0, 0.0, 632104000.0, NULL); // January 11, 2021 at 4:26:40 PM PST
+    (void)SecOCSPResponseCalculateValidity(response_ca, 0.0, 0.0, 632104000.0, NULL);
     for (int i = 0; i < 2; i++) {
         SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, i);
         rvc->certIX = i;
@@ -130,7 +130,7 @@
     XCTAssertNotNil(info);
 
     // For a non-EV, non-CT, no-revocation builder, only the trust result validity should be set
-    XCTAssertEqual(info.count, 2);
+    XCTAssertEqual(info.count, 2, "unexpected keys: %@", info.allKeys);
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
 
@@ -165,7 +165,7 @@
     XCTAssertNotNil(info);
 
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
-    XCTAssertEqual(info.count, 6);
+    XCTAssertEqual(info.count, 7, "unexpected keys: %@", info.allKeys);
 
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
@@ -213,7 +213,7 @@
     XCTAssertNotNil(info);
 
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
-    XCTAssertEqual(info.count, 6);
+    XCTAssertEqual(info.count, 7, "unexpected keys: %@", info.allKeys);
 
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
@@ -244,7 +244,7 @@
     XCTAssertNotNil(info);
 
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
-    XCTAssertEqual(info.count, 6);
+    XCTAssertEqual(info.count, 7, "unexpected keys: %@", info.allKeys);
 
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
@@ -285,7 +285,7 @@
     XCTAssertNotNil(info);
 
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
-    XCTAssertEqual(info.count, 6);
+    XCTAssertEqual(info.count, 7, "unexpected keys: %@", info.allKeys);
 
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];

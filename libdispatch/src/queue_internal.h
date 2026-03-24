@@ -464,6 +464,14 @@ typedef struct dispatch_queue_specific_head_s {
 	TAILQ_HEAD(, dispatch_queue_specific_s) dqsh_entries;
 } *dispatch_queue_specific_head_t;
 
+typedef struct dispatch_pthread_root_queue_observer_hooks_s {
+	void (*queue_will_execute)(dispatch_queue_t queue);
+	void (*queue_did_execute)(dispatch_queue_t queue);
+} dispatch_pthread_root_queue_observer_hooks_s;
+typedef dispatch_pthread_root_queue_observer_hooks_s
+		*dispatch_pthread_root_queue_observer_hooks_t;
+
+
 #define DISPATCH_WORKLOOP_ATTR_HAS_SCHED         0x0001u
 #define DISPATCH_WORKLOOP_ATTR_HAS_POLICY        0x0002u
 #define DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT    0x0004u
@@ -471,6 +479,11 @@ typedef struct dispatch_queue_specific_head_s {
 #define DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY     0x0010u
 #define DISPATCH_WORKLOOP_ATTR_HAS_OBSERVERS     0x0020u
 #define DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD  0x0040u
+/* Used for debugging purposes only (only set in
+ * dispatch_workloop_set_uses_bound_thread, only read by ddt), safe to be
+ * reclaimed for other purposes later
+ */
+#define DISPATCH_WORKLOOP_ATTR_THREAD_BIND_FAIL  0x0080u
 typedef struct dispatch_workloop_attr_s *dispatch_workloop_attr_t;
 typedef struct dispatch_workloop_attr_s {
 	uint32_t dwla_flags;
@@ -483,7 +496,9 @@ typedef struct dispatch_workloop_attr_s {
 		uint8_t percent;
 		uint32_t refillms;
 	} dwla_cpupercent;
+#if HAVE_MACH
 	os_workgroup_t workgroup;
+#endif
 	dispatch_pthread_root_queue_observer_hooks_s dwla_observers;
 } dispatch_workloop_attr_s;
 
@@ -697,13 +712,6 @@ struct dispatch_queue_global_s {
 	DISPATCH_QUEUE_ROOT_CLASS_HEADER(lane);
 } DISPATCH_CACHELINE_ALIGN;
 
-
-typedef struct dispatch_pthread_root_queue_observer_hooks_s {
-	void (*queue_will_execute)(dispatch_queue_t queue);
-	void (*queue_did_execute)(dispatch_queue_t queue);
-} dispatch_pthread_root_queue_observer_hooks_s;
-typedef dispatch_pthread_root_queue_observer_hooks_s
-		*dispatch_pthread_root_queue_observer_hooks_t;
 
 #ifdef __APPLE__
 #define DISPATCH_IOHID_SPI 1
@@ -1172,6 +1180,7 @@ typedef struct dispatch_sync_context_s {
 	uint16_t dsc_waiter_needs_cancel : 1;
 	uint16_t dsc_release_storage : 1;
 	uint16_t dsc_from_async : 1;
+	uint16_t dsc_ul_wait : 1;
 } *dispatch_sync_context_t;
 
 typedef struct dispatch_continuation_vtable_s {

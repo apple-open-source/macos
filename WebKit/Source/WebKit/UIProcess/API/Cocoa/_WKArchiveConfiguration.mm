@@ -32,11 +32,11 @@
 
 - (void)dealloc
 {
-    [_directory release];
+    SUPPRESS_UNRETAINED_ARG [_directory release];
     _directory = nil;
-    [_suggestedFileName release];
+    SUPPRESS_UNRETAINED_ARG [_suggestedFileName release];
     _suggestedFileName = nil;
-    [_exclusionRules release];
+    SUPPRESS_UNRETAINED_ARG [_exclusionRules release];
     _exclusionRules = nil;
 
     [super dealloc];

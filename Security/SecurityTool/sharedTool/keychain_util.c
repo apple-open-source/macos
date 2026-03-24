@@ -256,7 +256,7 @@ static CFTypeRef parseValue(CFStringRef string)
             if (!right)
                 break;
             CFAssignRetained(subString, CFStringCreateWithSubstring(kCFAllocatorDefault, string, CFRangeMake(offset, (right + 1) - offset)));
-            require_quiet(parseKeyAndValue(subString, &key, &value), out);
+            __Require_Quiet(parseKeyAndValue(subString, &key, &value), out);
             CFDictionarySetValue(resultDictionary, key, value);
             offset = right + 1;
             left = findLeft(string, offset);
@@ -310,14 +310,14 @@ static bool parseKeyAndValue(CFStringRef string, CFTypeRef *key, CFTypeRef *valu
     CFTypeRef parsedValue = NULL;
 
     uint32_t left = findLeft(string, 0);
-    require_action_quiet(left != 0, out, fprintf(stderr, "Failed to find '(' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
+    __Require_Action_Quiet(left != 0, out, fprintf(stderr, "Failed to find '(' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
     uint32_t right = findRight(string, left);
-    require_action_quiet(right != 0, out, fprintf(stderr, "Failed to find ')' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
-    require_action_quiet(right == ((uint32_t)CFStringGetLength(string) - 1), out, fprintf(stderr, "Failed to find ')' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
+    __Require_Action_Quiet(right != 0, out, fprintf(stderr, "Failed to find ')' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
+    __Require_Action_Quiet(right == ((uint32_t)CFStringGetLength(string) - 1), out, fprintf(stderr, "Failed to find ')' in: %s\n", CFStringGetCStringPtr(string, kCFStringEncodingUTF8)));
 
     keyString  = CFStringCreateWithSubstring(kCFAllocatorDefault, string, CFRangeMake(0, left));
     valueString = CFStringCreateWithSubstring(kCFAllocatorDefault, string, CFRangeMake(left + 1, right - left - 1));
-    require_quiet(parsedValue = parseValue(valueString), out);
+    __Require_Quiet(parsedValue = parseValue(valueString), out);
     CFRetainAssign(*key, keyString);
     CFRetainAssign(*value, parsedValue);
     ok = true;
@@ -340,12 +340,12 @@ keychain_query_parse_sac(CFStringRef s) {
     CFStringRef protection = CFArrayGetValueAtIndex(tokens, 0);
     
     CFErrorRef error = NULL;
-    require_quiet(sac = SecAccessControlCreate(kCFAllocatorDefault, &error), out);
-    require_quiet(SecAccessControlSetProtection(sac, protection, &error), out);
+    __Require_Quiet(sac = SecAccessControlCreate(kCFAllocatorDefault, &error), out);
+    __Require_Quiet(SecAccessControlSetProtection(sac, protection, &error), out);
 
     CFIndex tokensCnt = CFArrayGetCount(tokens);
     for(CFIndex i = 1; i < tokensCnt; ++i) {
-        require_action_quiet(parseKeyAndValue(CFArrayGetValueAtIndex(tokens, i), &key, &value), out, fprintf(stderr, "Error constructing SecAccessConstraint object\n") );
+        __Require_Action_Quiet(parseKeyAndValue(CFArrayGetValueAtIndex(tokens, i), &key, &value), out, fprintf(stderr, "Error constructing SecAccessConstraint object\n"));
 
         if (CFEqual(key, CFSTR(kACMKeyAclParamRequirePasscode)))
             SecAccessControlSetRequirePassword(sac, CFEqual(value, kCFBooleanTrue)?true:false);

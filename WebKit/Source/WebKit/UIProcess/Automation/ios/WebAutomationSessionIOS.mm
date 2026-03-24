@@ -205,7 +205,7 @@ void WebAutomationSession::platformSimulateTouchInteraction(WebPageProxy& page, 
     WebCore::IntPoint locationOnScreen = page.syncRootViewToScreen(IntRect(locationInViewport, IntSize())).location();
     LOG_WITH_STREAM(AutomationInteractions, stream << "platformSimulateTouchInteraction: interaction=" << interaction << ", locationInViewport=" << locationInViewport << ", locationOnScreen=" << locationOnScreen << ", duration=" << duration.value_or(0_s).seconds());
 
-    auto interactionFinished = makeBlockPtr([completionHandler = WTFMove(completionHandler)] () mutable {
+    auto interactionFinished = makeBlockPtr([completionHandler = WTF::move(completionHandler)] () mutable {
         completionHandler(std::nullopt);
     });
 

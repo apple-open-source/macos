@@ -78,4 +78,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIStorageArea, storageArea);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

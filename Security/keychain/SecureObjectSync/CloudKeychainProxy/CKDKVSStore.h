@@ -26,7 +26,7 @@
 - (NSDictionary<NSString *, id>*) copyAsDictionary;
 
 - (void)pushWrites:(NSArray<NSString*>*)keys requiresForceSync:(BOOL)requiresForceSync;
-- (BOOL)pullUpdates:(NSError**) failure;
+- (void)pullUpdates:(void (^)(BOOL success, NSError* error))reply;
 
 - (void)kvsStoreChanged: (NSNotification*) notification;
 

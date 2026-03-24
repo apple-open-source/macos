@@ -87,7 +87,7 @@ public:
 
     static Ref<GPUImpl> create(WebGPUPtr<WGPUInstance>&& instance, ConvertToBackingContext& convertToBackingContext, DDModel::ConvertToBackingContext& modelConvertToBackingContext)
     {
-        return adoptRef(*new GPUImpl(WTFMove(instance), convertToBackingContext, modelConvertToBackingContext));
+        return adoptRef(*new GPUImpl(WTF::move(instance), convertToBackingContext, modelConvertToBackingContext));
     }
 
     virtual ~GPUImpl();

@@ -91,17 +91,17 @@ extern CFStringRef kSOSAccountDebugScope;
     bool updateCircle = false;
     CFSetRef alwaysOn = SOSViewCopyViewSet(kViewSetAlwaysOn);
     
-    require_action_quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
-    require_action_quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
-    require_action_quiet((actionCode == kSOSCCViewEnable) || (actionCode == kSOSCCViewDisable), errOut, CFSTR("Invalid View Action"));
+    __Require_Action_Quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
+    __Require_Action_Quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
+    __Require_Action_Quiet((actionCode == kSOSCCViewEnable) || (actionCode == kSOSCCViewDisable), errOut, CFSTR("Invalid View Action"));
     currentStatus = [account.trust viewStatus:account name:viewname err:error];
-    require_action_quiet((currentStatus == kSOSCCViewNotMember) || (currentStatus == kSOSCCViewMember), errOut, CFSTR("View Membership Not Actionable"));
+    __Require_Action_Quiet((currentStatus == kSOSCCViewNotMember) || (currentStatus == kSOSCCViewMember), errOut, CFSTR("View Membership Not Actionable"));
 
     if (CFEqualSafe(viewname, kSOSViewKeychainV0)) {
         retval = SOSAccountVirtualV0Behavior(account, actionCode);
     } else if ([account.trust isSyncingV0] && SOSViewsIsV0Subview(viewname)) {
         // Subviews of V0 syncing can't be turned off if V0 is on.
-        require_action_quiet(actionCode = kSOSCCViewDisable, errOut, CFSTR("Have V0 peer can't disable"));
+        __Require_Action_Quiet(actionCode = kSOSCCViewDisable, errOut, CFSTR("Have V0 peer can't disable"));
         retval = kSOSCCViewMember;
     } else {
         CFMutableSetRef pendingSet = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -154,10 +154,10 @@ errOut:
 {
     SOSViewResultCode retval = kSOSCCGeneralViewError;
     
-    require_action_quiet(SOSAccountGetTrustedPublicCredential(account, error), errOut, SOSCreateError(kSOSErrorNoKey, CFSTR("No Trusted UserKey"), NULL, error));
-    require_action_quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
-    require_action_quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
-    require_action_quiet([self activeValidInCircle: account err: error ],
+    __Require_Action_Quiet(SOSAccountGetTrustedPublicCredential(account, error), errOut, SOSCreateError(kSOSErrorNoKey, CFSTR("No Trusted UserKey"), NULL, error));
+    __Require_Action_Quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
+    __Require_Action_Quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
+    __Require_Action_Quiet([self activeValidInCircle: account err: error ],
                          errOut, SOSCreateError(kSOSErrorNotInCircle, CFSTR("Not in Circle"), NULL, error));
     
     if ([self valueSetContainsValue:kSOSPendingEnableViewsToBeSetKey value:viewname]) {
@@ -251,20 +251,20 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
     dumpViewSet(CFSTR("Enabled"), enabledViews);
     dumpViewSet(CFSTR("Disabled"), disabledViews);
 
-    require_action_quiet(self.trustedCircle, errOut, secnotice("views", "Attempt to set viewsets with no trusted circle"));
+    __Require_Action_Quiet(self.trustedCircle, errOut, secnotice("views", "Attempt to set viewsets with no trusted circle"));
 
     // Make sure we have a peerInfo capable of supporting views.
     SOSFullPeerInfoRef fpi = self.fullPeerInfo;
-    require_action_quiet(fpi, errOut, secnotice("views", "Attempt to set viewsets with no fullPeerInfo"));
-    require_action_quiet(enabledViews || disabledViews, errOut, secnotice("views", "No work to do"));
+    __Require_Action_Quiet(fpi, errOut, secnotice("views", "Attempt to set viewsets with no fullPeerInfo"));
+    __Require_Action_Quiet(enabledViews || disabledViews, errOut, secnotice("views", "No work to do"));
 
     pi = SOSPeerInfoCreateCopy(kCFAllocatorDefault, SOSFullPeerInfoGetPeerInfo(fpi), NULL);
 
-    require_action_quiet(pi, errOut, secnotice("views", "Couldn't copy PeerInfoRef"));
+    __Require_Action_Quiet(pi, errOut, secnotice("views", "Couldn't copy PeerInfoRef"));
 
     if(!SOSPeerInfoVersionIsCurrent(pi)) {
         CFErrorRef updateFailure = NULL;
-        require_action_quiet(SOSPeerInfoUpdateToV2(pi, &updateFailure), errOut,
+        __Require_Action_Quiet(SOSPeerInfoUpdateToV2(pi, &updateFailure), errOut,
                              (secnotice("views", "Unable to update peer to V2- can't update views: %@", updateFailure), (void) CFReleaseNull(updateFailure)));
         secnotice("V2update", "Updating PeerInfo to V2 within SOSAccountUpdateViewSets");
         updateCircle = true;
@@ -278,8 +278,8 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
         secnotice("viewChange", "Disabling %@", description);
     });
 
-    require_action_quiet(SOSAccountScreenViewListForValidV0(account, enabledViews, kSOSCCViewEnable), errOut, secnotice("viewChange", "Bad view change (enable) with kSOSViewKeychainV0"));
-    require_action_quiet(SOSAccountScreenViewListForValidV0(account, disabledViews, kSOSCCViewDisable), errOut, secnotice("viewChange", "Bad view change (disable) with kSOSViewKeychainV0"));
+    __Require_Action_Quiet(SOSAccountScreenViewListForValidV0(account, enabledViews, kSOSCCViewEnable), errOut, secnotice("viewChange", "Bad view change (enable) with kSOSViewKeychainV0"));
+    __Require_Action_Quiet(SOSAccountScreenViewListForValidV0(account, disabledViews, kSOSCCViewDisable), errOut, secnotice("viewChange", "Bad view change (disable) with kSOSViewKeychainV0"));
 
     if(enabledViews) updateCircle |= SOSViewSetEnable(pi, enabledViews);
     if(disabledViews) updateCircle |= SOSViewSetDisable(pi, disabledViews);
@@ -287,9 +287,9 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
 
     if(updateCircle) {
         /* UPDATE FULLPEERINFO VIEWS */
-        require_quiet(SOSFullPeerInfoUpdateToThisPeer(fpi, pi, NULL), errOut);
+        __Require_Quiet(SOSFullPeerInfoUpdateToThisPeer(fpi, pi, NULL), errOut);
 
-        require_quiet([self modifyCircle:account.circle_transport err:NULL action:^(SOSCircleRef circle_to_change) {
+        __Require_Quiet([self modifyCircle:account.circle_transport err:NULL action:^(SOSCircleRef circle_to_change) {
             secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for views or peerInfo change");
             bool updated= SOSCircleUpdatePeerInfo(circle_to_change, self.peerInfo);
             return updated;
@@ -382,10 +382,10 @@ static inline void CFArrayAppendValueIfNot(CFMutableArrayRef array, CFTypeRef va
     SecKeyRef publicKey = NULL;
     SOSPeerInfoRef peer = NULL;
     
-    require_action_quiet(self.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to get peer key from")));
+    __Require_Action_Quiet(self.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to get peer key from")));
     
     peer = SOSCircleCopyPeerWithID(self.trustedCircle, peer_id, error);
-    require_quiet(peer, fail);
+    __Require_Quiet(peer, fail);
     
     publicKey = SOSPeerInfoCopyPubKey(peer, error);
     
@@ -473,8 +473,8 @@ fail:
 {
     bool retval = false;
     SOSFullPeerInfoRef cloud_fpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, NULL);
-    require_quiet(cloud_fpi != NULL, errOut);
-    require_quiet(SOSFullPeerInfoUpgradeSignatures(cloud_fpi, privKey, NULL), errOut);
+    __Require_Quiet(cloud_fpi != NULL, errOut);
+    __Require_Quiet(SOSFullPeerInfoUpgradeSignatures(cloud_fpi, privKey, NULL), errOut);
     retval = SOSCircleUpdatePeerInfo(circle, SOSFullPeerInfoGetPeerInfo(cloud_fpi));
 errOut:
     CFReleaseNull(cloud_fpi);
@@ -511,7 +511,7 @@ const CFStringRef kSOSHsaPreApprovedPeerKeyInfo = CFSTR("HSAPreApprovedPeer");
         return result;
     }
     
-    require_quiet(SOSCircleAcceptRequest(circle, userKey, self.fullPeerInfo, SOSFullPeerInfoGetPeerInfo(cloud_identity), error), err_out);
+    __Require_Quiet(SOSCircleAcceptRequest(circle, userKey, self.fullPeerInfo, SOSFullPeerInfoGetPeerInfo(cloud_identity), error), err_out);
     result = true;
 err_out:
     CFReleaseNull(cloud_identity);
@@ -553,18 +553,18 @@ static size_t der_sizeof_data_optional(CFDataRef data)
     uint64_t version = CURRENT_ACCOUNT_PERSISTENT_VERSION;
     CFErrorRef failure = NULL;
     
-    require_quiet(accumulate_size(&sequence_size, ccder_sizeof_uint64(version)),                                    fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_dictionary((__bridge CFDictionaryRef)account.gestalt, &failure)),                  fail);
-    require_quiet(accumulate_size(&sequence_size, SOSCircleGetDEREncodedSize(self.trustedCircle, &failure)),      fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_fullpeer_or_null(self.fullPeerInfo, &failure)),        fail);
-    require_quiet(accumulate_size(&sequence_size, ccder_sizeof_uint64(self.departureCode)),                    fail);
-    require_quiet(accumulate_size(&sequence_size, ccder_sizeof_bool(account.accountKeyIsTrusted, &failure)),          fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.accountKey, &failure)),            fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.previousAccountKey, &failure)),        fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_data_or_null((__bridge CFDataRef)account.accountKeyDerivationParameters, &failure)),    fail);
-    require_quiet(accumulate_size(&sequence_size, SOSPeerInfoSetGetDEREncodedArraySize((__bridge CFSetRef)self.retirees, &failure)),  fail);
+    __Require_Quiet(accumulate_size(&sequence_size, ccder_sizeof_uint64(version)),                                    fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_dictionary((__bridge CFDictionaryRef)account.gestalt, &failure)),                  fail);
+    __Require_Quiet(accumulate_size(&sequence_size, SOSCircleGetDEREncodedSize(self.trustedCircle, &failure)),      fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_fullpeer_or_null(self.fullPeerInfo, &failure)),        fail);
+    __Require_Quiet(accumulate_size(&sequence_size, ccder_sizeof_uint64(self.departureCode)),                    fail);
+    __Require_Quiet(accumulate_size(&sequence_size, ccder_sizeof_bool(account.accountKeyIsTrusted, &failure)),          fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.accountKey, &failure)),            fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.previousAccountKey, &failure)),        fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_data_or_null((__bridge CFDataRef)account.accountKeyDerivationParameters, &failure)),    fail);
+    __Require_Quiet(accumulate_size(&sequence_size, SOSPeerInfoSetGetDEREncodedArraySize((__bridge CFSetRef)self.retirees, &failure)),  fail);
     (void)accumulate_size(&sequence_size, der_sizeof_data_optional((__bridge CFDataRef)(account.backup_key)));
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_dictionary((__bridge CFDictionaryRef)(self.expansion), &failure)),  fail);
+    __Require_Quiet(accumulate_size(&sequence_size, der_sizeof_dictionary((__bridge CFDictionaryRef)(self.expansion), &failure)),  fail);
     
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, sequence_size);
     
@@ -655,7 +655,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
         CFErrorRef localError = NULL;
         CFStringRef peerID = asString(value, &localError);
         SOSPeerInfoRef peerInfo = NULL;
-        require_quiet(peerID, skip);
+        __Require_Quiet(peerID, skip);
         
         peerInfo = SOSCircleCopyPeerWithID(self.trustedCircle, peerID, NULL);
         if (peerInfo && SOSCircleHasValidSyncingPeer(self.trustedCircle, peerInfo, account.accountKey, NULL)) {
@@ -736,7 +736,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
 {
     SecKeyRef privateKey = NULL;
 
-    require_action_quiet(self.fullPeerInfo, fail, SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("No identity to get key from")));
+    __Require_Action_Quiet(self.fullPeerInfo, fail, SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("No identity to get key from")));
     
     privateKey = SOSFullPeerInfoCopyDeviceKey(self.fullPeerInfo, error);
     

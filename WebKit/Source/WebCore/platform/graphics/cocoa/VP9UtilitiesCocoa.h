@@ -39,7 +39,7 @@ namespace WebCore {
 
 struct MediaCapabilitiesInfo;
 struct VideoConfiguration;
-struct VideoInfo;
+class VideoInfo;
 
 WEBCORE_EXPORT bool shouldEnableVP9Decoder();
 WEBCORE_EXPORT bool shouldEnableSWVP9Decoder();

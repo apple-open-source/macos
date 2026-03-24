@@ -32,7 +32,7 @@ class CSSPositionTryRule;
 struct CSSParserContext;
 
 class CSSPositionTryDescriptors final : public PropertySetCSSDescriptors {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSPositionTryDescriptors);
+    WTF_MAKE_TZONE_ALLOCATED(CSSPositionTryDescriptors);
 public:
     static Ref<CSSPositionTryDescriptors> create(MutableStyleProperties& propertySet, CSSPositionTryRule& parentRule)
     {

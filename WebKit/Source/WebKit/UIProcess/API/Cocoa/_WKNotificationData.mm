@@ -49,7 +49,7 @@ static NSString *dataKey = @"data";
 @property (nonatomic, readwrite) _WKNotificationAlert alert;
 @property (nonatomic, readwrite) NSData *data;
 @property (nonatomic, readwrite) NSURL *serviceWorkerRegistrationURL;
-@property (nonatomic, readwrite) NSUUID *notificationUUID;
+@property (nonatomic, readwrite) NSUUID *uuid;
 
 @end
 

@@ -38,10 +38,14 @@ class WebAutomationDOMWindowObserver final : public RefCounted<WebAutomationDOMW
 public:
     static Ref<WebAutomationDOMWindowObserver> create(WebCore::LocalDOMWindow& window, WTF::Function<void(WebAutomationDOMWindowObserver&)>&& callback)
     {
-        return adoptRef(*new WebAutomationDOMWindowObserver(window, WTFMove(callback)));
+        return adoptRef(*new WebAutomationDOMWindowObserver(window, WTF::move(callback)));
     }
 
     ~WebAutomationDOMWindowObserver();
+
+    // LocalDOMWindowObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     // All of these observer callbacks are interpreted as a signal that a frame has been detached and
     // can no longer accept new commands nor finish pending commands (eg, evaluating JavaScript).

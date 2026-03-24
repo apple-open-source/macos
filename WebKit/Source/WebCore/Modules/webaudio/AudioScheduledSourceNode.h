@@ -34,7 +34,8 @@
 namespace WebCore {
 
 class AudioScheduledSourceNode : public AudioNode, public ActiveDOMObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(AudioScheduledSourceNode);
+    WTF_MAKE_TZONE_ALLOCATED(AudioScheduledSourceNode);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(AudioScheduledSourceNode);
 public:
     // ActiveDOMObject.
     void ref() const final { AudioNode::ref(); }

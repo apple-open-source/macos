@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(PropertySetCSSDescriptors);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PropertySetCSSDescriptors);
 
 PropertySetCSSDescriptors::PropertySetCSSDescriptors(MutableStyleProperties& propertySet, CSSRule& parentRule)
     : m_parentRule(&parentRule)

@@ -60,9 +60,9 @@
     // I can't find a way to simulate persona attachment to threads in the face of dispatch_async.
     // If you get strange test behavior with the keychain, suspect simultaneous access from different threads with expected persona musrs.
     if(personaUniqueString == nil || [personaUniqueString isEqualToString:[OTMockPersonaAdapter defaultMockPersonaString]]) {
-        SecSecuritySetPersonaMusr(NULL);
+        SecSecuritySetPersonaMusrForTests(NULL);
     } else {
-        SecSecuritySetPersonaMusr((__bridge CFStringRef)personaUniqueString);
+        SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)personaUniqueString);
     }
 #endif
 }

@@ -220,6 +220,8 @@
 		<string>22.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>11.0</string>
+		<key>com.apple.iokit.CoreAnalyticsFamily</key>
+		<string>1.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

@@ -82,7 +82,7 @@ private:
     const Ref<AVTrackPrivateAVFObjCImpl> m_impl;
 
     using VideoTrackConfigurationObserver = Observer<void()>;
-    VideoTrackConfigurationObserver m_videoTrackConfigurationObserver;
+    const Ref<VideoTrackConfigurationObserver> m_videoTrackConfigurationObserver;
 };
 
 }

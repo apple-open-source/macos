@@ -205,7 +205,7 @@ protected:
     bool paintColorWellSwatchForVectorBasedControls(const RenderElement&, const PaintInfo&, const FloatRect&);
 
     bool adjustInnerSpinButtonStyleForVectorBasedControls(RenderStyle&, const Element*) const;
-    bool paintInnerSpinButtonStyleForVectorBasedControls(const RenderElement&, const PaintInfo&, const FloatRect&);
+    bool paintInnerSpinButtonForVectorBasedControls(const RenderElement&, const PaintInfo&, const FloatRect&);
 
     bool adjustTextFieldStyleForVectorBasedControls(RenderStyle&, const Element*) const;
     bool paintTextFieldForVectorBasedControls(const RenderElement&, const PaintInfo&, const FloatRect&);

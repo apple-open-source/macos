@@ -165,7 +165,7 @@ void NetworkDataTaskCocoa::applySniffingPoliciesAndBindRequestToInferfaceIfNeede
     if (!boundInterfaceIdentifier.isNull())
         [mutableRequest setBoundInterfaceIdentifier:boundInterfaceIdentifier.createNSString().get()];
 
-    nsRequest = WTFMove(mutableRequest);
+    nsRequest = WTF::move(mutableRequest);
 }
 
 void NetworkDataTaskCocoa::updateFirstPartyInfoForSession(const URL& requestURL)
@@ -180,7 +180,7 @@ void NetworkDataTaskCocoa::updateFirstPartyInfoForSession(const URL& requestURL)
         return WebCore::RegistrableDomain { };
     }();
     if (!cnameDomain.isEmpty())
-        session->setFirstPartyHostCNAMEDomain(requestURL.host().toString(), WTFMove(cnameDomain));
+        session->setFirstPartyHostCNAMEDomain(requestURL.host().toString(), WTF::move(cnameDomain));
 
     if (RetainPtr ipAddress = lastRemoteIPAddress(m_task.get()); [ipAddress length])
         session->setFirstPartyHostIPAddress(requestURL.host().toString(), ipAddress.get());
@@ -385,7 +385,7 @@ void NetworkDataTaskCocoa::didReceiveChallenge(WebCore::AuthenticationChallenge&
         return;
 
     if (RefPtr client = m_client.get())
-        client->didReceiveChallenge(WTFMove(challenge), negotiatedLegacyTLS, WTFMove(completionHandler));
+        client->didReceiveChallenge(WTF::move(challenge), negotiatedLegacyTLS, WTF::move(completionHandler));
     else {
         ASSERT_NOT_REACHED();
         completionHandler(AuthenticationChallengeDisposition::PerformDefaultHandling, { });
@@ -422,12 +422,12 @@ void NetworkDataTaskCocoa::didReceiveResponse(WebCore::ResourceResponse&& respon
     if (isTopLevelNavigation())
         updateFirstPartyInfoForSession(response.url());
 #if ENABLE(NETWORK_ISSUE_REPORTING)
-    else if (NetworkIssueReporter::shouldReport([m_task _incompleteTaskMetrics])) {
+    else if (NetworkIssueReporter::shouldReport(retainPtr([m_task _incompleteTaskMetrics]).get())) {
         if (CheckedPtr session = networkSession())
             session->reportNetworkIssue(*m_webPageProxyID, firstRequest().url());
     }
 #endif
-    NetworkDataTask::didReceiveResponse(WTFMove(response), negotiatedLegacyTLS, privateRelayed, WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get())), WTFMove(completionHandler));
+    NetworkDataTask::didReceiveResponse(WTF::move(response), negotiatedLegacyTLS, privateRelayed, WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get())), WTF::move(completionHandler));
 }
 
 void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&& redirectResponse, WebCore::ResourceRequest&& request, RedirectCompletionHandler&& completionHandler)
@@ -441,7 +441,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         ASSERT(m_lastHTTPMethod == request.httpMethod());
         auto body = previousRequest.httpBody();
         if (body && !body->isEmpty() && !equalLettersIgnoringASCIICase(m_lastHTTPMethod, "get"_s))
-            request.setHTTPBody(WTFMove(body));
+            request.setHTTPBody(WTF::move(body));
         
         String originalContentType = previousRequest.httpContentType();
         if (!originalContentType.isEmpty())
@@ -498,21 +498,21 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         }
     }
 
-    NetworkTaskCocoa::willPerformHTTPRedirection(WTFMove(redirectResponse), WTFMove(request), [completionHandler = WTFMove(completionHandler), weakThis = ThreadSafeWeakPtr { *this }, redirectResponse] (WebCore::ResourceRequest&& request) mutable {
+    NetworkTaskCocoa::willPerformHTTPRedirection(WTF::move(redirectResponse), WTF::move(request), [completionHandler = WTF::move(completionHandler), weakThis = ThreadSafeWeakPtr { *this }, redirectResponse] (WebCore::ResourceRequest&& request) mutable {
         auto protectedThis = weakThis.get();
         if (!protectedThis)
             return completionHandler({ });
         RefPtr client = protectedThis->m_client.get();
         if (!client)
             return completionHandler({ });
-        client->willPerformHTTPRedirection(WTFMove(redirectResponse), WTFMove(request), [completionHandler = WTFMove(completionHandler), weakThis] (WebCore::ResourceRequest&& request) mutable {
+        client->willPerformHTTPRedirection(WTF::move(redirectResponse), WTF::move(request), [completionHandler = WTF::move(completionHandler), weakThis] (WebCore::ResourceRequest&& request) mutable {
             auto protectedThis = weakThis.get();
             if (!protectedThis || !protectedThis->m_session)
                 return completionHandler({ });
             if (!request.isNull())
                 protectedThis->restrictRequestReferrerToOriginIfNeeded(request);
             protectedThis->m_previousRequest = request;
-            completionHandler(WTFMove(request));
+            completionHandler(WTF::move(request));
         });
     });
 }
@@ -522,7 +522,7 @@ void NetworkDataTaskCocoa::setPendingDownloadLocation(const WTF::String& filenam
     NetworkDataTask::setPendingDownloadLocation(filename, { }, allowOverwrite);
 
     ASSERT(!m_sandboxExtension);
-    m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
+    m_sandboxExtension = SandboxExtension::create(WTF::move(sandboxExtensionHandle));
     if (RefPtr extention = m_sandboxExtension)
         extention->consume();
 
@@ -580,7 +580,7 @@ bool NetworkDataTaskCocoa::tryPasswordBasedAuthentication(const WebCore::Authent
 
 void NetworkDataTaskCocoa::transferSandboxExtensionToDownload(Download& download)
 {
-    download.setSandboxExtension(WTFMove(m_sandboxExtension));
+    download.setSandboxExtension(WTF::move(m_sandboxExtension));
 }
 
 String NetworkDataTaskCocoa::suggestedFilename() const
@@ -622,7 +622,7 @@ void NetworkDataTaskCocoa::resume()
     CheckedRef cocoaSession = static_cast<NetworkSessionCocoa&>(*m_session);
     if (cocoaSession->deviceManagementRestrictionsEnabled() && m_isForMainResourceNavigationForAnyFrame) {
         auto didDetermineDeviceRestrictionPolicyForURL = makeBlockPtr([protectedThis = Ref { *this }](BOOL isBlocked) mutable {
-            callOnMainRunLoop([protectedThis = WTFMove(protectedThis), isBlocked] {
+            callOnMainRunLoop([protectedThis = WTF::move(protectedThis), isBlocked] {
                 if (isBlocked) {
                     protectedThis->scheduleFailure(FailureType::RestrictedURL);
                     return;
@@ -681,15 +681,15 @@ String NetworkDataTaskCocoa::description() const
 void NetworkDataTaskCocoa::setH2PingCallback(const URL& url, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&& completionHandler)
 {
     ASSERT(m_task.get()._preconnect);
-    auto handler = CompletionHandlerWithFinalizer<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>(WTFMove(completionHandler), [url = url.isolatedCopy()] (Function<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>& completionHandler) {
-        ensureOnMainRunLoop([completionHandler = WTFMove(completionHandler), url = WTFMove(url).isolatedCopy()]() mutable {
+    auto handler = CompletionHandlerWithFinalizer<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>(WTF::move(completionHandler), [url = url.isolatedCopy()] (Function<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>& completionHandler) mutable {
+        ensureOnMainRunLoop([completionHandler = WTF::move(completionHandler), url = WTF::move(url).isolatedCopy()]() mutable {
             completionHandler(makeUnexpected(WebCore::internalError(url)));
         });
     }, CompletionHandlerCallThread::AnyThread);
-    [m_task getUnderlyingHTTPConnectionInfoWithCompletionHandler:makeBlockPtr([completionHandler = WTFMove(handler), url = url.isolatedCopy()] (_NSHTTPConnectionInfo *connectionInfo) mutable {
+    [m_task getUnderlyingHTTPConnectionInfoWithCompletionHandler:makeBlockPtr([completionHandler = WTF::move(handler), url = url.isolatedCopy()] (_NSHTTPConnectionInfo *connectionInfo) mutable {
         if (!connectionInfo.isValid)
             return completionHandler(makeUnexpected(WebCore::internalError(url)));
-        [connectionInfo sendPingWithReceiveHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSError *error, NSTimeInterval interval) mutable {
+        [connectionInfo sendPingWithReceiveHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler)](NSError *error, NSTimeInterval interval) mutable {
             completionHandler(Seconds(interval));
         }).get()];
     }).get()];

@@ -141,7 +141,7 @@ void LayerTreeHost::setLayerTreeStateIsFrozen(bool)
 {
 }
 
-void LayerTreeHost::scheduleLayerFlush()
+void LayerTreeHost::scheduleRenderingUpdate()
 {
     if (!enabled())
         return;
@@ -150,11 +150,6 @@ void LayerTreeHost::scheduleLayerFlush()
         return;
 
     m_layerFlushTimer.startOneShot(0_s);
-}
-
-void LayerTreeHost::cancelPendingLayerFlush()
-{
-    m_layerFlushTimer.stop();
 }
 
 void LayerTreeHost::setRootCompositingLayer(WebCore::GraphicsLayer* graphicsLayer)
@@ -188,7 +183,7 @@ void LayerTreeHost::setNonCompositedContentsNeedDisplay(const WebCore::IntRect& 
     if (!enabled())
         return;
     m_rootLayer->setNeedsDisplayInRect(rect);
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 }
 
 void LayerTreeHost::scrollNonCompositedContents(const WebCore::IntRect& scrollRect)
@@ -212,12 +207,12 @@ void LayerTreeHost::flushAndRenderLayers()
     compositeLayersToContext();
 }
 
-void LayerTreeHost::forceRepaint()
+void LayerTreeHost::updateRenderingWithForcedRepaint()
 {
     flushAndRenderLayers();
 }
 
-void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& completionHandler)
+void LayerTreeHost::updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&& completionHandler)
 {
     completionHandler();
 }
@@ -233,7 +228,7 @@ void LayerTreeHost::sizeDidChange()
     m_rootLayer->setSize(newSize);
     applyDeviceScaleFactor();
 
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 }
 
 void LayerTreeHost::pauseRendering()
@@ -278,7 +273,7 @@ bool LayerTreeHost::enabled()
     return window() && m_rootCompositingLayer;
 }
 
-void LayerTreeHost::paintContents(const GraphicsLayer*, GraphicsContext& context, const FloatRect& rectToPaint, OptionSet<GraphicsLayerPaintBehavior>)
+void LayerTreeHost::paintContents(const GraphicsLayer&, GraphicsContext& context, const FloatRect& rectToPaint, OptionSet<GraphicsLayerPaintBehavior>)
 {
     context.save();
     context.clip(rectToPaint);

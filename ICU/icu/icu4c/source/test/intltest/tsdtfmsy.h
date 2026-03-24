@@ -35,6 +35,10 @@ private:
     void TestGetWeekdays2();
     void TestGetEraNames();
     void TestGetSetSpecificItems();
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    void checkForUninitializedMemoryInDateFormatSymbols(); // rdar://162810290
+    void checkForUninitializedMemoryInSharedDateFormatSymbols(); // rdar://162810290
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
     UBool UnicodeStringsArePrefixes(int32_t count, int32_t prefixLen, const UnicodeString *prefixArray, const UnicodeString *baseArray);
 };

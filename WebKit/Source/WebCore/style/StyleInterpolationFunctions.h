@@ -45,7 +45,7 @@
 #include "MatrixTransformOperation.h"
 #include "PathOperation.h"
 #include "RenderBox.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+SettersInlines.h"
 #include "ScopedName.h"
 #include "Settings.h"
 #include "StyleCalculationValue.h"

@@ -5,7 +5,7 @@
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  * Copyright (C) 2011 Sencha, Inc. All rights reserved.
  * Copyright (C) 2013 Adobe Systems Incorporated. All rights reserved.
- * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2025-2026 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,18 +31,50 @@
 
 #pragma once
 
+#include "ColorSerialization.h"
+#include "ContainerNodeInlines.h"
+#include "CSSFontValue.h"
 #include "CSSGridAutoRepeatValue.h"
 #include "CSSGridIntegerRepeatValue.h"
 #include "CSSGridLineNamesValue.h"
+#include "CSSMarkup.h"
+#include "CSSPrimitiveNumericTypes+Serialization.h"
+#include "CSSPrimitiveValue.h"
+#include "CSSPrimitiveValueMappings.h"
+#include "CSSProperty.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParserConsumer+Anchor.h"
+#include "CSSRegisteredCustomProperty.h"
+#include "CSSSerializationContext.h"
+#include "CSSTransformListValue.h"
+#include "CSSValueList.h"
+#include "CSSValuePair.h"
+#include "CSSValuePool.h"
+#include "FontCascade.h"
+#include "FontSelectionValueInlines.h"
+#include "HTMLFrameOwnerElement.h"
+#include "RenderBlock.h"
+#include "RenderBoxInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderElementStyleInlines.h"
-#include "StyleExtractorConverter.h"
-#include "StyleExtractorSerializer.h"
+#include "RenderGrid.h"
+#include "RenderInline.h"
+#include "RenderStyle+GettersInlines.h"
+#include "StyleComputedStyle+InitialInlines.h"
+#include "StyleExtractorState.h"
 #include "StyleInterpolation.h"
 #include "StyleOrderedNamedLinesCollector.h"
+#include "StylePrimitiveKeyword+CSSValueCreation.h"
+#include "StylePrimitiveKeyword+Serialization.h"
+#include "StylePrimitiveNumericTypes+CSSValueCreation.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
+#include "StylePrimitiveNumericTypes+Serialization.h"
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
+#include "StyleTransformFunction.h"
+#include "StyleTransformResolver.h"
+#include "WebAnimationUtilities.h"
 
 namespace WebCore {
 namespace Style {
@@ -71,15 +103,16 @@ public:
     static Ref<CSSValue> extractPaddingRight(ExtractorState&);
     static Ref<CSSValue> extractPaddingBottom(ExtractorState&);
     static Ref<CSSValue> extractPaddingLeft(ExtractorState&);
+    static Ref<CSSValue> extractBorderTopWidth(ExtractorState&);
+    static Ref<CSSValue> extractBorderRightWidth(ExtractorState&);
+    static Ref<CSSValue> extractBorderBottomWidth(ExtractorState&);
+    static Ref<CSSValue> extractBorderLeftWidth(ExtractorState&);
     static Ref<CSSValue> extractHeight(ExtractorState&);
     static Ref<CSSValue> extractWidth(ExtractorState&);
     static Ref<CSSValue> extractMaxHeight(ExtractorState&);
     static Ref<CSSValue> extractMaxWidth(ExtractorState&);
     static Ref<CSSValue> extractMinHeight(ExtractorState&);
     static Ref<CSSValue> extractMinWidth(ExtractorState&);
-    static Ref<CSSValue> extractCounterIncrement(ExtractorState&);
-    static Ref<CSSValue> extractCounterReset(ExtractorState&);
-    static Ref<CSSValue> extractCounterSet(ExtractorState&);
     static Ref<CSSValue> extractTransform(ExtractorState&);
     static RefPtr<CSSValue> extractBorderImageWidth(ExtractorState&);
     static Ref<CSSValue> extractTranslate(ExtractorState&);
@@ -91,6 +124,12 @@ public:
     static Ref<CSSValue> extractAnimationDuration(ExtractorState&);
     static Ref<CSSValue> extractWidows(ExtractorState&);
     static Ref<CSSValue> extractOrphans(ExtractorState&);
+    static Ref<CSSValue> extractWebkitTextCombine(ExtractorState&);
+    static Ref<CSSValue> extractWebkitRubyPosition(ExtractorState&);
+    static Ref<CSSValue> extractWebkitMaskComposite(ExtractorState&);
+    static Ref<CSSValue> extractWebkitMaskSourceType(ExtractorState&);
+    static Ref<CSSValue> extractColor(ExtractorState&);
+    static Ref<CSSValue> extractCaretColor(ExtractorState&);
 
     // MARK: Shorthands
 
@@ -162,15 +201,16 @@ public:
     static void extractPaddingRightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractPaddingBottomSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractPaddingLeftSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractBorderTopWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractBorderRightWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractBorderBottomWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractBorderLeftWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractMaxHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractMaxWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractMinHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractMinWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractCounterIncrementSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractCounterResetSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractCounterSetSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBorderImageWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractTransformSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractTranslateSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -182,6 +222,12 @@ public:
     static void extractAnimationDurationSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractWidowsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractOrphansSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractWebkitTextCombineSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractWebkitRubyPositionSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractWebkitMaskCompositeSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractWebkitMaskSourceTypeSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractColorSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractCaretColorSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
 
     static void extractAnimationShorthandSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractAnimationRangeShorthandSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -229,7 +275,398 @@ public:
     static void extractMarkerShorthandSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
 };
 
+// MARK: - Shared Adaptor
+
+// Shared adaptors are used by adaptors to further adapt a value that has been partially extracted from a RenderStyle. Like adaptors, they use a provided functor to allow them to be used for both CSSValue creation and serialization.
+
+template<CSSPropertyID propertyID> struct InsetEdgeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, const InsetEdge& value, F&& functor) const
+    {
+        // If the element is not displayed; return the "computed value".
+        CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
+        if (!box)
+            return functor(value);
+
+        auto* containingBlock = dynamicDowncast<RenderBoxModelObject>(box->container());
+
+        // Resolve a "computed value" percentage if the element is positioned.
+        if (containingBlock && value.isPercentOrCalculated() && box->isPositioned()) {
+            constexpr bool isVerticalProperty = (propertyID == CSSPropertyTop || propertyID == CSSPropertyBottom);
+
+            LayoutUnit containingBlockSize;
+            if (box->isStickilyPositioned()) {
+                auto& enclosingClippingBox = box->enclosingClippingBoxForStickyPosition().first;
+                if (isVerticalProperty == enclosingClippingBox.isHorizontalWritingMode())
+                    containingBlockSize = enclosingClippingBox.contentBoxLogicalHeight();
+                else
+                    containingBlockSize = enclosingClippingBox.contentBoxLogicalWidth();
+            } else {
+                if (box->isOutOfFlowPositioned()) {
+                    if (isVerticalProperty)
+                        containingBlockSize = box->containingBlockRangeForPositioned(*containingBlock, BoxAxis::Vertical).size();
+                    else
+                        containingBlockSize = box->containingBlockRangeForPositioned(*containingBlock, BoxAxis::Horizontal).size();
+                } else {
+                    if (isVerticalProperty == containingBlock->isHorizontalWritingMode())
+                        containingBlockSize = box->containingBlockLogicalHeightForContent(AvailableLogicalHeightType::ExcludeMarginBorderPadding);
+                    else
+                        containingBlockSize = box->containingBlockLogicalWidthForContent();
+                }
+            }
+            return functor(Length<> { evaluate<LayoutUnit>(value, containingBlockSize, containingBlock->style().usedZoomForLength()) });
+        }
+
+        // Return a "computed value" length.
+        if (!value.isAuto())
+            return functor(value);
+
+        auto insetUsedStyleRelative = [&](const RenderBox& box) -> LayoutUnit {
+            // For relatively positioned boxes, the inset is with respect to the top edges
+            // of the box itself. This ties together top/bottom and left/right to be
+            // opposites of each other.
+            //
+            // See http://www.w3.org/TR/CSS2/visuren.html#relative-positioning
+            //
+            // Specifically;
+            //   Since boxes are not split or stretched as a result of 'left' or
+            //   'right', the used values are always: left = -right.
+            // and
+            //   Since boxes are not split or stretched as a result of 'top' or
+            //   'bottom', the used values are always: top = -bottom.
+
+            if constexpr (propertyID == CSSPropertyTop)
+                return box.relativePositionOffset().height();
+            else if constexpr (propertyID == CSSPropertyRight)
+                return -(box.relativePositionOffset().width());
+            else if constexpr (propertyID == CSSPropertyBottom)
+                return -(box.relativePositionOffset().height());
+            else if constexpr (propertyID == CSSPropertyLeft)
+                return box.relativePositionOffset().width();
+        };
+
+        // The property won't be over-constrained if its computed value is "auto", so the "used value" can be returned.
+        if (box->isRelativelyPositioned())
+            return functor(Length<> { insetUsedStyleRelative(*box) });
+
+        auto insetUsedStyleOutOfFlowPositioned = [&](auto& container, auto& box) {
+            // For out-of-flow positioned boxes, the inset is how far an box's margin
+            // edge is inset below the edge of the box's containing block.
+            // See http://www.w3.org/TR/CSS2/visuren.html#position-props
+            //
+            // Margins are included in offsetTop/offsetLeft so we need to remove them here.
+            auto paddingBoxWidth = [&]() -> LayoutUnit {
+                if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(container))
+                    return renderBlock->paddingBoxWidth();
+                if (CheckedPtr inlineBox = dynamicDowncast<RenderInline>(container))
+                    return inlineBox->innerPaddingBoxWidth();
+                ASSERT_NOT_REACHED();
+                return { };
+            };
+            auto paddingBoxHeight = [&]() -> LayoutUnit {
+                if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(container))
+                    return renderBlock->paddingBoxHeight();
+                if (CheckedPtr inlineBox = dynamicDowncast<RenderInline>(container))
+                    return inlineBox->innerPaddingBoxHeight();
+                ASSERT_NOT_REACHED();
+                return { };
+            };
+            if constexpr (propertyID == CSSPropertyTop)
+                return box.offsetTop() - box.marginTop();
+            else if constexpr (propertyID == CSSPropertyRight)
+                return paddingBoxWidth() - (box.offsetLeft() + box.offsetWidth()) - box.marginRight();
+            else if constexpr (propertyID == CSSPropertyBottom)
+                return paddingBoxHeight() - (box.offsetTop() + box.offsetHeight()) - box.marginBottom();
+            else if constexpr (propertyID == CSSPropertyLeft)
+                return box.offsetLeft() - box.marginLeft();
+        };
+
+        if (containingBlock && box->isOutOfFlowPositioned())
+            return functor(Length<> { insetUsedStyleOutOfFlowPositioned(*containingBlock, *box) });
+
+        return functor(CSS::Keyword::Auto { });
+    }
+};
+
+template<CSSPropertyID propertyID> struct MarginEdgeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, const MarginEdge& value, F&& functor) const
+    {
+        auto rendererCanHaveTrimmedMargin = [](const RenderBox& renderer) {
+            auto marginTrimSide = [] -> Style::MarginTrimSide {
+                if constexpr (propertyID == CSSPropertyMarginTop)
+                    return Style::MarginTrimSide::BlockStart;
+                else if constexpr (propertyID == CSSPropertyMarginRight)
+                    return Style::MarginTrimSide::InlineEnd;
+                else if constexpr (propertyID == CSSPropertyMarginBottom)
+                    return Style::MarginTrimSide::BlockEnd;
+                else if constexpr (propertyID == CSSPropertyMarginLeft)
+                    return Style::MarginTrimSide::InlineStart;
+            };
+
+            // A renderer will have a specific margin marked as trimmed by setting its rare data bit if:
+            // 1.) The layout system the box is in has this logic (setting the rare data bit for this
+            // specific margin) implemented
+            // 2.) The block container/flexbox/grid has this margin specified in its margin-trim style
+            // If marginTrimSide is empty we will check if any of the supported margins are in the style
+            if (renderer.isFlexItem() || renderer.isGridItem())
+                return renderer.parent()->style().marginTrim().contains(marginTrimSide());
+
+            // Even though margin-trim is not inherited, it is possible for nested block level boxes
+            // to get placed at the block-start of an containing block ancestor which does have margin-trim.
+            // In this case it is not enough to simply check the immediate containing block of the child. It is
+            // also probably too expensive to perform an arbitrary walk up the tree to check for the existence
+            // of an ancestor containing block with the property, so we will just return true and let
+            // the rest of the logic in RenderBox::hasTrimmedMargin to determine if the rare data bit
+            // were set at some point during layout
+            if (renderer.isBlockLevelBox()) {
+                auto containingBlock = renderer.containingBlock();
+                return containingBlock && containingBlock->isHorizontalWritingMode();
+            }
+            return false;
+        };
+
+        auto toMarginTrimSide = [](const RenderBox& renderer) -> Style::MarginTrimSide {
+            auto formattingContextRootStyle = [](const RenderBox& renderer) -> const RenderStyle& {
+                if (auto* ancestorToUse = (renderer.isFlexItem() || renderer.isGridItem()) ? renderer.parent() : renderer.containingBlock())
+                    return ancestorToUse->style();
+                ASSERT_NOT_REACHED();
+                return renderer.style();
+            };
+
+            auto boxSide = [] -> BoxSide {
+                if constexpr (propertyID == CSSPropertyMarginTop)
+                    return BoxSide::Top;
+                else if constexpr (propertyID == CSSPropertyMarginRight)
+                    return BoxSide::Right;
+                else if constexpr (propertyID == CSSPropertyMarginBottom)
+                    return BoxSide::Bottom;
+                else if constexpr (propertyID == CSSPropertyMarginLeft)
+                    return BoxSide::Left;
+            };
+
+            switch (mapSidePhysicalToLogical(formattingContextRootStyle(renderer).writingMode(), boxSide())) {
+            case LogicalBoxSide::BlockStart:
+                return Style::MarginTrimSide::BlockStart;
+            case LogicalBoxSide::BlockEnd:
+                return Style::MarginTrimSide::BlockEnd;
+            case LogicalBoxSide::InlineStart:
+                return Style::MarginTrimSide::InlineStart;
+            case LogicalBoxSide::InlineEnd:
+                return Style::MarginTrimSide::InlineEnd;
+            default:
+                ASSERT_NOT_REACHED();
+                return Style::MarginTrimSide::BlockStart;
+            }
+        };
+
+        auto usedValue = [](auto& box) {
+            if constexpr (propertyID == CSSPropertyMarginTop)
+                return Length<> { box.marginTop() };
+            else if constexpr (propertyID == CSSPropertyMarginRight)
+                return Length<> { box.marginRight() };
+            else if constexpr (propertyID == CSSPropertyMarginBottom)
+                return Length<> { box.marginBottom() };
+            else if constexpr (propertyID == CSSPropertyMarginLeft)
+                return Length<> { box.marginLeft() };
+        };
+
+        CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
+        if (!box)
+            return functor(value);
+
+        if constexpr (propertyID == CSSPropertyMarginRight) {
+            if (rendererCanHaveTrimmedMargin(*box) && box->hasTrimmedMargin(toMarginTrimSide(*box)))
+                return functor(usedValue(*box));
+
+            if (value.isFixed())
+                return functor(value);
+
+            if (value.isPercentOrCalculated()) {
+                // RenderBox gives a marginRight() that is the distance between the right-edge of the child box
+                // and the right-edge of the containing box, when display == DisplayType::Block. Let's calculate the absolute
+                // value of the specified margin-right % instead of relying on RenderBox's marginRight() value.
+                return functor(Length<> { evaluateMinimum<float>(value, box->containingBlockLogicalWidthForContent(), state.style.usedZoomForLength()) });
+            }
+        }
+
+        return functor(usedValue(*box));
+    }
+};
+
+template<CSSPropertyID propertyID> struct PaddingEdgeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, const PaddingEdge& value, F&& functor) const
+    {
+        auto* renderBox = dynamicDowncast<RenderBox>(state.renderer);
+        if (!renderBox || value.isFixed())
+            return functor(value);
+
+        if constexpr (propertyID == CSSPropertyPaddingTop)
+            return functor(Length<> { renderBox->computedCSSPaddingTop() });
+        else if constexpr (propertyID == CSSPropertyPaddingRight)
+            return functor(Length<> { renderBox->computedCSSPaddingRight() });
+        else if constexpr (propertyID == CSSPropertyPaddingBottom)
+            return functor(Length<> { renderBox->computedCSSPaddingBottom() });
+        else if constexpr (propertyID == CSSPropertyPaddingLeft)
+            return functor(Length<> { renderBox->computedCSSPaddingLeft() });
+    }
+};
+
+template<CSSPropertyID propertyID> struct PreferredSizeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, const PreferredSize& value, F&& functor) const
+    {
+        auto sizingBox = [](auto& renderer) -> LayoutRect {
+            auto* box = dynamicDowncast<RenderBox>(renderer);
+            if (!box)
+                return LayoutRect();
+            return box->style().boxSizing() == BoxSizing::BorderBox ? box->borderBoxRect() : box->computedCSSContentBoxRect();
+        };
+
+        auto isNonReplacedInline = [](auto& renderer) {
+            return renderer.isInline() && !renderer.isBlockLevelReplacedOrAtomicInline();
+        };
+
+        if (state.renderer && !state.renderer->isRenderOrLegacyRenderSVGModelObject()) {
+            // According to http://www.w3.org/TR/CSS2/visudet.html#the-height-property,
+            // the "height" property does not apply for non-replaced inline elements.
+            if (!isNonReplacedInline(*state.renderer)) {
+                if constexpr (propertyID == CSSPropertyHeight)
+                    return functor(Length<> { sizingBox(*state.renderer).height() });
+                else if constexpr (propertyID == CSSPropertyWidth)
+                    return functor(Length<> { sizingBox(*state.renderer).width() });
+            }
+        }
+        return functor(value);
+    }
+};
+
+template<CSSPropertyID> struct MaximumSizeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState&, const MaximumSize& value, F&& functor) const
+    {
+        if (value.isNone())
+            return functor(CSS::Keyword::None { });
+        return functor(value);
+    }
+};
+
+template<CSSPropertyID> struct MinimumSizeSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, const MinimumSize& value, F&& functor) const
+    {
+        auto isFlexOrGridItem = [](auto renderer) {
+            auto* box = dynamicDowncast<RenderBox>(renderer);
+            return box && (box->isFlexItem() || box->isGridItem());
+        };
+
+        if (value.isAuto()) {
+            if (isFlexOrGridItem(state.renderer))
+                return functor(CSS::Keyword::Auto { });
+            return functor(Length<> { 0 });
+        }
+        return functor(value);
+    }
+};
+
+template<CSSPropertyID> struct PageBreakSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState&, BreakBetween value, F&& functor) const
+    {
+        switch (value) {
+        case BreakBetween::Page:
+        case BreakBetween::LeftPage:
+        case BreakBetween::RightPage:
+        case BreakBetween::RectoPage:
+        case BreakBetween::VersoPage:
+            // CSS 2.1 allows us to map these to always.
+            return functor(CSS::Keyword::Always { });
+        case BreakBetween::Avoid:
+        case BreakBetween::AvoidPage:
+            return functor(CSS::Keyword::Avoid { });
+        case BreakBetween::AvoidColumn:
+        case BreakBetween::Column:
+        case BreakBetween::Auto:
+            return functor(CSS::Keyword::Auto { });
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    template<typename F> decltype(auto) computedValue(ExtractorState&, BreakInside value, F&& functor) const
+    {
+        switch (value) {
+        case BreakInside::Avoid:
+        case BreakInside::AvoidPage:
+            return functor(CSS::Keyword::Avoid { });
+        case BreakInside::AvoidColumn:
+        case BreakInside::Auto:
+            return functor(CSS::Keyword::Auto { });
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+};
+
+template<CSSPropertyID> struct WebkitColumnBreakSharedAdaptor {
+    template<typename F> decltype(auto) computedValue(ExtractorState&, BreakBetween value, F&& functor) const
+    {
+        switch (value) {
+        case BreakBetween::Column:
+            return functor(CSS::Keyword::Always { });
+        case BreakBetween::Avoid:
+        case BreakBetween::AvoidColumn:
+            return functor(CSS::Keyword::Avoid { });
+        case BreakBetween::Page:
+        case BreakBetween::LeftPage:
+        case BreakBetween::RightPage:
+        case BreakBetween::RectoPage:
+        case BreakBetween::VersoPage:
+        case BreakBetween::AvoidPage:
+        case BreakBetween::Auto:
+            return functor(CSS::Keyword::Auto { });
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    template<typename F> decltype(auto) computedValue(ExtractorState&, BreakInside value, F&& functor) const
+    {
+        switch (value) {
+        case BreakInside::Avoid:
+        case BreakInside::AvoidColumn:
+            return functor(CSS::Keyword::Avoid { });
+        case BreakInside::AvoidPage:
+        case BreakInside::Auto:
+            return functor(CSS::Keyword::Auto { });
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+};
+
+// MARK: - Adaptors
+
+// Adaptors are used to implement the logic for extracting a value from a RenderStyle and performing some operation of the CSS value equivalent. This allows the same code to be used for CSS creation and serialization.
+
 template<CSSPropertyID> struct PropertyExtractorAdaptor;
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyDirection> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        if (state.element.ptr() == state.element->document().documentElement() && !state.style.hasExplicitlySetDirection())
+            return functor(Style::ComputedStyle::initialDirection());
+        return functor(state.style.writingMode().computedTextDirection());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWritingMode> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        if (state.element.ptr() == state.element->document().documentElement() && !state.style.hasExplicitlySetWritingMode())
+            return functor(Style::ComputedStyle::initialWritingMode());
+        return functor(state.style.writingMode().computedWritingMode());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyFloat> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        if (state.style.hasOutOfFlowPosition())
+            return functor(CSS::Keyword::None { });
+        return functor(state.style.floating());
+    }
+};
 
 template<> struct PropertyExtractorAdaptor<CSSPropertyContent> {
     template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
@@ -285,9 +722,219 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyLineHeight> {
                 return functor(Length<CSS::Nonnegative> { percentage.value * state.style.fontDescription().computedSize() / 100 });
             },
             [&](const LineHeight::Calc& calc) {
-                return functor(Length<CSS::Nonnegative> { evaluate<float>(calc, 0.0f) });
+                // FIXME: We pass 1.0f here to get the unzoomed value but it really is not clear why we are even
+                // evaluating calc here. We should probably revisit this and figure out another way to do this.
+                return functor(Length<CSS::Nonnegative> { evaluate<float>(calc, 0.0f, Style::ZoomFactor { 1.0f }) });
             }
         );
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyFontFamily> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto fontFamily = state.style.fontFamily();
+        if (fontFamily.size() == 1)
+            return functor(fontFamily.first());
+        return functor(fontFamily);
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyFontSize> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(Length<CSS::Nonnegative> { state.style.fontDescription().computedSize() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyTop> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return InsetEdgeSharedAdaptor<CSSPropertyTop> { }.computedValue(state, state.style.top(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyRight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return InsetEdgeSharedAdaptor<CSSPropertyRight> { }.computedValue(state, state.style.right(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBottom> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return InsetEdgeSharedAdaptor<CSSPropertyBottom> { }.computedValue(state, state.style.bottom(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyLeft> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return InsetEdgeSharedAdaptor<CSSPropertyLeft> { }.computedValue(state, state.style.left(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMarginTop> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MarginEdgeSharedAdaptor<CSSPropertyMarginTop> { }.computedValue(state, state.style.marginTop(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMarginRight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MarginEdgeSharedAdaptor<CSSPropertyMarginRight> { }.computedValue(state, state.style.marginRight(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMarginBottom> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MarginEdgeSharedAdaptor<CSSPropertyMarginBottom> { }.computedValue(state, state.style.marginBottom(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMarginLeft> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MarginEdgeSharedAdaptor<CSSPropertyMarginLeft> { }.computedValue(state, state.style.marginLeft(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPaddingTop> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PaddingEdgeSharedAdaptor<CSSPropertyPaddingTop> { }.computedValue(state, state.style.paddingTop(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPaddingRight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PaddingEdgeSharedAdaptor<CSSPropertyPaddingRight> { }.computedValue(state, state.style.paddingRight(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPaddingBottom> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PaddingEdgeSharedAdaptor<CSSPropertyPaddingBottom> { }.computedValue(state, state.style.paddingBottom(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPaddingLeft> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PaddingEdgeSharedAdaptor<CSSPropertyPaddingLeft> { }.computedValue(state, state.style.paddingLeft(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBorderTopWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.usedBorderTopWidth());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBorderRightWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.usedBorderRightWidth());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBorderBottomWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.usedBorderBottomWidth());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBorderLeftWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.usedBorderLeftWidth());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyHeight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PreferredSizeSharedAdaptor<CSSPropertyHeight> { }.computedValue(state, state.style.height(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PreferredSizeSharedAdaptor<CSSPropertyWidth> { }.computedValue(state, state.style.width(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMaxHeight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MaximumSizeSharedAdaptor<CSSPropertyMaxHeight> { }.computedValue(state, state.style.maxHeight(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMaxWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MaximumSizeSharedAdaptor<CSSPropertyMaxWidth> { }.computedValue(state, state.style.maxWidth(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMinHeight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MinimumSizeSharedAdaptor<CSSPropertyMinHeight> { }.computedValue(state, state.style.minHeight(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMinWidth> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return MinimumSizeSharedAdaptor<CSSPropertyMinWidth> { }.computedValue(state, state.style.minWidth(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyGridAutoFlow> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        // FIXME: Adjust this once CSSWG clarifies exactly how the initial value should compute.
+        // For now, this gives the most backwards-compatible behavior.
+        auto gridFlow = state.style.gridAutoFlow();
+        switch (gridFlow.direction()) {
+        case GridAutoFlow::Direction::Column:
+            switch (gridFlow.packing()) {
+            case GridAutoFlow::Packing::Dense:
+                return functor(SpaceSeparatedTuple { CSS::Keyword::Column { }, CSS::Keyword::Dense { } });
+            case GridAutoFlow::Packing::Sparse:
+                return functor(CSS::Keyword::Column { });
+            }
+        case GridAutoFlow::Direction::Row:
+            switch (gridFlow.packing()) {
+            case GridAutoFlow::Packing::Dense:
+                if (!state.style.gridTemplateRows().isNone() && state.style.gridTemplateColumns().isNone()
+                    && (state.style.display() == DisplayType::GridLanes || state.style.display() == DisplayType::InlineGridLanes))
+                    return functor(SpaceSeparatedTuple { CSS::Keyword::Row { }, CSS::Keyword::Dense { } });
+                return functor(CSS::Keyword::Dense { });
+            case GridAutoFlow::Packing::Sparse:
+                return functor(CSS::Keyword::Row { });
+            }
+        default:
+            ASSERT(state.style.display() != DisplayType::GridLanes && state.style.display() != DisplayType::InlineGridLanes
+                && state.style.display() != DisplayType::Grid && state.style.display() != DisplayType::InlineGrid);
+            switch (gridFlow.packing()) {
+            case GridAutoFlow::Packing::Dense:
+                return functor(CSS::Keyword::Dense { });
+            case GridAutoFlow::Packing::Sparse:
+                return functor(CSS::Keyword::Normal { });
+            }
+        }
     }
 };
 
@@ -318,20 +965,6 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyTranslate> {
     }
 };
 
-template<CSSPropertyID propertyID> Ref<CSSValue> extractCSSValue(ExtractorState& state)
-{
-    return PropertyExtractorAdaptor<propertyID> { }.computedValue(state, [&](auto&& value) {
-        return createCSSValue(state.pool, state.style, value);
-    });
-}
-
-template<CSSPropertyID propertyID> void extractSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    PropertyExtractorAdaptor<propertyID> { }.computedValue(state, [&](auto&& value) {
-        serializationForCSS(builder, context, state.style, value);
-    });
-}
-
 // FIXME: if 'auto' value is removed then this can likely also be removed.
 template<> struct PropertyExtractorAdaptor<CSSPropertyWidows> {
     template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
@@ -347,442 +980,371 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyOrphans> {
     }
 };
 
+template<> struct PropertyExtractorAdaptor<CSSPropertyWebkitTextCombine> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto textCombine = state.style.textCombine();
+        if (textCombine == TextCombine::All)
+            return functor(CSS::Keyword::Horizontal { });
+        return functor(textCombine);
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWebkitRubyPosition> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        switch (state.style.rubyPosition()) {
+        case RubyPosition::Over:
+            return functor(CSS::Keyword::Before { });
+        case RubyPosition::Under:
+            return functor(CSS::Keyword::After { });
+        case RubyPosition::InterCharacter:
+        case RubyPosition::LegacyInterCharacter:
+            return functor(CSS::Keyword::InterCharacter { });
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyBlockStep> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto blockStepSize = state.style.blockStepSize();
+        bool hasBlockStepSize = blockStepSize != Style::ComputedStyle::initialBlockStepSize();
+        auto blockStepSizeValue = [&] -> std::optional<Style::BlockStepSize> {
+            return hasBlockStepSize ? std::make_optional(blockStepSize) : std::nullopt;
+        };
+
+        auto blockStepInsert = state.style.blockStepInsert();
+        bool hasBlockStepInsert = blockStepInsert != Style::ComputedStyle::initialBlockStepInsert();
+        auto blockStepInsertValue = [&] -> std::optional<BlockStepInsert> {
+            return hasBlockStepInsert ? std::make_optional(blockStepInsert) : std::nullopt;
+        };
+
+        auto blockStepAlign = state.style.blockStepAlign();
+        bool hasBlockStepAlign = blockStepAlign != Style::ComputedStyle::initialBlockStepAlign();
+        auto blockStepAlignValue = [&] -> std::optional<BlockStepAlign> {
+            return hasBlockStepAlign ? std::make_optional(blockStepAlign) : std::nullopt;
+        };
+
+        auto blockStepRound = state.style.blockStepRound();
+        bool hasBlockStepRound = blockStepRound != Style::ComputedStyle::initialBlockStepRound();
+        auto blockStepRoundValue = [&] -> std::optional<BlockStepRound> {
+            return hasBlockStepRound ? std::make_optional(blockStepRound) : std::nullopt;
+        };
+
+        if (!hasBlockStepSize && !hasBlockStepInsert && !hasBlockStepAlign && !hasBlockStepRound)
+            return functor(CSS::Keyword::None { });
+
+        return functor(SpaceSeparatedTuple { blockStepSizeValue(), blockStepInsertValue(), blockStepAlignValue(), blockStepRoundValue() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyFontSynthesis> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto& description = state.style.fontDescription();
+
+        bool hasWeight = description.hasAutoFontSynthesisWeight();
+        auto weightValue = [&] -> std::optional<CSS::Keyword::Weight> {
+            return hasWeight ? std::make_optional(CSS::Keyword::Weight { }) : std::nullopt;
+        };
+
+        bool hasStyle = description.hasAutoFontSynthesisStyle();
+        auto styleValue = [&] -> std::optional<CSS::Keyword::Style> {
+            return hasStyle ? std::make_optional(CSS::Keyword::Style { }) : std::nullopt;
+        };
+
+        bool hasSmallCaps = description.hasAutoFontSynthesisSmallCaps();
+        auto smallCapsValue = [&] -> std::optional<CSS::Keyword::SmallCaps> {
+            return hasSmallCaps ? std::make_optional(CSS::Keyword::SmallCaps { }) : std::nullopt;
+        };
+
+        if (!hasWeight && !hasStyle && !hasSmallCaps)
+            return functor(CSS::Keyword::None { });
+        return functor(SpaceSeparatedTuple { weightValue(), styleValue(), smallCapsValue() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyLineClamp> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto maxLines = state.style.maxLines().tryValue();
+        if (!maxLines)
+            return functor(CSS::Keyword::None { });
+        return functor(SpaceSeparatedTuple { *maxLines, state.style.blockEllipsis() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyMaskBorder> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.maskBorder());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyOverscrollBehavior> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(std::max(state.style.overscrollBehaviorX(), state.style.overscrollBehaviorY()));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPageBreakAfter> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PageBreakSharedAdaptor<CSSPropertyPageBreakAfter> { }.computedValue(state, state.style.breakAfter(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPageBreakBefore> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PageBreakSharedAdaptor<CSSPropertyPageBreakBefore> { }.computedValue(state, state.style.breakBefore(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPageBreakInside> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return PageBreakSharedAdaptor<CSSPropertyPageBreakInside> { }.computedValue(state, state.style.breakInside(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWebkitColumnBreakAfter> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return WebkitColumnBreakSharedAdaptor<CSSPropertyWebkitColumnBreakAfter> { }.computedValue(state, state.style.breakAfter(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWebkitColumnBreakBefore> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return WebkitColumnBreakSharedAdaptor<CSSPropertyWebkitColumnBreakBefore> { }.computedValue(state, state.style.breakBefore(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWebkitColumnBreakInside> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return WebkitColumnBreakSharedAdaptor<CSSPropertyWebkitColumnBreakInside> { }.computedValue(state, state.style.breakInside(), std::forward<F>(functor));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyPerspectiveOrigin> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        if (state.renderer) {
+            auto box = state.renderer->transformReferenceBoxRect(state.style);
+
+            auto perspectiveOriginX = Length<> { evaluate<float>(state.style.perspectiveOriginX(), box.width(), ZoomNeeded { }) };
+            auto perspectiveOriginY = Length<> { evaluate<float>(state.style.perspectiveOriginY(), box.height(), ZoomNeeded { }) };
+
+            return functor(SpaceSeparatedTuple { perspectiveOriginX, perspectiveOriginY });
+        }
+
+        return functor(SpaceSeparatedTuple { state.style.perspectiveOriginX(), state.style.perspectiveOriginY() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyTextBox> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto textBoxTrim = state.style.textBoxTrim();
+        auto textBoxEdge = state.style.textBoxEdge();
+
+        auto hasDefaultTextBoxTrim = textBoxTrim == Style::ComputedStyle::initialTextBoxTrim();
+        auto hasDefaultTextBoxEdge = textBoxEdge == Style::ComputedStyle::initialTextBoxEdge();
+
+        if (hasDefaultTextBoxTrim && hasDefaultTextBoxEdge)
+            return functor(CSS::Keyword::Normal { });
+        if (hasDefaultTextBoxEdge)
+            return functor(textBoxTrim);
+        if (textBoxTrim == TextBoxTrim::TrimBoth)
+            return functor(textBoxEdge);
+
+        return functor(SpaceSeparatedTuple { textBoxTrim, textBoxEdge });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyTextDecoration> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto textDecorationLine = state.style.textDecorationLine();
+        bool hasTextDecorationLine = textDecorationLine != Style::ComputedStyle::initialTextDecorationLine();
+        auto textDecorationLineValue = [&] -> std::optional<TextDecorationLine> {
+            return hasTextDecorationLine ? std::make_optional(textDecorationLine) : std::nullopt;
+        };
+
+        auto textDecorationThickness = state.style.textDecorationThickness();
+        bool hasTextDecorationThickness = state.style.textDecorationThickness() != Style::ComputedStyle::initialTextDecorationThickness();
+        auto textDecorationThicknessValue = [&] -> std::optional<TextDecorationThickness> {
+            return hasTextDecorationThickness ? std::make_optional(textDecorationThickness) : std::nullopt;
+        };
+
+        auto textDecorationStyle = state.style.textDecorationStyle();
+        bool hasTextDecorationStyle = state.style.textDecorationStyle() != Style::ComputedStyle::initialTextDecorationStyle();
+        auto textDecorationStyleValue = [&] -> std::optional<TextDecorationStyle> {
+            return hasTextDecorationStyle ? std::make_optional(textDecorationStyle) : std::nullopt;
+        };
+
+        auto textDecorationColor = state.style.textDecorationColor();
+        bool hasTextDecorationColor = !textDecorationColor.isCurrentColor();
+        auto textDecorationColorValue = [&] -> std::optional<Color> {
+            return hasTextDecorationColor ? std::make_optional(textDecorationColor) : std::nullopt;
+        };
+
+        if (!hasTextDecorationLine && !hasTextDecorationStyle && !hasTextDecorationColor && !hasTextDecorationThickness)
+            return functor(CSS::Keyword::None { });
+
+        return functor(SpaceSeparatedTuple { textDecorationLineValue(), textDecorationThicknessValue(), textDecorationStyleValue(), textDecorationColorValue() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyTextWrap> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto textWrapMode = state.style.textWrapMode();
+        auto textWrapStyle = state.style.textWrapStyle();
+
+        // Omit default longhand values.
+        if (textWrapStyle == Style::ComputedStyle::initialTextWrapStyle())
+            return functor(textWrapMode);
+        if (textWrapMode == Style::ComputedStyle::initialTextWrapMode())
+            return functor(textWrapStyle);
+
+        return functor(SpaceSeparatedTuple { textWrapMode, textWrapStyle });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyTransformOrigin> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        if (state.renderer) {
+            auto box = state.renderer->transformReferenceBoxRect(state.style);
+
+            auto transformOriginX = Length<> { evaluate<float>(state.style.transformOriginX(), box.width(), ZoomNeeded { }) };
+            auto transformOriginY = Length<> { evaluate<float>(state.style.transformOriginY(), box.height(), ZoomNeeded { }) };
+
+            if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero())
+                return functor(SpaceSeparatedTuple { transformOriginX, transformOriginY, transformOriginZ });
+            return functor(SpaceSeparatedTuple { transformOriginX, transformOriginY });
+        }
+
+        if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero())
+            return functor(SpaceSeparatedTuple { state.style.transformOriginX(), state.style.transformOriginY(), transformOriginZ });
+        return functor(SpaceSeparatedTuple { state.style.transformOriginX(), state.style.transformOriginY() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWhiteSpace> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        auto whiteSpaceCollapse = state.style.whiteSpaceCollapse();
+        auto textWrapMode = state.style.textWrapMode();
+
+        // Convert to backwards-compatible keywords if possible.
+        if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::Wrap)
+            return functor(CSS::Keyword::Normal { });
+        if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::NoWrap)
+            return functor(CSS::Keyword::Pre { });
+        if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::Wrap)
+            return functor(CSS::Keyword::PreWrap { });
+        if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrapMode == TextWrapMode::Wrap)
+            return functor(CSS::Keyword::PreLine { });
+
+        // Omit default longhand values.
+        if (whiteSpaceCollapse == Style::ComputedStyle::initialWhiteSpaceCollapse())
+            return functor(textWrapMode);
+        if (textWrapMode == Style::ComputedStyle::initialTextWrapMode())
+            return functor(whiteSpaceCollapse);
+
+        return functor(SpaceSeparatedTuple { whiteSpaceCollapse, textWrapMode });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyColor> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(Style::Color { state.style.color() });
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyCaretColor> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.caretColor().colorOrCurrentColor());
+    }
+};
+
+
+// MARK: - Adaptor Invokers
+
+template<CSSPropertyID propertyID> Ref<CSSValue> extractCSSValue(ExtractorState& state)
+{
+    return PropertyExtractorAdaptor<propertyID> { }.computedValue(state, [&](auto&& value) {
+        return createCSSValue(state.pool, state.style, value);
+    });
+}
+
+template<CSSPropertyID propertyID> void extractSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    PropertyExtractorAdaptor<propertyID> { }.computedValue(state, [&](auto&& value) {
+        serializationForCSS(builder, context, state.style, value);
+    });
+}
+
 // MARK: - Utilities
 
-template<typename Layers, typename MappingFunctor> Ref<CSSValue> extractFillLayerValue(ExtractorState& state, const Layers& layers, MappingFunctor&& mapper)
+template<CSSPropertyID propertyID, typename List, typename Mapper> Ref<CSSValue> extractCoordinatedValueListValue(ExtractorState& state, const List& list, Mapper&& mapper)
 {
-    if (layers.size() == 1)
-        return mapper(state, layers.first());
-    CSSValueListBuilder list;
-    for (auto& layer : layers)
-        list.append(mapper(state, layer));
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    using PropertyAccessor = CoordinatedValueListPropertyConstAccessor<propertyID>;
+
+    CSSValueListBuilder resultListBuilder;
+
+    if constexpr (List::value_type::computedValueUsesUsedValues) {
+        for (auto& value : list.usedValues())
+            resultListBuilder.append(mapper(state, PropertyAccessor { value }.get(), value, list));
+    } else {
+        if (!list.isInitial()) {
+            for (auto& value : list.computedValues()) {
+                if (!PropertyAccessor { value }.isFilled())
+                    resultListBuilder.append(mapper(state, PropertyAccessor { value }.get(), value, list));
+            }
+        } else
+            resultListBuilder.append(mapper(state, PropertyAccessor::initial(), std::nullopt, list));
+    }
+
+    return CSSValueList::createCommaSeparated(WTF::move(resultListBuilder));
 }
 
-template<typename Layers, typename MappingFunctor> void extractFillLayerValueSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const Layers& layers, MappingFunctor&& mapper)
+template<CSSPropertyID propertyID, typename List, typename Mapper> void extractCoordinatedValueListSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const List& list, Mapper&& mapper)
 {
+    using PropertyAccessor = CoordinatedValueListPropertyConstAccessor<propertyID>;
+
     bool includeComma = false;
 
-    if (layers.size() == 1) {
-        mapper(state, builder, context, includeComma, layers.first());
-        return;
-    }
-
-    for (auto& layer : layers) {
-        mapper(state, builder, context, includeComma, layer);
-        includeComma = true;
-    }
-}
-
-template<typename AnimationListType, typename MappingFunctor> Ref<CSSValue> extractAnimationOrTransitionValue(ExtractorState& state, const AnimationListType& animationList, MappingFunctor&& mapper)
-{
-    CSSValueListBuilder list;
-    if (!animationList.isNone()) {
-        for (auto& animation : animationList) {
-            if (auto mappedValue = mapper(state, animation, animationList))
-                list.append(mappedValue.releaseNonNull());
+    if constexpr (List::value_type::computedValueUsesUsedValues) {
+        for (auto& value : list.usedValues()) {
+            if (includeComma)
+                builder.append(", "_s);
+            mapper(state, builder, context, PropertyAccessor { value }.get(), value, list);
+            includeComma = true;
         }
     } else {
-        if (auto mappedValue = mapper(state, std::nullopt, animationList))
-            list.append(mappedValue.releaseNonNull());
-    }
-    return CSSValueList::createCommaSeparated(WTFMove(list));
-}
-
-template<typename AnimationListType, typename MappingFunctor> void extractAnimationOrTransitionValueSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const AnimationListType& animationList, MappingFunctor&& mapper)
-{
-    bool includeComma = false;
-    if (!animationList.isNone()) {
-        for (auto& animation : animationList) {
-            auto lengthBefore = builder.length();
-            mapper(state, builder, context, includeComma, animation, animationList);
-            if (builder.length() != lengthBefore)
-                includeComma = true;
-        }
-    } else
-        mapper(state, builder, context, includeComma, std::nullopt, animationList);
-}
-
-template<CSSPropertyID propertyID, typename InsetEdgeApplier, typename NumberAsPixelsApplier, typename ValueIDApplier> decltype(auto) extractZoomAdjustedInset(ExtractorState& state, InsetEdgeApplier&& insetEdgeApplier, NumberAsPixelsApplier&& numberAsPixelsApplier, ValueIDApplier&& valueIDApplier)
-{
-    auto valueFromStyle = [&](const RenderStyle& style) -> const Style::InsetEdge& {
-        // If specified as a length, the corresponding absolute length; if specified as
-        // a percentage, the specified value; otherwise, 'auto'. Hence, we can just
-        // return the value in the style.
-        //
-        // See http://www.w3.org/TR/CSS21/cascade.html#computed-value
-
-        if constexpr (propertyID == CSSPropertyTop)
-            return style.top();
-        else if constexpr (propertyID == CSSPropertyRight)
-            return style.right();
-        else if constexpr (propertyID == CSSPropertyBottom)
-            return style.bottom();
-        else if constexpr (propertyID == CSSPropertyLeft)
-            return style.left();
-    };
-
-    auto& inset = valueFromStyle(state.style);
-
-    // If the element is not displayed; return the "computed value".
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (!box)
-        return insetEdgeApplier(inset);
-
-    auto* containingBlock = box->containingBlock();
-
-    // Resolve a "computed value" percentage if the element is positioned.
-    if (containingBlock && inset.isPercentOrCalculated() && box->isPositioned()) {
-        constexpr bool isVerticalProperty = (propertyID == CSSPropertyTop || propertyID == CSSPropertyBottom);
-
-        LayoutUnit containingBlockSize;
-        if (box->isStickilyPositioned()) {
-            auto& enclosingClippingBox = box->enclosingClippingBoxForStickyPosition().first;
-            if (isVerticalProperty == enclosingClippingBox.isHorizontalWritingMode())
-                containingBlockSize = enclosingClippingBox.contentBoxLogicalHeight();
-            else
-                containingBlockSize = enclosingClippingBox.contentBoxLogicalWidth();
-        } else {
-            if (box->isOutOfFlowPositioned()) {
-                if (isVerticalProperty)
-                    containingBlockSize = box->containingBlockRangeForPositioned(*containingBlock, BoxAxis::Vertical).size();
-                else
-                    containingBlockSize = box->containingBlockRangeForPositioned(*containingBlock, BoxAxis::Horizontal).size();
-            } else {
-                if (isVerticalProperty == containingBlock->isHorizontalWritingMode())
-                    containingBlockSize = box->containingBlockLogicalHeightForContent(AvailableLogicalHeightType::ExcludeMarginBorderPadding);
-                else
-                    containingBlockSize = box->containingBlockLogicalWidthForContent();
+        if (!list.isInitial()) {
+            for (auto& value : list.computedValues()) {
+                if (!PropertyAccessor { value }.isFilled()) {
+                    if (includeComma)
+                        builder.append(", "_s);
+                    mapper(state, builder, context, PropertyAccessor { value }.get(), value, list);
+                    includeComma = true;
+                }
             }
-        }
-        return numberAsPixelsApplier(Style::evaluate<LayoutUnit>(inset, containingBlockSize, Style::ZoomNeeded { }));
+        } else
+            mapper(state, builder, context, PropertyAccessor::initial(), std::nullopt, list);
     }
-
-    // Return a "computed value" length.
-    if (!inset.isAuto())
-        return insetEdgeApplier(inset);
-
-    auto insetUsedStyleRelative = [&](const RenderBox& box) -> LayoutUnit {
-        // For relatively positioned boxes, the inset is with respect to the top edges
-        // of the box itself. This ties together top/bottom and left/right to be
-        // opposites of each other.
-        //
-        // See http://www.w3.org/TR/CSS2/visuren.html#relative-positioning
-        //
-        // Specifically;
-        //   Since boxes are not split or stretched as a result of 'left' or
-        //   'right', the used values are always: left = -right.
-        // and
-        //   Since boxes are not split or stretched as a result of 'top' or
-        //   'bottom', the used values are always: top = -bottom.
-
-        if constexpr (propertyID == CSSPropertyTop)
-            return box.relativePositionOffset().height();
-        else if constexpr (propertyID == CSSPropertyRight)
-            return -(box.relativePositionOffset().width());
-        else if constexpr (propertyID == CSSPropertyBottom)
-            return -(box.relativePositionOffset().height());
-        else if constexpr (propertyID == CSSPropertyLeft)
-            return box.relativePositionOffset().width();
-    };
-
-    // The property won't be over-constrained if its computed value is "auto", so the "used value" can be returned.
-    if (box->isRelativelyPositioned())
-        return numberAsPixelsApplier(insetUsedStyleRelative(*box));
-
-    auto insetUsedStyleOutOfFlowPositioned = [&](const RenderBlock& container, const RenderBox& box) {
-        // For out-of-flow positioned boxes, the inset is how far an box's margin
-        // edge is inset below the edge of the box's containing block.
-        // See http://www.w3.org/TR/CSS2/visuren.html#position-props
-        //
-        // Margins are included in offsetTop/offsetLeft so we need to remove them here.
-
-        if constexpr (propertyID == CSSPropertyTop)
-            return box.offsetTop() - box.marginTop();
-        else if constexpr (propertyID == CSSPropertyRight)
-            return container.clientWidth() - (box.offsetLeft() + box.offsetWidth()) - box.marginRight();
-        else if constexpr (propertyID == CSSPropertyBottom)
-            return container.clientHeight() - (box.offsetTop() + box.offsetHeight()) - box.marginBottom();
-        else if constexpr (propertyID == CSSPropertyLeft)
-            return box.offsetLeft() - box.marginLeft();
-    };
-
-    if (containingBlock && box->isOutOfFlowPositioned())
-        return numberAsPixelsApplier(insetUsedStyleOutOfFlowPositioned(*containingBlock, *box));
-
-    return valueIDApplier(CSSValueAuto);
-}
-
-template<CSSPropertyID propertyID> Ref<CSSValue> extractZoomAdjustedInsetValue(ExtractorState& state)
-{
-    return extractZoomAdjustedInset<propertyID>(state,
-        [&](const auto& edge)   -> Ref<CSSValue> { return ExtractorConverter::convertStyleType(state, edge); },
-        [&](const auto& number) -> Ref<CSSValue> { return ExtractorConverter::convertNumberAsPixels(state, number); },
-        [&](const auto& value)  -> Ref<CSSValue> { return CSSPrimitiveValue::create(value); }
-    );
-}
-
-template<CSSPropertyID propertyID> void extractZoomAdjustedInsetSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    extractZoomAdjustedInset<propertyID>(state,
-        [&](const auto& edge)   { ExtractorSerializer::serializeStyleType(state, builder, context, edge); },
-        [&](const auto& number) { ExtractorSerializer::serializeNumberAsPixels(state, builder, context, number); },
-        [&](const auto& value)  { builder.append(nameLiteralForSerialization(value)); }
-    );
-}
-
-using PhysicalDirection = BoxSide;
-using FlowRelativeDirection = LogicalBoxSide;
-
-inline MarginTrimType toMarginTrimType(const RenderBox& renderer, PhysicalDirection direction)
-{
-    auto formattingContextRootStyle = [](const RenderBox& renderer) -> const RenderStyle& {
-        if (auto* ancestorToUse = (renderer.isFlexItem() || renderer.isGridItem()) ? renderer.parent() : renderer.containingBlock())
-            return ancestorToUse->style();
-        ASSERT_NOT_REACHED();
-        return renderer.style();
-    };
-
-    switch (mapSidePhysicalToLogical(formattingContextRootStyle(renderer).writingMode(), direction)) {
-    case FlowRelativeDirection::BlockStart:
-        return MarginTrimType::BlockStart;
-    case FlowRelativeDirection::BlockEnd:
-        return MarginTrimType::BlockEnd;
-    case FlowRelativeDirection::InlineStart:
-        return MarginTrimType::InlineStart;
-    case FlowRelativeDirection::InlineEnd:
-        return MarginTrimType::InlineEnd;
-    default:
-        ASSERT_NOT_REACHED();
-        return MarginTrimType::BlockStart;
-    }
-}
-
-inline bool rendererCanHaveTrimmedMargin(const RenderBox& renderer, MarginTrimType marginTrimType)
-{
-    // A renderer will have a specific margin marked as trimmed by setting its rare data bit if:
-    // 1.) The layout system the box is in has this logic (setting the rare data bit for this
-    // specific margin) implemented
-    // 2.) The block container/flexbox/grid has this margin specified in its margin-trim style
-    // If marginTrimType is empty we will check if any of the supported margins are in the style
-    if (renderer.isFlexItem() || renderer.isGridItem())
-        return renderer.parent()->style().marginTrim().contains(marginTrimType);
-
-    // Even though margin-trim is not inherited, it is possible for nested block level boxes
-    // to get placed at the block-start of an containing block ancestor which does have margin-trim.
-    // In this case it is not enough to simply check the immediate containing block of the child. It is
-    // also probably too expensive to perform an arbitrary walk up the tree to check for the existence
-    // of an ancestor containing block with the property, so we will just return true and let
-    // the rest of the logic in RenderBox::hasTrimmedMargin to determine if the rare data bit
-    // were set at some point during layout
-    if (renderer.isBlockLevelBox()) {
-        auto containingBlock = renderer.containingBlock();
-        return containingBlock && containingBlock->isHorizontalWritingMode();
-    }
-    return false;
-}
-
-template<auto styleGetter, auto computedCSSValueGetter> Ref<CSSValue> extractZoomAdjustedMarginValue(ExtractorState& state)
-{
-    auto* renderBox = dynamicDowncast<RenderBox>(state.renderer);
-    if (!renderBox)
-        return ExtractorConverter::convertStyleType(state, (state.style.*styleGetter)());
-    return ExtractorConverter::convertNumberAsPixels(state, (renderBox->*computedCSSValueGetter)());
-}
-
-template<auto styleGetter, auto computedCSSValueGetter> void extractZoomAdjustedMarginSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto* renderBox = dynamicDowncast<RenderBox>(state.renderer);
-    if (!renderBox) {
-        ExtractorSerializer::serializeStyleType(state, builder, context, (state.style.*styleGetter)());
-        return;
-    }
-
-    ExtractorSerializer::serializeNumberAsPixels(state, builder, context, (renderBox->*computedCSSValueGetter)());
-}
-
-template<auto styleGetter, auto computedCSSValueGetter> Ref<CSSValue> extractZoomAdjustedPaddingValue(ExtractorState& state)
-{
-    auto& paddingEdge  = (state.style.*styleGetter)();
-    auto* renderBox = dynamicDowncast<RenderBox>(state.renderer);
-    if (!renderBox || paddingEdge.isFixed())
-        return ExtractorConverter::convertStyleType(state, paddingEdge);
-    return ExtractorConverter::convertNumberAsPixels(state, (renderBox->*computedCSSValueGetter)());
-}
-
-template<auto styleGetter, auto computedCSSValueGetter> void extractZoomAdjustedPaddingSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto paddingEdge = (state.style.*styleGetter)();
-    auto* renderBox = dynamicDowncast<RenderBox>(state.renderer);
-    if (!renderBox || paddingEdge.isFixed()) {
-        ExtractorSerializer::serializeStyleType(state, builder, context, paddingEdge);
-        return;
-    }
-    ExtractorSerializer::serializeNumberAsPixels(state, builder, context, (renderBox->*computedCSSValueGetter)());
-}
-
-template<auto styleGetter, auto boxGetter> Ref<CSSValue> extractZoomAdjustedPreferredSizeValue(ExtractorState& state)
-{
-    auto sizingBox = [](auto& renderer) -> LayoutRect {
-        auto* box = dynamicDowncast<RenderBox>(renderer);
-        if (!box)
-            return LayoutRect();
-        return box->style().boxSizing() == BoxSizing::BorderBox ? box->borderBoxRect() : box->computedCSSContentBoxRect();
-    };
-
-    auto isNonReplacedInline = [](auto& renderer) {
-        return renderer.isInline() && !renderer.isBlockLevelReplacedOrAtomicInline();
-    };
-
-    if (state.renderer && !state.renderer->isRenderOrLegacyRenderSVGModelObject()) {
-        // According to http://www.w3.org/TR/CSS2/visudet.html#the-height-property,
-        // the "height" property does not apply for non-replaced inline elements.
-        if (!isNonReplacedInline(*state.renderer))
-            return ExtractorConverter::convertNumberAsPixels(state, (sizingBox(*state.renderer).*boxGetter)());
-    }
-    return ExtractorConverter::convertStyleType(state, (state.style.*styleGetter)());
-}
-
-template<auto styleGetter, auto boxGetter> void extractZoomAdjustedPreferredSizeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto sizingBox = [](auto& renderer) -> LayoutRect {
-        auto* box = dynamicDowncast<RenderBox>(renderer);
-        if (!box)
-            return LayoutRect();
-        return box->style().boxSizing() == BoxSizing::BorderBox ? box->borderBoxRect() : box->computedCSSContentBoxRect();
-    };
-
-    auto isNonReplacedInline = [](auto& renderer) {
-        return renderer.isInline() && !renderer.isBlockLevelReplacedOrAtomicInline();
-    };
-
-    if (state.renderer && !state.renderer->isRenderOrLegacyRenderSVGModelObject()) {
-        // According to http://www.w3.org/TR/CSS2/visudet.html#the-height-property,
-        // the "height" property does not apply for non-replaced inline elements.
-        if (!isNonReplacedInline(*state.renderer)) {
-            ExtractorSerializer::serializeNumberAsPixels(state, builder, context, (sizingBox(*state.renderer).*boxGetter)());
-            return;
-        }
-    }
-
-    ExtractorSerializer::serializeStyleType(state, builder, context, (state.style.*styleGetter)());
-}
-
-template<auto styleGetter> Ref<CSSValue> extractZoomAdjustedMaxSizeValue(ExtractorState& state)
-{
-    auto unzoomedLength = (state.style.*styleGetter)();
-    if (unzoomedLength.isNone())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return ExtractorConverter::convertStyleType(state, unzoomedLength);
-}
-
-template<auto styleGetter> void extractZoomAdjustedMaxSizeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto unzoomedLength = (state.style.*styleGetter)();
-    if (unzoomedLength.isNone()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    ExtractorSerializer::serializeStyleType(state, builder, context, unzoomedLength);
-}
-
-template<auto styleGetter> Ref<CSSValue> extractZoomAdjustedMinSizeValue(ExtractorState& state)
-{
-    auto isFlexOrGridItem = [](auto renderer) {
-        auto* box = dynamicDowncast<RenderBox>(renderer);
-        return box && (box->isFlexItem() || box->isGridItem());
-    };
-
-    auto unzoomedLength = (state.style.*styleGetter)();
-    if (unzoomedLength.isAuto()) {
-        if (isFlexOrGridItem(state.renderer))
-            return CSSPrimitiveValue::create(CSSValueAuto);
-        return ExtractorConverter::convertNumberAsPixels(state, 0);
-    }
-    return ExtractorConverter::convertStyleType(state, unzoomedLength);
-}
-
-template<auto styleGetter> void extractZoomAdjustedMinSizeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto isFlexOrGridItem = [](auto renderer) {
-        auto* box = dynamicDowncast<RenderBox>(renderer);
-        return box && (box->isFlexItem() || box->isGridItem());
-    };
-
-    auto unzoomedLength = (state.style.*styleGetter)();
-    if (unzoomedLength.isAuto()) {
-        if (isFlexOrGridItem(state.renderer)) {
-            CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-            return;
-        }
-
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, 0);
-        return;
-    }
-
-    ExtractorSerializer::serializeStyleType(state, builder, context, unzoomedLength);
-}
-
-template<CSSPropertyID propertyID> Ref<CSSValue> extractCounterValue(ExtractorState& state)
-{
-    auto& map = state.style.counterDirectives().map;
-    if (map.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
-
-    CSSValueListBuilder list;
-    for (auto& keyValue : map) {
-        auto number = [&]() -> std::optional<int> {
-            if constexpr (propertyID == CSSPropertyCounterIncrement)
-                return keyValue.value.incrementValue;
-            else if constexpr (propertyID == CSSPropertyCounterReset)
-                return keyValue.value.resetValue;
-            else if constexpr (propertyID == CSSPropertyCounterSet)
-                return keyValue.value.setValue;
-        }();
-        if (number) {
-            list.append(CSSPrimitiveValue::createCustomIdent(keyValue.key));
-            list.append(CSSPrimitiveValue::createInteger(*number));
-        }
-    }
-    if (!list.isEmpty())
-        return CSSValueList::createSpaceSeparated(WTFMove(list));
-    return CSSPrimitiveValue::create(CSSValueNone);
-}
-
-template<CSSPropertyID propertyID> void extractCounterSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto& map = state.style.counterDirectives().map;
-    if (map.isEmpty()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    bool listEmpty = true;
-
-    for (auto& keyValue : map) {
-        auto number = [&]() -> std::optional<int> {
-            if constexpr (propertyID == CSSPropertyCounterIncrement)
-                return keyValue.value.incrementValue;
-            else if constexpr (propertyID == CSSPropertyCounterReset)
-                return keyValue.value.resetValue;
-            else if constexpr (propertyID == CSSPropertyCounterSet)
-                return keyValue.value.setValue;
-        }();
-        if (number) {
-            if (!listEmpty)
-                builder.append(' ');
-
-            CSS::serializationForCSS(builder, context, CustomIdentifier { keyValue.key });
-            builder.append(' ');
-            CSS::serializationForCSS(builder, context, CSS::IntegerRaw<> { *number });
-
-            listEmpty = false;
-        }
-    }
-
-    if (listEmpty)
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
 }
 
 template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateValue(ExtractorState& state)
@@ -798,9 +1360,6 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
     };
 
     auto& tracks = state.style.gridTemplateList(direction);
-
-    if (tracks.masonry)
-        return CSSPrimitiveValue::create(CSSValueMasonry);
 
     auto* renderGrid = dynamicDowncast<RenderGrid>(state.renderer);
 
@@ -819,7 +1378,7 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
     bool isSubgrid = tracks.subgrid;
 
     if (trackListIsEmpty && !isSubgrid)
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
     CSSValueListBuilder list;
 
@@ -829,12 +1388,12 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
     // an appropriate grid parent), then we fall back to using the specified value.
     if (renderGrid && (!isSubgrid || renderGrid->isSubgrid(direction))) {
         if (isSubgrid) {
-            list.append(CSSPrimitiveValue::create(CSSValueSubgrid));
+            list.append(createCSSValue(state.pool, state.style, CSS::Keyword::Subgrid { }));
 
             OrderedNamedLinesCollectorInSubgridLayout collector(state, tracks, renderGrid->numTracks(direction));
             for (int i = 0; i < collector.namedGridLineCount(); i++)
                 addValuesForNamedGridLinesAtIndex(list, collector, i, true);
-            return CSSValueList::createSpaceSeparated(WTFMove(list));
+            return CSSValueList::createSpaceSeparated(WTF::move(list));
         }
 
         OrderedNamedLinesCollectorInGridLayout collector(state, tracks, renderGrid->autoRepeatCountForDirection(direction), autoRepeatTrackSizes.size());
@@ -850,11 +1409,11 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
         for (int i = start; i < end; ++i) {
             if (i + offset >= 0)
                 addValuesForNamedGridLinesAtIndex(list, collector, i + offset, false);
-            list.append(ExtractorConverter::convertNumberAsPixels(state, computedTrackSizes[i]));
+            list.append(createCSSValue(state.pool, state.style, Length<> { computedTrackSizes[i] }));
         }
         if (end + offset >= 0)
             addValuesForNamedGridLinesAtIndex(list, collector, end + offset, false);
-        return CSSValueList::createSpaceSeparated(WTFMove(list));
+        return CSSValueList::createSpaceSeparated(WTF::move(list));
     }
 
     // Otherwise, the resolved value is the computed value, preserving repeat().
@@ -867,13 +1426,13 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
                 return;
             list.append(CSSGridLineNamesValue::create(names));
         } else
-            list.append(ExtractorConverter::convertStyleType(state, std::get<GridTrackSize>(entry)));
+            list.append(createCSSValue(state.pool, state.style, std::get<GridTrackSize>(entry)));
     };
 
     for (auto& entry : computedTracks) {
         WTF::switchOn(entry,
             [&](const GridTrackSize& size) {
-                list.append(ExtractorConverter::convertStyleType(state, size));
+                list.append(createCSSValue(state.pool, state.style, size));
             },
             [&](const Vector<String>& names) {
                 // Subgrids don't have track sizes specified, so empty line names sets
@@ -886,24 +1445,21 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
                 CSSValueListBuilder repeatedValues;
                 for (auto& entry : repeat.list)
                     repeatVisitor(repeatedValues, entry);
-                list.append(CSSGridIntegerRepeatValue::create(CSSPrimitiveValue::createInteger(repeat.repeats), WTFMove(repeatedValues)));
+                list.append(CSSGridIntegerRepeatValue::create(CSSPrimitiveValue::createInteger(repeat.repeats), WTF::move(repeatedValues)));
             },
             [&](const GridTrackEntryAutoRepeat& repeat) {
                 CSSValueListBuilder repeatedValues;
                 for (auto& entry : repeat.list)
                     repeatVisitor(repeatedValues, entry);
-                list.append(CSSGridAutoRepeatValue::create(repeat.type == AutoRepeatType::Fill ? CSSValueAutoFill : CSSValueAutoFit, WTFMove(repeatedValues)));
+                list.append(CSSGridAutoRepeatValue::create(repeat.type == AutoRepeatType::Fill ? CSSValueAutoFill : CSSValueAutoFit, WTF::move(repeatedValues)));
             },
             [&](const GridTrackEntrySubgrid&) {
-                list.append(CSSPrimitiveValue::create(CSSValueSubgrid));
-            },
-            [&](const GridTrackEntryMasonry&) {
-                list.append(CSSPrimitiveValue::create(CSSValueMasonry));
+                list.append(createCSSValue(state.pool, state.style, CSS::Keyword::Subgrid { }));
             }
         );
     }
 
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 template<GridTrackSizingDirection direction> void extractGridTemplateSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
@@ -931,7 +1487,7 @@ inline Ref<CSSValueList> extractStandardSpaceSeparatedShorthand(ExtractorState& 
     CSSValueListBuilder list;
     for (auto longhand : shorthand)
         list.append(ExtractorGenerated::extractValue(state, longhand).releaseNonNull());
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline void extractStandardSpaceSeparatedShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePropertyShorthand& shorthand)
@@ -946,7 +1502,7 @@ inline Ref<CSSValue> extractStandardSlashSeparatedShorthand(ExtractorState& stat
     CSSValueListBuilder builder;
     for (auto longhand : shorthand)
         builder.append(ExtractorGenerated::extractValue(state, longhand).releaseNonNull());
-    return CSSValueList::createSlashSeparated(WTFMove(builder));
+    return CSSValueList::createSlashSeparated(WTF::move(builder));
 }
 
 inline void extractStandardSlashSeparatedShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePropertyShorthand& shorthand)
@@ -1026,7 +1582,7 @@ inline RefPtr<CSSValue> extractCoalescingQuadShorthand(ExtractorState& state, co
         list.append(bottomValue.releaseNonNull());
     if (showLeft)
         list.append(leftValue.releaseNonNull());
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline void extractCoalescingQuadShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePropertyShorthand& shorthand)
@@ -1128,9 +1684,9 @@ inline Ref<CSSValue> extractBorderRadiusShorthand(ExtractorState& state, CSSProp
     };
 
     auto extractBorderRadiusCornerValues = [&](auto& state, const auto& radius) {
-        auto x = ExtractorConverter::convertStyleType(state, radius.width());
-        auto y = radius.width() == radius.height() ? x.copyRef() : ExtractorConverter::convertStyleType(state, radius.height());
-        return std::pair<Ref<CSSValue>, Ref<CSSValue>> { WTFMove(x), WTFMove(y) };
+        auto x = createCSSValue(state.pool, state.style, radius.width());
+        auto y = radius.width() == radius.height() ? x.copyRef() : createCSSValue(state.pool, state.style, radius.height());
+        return std::pair<Ref<CSSValue>, Ref<CSSValue>> { WTF::move(x), WTF::move(y) };
     };
 
     bool showHorizontalBottomLeft = state.style.borderTopRightRadius().width() != state.style.borderBottomLeftRadius().width();
@@ -1147,32 +1703,32 @@ inline Ref<CSSValue> extractBorderRadiusShorthand(ExtractorState& state, CSSProp
     auto [bottomLeftRadiusX, bottomLeftRadiusY] = extractBorderRadiusCornerValues(state, state.style.borderBottomLeftRadius());
 
     CSSValueListBuilder horizontalRadii;
-    horizontalRadii.append(WTFMove(topLeftRadiusX));
+    horizontalRadii.append(WTF::move(topLeftRadiusX));
     if (showHorizontalTopRight)
-        horizontalRadii.append(WTFMove(topRightRadiusX));
+        horizontalRadii.append(WTF::move(topRightRadiusX));
     if (showHorizontalBottomRight)
-        horizontalRadii.append(WTFMove(bottomRightRadiusX));
+        horizontalRadii.append(WTF::move(bottomRightRadiusX));
     if (showHorizontalBottomLeft)
-        horizontalRadii.append(WTFMove(bottomLeftRadiusX));
+        horizontalRadii.append(WTF::move(bottomLeftRadiusX));
 
     CSSValueListBuilder verticalRadii;
-    verticalRadii.append(WTFMove(topLeftRadiusY));
+    verticalRadii.append(WTF::move(topLeftRadiusY));
     if (showVerticalTopRight)
-        verticalRadii.append(WTFMove(topRightRadiusY));
+        verticalRadii.append(WTF::move(topRightRadiusY));
     if (showVerticalBottomRight)
-        verticalRadii.append(WTFMove(bottomRightRadiusY));
+        verticalRadii.append(WTF::move(bottomRightRadiusY));
     if (showVerticalBottomLeft)
-        verticalRadii.append(WTFMove(bottomLeftRadiusY));
+        verticalRadii.append(WTF::move(bottomLeftRadiusY));
 
     bool includeVertical = false;
     if (!itemsEqual(horizontalRadii, verticalRadii))
         includeVertical = true;
     else if (propertyID == CSSPropertyWebkitBorderRadius && showHorizontalTopRight && !showHorizontalBottomRight)
-        horizontalRadii.append(WTFMove(bottomRightRadiusX));
+        horizontalRadii.append(WTF::move(bottomRightRadiusX));
 
     if (!includeVertical)
-        return CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTFMove(horizontalRadii)));
-    return CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTFMove(horizontalRadii)), CSSValueList::createSpaceSeparated(WTFMove(verticalRadii)));
+        return CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTF::move(horizontalRadii)));
+    return CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTF::move(horizontalRadii)), CSSValueList::createSpaceSeparated(WTF::move(verticalRadii)));
 }
 
 inline void extractBorderRadiusShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, CSSPropertyID propertyID)
@@ -1186,7 +1742,7 @@ template<CSSPropertyID property> inline Ref<CSSValue> extractFillLayerPropertySh
     static_assert(property == CSSPropertyBackground || property == CSSPropertyMask);
 
     auto computeRenderStyle = [&](std::unique_ptr<RenderStyle>& ownedStyle) -> const RenderStyle* {
-        if (auto renderer = state.element->renderer(); renderer && renderer->isComposited() && Style::Interpolation::isAccelerated(property, state.element->document().settings())) {
+        if (auto renderer = state.element->renderer(); renderer && renderer->isComposited() && Interpolation::isAccelerated(property, state.element->document().settings())) {
             ownedStyle = renderer->animatedStyle();
             if (state.pseudoElementIdentifier) {
                 // FIXME: This cached pseudo style will only exist if the animation has been run at least once.
@@ -1213,13 +1769,16 @@ template<CSSPropertyID property> inline Ref<CSSValue> extractFillLayerPropertySh
                 return style->backgroundLayers();
         }();
 
-        if (layers.size() == 1 && property == CSSPropertyMask && !layers.first().hasImage())
-            return 0;
-        return layers.size();
+        if constexpr (property == CSSPropertyMask) {
+            if (layers.usedLength() == 1 && !layers.usedFirst().hasImage())
+                return 0;
+        }
+
+        return layers.usedLength();
     }();
     if (!layerCount) {
         ASSERT(property == CSSPropertyMask);
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
     }
 
     auto lastValue = lastLayerProperty != CSSPropertyInvalid ? ExtractorGenerated::extractValue(state, lastLayerProperty) : nullptr;
@@ -1243,12 +1802,12 @@ template<CSSPropertyID property> inline Ref<CSSValue> extractFillLayerPropertySh
             auto& value = *after->item(j);
             afterList.append(const_cast<CSSValue&>(layerCount == 1 ? value : *downcast<CSSValueList>(value).item(i)));
         }
-        auto list = CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTFMove(beforeList)), CSSValueList::createSpaceSeparated(WTFMove(afterList)));
+        auto list = CSSValueList::createSlashSeparated(CSSValueList::createSpaceSeparated(WTF::move(beforeList)), CSSValueList::createSpaceSeparated(WTF::move(afterList)));
         if (layerCount == 1)
             return list;
-        layers.append(WTFMove(list));
+        layers.append(WTF::move(list));
     }
-    return CSSValueList::createCommaSeparated(WTFMove(layers));
+    return CSSValueList::createCommaSeparated(WTF::move(layers));
 }
 
 template<CSSPropertyID property> inline void extractFillLayerPropertyShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
@@ -1259,55 +1818,34 @@ template<CSSPropertyID property> inline void extractFillLayerPropertyShorthandSe
 
 // MARK: - Custom Extractors
 
-inline CSSValueID extractDirectionValueID(ExtractorState& state)
-{
-    if (state.element.ptr() == state.element->document().documentElement() && !state.style.hasExplicitlySetDirection())
-        return toCSSValueID(RenderStyle::initialDirection());
-    return toCSSValueID(state.style.writingMode().computedTextDirection());
-}
-
 inline Ref<CSSValue> ExtractorCustom::extractDirection(ExtractorState& state)
 {
-    return CSSPrimitiveValue::create(extractDirectionValueID(state));
+    return extractCSSValue<CSSPropertyDirection>(state);
 }
 
-inline void ExtractorCustom::extractDirectionSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext&)
+inline void ExtractorCustom::extractDirectionSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    builder.append(nameLiteralForSerialization(extractDirectionValueID(state)));
-}
-
-inline CSSValueID extractWritingModeValueID(ExtractorState& state)
-{
-    if (state.element.ptr() == state.element->document().documentElement() && !state.style.hasExplicitlySetWritingMode())
-        return toCSSValueID(RenderStyle::initialWritingMode());
-    return toCSSValueID(state.style.writingMode().computedWritingMode());
+    extractSerialization<CSSPropertyDirection>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractWritingMode(ExtractorState& state)
 {
-    return CSSPrimitiveValue::create(extractWritingModeValueID(state));
+    return extractCSSValue<CSSPropertyWritingMode>(state);
 }
 
-inline void ExtractorCustom::extractWritingModeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext&)
+inline void ExtractorCustom::extractWritingModeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    builder.append(nameLiteralForSerialization(extractWritingModeValueID(state)));
+    extractSerialization<CSSPropertyWritingMode>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractFloat(ExtractorState& state)
 {
-    if (state.style.hasOutOfFlowPosition())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return ExtractorConverter::convert(state, state.style.floating());
+    return extractCSSValue<CSSPropertyFloat>(state);
 }
 
 inline void ExtractorCustom::extractFloatSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.style.hasOutOfFlowPosition()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    ExtractorSerializer::serialize(state, builder, context, state.style.floating());
+    extractSerialization<CSSPropertyFloat>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractContent(ExtractorState& state)
@@ -1352,319 +1890,268 @@ inline void ExtractorCustom::extractLineHeightSerialization(ExtractorState& stat
 
 inline Ref<CSSValue> ExtractorCustom::extractFontFamily(ExtractorState& state)
 {
-    if (state.style.fontCascade().familyCount() == 1)
-        return ExtractorConverter::convertFontFamily(state, state.style.fontCascade().familyAt(0));
-
-    CSSValueListBuilder list;
-    for (unsigned i = 0; i < state.style.fontCascade().familyCount(); ++i)
-        list.append(ExtractorConverter::convertFontFamily(state, state.style.fontCascade().familyAt(i)));
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return extractCSSValue<CSSPropertyFontFamily>(state);
 }
 
 inline void ExtractorCustom::extractFontFamilySerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    builder.append(interleave(state.style.fontCascade().fontDescription().families(), [&](auto& builder, auto& family) {
-        ExtractorSerializer::serializeFontFamily(state, builder, context, family);
-    }, ", "_s));
+    extractSerialization<CSSPropertyFontFamily>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractFontSize(ExtractorState& state)
 {
-    return ExtractorConverter::convertNumberAsPixels(state, state.style.fontDescription().computedSize());
+    return extractCSSValue<CSSPropertyFontSize>(state);
 }
 
 inline void ExtractorCustom::extractFontSizeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializeNumberAsPixels(state, builder, context, state.style.fontDescription().computedSize());
+    extractSerialization<CSSPropertyFontSize>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractTop(ExtractorState& state)
 {
-    return extractZoomAdjustedInsetValue<CSSPropertyTop>(state);
+    return extractCSSValue<CSSPropertyTop>(state);
 }
 
 inline void ExtractorCustom::extractTopSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedInsetSerialization<CSSPropertyTop>(state, builder, context);
+    extractSerialization<CSSPropertyTop>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractRight(ExtractorState& state)
 {
-    return extractZoomAdjustedInsetValue<CSSPropertyRight>(state);
+    return extractCSSValue<CSSPropertyRight>(state);
 }
 
 inline void ExtractorCustom::extractRightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedInsetSerialization<CSSPropertyRight>(state, builder, context);
+    extractSerialization<CSSPropertyRight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractBottom(ExtractorState& state)
 {
-    return extractZoomAdjustedInsetValue<CSSPropertyBottom>(state);
+    return extractCSSValue<CSSPropertyBottom>(state);
 }
 
 inline void ExtractorCustom::extractBottomSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedInsetSerialization<CSSPropertyBottom>(state, builder, context);
+    extractSerialization<CSSPropertyBottom>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractLeft(ExtractorState& state)
 {
-    return extractZoomAdjustedInsetValue<CSSPropertyLeft>(state);
+    return extractCSSValue<CSSPropertyLeft>(state);
 }
 
 inline void ExtractorCustom::extractLeftSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedInsetSerialization<CSSPropertyLeft>(state, builder, context);
+    extractSerialization<CSSPropertyLeft>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMarginTop(ExtractorState& state)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockStart) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Top)))
-        return ExtractorConverter::convertNumberAsPixels(state, box->marginTop());
-    return extractZoomAdjustedMarginValue<&RenderStyle::marginTop, &RenderBoxModelObject::marginTop>(state);
+    return extractCSSValue<CSSPropertyMarginTop>(state);
 }
 
 inline void ExtractorCustom::extractMarginTopSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockStart) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Top))) {
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, box->marginTop());
-        return;
-    }
-
-    extractZoomAdjustedMarginSerialization<&RenderStyle::marginTop, &RenderBoxModelObject::marginTop>(state, builder, context);
+    extractSerialization<CSSPropertyMarginTop>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMarginRight(ExtractorState& state)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineEnd) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Right)))
-        return ExtractorConverter::convertNumberAsPixels(state, box->marginRight());
-
-    auto& marginRight = state.style.marginRight();
-    if (marginRight.isFixed() || !box)
-        return ExtractorConverter::convertStyleType(state, marginRight);
-
-    float value;
-    if (marginRight.isPercentOrCalculated()) {
-        // RenderBox gives a marginRight() that is the distance between the right-edge of the child box
-        // and the right-edge of the containing box, when display == DisplayType::Block. Let's calculate the absolute
-        // value of the specified margin-right % instead of relying on RenderBox's marginRight() value.
-        value = Style::evaluateMinimum<float>(marginRight, box->containingBlockLogicalWidthForContent(), Style::ZoomNeeded { });
-    } else
-        value = box->marginRight();
-    return ExtractorConverter::convertNumberAsPixels(state, value);
+    return extractCSSValue<CSSPropertyMarginRight>(state);
 }
 
 inline void ExtractorCustom::extractMarginRightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineEnd) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Right))) {
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, box->marginRight());
-        return;
-    }
-
-    auto& marginRight = state.style.marginRight();
-    if (marginRight.isFixed() || !box) {
-        ExtractorSerializer::serializeStyleType(state, builder, context, marginRight);
-        return;
-    }
-
-    float value;
-    if (marginRight.isPercentOrCalculated()) {
-        // RenderBox gives a marginRight() that is the distance between the right-edge of the child box
-        // and the right-edge of the containing box, when display == DisplayType::Block. Let's calculate the absolute
-        // value of the specified margin-right % instead of relying on RenderBox's marginRight() value.
-        value = Style::evaluateMinimum<float>(marginRight, box->containingBlockLogicalWidthForContent(), Style::ZoomNeeded { });
-    } else
-        value = box->marginRight();
-
-    ExtractorSerializer::serializeNumberAsPixels(state, builder, context, value);
+    extractSerialization<CSSPropertyMarginRight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMarginBottom(ExtractorState& state)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockEnd) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Bottom)))
-        return ExtractorConverter::convertNumberAsPixels(state, box->marginBottom());
-    return extractZoomAdjustedMarginValue<&RenderStyle::marginBottom, &RenderBoxModelObject::marginBottom>(state);
+    return extractCSSValue<CSSPropertyMarginBottom>(state);
 }
 
 inline void ExtractorCustom::extractMarginBottomSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockEnd) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Bottom))) {
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, box->marginBottom());
-        return;
-    }
-
-    extractZoomAdjustedMarginSerialization<&RenderStyle::marginBottom, &RenderBoxModelObject::marginBottom>(state, builder, context);
+    extractSerialization<CSSPropertyMarginBottom>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMarginLeft(ExtractorState& state)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineStart) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Left)))
-        return ExtractorConverter::convertNumberAsPixels(state, box->marginLeft());
-    return extractZoomAdjustedMarginValue<&RenderStyle::marginLeft, &RenderBoxModelObject::marginLeft>(state);
+    return extractCSSValue<CSSPropertyMarginLeft>(state);
 }
 
 inline void ExtractorCustom::extractMarginLeftSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    CheckedPtr box = dynamicDowncast<RenderBox>(state.renderer);
-    if (box && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineStart) && box->hasTrimmedMargin(toMarginTrimType(*box, PhysicalDirection::Left))) {
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, box->marginLeft());
-        return;
-    }
-    extractZoomAdjustedMarginSerialization<&RenderStyle::marginLeft, &RenderBoxModelObject::marginLeft>(state, builder, context);
+    extractSerialization<CSSPropertyMarginLeft>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractPaddingTop(ExtractorState& state)
 {
-    return extractZoomAdjustedPaddingValue<&RenderStyle::paddingTop, &RenderBoxModelObject::computedCSSPaddingTop>(state);
+    return extractCSSValue<CSSPropertyPaddingTop>(state);
 }
 
 inline void ExtractorCustom::extractPaddingTopSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPaddingSerialization<&RenderStyle::paddingTop, &RenderBoxModelObject::computedCSSPaddingTop>(state, builder, context);
+    extractSerialization<CSSPropertyPaddingTop>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractPaddingRight(ExtractorState& state)
 {
-    return extractZoomAdjustedPaddingValue<&RenderStyle::paddingRight, &RenderBoxModelObject::computedCSSPaddingRight>(state);
+    return extractCSSValue<CSSPropertyPaddingRight>(state);
 }
 
 inline void ExtractorCustom::extractPaddingRightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPaddingSerialization<&RenderStyle::paddingRight, &RenderBoxModelObject::computedCSSPaddingRight>(state, builder, context);
+    extractSerialization<CSSPropertyPaddingRight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractPaddingBottom(ExtractorState& state)
 {
-    return extractZoomAdjustedPaddingValue<&RenderStyle::paddingBottom, &RenderBoxModelObject::computedCSSPaddingBottom>(state);
+    return extractCSSValue<CSSPropertyPaddingBottom>(state);
 }
 
 inline void ExtractorCustom::extractPaddingBottomSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPaddingSerialization<&RenderStyle::paddingBottom, &RenderBoxModelObject::computedCSSPaddingBottom>(state, builder, context);
+    extractSerialization<CSSPropertyPaddingBottom>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractPaddingLeft(ExtractorState& state)
 {
-    return extractZoomAdjustedPaddingValue<&RenderStyle::paddingLeft, &RenderBoxModelObject::computedCSSPaddingLeft>(state);
+    return extractCSSValue<CSSPropertyPaddingLeft>(state);
 }
 
 inline void ExtractorCustom::extractPaddingLeftSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPaddingSerialization<&RenderStyle::paddingLeft, &RenderBoxModelObject::computedCSSPaddingLeft>(state, builder, context);
+    extractSerialization<CSSPropertyPaddingLeft>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractBorderTopWidth(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyBorderTopWidth>(state);
+}
+
+inline void ExtractorCustom::extractBorderTopWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyBorderTopWidth>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractBorderRightWidth(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyBorderRightWidth>(state);
+}
+
+inline void ExtractorCustom::extractBorderRightWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyBorderRightWidth>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractBorderBottomWidth(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyBorderBottomWidth>(state);
+}
+
+inline void ExtractorCustom::extractBorderBottomWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyBorderBottomWidth>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractBorderLeftWidth(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyBorderLeftWidth>(state);
+}
+
+inline void ExtractorCustom::extractBorderLeftWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyBorderLeftWidth>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractHeight(ExtractorState& state)
 {
-    return extractZoomAdjustedPreferredSizeValue<&RenderStyle::height, &LayoutRect::height>(state);
+    return extractCSSValue<CSSPropertyHeight>(state);
 }
 
 inline void ExtractorCustom::extractHeightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPreferredSizeSerialization<&RenderStyle::height, &LayoutRect::height>(state, builder, context);
+    extractSerialization<CSSPropertyHeight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractWidth(ExtractorState& state)
 {
-    return extractZoomAdjustedPreferredSizeValue<&RenderStyle::width, &LayoutRect::width>(state);
+    return extractCSSValue<CSSPropertyWidth>(state);
 }
 
 inline void ExtractorCustom::extractWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedPreferredSizeSerialization<&RenderStyle::width, &LayoutRect::width>(state, builder, context);
+    extractSerialization<CSSPropertyWidth>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMaxHeight(ExtractorState& state)
 {
-    return extractZoomAdjustedMaxSizeValue<&RenderStyle::maxHeight>(state);
+    return extractCSSValue<CSSPropertyMaxHeight>(state);
 }
 
 inline void ExtractorCustom::extractMaxHeightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedMaxSizeSerialization<&RenderStyle::maxHeight>(state, builder, context);
+    extractSerialization<CSSPropertyMaxHeight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMaxWidth(ExtractorState& state)
 {
-    return extractZoomAdjustedMaxSizeValue<&RenderStyle::maxWidth>(state);
+    return extractCSSValue<CSSPropertyMaxWidth>(state);
 }
 
 inline void ExtractorCustom::extractMaxWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedMaxSizeSerialization<&RenderStyle::maxWidth>(state, builder, context);
+    extractSerialization<CSSPropertyMaxWidth>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMinHeight(ExtractorState& state)
 {
-    return extractZoomAdjustedMinSizeValue<&RenderStyle::minHeight>(state);
+    return extractCSSValue<CSSPropertyMinHeight>(state);
 }
 
 inline void ExtractorCustom::extractMinHeightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedMinSizeSerialization<&RenderStyle::minHeight>(state, builder, context);
+    extractSerialization<CSSPropertyMinHeight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractMinWidth(ExtractorState& state)
 {
-    return extractZoomAdjustedMinSizeValue<&RenderStyle::minWidth>(state);
+    return extractCSSValue<CSSPropertyMinWidth>(state);
 }
 
 inline void ExtractorCustom::extractMinWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractZoomAdjustedMinSizeSerialization<&RenderStyle::minWidth>(state, builder, context);
+    extractSerialization<CSSPropertyMinWidth>(state, builder, context);
 }
 
-inline Ref<CSSValue> ExtractorCustom::extractCounterIncrement(ExtractorState& state)
+inline Ref<CSSValue> ExtractorCustom::extractGridAutoFlow(ExtractorState& state)
 {
-    return extractCounterValue<CSSPropertyCounterIncrement>(state);
+    return extractCSSValue<CSSPropertyGridAutoFlow>(state);
 }
 
-inline void ExtractorCustom::extractCounterIncrementSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+inline void ExtractorCustom::extractGridAutoFlowSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    extractCounterSerialization<CSSPropertyCounterIncrement>(state, builder, context);
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractCounterReset(ExtractorState& state)
-{
-    return extractCounterValue<CSSPropertyCounterReset>(state);
-}
-
-inline void ExtractorCustom::extractCounterResetSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    extractCounterSerialization<CSSPropertyCounterReset>(state, builder, context);
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractCounterSet(ExtractorState& state)
-{
-    return extractCounterValue<CSSPropertyCounterSet>(state);
-}
-
-inline void ExtractorCustom::extractCounterSetSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    extractCounterSerialization<CSSPropertyCounterSet>(state, builder, context);
+    extractSerialization<CSSPropertyGridAutoFlow>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractBorderImageWidth(ExtractorState& state)
 {
-    auto& borderImage = state.style.borderImage();
-    if (borderImage.overridesBorderWidths())
+    auto& borderImageWidth = state.style.borderImageWidth();
+    if (borderImageWidth.overridesBorderWidths())
         return nullptr;
-    return createCSSValue(state.pool, state.style, borderImage.width());
+    return createCSSValue(state.pool, state.style, borderImageWidth);
 }
 
 inline void ExtractorCustom::extractBorderImageWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto& borderImage = state.style.borderImage();
-    if (borderImage.overridesBorderWidths())
+    auto& borderImageWidth = state.style.borderImageWidth();
+    if (borderImageWidth.overridesBorderWidths())
         return;
-    serializationForCSS(builder, context, state.style, borderImage.width());
+    serializationForCSS(builder, context, state.style, borderImageWidth);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractTransform(ExtractorState& state)
@@ -1672,11 +2159,8 @@ inline Ref<CSSValue> ExtractorCustom::extractTransform(ExtractorState& state)
     if (!state.style.hasTransform())
         return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
-    if (state.renderer) {
-        TransformationMatrix transform;
-        state.style.applyTransform(transform, TransformOperationData(state.renderer->transformReferenceBoxRect(state.style), state.renderer), { });
-        return CSSTransformListValue::create(ExtractorConverter::convertTransformationMatrix(state, transform));
-    }
+    if (state.renderer)
+        return CSSTransformListValue::create(createCSSValue(state.pool, state.style, TransformResolver::computeTransform(state.style, TransformOperationData(state.renderer->transformReferenceBoxRect(state.style), state.renderer), { })));
 
     // https://w3c.github.io/csswg-drafts/css-transforms-1/#serialization-of-the-computed-value
     // If we don't have a renderer, then the value should be "none" if we're asking for the
@@ -1695,9 +2179,7 @@ inline void ExtractorCustom::extractTransformSerialization(ExtractorState& state
     }
 
     if (state.renderer) {
-        TransformationMatrix transform;
-        state.style.applyTransform(transform, TransformOperationData(state.renderer->transformReferenceBoxRect(state.style), state.renderer), { });
-        ExtractorSerializer::serializeTransformationMatrix(state, builder, context, transform);
+        serializationForCSS(builder, context, state.style, TransformResolver::computeTransform(state.style, TransformOperationData(state.renderer->transformReferenceBoxRect(state.style), state.renderer), { }));
         return;
     }
 
@@ -1742,78 +2224,33 @@ inline void ExtractorCustom::extractRotateSerialization(ExtractorState& state, S
     extractSerialization<CSSPropertyRotate>(state, builder, context);
 }
 
-inline Ref<CSSValue> ExtractorCustom::extractGridAutoFlow(ExtractorState& state)
-{
-    CSSValueListBuilder list;
-    ASSERT(state.style.isGridAutoFlowDirectionRow() || state.style.isGridAutoFlowDirectionColumn());
-    if (state.style.isGridAutoFlowDirectionColumn())
-        list.append(CSSPrimitiveValue::create(CSSValueColumn));
-    else if (!state.style.isGridAutoFlowAlgorithmDense())
-        list.append(CSSPrimitiveValue::create(CSSValueRow));
-
-    if (state.style.isGridAutoFlowAlgorithmDense())
-        list.append(CSSPrimitiveValue::create(CSSValueDense));
-
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline void ExtractorCustom::extractGridAutoFlowSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    ASSERT(state.style.isGridAutoFlowDirectionRow() || state.style.isGridAutoFlowDirectionColumn());
-
-    bool listEmpty = true;
-    if (state.style.isGridAutoFlowDirectionColumn()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Column { });
-        listEmpty = false;
-    } else if (!state.style.isGridAutoFlowAlgorithmDense()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Row { });
-        listEmpty = false;
-    }
-
-    if (state.style.isGridAutoFlowAlgorithmDense()) {
-        if (!listEmpty)
-            builder.append(' ');
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Dense { });
-    }
-}
-
 inline Ref<CSSValue> ExtractorCustom::extractGridTemplateColumns(ExtractorState& state)
 {
-    return WebCore::Style::extractGridTemplateValue<GridTrackSizingDirection::Columns>(state);
+    return extractGridTemplateValue<GridTrackSizingDirection::Columns>(state);
 }
 
 inline void ExtractorCustom::extractGridTemplateColumnsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    WebCore::Style::extractGridTemplateSerialization<GridTrackSizingDirection::Columns>(state, builder, context);
+    extractGridTemplateSerialization<GridTrackSizingDirection::Columns>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractGridTemplateRows(ExtractorState& state)
 {
-    return WebCore::Style::extractGridTemplateValue<GridTrackSizingDirection::Rows>(state);
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractWidows(ExtractorState& state)
-{
-    return extractCSSValue<CSSPropertyWidows>(state);
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractOrphans(ExtractorState& state)
-{
-    return extractCSSValue<CSSPropertyOrphans>(state);
+    return extractGridTemplateValue<GridTrackSizingDirection::Rows>(state);
 }
 
 inline void ExtractorCustom::extractGridTemplateRowsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    WebCore::Style::extractGridTemplateSerialization<GridTrackSizingDirection::Rows>(state, builder, context);
+    extractGridTemplateSerialization<GridTrackSizingDirection::Rows>(state, builder, context);
 }
 
 inline Ref<CSSValue> convertSingleAnimationDuration(ExtractorState& state, const Style::SingleAnimationDuration& duration, const std::optional<Style::Animation>& animation, const Style::Animations& animationList)
 {
     auto animationListHasMultipleExplicitTimelines = [&] {
-        if (animationList.size() <= 1)
+        if (animationList.computedLength() <= 1)
             return false;
         auto explicitTimelines = 0;
-        for (auto& animation : animationList) {
+        for (auto& animation : animationList.computedValues()) {
             if (animation.isTimelineSet())
                 ++explicitTimelines;
             if (explicitTimelines > 1)
@@ -1839,38 +2276,123 @@ inline Ref<CSSValue> convertSingleAnimationDuration(ExtractorState& state, const
 
 inline Ref<CSSValue> ExtractorCustom::extractAnimationDuration(ExtractorState& state)
 {
-    auto mapper = [](auto& state, const std::optional<Style::Animation>& animation, const Style::Animations& animations) -> RefPtr<CSSValue> {
-        if (!animation)
-            return convertSingleAnimationDuration(state, Animation::initialDuration(), animation, animations);
-        if (!animation->isDurationFilled())
-            return convertSingleAnimationDuration(state, animation->duration(), animation, animations);
-        return nullptr;
+    auto mapper = [](auto& state, const auto& value, const std::optional<Animation>& animation, const auto& animations) -> Ref<CSSValue> {
+        return convertSingleAnimationDuration(state, value, animation, animations);
     };
-    return extractAnimationOrTransitionValue(state, state.style.animations(), mapper);
+    return extractCoordinatedValueListValue<CSSPropertyAnimationDuration>(state, state.style.animations(), mapper);
 }
 
 inline void ExtractorCustom::extractAnimationDurationSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto serializeSingleAnimationDuration = [](auto& state, auto& builder, const auto& context, const auto& duration, const std::optional<Style::Animation>& animation, const Style::Animations& animations) {
+    auto mapper = [&](auto& state, auto& builder, const auto& context, const auto& value, const std::optional<Animation>& animation, const auto& animations) {
         // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-        builder.append(convertSingleAnimationDuration(state, duration, animation, animations)->cssText(context));
+        builder.append(convertSingleAnimationDuration(state, value, animation, animations)->cssText(context));
     };
+    return extractCoordinatedValueListSerialization<CSSPropertyAnimationDuration>(state, builder, context, state.style.animations(), mapper);
+}
 
-    auto mapper = [&](auto& state, auto& builder, const auto& context, bool includeComma, const std::optional<Style::Animation>& animation, const Style::Animations& animations) {
-        if (!animation) {
-            if (includeComma)
-                builder.append(", "_s);
-            serializeSingleAnimationDuration(state, builder, context, Animation::initialDuration(), animation, animations);
-            return;
-        }
-        if (!animation->isDurationFilled()) {
-            if (includeComma)
-                builder.append(", "_s);
-            serializeSingleAnimationDuration(state, builder, context, animation->duration(), animation, animations);
-            return;
-        }
+inline Ref<CSSValue> ExtractorCustom::extractWidows(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyWidows>(state);
+}
+
+inline void ExtractorCustom::extractWidowsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyWidows>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractOrphans(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyOrphans>(state);
+}
+
+inline void ExtractorCustom::extractOrphansSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyOrphans>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractWebkitTextCombine(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyWebkitTextCombine>(state);
+}
+
+inline void ExtractorCustom::extractWebkitTextCombineSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyWebkitTextCombine>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractWebkitRubyPosition(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyWebkitRubyPosition>(state);
+}
+
+inline void ExtractorCustom::extractWebkitRubyPositionSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyWebkitRubyPosition>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractWebkitMaskComposite(ExtractorState& state)
+{
+    auto mapper = [](auto&, const auto& value, const std::optional<MaskLayers::value_type>&, const auto&) -> Ref<CSSValue> {
+        return CSSPrimitiveValue::create(toCSSValueIDForWebkitMaskComposite(value));
     };
-    return extractAnimationOrTransitionValueSerialization(state, builder, context, state.style.animations(), mapper);
+    return extractCoordinatedValueListValue<CSSPropertyID::CSSPropertyMaskComposite>(state, state.style.maskLayers(), mapper);
+}
+
+inline void ExtractorCustom::extractWebkitMaskCompositeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    auto mapper = [](auto&, auto& builder, const auto&, const auto& value, const std::optional<MaskLayers::value_type>&, const auto&) {
+        builder.append(nameLiteralForSerialization(toCSSValueIDForWebkitMaskComposite(value)));
+    };
+    extractCoordinatedValueListSerialization<CSSPropertyID::CSSPropertyMaskComposite>(state, builder, context, state.style.maskLayers(), mapper);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractWebkitMaskSourceType(ExtractorState& state)
+{
+    auto mapper = [](auto&, const auto& value, const std::optional<MaskLayers::value_type>&, const auto&) -> Ref<CSSValue> {
+        return CSSPrimitiveValue::create(toCSSValueIDForWebkitMaskSourceType(value));
+    };
+    return extractCoordinatedValueListValue<CSSPropertyID::CSSPropertyMaskMode>(state, state.style.maskLayers(), mapper);
+}
+
+inline void ExtractorCustom::extractWebkitMaskSourceTypeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    auto mapper = [](auto&, auto& builder, const auto&, const auto& value, const std::optional<MaskLayers::value_type>&, const auto&) {
+        builder.append(nameLiteralForSerialization(toCSSValueIDForWebkitMaskSourceType(value)));
+    };
+    extractCoordinatedValueListSerialization<CSSPropertyID::CSSPropertyMaskMode>(state, builder, context, state.style.maskLayers(), mapper);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractColor(ExtractorState& state)
+{
+    if (state.allowVisitedStyle)
+        return state.pool.createColorValue(state.style.visitedDependentColor());
+    return extractCSSValue<CSSPropertyColor>(state);
+}
+
+inline void ExtractorCustom::extractColorSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    if (state.allowVisitedStyle) {
+        builder.append(WebCore::serializationForCSS(state.style.visitedDependentColor()));
+        return;
+    }
+    extractSerialization<CSSPropertyColor>(state, builder, context);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractCaretColor(ExtractorState& state)
+{
+    if (state.allowVisitedStyle)
+        return state.pool.createColorValue(state.style.visitedDependentCaretColor());
+    return extractCSSValue<CSSPropertyCaretColor>(state);
+}
+
+inline void ExtractorCustom::extractCaretColorSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    if (state.allowVisitedStyle) {
+        builder.append(WebCore::serializationForCSS(state.style.visitedDependentCaretColor()));
+        return;
+    }
+    extractSerialization<CSSPropertyCaretColor>(state, builder, context);
 }
 
 // MARK: - Shorthands
@@ -1960,18 +2482,18 @@ inline Ref<CSSValue> convertSingleAnimation(ExtractorState& state, const Animati
     if (animation.compositeOperation() != Animation::initialCompositeOperation())
         list.append(createCSSValue(state.pool, state.style, animation.compositeOperation()));
     if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractAnimationShorthand(ExtractorState& state)
 {
     auto& animations = state.style.animations();
-    if (animations.isNone())
+    if (animations.isInitial())
         return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
     CSSValueListBuilder list;
-    for (auto& animation : animations) {
+    for (auto& animation : animations.computedValues()) {
         // If any of the reset-only longhands are set, we cannot serialize this value.
         if (animation.isTimelineSet() || animation.isRangeStartSet() || animation.isRangeEndSet()) {
             list.clear();
@@ -1979,24 +2501,24 @@ inline RefPtr<CSSValue> ExtractorCustom::extractAnimationShorthand(ExtractorStat
         }
         list.append(convertSingleAnimation(state, animation, animations));
     }
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return CSSValueList::createCommaSeparated(WTF::move(list));
 }
 
 inline void ExtractorCustom::extractAnimationShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     auto& animations = state.style.animations();
-    if (animations.isNone()) {
+    if (animations.isInitial()) {
         serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
 
-    for (auto& animation : animations) {
+    for (auto& animation : animations.computedValues()) {
         // If any of the reset-only longhands are set, we cannot serialize this value.
         if (animation.isTimelineSet() || animation.isRangeStartSet() || animation.isRangeEndSet())
             return;
     }
 
-    builder.append(interleave(animations, [&](auto& builder, const auto& animation) {
+    builder.append(interleave(animations.computedValues(), [&](auto& builder, const auto& animation) {
         // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
         builder.append(convertSingleAnimation(state, animation, animations)->cssText(context));
     }, ", "_s));
@@ -2010,7 +2532,7 @@ static Ref<CSSValueList> convertAnimationRange(ExtractorState& state, const Sing
         Ref value = createCSSValue(state.pool, state.style, edge);
         if (auto list = dynamicDowncast<CSSValueList>(value))
             return list.releaseNonNull();
-        return CSSValueList::createSpaceSeparated(WTFMove(value));
+        return CSSValueList::createSpaceSeparated(WTF::move(value));
     };
 
     Ref startValue = createRangeValue(range.start);
@@ -2018,50 +2540,31 @@ static Ref<CSSValueList> convertAnimationRange(ExtractorState& state, const Sing
     bool endValueEqualsStart = startValue->equals(endValue);
 
     if (startValue->length())
-        list.append(WTFMove(startValue));
+        list.append(WTF::move(startValue));
 
     bool isNormal = range.end.isNormal();
     bool isDefaultAndSameNameAsStart = range.start.name() == range.end.name() && range.end.hasDefaultOffset();
     if (endValue->length() && !endValueEqualsStart && !isNormal && !isDefaultAndSameNameAsStart)
-        list.append(WTFMove(endValue));
+        list.append(WTF::move(endValue));
 
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractAnimationRangeShorthand(ExtractorState& state)
 {
-    auto mapper = [](auto& state, const std::optional<Style::Animation>& animation, const Style::Animations&) -> RefPtr<CSSValue> {
-        if (!animation)
-            return convertAnimationRange(state, Animation::initialRange());
-        if (!animation->isRangeFilled())
-            return convertAnimationRange(state, animation->range());
-        return nullptr;
+    auto mapper = [](auto& state, const auto& value, const std::optional<Animation>&, const auto&) -> Ref<CSSValue> {
+        return convertAnimationRange(state, value);
     };
-    return extractAnimationOrTransitionValue(state, state.style.animations(), mapper);
+    return extractCoordinatedValueListValue<CSSPropertyAnimationRange>(state, state.style.animations(), mapper);
 }
 
 inline void ExtractorCustom::extractAnimationRangeShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto serializeAnimationRange = [](auto& state, auto& builder, const auto& context, const auto& range) {
+    auto mapper = [&](auto& state, auto& builder, const auto& context, const auto& value, const std::optional<Animation>&, const auto&) {
         // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-        builder.append(convertAnimationRange(state, range)->cssText(context));
+        builder.append(convertAnimationRange(state, value)->cssText(context));
     };
-
-    auto mapper = [&](auto& state, auto& builder, const auto& context, bool includeComma, const std::optional<Style::Animation>& animation, const Style::Animations&) {
-        if (!animation) {
-            if (includeComma)
-                builder.append(", "_s);
-            serializeAnimationRange(state, builder, context, Animation::initialRange());
-            return;
-        }
-        if (!animation->isRangeFilled()) {
-            if (includeComma)
-                builder.append(", "_s);
-            serializeAnimationRange(state, builder, context, animation->range());
-            return;
-        }
-    };
-    return extractAnimationOrTransitionValueSerialization(state, builder, context, state.style.animations(), mapper);
+    return extractCoordinatedValueListSerialization<CSSPropertyAnimationRange>(state, builder, context, state.style.animations(), mapper);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractBackgroundShorthand(ExtractorState& state)
@@ -2094,77 +2597,28 @@ inline void ExtractorCustom::extractBackgroundShorthandSerialization(ExtractorSt
 
 inline RefPtr<CSSValue> ExtractorCustom::extractBackgroundPositionShorthand(ExtractorState& state)
 {
-    auto mapper = [](auto& state, auto& layer) -> Ref<CSSValue> {
-        return ExtractorConverter::convertStyleType(state, layer.position());
+    auto mapper = [](auto& state, const auto& value, const std::optional<BackgroundLayer>&, const auto&) -> Ref<CSSValue> {
+        return createCSSValue(state.pool, state.style, value);
     };
-    return extractFillLayerValue(state, state.style.backgroundLayers(), mapper);
+    return extractCoordinatedValueListValue<CSSPropertyBackgroundPosition>(state, state.style.backgroundLayers(), mapper);
 }
 
 inline void ExtractorCustom::extractBackgroundPositionShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto mapper = [](auto& state, auto& builder, const auto& context, bool includeComma, auto& layer) {
-        if (includeComma)
-            builder.append(", "_s);
-        ExtractorSerializer::serializeStyleType(state, builder, context, layer.position());
+    auto mapper = [](auto& state, auto& builder, const auto& context, const auto& value, const std::optional<BackgroundLayer>&, const auto&) {
+        serializationForCSS(builder, context, state.style, value);
     };
-    extractFillLayerValueSerialization(state, builder, context, state.style.backgroundLayers(), mapper);
+    extractCoordinatedValueListSerialization<CSSPropertyBackgroundPosition>(state, builder, context, state.style.backgroundLayers(), mapper);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractBlockStepShorthand(ExtractorState& state)
 {
-    CSSValueListBuilder list;
-    if (auto blockStepSize = state.style.blockStepSize(); blockStepSize != RenderStyle::initialBlockStepSize())
-        list.append(ExtractorConverter::convertStyleType(state, blockStepSize));
-
-    if (auto blockStepInsert = state.style.blockStepInsert(); blockStepInsert != RenderStyle::initialBlockStepInsert())
-        list.append(ExtractorConverter::convert(state, blockStepInsert));
-
-    if (auto blockStepAlign = state.style.blockStepAlign(); blockStepAlign != RenderStyle::initialBlockStepAlign())
-        list.append(ExtractorConverter::convert(state, blockStepAlign));
-
-    if (auto blockStepRound = state.style.blockStepRound(); blockStepRound != RenderStyle::initialBlockStepRound())
-        list.append(ExtractorConverter::convert(state, blockStepRound));
-
-    if (!list.isEmpty())
-        return CSSValueList::createSpaceSeparated(list);
-
-    return CSSPrimitiveValue::create(CSSValueNone);
+    return extractCSSValue<CSSPropertyBlockStep>(state);
 }
 
 inline void ExtractorCustom::extractBlockStepShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    bool listEmpty = true;
-
-    if (auto blockStepSize = state.style.blockStepSize(); blockStepSize != RenderStyle::initialBlockStepSize()) {
-        if (!listEmpty)
-            builder.append(' ');
-        ExtractorSerializer::serializeStyleType(state, builder, context, blockStepSize);
-        listEmpty = false;
-    }
-
-    if (auto blockStepInsert = state.style.blockStepInsert(); blockStepInsert != RenderStyle::initialBlockStepInsert()) {
-        if (!listEmpty)
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, blockStepInsert);
-        listEmpty = false;
-    }
-
-    if (auto blockStepAlign = state.style.blockStepAlign(); blockStepAlign != RenderStyle::initialBlockStepAlign()) {
-        if (!listEmpty)
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, blockStepAlign);
-        listEmpty = false;
-    }
-
-    if (auto blockStepRound = state.style.blockStepRound(); blockStepRound != RenderStyle::initialBlockStepRound()) {
-        if (!listEmpty)
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, blockStepRound);
-        listEmpty = false;
-    }
-
-    if (listEmpty)
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+    extractSerialization<CSSPropertyBlockStep>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractBorderShorthand(ExtractorState& state)
@@ -2194,9 +2648,9 @@ inline void ExtractorCustom::extractBorderBlockShorthandSerialization(ExtractorS
 inline RefPtr<CSSValue> ExtractorCustom::extractBorderImageShorthand(ExtractorState& state)
 {
     auto& borderImage = state.style.borderImage();
-    if (borderImage.source().isNone())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    if (borderImage.overridesBorderWidths())
+    if (borderImage.borderImageSource.isNone())
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
+    if (borderImage.borderImageWidth.overridesBorderWidths())
         return nullptr;
     return createCSSValue(state.pool, state.style, borderImage);
 }
@@ -2204,11 +2658,11 @@ inline RefPtr<CSSValue> ExtractorCustom::extractBorderImageShorthand(ExtractorSt
 inline void ExtractorCustom::extractBorderImageShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     auto& borderImage = state.style.borderImage();
-    if (borderImage.source().isNone()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+    if (borderImage.borderImageSource.isNone()) {
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
-    if (borderImage.overridesBorderWidths())
+    if (borderImage.borderImageWidth.overridesBorderWidths())
         return;
     serializationForCSS(builder, context, state.style, borderImage);
 }
@@ -2238,20 +2692,20 @@ inline void ExtractorCustom::extractBorderRadiusShorthandSerialization(Extractor
 
 inline RefPtr<CSSValue> ExtractorCustom::extractColumnsShorthand(ExtractorState& state)
 {
-    if (state.style.columnCount() == RenderStyle::initialColumnCount())
+    if (state.style.columnCount() == Style::ComputedStyle::initialColumnCount())
         return createCSSValue(state.pool, state.style, state.style.columnWidth());
-    if (state.style.columnWidth() == RenderStyle::initialColumnWidth())
+    if (state.style.columnWidth() == Style::ComputedStyle::initialColumnWidth())
         return createCSSValue(state.pool, state.style, state.style.columnCount());
     return extractStandardSpaceSeparatedShorthand(state, columnsShorthand());
 }
 
 inline void ExtractorCustom::extractColumnsShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.style.columnCount() == RenderStyle::initialColumnCount()) {
+    if (state.style.columnCount() == Style::ComputedStyle::initialColumnCount()) {
         serializationForCSS(builder, context, state.style, state.style.columnWidth());
         return;
     }
-    if (state.style.columnWidth() == RenderStyle::initialColumnWidth()) {
+    if (state.style.columnWidth() == Style::ComputedStyle::initialColumnWidth()) {
         serializationForCSS(builder, context, state.style, state.style.columnCount());
         return;
     }
@@ -2262,15 +2716,15 @@ inline RefPtr<CSSValue> ExtractorCustom::extractContainerShorthand(ExtractorStat
 {
     auto name = [&]() -> Ref<CSSValue> {
         if (state.style.containerNames().isNone())
-            return CSSPrimitiveValue::create(CSSValueNone);
+            return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
         return ExtractorGenerated::extractValue(state, CSSPropertyContainerName).releaseNonNull();
     }();
 
     if (state.style.containerType() == ContainerType::Normal)
-        return CSSValueList::createSlashSeparated(WTFMove(name));
+        return CSSValueList::createSlashSeparated(WTF::move(name));
 
     return CSSValueList::createSlashSeparated(
-        WTFMove(name),
+        WTF::move(name),
         ExtractorGenerated::extractValue(state, CSSPropertyContainerType).releaseNonNull()
     );
 }
@@ -2278,7 +2732,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractContainerShorthand(ExtractorStat
 inline void ExtractorCustom::extractContainerShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     if (state.style.containerNames().isNone())
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
     else
         ExtractorGenerated::extractValueSerialization(state, builder, context, CSSPropertyContainerName);
 
@@ -2291,21 +2745,21 @@ inline void ExtractorCustom::extractContainerShorthandSerialization(ExtractorSta
 
 inline RefPtr<CSSValue> ExtractorCustom::extractFlexFlowShorthand(ExtractorState& state)
 {
-    if (state.style.flexWrap() == RenderStyle::initialFlexWrap())
-        return ExtractorConverter::convert(state, state.style.flexDirection());
-    if (state.style.flexDirection() == RenderStyle::initialFlexDirection())
-        return ExtractorConverter::convert(state, state.style.flexWrap());
+    if (state.style.flexWrap() == Style::ComputedStyle::initialFlexWrap())
+        return createCSSValue(state.pool, state.style, state.style.flexDirection());
+    if (state.style.flexDirection() == Style::ComputedStyle::initialFlexDirection())
+        return createCSSValue(state.pool, state.style, state.style.flexWrap());
     return extractStandardSpaceSeparatedShorthand(state, flexFlowShorthand());
 }
 
 inline void ExtractorCustom::extractFlexFlowShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.style.flexWrap() == RenderStyle::initialFlexWrap()) {
-        ExtractorSerializer::serialize(state, builder, context, state.style.flexDirection());
+    if (state.style.flexWrap() == Style::ComputedStyle::initialFlexWrap()) {
+        serializationForCSS(builder, context, state.style, state.style.flexDirection());
         return;
     }
-    if (state.style.flexDirection() == RenderStyle::initialFlexDirection()) {
-        ExtractorSerializer::serialize(state, builder, context, state.style.flexWrap());
+    if (state.style.flexDirection() == Style::ComputedStyle::initialFlexDirection()) {
+        serializationForCSS(builder, context, state.style, state.style.flexWrap());
         return;
     }
     extractStandardSpaceSeparatedShorthandSerialization(state, builder, context, flexFlowShorthand());
@@ -2330,7 +2784,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractFontShorthand(ExtractorState& st
             && description.fontSizeAdjust().isNone()
             && description.kerning() == Kerning::Auto
             && description.featureSettings().isEmpty()
-            && description.opticalSizing() == FontOpticalSizing::Enabled
+            && description.opticalSizing() == FontOpticalSizing::Auto
             && description.variationSettings().isEmpty();
     };
 
@@ -2339,7 +2793,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractFontShorthand(ExtractorState& st
     if (!propertiesResetByShorthandAreExpressible())
         return computedFont;
 
-    computedFont->size = ExtractorConverter::convertNumberAsPixels(state, description.computedSize());
+    computedFont->size = dynamicDowncast<CSSPrimitiveValue>(createCSSValue(state.pool, state.style, Length<> { description.computedSize() }));
 
     auto computedLineHeight = dynamicDowncast<CSSPrimitiveValue>(ExtractorGenerated::extractValue(state, CSSPropertyLineHeight));
     if (computedLineHeight && !isValueID(*computedLineHeight, CSSValueNormal))
@@ -2354,10 +2808,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractFontShorthand(ExtractorState& st
     if (*fontStyle != CSSValueNormal)
         computedFont->style = CSSPrimitiveValue::create(*fontStyle);
 
-    CSSValueListBuilder familyList;
-    for (unsigned i = 0; i < state.style.fontCascade().familyCount(); ++i)
-        familyList.append(ExtractorConverter::convertFontFamily(state, state.style.fontCascade().familyAt(i)));
-    computedFont->family = CSSValueList::createCommaSeparated(WTFMove(familyList));
+    computedFont->family = createCSSValue(state.pool, state.style, state.style.fontFamily());
 
     return computedFont;
 }
@@ -2370,39 +2821,12 @@ inline void ExtractorCustom::extractFontShorthandSerialization(ExtractorState& s
 
 inline RefPtr<CSSValue> ExtractorCustom::extractFontSynthesisShorthand(ExtractorState& state)
 {
-    auto& description = state.style.fontDescription();
-
-    CSSValueListBuilder list;
-    if (description.hasAutoFontSynthesisWeight())
-        list.append(CSSPrimitiveValue::create(CSSValueWeight));
-    if (description.hasAutoFontSynthesisStyle())
-        list.append(CSSPrimitiveValue::create(CSSValueStyle));
-    if (description.hasAutoFontSynthesisSmallCaps())
-        list.append(CSSPrimitiveValue::create(CSSValueSmallCaps));
-    if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return extractCSSValue<CSSPropertyFontSynthesis>(state);
 }
 
 inline void ExtractorCustom::extractFontSynthesisShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto& description = state.style.fontDescription();
-
-    bool listEmpty = true;
-    auto appendOption = [&](bool hasValue, auto value) {
-        if (hasValue) {
-            if (!listEmpty)
-                builder.append(' ');
-            builder.append(nameLiteralForSerialization(value));
-            listEmpty = false;
-        }
-    };
-    appendOption(description.hasAutoFontSynthesisWeight(), CSSValueWeight);
-    appendOption(description.hasAutoFontSynthesisStyle(), CSSValueStyle);
-    appendOption(description.hasAutoFontSynthesisSmallCaps(), CSSValueSmallCaps);
-
-    if (listEmpty)
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+    extractSerialization<CSSPropertyFontSynthesis>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractFontVariantShorthand(ExtractorState& state)
@@ -2416,8 +2840,8 @@ inline RefPtr<CSSValue> ExtractorCustom::extractFontVariantShorthand(ExtractorSt
         list.append(value.releaseNonNull());
     }
     if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNormal);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+        return createCSSValue(state.pool, state.style, CSS::Keyword::Normal { });
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline void ExtractorCustom::extractFontVariantShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
@@ -2428,27 +2852,12 @@ inline void ExtractorCustom::extractFontVariantShorthandSerialization(ExtractorS
 
 inline RefPtr<CSSValue> ExtractorCustom::extractLineClampShorthand(ExtractorState& state)
 {
-    auto maxLines = state.style.maxLines().tryValue();
-    if (!maxLines)
-        return CSSPrimitiveValue::create(CSSValueNone);
-
-    return CSSValuePair::create(
-        createCSSValue(state.pool, state.style, *maxLines),
-        createCSSValue(state.pool, state.style, state.style.blockEllipsis())
-    );
+    return extractCSSValue<CSSPropertyLineClamp>(state);
 }
 
 inline void ExtractorCustom::extractLineClampShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto maxLines = state.style.maxLines().tryValue();
-    if (!maxLines) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    serializationForCSS(builder, context, state.style, *maxLines);
-    builder.append(' ');
-    serializationForCSS(builder, context, state.style, state.style.blockEllipsis());
+    extractSerialization<CSSPropertyLineClamp>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractMaskShorthand(ExtractorState& state)
@@ -2481,30 +2890,28 @@ inline void ExtractorCustom::extractMaskShorthandSerialization(ExtractorState& s
 
 inline RefPtr<CSSValue> ExtractorCustom::extractMaskBorderShorthand(ExtractorState& state)
 {
-    return createCSSValue(state.pool, state.style, state.style.maskBorder());
+    return extractCSSValue<CSSPropertyMaskBorder>(state);
 }
 
 inline void ExtractorCustom::extractMaskBorderShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    serializationForCSS(builder, context, state.style, state.style.maskBorder());
+    extractSerialization<CSSPropertyMaskBorder>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractMaskPositionShorthand(ExtractorState& state)
 {
-    auto mapper = [](auto& state, auto& layer) -> Ref<CSSValue> {
-        return ExtractorConverter::convertStyleType(state, layer.position());
+    auto mapper = [](auto& state, const auto& value, const std::optional<MaskLayer>&, const auto&) -> Ref<CSSValue> {
+        return createCSSValue(state.pool, state.style, value);
     };
-    return extractFillLayerValue(state, state.style.maskLayers(), mapper);
+    return extractCoordinatedValueListValue<CSSPropertyMaskPosition>(state, state.style.maskLayers(), mapper);
 }
 
 inline void ExtractorCustom::extractMaskPositionShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto mapper = [](auto& state, auto& builder, const auto& context, bool includeComma, auto& layer) {
-        if (includeComma)
-            builder.append(", "_s);
-        ExtractorSerializer::serializeStyleType(state, builder, context, layer.position());
+    auto mapper = [](auto& state, auto& builder, const auto& context, const auto& value, const std::optional<MaskLayer>&, const auto&) {
+        serializationForCSS(builder, context, state.style, value);
     };
-    extractFillLayerValueSerialization(state, builder, context, state.style.maskLayers(), mapper);
+    extractCoordinatedValueListSerialization<CSSPropertyMaskPosition>(state, builder, context, state.style.maskLayers(), mapper);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractOffsetShorthand(ExtractorState& state)
@@ -2520,24 +2927,24 @@ inline RefPtr<CSSValue> ExtractorCustom::extractOffsetShorthand(ExtractorState& 
         [&](const CSS::Keyword::Auto&) { },
         [&](const CSS::Keyword::Normal&) { },
         [&](const Position& position) {
-            innerList.append(ExtractorConverter::convertStyleType(state, position));
+            innerList.append(createCSSValue(state.pool, state.style, position));
         }
     );
 
-    bool nonInitialDistance = state.style.offsetDistance() != state.style.initialOffsetDistance();
-    bool nonInitialRotate = state.style.offsetRotate() != state.style.initialOffsetRotate();
+    bool nonInitialDistance = state.style.offsetDistance() != ComputedStyle::initialOffsetDistance();
+    bool nonInitialRotate = state.style.offsetRotate() != ComputedStyle::initialOffsetRotate();
 
     if (state.style.hasOffsetPath() || nonInitialDistance || nonInitialRotate)
-        innerList.append(ExtractorConverter::convertStyleType(state, state.style.offsetPath()));
+        innerList.append(createCSSValue(state.pool, state.style, state.style.offsetPath()));
 
     if (nonInitialDistance)
-        innerList.append(ExtractorConverter::convertStyleType(state, state.style.offsetDistance()));
+        innerList.append(createCSSValue(state.pool, state.style, state.style.offsetDistance()));
     if (nonInitialRotate)
-        innerList.append(ExtractorConverter::convertStyleType(state, state.style.offsetRotate()));
+        innerList.append(createCSSValue(state.pool, state.style, state.style.offsetRotate()));
 
     auto inner = innerList.isEmpty()
-        ? Ref<CSSValue> { CSSPrimitiveValue::create(CSSValueAuto) }
-        : Ref<CSSValue> { CSSValueList::createSpaceSeparated(WTFMove(innerList)) };
+        ? Ref<CSSValue> { createCSSValue(state.pool, state.style, CSS::Keyword::Auto { }) }
+        : Ref<CSSValue> { CSSValueList::createSpaceSeparated(WTF::move(innerList)) };
 
     return WTF::switchOn(state.style.offsetAnchor(),
         [&](const CSS::Keyword::Auto&) -> Ref<CSSValue> {
@@ -2545,8 +2952,8 @@ inline RefPtr<CSSValue> ExtractorCustom::extractOffsetShorthand(ExtractorState& 
         },
         [&](const Position& position) -> Ref<CSSValue> {
             return CSSValueList::createSlashSeparated(
-                WTFMove(inner),
-                ExtractorConverter::convertStyleType(state, position)
+                WTF::move(inner),
+                createCSSValue(state.pool, state.style, position)
             );
         }
     );
@@ -2560,82 +2967,64 @@ inline void ExtractorCustom::extractOffsetShorthandSerialization(ExtractorState&
 
 inline RefPtr<CSSValue> ExtractorCustom::extractOverscrollBehaviorShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convert(state, std::max(state.style.overscrollBehaviorX(), state.style.overscrollBehaviorY()));
+    return extractCSSValue<CSSPropertyOverscrollBehavior>(state);
 }
 
 inline void ExtractorCustom::extractOverscrollBehaviorShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serialize(state, builder, context, std::max(state.style.overscrollBehaviorX(), state.style.overscrollBehaviorY()));
+    extractSerialization<CSSPropertyOverscrollBehavior>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractPageBreakAfterShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertPageBreak(state, state.style.breakAfter());
+    return extractCSSValue<CSSPropertyPageBreakAfter>(state);
 }
 
 inline void ExtractorCustom::extractPageBreakAfterShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializePageBreak(state, builder, context, state.style.breakAfter());
+    extractSerialization<CSSPropertyPageBreakAfter>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractPageBreakBeforeShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertPageBreak(state, state.style.breakBefore());
+    return extractCSSValue<CSSPropertyPageBreakBefore>(state);
 }
 
 inline void ExtractorCustom::extractPageBreakBeforeShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializePageBreak(state, builder, context, state.style.breakBefore());
+    extractSerialization<CSSPropertyPageBreakBefore>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractPageBreakInsideShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertPageBreak(state, state.style.breakInside());
+    return extractCSSValue<CSSPropertyPageBreakInside>(state);
 }
 
 inline void ExtractorCustom::extractPageBreakInsideShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializePageBreak(state, builder, context, state.style.breakInside());
+    extractSerialization<CSSPropertyPageBreakInside>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractPerspectiveOriginShorthand(ExtractorState& state)
 {
-    CSSValueListBuilder list;
-    if (state.renderer) {
-        auto box = state.renderer->transformReferenceBoxRect(state.style);
-        list.append(ExtractorConverter::convertNumberAsPixels(state, Style::evaluate<float>(state.style.perspectiveOriginX(), box.width(), Style::ZoomNeeded { })));
-        list.append(ExtractorConverter::convertNumberAsPixels(state, Style::evaluate<float>(state.style.perspectiveOriginY(), box.height(), Style::ZoomNeeded { })));
-    } else {
-        list.append(ExtractorConverter::convertStyleType(state, state.style.perspectiveOriginX()));
-        list.append(ExtractorConverter::convertStyleType(state, state.style.perspectiveOriginY()));
-    }
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return extractCSSValue<CSSPropertyPerspectiveOrigin>(state);
 }
 
 inline void ExtractorCustom::extractPerspectiveOriginShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.renderer) {
-        auto box = state.renderer->transformReferenceBoxRect(state.style);
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, Style::evaluate<float>(state.style.perspectiveOriginX(), box.width(), Style::ZoomNeeded { }));
-        builder.append(' ');
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, Style::evaluate<float>(state.style.perspectiveOriginY(), box.height(), Style::ZoomNeeded { }));
-    } else {
-        ExtractorSerializer::serializeStyleType(state, builder, context, state.style.perspectiveOriginX());
-        builder.append(' ');
-        ExtractorSerializer::serializeStyleType(state, builder, context, state.style.perspectiveOriginY());
-    }
+    extractSerialization<CSSPropertyPerspectiveOrigin>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractPositionTryShorthand(ExtractorState& state)
 {
-    if (state.style.positionTryOrder() == RenderStyle::initialPositionTryOrder())
+    if (state.style.positionTryOrder() == Style::ComputedStyle::initialPositionTryOrder())
         return ExtractorGenerated::extractValue(state, CSSPropertyPositionTryFallbacks);
     return extractStandardSpaceSeparatedShorthand(state, positionTryShorthand());
 }
 
 inline void ExtractorCustom::extractPositionTryShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.style.positionTryOrder() == RenderStyle::initialPositionTryOrder()) {
+    if (state.style.positionTryOrder() == Style::ComputedStyle::initialPositionTryOrder()) {
         ExtractorGenerated::extractValueSerialization(state, builder, context, CSSPropertyPositionTryFallbacks);
         return;
     }
@@ -2646,7 +3035,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractScrollTimelineShorthand(Extracto
 {
     auto& timelines = state.style.scrollTimelines();
     if (timelines.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
     CSSValueListBuilder list;
     for (auto& timeline : timelines) {
@@ -2654,139 +3043,62 @@ inline RefPtr<CSSValue> ExtractorCustom::extractScrollTimelineShorthand(Extracto
         auto axis = timeline->axis();
 
         ASSERT(!name.isNull());
-        auto nameCSSValue = CSSPrimitiveValue::createCustomIdent(name);
+        auto nameCSSValue = createCSSValue(state.pool, state.style, CustomIdentifier { name });
 
         if (axis == ScrollAxis::Block)
-            list.append(WTFMove(nameCSSValue));
+            list.append(WTF::move(nameCSSValue));
         else
-            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, ExtractorConverter::convert(state, axis)));
+            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, createCSSValue(state.pool, state.style, axis)));
     }
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return CSSValueList::createCommaSeparated(WTF::move(list));
 }
 
 inline void ExtractorCustom::extractScrollTimelineShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     auto& timelines = state.style.scrollTimelines();
     if (timelines.isEmpty()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
 
     builder.append(interleave(timelines, [&](auto& builder, auto& timeline) {
         ASSERT(!timeline->name().isNull());
 
-        CSS::serializationForCSS(builder, context, CustomIdentifier { timeline->name() });
+        serializationForCSS(builder, context, state.style, CustomIdentifier { timeline->name() });
         if (auto axis = timeline->axis(); axis != ScrollAxis::Block) {
             builder.append(' ');
-            ExtractorSerializer::serialize(state, builder, context, axis);
+            serializationForCSS(builder, context, state.style, axis);
         }
     }, ", "_s));
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTextBoxShorthand(ExtractorState& state)
 {
-    auto textBoxTrim = state.style.textBoxTrim();
-    auto textBoxEdge = state.style.textBoxEdge();
-    auto textBoxEdgeIsAuto = textBoxEdge.isAuto();
-
-    if (textBoxTrim == TextBoxTrim::None && textBoxEdgeIsAuto)
-        return createCSSValue(state.pool, state.style, CSS::Keyword::Normal { });
-    if (textBoxEdgeIsAuto)
-        return createCSSValue(state.pool, state.style, textBoxTrim);
-    if (textBoxTrim == TextBoxTrim::TrimBoth)
-        return createCSSValue(state.pool, state.style, textBoxEdge);
-
-    return CSSValuePair::create(
-        createCSSValue(state.pool, state.style, textBoxTrim),
-        createCSSValue(state.pool, state.style, textBoxEdge)
-    );
+    return extractCSSValue<CSSPropertyTextBox>(state);
 }
 
 inline void ExtractorCustom::extractTextBoxShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto textBoxTrim = state.style.textBoxTrim();
-    auto textBoxEdge = state.style.textBoxEdge();
-    auto textBoxEdgeIsAuto = textBoxEdge.isAuto();
-
-    if (textBoxTrim == TextBoxTrim::None && textBoxEdgeIsAuto) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Normal { });
-        return;
-    }
-    if (textBoxEdgeIsAuto) {
-        serializationForCSS(builder, context, state.style, textBoxTrim);
-        return;
-    }
-    if (textBoxTrim == TextBoxTrim::TrimBoth) {
-        serializationForCSS(builder, context, state.style, textBoxEdge);
-        return;
-    }
-
-    serializationForCSS(builder, context, state.style, textBoxTrim);
-    builder.append(' ');
-    serializationForCSS(builder, context, state.style, textBoxEdge);
+    extractSerialization<CSSPropertyTextBox>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTextDecorationShorthand(ExtractorState& state)
 {
-    bool hasDefaultTextDecorationLine = state.style.textDecorationLine().isNone();
-    bool hasDefaultTextDecorationThickness = state.style.textDecorationThickness() == RenderStyle::initialTextDecorationThickness();
-    bool hasDefaultTextDecorationStyle = state.style.textDecorationStyle() == RenderStyle::initialTextDecorationStyle();
-    bool hasDefaultTextDecorationColor = state.style.textDecorationColor().isCurrentColor();
-
-    if (hasDefaultTextDecorationLine && hasDefaultTextDecorationStyle && hasDefaultTextDecorationColor && hasDefaultTextDecorationThickness)
-        return CSSPrimitiveValue::create(CSSValueNone);
-
-    CSSValueListBuilder list;
-    if (!hasDefaultTextDecorationLine)
-        list.append(ExtractorConverter::convertStyleType<TextDecorationLine>(state, state.style.textDecorationLine()));
-    if (!hasDefaultTextDecorationThickness)
-        list.append(ExtractorConverter::convertStyleType<TextDecorationThickness>(state, state.style.textDecorationThickness()));
-    if (!hasDefaultTextDecorationStyle)
-        list.append(ExtractorConverter::convert(state, state.style.textDecorationStyle()));
-    if (!hasDefaultTextDecorationColor)
-        list.append(ExtractorConverter::convertStyleType<Color>(state, state.style.textDecorationColor()));
-
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return extractCSSValue<CSSPropertyTextDecoration>(state);
 }
 
 inline void ExtractorCustom::extractTextDecorationShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    bool hasDefaultTextDecorationLine = state.style.textDecorationLine().isNone();
-    bool hasDefaultTextDecorationThickness = state.style.textDecorationThickness() == RenderStyle::initialTextDecorationThickness();
-    bool hasDefaultTextDecorationStyle = state.style.textDecorationStyle() == RenderStyle::initialTextDecorationStyle();
-    bool hasDefaultTextDecorationColor = state.style.textDecorationColor().isCurrentColor();
-
-    if (hasDefaultTextDecorationLine && hasDefaultTextDecorationStyle && hasDefaultTextDecorationColor && hasDefaultTextDecorationThickness) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    if (!hasDefaultTextDecorationLine)
-        ExtractorSerializer::serialize(state, builder, context, state.style.textDecorationLine());
-    if (!hasDefaultTextDecorationThickness) {
-        if (!builder.isEmpty())
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, state.style.textDecorationThickness());
-    }
-    if (!hasDefaultTextDecorationStyle) {
-        if (!builder.isEmpty())
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, state.style.textDecorationStyle());
-    }
-    if (!hasDefaultTextDecorationColor) {
-        if (!builder.isEmpty())
-            builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, state.style.textDecorationColor());
-    }
+    extractSerialization<CSSPropertyTextDecoration>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTextDecorationSkipShorthand(ExtractorState& state)
 {
     switch (state.style.textDecorationSkipInk()) {
     case TextDecorationSkipInk::None:
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
     case TextDecorationSkipInk::Auto:
-        return CSSPrimitiveValue::create(CSSValueAuto);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::Auto { });
     case TextDecorationSkipInk::All:
         return nullptr;
     }
@@ -2797,10 +3109,10 @@ inline void ExtractorCustom::extractTextDecorationSkipShorthandSerialization(Ext
 {
     switch (state.style.textDecorationSkipInk()) {
     case TextDecorationSkipInk::None:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     case TextDecorationSkipInk::Auto:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::Auto { });
         return;
     case TextDecorationSkipInk::All:
         return;
@@ -2810,77 +3122,22 @@ inline void ExtractorCustom::extractTextDecorationSkipShorthandSerialization(Ext
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTextWrapShorthand(ExtractorState& state)
 {
-    auto textWrapMode = state.style.textWrapMode();
-    auto textWrapStyle = state.style.textWrapStyle();
-
-    if (textWrapStyle == TextWrapStyle::Auto)
-        return ExtractorConverter::convert(state, textWrapMode);
-    if (textWrapMode == TextWrapMode::Wrap)
-        return ExtractorConverter::convert(state, textWrapStyle);
-
-    return CSSValuePair::create(
-        ExtractorConverter::convert(state, textWrapMode),
-        ExtractorConverter::convert(state, textWrapStyle)
-    );
+    return extractCSSValue<CSSPropertyTextWrap>(state);
 }
 
 inline void ExtractorCustom::extractTextWrapShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto textWrapMode = state.style.textWrapMode();
-    auto textWrapStyle = state.style.textWrapStyle();
-
-    if (textWrapStyle == TextWrapStyle::Auto) {
-        ExtractorSerializer::serialize(state, builder, context, textWrapMode);
-        return;
-    }
-    if (textWrapMode == TextWrapMode::Wrap) {
-        ExtractorSerializer::serialize(state, builder, context, textWrapStyle);
-        return;
-    }
-
-    ExtractorSerializer::serialize(state, builder, context, textWrapMode);
-    builder.append(' ');
-    ExtractorSerializer::serialize(state, builder, context, textWrapStyle);
+    extractSerialization<CSSPropertyTextWrap>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTransformOriginShorthand(ExtractorState& state)
 {
-    CSSValueListBuilder list;
-    if (state.renderer) {
-        auto box = state.renderer->transformReferenceBoxRect(state.style);
-        list.append(ExtractorConverter::convertNumberAsPixels(state, Style::evaluate<float>(state.style.transformOriginX(), box.width(), Style::ZoomNeeded { })));
-        list.append(ExtractorConverter::convertNumberAsPixels(state, Style::evaluate<float>(state.style.transformOriginY(), box.height(), Style::ZoomNeeded { })));
-        if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero())
-            list.append(ExtractorConverter::convertStyleType(state, transformOriginZ));
-    } else {
-        list.append(ExtractorConverter::convertStyleType(state, state.style.transformOriginX()));
-        list.append(ExtractorConverter::convertStyleType(state, state.style.transformOriginY()));
-        if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero())
-            list.append(ExtractorConverter::convertStyleType(state, transformOriginZ));
-    }
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+    return extractCSSValue<CSSPropertyTransformOrigin>(state);
 }
 
 inline void ExtractorCustom::extractTransformOriginShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    if (state.renderer) {
-        auto box = state.renderer->transformReferenceBoxRect(state.style);
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, Style::evaluate<float>(state.style.transformOriginX(), box.width(), Style::ZoomNeeded { }));
-        builder.append(' ');
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, Style::evaluate<float>(state.style.transformOriginY(), box.height(), Style::ZoomNeeded { }));
-        if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero()) {
-            builder.append(' ');
-            ExtractorSerializer::serializeStyleType(state, builder, context, transformOriginZ);
-        }
-    } else {
-        ExtractorSerializer::serializeStyleType(state, builder, context, state.style.transformOriginX());
-        builder.append(' ');
-        ExtractorSerializer::serializeStyleType(state, builder, context, state.style.transformOriginY());
-        if (auto transformOriginZ = state.style.transformOriginZ(); !transformOriginZ.isZero()) {
-            builder.append(' ');
-            ExtractorSerializer::serializeStyleType(state, builder, context, transformOriginZ);
-        }
-    }
+    extractSerialization<CSSPropertyTransformOrigin>(state, builder, context);
 }
 
 inline Ref<CSSValue> convertSingleTransition(ExtractorState& state, const Transition& transition)
@@ -2905,32 +3162,32 @@ inline Ref<CSSValue> convertSingleTransition(ExtractorState& state, const Transi
     if (transition.behavior() != Transition::initialBehavior())
         list.append(createCSSValue(state.pool, state.style, transition.behavior()));
     if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueAll);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
+        return createCSSValue(state.pool, state.style, CSS::Keyword::All { });
+    return CSSValueList::createSpaceSeparated(WTF::move(list));
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractTransitionShorthand(ExtractorState& state)
 {
     auto& transitions = state.style.transitions();
-    if (transitions.isNone())
+    if (transitions.isInitial())
         return createCSSValue(state.pool, state.style, CSS::Keyword::All { });
 
     CSSValueListBuilder list;
-    for (auto& transition : transitions)
+    for (auto& transition : transitions.computedValues())
         list.append(convertSingleTransition(state, transition));
     ASSERT(!list.isEmpty());
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return CSSValueList::createCommaSeparated(WTF::move(list));
 }
 
 inline void ExtractorCustom::extractTransitionShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     auto& transitions = state.style.transitions();
-    if (transitions.isNone()) {
+    if (transitions.isInitial()) {
         serializationForCSS(builder, context, state.style, CSS::Keyword::All { });
         return;
     }
 
-    builder.append(interleave(transitions, [&](auto& builder, auto& transition) {
+    builder.append(interleave(transitions.computedValues(), [&](auto& builder, auto& transition) {
         // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
         builder.append(convertSingleTransition(state, transition)->cssText(context));
     }, ", "_s));
@@ -2940,7 +3197,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractViewTimelineShorthand(ExtractorS
 {
     auto& timelines = state.style.viewTimelines();
     if (timelines.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
     CSSValueListBuilder list;
     for (auto& timeline : timelines) {
@@ -2952,23 +3209,23 @@ inline RefPtr<CSSValue> ExtractorCustom::extractViewTimelineShorthand(ExtractorS
         auto hasDefaultInsets = insets.start().isAuto() && insets.end().isAuto();
 
         ASSERT(!name.isNull());
-        auto nameCSSValue = CSSPrimitiveValue::createCustomIdent(name);
+        auto nameCSSValue = createCSSValue(state.pool, state.style, CustomIdentifier { name });
 
         if (hasDefaultAxis && hasDefaultInsets)
-            list.append(WTFMove(nameCSSValue));
+            list.append(WTF::move(nameCSSValue));
         else if (hasDefaultAxis)
             list.append(CSSValuePair::createNoncoalescing(nameCSSValue, createCSSValue(state.pool, state.style, insets)));
         else if (hasDefaultInsets)
-            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, ExtractorConverter::convert(state, axis)));
+            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, createCSSValue(state.pool, state.style, axis)));
         else {
             list.append(CSSValueList::createSpaceSeparated(
-                WTFMove(nameCSSValue),
-                ExtractorConverter::convert(state, axis),
+                WTF::move(nameCSSValue),
+                createCSSValue(state.pool, state.style, axis),
                 createCSSValue(state.pool, state.style, insets)
             ));
         }
     }
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return CSSValueList::createCommaSeparated(WTF::move(list));
 }
 
 inline void ExtractorCustom::extractViewTimelineShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
@@ -2979,77 +3236,22 @@ inline void ExtractorCustom::extractViewTimelineShorthandSerialization(Extractor
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWhiteSpaceShorthand(ExtractorState& state)
 {
-    auto whiteSpaceCollapse = state.style.whiteSpaceCollapse();
-    auto textWrapMode = state.style.textWrapMode();
-
-    // Convert to backwards-compatible keywords if possible.
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::Wrap)
-        return CSSPrimitiveValue::create(CSSValueNormal);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::NoWrap)
-        return CSSPrimitiveValue::create(CSSValuePre);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::Wrap)
-        return CSSPrimitiveValue::create(CSSValuePreWrap);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrapMode == TextWrapMode::Wrap)
-        return CSSPrimitiveValue::create(CSSValuePreLine);
-
-    // Omit default longhand values.
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse)
-        return ExtractorConverter::convert(state, textWrapMode);
-    if (textWrapMode == TextWrapMode::Wrap)
-        return ExtractorConverter::convert(state, whiteSpaceCollapse);
-
-    return CSSValuePair::create(
-        ExtractorConverter::convert(state, whiteSpaceCollapse),
-        ExtractorConverter::convert(state, textWrapMode)
-    );
+    return extractCSSValue<CSSPropertyWhiteSpace>(state);
 }
 
 inline void ExtractorCustom::extractWhiteSpaceShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto whiteSpaceCollapse = state.style.whiteSpaceCollapse();
-    auto textWrapMode = state.style.textWrapMode();
-
-    // Convert to backwards-compatible keywords if possible.
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::Wrap) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Normal { });
-        return;
-    }
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::NoWrap) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Pre { });
-        return;
-    }
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::Wrap) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::PreWrap { });
-        return;
-    }
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrapMode == TextWrapMode::Wrap) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::PreLine { });
-        return;
-    }
-
-    // Omit default longhand values.
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse) {
-        ExtractorSerializer::serialize(state, builder, context, textWrapMode);
-        return;
-    }
-    if (textWrapMode == TextWrapMode::Wrap) {
-        ExtractorSerializer::serialize(state, builder, context, whiteSpaceCollapse);
-        return;
-    }
-
-    ExtractorSerializer::serialize(state, builder, context, whiteSpaceCollapse);
-    builder.append(' ');
-    ExtractorSerializer::serialize(state, builder, context, textWrapMode);
+    extractSerialization<CSSPropertyWhiteSpace>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWebkitBorderImageShorthand(ExtractorState& state)
 {
     auto& borderImage = state.style.borderImage();
-    if (borderImage.source().isNone())
-        return CSSPrimitiveValue::create(CSSValueNone);
+    if (borderImage.borderImageSource.isNone())
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
     // -webkit-border-image has a legacy behavior that makes fixed border slices also set the border widths.
-    bool overridesBorderWidths = borderImage.width().values.anyOf([](const auto& side) { return side.isFixed(); });
-    if (overridesBorderWidths != borderImage.overridesBorderWidths())
+    bool overridesBorderWidths = borderImage.borderImageWidth.values.anyOf([](const auto& side) { return side.isFixed(); });
+    if (overridesBorderWidths != borderImage.borderImageWidth.overridesBorderWidths())
         return nullptr;
     return createCSSValue(state.pool, state.style, borderImage);
 }
@@ -3057,15 +3259,14 @@ inline RefPtr<CSSValue> ExtractorCustom::extractWebkitBorderImageShorthand(Extra
 inline void ExtractorCustom::extractWebkitBorderImageShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     auto& borderImage = state.style.borderImage();
-    if (borderImage.source().isNone()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+    if (borderImage.borderImageSource.isNone()) {
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
     // -webkit-border-image has a legacy behavior that makes fixed border slices also set the border widths.
-    bool overridesBorderWidths = borderImage.width().values.anyOf([](const auto& side) { return side.isFixed(); });
-    if (overridesBorderWidths != borderImage.overridesBorderWidths())
+    bool overridesBorderWidths = borderImage.borderImageWidth.values.anyOf([](const auto& side) { return side.isFixed(); });
+    if (overridesBorderWidths != borderImage.borderImageWidth.overridesBorderWidths())
         return;
-
     serializationForCSS(builder, context, state.style, borderImage);
 }
 
@@ -3081,32 +3282,32 @@ inline void ExtractorCustom::extractWebkitBorderRadiusShorthandSerialization(Ext
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWebkitColumnBreakAfterShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertWebkitColumnBreak(state, state.style.breakAfter());
+    return extractCSSValue<CSSPropertyWebkitColumnBreakAfter>(state);
 }
 
 inline void ExtractorCustom::extractWebkitColumnBreakAfterShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializeWebkitColumnBreak(state, builder, context, state.style.breakAfter());
+    extractSerialization<CSSPropertyWebkitColumnBreakAfter>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWebkitColumnBreakBeforeShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertWebkitColumnBreak(state, state.style.breakBefore());
+    return extractCSSValue<CSSPropertyWebkitColumnBreakBefore>(state);
 }
 
 inline void ExtractorCustom::extractWebkitColumnBreakBeforeShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializeWebkitColumnBreak(state, builder, context, state.style.breakBefore());
+    extractSerialization<CSSPropertyWebkitColumnBreakBefore>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWebkitColumnBreakInsideShorthand(ExtractorState& state)
 {
-    return ExtractorConverter::convertWebkitColumnBreak(state, state.style.breakInside());
+    return extractCSSValue<CSSPropertyWebkitColumnBreakInside>(state);
 }
 
 inline void ExtractorCustom::extractWebkitColumnBreakInsideShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializeWebkitColumnBreak(state, builder, context, state.style.breakInside());
+    extractSerialization<CSSPropertyWebkitColumnBreakInside>(state, builder, context);
 }
 
 inline RefPtr<CSSValue> ExtractorCustom::extractWebkitMaskBoxImageShorthand(ExtractorState& state)
@@ -3127,16 +3328,6 @@ inline RefPtr<CSSValue> ExtractorCustom::extractWebkitMaskPositionShorthand(Extr
 inline void ExtractorCustom::extractWebkitMaskPositionShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     extractMaskPositionShorthandSerialization(state, builder, context);
-}
-
-inline void ExtractorCustom::extractWidowsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    extractSerialization<CSSPropertyWidows>(state, builder, context);
-}
-
-inline void ExtractorCustom::extractOrphansSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    extractSerialization<CSSPropertyOrphans>(state, builder, context);
 }
 
 inline void ExtractorCustom::extractMarkerShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)

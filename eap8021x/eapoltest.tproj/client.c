@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019, 2022, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -770,6 +770,7 @@ S_verify_server(int argc, char * argv[])
     status = EAPTLSVerifyServerCertificateChain(properties,
 						array,
 						FALSE,
+						NULL,
 						NULL,
 						&sec_status);
     printf("status is %d, sec status is %d\n", status, sec_status);

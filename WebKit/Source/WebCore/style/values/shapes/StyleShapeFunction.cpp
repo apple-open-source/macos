@@ -660,7 +660,7 @@ std::optional<Shape> makeShapeFromPath(const Path& path)
     return Shape {
         .fillRule = path.fillRule,
         .startingPoint = converter.initialMove().value_or(Position { LengthPercentage<>::Dimension { 0 }, LengthPercentage<>::Dimension { 0 } }),
-        .commands = { WTFMove(shapeCommands) }
+        .commands = { WTF::move(shapeCommands) }
     };
 }
 

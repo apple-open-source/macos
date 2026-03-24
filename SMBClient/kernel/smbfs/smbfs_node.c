@@ -5402,7 +5402,7 @@ smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
     struct smb_lease *leasep = NULL;
     int error = 0;
     struct smbnode *np = NULL;
-    int is_locked = 0;
+    int is_lease_locked = 0, is_hash_locked = 0;
 
     /*
      * if its a dir lease break, then we are invalidating the dir enumeration
@@ -5415,7 +5415,7 @@ smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
      * Use the lease key to find the leasep
      */
     lck_mtx_lock(&global_Lease_hash_lock);
-    is_locked = 1;
+    is_hash_locked = 1;
     /*
      * Be careful here holding on to the global_Lease_hash_lock for too long.
      * Do NOT hold it over any SMB Requests/Reply as reconnect could occur
@@ -5440,12 +5440,14 @@ smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
     /*
      * vnode_getwithvid() will wait for smbfs_vnop_reclaim() if it's in process
      * smbfs_vnop_reclaim() might try to lock global_Lease_hash_lock
-     * this will cause a deadlcok
+     * this will cause a deadlock
      * Unlock global_Lease_hash_lock while we acquire iocount on the vnode
+     * This means the lease could be removed while vnode_getwithvid()
+     * Make sure the lease still exists after
      */
     vnode_hold(vp);
     lck_mtx_unlock(&global_Lease_hash_lock);
-    is_locked = 0;
+    is_hash_locked = 0;
     if (vnode_getwithvid(vp, vid)) {
         SMBERROR("Failed to get the vnode \n");
         vnode_drop(vp);
@@ -5454,15 +5456,35 @@ smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
         goto bad;
     }
     vnode_drop(vp);
-    lck_mtx_lock(&global_Lease_hash_lock);
-    is_locked = 1;
 
+    /* Make sure it is one of my vnodes */
+    if (vnode_tag(vp) != VT_CIFS) {
+        /* Should be impossible */
+        SMBERROR("vnode_getwithvid found non SMB vnode???\n");
+        error = ENOENT;
+        goto bad;
+    }
+
+    np = VTOSMB(vp);
+
+    if (vnode_vtype(vp) != VDIR) {
+        /*
+         * Not a dir, finish
+         */
+        goto bad;
+    }
+    /*
+     * Make sure the lease is still there
+     * Lock the lease before global_Lease_hash_lock to avoid deadlocks
+     */
+    smbnode_lease_lock(&np->n_lease, smbfs_handle_dir_lease_break);
+    is_lease_locked = 1;
+
+    lck_mtx_lock(&global_Lease_hash_lock);
+    is_hash_locked = 1;
     leasep = smbfs_lease_hash_get(lease_rqp->lease_key_hi,
                                   lease_rqp->lease_key_low);
 
-    /*
-     * Make sure the lease is still there
-     */
     if (leasep == NULL) {
         SMBERROR("Failed to find lease after acquirung iocount\n");
         error = ENOENT;
@@ -5477,64 +5499,56 @@ smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp)
         error = ENOENT;
         goto bad;
     }
+    lck_mtx_unlock(&global_Lease_hash_lock);
+    is_hash_locked = 0;
 
-    /* Make sure it is one of my vnodes */
-    if (vnode_tag(vp) != VT_CIFS) {
-        /* Should be impossible */
-        SMBERROR("vnode_getwithvid found non SMB vnode???\n");
-        error = ENOENT;
-        goto bad;
+    /* Check for a Dir Lease; can only be one per dir */
+    if ((np->n_lease.lease_key_hi == lease_rqp->lease_key_hi) &&
+        (np->n_lease.lease_key_low == lease_rqp->lease_key_low)) {
+        /* This will invalidate the dir enum cache */
+        np->d_changecnt++;
+
+        /* Assume a Dir Lease break essentially means the lease is gone */
+        if (lease_rqp->new_lease_state != SMB2_LEASE_NONE) {
+            SMBERROR_LOCK(np, "Dir Lease break not SMB2_LEASE_NONE <0x%x> on <%s>? \n",
+                          lease_rqp->new_lease_state, np->n_name);
+        }
+        np->n_lease.flags |= SMB2_LEASE_BROKEN;
+        np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
+
+        SMB_LOG_LEASING_LOCK(np, "lease changing state <0x%x> to <0x%x> on <%s> \n",
+                             np->n_lease.lease_state,
+                             lease_rqp->new_lease_state,
+                             np->n_name);
+
+        np->n_lease.lease_state = lease_rqp->new_lease_state;
+        np->n_lease.epoch = lease_rqp->server_epoch;
+
+        /*
+         * Can not remove dir lease yet as smbfs_handle_lease_break()
+         * will need to find it
+         */
+
+        smbnode_lease_unlock(&np->n_lease);
+        is_lease_locked = 0;
+
+        cache_purge(vp);
+
+        /* Set need_close_dir flag so lease thread will attemp to close the dir */
+        lease_rqp->need_close_dir = 1;
     }
-
-    np = VTOSMB(vp);
-
-    if (vnode_vtype(vp) == VDIR) {
-        /* Check for a Dir Lease; can only be one per dir */
-        smbnode_lease_lock(&np->n_lease, smbfs_handle_dir_lease_break);
-
-        if ((np->n_lease.lease_key_hi == lease_rqp->lease_key_hi) &&
-            (np->n_lease.lease_key_low == lease_rqp->lease_key_low)) {
-            /* This will invalidate the dir enum cache */
-            np->d_changecnt++;
-
-            /* Assume a Dir Lease break essentially means the lease is gone */
-            if (lease_rqp->new_lease_state != SMB2_LEASE_NONE) {
-                SMBERROR_LOCK(np, "Dir Lease break not SMB2_LEASE_NONE <0x%x> on <%s>? \n",
-                              lease_rqp->new_lease_state, np->n_name);
-            }
-            np->n_lease.flags |= SMB2_LEASE_BROKEN;
-            np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
-
-            SMB_LOG_LEASING_LOCK(np, "lease changing state <0x%x> to <0x%x> on <%s> \n",
-                                 np->n_lease.lease_state,
-                                 lease_rqp->new_lease_state,
-                                 np->n_name);
-
-            np->n_lease.lease_state = lease_rqp->new_lease_state;
-            np->n_lease.epoch = lease_rqp->server_epoch;
-
-            /*
-             * Can not remove dir lease yet as smbfs_handle_lease_break()
-             * will need to find it
-             */
-
-            smbnode_lease_unlock(&np->n_lease);
-
-            cache_purge(vp);
-
-            /* Set need_close_dir flag so lease thread will attemp to close the dir */
-            lease_rqp->need_close_dir = 1;
-        }
-        else {
-            smbnode_lease_unlock(&np->n_lease);
-            SMBERROR_LOCK(np, "No dir lease found for lease break on <%s>\n",
-                          np->n_name);
-        }
+    else {
+        SMBERROR_LOCK(np, "No dir lease found for lease break on <%s>\n",
+                      np->n_name);
     }
 
 bad:
-    if (is_locked) {
+    if (is_hash_locked) {
         lck_mtx_unlock(&global_Lease_hash_lock);
+    }
+
+    if (is_lease_locked) {
+        smbnode_lease_unlock(&np->n_lease);
     }
 
     if (vp != NULL) {
@@ -5565,7 +5579,7 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	struct smbnode *np = NULL;
     int flush_cache = 0, purge_cache = 0, allow_caching = 0;
 	int need_close_files = 0, skip_lease_break = 0;
-    int is_locked = 0;
+    int is_lease_locked = 0, is_hash_locked = 0;
     int break_pending = 0;
     struct smb2_close_rq close_parms = {0};
     SMBFID fid = 0; 
@@ -5577,7 +5591,7 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	 * Use the lease key to find the leasep
 	 */
 	lck_mtx_lock(&global_Lease_hash_lock);
-	is_locked = 1;
+    is_hash_locked = 1;
 
     /*
      * Be careful here holding on to the global_Lease_hash_lock for too long.
@@ -5606,12 +5620,14 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
     /*
      * vnode_getwithvid() will wait for smbfs_vnop_reclaim() if it's in process
      * smbfs_vnop_reclaim() might try to lock global_Lease_hash_lock
-     * this will cause a deadlcok
+     * this will cause a deadlock
      * Unlock global_Lease_hash_lock while we acquire iocount on the vnode
+     * This means the lease could be removed while vnode_getwithvid()
+     * Make sure the lease still exists after
      */
     vnode_hold(vp);
     lck_mtx_unlock(&global_Lease_hash_lock);
-    is_locked = 0;
+    is_hash_locked = 0;
     if (vnode_getwithvid(vp, vid)) {
         SMBERROR("Failed to get the vnode \n");
         vnode_drop(vp);
@@ -5620,15 +5636,31 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
         goto bad;
     }
     vnode_drop(vp);
-    lck_mtx_lock(&global_Lease_hash_lock);
-    is_locked = 1;
 
-    leasep = smbfs_lease_hash_get(lease_rqp->lease_key_hi,
-                                  lease_rqp->lease_key_low);
+    /* Make sure it is one of my vnodes */
+    if (vnode_tag(vp) != VT_CIFS) {
+        /* Should be impossible */
+        SMBERROR("vnode_getwithvid found non SMB vnode???\n");
+        error = ENOENT;
+        goto bad;
+    }
+
+    np = VTOSMB(vp);
 
     /*
      * Make sure the lease is still there
+     * Lock the lease before global_Lease_hash_lock to avoid deadlocks
      */
+    if (vnode_vtype(vp) != VDIR) {
+        smbnode_lease_lock(&np->n_lease, smbfs_handle_lease_break);
+        is_lease_locked = 1;
+    }
+
+    lck_mtx_lock(&global_Lease_hash_lock);
+    is_hash_locked = 1;
+    leasep = smbfs_lease_hash_get(lease_rqp->lease_key_hi,
+                                  lease_rqp->lease_key_low);
+
     if (leasep == NULL) {
         SMBERROR("Failed to find lease after acquirung iocount\n");
         error = ENOENT;
@@ -5643,17 +5675,8 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
         error = ENOENT;
         goto bad;
     }
-
-    /* Make sure it is one of my vnodes */
-    if (vnode_tag(vp) != VT_CIFS) {
-        /* Should be impossible */
-        SMBERROR("vnode_getwithvid found non SMB vnode???\n");
-        error = ENOENT;
-        goto bad;
-    }
-
-	np = VTOSMB(vp);
-
+    lck_mtx_unlock(&global_Lease_hash_lock);
+    is_hash_locked = 0;
 	/* Get the share and hold a reference on it */
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 	if (share == NULL) {
@@ -5671,10 +5694,8 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 
 	/* Process the lease */
 	if (vnode_vtype(vp) != VDIR) {
-        /* Check for a file Lease; can only be one per file */
-        smbnode_lease_lock(&np->n_lease, smbfs_handle_lease_break);
-        
         /*
+         * Check for a file Lease; can only be one per file
          * Handle File Lease Break [MS-SMB2] 3.2.5.19.2
          */
         if ((np->n_lease.lease_state & SMB2_LEASE_WRITE_CACHING) &&
@@ -5818,36 +5839,22 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 
         if ((np->n_lease.lease_state == SMB2_LEASE_NONE) || (need_close_files)) {
             /* Remove the lease */
-            /* rdar://108758378 unlock the hash table to prevent a deadlock
-            * with smbfs_add_update_lease() called from smbfs_close() which
-            * tries to lock the locks in the reverse order
-            * let smbfs_add_update_lease() handle the hash table lock
-            */
-            lck_mtx_unlock(&global_Lease_hash_lock);
             warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
                                              "LeaseBreakCloseFile");
-            /* smbfs_add_update_lease() unlocks the hash table if it locks it */
-            is_locked = 0;
             if (warning) {
                 /* Shouldnt ever happen */
                 SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
                               warning, np->n_name);
             }
         }
-
-        smbnode_lease_unlock(&np->n_lease);
 	}
 	
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_HANDLE_LEASE_BREAK | DBG_FUNC_NONE,
                    0xabc002, need_close_files, lease_rqp->need_close_dir, 0, 0);
 
-	/*
-     * Free the hash lock as the file or dir closes and lease break ack
-     * could take awhile and a reconnect could occur during that time.
-     */
-    if (is_locked) {
-        lck_mtx_unlock(&global_Lease_hash_lock);
-        is_locked = 0;
+    if (is_lease_locked) {
+        smbnode_lease_unlock(&np->n_lease);
+        is_lease_locked = 0;
     }
 
     /*
@@ -6072,12 +6079,16 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	}
 
 bad:
+    if (is_hash_locked) {
+        lck_mtx_unlock(&global_Lease_hash_lock);
+    }
+
     if (break_pending) {
         clear_pending_break(np);
     }
 
-    if (is_locked) {
-        lck_mtx_unlock(&global_Lease_hash_lock);
+    if (is_lease_locked) {
+        smbnode_lease_unlock(&np->n_lease);
     }
 
 	if (share != NULL) {

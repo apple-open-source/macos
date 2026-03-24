@@ -49,4 +49,7 @@ struct OpaqueSecCRLiteInfo {
 
 CF_RETURNS_RETAINED SecCRLiteInfoRef SecCRLiteInfoCreate(bool isRevoked, uint32_t generationUsed, uint32_t versionUsed);
 
+CF_RETURNS_RETAINED CFDictionaryRef SecCRLiteInfoCopyInfo(SecCRLiteInfoRef validInfo);
+
+
 #endif /* _SECURITY_SECREVOCATIONCRLITE_H_ */

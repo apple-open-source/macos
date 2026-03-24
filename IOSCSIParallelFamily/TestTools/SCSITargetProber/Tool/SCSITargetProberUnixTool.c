@@ -128,12 +128,12 @@ main ( int argc, const char * argv[] )
 	SCSITargetIdentifier	targetID	= 0;
 	
 	result = ParseArguments ( argc, argv, &domainID, &targetID );
-	require_action ( ( result == 0 ), ErrorExit, PrintUsage ( ); returnCode = 1 );
+	__Require_Action(( result == 0 ), ErrorExit, PrintUsage ( ); returnCode = 1);
 	
 	printf ( "SCSITargetProber: Probing device for domain = %lld, targetID = %lld\n", domainID, targetID );
 	
 	result = ReprobeDomainTarget ( domainID, targetID );
-	require_action ( ( result == 0 ), ErrorExit, printf ( "Error = %s (0x%08x) reprobing device\n", mach_error_string ( result ), result ); returnCode = 2 );
+	__Require_Action(( result == 0 ), ErrorExit, printf ( "Error = %s (0x%08x) reprobing device\n", mach_error_string ( result ), result ); returnCode = 2);
 	
 	return 0;
 	

@@ -119,7 +119,7 @@ class StringRange {
     WTF_MAKE_NONCOPYABLE(StringRange);
 public:
     StringRange(const char* begin, const char* end)
-        : m_string({ begin, end })
+        : m_string(std::span { begin, end })
     { }
     operator const char*() const LIFETIME_BOUND { return m_string.data(); }
     const char* get() const LIFETIME_BOUND { return m_string.data(); }

@@ -37,7 +37,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(DowncastConvertToBackingContext);
 
 DDModelIdentifier DowncastConvertToBackingContext::convertToBacking(const WebCore::DDModel::DDMesh& mesh)
 {
-    return static_cast<const RemoteDDMeshProxy&>(mesh).backing();
+    return downcast<RemoteDDMeshProxy>(mesh).backing();
 }
 
 }

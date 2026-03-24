@@ -72,5 +72,7 @@
 	<array>
 		<string>com.apple.trust-settings.admin</string>
 	</array>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
 </dict>
 </plist>

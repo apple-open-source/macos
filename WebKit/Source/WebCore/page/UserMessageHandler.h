@@ -48,15 +48,19 @@ public:
     }
     virtual ~UserMessageHandler();
 
-    ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue, Ref<DeferredPromise>&&);
-    JSC::JSValue postLegacySynchronousMessage(JSC::JSGlobalObject&, JSC::JSValue);
+    // FrameDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
-    const UserMessageHandlerDescriptor* descriptor() { return m_descriptor.get(); }
+    void postMessage(JSC::JSGlobalObject&, JSC::JSValue, Ref<DeferredPromise>&&);
+    ExceptionOr<JSC::JSValue> postLegacySynchronousMessage(JSC::JSGlobalObject&, JSC::JSValue);
+
+    const UserMessageHandlerDescriptor* descriptor() const { return m_descriptor.get(); }
     void invalidateDescriptor() { m_descriptor = nullptr; }
 
 private:
     UserMessageHandler(LocalFrame&, const UserMessageHandlerDescriptor&);
-    
+
     RefPtr<const UserMessageHandlerDescriptor> m_descriptor;
 };
 

@@ -80,7 +80,7 @@ void MemoryIndex::objectStoreCleared()
             if (m_transactionModifiedRecords.contains(key))
                 continue;
             if (auto valueKeys = records->valueKeys(key))
-                m_transactionModifiedRecords.add(key, WTFMove(*valueKeys));
+                m_transactionModifiedRecords.add(key, WTF::move(*valueKeys));
         }
     }
     m_records = nullptr;
@@ -263,7 +263,7 @@ void MemoryIndex::removeEntriesWithValueKey(const IDBKeyData& valueKey)
             if (m_transactionModifiedRecords.contains(indexKey))
                 continue;
             if (auto valueKeys = records->valueKeys(indexKey))
-                m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
+                m_transactionModifiedRecords.add(indexKey, WTF::move(*valueKeys));
         }
     }
 
@@ -301,7 +301,7 @@ IDBError MemoryIndex::addIndexRecord(const IDBKeyData& indexKey, const IDBKeyDat
         if (!records->contains(indexKey))
             m_transactionModifiedRecords.add(indexKey, Vector<IDBKeyData> { });
         else if (auto valueKeys = records->valueKeys(indexKey))
-            m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
+            m_transactionModifiedRecords.add(indexKey, WTF::move(*valueKeys));
     }
 
     return records->addRecord(indexKey, valueKey);
@@ -316,7 +316,7 @@ void MemoryIndex::removeIndexRecord(const IDBKeyData& indexKey, const IDBKeyData
     RELEASE_ASSERT(m_writeTransaction);
     if (!m_writeTransaction->isAborting() && !m_transactionModifiedRecords.contains(indexKey)) {
         if (auto valueKeys = records->valueKeys(indexKey))
-            m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
+            m_transactionModifiedRecords.add(indexKey, WTF::move(*valueKeys));
     }
 
     return records->removeRecord(indexKey, valueKey);

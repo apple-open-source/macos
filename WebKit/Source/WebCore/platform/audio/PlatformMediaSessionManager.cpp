@@ -42,9 +42,9 @@ do { \
     if (willLog(WTFLogLevel::Always)) { \
         RELEASE_LOG_FORWARDABLE(Media, PLATFORMMEDIASESSIONMANAGER_##formatString, ##__VA_ARGS__); \
         if (logger().developerExtrasEnabled()) { \
-            char buffer[1024] = { 0 }; \
+            std::array<char, 1024> buffer { }; \
             SAFE_SPRINTF(std::span { buffer }, MESSAGE_PLATFORMMEDIASESSIONMANAGER_##formatString, ##__VA_ARGS__); \
-            logger().toObservers(logChannel(), WTFLogLevel::Always, String::fromUTF8(buffer)); \
+            logger().toObservers(logChannel(), WTFLogLevel::Always, String::fromUTF8(buffer.data())); \
         } \
     } \
 } while (0)
@@ -70,6 +70,12 @@ void PlatformMediaSessionManager::addSession(PlatformMediaSessionInterface& sess
 {
     m_sessions.appendOrMoveToLast(session);
     MediaSessionManagerInterface::addSession(session);
+}
+
+WeakListHashSet<PlatformMediaSessionInterface>& PlatformMediaSessionManager::sessions() const
+{
+    m_sessions.removeNullReferences();
+    return m_sessions;
 }
 
 void PlatformMediaSessionManager::removeSession(PlatformMediaSessionInterface& session)

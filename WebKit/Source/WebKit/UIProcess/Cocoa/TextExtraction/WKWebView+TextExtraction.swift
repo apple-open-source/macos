@@ -111,10 +111,12 @@ extension WKWebView {
             configuration.targetRect = visibleRect
             configuration.mergeParagraphs = true
             configuration.skipNearlyTransparentContent = true
-            configuration.canIncludeIdentifiers = false
-            configuration.shouldFilterText = false
-            if let result = await _requestTextExtraction(configuration) {
-                collector.collect(createIntelligenceElement(item: result.rootItem))
+            configuration.nodeIdentifierInclusion = .none
+            configuration.includeEventListeners = false
+            configuration.includeAccessibilityAttributes = false
+            configuration.filterOptions = []
+            if let rootItem = await _requestTextExtraction(configuration) {
+                collector.collect(createIntelligenceElement(item: rootItem))
             }
 
             coordinator.finishCollection(collector)

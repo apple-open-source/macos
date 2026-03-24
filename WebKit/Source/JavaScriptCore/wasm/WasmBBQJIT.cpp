@@ -499,7 +499,7 @@ void ControlData::addBranch(Jump jump)
 
 void ControlData::addLabel(Box<CCallHelpers::Label>&& label)
 {
-    m_labels.append(WTFMove(label));
+    m_labels.append(WTF::move(label));
 }
 
 void ControlData::delegateJumpsTo(ControlData& delegateTarget)
@@ -619,7 +619,7 @@ void ControlData::setTryInfo(unsigned tryStart, unsigned tryEnd, unsigned tryCat
 
 void ControlData::setTryTableTargets(TargetList &&targets)
 {
-    m_tryTableTargets = WTFMove(targets);
+    m_tryTableTargets = WTF::move(targets);
 }
 
 void ControlData::setIfBranch(MacroAssembler::Jump branch)
@@ -749,7 +749,6 @@ bool BBQJIT::canTierUpToOMG() const
 
 void BBQJIT::emitIncrementCallProfileCount(unsigned callProfileIndex)
 {
-    ASSERT(m_profiledCallee.needsProfiling());
     m_jit.add32(TrustedImm32(1), CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex + CallProfile::offsetOfCount())));
 }
 
@@ -837,7 +836,7 @@ PartialResult BBQJIT::addLocal(Type type, uint32_t numberOfLocals)
 
 // Tables
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableSet(unsigned tableIndex, Value index, Value value)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableSet(unsigned tableIndex, Value index, Value value)
 {
     // FIXME: Emit this inline <https://bugs.webkit.org/show_bug.cgi?id=198506>.
     ASSERT(index.type() == TypeKind::I32);
@@ -862,7 +861,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableSet(unsigned tableIndex, Value 
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableInit(unsigned elementIndex, unsigned tableIndex, ExpressionType dstOffset, ExpressionType srcOffset, ExpressionType length)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableInit(unsigned elementIndex, unsigned tableIndex, ExpressionType dstOffset, ExpressionType srcOffset, ExpressionType length)
 {
     ASSERT(dstOffset.type() == TypeKind::I32);
     ASSERT(srcOffset.type() == TypeKind::I32);
@@ -889,7 +888,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableInit(unsigned elementIndex, uns
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addElemDrop(unsigned elementIndex)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addElemDrop(unsigned elementIndex)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
@@ -901,7 +900,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addElemDrop(unsigned elementIndex)
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableSize(unsigned tableIndex, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableSize(unsigned tableIndex, Value& result)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
@@ -914,7 +913,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableSize(unsigned tableIndex, Value
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableGrow(unsigned tableIndex, Value fill, Value delta, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableGrow(unsigned tableIndex, Value fill, Value delta, Value& result)
 {
     ASSERT(delta.type() == TypeKind::I32);
 
@@ -930,7 +929,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableGrow(unsigned tableIndex, Value
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableFill(unsigned tableIndex, Value offset, Value fill, Value count)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableFill(unsigned tableIndex, Value offset, Value fill, Value count)
 {
     ASSERT(offset.type() == TypeKind::I32);
     ASSERT(count.type() == TypeKind::I32);
@@ -953,7 +952,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableFill(unsigned tableIndex, Value
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTableCopy(unsigned dstTableIndex, unsigned srcTableIndex, Value dstOffset, Value srcOffset, Value length)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTableCopy(unsigned dstTableIndex, unsigned srcTableIndex, Value dstOffset, Value srcOffset, Value length)
 {
     ASSERT(dstOffset.type() == TypeKind::I32);
     ASSERT(srcOffset.type() == TypeKind::I32);
@@ -980,7 +979,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTableCopy(unsigned dstTableIndex, un
 
 // Locals
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::getLocal(uint32_t localIndex, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::getLocal(uint32_t localIndex, Value& result)
 {
     // Currently, we load locals as temps, which basically prevents register allocation of locals.
     // This is probably not ideal, we have infrastructure to support binding locals to registers, but
@@ -993,7 +992,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::getLocal(uint32_t localIndex, Value& re
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::setLocal(uint32_t localIndex, Value value)
+WARN_UNUSED_RETURN PartialResult BBQJIT::setLocal(uint32_t localIndex, Value value)
 {
     if (!value.isConst())
         loadIfNecessary(value);
@@ -1005,7 +1004,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::setLocal(uint32_t localIndex, Value val
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::teeLocal(uint32_t localIndex, Value value, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::teeLocal(uint32_t localIndex, Value value, Value& result)
 {
     auto type = m_parser->typeOfLocal(localIndex);
     Value local = Value::fromLocal(type.kind, localIndex);
@@ -1092,14 +1091,14 @@ void BBQJIT::emitMutatorFence()
 
 Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
 {
-    if (static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, uoffset, Width::Width128)) {
+    if (static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, static_cast<int32_t>(uoffset), Width::Width128)) {
         m_jit.addPtr(TrustedImmPtr(static_cast<int64_t>(uoffset)), pointerLocation.asGPR());
         return Address(pointerLocation.asGPR());
     }
     return Address(pointerLocation.asGPR(), static_cast<int32_t>(uoffset));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addGrowMemory(Value delta, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addGrowMemory(Value delta, Value& result)
 {
     Vector<Value, 8> arguments = { instanceValue(), delta };
     result = topValue(TypeKind::I32);
@@ -1111,7 +1110,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addGrowMemory(Value delta, Value& resul
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCurrentMemory(Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCurrentMemory(Value& result)
 {
     result = topValue(TypeKind::I32);
     Location resultLocation = allocate(result);
@@ -1127,7 +1126,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCurrentMemory(Value& result)
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryFill(Value dstAddress, Value targetValue, Value count)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addMemoryFill(Value dstAddress, Value targetValue, Value count)
 {
     ASSERT(dstAddress.type() == TypeKind::I32);
     ASSERT(targetValue.type() == TypeKind::I32);
@@ -1150,7 +1149,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryFill(Value dstAddress, Value t
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryCopy(Value dstAddress, Value srcAddress, Value count)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addMemoryCopy(Value dstAddress, Value srcAddress, Value count)
 {
     ASSERT(dstAddress.type() == TypeKind::I32);
     ASSERT(srcAddress.type() == TypeKind::I32);
@@ -1173,7 +1172,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryCopy(Value dstAddress, Value s
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryInit(unsigned dataSegmentIndex, Value dstAddress, Value srcAddress, Value length)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addMemoryInit(unsigned dataSegmentIndex, Value dstAddress, Value srcAddress, Value length)
 {
     ASSERT(dstAddress.type() == TypeKind::I32);
     ASSERT(srcAddress.type() == TypeKind::I32);
@@ -1197,7 +1196,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addMemoryInit(unsigned dataSegmentIndex
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addDataDrop(unsigned dataSegmentIndex)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addDataDrop(unsigned dataSegmentIndex)
 {
     Vector<Value, 8> arguments = { instanceValue(), Value::fromI32(dataSegmentIndex) };
     emitCCall(&operationWasmDataDrop, arguments);
@@ -1208,7 +1207,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addDataDrop(unsigned dataSegmentIndex)
 
 // Atomics
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint32_t uoffset)
 {
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(loadOp))) [[unlikely]] {
         // FIXME: Same issue as in AirIRGenerator::load(): https://bugs.webkit.org/show_bug.cgi?id=166435
@@ -1223,7 +1222,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicLoad(ExtAtomicOpType loadOp, Type
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint32_t uoffset)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(storeOp))) [[unlikely]] {
@@ -1239,7 +1238,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicStore(ExtAtomicOpType storeOp, Ty
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint32_t uoffset)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(op))) [[unlikely]] {
@@ -1257,7 +1256,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicBinaryRMW(ExtAtomicOpType op, Typ
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t uoffset)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(op))) [[unlikely]] {
@@ -1276,7 +1275,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicCompareExchange(ExtAtomicOpType o
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint32_t uoffset)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
@@ -1299,7 +1298,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicWait(ExtAtomicOpType op, Expressi
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint32_t uoffset)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint32_t uoffset)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
@@ -1317,7 +1316,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::atomicNotify(ExtAtomicOpType op, Expres
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::atomicFence(ExtAtomicOpType, uint8_t)
+WARN_UNUSED_RETURN PartialResult BBQJIT::atomicFence(ExtAtomicOpType, uint8_t)
 {
     m_jit.memoryFence();
     return { };
@@ -1420,7 +1419,7 @@ FloatingPointRange BBQJIT::lookupTruncationRange(TruncationKind truncationKind)
     return FloatingPointRange { min, max, closedLowerEndpoint };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::truncTrapping(OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType)
+WARN_UNUSED_RETURN PartialResult BBQJIT::truncTrapping(OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType)
 {
     ScratchScope<0, 2> scratches(*this);
 
@@ -1466,7 +1465,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::truncTrapping(OpType truncationOp, Valu
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::truncSaturated(Ext1OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType)
+WARN_UNUSED_RETURN PartialResult BBQJIT::truncSaturated(Ext1OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType)
 {
     ScratchScope<0, 2> scratches(*this);
 
@@ -1606,21 +1605,21 @@ void BBQJIT::pushArrayNewFromSegment(ArraySegmentOperation operation, uint32_t t
     emitThrowOnNullReference(exceptionType, resultLocation);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
 {
     pushArrayNewFromSegment(operationWasmArrayNewData, typeIndex, dataIndex, arraySize, offset, ExceptionType::BadArrayNewInitData, result);
     LOG_INSTRUCTION("ArrayNewData", typeIndex, dataIndex, arraySize, offset, RESULT(result));
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewElem(uint32_t typeIndex, uint32_t elemSegmentIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addArrayNewElem(uint32_t typeIndex, uint32_t elemSegmentIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
 {
     pushArrayNewFromSegment(operationWasmArrayNewElem, typeIndex, elemSegmentIndex, arraySize, offset, ExceptionType::BadArrayNewInitElem, result);
     LOG_INSTRUCTION("ArrayNewElem", typeIndex, elemSegmentIndex, arraySize, offset, RESULT(result));
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayCopy(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcTypeIndex, TypedExpression typedSrc, ExpressionType srcOffset, ExpressionType size)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addArrayCopy(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcTypeIndex, TypedExpression typedSrc, ExpressionType srcOffset, ExpressionType size)
 {
     auto dst = typedDst.value();
     auto src = typedSrc.value();
@@ -1665,7 +1664,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayCopy(uint32_t dstTypeIndex, Typ
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayInitElem(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcElementIndex, ExpressionType srcOffset, ExpressionType size)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addArrayInitElem(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcElementIndex, ExpressionType srcOffset, ExpressionType size)
 {
     auto dst = typedDst.value();
     if (dst.isConst()) {
@@ -1704,7 +1703,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayInitElem(uint32_t dstTypeIndex,
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayInitData(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcDataIndex, ExpressionType srcOffset, ExpressionType size)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addArrayInitData(uint32_t dstTypeIndex, TypedExpression typedDst, ExpressionType dstOffset, uint32_t srcDataIndex, ExpressionType srcOffset, ExpressionType size)
 {
     auto dst = typedDst.value();
     if (dst.isConst()) {
@@ -1743,7 +1742,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayInitData(uint32_t dstTypeIndex,
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addAnyConvertExtern(ExpressionType reference, ExpressionType& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addAnyConvertExtern(ExpressionType reference, ExpressionType& result)
 {
     Vector<Value, 8> arguments = {
         reference
@@ -1755,7 +1754,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addAnyConvertExtern(ExpressionType refe
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addExternConvertAny(ExpressionType reference, ExpressionType& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addExternConvertAny(ExpressionType reference, ExpressionType& result)
 {
     auto referenceLocation = reference.isConst() ? Location::none() : loadIfNecessary(reference);
     consume(reference);
@@ -1772,7 +1771,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addExternConvertAny(ExpressionType refe
 }
 
 // Basic operators
-PartialResult WARN_UNUSED_RETURN BBQJIT::addSelect(Value condition, Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addSelect(Value condition, Value lhs, Value rhs, Value& result)
 {
     if (condition.isConst()) {
         Value src = condition.asI32() ? lhs : rhs;
@@ -1846,7 +1845,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addSelect(Value condition, Value lhs, V
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Add(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Add(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32Add", TypeKind::I32,
@@ -1860,7 +1859,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Add(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Add(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Add(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Add", TypeKind::F32,
@@ -1876,7 +1875,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Add(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Add(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Add(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Add", TypeKind::F64,
@@ -1892,7 +1891,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Add(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Sub(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Sub(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32Sub", TypeKind::I32,
@@ -1911,7 +1910,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Sub(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Sub(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Sub(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Sub", TypeKind::F32,
@@ -1934,7 +1933,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Sub(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Sub(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Sub(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Sub", TypeKind::F64,
@@ -1957,7 +1956,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Sub(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Mul(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Mul(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32Mul", TypeKind::I32,
@@ -1975,7 +1974,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Mul(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Mul(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Mul(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Mul", TypeKind::F32,
@@ -1991,7 +1990,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Mul(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Mul(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Mul(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Mul", TypeKind::F64,
@@ -2010,7 +2009,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Mul(Value lhs, Value rhs, Value& 
 template<typename Func>
 void BBQJIT::addLatePath(WasmOrigin origin, Func&& func)
 {
-    m_latePaths.append({ origin, WTFMove(func) });
+    m_latePaths.append({ origin, WTF::move(func) });
 }
 
 void BBQJIT::emitThrowException(ExceptionType type)
@@ -2046,7 +2045,7 @@ Value BBQJIT::checkConstantDivision(const Value& lhs, const Value& rhs)
     return rhs;
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32DivS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32DivS(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2063,7 +2062,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32DivS(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64DivS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64DivS(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2080,7 +2079,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI64DivS(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32DivU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32DivU(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2097,7 +2096,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32DivU(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64DivU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64DivU(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2114,7 +2113,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI64DivU(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32RemS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32RemS(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2131,7 +2130,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32RemS(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64RemS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64RemS(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2148,7 +2147,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI64RemS(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32RemU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32RemU(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2165,7 +2164,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32RemU(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64RemU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64RemU(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_MOD_OR_DIV;
     EMIT_BINARY(
@@ -2182,7 +2181,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI64RemU(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Div(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Div(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Div", TypeKind::F32,
@@ -2198,7 +2197,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Div(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Div(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Div(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Div", TypeKind::F64,
@@ -2282,7 +2281,7 @@ void BBQJIT::emitFloatingPointMinOrMax(FPRReg left, FPRReg right, FPRReg result)
 #endif
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Min(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Min(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Min", TypeKind::F32,
@@ -2298,7 +2297,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Min(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Min(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Min(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Min", TypeKind::F64,
@@ -2314,7 +2313,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Min(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Max(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Max(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Max", TypeKind::F32,
@@ -2330,7 +2329,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Max(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Max(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Max(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Max", TypeKind::F64,
@@ -2346,7 +2345,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Max(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32And(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32And(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32And", TypeKind::I32,
@@ -2360,7 +2359,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32And(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Xor(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Xor(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32Xor", TypeKind::I32,
@@ -2374,7 +2373,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Xor(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Or(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Or(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "I32Or", TypeKind::I32,
@@ -2396,7 +2395,7 @@ void BBQJIT::moveShiftAmountIfNecessary(Location& rhsLocation)
     }
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Shl(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Shl(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_SHIFT;
     EMIT_BINARY(
@@ -2418,7 +2417,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Shl(Value lhs, Value rhs, Value& 
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ShrS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32ShrS(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_SHIFT;
     EMIT_BINARY(
@@ -2440,7 +2439,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ShrS(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ShrU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32ShrU(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_SHIFT;
     EMIT_BINARY(
@@ -2462,7 +2461,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ShrU(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Rotl(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Rotl(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_SHIFT;
     EMIT_BINARY(
@@ -2502,7 +2501,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Rotl(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Rotr(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Rotr(Value lhs, Value rhs, Value& result)
 {
     PREPARE_FOR_SHIFT;
     EMIT_BINARY(
@@ -2524,7 +2523,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Rotr(Value lhs, Value rhs, Value&
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Clz(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Clz(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32Clz", TypeKind::I32,
@@ -2535,7 +2534,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Clz(Value operand, Value& result)
     );
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Ctz(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Ctz(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32Ctz", TypeKind::I32,
@@ -2566,102 +2565,102 @@ PartialResult BBQJIT::emitCompareI32(const char* opcode, Value& lhs, Value& rhs,
 #define RELOP_AS_LAMBDA(op) [](auto lhs, auto rhs) -> auto { return lhs op rhs; }
 #define TYPED_RELOP_AS_LAMBDA(type, op) [](auto lhs, auto rhs) -> auto { return static_cast<type>(lhs) op static_cast<type>(rhs); }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Eq(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Eq(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32Eq", lhs, rhs, result, RelationalCondition::Equal, RELOP_AS_LAMBDA( == ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64Eq(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64Eq(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64Eq", lhs, rhs, result, RelationalCondition::Equal, RELOP_AS_LAMBDA( == ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Ne(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Ne(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32Ne", lhs, rhs, result, RelationalCondition::NotEqual, RELOP_AS_LAMBDA( != ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64Ne(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64Ne(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64Ne", lhs, rhs, result, RelationalCondition::NotEqual, RELOP_AS_LAMBDA( != ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32LtS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32LtS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32LtS", lhs, rhs, result, RelationalCondition::LessThan, RELOP_AS_LAMBDA( < ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64LtS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64LtS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64LtS", lhs, rhs, result, RelationalCondition::LessThan, RELOP_AS_LAMBDA( < ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32LeS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32LeS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32LeS", lhs, rhs, result, RelationalCondition::LessThanOrEqual, RELOP_AS_LAMBDA( <= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64LeS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64LeS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64LeS", lhs, rhs, result, RelationalCondition::LessThanOrEqual, RELOP_AS_LAMBDA( <= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32GtS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32GtS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32GtS", lhs, rhs, result, RelationalCondition::GreaterThan, RELOP_AS_LAMBDA( > ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64GtS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64GtS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64GtS", lhs, rhs, result, RelationalCondition::GreaterThan, RELOP_AS_LAMBDA( > ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32GeS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32GeS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32GeS", lhs, rhs, result, RelationalCondition::GreaterThanOrEqual, RELOP_AS_LAMBDA( >= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64GeS(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64GeS(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64GeS", lhs, rhs, result, RelationalCondition::GreaterThanOrEqual, RELOP_AS_LAMBDA( >= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32LtU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32LtU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32LtU", lhs, rhs, result, RelationalCondition::Below, TYPED_RELOP_AS_LAMBDA(uint32_t, <));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64LtU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64LtU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64LtU", lhs, rhs, result, RelationalCondition::Below, TYPED_RELOP_AS_LAMBDA(uint64_t, <));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32LeU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32LeU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32LeU", lhs, rhs, result, RelationalCondition::BelowOrEqual, TYPED_RELOP_AS_LAMBDA(uint32_t, <=));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64LeU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64LeU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64LeU", lhs, rhs, result, RelationalCondition::BelowOrEqual, TYPED_RELOP_AS_LAMBDA(uint64_t, <=));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32GtU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32GtU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32GtU", lhs, rhs, result, RelationalCondition::Above, TYPED_RELOP_AS_LAMBDA(uint32_t, >));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64GtU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64GtU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64GtU", lhs, rhs, result, RelationalCondition::Above, TYPED_RELOP_AS_LAMBDA(uint64_t, >));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32GeU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32GeU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI32("I32GeU", lhs, rhs, result, RelationalCondition::AboveOrEqual, TYPED_RELOP_AS_LAMBDA(uint32_t, >=));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64GeU(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64GeU(Value lhs, Value rhs, Value& result)
 {
     return emitCompareI64("I64GeU", lhs, rhs, result, RelationalCondition::AboveOrEqual, TYPED_RELOP_AS_LAMBDA(uint64_t, >=));
 }
@@ -2698,62 +2697,62 @@ PartialResult BBQJIT::emitCompareF64(const char* opcode, Value& lhs, Value& rhs,
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Eq(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Eq(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Eq", lhs, rhs, result, DoubleCondition::DoubleEqualAndOrdered, RELOP_AS_LAMBDA( == ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Eq(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Eq(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Eq", lhs, rhs, result, DoubleCondition::DoubleEqualAndOrdered, RELOP_AS_LAMBDA( == ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Ne(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Ne(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Ne", lhs, rhs, result, DoubleCondition::DoubleNotEqualOrUnordered, RELOP_AS_LAMBDA( != ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Ne(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Ne(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Ne", lhs, rhs, result, DoubleCondition::DoubleNotEqualOrUnordered, RELOP_AS_LAMBDA( != ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Lt(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Lt(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Lt", lhs, rhs, result, DoubleCondition::DoubleLessThanAndOrdered, RELOP_AS_LAMBDA( < ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Lt(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Lt(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Lt", lhs, rhs, result, DoubleCondition::DoubleLessThanAndOrdered, RELOP_AS_LAMBDA( < ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Le(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Le(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Le", lhs, rhs, result, DoubleCondition::DoubleLessThanOrEqualAndOrdered, RELOP_AS_LAMBDA( <= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Le(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Le(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Le", lhs, rhs, result, DoubleCondition::DoubleLessThanOrEqualAndOrdered, RELOP_AS_LAMBDA( <= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Gt(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Gt(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Gt", lhs, rhs, result, DoubleCondition::DoubleGreaterThanAndOrdered, RELOP_AS_LAMBDA( > ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Gt(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Gt(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Gt", lhs, rhs, result, DoubleCondition::DoubleGreaterThanAndOrdered, RELOP_AS_LAMBDA( > ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Ge(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Ge(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF32("F32Ge", lhs, rhs, result, DoubleCondition::DoubleGreaterThanOrEqualAndOrdered, RELOP_AS_LAMBDA( >= ));
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Ge(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Ge(Value lhs, Value rhs, Value& result)
 {
     return emitCompareF64("F64Ge", lhs, rhs, result, DoubleCondition::DoubleGreaterThanOrEqualAndOrdered, RELOP_AS_LAMBDA( >= ));
 }
@@ -2772,7 +2771,7 @@ PartialResult BBQJIT::addI32Extend8S(Value operand, Value& result)
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Extend16S(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Extend16S(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32Extend16S", TypeKind::I32,
@@ -2783,7 +2782,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Extend16S(Value operand, Value& r
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Eqz(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Eqz(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32Eqz", TypeKind::I32,
@@ -2794,7 +2793,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Eqz(Value operand, Value& result)
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Popcnt(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32Popcnt(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32Popcnt", TypeKind::I32,
@@ -2819,7 +2818,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32Popcnt(Value operand, Value& resu
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64Popcnt(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64Popcnt(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I64Popcnt", TypeKind::I64,
@@ -2844,7 +2843,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI64Popcnt(Value operand, Value& resu
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ReinterpretF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32ReinterpretF32(Value operand, Value& result)
 {
     EMIT_UNARY(
         "I32ReinterpretF32", TypeKind::I32,
@@ -2855,7 +2854,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI32ReinterpretF32(Value operand, Val
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32ReinterpretI32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32ReinterpretI32(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32ReinterpretI32", TypeKind::F32,
@@ -2866,7 +2865,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32ReinterpretI32(Value operand, Val
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32DemoteF64(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32DemoteF64(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32DemoteF64", TypeKind::F32,
@@ -2877,7 +2876,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32DemoteF64(Value operand, Value& r
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64PromoteF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64PromoteF32(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F64PromoteF32", TypeKind::F64,
@@ -2888,7 +2887,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64PromoteF32(Value operand, Value& 
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Copysign(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Copysign(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F64Copysign", TypeKind::F64,
@@ -2915,7 +2914,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Copysign(Value lhs, Value rhs, Va
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32ConvertSI32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32ConvertSI32(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32ConvertSI32", TypeKind::F32,
@@ -2926,7 +2925,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32ConvertSI32(Value operand, Value&
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64ConvertSI32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64ConvertSI32(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F64ConvertSI32", TypeKind::F64,
@@ -2937,7 +2936,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64ConvertSI32(Value operand, Value&
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Copysign(Value lhs, Value rhs, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Copysign(Value lhs, Value rhs, Value& result)
 {
     EMIT_BINARY(
         "F32Copysign", TypeKind::F32,
@@ -2971,7 +2970,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Copysign(Value lhs, Value rhs, Va
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Abs(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Abs(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32Abs", TypeKind::F32,
@@ -2987,7 +2986,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Abs(Value operand, Value& result)
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Abs(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Abs(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F64Abs", TypeKind::F64,
@@ -3003,7 +3002,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Abs(Value operand, Value& result)
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Sqrt(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Sqrt(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32Sqrt", TypeKind::F32,
@@ -3014,7 +3013,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Sqrt(Value operand, Value& result
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Sqrt(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Sqrt(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F64Sqrt", TypeKind::F64,
@@ -3025,88 +3024,76 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Sqrt(Value operand, Value& result
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Neg(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF32Neg(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F32Neg", TypeKind::F32,
         BLOCK(Value::fromF32(-operand.asF32())),
         BLOCK(
-#if CPU(X86_64)
-            m_jit.moveFloatTo32(operandLocation.asFPR(), wasmScratchGPR);
-            m_jit.xor32(TrustedImm32(std::bit_cast<uint32_t>(static_cast<float>(-0.0))), wasmScratchGPR);
-            m_jit.move32ToFloat(wasmScratchGPR, resultLocation.asFPR());
-#else
             m_jit.negateFloat(operandLocation.asFPR(), resultLocation.asFPR());
-#endif
         )
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Neg(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addF64Neg(Value operand, Value& result)
 {
     EMIT_UNARY(
         "F64Neg", TypeKind::F64,
         BLOCK(Value::fromF64(-operand.asF64())),
         BLOCK(
-#if CPU(X86_64)
-            m_jit.moveDoubleTo64(operandLocation.asFPR(), wasmScratchGPR);
-            m_jit.xor64(TrustedImm64(std::bit_cast<uint64_t>(static_cast<double>(-0.0))), wasmScratchGPR);
-            m_jit.move64ToDouble(wasmScratchGPR, resultLocation.asFPR());
-#else
             m_jit.negateDouble(operandLocation.asFPR(), resultLocation.asFPR());
-#endif
         )
     )
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32TruncSF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32TruncSF32(Value operand, Value& result)
 {
     return truncTrapping(OpType::I32TruncSF32, operand, result, Types::I32, Types::F32);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32TruncSF64(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32TruncSF64(Value operand, Value& result)
 {
     return truncTrapping(OpType::I32TruncSF64, operand, result, Types::I32, Types::F64);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32TruncUF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32TruncUF32(Value operand, Value& result)
 {
     return truncTrapping(OpType::I32TruncUF32, operand, result, Types::I32, Types::F32);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI32TruncUF64(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI32TruncUF64(Value operand, Value& result)
 {
     return truncTrapping(OpType::I32TruncUF64, operand, result, Types::I32, Types::F64);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64TruncSF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64TruncSF32(Value operand, Value& result)
 {
     return truncTrapping(OpType::I64TruncSF32, operand, result, Types::I64, Types::F32);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64TruncSF64(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64TruncSF64(Value operand, Value& result)
 {
     return truncTrapping(OpType::I64TruncSF64, operand, result, Types::I64, Types::F64);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64TruncUF32(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64TruncUF32(Value operand, Value& result)
 {
     return truncTrapping(OpType::I64TruncUF32, operand, result, Types::I64, Types::F32);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addI64TruncUF64(Value operand, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addI64TruncUF64(Value operand, Value& result)
 {
     return truncTrapping(OpType::I64TruncUF64, operand, result, Types::I64, Types::F64);
 }
 
 // References
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addRefEq(Value ref0, Value ref1, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addRefEq(Value ref0, Value ref1, Value& result)
 {
     return addI64Eq(ref0, ref1, result);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addRefFunc(FunctionSpaceIndex index, Value& result)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addRefFunc(FunctionSpaceIndex index, Value& result)
 {
     // FIXME: Emit this inline <https://bugs.webkit.org/show_bug.cgi?id=198506>.
     TypeKind returnType = TypeKind::Ref;
@@ -3143,7 +3130,7 @@ void BBQJIT::emitEntryTierUpCheck()
 }
 
 // Control flow
-ControlData WARN_UNUSED_RETURN BBQJIT::addTopLevel(BlockSignature signature)
+WARN_UNUSED_RETURN ControlData BBQJIT::addTopLevel(BlockSignature signature)
 {
     if (Options::verboseBBQJITInstructions()) [[unlikely]] {
         auto nameSection = m_info.nameSection;
@@ -3192,19 +3179,18 @@ ControlData WARN_UNUSED_RETURN BBQJIT::addTopLevel(BlockSignature signature)
 
     m_jit.move(wasmScratchGPR, MacroAssembler::stackPointerRegister);
 
-    if (m_profiledCallee.needsProfiling()) {
-        Address baselineDataAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfBaselineData(m_info, m_functionIndex));
-        m_jit.loadPtr(baselineDataAddress, GPRInfo::jitDataRegister);
-        Jump materialize = m_jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::jitDataRegister);
-        MacroAssembler::Label done = m_jit.label();
-        addLatePath(origin(), [materialize = WTFMove(materialize), done, baselineDataAddress](BBQJIT&, CCallHelpers& jit) {
-            materialize.link(&jit);
-            jit.move(GPRInfo::callFrameRegister, GPRInfo::nonPreservedNonArgumentGPR0);
-            jit.nearCallThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(materializeBaselineDataGenerator).code()));
-            jit.loadPtr(baselineDataAddress, GPRInfo::jitDataRegister);
-            jit.jump(done);
-        });
-    }
+    Address baselineDataAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfBaselineData(m_info, m_functionIndex));
+    m_jit.loadPtr(baselineDataAddress, GPRInfo::jitDataRegister);
+    Jump materialize = m_jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::jitDataRegister);
+    MacroAssembler::Label done = m_jit.label();
+    addLatePath(origin(), [materialize = WTF::move(materialize), done, baselineDataAddress](BBQJIT&, CCallHelpers& jit) {
+        materialize.link(&jit);
+        jit.move(GPRInfo::callFrameRegister, GPRInfo::nonPreservedNonArgumentGPR0);
+        jit.nearCallThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(materializeBaselineDataGenerator).code()));
+        jit.loadPtr(baselineDataAddress, GPRInfo::jitDataRegister);
+        jit.jump(done);
+    });
+    m_jit.add32(TrustedImm32(1), CCallHelpers::Address(GPRInfo::jitDataRegister, BaselineData::offsetOfTotalCount()));
 
     LocalOrTempIndex i = 0;
     for (; i < m_arguments.size(); ++i)
@@ -3352,10 +3338,8 @@ MacroAssembler::Label BBQJIT::addLoopOSREntrypoint()
     } else
         m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
 
-    if (m_profiledCallee.needsProfiling()) {
-        // Because tiering up code materializes BaselineData, this is always non nullptr.
-        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfBaselineData(m_info, m_functionIndex)), GPRInfo::jitDataRegister);
-    }
+    // Because tiering up code materializes BaselineData, this is always non nullptr.
+    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfBaselineData(m_info, m_functionIndex)), GPRInfo::jitDataRegister);
 
     int roundedFrameSize = stackCheckSize();
 #if CPU(X86_64) || CPU(ARM64)
@@ -3387,7 +3371,7 @@ MacroAssembler::Label BBQJIT::addLoopOSREntrypoint()
     return label;
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addBlock(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addBlock(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
 {
     result = ControlData(*this, BlockType::Block, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount());
     currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
@@ -3543,7 +3527,7 @@ void BBQJIT::emitLoopTierUpCheckAndOSREntryData(const ControlData& data, Stack& 
 #endif
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addLoop(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack, uint32_t loopIndex)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addLoop(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack, uint32_t loopIndex)
 {
     result = ControlData(*this, BlockType::Loop, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount());
     currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
@@ -3561,7 +3545,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addLoop(BlockSignature signature, Stack
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addIf(Value condition, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addIf(Value condition, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
 {
     RegisterSet liveScratchGPRs;
     Location conditionLocation;
@@ -3588,10 +3572,10 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addIf(Value condition, BlockSignature s
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addElse(ControlData& data, Stack& expressionStack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addElse(ControlData& data, Stack& expressionStack)
 {
     data.flushAndSingleExit(*this, data, expressionStack, false, true);
-    ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Block, data);
+    ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Else, data);
     data.linkJumps(&m_jit);
     dataElse.addBranch(m_jit.jump());
     data.linkIfBranch(&m_jit); // Link specifically the conditional branch of the preceding If
@@ -3613,13 +3597,13 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addElse(ControlData& data, Stack& expre
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addElseToUnreachable(ControlData& data)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addElseToUnreachable(ControlData& data)
 {
     // We want to flush or consume all values on the stack to reset the allocator
     // state entering the else block.
     data.flushAtBlockBoundary(*this, 0, m_parser->expressionStack(), true);
 
-    ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Block, data);
+    ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Else, data);
     data.linkJumps(&m_jit);
     dataElse.addBranch(m_jit.jump()); // Still needed even when the parent was unreachable to avoid running code within the else block.
     data.linkIfBranch(&m_jit); // Link specifically the conditional branch of the preceding If
@@ -3638,7 +3622,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addElseToUnreachable(ControlData& data)
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTry(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTry(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
 {
     m_usesExceptions = true;
     ++m_tryCatchDepth;
@@ -3654,7 +3638,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTry(BlockSignature signature, Stack&
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addTryTable(BlockSignature signature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addTryTable(BlockSignature signature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack)
 {
     m_usesExceptions = true;
     ++m_tryCatchDepth;
@@ -3673,7 +3657,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTryTable(BlockSignature signature, S
 
     result = ControlData(*this, BlockType::TryTable, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount());
     result.setTryInfo(m_callSiteIndex, m_callSiteIndex, m_tryCatchDepth);
-    result.setTryTableTargets(WTFMove(targetList));
+    result.setTryTableTargets(WTF::move(targetList));
     currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
     LOG_INSTRUCTION("TryTable", *signature.m_signature);
@@ -3683,7 +3667,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addTryTable(BlockSignature signature, S
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCatch(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, Stack& expressionStack, ControlType& data, ResultList& results)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCatch(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, Stack& expressionStack, ControlType& data, ResultList& results)
 {
     m_usesExceptions = true;
     data.flushAndSingleExit(*this, data, expressionStack, false, true);
@@ -3702,12 +3686,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatch(unsigned exceptionIndex, const
     LOG_INSTRUCTION("Catch");
     LOG_INDENT();
     emitCatchImpl(dataCatch, exceptionSignature, results);
-    data = WTFMove(dataCatch);
+    data = WTF::move(dataCatch);
     m_exceptionHandlers.append({ HandlerType::Catch, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, exceptionIndex });
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& data, ResultList& results)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& data, ResultList& results)
 {
     m_usesExceptions = true;
     unbindAllRegisters();
@@ -3724,12 +3708,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchToUnreachable(unsigned exceptio
     LOG_INSTRUCTION("Catch");
     LOG_INDENT();
     emitCatchImpl(dataCatch, exceptionSignature, results);
-    data = WTFMove(dataCatch);
+    data = WTF::move(dataCatch);
     m_exceptionHandlers.append({ HandlerType::Catch, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, exceptionIndex });
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAll(Stack& expressionStack, ControlType& data)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCatchAll(Stack& expressionStack, ControlType& data)
 {
     m_usesExceptions = true;
     data.flushAndSingleExit(*this, data, expressionStack, false, true);
@@ -3748,12 +3732,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAll(Stack& expressionStack, Con
     LOG_INSTRUCTION("CatchAll");
     LOG_INDENT();
     emitCatchAllImpl(dataCatch);
-    data = WTFMove(dataCatch);
+    data = WTF::move(dataCatch);
     m_exceptionHandlers.append({ HandlerType::CatchAll, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, 0 });
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAllToUnreachable(ControlType& data)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCatchAllToUnreachable(ControlType& data)
 {
     m_usesExceptions = true;
     unbindAllRegisters();
@@ -3770,17 +3754,17 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAllToUnreachable(ControlType& d
     LOG_INSTRUCTION("CatchAll");
     LOG_INDENT();
     emitCatchAllImpl(dataCatch);
-    data = WTFMove(dataCatch);
+    data = WTF::move(dataCatch);
     m_exceptionHandlers.append({ HandlerType::CatchAll, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, 0 });
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addDelegate(ControlType& target, ControlType& data)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addDelegate(ControlType& target, ControlType& data)
 {
     return addDelegateToUnreachable(target, data);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addDelegateToUnreachable(ControlType& target, ControlType& data)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addDelegateToUnreachable(ControlType& target, ControlType& data)
 {
     unsigned depth = 0;
     if (ControlType::isTry(target))
@@ -3794,7 +3778,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addDelegateToUnreachable(ControlType& t
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addThrow(unsigned exceptionIndex, ArgumentList& arguments, Stack&)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addThrow(unsigned exceptionIndex, ArgumentList& arguments, Stack&)
 {
 
     LOG_INSTRUCTION("Throw", arguments);
@@ -3829,7 +3813,7 @@ void BBQJIT::prepareForExceptions()
     }
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addReturn(const ControlData& data, const Stack& returnValues)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addReturn(const ControlData& data, const Stack& returnValues)
 {
     CallInformation wasmCallInfo = wasmCallingConvention().callInformationFor(*data.signature().m_signature, CallRole::Callee);
 
@@ -3866,7 +3850,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addReturn(const ControlData& data, cons
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addBranch(ControlData& target, Value condition, Stack& results)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addBranch(ControlData& target, Value condition, Stack& results)
 {
     if (condition.isConst() && !condition.asI32()) // If condition is known to be false, this is a no-op.
         return { };
@@ -3903,7 +3887,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addBranch(ControlData& target, Value co
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addSwitch(Value condition, const Vector<ControlData*>& targets, ControlData& defaultTarget, Stack& results)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addSwitch(Value condition, const Vector<ControlData*>& targets, ControlData& defaultTarget, Stack& results)
 {
     ASSERT(condition.type() == TypeKind::I32);
 
@@ -3955,7 +3939,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addSwitch(Value condition, const Vector
             return label;
         });
 
-        m_jit.addLinkTask([labels = WTFMove(labels), jumpTable](LinkBuffer& linkBuffer) {
+        m_jit.addLinkTask([labels = WTF::move(labels), jumpTable](LinkBuffer& linkBuffer) {
             for (unsigned index = 0; index < labels.size(); ++index)
                 jumpTable->at(index) = linkBuffer.locationOf<JSSwitchPtrTag>(*labels[index]);
         });
@@ -3983,12 +3967,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addSwitch(Value condition, const Vector
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::endBlock(ControlEntry& entry, Stack& stack)
+WARN_UNUSED_RETURN PartialResult BBQJIT::endBlock(ControlEntry& entry, Stack& stack)
 {
     return addEndToUnreachable(entry, stack, false);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addEndToUnreachable(ControlEntry& entry, Stack& stack, bool unreachable)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addEndToUnreachable(ControlEntry& entry, Stack& stack, bool unreachable)
 {
     ControlData& entryData = entry.controlData;
 
@@ -4067,11 +4051,11 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addEndToUnreachable(ControlEntry& entry
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::endTopLevel(BlockSignature, const Stack&)
+WARN_UNUSED_RETURN PartialResult BBQJIT::endTopLevel(BlockSignature, const Stack&)
 {
     int frameSize = stackCheckSize();
     CCallHelpers& jit = m_jit;
-    m_jit.addLinkTask([frameSize, labels = WTFMove(m_frameSizeLabels), &jit](LinkBuffer& linkBuffer) {
+    m_jit.addLinkTask([frameSize, labels = WTF::move(m_frameSizeLabels), &jit](LinkBuffer& linkBuffer) {
         for (auto label : labels)
             jit.repatchPointer(linkBuffer.locationOf<NoPtrTag>(label), std::bit_cast<void*>(static_cast<uintptr_t>(frameSize)));
     });
@@ -4151,10 +4135,10 @@ void BBQJIT::loadWebAssemblyGlobalState(GPRReg wasmBaseMemoryPointer, GPRReg was
 void BBQJIT::flushRegistersForException()
 {
     // Flush all locals.
-    m_gprAllocator.flushIf(*this, [&](const RegisterBinding& binding) {
+    m_gprAllocator.flushIf(*this, [&](GPRReg, const RegisterBinding& binding) {
         return binding.toValue().isLocal();
     });
-    m_fprAllocator.flushIf(*this, [&](const RegisterBinding& binding) {
+    m_fprAllocator.flushIf(*this, [&](FPRReg, const RegisterBinding& binding) {
         return binding.toValue().isLocal();
     });
 }
@@ -4352,7 +4336,7 @@ void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndexSpace, const TypeDefin
     auto preserved = callingConvention.argumentGPRs();
     if constexpr (isARM64E())
         preserved.add(callingConvention.prologueScratchGPRs[0], IgnoreVectors);
-    ScratchScope<1, 0> scratches(*this, WTFMove(preserved));
+    ScratchScope<1, 0> scratches(*this, WTF::move(preserved));
     GPRReg callerFramePointer = scratches.gpr(0);
     scratches.unbindPreserved();
 
@@ -4441,7 +4425,7 @@ void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndexSpace, const TypeDefin
 }
 
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(unsigned callProfileIndex, FunctionSpaceIndex functionIndexSpace, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType callType)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCall(unsigned callProfileIndex, FunctionSpaceIndex functionIndexSpace, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType callType)
 {
     emitIncrementCallProfileCount(callProfileIndex);
     JIT_COMMENT(m_jit, "calling functionIndexSpace: ", functionIndexSpace, ConditionalDump(!m_info.isImportedFunctionFromFunctionIndexSpace(functionIndexSpace), " functionIndex: ", functionIndexSpace - m_info.importFunctionCount()));
@@ -4500,59 +4484,71 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(unsigned callProfileIndex, Func
     return { };
 }
 
-void BBQJIT::emitIndirectCall(const char* opcode, unsigned callProfileIndex, const Value& callee, GPRReg boxedCallee, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results)
+void BBQJIT::emitIndirectCall(const char* opcode, unsigned callProfileIndex, const Value& callee, GPRReg importableFunction, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results)
 {
-    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(calleeCode, IgnoreVectors));
+    ASSERT(importableFunction == GPRInfo::nonPreservedNonArgumentGPR1);
+    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(importableFunction, IgnoreVectors));
+    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(wasmScratchGPR, IgnoreVectors));
 
     const auto& callingConvention = wasmCallingConvention();
     CallInformation wasmCalleeInfo = callingConvention.callInformationFor(signature, CallRole::Caller);
     Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(wasmCalleeInfo.headerAndArgumentStackSizeInBytes);
     m_maxCalleeStackSize = std::max<int>(calleeStackSize, m_maxCalleeStackSize);
 
+    prepareForExceptions();
+    saveValuesAcrossCallAndPassArguments(arguments, wasmCalleeInfo, signature); // Keep in mind that this clobbers wasmScratchGPR and wasmScratchFPR.
+
+    // Now, all argument GPRs are set up, but
+    // 1. Callee save registers are kept, thus we can access GPRInfo::jitDataRegister.
+    // 2. boxedCallee is placed in GPRInfo::nonPreservedNonArgumentGPR1, so not clobbered via arguments set up.
+    // 3. wasmScratchGPR can be clobbered now.
+
+    JumpList afterCall;
+    m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfBoxedCallee()), wasmScratchGPR);
+    m_jit.storeWasmCalleeToCalleeCallFrame(wasmScratchGPR);
     if (m_profile->isMegamorphic(callProfileIndex)) {
+        m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfTargetInstance()), wasmScratchGPR);
         // Do a context switch if needed.
-        Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
-        m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
+        Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
+        m_jit.move(wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
 #if USE(JSVALUE64)
         loadWebAssemblyGlobalState(wasmBaseMemoryPointer, wasmBoundsCheckingSizeRegister);
 #endif
         isSameInstanceBefore.link(m_jit);
     } else {
         JumpList profilingDone;
-        JumpList profilingGiveUp;
+        JumpList updateProfile;
 
-        // Do a context switch if needed.
-        Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
-        m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
+        m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfTargetInstance()), m_jit.scratchRegister());
+        Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, m_jit.scratchRegister(), GPRInfo::wasmContextInstancePointer);
+        m_jit.move(m_jit.scratchRegister(), GPRInfo::wasmContextInstancePointer);
 #if USE(JSVALUE64)
         loadWebAssemblyGlobalState(wasmBaseMemoryPointer, wasmBoundsCheckingSizeRegister);
 #endif
-        profilingGiveUp.append(m_jit.jump());
-
-        isSameInstanceBefore.link(&m_jit);
         m_jit.loadPtr(CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex + CallProfile::offsetOfBoxedCallee())), wasmScratchGPR);
-        profilingDone.append(m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, boxedCallee));
-        profilingDone.append(m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, TrustedImmPtr(CallProfile::megamorphicCallee)));
-        profilingGiveUp.append(m_jit.branchTestPtr(CCallHelpers::NonZero, wasmScratchGPR));
-        m_jit.move(boxedCallee, wasmScratchGPR);
-        auto store = m_jit.jump();
+        m_jit.orPtr(TrustedImm32(CallProfile::Megamorphic), wasmScratchGPR);
+        updateProfile.append(m_jit.jump());
 
-        profilingGiveUp.link(m_jit);
-        m_jit.move(TrustedImm32(CallProfile::megamorphicCallee), wasmScratchGPR);
+        isSameInstanceBefore.link(m_jit);
+        m_jit.loadPtr(CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex + CallProfile::offsetOfBoxedCallee())), m_jit.scratchRegister());
+        profilingDone.append(m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, m_jit.scratchRegister()));
+        profilingDone.append(m_jit.branchTestPtr(CCallHelpers::NonZero, m_jit.scratchRegister(), TrustedImm32(CallProfile::Megamorphic)));
 
-        store.link(m_jit);
-        m_jit.storePtr(wasmScratchGPR, CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex + CallProfile::offsetOfBoxedCallee()))); // Give up for cross-instance indirect calls.
+        updateProfile.append(m_jit.branchTestPtr(CCallHelpers::Zero, m_jit.scratchRegister()));
+        m_jit.addPtr(TrustedImm32(safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex)), GPRInfo::jitDataRegister, GPRInfo::wasmContextInstancePointer);
+        m_jit.nearCallThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(callPolymorphicCalleeGenerator).code()));
+        afterCall.append(m_jit.jump());
+
+        updateProfile.link(&m_jit);
+        m_jit.storePtr(wasmScratchGPR, CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallProfile) * callProfileIndex + CallProfile::offsetOfBoxedCallee())));
         profilingDone.link(m_jit);
     }
 
-    m_jit.loadPtr(Address(calleeCode), calleeCode);
-    prepareForExceptions();
-    saveValuesAcrossCallAndPassArguments(arguments, wasmCalleeInfo, signature); // Keep in mind that this clobbers wasmScratchGPR and wasmScratchFPR.
-
-    // Why can we still call calleeCode after saveValuesAcrossCallAndPassArguments? CalleeCode is a scratch and not any argument GPR.
-    m_jit.call(calleeCode, WasmEntryPtrTag);
+    m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), wasmScratchGPR);
+    m_jit.call(CCallHelpers::Address(wasmScratchGPR), WasmEntryPtrTag);
 
     // Our callee could have tail called someone else and changed SP so we need to restore it. Do this before restoring our results since results are stored at the top of the reserved stack space.
+    afterCall.link(m_jit);
     m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), wasmScratchGPR));
 #if CPU(ARM64)
     m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, MacroAssembler::stackPointerRegister);
@@ -4568,19 +4564,22 @@ void BBQJIT::emitIndirectCall(const char* opcode, unsigned callProfileIndex, con
     LOG_INSTRUCTION(opcode, callee, arguments, "=> ", results);
 }
 
-void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, ArgumentList& arguments)
+void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRReg importableFunction, const TypeDefinition& signature, ArgumentList& arguments)
 {
-    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(calleeCode, IgnoreVectors));
-    m_jit.loadPtr(Address(calleeCode), calleeCode);
+    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(importableFunction, IgnoreVectors));
+    ASSERT(!RegisterSetBuilder::argumentGPRs().contains(wasmScratchGPR, IgnoreVectors));
+
+    m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfBoxedCallee()), wasmScratchGPR);
+    m_jit.storeWasmCalleeToCalleeCallFrame(wasmScratchGPR);
 
     // Do a context switch if needed.
-    Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
-    m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
+    m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfTargetInstance()), wasmScratchGPR);
+    Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
+    m_jit.move(wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
 #if USE(JSVALUE64)
     loadWebAssemblyGlobalState(wasmBaseMemoryPointer, wasmBoundsCheckingSizeRegister);
 #endif
     isSameInstanceBefore.link(&m_jit);
-    // calleeInstance is dead now.
 
     const auto& callingConvention = wasmCallingConvention();
     CallInformation callInfo = callingConvention.callInformationFor(signature, CallRole::Callee);
@@ -4618,10 +4617,10 @@ void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRRe
     parameterLocations.append(Location::fromStack(tailCallStackOffsetFromFP + Checked<int>(sizeof(Register))));
 #elif CPU(ARM64) || CPU(ARM_THUMB2)
     auto preserved = callingConvention.argumentGPRs();
-    preserved.add(calleeCode, IgnoreVectors);
+    preserved.add(importableFunction, IgnoreVectors);
     if constexpr (isARM64E())
         preserved.add(callingConvention.prologueScratchGPRs[0], IgnoreVectors);
-    ScratchScope<1, 0> scratches(*this, WTFMove(preserved));
+    ScratchScope<1, 0> scratches(*this, WTF::move(preserved));
     GPRReg callerFramePointer = scratches.gpr(0);
     scratches.unbindPreserved();
     m_jit.loadPairPtr(MacroAssembler::framePointerRegister, callerFramePointer, MacroAssembler::linkRegister);
@@ -4680,7 +4679,8 @@ void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRRe
     UNREACHABLE_FOR_PLATFORM();
 #endif
 
-    m_jit.farJump(calleeCode, WasmEntryPtrTag);
+    m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), importableFunction);
+    m_jit.farJump(CCallHelpers::Address(importableFunction), WasmEntryPtrTag);
     LOG_INSTRUCTION(opcode, callee, arguments);
 
     // Because we're returning, we need to consume all elements of the
@@ -4691,7 +4691,7 @@ void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRRe
         consume(value);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callProfileIndex, unsigned tableIndex, const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType callType)
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCallIndirect(unsigned callProfileIndex, unsigned tableIndex, const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType callType)
 {
     emitIncrementCallProfileCount(callProfileIndex);
     Value calleeIndex = args.takeLast();
@@ -4701,14 +4701,11 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callProfileInd
     ASSERT(m_info.tables[tableIndex].type() == TableElementType::Funcref);
 
     Location calleeIndexLocation;
-    GPRReg calleeInstance;
-    GPRReg calleeCode;
-    GPRReg calleeRTT;
-
+    GPRReg importableFunction = GPRInfo::nonPreservedNonArgumentGPR1;
     {
-        ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRs());
-        calleeCode = calleeCodeScratch.gpr(0);
-        calleeCodeScratch.unbindPreserved();
+        clobber(importableFunction);
+        ScratchScope<0, 0> importableFunctionScope(*this, importableFunction);
+        static_assert(GPRInfo::nonPreservedNonArgumentGPR0 == wasmScratchGPR);
 
         {
             ScratchScope<2, 0> scratches(*this);
@@ -4718,7 +4715,6 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callProfileInd
             else
                 calleeIndexLocation = loadIfNecessary(calleeIndex);
 
-            GPRReg callableFunctionBufferLength = calleeCode;
             GPRReg callableFunctionBuffer = scratches.gpr(0);
 
             ASSERT(tableIndex < m_info.tableCount());
@@ -4728,59 +4724,56 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callProfileInd
                 if (!tableIndex)
                     m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Buffer()), callableFunctionBuffer);
                 else {
-                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), callableFunctionBufferLength);
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), wasmScratchGPR);
                     if (!tableInformation.isImport())
-                        m_jit.addPtr(TrustedImm32(FuncRefTable::offsetOfFunctionsForFixedSizedTable()), callableFunctionBufferLength, callableFunctionBuffer);
+                        m_jit.addPtr(TrustedImm32(FuncRefTable::offsetOfFunctionsForFixedSizedTable()), wasmScratchGPR, callableFunctionBuffer);
                     else
-                        m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
+                        m_jit.loadPtr(Address(wasmScratchGPR, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
                 }
-                m_jit.move(TrustedImm32(tableInformation.initial()), callableFunctionBufferLength);
+                m_jit.move(TrustedImm32(tableInformation.initial()), wasmScratchGPR);
             } else {
                 if (!tableIndex) {
                     m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Buffer()), callableFunctionBuffer);
-                    m_jit.load32(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Length()), callableFunctionBufferLength);
+                    m_jit.load32(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Length()), wasmScratchGPR);
                 } else {
-                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), callableFunctionBufferLength);
-                    m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
-                    m_jit.load32(Address(callableFunctionBufferLength, FuncRefTable::offsetOfLength()), callableFunctionBufferLength);
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), wasmScratchGPR);
+                    m_jit.loadPtr(Address(wasmScratchGPR, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
+                    m_jit.load32(Address(wasmScratchGPR, FuncRefTable::offsetOfLength()), wasmScratchGPR);
                 }
             }
             ASSERT(calleeIndexLocation.isGPR());
 
             JIT_COMMENT(m_jit, "Check the index we are looking for is valid");
-            recordJumpToThrowException(ExceptionType::OutOfBoundsCallIndirect, m_jit.branch32(RelationalCondition::AboveOrEqual, calleeIndexLocation.asGPR(), callableFunctionBufferLength));
+            recordJumpToThrowException(ExceptionType::OutOfBoundsCallIndirect, m_jit.branch32(RelationalCondition::AboveOrEqual, calleeIndexLocation.asGPR(), wasmScratchGPR));
 
-            // Neither callableFunctionBuffer nor callableFunctionBufferLength are used before any of these
+            // Neither callableFunctionBuffer nor wasmScratchGPR are used before any of these
             // are def'd below, so we can reuse the registers and save some pressure.
-            calleeInstance = scratches.gpr(0);
-            calleeRTT = scratches.gpr(1);
 
             static_assert(sizeof(TypeIndex) == sizeof(void*));
-            GPRReg calleeSignatureIndex = wasmScratchGPR;
 
             JIT_COMMENT(m_jit, "Compute the offset in the table index space we are looking for");
             if constexpr (hasOneBitSet(sizeof(FuncRefTable::Function))) {
                 m_jit.zeroExtend32ToWord(calleeIndexLocation.asGPR(), calleeIndexLocation.asGPR());
 #if CPU(ARM64)
-                m_jit.addLeftShift64(callableFunctionBuffer, calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), calleeSignatureIndex);
+                m_jit.addLeftShift64(callableFunctionBuffer, calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), importableFunction);
 #elif CPU(ARM)
-                m_jit.lshift32(calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), calleeSignatureIndex);
-                m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+                m_jit.lshift32(calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), importableFunction);
+                m_jit.addPtr(callableFunctionBuffer, importableFunction);
 #else
-                m_jit.lshift64(calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), calleeSignatureIndex);
-                m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+                m_jit.lshift64(calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), importableFunction);
+                m_jit.addPtr(callableFunctionBuffer, importableFunction);
 #endif
             } else {
-                m_jit.move(TrustedImmPtr(sizeof(FuncRefTable::Function)), calleeSignatureIndex);
+                m_jit.move(TrustedImmPtr(sizeof(FuncRefTable::Function)), importableFunction);
 #if CPU(ARM64)
-                m_jit.multiplyAddZeroExtend32(calleeIndexLocation.asGPR(), calleeSignatureIndex, callableFunctionBuffer, calleeSignatureIndex);
+                m_jit.multiplyAddZeroExtend32(calleeIndexLocation.asGPR(), importableFunction, callableFunctionBuffer, importableFunction);
 #elif CPU(ARM)
-                m_jit.mul32(calleeIndexLocation.asGPR(), calleeSignatureIndex);
-                m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+                m_jit.mul32(calleeIndexLocation.asGPR(), importableFunction);
+                m_jit.addPtr(callableFunctionBuffer, importableFunction);
 #else
                 m_jit.zeroExtend32ToWord(calleeIndexLocation.asGPR(), calleeIndexLocation.asGPR());
-                m_jit.mul64(calleeIndexLocation.asGPR(), calleeSignatureIndex);
-                m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+                m_jit.mul64(calleeIndexLocation.asGPR(), importableFunction);
+                m_jit.addPtr(callableFunctionBuffer, importableFunction);
 #endif
             }
             consume(calleeIndex);
@@ -4790,41 +4783,36 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callProfileInd
             // error to use in the exception handler.
 
             auto targetRTT = TypeInformation::getCanonicalRTT(originalSignature.index());
-            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfRTT());
-            m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), calleeCode, calleeRTT);
+            m_jit.loadPtr(CCallHelpers::Address(importableFunction, WasmToWasmImportableFunction::offsetOfRTT()), wasmScratchGPR);
             if (originalSignature.isFinalType())
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, calleeRTT, TrustedImmPtr(targetRTT.ptr())));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, wasmScratchGPR, TrustedImmPtr(targetRTT.ptr())));
             else {
-                auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeRTT, TrustedImmPtr(targetRTT.ptr()));
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchTestPtr(ResultCondition::Zero, calleeRTT));
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branch32(CCallHelpers::BelowOrEqual, Address(calleeRTT, RTT::offsetOfDisplaySizeExcludingThis()), TrustedImm32(targetRTT->displaySizeExcludingThis())));
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, CCallHelpers::Address(calleeRTT, RTT::offsetOfData() + targetRTT->displaySizeExcludingThis() * sizeof(RefPtr<const RTT>)), TrustedImmPtr(targetRTT.ptr())));
+                auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, TrustedImmPtr(targetRTT.ptr()));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchTestPtr(ResultCondition::Zero, wasmScratchGPR));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branch32(CCallHelpers::BelowOrEqual, Address(wasmScratchGPR, RTT::offsetOfDisplaySizeExcludingThis()), TrustedImm32(targetRTT->displaySizeExcludingThis())));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, CCallHelpers::Address(wasmScratchGPR, RTT::offsetOfData() + targetRTT->displaySizeExcludingThis() * sizeof(RefPtr<const RTT>)), TrustedImmPtr(targetRTT.ptr())));
 
                 indexEqual.link(&m_jit);
             }
-
-            m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfBoxedCallee()), calleeRTT);
-            m_jit.storeWasmCalleeToCalleeCallFrame(calleeRTT);
-            m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfTargetInstance()), calleeInstance);
         }
     }
 
     JIT_COMMENT(m_jit, "Finished loading callee code");
     if (callType == CallType::Call)
-        emitIndirectCall("CallIndirect", callProfileIndex, calleeIndex, calleeRTT, calleeInstance, calleeCode, signature, args, results);
+        emitIndirectCall("CallIndirect", callProfileIndex, calleeIndex, importableFunction, signature, args, results);
     else
-        emitIndirectTailCall("ReturnCallIndirect", calleeIndex, calleeInstance, calleeCode, signature, args);
+        emitIndirectTailCall("ReturnCallIndirect", calleeIndex, importableFunction, signature, args);
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addUnreachable()
+WARN_UNUSED_RETURN PartialResult BBQJIT::addUnreachable()
 {
     LOG_INSTRUCTION("Unreachable");
     emitThrowException(ExceptionType::Unreachable);
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCrash()
+WARN_UNUSED_RETURN PartialResult BBQJIT::addCrash()
 {
     m_jit.breakpoint();
     return { };
@@ -4906,6 +4894,395 @@ ALWAYS_INLINE void BBQJIT::didParseOpcode()
 {
 }
 
+BBQJIT::BranchFoldResult BBQJIT::tryFoldFusedBranchCompare(OpType opType, ExpressionType operand)
+{
+    if (!operand.isConst())
+        return BranchNotFolded;
+    switch (opType) {
+    case OpType::I32Eqz:
+        return operand.asI32() ? BranchNeverTaken : BranchAlwaysTaken;
+    case OpType::I64Eqz:
+        return operand.asI64() ? BranchNeverTaken : BranchAlwaysTaken;
+    default:
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Op type '%s' is not a unary comparison and should not have been fused.\n", makeString(opType).characters());
+    }
+    return BranchNotFolded;
+}
+
+BBQJIT::Jump BBQJIT::emitFusedBranchCompareBranch(OpType opType, ExpressionType, Location operandLocation)
+{
+    // Emit the negation of the intended branch.
+    switch (opType) {
+    case OpType::I32Eqz:
+        return m_jit.branchTest32(ResultCondition::NonZero, operandLocation.asGPR());
+    case OpType::I64Eqz:
+#if USE(JSVALUE64)
+        return m_jit.branchTest64(ResultCondition::NonZero, operandLocation.asGPR());
+#else
+        return m_jit.branchTest64(ResultCondition::NonZero, operandLocation.asGPRhi(), operandLocation.asGPRlo());
+#endif
+    default:
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Op type '%s' is not a unary comparison and should not have been fused.\n", makeString(opType).characters());
+    }
+}
+
+PartialResult BBQJIT::addFusedBranchCompare(OpType opType, ControlType& target, ExpressionType operand, Stack& results)
+{
+    ASSERT(!operand.isNone());
+
+    switch (tryFoldFusedBranchCompare(opType, operand)) {
+    case BranchNeverTaken:
+        return { };
+    case BranchAlwaysTaken:
+        currentControlData().flushAndSingleExit(*this, target, results, false, false);
+        target.addBranch(m_jit.jump());
+        return { };
+    case BranchNotFolded:
+        break;
+    }
+
+    {
+        // Like in normal addBranch(), we can directly use the operand location
+        // because it shouldn't interfere with flushAtBlockBoundary().
+        Location operandLocation = loadIfNecessary(operand);
+        consume(operand);
+
+        LOG_INSTRUCTION("BranchCompare", makeString(opType).characters(), operand, operandLocation);
+
+        currentControlData().flushAtBlockBoundary(*this, 0, results, false);
+        Jump ifNotTaken = emitFusedBranchCompareBranch(opType, operand, operandLocation);
+        currentControlData().addExit(*this, target.targetLocations(), results);
+        target.addBranch(m_jit.jump());
+        ifNotTaken.link(&m_jit);
+        currentControlData().finalizeBlock(*this, target.targetLocations().size(), results, true);
+    }
+
+    return { };
+}
+
+WARN_UNUSED_RETURN PartialResult BBQJIT::addFusedIfCompare(OpType op, ExpressionType operand, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
+{
+    BranchFoldResult foldResult = tryFoldFusedBranchCompare(op, operand);
+
+    ScratchScope<0, 1> scratches(*this);
+    Location operandLocation;
+    RegisterSet liveScratchGPRs, liveScratchFPRs;
+    if (foldResult == BranchNotFolded) {
+        if (!operand.isConst())
+            operandLocation = loadIfNecessary(operand);
+        else if (operand.isFloat()) {
+            operandLocation = Location::fromFPR(scratches.fpr(0));
+            emitMove(operand, operandLocation);
+        }
+
+        if (operandLocation.isGPR())
+            liveScratchGPRs.add(operandLocation.asGPR(), IgnoreVectors);
+        else if (operandLocation.isGPR2()) {
+            liveScratchGPRs.add(operandLocation.asGPRlo(), IgnoreVectors);
+            liveScratchGPRs.add(operandLocation.asGPRhi(), IgnoreVectors);
+        } else if (operandLocation.isFPR())
+            liveScratchFPRs.add(operandLocation.asFPR(), operand.type() == TypeKind::V128 ? Width128 : Width64);
+    }
+    if (!liveScratchFPRs.contains(scratches.fpr(0), IgnoreVectors))
+        scratches.unbindEarly();
+
+    consume(operand);
+
+    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
+
+    // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
+    currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
+
+    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature.m_signature, operand, operandLocation);
+    LOG_INDENT();
+    splitStack(signature, enclosingStack, newStack);
+
+    result.startBlock(*this, newStack);
+    if (foldResult == BranchNeverTaken)
+        result.setIfBranch(m_jit.jump()); // Emit direct branch if we know the condition is false.
+    else if (foldResult == BranchNotFolded) // Otherwise, we only emit a branch at all if we don't know the condition statically.
+        result.setIfBranch(emitFusedBranchCompareBranch(op, operand, operandLocation));
+    return { };
+}
+
+BBQJIT::BranchFoldResult BBQJIT::tryFoldFusedBranchCompare(OpType opType, ExpressionType left, ExpressionType right)
+{
+    if (!left.isConst() || !right.isConst())
+        return BranchNotFolded;
+    switch (opType) {
+    case OpType::I32LtS:
+        return left.asI32() < right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32LtU:
+        return static_cast<uint32_t>(left.asI32()) < static_cast<uint32_t>(right.asI32()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32GtS:
+        return left.asI32() > right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32GtU:
+        return static_cast<uint32_t>(left.asI32()) > static_cast<uint32_t>(right.asI32()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32LeS:
+        return left.asI32() <= right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32LeU:
+        return static_cast<uint32_t>(left.asI32()) <= static_cast<uint32_t>(right.asI32()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32GeS:
+        return left.asI32() >= right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32GeU:
+        return static_cast<uint32_t>(left.asI32()) >= static_cast<uint32_t>(right.asI32()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32Eq:
+        return left.asI32() == right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I32Ne:
+        return left.asI32() != right.asI32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64LtS:
+        return left.asI64() < right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64LtU:
+        return static_cast<uint64_t>(left.asI64()) < static_cast<uint64_t>(right.asI64()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64GtS:
+        return left.asI64() > right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64GtU:
+        return static_cast<uint64_t>(left.asI64()) > static_cast<uint64_t>(right.asI64()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64LeS:
+        return left.asI64() <= right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64LeU:
+        return static_cast<uint64_t>(left.asI64()) <= static_cast<uint64_t>(right.asI64()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64GeS:
+        return left.asI64() >= right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64GeU:
+        return static_cast<uint64_t>(left.asI64()) >= static_cast<uint64_t>(right.asI64()) ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64Eq:
+        return left.asI64() == right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::I64Ne:
+        return left.asI64() != right.asI64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Lt:
+        return left.asF32() < right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Gt:
+        return left.asF32() > right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Le:
+        return left.asF32() <= right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Ge:
+        return left.asF32() >= right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Eq:
+        return left.asF32() == right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F32Ne:
+        return left.asF32() != right.asF32() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Lt:
+        return left.asF64() < right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Gt:
+        return left.asF64() > right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Le:
+        return left.asF64() <= right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Ge:
+        return left.asF64() >= right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Eq:
+        return left.asF64() == right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    case OpType::F64Ne:
+        return left.asF64() != right.asF64() ? BranchAlwaysTaken : BranchNeverTaken;
+    default:
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Op type '%s' is not a binary comparison and should not have been fused.\n", makeString(opType).characters());
+    }
+}
+
+static MacroAssembler::Jump emitBranchI32(CCallHelpers& jit, MacroAssembler::RelationalCondition condition, Value left, Location leftLocation, Value right, Location rightLocation)
+{
+    if (right.isConst())
+        return jit.branch32(condition, leftLocation.asGPR(), MacroAssembler::TrustedImm32(right.asI32()));
+    if (left.isConst())
+        return jit.branch32(condition, MacroAssembler::TrustedImm32(left.asI32()), rightLocation.asGPR());
+    return jit.branch32(condition, leftLocation.asGPR(), rightLocation.asGPR());
+}
+
+static MacroAssembler::Jump emitBranchI64(CCallHelpers& jit, MacroAssembler::RelationalCondition condition, Value left, Location leftLocation, Value right, Location rightLocation)
+{
+#if USE(JSVALUE64)
+    if (right.isConst())
+        return jit.branch64(condition, leftLocation.asGPR(), MacroAssembler::Imm64(right.asI64()));
+    if (left.isConst())
+        return jit.branch64(MacroAssembler::commute(condition), rightLocation.asGPR(), MacroAssembler::Imm64(left.asI64()));
+    return jit.branch64(condition, leftLocation.asGPR(), rightLocation.asGPR());
+#else
+    if (right.isConst())
+        return jit.branch64(condition, leftLocation.asGPRhi(), leftLocation.asGPRlo(), MacroAssembler::TrustedImm64(right.asI64()));
+    if (left.isConst())
+        return jit.branch64(MacroAssembler::commute(condition), rightLocation.asGPRhi(), rightLocation.asGPRlo(), MacroAssembler::TrustedImm64(left.asI64()));
+    return jit.branch64(condition, leftLocation.asGPRhi(), leftLocation.asGPRlo(), rightLocation.asGPRhi(), rightLocation.asGPRlo());
+#endif
+}
+
+static MacroAssembler::Jump emitBranchF32(CCallHelpers& jit, MacroAssembler::DoubleCondition condition, Value, Location leftLocation, Value, Location rightLocation)
+{
+    return jit.branchFloat(condition, leftLocation.asFPR(), rightLocation.asFPR());
+}
+
+static MacroAssembler::Jump emitBranchF64(CCallHelpers& jit, MacroAssembler::DoubleCondition condition, Value, Location leftLocation, Value, Location rightLocation)
+{
+    return jit.branchDouble(condition, leftLocation.asFPR(), rightLocation.asFPR());
+}
+
+BBQJIT::Jump BBQJIT::emitFusedBranchCompareBranch(OpType opType, ExpressionType left, Location leftLocation, ExpressionType right, Location rightLocation)
+{
+    // Emit a branch with the inverse of the comparison. We're generating the "branch-if-false" case.
+    switch (opType) {
+    case OpType::I32LtS:
+        return emitBranchI32(m_jit, RelationalCondition::GreaterThanOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I32LtU:
+        return emitBranchI32(m_jit, RelationalCondition::AboveOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I32GtS:
+        return emitBranchI32(m_jit, RelationalCondition::LessThanOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I32GtU:
+        return emitBranchI32(m_jit, RelationalCondition::BelowOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I32LeS:
+        return emitBranchI32(m_jit, RelationalCondition::GreaterThan, left, leftLocation, right, rightLocation);
+    case OpType::I32LeU:
+        return emitBranchI32(m_jit, RelationalCondition::Above, left, leftLocation, right, rightLocation);
+    case OpType::I32GeS:
+        return emitBranchI32(m_jit, RelationalCondition::LessThan, left, leftLocation, right, rightLocation);
+    case OpType::I32GeU:
+        return emitBranchI32(m_jit, RelationalCondition::Below, left, leftLocation, right, rightLocation);
+    case OpType::I32Eq:
+        return emitBranchI32(m_jit, RelationalCondition::NotEqual, left, leftLocation, right, rightLocation);
+    case OpType::I32Ne:
+        return emitBranchI32(m_jit, RelationalCondition::Equal, left, leftLocation, right, rightLocation);
+    case OpType::I64LtS:
+        return emitBranchI64(m_jit, RelationalCondition::GreaterThanOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I64LtU:
+        return emitBranchI64(m_jit, RelationalCondition::AboveOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I64GtS:
+        return emitBranchI64(m_jit, RelationalCondition::LessThanOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I64GtU:
+        return emitBranchI64(m_jit, RelationalCondition::BelowOrEqual, left, leftLocation, right, rightLocation);
+    case OpType::I64LeS:
+        return emitBranchI64(m_jit, RelationalCondition::GreaterThan, left, leftLocation, right, rightLocation);
+    case OpType::I64LeU:
+        return emitBranchI64(m_jit, RelationalCondition::Above, left, leftLocation, right, rightLocation);
+    case OpType::I64GeS:
+        return emitBranchI64(m_jit, RelationalCondition::LessThan, left, leftLocation, right, rightLocation);
+    case OpType::I64GeU:
+        return emitBranchI64(m_jit, RelationalCondition::Below, left, leftLocation, right, rightLocation);
+    case OpType::I64Eq:
+        return emitBranchI64(m_jit, RelationalCondition::NotEqual, left, leftLocation, right, rightLocation);
+    case OpType::I64Ne:
+        return emitBranchI64(m_jit, RelationalCondition::Equal, left, leftLocation, right, rightLocation);
+    case OpType::F32Lt:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleLessThanAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F32Gt:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleGreaterThanAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F32Le:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleLessThanOrEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F32Ge:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleGreaterThanOrEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F32Eq:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F32Ne:
+        return emitBranchF32(m_jit, MacroAssembler::invert(DoubleCondition::DoubleNotEqualOrUnordered), left, leftLocation, right, rightLocation);
+    case OpType::F64Lt:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleLessThanAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F64Gt:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleGreaterThanAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F64Le:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleLessThanOrEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F64Ge:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleGreaterThanOrEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F64Eq:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleEqualAndOrdered), left, leftLocation, right, rightLocation);
+    case OpType::F64Ne:
+        return emitBranchF64(m_jit, MacroAssembler::invert(DoubleCondition::DoubleNotEqualOrUnordered), left, leftLocation, right, rightLocation);
+    default:
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Op type '%s' is not a binary comparison and should not have been fused.\n", makeString(opType).characters());
+    }
+}
+
+PartialResult BBQJIT::addFusedBranchCompare(OpType opType, ControlType& target, ExpressionType left, ExpressionType right, Stack& results)
+{
+    switch (tryFoldFusedBranchCompare(opType, left, right)) {
+    case BranchNeverTaken:
+        return { };
+    case BranchAlwaysTaken:
+        currentControlData().flushAndSingleExit(*this, target, results, false, false);
+        target.addBranch(m_jit.jump());
+        return { };
+    case BranchNotFolded:
+        break;
+    }
+
+    {
+        Location leftLocation, rightLocation;
+
+        if (!left.isConst())
+            leftLocation = loadIfNecessary(left);
+        else if (left.isFloat()) // Materialize floats here too, since they don't have a good immediate lowering.
+            emitMove(left, leftLocation = Location::fromFPR(wasmScratchFPR));
+        if (!right.isConst())
+            rightLocation = loadIfNecessary(right);
+        else if (right.isFloat())
+            emitMove(right, rightLocation = Location::fromFPR(wasmScratchFPR));
+
+        consume(left);
+        consume(right);
+
+        LOG_INSTRUCTION("BranchCompare", makeString(opType).characters(), left, leftLocation, right, rightLocation);
+
+        currentControlData().flushAtBlockBoundary(*this, 0, results, false);
+        Jump ifNotTaken = emitFusedBranchCompareBranch(opType, left, leftLocation, right, rightLocation);
+        currentControlData().addExit(*this, target.targetLocations(), results);
+        target.addBranch(m_jit.jump());
+        ifNotTaken.link(&m_jit);
+        currentControlData().finalizeBlock(*this, target.targetLocations().size(), results, true);
+    }
+
+    return { };
+}
+
+WARN_UNUSED_RETURN PartialResult BBQJIT::addFusedIfCompare(OpType op, ExpressionType left, ExpressionType right, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
+{
+    BranchFoldResult foldResult = tryFoldFusedBranchCompare(op, left, right);
+
+    Location leftLocation, rightLocation;
+    RegisterSet liveScratchGPRs, liveScratchFPRs;
+    if (foldResult == BranchNotFolded) {
+        ASSERT(!left.isConst() || !right.isConst()); // If they're both constants, we should have folded.
+
+        if (!left.isConst())
+            leftLocation = loadIfNecessary(left);
+        else if (left.isFloat())
+            emitMove(left, leftLocation = Location::fromFPR(wasmScratchFPR));
+        if (leftLocation.isGPR())
+            liveScratchGPRs.add(leftLocation.asGPR(), IgnoreVectors);
+        else if (leftLocation.isGPR2()) {
+            liveScratchGPRs.add(leftLocation.asGPRlo(), IgnoreVectors);
+            liveScratchGPRs.add(leftLocation.asGPRhi(), IgnoreVectors);
+        } else if (leftLocation.isFPR())
+            liveScratchFPRs.add(leftLocation.asFPR(), left.type() == TypeKind::V128 ? Width128 : Width64);
+
+        if (!right.isConst())
+            rightLocation = loadIfNecessary(right);
+        else if (right.isFloat())
+            emitMove(right, rightLocation = Location::fromFPR(wasmScratchFPR));
+        if (rightLocation.isGPR())
+            liveScratchGPRs.add(rightLocation.asGPR(), IgnoreVectors);
+        else if (rightLocation.isGPR2()) {
+            liveScratchGPRs.add(rightLocation.asGPRlo(), IgnoreVectors);
+            liveScratchGPRs.add(rightLocation.asGPRhi(), IgnoreVectors);
+        } else if (rightLocation.isFPR())
+            liveScratchFPRs.add(rightLocation.asFPR(), right.type() == TypeKind::V128 ? Width128 : Width64);
+    }
+    consume(left);
+    consume(right);
+
+
+    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
+
+    // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
+    currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
+
+    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature.m_signature, left, leftLocation, right, rightLocation);
+    LOG_INDENT();
+    splitStack(signature, enclosingStack, newStack);
+
+    result.startBlock(*this, newStack);
+    if (foldResult == BranchNeverTaken)
+        result.setIfBranch(m_jit.jump()); // Emit direct branch if we know the condition is false.
+    else if (foldResult == BranchNotFolded) // Otherwise, we only emit a branch at all if we don't know the condition statically.
+        result.setIfBranch(emitFusedBranchCompareBranch(op, left, leftLocation, right, rightLocation));
+    return { };
+}
+
 // SIMD
 
 bool BBQJIT::usesSIMD()
@@ -4932,29 +5309,29 @@ void BBQJIT::finalize()
 
 Vector<UnlinkedHandlerInfo>&& BBQJIT::takeExceptionHandlers()
 {
-    return WTFMove(m_exceptionHandlers);
+    return WTF::move(m_exceptionHandlers);
 }
 
 FixedBitVector&& BBQJIT::takeDirectCallees()
 {
-    return WTFMove(m_directCallees);
+    return WTF::move(m_directCallees);
 }
 
 Vector<CCallHelpers::Label>&& BBQJIT::takeCatchEntrypoints()
 {
-    return WTFMove(m_catchEntrypoints);
+    return WTF::move(m_catchEntrypoints);
 }
 
 Box<PCToCodeOriginMapBuilder> BBQJIT::takePCToCodeOriginMapBuilder()
 {
     if (m_pcToCodeOriginMapBuilder.didBuildMapping())
-        return Box<PCToCodeOriginMapBuilder>::create(WTFMove(m_pcToCodeOriginMapBuilder));
+        return Box<PCToCodeOriginMapBuilder>::create(WTF::move(m_pcToCodeOriginMapBuilder));
     return nullptr;
 }
 
 std::unique_ptr<BBQDisassembler> BBQJIT::takeDisassembler()
 {
-    return WTFMove(m_disassembler);
+    return WTF::move(m_disassembler);
 }
 
 bool BBQJIT::isScratch(Location loc)

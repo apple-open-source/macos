@@ -34,8 +34,6 @@ namespace InlineIterator {
 
 inline bool BoxModernPath::isHorizontal() const { return box().isHorizontal(); }
 
-inline WritingMode BoxModernPath::writingMode() const { return box().writingMode(); }
-
 inline TextRun BoxModernPath::textRun(TextRunMode mode) const
 {
     auto& style = box().style();

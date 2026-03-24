@@ -7,13 +7,14 @@
         "environmentVariableEntries" : [
           {
             "key" : "ICU_DATA",
-            "value" : "$(BUILT_PRODUCTS_DIR)\/icudt76l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
+            "value" : "$(BUILT_PRODUCTS_DIR)\/icudt78l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
           },
           {
             "key" : "ICU_BUILT_PRODUCTS_DIR",
             "value" : "$(BUILT_PRODUCTS_DIR)"
           }
-        ]
+        ],
+        "mallocScribbleEnabled" : true
       }
     }
   ],
@@ -45,7 +46,7 @@
     "environmentVariableEntries" : [
       {
         "key" : "ICU_DATA",
-        "value" : "$(BUILT_PRODUCTS_DIR)\/icudt76l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
+        "value" : "$(BUILT_PRODUCTS_DIR)\/icudt78l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
       }
     ],
     "targetForVariableExpansion" : {

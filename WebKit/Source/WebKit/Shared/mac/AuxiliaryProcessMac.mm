@@ -57,6 +57,7 @@
 #import <wtf/WTFProcess.h>
 #import <wtf/WallTime.h>
 #import <wtf/cocoa/Entitlements.h>
+#import <wtf/spi/darwin/DataVaultSPI.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/Base64.h>
 #import <wtf/text/MakeString.h>
@@ -78,7 +79,7 @@ SOFT_LINK_OPTIONAL(libsystem_info, lookup_close_connections, int, (), ());
 SOFT_LINK_FRAMEWORK_IN_UMBRELLA(ApplicationServices, HIServices)
 SOFT_LINK_OPTIONAL(HIServices, HIS_XPC_ResetMessageConnection, void, (), ())
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #define USE_CACHE_COMPILED_SANDBOX 1
 #else
 #define USE_CACHE_COMPILED_SANDBOX 0
@@ -164,7 +165,7 @@ void AuxiliaryProcess::launchServicesCheckIn()
 #endif
 
     _LSSetApplicationLaunchServicesServerConnectionStatus(0, 0);
-    RetainPtr<CFDictionaryRef> unused = _LSApplicationCheckIn(kLSDefaultSessionID, CFBundleGetInfoDictionary(CFBundleGetMainBundle()));
+    RetainPtr<CFDictionaryRef> unused = _LSApplicationCheckIn(kLSDefaultSessionID, RetainPtr { CFBundleGetInfoDictionary(RetainPtr { CFBundleGetMainBundle() }.get()) }.get());
 }
 
 static OSStatus enableSandboxStyleFileQuarantine()
@@ -209,7 +210,6 @@ static std::optional<Vector<uint8_t>> fileContents(const String& path)
     return contents;
 }
 
-#if USE(APPLE_INTERNAL_SDK)
 // These strings must match the last segment of the "com.apple.rootless.storage.<this part must match>" entry in each
 // process's restricted entitlements file (ex. Configurations/Networking-OSX-restricted.entitlements).
 constexpr ASCIILiteral processStorageClass(WTF::AuxiliaryProcessType type)
@@ -227,7 +227,6 @@ constexpr ASCIILiteral processStorageClass(WTF::AuxiliaryProcessType type)
 #endif
     }
 }
-#endif // USE(APPLE_INTERNAL_SDK)
 
 static std::optional<CString> setAndSerializeSandboxParameters(const SandboxInitializationParameters& initializationParameters, const SandboxParametersPtr& sandboxParameters, const String& profileOrProfilePath, bool isProfilePath)
 {
@@ -271,6 +270,7 @@ static String sandboxDataVaultParentDirectory()
 static String sandboxDirectory(WTF::AuxiliaryProcessType processType, const String& parentDirectory)
 {
     StringBuilder directory;
+    directory.append("/.nofollow"_s);
     directory.append(parentDirectory);
     switch (processType) {
     case WTF::AuxiliaryProcessType::WebContent:
@@ -445,18 +445,16 @@ static SandboxProfilePtr compileAndCacheSandboxProfile(const SandboxInfo& info)
 
 static bool tryApplyCachedSandbox(const SandboxInfo& info)
 {
-#if USE(APPLE_INTERNAL_SDK)
     CString directoryPath = FileSystem::fileSystemRepresentation(info.directoryPath);
     if (directoryPath.isNull())
         return false;
     if (rootless_check_datavault_flag(directoryPath.data(), processStorageClass(info.processType)))
         return false;
-#endif
 
     auto contents = fileContents(info.filePath);
     if (!contents || contents->isEmpty())
         return false;
-    Vector<uint8_t> cachedSandboxContents = WTFMove(*contents);
+    Vector<uint8_t> cachedSandboxContents = WTF::move(*contents);
     if (sizeof(CachedSandboxHeader) > cachedSandboxContents.size())
         return false;
 
@@ -518,7 +516,7 @@ static bool tryApplyCachedSandbox(const SandboxInfo& info)
 }
 #endif // USE(CACHE_COMPILED_SANDBOX)
 
-static inline const NSBundle *webKit2Bundle()
+static inline const NSBundle *webKit2BundleSingleton()
 {
     const static NeverDestroyed<RetainPtr<NSBundle>> bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
     return bundle.get().get();
@@ -528,7 +526,7 @@ static void getSandboxProfileOrProfilePath(const SandboxInitializationParameters
 {
     switch (parameters.mode()) {
     case SandboxInitializationParameters::ProfileSelectionMode::UseDefaultSandboxProfilePath:
-        profileOrProfilePath = [webKit2Bundle() pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
+        profileOrProfilePath = [webKit2BundleSingleton() pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
         isProfilePath = true;
         return;
     case SandboxInitializationParameters::ProfileSelectionMode::UseOverrideSandboxProfilePath:
@@ -693,9 +691,9 @@ static void populateSandboxInitializationParameters(SandboxInitializationParamet
     }
     setenv("TMPDIR", temporaryDirectory, 1);
 
-    String bundlePath = webKit2Bundle().bundlePath;
+    String bundlePath = webKit2BundleSingleton().bundlePath;
     if (!bundlePath.startsWith("/System/Library/Frameworks"_s))
-        bundlePath = webKit2Bundle().bundlePath.stringByDeletingLastPathComponent;
+        bundlePath = webKit2BundleSingleton().bundlePath.stringByDeletingLastPathComponent;
 
     sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR"_s, bundlePath.utf8().data());
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_TEMP_DIR"_s, _CS_DARWIN_USER_TEMP_DIR);
@@ -820,7 +818,7 @@ void AuxiliaryProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& 
     // we need to rebuild the cache by getting the home directory while holding a temporary sandbox
     // extension to the associated Open Directory service.
 
-    auto sandboxExtension = SandboxExtension::create(WTFMove(handle));
+    auto sandboxExtension = SandboxExtension::create(WTF::move(handle));
     if (!sandboxExtension)
         return;
 

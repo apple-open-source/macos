@@ -37,14 +37,14 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKFeature.class, self))
         return;
 
-    _wrappedFeature->API::Feature::~Feature();
+    SUPPRESS_UNRETAINED_ARG _wrappedFeature->API::Feature::~Feature();
 
     [super dealloc];
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p; name = %@; key = %@; defaultValue = %s >", NSStringFromClass(self.class), self, self.name, self.key, self.defaultValue ? "on" : "off"];
+    return [NSString stringWithFormat:@"<%@: %p; name = %@; key = %@; defaultValue = %s >", NSStringFromClass(self.class), self, retainPtr(self.name).get(), retainPtr(self.key).get(), self.defaultValue ? "on" : "off"];
 }
 
 - (NSString *)name

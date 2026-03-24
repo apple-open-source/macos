@@ -39,7 +39,7 @@ class RenderElement;
 
 class RenderImageResource : public CanMakeCheckedPtr<RenderImageResource> {
     WTF_MAKE_NONCOPYABLE(RenderImageResource);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderImageResource);
+    WTF_MAKE_TZONE_ALLOCATED(RenderImageResource);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderImageResource);
 public:
     RenderImageResource();

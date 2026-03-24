@@ -33,7 +33,6 @@
 #import "ResourceResponse.h"
 #import "SharedBuffer.h"
 #import <objc/runtime.h>
-#import <pal/spi/cocoa/WebFilterEvaluatorSPI.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WorkQueue.h>
@@ -42,11 +41,9 @@
 #if HAVE(WEBCONTENTRESTRICTIONS)
 #import <WebCore/ParentalControlsURLFilter.h>
 #import <wtf/CompletionHandler.h>
-
 #import <pal/cocoa/WebContentRestrictionsSoftLink.h>
-#endif
-
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+#import <pal/spi/cocoa/WebFilterEvaluatorSPI.h>
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(WebContentAnalysis);
 SOFT_LINK_CLASS_OPTIONAL(WebContentAnalysis, WebFilterEvaluator);
 #endif
@@ -55,23 +52,25 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ParentalControlsContentFilter);
 
+#if HAVE(WEBCONTENTRESTRICTIONS)
+
+Ref<ParentalControlsURLFilter> ParentalControlsContentFilter::protectedImpl() const
+{
+#if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
+    return ParentalControlsURLFilter::filterWithConfigurationPath(m_webContentRestrictionsConfigurationPath);
+#else
+    return ParentalControlsURLFilter::singleton();
+#endif
+}
+
+#endif
+
 bool ParentalControlsContentFilter::enabled() const
 {
 #if HAVE(WEBCONTENTRESTRICTIONS)
-    if (m_usesWebContentRestrictions) {
-#if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-        auto& filter = ParentalControlsURLFilter::filterWithConfigurationPath(m_webContentRestrictionsConfigurationPath);
-#else
-        auto& filter = ParentalControlsURLFilter::singleton();
-#endif
-        return filter.isEnabled();
-    }
-#endif // HAVE(WEBCONTENTRESTRICTIONS)
-
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
-    bool enabled = [getWebFilterEvaluatorClassSingleton() isManagedSession];
-    LOG(ContentFiltering, "ParentalControlsContentFilter is %s.\n", enabled ? "enabled" : "not enabled");
-    return enabled;
+    return protectedImpl()->isEnabled();
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+    return [getWebFilterEvaluatorClassSingleton() isManagedSession];
 #else
     return false;
 #endif
@@ -83,11 +82,8 @@ Ref<ParentalControlsContentFilter> ParentalControlsContentFilter::create(const P
 }
 
 ParentalControlsContentFilter::ParentalControlsContentFilter(const PlatformContentFilter::FilterParameters& params)
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    : m_usesWebContentRestrictions(params.usesWebContentRestrictions)
-#endif
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-    , m_webContentRestrictionsConfigurationPath(params.webContentRestrictionsConfigurationPath)
+    : m_webContentRestrictionsConfigurationPath(params.webContentRestrictionsConfigurationPath)
 #endif
 {
     UNUSED_PARAM(params);
@@ -100,11 +96,7 @@ void ParentalControlsContentFilter::willSendRequest(ResourceRequest&&, const Res
 
 static inline bool canHandleResponse(const ResourceResponse& response)
 {
-#if HAVE(SYSTEM_HTTP_CONTENT_FILTERING)
-    return response.url().protocolIs("https"_s);
-#else
     return response.url().protocolIsInHTTPFamily();
-#endif
 }
 
 void ParentalControlsContentFilter::responseReceived(const ResourceResponse& response)
@@ -115,41 +107,26 @@ void ParentalControlsContentFilter::responseReceived(const ResourceResponse& res
     }
 
 #if HAVE(WEBCONTENTRESTRICTIONS)
-    if (m_usesWebContentRestrictions) {
-        ASSERT(!m_evaluatedURL);
-        m_evaluatedURL = response.url();
-        m_state = State::Filtering;
-#if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-        auto& filter = ParentalControlsURLFilter::filterWithConfigurationPath(m_webContentRestrictionsConfigurationPath);
-#else
-        auto& filter = ParentalControlsURLFilter::singleton();
-#endif
-        filter.isURLAllowed(*m_evaluatedURL, *this);
-        return;
-    }
-#endif
-
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+    ASSERT(!m_evaluatedURL);
+    m_evaluatedURL = response.url();
+    m_state = State::Filtering;
+    protectedImpl()->isURLAllowed(*m_evaluatedURL, *this);
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
     ASSERT(!m_webFilterEvaluator);
-
-    m_webFilterEvaluator = adoptNS([allocWebFilterEvaluatorInstance() initWithResponse:response.nsURLResponse()]);
+    m_webFilterEvaluator = adoptNS([allocWebFilterEvaluatorInstance() initWithResponse:response.protectedNSURLResponse().get()]);
 #if HAVE(WEBFILTEREVALUATOR_AUDIT_TOKEN)
     if (m_hostProcessAuditToken)
         m_webFilterEvaluator.get().browserAuditToken = *m_hostProcessAuditToken;
 #endif
-#endif // HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
-
     updateFilterState();
+#endif
 }
 
 void ParentalControlsContentFilter::addData(const SharedBuffer& data)
 {
 #if HAVE(WEBCONTENTRESTRICTIONS)
-    if (m_usesWebContentRestrictions)
-        return;
-#endif
-
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+    UNUSED_PARAM(data);
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
     ASSERT(![m_replacementData length]);
     m_replacementData = [m_webFilterEvaluator addData:data.createNSData().get()];
     updateFilterState();
@@ -162,22 +139,18 @@ void ParentalControlsContentFilter::addData(const SharedBuffer& data)
 void ParentalControlsContentFilter::finishedAddingData()
 {
 #if HAVE(WEBCONTENTRESTRICTIONS)
-    if (m_usesWebContentRestrictions) {
-        if (m_state != State::Filtering)
-            return;
-
-        // Callers expect state is ready after finishing adding data.
-        Locker resultLocker { m_resultLock };
-        while (!m_isAllowdByWebContentRestrictions)
-            m_resultCondition.wait(m_resultLock);
-
-        m_state = *m_isAllowdByWebContentRestrictions ? State::Allowed : State::Blocked;
-        m_replacementData = std::exchange(m_webContentRestrictionsReplacementData, nullptr);
+    if (m_state != State::Filtering)
         return;
-    }
-#endif
 
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+    // Callers expect state is ready after finishing adding data.
+    Locker resultLocker { m_resultLock };
+    while (!m_isAllowdByWebContentRestrictions)
+        m_resultCondition.wait(m_resultLock);
+
+    m_state = *m_isAllowdByWebContentRestrictions ? State::Allowed : State::Blocked;
+    m_replacementData = std::exchange(m_webContentRestrictionsReplacementData, nullptr);
+
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
     ASSERT(![m_replacementData length]);
     m_replacementData = [m_webFilterEvaluator dataComplete];
     updateFilterState();
@@ -194,40 +167,14 @@ Ref<FragmentedSharedBuffer> ParentalControlsContentFilter::replacementData() con
 ContentFilterUnblockHandler ParentalControlsContentFilter::unblockHandler() const
 {
 #if HAVE(WEBCONTENTRESTRICTIONS)
-    if (m_usesWebContentRestrictions)
-        return ContentFilterUnblockHandler { *m_evaluatedURL };
-#endif
-
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+    return ContentFilterUnblockHandler { *m_evaluatedURL };
+#elif HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
     return ContentFilterUnblockHandler { "unblock"_s, m_webFilterEvaluator };
-#endif
-
+#else
     return { };
-}
-#endif
-
-void ParentalControlsContentFilter::updateFilterState()
-{
-#if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
-    switch ([m_webFilterEvaluator filterState]) {
-    case kWFEStateAllowed:
-    case kWFEStateEvaluating:
-        m_state = State::Allowed;
-        break;
-    case kWFEStateBlocked:
-        m_state = State::Blocked;
-        break;
-    case kWFEStateBuffering:
-        m_state = State::Filtering;
-        break;
-    }
-#endif // HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
-
-#if !LOG_DISABLED
-    if (!needsMoreData())
-        LOG(ContentFiltering, "ParentalControlsContentFilter stopped buffering with state %d and replacement data length %zu.\n", m_state, [m_replacementData length]);
 #endif
 }
+#endif
 
 #if HAVE(WEBCONTENTRESTRICTIONS)
 
@@ -257,6 +204,24 @@ void ParentalControlsContentFilter::updateFilterStateOnMain()
     ASSERT(m_isAllowdByWebContentRestrictions);
     m_state = *m_isAllowdByWebContentRestrictions ? State::Allowed : State::Blocked;
     m_replacementData = std::exchange(m_webContentRestrictionsReplacementData, nullptr);
+}
+
+#elif HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
+
+void ParentalControlsContentFilter::updateFilterState()
+{
+    switch ([m_webFilterEvaluator filterState]) {
+    case kWFEStateAllowed:
+    case kWFEStateEvaluating:
+        m_state = State::Allowed;
+        break;
+    case kWFEStateBlocked:
+        m_state = State::Blocked;
+        break;
+    case kWFEStateBuffering:
+        m_state = State::Filtering;
+        break;
+    }
 }
 
 #endif

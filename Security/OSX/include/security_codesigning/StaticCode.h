@@ -131,13 +131,13 @@ public:
 	CFDataRef signature();
 	CFAbsoluteTime signingTime();
 	CFAbsoluteTime signingTimestamp();
-	bool isSigned() { return codeDirectory(false) != NULL; }
+	bool isSigned() const { return codeDirectory(false) != NULL; }
 	DiskRep *diskRep() const { return mRep; }
 	bool isDetached() const { return mRep->base() != mRep; }
 	std::string mainExecutablePath() { return mRep->mainExecutablePath(); }
 	CFURLRef copyCanonicalPath() const { return mRep->copyCanonicalPath(); }
-	std::string identifier() { return codeDirectory()->identifier(); }
-	const char *teamID() { return codeDirectory()->teamID(); }
+	std::string identifier() const { return codeDirectory()->identifier(); }
+	const char *teamID() const { return codeDirectory()->teamID(); }
 	std::string format() const { return mRep->format(); }
 	std::string signatureSource();
 	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
@@ -188,7 +188,10 @@ public:
 	bool validationCannotUseNetwork();
 	
 	void validatePlainMemoryResource(string path, CFDataRef fileData, SecCSFlags flags);
-	
+
+#if TARGET_OS_OSX
+#endif
+
 	const Requirements *internalRequirements();
 	const Requirement *internalRequirement(SecRequirementType type);
 	const Requirement *designatedRequirement();

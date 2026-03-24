@@ -38,6 +38,8 @@
 #import "_WKFrameHandleInternal.h"
 #import <JavaScriptCore/JSValue.h>
 #import <WebCore/CertificateInfo.h>
+#import <WebCore/DocumentInlines.h>
+#import <WebCore/DocumentSecurityOrigin.h>
 #import <WebCore/IntPoint.h>
 #import <WebCore/LinkIconCollector.h>
 #import <WebCore/LinkIconType.h>
@@ -48,6 +50,11 @@
 
 @implementation WKWebProcessPlugInFrame {
     AlignedStorage<WebKit::WebFrame> _frame;
+}
+
+static Ref<WebKit::WebFrame> protectedFrame(WKWebProcessPlugInFrame *frame)
+{
+    return *frame->_frame;
 }
 
 + (instancetype)lookUpFrameFromHandle:(_WKFrameHandle *)handle
@@ -70,25 +77,25 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInFrame.class, self))
         return;
-    _frame->~WebFrame();
+    SUPPRESS_UNCOUNTED_ARG _frame->~WebFrame();
     [super dealloc];
 }
 
 - (JSContext *)jsContextForWorld:(WKWebProcessPlugInScriptWorld *)world
 {
-    return [JSContext contextWithJSGlobalContextRef:_frame->jsContextForWorld(&[world _scriptWorld])];
+    return [JSContext contextWithJSGlobalContextRef:protectedFrame(self)->jsContextForWorld(Ref { [world _scriptWorld] }.ptr())];
 }
 
 - (JSContext *)jsContextForServiceWorkerWorld:(WKWebProcessPlugInScriptWorld *)world
 {
-    if (auto context = _frame->jsContextForServiceWorkerWorld(&[world _scriptWorld]))
+    if (auto context = protectedFrame(self)->jsContextForServiceWorkerWorld(Ref { [world _scriptWorld] }.ptr()))
         return [JSContext contextWithJSGlobalContextRef:context];
     return nil;
 }
 
 - (WKWebProcessPlugInHitTestResult *)hitTest:(CGPoint)point
 {
-    return wrapper(_frame->hitTest(WebCore::IntPoint(point))).autorelease();
+    return wrapper(protectedFrame(self)->hitTest(WebCore::IntPoint(point))).autorelease();
 }
 
 - (WKWebProcessPlugInHitTestResult *)hitTest:(CGPoint)point options:(WKHitTestOptions)options
@@ -96,52 +103,53 @@
     auto types = WebKit::WebFrame::defaultHitTestRequestTypes();
     if (options & WKHitTestOptionAllowUserAgentShadowRootContent)
         types.remove(WebCore::HitTestRequest::Type::DisallowUserAgentShadowContent);
-    return wrapper(_frame->hitTest(WebCore::IntPoint(point), types)).autorelease();
+    return wrapper(protectedFrame(self)->hitTest(WebCore::IntPoint(point), types)).autorelease();
 }
 
 - (JSValue *)jsCSSStyleDeclarationForCSSStyleDeclarationHandle:(WKWebProcessPlugInCSSStyleDeclarationHandle *)cssStyleDeclarationHandle inWorld:(WKWebProcessPlugInScriptWorld *)world
 {
-    JSValueRef valueRef = _frame->jsWrapperForWorld(&[cssStyleDeclarationHandle _cssStyleDeclarationHandle], &[world _scriptWorld]);
-    return [JSValue valueWithJSValueRef:valueRef inContext:[self jsContextForWorld:world]];
+    JSValueRef valueRef = protectedFrame(self)->jsWrapperForWorld(Ref { [cssStyleDeclarationHandle _cssStyleDeclarationHandle] }.ptr(), Ref { [world _scriptWorld] }.ptr());
+    return [JSValue valueWithJSValueRef:valueRef inContext:retainPtr([self jsContextForWorld:world]).get()];
 }
 
 - (JSValue *)jsNodeForNodeHandle:(WKWebProcessPlugInNodeHandle *)nodeHandle inWorld:(WKWebProcessPlugInScriptWorld *)world
 {
-    JSValueRef valueRef = _frame->jsWrapperForWorld(&[nodeHandle _nodeHandle], &[world _scriptWorld]);
-    return [JSValue valueWithJSValueRef:valueRef inContext:[self jsContextForWorld:world]];
+    JSValueRef valueRef = protectedFrame(self)->jsWrapperForWorld(Ref { [nodeHandle _nodeHandle] }.ptr(), Ref { [world _scriptWorld] }.ptr());
+    return [JSValue valueWithJSValueRef:valueRef inContext:retainPtr([self jsContextForWorld:world]).get()];
 }
 
 - (JSValue *)jsRangeForRangeHandle:(WKWebProcessPlugInRangeHandle *)rangeHandle inWorld:(WKWebProcessPlugInScriptWorld *)world
 {
-    JSValueRef valueRef = _frame->jsWrapperForWorld(&[rangeHandle _rangeHandle], &[world _scriptWorld]);
-    return [JSValue valueWithJSValueRef:valueRef inContext:[self jsContextForWorld:world]];
+    JSValueRef valueRef = protectedFrame(self)->jsWrapperForWorld(Ref { [rangeHandle _rangeHandle] }.ptr(), Ref { [world _scriptWorld] }.ptr());
+    return [JSValue valueWithJSValueRef:valueRef inContext:retainPtr([self jsContextForWorld:world]).get()];
 }
 
 - (WKWebProcessPlugInBrowserContextController *)_browserContextController
 {
-    if (!_frame->page())
+    Ref frame = *_frame;
+    if (!frame->page())
         return nil;
-    return WebKit::wrapper(*_frame->page());
+    return WebKit::wrapper(*frame->page());
 }
 
 - (NSURL *)URL
 {
-    return _frame->url().createNSURL().autorelease();
+    return protectedFrame(self)->url().createNSURL().autorelease();
 }
 
 - (NSArray *)childFrames
 {
-    return WebKit::wrapper(_frame->childFrames()).autorelease();
+    return WebKit::wrapper(protectedFrame(self)->childFrames()).autorelease();
 }
 
 - (BOOL)containsAnyFormElements
 {
-    return !!_frame->containsAnyFormElements();
+    return !!protectedFrame(self)->containsAnyFormElements();
 }
 
 - (BOOL)isMainFrame
 {
-    return !!_frame->isMainFrame();
+    return !!protectedFrame(self)->isMainFrame();
 }
 
 - (_WKFrameHandle *)handle
@@ -151,10 +159,10 @@
 
 - (NSString *)_securityOrigin
 {
-    RefPtr coreFrame = _frame->coreLocalFrame();
+    RefPtr coreFrame = protectedFrame(self)->coreLocalFrame();
     if (!coreFrame)
         return nil;
-    return coreFrame->document()->securityOrigin().toString().createNSString().autorelease();
+    return coreFrame->protectedDocument()->protectedSecurityOrigin()->toString().createNSString().autorelease();
 }
 
 static RetainPtr<NSArray> collectIcons(WebCore::LocalFrame* frame, OptionSet<WebCore::LinkIconType> iconTypes)
@@ -171,40 +179,41 @@ static RetainPtr<NSArray> collectIcons(WebCore::LocalFrame* frame, OptionSet<Web
 
 - (NSArray *)appleTouchIconURLs
 {
-    return collectIcons(_frame->coreLocalFrame(), { WebCore::LinkIconType::TouchIcon, WebCore::LinkIconType::TouchPrecomposedIcon }).autorelease();
+    return collectIcons(protectedFrame(self)->protectedCoreLocalFrame().get(), { WebCore::LinkIconType::TouchIcon, WebCore::LinkIconType::TouchPrecomposedIcon }).autorelease();
 }
 
 - (NSArray *)faviconURLs
 {
-    return collectIcons(_frame->coreLocalFrame(), WebCore::LinkIconType::Favicon).autorelease();
+    return collectIcons(protectedFrame(self)->protectedCoreLocalFrame().get(), WebCore::LinkIconType::Favicon).autorelease();
 }
 
 - (WKWebProcessPlugInFrame *)_parentFrame
 {
-    return wrapper(_frame->parentFrame()).autorelease();
+    return wrapper(protectedFrame(self)->parentFrame()).autorelease();
 }
 
 - (BOOL)_hasCustomContentProvider
 {
-    if (!_frame->isMainFrame())
+    Ref frame = *_frame;
+    if (!frame->isMainFrame())
         return false;
 
-    return _frame->page()->mainFrameHasCustomContentProvider();
+    return frame->protectedPage()->mainFrameHasCustomContentProvider();
 }
 
 - (NSArray *)_certificateChain
 {
-    return (NSArray *)WebCore::CertificateInfo::certificateChainFromSecTrust(_frame->certificateInfo().trust().get()).autorelease();
+    return (NSArray *)WebCore::CertificateInfo::certificateChainFromSecTrust(protectedFrame(self)->certificateInfo().trust().get()).autorelease();
 }
 
 - (SecTrustRef)_serverTrust
 {
-    return _frame->certificateInfo().trust().get();
+    return protectedFrame(self)->certificateInfo().trust().get();
 }
 
 - (NSURL *)_provisionalURL
 {
-    return [NSURL _web_URLWithWTFString:_frame->provisionalURL()];
+    return [NSURL _web_URLWithWTFString:protectedFrame(self)->provisionalURL()];
 }
 
 #pragma mark WKObject protocol implementation

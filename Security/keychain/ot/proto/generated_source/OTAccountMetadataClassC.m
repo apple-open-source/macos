@@ -320,6 +320,20 @@
 {
     return _has.escrowRepairAttemptVersion != 0;
 }
+@synthesize peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
+- (void)setPeerSecretsAccessibilityFixUpPerformed:(BOOL)v
+{
+    _has.peerSecretsAccessibilityFixUpPerformed = (uint)YES;
+    _peerSecretsAccessibilityFixUpPerformed = v;
+}
+- (void)setHasPeerSecretsAccessibilityFixUpPerformed:(BOOL)f
+{
+    _has.peerSecretsAccessibilityFixUpPerformed = (uint)f;
+}
+- (BOOL)hasPeerSecretsAccessibilityFixUpPerformed
+{
+    return _has.peerSecretsAccessibilityFixUpPerformed != 0;
+}
 
 - (NSString *)description
 {
@@ -416,6 +430,10 @@
     if (self->_has.escrowRepairAttemptVersion)
     {
         [dict setObject:[NSNumber numberWithLongLong:self->_escrowRepairAttemptVersion] forKey:@"escrowRepairAttemptVersion"];
+    }
+    if (self->_has.peerSecretsAccessibilityFixUpPerformed)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_peerSecretsAccessibilityFixUpPerformed] forKey:@"peerSecretsAccessibilityFixUpPerformed"];
     }
     return dict;
 }
@@ -569,6 +587,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 self->_has.escrowRepairAttemptVersion = (uint)YES;
                 self->_escrowRepairAttemptVersion = PBReaderReadInt64(reader);
+            }
+            break;
+            case 31 /* peerSecretsAccessibilityFixUpPerformed */:
+            {
+                self->_has.peerSecretsAccessibilityFixUpPerformed = (uint)YES;
+                self->_peerSecretsAccessibilityFixUpPerformed = PBReaderReadBOOL(reader);
             }
             break;
             default:
@@ -740,6 +764,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteInt64Field(writer, self->_escrowRepairAttemptVersion, 27);
         }
     }
+    /* peerSecretsAccessibilityFixUpPerformed */
+    {
+        if (self->_has.peerSecretsAccessibilityFixUpPerformed)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_peerSecretsAccessibilityFixUpPerformed, 31);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -850,6 +881,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         other->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
         other->_has.escrowRepairAttemptVersion = YES;
     }
+    if (self->_has.peerSecretsAccessibilityFixUpPerformed)
+    {
+        other->_peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
+        other->_has.peerSecretsAccessibilityFixUpPerformed = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -933,6 +969,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
         copy->_has.escrowRepairAttemptVersion = YES;
     }
+    if (self->_has.peerSecretsAccessibilityFixUpPerformed)
+    {
+        copy->_peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
+        copy->_has.peerSecretsAccessibilityFixUpPerformed = YES;
+    }
     return copy;
 }
 
@@ -984,6 +1025,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((!self->_machineID && !other->_machineID) || [self->_machineID isEqual:other->_machineID])
     &&
     ((self->_has.escrowRepairAttemptVersion && other->_has.escrowRepairAttemptVersion && self->_escrowRepairAttemptVersion == other->_escrowRepairAttemptVersion) || (!self->_has.escrowRepairAttemptVersion && !other->_has.escrowRepairAttemptVersion))
+    &&
+    ((self->_has.peerSecretsAccessibilityFixUpPerformed && other->_has.peerSecretsAccessibilityFixUpPerformed && ((self->_peerSecretsAccessibilityFixUpPerformed && other->_peerSecretsAccessibilityFixUpPerformed) || (!self->_peerSecretsAccessibilityFixUpPerformed && !other->_peerSecretsAccessibilityFixUpPerformed))) || (!self->_has.peerSecretsAccessibilityFixUpPerformed && !other->_has.peerSecretsAccessibilityFixUpPerformed))
     ;
 }
 
@@ -1034,6 +1077,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     [self->_machineID hash]
     ^
     (self->_has.escrowRepairAttemptVersion ? PBHashInt((NSUInteger)self->_escrowRepairAttemptVersion) : 0)
+    ^
+    (self->_has.peerSecretsAccessibilityFixUpPerformed ? PBHashInt((NSUInteger)self->_peerSecretsAccessibilityFixUpPerformed) : 0)
     ;
 }
 
@@ -1139,6 +1184,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         self->_escrowRepairAttemptVersion = other->_escrowRepairAttemptVersion;
         self->_has.escrowRepairAttemptVersion = YES;
+    }
+    if (other->_has.peerSecretsAccessibilityFixUpPerformed)
+    {
+        self->_peerSecretsAccessibilityFixUpPerformed = other->_peerSecretsAccessibilityFixUpPerformed;
+        self->_has.peerSecretsAccessibilityFixUpPerformed = YES;
     }
 }
 

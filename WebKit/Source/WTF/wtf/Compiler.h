@@ -343,7 +343,11 @@
 /* WK_UNUSED_INSTANCE_VARIABLE */
 
 #if !defined(WK_UNUSED_INSTANCE_VARIABLE)
+#if COMPILER_HAS_ATTRIBUTE(suppress)
+#define WK_UNUSED_INSTANCE_VARIABLE [[clang::suppress]] __attribute__((unused))
+#else
 #define WK_UNUSED_INSTANCE_VARIABLE __attribute__((unused))
+#endif
 #endif
 
 /* UNUSED_FUNCTION */
@@ -420,7 +424,7 @@
 /* WARN_UNUSED_RETURN */
 
 #if !defined(WARN_UNUSED_RETURN)
-#define WARN_UNUSED_RETURN __attribute__((__warn_unused_result__))
+#define WARN_UNUSED_RETURN [[nodiscard]] // NOLINT: check-webkit-style does not understand annotations.
 #endif
 
 /* DEBUGGER_ANNOTATION_MARKER */
@@ -569,12 +573,14 @@
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.NoUnretainedMemberChecker")
 #define SUPPRESS_RETAINPTR_CTOR_ADOPT \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.RetainPtrCtorAdoptChecker")
+#define CLANG_POINTER_CONVERSION [[clang::annotate_type("webkit.pointerconversion")]]
 #else
 #define SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE
 #define SUPPRESS_UNRETAINED_LOCAL
 #define SUPPRESS_UNRETAINED_ARG
 #define SUPPRESS_UNRETAINED_MEMBER
 #define SUPPRESS_RETAINPTR_CTOR_ADOPT
+#define CLANG_POINTER_CONVERSION
 #endif
 
 // To suppress webkit.RefCntblBaseVirtualDtor, use NoVirtualDestructorBase instead.
@@ -691,6 +697,18 @@
     ALLOW_COMMA_END \
     ALLOW_DEPRECATED_DECLARATIONS_END \
     ALLOW_UNUSED_PARAMETERS_END
+
+/* NULLABLE etc. */
+
+#if COMPILER(CLANG)
+#define WTF_NULL_UNSPECIFIED _Null_unspecified
+#define WTF_NULLABLE _Nullable
+#define WTF_NONNULL _Nonnull
+#else
+#define WTF_NULL_UNSPECIFIED
+#define WTF_NULLABLE
+#define WTF_NONNULL
+#endif
 
 // Used to indicate that a class member has a specialized implementation in Swift. See
 // "SwiftCXXThunk.h".

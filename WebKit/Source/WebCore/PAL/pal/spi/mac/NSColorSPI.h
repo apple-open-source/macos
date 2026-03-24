@@ -25,11 +25,16 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
+
+#if PLATFORM(MAC)
 
 #import <AppKit/NSColor.h>
 
-#if PLATFORM(MAC) && USE(APPLE_INTERNAL_SDK)
+#if USE(APPLE_INTERNAL_SDK)
 
 #import <AppKit/NSColor_Private.h>
 #import <AppKit/NSColor_UserAccent.h>
@@ -76,3 +81,5 @@ extern "C" void NSColorSetUserAccentColor(NSUserAccentColor key, BOOL sendNotifi
 @property (class, strong, readonly) NSColor *tertiarySystemFillColor;
 @end
 #endif
+
+#endif // PLATFORM(MAC)

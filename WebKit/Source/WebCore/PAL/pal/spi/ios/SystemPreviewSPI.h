@@ -25,6 +25,11 @@
 
 #pragma once
 
+#import <wtf/Compiler.h>
+#import <wtf/Platform.h>
+
+#if PLATFORM(IOS_FAMILY)
+
 DECLARE_SYSTEM_HEADER
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -150,3 +155,5 @@ NS_ASSUME_NONNULL_END
 #endif
 
 #endif
+
+#endif // PLATFORM(IOS_FAMILY)

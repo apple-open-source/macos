@@ -48,6 +48,9 @@ __BEGIN_DECLS
  * @constant OS_SECURITY_CONFIG_TPRO
  * Indicates that Trusted Path Read-Only (TPRO) is enabled for the process/task.
  *
+ * @constant OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS
+ * Indicates Script Restrictions are enabled for the process/task.
+ *
  * @constant OS_SECURITY_CONFIG_GUARD_OBJECTS
  * Indicates that the Guard Objects configuration is enabled for the process/task.
  */
@@ -56,6 +59,7 @@ OS_OPTIONS(os_security_config, uint64_t,
   OS_SECURITY_CONFIG_NONE = 0x0,
   OS_SECURITY_CONFIG_HARDENED_HEAP OS_SWIFT_NAME(hardenedHeap) = 0x1,
   OS_SECURITY_CONFIG_TPRO OS_SWIFT_NAME(trustedPathReadOnly) = 0x2,
+  OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS OS_SWIFT_NAME(scriptRestrictions) = 0x40,
   OS_SECURITY_CONFIG_GUARD_OBJECTS OS_SWIFT_NAME(guardObjects) = 0x100,
 );
 

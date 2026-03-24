@@ -47,6 +47,7 @@ class TiledBacking;
 namespace WebKit {
 
 class RemoteLayerTreeContext;
+struct MainFrameData;
 
 class RemoteLayerTreeDrawingArea : public DrawingArea, public WebCore::GraphicsLayerClient {
     WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeDrawingArea);
@@ -91,7 +92,7 @@ private:
     void attachViewOverlayGraphicsLayer(WebCore::FrameIdentifier, WebCore::GraphicsLayer*) final;
 
     void dispatchAfterEnsuringDrawing(IPC::AsyncReplyID) final;
-    virtual void willCommitLayerTree(RemoteLayerTreeTransaction&) { }
+    virtual void willCommitMainFrameData(MainFrameData&) { }
 
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) final;
     void setPreferredFramesPerSecond(WebCore::FramesPerSecond);
@@ -119,7 +120,7 @@ private:
     WebCore::FloatRect exposedContentRect() const final;
     void setExposedContentRect(const WebCore::FloatRect&) final;
 
-    void displayDidRefresh() final;
+    void displayDidRefresh(MonotonicTime) final;
 
     void setDeviceScaleFactor(float, CompletionHandler<void()>&&) final;
 
@@ -141,8 +142,6 @@ private:
 
     void adoptLayersFromDrawingArea(DrawingArea&) final;
 
-    void setNextRenderingUpdateRequiresSynchronousImageDecoding() final;
-
     void scheduleRenderingUpdateTimerFired();
 
     class BackingStoreFlusher : public ThreadSafeRefCounted<BackingStoreFlusher> {
@@ -152,18 +151,17 @@ private:
         // Returns true when flush succeeds. False if it failed, for example due to timeout.
         bool flush(UniqueRef<IPC::Encoder>&&, Vector<std::unique_ptr<ThreadSafeImageBufferSetFlusher>>&&);
 
-        bool hasPendingFlush() const { return m_hasPendingFlush; }
+        bool hasPendingFlush() const { return m_pendingFlushes; }
         void markHasPendingFlush()
         {
-            bool hadPendingFlush = m_hasPendingFlush.exchange(true);
-            RELEASE_ASSERT(!hadPendingFlush);
+            m_pendingFlushes++;
         }
 
     private:
         explicit BackingStoreFlusher(Ref<IPC::Connection>&&);
 
         const Ref<IPC::Connection> m_connection;
-        std::atomic<bool> m_hasPendingFlush { false };
+        std::atomic<uint32_t> m_pendingFlushes { 0 };
     };
 
     const Ref<RemoteLayerTreeContext> m_remoteLayerTreeContext;
@@ -181,6 +179,7 @@ private:
     std::optional<WebCore::FloatRect> m_viewExposedRect;
 
     WebCore::Timer m_updateRenderingTimer;
+    Markable<MonotonicTime> m_updateStartTime;
     bool m_isRenderingSuspended { false };
     bool m_hasDeferredRenderingUpdate { false };
     bool m_inUpdateRendering { false };

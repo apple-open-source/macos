@@ -288,9 +288,6 @@
     return retPasscodeGeneration;
 }
 
-#define ESCROW_TIME_BETWEEN_SILENT_MOVE (180*24*60*60) /* 180 days*/
-#define secondsInADay (24*60*60) /* seconds in 1 day */
-
 - (void)performEscrowCheck:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply
 {
     secnotice("octagon-escrowcheck", "Beginning cuttlefish escrow check");
@@ -315,23 +312,22 @@
     NSError* accountError = nil;
     OTAccountMetadataClassC* accountState = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
     if (!accountState || accountError) {
-        secnotice("octagon-escrow-repair", "failed to get account metadata: %@", accountError);
+        secnotice("octagon-escrowcheck", "failed to get account metadata: %@", accountError);
         reply(nil, accountError);
         return;
     }
-
     self.altDSID = accountState.altDSID;
-    NSDate* now = [NSDate date];
-    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)accountState.lastEscrowRepairAttempted) / 1000.0];
 
-    // Within rate limiting window - must post CFU.
-    NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
-    NSInteger daysLeftOnRateLimit = 0;
-    if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
-        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
-            daysLeftOnRateLimit = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
-            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)daysLeftOnRateLimit);
-        }
+    NSError* rateLimitError = nil;
+    NSInteger daysLeftOnRateLimit = [self.deps.stateHolder checkEscrowRepairRateLimitAndReturnTimeLeft:&rateLimitError];
+    if (rateLimitError) {
+        secerror("octagon-escrowcheck: failed to check rate limit: %@", rateLimitError);
+        reply(nil, rateLimitError);
+        return;
+    }
+
+    if (daysLeftOnRateLimit == 0) {
+        secnotice("octagon-escrowcheck", "not rate limited");
     }
 
     WEAKIFY(self);
@@ -432,8 +428,6 @@
             *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
         }
         return NO;
-    } else {
-        secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
     }
 
     if (self.results.repairDisabled) {

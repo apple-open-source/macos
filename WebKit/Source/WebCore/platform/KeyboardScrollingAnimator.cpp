@@ -53,7 +53,7 @@ const std::optional<KeyboardScrollingKey> keyboardScrollingKeyForKeyboardEvent(c
     if (!(platformEvent->type() == PlatformEvent::Type::RawKeyDown || platformEvent->type() == PlatformEvent::Type::Char))
         return { };
 
-    static constexpr std::pair<PackedASCIILiteral<uint64_t>, KeyboardScrollingKey> mappings[] = {
+    static constexpr SortedArrayMap map { std::to_array<std::pair<PackedASCIILiteral<uint64_t>, KeyboardScrollingKey>>({
         { "Down"_s, KeyboardScrollingKey::DownArrow },
         { "End"_s, KeyboardScrollingKey::End },
         { "Home"_s, KeyboardScrollingKey::Home },
@@ -62,8 +62,7 @@ const std::optional<KeyboardScrollingKey> keyboardScrollingKeyForKeyboardEvent(c
         { "PageUp"_s, KeyboardScrollingKey::PageUp },
         { "Right"_s, KeyboardScrollingKey::RightArrow },
         { "Up"_s, KeyboardScrollingKey::UpArrow },
-    };
-    static constexpr SortedArrayMap map { mappings };
+    }) };
 
     auto identifier = platformEvent->keyIdentifier();
     if (auto* result = map.tryGet(identifier))

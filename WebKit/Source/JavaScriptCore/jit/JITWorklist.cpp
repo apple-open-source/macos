@@ -59,7 +59,7 @@ JITWorklist::JITWorklist()
 
     Locker locker { *m_lock };
     for (unsigned i = 0; i < Options::maxNumberOfWorklistThreads(); ++i)
-        m_threads.append(*new JITWorklistThread(locker, *this));
+        m_threads.append(adoptRef(*new JITWorklistThread(locker, *this)));
 }
 
 JITWorklist::~JITWorklist()
@@ -176,7 +176,7 @@ CompilationResult JITWorklist::enqueue(Ref<JITPlan> plan)
     ASSERT(m_plans.find(plan->key()) == m_plans.end());
     m_plans.add(plan->key(), plan.copyRef());
     m_totalLoad += planLoad(plan);
-    m_queues[tier].append(WTFMove(plan));
+    m_queues[tier].append(WTF::move(plan));
     wakeThreads(locker, tier);
     return CompilationResult::CompilationDeferred;
 }
@@ -421,7 +421,7 @@ JITWorklist::State JITWorklist::removeAllReadyPlansForVM(VM& vm, Vector<RefPtr<J
         if (plan->key() == requestedKey)
             isCompiled = true;
         m_plans.remove(plan->key());
-        myReadyPlans.append(WTFMove(plan));
+        myReadyPlans.append(WTF::move(plan));
         return true;
     });
 

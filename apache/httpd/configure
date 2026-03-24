@@ -744,7 +744,6 @@ MOD_UNIXD_LDADD
 MOD_MPM_EVENT_LDADD
 MPM_LIB
 MPM_SUBDIRS
-MOD_TLS_LDADD
 MOD_LBMETHOD_HEARTBEAT_LDADD
 MOD_LBMETHOD_BYBUSYNESS_LDADD
 MOD_LBMETHOD_BYTRAFFIC_LDADD
@@ -1143,8 +1142,6 @@ enable_lbmethod_byrequests
 enable_lbmethod_bytraffic
 enable_lbmethod_bybusyness
 enable_lbmethod_heartbeat
-enable_tls
-with_rustls
 with_mpm
 enable_mpms_shared
 enable_unixd
@@ -2025,11 +2022,6 @@ Optional Features:
                           Apache proxy Load balancing by busyness
   --enable-lbmethod-heartbeat
                           Apache proxy Load balancing from Heartbeats
-  --enable-tls            TLS protocol handling using rustls. Implemented by
-                          mod_tls. This module requires a librustls
-                          installation. See --with-rustls on how to manage
-                          non-standard locations. This module is usually
-                          linked shared and requires loading.
   --enable-mpms-shared=MPM-LIST
                           Space-separated list of MPM modules to enable for
                           dynamic loading. MPM-LIST=list | "all"
@@ -2086,7 +2078,6 @@ Optional Packages:
   --with-nghttp2=PATH     nghttp2 installation directory
   --with-jansson=PATH     jansson installation directory
   --with-curl=PATH        curl installation directory
-  --with-rustls=PATH      rustls installation directory
   --with-mpm=MPM          Choose the process model for Apache to use by
                           default. MPM={event|worker|prefork|winnt} This will
                           be statically linked as the only available MPM
@@ -8103,7 +8094,7 @@ else
   rm -f conftest.c
   cat > conftest.c <<EOF
 #include <sys/types.h>
-  int main() { return 0; }
+  int main(int argc, const char *argv) { return 0; }
 EOF
   MKDEP="true"
   for i in "$CC -MM" "$CC -M" "$CPP -MM" "$CPP -M" "cpp -M"; do
@@ -33951,7 +33942,7 @@ EOF
   > $modpath_current/modules.mk
 
 
-md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_event.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_tailscale.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_event.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
 
 # Ensure that other modules can pick up mod_md.h
 
@@ -36332,613 +36323,6 @@ EOF
 
 
 
-
-
-  current_dir=tls
-  modpath_current=modules/tls
-  modpath_static=
-  modpath_shared=
-  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
-    eval MOD_$var=
-  done
-  test -d tls || $srcdir/build/mkdir.sh $modpath_current
-  > $modpath_current/modules.mk
-
-
-tls_objs="mod_tls.lo tls_cache.lo tls_cert.lo tls_conf.lo tls_core.lo tls_filter.lo tls_ocsp.lo tls_proto.lo tls_util.lo tls_var.lo "
-
-
-
-
-
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_tls" >&5
-printf %s "checking whether to enable mod_tls... " >&6; }
-    # Check whether --enable-tls was given.
-if test ${enable_tls+y}
-then :
-  enableval=$enable_tls; force_tls=$enableval
-else case e in #(
-  e) enable_tls=most ;;
-esac
-fi
-
-    _apmod_extra_msg=""
-      case "$enable_tls" in
-    yes|static|shared)
-      _apmod_required="yes"
-      ;;
-    *)
-      _apmod_required="no"
-      ;;
-  esac
-  if test "$enable_tls" = "static" -o "$enable_tls" = "shared"; then
-    :
-  elif test "$enable_tls" = "yes"; then
-    enable_tls=$module_default
-  elif test "$enable_tls" = "few"; then
-    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
-            "$module_selection" = "all" -o "$module_selection" = "reallyall"
-    then
-      enable_tls=$module_default
-    else
-      enable_tls=no
-    fi
-    _apmod_extra_msg=" ($module_selection)"
-  elif test "$enable_tls" = "most"; then
-    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
-            "$module_selection" = "reallyall"
-    then
-      enable_tls=$module_default
-    else
-      enable_tls=no
-    fi
-    _apmod_extra_msg=" ($module_selection)"
-  elif test "$enable_tls" = "all" -o "$enable_tls" = "maybe-all"; then
-    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
-    then
-      enable_tls=$module_default
-      _apmod_extra_msg=" ($module_selection)"
-    else
-      enable_tls=no
-    fi
-  elif test "$enable_tls" = "reallyall" -o "$enable_tls" = "no" ; then
-    if test "$module_selection" = "reallyall" -a "$force_tls" != "no" ; then
-      enable_tls=$module_default
-      _apmod_extra_msg=" ($module_selection)"
-    else
-      enable_tls=no
-    fi
-  else
-    enable_tls=no
-  fi
-  if test "$enable_tls" != "no"; then
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: checking dependencies" >&5
-printf "%s\n" "checking dependencies" >&6; }
-            :
-
-
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for rustls" >&5
-printf %s "checking for rustls... " >&6; }
-if test ${ac_cv_rustls+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e)
-        ac_cv_rustls=no
-    ap_rustls_found=""
-    ap_rustls_base=""
-    ap_rustls_libs=""
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for user-provided rustls base directory" >&5
-printf %s "checking for user-provided rustls base directory... " >&6; }
-
-# Check whether --with-rustls was given.
-if test ${with_rustls+y}
-then :
-  withval=$with_rustls;
-            if test "x$withval" != "xyes" -a "x$withval" != "x"; then
-                ap_rustls_base="`cd $withval ; pwd`"
-      fi
-
-fi
-
-    if test "x$ap_rustls_base" = "x"; then
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: none" >&5
-printf "%s\n" "none" >&6; }
-    else
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ap_rustls_base" >&5
-printf "%s\n" "$ap_rustls_base" >&6; }
-    fi
-
-        saved_CPPFLAGS="$CPPFLAGS"
-    saved_LIBS="$LIBS"
-    saved_LDFLAGS="$LDFLAGS"
-
-        if test -n "$PKGCONFIG"; then
-      saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
-      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
-printf %s "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
-      if test "x$ap_rustls_base" != "x" ; then
-        if test -f "${ap_rustls_base}/lib/pkgconfig/librustls.pc"; then
-                              PKG_CONFIG_PATH="${ap_rustls_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
-          export PKG_CONFIG_PATH
-        elif test -f "${ap_rustls_base}/lib64/pkgconfig/librustls.pc"; then
-                              PKG_CONFIG_PATH="${ap_rustls_base}/lib64/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
-          export PKG_CONFIG_PATH
-        fi
-      fi
-      ap_rustls_libs="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-l --silence-errors librustls`"
-      if test $? -eq 0; then
-        ap_rustls_found="yes"
-        pkglookup="`$PKGCONFIG --cflags-only-I librustls`"
-
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$pkglookup\""
-    CPPFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$pkglookup\""
-    MOD_CFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_CFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
-        MOD_CFLAGS="$MOD_CFLAGS $i"
-      fi
-    done
-  fi
-
-        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-L librustls`"
-
-  if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
-    LDFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
-        LDFLAGS="$LDFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
-    MOD_LDFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
-        MOD_LDFLAGS="$MOD_LDFLAGS $i"
-      fi
-    done
-  fi
-
-        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-other librustls`"
-
-  if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
-    LDFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
-        LDFLAGS="$LDFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
-    MOD_LDFLAGS="$pkglookup"
-  else
-    apr_addto_bugger="$pkglookup"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
-        MOD_LDFLAGS="$MOD_LDFLAGS $i"
-      fi
-    done
-  fi
-
-      fi
-      PKG_CONFIG_PATH="$saved_PKG_CONFIG_PATH"
-    fi
-
-        if test "x$ap_rustls_base" != "x" -a "x$ap_rustls_found" = "x"; then
-
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-I$ap_rustls_base/include\""
-    CPPFLAGS="-I$ap_rustls_base/include"
-  else
-    apr_addto_bugger="-I$ap_rustls_base/include"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"-I$ap_rustls_base/include\""
-    MOD_CFLAGS="-I$ap_rustls_base/include"
-  else
-    apr_addto_bugger="-I$ap_rustls_base/include"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_CFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
-        MOD_CFLAGS="$MOD_CFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_rustls_base/lib\""
-    LDFLAGS="-L$ap_rustls_base/lib"
-  else
-    apr_addto_bugger="-L$ap_rustls_base/lib"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
-        LDFLAGS="$LDFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_rustls_base/lib\""
-    MOD_LDFLAGS="-L$ap_rustls_base/lib"
-  else
-    apr_addto_bugger="-L$ap_rustls_base/lib"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
-        MOD_LDFLAGS="$MOD_LDFLAGS $i"
-      fi
-    done
-  fi
-
-      if test "x$ap_platform_runtime_link_flag" != "x"; then
-
-  if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_rustls_base/lib\""
-    LDFLAGS="$ap_platform_runtime_link_flag$ap_rustls_base/lib"
-  else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_rustls_base/lib"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
-        LDFLAGS="$LDFLAGS $i"
-      fi
-    done
-  fi
-
-
-  if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_rustls_base/lib\""
-    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_rustls_base/lib"
-  else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_rustls_base/lib"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_LDFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
-        MOD_LDFLAGS="$MOD_LDFLAGS $i"
-      fi
-    done
-  fi
-
-      fi
-    fi
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for rustls version >= 0.9.2" >&5
-printf %s "checking for rustls version >= 0.9.2... " >&6; }
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <rustls.h>
-int
-main (void)
-{
-
-rustls_version();
-rustls_acceptor_new();
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: OK" >&5
-printf "%s\n" "OK" >&6; }
-       ac_cv_rustls=yes
-else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: FAILED" >&5
-printf "%s\n" "FAILED" >&6; } ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-
-        CPPFLAGS="$saved_CPPFLAGS"
-    LIBS="$saved_LIBS"
-    LDFLAGS="$saved_LDFLAGS"
-   ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_rustls" >&5
-printf "%s\n" "$ac_cv_rustls" >&6; }
-  if test "x$ac_cv_rustls" = "xyes"; then
-
-printf "%s\n" "#define HAVE_RUSTLS 1" >>confdefs.h
-
-  fi
-
-    if test "$ac_cv_rustls" = "yes" ; then
-        if test "x$enable_tls" = "xshared"; then
-           case `uname` in
-             "Darwin")
-                MOD_TLS_LINK_LIBS="-lrustls -framework Security -framework Foundation"
-                ;;
-             *)
-                MOD_TLS_LINK_LIBS="-lrustls"
-                ;;
-           esac
-
-           # Some rustls versions need an extra -lm when linked
-           # See https://github.com/rustls/rustls-ffi/issues/133
-           rustls_version=`rustc --version`
-           case "$rustls_version" in
-              *1.55*) need_lm="yes" ;;
-              *1.56*) need_lm="yes" ;;
-              *1.57*) need_lm="yes" ;;
-           esac
-           if test "$need_lm" = "yes" ; then
-                MOD_TLS_LINK_LIBS="$MOD_TLS_LINK_LIBS -lm"
-           fi
-
-           # The only symbol which needs to be exported is the module
-           # structure, so ask libtool to hide everything else:
-
-  if test "x$MOD_TLS_LDADD" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_TLS_LDADD to \"$MOD_TLS_LINK_LIBS -export-symbols-regex tls_module\""
-    MOD_TLS_LDADD="$MOD_TLS_LINK_LIBS -export-symbols-regex tls_module"
-  else
-    apr_addto_bugger="$MOD_TLS_LINK_LIBS -export-symbols-regex tls_module"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $MOD_TLS_LDADD; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_TLS_LDADD"
-        MOD_TLS_LDADD="$MOD_TLS_LDADD $i"
-      fi
-    done
-  fi
-
-        fi
-    else
-        enable_tls=no
-    fi
-
-            :
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_tls" >&5
-printf %s "checking whether to enable mod_tls... " >&6; }
-            if test "$enable_tls" = "no"; then
-              if test "$_apmod_required" = "no"; then
-                _apmod_extra_msg=" (disabled)"
-              else
-                as_fn_error $? "mod_tls has been requested but can not be built due to prerequisite failures" "$LINENO" 5
-              fi
-            fi
-  fi
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $enable_tls$_apmod_extra_msg" >&5
-printf "%s\n" "$enable_tls$_apmod_extra_msg" >&6; }
-  if test "$enable_tls" != "no"; then
-    case "$enable_tls" in
-    static*)
-      MODLIST="$MODLIST tls"
-      if test "tls" = "so"; then
-          sharedobjs=yes
-      fi
-      shared="";;
-    *)
-      sharedobjs=yes
-      shared=yes
-      DSO_MODULES="$DSO_MODULES tls"
-      if test "most" = "yes" ; then
-        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},tls"
-      fi
-      ;;
-    esac
-
-
-  if test -z "$tls_objs"; then
-    objects="mod_tls.lo"
-  else
-    objects="$tls_objs"
-  fi
-
-  if test -z "$module_standalone"; then
-    if test -z "$shared"; then
-      # The filename of a convenience library must have a "lib" prefix:
-      libname="libmod_tls.la"
-      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
-      modpath_static="$modpath_static $libname"
-      cat >>$modpath_current/modules.mk<<EOF
-$libname: $objects
-	\$(MOD_LINK) $objects \$(MOD_TLS_LDADD)
-EOF
-      if test ! -z "\$(MOD_TLS_LDADD)"; then
-
-  if test "x$AP_LIBS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_TLS_LDADD)\""
-    AP_LIBS="\$(MOD_TLS_LDADD)"
-  else
-    apr_addto_bugger="\$(MOD_TLS_LDADD)"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $AP_LIBS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
-        AP_LIBS="$AP_LIBS $i"
-      fi
-    done
-  fi
-
-      fi
-    else
-      apache_need_shared=yes
-      libname="mod_tls.la"
-      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
-      modpath_shared="$modpath_shared $libname"
-      cat >>$modpath_current/modules.mk<<EOF
-$libname: $shobjects
-	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_TLS_LDADD)
-EOF
-    fi
-  fi
-
-
-  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_TLS_LDADD"
-
-
-
-  fi
-
-
-
-
-  echo "DISTCLEAN_TARGETS = modules.mk" >> $modpath_current/modules.mk
-  echo "static = $modpath_static" >> $modpath_current/modules.mk
-  echo "shared = $modpath_shared" >> $modpath_current/modules.mk
-  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
-    if eval val=\"\$MOD_$var\"; test -n "$val"; then
-      echo "MOD_$var = $val" >> $modpath_current/modules.mk
-    fi
-  done
-  if test ! -z "$modpath_static" -o ! -z "$modpath_shared"; then
-    MODULE_DIRS="$MODULE_DIRS $current_dir"
-  else
-    MODULE_CLEANDIRS="$MODULE_CLEANDIRS $current_dir"
-  fi
-
-  APACHE_FAST_OUTPUT_FILES="$APACHE_FAST_OUTPUT_FILES $modpath_current/Makefile"
-
-
-
-
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking which MPM to use by default" >&5
 printf %s "checking which MPM to use by default... " >&6; }
 
@@ -37791,6 +37175,80 @@ printf "%s\n" "checking dependencies" >&6; }
 printf "%s\n" "$as_me: WARNING: Your system does not support systemd." >&2;}
     enable_systemd="no"
   else
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for is_selinux_enabled in -lselinux" >&5
+printf %s "checking for is_selinux_enabled in -lselinux... " >&6; }
+if test ${ac_cv_lib_selinux_is_selinux_enabled+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lselinux  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char is_selinux_enabled (void);
+int
+main (void)
+{
+return is_selinux_enabled ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_selinux_is_selinux_enabled=yes
+else case e in #(
+  e) ac_cv_lib_selinux_is_selinux_enabled=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_selinux_is_selinux_enabled" >&5
+printf "%s\n" "$ac_cv_lib_selinux_is_selinux_enabled" >&6; }
+if test "x$ac_cv_lib_selinux_is_selinux_enabled" = xyes
+then :
+
+
+printf "%s\n" "#define HAVE_SELINUX 1" >>confdefs.h
+
+
+  if test "x$MOD_SYSTEMD_LDADD" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_SYSTEMD_LDADD to \"-lselinux\""
+    MOD_SYSTEMD_LDADD="-lselinux"
+  else
+    apr_addto_bugger="-lselinux"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_SYSTEMD_LDADD; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_SYSTEMD_LDADD"
+        MOD_SYSTEMD_LDADD="$MOD_SYSTEMD_LDADD $i"
+      fi
+    done
+  fi
+
+
+fi
+
+
 
   if test "x$MOD_SYSTEMD_LDADD" = "x"; then
     test "x$silent" != "xyes" && echo "  setting MOD_SYSTEMD_LDADD to \"$SYSTEMD_LIBS\""

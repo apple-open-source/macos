@@ -59,8 +59,8 @@ struct Position {
     Y y;
 
     Position(X&& x, Y&& y)
-        : x { WTFMove(x) }
-        , y { WTFMove(y) }
+        : x { WTF::move(x) }
+        , y { WTF::move(y) }
     {
     }
 
@@ -71,8 +71,8 @@ struct Position {
     }
 
     Position(TwoComponentPositionHorizontal&& x, TwoComponentPositionVertical&& y)
-        : x { WTFMove(x.offset) }
-        , y { WTFMove(y.offset) }
+        : x { WTF::move(x.offset) }
+        , y { WTF::move(y.offset) }
     {
     }
 

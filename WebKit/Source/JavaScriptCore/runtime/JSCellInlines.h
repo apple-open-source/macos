@@ -43,6 +43,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <JavaScriptCore/JSCast.h>
 #include <JavaScriptCore/JSDestructibleObject.h>
 #include <JavaScriptCore/JSFunction.h>
+#include <JavaScriptCore/JSHeapDouble.h>
+#include <JavaScriptCore/JSHeapInt32.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/LocalAllocatorInlines.h>

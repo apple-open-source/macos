@@ -394,12 +394,12 @@ void ServicesOverlayController::buildPhoneNumberHighlights()
 
         CGRect cgRect = rect;
         auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, &cgRect, 1, mainFrameView.visibleContentRect(), static_cast<DDHighlightStyle>(DDHighlightStyleBubbleStandard) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow), YES, NSWritingDirectionNatural, NO, YES, 0));
-        auto highlight = DataDetectorHighlight::createForTelephoneNumber(*this, WTFMove(ddHighlight), WTFMove(range));
+        auto highlight = DataDetectorHighlight::createForTelephoneNumber(*this, WTF::move(ddHighlight), WTF::move(range));
         m_highlights.add(highlight.get());
-        newPotentialHighlights.add(WTFMove(highlight));
+        newPotentialHighlights.add(WTF::move(highlight));
     }
 
-    replaceHighlightsOfTypePreservingEquivalentHighlights(WTFMove(newPotentialHighlights), DataDetectorHighlight::Type::TelephoneNumber);
+    replaceHighlightsOfTypePreservingEquivalentHighlights(WTF::move(newPotentialHighlights), DataDetectorHighlight::Type::TelephoneNumber);
 }
 
 void ServicesOverlayController::buildSelectionHighlight()
@@ -433,13 +433,13 @@ void ServicesOverlayController::buildSelectionHighlight()
         if (!cgRects.isEmpty()) {
             CGRect visibleRect = mainFrameView->visibleContentRect();
             auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, cgRects.begin(), cgRects.size(), visibleRect, static_cast<DDHighlightStyle>(DDHighlightStyleBubbleNone) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow) | static_cast<DDHighlightStyle>(DDHighlightStyleButtonShowAlways), YES, NSWritingDirectionNatural, NO, YES, 0));
-            auto highlight = DataDetectorHighlight::createForSelection(*this, WTFMove(ddHighlight), WTFMove(*selectionRange));
+            auto highlight = DataDetectorHighlight::createForSelection(*this, WTF::move(ddHighlight), WTF::move(*selectionRange));
             m_highlights.add(highlight.get());
-            newPotentialHighlights.add(WTFMove(highlight));
+            newPotentialHighlights.add(WTF::move(highlight));
         }
     }
 
-    replaceHighlightsOfTypePreservingEquivalentHighlights(WTFMove(newPotentialHighlights), DataDetectorHighlight::Type::Selection);
+    replaceHighlightsOfTypePreservingEquivalentHighlights(WTF::move(newPotentialHighlights), DataDetectorHighlight::Type::Selection);
 }
 
 void ServicesOverlayController::replaceHighlightsOfTypePreservingEquivalentHighlights(HashSet<RefPtr<DataDetectorHighlight>>&& newPotentialHighlights, DataDetectorHighlight::Type type)
@@ -466,8 +466,8 @@ void ServicesOverlayController::replaceHighlightsOfTypePreservingEquivalentHighl
 
     removeAllPotentialHighlightsOfType(type);
 
-    m_potentialHighlights.addAll(WTFMove(newPotentialHighlights));
-    m_potentialHighlights.addAll(WTFMove(reusedPotentialHighlights));
+    m_potentialHighlights.addAll(WTF::move(newPotentialHighlights));
+    m_potentialHighlights.addAll(WTF::move(reusedPotentialHighlights));
 }
 
 bool ServicesOverlayController::hasRelevantSelectionServices()
@@ -486,7 +486,7 @@ void ServicesOverlayController::createOverlayIfNeeded()
 
     auto overlay = PageOverlay::create(*this, PageOverlay::OverlayType::Document);
     m_servicesOverlay = overlay.ptr();
-    page->pageOverlayController().installPageOverlay(WTFMove(overlay), PageOverlay::FadeMode::DoNotFade);
+    page->pageOverlayController().installPageOverlay(WTF::move(overlay), PageOverlay::FadeMode::DoNotFade);
 }
 
 Vector<SimpleRange> ServicesOverlayController::telephoneNumberRangesForFocusedFrame()
@@ -577,11 +577,11 @@ void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActive
             return;
         }
 
-        m_activeHighlight = WTFMove(m_nextActiveHighlight);
+        m_activeHighlight = WTF::move(m_nextActiveHighlight);
 
         if (m_activeHighlight) {
             Ref<GraphicsLayer> highlightLayer = m_activeHighlight->layer();
-            m_servicesOverlay->layer().addChild(WTFMove(highlightLayer));
+            m_servicesOverlay->layer().addChild(WTF::move(highlightLayer));
             m_activeHighlight->fadeIn();
         }
     }
@@ -668,7 +668,7 @@ void ServicesOverlayController::handleClick(const IntPoint& clickPoint, DataDete
             return plainText(range);
         });
 
-        page->chrome().client().handleSelectionServiceClick(focusedOrMainFrame->frameID(), focusedOrMainFrame->selection(), WTFMove(selectedTelephoneNumbers), windowPoint);
+        page->chrome().client().handleSelectionServiceClick(focusedOrMainFrame->frameID(), focusedOrMainFrame->selection(), WTF::move(selectedTelephoneNumbers), windowPoint);
     } else if (highlight.type() == DataDetectorHighlight::Type::TelephoneNumber)
         page->chrome().client().handleTelephoneNumberClick(plainText(highlight.range()), windowPoint, frameView->contentsToWindow(focusedOrMainFrame->editor().firstRectForRange(highlight.range())));
 }

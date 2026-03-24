@@ -65,6 +65,12 @@ WEBCORE_EXPORT UniqueRef<MediaSamplesBlock> samplesBlockFromCMSampleBuffer(CMSam
 
 WEBCORE_EXPORT void attachColorSpaceToPixelBuffer(const PlatformVideoColorSpace&, CVPixelBufferRef);
 
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+WEBCORE_EXPORT Vector<Ref<SharedBuffer>> getKeyIDs(CMFormatDescriptionRef);
+#endif
+
+WEBCORE_EXPORT FourCC computeBoxType(FourCC);
+
 class PacketDurationParser final {
     WTF_MAKE_TZONE_ALLOCATED(PacketDurationParser);
 public:

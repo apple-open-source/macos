@@ -32,13 +32,17 @@ class StyleSheet;
 class CSSStyleSheet;
 
 class ProcessingInstruction final : public CharacterData, private CachedStyleSheetClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ProcessingInstruction);
+    WTF_MAKE_TZONE_ALLOCATED(ProcessingInstruction);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ProcessingInstruction);
 public:
     USING_CAN_MAKE_WEAKPTR(CharacterData);
 
     static Ref<ProcessingInstruction> create(Document&, String&& target, String&& data);
     virtual ~ProcessingInstruction();
+
+    // CachedResourceClient.
+    void ref() const final { CharacterData::ref(); }
+    void deref() const final { CharacterData::deref(); }
 
     const String& target() const { return m_target; }
 

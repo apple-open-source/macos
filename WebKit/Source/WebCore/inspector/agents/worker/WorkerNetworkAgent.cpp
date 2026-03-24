@@ -57,7 +57,7 @@ Inspector::Protocol::Network::FrameId WorkerNetworkAgent::frameIdentifier(Docume
     return { };
 }
 
-Vector<WebSocket*> WorkerNetworkAgent::activeWebSockets()
+Vector<Ref<WebSocket>> WorkerNetworkAgent::activeWebSockets()
 {
     // FIXME: <https://webkit.org/b/168475> Web Inspector: Correctly display worker's WebSockets
     return { };
@@ -85,7 +85,7 @@ ScriptExecutionContext* WorkerNetworkAgent::scriptExecutionContext(Inspector::Pr
 
 void WorkerNetworkAgent::addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&& message)
 {
-    Ref { m_globalScope.get() }->addConsoleMessage(WTFMove(message));
+    Ref { m_globalScope.get() }->addConsoleMessage(WTF::move(message));
 }
 
 } // namespace WebCore

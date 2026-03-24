@@ -35,16 +35,16 @@
 #include "LayoutInitialContainingBlock.h"
 #include "LayoutUnit.h"
 #include "PlacedFloats.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 
 namespace WebCore {
 namespace Layout {
 
 static bool hasBorder(const BorderValue& borderValue)
 {
-    if (borderValue.style() == BorderStyle::None || borderValue.style() == BorderStyle::Hidden)
+    if (!borderValue.hasVisibleStyle())
         return false;
-    return !!borderValue.width();
+    return !!borderValue.width;
 }
 
 static bool hasPadding(const Style::PaddingEdge& paddingValue)

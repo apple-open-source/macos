@@ -51,6 +51,10 @@ public:
     }
     virtual ~VideoTrack();
 
+    // VideoTrackPrivateClient.
+    void ref() const final { MediaTrackBase::ref(); }
+    void deref() const final { MediaTrackBase::deref(); }
+
     static const AtomString& signKeyword();
 
     bool selected() const { return m_selected; }
@@ -84,8 +88,8 @@ private:
 
     // TrackPrivateBaseClient
     void idChanged(TrackID) final;
-    void labelChanged(const AtomString&) final;
-    void languageChanged(const AtomString&) final;
+    void labelChanged(const String&) final;
+    void languageChanged(const String&) final;
     void willRemove() final;
 
     bool enabled() const final { return selected(); }
@@ -96,6 +100,8 @@ private:
 #if !RELEASE_LOG_DISABLED
     ASCIILiteral logClassName() const final { return "VideoTrack"_s; }
 #endif
+
+    Ref<VideoTrackPrivate> protectedPrivate() const;
 
     WeakPtr<VideoTrackList> m_videoTrackList;
     WeakHashSet<VideoTrackClient> m_clients;

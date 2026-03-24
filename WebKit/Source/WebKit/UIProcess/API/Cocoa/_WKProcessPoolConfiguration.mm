@@ -32,6 +32,13 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+static Ref<API::ProcessPoolConfiguration> protectedProcessPoolConfiguration(_WKProcessPoolConfiguration *configuration)
+{
+    return *configuration->_processPoolConfiguration;
+}
+ALLOW_DEPRECATED_DECLARATIONS_END
+
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation _WKProcessPoolConfiguration
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
@@ -51,7 +58,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKProcessPoolConfiguration.class, self))
         return;
 
-    _processPoolConfiguration->~ProcessPoolConfiguration();
+    SUPPRESS_UNRETAINED_ARG _processPoolConfiguration->~ProcessPoolConfiguration();
 
     [super dealloc];
 }
@@ -159,7 +166,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         paths.append(String::fromUTF8(url.fileSystemRepresentation));
     }
 
-    _processPoolConfiguration->setAdditionalReadAccessAllowedPaths(WTFMove(paths));
+    protectedProcessPoolConfiguration(self)->setAdditionalReadAccessAllowedPaths(WTF::move(paths));
 }
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
@@ -180,7 +187,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)setCachePartitionedURLSchemes:(NSArray *)cachePartitionedURLSchemes
 {
-    _processPoolConfiguration->setCachePartitionedURLSchemes(makeVector<String>(cachePartitionedURLSchemes));
+    protectedProcessPoolConfiguration(self)->setCachePartitionedURLSchemes(makeVector<String>(cachePartitionedURLSchemes));
 }
 
 - (NSArray *)alwaysRevalidatedURLSchemes
@@ -190,7 +197,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)setAlwaysRevalidatedURLSchemes:(NSArray *)alwaysRevalidatedURLSchemes
 {
-    _processPoolConfiguration->setAlwaysRevalidatedURLSchemes(makeVector<String>(alwaysRevalidatedURLSchemes));
+    protectedProcessPoolConfiguration(self)->setAlwaysRevalidatedURLSchemes(makeVector<String>(alwaysRevalidatedURLSchemes));
 }
 
 - (NSString *)sourceApplicationBundleIdentifier
@@ -340,14 +347,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     RetainPtr description = adoptNS([[NSString alloc] initWithFormat:@"<%@: %p", NSStringFromClass(self.class), self]);
 
     if (!_processPoolConfiguration->injectedBundlePath().isEmpty())
-        return [description stringByAppendingFormat:@"; injectedBundleURL: \"%@\">", [self injectedBundleURL]];
+        return [description stringByAppendingFormat:@"; injectedBundleURL: \"%@\">", retainPtr([self injectedBundleURL]).get()];
 
     return [description stringByAppendingString:@">"];
 }
 
 - (id)copyWithZone:(NSZone *)zone
 {
-    return [wrapper(_processPoolConfiguration->copy()) retain];
+    return [wrapper(protectedProcessPoolConfiguration(self)->copy()) retain];
 }
 
 - (NSString *)customWebContentServiceBundleIdentifier
@@ -381,7 +388,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)setMemoryFootprintPollIntervalForTesting:(NSTimeInterval)pollInterval
 {
-    _processPoolConfiguration->setMemoryFootprintPollIntervalForTesting(Seconds { pollInterval });
+    protectedProcessPoolConfiguration(self)->setMemoryFootprintPollIntervalForTesting(Seconds { pollInterval });
 }
 
 - (NSTimeInterval)memoryFootprintPollIntervalForTesting
@@ -404,7 +411,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     sizes.reserveCapacity(thresholds.count);
     for (NSNumber *threshold in thresholds)
         sizes.append(static_cast<uint64_t>(threshold.unsignedLongLongValue));
-    _processPoolConfiguration->setMemoryFootprintNotificationThresholds(WTFMove(sizes));
+    protectedProcessPoolConfiguration(self)->setMemoryFootprintNotificationThresholds(WTF::move(sizes));
 }
 
 - (BOOL)suspendsWebProcessesAggressivelyOnMemoryPressure

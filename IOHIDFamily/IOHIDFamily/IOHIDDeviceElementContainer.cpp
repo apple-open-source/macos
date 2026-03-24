@@ -20,10 +20,10 @@ bool IOHIDDeviceElementContainer::init(void *descriptor,
 {
     bool result = false;
     
-    require(super::init(descriptor, length), exit);
+    __Require(super::init(descriptor, length), exit);
     
     _reserved = IOMallocType(ExpansionData);
-    require(_reserved, exit);
+    __Require(_reserved, exit);
     
     bzero(_reserved, sizeof(ExpansionData));
     

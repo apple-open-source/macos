@@ -33,12 +33,12 @@
 #include "RenderElement.h"
 #include "RenderImage.h"
 #include "RenderImageResourceStyleImage.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderImageResource);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderImageResource);
 
 RenderImageResource::RenderImageResource() = default;
 
@@ -65,17 +65,17 @@ void RenderImageResource::setCachedImage(CachedResourceHandle<CachedImage>&& new
         return;
 
     if (m_cachedImage && m_renderer && m_cachedImageRemoveClientIsNeeded)
-        m_cachedImage->removeClient(*m_renderer);
+        m_cachedImage->removeClient(m_renderer->protectedCachedImageClient());
     if (!m_renderer) {
         // removeClient may have destroyed the renderer.
         return;
     }
-    m_cachedImage = WTFMove(newImage);
+    m_cachedImage = WTF::move(newImage);
     m_cachedImageRemoveClientIsNeeded = true;
     if (!m_cachedImage)
         return;
 
-    m_cachedImage->addClient(*renderer());
+    m_cachedImage->addClient(renderer()->protectedCachedImageClient());
     if (m_cachedImage->errorOccurred())
         renderer()->imageChanged(m_cachedImage.get());
 }
@@ -112,7 +112,7 @@ void RenderImageResource::setContainerContext(const IntSize& imageContainerSize,
 {
     if (!m_cachedImage || !m_renderer)
         return;
-    m_cachedImage->setContainerContextForClient(*m_renderer, imageContainerSize, m_renderer->style().usedZoom(), imageURL);
+    m_cachedImage->setContainerContextForClient(m_renderer->protectedCachedImageClient(), imageContainerSize, m_renderer->style().usedZoom(), imageURL);
 }
 
 LayoutSize RenderImageResource::imageSize(float multiplier, CachedImage::SizeType type) const

@@ -22,20 +22,26 @@ __ptrcheck_abi_assume_single()
 #define XZM_SMALL_CHUNK_SHIFT			16
 #define XZM_SMALL_FREELIST_CHUNK_SHIFT	17
 
-#define XZM_SEGMENT_SLICE_SIZE          (1ull << XZM_SEGMENT_SLICE_SHIFT) // 16KiB
-#define XZM_SEGMENT_SLICE_MASK          (XZM_SEGMENT_SLICE_SIZE - 1)
-#define XZM_SEGMENT_SIZE                (1ull << XZM_SEGMENT_SHIFT) // 4MiB
-#define XZM_SEGMENT_MASK                (XZM_SEGMENT_SIZE - 1)
+#define XZM_SEGMENT_SLICE_SIZE			(1ull << XZM_SEGMENT_SLICE_SHIFT) // 16KiB
+#define XZM_SEGMENT_SLICE_MASK			(XZM_SEGMENT_SLICE_SIZE - 1)
+#define XZM_NORMAL_SEGMENT_SIZE			(1ull << XZM_SEGMENT_SHIFT) // 4MiB
+#define XZM_MULTI_SEGMENT_SIZE			(4 * XZM_NORMAL_SEGMENT_SIZE) // 16MiB
+#define XZM_SEGMENT_MAX_SIZE			XZM_MULTI_SEGMENT_SIZE
+#define XZM_SEGMENT_MASK				(XZM_NORMAL_SEGMENT_SIZE - 1)
 
 #define XZM_TINY_CHUNK_SIZE				(1ull << XZM_TINY_CHUNK_SHIFT) // 16KiB
 #define XZM_SMALL_CHUNK_SIZE			(1ull << XZM_SMALL_CHUNK_SHIFT) // 64KiB
 #define XZM_SMALL_FREELIST_CHUNK_SIZE	(1ull << XZM_SMALL_FREELIST_CHUNK_SHIFT) // 128KiB
 
-#define XZM_SLICES_PER_SEGMENT			(XZM_SEGMENT_SIZE / XZM_SEGMENT_SLICE_SIZE) // 256
+#define XZM_SLICES_PER_NORMAL_SEGMENT	(XZM_NORMAL_SEGMENT_SIZE / XZM_SEGMENT_SLICE_SIZE) // 256
+#define XZM_SLICES_PER_MULTI_SEGMENT	(XZM_MULTI_SEGMENT_SIZE / XZM_SEGMENT_SLICE_SIZE) // 1024
+#define XZM_MAX_SLICES_PER_SEGMENT		(XZM_SEGMENT_MAX_SIZE / XZM_SEGMENT_SLICE_SIZE)
 
 #define XZM_TINY_BLOCK_SIZE_MAX			(XZM_TINY_CHUNK_SIZE / 4) // 4KiB
 #define XZM_SMALL_BLOCK_SIZE_MAX		(XZM_SMALL_CHUNK_SIZE / 2) // 32KiB
-#define XZM_LARGE_BLOCK_SIZE_MAX		(XZM_SEGMENT_SIZE / 2) // 2MiB
+#define XZM_LARGE_BLOCK_SIZE_MAX		(XZM_NORMAL_SEGMENT_SIZE / 2) // 2MiB
+
+#define XZM_LARGE_BINS					(__builtin_popcount((XZM_LARGE_BLOCK_SIZE_MAX - 1) & ~(XZM_SMALL_BLOCK_SIZE_MAX - 1))) // 6
 
 // Note: MACH_VM_MAX_ADDRESS is incorrect in the simulator
 #if   MALLOC_TARGET_IOS
@@ -54,40 +60,47 @@ __ptrcheck_abi_assume_single()
 // A segment table covers 64GB of VA. The "extended" segment table contains
 // references to other segment tables, to allow us to cover the entire 128TB
 // virtual address space
-#define XZM_SEGMENT_TABLE_COVERAGE			GiB(64)
-#define XZM_SEGMENT_TABLE_ENTRIES			\
-		(XZM_SEGMENT_TABLE_COVERAGE / XZM_SEGMENT_SIZE)
+#define XZM_SEGMENT_TABLE_COVERAGE		GiB(64)
+#define XZM_SEGMENT_TABLE_ENTRIES		\
+		(XZM_SEGMENT_TABLE_COVERAGE / XZM_NORMAL_SEGMENT_SIZE)
 #else
-#define XZM_SEGMENT_TABLE_ENTRIES			\
-		(XZM_LIMIT_ADDRESS / XZM_SEGMENT_SIZE)
+#define XZM_SEGMENT_TABLE_ENTRIES		\
+		(XZM_LIMIT_ADDRESS / XZM_NORMAL_SEGMENT_SIZE)
 #endif // CONFIG_EXTERNAL_METADATA_LARGE
-#define XZM_SEGMENT_TABLE_SIZE				\
+#define XZM_SEGMENT_TABLE_SIZE			\
 		(XZM_SEGMENT_TABLE_ENTRIES * sizeof(xzm_segment_table_entry_s))
-#define XZM_EXTENDED_SEGMENT_TABLE_ENTRIES	\
+#define XZM_EXTENDED_SEGMENT_TABLE_ENTRIES \
 		(XZM_LIMIT_ADDRESS / XZM_SEGMENT_TABLE_COVERAGE)
-#define XZM_SEGMENT_TABLE_ALIGN				(XZM_SEGMENT_TABLE_SIZE)
+#define XZM_SEGMENT_TABLE_ALIGN			(XZM_SEGMENT_TABLE_SIZE)
 
 #define XZM_GRANULE						16
 #define XZM_SMALL_GRANULE				1024
 #define XZM_CHUNK_MAX_BLOCK_COUNT		(XZM_TINY_CHUNK_SIZE / XZM_GRANULE)
 #define XZM_ZERO_ON_FREE_THRESHOLD		1024
 #define XZM_THREAD_CACHE_THRESHOLD		256
-#define XZM_THREAD_CACHE_BINS			12
+
+#if TARGET_OS_TV || MALLOC_TARGET_DK_TV
+#define XZM_DYNAMIC_STEP 1
+#else
+#define XZM_DYNAMIC_STEP 0
+#endif
 
 // This macro defines the largest alignment that will be served via an offset in
 // a normal segment. All alignment requests larger than this will be served as a
 // huge chunk by the VM. Set to quarter of the segment size (1M), since large
 // blocks are also allowed to be half segment (the max we can request from the
 // span queue is 3/4 segment size)
-#define XZM_ALIGNMENT_MAX	(XZM_SEGMENT_SIZE / 4)
-_Static_assert(XZM_ALIGNMENT_MAX + XZM_LARGE_BLOCK_SIZE_MAX < XZM_SEGMENT_SIZE,
+#define XZM_ALIGNMENT_MAX				(XZM_NORMAL_SEGMENT_SIZE / 4)
+_Static_assert(XZM_ALIGNMENT_MAX + XZM_LARGE_BLOCK_SIZE_MAX < XZM_NORMAL_SEGMENT_SIZE,
 		"Large block + alignment must fit into a segment");
 
 // How many slices in a multi-slice chunk will have backpointers in
 // xzsl_slice_offset_bytes
-#define XZM_MAX_SLICE_OFFSET (XZM_SMALL_FREELIST_CHUNK_SIZE / XZM_SEGMENT_SLICE_SIZE - 1)
+#define XZM_MAX_SLICE_OFFSET			(XZM_SMALL_FREELIST_CHUNK_SIZE / XZM_SEGMENT_SLICE_SIZE - 1)
 
-#define XZM_SPAN_QUEUE_COUNT 27
+#define XZM_SPAN_QUEUE_NORMAL_COUNT		27
+#define XZM_SPAN_QUEUE_MULTI_COUNT		35
+#define XZM_SPAN_QUEUE_COUNT 			XZM_SPAN_QUEUE_MULTI_COUNT
 
 #if CONFIG_XZM_DEFERRED_RECLAIM
 
@@ -170,6 +183,26 @@ typedef uint8_t xzm_xzone_index_t;
 // The (1-based) index in the xzm malloc zone table for an mzone
 typedef uint16_t xzm_mzone_index_t;
 
+// The (0-based) index in an xzone table for a particular guard zone
+typedef uint8_t xzm_gzone_index_t;
+
+// The (0-based) index that represents a slot offset bitmap in a guard chunk
+typedef uint32_t xzm_gzone_chunk_slot_index_bitmap_t;
+
+// The (0-based) index that represents a slot offset in a guard chunk
+typedef uint8_t xzm_gzone_chunk_slot_index_t;
+
+// A bitmap that contains the states of all slots in a guard chunk
+typedef uint64_t xzm_guard_chunk_slot_states_t;
+
+// A bitmap of slot indices for each chunk state
+typedef struct xzm_guard_chunk_slot_indices_s {
+	xzm_gzone_chunk_slot_index_bitmap_t xgcsi_allocated;
+	xzm_gzone_chunk_slot_index_bitmap_t xgcsi_empty;
+	xzm_gzone_chunk_slot_index_bitmap_t xgcsi_guard;
+	xzm_gzone_chunk_slot_index_bitmap_t xgcsi_quarantine;
+} xzm_guard_chunk_slot_indices_t;
+
 typedef struct xzm_reused_mzone_index_s {
 	xzm_mzone_index_t xrmi_mzone_idx;
 	SLIST_ENTRY(xzm_reused_mzone_index_s) xrmi_mzone_entry;
@@ -192,6 +225,9 @@ typedef uint32_t xzm_slice_count_t;
 #define XZM_MZONE_INDEX_MAIN 1
 #define XZM_MZONE_INDEX_MAX UINT16_MAX
 
+#define XZM_GZONE_CHUNK_SLOT_INDEX_INVALID UINT8_MAX
+#define XZM_GZONE_INDEX_INVALID UINT8_MAX
+
 #define XZM_SLOT_INDEX_EMPTY 0
 #define XZM_SLOT_INDEX_THREAD 62
 #define XZM_SLOT_INDEX_THREAD_INSTALLED 63
@@ -207,7 +243,8 @@ OS_ENUM(xzm_slice_kind, uint8_t,
 	XZM_SLICE_KIND_SMALL_FREELIST_CHUNK,
 	XZM_SLICE_KIND_LARGE_CHUNK,
 	XZM_SLICE_KIND_HUGE_CHUNK,
-	XZM_SLICE_KIND_GUARD,
+	XZM_SLICE_KIND_GUARD_PAGE,
+	XZM_SLICE_KIND_GUARD_CHUNK,
 );
 
 typedef union xzm_chunk_bits_u {
@@ -216,7 +253,7 @@ typedef union xzm_chunk_bits_u {
 		uint8_t					xzcb_is_pristine : 1;
 		uint8_t					xzcb_on_partial_list : 1;
 		uint8_t					xzcb_preallocated : 1;
-		uint8_t					xzcb_unused : 1;
+		uint8_t					xzcb_on_multi_segment : 1;
 	};
 	uint8_t						xzcb_value;
 } xzm_chunk_bits_t;
@@ -255,6 +292,15 @@ typedef enum {
 	XZM_CHUNK_LINKAGE_BATCH,
 } xzm_chunk_linkage_t;
 
+typedef union xzm_xzone_slice_metadata_u {
+#if CONFIG_XZM_DEFERRED_RECLAIM
+	// Reclaim ID for slices under deferred reclaim
+	mach_vm_reclaim_id_t xzsm_reclaim_id;
+#endif // CONFIG_XZM_DEFERRED_RECLAIM
+	// Pointer to next linked list entry for slices on the batch list
+	struct xzm_slice_s *xzsm_batch_next;
+} xzm_xzone_slice_metadata_u;
+
 // mimalloc: mi_page_t
 // zalloc: struct zone_page_metadata
 typedef struct xzm_slice_s {
@@ -275,6 +321,21 @@ typedef struct xzm_slice_s {
 			bool								xzc_tagged;
 #endif
 		};
+		// Valid in GUARD_CHUNK chunks
+		struct {
+			// Bitmap of states for each slot in the chunk
+			xzm_guard_chunk_slot_states_t	xzc_slot_state;
+			// Lock to prevent concurrent modification (realloc/free/reinit)
+			_malloc_lock_s					xzc_glock;
+			// Count of guard slots in the chunk
+			uint8_t							xzc_guard_count;
+			// Count of empty slots in the chunk
+			uint8_t							xzc_empty_count;
+			// Count of quarantine slots in the chunk
+			uint8_t							xzc_quarantine_count;
+			// User-usable slice count for this current slot
+			uint8_t							xzc_slot_slices;
+		};
 	};
 
 	// xzc_linkages is used in tiny chunks for the lock-free chunk lists.
@@ -294,7 +355,10 @@ typedef struct xzm_slice_s {
 	// same position in all possible metadata views
 	xzm_chunk_bits_t				xzc_bits;
 
-	xzm_xzone_index_t				xzc_xzone_idx;
+	union {
+		xzm_xzone_index_t			xzc_xzone_idx;
+		xzm_gzone_index_t			xzc_gzone_idx;
+	};
 	xzm_mzone_index_t				xzc_mzone_idx;
 
 	// Only valid in body slices of multi-slice slab chunks.  Will be unioned
@@ -306,12 +370,15 @@ typedef struct xzm_slice_s {
 	// in them at all, will appear in the adjacent slots for multi-slice
 	// chunks).  Managed by the segment code.
 	xzm_slice_count_t				xzcs_slice_count;
+
+	// Additional metadata for deferred reclaim, batching list linkage, or guard
+	xzm_xzone_slice_metadata_u		xzcs_slice_metadata;
 } * __single xzm_slice_t;
 
 _Static_assert(sizeof(((xzm_slice_t)NULL)->xzc_slist_entry) ==
 		sizeof(((xzm_slice_t)NULL)->xzc_linkages[0]),
 		"slist entry must match size of tiny main linkage");
-_Static_assert(sizeof(struct xzm_slice_s) <= 48, "Slice metadata too large");
+_Static_assert(sizeof(struct xzm_slice_s) <= 56, "Slice metadata too large");
 
 // A chunk is a contiguous span of slices that are allocated, either as a slab
 // for smaller allocations or a block for a single larger allocation.
@@ -392,6 +459,7 @@ struct xzm_segment_group_s {
 	_malloc_lock_s				xzsg_alloc_lock;
 	xzm_range_group_t			xzsg_range_group;
 	xzm_main_malloc_zone_t		xzsg_main_ref;
+	uint64_t					xzsg_last_dealloc_ts;
 	struct xzm_span_queue_s		xzsg_spans[XZM_SPAN_QUEUE_COUNT];
 	struct xzm_segment_cache_s	xzsg_cache;
 };
@@ -439,10 +507,23 @@ typedef struct xzm_isolation_zone_s {
 #define XZM_XZONE_DEFAULT_POINTER_BUCKET_COUNT 3
 #endif
 
-#if TARGET_OS_WATCH || MALLOC_TARGET_DK_WATCH
+#if TARGET_OS_WATCH || MALLOC_TARGET_DK_WATCH || \
+		TARGET_OS_TV || MALLOC_TARGET_DK_TV
 #define XZM_NARROW_BUCKETING 1
 #else
 #define XZM_NARROW_BUCKETING 0
+#endif
+
+#if TARGET_OS_TV || MALLOC_TARGET_DK_TV
+#define XZM_NARROW_BUCKETING_FORCE_DATA_FOR_LARGE 1
+#else
+#define XZM_NARROW_BUCKETING_FORCE_DATA_FOR_LARGE 0
+#endif
+
+#if TARGET_OS_TV || MALLOC_TARGET_DK_TV
+#define XZM_USE_DATA_THRASH_THRESHOLD 1
+#else
+#define XZM_USE_DATA_THRASH_THRESHOLD 0
 #endif
 
 // Set this to put uninferred type descriptors and plain malloc calls in
@@ -538,9 +619,28 @@ typedef struct xzm_xzone_allocation_slot_s {
 	uint64_t                                xas_last_chunk_empty_ts;
 } *xzm_xzone_allocation_slot_t;
 
+OS_ENUM(xzm_guard_type, uint8_t,
+	XZM_GUARD_TYPE_NONE,
+	// Used for tiny and small allocations
+	XZM_GUARD_TYPE_PAGE,
+	// Used for large and huge allocations
+	XZM_GUARD_TYPE_OBJECT,
+);
+
 typedef struct xzm_xzone_guard_config_s {
-	uint8_t xxgc_max_run_length;
+	// See above
+	xzm_guard_type_t xxgc_type;
+	// For guard pages, this is the max run length
+	// For guard objects, this is the number of slots
+	uint8_t xxgc_length;
+	// For guard pages, this is the numerator of XZM_GUARD_PAGE_DENSITY_COUNT
+	// For guard objects, this is the minimum number of slots in the chunk
 	uint8_t xxgc_density;
+	// For guard objects, this is the additional slot count before a chunk is
+	// moved to quarantine for later reuse
+	uint8_t xxgc_reuse;
+	// For guard pages, this is the number of slices for each guard.
+	uint8_t xxgc_slices_per_guard;
 } *xzm_xzone_guard_config_t;
 
 // Must not be a valid value of xztc_head
@@ -655,9 +755,74 @@ struct xzm_xzone_s {
 	struct xzm_xzone_guard_config_s	xz_guard_config;
 };
 
+OS_ENUM(xzm_guard_slot_state, uint8_t,
+	XZM_GUARD_CHUNK_SLOT_STATE_GUARD		= 0b00,
+	XZM_GUARD_CHUNK_SLOT_STATE_ALLOCATED	= 0b01,
+	XZM_GUARD_CHUNK_SLOT_STATE_QUARANTINE	= 0b10,
+	XZM_GUARD_CHUNK_SLOT_STATE_EMPTY		= 0b11,
+	XZM_GUARD_CHUNK_SLOT_STATE_COUNT,
+);
+
+#define XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS	(__builtin_ffs(XZM_GUARD_CHUNK_SLOT_STATE_COUNT) - 1)
+
+typedef struct xzm_gzone_chunks_s {
+	// Lock for the below metadata fields
+	_malloc_lock_s				xgzc_lock;
+	// Count of allocatable chunks
+	uint32_t					xgzc_partial_count;
+	// Count of full chunks
+	uint32_t					xgzc_full_count;
+	// Count of quarantine chunks
+	uint32_t					xgzc_quarantine_count;
+	// List of allocatable chunks (partially full) that have not reached the
+	// minimum guard density
+	LIST_HEAD(, xzm_slice_s)	xgzc_partial;
+	// List of non-allocatable (full) chunks that have reached minimum density
+	LIST_HEAD(, xzm_slice_s)	xgzc_full;
+	// List of runs that contain quarantine slots
+	LIST_HEAD(, xzm_slice_s)	xgzc_quarantine;
+	// List of ongoing quarantine reinitializations
+	LIST_HEAD(, xzm_gzone_reinit_s)	xgzc_reinit_entry;
+} *xzm_gzone_chunks_t;
+
+typedef struct xzm_gzone_reinit_s {
+	// Linked list node for this entry
+	LIST_ENTRY(xzm_gzone_reinit_s)	xgzrc_entry;
+	// Indicates whether this entry has already been removed from `xgzc_reinit_entry`
+	bool							xgzrc_removed;
+	// Head of linked list for chunks being reinitialized
+	LIST_HEAD(, xzm_slice_s)		xgzrc_reinit;
+	// Lock for this reinitialization thread
+	_malloc_lock_s					xgzrc_lock;
+} *xzm_gzone_reinit_t;
+
+// This is similar in purpose to xzm_xzone_s, except that it is only used to
+// encapsulate the state of guard objects for large and huge allocations from
+// their respective size classes.
+typedef struct xzm_gzone_s {
+	// Lists of each type of chunk
+	struct xzm_gzone_chunks_s	xgz_chunkqs[XZM_SEGMENT_GROUP_IDS_COUNT];
+	// Size of each block for this guard zone
+	uint32_t					xgz_block_size;
+	// Guard configuration for this zone
+	struct xzm_xzone_guard_config_s	xgz_guard_config;
+} *xzm_gzone_t;
+
+typedef union xzm_gxzone_u {
+	struct xzm_gzone_s *gz;
+	struct xzm_xzone_s *xz;
+} __attribute__((transparent_union)) xzm_gxzone_u;
+
+#define XZM_NUM_GZONES			XZM_LARGE_BINS
+
 // mimalloc: mi_segment_kind_t
 OS_ENUM(xzm_segment_kind, uint8_t,
+	// XZM_NORMAL_SEGMENT_SIZE-size segment used for tiny, small, or large
+	// allocations
 	XZM_SEGMENT_KIND_NORMAL,
+	// 4x-size segment used for certain large allocations
+	XZM_SEGMENT_KIND_MULTI,
+	// Variable-size segment used for huge allocations
 	XZM_SEGMENT_KIND_HUGE,
 );
 
@@ -667,15 +832,6 @@ typedef struct xzm_chunk_list_s {
 	// counter for operations/contentions on this list
 	xzm_xzone_slot_counters_u	xcl_counters;
 } *xzm_chunk_list_t;
-
-typedef union xzm_xzone_slice_metadata_u {
-#if CONFIG_XZM_DEFERRED_RECLAIM
-	// Reclaim ID for slices under deferred reclaim
-	mach_vm_reclaim_id_t xzsm_reclaim_id;
-#endif // CONFIG_XZM_DEFERRED_RECLAIM
-	// Pointer to next linked list entry for slices on the batch list
-	xzm_chunk_t xzsm_batch_next;
-} xzm_xzone_slice_metadata_u;
 
 // mimalloc: mi_segment_t
 typedef struct xzm_segment_s {
@@ -689,10 +845,11 @@ typedef struct xzm_segment_s {
 	void *					xzs_segment_body;
 	// index in vm_reclaim buffer (only valid for HUGE segments)
 	mach_vm_reclaim_id_t	xzs_reclaim_id;
-	// TODO: fold reclaim indices into per-slice metadata
-	xzm_xzone_slice_metadata_u	xzs_slice_metadata[XZM_SLICES_PER_SEGMENT];
-	struct xzm_slice_s		xzs_slices[XZM_SLICES_PER_SEGMENT];
+	struct xzm_slice_s		xzs_slices[];
 } * __single xzm_segment_t;
+
+#define XZM_SEGMENT_NORMAL_STRUCT_SIZE (sizeof(struct xzm_segment_s) + XZM_SLICES_PER_NORMAL_SEGMENT * sizeof(struct xzm_slice_s))
+#define XZM_SEGMENT_MULTI_STRUCT_SIZE (sizeof(struct xzm_segment_s) + XZM_SLICES_PER_MULTI_SEGMENT * sizeof(struct xzm_slice_s))
 
 typedef struct xzm_segment_table_entry_s {
 	// This struct encodes a reference to an XZM_METAPOOL_SEGMENT_ALIGN aligned
@@ -717,6 +874,7 @@ typedef struct xzm_extended_segment_table_entry_s {
 
 OS_ENUM(xzm_metapool_id, uint8_t,
 	XZM_METAPOOL_SEGMENT,
+	XZM_METAPOOL_SEGMENT_MULTI,
 	XZM_METAPOOL_SEGMENT_TABLE,
 	XZM_METAPOOL_MZONE_IDX,
 	XZM_METAPOOL_THREAD_CACHE,
@@ -728,9 +886,14 @@ OS_ENUM(xzm_metapool_id, uint8_t,
 
 // Slab sizes chosen arbitrarily
 #define XZM_METAPOOL_SEGMENT_SLAB_SIZE		((uint32_t)KiB(512))
-#define XZM_METAPOOL_SEGMENT_BLOCK_SHIFT	(64 - __builtin_clzl(sizeof(struct xzm_segment_s)-1))
+#define XZM_METAPOOL_SEGMENT_BLOCK_SHIFT	(64 - __builtin_clzl(XZM_SEGMENT_NORMAL_STRUCT_SIZE-1))
 #define XZM_METAPOOL_SEGMENT_BLOCK_SIZE		(1ull << XZM_METAPOOL_SEGMENT_BLOCK_SHIFT)
 #define XZM_METAPOOL_SEGMENT_ALIGN			XZM_METAPOOL_SEGMENT_BLOCK_SIZE
+
+#define XZM_METAPOOL_SEGMENT_MULTI_SLAB_SIZE		((uint32_t)KiB(512))
+#define XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SHIFT	(64 - __builtin_clzl(XZM_SEGMENT_MULTI_STRUCT_SIZE-1))
+#define XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SIZE		(1ull << XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SHIFT)
+#define XZM_METAPOOL_SEGMENT_MULTI_ALIGN			XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SIZE
 
 #define XZM_METAPOOL_SEGMENT_TABLE_SLAB_SIZE	((uint32_t)KiB(256))
 #define XZM_METAPOOL_SEGMENT_TABLE_BLOCK_SIZE	XZM_SEGMENT_TABLE_SIZE
@@ -771,6 +934,8 @@ typedef struct xzm_metapool_s {
 	xzm_metapool_slab_t					xzmp_current_slab;
 	uint32_t							xzmp_current_block;
 	struct xzm_metapool_s *				xzmp_metadata_metapool;
+	void *								xzmp_start_space;
+	uint32_t							xzmp_start_space_size;
 } *xzm_metapool_t;
 
 #if CONFIG_MTE
@@ -805,12 +970,14 @@ typedef struct xzm_malloc_zone_s {
 	// Denormalized here; must be the same for all xzones
 	uint8_t						xzz_xzone_count;
 	uint8_t						xzz_slot_count;
-	uint8_t						xzz_thread_cache_xzone_count;
+	xzm_xzone_index_t			xzz_thread_cache_xzone_count;
 	// pointer to tail xzone table(s)
 	xzm_xzone_t __counted_by(xzz_xzone_count)		xzz_xzones;
 	// pointer to tail allocation slot tables (2D: slot domain * xzones)
 	xzm_xzone_allocation_slot_t __counted_by(xzz_slot_count * xzz_xzone_count)
 			xzz_xzone_allocation_slots;
+	// guard zones for size classes in large
+	xzm_gzone_t __counted_by_or_null(XZM_NUM_GZONES)	xzz_gzones;
 	// upgradable per-slot list of partially allocated tiny chunks
 	xzm_chunk_list_t			xzz_partial_lists;
 	// reference to the main mzone (NULL for the main mzone)
@@ -859,17 +1026,38 @@ typedef struct xzm_malloc_zone_s {
 
 } * __single xzm_malloc_zone_t;
 
+#define XZM_GUARD_PAGE_DENSITY_COUNT 256
+
 typedef struct xzm_guard_page_config_s {
 	// Will any guard pages be added anywhere
 	bool xgpc_enabled;
 	// Will we have guard pages in the data segment group
 	bool xgpc_enabled_for_data;
+	// Maximum number of chunks per run for tiny
 	uint8_t xgpc_max_run_tiny;
-	// How many guard pages should be allocated for 256 pages of tiny chunks
+	// How many guard pages should be allocated for XZM_GUARD_PAGE_DENSITY_COUNT
+	// pages of tiny chunks
 	uint8_t xgpc_tiny_guard_density;
 	uint8_t xgpc_max_run_small;
 	uint8_t xgpc_small_guard_density;
 } * __single xzm_guard_page_config_t;
+
+typedef struct xzm_guard_object_config_s {
+	// Whether guard objects are enabled for large
+	bool xgoc_large_enabled;
+	// Number of slots per chunk for large
+	xzm_gzone_chunk_slot_index_t xgoc_large_chunk_slots;
+	// Minimum guard slot density per chunk for large
+	xzm_gzone_chunk_slot_index_t xgoc_large_guard_density;
+	// Whether to always use quarantine, or only if deferred reclaim is enabled
+	bool xgoc_large_guard_force_quarantine;
+	// Threshold for quarantine chunks to be reinitialized
+	xzm_gzone_chunk_slot_index_t xgoc_large_guard_reinit_threshold;
+	// Additional free slot count before reuse of guard chunk
+	xzm_gzone_chunk_slot_index_t xgoc_large_guard_reuse;
+	// Maximum number of allocatable chunks per segment group
+	xzm_gzone_chunk_slot_index_t xgoc_large_max_chunks;
+} * __single xzm_guard_object_config_t;
 
 // Represents the keys used by the bucketing function to assign a bucket
 // to a given type hash. We store 128 bits of key material obtained from
@@ -905,12 +1093,17 @@ struct xzm_main_malloc_zone_s {
 	uint8_t							xzmz_bin_count;
 	uint8_t							xzmz_ptr_bucket_count;
 	uint8_t							xzmz_xzone_chunk_threshold;
+	uint64_t						xzmz_data_thrash_threshold;
 	// mapping from bin index to size
 	uint64_t						*xzmz_xzone_bin_sizes;
 	// mapping from bin index to bucket count
 	uint8_t							*xzmz_xzone_bin_bucket_counts;
 	// mapping from bin index to xzone start offsets
 	uint8_t							*xzmz_xzone_bin_offsets;
+	// log2(number of evenly-spaced bins for each power-of-2 size)
+	// Supported values are 1 (so, each power-of-2 gets two bins) and 2 (so each
+	// power-of-2 gets four bins)
+	size_t							xzmz_xzone_bin_step;
 	// Isolation zone table (by xzone index)
 	xzm_isolation_zone_t			xzmz_isolation_zones;
 	// Range group table
@@ -933,7 +1126,8 @@ struct xzm_main_malloc_zone_s {
 	xzm_mzone_index_t				xzmz_max_mzone_idx;
 	SLIST_HEAD(, xzm_reused_mzone_index_s)	xzmz_reusable_mzidxq;
 	_malloc_lock_s					xzmz_mzones_lock;
-	struct xzm_guard_page_config_s	xzmz_guard_config;
+	struct xzm_guard_page_config_s	xzmz_guard_page_config;
+	struct xzm_guard_object_config_s	xzmz_guard_object_config;
 	uint64_t						xzmz_thread_cache_teardown_gen;
 	_malloc_lock_s					xzmz_thread_cache_list_lock;
 	LIST_HEAD(, xzm_thread_cache_s)	xzmz_thread_cache_list;
@@ -959,10 +1153,6 @@ MALLOC_NOEXPORT
 void
 xzm_reclaim_force_sync(xzm_reclaim_buffer_t buffer);
 
-MALLOC_NOEXPORT
-void
-xzm_reclaim_sync_and_resize(xzm_reclaim_buffer_t buffer);
-
 #endif // CONFIG_XZM_DEFERRED_RECLAIM
 
 #pragma mark Range and segment interfaces
@@ -981,6 +1171,11 @@ xzm_segment_group_alloc_chunk(xzm_segment_group_t sg, xzm_slice_kind_t kind,
 		bool purgeable);
 
 MALLOC_NOEXPORT
+void
+_xzm_segment_group_clear_chunk(xzm_segment_group_t sg, uint8_t *start,
+		size_t size);
+
+MALLOC_NOEXPORT
 bool
 xzm_segment_group_try_realloc_large_chunk(xzm_segment_group_t sg,
 		xzm_segment_t segment, xzm_chunk_t chunk,
@@ -994,6 +1189,13 @@ xzm_segment_group_try_realloc_huge_chunk(xzm_segment_group_t sg,
 
 MALLOC_NOEXPORT
 void
+xzm_segment_group_update_guard_chunk(xzm_malloc_zone_t zone, xzm_gzone_t gz,
+		xzm_chunk_t chunk, xzm_gzone_chunk_slot_index_bitmap_t guard_bitmap,
+		xzm_gzone_chunk_slot_index_bitmap_t unguard_bitmap,
+		xzm_gzone_chunk_slot_index_bitmap_t madvise_bitmap);
+
+MALLOC_NOEXPORT
+void
 xzm_segment_group_free_chunk(xzm_segment_group_t sg, xzm_chunk_t chunk,
 		bool purgeable, bool small_madvise_needed);
 
@@ -1001,6 +1203,11 @@ MALLOC_NOEXPORT
 void
 xzm_segment_group_segment_madvise_chunk(xzm_segment_group_t sg,
 		xzm_chunk_t chunk);
+
+MALLOC_NOEXPORT
+void
+xzm_guard_slot_set_purgeable(xzm_malloc_zone_t xzz, xzm_gzone_t gz,
+		xzm_chunk_t chunk, xzm_block_index_t index, bool purgeable);
 
 #if CONFIG_XZM_DEFERRED_RECLAIM
 
@@ -1010,7 +1217,18 @@ xzm_chunk_mark_free(xzm_malloc_zone_t xzz, xzm_chunk_t chunk);
 
 MALLOC_NOEXPORT
 bool
-xzm_chunk_mark_used(xzm_malloc_zone_t xzz, xzm_chunk_t chunk, bool *was_reclaimed);
+xzm_chunk_mark_used(xzm_malloc_zone_t xzz, xzm_chunk_t chunk,
+		bool *was_reclaimed);
+
+MALLOC_NOEXPORT
+void
+xzm_guard_slot_mark_free(xzm_malloc_zone_t xzz, xzm_gzone_t gz,
+		xzm_chunk_t chunk, xzm_block_index_t index);
+
+MALLOC_NOEXPORT
+bool
+xzm_guard_slot_mark_used(xzm_malloc_zone_t xzz, xzm_gzone_t gz,
+		xzm_chunk_t chunk, xzm_block_index_t index, bool *was_reclaimed);
 
 #endif // CONFIG_XZM_DEFERRED_RECLAIM
 
@@ -1036,7 +1254,7 @@ typedef kern_return_t (^xzm_segment_enumerator_t)(vm_address_t segment_addr,
 
 typedef kern_return_t (^xzm_chunk_enumerator_t)(vm_address_t segment_addr,
 		xzm_segment_t segment, xzm_chunk_t chunk, xzm_slice_count_t slice_count,
-		vm_address_t start_addr, xzm_xzone_t xz, vm_range_t *ranges,
+		vm_address_t start_addr, xzm_gxzone_u gxz, vm_range_t *ranges,
 		size_t count);
 
 typedef kern_return_t (^xzm_free_span_enumerator_t)(vm_address_t segment_addr,
@@ -1065,7 +1283,8 @@ MALLOC_NOEXPORT
 void
 xzm_metapool_init(xzm_metapool_t mp, xzm_metapool_id_t pool_id, uint8_t vm_tag,
 		uint32_t slab_size, uint32_t block_align, uint32_t block_size,
-		xzm_metapool_t metadata_pool);
+		xzm_metapool_t metadata_pool, void *start_space,
+		uint32_t start_space_size);
 
 MALLOC_NOEXPORT
 void *

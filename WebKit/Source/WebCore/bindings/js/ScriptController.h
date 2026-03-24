@@ -59,6 +59,7 @@ namespace WebCore {
 
 class CachedScriptFetcher;
 class HTMLDocument;
+class Node;
 class HTMLPlugInElement;
 class LoadableModuleScript;
 class LocalFrame;
@@ -135,7 +136,7 @@ public:
     void setTrustedTypesEnforcement(JSC::TrustedTypesEnforcement);
 
     static bool canAccessFromCurrentOrigin(LocalFrame*, Document& accessingDocument);
-    WEBCORE_EXPORT bool canExecuteScripts(ReasonForCallingCanExecuteScripts);
+    WEBCORE_EXPORT bool canExecuteScripts(ReasonForCallingCanExecuteScripts, DOMWrapperWorld* = nullptr);
 
     void setPaused(bool b) { m_paused = b; }
     bool isPaused() const { return m_paused; }
@@ -176,7 +177,7 @@ public:
     void reportExceptionFromScriptError(LoadableScript::Error, bool);
 
     void registerImportMap(const ScriptSourceCode&, const URL& baseURL);
-    bool registerSpeculationRules(const ScriptSourceCode&, const URL& baseURL);
+    bool registerSpeculationRules(Node&, const ScriptSourceCode&, const URL& baseURL);
 
 private:
     ValueOrException executeScriptInWorld(DOMWrapperWorld&, RunJavaScriptParameters&&);

@@ -43,11 +43,11 @@ HTMLParserOptions::HTMLParserOptions()
 
 HTMLParserOptions::HTMLParserOptions(Document& document)
 {
-    RefPtr frame { document.frame() };
+    RefPtr frame = document.frame();
     if (document.settings().htmlParserScriptingFlagPolicy() == HTMLParserScriptingFlagPolicy::Enabled)
         scriptingFlag = true;
     else
-        scriptingFlag = frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript) && document.allowsContentJavaScript();
+        scriptingFlag = frame && frame->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript) && document.allowsContentJavaScript();
 
     usePreHTML5ParserQuirks = document.settings().usePreHTML5ParserQuirks();
     enhancedSelect = document.settings().htmlEnhancedSelectParsingEnabled();

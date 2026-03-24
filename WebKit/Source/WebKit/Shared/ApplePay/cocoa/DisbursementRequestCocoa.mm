@@ -71,7 +71,7 @@ RetainPtr<PKDisbursementPaymentRequest> platformDisbursementRequest(const AppleP
 
     // FIXME: we should consolidate the types for various contact fields in the system(WebCore::ApplePayContactField, WebCore::ApplePaySessionPaymentRequest::ContactFields etc.)
     if (requiredRecipientContactFields)
-        [disbursementRequest setRequiredRecipientContactFields:createNSArray(WTFMove(*requiredRecipientContactFields), platformContactField).get()];
+        [disbursementRequest setRequiredRecipientContactFields:createNSArray(*requiredRecipientContactFields, platformContactField).get()];
 
     auto disbursementPaymentRequest = adoptNS([PAL::allocPKDisbursementPaymentRequestInstance() initWithDisbursementRequest:disbursementRequest.get()]);
     [disbursementPaymentRequest setOriginatingURL:originatingURL.createNSURL().get()];

@@ -32,6 +32,17 @@
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h>
 
+/*
+ * Testing visibility pattern.
+ * When building tests with NOTIFYD_TESTING=1, internal functions become
+ * externally visible for unit testing without needing wrapper functions.
+ */
+#if defined(NOTIFYD_TESTING) && NOTIFYD_TESTING
+#define NOTIFY_TESTSTATIC
+#else
+#define NOTIFY_TESTSTATIC static
+#endif
+
 
 #define STATUS_REQUEST_SHORT 0
 #define STATUS_REQUEST_LONG 1
@@ -64,6 +75,7 @@ struct global_s
 	uint32_t next_no_client_token;
 	uint16_t service_info_count;
 	char *log_path;
+	struct call_statistics_s *call_stats;  // &call_statistics (for testability)
 };
 
 extern struct global_s global;
@@ -121,5 +133,27 @@ void notifyd_matching_register(uint64_t event_token, xpc_object_t descriptor);
 void notifyd_matching_unregister(uint64_t event_token);
 
 dispatch_queue_t get_notifyd_workloop(void);
+
+/**
+ * Test-only declarations.
+ * These functions are NOTIFY_TESTSTATIC (static in production, extern in tests).
+ * Declared here so tests can call them when NOTIFYD_TESTING=1.
+ */
+#if defined(NOTIFYD_TESTING) && NOTIFYD_TESTING
+
+void _port_proc_cancel_client(struct global_s *g, client_t *c);
+
+proc_data_t *_proc_data_alloc(notify_state_t *ns, pid_t pid);
+
+port_data_t *_common_port_data_alloc(notify_state_t *ns, mach_port_t port);
+
+void _cleanup_common_port_clients(struct global_s *g, port_data_t *common_port_data);
+
+client_t *_register_common_port_client(
+	notify_state_t *ns, proc_data_t *proc,
+	const char *name, pid_t pid, int token, uid_t uid, gid_t gid,
+	uint32_t *out_status);
+
+#endif // NOTIFYD_TESTING
 
 #endif /* _NOTIFY_DAEMON_H_ */

@@ -24,6 +24,7 @@
  */
 
 #import "config.h"
+#import "CMUtilities.h"
 #import "H264UtilitiesCocoa.h"
 
 #import "BitReader.h"
@@ -110,13 +111,15 @@ RefPtr<VideoInfo> createVideoInfoFromAVCC(std::span<const uint8_t> avcc)
     auto dimensions = PAL::CMVideoFormatDescriptionGetDimensions(rawDescription);
     auto presentationDimensions = PAL::CMVideoFormatDescriptionGetPresentationDimensions(rawDescription, true, true);
 
-    Ref info = VideoInfo::create();
-    info->codecName = kCMVideoCodecType_H264;
-    info->size = { static_cast<float>(dimensions.width), static_cast<float>(dimensions.height) };
-    info->displaySize = { static_cast<float>(presentationDimensions.width), static_cast<float>(presentationDimensions.height) };
-    info->atomData = SharedBuffer::create(avcc);
-
-    return info;
+    return VideoInfo::create({
+        {
+            .codecName = kCMVideoCodecType_H264
+        }, {
+            .size = { static_cast<float>(dimensions.width), static_cast<float>(dimensions.height) },
+            .displaySize = { static_cast<float>(presentationDimensions.width), static_cast<float>(presentationDimensions.height) },
+            .extensionAtoms = { 1 , { computeBoxType(kCMVideoCodecType_H264), SharedBuffer::create(avcc) } },
+        }
+    });
 }
 
 } // namespace WebCore

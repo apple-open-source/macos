@@ -62,7 +62,7 @@ _os_alloc_once(struct _os_alloc_once_s *slot, size_t sz, os_function_t init);
  * The region allocated by os_alloc_once is 0-filled when initially
  * returned (or handed off to the initializer).
  */
-OS_WARN_RESULT OS_NOTHROW OS_CONST
+OS_WARN_RESULT OS_NOTHROW OS_CONST __PLATFORM_NO_UBSAN
 __header_always_inline void*
 os_alloc_once(os_alloc_token_t token, size_t sz, os_function_t init)
 {

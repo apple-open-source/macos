@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +30,7 @@
 #include "FloatPoint3D.h"
 #include "Logging.h"
 #include "Model.h"
+#include "ModelPlayerGraphicsLayerConfiguration.h"
 #include "ModelPlayerTransformState.h"
 #include "TransformationMatrix.h"
 #include <wtf/CompletionHandler.h>
@@ -37,12 +39,12 @@ namespace WebCore {
 
 Ref<PlaceholderModelPlayer> PlaceholderModelPlayer::create(bool suspended, const ModelPlayerAnimationState& animationState, std::unique_ptr<ModelPlayerTransformState>&& transformState)
 {
-    return adoptRef(*new PlaceholderModelPlayer(suspended, animationState, WTFMove(transformState)));
+    return adoptRef(*new PlaceholderModelPlayer(suspended, animationState, WTF::move(transformState)));
 }
 
 PlaceholderModelPlayer::PlaceholderModelPlayer(bool suspended, const ModelPlayerAnimationState& animationState, std::unique_ptr<ModelPlayerTransformState>&& transformState)
     : m_animationState(animationState)
-    , m_transformState(WTFMove(transformState))
+    , m_transformState(WTF::move(transformState))
     , m_id(ModelPlayerIdentifier::generate())
 {
     ASSERT(m_transformState);
@@ -202,14 +204,9 @@ void PlaceholderModelPlayer::setStageMode(WebCore::StageModeOperation stageModeO
 #endif
 
 // Empty implementation
-PlatformLayer* PlaceholderModelPlayer::layer()
-{
-    return nullptr;
-}
 
-std::optional<LayerHostingContextIdentifier> PlaceholderModelPlayer::layerHostingContextIdentifier()
+void PlaceholderModelPlayer::configureGraphicsLayer(GraphicsLayer&, ModelPlayerGraphicsLayerConfiguration&&)
 {
-    return std::nullopt;
 }
 
 void PlaceholderModelPlayer::sizeDidChange(LayoutSize)
@@ -289,16 +286,18 @@ ModelPlayerAccessibilityChildren PlaceholderModelPlayer::accessibilityChildren()
 
 #endif
 
-#if ENABLE(GPU_PROCESS_MODEL)
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
 
-const MachSendRight* PlaceholderModelPlayer::displayBuffer() const
+void PlaceholderModelPlayer::ensureImmersivePresentation(CompletionHandler<void(std::optional<LayerHostingContextIdentifier>)>&& completion)
 {
-    return nullptr;
+    ASSERT_NOT_REACHED("PlaceholderModelPlayer cannot provide a layer context identifier");
+    completion(std::nullopt);
 }
 
-GraphicsLayerContentsDisplayDelegate* PlaceholderModelPlayer::contentsDisplayDelegate()
+void PlaceholderModelPlayer::exitImmersivePresentation(CompletionHandler<void()>&& completion)
 {
-    return nullptr;
+    m_transformState->invalidateTransform();
+    completion();
 }
 
 #endif

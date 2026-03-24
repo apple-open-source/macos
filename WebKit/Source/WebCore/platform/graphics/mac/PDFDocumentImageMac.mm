@@ -53,7 +53,7 @@ void PDFDocumentImage::createPDFDocument()
 
 void PDFDocumentImage::computeBoundsForCurrentPage()
 {
-    PDFPage *pdfPage = [m_document pageAtIndex:0];
+    RetainPtr<PDFPage> pdfPage = [m_document pageAtIndex:0];
 
     m_cropBox = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
     m_rotationDegrees = [pdfPage rotation];

@@ -20,6 +20,16 @@ return log; \
 
 #define AUTHD_LOG AUTHD_LOG_DEFAULT()
 
+/*
+ * gDebugOrDefaultInRecovery - Log level for AIR (Authorization In Recovery) database operations.
+ * Set once at startup in main(), read-only thereafter.
+ * In normal boot: OS_LOG_TYPE_DEBUG (logs not captured by default)
+ * In FVUnlock/Recovery: OS_LOG_TYPE_DEFAULT (logs captured for diagnostics)
+ */
+extern os_log_type_t gDebugOrDefaultInRecovery;
+
+#define os_log_debug_air(format, ...) os_log_with_type(AUTHD_LOG, gDebugOrDefaultInRecovery, format, ##__VA_ARGS__)
+
 #ifndef CFReleaseSafe
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
 #endif

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 mn{
     Countries{
         001{"Дэлхий"}
@@ -85,6 +85,7 @@ mn{
         CN{"Хятад"}
         CO{"Колумби"}
         CP{"Клиппертон арал"}
+        CQ{"Сарк"}
         CR{"Коста-Рика"}
         CU{"Куба"}
         CV{"Кабо-Верде"}

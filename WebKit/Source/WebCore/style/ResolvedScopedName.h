@@ -69,13 +69,6 @@ inline void add(Hasher& hasher, const ResolvedScopedName& name)
 
 namespace WTF {
 
-template <>
-struct DefaultHash<WebCore::Style::ResolvedScopedName> {
-    static unsigned hash(const WebCore::Style::ResolvedScopedName& name) { return computeHash(name); }
-    static bool equal(const WebCore::Style::ResolvedScopedName& a, const WebCore::Style::ResolvedScopedName& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
-};
-
 template<>
 struct HashTraits<WebCore::Style::ResolvedScopedName> : GenericHashTraits<WebCore::Style::ResolvedScopedName> {
     static const bool emptyValueIsZero = true;

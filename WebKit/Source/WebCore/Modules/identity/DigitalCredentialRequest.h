@@ -26,8 +26,7 @@
 #pragma once
 
 #include <JavaScriptCore/Strong.h>
-#include <WebCore/IdentityCredentialProtocol.h>
-
+#include <wtf/text/WTFString.h>
 namespace JSC {
 class JSObject;
 }
@@ -35,7 +34,7 @@ class JSObject;
 namespace WebCore {
 
 struct DigitalCredentialRequest {
-    IdentityCredentialProtocol protocol;
+    String protocol;
     JSC::Strong<JSC::JSObject> data;
 };
 

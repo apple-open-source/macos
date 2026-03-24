@@ -52,6 +52,7 @@ public:
     virtual RefPtr<XRSubImage> getSubImage(XRProjectionLayer&, WebCore::WebXRFrame&, std::optional<XREye>/* = "none"*/) = 0;
     virtual RefPtr<XRSubImage> getViewSubImage(XRProjectionLayer&) = 0;
     virtual TextureFormat getPreferredColorFormat() = 0;
+    virtual bool isRemoteXRBindingProxy() const { return false; }
 
 protected:
     XRBinding() = default;

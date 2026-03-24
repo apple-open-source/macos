@@ -31,6 +31,7 @@
 #include "Connection.h"
 #include "GPUConnectionToWebProcessMessages.h"
 #include "MediaPlaybackTargetContextSerialized.h"
+#include "MediaPlaybackTargetSerialized.h"
 #include "RemoteMediaSessionHelperMessages.h"
 #include "RemoteMediaSessionHelperProxyMessages.h"
 #include "WebProcess.h"
@@ -55,6 +56,11 @@ IPC::Connection& RemoteMediaSessionHelper::ensureConnection()
     return gpuProcessConnection->connection();
 }
 
+Ref<IPC::Connection> RemoteMediaSessionHelper::ensureProtectedConnection()
+{
+    return ensureConnection();
+}
+
 void RemoteMediaSessionHelper::gpuProcessConnectionDidClose(GPUProcessConnection& gpuProcessConnection)
 {
     gpuProcessConnection.messageReceiverMap().removeMessageReceiver(*this);
@@ -63,21 +69,26 @@ void RemoteMediaSessionHelper::gpuProcessConnectionDidClose(GPUProcessConnection
 
 void RemoteMediaSessionHelper::startMonitoringWirelessRoutesInternal()
 {
-    ensureConnection().send(Messages::RemoteMediaSessionHelperProxy::StartMonitoringWirelessRoutes(), { });
+    ensureProtectedConnection()->send(Messages::RemoteMediaSessionHelperProxy::StartMonitoringWirelessRoutes(), { });
 }
 
 void RemoteMediaSessionHelper::stopMonitoringWirelessRoutesInternal()
 {
-    ensureConnection().send(Messages::RemoteMediaSessionHelperProxy::StopMonitoringWirelessRoutes(), { });
+    ensureProtectedConnection()->send(Messages::RemoteMediaSessionHelperProxy::StopMonitoringWirelessRoutes(), { });
 }
 
 void RemoteMediaSessionHelper::activeVideoRouteDidChange(SupportsAirPlayVideo supportsAirPlayVideo, MediaPlaybackTargetContextSerialized&& targetContext)
 {
-    WTF::switchOn(targetContext.platformContext(), [](WebCore::MediaPlaybackTargetContextMock&&) {
-        return;
-    }, [&](WebCore::MediaPlaybackTargetContextCocoa&& context) {
-        WebCore::MediaSessionHelper::activeVideoRouteDidChange(supportsAirPlayVideo, WebCore::MediaPlaybackTargetCocoa::create(WTFMove(context)));
-    });
+    switch (targetContext.targetType()) {
+    case WebCore::MediaPlaybackTargetType::AVOutputContext:
+    case WebCore::MediaPlaybackTargetType::WirelessPlayback:
+        WebCore::MediaSessionHelper::activeVideoRouteDidChange(supportsAirPlayVideo, MediaPlaybackTargetSerialized::create(WTF::move(targetContext)));
+        break;
+    case WebCore::MediaPlaybackTargetType::Mock:
+    case WebCore::MediaPlaybackTargetType::Serialized:
+    case WebCore::MediaPlaybackTargetType::None:
+        break;
+    }
 }
 
 void RemoteMediaSessionHelper::activeAudioRouteSupportsSpatialPlaybackDidChange(SupportsSpatialAudioPlayback supportsSpatialAudioPlayback)
@@ -88,4 +99,3 @@ void RemoteMediaSessionHelper::activeAudioRouteSupportsSpatialPlaybackDidChange(
 }
 
 #endif
-

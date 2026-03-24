@@ -217,7 +217,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 + (NSURL *)_websiteDataURLForContainerWithURL:(NSURL *)containerURL bundleIdentifierIfNotInContainer:(NSString *)bundleIdentifier
 {
-    NSURL *url = [containerURL URLByAppendingPathComponent:@"Library" isDirectory:YES];
+    RetainPtr url = [containerURL URLByAppendingPathComponent:@"Library" isDirectory:YES];
     url = [url URLByAppendingPathComponent:@"WebKit" isDirectory:YES];
 
     if (!WebKit::processHasContainer() && bundleIdentifier)
@@ -277,8 +277,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     else
         [processPool->ensureProtectedBundleParameters() removeObjectForKey:parameter];
 
-    auto data = keyedArchiver.get().encodedData;
-    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, span(data)));
+    RetainPtr<NSData> data = keyedArchiver.get().encodedData;
+    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, span(data.get())));
 }
 
 - (void)_setObjectsForBundleParametersWithDictionary:(NSDictionary *)dictionary
@@ -296,8 +296,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     Ref processPool = *_processPool;
     [processPool->ensureProtectedBundleParameters() setValuesForKeysWithDictionary:copy.get()];
 
-    auto data = keyedArchiver.get().encodedData;
-    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(span(data)));
+    RetainPtr<NSData> data = keyedArchiver.get().encodedData;
+    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(span(data.get())));
 }
 
 #if !TARGET_OS_IPHONE
@@ -372,7 +372,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     for (NSString *extension in nsExtensions)
         extensions.add(extension);
 
-    protectedProcessPool(self)->addSupportedPlugin(domain, name, WTFMove(mimeTypes), WTFMove(extensions));
+    protectedProcessPool(self)->addSupportedPlugin(domain, name, WTF::move(mimeTypes), WTF::move(extensions));
 }
 
 - (void)_clearSupportedPlugins

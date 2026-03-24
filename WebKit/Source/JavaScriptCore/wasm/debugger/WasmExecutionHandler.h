@@ -27,7 +27,9 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "WasmDebugServerUtilities.h"
+#include "StopTheWorldCallback.h"
+#include "WasmDebugServer.h"
+#include "WasmModuleManager.h"
 #include "WasmVirtualAddress.h"
 
 #include <wtf/Condition.h>
@@ -39,8 +41,10 @@
 
 namespace JSC {
 
+class CalleeBits;
 class CallFrame;
 class JSWebAssemblyInstance;
+class VM;
 
 namespace IPInt {
 struct IPIntLocal;
@@ -49,154 +53,129 @@ struct IPIntStackEntry;
 
 namespace Wasm {
 
-class DebugServer;
 class IPIntCallee;
-class ModuleManager;
 class BreakpointManager;
 
 class ExecutionHandler {
     WTF_MAKE_TZONE_ALLOCATED(ExecutionHandler);
 
 public:
-    ExecutionHandler(DebugServer&, ModuleManager&, BreakpointManager&);
+    ExecutionHandler(DebugServer&, ModuleManager&);
 
-    bool stopCode(CallFrame*, JSWebAssemblyInstance*, IPIntCallee*, uint8_t* pc, uint8_t* mc, IPInt::IPIntLocal* = nullptr, IPInt::IPIntStackEntry* = nullptr);
-
-    void resume();
-    void step();
-    void interrupt();
-    void handleThreadStopInfo(StringView packet);
-    void reset();
-
-    void setInterruptBreakpoint(JSWebAssemblyInstance*, IPIntCallee*);
-    void setBreakpoint(StringView packet);
-    void removeBreakpoint(StringView packet);
-
-    struct StopReason {
-        // GDB Remote Protocol stop reason codes mapped to GDB Remote Protocol semantics
-        // Reference: https://sourceware.org/gdb/onlinedocs/gdb/Stop-Reply-Packets.html
-        enum class Code : uint8_t {
-            Unknown = 0,
-            Signal, // SIGINT - Interrupt signal (Ctrl+C) - reason:signal
-            Trace, // SIGTRAP - Single step/trace completion - reason:trace
-            Breakpoint // Custom - Breakpoint hit - reason:breakpoint (distinct from trace)
-        };
-
-        StopReason() = default;
-        StopReason(Breakpoint::Type type, VirtualAddress address, uint8_t originalBytecode, uint8_t* pc, uint8_t* mc, IPInt::IPIntLocal* locals, IPInt::IPIntStackEntry* stack, IPIntCallee* callee, JSWebAssemblyInstance* instance, CallFrame* callFrame)
-            : address(address)
-            , originalBytecode(originalBytecode)
-            , pc(pc)
-            , mc(mc)
-            , locals(locals)
-            , stack(stack)
-            , callee(callee)
-            , instance(instance)
-            , callFrame(callFrame)
-        {
-            setCode(type);
-        }
-
-        bool isValid() const { return code != Code::Unknown; }
-
-        void setCode(Breakpoint::Type type)
-        {
-            switch (type) {
-            case Breakpoint::Type::Interrupt:
-                code = Code::Signal;
-                break;
-            case Breakpoint::Type::Step:
-                code = Code::Trace;
-                break;
-            case Breakpoint::Type::Regular:
-                code = Code::Breakpoint;
-                break;
-            default:
-                break;
-            }
-        }
-
-        void reset()
-        {
-            code = Code::Unknown;
-            address = VirtualAddress();
-            originalBytecode = 0;
-            pc = nullptr;
-            mc = nullptr;
-            locals = nullptr;
-            stack = nullptr;
-            callee = nullptr;
-            instance = nullptr;
-            callFrame = nullptr;
-        }
-
-        void dump(PrintStream& out) const
-        {
-            out.print("StopReason(Code:", code);
-            out.print(", address:", address);
-            out.print(", originalBytecode:", originalBytecode);
-            out.print(", pc:", RawPointer(pc));
-            out.print(", mc:", RawPointer(mc));
-            out.print(", locals:", RawPointer(locals));
-            out.print(", stack:", RawPointer(stack));
-            out.print(", callee:", RawPointer(callee.get()));
-            out.print(", instance:", RawPointer(instance));
-            out.print(", callFrame:", RawPointer(callFrame), ")");
-        }
-
-        Code code { Code::Unknown };
-        VirtualAddress address { VirtualAddress() };
-        uint8_t originalBytecode { 0 };
-        uint8_t* pc { nullptr };
-        uint8_t* mc { nullptr };
-        IPInt::IPIntLocal* locals { nullptr };
-        IPInt::IPIntStackEntry* stack { nullptr };
-        RefPtr<IPIntCallee> callee;
-        JSWebAssemblyInstance* instance { nullptr };
-        CallFrame* callFrame { nullptr };
+    enum class ResumeMode : uint8_t {
+        One, // Resume only debuggee VM
+        All, // Resume all VMs
+        Switch, // Switch to current debuggee VM
     };
 
-    StopReason stopReason() const WTF_IGNORES_THREAD_SAFETY_ANALYSIS;
+    enum class DebuggerState : uint8_t {
+        Replied, // Sent reply to LLDB, waiting for next command.
+        InterruptRequested, // Interrupt all mutators requested.
+        ContinueRequested, // Resume all mutators requested.
+        StepRequested, // Step debuggee requested.
+        SwitchRequested, // Switch to debuggee requested.
+    };
+
+    ResumeMode stopCode(Locker<Lock>&, StopTheWorldEvent) WTF_REQUIRES_LOCK(m_lock);
+    bool hitBreakpoint(CallFrame*, JSWebAssemblyInstance*, IPIntCallee*, uint8_t* pc, uint8_t* mc, IPInt::IPIntLocal* = nullptr, IPInt::IPIntStackEntry* = nullptr);
+
+    JS_EXPORT_PRIVATE void resume();
+    JS_EXPORT_PRIVATE void step();
+    JS_EXPORT_PRIVATE void interrupt();
+    void handleThreadStopInfo(StringView packet);
+    String callStackStringFor(uint64_t threadId);
+    JS_EXPORT_PRIVATE void reset();
+
+    JS_EXPORT_PRIVATE void setBreakpointAtEntry(JSWebAssemblyInstance*, IPIntCallee*, Breakpoint::Type);
+    void setBreakpointAtPC(JSWebAssemblyInstance*, FunctionCodeIndex, Breakpoint::Type, const uint8_t* pc);
+    void setBreakpoint(StringView packet);
+    void removeBreakpoint(StringView packet);
+    JS_EXPORT_PRIVATE BreakpointManager* breakpointManager() { return m_breakpointManager.get(); };
+
+    void setStepIntoBreakpointForCall(VM&, CalleeBits, JSWebAssemblyInstance*);
+    void setStepIntoBreakpointForThrow(VM&);
+
+    bool hasBreakpoints() const;
+
+    JS_EXPORT_PRIVATE static uint64_t threadId(const VM&);
+    uint64_t debugServerThreadId() const
+    {
+        RELEASE_ASSERT(m_debugServerThreadId.has_value());
+        return *m_debugServerThreadId;
+    }
+    void setDebugServerThreadId(uint64_t threadId) { m_debugServerThreadId = threadId; }
+
+    JS_EXPORT_PRIVATE DebugState* debuggeeState() const WTF_REQUIRES_LOCK(m_lock);
+    JS_EXPORT_PRIVATE DebugState* debuggeeStateSafe() const; // FIXME: Should be used for test only
+
+    VM* debuggeeVM() const // Used for test only
+    {
+        Locker locker { m_lock };
+        return m_debuggee;
+    }
+
+    void notifyVMDestruction(VM* vm)
+    {
+        Locker locker { m_lock };
+        if (m_debuggee == vm)
+            m_debuggee = nullptr;
+    }
+
+    JS_EXPORT_PRIVATE void switchTarget(uint64_t threadId);
+
+    StopTheWorldStatus handleStopTheWorld(VM&, StopTheWorldEvent);
+    void handlePostResume();
+    bool takeAwaitingResumeNotification() WTF_REQUIRES_LOCK(m_lock) { return std::exchange(m_awaitingResumeNotification, false); }
 
 private:
     friend class DebugServer;
 
-    enum class DebuggerState : uint8_t {
-        ReplyFailed,
-        Replied,
-        StopRequested,
-        ContinueRequested,
-    };
+    void stopTheWorld(VM&, StopTheWorldEvent);
 
-    enum class MutatorState : uint8_t {
-        Running,
-        Stopped,
-    };
+    ResumeMode stopImpl(Locker<Lock>&) WTF_REQUIRES_LOCK(m_lock);
 
-    void stopOneTimeBreakpoint(StopReason&&);
-    void stopRegularBreakpoint(StopReason&&);
-    template<typename LockType>
-    void stopImpl(LockType&);
+    void resumeImpl(Locker<Lock>&) WTF_REQUIRES_LOCK(m_lock);
+
+    bool stepAtBreakpoint(Locker<Lock>&, DebugState*) WTF_REQUIRES_LOCK(m_lock);
 
     void sendStopReply(AbstractLocker&);
+    void sendStopReplyForThread(AbstractLocker&, uint64_t threadId);
     void sendReplyOK();
     void sendReply(StringView reply);
-    void sendReply(AbstractLocker&, StringView reply);
+    void sendReplyImpl(AbstractLocker&, StringView reply);
     void sendErrorReply(ProtocolError);
-    void handleClientDisconnectionLocked() WTF_REQUIRES_LOCK(m_lock);
+
+    void selectDebuggeeIfNeeded(VM& fallbackVM) WTF_REQUIRES_LOCK(m_lock);
+    void markVMStates(VM* debuggee) WTF_REQUIRES_LOCK(m_lock);
+    void clearOtherVMStopData(VM* debuggee) WTF_REQUIRES_LOCK(m_lock);
+
+    bool requiresStopConfirmation() const WTF_REQUIRES_LOCK(m_lock)
+    {
+        switch (m_debuggerState) {
+        case DebuggerState::InterruptRequested:
+        case DebuggerState::StepRequested:
+        case DebuggerState::SwitchRequested:
+            return true;
+        default:
+            return false;
+        }
+    }
 
     DebugServer& m_debugServer;
-    ModuleManager& m_instanceManager;
-    BreakpointManager& m_breakpointManager;
+    ModuleManager& m_moduleManager;
+    std::unique_ptr<BreakpointManager> m_breakpointManager;
 
-    Lock m_lock;
+    mutable Lock m_lock;
     Condition m_debuggerContinue;
-    Condition m_mutatorContinue;
+    Condition m_debuggeeContinue;
     DebuggerState m_debuggerState WTF_GUARDED_BY_LOCK(m_lock) { DebuggerState::Replied };
-    MutatorState m_mutatorState WTF_GUARDED_BY_LOCK(m_lock) { MutatorState::Running };
-
-    StopReason WTF_GUARDED_BY_LOCK(m_lock) m_stopReason;
+    bool m_awaitingResumeNotification WTF_GUARDED_BY_LOCK(m_lock) { false };
+    VM* m_debuggee WTF_GUARDED_BY_LOCK(m_lock) { nullptr };
+    std::optional<uint64_t> m_debugServerThreadId;
 };
+
+StopTheWorldStatus wasmDebuggerOnStopCallback(VM&, StopTheWorldEvent);
+void wasmDebuggerOnResumeCallback();
 
 } // namespace Wasm
 } // namespace JSC

@@ -60,8 +60,8 @@ static FontChanges computedFontChanges(NSFontManager *fontManager, NSFont *origi
     // between WebKitLegacy and WebKit.
     const double minimumBoldWeight = 7.;
 
-    NSString *convertedFamilyNameA = convertedFontA.familyName;
-    NSString *convertedFamilyNameB = convertedFontB.familyName;
+    RetainPtr<NSString> convertedFamilyNameA = convertedFontA.familyName;
+    RetainPtr<NSString> convertedFamilyNameB = convertedFontB.familyName;
 
     auto convertedPointSizeA = convertedFontA.pointSize;
     auto convertedPointSizeB = convertedFontB.pointSize;
@@ -75,9 +75,9 @@ static FontChanges computedFontChanges(NSFontManager *fontManager, NSFont *origi
     bool convertedFontAIsBold = convertedFontWeightA > minimumBoldWeight;
 
     FontChanges changes;
-    if ([convertedFamilyNameA isEqualToString:convertedFamilyNameB]) {
+    if ([convertedFamilyNameA isEqualToString:convertedFamilyNameB.get()]) {
         changes.setFontName(convertedFontA.fontName);
-        changes.setFontFamily(convertedFamilyNameA);
+        changes.setFontFamily(convertedFamilyNameA.get());
     }
 
     int originalPointSizeA = originalFontA.pointSize;
@@ -100,7 +100,7 @@ static FontChanges computedFontChanges(NSFontManager *fontManager, NSFont *origi
 FontChanges computedFontChanges(NSFontManager *fontManager)
 {
     RetainPtr originalFontA = firstFontConversionSpecimen(fontManager);
-    return computedFontChanges(fontManager, originalFontA.get(), [fontManager convertFont:originalFontA.get()], [fontManager convertFont:RetainPtr { secondFontConversionSpecimen(fontManager) }.get()]);
+    return computedFontChanges(fontManager, originalFontA.get(), retainPtr([fontManager convertFont:originalFontA.get()]).get(), retainPtr([fontManager convertFont:RetainPtr { secondFontConversionSpecimen(fontManager) }.get()]).get());
 }
 
 FontAttributeChanges computedFontAttributeChanges(NSFontManager *fontManager, id attributeConverter)
@@ -122,14 +122,14 @@ FontAttributeChanges computedFontAttributeChanges(NSFontManager *fontManager, id
         NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle)
     };
 
-    NSDictionary *convertedAttributesA = [attributeConverter convertAttributes:originalAttributesA];
-    NSDictionary *convertedAttributesB = [attributeConverter convertAttributes:originalAttributesB];
+    RetainPtr<NSDictionary> convertedAttributesA = [attributeConverter convertAttributes:originalAttributesA];
+    RetainPtr<NSDictionary> convertedAttributesB = [attributeConverter convertAttributes:originalAttributesB];
 
     RetainPtr convertedBackgroundColorA = [convertedAttributesA objectForKey:NSBackgroundColorAttributeName];
     if (convertedBackgroundColorA == [convertedAttributesB objectForKey:NSBackgroundColorAttributeName])
         changes.setBackgroundColor(colorFromCocoaColor(convertedBackgroundColorA ? convertedBackgroundColorA.get() : RetainPtr { NSColor.clearColor }.get()));
 
-    changes.setFontChanges(computedFontChanges(fontManager, originalFontA.get(), [convertedAttributesA objectForKey:NSFontAttributeName], [convertedAttributesB objectForKey: NSFontAttributeName]));
+    changes.setFontChanges(computedFontChanges(fontManager, originalFontA.get(), retainPtr([convertedAttributesA objectForKey:NSFontAttributeName]).get(), retainPtr([convertedAttributesB objectForKey: NSFontAttributeName]).get()));
 
     RetainPtr convertedForegroundColorA = [convertedAttributesA objectForKey:NSForegroundColorAttributeName];
     if (convertedForegroundColorA == [convertedAttributesB objectForKey:NSForegroundColorAttributeName])

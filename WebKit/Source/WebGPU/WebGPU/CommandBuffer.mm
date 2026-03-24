@@ -37,7 +37,7 @@ CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer, Device& device,
     : m_commandBuffer(commandBuffer)
     , m_device(device)
     , m_sharedEvent(sharedEvent)
-    , m_preCommitHandlers(WTFMove(onCommitHandlers))
+    , m_preCommitHandlers(WTF::move(onCommitHandlers))
     , m_sharedEventSignalValue(sharedEventSignalValue)
     , m_commandEncoder(&commandEncoder)
 {
@@ -78,6 +78,8 @@ void CommandBuffer::makeInvalid(NSString* lastError)
     retainTimestampsForOneUpdateLoop();
     m_commandBuffer = nil;
     m_cachedCommandBuffer = nil;
+    if (RefPtr commandEncoder = m_commandEncoder)
+        commandEncoder->clearTracking();
     m_commandEncoder = nullptr;
     m_preCommitHandlers.clear();
     m_postCommitHandlers.clear();
@@ -106,7 +108,7 @@ void CommandBuffer::postCommitHandler()
 
 void CommandBuffer::addPostCommitHandler(Function<void(id<MTLCommandBuffer>)>&& function)
 {
-    m_postCommitHandlers.append(WTFMove(function));
+    m_postCommitHandlers.append(WTF::move(function));
 }
 
 void CommandBuffer::makeInvalidDueToCommit(NSString* lastError)
@@ -117,8 +119,11 @@ void CommandBuffer::makeInvalidDueToCommit(NSString* lastError)
     m_cachedCommandBuffer = m_commandBuffer;
     [m_commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
         protectedThis->m_commandBufferComplete.signal();
-        protectedThis->m_device->protectedQueue()->scheduleWork([protectedThis = WTFMove(protectedThis)]() mutable {
+        protectedThis->m_device->protectedQueue()->scheduleWork([protectedThis]() mutable {
             protectedThis->m_cachedCommandBuffer = nil;
+            if (RefPtr commandEncoder = protectedThis->m_commandEncoder)
+                commandEncoder->clearTracking();
+
             protectedThis->m_commandEncoder = nullptr;
         });
     }];

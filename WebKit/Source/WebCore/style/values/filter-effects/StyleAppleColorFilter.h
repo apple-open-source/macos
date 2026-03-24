@@ -39,7 +39,7 @@ namespace Style {
 // Any <apple-color-filter-function>.
 // (Equivalent of https://drafts.fxtf.org/filter-effects/#typedef-filter-function)
 struct AppleColorFilterValue {
-    AppleColorFilterValue(Ref<FilterOperation> value) : value { WTFMove(value) } { }
+    AppleColorFilterValue(Ref<FilterOperation> value) : value { WTF::move(value) } { }
 
     const FilterOperation& get() const { return value.get(); }
     const FilterOperation& platform() const { return value.get(); }

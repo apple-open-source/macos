@@ -61,6 +61,8 @@ struct GlobalFrameID {
     WebPageProxyIdentifier webPageProxyID;
     WebCore::PageIdentifier webPageID;
     WebCore::FrameIdentifier frameID;
+
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 };
 
 inline void add(Hasher& hasher, const GlobalFrameID& identifier)
@@ -80,12 +82,6 @@ inline bool operator==(const GlobalFrameID& a, const GlobalFrameID& b)
 
 namespace WTF {
 
-struct GlobalFrameIDHash {
-    static unsigned hash(const WebKit::NetworkCache::GlobalFrameID& key) { return computeHash(key); }
-    static bool equal(const WebKit::NetworkCache::GlobalFrameID& a, const WebKit::NetworkCache::GlobalFrameID& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
-
 template<> struct HashTraits<WebKit::NetworkCache::GlobalFrameID> : GenericHashTraits<WebKit::NetworkCache::GlobalFrameID> {
     static WebKit::NetworkCache::GlobalFrameID emptyValue() { return { HashTraits<WebKit::WebPageProxyIdentifier>::emptyValue(), HashTraits<WebCore::PageIdentifier>::emptyValue(), HashTraits<WebCore::FrameIdentifier>::emptyValue() }; }
     static bool isEmptyValue(const WebKit::NetworkCache::GlobalFrameID& slot) { return slot.webPageID.isHashTableEmptyValue(); }
@@ -94,8 +90,6 @@ template<> struct HashTraits<WebKit::NetworkCache::GlobalFrameID> : GenericHashT
 
     static bool isDeletedValue(const WebKit::NetworkCache::GlobalFrameID& slot) { return slot.webPageID.isHashTableDeletedValue(); }
 };
-
-template<> struct DefaultHash<WebKit::NetworkCache::GlobalFrameID> : GlobalFrameIDHash { };
 
 }
 
@@ -182,7 +176,7 @@ public:
         Markable<UseDecision> useDecision;
 
         RetrieveInfo isolatedCopy() && { return {
-            crossThreadCopy(WTFMove(url)),
+            crossThreadCopy(WTF::move(url)),
             startTime,
             completionTime,
             priority,

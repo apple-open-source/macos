@@ -42,7 +42,7 @@ class QueueImpl final : public Queue {
 public:
     static Ref<QueueImpl> create(WebGPUPtr<WGPUQueue>&& queue, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new QueueImpl(WTFMove(queue), convertToBackingContext));
+        return adoptRef(*new QueueImpl(WTF::move(queue), convertToBackingContext));
     }
 
     virtual ~QueueImpl();

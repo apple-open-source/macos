@@ -334,7 +334,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLNewContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -345,7 +345,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -356,7 +356,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);

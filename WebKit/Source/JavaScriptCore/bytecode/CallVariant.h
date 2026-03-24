@@ -146,24 +146,20 @@ public:
     {
         return m_callee == deletedToken();
     }
-    
+
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
+
     friend auto operator<=>(const CallVariant&, const CallVariant&) = default;
     
     unsigned hash() const
     {
         return WTF::PtrHash<JSCell*>::hash(m_callee);
     }
-    
+
 private:
     static JSCell* deletedToken() { return std::bit_cast<JSCell*>(static_cast<uintptr_t>(1)); }
     
     JSCell* m_callee;
-};
-
-struct CallVariantHash {
-    static unsigned hash(const CallVariant& key) { return key.hash(); }
-    static bool equal(const CallVariant& a, const CallVariant& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
 };
 
 typedef Vector<CallVariant, 1> CallVariantList;
@@ -178,9 +174,6 @@ CallVariantList despecifiedVariantList(const CallVariantList&);
 } // namespace JSC
 
 namespace WTF {
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::CallVariant> : JSC::CallVariantHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::CallVariant> : SimpleClassHashTraits<JSC::CallVariant> { };

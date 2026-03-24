@@ -75,7 +75,7 @@ typedef unsigned GLuint;
 #endif
 
 #if ENABLE(WEBXR)
-// GL_ANGLE_variable_rasterization_rate_metal
+// ANGLE_variable_rasterization_rate_metal
 using GCGLMTLRasterizationRateMapANGLE = void*;
 #endif
 

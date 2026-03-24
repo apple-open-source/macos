@@ -50,16 +50,16 @@ namespace WebCore {
 
 Ref<RealtimeOutgoingVideoSource> RealtimeOutgoingVideoSource::create(Ref<MediaStreamTrackPrivate>&& videoSource)
 {
-    return RealtimeOutgoingVideoSourceCocoa::create(WTFMove(videoSource));
+    return RealtimeOutgoingVideoSourceCocoa::create(WTF::move(videoSource));
 }
 
 Ref<RealtimeOutgoingVideoSourceCocoa> RealtimeOutgoingVideoSourceCocoa::create(Ref<MediaStreamTrackPrivate>&& videoSource)
 {
-    return adoptRef(*new RealtimeOutgoingVideoSourceCocoa(WTFMove(videoSource)));
+    return adoptRef(*new RealtimeOutgoingVideoSourceCocoa(WTF::move(videoSource)));
 }
 
 RealtimeOutgoingVideoSourceCocoa::RealtimeOutgoingVideoSourceCocoa(Ref<MediaStreamTrackPrivate>&& videoSource)
-    : RealtimeOutgoingVideoSource(WTFMove(videoSource))
+    : RealtimeOutgoingVideoSource(WTF::move(videoSource))
 {
 }
 
@@ -105,7 +105,7 @@ void RealtimeOutgoingVideoSourceCocoa::videoFrameAvailable(VideoFrame& videoFram
             auto webrtcBuffer = webrtcVideoFrame->buffer();
             if (videoFrameScaling != 1)
                 webrtcBuffer = webrtcBuffer->Scale(webrtcBuffer->width() * videoFrameScaling, webrtcBuffer->height() * videoFrameScaling);
-            sendFrame(WTFMove(webrtcBuffer));
+            sendFrame(WTF::move(webrtcBuffer));
             return;
         }
     }
@@ -128,7 +128,7 @@ void RealtimeOutgoingVideoSourceCocoa::videoFrameAvailable(VideoFrame& videoFram
     if (videoFrameScaling != 1)
         webrtcBuffer = webrtcBuffer->Scale(webrtcBuffer->width() * videoFrameScaling, webrtcBuffer->height() * videoFrameScaling);
 
-    sendFrame(WTFMove(webrtcBuffer));
+    sendFrame(WTF::move(webrtcBuffer));
 }
 
 webrtc::scoped_refptr<webrtc::VideoFrameBuffer> RealtimeOutgoingVideoSourceCocoa::createBlackFrame(size_t  width, size_t  height)

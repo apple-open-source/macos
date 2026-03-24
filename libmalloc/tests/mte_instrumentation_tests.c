@@ -134,7 +134,7 @@ _check_memtag_assign_tag_loop(uint8_t *block_ptr, size_t sz,
 		block_placement_t placement)
 {
 	for (size_t i = 0; i < 1024; i++) {
-		uint8_t *new_g = memtag_assign_tag(block_ptr, sz);
+		uint8_t *new_g = memtag_assign_tag_contiguous(block_ptr, sz);
 		uint8_t new_tag = PTR_EXTRACT_TAG(new_g);
 		T_QUIET; T_ASSERT_NE(new_tag, 0, "Should not be the canonical tag");
 		T_QUIET; T_ASSERT_NE(new_tag, kBlockTagCenter,
@@ -167,7 +167,7 @@ _check_memtag_assign_tag_loop(uint8_t *block_ptr, size_t sz,
 }
 
 static void
-_unit_test_memtag_assign_tag(block_placement_t placement)
+_unit_test_memtag_assign_tag_contiguous(block_placement_t placement)
 {
 	uint8_t *page_addr;
 	const uint64_t mask = 0x0001;
@@ -240,7 +240,7 @@ T_DECL(mte_unit_memtag_assign_tag_in_page,
 {
 	T_SKIP_REQUIRES_SEC_TRANSITION();
 
-	_unit_test_memtag_assign_tag(block_placement_in_page);
+	_unit_test_memtag_assign_tag_contiguous(block_placement_in_page);
 	T_PASS("memtag_assign_tag (block_placement_in_page)");
 }
 
@@ -249,7 +249,7 @@ T_DECL(mte_unit_memtag_assign_tag_end,
 {
 	T_SKIP_REQUIRES_SEC_TRANSITION();
 
-	_unit_test_memtag_assign_tag(block_placement_end);
+	_unit_test_memtag_assign_tag_contiguous(block_placement_end);
 	T_PASS("memtag_assign_tag (block_placement_end)");
 }
 
@@ -258,7 +258,7 @@ T_DECL(mte_unit_memtag_assign_tag_beginning,
 {
 	T_SKIP_REQUIRES_SEC_TRANSITION();
 
-	_unit_test_memtag_assign_tag(block_placement_beginning);
+	_unit_test_memtag_assign_tag_contiguous(block_placement_beginning);
 	T_PASS("memtag_assign_tag (block_placement_beginning)");
 }
 
@@ -284,6 +284,10 @@ T_DECL(mte_unit_memtag_init_chunk,
 			uint8_t *p = &page_addr[i];
 			uint8_t *block_ldg = __arm_mte_get_tag(p);
 			uint16_t cur_tag = PTR_EXTRACT_TAG(block_ldg);
+			size_t block_idx = i / sz;
+
+			T_QUIET; T_ASSERT_EQ((cur_tag & 1), (uint16_t)(block_idx & 1),
+				"Tag evenness should match index evenness");
 
 			T_QUIET; T_ASSERT_NE(cur_tag, prev_tag,
 				"Adjacent blocks should have different tags");
@@ -298,6 +302,7 @@ T_DECL(mte_unit_memtag_init_chunk,
 				T_QUIET; T_ASSERT_EQ(cur_tag, granule_tag,
 						"Granule should have a consistent tag", sz, i);
 			}
+			prev_tag = cur_tag;
 		}
 
 		// Check that the remainder is canonically tagged
@@ -311,6 +316,71 @@ T_DECL(mte_unit_memtag_init_chunk,
 	}
 	T_PASS("memtag_init_chunk");
 }
+
+T_DECL(mte_unit_memtag_retag,
+	"Check that memtag_retag works")
+{
+	T_SKIP_REQUIRES_SEC_TRANSITION();
+
+	static const size_t block_size = 16;
+	static const size_t num_blocks = 8;
+	uint8_t *page_addr = NULL;
+	allocate_mte_pages(1, (vm_address_t *)&page_addr);
+
+	for (size_t idx = 0; idx < num_blocks; idx++) {
+		uint8_t *block = &page_addr[idx * block_size];
+		uint8_t *tagged = memtag_assign_tag_odd_even(block, block_size, idx);
+		uint16_t assigned_tag = PTR_EXTRACT_TAG(tagged);
+
+		T_QUIET; T_ASSERT_EQ((assigned_tag & 1), (uint16_t)(idx & 1),
+			"Assigned tag evenness should match index evenness");
+
+		memtag_set_tag(tagged, block_size);
+
+		// Note: we use the untagged address here, to make sure that we ldg from
+		// the implementation of memtag_retag to exclude the current tag
+		uint8_t *retagged = memtag_retag(block, block_size, idx);
+		uint16_t new_tag = PTR_EXTRACT_TAG(retagged);
+
+		T_QUIET; T_ASSERT_EQ((new_tag & 1), (uint16_t)(idx & 1),
+			"New tag evenness should match index evenness");
+		T_QUIET; T_ASSERT_NE(assigned_tag, new_tag,
+			"New tag should be different from the original tag");
+	}
+
+	T_PASS("memtag_retag");
+}
+
+T_DECL(mte_unit_memtag_derive_odd_even_mask,
+	"Check that memtag_derive_odd_even_mask works")
+{
+	T_SKIP_REQUIRES_SEC_TRANSITION();
+
+	uint32_t n = arc4random_uniform(1 << 14) + 1;
+	uint32_t even_idx = 2 * n;
+	uint32_t odd_idx = even_idx + 1;
+
+	uint64_t even_mask = memtag_derive_odd_even_mask(even_idx);
+	uint64_t odd_mask = memtag_derive_odd_even_mask(odd_idx);
+
+	T_QUIET; T_ASSERT_BITS_SET(even_mask, 0x1,
+		"Even mask should exclude the canonical tag");
+	T_QUIET; T_ASSERT_BITS_SET(odd_mask, 0x1,
+		"Odd mask should exclude the canonical tag");
+	T_QUIET; T_ASSERT_BITS_SET(even_mask, (1 << 0xf),
+		"Even mask should exclude tag 0xf");
+	T_QUIET; T_ASSERT_BITS_SET(odd_mask, (1 << 0xf),
+		"Odd mask should exclude tag 0xf");
+	T_QUIET; T_ASSERT_EQ(__builtin_popcount(even_mask), 9,
+		"Even mask should exclude exactly 9 tags");
+	T_QUIET; T_ASSERT_EQ(__builtin_popcount(odd_mask), 9,
+		"Odd mask should exclude exactly 9 tags");
+	T_QUIET; T_ASSERT_BITS_NOTSET((even_mask & ~0x8001), (odd_mask & ~0x8001),
+		"Even and odd exclude masks should be mutually exclusive");
+
+	T_PASS("memtag_derive_odd_even_mask");
+}
+
 #else // MALLOC_MTE_TESTING_SUPPORTED
 
 T_DECL(mte_unit_unsupported_target, "Skip testing on unsupported targets",

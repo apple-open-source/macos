@@ -386,6 +386,7 @@
 		D4FDC8EA2DCEB54B00FBA581 /* convert_roots.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_roots.py; sourceTree = "<group>"; };
 		D4FDC8ED2DD2C87900FBA581 /* convert_evroot.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_evroot.py; sourceTree = "<group>"; };
 		D4FDC8EF2DD2D79600FBA581 /* EVRoots.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = EVRoots.json; sourceTree = "<group>"; };
+		EBC373752F33F396005639CF /* fetchValidUpdates.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = fetchValidUpdates.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -529,6 +530,7 @@
 			isa = PBXGroup;
 			children = (
 				D457A5042DEE7E01006DDCF7 /* create_human_names.py */,
+				EBC373752F33F396005639CF /* fetchValidUpdates.sh */,
 				D4C1CCB02D137E1D003E0DDB /* QWACS */,
 				D46BF2E92D1241B3006F2495 /* validate_update_json.py */,
 				D46BF2E82D123AC7006F2495 /* trust_store_updates_schema_v1.json */,

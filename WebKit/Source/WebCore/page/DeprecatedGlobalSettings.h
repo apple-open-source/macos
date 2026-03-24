@@ -108,6 +108,9 @@ public:
     static bool accessibilityThreadTextApisEnabled() { return singleton().m_accessibilityThreadTextApis; }
 #endif
 
+    static void setAccessibilityTextStitchingEnabled(bool isEnabled) { singleton().m_accessibilityTextStitchingEnabled = isEnabled; }
+    static bool accessibilityTextStitchingEnabled() { return singleton().m_accessibilityTextStitchingEnabled; }
+
     static void setArePDFImagesEnabled(bool isEnabled) { singleton().m_arePDFImagesEnabled = isEnabled; }
     static bool arePDFImagesEnabled() { return singleton().m_arePDFImagesEnabled; }
 
@@ -119,11 +122,6 @@ public:
 #if ENABLE(MODEL_ELEMENT)
     static void setModelDocumentEnabled(bool isEnabled) { singleton().m_modelDocumentEnabled = isEnabled; }
     static bool modelDocumentEnabled() { return singleton().m_modelDocumentEnabled; }
-#endif
-
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    static void setUsesWebContentRestrictionsForFilter(bool uses) { singleton().m_usesWebContentRestrictionsForFilter = uses; }
-    static bool usesWebContentRestrictionsForFilter() { return singleton().m_usesWebContentRestrictionsForFilter; };
 #endif
 
 private:
@@ -171,6 +169,7 @@ private:
 #if ENABLE(AX_THREAD_TEXT_APIS)
     bool m_accessibilityThreadTextApis { false };
 #endif
+    bool m_accessibilityTextStitchingEnabled { false };
 
     bool m_arePDFImagesEnabled { true };
 
@@ -182,9 +181,6 @@ private:
     bool m_modelDocumentEnabled { false };
 #endif
 
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    bool m_usesWebContentRestrictionsForFilter { false };
-#endif
     friend class NeverDestroyed<DeprecatedGlobalSettings>;
 };
 

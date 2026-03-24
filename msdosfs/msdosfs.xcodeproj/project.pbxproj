@@ -3,10 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		03D71B742EE8030E00E97146 /* PreprocessEntitlements */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 03D71B752EE8030E00E97146 /* Build configuration list for PBXAggregateTarget "PreprocessEntitlements" */;
+			buildPhases = (
+				03D71B792EE8032500E97146 /* Preprocess entitlement plist file */,
+			);
+			dependencies = (
+			);
+			name = PreprocessEntitlements;
+			packageProductDependencies = (
+			);
+			productName = PreprocessEntitlements;
+		};
 		4D3DCB2008E084D300C78A0B /* msdosfs OSX */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs OSX" */;
@@ -52,6 +65,19 @@
 			);
 			name = executables;
 			productName = executables;
+		};
+		D3C42AEB2E37443800408975 /* All_macOS_with_3p */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D3C42AFA2E37443800408975 /* Build configuration list for PBXAggregateTarget "All_macOS_with_3p" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D3C42AFF2E37445A00408975 /* PBXTargetDependency */,
+				D3C42AEC2E37443800408975 /* PBXTargetDependency */,
+				D3C42AEE2E37443800408975 /* PBXTargetDependency */,
+			);
+			name = All_macOS_with_3p;
+			productName = "msdosfs (Aggregate)";
 		};
 /* End PBXAggregateTarget section */
 
@@ -203,6 +229,45 @@
 		D3AEB95628BE0A2C00558AD7 /* dosfs.h in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0808E0BBF700C78A0B /* dosfs.h */; };
 		D3AEB95728BE0A2C00558AD7 /* ext.h in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0908E0BBF700C78A0B /* ext.h */; };
 		D3AEB95F28BE0CFD00558AD7 /* msdos_maintenance_xctests.m in Sources */ = {isa = PBXBuildFile; fileRef = D3AEB95E28BE0CFD00558AD7 /* msdos_maintenance_xctests.m */; };
+		D3DAC6DA2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = D3DAC6CE2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D3DAC6E32DCB5CDF0088A0F2 /* msdosFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = CC83F99228917B390040AFF0 /* msdosFileSystem.m */; };
+		D3DAC6E42DCB5D1A0088A0F2 /* DirBlock.h in Sources */ = {isa = PBXBuildFile; fileRef = 9A8879792A8B69B400B40217 /* DirBlock.h */; };
+		D3DAC6E52DCB5D1A0088A0F2 /* DirBlock.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A88797A2A8DF38100B40217 /* DirBlock.m */; };
+		D3DAC6E62DCB5D1A0088A0F2 /* DirItem.h in Sources */ = {isa = PBXBuildFile; fileRef = 9A5C2B8B2AA8A10A00D489DF /* DirItem.h */; };
+		D3DAC6E72DCB5D1A0088A0F2 /* DirItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A8879772A8B65EE00B40217 /* DirItem.m */; };
+		D3DAC6E82DCB5D1A0088A0F2 /* DirNameCache.h in Sources */ = {isa = PBXBuildFile; fileRef = 90D1EC4D2AADB50B003AF95A /* DirNameCache.h */; };
+		D3DAC6E92DCB5D1A0088A0F2 /* DirNameCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90D1EC4C2AADB50A003AF95A /* DirNameCache.m */; };
+		D3DAC6EA2DCB5D1A0088A0F2 /* ExtensionCommon.h in Sources */ = {isa = PBXBuildFile; fileRef = 52D0973B2B1C810D00447896 /* ExtensionCommon.h */; };
+		D3DAC6EB2DCB5D1A0088A0F2 /* FATItem.h in Sources */ = {isa = PBXBuildFile; fileRef = 90BD51262A0A5C7300656E31 /* FATItem.h */; };
+		D3DAC6EC2DCB5D1A0088A0F2 /* FATItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 90A0B0022A2DF3BC0067D28F /* FATItem.m */; };
+		D3DAC6ED2DCB5D1A0088A0F2 /* FATManager.h in Sources */ = {isa = PBXBuildFile; fileRef = 905050EA2A3B340F0007C0FE /* FATManager.h */; };
+		D3DAC6EE2DCB5D1A0088A0F2 /* FATManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 905050EB2A3B34210007C0FE /* FATManager.m */; };
+		D3DAC6EF2DCB5D1A0088A0F2 /* FATVolume.h in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF12A0291B100C15023 /* FATVolume.h */; };
+		D3DAC6F02DCB5D1A0088A0F2 /* FATVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF22A02A86100C15023 /* FATVolume.m */; };
+		D3DAC6F12DCB5D1A0088A0F2 /* FileItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AD58B242AAF461B00958CEC /* FileItem.m */; };
+		D3DAC6F32DCB5D1A0088A0F2 /* ItemCache.h in Sources */ = {isa = PBXBuildFile; fileRef = 90208C022AE4F78D00C6A2A0 /* ItemCache.h */; };
+		D3DAC6F42DCB5D1A0088A0F2 /* ItemCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90208C032AE50AA100C6A2A0 /* ItemCache.m */; };
+		D3DAC6F52DCB5D1A0088A0F2 /* msdosFileSystem.h in Sources */ = {isa = PBXBuildFile; fileRef = CC83F99128917B390040AFF0 /* msdosFileSystem.h */; };
+		D3DAC6F72DCB5D1A0088A0F2 /* msdosItem.h in Sources */ = {isa = PBXBuildFile; fileRef = 906AA2942A2DAC1400AF50CD /* msdosItem.h */; };
+		D3DAC6F82DCB5D1A0088A0F2 /* msdosItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 906AA2902A2DABFC00AF50CD /* msdosItem.m */; };
+		D3DAC6F92DCB5D1A0088A0F2 /* msdosProgressHelper.h in Sources */ = {isa = PBXBuildFile; fileRef = DBDC25352BE3351500E5C552 /* msdosProgressHelper.h */; };
+		D3DAC6FA2DCB5D1A0088A0F2 /* msdosProgressHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = DBDC25362BE3351500E5C552 /* msdosProgressHelper.m */; };
+		D3DAC6FB2DCB5D1A0088A0F2 /* msdosVolume.h in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF82A02A93C00C15023 /* msdosVolume.h */; };
+		D3DAC6FC2DCB5D1A0088A0F2 /* msdosVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF52A02A91900C15023 /* msdosVolume.m */; };
+		D3DAC6FD2DCB5D1A0088A0F2 /* utils.h in Sources */ = {isa = PBXBuildFile; fileRef = 90AC40462A13AC5C002CFE70 /* utils.h */; };
+		D3DAC6FE2DCB5D1A0088A0F2 /* utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 90AC40472A13AFBB002CFE70 /* utils.m */; };
+		D3DAC6FF2DCB5EA90088A0F2 /* boot.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0508E0BBF700C78A0B /* boot.c */; };
+		D3DAC7002DCB5EAD0088A0F2 /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0608E0BBF700C78A0B /* check.c */; };
+		D3DAC7012DCB5EB50088A0F2 /* Conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 901090A21F94B33E00259D7C /* Conv.c */; };
+		D3DAC7022DCB5EBA0088A0F2 /* dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0708E0BBF700C78A0B /* dir.c */; };
+		D3DAC7032DCB5EC10088A0F2 /* fat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0A08E0BBF700C78A0B /* fat.c */; };
+		D3DAC7042DCB5EC80088A0F2 /* format.c in Sources */ = {isa = PBXBuildFile; fileRef = D3F27F8E28DB2FA400C0627E /* format.c */; };
+		D3DAC7052DCB5ECD0088A0F2 /* fsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0C08E0BBF700C78A0B /* fsutil.c */; };
+		D3DAC7062DCB5ED70088A0F2 /* lib_fsck_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = D36FB0A028B75D2E00567E45 /* lib_fsck_msdos.c */; };
+		D3DAC7072DCB5EDE0088A0F2 /* lib_newfs_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = D3F27F8F28DB2FA400C0627E /* lib_newfs_msdos.c */; };
+		D3DAC7082DCB5F220088A0F2 /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+		D3DAC70A2DCB5F3C0088A0F2 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3DAC7092DCB5F3C0088A0F2 /* FSKit.framework */; };
+		D3DAC70B2DCB5F430088A0F2 /* libutil1.0.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CC47435128FFE4B40046B093 /* libutil1.0.tbd */; };
 		D3F27F9328DB32D100C0627E /* format.h in Headers */ = {isa = PBXBuildFile; fileRef = D3F27F9028DB2FA400C0627E /* format.h */; };
 		D3F27F9428DB32D100C0627E /* lib_newfs_msdos.h in Headers */ = {isa = PBXBuildFile; fileRef = D3F27F9228DB2FA400C0627E /* lib_newfs_msdos.h */; };
 		D3F27F9528DB32D100C0627E /* newfs_data_types.h in Headers */ = {isa = PBXBuildFile; fileRef = D3F27F9128DB2FA400C0627E /* newfs_data_types.h */; };
@@ -217,8 +282,6 @@
 		D7238A7E1F7D491500D5F313 /* FAT_Access_M.c in Sources */ = {isa = PBXBuildFile; fileRef = D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */; };
 		D7238A7F1F7D491500D5F313 /* FAT_Access_M.h in Headers */ = {isa = PBXBuildFile; fileRef = D7238A7D1F7D491500D5F313 /* FAT_Access_M.h */; };
 		D7238A811F7D49DB00D5F313 /* Common.h in Headers */ = {isa = PBXBuildFile; fileRef = D7238A801F7D49DB00D5F313 /* Common.h */; };
-		D75D8D6F2021CA6C0078CC24 /* diagnostic.h in Headers */ = {isa = PBXBuildFile; fileRef = D75D8D6D2021CA6C0078CC24 /* diagnostic.h */; };
-		D75D8D702021CA6C0078CC24 /* diagnostic.c in Sources */ = {isa = PBXBuildFile; fileRef = D75D8D6E2021CA6C0078CC24 /* diagnostic.c */; };
 		D77EA67821F082E800719E7C /* utfconvdata.h in Headers */ = {isa = PBXBuildFile; fileRef = D77EA67721F082E800719E7C /* utfconvdata.h */; };
 		D77EE24D1F69587200DB5C41 /* usbstorage_tester.c in Sources */ = {isa = PBXBuildFile; fileRef = D77EE23C1F69581C00DB5C41 /* usbstorage_tester.c */; };
 		D77EE2501F6958DB00DB5C41 /* livefiles_msdos.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */; };
@@ -260,6 +323,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		03D71B872EE8041F00E97146 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 03D71B742EE8030E00E97146;
+			remoteInfo = PreprocessEntitlements;
+		};
 		4D3DCB7608E084D400C78A0B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
@@ -330,6 +400,41 @@
 			remoteGlobalIDString = D77EE2311F69579900DB5C41;
 			remoteInfo = livefiles_msdos;
 		};
+		D3C42AED2E37443800408975 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3FCD9CE2E1BF985002276BA;
+			remoteInfo = MSDOS3rdPartyZipper;
+		};
+		D3C42AEF2E37443800408975 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3DAC6BC2DCB5B8D0088A0F2;
+			remoteInfo = MSDOS3rdParty;
+		};
+		D3C42AFE2E37445A00408975 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB2008E084D300C78A0B;
+			remoteInfo = "msdosfs OSX";
+		};
+		D3DAC6D82DCB5C130088A0F2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3DAC6CD2DCB5C130088A0F2;
+			remoteInfo = MSDOS3rdPartyAppex;
+		};
+		D3DAC6E12DCB5CB50088A0F2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC83F98728916A490040AFF0;
+			remoteInfo = msdos.appex;
+		};
 		D3E54F2127BD28D3006B6BD1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
@@ -343,6 +448,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = D3103E7D28D1BE0600EE5F89;
 			remoteInfo = lib_fsck_msdos;
+		};
+		D3FCD9D92E1BFA2B002276BA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3DAC6BC2DCB5B8D0088A0F2;
+			remoteInfo = MSDOS3rdParty;
 		};
 		D77EE24E1F6958AE00DB5C41 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -451,6 +563,26 @@
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6E02DCB5C130088A0F2 /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				D3DAC6DA2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3FCD9CD2E1BF985002276BA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D77EE2421F69585600DB5C41 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -609,19 +741,21 @@
 		D3AEB95D28BE0CE700558AD7 /* msdos_maintenance_xctests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_maintenance_xctests.h; sourceTree = "<group>"; };
 		D3AEB95E28BE0CFD00558AD7 /* msdos_maintenance_xctests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_maintenance_xctests.m; sourceTree = "<group>"; };
 		D3D393B628A39E5000F9CA59 /* msdos_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = msdos_testplan.xctestplan; sourceTree = "<group>"; };
+		D3DAC6BD2DCB5B8D0088A0F2 /* MSDOS3rdParty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MSDOS3rdParty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3DAC6CE2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = MSDOS3rdPartyAppex.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3DAC7092DCB5F3C0088A0F2 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = System/Library/PrivateFrameworks/FSKit.framework; sourceTree = SDKROOT; };
 		D3F27F8E28DB2FA400C0627E /* format.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = format.c; sourceTree = "<group>"; };
 		D3F27F8F28DB2FA400C0627E /* lib_newfs_msdos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_newfs_msdos.c; sourceTree = "<group>"; };
 		D3F27F9028DB2FA400C0627E /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = format.h; sourceTree = "<group>"; };
 		D3F27F9128DB2FA400C0627E /* newfs_data_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = newfs_data_types.h; sourceTree = "<group>"; };
 		D3F27F9228DB2FA400C0627E /* lib_newfs_msdos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lib_newfs_msdos.h; sourceTree = "<group>"; };
 		D3F27F9D28DB340900C0627E /* libutil1.0.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil1.0.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/usr/lib/libutil1.0.tbd; sourceTree = DEVELOPER_DIR; };
+		D3FCD9CF2E1BF985002276BA /* MSDOS3rdPartyZipper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MSDOS3rdPartyZipper; sourceTree = BUILT_PRODUCTS_DIR; };
 		D71016862005F842006493C3 /* LiveFileTester.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LiveFileTester.xcconfig; sourceTree = "<group>"; };
 		D719118120A43EAE00B14F66 /* LiveFilesTester.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = LiveFilesTester.entitlements; sourceTree = "<group>"; };
 		D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FAT_Access_M.c; sourceTree = "<group>"; };
 		D7238A7D1F7D491500D5F313 /* FAT_Access_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FAT_Access_M.h; sourceTree = "<group>"; };
 		D7238A801F7D49DB00D5F313 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; usesTabs = 0; };
-		D75D8D6D2021CA6C0078CC24 /* diagnostic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = diagnostic.h; sourceTree = "<group>"; };
-		D75D8D6E2021CA6C0078CC24 /* diagnostic.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = diagnostic.c; sourceTree = "<group>"; };
 		D77EA67721F082E800719E7C /* utfconvdata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utfconvdata.h; sourceTree = "<group>"; };
 		D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = livefiles_msdos.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		D77EE23C1F69581C00DB5C41 /* usbstorage_tester.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = usbstorage_tester.c; sourceTree = "<group>"; usesTabs = 0; };
@@ -650,6 +784,21 @@
 		E1800BC72D80756900D69370 /* fuzzing_target */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fuzzing_target; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1800BC82D80757C00D69370 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D3DAC6DB2DCB5C130088A0F2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D3DAC6CD2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D3DAC6BE2DCB5B8D0088A0F2 /* MSDOS3rdParty */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MSDOS3rdParty; sourceTree = "<group>"; };
+		D3DAC6CF2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (D3DAC6DB2DCB5C130088A0F2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = MSDOS3rdPartyAppex; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4D3DCB3E08E084D300C78A0B /* Frameworks */ = {
@@ -742,6 +891,29 @@
 				D32A190327A964D200574BF7 /* livefiles_msdos.dylib in Frameworks */,
 				D32A190527A964D800574BF7 /* CoreFoundation.framework in Frameworks */,
 				D32A190727A964E100574BF7 /* UVFSPluginTesting.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6BA2DCB5B8D0088A0F2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6CB2DCB5C130088A0F2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3DAC70B2DCB5F430088A0F2 /* libutil1.0.tbd in Frameworks */,
+				D3DAC70A2DCB5F3C0088A0F2 /* FSKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3FCD9CC2E1BF985002276BA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -853,6 +1025,8 @@
 				D12A83A31FFCC4CE00A02A42 /* LiveFilesTester */,
 				D32A18FC27A9647C00574BF7 /* msdos_tests */,
 				CC83F98928916A490040AFF0 /* msdos_appex */,
+				D3DAC6BE2DCB5B8D0088A0F2 /* MSDOS3rdParty */,
+				D3DAC6CF2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */,
 				7D8BA376010E490C02CA2964 /* Products */,
 				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
 				4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */,
@@ -887,6 +1061,9 @@
 				D32A18FB27A9647C00574BF7 /* msdos_tests.xctest */,
 				CC83F98828916A490040AFF0 /* com.apple.fskit.msdos.appex */,
 				E1800BC72D80756900D69370 /* fuzzing_target */,
+				D3DAC6BD2DCB5B8D0088A0F2 /* MSDOS3rdParty.app */,
+				D3DAC6CE2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex */,
+				D3FCD9CF2E1BF985002276BA /* MSDOS3rdPartyZipper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1057,8 +1234,6 @@
 				DB65E18E1FBD07030012DF97 /* livefiles_msdos_tester.entitlements */,
 				90778B1B1FCD5EBF000D829F /* ZeroFill.h */,
 				90778B1C1FCD5EBF000D829F /* ZeroFill.c */,
-				D75D8D6D2021CA6C0078CC24 /* diagnostic.h */,
-				D75D8D6E2021CA6C0078CC24 /* diagnostic.c */,
 				D79F2C912211983E003F8E27 /* Naming_Hash.c */,
 				D79F2C922211983E003F8E27 /* Naming_Hash.h */,
 				9A948FFA29A3A1E900FFEF52 /* Meta_RW.m */,
@@ -1070,6 +1245,7 @@
 		D77EE2511F6958F800DB5C41 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D3DAC7092DCB5F3C0088A0F2 /* FSKit.framework */,
 				DD4A46FF291D22B600FDE8E2 /* FSKitTesting.framework */,
 				D3F27F9D28DB340900C0627E /* libutil1.0.tbd */,
 				CC47435128FFE4B40046B093 /* libutil1.0.tbd */,
@@ -1165,7 +1341,6 @@
 			files = (
 				D7238A7F1F7D491500D5F313 /* FAT_Access_M.h in Headers */,
 				D77EA67821F082E800719E7C /* utfconvdata.h in Headers */,
-				D75D8D6F2021CA6C0078CC24 /* diagnostic.h in Headers */,
 				D7C983781F938091006C2ED3 /* FileRecord_M.h in Headers */,
 				90778B1D1FCD5EBF000D829F /* ZeroFill.h in Headers */,
 				D7C983751F938071006C2ED3 /* DirOPS_Handler.h in Headers */,
@@ -1340,6 +1515,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				03D71B882EE8041F00E97146 /* PBXTargetDependency */,
 			);
 			name = msdos.appex;
 			productName = fsmodule;
@@ -1415,6 +1591,74 @@
 			productReference = D32A18FB27A9647C00574BF7 /* msdos_tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		D3DAC6BC2DCB5B8D0088A0F2 /* MSDOS3rdParty */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3DAC6C92DCB5B8E0088A0F2 /* Build configuration list for PBXNativeTarget "MSDOS3rdParty" */;
+			buildPhases = (
+				D3DAC6B92DCB5B8D0088A0F2 /* Sources */,
+				D3DAC6BA2DCB5B8D0088A0F2 /* Frameworks */,
+				D3DAC6BB2DCB5B8D0088A0F2 /* Resources */,
+				D3DAC6E02DCB5C130088A0F2 /* Embed ExtensionKit Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3DAC6D92DCB5C130088A0F2 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D3DAC6BE2DCB5B8D0088A0F2 /* MSDOS3rdParty */,
+			);
+			name = MSDOS3rdParty;
+			packageProductDependencies = (
+			);
+			productName = MSDOS3rdParty;
+			productReference = D3DAC6BD2DCB5B8D0088A0F2 /* MSDOS3rdParty.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D3DAC6CD2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3DAC6DC2DCB5C130088A0F2 /* Build configuration list for PBXNativeTarget "MSDOS3rdPartyAppex" */;
+			buildPhases = (
+				D3DAC6CA2DCB5C130088A0F2 /* Sources */,
+				D3DAC6CB2DCB5C130088A0F2 /* Frameworks */,
+				D3DAC6CC2DCB5C130088A0F2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3DAC6E22DCB5CB50088A0F2 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D3DAC6CF2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */,
+			);
+			name = MSDOS3rdPartyAppex;
+			packageProductDependencies = (
+			);
+			productName = MSDOS3rdPartyAppex;
+			productReference = D3DAC6CE2DCB5C130088A0F2 /* MSDOS3rdPartyAppex.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
+		D3FCD9CE2E1BF985002276BA /* MSDOS3rdPartyZipper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3FCD9D32E1BF985002276BA /* Build configuration list for PBXNativeTarget "MSDOS3rdPartyZipper" */;
+			buildPhases = (
+				D3FCD9CB2E1BF985002276BA /* Sources */,
+				D3FCD9CC2E1BF985002276BA /* Frameworks */,
+				D3FCD9CD2E1BF985002276BA /* CopyFiles */,
+				D3FCD9D82E1BF9D3002276BA /* Create Zip of MSDOS3rdPrty.app */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3FCD9DA2E1BFA2B002276BA /* PBXTargetDependency */,
+			);
+			name = MSDOS3rdPartyZipper;
+			packageProductDependencies = (
+			);
+			productName = MSDOS3rdPartyZipper;
+			productReference = D3FCD9CF2E1BF985002276BA /* MSDOS3rdPartyZipper */;
+			productType = "com.apple.product-type.tool";
+		};
 		D77EE2311F69579900DB5C41 /* livefiles_msdos */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D77EE2361F69579900DB5C41 /* Build configuration list for PBXNativeTarget "livefiles_msdos" */;
@@ -1477,9 +1721,12 @@
 		7D8BA340010E490C02CA2964 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1400;
+				LastSwiftUpdateCheck = 1630;
 				LastUpgradeCheck = 0500;
 				TargetAttributes = {
+					03D71B742EE8030E00E97146 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					4D3DCB2008E084D300C78A0B = {
 						LastSwiftMigration = 0900;
 					};
@@ -1501,6 +1748,15 @@
 					D32A18FA27A9647C00574BF7 = {
 						CreatedOnToolsVersion = 14.0;
 						ProvisioningStyle = Automatic;
+					};
+					D3DAC6BC2DCB5B8D0088A0F2 = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					D3DAC6CD2DCB5C130088A0F2 = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					D3FCD9CE2E1BF985002276BA = {
+						CreatedOnToolsVersion = 26.0;
 					};
 					D77EE2311F69579900DB5C41 = {
 						CreatedOnToolsVersion = 9.0;
@@ -1527,6 +1783,9 @@
 			projectRoot = "";
 			targets = (
 				4D3DCB2008E084D300C78A0B /* msdosfs OSX */,
+				D3C42AEB2E37443800408975 /* All_macOS_with_3p */,
+				4D5A7D0C1816FB7E00D5FE60 /* msdosfs iOS */,
+				DB1AAB73204727B30036167F /* Swift_iOS */,
 				4D9CE47A15007F7000186084 /* executables */,
 				4D3DCB2B08E084D300C78A0B /* msdosfs.kext */,
 				4D3DCB5608E084D400C78A0B /* msdos.fs */,
@@ -1541,6 +1800,10 @@
 				D32A18FA27A9647C00574BF7 /* msdos_tests */,
 				CC83F98728916A490040AFF0 /* msdos.appex */,
 				E1800BAE2D80756900D69370 /* fuzzing_target */,
+				D3DAC6BC2DCB5B8D0088A0F2 /* MSDOS3rdParty */,
+				D3DAC6CD2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */,
+				D3FCD9CE2E1BF985002276BA /* MSDOS3rdPartyZipper */,
+				03D71B742EE8030E00E97146 /* PreprocessEntitlements */,
 			);
 		};
 /* End PBXProject section */
@@ -1569,6 +1832,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D32A18F927A9647C00574BF7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6BB2DCB5B8D0088A0F2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6CC2DCB5C130088A0F2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1630,6 +1907,26 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		03D71B792EE8032500E97146 /* Preprocess entitlement plist file */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/msdos_appex/msdosFileSystem.entitlements",
+			);
+			name = "Preprocess entitlement plist file";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(PROJECT_DERIVED_FILE_DIR)/msdos_appex/msdosFileSystem.entitlements",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n\nfor flag in $GCC_PREPROCESSOR_DEFINITIONS; do\nCFLAGS=\"$CFLAGS -D$flag\"\ndone\n\nxcrun clang -x c -P -E \\\n$CFLAGS \\\n-imacros \"TargetConditionals.h\" \\\n\"$SCRIPT_INPUT_FILE_0\" \\\n-o \"$SCRIPT_OUTPUT_FILE_0\"\n";
+		};
 		4D3DCB2C08E084D300C78A0B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -1718,6 +2015,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# PLUGIN_LOC in an option to use  pts_lab source to fetch a pre-compiled plugin, Please take care of what plugin version are been tested.\n# Comment it out when SVN release version are used.\n#PLUGIN_LOC=\"master\"\n\nMSDOSFS_VER=\"12.0.2\"\nEXFAT_VER=\"10.5.0\"\nHFS_VER=\"2.8.7\"\n\n\necho \"msdosfs plugin version: $MSDOSFS_VER\"\necho \"exfat plugin version: $EXFAT_VER\"\necho \"hfs plugin version: $HFS_VER\"\n\nif [ ! -z $PLUGIN_LOC ]\nthen\n\nmsdos_src=\"./LiveFilesTester/Resources\"\nexfat_src=\"./LiveFilesTester/Resources\"\nhfs_src=\"./LiveFilesTester/Resources\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\nplugin_loc_msdos=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_msdos.dylib\"\nplugin_loc_exfat=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_exfat.dylib\"\nplugin_loc_hfs=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_hfs.dylib\"\necho \"--- Attention!! copy plugin from PTS_LAB root directory /pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\" , validate version correctness!!! ----\"\necho cp $plugin_loc_msdos $src_msdos_dylib\ncp $plugin_loc_msdos $src_msdos_dylib\necho cp $plugin_loc_exfat $src_exfat_dylib\ncp $plugin_loc_exfat $src_exfat_dylib\necho cp $plugin_loc_hfs $src_hfs_dylib\ncp $plugin_loc_hfs $src_hfs_dylib\nelse\n\nmsdos_src=\"./LiveFilesTester/Resources/msdosfs_plugin/OSX\"\nexfat_src=\"./LiveFilesTester/Resources/exfat_plugin/OSX\"\nhfs_src=\"./LiveFilesTester/Resources/hfs_plugin/OSX\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\n#SVN_USER=\"regression\"\n#SVN_PASS=\"Regression123\"\n\nSVN_USER=\"nosherovich\"\nSVN_PASS=\"EasyPeasy@2\"\n\n\nset -e # Fail the build in case of error in this script\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/msdosfs_plugin/$MSDOSFS_VER ./LiveFilesTester/Resources/msdosfs_plugin/ --force\n#LAST=$(exec ls ./LiveFiles_tester/Resources/msdosfs_plugin | sort -n | tail -1)\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/exfat_plugin/$EXFAT_VER ./LiveFilesTester/Resources/exfat_plugin/ --force\n\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/hfs_plugin/$HFS_VER ./LiveFilesTester/Resources/hfs_plugin/ --force\n\nfi\n\ndst_dir=/tmp/LiveFilesPlugin\nmkdir -p $dst_dir\nrm -rf $dst_dir/\\*\necho \"copy from $src_msdos_dylib to $dst_dir\"\ncp $src_msdos_dylib $dst_dir\necho \"copy from $src_exfat_dylib to $dst_dir\"\ncp $src_exfat_dylib $dst_dir\necho \"copy from $src_hfs_dylib to $dst_dir\"\ncp $src_hfs_dylib $dst_dir\n\n";
+		};
+		D3FCD9D82E1BF9D3002276BA /* Create Zip of MSDOS3rdPrty.app */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create Zip of MSDOS3rdPrty.app";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\n\n# Define variables\nPRODUCT_NAME=\"MSDOS3rdParty\"\nAPP_PATH=\"${PRODUCT_NAME}.app\"\nZIP_PATH=\"${PRODUCT_NAME}.zip\"\n\necho \"Checking paths:\"\necho \"TARGET_BUILD_DIR = ${TARGET_BUILD_DIR}\"\necho \"ZIP_PATH         = ${ZIP_PATH}\"\necho \"APP_PATH         = ${APP_PATH}\"\necho \"DSTROOT          = ${DSTROOT}\"\necho \"INTERNAL_PATH    = ${DSTROOT}/AppleInternal/FSKit\"\n\ncd ${TARGET_BUILD_DIR}\n\n# Create zip file\nif [ -d \"${APP_PATH}\" ]; then\n    echo \"Creating zip archive for ${APP_PATH}...\"\n    zip -r \"${ZIP_PATH}\" \"${APP_PATH}\"\n    echo \"Removing \"${APP_PATH}\" app\"\n    rm -rf \"${APP_PATH}\"\nelse\n    echo \"No ${APP_PATH} found, can't create zip archive\"\nfi\n\n# Verify zip was created\nif [ -f \"${ZIP_PATH}\" ]; then\n    echo \"✅ Successfully created zip archive at: ${TARGET_BUILD_DIR}/${ZIP_PATH}\"\nelse\n    echo \"❌ Failed to create zip archive\"\n    exit 1\nfi\n\n# Move the zip file to /AppleInternal/FSKit/\nmkdir -p \"${DSTROOT}/AppleInternal/FSKit\"\nmv \"${ZIP_PATH}\" \"${DSTROOT}/AppleInternal/FSKit\"\n\n# Verify zip was moved\nif [ -f \"${DSTROOT}/AppleInternal/FSKit/${ZIP_PATH}\" ]; then\n    echo \"✅ Successfully moved zip archive to: ${DSTROOT}/AppleInternal/FSKit\"\nelse\n    echo \"❌ Failed to move zip archive\"\n    exit 1\nfi\n";
 		};
 		E1800BC22D80756900D69370 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1938,6 +2254,63 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3DAC6B92DCB5B8D0088A0F2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3DAC6CA2DCB5C130088A0F2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3DAC7082DCB5F220088A0F2 /* msdosfs_conv.c in Sources */,
+				D3DAC7072DCB5EDE0088A0F2 /* lib_newfs_msdos.c in Sources */,
+				D3DAC7062DCB5ED70088A0F2 /* lib_fsck_msdos.c in Sources */,
+				D3DAC7052DCB5ECD0088A0F2 /* fsutil.c in Sources */,
+				D3DAC7042DCB5EC80088A0F2 /* format.c in Sources */,
+				D3DAC7032DCB5EC10088A0F2 /* fat.c in Sources */,
+				D3DAC7022DCB5EBA0088A0F2 /* dir.c in Sources */,
+				D3DAC7012DCB5EB50088A0F2 /* Conv.c in Sources */,
+				D3DAC7002DCB5EAD0088A0F2 /* check.c in Sources */,
+				D3DAC6FF2DCB5EA90088A0F2 /* boot.c in Sources */,
+				D3DAC6E42DCB5D1A0088A0F2 /* DirBlock.h in Sources */,
+				D3DAC6E52DCB5D1A0088A0F2 /* DirBlock.m in Sources */,
+				D3DAC6E62DCB5D1A0088A0F2 /* DirItem.h in Sources */,
+				D3DAC6E72DCB5D1A0088A0F2 /* DirItem.m in Sources */,
+				D3DAC6E82DCB5D1A0088A0F2 /* DirNameCache.h in Sources */,
+				D3DAC6E92DCB5D1A0088A0F2 /* DirNameCache.m in Sources */,
+				D3DAC6EA2DCB5D1A0088A0F2 /* ExtensionCommon.h in Sources */,
+				D3DAC6EB2DCB5D1A0088A0F2 /* FATItem.h in Sources */,
+				D3DAC6EC2DCB5D1A0088A0F2 /* FATItem.m in Sources */,
+				D3DAC6ED2DCB5D1A0088A0F2 /* FATManager.h in Sources */,
+				D3DAC6EE2DCB5D1A0088A0F2 /* FATManager.m in Sources */,
+				D3DAC6EF2DCB5D1A0088A0F2 /* FATVolume.h in Sources */,
+				D3DAC6F02DCB5D1A0088A0F2 /* FATVolume.m in Sources */,
+				D3DAC6F12DCB5D1A0088A0F2 /* FileItem.m in Sources */,
+				D3DAC6F32DCB5D1A0088A0F2 /* ItemCache.h in Sources */,
+				D3DAC6F42DCB5D1A0088A0F2 /* ItemCache.m in Sources */,
+				D3DAC6F52DCB5D1A0088A0F2 /* msdosFileSystem.h in Sources */,
+				D3DAC6F72DCB5D1A0088A0F2 /* msdosItem.h in Sources */,
+				D3DAC6F82DCB5D1A0088A0F2 /* msdosItem.m in Sources */,
+				D3DAC6F92DCB5D1A0088A0F2 /* msdosProgressHelper.h in Sources */,
+				D3DAC6FA2DCB5D1A0088A0F2 /* msdosProgressHelper.m in Sources */,
+				D3DAC6FB2DCB5D1A0088A0F2 /* msdosVolume.h in Sources */,
+				D3DAC6FC2DCB5D1A0088A0F2 /* msdosVolume.m in Sources */,
+				D3DAC6FD2DCB5D1A0088A0F2 /* utils.h in Sources */,
+				D3DAC6FE2DCB5D1A0088A0F2 /* utils.m in Sources */,
+				D3DAC6E32DCB5CDF0088A0F2 /* msdosFileSystem.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3FCD9CB2E1BF985002276BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D77EE22E1F69579900DB5C41 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1947,7 +2320,6 @@
 				D787B4741F829CB800AF1565 /* MR_SW_Lock.c in Sources */,
 				9A948FFB29A3A1E900FFEF52 /* Meta_RW.m in Sources */,
 				90778B1E1FCD5EBF000D829F /* ZeroFill.c in Sources */,
-				D75D8D702021CA6C0078CC24 /* diagnostic.c in Sources */,
 				D7C983791F938095006C2ED3 /* FileRecord_M.c in Sources */,
 				D7C9837D1F9380C5006C2ED3 /* FileOPS_Handler.c in Sources */,
 				D7238A7E1F7D491500D5F313 /* FAT_Access_M.c in Sources */,
@@ -1984,6 +2356,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		03D71B882EE8041F00E97146 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 03D71B742EE8030E00E97146 /* PreprocessEntitlements */;
+			targetProxy = 03D71B872EE8041F00E97146 /* PBXContainerItemProxy */;
+		};
 		4D3DCB7708E084D400C78A0B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCB2B08E084D300C78A0B /* msdosfs.kext */;
@@ -2034,6 +2411,31 @@
 			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
 			targetProxy = CCC0E8AA270ADDBD00EBE058 /* PBXContainerItemProxy */;
 		};
+		D3C42AEC2E37443800408975 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3FCD9CE2E1BF985002276BA /* MSDOS3rdPartyZipper */;
+			targetProxy = D3C42AED2E37443800408975 /* PBXContainerItemProxy */;
+		};
+		D3C42AEE2E37443800408975 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3DAC6BC2DCB5B8D0088A0F2 /* MSDOS3rdParty */;
+			targetProxy = D3C42AEF2E37443800408975 /* PBXContainerItemProxy */;
+		};
+		D3C42AFF2E37445A00408975 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB2008E084D300C78A0B /* msdosfs OSX */;
+			targetProxy = D3C42AFE2E37445A00408975 /* PBXContainerItemProxy */;
+		};
+		D3DAC6D92DCB5C130088A0F2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3DAC6CD2DCB5C130088A0F2 /* MSDOS3rdPartyAppex */;
+			targetProxy = D3DAC6D82DCB5C130088A0F2 /* PBXContainerItemProxy */;
+		};
+		D3DAC6E22DCB5CB50088A0F2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC83F98728916A490040AFF0 /* msdos.appex */;
+			targetProxy = D3DAC6E12DCB5CB50088A0F2 /* PBXContainerItemProxy */;
+		};
 		D3E54F2227BD28D3006B6BD1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
@@ -2043,6 +2445,11 @@
 			isa = PBXTargetDependency;
 			target = D3103E7D28D1BE0600EE5F89 /* lib_fsck_msdos */;
 			targetProxy = D3FAF9A128D0C7F6004577BC /* PBXContainerItemProxy */;
+		};
+		D3FCD9DA2E1BFA2B002276BA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3DAC6BC2DCB5B8D0088A0F2 /* MSDOS3rdParty */;
+			targetProxy = D3FCD9D92E1BFA2B002276BA /* PBXContainerItemProxy */;
 		};
 		D77EE24F1F6958AE00DB5C41 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2098,6 +2505,30 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		03D71B762EE8030E00E97146 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		03D71B772EE8030E00E97146 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = CodeCoverage;
+		};
+		03D71B782EE8030E00E97146 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		4D3DCB2808E084D300C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2330,6 +2761,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+                OTHER_CFLAGS = (
+                    "-fsanitize-trap=all",
+                    "-fsanitize=undefined",
+                );
 				PRODUCT_NAME = fsck_msdos;
 			};
 			name = Debug;
@@ -2342,6 +2777,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+                OTHER_CFLAGS = (
+                    "-fsanitize-trap=all",
+                    "-fsanitize=undefined",
+                );
 				PRODUCT_NAME = fsck_msdos;
 			};
 			name = Release;
@@ -2469,10 +2908,15 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
+				GCC_PREPROCESSOR_DEFINITIONS = "RUNNING_CODE_COVERAGE=1";
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
+					"DEBUG=1",
+					"RUNNING_CODE_COVERAGE=1",
+				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2483,7 +2927,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = (
-					"-fprofile-instr-generate=/tmp/coverage/msdosfs_%p.profraw",
+					"-fprofile-instr-generate=/tmp/coverage/${TARGET_NAME}_%p%c.profraw",
 					"-fcoverage-mapping",
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
@@ -2521,6 +2965,7 @@
 		};
 		4DD699550D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3840A0312062FED4008C2E45 /* kext.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -2618,6 +3063,10 @@
 				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
 				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+                OTHER_CFLAGS = (
+                    "-fsanitize-trap=all",
+                    "-fsanitize=undefined",
+                );
 				PRODUCT_NAME = fsck_msdos;
 			};
 			name = CodeCoverage;
@@ -2639,7 +3088,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = msdos_appex/msdosFileSystem.entitlements;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
+				CODE_SIGN_ENTITLEMENTS = "$(PROJECT_DERIVED_FILE_DIR)/msdos_appex/msdosFileSystem.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -2658,7 +3108,11 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -2692,7 +3146,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = msdos_appex/msdosFileSystem.entitlements;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
+				CODE_SIGN_ENTITLEMENTS = "$(PROJECT_DERIVED_FILE_DIR)/msdos_appex/msdosFileSystem.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -2709,7 +3164,11 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -2718,11 +3177,11 @@
 				PRODUCT_NAME = com.apple.fskit.msdos;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				WRAPPER_EXTENSION = "";
 			};
 			name = CodeCoverage;
 		};
@@ -2743,7 +3202,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = msdos_appex/msdosFileSystem.entitlements;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
+				CODE_SIGN_ENTITLEMENTS = "$(PROJECT_DERIVED_FILE_DIR)/msdos_appex/msdosFileSystem.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
@@ -2761,7 +3221,11 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -2770,8 +3234,9 @@
 				PRODUCT_NAME = com.apple.fskit.msdos;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -2858,8 +3323,9 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 4.2;
 			};
 			name = CodeCoverage;
@@ -2898,8 +3364,9 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OBJC_BRIDGING_HEADER = "LiveFilesTester/LiveFilesTester-Bridging-Header.h";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 4.2;
 			};
 			name = Release;
@@ -2934,7 +3401,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
@@ -2947,6 +3418,7 @@
 		};
 		D1AD93F820036C1700FF5EF7 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D71016862005F842006493C3 /* LiveFileTester.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -2970,7 +3442,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
@@ -3007,7 +3483,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/LiveFiles;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
@@ -3175,7 +3655,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				XCTRUNNER_LAUNCH_AS_TOOL = YES;
@@ -3227,7 +3710,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				VALIDATE_PRODUCT = YES;
@@ -3280,11 +3766,560 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				VALIDATE_PRODUCT = YES;
 				XCTRUNNER_LAUNCH_AS_TOOL = YES;
+			};
+			name = Release;
+		};
+		D3C42AFB2E37443800408975 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "msdosfs_tester/msdosfs OSX-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 3.0;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		D3C42AFC2E37443800408975 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "msdosfs_tester/msdosfs OSX-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 3.0;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
+				);
+				ZERO_LINK = NO;
+			};
+			name = CodeCoverage;
+		};
+		D3C42AFD2E37443800408975 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "msdosfs_tester/msdosfs OSX-Bridging-Header.h";
+				SWIFT_VERSION = 3.0;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		D3DAC6C62DCB5B8E0088A0F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdParty/MSDOS3rdParty.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		D3DAC6C72DCB5B8E0088A0F2 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdParty/MSDOS3rdParty.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = CodeCoverage;
+		};
+		D3DAC6C82DCB5B8E0088A0F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdParty/MSDOS3rdParty.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 19.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
+		};
+		D3DAC6DD2DCB5C130088A0F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdPartyAppex/MSDOS3rdPartyAppex.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MSDOS3rdPartyAppex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MSDOS3rdPartyAppex;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p.appex;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "MSDOS3rdPartyAppex/MSDOS3rdPartyAppex-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Debug;
+		};
+		D3DAC6DE2DCB5C130088A0F2 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdPartyAppex/MSDOS3rdPartyAppex.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MSDOS3rdPartyAppex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MSDOS3rdPartyAppex;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p.appex;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "MSDOS3rdPartyAppex/MSDOS3rdPartyAppex-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = CodeCoverage;
+		};
+		D3DAC6DF2DCB5C130088A0F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = MSDOS3rdPartyAppex/MSDOS3rdPartyAppex.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MSDOS3rdPartyAppex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MSDOS3rdPartyAppex;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit3p.msdos3p.appex;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "MSDOS3rdPartyAppex/MSDOS3rdPartyAppex-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Release;
+		};
+		D3FCD9D42E1BF985002276BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		D3FCD9D52E1BF985002276BA /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = CodeCoverage;
+		};
+		D3FCD9D62E1BF985002276BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -3331,10 +4366,7 @@
 					"DEBUG=1",
 					"USB_STORAGE_PLUGIN=1",
 				);
-				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
-					"DEBUG=1",
-					"DIAGNOSTIC=1",
-				);
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = "DEBUG=1";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
@@ -3383,10 +4415,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "USB_STORAGE_PLUGIN=1";
-				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
-					"DEBUG=1",
-					"DIAGNOSTIC=1",
-				);
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = "DEBUG=1";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
@@ -3394,7 +4423,6 @@
 				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 			};
@@ -3482,10 +4510,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "USB_STORAGE_PLUGIN=1";
-				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
-					"DEBUG=1",
-					"DIAGNOSTIC=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
@@ -3528,10 +4553,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "USB_STORAGE_PLUGIN=1";
-				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
-					"DEBUG=1",
-					"DIAGNOSTIC=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
@@ -3627,11 +4649,10 @@
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_CFLAGS = (
 					"-fsanitize=address,fuzzer",
-					"-mllvm -asan-guard-against-version-mismatch=0",
+					"-mllvm",
+					"-asan-guard-against-version-mismatch=0",
 				);
-				OTHER_LDFLAGS = (
-					"-fsanitize=address,fuzzer",
-				);
+				OTHER_LDFLAGS = "-fsanitize=address,fuzzer";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -3646,10 +4667,13 @@
 				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_CFLAGS = (
+					"$(inherited)",
 					"-fsanitize=address,fuzzer",
-					"-mllvm -asan-guard-against-version-mismatch=0",
+					"-mllvm",
+					"-asan-guard-against-version-mismatch=0",
 				);
 				OTHER_LDFLAGS = (
+					"$(inherited)",
 					"-fsanitize=address,fuzzer",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3666,11 +4690,10 @@
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_CFLAGS = (
 					"-fsanitize=address,fuzzer",
-					"-mllvm -asan-guard-against-version-mismatch=0",
+					"-mllvm",
+					"-asan-guard-against-version-mismatch=0",
 				);
-				OTHER_LDFLAGS = (
-					"-fsanitize=address,fuzzer",
-				);
+				OTHER_LDFLAGS = "-fsanitize=address,fuzzer";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3678,6 +4701,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		03D71B752EE8030E00E97146 /* Build configuration list for PBXAggregateTarget "PreprocessEntitlements" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03D71B762EE8030E00E97146 /* Debug */,
+				03D71B772EE8030E00E97146 /* CodeCoverage */,
+				03D71B782EE8030E00E97146 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs OSX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3814,6 +4847,46 @@
 				D32A18FF27A9647C00574BF7 /* Debug */,
 				D32A190027A9647C00574BF7 /* CodeCoverage */,
 				D32A190127A9647C00574BF7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3C42AFA2E37443800408975 /* Build configuration list for PBXAggregateTarget "All_macOS_with_3p" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3C42AFB2E37443800408975 /* Debug */,
+				D3C42AFC2E37443800408975 /* CodeCoverage */,
+				D3C42AFD2E37443800408975 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3DAC6C92DCB5B8E0088A0F2 /* Build configuration list for PBXNativeTarget "MSDOS3rdParty" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3DAC6C62DCB5B8E0088A0F2 /* Debug */,
+				D3DAC6C72DCB5B8E0088A0F2 /* CodeCoverage */,
+				D3DAC6C82DCB5B8E0088A0F2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3DAC6DC2DCB5C130088A0F2 /* Build configuration list for PBXNativeTarget "MSDOS3rdPartyAppex" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3DAC6DD2DCB5C130088A0F2 /* Debug */,
+				D3DAC6DE2DCB5C130088A0F2 /* CodeCoverage */,
+				D3DAC6DF2DCB5C130088A0F2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3FCD9D32E1BF985002276BA /* Build configuration list for PBXNativeTarget "MSDOS3rdPartyZipper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3FCD9D42E1BF985002276BA /* Debug */,
+				D3FCD9D52E1BF985002276BA /* CodeCoverage */,
+				D3FCD9D62E1BF985002276BA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

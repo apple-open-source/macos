@@ -54,13 +54,13 @@ void ArchiveResourceCollection::addAllResources(Archive& archive)
 void ArchiveResourceCollection::addResource(Ref<ArchiveResource>&& resource)
 {
     auto& url = resource->url();
-    m_subresources.set(url.string(), WTFMove(resource));
+    m_subresources.set(url.string(), WTF::move(resource));
 }
 
 ArchiveResource* ArchiveResourceCollection::archiveResourceForURL(const URL& url)
 {
-    if (RefPtr resource = m_subresources.get(url.string()))
-        return resource.unsafeGet();
+    if (auto* resource = m_subresources.get(url.string()))
+        return resource;
     if (!url.protocolIs("https"_s))
         return nullptr;
     URL httpURL = url;

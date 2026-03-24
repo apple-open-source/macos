@@ -30,14 +30,16 @@
 
 namespace WebCore {
 namespace Style {
+namespace Calculation {
 
-CalculationValueMap::CalculationValueMap() = default;
+ValueMap::ValueMap() = default;
 
-CalculationValueMap& CalculationValueMap::calculationValues()
+ValueMap& ValueMap::calculationValues()
 {
-    static NeverDestroyed<CalculationValueMap> map;
+    static NeverDestroyed<ValueMap> map;
     return map;
 }
 
+} // namespace Calculation
 } // namespace Style
 } // namespace WebCore

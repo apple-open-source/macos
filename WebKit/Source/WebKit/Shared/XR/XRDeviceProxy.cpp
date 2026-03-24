@@ -39,7 +39,7 @@ namespace WebKit {
 
 Ref<XRDeviceProxy> XRDeviceProxy::create(XRDeviceInfo&& deviceInfo, PlatformXRSystemProxy& xrSystem)
 {
-    return adoptRef(*new XRDeviceProxy(WTFMove(deviceInfo), xrSystem));
+    return adoptRef(*new XRDeviceProxy(WTF::move(deviceInfo), xrSystem));
 }
 
 XRDeviceProxy::XRDeviceProxy(XRDeviceInfo&& deviceInfo, PlatformXRSystemProxy& xrSystem)
@@ -53,6 +53,14 @@ XRDeviceProxy::XRDeviceProxy(XRDeviceInfo&& deviceInfo, PlatformXRSystemProxy& x
 
     if (!deviceInfo.vrFeatures.contains(SessionFeature::WebGPU))
         deviceInfo.vrFeatures.append(SessionFeature::WebGPU);
+#if ENABLE(WEBXR_LAYERS)
+    // Empty feature arrays signals that the feature is unsupported. Don't add support for layers if a list is empty.
+    // FIXME: Move these to the per-platform setup that populates vrFeatures & arFeatures. (https://bugs.webkit.org/show_bug.cgi?id=305458)
+    if (!deviceInfo.vrFeatures.isEmpty() && !deviceInfo.vrFeatures.contains(SessionFeature::Layers))
+        deviceInfo.vrFeatures.append(SessionFeature::Layers);
+    if (!deviceInfo.arFeatures.isEmpty() && !deviceInfo.arFeatures.contains(SessionFeature::Layers))
+        deviceInfo.arFeatures.append(SessionFeature::Layers);
+#endif
     if (!deviceInfo.vrFeatures.isEmpty())
         setSupportedFeatures(SessionMode::ImmersiveVr, deviceInfo.vrFeatures);
     if (!deviceInfo.arFeatures.isEmpty())
@@ -80,7 +88,7 @@ void XRDeviceProxy::initializeTrackingAndRendering(const WebCore::SecurityOrigin
     if (!xrSystem)
         return;
 
-    xrSystem->initializeTrackingAndRendering(WTFMove(init));
+    xrSystem->initializeTrackingAndRendering(WTF::move(init));
 
     // This is called from the constructor of WebXRSession. Since sessionDidInitializeInputSources()
     // ends up calling queueTaskKeepingObjectAlive() which refs the WebXRSession object, we
@@ -121,7 +129,7 @@ Vector<PlatformXR::Device::ViewData> XRDeviceProxy::views(SessionMode mode) cons
 void XRDeviceProxy::requestFrame(std::optional<PlatformXR::RequestData>&& requestData, PlatformXR::Device::RequestFrameCallback&& callback)
 {
     if (RefPtr xrSystem = m_xrSystem.get())
-        xrSystem->requestFrame(WTFMove(requestData), WTFMove(callback));
+        xrSystem->requestFrame(WTF::move(requestData), WTF::move(callback));
     else
         callback({ });
 }
@@ -136,13 +144,51 @@ void XRDeviceProxy::submitFrame(Vector<PlatformXR::Device::Layer>&& layers)
 {
     if (RefPtr xrSystem = m_xrSystem.get()) {
 #if USE(OPENXR)
-        xrSystem->submitFrame(WTFMove(layers));
+        xrSystem->submitFrame(WTF::move(layers));
 #else
         UNUSED_PARAM(layers);
         xrSystem->submitFrame();
 #endif
     }
 }
+
+#if ENABLE(WEBXR_HIT_TEST)
+void XRDeviceProxy::requestHitTestSource(const PlatformXR::HitTestOptions& init, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::HitTestSource>)>&& completionHandler)
+{
+    RefPtr xrSystem = m_xrSystem.get();
+    if (!xrSystem) {
+        completionHandler(WebCore::Exception { WebCore::ExceptionCode::InvalidStateError });
+        return;
+    }
+    xrSystem->requestHitTestSource(init, WTF::move(completionHandler));
+}
+
+void XRDeviceProxy::deleteHitTestSource(PlatformXR::HitTestSource source)
+{
+    RefPtr xrSystem = m_xrSystem.get();
+    if (!xrSystem)
+        return;
+    xrSystem->deleteHitTestSource(source);
+}
+
+void XRDeviceProxy::requestTransientInputHitTestSource(const PlatformXR::TransientInputHitTestOptions& init, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::TransientInputHitTestSource>)>&& completionHandler)
+{
+    RefPtr xrSystem = m_xrSystem.get();
+    if (!xrSystem) {
+        completionHandler(WebCore::Exception { WebCore::ExceptionCode::InvalidStateError });
+        return;
+    }
+    xrSystem->requestTransientInputHitTestSource(init, WTF::move(completionHandler));
+}
+
+void XRDeviceProxy::deleteTransientInputHitTestSource(PlatformXR::TransientInputHitTestSource source)
+{
+    RefPtr xrSystem = m_xrSystem.get();
+    if (!xrSystem)
+        return;
+    xrSystem->deleteTransientInputHitTestSource(source);
+}
+#endif
 
 } // namespace WebKit
 

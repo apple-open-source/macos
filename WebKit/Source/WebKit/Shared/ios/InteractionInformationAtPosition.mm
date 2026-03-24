@@ -27,11 +27,96 @@
 #import "InteractionInformationAtPosition.h"
 
 #import "ArgumentCodersCocoa.h"
+#import <wtf/cocoa/VectorCocoa.h>
 #import <pal/cocoa/DataDetectorsCoreSoftLink.h>
 
 namespace WebKit {
 
 #if PLATFORM(IOS_FAMILY)
+
+InteractionInformationAtPosition::InteractionInformationAtPosition(InteractionInformationRequest&& request, bool canBeValid, std::optional<bool> hitNodeOrWindowHasDoubleClickListener, Selectability&& selectability, bool isSelected, bool prefersDraggingOverTextSelection, bool isNearMarkedText, bool touchCalloutEnabled, bool isLink, bool isImage,
+#if ENABLE(MODEL_PROCESS)
+    bool isInteractiveModel,
+#endif
+    bool isAttachment, bool isAnimatedImage, bool isAnimating, bool canShowAnimationControls, bool isPausedVideo, bool isElement, bool isContentEditable, Markable<WebCore::ScrollingNodeID>&& containerScrollingNodeID,
+#if ENABLE(DATA_DETECTION)
+    bool isDataDetectorLink,
+#endif
+    bool preventTextInteraction, bool elementContainsImageOverlay, bool isImageOverlayText,
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+    bool isSpatialImage,
+#endif
+    bool isInPlugin, bool needsPointerTouchCompatibilityQuirk, WebCore::FloatPoint&& adjustedPointForNodeRespondingToClickEvents, URL&& url, URL&& imageURL, String&& imageMIMEType, String&& title, String&& idAttribute, WebCore::IntRect&& bounds,
+#if PLATFORM(MACCATALYST)
+    WebCore::IntRect&& caretRect,
+#endif
+    RefPtr<WebCore::ShareableBitmap>&& image, String&& textBefore, String&& textAfter, CursorContext&& cursorContext, RefPtr<WebCore::TextIndicator>&& textIndicator,
+#if ENABLE(DATA_DETECTION)
+    String&& dataDetectorIdentifier, Vector<RetainPtr<DDScannerResult>>&& dataDetectorResults, WebCore::IntRect&& dataDetectorBounds,
+#endif
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    Vector<WebCore::ElementAnimationContext>&& animationsAtPoint,
+#endif
+    std::optional<WebCore::ElementContext>&& elementContext, std::optional<WebCore::ElementContext>&& hostImageOrVideoElementContext)
+        : request(WTF::move(request))
+        , canBeValid(canBeValid)
+        , hitNodeOrWindowHasDoubleClickListener(hitNodeOrWindowHasDoubleClickListener)
+        , selectability(selectability)
+        , isSelected(isSelected)
+        , prefersDraggingOverTextSelection(prefersDraggingOverTextSelection)
+        , isNearMarkedText(isNearMarkedText)
+        , touchCalloutEnabled(touchCalloutEnabled)
+        , isLink(isLink)
+        , isImage(isImage)
+#if ENABLE(MODEL_PROCESS)
+        , isInteractiveModel(isInteractiveModel)
+#endif
+        , isAttachment(isAttachment)
+        , isAnimatedImage(isAnimatedImage)
+        , isAnimating(isAnimating)
+        , canShowAnimationControls(canShowAnimationControls)
+        , isPausedVideo(isPausedVideo)
+        , isElement(isElement)
+        , isContentEditable(isContentEditable)
+        , containerScrollingNodeID(WTF::move(containerScrollingNodeID))
+#if ENABLE(DATA_DETECTION)
+        , isDataDetectorLink(isDataDetectorLink)
+#endif
+        , preventTextInteraction(preventTextInteraction)
+        , elementContainsImageOverlay(elementContainsImageOverlay)
+        , isImageOverlayText(isImageOverlayText)
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+        , isSpatialImage(isSpatialImage)
+#endif
+        , isInPlugin(isInPlugin)
+        , needsPointerTouchCompatibilityQuirk(needsPointerTouchCompatibilityQuirk)
+        , adjustedPointForNodeRespondingToClickEvents(WTF::move(adjustedPointForNodeRespondingToClickEvents))
+        , url(WTF::move(url))
+        , imageURL(WTF::move(imageURL))
+        , imageMIMEType(WTF::move(imageMIMEType))
+        , title(WTF::move(title))
+        , idAttribute(WTF::move(idAttribute))
+        , bounds(WTF::move(bounds))
+#if PLATFORM(MACCATALYST)
+        , caretRect(WTF::move(caretRect))
+#endif
+        , image(WTF::move(image))
+        , textBefore(WTF::move(textBefore))
+        , textAfter(WTF::move(textAfter))
+        , cursorContext(WTF::move(cursorContext))
+        , textIndicator(WTF::move(textIndicator))
+#if ENABLE(DATA_DETECTION)
+        , dataDetectorIdentifier(WTF::move(dataDetectorIdentifier))
+        , dataDetectorResults(createNSArray(WTF::move(dataDetectorResults), [](RetainPtr<DDScannerResult>&& result) { return result.get(); }))
+        , dataDetectorBounds(WTF::move(dataDetectorBounds))
+#endif
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+        , animationsAtPoint(WTF::move(animationsAtPoint))
+#endif
+        , elementContext(WTF::move(elementContext))
+        , hostImageOrVideoElementContext(WTF::move(hostImageOrVideoElementContext))
+{
+}
 
 void InteractionInformationAtPosition::mergeCompatibleOptionalInformation(const InteractionInformationAtPosition& oldInformation)
 {
@@ -44,6 +129,15 @@ void InteractionInformationAtPosition::mergeCompatibleOptionalInformation(const 
     if (oldInformation.request.includeLinkIndicator && !request.includeLinkIndicator)
         textIndicator = oldInformation.textIndicator;
 }
+
+#if ENABLE(DATA_DETECTION)
+Vector<RetainPtr<DDScannerResult>> InteractionInformationAtPosition::serializableDataDetectorResults() const
+{
+    return makeVector(dataDetectorResults.get(), [](DDScannerResult *result) {
+        return std::optional(RetainPtr<DDScannerResult>(result));
+    });
+}
+#endif // ENABLE(DATA_DETECTION)
 
 #endif // PLATFORM(IOS_FAMILY)
 

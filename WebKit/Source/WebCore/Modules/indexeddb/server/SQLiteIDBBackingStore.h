@@ -118,7 +118,7 @@ private:
     IDBError ensureValidBlobTables();
     std::optional<IsSchemaUpgraded> ensureValidObjectStoreInfoTable();
     std::unique_ptr<IDBDatabaseInfo> createAndPopulateInitialDatabaseInfo();
-    std::unique_ptr<IDBDatabaseInfo> extractExistingDatabaseInfo();
+    Expected<std::unique_ptr<IDBDatabaseInfo>, IDBError> extractExistingDatabaseInfo();
 
     IDBError deleteRecord(SQLiteIDBTransaction&, IDBObjectStoreIdentifier, const IDBKeyData&);
     IDBError uncheckedGetKeyGeneratorValue(IDBObjectStoreIdentifier, uint64_t& outValue);
@@ -213,7 +213,7 @@ private:
     std::unique_ptr<SQLiteDatabase> m_sqliteDB;
 
     HashMap<IDBResourceIdentifier, std::unique_ptr<SQLiteIDBTransaction>> m_transactions;
-    HashMap<IDBResourceIdentifier, SQLiteIDBCursor*> m_cursors;
+    HashMap<IDBResourceIdentifier, CheckedPtr<SQLiteIDBCursor>> m_cursors;
 
     String m_databaseDirectory;
 };

@@ -81,7 +81,7 @@ void MemoryIndexCursor::currentData(IDBGetResult& getResult)
         getResult = { m_currentKey, m_currentPrimaryKey };
     else {
         IDBValue value = { m_index->protectedObjectStore()->valueForKey(m_currentPrimaryKey), { }, { } };
-        getResult = { m_currentKey, m_currentPrimaryKey, WTFMove(value), m_index->protectedObjectStore()->info().keyPath() };
+        getResult = { m_currentKey, m_currentPrimaryKey, WTF::move(value), m_index->protectedObjectStore()->info().keyPath() };
     }
 }
 

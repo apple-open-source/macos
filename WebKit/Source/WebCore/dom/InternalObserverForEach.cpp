@@ -44,7 +44,7 @@ class InternalObserverForEach final : public InternalObserver {
 public:
     static Ref<InternalObserverForEach> create(ScriptExecutionContext& context, Ref<VisitorCallback>&& callback, Ref<AbortSignal>&& signal, Ref<DeferredPromise>&& promise)
     {
-        Ref internalObserver = adoptRef(*new InternalObserverForEach(context, WTFMove(callback), WTFMove(signal), WTFMove(promise)));
+        Ref internalObserver = adoptRef(*new InternalObserverForEach(context, WTF::move(callback), WTF::move(signal), WTF::move(promise)));
         internalObserver->suspendIfNeeded();
         return internalObserver;
     }
@@ -97,9 +97,9 @@ private:
 
     InternalObserverForEach(ScriptExecutionContext& context, Ref<VisitorCallback>&& callback, Ref<AbortSignal>&& signal, Ref<DeferredPromise>&& promise)
         : InternalObserver(context)
-        , m_callback(WTFMove(callback))
-        , m_signal(WTFMove(signal))
-        , m_promise(WTFMove(promise))
+        , m_callback(WTF::move(callback))
+        , m_signal(WTF::move(signal))
+        , m_promise(WTF::move(promise))
     {
     }
 
@@ -125,9 +125,9 @@ void createInternalObserverOperatorForEach(ScriptExecutionContext& context, Obse
         promise->reject<IDLAny>(reason);
     });
 
-    Ref observer = InternalObserverForEach::create(context, WTFMove(callback), WTFMove(signal), WTFMove(promise));
+    Ref observer = InternalObserverForEach::create(context, WTF::move(callback), WTF::move(signal), WTF::move(promise));
 
-    observable.subscribeInternal(context, WTFMove(observer), SubscribeOptions { .signal = WTFMove(dependentSignal) });
+    observable.subscribeInternal(context, WTF::move(observer), SubscribeOptions { .signal = WTF::move(dependentSignal) });
 }
 
 } // namespace WebCore

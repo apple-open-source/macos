@@ -67,6 +67,11 @@ WebExtensionAPIWebPageRuntime& WebExtensionAPIWebPageNamespace::runtime() const
     return *m_runtime;
 }
 
+Ref<WebExtensionAPIWebPageRuntime> WebExtensionAPIWebPageNamespace::protectedRuntime() const
+{
+    return runtime();
+}
+
 WebExtensionAPITest& WebExtensionAPIWebPageNamespace::test()
 {
     // Documentation: None (Testing Only)

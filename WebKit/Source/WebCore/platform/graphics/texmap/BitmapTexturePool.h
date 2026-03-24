@@ -48,7 +48,7 @@ class IntSize;
 
 class BitmapTexturePool {
     WTF_MAKE_NONCOPYABLE(BitmapTexturePool);
-    WTF_DEPRECATED_MAKE_FAST_ALLOCATED();
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(BitmapTexturePool);
 public:
     BitmapTexturePool();
 
@@ -61,7 +61,7 @@ public:
 private:
     struct Entry {
         explicit Entry(Ref<BitmapTexture>&& texture)
-            : m_texture(WTFMove(texture))
+            : m_texture(WTF::move(texture))
         { }
 
         void markIsInUse() { m_lastUsedTime = MonotonicTime::now(); }

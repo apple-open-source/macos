@@ -150,35 +150,36 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 #if ENABLE(WK_WEB_EXTENSIONS) && ENABLE(INSPECTOR_EXTENSIONS)
     if (inspectedPage) {
         if (RefPtr webExtensionController = inspectedPage->webExtensionController())
-            configuration.get().webExtensionController = webExtensionController->wrapper();
+            configuration.get().webExtensionController = webExtensionController->protectedWrapper().get();
     }
 #endif
 
-    WKPreferences *preferences = configuration.get().preferences;
-    preferences._allowFileAccessFromFileURLs = YES;
+    RetainPtr<WKPreferences> preferences = configuration.get().preferences;
+    preferences.get()._allowFileAccessFromFileURLs = YES;
     [configuration _setAllowUniversalAccessFromFileURLs:YES];
     [configuration _setAllowTopNavigationToDataURLs:YES];
-    preferences._storageBlockingPolicy = _WKStorageBlockingPolicyAllowAll;
-    preferences._javaScriptRuntimeFlags = 0;
+    preferences.get()._storageBlockingPolicy = _WKStorageBlockingPolicyAllowAll;
+    preferences.get()._javaScriptRuntimeFlags = 0;
 
 #ifndef NDEBUG
     // Allow developers to inspect the Web Inspector in debug builds without changing settings.
-    preferences._developerExtrasEnabled = YES;
-    preferences._logsPageMessagesToSystemConsoleEnabled = YES;
+    preferences.get()._developerExtrasEnabled = YES;
+    preferences.get()._logsPageMessagesToSystemConsoleEnabled = YES;
 #endif
 
-    preferences._diagnosticLoggingEnabled = YES;
+    preferences.get()._diagnosticLoggingEnabled = YES;
 
     // Disable Site Isolation for Web Inspector View.
-    preferences._siteIsolationEnabled = NO;
+    preferences.get()._siteIsolationEnabled = NO;
 
     [_configuration applyToWebViewConfiguration:configuration.get()];
-    
-    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewControllerInspectorIsUnderTest:)]) {
-        if ([_delegate inspectorViewControllerInspectorIsUnderTest:self]) {
-            preferences._hiddenPageDOMTimerThrottlingEnabled = NO;
-            preferences._pageVisibilityBasedProcessSuppressionEnabled = NO;
-            preferences.inactiveSchedulingPolicy = WKInactiveSchedulingPolicyNone;
+
+    RetainPtr delegate = _delegate.get();
+    if (!!delegate && [delegate respondsToSelector:@selector(inspectorViewControllerInspectorIsUnderTest:)]) {
+        if ([delegate inspectorViewControllerInspectorIsUnderTest:self]) {
+            preferences.get()._hiddenPageDOMTimerThrottlingEnabled = NO;
+            preferences.get()._pageVisibilityBasedProcessSuppressionEnabled = NO;
+            preferences.get().inactiveSchedulingPolicy = WKInactiveSchedulingPolicyNone;
         }
     }
 
@@ -186,7 +187,7 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
     // If not specified or the inspection level is >1, use the default strategy.
     // This ensures that Inspector^2 cannot be affected by client (mis)configuration.
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    auto* customProcessPool = configuration.get().processPool;
+    RetainPtr<WKProcessPool> customProcessPool = configuration.get().processPool;
     ALLOW_DEPRECATED_DECLARATIONS_END
     auto inspectorLevel = WebKit::inspectorLevelForPage(inspectedPage.get());
     auto useDefaultProcessPool = inspectorLevel > 1 || !customProcessPool;
@@ -195,7 +196,7 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (useDefaultProcessPool)
-        [configuration setProcessPool:wrapper(Ref { WebKit::defaultInspectorProcessPool(inspectorLevel) }.get())];
+        [configuration setProcessPool:protectedWrapper(Ref { WebKit::defaultInspectorProcessPool(inspectorLevel) }.get()).get()];
     ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Ensure that a page group identifier is set. This is for computing inspection levels.
@@ -244,11 +245,11 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 
 - (WKWebView *)_horizontallyAttachedInspectedWebView
 {
-    if (![_delegate inspectorViewControllerInspectorIsHorizontallyAttached:self])
+    if (![_delegate.get() inspectorViewControllerInspectorIsHorizontallyAttached:self])
         return nil;
 
     if (RefPtr inspectedPage = _inspectedPage.get())
-        return inspectedPage->cocoaView().unsafeGet();
+        return inspectedPage->cocoaView().autorelease();
 
     return nil;
 }
@@ -298,8 +299,8 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 - (NSMenu *)_webView:(WKWebView *)webView contextMenu:(NSMenu *)menu forElement:(_WKContextMenuElementInfo *)element
 {
     for (NSInteger i = menu.numberOfItems - 1; i >= 0; --i) {
-        NSMenuItem *item = [menu itemAtIndex:i];
-        switch (item.tag) {
+        RetainPtr<NSMenuItem> item = [menu itemAtIndex:i];
+        switch (item.get().tag) {
         case kWKContextMenuItemTagOpenLinkInNewWindow:
         case kWKContextMenuItemTagOpenImageInNewWindow:
         case kWKContextMenuItemTagOpenFrameInNewWindow:
@@ -322,8 +323,9 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 {
     [_webView removeObserver:self forKeyPath:safeAreaInsetsKVOKey];
 
-    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewControllerInspectorDidCrash:)])
-        [_delegate inspectorViewControllerInspectorDidCrash:self];
+    RetainPtr delegate = _delegate.get();
+    if (!!delegate && [delegate respondsToSelector:@selector(inspectorViewControllerInspectorDidCrash:)])
+        [delegate inspectorViewControllerInspectorDidCrash:self];
 }
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
@@ -343,8 +345,9 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
     // Prevent everything else.
     decisionHandler(WKNavigationActionPolicyCancel);
 
-    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewController:openURLExternally:)]) {
-        [_delegate inspectorViewController:self openURLExternally:navigationAction.request.URL];
+    RetainPtr delegate = _delegate.get();
+    if (delegate && [delegate respondsToSelector:@selector(inspectorViewController:openURLExternally:)]) {
+        [delegate inspectorViewController:self openURLExternally:navigationAction.request.URL];
         return;
     }
 
@@ -357,8 +360,9 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 
 - (void)inspectorWKWebViewDidBecomeActive:(WKInspectorWKWebView *)webView
 {
-    if ([_delegate respondsToSelector:@selector(inspectorViewControllerDidBecomeActive:)])
-        [_delegate inspectorViewControllerDidBecomeActive:self];
+    RetainPtr delegate = _delegate.get();
+    if ([delegate respondsToSelector:@selector(inspectorViewControllerDidBecomeActive:)])
+        [delegate inspectorViewControllerDidBecomeActive:self];
 }
 
 - (void)inspectorWKWebViewReload:(WKInspectorWKWebView *)webView
@@ -385,14 +389,16 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 
 - (void)inspectorWKWebView:(WKInspectorWKWebView *)webView willMoveToWindow:(NSWindow *)newWindow
 {
-    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewController:willMoveToWindow:)])
-        [_delegate inspectorViewController:self willMoveToWindow:newWindow];
+    RetainPtr delegate = _delegate.get();
+    if (delegate && [delegate respondsToSelector:@selector(inspectorViewController:willMoveToWindow:)])
+        [delegate inspectorViewController:self willMoveToWindow:newWindow];
 }
 
 - (void)inspectorWKWebViewDidMoveToWindow:(WKInspectorWKWebView *)webView
 {
-    if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewControllerDidMoveToWindow:)])
-        [_delegate inspectorViewControllerDidMoveToWindow:self];
+    RetainPtr delegate = _delegate.get();
+    if (!!delegate && [delegate respondsToSelector:@selector(inspectorViewControllerDidMoveToWindow:)])
+        [delegate inspectorViewControllerDidMoveToWindow:self];
 }
 
 @end

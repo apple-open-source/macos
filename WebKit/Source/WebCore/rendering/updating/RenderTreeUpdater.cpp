@@ -53,11 +53,12 @@
 #include "RenderMultiColumnSet.h"
 #include "RenderObjectInlines.h"
 #include "RenderStyleConstants.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTreeUpdaterGeneratedContent.h"
 #include "RenderTreeUpdaterViewTransition.h"
 #include "RenderView.h"
 #include "SVGElement.h"
+#include "Settings.h"
 #include "StylableInlines.h"
 #include "StyleResolver.h"
 #include "StyleTreeResolver.h"
@@ -121,7 +122,7 @@ void RenderTreeUpdater::commit(std::unique_ptr<Style::Update> styleUpdate)
 
     TraceScope scope(RenderTreeBuildStart, RenderTreeBuildEnd);
 
-    m_styleUpdate = WTFMove(styleUpdate);
+    m_styleUpdate = WTF::move(styleUpdate);
 
     updateRebuildRoots();
 
@@ -150,7 +151,8 @@ void RenderTreeUpdater::updateRebuildRoots()
         auto* renderingAncestor = findRenderingAncestor(root);
         if (!renderingAncestor)
             return nullptr;
-        auto isInsideContinuation = root.renderer() && root.renderer()->parent()->isContinuation();
+        auto* rootRenderer = root.renderer();
+        auto isInsideContinuation = rootRenderer && rootRenderer->parent()->isContinuation();
         auto isInsideAnonymousFlexItemWithSiblings = [&] {
             if (!is<RenderFlexibleBox>(renderingAncestor->renderer()))
                 return false;
@@ -161,7 +163,12 @@ void RenderTreeUpdater::updateRebuildRoots()
                 return true;
             return false;
         };
-        if (isInsideContinuation || isInsideAnonymousFlexItemWithSiblings() || RenderTreeBuilder::isRebuildRootForChildren(*renderingAncestor->renderer()))
+        auto isBlockInInline = [&] {
+            if (!is<RenderInline>(renderingAncestor->renderer()))
+                return false;
+            return rootRenderer && rootRenderer->isInFlow() && !rootRenderer->isInline();
+        };
+        if (isInsideContinuation || isInsideAnonymousFlexItemWithSiblings() || isBlockInInline() || RenderTreeBuilder::isRebuildRootForChildren(*renderingAncestor->renderer()))
             return renderingAncestor;
         return nullptr;
     };
@@ -293,7 +300,7 @@ void RenderTreeUpdater::updateRenderTree(ContainerNode& root)
         if (!mayHaveRenderedDescendants) {
             it.traverseNextSkippingChildren();
             if (&element == element.document().documentElement())
-                viewTransition().updatePseudoElementTree(nullptr, StyleDifference::Equal);
+                viewTransition().updatePseudoElementTree(nullptr, Style::DifferenceResult::Equal);
             continue;
         }
 
@@ -364,13 +371,13 @@ void RenderTreeUpdater::updateAfterDescendants(Element& element, const Style::El
     auto* renderer = element.renderer();
     if (!renderer) {
         if (&element == element.document().documentElement())
-            viewTransition().updatePseudoElementTree(nullptr, StyleDifference::Equal);
+            viewTransition().updatePseudoElementTree(nullptr, Style::DifferenceResult::Equal);
         return;
     }
 
-    StyleDifference minimalStyleDifference = StyleDifference::Equal;
+    Style::DifferenceResult minimalStyleDifference = Style::DifferenceResult::Equal;
     if (update && update->recompositeLayer)
-        minimalStyleDifference = StyleDifference::RecompositeLayer;
+        minimalStyleDifference = Style::DifferenceResult::RecompositeLayer;
 
     generatedContent().updateBackdropRenderer(*renderer, minimalStyleDifference);
     generatedContent().updateWritingSuggestionsRenderer(*renderer, minimalStyleDifference);
@@ -396,17 +403,17 @@ static bool pseudoStyleCacheIsInvalid(RenderElement* renderer, RenderStyle* newS
         if (!newPseudoStyle)
             return true;
         if (*newPseudoStyle != *value) {
-            newStyle->addCachedPseudoStyle(WTFMove(newPseudoStyle));
+            newStyle->addCachedPseudoStyle(WTF::move(newPseudoStyle));
             return true;
         }
     }
     return false;
 }
 
-void RenderTreeUpdater::updateRendererStyle(RenderElement& renderer, RenderStyle&& newStyle, StyleDifference minimalStyleDifference)
+void RenderTreeUpdater::updateRendererStyle(RenderElement& renderer, RenderStyle&& newStyle, Style::DifferenceResult minimalStyleDifference)
 {
     auto oldStyle = RenderStyle::clone(renderer.style());
-    renderer.setStyle(WTFMove(newStyle), minimalStyleDifference);
+    renderer.setStyle(WTF::move(newStyle), minimalStyleDifference);
     m_builder.normalizeTreeAfterStyleChange(renderer, oldStyle);
 }
 
@@ -466,14 +473,14 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     bool hasDisplayNonePreventingRendererCreation = elementUpdate.style->display() == DisplayType::None && !element.rendererIsNeeded(elementUpdateStyle);
     bool hasDisplayContentsOrNone = hasDisplayContents || hasDisplayNonePreventingRendererCreation;
     if (hasDisplayContentsOrNone)
-        element.storeDisplayContentsOrNoneStyle(makeUnique<RenderStyle>(WTFMove(elementUpdateStyle)));
+        element.storeDisplayContentsOrNoneStyle(makeUnique<RenderStyle>(WTF::move(elementUpdateStyle)));
     else
         element.clearDisplayContentsOrNoneStyle();
 
     if (!hasDisplayContentsOrNone) {
-        if (!elementUpdateStyle.containIntrinsicLogicalWidth().hasAuto())
+        if (!elementUpdateStyle.logicalContainIntrinsicWidth().hasAuto())
             element.clearLastRememberedLogicalWidth();
-        if (!elementUpdateStyle.containIntrinsicLogicalHeight().hasAuto())
+        if (!elementUpdateStyle.logicalContainIntrinsicHeight().hasAuto())
             element.clearLastRememberedLogicalHeight();
     }
 
@@ -491,7 +498,7 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     if (shouldCreateNewRenderer) {
         if (element.hasCustomStyleResolveCallbacks())
             element.willAttachRenderers();
-        createRenderer(element, WTFMove(elementUpdateStyle));
+        createRenderer(element, WTF::move(elementUpdateStyle));
 
         renderingParent().didCreateOrDestroyChildRenderer = true;
         return;
@@ -502,19 +509,19 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     auto& renderer = *element.renderer();
 
     if (elementUpdate.recompositeLayer) {
-        updateRendererStyle(renderer, WTFMove(elementUpdateStyle), StyleDifference::RecompositeLayer);
+        updateRendererStyle(renderer, WTF::move(elementUpdateStyle), Style::DifferenceResult::RecompositeLayer);
         return;
     }
 
     if (!elementUpdate.changes) {
         if (pseudoStyleCacheIsInvalid(&renderer, &elementUpdateStyle)) {
-            updateRendererStyle(renderer, WTFMove(elementUpdateStyle), StyleDifference::Equal);
+            updateRendererStyle(renderer, WTF::move(elementUpdateStyle), Style::DifferenceResult::Equal);
             return;
         }
         return;
     }
 
-    updateRendererStyle(renderer, WTFMove(elementUpdateStyle), StyleDifference::Equal);
+    updateRendererStyle(renderer, WTF::move(elementUpdateStyle), Style::DifferenceResult::Equal);
 }
 
 void RenderTreeUpdater::createRenderer(Element& element, RenderStyle&& style)
@@ -531,7 +538,7 @@ void RenderTreeUpdater::createRenderer(Element& element, RenderStyle&& style)
         return;
 
     RenderTreePosition insertionPosition = computeInsertionPosition();
-    auto newRenderer = element.createElementRenderer(WTFMove(style), insertionPosition);
+    auto newRenderer = element.createElementRenderer(WTF::move(style), insertionPosition);
     if (!newRenderer)
         return;
 
@@ -542,7 +549,7 @@ void RenderTreeUpdater::createRenderer(Element& element, RenderStyle&& style)
 
     newRenderer->initializeStyle();
 
-    m_builder.attach(insertionPosition.parent(), WTFMove(newRenderer), insertionPosition.nextSibling());
+    m_builder.attach(insertionPosition.parent(), WTF::move(newRenderer), insertionPosition.nextSibling());
 
     auto* textManipulationController = m_document->textManipulationControllerIfExists();
     if (textManipulationController) [[unlikely]]
@@ -586,7 +593,23 @@ bool RenderTreeUpdater::textRendererIsNeeded(const Text& textNode)
         return true;
     }
 
-    if (parentRenderer.isRenderBlock() && !parentRenderer.childrenInline() && (!previousRenderer || !previousRenderer->isInline()))
+    auto wouldBeFirstInlineContentInsideBlock = [&] {
+        if (!parentRenderer.isRenderBlock())
+            return false;
+
+        if (!previousRenderer)
+            return !parentRenderer.childrenInline();
+
+        if (previousRenderer->parent() == &parentRenderer)
+            return !parentRenderer.childrenInline() && !previousRenderer->isInline();
+
+        if (CheckedPtr parent = previousRenderer->parent(); parent->isAnonymous())
+            return !parent->childrenInline() && !previousRenderer->isInline();
+
+        // Can't tell yet.
+        return false;
+    };
+    if (wouldBeFirstInlineContentInsideBlock())
         return false;
 
     return renderingParent.hasPrecedingInFlowChild;
@@ -612,14 +635,14 @@ void RenderTreeUpdater::createTextRenderer(Text& textNode, const Style::TextUpda
         auto newDisplayContentsAnonymousWrapper = WebCore::createRenderer<RenderInline>(RenderObject::Type::Inline, textNode.document(), RenderStyle::clone(**textUpdate->inheritedDisplayContentsStyle));
         newDisplayContentsAnonymousWrapper->initializeStyle();
         auto& displayContentsAnonymousWrapper = *newDisplayContentsAnonymousWrapper;
-        m_builder.attach(renderTreePosition.parent(), WTFMove(newDisplayContentsAnonymousWrapper), renderTreePosition.nextSibling());
+        m_builder.attach(renderTreePosition.parent(), WTF::move(newDisplayContentsAnonymousWrapper), renderTreePosition.nextSibling());
 
         textRenderer->setInlineWrapperForDisplayContents(&displayContentsAnonymousWrapper);
-        m_builder.attach(displayContentsAnonymousWrapper, WTFMove(textRenderer));
+        m_builder.attach(displayContentsAnonymousWrapper, WTF::move(textRenderer));
         return;
     }
 
-    m_builder.attach(renderTreePosition.parent(), WTFMove(textRenderer), renderTreePosition.nextSibling());
+    m_builder.attach(renderTreePosition.parent(), WTF::move(textRenderer), renderTreePosition.nextSibling());
 
     auto* textManipulationController = m_document->textManipulationControllerIfExists();
     if (textManipulationController) [[unlikely]]

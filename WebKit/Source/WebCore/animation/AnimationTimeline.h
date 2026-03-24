@@ -31,6 +31,11 @@
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
+#if ENABLE(THREADED_ANIMATIONS)
+#include <WebCore/AcceleratedTimeline.h>
+#include <WebCore/TimelineIdentifier.h>
+#endif
+
 namespace WebCore {
 
 class AnimationTimelinesController;
@@ -74,12 +79,31 @@ public:
 
     static void updateGlobalPosition(WebAnimation&);
 
+#if ENABLE(THREADED_ANIMATIONS)
+    virtual bool canBeAccelerated() const { return false; }
+    Ref<AcceleratedTimeline> acceleratedRepresentation();
+    void runPostRenderingUpdateTasks();
+    const TimelineIdentifier& acceleratedTimelineIdentifier() const { return m_acceleratedTimelineIdentifier; }
+#endif
+
 protected:
     AnimationTimeline(std::optional<WebAnimationTime> = std::nullopt);
 
+#if ENABLE(THREADED_ANIMATIONS)
+    WeakPtr<AcceleratedTimeline> m_acceleratedRepresentation;
+    virtual Ref<AcceleratedTimeline> createAcceleratedRepresentation() const;
+#endif
+
     AnimationCollection m_animations;
 
+#if ENABLE(THREADED_ANIMATIONS)
+    TimelineIdentifier m_acceleratedTimelineIdentifier;
+#endif
+
 private:
+#if ENABLE(THREADED_ANIMATIONS)
+    bool m_couldBeAcceleratedDuringLastRenderingUpdate { false };
+#endif
     std::optional<WebAnimationTime> m_currentTime;
     std::optional<WebAnimationTime> m_duration;
 };

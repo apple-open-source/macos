@@ -54,21 +54,20 @@ class WebProcess;
 
 class RemoteCDMFactory final
     : public WebCore::CDMFactory
-    , public WebProcessSupplement
-    , public CanMakeWeakPtr<RemoteCDMFactory> {
+    , public WebProcessSupplement {
     WTF_MAKE_TZONE_ALLOCATED(RemoteCDMFactory);
 public:
     explicit RemoteCDMFactory(WebProcess&);
     virtual ~RemoteCDMFactory();
 
-    void ref() const;
-    void deref() const;
+    void ref() const final;
+    void deref() const final;
 
     static ASCIILiteral supplementName();
 
     GPUProcessConnection& gpuProcessConnection();
 
-    void registerFactory(Vector<WebCore::CDMFactory*>&);
+    void registerFactory(Vector<WeakRef<WebCore::CDMFactory>>&);
 
     void didReceiveSessionMessage(IPC::Connection&, IPC::Decoder&);
 

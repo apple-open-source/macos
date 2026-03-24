@@ -30,6 +30,7 @@
 #include "AcceleratedBackingStore.h"
 #include "DrawingAreaMessages.h"
 #include "DrawingAreaProxy.h"
+#include "GtkVersioning.h"
 #include "InputMethodState.h"
 #include "MessageSenderInlines.h"
 #include "PageClientImpl.h"
@@ -81,12 +82,12 @@ void WebPageProxy::didUpdateEditorState(const EditorState&, const EditorState& n
 
 void WebPageProxy::setInputMethodState(std::optional<InputMethodState>&& state)
 {
-    webkitWebViewBaseSetInputMethodState(WEBKIT_WEB_VIEW_BASE(viewWidget()), WTFMove(state));
+    webkitWebViewBaseSetInputMethodState(WEBKIT_WEB_VIEW_BASE(viewWidget()), WTF::move(state));
 }
 
 void WebPageProxy::showEmojiPicker(const WebCore::IntRect& caretRect, CompletionHandler<void(String)>&& completionHandler)
 {
-    webkitWebViewBaseShowEmojiChooser(WEBKIT_WEB_VIEW_BASE(viewWidget()), caretRect, WTFMove(completionHandler));
+    webkitWebViewBaseShowEmojiChooser(WEBKIT_WEB_VIEW_BASE(viewWidget()), caretRect, WTF::move(completionHandler));
 }
 
 void WebPageProxy::showValidationMessage(const WebCore::IntRect& anchorClientRect, String&& message)
@@ -95,7 +96,7 @@ void WebPageProxy::showValidationMessage(const WebCore::IntRect& anchorClientRec
     if (!pageClient)
         return;
 
-    m_validationBubble = pageClient->createValidationBubble(WTFMove(message), { m_preferences->minimumFontSize() });
+    m_validationBubble = pageClient->createValidationBubble(WTF::move(message), { m_preferences->minimumFontSize() });
     m_validationBubble->showRelativeTo(anchorClientRect);
 }
 
@@ -106,12 +107,12 @@ void WebPageProxy::sendMessageToWebViewWithReply(UserMessage&& message, Completi
         return;
     }
 
-    webkitWebViewDidReceiveUserMessage(WEBKIT_WEB_VIEW(viewWidget()), WTFMove(message), WTFMove(completionHandler));
+    webkitWebViewDidReceiveUserMessage(WEBKIT_WEB_VIEW(viewWidget()), WTF::move(message), WTF::move(completionHandler));
 }
 
 void WebPageProxy::sendMessageToWebView(UserMessage&& message)
 {
-    sendMessageToWebViewWithReply(WTFMove(message), [](UserMessage&&) { });
+    sendMessageToWebViewWithReply(WTF::move(message), [](UserMessage&&) { });
 }
 
 void WebPageProxy::accentColorDidChange()
@@ -171,11 +172,11 @@ void WebPageProxy::callAfterNextPresentationUpdate(CompletionHandler<void()>&& c
         return;
     }
 
-    Ref aggregator = CallbackAggregator::create([weakThis = WeakPtr { *this }, callback = WTFMove(callback)]() mutable {
+    Ref aggregator = CallbackAggregator::create([weakThis = WeakPtr { *this }, callback = WTF::move(callback)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return callback();
-        webkitWebViewBaseCallAfterNextPresentationUpdate(WEBKIT_WEB_VIEW_BASE(protectedThis->viewWidget()), WTFMove(callback));
+        webkitWebViewBaseCallAfterNextPresentationUpdate(WEBKIT_WEB_VIEW_BASE(protectedThis->viewWidget()), WTF::move(callback));
     });
     auto drawingAreaIdentifier = m_drawingArea->identifier();
     forEachWebContentProcess([&] (auto& process, auto) {

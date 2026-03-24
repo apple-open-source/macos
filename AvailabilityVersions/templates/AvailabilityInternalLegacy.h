@@ -2801,7 +2801,7 @@
                #if __has_builtin(__is_target_environment)
                 #if __has_builtin(__is_target_variant_os)
                  #if __has_builtin(__is_target_variant_environment)
-                  #if ((__is_target_arch(x86_64) || __is_target_arch(arm64) || __is_target_arch(arm64e)) && __is_target_vendor(apple) && __is_target_os(ios) && __is_target_environment(macabi))
+                  #if __is_target_vendor(apple) && __is_target_os(ios) && __is_target_environment(macabi)
                     #define __AVAILABILITY_INTERNAL__IPHONE_COMPAT_VERSION __attribute__((availability(ios,introduced=4.0)))
                     #define __AVAILABILITY_INTERNAL__IPHONE_COMPAT_VERSION_DEP__IPHONE_COMPAT_VERSION               __attribute__((availability(ios,unavailable)))
                     #define __AVAILABILITY_INTERNAL__IPHONE_COMPAT_VERSION_DEP__IPHONE_COMPAT_VERSION_MSG(_msg)     __attribute__((availability(ios,unavailable)))

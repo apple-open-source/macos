@@ -53,7 +53,7 @@ std::unique_ptr<Segment> Segment::tryCreate(std::optional<I32InitExpr> offset, u
         return nullptr;
 
     ASSERT(kind == Kind::Passive || !!offset);
-    return std::unique_ptr<Segment>(new (memory) Segment(sizeInBytes, kind, WTFMove(offset)));
+    return std::unique_ptr<Segment>(new (memory) Segment(sizeInBytes, kind, WTF::move(offset)));
 }
 
 String makeString(const Name& characters)

@@ -30,11 +30,11 @@
 
 #include <WebCore/EventListener.h>
 #include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/ImmersiveVideoMetadata.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/PlatformImage.h>
 #include <WebCore/PlatformLayer.h>
 #include <WebCore/PlaybackSessionInterfaceIOS.h>
-#include <WebCore/SpatialVideoMetadata.h>
 #include <WebCore/VideoFullscreenCaptions.h>
 #include <WebCore/VideoPresentationLayerProvider.h>
 #include <WebCore/VideoPresentationModel.h>
@@ -81,6 +81,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     // VideoPresentationModelClient
     void hasVideoChanged(bool) override { }

@@ -85,7 +85,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLDocument);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLDocument);
 
 using namespace HTMLNames;
 
@@ -118,16 +118,16 @@ std::optional<Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollectio
     if (documentNamedItemContainsMultipleElements(name)) [[unlikely]] {
         auto collection = documentNamedItems(name);
         ASSERT(collection->length() > 1);
-        return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { RefPtr<HTMLCollection> { WTFMove(collection) } };
+        return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { RefPtr<HTMLCollection> { WTF::move(collection) } };
     }
 
     Ref element = *documentNamedItem(name);
     if (auto* iframe = dynamicDowncast<HTMLIFrameElement>(element.get()); iframe) [[unlikely]] {
         if (RefPtr window = iframe->contentWindow())
-            return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { WTFMove(window) };
+            return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { WTF::move(window) };
     }
 
-    return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { RefPtr<Element> { WTFMove(element) } };
+    return Variant<RefPtr<WindowProxy>, RefPtr<Element>, RefPtr<HTMLCollection>> { RefPtr<Element> { WTF::move(element) } };
 }
 
 bool HTMLDocument::isSupportedPropertyName(const AtomString& name) const

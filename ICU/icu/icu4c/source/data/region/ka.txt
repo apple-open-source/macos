@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ka{
     Countries{
         001{"მსოფლიო"}
@@ -85,6 +85,7 @@ ka{
         CN{"ჩინეთი"}
         CO{"კოლუმბია"}
         CP{"კლიპერტონის კუნძული"}
+        CQ{"სარკი"}
         CR{"კოსტა-რიკა"}
         CU{"კუბა"}
         CV{"კაბო-ვერდე"}

@@ -102,11 +102,6 @@ module security_utilities [system] {
     export *
   }
 
-  module dyld_cache_format {
-    header "security_utilities/dyld_cache_format.h"
-    export *
-  }
-
   module endian {
     requires cplusplus
     header "security_utilities/endian.h"

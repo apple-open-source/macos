@@ -79,7 +79,7 @@ private:
     struct FrameState {
         WeakPtr<Element, WeakPtrImplWithEventTargetData> wheelEventElement;
         WeakPtr<ScrollableArea> scrollableArea;
-        LocalFrame* frame { nullptr };
+        WeakPtr<LocalFrame> frame;
         bool isOverWidget { false };
     };
 

@@ -39,7 +39,7 @@
 #endif
 
 namespace WebCore {
-class InspectorController;
+class PageInspectorController;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -59,10 +59,10 @@ class InspectorController;
     WebHighlightLayer *_highlightLayer;
 #endif
     WebNodeHighlightView *_highlightView;
-    NakedPtr<WebCore::InspectorController> _inspectorController;
+    NakedPtr<WebCore::PageInspectorController> _inspectorController;
     id _delegate;
 }
-- (id)initWithTargetView:(NSView *)targetView inspectorController:(NakedPtr<WebCore::InspectorController>)inspectorController;
+- (id)initWithTargetView:(NSView *)targetView inspectorController:(NakedPtr<WebCore::PageInspectorController>)inspectorController;
 
 - (void)setDelegate:(id)delegate;
 - (id)delegate;
@@ -73,7 +73,7 @@ class InspectorController;
 - (NSView *)targetView;
 - (WebNodeHighlightView *)highlightView;
 
-- (NakedPtr<WebCore::InspectorController>)inspectorController;
+- (NakedPtr<WebCore::PageInspectorController>)inspectorController;
 
 #if !PLATFORM(IOS_FAMILY)
 - (void)setNeedsUpdateInTargetViewRect:(NSRect)rect;

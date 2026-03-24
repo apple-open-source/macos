@@ -36,6 +36,7 @@
 #include "AXLoggerBase.h"
 #include "AXNotifications.h"
 #include "AXObjectCacheInlines.h"
+#include "AXStitchUtilities.h"
 #include "AXTableHelpers.h"
 #include "AXTreeStore.h"
 #include "AXUtilities.h"
@@ -89,7 +90,9 @@
 #include "HTMLTextFormControlElement.h"
 #include "HTMLVideoElement.h"
 #include "HitTestSource.h"
+#include "InlineIteratorLineBoxInlines.h"
 #include "KeyboardEvent.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
@@ -99,6 +102,7 @@
 #include "NodeTraversal.h"
 #include "ProgressTracker.h"
 #include "PseudoClassChangeInvalidation.h"
+#include "RenderAncestorIterator.h"
 #include "RenderBoxInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderImage.h"
@@ -129,7 +133,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 static String accessibleNameForNode(Node&, Node* labelledbyNode = nullptr);
-static void appendNameToStringBuilder(StringBuilder&, String&&, bool prependSpace = true);
+static void appendNameToStringBuilder(StringBuilder&, String&&, bool prependSpace = true, bool prependNewline = false);
 
 AccessibilityNodeObject::AccessibilityNodeObject(AXID axID, Node* node, AXObjectCache& cache)
     : AccessibilityObject(axID, cache)
@@ -1515,11 +1519,18 @@ bool AccessibilityNodeObject::isHiddenUntilFoundContainer() const
     return element && element->isHiddenUntilFound();
 }
 
+static bool isDateFieldWithStandardFocus(HTMLInputElement& input)
+{
+    return (input.isDateField() || input.isDateTimeLocalField()) && !input.hasCustomFocusLogic();
+}
+
 static RefPtr<Element> nodeActionElement(Node& node)
 {
     auto elementName = WebCore::elementName(node);
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(node)) {
-        if (!input->isDisabledFormControl() && (input->isRadioButton() || input->isCheckbox() || input->isTextButton() || input->isFileUpload() || input->isImageButton() || input->isTextField() || input->isDateField() || input->isDateTimeLocalField()))
+        // We only allow date/datetime fields with standard (non-custom) focus here because calling showPicker(), which happens
+        // using the action element in AccessibilityObject::press(), on platforms with custom focus (e.g., iOS) is a no-op.
+        if (!input->isDisabledFormControl() && (input->isRadioButton() || input->isCheckbox() || input->isTextButton() || input->isFileUpload() || input->isImageButton() || input->isTextField() || isDateFieldWithStandardFocus(*input)))
             return input;
     } else if (elementName == ElementName::HTML_button || elementName == ElementName::HTML_select)
         return &downcast<Element>(node);
@@ -1892,7 +1903,7 @@ VisiblePositionRange AccessibilityNodeObject::visiblePositionRange() const
             endPos = startPos;
     }
 
-    return { WTFMove(startPos), WTFMove(endPos) };
+    return { WTF::move(startPos), WTF::move(endPos) };
 }
 
 VisiblePositionRange AccessibilityNodeObject::selectedVisiblePositionRange() const
@@ -1955,10 +1966,10 @@ VisiblePositionRange AccessibilityNodeObject::visiblePositionRangeForLine(unsign
     // make a caret selection for the marker position, then extend it to the line
     // NOTE: Ignores results of sel.modify because it returns false when starting at an empty line.
     // The resulting selection in that case will be a caret at position.
-    FrameSelection selection;
-    selection.setSelection(position);
-    selection.modify(FrameSelection::Alteration::Extend, SelectionDirection::Right, TextGranularity::LineBoundary);
-    return selection.selection();
+    auto selection = makeUniqueRef<FrameSelection>();
+    selection->setSelection(position);
+    selection->modify(FrameSelection::Alteration::Extend, SelectionDirection::Right, TextGranularity::LineBoundary);
+    return selection->selection();
 }
 
 bool AccessibilityNodeObject::isGenericFocusableElement() const
@@ -3228,7 +3239,7 @@ String AccessibilityNodeObject::textForLabelElements(Vector<Ref<HTMLElement>>&& 
 
         auto ariaLabeledBy = label->ariaLabeledByAttribute();
         if (!ariaLabeledBy.isEmpty())
-            appendNameToStringBuilder(result, WTFMove(ariaLabeledBy));
+            appendNameToStringBuilder(result, WTF::move(ariaLabeledBy));
 #if PLATFORM(COCOA)
         else if (RefPtr axLabel = dynamicDowncast<AccessibilityNodeObject>(*label); axLabel && axLabel->isNativeLabel())
             appendNameToStringBuilder(result, axLabel->textAsLabelFor(*this));
@@ -3273,15 +3284,15 @@ void AccessibilityNodeObject::labelText(Vector<AccessibilityText>& textOrder) co
     if (!elementLabels.size())
         elementLabels = Accessibility::labelsForElement(element.get());
 
-    String label = textForLabelElements(WTFMove(elementLabels));
+    String label = textForLabelElements(WTF::move(elementLabels));
     if (!label.isEmpty()) {
-        textOrder.append({ WTFMove(label), isMeter() ? AccessibilityTextSource::Alternative : AccessibilityTextSource::LabelByElement });
+        textOrder.append({ WTF::move(label), isMeter() ? AccessibilityTextSource::Alternative : AccessibilityTextSource::LabelByElement });
         return;
     }
 
     auto ariaLabel = getAttributeTrimmed(aria_labelAttr);
     if (!ariaLabel.isEmpty()) {
-        textOrder.append({ WTFMove(ariaLabel), AccessibilityTextSource::LabelByElement });
+        textOrder.append({ WTF::move(ariaLabel), AccessibilityTextSource::LabelByElement });
         return;
     }
 }
@@ -3298,7 +3309,7 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
     if (isWebArea()) {
         String webAreaText = alternativeTextForWebArea();
         if (!webAreaText.isEmpty())
-            textOrder.append(AccessibilityText(WTFMove(webAreaText), AccessibilityTextSource::Alternative));
+            textOrder.append(AccessibilityText(WTF::move(webAreaText), AccessibilityTextSource::Alternative));
         return;
     }
 
@@ -3310,7 +3321,7 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
         auto ariaLabel = getAttributeTrimmed(aria_labelAttr);
         if (!ariaLabel.isEmpty()) {
             hasValidAriaLabel = true;
-            textOrder.append(AccessibilityText(WTFMove(ariaLabel), AccessibilityTextSource::Alternative));
+            textOrder.append(AccessibilityText(WTF::move(ariaLabel), AccessibilityTextSource::Alternative));
         }
     }
 
@@ -3320,14 +3331,14 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
 
             // RenderImage will return title as a fallback from altText, but we don't want title here because we consider that in helpText.
             if (!renderAltText.isEmpty() && renderAltText != getAttribute(titleAttr)) {
-                textOrder.append(AccessibilityText(WTFMove(renderAltText), AccessibilityTextSource::Alternative));
+                textOrder.append(AccessibilityText(WTF::move(renderAltText), AccessibilityTextSource::Alternative));
                 return;
             }
         }
         // Images should use alt as long as the attribute is present, even if empty.
         // Otherwise, it should fallback to other methods, like the title attribute.
         if (String alt = altTextFromAttributeOrStyle(); !alt.isNull())
-            textOrder.append(AccessibilityText(WTFMove(alt), AccessibilityTextSource::Alternative));
+            textOrder.append(AccessibilityText(WTF::move(alt), AccessibilityTextSource::Alternative));
     }
 
     RefPtr node = this->node();
@@ -3367,7 +3378,7 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
                         if (caption && !caption->isHidden()) {
                             RefPtr captionNode = caption->node();
                             if (String captionAccname = captionNode ? accessibleNameForNode(*captionNode) : emptyString(); !captionAccname.isEmpty())
-                                textOrder.append(AccessibilityText(WTFMove(captionAccname), AccessibilityTextSource::Alternative));
+                                textOrder.append(AccessibilityText(WTF::move(captionAccname), AccessibilityTextSource::Alternative));
                         }
                     }
                     break;
@@ -3405,7 +3416,7 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
     if (CheckedPtr style = this->style()) {
         String altText = style->altFromContent();
         if (!altText.isEmpty())
-            textOrder.append(AccessibilityText(WTFMove(altText), AccessibilityTextSource::Alternative));
+            textOrder.append(AccessibilityText(WTF::move(altText), AccessibilityTextSource::Alternative));
     }
 }
 
@@ -3433,7 +3444,7 @@ void AccessibilityNodeObject::visibleText(Vector<AccessibilityText>& textOrder) 
 
         String text = textUnderElement(mode);
         if (!text.isEmpty())
-            textOrder.append(AccessibilityText(WTFMove(text), AccessibilityTextSource::Children));
+            textOrder.append(AccessibilityText(WTF::move(text), AccessibilityTextSource::Children));
     }
 }
 
@@ -3454,7 +3465,7 @@ void AccessibilityNodeObject::helpText(Vector<AccessibilityText>& textOrder) con
         auto matchFunc = [] (const AccessibilityObject& object) {
             return object.isFieldset() && !object.ariaDescribedByAttribute().isEmpty();
         };
-        if (RefPtr parent = Accessibility::findAncestor<AccessibilityObject>(*this, false, WTFMove(matchFunc)))
+        if (RefPtr parent = Accessibility::findAncestor<AccessibilityObject>(*this, false, WTF::move(matchFunc)))
             textOrder.append(AccessibilityText(parent->ariaDescribedByAttribute(), AccessibilityTextSource::Summary));
     }
 
@@ -3498,14 +3509,14 @@ void AccessibilityNodeObject::accessibilityText(Vector<AccessibilityText>& textO
 
     String placeholder = placeholderValue();
     if (!placeholder.isEmpty())
-        textOrder.append(AccessibilityText(WTFMove(placeholder), AccessibilityTextSource::Placeholder));
+        textOrder.append(AccessibilityText(WTF::move(placeholder), AccessibilityTextSource::Placeholder));
 }
 
 void AccessibilityNodeObject::ariaLabeledByText(Vector<AccessibilityText>& textOrder) const
 {
     String ariaLabeledBy = ariaLabeledByAttribute();
     if (!ariaLabeledBy.isEmpty())
-        textOrder.append(AccessibilityText(WTFMove(ariaLabeledBy), AccessibilityTextSource::Alternative));
+        textOrder.append(AccessibilityText(WTF::move(ariaLabeledBy), AccessibilityTextSource::Alternative));
 }
 
 String AccessibilityNodeObject::alternativeTextForWebArea() const
@@ -3725,15 +3736,11 @@ static bool shouldUseAccessibilityObjectInnerText(AccessibilityObject& object, T
     if (object.canSetFocusAttribute() && !mode.includeFocusableContent)
         return false;
 
-    // Skip big container elements like lists, tables, etc.
-    if (object.isAccessibilityList())
-        return false;
-
-    if (object.isExposableTable())
-        return false;
-
-    if (object.isTree() || object.isCanvas())
-        return false;
+    if (mode.descendIntoContainers == DescendIntoContainers::No) {
+        // Skip big container elements like lists, tables, etc.
+        if (object.isAccessibilityList() || object.isExposableTable() || object.isTree() || object.isCanvas())
+            return false;
+    }
 
 #if ENABLE(MODEL_ELEMENT)
     if (object.isModel())
@@ -3743,14 +3750,22 @@ static bool shouldUseAccessibilityObjectInnerText(AccessibilityObject& object, T
     return true;
 }
 
-static void appendNameToStringBuilder(StringBuilder& builder, String&& text, bool prependSpace)
+static void appendNameToStringBuilder(StringBuilder& builder, String&& text, bool prependSpace, bool prependNewline)
 {
     if (text.isEmpty())
         return;
 
     if (prependSpace && !isHTMLLineBreak(text[0]) && builder.length() && !isHTMLLineBreak(builder[builder.length() - 1]))
         builder.append(' ');
-    builder.append(WTFMove(text));
+    else if (prependNewline) {
+        // FIXME: This is in an else if so we don't break existing behavior of adding spaces for specific display
+        // types, even if they emit newlines.
+        // We should update prependSpace to also be based off of TextIterator's behavior, so that textUnderElement is
+        // more accurate in adding whitespace or newlines based on the node/renderer.
+        builder.append('\n');
+    }
+
+    builder.append(WTF::move(text));
 }
 
 
@@ -3760,6 +3775,7 @@ static bool displayTypeNeedsSpace(DisplayType type)
         || type == DisplayType::InlineBlock
         || type == DisplayType::InlineFlex
         || type == DisplayType::InlineGrid
+        || type == DisplayType::InlineGridLanes
         || type == DisplayType::InlineTable
         || type == DisplayType::TableCell;
 }
@@ -3784,6 +3800,12 @@ static bool shouldPrependSpace(AccessibilityObject& object, AccessibilityObject*
         || (previousObject && needsSpaceFromDisplay(*previousObject))
         || object.isControl()
         || (previousObject && previousObject->isControl());
+}
+
+static bool shouldPrependNewline(AccessibilityObject* previousObject)
+{
+    RefPtr node = previousObject ? previousObject->node() : nullptr;
+    return node && WebCore::shouldEmitNewlinesBeforeAndAfterNode(*node);
 }
 
 String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) const
@@ -3825,7 +3847,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
 
         auto childText = object.textUnderElement(mode);
         if (childText.length()) {
-            appendNameToStringBuilder(builder, WTFMove(childText), previousRequiresSpace || shouldPrependSpace(object, previous.get()));
+            appendNameToStringBuilder(builder, WTF::move(childText), previousRequiresSpace || shouldPrependSpace(object, previous.get()), shouldPrependNewline(previous.get()));
             previousRequiresSpace = false;
         }
     };
@@ -3846,7 +3868,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
         if (shouldDeriveNameFromAuthor) {
             auto nameForNode = accessibleNameForNode(*child->node());
             bool nameIsEmpty = nameForNode.isEmpty();
-            appendNameToStringBuilder(builder, WTFMove(nameForNode));
+            appendNameToStringBuilder(builder, WTF::move(nameForNode));
             // Separate author-provided text with a space.
             previousRequiresSpace = previousRequiresSpace || !nameIsEmpty;
             continue;
@@ -3866,7 +3888,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
             Vector<AccessibilityText> textOrder;
             accessibilityNodeObject->alternativeText(textOrder);
             if (textOrder.size() > 0 && textOrder[0].text.length()) {
-                appendNameToStringBuilder(builder, WTFMove(textOrder[0].text));
+                appendNameToStringBuilder(builder, WTF::move(textOrder[0].text));
                 // Alternative text (e.g. from aria-label, aria-labelledby, alt, etc) requires space separation.
                 previousRequiresSpace = true;
                 continue;
@@ -3923,6 +3945,110 @@ String AccessibilityNodeObject::text() const
     return element ? element->innerText() : String();
 }
 
+bool AccessibilityNodeObject::isBlockFlow() const
+{
+    return is<RenderBlockFlow>(renderer());
+}
+
+Vector<AXStitchGroup> AccessibilityNodeObject::stitchGroups() const
+{
+    CheckedPtr renderBlockFlow = dynamicDowncast<RenderBlockFlow>(renderer());
+    if (!renderBlockFlow)
+        return { };
+
+    CheckedPtr inlineLayout = renderBlockFlow->inlineLayout();
+    if (!inlineLayout)
+        return { };
+
+    CheckedPtr cache = axObjectCache();
+    if (!cache)
+        return { };
+
+    bool shouldStop = false;
+    StitchingContext context { *this };
+    Vector<AXStitchGroup> stitchGroups;
+    Vector<AXID> currentGroup;
+    std::optional<AXID> representativeID;
+    for (auto lineBox = inlineLayout->firstLineBox(); lineBox && !shouldStop; lineBox.traverseNext()) {
+        for (auto box = lineBox->logicalLeftmostLeafBox(); box; box.traverseLogicalRightwardOnLine()) {
+            auto updateLastRenderer = makeScopeExit([&] {
+                context.lastRenderer = box->renderer();
+            });
+
+            if (CheckedPtr renderListMarker = dynamicDowncast<RenderListMarker>(box->renderer()); renderListMarker && !renderListMarker->isDisclosureMarker()) {
+                if (RefPtr object = cache->getOrCreate(const_cast<RenderListMarker&>(*renderListMarker)))
+                    currentGroup.append(object->objectID());
+                continue;
+            }
+
+            if (box->isAtomicInlineBox()) {
+                // Non-list-marker atomic inline boxes (like buttons) should break up stitch groups.
+                shouldStop = true;
+                break;
+            }
+
+            // FIXME: We should also be able to stitch ellipsis-type boxes.
+            if (box->isText() || box->isLineBreak()) {
+                const auto& renderer = box->renderer();
+                RefPtr object = cache->getOrCreate(const_cast<RenderObject&>(renderer));
+                if (!object)
+                    continue;
+                AXID axID = object->objectID();
+
+                if (shouldStopStitchingAt(renderer, *object, context)) {
+                    if (currentGroup.size() > 1 && representativeID)
+                        stitchGroups.append(AXStitchGroup { std::exchange(currentGroup, { }), *representativeID });
+                    else
+                        currentGroup.clear();
+
+                    representativeID = std::nullopt;
+                } else {
+                    CheckedPtr renderText = dynamicDowncast<RenderText>(renderer);
+
+                    // Avoid doing the wrong thing when !renderText->hasRenderedText() is only true
+                    // because it has dirty layout. We should not run this function when layout is dirty.
+                    ASSERT(!renderText || !renderText->needsLayout() || !renderText->text().length());
+
+                    if (!renderText || !renderText->hasRenderedText())
+                        continue;
+
+                    if (currentGroup.isEmpty()) {
+                        if (renderText->text().containsOnly<isASCIIWhitespace>()) {
+                            // Do not start a stitch-group with whitspace.
+                            continue;
+                        }
+                    }
+
+                    if (!representativeID)
+                        representativeID = axID;
+                    currentGroup.append(axID);
+                }
+            }
+        }
+    }
+
+    if (currentGroup.size() > 1 && representativeID) {
+        // Only do this for stitch-groups of multiple elements, since stitching a single element
+        // doesn't make any sense.
+        stitchGroups.append(AXStitchGroup { WTF::move(currentGroup), *representativeID });
+    }
+    return stitchGroups;
+}
+
+std::optional<AXStitchGroup> AccessibilityNodeObject::stitchGroup(IncludeGroupMembers includeGroupMembers) const
+{
+    if (!AXObjectCache::isAXTextStitchingEnabled())
+        return { };
+
+    RefPtr blockFlowAncestor = downcast<AccessibilityObject>(blockFlowAncestorForStitchable());
+    if (!blockFlowAncestor)
+        return { };
+
+    if (CheckedPtr cache = axObjectCache())
+        return stitchGroupFromGroups(cache->stitchGroupsOwnedBy(*blockFlowAncestor), includeGroupMembers);
+    return { };
+}
+
 String AccessibilityNodeObject::stringValue() const
 {
     RefPtr node = this->node();
@@ -3936,8 +4062,40 @@ String AccessibilityNodeObject::stringValue() const
         return staticText;
     }
 
-    if (node->isTextNode())
-        return textUnderElement();
+    if (node->isTextNode()) {
+        std::optional stitchGroup = stitchGroupIfRepresentative();
+        if (!stitchGroup)
+            return textUnderElement();
+
+        // |this| is the sum of several stitched text-like objects. Our string value should
+        // include all of them.
+        //
+        // We can compute the stringValue of rendered text using AXProperty::TextRuns.
+        // See AccessibilityObject::shouldCacheStringValue.
+        CheckedPtr cache = axObjectCache();
+
+        RefPtr endNode = cache ? lastNode(stitchGroup->members(), *cache) : nullptr;
+        if (!endNode)
+            return textUnderElement();
+
+        StringBuilder builder;
+        for (AXID axID : stitchGroup->members()) {
+            if (axID == objectID())
+                break;
+            if (RefPtr object = cache->objectForID(axID)) {
+                // The only objects preceeding the group representative in the accessibility tree are renderer-only
+                // objects like list markers and CSS generated content.
+                ASSERT(!object->node());
+                if (CheckedPtr renderListMarker = dynamicDowncast<RenderListMarker>(object->renderer()))
+                    builder.append(renderListMarker->textWithSuffix());
+            }
+        }
+
+        std::optional range = makeSimpleRange(positionBeforeNode(node.get()), positionAfterNode(endNode.get()));
+        builder.append(range ? plainText(*range, textIteratorBehaviorForTextRange()) : emptyString());
+
+        return builder.toString();
+    }
 
     if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(*node)) {
         int selectedIndex = selectElement->selectedIndex();
@@ -4068,7 +4226,7 @@ static String accessibleNameForNode(Node& node, Node* labelledbyNode)
     String text;
     if (axObject) {
         if (axObject->accessibleNameDerivesFromContent())
-            text = axObject->textUnderElement({ TextUnderElementMode::Children::IncludeNameFromContentsChildren, true, true, false, TrimWhitespace::Yes, labelledbyNode });
+            text = axObject->textUnderElement({ TextUnderElementMode::Children::IncludeNameFromContentsChildren, true, true, false, IncludeListMarkerText::No, DescendIntoContainers::No, TrimWhitespace::Yes, labelledbyNode });
     } else
         text = (element ? element->innerText() : node.textContent()).simplifyWhiteSpace(isASCIIWhitespace);
 
@@ -4113,7 +4271,7 @@ String AccessibilityNodeObject::accessibilityDescriptionForChildren() const
             String description = axObject->ariaLabeledByAttribute();
             if (description.isEmpty())
                 description = accessibleNameForNode(*child);
-            appendNameToStringBuilder(builder, WTFMove(description));
+            appendNameToStringBuilder(builder, WTF::move(description));
         }
     }
 

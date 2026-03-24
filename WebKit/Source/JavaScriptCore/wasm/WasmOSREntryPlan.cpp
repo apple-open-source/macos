@@ -50,10 +50,10 @@ static constexpr bool verbose = false;
 }
 
 OSREntryPlan::OSREntryPlan(VM& vm, Ref<Module>&& module, Ref<Callee>&& callee, FunctionCodeIndex functionIndex, uint32_t loopIndex, MemoryMode mode, CompletionTask&& task)
-    : Base(vm, const_cast<ModuleInformation&>(module->moduleInformation()), WTFMove(task))
-    , m_module(WTFMove(module))
+    : Base(vm, const_cast<ModuleInformation&>(module->moduleInformation()), WTF::move(task))
+    , m_module(WTF::move(module))
     , m_calleeGroup(*m_module->calleeGroupFor(mode))
-    , m_callee(WTFMove(callee))
+    , m_callee(WTF::move(callee))
     , m_functionIndex(functionIndex)
     , m_loopIndex(loopIndex)
 {
@@ -137,15 +137,15 @@ void OSREntryPlan::work()
     dumpDisassembly(context, linkBuffer, signature, functionIndexSpace);
     omgEntrypoint.compilation = makeUnique<Compilation>(
         FINALIZE_CODE_IF(context.procedure->shouldDumpIR(), linkBuffer, JITCompilationPtrTag, nullptr, "WebAssembly OMGForOSREntry function[%i] %s name %s", m_functionIndex, signature.toString().ascii().data(), makeString(IndexOrName(functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace))).ascii().data()),
-        WTFMove(context.wasmEntrypointByproducts));
+        WTF::move(context.wasmEntrypointByproducts));
 
-    omgEntrypoint.calleeSaveRegisters = WTFMove(internalFunction->entrypoint.calleeSaveRegisters);
+    omgEntrypoint.calleeSaveRegisters = WTF::move(internalFunction->entrypoint.calleeSaveRegisters);
 
     ASSERT(m_calleeGroup.ptr() == m_module->calleeGroupFor(mode()));
-    callee->setEntrypoint(WTFMove(omgEntrypoint), internalFunction->osrEntryScratchBufferSize, WTFMove(unlinkedCalls), WTFMove(internalFunction->stackmaps), WTFMove(internalFunction->exceptionHandlers), WTFMove(exceptionHandlerLocations));
+    callee->setEntrypoint(WTF::move(omgEntrypoint), internalFunction->osrEntryScratchBufferSize, WTF::move(unlinkedCalls), WTF::move(internalFunction->stackmaps), WTF::move(internalFunction->exceptionHandlers), WTF::move(exceptionHandlerLocations));
 
     if (samplingProfilerMap)
-        NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(samplingProfilerMap));
+        NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTF::move(samplingProfilerMap));
 
     {
         Locker locker { m_calleeGroup->m_lock };

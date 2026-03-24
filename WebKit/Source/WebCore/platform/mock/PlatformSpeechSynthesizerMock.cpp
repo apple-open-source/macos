@@ -31,7 +31,7 @@
 
 namespace WebCore {
 
-Ref<PlatformSpeechSynthesizer> PlatformSpeechSynthesizerMock::create(PlatformSpeechSynthesizerClient& client)
+Ref<PlatformSpeechSynthesizerMock> PlatformSpeechSynthesizerMock::create(PlatformSpeechSynthesizerClient& client)
 {
     return adoptRef(*new PlatformSpeechSynthesizerMock(client));
 }

@@ -289,6 +289,8 @@ typedef void (^dispatch_mach_handler_t)(dispatch_mach_reason_t reason,
  *
  * @param handler
  * The handler block to submit when a message has been sent or received.
+ * This block will be retained by the channel object and released only when the
+ * last reference to the created `dispatch_mach_t` channel is released.
  *
  * @result
  * The newly created dispatch mach channel.

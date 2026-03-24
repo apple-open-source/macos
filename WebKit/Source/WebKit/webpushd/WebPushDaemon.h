@@ -46,6 +46,7 @@
 #include <wtf/MonotonicTime.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/StdList.h>
+#include <wtf/darwin/XPCObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 
 #if PLATFORM(IOS)
@@ -70,7 +71,7 @@ namespace WebPushD {
 using EncodedMessage = Vector<uint8_t>;
 
 class WebPushDaemon final : public CanMakeCheckedPtr<WebPushDaemon> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebPushDaemon);
+    WTF_MAKE_TZONE_ALLOCATED(WebPushDaemon);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebPushDaemon);
     friend class WTF::NeverDestroyed<WebPushDaemon>;
 public:
@@ -147,8 +148,8 @@ private:
 #endif
 
     PushClientConnection* toPushClientConnection(xpc_connection_t);
-    HashSet<xpc_connection_t> m_pendingConnectionSet;
-    HashMap<xpc_connection_t, Ref<PushClientConnection>> m_connectionMap;
+    HashSet<XPCObjectPtr<xpc_connection_t>> m_pendingConnectionSet;
+    HashMap<XPCObjectPtr<xpc_connection_t>, Ref<PushClientConnection>> m_connectionMap;
 
     const RefPtr<PushService> m_pushService;
     bool m_usingMockPushService { false };

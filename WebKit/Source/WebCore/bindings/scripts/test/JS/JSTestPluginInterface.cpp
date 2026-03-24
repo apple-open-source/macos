@@ -121,7 +121,7 @@ void JSTestPluginInterfacePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestPluginInterface::s_info = { "TestPluginInterface"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPluginInterface) };
 
 JSTestPluginInterface::JSTestPluginInterface(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestPluginInterface>&& impl)
-    : JSDOMWrapper<TestPluginInterface>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestPluginInterface>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -333,7 +333,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestPluginInterface>(impl.ptr());
 #endif
-    return createWrapper<TestPluginInterface>(globalObject, WTFMove(impl));
+    return createWrapper<TestPluginInterface>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestPluginInterface& impl)

@@ -26,6 +26,7 @@
 #pragma once
 
 #include <WebCore/Page.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
@@ -35,7 +36,7 @@ namespace WebKit {
 class WebPageProxy;
 class WebProcessPool;
 
-class PerActivityStateCPUUsageSampler {
+class PerActivityStateCPUUsageSampler : public CanMakeWeakPtr<PerActivityStateCPUUsageSampler> {
     WTF_MAKE_TZONE_ALLOCATED(PerActivityStateCPUUsageSampler);
 public:
     explicit PerActivityStateCPUUsageSampler(WebProcessPool&);

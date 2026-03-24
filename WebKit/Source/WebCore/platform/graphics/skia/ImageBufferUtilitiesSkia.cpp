@@ -29,6 +29,7 @@
 #if USE(SKIA)
 #include "GLContext.h"
 #include "MIMETypeRegistry.h"
+#include "NativeImage.h"
 #include "PlatformDisplay.h"
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
@@ -65,12 +66,13 @@ private:
     Vector<uint8_t>& m_vector;
 };
 
-static sk_sp<SkData> encodeAcceleratedImage(SkImage* image, const String& mimeType, std::optional<double> quality)
+static sk_sp<SkData> encodeAcceleratedImage(NativeImage& nativeImage, const String& mimeType, std::optional<double> quality)
 {
     if (!PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent())
         return nullptr;
 
-    GrDirectContext* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
+    auto* grContext = nativeImage.grContext();
+    auto* image = nativeImage.platformImage().get();
 
     if (MIMETypeRegistry::isJPEGMIMEType(mimeType)) {
         SkJpegEncoder::Options options;
@@ -117,10 +119,11 @@ static Vector<uint8_t> encodeUnacceleratedImage(const SkPixmap& pixmap, const St
     return result;
 }
 
-Vector<uint8_t> encodeData(SkImage* image, const String& mimeType, std::optional<double> quality)
+Vector<uint8_t> encodeData(NativeImage& nativeImage, const String& mimeType, std::optional<double> quality)
 {
+    auto image = nativeImage.platformImage();
     if (image->isTextureBacked()) {
-        auto data = encodeAcceleratedImage(image, mimeType, quality);
+        auto data = encodeAcceleratedImage(nativeImage, mimeType, quality);
         if (!data)
             return { };
 

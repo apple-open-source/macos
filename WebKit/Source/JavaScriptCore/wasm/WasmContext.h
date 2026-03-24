@@ -25,9 +25,12 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/MacroAssembler.h>
+#include <cstdint>
 #include <wtf/Lock.h>
 #include <wtf/UniqueArray.h>
 #include <wtf/Vector.h>

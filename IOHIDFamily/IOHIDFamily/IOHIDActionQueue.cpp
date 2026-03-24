@@ -82,26 +82,26 @@ bool IOHIDActionQueue::init(OSObject *owner, IOWorkLoop *workLoop)
 {
     bool result = false;
     
-    require(owner && workLoop, exit);
-    require(super::init(), exit);
+    __Require(owner && workLoop, exit);
+    __Require(super::init(), exit);
     
     _owner = owner;
     _workLoop = workLoop;
     _workLoop->retain();
     
     _commandGate = IOCommandGate::commandGate(this);
-    require(_commandGate, exit);
+    __Require(_commandGate, exit);
     
     _actionArray = OSArray::withCapacity(1);
-    require(_actionArray, exit);
+    __Require(_actionArray, exit);
     
     _lock = IOLockAlloc();
-    require(_lock, exit);
+    __Require(_lock, exit);
     
     _actionInterrupt = IOInterruptEventSource::interruptEventSource(this,
                                                                     OSMemberFunctionCast(IOInterruptEventAction,
                                                                                          this, &IOHIDActionQueue::handleIOHIDAction));
-    require(_actionInterrupt, exit);
+    __Require(_actionInterrupt, exit);
     
     result = true;
     

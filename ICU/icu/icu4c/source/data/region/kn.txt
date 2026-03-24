@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 kn{
     Countries{
         001{"ಪ್ರಪಂಚ"}
@@ -85,6 +85,7 @@ kn{
         CN{"ಚೀನಾ"}
         CO{"ಕೊಲಂಬಿಯಾ"}
         CP{"ಕ್ಲಿಪ್ಪರ್‌ಟಾನ್ ದ್ವೀಪ"}
+        CQ{"ಸಾರ್ಕ್"}
         CR{"ಕೊಸ್ಟಾ ರಿಕಾ"}
         CU{"ಕ್ಯೂಬಾ"}
         CV{"ಕೇಪ್ ವರ್ಡೆ"}

@@ -35,7 +35,7 @@ namespace WebCore {
 class ContainerNode;
 
 class EmptyNodeList final : public NodeList, public CanMakeSingleThreadWeakPtr<EmptyNodeList> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(EmptyNodeList);
+    WTF_MAKE_TZONE_ALLOCATED(EmptyNodeList);
 public:
     static Ref<EmptyNodeList> create(Node& owner)
     {
@@ -58,7 +58,7 @@ private:
 };
 
 class ChildNodeList final : public NodeList, public CanMakeSingleThreadWeakPtr<ChildNodeList> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ChildNodeList);
+    WTF_MAKE_TZONE_ALLOCATED(ChildNodeList);
 public:
     static Ref<ChildNodeList> create(ContainerNode& parent)
     {

@@ -403,8 +403,8 @@ OSStatus SecCertificateParseGeneralNameContentProperty(DERTag tag,
 		   in the wild that use a constructed IA5String.   In particular the
 		   VeriSign Time Stamping Authority CA.cer does this.  */
 		DERDecodedInfo uriContent;
-		require_noerr(DERDecodeItem(generalNameContent, &uriContent), badDER);
-		require(uriContent.tag == ASN1_IA5_STRING, badDER);
+		__Require_noErr(DERDecodeItem(generalNameContent, &uriContent), badDER);
+		__Require(uriContent.tag == ASN1_IA5_STRING, badDER);
 		return callback(context, GNT_URI, &uriContent.content);
 	}
 	case ASN1_CONTEXT_SPECIFIC | 6:
@@ -424,7 +424,7 @@ static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
 	void *context, parseGeneralNameCallback callback) {
     DERSequence gnSeq;
     DERReturn drtn = DERDecodeSeqContentInit(generalNamesContent, &gnSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERDecodedInfo generalNameContent;
     int gen_name_count = 0;
     while ((drtn = DERDecodeSeqNext(&gnSeq, &generalNameContent)) ==
@@ -442,7 +442,7 @@ static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
             break;
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return errSecSuccess;
 
 badDER:
@@ -453,10 +453,10 @@ OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *cont
 	parseGeneralNameCallback callback) {
     DERDecodedInfo generalNamesContent;
     DERReturn drtn = DERDecodeItem(generalNames, &generalNamesContent);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     // GeneralNames ::= SEQUENCE SIZE (1..MAX)
-    require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(generalNamesContent.content.length > 0, badDER); // not defining a max here since we will stop parsing once we reach MAX_GENERAL_NAMES
+    __Require_Quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_Quiet(generalNamesContent.content.length > 0, badDER); // not defining a max here since we will stop parsing once we reach MAX_GENERAL_NAMES
     return parseGeneralNamesContent(&generalNamesContent.content, context,
 		callback);
 badDER:
@@ -474,24 +474,24 @@ static OSStatus parseRDNContent(const DERItem *rdnSetContent, void *context,
 	parseX501NameCallback callback, bool localized) {
 	DERSequence rdn;
 	DERReturn drtn = DERDecodeSeqContentInit(rdnSetContent, &rdn);
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	DERDecodedInfo atvContent;
 	CFIndex rdnIX = 0;
 	while ((drtn = DERDecodeSeqNext(&rdn, &atvContent)) == DR_Success) {
-		require_quiet(atvContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+		__Require_Quiet(atvContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
 		DERAttributeTypeAndValue atv;
 		drtn = DERParseSequenceContent(&atvContent.content,
 			DERNumAttributeTypeAndValueItemSpecs,
 			DERAttributeTypeAndValueItemSpecs,
 			&atv, sizeof(atv));
-		require_noerr_quiet(drtn, badDER);
-		require_quiet(atv.type.length != 0, badDER);
+		__Require_noErr_Quiet(drtn, badDER);
+		__Require_Quiet(atv.type.length != 0, badDER);
 		OSStatus status = callback(context, &atv.type, &atv.value, rdnIX++, localized);
 		if (status) {
 			return status;
 		}
 	}
-	require_quiet(drtn == DR_EndOfSequence, badDER);
+	__Require_Quiet(drtn == DR_EndOfSequence, badDER);
 
 	return errSecSuccess;
 badDER:
@@ -502,22 +502,22 @@ static OSStatus parseX501NameContent(const DERItem *x501NameContent, void *conte
                                      parseX501NameCallback callback, bool localized) {
     DERSequence derSeq;
     DERReturn drtn = DERDecodeSeqContentInit(x501NameContent, &derSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERDecodedInfo currDecoded;
     int atv_count = 0;
     while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
         /*  RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue */
-        require_quiet(currDecoded.tag == ASN1_CONSTR_SET, badDER);
-        require_quiet(currDecoded.content.length > 0, badDER);
+        __Require_Quiet(currDecoded.tag == ASN1_CONSTR_SET, badDER);
+        __Require_Quiet(currDecoded.content.length > 0, badDER);
         OSStatus status = parseRDNContent(&currDecoded.content, context,
                                           callback, localized);
         if (status) {
             return status;
         }
         atv_count++;
-        require_quiet(atv_count < MAX_ATTRIBUTE_TYPE_AND_VALUES, badDER);
+        __Require_Quiet(atv_count < MAX_ATTRIBUTE_TYPE_AND_VALUES, badDER);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 
     return errSecSuccess;
 
@@ -544,8 +544,8 @@ static bool SecCEPSubjectKeyIdentifier(SecCertificateRef certificate,
 	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERDecodedInfo keyIdentifier;
 	DERReturn drtn = DERDecodeItem(&extn->extnValue, &keyIdentifier);
-	require_noerr_quiet(drtn, badDER);
-	require_quiet(keyIdentifier.tag == ASN1_OCTET_STRING, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
+	__Require_Quiet(keyIdentifier.tag == ASN1_OCTET_STRING, badDER);
 	certificate->_subjectKeyIdentifier = keyIdentifier.content;
 
 	return true;
@@ -560,14 +560,14 @@ static bool SecCEPKeyUsage(SecCertificateRef certificate,
     SecKeyUsage keyUsage = extn->critical ? kSecKeyUsageCritical : 0;
     DERDecodedInfo bitStringContent;
     DERReturn drtn = DERDecodeItem(&extn->extnValue, &bitStringContent);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(bitStringContent.tag == ASN1_BIT_STRING, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(bitStringContent.tag == ASN1_BIT_STRING, badDER);
     /* check that there's no extra bytes at the end */
-    require_quiet(bitStringContent.content.data + bitStringContent.content.length == extn->extnValue.data + extn->extnValue.length, badDER);
+    __Require_Quiet(bitStringContent.content.data + bitStringContent.content.length == extn->extnValue.data + extn->extnValue.length, badDER);
     DERSize len = bitStringContent.content.length - 1;
-    require_quiet(len == 1 || len == 2, badDER);
+    __Require_Quiet(len == 1 || len == 2, badDER);
     DERByte numUnusedBits = bitStringContent.content.data[0];
-    require_quiet(numUnusedBits < 8, badDER);
+    __Require_Quiet(numUnusedBits < 8, badDER);
     /* Flip the bits in the bit string so the first bit is the lsb. */
     uint16_t bits = 8 * len - numUnusedBits;
     uint16_t value = bitStringContent.content.data[1];
@@ -609,7 +609,7 @@ static bool SecCEPSubjectAltName(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     // Make sure that the SAN is parse-able
-    require_noerr_quiet(SecCertificateParseGeneralNames(&extn->extnValue, NULL, verifySubjectAltGeneralName), badDER);
+    __Require_noErr_Quiet(SecCertificateParseGeneralNames(&extn->extnValue, NULL, verifySubjectAltGeneralName), badDER);
 	certificate->_subjectAltName = extn;
     return true;
 badDER:
@@ -628,13 +628,13 @@ static bool SecCEPBasicConstraints(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %{BOOL}d", extn->critical);
 	DERBasicConstraints basicConstraints;
-	require_noerr_quiet(DERParseSequence(&extn->extnValue,
+	__Require_noErr_Quiet(DERParseSequence(&extn->extnValue,
         DERNumBasicConstraintsItemSpecs, DERBasicConstraintsItemSpecs,
         &basicConstraints, sizeof(basicConstraints)), badDER);
-    require_noerr_quiet(DERParseBooleanWithDefault(&basicConstraints.cA, false,
+    __Require_noErr_Quiet(DERParseBooleanWithDefault(&basicConstraints.cA, false,
 		&certificate->_basicConstraints.isCA), badDER);
     if (basicConstraints.pathLenConstraint.length != 0) {
-        require_noerr_quiet(DERParseInteger(
+        __Require_noErr_Quiet(DERParseInteger(
             &basicConstraints.pathLenConstraint,
             &certificate->_basicConstraints.pathLenConstraint), badDER);
 		certificate->_basicConstraints.pathLenConstraintPresent = true;
@@ -669,20 +669,20 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
     CFMutableArrayRef gs = NULL;
     DERSequence gsSeq;
     DERReturn drtn = DERDecodeSeqContentInit(derSubtrees, &gsSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERDecodedInfo gsContent;
-    require_quiet(gs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+    __Require_Quiet(gs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                   &kCFTypeArrayCallBacks),
                   badDER);
     int subtree_count = 0;
     while ((drtn = DERDecodeSeqNext(&gsSeq, &gsContent)) == DR_Success) {
         DERGeneralSubtree derGS;
-        require_quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
         drtn = DERParseSequenceContent(&gsContent.content,
                                        DERNumGeneralSubtreeItemSpecs,
                                        DERGeneralSubtreeItemSpecs,
                                        &derGS, sizeof(derGS));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         /*
          * RFC 5280 4.2.1.10
          * Within this profile, the minimum and maximum fields are not used with
@@ -693,15 +693,15 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
          */
         if (derGS.minimum.length) {
             uint32_t minimum;
-            require_noerr_quiet(DERParseInteger(&derGS.minimum, &minimum),
+            __Require_noErr_Quiet(DERParseInteger(&derGS.minimum, &minimum),
                                 badDER);
-            require_quiet(minimum == 0, badDER);
+            __Require_Quiet(minimum == 0, badDER);
         }
-        require_quiet(derGS.maximum.length == 0, badDER);
-        require_quiet(derGS.generalName.length != 0 && derGS.generalName.length < LONG_MAX, badDER);
+        __Require_Quiet(derGS.maximum.length == 0, badDER);
+        __Require_Quiet(derGS.generalName.length != 0 && derGS.generalName.length < LONG_MAX, badDER);
 
         CFDataRef generalName = NULL;
-        require_quiet(generalName = CFDataCreate(kCFAllocatorDefault,
+        __Require_Quiet(generalName = CFDataCreate(kCFAllocatorDefault,
                                              derGS.generalName.data,
                                              (CFIndex)derGS.generalName.length),
                                              badDER);
@@ -714,7 +714,7 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
             break;
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 
     // since generalSubtrees is a pointer to an instance variable,
     // make sure we release the existing array before assignment.
@@ -738,12 +738,12 @@ static bool SecCEPNameConstraints(SecCertificateRef certificate,
                             DERNumNameConstraintsItemSpecs,
                             DERNameConstraintsItemSpecs,
                             &nc, sizeof(nc));
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     if (nc.permittedSubtrees.length) {
-        require_noerr_quiet(parseGeneralSubtrees(&nc.permittedSubtrees, &certificate->_permittedSubtrees), badDER);
+        __Require_noErr_Quiet(parseGeneralSubtrees(&nc.permittedSubtrees, &certificate->_permittedSubtrees), badDER);
     }
     if (nc.excludedSubtrees.length) {
-        require_noerr_quiet(parseGeneralSubtrees(&nc.excludedSubtrees, &certificate->_excludedSubtrees), badDER);
+        __Require_noErr_Quiet(parseGeneralSubtrees(&nc.excludedSubtrees, &certificate->_excludedSubtrees), badDER);
     }
 
     return true;
@@ -792,27 +792,27 @@ static bool SecCEPCrlDistributionPoints(SecCertificateRef certificate,
     DERSequence crlDPSeq;
     DERTag tag;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &crlDPSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(crlDPSeq.nextItem != crlDPSeq.end, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_Quiet(crlDPSeq.nextItem != crlDPSeq.end, badDER);
     DERDecodedInfo dpContent;
     int crldp_count = 0;
     while ((drtn = DERDecodeSeqNext(&crlDPSeq, &dpContent)) == DR_Success) {
-        require_quiet(dpContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(dpContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERDistributionPoint dp;
         drtn = DERParseSequenceContent(&dpContent.content, DERNumDistributionPointItemSpecs,
                                        DERDistributionPointItemSpecs, &dp, sizeof(dp));
-        require_noerr_quiet(drtn, badDER);
-        require_quiet(dp.distributionPoint.data || dp.cRLIssuer.data, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
+        __Require_Quiet(dp.distributionPoint.data || dp.cRLIssuer.data, badDER);
         if (dp.distributionPoint.data) {
             DERDecodedInfo dpName;
             drtn = DERDecodeItem(&dp.distributionPoint, &dpName);
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             switch (dpName.tag) {
                 case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 0:
                     drtn = parseGeneralNamesContent(&dpName.content, &certificate->_crlDistributionPoints,
                                                     appendCRLDPFromGeneralNames);
-                    require_noerr_quiet(drtn, badDER);
+                    __Require_noErr_Quiet(drtn, badDER);
                     break;
                 case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 1:
                     /* RelativeDistinguishName. Nothing we can do with that. */
@@ -824,12 +824,12 @@ static bool SecCEPCrlDistributionPoints(SecCertificateRef certificate,
         if (dp.cRLIssuer.data) {
             drtn = parseGeneralNamesContent(&dp.cRLIssuer, &certificate->_crlDistributionPoints,
                                                    appendCRLDPFromGeneralNames);
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
         }
         crldp_count++;
-        require_quiet(crldp_count < MAX_CRL_DPS, badDER);
+        __Require_Quiet(crldp_count < MAX_CRL_DPS, badDER);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     return true;
 badDER:
     secwarning("Invalid CRL Distribution Points extension");
@@ -857,21 +857,21 @@ static bool SecCEPCertificatePolicies(SecCertificateRef certificate,
     DERSequence piSeq;
     SecCEPolicyInformation *policies = NULL;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo piContent;
     DERSize policy_count = 0;
     while ((policy_count < MAX_CERTIFICATE_POLICIES) &&
            (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
-        require_quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         policy_count++;
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
-    require_quiet(policy_count > 0, badDER);
-    require_quiet(policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation) * policy_count),
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(policy_count > 0, badDER);
+    __Require_Quiet(policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation) * policy_count),
                   badDER);
     drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERSize policy_ix = 0;
     while ((policy_ix < policy_count) &&
            (DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
@@ -880,7 +880,7 @@ static bool SecCEPCertificatePolicies(SecCertificateRef certificate,
             DERNumPolicyInformationItemSpecs,
             DERPolicyInformationItemSpecs,
             &pi, sizeof(pi));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         policies[policy_ix].policyIdentifier = pi.policyIdentifier;
         policies[policy_ix++].policyQualifiers = pi.policyQualifiers;
     }
@@ -911,31 +911,31 @@ static bool SecCEPPolicyMappings(SecCertificateRef certificate,
     DERSequence pmSeq;
     SecCEPolicyMapping *mappings = NULL;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo pmContent;
     DERSize mapping_count = 0;
     while ((mapping_count < MAX_POLICY_MAPPINGS) &&
            (drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
-        require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         mapping_count++;
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
-    require_quiet(mapping_count > 0, badDER); // PolicyMappings ::= SEQUENCE SIZE (1..MAX)
-    require_quiet(mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping) * mapping_count),
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(mapping_count > 0, badDER); // PolicyMappings ::= SEQUENCE SIZE (1..MAX)
+    __Require_Quiet(mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping) * mapping_count),
                   badDER);
     drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERSize mapping_ix = 0;
     while ((mapping_ix < mapping_count) &&
            (DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
-        require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERPolicyMapping pm;
         drtn = DERParseSequenceContent(&pmContent.content,
             DERNumPolicyMappingItemSpecs,
             DERPolicyMappingItemSpecs,
             &pm, sizeof(pm));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         mappings[mapping_ix].issuerDomainPolicy = pm.issuerDomainPolicy;
         mappings[mapping_ix++].subjectDomainPolicy = pm.subjectDomainPolicy;
     }
@@ -972,13 +972,13 @@ static bool SecCEPAuthorityKeyIdentifier(SecCertificateRef certificate,
 		DERNumAuthorityKeyIdentifierItemSpecs,
 		DERAuthorityKeyIdentifierItemSpecs,
 		&akid, sizeof(akid));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	if (akid.keyIdentifier.length) {
 		certificate->_authorityKeyIdentifier = akid.keyIdentifier;
 	}
 	if (akid.authorityCertIssuer.length ||
 		akid.authorityCertSerialNumber.length) {
-		require_quiet(akid.authorityCertIssuer.length &&
+		__Require_Quiet(akid.authorityCertIssuer.length &&
 			akid.authorityCertSerialNumber.length, badDER);
 		/* Perhaps put in a subsection called Authority Certificate Issuer. */
 		certificate->_authorityKeyIdentifierIssuer = akid.authorityCertIssuer;
@@ -1000,15 +1000,15 @@ static bool SecCEPPolicyConstraints(SecCertificateRef certificate,
 		DERNumPolicyConstraintsItemSpecs,
 		DERPolicyConstraintsItemSpecs,
 		&pc, sizeof(pc));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	if (pc.requireExplicitPolicy.length) {
-        require_noerr_quiet(DERParseInteger(
+        __Require_noErr_Quiet(DERParseInteger(
             &pc.requireExplicitPolicy,
             &certificate->_policyConstraints.requireExplicitPolicy), badDER);
         certificate->_policyConstraints.requireExplicitPolicyPresent = true;
 	}
 	if (pc.inhibitPolicyMapping.length) {
-        require_noerr_quiet(DERParseInteger(
+        __Require_noErr_Quiet(DERParseInteger(
             &pc.inhibitPolicyMapping,
             &certificate->_policyConstraints.inhibitPolicyMapping), badDER);
         certificate->_policyConstraints.inhibitPolicyMappingPresent = true;
@@ -1030,16 +1030,16 @@ static bool SecCEPExtendedKeyUsage(SecCertificateRef certificate,
     DERSequence ekuSeq;
     DERTag ekuTag;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &ekuTag, &ekuSeq);
-    require_quiet((drtn == DR_Success) && (ekuTag == ASN1_CONSTR_SEQUENCE), badDER);
-    require_quiet(ekuSeq.nextItem != ekuSeq.end, badDER); // ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
+    __Require_Quiet((drtn == DR_Success) && (ekuTag == ASN1_CONSTR_SEQUENCE), badDER);
+    __Require_Quiet(ekuSeq.nextItem != ekuSeq.end, badDER); // ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
     DERDecodedInfo ekuContent;
     int eku_count = 0;
     while ((drtn = DERDecodeSeqNext(&ekuSeq, &ekuContent)) == DR_Success) {
-        require_quiet(ekuContent.tag == ASN1_OBJECT_ID, badDER);
+        __Require_Quiet(ekuContent.tag == ASN1_OBJECT_ID, badDER);
         eku_count++;
-        require_quiet(eku_count < MAX_EKUS, badDER);
+        __Require_Quiet(eku_count < MAX_EKUS, badDER);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     return true;
 badDER:
     secwarning("Invalidate EKU Extension");
@@ -1055,9 +1055,9 @@ static bool SecCEPInhibitAnyPolicy(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %{BOOL}d", extn->critical);
     DERDecodedInfo iapContent;
-    require_noerr_quiet(DERDecodeItem(&extn->extnValue, &iapContent), badDER);
-    require_quiet(iapContent.tag == ASN1_INTEGER, badDER);
-    require_noerr_quiet(DERParseInteger(
+    __Require_noErr_Quiet(DERDecodeItem(&extn->extnValue, &iapContent), badDER);
+    __Require_Quiet(iapContent.tag == ASN1_INTEGER, badDER);
+    __Require_noErr_Quiet(DERParseInteger(
         &iapContent.content,
         &certificate->_inhibitAnyPolicySkipCerts.skipCerts), badDER);
 
@@ -1092,21 +1092,21 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
     DERTag tag;
     DERSequence adSeq;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &adSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(adSeq.nextItem != adSeq.end, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_Quiet(adSeq.nextItem != adSeq.end, badDER);
     DERDecodedInfo adContent;
     int aia_count = 0;
     while ((drtn = DERDecodeSeqNext(&adSeq, &adContent)) == DR_Success) {
-        require_quiet(adContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(adContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
 		DERAccessDescription ad;
 		drtn = DERParseSequenceContent(&adContent.content,
 			DERNumAccessDescriptionItemSpecs,
 			DERAccessDescriptionItemSpecs,
 			&ad, sizeof(ad));
-		require_noerr_quiet(drtn, badDER);
+		__Require_noErr_Quiet(drtn, badDER);
         aia_count++;
-        require_quiet(aia_count < MAX_AIAS, badDER);
+        __Require_Quiet(aia_count < MAX_AIAS, badDER);
         CFMutableArrayRef *urls;
         if (DEROidCompare(&ad.accessMethod, &oidAdOCSP))
             urls = &certificate->_ocspResponders;
@@ -1117,7 +1117,7 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
 
         DERDecodedInfo generalNameContent;
         drtn = DERDecodeItem(&ad.accessLocation, &generalNameContent);
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         switch (generalNameContent.tag) {
 #if 0
         case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 6:
@@ -1127,7 +1127,7 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
 #endif
         case ASN1_CONTEXT_SPECIFIC | 6:
         {
-            require(generalNameContent.content.length < LONG_MAX, badDER);
+            __Require(generalNameContent.content.length < LONG_MAX, badDER);
             CFURLRef url = CFURLCreateWithBytes(kCFAllocatorDefault,
                 generalNameContent.content.data, (CFIndex)generalNameContent.content.length,
                 kCFStringEncodingASCII, NULL);
@@ -1146,7 +1146,7 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
             break;
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return true;
 badDER:
     secwarning("Invalid Authority Information Access extension");
@@ -1238,14 +1238,14 @@ static bool SecQCPType(CFMutableDictionaryRef statements, const DERQCStatement *
     DERTag typeTag;
     CFMutableSetRef types = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
     DERReturn drtn = DERDecodeSeqInit(&statement->statementInfo, &typeTag, &typeSeq);
-    require_quiet((drtn == DR_Success) && (typeTag == ASN1_CONSTR_SEQUENCE), badDER);
-    require_quiet(typeSeq.nextItem != typeSeq.end, badDER);
+    __Require_Quiet((drtn == DR_Success) && (typeTag == ASN1_CONSTR_SEQUENCE), badDER);
+    __Require_Quiet(typeSeq.nextItem != typeSeq.end, badDER);
     DERDecodedInfo typeContent;
     int type_count = 0;
     while ((drtn = DERDecodeSeqNext(&typeSeq, &typeContent)) == DR_Success) {
-        require_quiet(typeContent.tag == ASN1_OBJECT_ID, badDER);
+        __Require_Quiet(typeContent.tag == ASN1_OBJECT_ID, badDER);
         type_count++;
-        require_quiet(type_count < MAX_QCTYPES, badDER);
+        __Require_Quiet(type_count < MAX_QCTYPES, badDER);
         if (DEROidCompare(&oidQCTypeWeb, &typeContent.content)) {
             CFSetAddValue(types, kSecQCStatementTypeWeb);
         } else if (DEROidCompare(&oidQCTypeEseal, &typeContent.content)) {
@@ -1254,7 +1254,7 @@ static bool SecQCPType(CFMutableDictionaryRef statements, const DERQCStatement *
             CFSetAddValue(types, kSecQCStatementTypeEsign);
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     CFDictionarySetValue(statements, kSecQCStatementType, types);
     CFReleaseNull(types);
     return true;
@@ -1295,37 +1295,37 @@ static bool SecCEPQCStatements(SecCertificateRef certificate,
     CFMutableDictionaryRef statements = CFDictionaryCreateMutable(NULL, 0,
                                                                   &kCFTypeDictionaryKeyCallBacks,
                                                                   &kCFTypeDictionaryValueCallBacks);
-    require_quiet(extn != NULL && sQCSParsers != NULL && statements != NULL, badDER);
+    __Require_Quiet(extn != NULL && sQCSParsers != NULL && statements != NULL, badDER);
 
 
     DERTag tag;
     DERSequence qcSeq;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &qcSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(qcSeq.nextItem != qcSeq.end, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_Quiet(qcSeq.nextItem != qcSeq.end, badDER);
     DERDecodedInfo statementContent;
     int statement_count = 0;
     while ((drtn = DERDecodeSeqNext(&qcSeq, &statementContent)) == DR_Success) {
-        require_quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERQCStatement statement;
         drtn = DERParseSequenceContent(&statementContent.content,
                                        DERNumQCStatementItemSpecs,
                                        DERQCStatementItemSpecs,
                                        &statement, sizeof(statement));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         statement_count++;
-        require_quiet(statement_count < MAX_QCSTATEMENTS, badDER);
+        __Require_Quiet(statement_count < MAX_QCSTATEMENTS, badDER);
 
         SecCertificateQCStatementParser parser = (SecCertificateQCStatementParser)CFDictionaryGetValue(sQCSParsers,
                                                                                                        &statement.statementId);
         if (parser) {
-            require_quiet(parser(statements, &statement), badDER);
+            __Require_Quiet(parser(statements, &statement), badDER);
         } else {
             secdebug("cert", "Found unknown QC Statement");
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 
     certificate->_qcStatements = statements;
     return true;
@@ -1476,7 +1476,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
 	DERSequence rdnSeq;
 	DERReturn drtn = DERDecodeSeqContentInit(x501name, &rdnSeq);
 
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	DERDecodedInfo rdn;
 
     /* Always points to last rdn tag. */
@@ -1484,10 +1484,10 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
     /* Offset relative to base of current rdn set tag. */
     size_t rdnTagLocation = 0;
 	while ((drtn = DERDecodeSeqNext(&rdnSeq, &rdn)) == DR_Success) {
-		require_quiet(rdn.tag == ASN1_CONSTR_SET, badDER);
+		__Require_Quiet(rdn.tag == ASN1_CONSTR_SET, badDER);
 		/* We don't allow empty RDNs. */
-		require_quiet(rdn.content.length != 0, badDER);
-        require_quiet(rdn.content.data > rdnTag, badDER);
+		__Require_Quiet(rdn.content.length != 0, badDER);
+        __Require_Quiet(rdn.content.data > rdnTag, badDER);
         /* Length of the tag and length of the current rdn. */
         size_t rdnTLLength = (size_t)(rdn.content.data - rdnTag);
         size_t rdnContentLength = rdn.content.length;
@@ -1496,7 +1496,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
 
 		DERSequence atvSeq;
 		drtn = DERDecodeSeqContentInit(&rdn.content, &atvSeq);
-        require_quiet(drtn == DR_Success, badDER);
+        __Require_Quiet(drtn == DR_Success, badDER);
 
         DERDecodedInfo atv;
         /* Always points to tag of current atv sequence. */
@@ -1504,8 +1504,8 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
         /* Offset relative to base of current atv sequence tag. */
         size_t atvTagLocation = rdnTagLocation + rdnTLLength;
 		while ((drtn = DERDecodeSeqNext(&atvSeq, &atv)) == DR_Success) {
-			require_quiet(atv.tag == ASN1_CONSTR_SEQUENCE, badDER);
-            require_quiet(atv.content.data > atvTag, badDER);
+			__Require_Quiet(atv.tag == ASN1_CONSTR_SEQUENCE, badDER);
+            __Require_Quiet(atv.content.data > atvTag, badDER);
             /* Length of the tag and length of the current atv. */
             size_t atvTLLength = (size_t)(atv.content.data - atvTag);
             size_t atvContentLength = atv.content.length;
@@ -1518,11 +1518,11 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
 				DERNumAttributeTypeAndValueItemSpecs,
 				DERAttributeTypeAndValueItemSpecs,
 				&atvPair, sizeof(atvPair));
-			require_noerr_quiet(drtn, badDER);
-			require_quiet(atvPair.type.length != 0, badDER);
+			__Require_noErr_Quiet(drtn, badDER);
+			__Require_Quiet(atvPair.type.length != 0, badDER);
             DERDecodedInfo value;
             drtn = DERDecodeItem(&atvPair.value, &value);
-			require_noerr_quiet(drtn, badDER);
+			__Require_noErr_Quiet(drtn, badDER);
 
             /* (c) attribute values in PrintableString are not case sensitive
                (e.g., "Marianne Swanson" is the same as "MARIANNE SWANSON"); and
@@ -1533,9 +1533,9 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
                single space. */
             if (value.tag == ASN1_PRINTABLE_STRING) {
                 /* Offset relative to base of current value tag. */
-                require_quiet(atvTagLocation + atvPair.value.data > atvTag, badDER);
+                __Require_Quiet(atvTagLocation + atvPair.value.data > atvTag, badDER);
                 size_t valueTagLocation = (size_t)(atvTagLocation + atvPair.value.data - atvTag);
-                require_quiet(value.content.data > atvPair.value.data, badDER);
+                __Require_Quiet(value.content.data > atvPair.value.data, badDER);
                 size_t valueTLLength = (size_t)(value.content.data - atvPair.value.data);
                 size_t valueContentLength = value.content.length;
 
@@ -1593,7 +1593,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
                     DERSize newValueTLLength = valueTLLength - 1;
                     drtn = DEREncodeLength(valueContentLength,
                         base + valueTagLocation + 1, &newValueTLLength);
-                    require(drtn == DR_Success, badDER);
+                    __Require(drtn == DR_Success, badDER);
                     /* Add the length of the tag back in. */
                     newValueTLLength++;
                     size_t valueLLDiff = valueTLLength - newValueTLLength;
@@ -1612,7 +1612,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
                     DERSize newATVTLLength = atvTLLength - 1;
                     drtn = DEREncodeLength(atvContentLength,
                         base + atvTagLocation + 1, &newATVTLLength);
-                    require(drtn == DR_Success, badDER);
+                    __Require(drtn == DR_Success, badDER);
                     /* Add the length of the tag back in. */
                     newATVTLLength++;
                     size_t atvLLDiff = atvTLLength - newATVTLLength;
@@ -1632,7 +1632,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
                     DERSize newRDNTLLength = rdnTLLength - 1;
                     drtn = DEREncodeLength(rdnContentLength,
                         base + rdnTagLocation + 1, &newRDNTLLength);
-                    require_quiet(drtn == DR_Success, badDER);
+                    __Require_Quiet(drtn == DR_Success, badDER);
                     /* Add the length of the tag back in. */
                     newRDNTLLength++;
                     size_t rdnLLDiff = rdnTLLength - newRDNTLLength;
@@ -1656,12 +1656,12 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
             atvTagLocation += atvTLLength + atvContentLength;
             atvTag = atvSeq.nextItem;
 		}
-        require_quiet(drtn == DR_EndOfSequence, badDER);
+        __Require_Quiet(drtn == DR_EndOfSequence, badDER);
         rdnTagLocation += rdnTLLength + rdnContentLength;
         rdnTag = rdnSeq.nextItem;
 	}
-	require_quiet(drtn == DR_EndOfSequence, badDER);
-    require_quiet(rdnTagLocation < LONG_MAX, badDER);
+	__Require_Quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(rdnTagLocation < LONG_MAX, badDER);
     /* Truncate the result to the proper length. */
     CFDataSetLength(result, (CFIndex)rdnTagLocation);
 
@@ -1682,7 +1682,7 @@ static CFDataRef SecDERItemCopySequence(DERItem *content) {
     CFDataSetLength(sequence, (CFIndex)sequence_length);
     uint8_t *sequence_ptr = CFDataGetMutableBytePtr(sequence);
     *sequence_ptr++ = ONE_BYTE_ASN1_CONSTR_SEQUENCE;
-    require_noerr_quiet(DEREncodeLength(content->length,
+    __Require_noErr_Quiet(DEREncodeLength(content->length,
                                         sequence_ptr, &seq_len_length), out);
     sequence_ptr += seq_len_length;
     memcpy(sequence_ptr, content->data, content->length);
@@ -1746,19 +1746,19 @@ static bool SecCertificateParse(SecCertificateRef certificate)
     /* Keep track of which extension IDs we've seen to check for duplicates */
     CFMutableSetRef extensionIds = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
-    check(certificate);
-    require_quiet(certificate, badCert);
+    __Check(certificate);
+    __Require_Quiet(certificate, badCert);
     CFAllocatorRef allocator = CFGetAllocator(certificate);
     certificate->_certificateQueue = dispatch_queue_create("cert", DISPATCH_QUEUE_SERIAL);
 
 	/* top level decode */
     DERDecodedInfo certInfo;
     drtn = DERDecodeItem(&certificate->_der, &certInfo);
-    require_noerr_quiet(drtn, badCert);
-    require_quiet(certInfo.tag == ASN1_CONSTR_SEQUENCE, badCert);
+    __Require_noErr_Quiet(drtn, badCert);
+    __Require_Quiet(certInfo.tag == ASN1_CONSTR_SEQUENCE, badCert);
 
     long headerLen = certInfo.content.data - certificate->_der.data;
-    require(headerLen > 0 && headerLen < UINT8_MAX, badCert);
+    __Require(headerLen > 0 && headerLen < UINT8_MAX, badCert);
     certificate->_der.length = certInfo.content.length + (DERSize)headerLen;
 
 	DERSignedCertCrl signedCert;
@@ -1766,7 +1766,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
                                    DERNumSignedCertCrlItemSpecs,
                                    DERSignedCertCrlItemSpecs,
                                    &signedCert, sizeof(signedCert));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 	/* Store tbs since we need to digest it for verification later on. */
 	certificate->_tbs = signedCert.tbs;
 
@@ -1775,7 +1775,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	drtn = DERParseSequence(&signedCert.tbs,
 		DERNumTBSCertItemSpecs, DERTBSCertItemSpecs,
 		&tbsCert, sizeof(tbsCert));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* sequence we're given: decode the signedCerts Signature Algorithm. */
 	/* This MUST be the same as the certificate->_tbsSigAlg with the exception
@@ -1783,14 +1783,14 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	drtn = DERParseSequenceContent(&signedCert.sigAlg,
 		DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
 		&certificate->_sigAlg, sizeof(certificate->_sigAlg));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* The contents of signedCert.sig is a bit string whose contents
 	   are the signature itself. */
     DERByte numUnusedBits;
 	drtn = DERParseBitString(&signedCert.sig,
         &certificate->_signature, &numUnusedBits);
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
     /* Now decode the tbsCert. */
 
@@ -1798,16 +1798,16 @@ static bool SecCertificateParse(SecCertificateRef certificate)
     if (tbsCert.version.length) {
         DERDecodedInfo decoded;
         drtn = DERDecodeItem(&tbsCert.version, &decoded);
-        require_noerr_quiet(drtn, badCert);
-        require_quiet(decoded.tag == ASN1_INTEGER, badCert);
-        require_quiet(decoded.content.length == 1, badCert);
+        __Require_noErr_Quiet(drtn, badCert);
+        __Require_Quiet(decoded.tag == ASN1_INTEGER, badCert);
+        __Require_Quiet(decoded.content.length == 1, badCert);
         certificate->_version = decoded.content.data[0];
         if (certificate->_version > 2) {
             secwarning("Invalid certificate version (%d), must be 0..2",
                 certificate->_version);
         }
-        require_quiet(certificate->_version > 0, badCert);
-        require_quiet(certificate->_version < 3, badCert);
+        __Require_Quiet(certificate->_version > 0, badCert);
+        __Require_Quiet(certificate->_version < 3, badCert);
     } else {
         certificate->_version = 0;
     }
@@ -1829,7 +1829,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
         secwarning("Invalid serial number length (%ld), must be 1..20",
             tbsCert.serialNum.length);
     }
-    require_quiet(tbsCert.serialNum.data != NULL &&
+    __Require_Quiet(tbsCert.serialNum.data != NULL &&
                   tbsCert.serialNum.length >= 1 &&
                   tbsCert.serialNum.length <= 37, badCert);
     certificate->_serialNumber = CFDataCreate(allocator,
@@ -1839,7 +1839,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	drtn = DERParseSequenceContent(&tbsCert.tbsSigAlg,
 		DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
 		&certificate->_tbsSigAlg, sizeof(certificate->_tbsSigAlg));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* The issuer is in the tbsCert.issuer - it's a sequence without the tag
        and length fields. */
@@ -1852,10 +1852,10 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	drtn = DERParseSequenceContent(&tbsCert.validity,
 		DERNumValidityItemSpecs, DERValidityItemSpecs,
 		&validity, sizeof(validity));
-	require_noerr_quiet(drtn, badCert);
-    require_quiet(derDateGetAbsoluteTime(&validity.notBefore,
+	__Require_noErr_Quiet(drtn, badCert);
+    __Require_Quiet(derDateGetAbsoluteTime(&validity.notBefore,
         &certificate->_notBefore), badCert);
-    require_quiet(derDateGetAbsoluteTime(&validity.notAfter,
+    __Require_Quiet(derDateGetAbsoluteTime(&validity.notAfter,
         &certificate->_notAfter), badCert);
 
 	/* The subject is in the tbsCert.subject - it's a sequence without the tag
@@ -1872,13 +1872,13 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	drtn = DERParseSequenceContent(&tbsCert.subjectPubKey,
 		DERNumSubjPubKeyInfoItemSpecs, DERSubjPubKeyInfoItemSpecs,
 		&pubKeyInfo, sizeof(pubKeyInfo));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* sequence we're given: decode the pubKeyInfos DERAlgorithmId */
 	drtn = DERParseSequenceContent(&pubKeyInfo.algId,
 		DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
 		&certificate->_algId, sizeof(certificate->_algId));
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* Now we can figure out the key's algorithm id and params based on
 	   certificate->_algId.oid. */
@@ -1887,7 +1887,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	   are a PKCS1 format RSA key. */
 	drtn = DERParseBitString(&pubKeyInfo.pubKey,
         &certificate->_pubKeyDER, &numUnusedBits);
-	require_noerr_quiet(drtn, badCert);
+	__Require_noErr_Quiet(drtn, badCert);
 
 	/* The contents of tbsCert.issuerID is a bit string. */
 	certificate->_issuerUniqueID = tbsCert.issuerID;
@@ -1903,8 +1903,8 @@ static bool SecCertificateParse(SecCertificateRef certificate)
         DERSequence derSeq;
         DERTag tag;
         drtn = DERDecodeSeqInit(&tbsCert.extensions, &tag, &derSeq);
-        require_noerr_quiet(drtn, badCert);
-        require_quiet(tag == ASN1_CONSTR_SEQUENCE, badCert);
+        __Require_noErr_Quiet(drtn, badCert);
+        __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badCert);
         DERDecodedInfo currDecoded;
         while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
 #if 0
@@ -1935,33 +1935,33 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 
             extensionCount++;
         }
-        require_quiet(drtn == DR_EndOfSequence, badCert);
-        require_quiet(extensionCount > 0, badCert); // Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+        __Require_Quiet(drtn == DR_EndOfSequence, badCert);
+        __Require_Quiet(extensionCount > 0, badCert); // Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
 
         /* Put some upper limit on the number of extensions allowed. */
-        require_quiet(extensionCount < MAX_EXTENSIONS, badCert);
+        __Require_Quiet(extensionCount < MAX_EXTENSIONS, badCert);
         certificate->_extensionCount = (CFIndex)extensionCount;
         certificate->_extensions = malloc(sizeof(SecCertificateExtension) * (extensionCount > 0 ? extensionCount : 1));
-        require_quiet(certificate->_extensions, badCert);
+        __Require_Quiet(certificate->_extensions, badCert);
 
         size_t ix = 0;
         drtn = DERDecodeSeqInit(&tbsCert.extensions, &tag, &derSeq);
-        require_noerr_quiet(drtn, badCert);
+        __Require_noErr_Quiet(drtn, badCert);
         for (ix = 0; ix < extensionCount; ++ix) {
             drtn = DERDecodeSeqNext(&derSeq, &currDecoded);
-            require_quiet(drtn == DR_Success || (ix == extensionCount - 1 && drtn == DR_EndOfSequence), badCert);
-            require_quiet(currDecoded.tag == ASN1_CONSTR_SEQUENCE, badCert);
+            __Require_Quiet(drtn == DR_Success || (ix == extensionCount - 1 && drtn == DR_EndOfSequence), badCert);
+            __Require_Quiet(currDecoded.tag == ASN1_CONSTR_SEQUENCE, badCert);
             DERExtension extn;
             drtn = DERParseSequenceContent(&currDecoded.content,
                                            DERNumExtensionItemSpecs, DERExtensionItemSpecs,
                                            &extn, sizeof(extn));
-            require_noerr_quiet(drtn, badCert);
+            __Require_noErr_Quiet(drtn, badCert);
             /* Copy stuff into certificate->extensions[ix]. */
             certificate->_extensions[ix].extnID = extn.extnID;
             if (!SecCertificateCheckDuplicateExtensionIds(extensionIds, &extn.extnID)) {
                 certificate->_duplicateExtensionIndex = (CFIndex)ix;
             }
-            require_noerr_quiet(drtn = DERParseBooleanWithDefault(&extn.critical, false,
+            __Require_noErr_Quiet(drtn = DERParseBooleanWithDefault(&extn.critical, false,
                                                                   &certificate->_extensions[ix].critical), badCert);
             certificate->_extensions[ix].extnValue = extn.extnValue;
 
@@ -1974,7 +1974,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
                 if (!parseResult) {
                     certificate->_unparseableKnownExtensionIndex = (CFIndex)ix;
                 }
-                require_quiet(parseResult || !certificate->_extensions[ix].critical, badCert);
+                __Require_Quiet(parseResult || !certificate->_extensions[ix].critical, badCert);
             } else if (certificate->_extensions[ix].critical) {
                 if (isAppleExtensionOID(&extn.extnID) || isOtherKnownExtensionOID(&extn.extnID)) {
                     continue;
@@ -2078,7 +2078,7 @@ OSStatus SecCertificateSetKeychainItem(SecCertificateRef certificate,
 }
 
 CFDataRef SecCertificateCopyData(SecCertificateRef certificate) {
-    check(certificate);
+    __Check(certificate);
     CFDataRef result = NULL;
     if (!certificate) {
         return result;
@@ -2125,13 +2125,13 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     DERTBSCert tbsCert;
     DERReturn drtn;
 
-    require_quiet(extensionsList && extensionsListSpecs, out);
+    __Require_Quiet(extensionsList && extensionsListSpecs, out);
 
     /* decode the TBSCert - it was saved in full DER form */
     drtn = DERParseSequence(&tbsIn,
                             DERNumTBSCertItemSpecs, DERTBSCertItemSpecs,
                             &tbsCert, sizeof(tbsCert));
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     /* Go over extensions and filter any SCT extension */
     size_t extensionsCount = 0;
@@ -2141,23 +2141,23 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
         DERTag tag;
         drtn = DERDecodeSeqInit(&tbsCert.extensions, &tag,
                                 &derSeq);
-        require_noerr_quiet(drtn, out);
-        require_quiet(tag == ASN1_CONSTR_SEQUENCE, out);
+        __Require_noErr_Quiet(drtn, out);
+        __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, out);
         DERDecodedInfo currDecoded;
         while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
 
-            require_quiet(currDecoded.tag == ASN1_CONSTR_SEQUENCE, out);
+            __Require_Quiet(currDecoded.tag == ASN1_CONSTR_SEQUENCE, out);
             DERExtension extn;
             drtn = DERParseSequenceContent(&currDecoded.content,
                                            DERNumExtensionItemSpecs, DERExtensionItemSpecs,
                                            &extn, sizeof(extn));
-            require_noerr_quiet(drtn, out);
+            __Require_noErr_Quiet(drtn, out);
 
             if (extn.extnID.length == oidGoogleEmbeddedSignedCertificateTimestamp.length &&
                 !memcmp(extn.extnID.data, oidGoogleEmbeddedSignedCertificateTimestamp.data, extn.extnID.length))
                 continue;
 
-            require_quiet(extensionsCount <= (size_t)certificate->_extensionCount, out);
+            __Require_Quiet(extensionsCount <= (size_t)certificate->_extensionCount, out);
             extensionsList[extensionsCount] = currDecoded.content;
             extensionsListSpecs[extensionsCount].offset = sizeof(DERItem)*extensionsCount;
             extensionsListSpecs[extensionsCount].options = 0;
@@ -2166,29 +2166,29 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
             extensionsCount++;
         }
 
-        require_quiet(drtn == DR_EndOfSequence, out);
+        __Require_Quiet(drtn == DR_EndOfSequence, out);
 
     }
 
     /* Encode extensions */
     extensionsOut.length = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs);
     extensionsOut.data = malloc(extensionsOut.length);
-    require_quiet(extensionsOut.data, out);
+    __Require_Quiet(extensionsOut.data, out);
     [[clang::suppress]] { // rdar://83126788
         drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs, extensionsOut.data, &extensionsOut.length);
     }
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     tbsCert.extensions = extensionsOut;
 
     tbsOut.length = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, &tbsCert, DERNumTBSCertItemSpecs, DERTBSCertItemSpecs);
-    require_quiet(tbsOut.length < LONG_MAX, out);
+    __Require_Quiet(tbsOut.length < LONG_MAX, out);
     tbsOut.data = malloc(tbsOut.length);
-    require_quiet(tbsOut.data, out);
+    __Require_Quiet(tbsOut.data, out);
     [[clang::suppress]] { // rdar://83126788
         drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, &tbsCert, DERNumTBSCertItemSpecs, DERTBSCertItemSpecs, tbsOut.data, &tbsOut.length);
     }
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     outData = CFDataCreate(kCFAllocatorDefault, tbsOut.data, (CFIndex)tbsOut.length);
 
@@ -3163,11 +3163,11 @@ static void appendBitStringContentNames(CFMutableArrayRef properties,
     const __nonnull CFStringRef *names, CFIndex namesCount,
     bool localized) {
     DERSize len = bitStringContent->length - 1;
-    require_quiet(len == 1 || len == 2, badDER);
+    __Require_Quiet(len == 1 || len == 2, badDER);
     DERByte numUnusedBits = bitStringContent->data[0];
-    require_quiet(numUnusedBits < 8, badDER);
+    __Require_Quiet(numUnusedBits < 8, badDER);
     uint_fast16_t bits = 8 * len - numUnusedBits;
-    require_quiet(bits <= (uint_fast16_t)namesCount, badDER);
+    __Require_Quiet(bits <= (uint_fast16_t)namesCount, badDER);
     uint_fast16_t value = bitStringContent->data[1];
     uint_fast16_t mask;
     if (len > 1) {
@@ -3212,8 +3212,8 @@ static void appendBitStringNames(CFMutableArrayRef properties,
     bool localized) {
     DERDecodedInfo bitStringContent;
     DERReturn drtn = DERDecodeItem(bitString, &bitStringContent);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(bitStringContent.tag == ASN1_BIT_STRING, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(bitStringContent.tag == ASN1_BIT_STRING, badDER);
     appendBitStringContentNames(properties, label, &bitStringContent.content,
         names, namesCount, localized);
     return;
@@ -3244,7 +3244,7 @@ static void appendPrivateKeyUsagePeriod(CFMutableArrayRef properties,
     DERReturn drtn = DERParseSequence(extnValue,
         DERNumPrivateKeyUsagePeriodItemSpecs, DERPrivateKeyUsagePeriodItemSpecs,
         &pkup, sizeof(pkup));
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     if (pkup.notBefore.length) {
         appendDateContentProperty(properties, SEC_NOT_VALID_BEFORE_KEY,
             ASN1_GENERALIZED_TIME, &pkup.notBefore, localized);
@@ -3288,7 +3288,7 @@ static void appendOtherNameContentProperty(CFMutableArrayRef properties,
 	DERReturn drtn = DERParseSequenceContent(otherNameContent,
         DERNumOtherNameItemSpecs, DEROtherNameItemSpecs,
         &on, sizeof(on));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	CFAllocatorRef allocator = CFGetAllocator(properties);
 	CFStringRef label =
         SecDERItemCopyOIDDecimalRepresentation(allocator, &on.typeIdentifier);
@@ -3392,7 +3392,7 @@ static void appendGeneralNameProperty(CFMutableArrayRef properties,
     const DERItem *generalName, bool localized) {
     DERDecodedInfo generalNameContent;
 	DERReturn drtn = DERDecodeItem(generalName, &generalNameContent);
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	if (appendGeneralNameContentProperty(properties, generalNameContent.tag,
 		&generalNameContent.content, localized))
 		return;
@@ -3409,7 +3409,7 @@ static void appendGeneralNamesContent(CFMutableArrayRef properties,
     const DERItem *generalNamesContent, bool localized) {
     DERSequence gnSeq;
     DERReturn drtn = DERDecodeSeqContentInit(generalNamesContent, &gnSeq);
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     DERDecodedInfo generalNameContent;
     while ((drtn = DERDecodeSeqNext(&gnSeq, &generalNameContent)) ==
 		DR_Success) {
@@ -3418,7 +3418,7 @@ static void appendGeneralNamesContent(CFMutableArrayRef properties,
 			goto badDER;
 		}
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
     appendInvalidProperty(properties, SEC_GENERAL_NAMES_KEY,
@@ -3429,8 +3429,8 @@ static void appendGeneralNames(CFMutableArrayRef properties,
     const DERItem *generalNames, bool localized) {
     DERDecodedInfo generalNamesContent;
     DERReturn drtn = DERDecodeItem(generalNames, &generalNamesContent);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE,
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE,
         badDER);
     appendGeneralNamesContent(properties, &generalNamesContent.content,
                               localized);
@@ -3451,7 +3451,7 @@ static void appendBasicConstraints(CFMutableArrayRef properties,
 	DERReturn drtn = DERParseSequence(extnValue,
         DERNumBasicConstraintsItemSpecs, DERBasicConstraintsItemSpecs,
         &basicConstraints, sizeof(basicConstraints));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 
     appendBooleanProperty(properties, SEC_CERT_AUTHORITY_KEY,
         &basicConstraints.cA, false, localized);
@@ -3491,19 +3491,19 @@ static void appendNameConstraints(CFMutableArrayRef properties,
                             DERNumNameConstraintsItemSpecs,
                             DERNameConstraintsItemSpecs,
                             &nc, sizeof(nc));
-    require_noerr_quiet(drtn, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
     if (nc.permittedSubtrees.length) {
         DERSequence gsSeq;
-        require_noerr_quiet(DERDecodeSeqContentInit(&nc.permittedSubtrees, &gsSeq), badDER);
+        __Require_noErr_Quiet(DERDecodeSeqContentInit(&nc.permittedSubtrees, &gsSeq), badDER);
         DERDecodedInfo gsContent;
         while ((drtn = DERDecodeSeqNext(&gsSeq, &gsContent)) == DR_Success) {
             DERGeneralSubtree derGS;
-            require_quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
+            __Require_Quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
             drtn = DERParseSequenceContent(&gsContent.content,
                                            DERNumGeneralSubtreeItemSpecs,
                                            DERGeneralSubtreeItemSpecs,
                                            &derGS, sizeof(derGS));
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             if (derGS.minimum.length) {
                 appendIntegerProperty(properties, SEC_PERMITTED_MINIMUM_KEY,
                                       &derGS.minimum, localized);
@@ -3521,20 +3521,20 @@ static void appendNameConstraints(CFMutableArrayRef properties,
                 CFRelease(base);
             }
         }
-        require_quiet(drtn == DR_EndOfSequence, badDER);
+        __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     }
     if (nc.excludedSubtrees.length) {
         DERSequence gsSeq;
-        require_noerr_quiet(DERDecodeSeqContentInit(&nc.excludedSubtrees, &gsSeq), badDER);
+        __Require_noErr_Quiet(DERDecodeSeqContentInit(&nc.excludedSubtrees, &gsSeq), badDER);
         DERDecodedInfo gsContent;
         while ((drtn = DERDecodeSeqNext(&gsSeq, &gsContent)) == DR_Success) {
             DERGeneralSubtree derGS;
-            require_quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
+            __Require_Quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
             drtn = DERParseSequenceContent(&gsContent.content,
                                            DERNumGeneralSubtreeItemSpecs,
                                            DERGeneralSubtreeItemSpecs,
                                            &derGS, sizeof(derGS));
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             if (derGS.minimum.length) {
                 appendIntegerProperty(properties, SEC_EXCLUDED_MINIMUM_KEY,
                                       &derGS.minimum, localized);
@@ -3552,7 +3552,7 @@ static void appendNameConstraints(CFMutableArrayRef properties,
                 CFRelease(base);
             }
         }
-        require_quiet(drtn == DR_EndOfSequence, badDER);
+        __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     }
 
     return;
@@ -3590,21 +3590,21 @@ static void appendCrlDistributionPoints(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence dpSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &dpSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo dpSeqContent;
     while ((drtn = DERDecodeSeqNext(&dpSeq, &dpSeqContent)) == DR_Success) {
-        require_quiet(dpSeqContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(dpSeqContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERDistributionPoint dp;
         drtn = DERParseSequenceContent(&dpSeqContent.content,
             DERNumDistributionPointItemSpecs,
             DERDistributionPointItemSpecs,
             &dp, sizeof(dp));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         if (dp.distributionPoint.length) {
             DERDecodedInfo distributionPointName;
             drtn = DERDecodeItem(&dp.distributionPoint, &distributionPointName);
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             if (distributionPointName.tag ==
                 (ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 0)) {
                 /* Full Name */
@@ -3646,7 +3646,7 @@ static void appendCrlDistributionPoints(CFMutableArrayRef properties,
             appendGeneralNames(crlIssuer, &dp.cRLIssuer, localized);
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
     appendInvalidProperty(properties, SEC_CRL_DISTR_POINTS_KEY,
@@ -3663,29 +3663,29 @@ static void appendIntegerSequenceContent(CFMutableArrayRef properties,
 	DERSequence intSeq;
     CFStringRef fmt = NULL, value = NULL, intDesc = NULL, v = NULL;
 	DERReturn drtn = DERDecodeSeqContentInit(intSequenceContent, &intSeq);
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	DERDecodedInfo intContent;
     fmt = (localized) ?
         SecCopyCertString(SEC_STRING_LIST_KEY) : SEC_STRING_LIST_KEY;
-    require_quiet(fmt, badDER);
+    __Require_Quiet(fmt, badDER);
 	while ((drtn = DERDecodeSeqNext(&intSeq, &intContent)) == DR_Success) {
-		require_quiet(intContent.tag == ASN1_INTEGER, badDER);
+		__Require_Quiet(intContent.tag == ASN1_INTEGER, badDER);
 		intDesc = copyIntegerContentDescription(
 			allocator, &intContent.content);
-        require_quiet(intDesc, badDER);
+        __Require_Quiet(intDesc, badDER);
 		if (value) {
             v = CFStringCreateWithFormat(allocator, NULL, fmt, value, intDesc);
             CFReleaseNull(value);
-            require_quiet(v, badDER);
+            __Require_Quiet(v, badDER);
             value = v;
 		} else {
 			value = CFStringCreateMutableCopy(allocator, 0, intDesc);
-            require_quiet(value, badDER);
+            __Require_Quiet(value, badDER);
 		}
         CFReleaseNull(intDesc);
 	}
     CFReleaseNull(fmt);
-	require_quiet(drtn == DR_EndOfSequence, badDER);
+	__Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	if (value) {
 		appendProperty(properties, kSecPropertyTypeString, label, NULL,
                        value, localized);
@@ -3708,26 +3708,26 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence piSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &piSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo piContent;
     int pin = 1;
     while ((drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
-        require_quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERPolicyInformation pi;
         drtn = DERParseSequenceContent(&piContent.content,
             DERNumPolicyInformationItemSpecs,
             DERPolicyInformationItemSpecs,
             &pi, sizeof(pi));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         piLabel = CFStringCreateWithFormat(allocator, NULL,
             SEC_POLICY_IDENTIFIER_KEY, pin);
-        require_quiet(piLabel, badDER);
+        __Require_Quiet(piLabel, badDER);
         piFmt = (localized) ?
             SecCopyCertString(SEC_POLICY_IDENTIFIER_KEY) : SEC_POLICY_IDENTIFIER_KEY;
-        require_quiet(piFmt, badDER);
+        __Require_Quiet(piFmt, badDER);
         lpiLabel = CFStringCreateWithFormat(allocator, NULL, piFmt, pin++);
-        require_quiet(lpiLabel, badDER);
+        __Require_Quiet(lpiLabel, badDER);
         CFReleaseNull(piFmt);
         appendOIDProperty(properties, piLabel, lpiLabel,
                           &pi.policyIdentifier, localized);
@@ -3738,7 +3738,7 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
 
         DERSequence pqSeq;
         drtn = DERDecodeSeqContentInit(&pi.policyQualifiers, &pqSeq);
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         DERDecodedInfo pqContent;
         int pqn = 1;
         while ((drtn = DERDecodeSeqNext(&pqSeq, &pqContent)) == DR_Success) {
@@ -3747,42 +3747,42 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
                 DERNumPolicyQualifierInfoItemSpecs,
                 DERPolicyQualifierInfoItemSpecs,
                 &pqi, sizeof(pqi));
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             DERDecodedInfo qualifierContent;
             drtn = DERDecodeItem(&pqi.qualifier, &qualifierContent);
-            require_noerr_quiet(drtn, badDER);
+            __Require_noErr_Quiet(drtn, badDER);
             pqLabel = CFStringCreateWithFormat(allocator, NULL,
                 SEC_POLICY_QUALIFIER_KEY, pqn);
-            require_quiet(pqLabel, badDER);
+            __Require_Quiet(pqLabel, badDER);
             pqFmt = (localized) ?
                 SecCopyCertString(SEC_POLICY_QUALIFIER_KEY) : SEC_POLICY_QUALIFIER_KEY;
-            require_quiet(pqFmt, badDER);
+            __Require_Quiet(pqFmt, badDER);
             lpqLabel = CFStringCreateWithFormat(allocator, NULL, pqFmt, pqn++);
-            require_quiet(lpqLabel, badDER);
+            __Require_Quiet(lpqLabel, badDER);
             CFReleaseNull(pqFmt);
             appendOIDProperty(properties, pqLabel, lpqLabel,
                               &pqi.policyQualifierID, localized);
             CFReleaseNull(pqLabel);
             CFReleaseNull(lpqLabel);
             if (DEROidCompare(&oidQtCps, &pqi.policyQualifierID)) {
-                require_quiet(qualifierContent.tag == ASN1_IA5_STRING, badDER);
+                __Require_Quiet(qualifierContent.tag == ASN1_IA5_STRING, badDER);
                 appendURLContentProperty(properties, SEC_CPS_URI_KEY,
                                          &qualifierContent.content, localized);
             } else if (DEROidCompare(&oidQtUNotice, &pqi.policyQualifierID)) {
-                require_quiet(qualifierContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+                __Require_Quiet(qualifierContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
                 DERUserNotice un;
                 drtn = DERParseSequenceContent(&qualifierContent.content,
                     DERNumUserNoticeItemSpecs,
                     DERUserNoticeItemSpecs,
                     &un, sizeof(un));
-                require_noerr_quiet(drtn, badDER);
+                __Require_noErr_Quiet(drtn, badDER);
                 if (un.noticeRef.length) {
                     DERNoticeReference nr;
                     drtn = DERParseSequenceContent(&un.noticeRef,
                         DERNumNoticeReferenceItemSpecs,
                         DERNoticeReferenceItemSpecs,
                         &nr, sizeof(nr));
-                    require_noerr_quiet(drtn, badDER);
+                    __Require_noErr_Quiet(drtn, badDER);
                     appendDERThingProperty(properties,
                         SEC_ORGANIZATION_KEY, NULL,
                         &nr.organization, localized);
@@ -3798,9 +3798,9 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
                     &pqi.qualifier, localized);
             }
         }
-        require_quiet(drtn == DR_EndOfSequence, badDER);
+        __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
     CFReleaseNull(piFmt);
@@ -3818,8 +3818,8 @@ static void appendSubjectKeyIdentifier(CFMutableArrayRef properties,
 	DERReturn drtn;
     DERDecodedInfo keyIdentifier;
 	drtn = DERDecodeItem(extnValue, &keyIdentifier);
-	require_noerr_quiet(drtn, badDER);
-	require_quiet(keyIdentifier.tag == ASN1_OCTET_STRING, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
+	__Require_Quiet(keyIdentifier.tag == ASN1_OCTET_STRING, badDER);
 	appendDataProperty(properties, SEC_KEY_IDENTIFIER_KEY, NULL,
 		&keyIdentifier.content, localized);
 
@@ -3847,14 +3847,14 @@ static void appendAuthorityKeyIdentifier(CFMutableArrayRef properties,
 		DERNumAuthorityKeyIdentifierItemSpecs,
 		DERAuthorityKeyIdentifierItemSpecs,
 		&akid, sizeof(akid));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	if (akid.keyIdentifier.length) {
 		appendDataProperty(properties, SEC_KEY_IDENTIFIER_KEY, NULL,
 			&akid.keyIdentifier, localized);
 	}
 	if (akid.authorityCertIssuer.length ||
 		akid.authorityCertSerialNumber.length) {
-		require_quiet(akid.authorityCertIssuer.length &&
+		__Require_Quiet(akid.authorityCertIssuer.length &&
 			akid.authorityCertSerialNumber.length, badDER);
 		/* Perhaps put in a subsection called Authority Certificate Issuer. */
 		appendGeneralNamesContent(properties,
@@ -3884,7 +3884,7 @@ static void appendPolicyConstraints(CFMutableArrayRef properties,
 		DERNumPolicyConstraintsItemSpecs,
 		DERPolicyConstraintsItemSpecs,
 		&pc, sizeof(pc));
-	require_noerr_quiet(drtn, badDER);
+	__Require_noErr_Quiet(drtn, badDER);
 	if (pc.requireExplicitPolicy.length) {
 		appendIntegerProperty(properties, SEC_REQUIRE_EXPL_POLICY_KEY,
                               &pc.requireExplicitPolicy, localized);
@@ -3913,15 +3913,15 @@ static void appendExtendedKeyUsage(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence derSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &derSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo currDecoded;
     while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
-        require_quiet(currDecoded.tag == ASN1_OBJECT_ID, badDER);
+        __Require_Quiet(currDecoded.tag == ASN1_OBJECT_ID, badDER);
         appendOIDProperty(properties, SEC_PURPOSE_KEY, NULL,
             &currDecoded.content, localized);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
     appendInvalidProperty(properties, SEC_EXTENDED_KEY_USAGE_KEY,
@@ -3949,23 +3949,23 @@ static void appendInfoAccess(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence adSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &adSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo adContent;
     while ((drtn = DERDecodeSeqNext(&adSeq, &adContent)) == DR_Success) {
-        require_quiet(adContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(adContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
 		DERAccessDescription ad;
 		drtn = DERParseSequenceContent(&adContent.content,
 			DERNumAccessDescriptionItemSpecs,
 			DERAccessDescriptionItemSpecs,
 			&ad, sizeof(ad));
-		require_noerr_quiet(drtn, badDER);
+		__Require_noErr_Quiet(drtn, badDER);
         appendOIDProperty(properties, SEC_ACCESS_METHOD_KEY, NULL,
                           &ad.accessMethod, localized);
 		//TODO: Do something with SEC_ACCESS_LOCATION_KEY
         appendGeneralNameProperty(properties, &ad.accessLocation, localized);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
     appendInvalidProperty(properties, SEC_AUTH_INFO_ACCESS_KEY,
@@ -3977,15 +3977,15 @@ static void appendQCSTypes(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence derSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &derSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo currDecoded;
     while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
-        require_quiet(currDecoded.tag == ASN1_OBJECT_ID, badDER);
+        __Require_Quiet(currDecoded.tag == ASN1_OBJECT_ID, badDER);
         appendOIDProperty(properties, SEC_QCS_TYPE, NULL,
             &currDecoded.content, localized);
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     return;
 badDER:
     appendInvalidProperty(properties, SEC_QCS_TYPE,
@@ -3997,26 +3997,26 @@ static void appendQCStatements(CFMutableArrayRef properties,
     CFMutableDictionaryRef statements = CFDictionaryCreateMutable(NULL, 0,
                                                                   &kCFTypeDictionaryKeyCallBacks,
                                                                   &kCFTypeDictionaryValueCallBacks);
-    require_quiet(extnValue != NULL && statements != NULL, badDER);
+    __Require_Quiet(extnValue != NULL && statements != NULL, badDER);
 
     DERTag tag;
     DERSequence qcSeq;
     DERReturn drtn = DERDecodeSeqInit(extnValue, &tag, &qcSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(qcSeq.nextItem != qcSeq.end, badDER);
+    __Require_noErr_Quiet(drtn, badDER);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    __Require_Quiet(qcSeq.nextItem != qcSeq.end, badDER);
     DERDecodedInfo statementContent;
     int statement_count = 0;
     while ((drtn = DERDecodeSeqNext(&qcSeq, &statementContent)) == DR_Success) {
-        require_quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+        __Require_Quiet(statementContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERQCStatement statement;
         drtn = DERParseSequenceContent(&statementContent.content,
                                        DERNumQCStatementItemSpecs,
                                        DERQCStatementItemSpecs,
                                        &statement, sizeof(statement));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         statement_count++;
-        require_quiet(statement_count < MAX_QCSTATEMENTS, badDER);
+        __Require_Quiet(statement_count < MAX_QCSTATEMENTS, badDER);
         if (DEROidCompare(&oidQCCompliance, &statement.statementId)) {
             appendBoolProperty(properties, SEC_QCS_EU_COMPLIANCE, true, localized);
         } else if (DEROidCompare(&oidQCType, &statement.statementId)) {
@@ -4037,7 +4037,7 @@ static void appendQCStatements(CFMutableArrayRef properties,
             CFReleaseNull(info_string);
         }
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
+    __Require_Quiet(drtn == DR_EndOfSequence, badDER);
     return;
 badDER:
     appendInvalidProperty(properties, SEC_QUAL_CERT_STATMENTS,
@@ -4065,8 +4065,8 @@ static bool appendPrintableDERSequence(CFMutableArrayRef properties,
     DERTag tag;
     DERSequence derSeq;
     DERReturn drtn = DERDecodeSeqInit(sequence, &tag, &derSeq);
-    require_noerr_quiet(drtn, badSequence);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badSequence);
+    __Require_noErr_Quiet(drtn, badSequence);
+    __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, badSequence);
     DERDecodedInfo currDecoded;
     bool appendedSomething = false;
     while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
@@ -4092,7 +4092,7 @@ static bool appendPrintableDERSequence(CFMutableArrayRef properties,
                 CFStringRef string =
                     copyDERThingContentDescription(CFGetAllocator(properties),
                         currDecoded.tag, &currDecoded.content, false, localized);
-                require_quiet(string, badSequence);
+                __Require_Quiet(string, badSequence);
 
                 appendProperty(properties, kSecPropertyTypeString, label, NULL,
                     string, localized);
@@ -4104,7 +4104,7 @@ static bool appendPrintableDERSequence(CFMutableArrayRef properties,
 				break;
 		}
     }
-    require_quiet(drtn == DR_EndOfSequence, badSequence);
+    __Require_Quiet(drtn == DR_EndOfSequence, badSequence);
 	return appendedSomething;
 badSequence:
     return false;
@@ -4123,7 +4123,7 @@ static void appendExtension(CFMutableArrayRef parent,
     CFStringRef localizedLabel = NULL;
 
     appendBoolProperty(properties, SEC_CRITICAL_KEY, extn->critical, localized);
-    require_quiet(extnID, xit);
+    __Require_Quiet(extnID, xit);
 
 	bool handled = true;
 	/* Extensions that we know how to handle ourselves... */
@@ -4542,7 +4542,7 @@ static CFArrayRef CopyProperties(SecCertificateRef certificate, Boolean localize
     CFAllocatorRef allocator = CFGetAllocator(certificate);
     CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0,
                                                         &kCFTypeArrayCallBacks);
-    require_quiet(properties, out);
+    __Require_Quiet(properties, out);
 
     /* First we put the Subject Name in the property list. */
     CFArrayRef subject_plist = createPropertiesForX501NameContent(allocator,
@@ -4990,7 +4990,7 @@ bool SecFrameworkIsDNSName(CFStringRef string) {
 	/* From RFC 1035 2.3.4. Size limits:
 	   labels          63 octets or less
 	   names           255 octets or less */
-	require_quiet(length <= 255, notDNS);
+	__Require_Quiet(length <= 255, notDNS);
 	CFRange range = { 0, length };
 	CFStringInitInlineBuffer(string, &buf, range);
 	enum {
@@ -5006,7 +5006,7 @@ bool SecFrameworkIsDNSName(CFStringRef string) {
 		UniChar ch = CFStringGetCharacterFromInlineBuffer(&buf, ix);
 		labelLength++;
 		if (ch == '.') {
-			require_quiet(labelLength <= 64 &&
+			__Require_Quiet(labelLength <= 64 &&
 				(state == kDNSStateAfterAlpha || state == kDNSStateAfterDigit),
 				notDNS);
 			state = kDNSStateAfterDot;
@@ -5019,7 +5019,7 @@ bool SecFrameworkIsDNSName(CFStringRef string) {
 		} else if ('0' <= ch && ch <= '9') {
 			state = kDNSStateAfterDigit;
 		} else if (ch == '-') {
-			require_quiet(state == kDNSStateAfterAlpha ||
+			__Require_Quiet(state == kDNSStateAfterAlpha ||
 				state == kDNSStateAfterDigit ||
 				state == kDNSStateAfterDash, notDNS);
 			state = kDNSStateAfterDash;
@@ -5031,12 +5031,12 @@ bool SecFrameworkIsDNSName(CFStringRef string) {
 	}
 
 	/* We don't allow a dns name to end in a dot or dash.  */
-	require_quiet(labelLength <= 63 &&
+	__Require_Quiet(labelLength <= 63 &&
 		(state == kDNSStateAfterAlpha || state == kDNSStateAfterDigit),
 		notDNS);
 
 	/* Additionally, the rightmost label must have letters in it. */
-	require_quiet(labelHasAlpha == true, notDNS);
+	__Require_Quiet(labelHasAlpha == true, notDNS);
 
 	return true;
 notDNS:
@@ -5520,10 +5520,10 @@ static OSStatus appendNTPrincipalNamesFromGeneralNames(void *context,
         DERReturn drtn = DERParseSequenceContent(generalName,
             DERNumOtherNameItemSpecs, DEROtherNameItemSpecs,
             &on, sizeof(on));
-        require_noerr_quiet(drtn, badDER);
+        __Require_noErr_Quiet(drtn, badDER);
         if (DEROidCompare(&on.typeIdentifier, &oidMSNTPrincipalName)) {
             CFStringRef string;
-            require_quiet(string = copyDERThingDescription(kCFAllocatorDefault,
+            __Require_Quiet(string = copyDERThingDescription(kCFAllocatorDefault,
                 &on.value, true, true), badDER);
             CFArrayAppendValue(ntPrincipalNames, string);
             CFRelease(string);
@@ -5781,8 +5781,8 @@ static CFIndex SecCertificateGetPublicKeyAlgorithmIdAndSize(SecCertificateRef ce
     size_t size = 0;
 
     SecKeyRef pubKey = NULL;
-    require_quiet(certificate, out);
-    require_quiet(pubKey = SecCertificateCopyKey(certificate) ,out);
+    __Require_Quiet(certificate, out);
+    __Require_Quiet(pubKey = SecCertificateCopyKey(certificate) ,out);
     size = SecKeyGetBlockSize(pubKey);
     keyAlgID = SecKeyGetAlgorithmId(pubKey);
 
@@ -6098,7 +6098,7 @@ bool SecCertificateHasUnknownCriticalExtension(SecCertificateRef certificate) {
 
 /* Private API functions. */
 void SecCertificateShow(SecCertificateRef certificate) {
-	check(certificate);
+	__Check(certificate);
 	fprintf(stderr, "SecCertificate instance %p:\n", certificate);
 		fprintf(stderr, "\n");
 }
@@ -6125,14 +6125,14 @@ CFDictionaryRef SecCertificateCopyAttributeDictionary(
 	SInt32 ctv = certificate->_version + 1;
 	SInt32 cev = 3; /* CSSM_CERT_ENCODING_DER */
 	certificateType = CFNumberCreate(allocator, kCFNumberSInt32Type, &ctv);
-	require_quiet(certificateType != NULL, out);
+	__Require_Quiet(certificateType != NULL, out);
 	certificateEncoding = CFNumberCreate(allocator, kCFNumberSInt32Type, &cev);
-	require_quiet(certificateEncoding != NULL, out);
+	__Require_Quiet(certificateEncoding != NULL, out);
 	certData = SecCertificateCopyData(certificate);
-	require_quiet(certData != NULL, out);
+	__Require_Quiet(certData != NULL, out);
 	skid = SecCertificateGetSubjectKeyID(certificate);
     pubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(certificate);
-	require_quiet(pubKeyDigest != NULL, out);
+	__Require_Quiet(pubKeyDigest != NULL, out);
 #if 0
 	/* We still need to figure out how to deal with multi valued attributes. */
 	alias = SecCertificateCopyRFC822Names(certificate);
@@ -6154,9 +6154,9 @@ CFDictionaryRef SecCertificateCopyAttributeDictionary(
 	if (isData(certificate->_normalizedSubject)) {
 		DICT_ADDPAIR(kSecAttrSubject, certificate->_normalizedSubject);
 	}
-	require_quiet(isData(certificate->_normalizedIssuer), out);
+	__Require_Quiet(isData(certificate->_normalizedIssuer), out);
 	DICT_ADDPAIR(kSecAttrIssuer, certificate->_normalizedIssuer);
-	require_quiet(isData(certificate->_serialNumber), out);
+	__Require_Quiet(isData(certificate->_serialNumber), out);
 	DICT_ADDPAIR(kSecAttrSerialNumber, certificate->_serialNumber);
 	if (skid) {
 		DICT_ADDPAIR(kSecAttrSubjectKeyID, skid);
@@ -6196,19 +6196,19 @@ static bool _SecCertificateIsSelfSigned(SecCertificateRef certificate) {
         if (certificate->_isSelfSigned == kSecSelfSignedUnknown) {
             certificate->_isSelfSigned = kSecSelfSignedFalse;
             SecKeyRef publicKey = NULL;
-            require(publicKey = _SecCertificateCopyKey_onqueue(certificate), out);
+            __Require(publicKey = _SecCertificateCopyKey_onqueue(certificate), out);
             CFDataRef normalizedIssuer =
             SecCertificateGetNormalizedIssuerContent(certificate);
             CFDataRef normalizedSubject =
             SecCertificateGetNormalizedSubjectContent(certificate);
-            require_quiet(normalizedIssuer && normalizedSubject &&
+            __Require_Quiet(normalizedIssuer && normalizedSubject &&
                           CFEqual(normalizedIssuer, normalizedSubject), out);
 
             if (authorityKeyID) {
-                require_quiet(subjectKeyID && CFEqual(subjectKeyID, authorityKeyID), out);
+                __Require_Quiet(subjectKeyID && CFEqual(subjectKeyID, authorityKeyID), out);
             }
 
-            require_noerr_quiet(SecCertificateIsSignedBy(certificate, publicKey), out);
+            __Require_noErr_Quiet(SecCertificateIsSignedBy(certificate, publicKey), out);
             certificate->_isSelfSigned = kSecSelfSignedTrue;
         out:
             CFReleaseSafe(publicKey);
@@ -6221,7 +6221,7 @@ static bool _SecCertificateIsSelfSigned(SecCertificateRef certificate) {
 
 bool SecCertificateIsCA(SecCertificateRef certificate) {
     bool result = false;
-    require(SecCertificateIsCertificate(certificate), out);
+    __Require(SecCertificateIsCertificate(certificate), out);
     if (SecCertificateVersion(certificate) >= 3) {
         const SecCEBasicConstraints *basicConstraints = SecCertificateGetBasicConstraints(certificate);
         result = (basicConstraints && basicConstraints->isCA);
@@ -6259,7 +6259,7 @@ CFArrayRef SecCertificateCopyExtendedKeyUsage(SecCertificateRef certificate)
 {
     CFMutableArrayRef extended_key_usage_oids =
         CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    require_quiet(certificate && extended_key_usage_oids, out);
+    __Require_Quiet(certificate && extended_key_usage_oids, out);
     int ix;
     for (ix = 0; ix < certificate->_extensionCount; ++ix) {
         const SecCertificateExtension *extn = &certificate->_extensions[ix];
@@ -6268,20 +6268,20 @@ CFArrayRef SecCertificateCopyExtendedKeyUsage(SecCertificateRef certificate)
             DERTag tag;
             DERSequence derSeq;
             DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &derSeq);
-            require_noerr_quiet(drtn, out);
-            require_quiet(tag == ASN1_CONSTR_SEQUENCE, out);
+            __Require_noErr_Quiet(drtn, out);
+            __Require_Quiet(tag == ASN1_CONSTR_SEQUENCE, out);
             DERDecodedInfo currDecoded;
 
             while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
-                require_quiet(currDecoded.tag == ASN1_OBJECT_ID, out);
-                require_quiet(currDecoded.content.length < LONG_MAX, out);
+                __Require_Quiet(currDecoded.tag == ASN1_OBJECT_ID, out);
+                __Require_Quiet(currDecoded.content.length < LONG_MAX, out);
                 CFDataRef oid = CFDataCreate(kCFAllocatorDefault,
                     currDecoded.content.data, (CFIndex)currDecoded.content.length);
-                require_quiet(oid, out);
+                __Require_Quiet(oid, out);
                 CFArrayAppendValue(extended_key_usage_oids, oid);
                 CFReleaseNull(oid);
             }
-            require_quiet(drtn == DR_EndOfSequence, out);
+            __Require_Quiet(drtn == DR_EndOfSequence, out);
             return extended_key_usage_oids;
         }
     }
@@ -6292,7 +6292,7 @@ out:
 
 CFArrayRef SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certificate)
 {
-    require_quiet(certificate, out);
+    __Require_Quiet(certificate, out);
     int ix;
 
     for (ix = 0; ix < certificate->_extensionCount; ++ix) {
@@ -6302,8 +6302,8 @@ CFArrayRef SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certi
             /* Got the SCT oid */
             DERDecodedInfo sctList;
             DERReturn drtn = DERDecodeItem(&extn->extnValue, &sctList);
-            require_noerr_quiet(drtn, out);
-            require_quiet(sctList.tag == ASN1_OCTET_STRING, out);
+            __Require_noErr_Quiet(drtn, out);
+            __Require_Quiet(sctList.tag == ASN1_OCTET_STRING, out);
             return SecCreateSignedCertificateTimestampsArrayFromSerializedSCTList(sctList.content.data, sctList.content.length);
         }
     }
@@ -6516,7 +6516,7 @@ CFDataRef SecCertificateCreateOidDataFromString(CFAllocatorRef allocator, CFStri
         while (b[skipBytes] == 0x80)
             ++skipBytes;
 
-        require(skipBytes <= sizeof(b) && (sizeof(b) - skipBytes < LONG_MAX), exit);
+        __Require(skipBytes <= sizeof(b) && (sizeof(b) - skipBytes < LONG_MAX), exit);
         CFDataAppendBytes(currentResult, b + skipBytes, (CFIndex)(sizeof(b) - skipBytes));
     }
 
@@ -6700,17 +6700,17 @@ CFDataRef SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate) {
     switch (version) {
         case kSeciAuthVersion3: {
             DERItem *extensionValue = SecCertificateGetExtensionValue(certificate, CFSTR("1.2.840.113635.100.6.36"));
-            require_quiet(extensionValue, out);
+            __Require_Quiet(extensionValue, out);
             /* The extension is a octet string containing the DER-encoded 32-byte octet string */
-            require_quiet(extensionValue->length == 34, out);
+            __Require_Quiet(extensionValue->length == 34, out);
             DERDecodedInfo decodedValue;
-            require_noerr_quiet(DERDecodeItem(extensionValue, &decodedValue), out);
+            __Require_noErr_Quiet(DERDecodeItem(extensionValue, &decodedValue), out);
             if (decodedValue.tag == ASN1_OCTET_STRING) {
-                require_quiet(decodedValue.content.length == 32, out);
+                __Require_Quiet(decodedValue.content.length == 32, out);
                 extensionData = CFDataCreate(NULL, decodedValue.content.data,
                                              (CFIndex)decodedValue.content.length);
             } else {
-                require_quiet(extensionValue->data[33] == 0x00 &&
+                __Require_Quiet(extensionValue->data[33] == 0x00 &&
                               extensionValue->data[32] == 0x00, out);
                 extensionData = CFDataCreate(NULL, extensionValue->data, 32);
             }
@@ -6718,9 +6718,9 @@ CFDataRef SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate) {
         }
         case kSeciAuthVersion4: {
             DERItem *extensionValue = SecCertificateGetExtensionValue(certificate, CFSTR("1.2.840.113635.100.6.71.1"));
-            require_quiet(extensionValue, out);
+            __Require_Quiet(extensionValue, out);
             /* The extension the 32-byte value */
-            require_quiet(extensionValue->length == 32, out);
+            __Require_Quiet(extensionValue->length == 32, out);
             extensionData = CFDataCreate(NULL, extensionValue->data, 32);
             break;
         }
@@ -6775,9 +6775,9 @@ SeciAuthVersion SecCertificateGetiAuthVersion(SecCertificateRef certificate) {
         return kSeciAuthVersion4;
     }
     DERItem serialNumber = certificate->_serialNum;
-    require_quiet(serialNumber.data, out);
-    require_quiet(serialNumber.length == 15, out);
-    require_quiet(serialNumber.data[2] == IAP_CERT_FIELD_DELIMITER &&
+    __Require_Quiet(serialNumber.data, out);
+    __Require_Quiet(serialNumber.length == 15, out);
+    __Require_Quiet(serialNumber.data[2] == IAP_CERT_FIELD_DELIMITER &&
                   serialNumber.data[6] == IAP_CERT_FIELD_DELIMITER &&
                   serialNumber.data[8] == IAP_CERT_FIELD_DELIMITER &&
                   serialNumber.data[11] == IAP_CERT_FIELD_DELIMITER, out);
@@ -6808,14 +6808,14 @@ CFDataRef SecCertificateCopyiAPSWAuthCapabilities(SecCertificateRef certificate,
     CFDataRef extensionData = NULL;
     DERItem *extensionValue = NULL;
     CFStringRef extensionOID = SecCertificateiAPSWAuthCapabilitiesTypeToOID(type);
-    require_quiet(extensionOID, out);
+    __Require_Quiet(extensionOID, out);
     extensionValue = SecCertificateGetExtensionValue(certificate, extensionOID);
-    require_quiet(extensionValue, out);
+    __Require_Quiet(extensionValue, out);
     /* The extension is a octet string containing the DER-encoded variable-length octet string */
     DERDecodedInfo decodedValue;
-    require_noerr_quiet(DERDecodeItem(extensionValue, &decodedValue), out);
+    __Require_noErr_Quiet(DERDecodeItem(extensionValue, &decodedValue), out);
     if (decodedValue.tag == ASN1_OCTET_STRING) {
-        require_quiet(decodedValue.content.length < LONG_MAX, out);
+        __Require_Quiet(decodedValue.content.length < LONG_MAX, out);
         extensionData = CFDataCreate(NULL, decodedValue.content.data,
                                      (CFIndex)decodedValue.content.length);
     }
@@ -6829,18 +6829,18 @@ CFStringRef SecCertificateCopyComponentType(SecCertificateRef certificate) {
     }
     CFStringRef componentType = NULL;
     DERItem *extensionValue = SecCertificateGetExtensionValue(certificate, CFSTR("1.2.840.113635.100.11.1"));
-    require_quiet(extensionValue, out);
+    __Require_Quiet(extensionValue, out);
     /* The componentType is an IA5String or a UTF8String or not DER-encoded at all */
     DERDecodedInfo decodedValue;
     DERReturn drtn = DERDecodeItem(extensionValue, &decodedValue);
     if (drtn == DR_Success && decodedValue.tag == ASN1_IA5_STRING) {
-        require_quiet(decodedValue.content.length < LONG_MAX, out);
+        __Require_Quiet(decodedValue.content.length < LONG_MAX, out);
         componentType = CFStringCreateWithBytes(NULL, decodedValue.content.data, (CFIndex)decodedValue.content.length, kCFStringEncodingASCII, false);
     } else if (drtn == DR_Success && decodedValue.tag == ASN1_UTF8_STRING) {
-        require_quiet(decodedValue.content.length < LONG_MAX, out);
+        __Require_Quiet(decodedValue.content.length < LONG_MAX, out);
         componentType = CFStringCreateWithBytes(NULL, decodedValue.content.data, (CFIndex)decodedValue.content.length, kCFStringEncodingUTF8, false);
     } else if (drtn == DR_DecodeError) {
-        require_quiet(extensionValue->length < LONG_MAX, out);
+        __Require_Quiet(extensionValue->length < LONG_MAX, out);
         componentType = CFStringCreateWithBytes(NULL, extensionValue->data, (CFIndex)extensionValue->length, kCFStringEncodingUTF8, false);
     }
 out:
@@ -6855,18 +6855,18 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
     CFDictionaryRef result = NULL;
     __block CFMutableDictionaryRef componentAttributes = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     DERItem *extensionValue = SecCertificateGetExtensionValue(certificate, CFSTR("1.2.840.113635.100.11.3"));
-    require_quiet(extensionValue, out);
+    __Require_Quiet(extensionValue, out);
     DERReturn seq_err = DERDecodeSequenceWithBlock(extensionValue, ^DERReturn(DERDecodedInfo *content, bool *stop) {
         DERTag tagnum = content->tag & ASN1_TAGNUM_MASK;
         CFNumberRef tag = CFNumberCreate(NULL, kCFNumberSInt64Type, &tagnum);
         DERReturn drtn = DR_GenericErr;
         DERDecodedInfo encodedValue;
         CFTypeRef value = NULL;
-        require_noerr(drtn = DERDecodeItem(&content->content, &encodedValue), blockOut);
+        __Require_noErr(drtn = DERDecodeItem(&content->content, &encodedValue), blockOut);
         switch(encodedValue.tag) {
             case ASN1_BOOLEAN: {
                 DERBool boolValue = false;
-                require_noerr(drtn = DERParseBoolean(&encodedValue.content, &boolValue), blockOut);
+                __Require_noErr(drtn = DERParseBoolean(&encodedValue.content, &boolValue), blockOut);
                 if (boolValue) {
                     value = kCFBooleanTrue;
                 } else {
@@ -6879,19 +6879,19 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
                 break;
             case ASN1_INTEGER: {
                 DERLong intValue = 0;
-                require_noerr(drtn = DERParseInteger64(&encodedValue.content, &intValue), blockOut);
+                __Require_noErr(drtn = DERParseInteger64(&encodedValue.content, &intValue), blockOut);
                 value = CFNumberCreate(NULL, kCFNumberSInt64Type, &intValue);
                 break;
             }
             case ASN1_OCTET_STRING:
             case ASN1_OBJECT_ID:
-                require_action_quiet(encodedValue.content.length <= LONG_MAX, blockOut, drtn = DR_BufOverflow);
+                __Require_Action_Quiet(encodedValue.content.length <= LONG_MAX, blockOut, drtn = DR_BufOverflow);
                 value = CFDataCreate(NULL, encodedValue.content.data, (CFIndex)encodedValue.content.length);
                 break;
             case ASN1_BIT_STRING: {
                 DERItem bitStringBytes = { NULL, 0 };
-                require_noerr(drtn = DERParseBitString(&encodedValue.content, &bitStringBytes, NULL), blockOut);
-                require_action_quiet(bitStringBytes.length <= LONG_MAX, blockOut, drtn = DR_BufOverflow);
+                __Require_noErr(drtn = DERParseBitString(&encodedValue.content, &bitStringBytes, NULL), blockOut);
+                __Require_Action_Quiet(bitStringBytes.length <= LONG_MAX, blockOut, drtn = DR_BufOverflow);
                 value = CFDataCreate(NULL, bitStringBytes.data, (CFIndex)bitStringBytes.length);
                 break;
             }
@@ -6929,7 +6929,7 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
         CFReleaseNull(value);
         return drtn;
     });
-    require_noerr(seq_err, out);
+    __Require_noErr(seq_err, out);
 
     if (componentAttributes && CFDictionaryGetCount(componentAttributes) > 0) {
         result = CFDictionaryCreateCopy(NULL, componentAttributes);
@@ -6948,12 +6948,12 @@ CFDataRef SecCertificateCopyCompressedMFiCert(SecCertificateRef certificate) {
     size_t compressedLength = 0;
     int ctReturn = 0;
     CFDataRef result = NULL;
-    require_noerr_quiet(ctReturn = CTCompressComputeBufferSize(SecCertificateGetBytePtr(certificate),
+    __Require_noErr_Quiet(ctReturn = CTCompressComputeBufferSize(SecCertificateGetBytePtr(certificate),
                                                                (size_t)SecCertificateGetLength(certificate),
                                                                &compressedLength),
                         errOut);
 
-    require_quiet(outBuffer = malloc(compressedLength), errOut);
+    __Require_Quiet(outBuffer = malloc(compressedLength), errOut);
     ctReturn = CTCompress(SecCertificateGetBytePtr(certificate),
                           (size_t)SecCertificateGetLength(certificate),
                           outBuffer,
@@ -6978,12 +6978,12 @@ SecCertificateRef SecCertificateCreateWithCompressedMFiCert(CFDataRef compressed
     uint8_t *decompressedData = NULL;
     size_t decompressedLength = 0;
     int ctReturn = 0;
-    require_noerr_quiet(ctReturn = CTDecompressComputeBufferSize(CFDataGetBytePtr(compressedCert),
+    __Require_noErr_Quiet(ctReturn = CTDecompressComputeBufferSize(CFDataGetBytePtr(compressedCert),
                                                                  (size_t)CFDataGetLength(compressedCert),
                                                                  &decompressedLength),
                         errOut);
-    require_quiet(decompressedData = malloc(decompressedLength), errOut);
-    require_noerr_quiet(ctReturn = CTDecompress(CFDataGetBytePtr(compressedCert),
+    __Require_Quiet(decompressedData = malloc(decompressedLength), errOut);
+    __Require_noErr_Quiet(ctReturn = CTDecompress(CFDataGetBytePtr(compressedCert),
                                                 (size_t)CFDataGetLength(compressedCert),
                                                 decompressedData,
                                                 decompressedLength),
@@ -7048,8 +7048,8 @@ SecCertificateRef SecCertificateCreateWithPEM(CFAllocatorRef allocator,
 
     size_t base64_length = SecBase64Decode(begin, (size_t)(end - begin), NULL, 0);
     if (base64_length && (base64_length < (size_t)CFDataGetLength(pem_certificate))) {
-        require_quiet(base64_data = calloc(1, base64_length), out);
-        require_action_quiet(base64_length = SecBase64Decode(begin, (size_t)(end - begin), base64_data, base64_length), out, free(base64_data));
+        __Require_Quiet(base64_data = calloc(1, base64_length), out);
+        __Require_Action_Quiet(base64_length = SecBase64Decode(begin, (size_t)(end - begin), base64_data, base64_length), out, free(base64_data));
         cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, base64_data, (CFIndex)base64_length);
         free(base64_data);
     }
@@ -7122,7 +7122,7 @@ SecCertificateRef SecCertificateCreateWithXPCArrayAtIndex(xpc_object_t xpc_certi
 
 xpc_object_t SecCertificateArrayCopyXPCArray(CFArrayRef certificates, CFErrorRef *error) {
     xpc_object_t xpc_certificates;
-    require_action_quiet(xpc_certificates = xpc_array_create(NULL, 0), exit,
+    __Require_Action_Quiet(xpc_certificates = xpc_array_create(NULL, 0), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create xpc_array")));
     CFIndex ix, count = CFArrayGetCount(certificates);
     for (ix = 0; ix < count; ++ix) {
@@ -7145,12 +7145,12 @@ exit:
 
 CFArrayRef SecCertificateXPCArrayCopyArray(xpc_object_t xpc_certificates, CFErrorRef *error) {
     CFMutableArrayRef certificates = NULL;
-    require_action_quiet(xpc_get_type(xpc_certificates) == XPC_TYPE_ARRAY, exit,
+    __Require_Action_Quiet(xpc_get_type(xpc_certificates) == XPC_TYPE_ARRAY, exit,
                          SecError(errSecParam, error, CFSTR("certificates xpc value is not an array")));
     size_t count = xpc_array_get_count(xpc_certificates);
-    require_action_quiet(count < LONG_MAX, exit,
+    __Require_Action_Quiet(count < LONG_MAX, exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
-    require_action_quiet(certificates = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
+    __Require_Action_Quiet(certificates = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
 
     size_t ix;
@@ -7197,6 +7197,11 @@ CFArrayRef SecCertificateCopyEscrowRoots(SecCertificateEscrowRootType escrowRoot
         default:
             numRoots = kNumberOfBaseLineEscrowEnrollmentRoots;
             pEscrowRoots = kBaseLineEscrowEnrollmentRoots;
+            break;
+        case kSecCertificateBaselineLRCEscrowRoot:
+        case kSecCertificateProductionLRCEscrowRoot:
+            numRoots = kNumberOfBaseLineLRCEscrowRoots;
+            pEscrowRoots = kBaseLineLRCEscrowRoots;
             break;
     }
 
@@ -7401,14 +7406,14 @@ CFArrayRef SecCertificateCopyiPhoneDeviceCAChain(void) {
     CFMutableArrayRef result = NULL;
     SecCertificateRef iPhoneDeviceCA = NULL, iPhoneCA = NULL, appleRoot = NULL;
 
-    require_quiet(iPhoneDeviceCA = SecCertificateCreateWithBytes(NULL, _AppleiPhoneDeviceCA, sizeof(_AppleiPhoneDeviceCA)),
+    __Require_Quiet(iPhoneDeviceCA = SecCertificateCreateWithBytes(NULL, _AppleiPhoneDeviceCA, sizeof(_AppleiPhoneDeviceCA)),
                   errOut);
-    require_quiet(iPhoneCA = SecCertificateCreateWithBytes(NULL, _AppleiPhoneCA, sizeof(_AppleiPhoneCA)),
+    __Require_Quiet(iPhoneCA = SecCertificateCreateWithBytes(NULL, _AppleiPhoneCA, sizeof(_AppleiPhoneCA)),
                   errOut);
-    require_quiet(appleRoot = SecCertificateCreateWithBytes(NULL, _AppleRootCA, sizeof(_AppleRootCA)),
+    __Require_Quiet(appleRoot = SecCertificateCreateWithBytes(NULL, _AppleRootCA, sizeof(_AppleRootCA)),
                   errOut);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks), errOut);
     CFArrayAppendValue(result, iPhoneDeviceCA);
     CFArrayAppendValue(result, iPhoneCA);
     CFArrayAppendValue(result, appleRoot);
@@ -7460,13 +7465,13 @@ CFArrayRef SecCertificateCopyAppleExternalRoots(void) {
     CFMutableArrayRef result = NULL;
     SecCertificateRef appleExternalECRoot = NULL, testAppleExternalECRoot = NULL;
 
-    require_quiet(appleExternalECRoot = SecCertificateCreateWithBytes(NULL, _AppleExternalECRootCA, sizeof(_AppleExternalECRootCA)),
+    __Require_Quiet(appleExternalECRoot = SecCertificateCreateWithBytes(NULL, _AppleExternalECRootCA, sizeof(_AppleExternalECRootCA)),
                   errOut);
-    require_quiet(testAppleExternalECRoot = SecCertificateCreateWithBytes(NULL, _TestAppleExternalECRootCA,
+    __Require_Quiet(testAppleExternalECRoot = SecCertificateCreateWithBytes(NULL, _TestAppleExternalECRootCA,
                                                                           sizeof(_TestAppleExternalECRootCA)),
                   errOut);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     CFArrayAppendValue(result, appleExternalECRoot);
     if (SecIsInternalRelease()) {
         CFArrayAppendValue(result, testAppleExternalECRoot);
@@ -7490,19 +7495,55 @@ _Nullable CF_RETURNS_RETAINED CFStringRef SecCertificateCopyAnchorLookupKey(SecC
     CFDataRef normalizedSubjectHash = NULL;
     CFStringRef anchorLookupKey = NULL;
 
-    require_quiet(certificate, errOut);
+    __Require_Quiet(certificate, errOut);
     normalizedSubjectContent = SecCertificateGetNormalizedSubjectContent(certificate);
     CFRetainSafe(normalizedSubjectContent);
-    require_quiet(normalizedSubjectContent, errOut);
+    __Require_Quiet(normalizedSubjectContent, errOut);
     normalizedSubjectHash = CFDataCreateWithHash(kCFAllocatorDefault, ccsha1_di(), CFDataGetBytePtr(normalizedSubjectContent), CFDataGetLength(normalizedSubjectContent));
-    require_quiet(normalizedSubjectHash, errOut);
+    __Require_Quiet(normalizedSubjectHash, errOut);
     anchorLookupKey = CFDataCopyHexString(normalizedSubjectHash);
-    require_quiet(anchorLookupKey, errOut);
+    __Require_Quiet(anchorLookupKey, errOut);
 
 errOut:
     CFReleaseSafe(normalizedSubjectContent);
     CFReleaseSafe(normalizedSubjectHash);
     return anchorLookupKey;
+}
+
+static CFDictionaryRef SecCertificateInitializeSignatureAlgorithmMap(void) {
+    struct {
+        const DERItem *oid;
+        SecKeyAlgorithm algorithm;
+    } signatureAlgorithmMappings[] = {
+        // RSA algorithms
+        { &oidMd5Rsa,     kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5 },
+        { &oidSha1Rsa,    kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1 },
+        { &oidSha224Rsa,  kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224 },
+        { &oidSha256Rsa,  kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256 },
+        { &oidSha384Rsa,  kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384 },
+        { &oidSha512Rsa,  kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512 },
+        // ECDSA algorithms
+        { &oidSha1Ecdsa,   kSecKeyAlgorithmECDSASignatureMessageX962SHA1 },
+        { &oidSha224Ecdsa, kSecKeyAlgorithmECDSASignatureMessageX962SHA224 },
+        { &oidSha256Ecdsa, kSecKeyAlgorithmECDSASignatureMessageX962SHA256 },
+        { &oidSha384Ecdsa, kSecKeyAlgorithmECDSASignatureMessageX962SHA384 },
+        { &oidSha512Ecdsa, kSecKeyAlgorithmECDSASignatureMessageX962SHA512 },
+        // EdDSA algorithms
+        { &oidEd25519, kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512 },
+        { &oidEd448,   kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256 },
+    };
+
+    const size_t mappingCount = sizeof(signatureAlgorithmMappings) / sizeof(signatureAlgorithmMappings[0]);
+    const void *oids[mappingCount];
+    const void *algorithms[mappingCount];
+
+    for (size_t i = 0; i < mappingCount; i++) {
+        oids[i] = signatureAlgorithmMappings[i].oid;
+        algorithms[i] = signatureAlgorithmMappings[i].algorithm;
+    }
+
+    return CFDictionaryCreate(kCFAllocatorDefault, oids, algorithms, (CFIndex)mappingCount,
+                              &SecDERItemKeyCallBacks, NULL);
 }
 
 SecKeyAlgorithm SecCertificateCopySignatureAlgorithm(SecCertificateRef certificate) {
@@ -7514,13 +7555,12 @@ SecKeyAlgorithm SecCertificateCopySignatureAlgorithm(SecCertificateRef certifica
         return NULL;
     }
 
-    SecKeyRef publicKey = SecCertificateCopyKey(certificate);
-    if (!publicKey) {
-        return NULL;
-    }
+    static CFDictionaryRef sSignatureAlgorithmMap = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sSignatureAlgorithmMap = SecCertificateInitializeSignatureAlgorithmMap();
+    });
 
-    SecKeyAlgorithm algorithm = SecKeyAlgorithmCopyFromDERAlgorithmId(publicKey, &certificate->_sigAlg);
-
-    CFRelease(publicKey);
-    return algorithm;
+    return CFRetainSafe((SecKeyAlgorithm)CFDictionaryGetValue(
+        sSignatureAlgorithmMap, &certificate->_sigAlg.oid));
 }

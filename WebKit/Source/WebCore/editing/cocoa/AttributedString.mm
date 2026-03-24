@@ -49,6 +49,10 @@
 
 OBJC_CLASS NSTextTab;
 
+#if PLATFORM(IOS_FAMILY)
+SPECIALIZE_OBJC_TYPE_TRAITS(UIImage, PAL::getUIImageClassSingleton())
+#endif
+
 namespace WebCore {
 
 using IdentifierToTableMap = HashMap<AttributedStringTextTableID, RetainPtr<NSTextTable>>;
@@ -73,9 +77,9 @@ AttributedString::AttributedString(const AttributedString&) = default;
 AttributedString& AttributedString::operator=(const AttributedString&) = default;
 
 AttributedString::AttributedString(String&& string, Vector<std::pair<Range, HashMap<String, AttributeValue>>>&& attributes, std::optional<HashMap<String, AttributeValue>>&& documentAttributes)
-    : string(WTFMove(string))
-    , attributes(WTFMove(attributes))
-    , documentAttributes(WTFMove(documentAttributes)) { }
+    : string(WTF::move(string))
+    , attributes(WTF::move(attributes))
+    , documentAttributes(WTF::move(documentAttributes)) { }
 
 bool AttributedString::rangesAreSafe(const String& string, const Vector<std::pair<Range, HashMap<String, AttributeValue>>>& vector)
 {
@@ -92,41 +96,41 @@ bool AttributedString::rangesAreSafe(const String& string, const Vector<std::pai
 
 inline static void configureNSTextBlockFromParagraphStyleCommonTableAttributes(NSTextBlock* table, const ParagraphStyleCommonTableAttributes& item)
 {
-    [table setValue:item.width type:NSTextBlockAbsoluteValueType forDimension:NSTextBlockWidth];
-    [table setValue:item.minimumWidth type:NSTextBlockAbsoluteValueType forDimension:NSTextBlockMinimumWidth];
-    [table setValue:item.maximumWidth type:NSTextBlockAbsoluteValueType forDimension:NSTextBlockMaximumWidth];
-    [table setValue:item.minimumHeight type:NSTextBlockAbsoluteValueType forDimension:NSTextBlockMinimumHeight];
-    [table setValue:item.maximumHeight type:NSTextBlockAbsoluteValueType forDimension:NSTextBlockMaximumHeight];
+    [table setValue:item.width type:NSTextBlockValueTypeAbsolute forDimension:NSTextBlockDimensionWidth];
+    [table setValue:item.minimumWidth type:NSTextBlockValueTypeAbsolute forDimension:NSTextBlockDimensionMinimumWidth];
+    [table setValue:item.maximumWidth type:NSTextBlockValueTypeAbsolute forDimension:NSTextBlockDimensionMaximumWidth];
+    [table setValue:item.minimumHeight type:NSTextBlockValueTypeAbsolute forDimension:NSTextBlockDimensionMinimumHeight];
+    [table setValue:item.maximumHeight type:NSTextBlockValueTypeAbsolute forDimension:NSTextBlockDimensionMaximumHeight];
 
-    [table setWidth:item.paddingMinXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding edge:NSMinXEdge];
-    [table setWidth:item.paddingMinYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding edge:NSMinYEdge];
-    [table setWidth:item.paddingMaxXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding edge:NSMaxXEdge];
-    [table setWidth:item.paddingMaxYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding edge:NSMaxYEdge];
+    [table setWidth:item.paddingMinXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinX];
+    [table setWidth:item.paddingMinYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinY];
+    [table setWidth:item.paddingMaxXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxX];
+    [table setWidth:item.paddingMaxYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxY];
 
-    [table setWidth:item.borderMinXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder edge:NSMinXEdge];
-    [table setWidth:item.borderMinYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder edge:NSMinYEdge];
-    [table setWidth:item.borderMaxXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder edge:NSMaxXEdge];
-    [table setWidth:item.borderMaxYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder edge:NSMaxYEdge];
+    [table setWidth:item.borderMinXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinX];
+    [table setWidth:item.borderMinYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinY];
+    [table setWidth:item.borderMaxXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxX];
+    [table setWidth:item.borderMaxYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxY];
 
-    [table setWidth:item.marginMinXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockMargin edge:NSMinXEdge];
-    [table setWidth:item.marginMinYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockMargin edge:NSMinYEdge];
-    [table setWidth:item.marginMaxXEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockMargin edge:NSMaxXEdge];
-    [table setWidth:item.marginMaxYEdge type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockMargin edge:NSMaxYEdge];
+    [table setWidth:item.marginMinXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinX];
+    [table setWidth:item.marginMinYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinY];
+    [table setWidth:item.marginMaxXEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxX];
+    [table setWidth:item.marginMaxYEdge type:NSTextBlockValueTypeAbsolute forLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxY];
 
     if (item.backgroundColor)
         [table setBackgroundColor:item.backgroundColor.get()];
 
     if (item.borderMinXEdgeColor)
-        [table setBorderColor:item.borderMinXEdgeColor.get() forEdge:NSMinXEdge];
+        [table setBorderColor:item.borderMinXEdgeColor.get() forEdge:NSRectEdgeMinX];
 
     if (item.borderMinYEdgeColor)
-        [table setBorderColor:item.borderMinYEdgeColor.get() forEdge:NSMinYEdge];
+        [table setBorderColor:item.borderMinYEdgeColor.get() forEdge:NSRectEdgeMinY];
 
     if (item.borderMaxXEdgeColor)
-        [table setBorderColor:item.borderMaxXEdgeColor.get() forEdge:NSMaxXEdge];
+        [table setBorderColor:item.borderMaxXEdgeColor.get() forEdge:NSRectEdgeMaxX];
 
     if (item.borderMaxYEdgeColor)
-        [table setBorderColor:item.borderMaxYEdgeColor.get() forEdge:NSMaxYEdge];
+        [table setBorderColor:item.borderMaxYEdgeColor.get() forEdge:NSRectEdgeMaxY];
 }
 
 inline static NSTextAlignment reconstructNSTextAlignment(ParagraphStyleAlignment alignment)
@@ -151,28 +155,28 @@ inline static NSTextBlockVerticalAlignment reconstructNSTextBlockVerticalAlignme
 {
     switch (alignment) {
     case TextTableBlockVerticalAlignment::Top:
-        return NSTextBlockTopAlignment;
+        return NSTextBlockVerticalAlignmentTop;
     case TextTableBlockVerticalAlignment::Middle:
-        return NSTextBlockMiddleAlignment;
+        return NSTextBlockVerticalAlignmentMiddle;
     case TextTableBlockVerticalAlignment::Bottom:
-        return NSTextBlockBottomAlignment;
+        return NSTextBlockVerticalAlignmentBottom;
     case TextTableBlockVerticalAlignment::Baseline:
-        return NSTextBlockBaselineAlignment;
+        return NSTextBlockVerticalAlignmentBaseline;
     }
     ASSERT_NOT_REACHED();
-    return NSTextBlockTopAlignment;
+    return NSTextBlockVerticalAlignmentTop;
 }
 
 inline static NSTextTableLayoutAlgorithm reconstructNSTextTableLayoutAlgorithm(TextTableLayoutAlgorithm layout)
 {
     switch (layout) {
     case TextTableLayoutAlgorithm::Automatic:
-        return NSTextTableAutomaticLayoutAlgorithm;
+        return NSTextTableLayoutAlgorithmAutomatic;
     case TextTableLayoutAlgorithm::Fixed:
-        return NSTextTableFixedLayoutAlgorithm;
+        return NSTextTableLayoutAlgorithmFixed;
     }
     ASSERT_NOT_REACHED();
-    return NSTextTableAutomaticLayoutAlgorithm;
+    return NSTextTableLayoutAlgorithmAutomatic;
 }
 
 inline static NSWritingDirection reconstructNSWritingDirection(ParagraphStyleWritingDirection writingDirection)
@@ -240,14 +244,14 @@ inline static RetainPtr<NSParagraphStyle> reconstructStyle(const ParagraphStyle&
 
     if (!style.textTableBlockIDs.isEmpty()) {
         RetainPtr blocks = createNSArray(style.textTableBlockIDs, [&] (auto& object) -> id {
-            return tableBlocks.get(object).unsafeGet();
+            return tableBlocks.get(object);
         });
         [mutableStyle setTextBlocks:blocks.get()];
     }
 
     if (!style.textListIDs.isEmpty()) {
         RetainPtr textLists = createNSArray(style.textListIDs, [&] (auto& object) -> id {
-            return lists.get(object).unsafeGet();
+            return lists.get(object);
         });
         [mutableStyle setTextLists:textLists.get()];
     }
@@ -278,7 +282,7 @@ static MultiRepresentationHEICAttachmentData toMultiRepresentationHEICAttachment
     for (NSEmojiImageStrike *strike in attachment.strikes) {
         MultiRepresentationHEICAttachmentSingleImage image;
         RefPtr nativeImage = NativeImage::create(strike.cgImage);
-        image.image = BitmapImage::create(WTFMove(nativeImage));
+        image.image = BitmapImage::create(WTF::move(nativeImage));
         image.size = FloatSize { strike.alignmentInset };
         attachmentData.images.append(image);
     }
@@ -383,8 +387,8 @@ static RetainPtr<id> toNSObject(const AttributedString::AttributeValue& value, I
         return value;
     }, [] (const RetainPtr<NSDate>& value) -> RetainPtr<id> {
         return value;
-    }, [] (const AttributedString::FontWrapper& font) -> RetainPtr<id> {
-        return (__bridge PlatformFont *)font.font->ctFont();
+    }, [] (const InstalledFont& font) -> RetainPtr<id> {
+        return (__bridge PlatformFont *)font.toCTFont().get();
     }, [] (const AttributedString::ColorFromPlatformColor& value) -> RetainPtr<id> {
         return cocoaColor(value.color);
     }, [] (const AttributedString::ColorFromCGColor& value) -> RetainPtr<id> {
@@ -449,7 +453,7 @@ static std::optional<AttributedString::AttributeValue> extractArray(NSArray *arr
             else
                 RELEASE_LOG_ERROR(Editing, "NSAttributedString extraction failed with array containing <%@>", NSStringFromClass([element class]));
         }
-        return { { { WTFMove(result) } } };
+        return { { { WTF::move(result) } } };
     }
     if ([array[0] isKindOfClass:NSNumber.class]) {
         Vector<double> result;
@@ -460,7 +464,7 @@ static std::optional<AttributedString::AttributeValue> extractArray(NSArray *arr
             else
                 RELEASE_LOG_ERROR(Editing, "NSAttributedString extraction failed with array containing <%@>", NSStringFromClass([element class]));
         }
-        return { { { WTFMove(result) } } };
+        return { { { WTF::move(result) } } };
     }
     RELEASE_LOG_ERROR(Editing, "NSAttributedString extraction failed with array of unknown values");
     ASSERT_NOT_REACHED();
@@ -469,7 +473,7 @@ static std::optional<AttributedString::AttributeValue> extractArray(NSArray *arr
 
 inline static Vector<AttributedString::TextListID> extractListIDs(NSParagraphStyle *style, ListToIdentifierMap& listIDs)
 {
-    return makeVector(style.textLists, [&](NSTextList *list) {
+    return makeVector(retainPtr(style.textLists).get(), [&](NSTextList *list) {
         return std::optional { listIDs.ensure(list, [] {
             return AttributedString::TextListID::generate();
         }).iterator->value };
@@ -497,13 +501,13 @@ inline static ParagraphStyleAlignment extractParagraphStyleAlignment(NSTextAlign
 inline static TextTableBlockVerticalAlignment extractTextTableBlockVerticalAlignment(NSTextBlockVerticalAlignment verticalAlignment)
 {
     switch (verticalAlignment) {
-    case NSTextBlockTopAlignment:
+    case NSTextBlockVerticalAlignmentTop:
         return TextTableBlockVerticalAlignment::Top;
-    case NSTextBlockMiddleAlignment:
+    case NSTextBlockVerticalAlignmentMiddle:
         return TextTableBlockVerticalAlignment::Middle;
-    case NSTextBlockBottomAlignment:
+    case NSTextBlockVerticalAlignmentBottom:
         return TextTableBlockVerticalAlignment::Bottom;
-    case NSTextBlockBaselineAlignment:
+    case NSTextBlockVerticalAlignmentBaseline:
         return TextTableBlockVerticalAlignment::Baseline;
     }
     ASSERT_NOT_REACHED();
@@ -513,9 +517,9 @@ inline static TextTableBlockVerticalAlignment extractTextTableBlockVerticalAlign
 inline static TextTableLayoutAlgorithm extractTextTableLayoutAlgorithm(NSTextTableLayoutAlgorithm layout)
 {
     switch (layout) {
-    case NSTextTableAutomaticLayoutAlgorithm:
+    case NSTextTableLayoutAlgorithmAutomatic:
         return TextTableLayoutAlgorithm::Automatic;
-    case NSTextTableFixedLayoutAlgorithm:
+    case NSTextTableLayoutAlgorithmFixed:
         return TextTableLayoutAlgorithm::Fixed;
     }
     ASSERT_NOT_REACHED();
@@ -578,8 +582,8 @@ inline static ParagraphStyle extractParagraphStyle(NSParagraphStyle *style, Tabl
 
         sentTextTableBlockIDs.append(tableBlockID);
 
-        auto nsTable = [tableBlock table];
-        auto tableEnsureResults = tableIDs.ensure(nsTable, [&] {
+        RetainPtr<NSTextTable> nsTable = [tableBlock table];
+        auto tableEnsureResults = tableIDs.ensure(nsTable.get(), [&] {
             return AttributedString::TextTableID::generate();
         });
         auto tableID = tableEnsureResults.iterator->value;
@@ -587,35 +591,35 @@ inline static ParagraphStyle extractParagraphStyle(NSParagraphStyle *style, Tabl
         if (tableEnsureResults.isNewEntry) {
             newTextTables.append(TextTable {
                 {
-                    [nsTable valueForDimension:NSTextBlockWidth],
-                    [nsTable valueForDimension:NSTextBlockMinimumWidth],
-                    [nsTable valueForDimension:NSTextBlockMaximumWidth],
-                    [nsTable valueForDimension:NSTextBlockMinimumHeight],
-                    [nsTable valueForDimension:NSTextBlockMaximumHeight],
+                    [nsTable valueForDimension:NSTextBlockDimensionWidth],
+                    [nsTable valueForDimension:NSTextBlockDimensionMinimumWidth],
+                    [nsTable valueForDimension:NSTextBlockDimensionMaximumWidth],
+                    [nsTable valueForDimension:NSTextBlockDimensionMinimumHeight],
+                    [nsTable valueForDimension:NSTextBlockDimensionMaximumHeight],
 
-                    [nsTable widthForLayer:NSTextBlockPadding edge:NSMinXEdge],
-                    [nsTable widthForLayer:NSTextBlockPadding edge:NSMinYEdge],
-                    [nsTable widthForLayer:NSTextBlockPadding edge:NSMaxXEdge],
-                    [nsTable widthForLayer:NSTextBlockPadding edge:NSMaxYEdge],
+                    [nsTable widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinX],
+                    [nsTable widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinY],
+                    [nsTable widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxX],
+                    [nsTable widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxY],
 
-                    [nsTable widthForLayer:NSTextBlockBorder edge:NSMinXEdge],
-                    [nsTable widthForLayer:NSTextBlockBorder edge:NSMinYEdge],
-                    [nsTable widthForLayer:NSTextBlockBorder edge:NSMaxXEdge],
-                    [nsTable widthForLayer:NSTextBlockBorder edge:NSMaxYEdge],
+                    [nsTable widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinX],
+                    [nsTable widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinY],
+                    [nsTable widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxX],
+                    [nsTable widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxY],
 
-                    [nsTable widthForLayer:NSTextBlockMargin edge:NSMinXEdge],
-                    [nsTable widthForLayer:NSTextBlockMargin edge:NSMinYEdge],
-                    [nsTable widthForLayer:NSTextBlockMargin edge:NSMaxXEdge],
-                    [nsTable widthForLayer:NSTextBlockMargin edge:NSMaxYEdge],
+                    [nsTable widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinX],
+                    [nsTable widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinY],
+                    [nsTable widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxX],
+                    [nsTable widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxY],
 
                     [nsTable backgroundColor],
-                    [nsTable borderColorForEdge:NSMinXEdge],
-                    [nsTable borderColorForEdge:NSMinYEdge],
-                    [nsTable borderColorForEdge:NSMaxXEdge],
-                    [nsTable borderColorForEdge:NSMaxYEdge]
+                    [nsTable borderColorForEdge:NSRectEdgeMinX],
+                    [nsTable borderColorForEdge:NSRectEdgeMinY],
+                    [nsTable borderColorForEdge:NSRectEdgeMaxX],
+                    [nsTable borderColorForEdge:NSRectEdgeMaxY]
                 },
                 tableID,
-                [nsTable numberOfColumns],
+                static_cast<uint64_t>([nsTable numberOfColumns]),
                 extractTextTableLayoutAlgorithm([nsTable layoutAlgorithm]),
                 !![nsTable collapsesBorders],
                 !![nsTable hidesEmptyCells],
@@ -625,32 +629,32 @@ inline static ParagraphStyle extractParagraphStyle(NSParagraphStyle *style, Tabl
         if (tableBlockEnsureResult.isNewEntry) {
             newTextTableBlocks.append(TextTableBlock {
                 {
-                    [item valueForDimension:NSTextBlockWidth],
-                    [item valueForDimension:NSTextBlockMinimumWidth],
-                    [item valueForDimension:NSTextBlockMaximumWidth],
-                    [item valueForDimension:NSTextBlockMinimumHeight],
-                    [item valueForDimension:NSTextBlockMaximumHeight],
+                    [item valueForDimension:NSTextBlockDimensionWidth],
+                    [item valueForDimension:NSTextBlockDimensionMinimumWidth],
+                    [item valueForDimension:NSTextBlockDimensionMaximumWidth],
+                    [item valueForDimension:NSTextBlockDimensionMinimumHeight],
+                    [item valueForDimension:NSTextBlockDimensionMaximumHeight],
 
-                    [item widthForLayer:NSTextBlockPadding edge:NSMinXEdge],
-                    [item widthForLayer:NSTextBlockPadding edge:NSMinYEdge],
-                    [item widthForLayer:NSTextBlockPadding edge:NSMaxXEdge],
-                    [item widthForLayer:NSTextBlockPadding edge:NSMaxYEdge],
+                    [item widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinX],
+                    [item widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMinY],
+                    [item widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxX],
+                    [item widthForLayer:NSTextBlockLayerPadding edge:NSRectEdgeMaxY],
 
-                    [item widthForLayer:NSTextBlockBorder edge:NSMinXEdge],
-                    [item widthForLayer:NSTextBlockBorder edge:NSMinYEdge],
-                    [item widthForLayer:NSTextBlockBorder edge:NSMaxXEdge],
-                    [item widthForLayer:NSTextBlockBorder edge:NSMaxYEdge],
+                    [item widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinX],
+                    [item widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMinY],
+                    [item widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxX],
+                    [item widthForLayer:NSTextBlockLayerBorder edge:NSRectEdgeMaxY],
 
-                    [item widthForLayer:NSTextBlockMargin edge:NSMinXEdge],
-                    [item widthForLayer:NSTextBlockMargin edge:NSMinYEdge],
-                    [item widthForLayer:NSTextBlockMargin edge:NSMaxXEdge],
-                    [item widthForLayer:NSTextBlockMargin edge:NSMaxYEdge],
+                    [item widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinX],
+                    [item widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMinY],
+                    [item widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxX],
+                    [item widthForLayer:NSTextBlockLayerMargin edge:NSRectEdgeMaxY],
 
                     [item backgroundColor],
-                    [item borderColorForEdge:NSMinXEdge],
-                    [item borderColorForEdge:NSMinYEdge],
-                    [item borderColorForEdge:NSMaxXEdge],
-                    [item borderColorForEdge:NSMaxYEdge]
+                    [item borderColorForEdge:NSRectEdgeMinX],
+                    [item borderColorForEdge:NSRectEdgeMinY],
+                    [item borderColorForEdge:NSRectEdgeMaxX],
+                    [item borderColorForEdge:NSRectEdgeMaxY]
                 },
                 tableBlockID,
                 tableID,
@@ -663,9 +667,9 @@ inline static ParagraphStyle extractParagraphStyle(NSParagraphStyle *style, Tabl
         }
     };
 
-    auto tabStops = [style tabStops];
+    RetainPtr<NSArray<NSTextTab *>> tabStops = [style tabStops];
     newTextTabs.reserveInitialCapacity([tabStops count]);
-    for (NSTextTab *textTab : tabStops) {
+    for (NSTextTab *textTab : tabStops.get()) {
         newTextTabs.append(TextTab {
             [textTab location],
             extractParagraphStyleAlignment([textTab alignment])
@@ -682,12 +686,12 @@ inline static ParagraphStyle extractParagraphStyle(NSParagraphStyle *style, Tabl
         [style headerLevel],
         [style tailIndent],
         [style paragraphSpacing],
-        WTFMove(sentTextTableBlockIDs),
-        WTFMove(sentTextListIDs),
-        WTFMove(newTextTableBlocks),
-        WTFMove(newTextTables),
-        WTFMove(newTextLists),
-        WTFMove(newTextTabs)
+        WTF::move(sentTextTableBlockIDs),
+        WTF::move(sentTextListIDs),
+        WTF::move(newTextTableBlocks),
+        WTF::move(newTextTables),
+        WTF::move(newTextLists),
+        WTF::move(newTextTabs)
     };
 }
 
@@ -719,25 +723,25 @@ static std::optional<AttributedString::AttributeValue> extractValue(id value, Ta
         return { { toMultiRepresentationHEICAttachmentData(attachment) } };
     }
 #endif
-    if ([value isKindOfClass:PlatformNSTextAttachment]) {
-        if (isWebCoreTextAttachmentMissingPlatformImage(static_cast<CocoaImage *>([value image])))
+    if (auto* attachment = dynamic_objc_cast<NSTextAttachment>(value)) {
+        if (isWebCoreTextAttachmentMissingPlatformImage(static_cast<CocoaImage*>(retainPtr([attachment image]).get())))
             return { { TextAttachmentMissingImage() } };
         TextAttachmentFileWrapper textAttachment;
-        if (auto accessibilityLabel = [value accessibilityLabel])
-            textAttachment.accessibilityLabel = accessibilityLabel;
+        if (auto accessibilityLabel = retainPtr([value accessibilityLabel]))
+            textAttachment.accessibilityLabel = accessibilityLabel.get();
 #if !PLATFORM(IOS_FAMILY)
         textAttachment.ignoresOrientation = [value ignoresOrientation];
 #endif
-        if (auto fileWrapper = [value fileWrapper]) {
-            if (auto data = bridge_cast([fileWrapper regularFileContents]))
+        if (auto fileWrapper = retainPtr([value fileWrapper])) {
+            if (auto data = bridge_cast(retainPtr([fileWrapper regularFileContents])))
                 textAttachment.data = data;
-            if (auto preferredFilename = [fileWrapper preferredFilename])
-                textAttachment.preferredFilename = preferredFilename;
+            if (auto preferredFilename = retainPtr([fileWrapper preferredFilename]))
+                textAttachment.preferredFilename = preferredFilename.get();
         }
         return { { textAttachment } };
     }
     if ([value isKindOfClass:PlatformFontClass])
-        return { { AttributedString::FontWrapper { Font::create(FontPlatformData((__bridge CTFontRef)value, [(PlatformFont *)value pointSize])) } } };
+        return { { *Font::create(FontPlatformData((__bridge CTFontRef)value, [(PlatformFont *)value pointSize]))->toSerializableInstalledFont() } };
     if ([value isKindOfClass:PlatformColorClass])
         return { { AttributedString::ColorFromPlatformColor { colorFromCocoaColor((PlatformColor *)value) } } };
     if (value) {
@@ -762,14 +766,14 @@ static HashMap<String, AttributedString::AttributeValue> extractDictionary(NSDic
             ASSERT_NOT_REACHED();
             return;
         }
-        result.set(keyString.get(), WTFMove(*extractedValue));
+        result.set(keyString.get(), WTF::move(*extractedValue));
     }];
     return result;
 }
 
 AttributedString AttributedString::fromNSAttributedString(RetainPtr<NSAttributedString>&& string)
 {
-    return fromNSAttributedStringAndDocumentAttributes(WTFMove(string), nullptr);
+    return fromNSAttributedStringAndDocumentAttributes(WTF::move(string), nullptr);
 }
 
 AttributedString AttributedString::fromNSAttributedStringAndDocumentAttributes(RetainPtr<NSAttributedString>&& string, RetainPtr<NSDictionary>&& dictionary)
@@ -784,62 +788,7 @@ AttributedString AttributedString::fromNSAttributedStringAndDocumentAttributes(R
     }];
     if (dictionary)
         result.documentAttributes = extractDictionary(dictionary.get(), tableIDs, tableBlockIDs, listIDs);
-    return { WTFMove(result) };
-}
-
-std::optional<AttributedString::FontWrapper> AttributedString::FontWrapper::createFromIPCData(const String& postScriptName, double pointSize, const CTFontDescriptorOptions& fontDescriptorOptions, const std::optional<WebCore::FontPlatformSerializedAttributes>& fontSerializedAttributes)
-{
-    RetainPtr font = [&] -> RetainPtr<CTFontRef> {
-        RetainPtr<CTFontDescriptorRef> fontDescriptor;
-        if (fontSerializedAttributes)
-            fontDescriptor = adoptCF(CTFontDescriptorCreateWithAttributesAndOptions(fontSerializedAttributes->toCFDictionary().get(), fontDescriptorOptions));
-        else
-            fontDescriptor = adoptCF(CTFontDescriptorCreateWithNameAndSize(postScriptName.createCFString().get(), pointSize));
-
-        RetainPtr matched = adoptCF(CTFontDescriptorCreateMatchingFontDescriptorsWithOptions(fontDescriptor.get(), NULL, kCTFontDescriptorMatchingOptionIncludeHiddenFonts));
-        if (!matched || !CFArrayGetCount(matched.get()))
-            return { };
-
-        RetainPtr matchedDescriptor = dynamic_cf_cast<CTFontDescriptorRef>(CFArrayGetValueAtIndex(matched.get(), 0));
-        RetainPtr matchedFont = adoptCF(CTFontCreateWithFontDescriptor(matchedDescriptor.get(), pointSize, NULL));
-
-        if (String(adoptCF(CTFontCopyPostScriptName(matchedFont.get())).get()) != postScriptName)
-            return { };
-
-        return matchedFont;
-    }();
-
-    if (!font)
-        font = adoptCF(CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, pointSize, nil));
-
-    return { { Font::create(FontPlatformData(font.get(), pointSize)) } };
-}
-
-String AttributedString::FontWrapper::postScriptName() const
-{
-    RetainPtr ctFont = font->ctFont();
-    return String(adoptCF(CTFontCopyPostScriptName(ctFont.get())).get());
-}
-
-double AttributedString::FontWrapper::pointSize() const
-{
-    RetainPtr ctFont = font->ctFont();
-    return CTFontGetSize(ctFont.get());
-}
-
-CTFontDescriptorOptions AttributedString::FontWrapper::fontDescriptorOptions() const
-{
-    RetainPtr ctFont = font->ctFont();
-    RetainPtr fontDescriptor = adoptCF(CTFontCopyFontDescriptor(ctFont.get()));
-    return CTFontDescriptorGetOptions(fontDescriptor.get());
-}
-
-std::optional<WebCore::FontPlatformSerializedAttributes> AttributedString::FontWrapper::fontSerializedAttributes() const
-{
-    RetainPtr ctFont = font->ctFont();
-    RetainPtr fontDescriptor = adoptCF(CTFontCopyFontDescriptor(ctFont.get()));
-    RetainPtr attributes = adoptCF(CTFontDescriptorCopyAttributes(fontDescriptor.get()));
-    return FontPlatformSerializedAttributes::fromCF(attributes.get());
+    return { WTF::move(result) };
 }
 
 }

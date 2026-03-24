@@ -34,7 +34,7 @@ namespace WebCore {
 class HTMLTemplateElement;
 
 class TemplateContentDocumentFragment final : public DocumentFragment {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TemplateContentDocumentFragment);
+    WTF_MAKE_TZONE_ALLOCATED(TemplateContentDocumentFragment);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TemplateContentDocumentFragment);
 public:
     static Ref<TemplateContentDocumentFragment> create(Document& document, const HTMLTemplateElement& host)
@@ -48,7 +48,7 @@ public:
 private:
     TemplateContentDocumentFragment(Document&, const HTMLTemplateElement&);
 
-    bool isTemplateContent() const override { return true; }
+    bool isTemplateContent() const final { return true; }
 
     WeakPtr<const HTMLTemplateElement, WeakPtrImplWithEventTargetData> m_host;
 };

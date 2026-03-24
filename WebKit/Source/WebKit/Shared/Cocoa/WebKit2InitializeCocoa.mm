@@ -65,7 +65,7 @@ static void runInitializationCode(void* = nullptr)
     InitWebCoreThreadSystemInterface();
 #endif
 
-    WTF::RefCountedBase::enableThreadingChecksGlobally();
+    WTF::RefCountDebugger::enableThreadingChecksGlobally();
 
     WebCore::populateJITOperations();
 }

@@ -44,33 +44,39 @@ enum class Category : uint8_t;
 
 namespace Style {
 
-class CalculationValue : public RefCounted<CalculationValue> {
-    WTF_DEPRECATED_MAKE_FAST_COMPACT_ALLOCATED(CalculationValue);
-public:
-    WEBCORE_EXPORT static Ref<CalculationValue> create(CSS::Category, CSS::Range, Calculation::Tree&&);
-    WEBCORE_EXPORT ~CalculationValue();
+struct ZoomFactor;
+struct ZoomNeeded;
 
-    double evaluate(double percentResolutionLength) const;
+namespace Calculation {
+
+class Value : public RefCounted<Value> {
+    WTF_DEPRECATED_MAKE_FAST_COMPACT_ALLOCATED(Value);
+public:
+    WEBCORE_EXPORT static Ref<Value> create(CSS::Category, CSS::Range, Tree&&);
+    WEBCORE_EXPORT ~Value();
+
+    double evaluate(double percentResolutionLength, const ZoomFactor& usedZoom) const;
+    double evaluate(double percentResolutionLength, const ZoomNeeded&) const;
 
     CSS::Category category() const { return m_category; }
     CSS::Range range() const { return m_range; }
 
-    const Calculation::Tree& tree() const { return m_tree; }
-    Calculation::Tree copyTree() const;
-    Calculation::Child copyRoot() const;
+    const Tree& tree() const { return m_tree; }
+    Tree copyTree() const;
+    Child copyRoot() const;
 
-    WEBCORE_EXPORT bool operator==(const CalculationValue&) const;
+    WEBCORE_EXPORT bool operator==(const Value&) const;
 
 private:
-    CalculationValue(CSS::Category, CSS::Range, Calculation::Tree&&);
+    Value(CSS::Category, CSS::Range, Tree&&);
 
     CSS::Category m_category;
     CSS::Range m_range;
-    Calculation::Tree m_tree;
+    Tree m_tree;
 };
 
-TextStream& operator<<(TextStream&, const CalculationValue&);
+TextStream& operator<<(TextStream&, const Value&);
 
+} // namespace Calculation
 } // namespace Style
 } // namespace WebCore
-

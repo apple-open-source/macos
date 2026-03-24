@@ -77,7 +77,7 @@ static std::optional<SRGBA<uint8_t>> makeSimpleColorFromNSColor(NSColor *color)
     CGFloat alpha;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    NSColor *rgbColor = [color colorUsingColorSpace:NSColorSpace.deviceRGBColorSpace];
+    RetainPtr<NSColor> rgbColor = [color colorUsingColorSpace:NSColorSpace.deviceRGBColorSpace];
     if (!rgbColor) {
         // The color space conversion above can fail if the NSColor is in the NSPatternColorSpace.
         // These colors are actually a repeating pattern, not just a solid color. To workaround

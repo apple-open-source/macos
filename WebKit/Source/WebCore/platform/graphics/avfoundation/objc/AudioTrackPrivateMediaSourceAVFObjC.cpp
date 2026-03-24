@@ -49,6 +49,7 @@ void AudioTrackPrivateMediaSourceAVFObjC::resetPropertiesFromTrack()
     setId(m_impl->id());
     setLabel(m_impl->label());
     setLanguage(m_impl->language());
+    setConfiguration(m_impl->audioTrackConfiguration());
 }
 
 AVAssetTrack* AudioTrackPrivateMediaSourceAVFObjC::assetTrack()

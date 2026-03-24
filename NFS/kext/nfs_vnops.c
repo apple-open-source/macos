@@ -86,6 +86,7 @@
 #include <nfs/nfsm_subs.h>
 
 #define NFS_VNOP_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_VNOP, 7, ## __VA_ARGS__)
+#define NFS_VNOP_DBG_ENABLED() NFSCLNT_IS_DBG(NFSCLNT_FAC_VNOP, 7)
 #define DEFAULT_READLINK_NOCACHE 0
 #define NFS_CLOSE_LOCK_RETRY    10
 
@@ -1978,19 +1979,23 @@ nfsmout:
 			cache_purge(vp);
 			np->n_ncgen++;
 			NFS_CHANGED_UPDATE_NC(nfsvers, np, nvap);
-			const char *vname = vnode_getname(vp);
-			NFS_VNOP_DBG("Purge directory %s\n", vname ? vname : "empty");
-			if (vname) {
-				vnode_putname(vname);
+			if (NFS_VNOP_DBG_ENABLED()) {
+				const char *vname = vnode_getname(vp);
+				NFS_VNOP_DBG("Purge directory %s\n", vname ? vname : "empty");
+				if (vname) {
+					vnode_putname(vname);
+				}
 			}
 		}
 		if (NFS_CHANGED(nfsvers, np, nvap)) {
 			NFS_KDBG_INFO(NFSDBG_OP_GETATTR_INTERNAL, 0xabc003, NFSTOV(np), vtype, error);
 			if (vtype == VDIR) {
-				const char *vname = vnode_getname(vp);
-				NFS_VNOP_DBG("Invalidate directory %s\n", vname ? vname : "empty");
-				if (vname) {
-					vnode_putname(vname);
+				if (NFS_VNOP_DBG_ENABLED()) {
+					const char *vname = vnode_getname(vp);
+					NFS_VNOP_DBG("Invalidate directory %s\n", vname ? vname : "empty");
+					if (vname) {
+						vnode_putname(vname);
+					}
 				}
 				nfs_invaldir(np);
 			}
@@ -2091,10 +2096,12 @@ nfs3_vnop_getattr(
 	}
 
 	if (VATTR_IS_ACTIVE(ap->a_vap, va_name)) {
-		const char *vname = vnode_getname(vp);
-		NFS_VNOP_DBG("Getting attrs for %s\n", vname ? vname : "empty");
-		if (vname) {
-			vnode_putname(vname);
+		if (NFS_VNOP_DBG_ENABLED()) {
+			const char *vname = vnode_getname(vp);
+			NFS_VNOP_DBG("Getting attrs for %s\n", vname ? vname : "empty");
+			if (vname) {
+				vnode_putname(vname);
+			}
 		}
 	}
 

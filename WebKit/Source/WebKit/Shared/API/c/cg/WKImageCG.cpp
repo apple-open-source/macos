@@ -66,7 +66,7 @@ WKImageRef WKImageCreateFromCGImage(CGImageRef imageRef, WKImageOptions options)
 
     graphicsContext.clearRect(rect);
     graphicsContext.drawNativeImage(*nativeImage, rect, rect);
-    return toAPILeakingRef(WTFMove(webImage));
+    return toAPILeakingRef(WTF::move(webImage));
 }
 
 WKStringRef WKImageCreateDataURLFromImage(CGImageRef imageRef)

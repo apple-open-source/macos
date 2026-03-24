@@ -62,6 +62,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)persistLastEscrowRepairAttempted:(NSDate*)date error:(NSError**)error;
 - (BOOL)clearLastEscrowRepairAttempt:(NSError**)error;
 
+- (NSInteger)checkEscrowRepairRateLimitAndReturnTimeLeft:(NSError* _Nullable* _Nullable)error;
+
 // For tests only.
 - (BOOL)_persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error;
 

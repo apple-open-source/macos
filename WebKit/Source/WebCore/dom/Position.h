@@ -279,12 +279,12 @@ private:
 
 inline Position makeContainerOffsetPosition(RefPtr<Node>&& node, unsigned offset)
 {
-    return { WTFMove(node), offset, Position::PositionIsOffsetInAnchor };
+    return { WTF::move(node), offset, Position::PositionIsOffsetInAnchor };
 }
 
 inline Position makeDeprecatedLegacyPosition(RefPtr<Node>&& node, unsigned offset)
 {
-    return { WTFMove(node), offset, Position::LegacyEditingPositionFlag::On };
+    return { WTF::move(node), offset, Position::LegacyEditingPositionFlag::On };
 }
 
 // FIXME: Positions at the same document location with different anchoring will return false; that's unlike <= and >=.

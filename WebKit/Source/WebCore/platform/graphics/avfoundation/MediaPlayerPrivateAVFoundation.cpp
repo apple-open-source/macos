@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,14 +55,14 @@
 
 namespace WebCore {
 
-MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation(MediaPlayer* player)
+MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation(MediaPlayer& player)
     : m_player(player)
     , m_networkState(MediaPlayer::NetworkState::Empty)
     , m_readyState(MediaPlayer::ReadyState::HaveNothing)
     , m_preload(MediaPlayer::Preload::Auto)
 #if !RELEASE_LOG_DISABLED
-    , m_logger(player->mediaPlayerLogger())
-    , m_logIdentifier(player->mediaPlayerLogIdentifier())
+    , m_logger(player.mediaPlayerLogger())
+    , m_logIdentifier(player.mediaPlayerLogIdentifier())
 #endif
     , m_cachedDuration(MediaTime::invalidTime())
     , m_maxTimeLoadedAtLastDidLoadingProgress(MediaTime::invalidTime())
@@ -493,7 +493,7 @@ bool MediaPlayerPrivateAVFoundation::supportsFullscreen() const
 
 void MediaPlayerPrivateAVFoundation::setResolvedURL(URL&& resolvedURL)
 {
-    m_resolvedURL = WTFMove(resolvedURL);
+    m_resolvedURL = WTF::move(resolvedURL);
     m_resolvedOrigin = SecurityOrigin::create(m_resolvedURL);
 }
 
@@ -687,14 +687,15 @@ void MediaPlayerPrivateAVFoundation::seekCompleted(bool finished)
     }
 }
 
-void MediaPlayerPrivateAVFoundation::didEnd()
+void MediaPlayerPrivateAVFoundation::didEnd(double now)
 {
     // Hang onto the current time and use it as duration from now on since we are definitely at
     // the end of the movie. Do this because the initial duration is sometimes an estimate.
-    MediaTime now = currentTime();
     ALWAYS_LOG(LOGIDENTIFIER, "currentTime: ", now, ", seeking: ", m_seeking);
-    if (now > MediaTime::zeroTime() && !m_seeking)
-        m_cachedDuration = now;
+    if (now > 0 && !m_seeking) {
+        ALWAYS_LOG(LOGIDENTIFIER, "Updating cached duration to ", now);
+        m_cachedDuration = MediaTime::createWithDouble(now);
+    }
 
     updateStates();
     if (RefPtr player = m_player.get())
@@ -861,7 +862,7 @@ bool MediaPlayerPrivateAVFoundation::extractKeyURIKeyIDAndCertificateFromInitDat
     if (!status || offset + certificateLength > initData->length())
         return false;
 
-    certificate = Uint8Array::tryCreate(WTFMove(initDataBuffer), offset, certificateLength);
+    certificate = Uint8Array::tryCreate(WTF::move(initDataBuffer), offset, certificateLength);
     if (!certificate)
         return false;
 
@@ -896,7 +897,7 @@ void MediaPlayerPrivateAVFoundation::queueTaskOnEventLoop(Function<void()>&& tas
 {
     ASSERT(isMainThread());
     if (RefPtr player = m_player.get())
-        player->queueTaskOnEventLoop(WTFMove(task));
+        player->queueTaskOnEventLoop(WTF::move(task));
 }
 
 #if !RELEASE_LOG_DISABLED

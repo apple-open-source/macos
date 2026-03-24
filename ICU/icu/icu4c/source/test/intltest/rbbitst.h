@@ -58,6 +58,7 @@ public:
 
     void TestExtended();
     void executeTest(TestParams *, UErrorCode &status);
+    void TestPreceding_NegativeIndex();
 
     void TestWordBreaks();
     void TestWordBoundary();
@@ -106,6 +107,7 @@ public:
     void TestBug22585();
     void TestBug22602();
     void TestBug22636();
+    void TestThaiBreaks();  // rdar://148084444, rdar://143076921, rdar://143963407, rdar://104468458
 
 #if U_ENABLE_TRACING
     void TestTraceCreateCharacter();

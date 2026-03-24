@@ -74,7 +74,7 @@
 -(SOSCircleRef) getCircle:(CFErrorRef *)error
 {
     CFTypeRef entry = self.trustedCircle;
-    require_action_quiet(!isNull(entry), fail,
+    __Require_Action_Quiet(!isNull(entry), fail,
                          SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("Incompatible circle in KVS"), NULL, error));
     return (SOSCircleRef) entry;
     
@@ -96,7 +96,7 @@ fail:
         a.key_interests_need_updating = true;
     }
     
-    require_action_quiet(self.trustedCircle || !isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle), fail,
+    __Require_Action_Quiet(self.trustedCircle || !isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle), fail,
                          if (error) { *error = localError; localError = NULL; });
     
 fail:
@@ -606,13 +606,13 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
 {
     bool success = false;
     SOSCircleRef circleCopy = NULL;
-    require_action_quiet(self.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to get peer key from")));
+    __Require_Action_Quiet(self.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to get peer key from")));
     
     circleCopy = SOSCircleCopyCircle(kCFAllocatorDefault, self.trustedCircle, error);
-    require_quiet(circleCopy, fail);
+    __Require_Quiet(circleCopy, fail);
     
     success = true;
-    require_quiet(block(circleCopy), fail);
+    __Require_Quiet(block(circleCopy), fail);
     
     success = [self updateCircle:circleTransport newCircle:circleCopy err:error];
     
@@ -759,13 +759,13 @@ fail:
         SOSFullPeerInfoRef cloud_identity = NULL;
         CFErrorRef localError = NULL;
         
-        require_quiet(SOSCircleResetToOffering(circle, user_key, self.fullPeerInfo, &localError), err_out);
+        __Require_Quiet(SOSCircleResetToOffering(circle, user_key, self.fullPeerInfo, &localError), err_out);
         
         self.departureCode = kSOSNeverLeftCircle;
         
-        require_quiet([self addEscrowToPeerInfo:self.fullPeerInfo err:error], err_out);
+        __Require_Quiet([self addEscrowToPeerInfo:self.fullPeerInfo err:error], err_out);
         
-        require_quiet([self addiCloudIdentity:circle key:user_key err:error], err_out);
+        __Require_Quiet([self addiCloudIdentity:circle key:user_key err:error], err_out);
         result = true;
         SOSAccountPublishCloudParameters(account, NULL);
         account.notifyBackupOnExit = true;
@@ -814,8 +814,8 @@ void SOSAccountForEachCirclePeerExceptMe(SOSAccount* account, void (^action)(SOS
     __block bool result = false;
     __block SOSFullPeerInfoRef cloud_full_peer = NULL;
     __block SOSAccount* account = aTxn.account;
-    require_action_quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
-    require_quiet([self ensureFullPeerAvailable:account err:error], fail);
+    __Require_Action_Quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
+    __Require_Quiet([self ensureFullPeerAvailable:account err:error], fail);
     
     if (SOSCircleCountPeers(self.trustedCircle) == 0 || SOSAccountGhostResultsInReset(account)) {
         secnotice("resetToOffering", "Resetting circle to offering since there are no peers");
@@ -835,9 +835,9 @@ void SOSAccountForEachCirclePeerExceptMe(SOSAccount* account, void (^action)(SOS
             if(result && cloud_full_peer) {
                 CFErrorRef localError = NULL;
                 CFStringRef cloudid = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(cloud_full_peer));
-                require_quiet(cloudid, finish);
-                require_quiet(SOSCircleHasActivePeerWithID(circle, cloudid, &localError), finish);
-                require_quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, self.peerInfo, &localError), finish);
+                __Require_Quiet(cloudid, finish);
+                __Require_Quiet(SOSCircleHasActivePeerWithID(circle, cloudid, &localError), finish);
+                __Require_Quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, self.peerInfo, &localError), finish);
                 
             finish:
                 if (localError){

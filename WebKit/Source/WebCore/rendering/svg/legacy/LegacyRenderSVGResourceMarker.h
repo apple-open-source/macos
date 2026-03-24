@@ -30,7 +30,7 @@ class SVGMarkerElement;
 enum class SVGMarkerUnitsType : uint8_t;
 
 class LegacyRenderSVGResourceMarker final : public LegacyRenderSVGResourceContainer {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(LegacyRenderSVGResourceMarker);
+    WTF_MAKE_TZONE_ALLOCATED(LegacyRenderSVGResourceMarker);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LegacyRenderSVGResourceMarker);
 public:
     LegacyRenderSVGResourceMarker(SVGMarkerElement&, RenderStyle&&);

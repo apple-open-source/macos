@@ -358,11 +358,11 @@ out:
 CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task, CFStringRef entitlement, CFErrorRef *error)
 {
     CFTypeRef value = NULL;
-    require(check_task(task), out);
+    __Require(check_task(task), out);
 
     /* Load entitlements if necessary */
     if (task->entitlementsLoaded == false) {
-        require_quiet(SecTaskLoadEntitlements(task, error), out);
+        __Require_Quiet(SecTaskLoadEntitlements(task, error), out);
     }
 
     if (task->entitlements != NULL) {
@@ -380,7 +380,7 @@ out:
 CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef entitlements, CFErrorRef *error)
 {
     CFMutableDictionaryRef values = NULL;
-    require(check_task(task), out);
+    __Require(check_task(task), out);
 
     /* Load entitlements if necessary */
     if (task->entitlementsLoaded == false) {

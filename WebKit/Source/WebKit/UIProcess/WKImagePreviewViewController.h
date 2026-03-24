@@ -38,7 +38,7 @@
     RetainPtr<_WKActivatedElementInfo> _activatedElementInfo;
 }
 
-- (id)initWithCGImage:(RetainPtr<CGImageRef>)image defaultActions:(RetainPtr<NSArray>)actions elementInfo:(RetainPtr<_WKActivatedElementInfo>)elementInfo;
+- (id)initWithCGImage:(RetainPtr<CGImageRef>)image defaultActions:(RetainPtr<NSArray>)actions elementInfo:(RetainPtr<_WKActivatedElementInfo>)elementInfo presentingView:(UIView *)presentingView;
 @end
 
 #endif // PLATFORM(IOS_FAMILY)

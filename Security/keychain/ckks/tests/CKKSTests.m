@@ -2579,6 +2579,82 @@
     XCTAssertNil(self.zones[self.keychainZoneID].subscriptionError, "Subscription error was unset (and so CKKS probably dealt with the error");
 }
 
+- (void)testRecoverFromNotAuthenticatedErrorOnZoneCreation {
+    // Set up error hierarchy to reflect CK Not Authenticated Error
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorAuthTokenError userInfo:@{
+        NSLocalizedDescriptionKey: @"User rejected a prompt to enter their iCloud account password"}];
+    NSError* authTokenError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+
+    self.zones[self.keychainZoneID] = nil; // delete the autocreated zone
+    [self failNextZoneCreation:self.keychainZoneID withError:authTokenError];
+
+    // Don't let CKKS go into create ck zones
+    [self holdCloudKitModifyRecordZones];
+    [self startCKKSSubsystem];
+
+    // Make sure state machine will recheck the CK Account Status.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateRecheckAccountStatus];
+
+    // Release the hold and observe CKKS go into rechecking account status
+    [self releaseCloudKitModifyRecordZonesHold];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateRecheckAccountStatus] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of rechecking CK account status");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateRecheckAccountStatus];
+
+    // At this point, pretend that Octagon comes in and uploads some TLK Shares.
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    // CKKS should go back into `WaitForCKAccountStatus`, see that we have an account, and eventually get into ready.
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+}
+
+- (void)testRecoverFromNotAuthenticatedErrorOnZoneDeletion {
+    // Test starts out with CKKS in the ready state. We get an RPC call to reset cloudkit, but somehow we've fallen into an unauthenticated state.
+    [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
+
+    // Now patch in auth token error.
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorAuthTokenError userInfo:@{
+        NSLocalizedDescriptionKey: @"User rejected a prompt to enter their iCloud account password"}];
+    NSError* authTokenError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+    self.nextModifyRecordZonesError = authTokenError;
+    self.silentZoneDeletesAllowed = true;
+
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateRecheckAccountStatus];
+
+    // Reset CloudKit! CKKS will go into RecheckAccountStatus rather than one of the success states (Initialized, LoggedOut).
+    XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
+    [self.injectedManager rpcResetCloudKit:nil reason:@"reset-test-fail" reply:^(NSError* result) {
+        XCTAssertNotNil(result, "should have received an error resetting ckks zones");
+        ckksnotice_global("ckks", "Received a resetCloudKit callback!");
+        [resetExpectation fulfill];
+    }];
+    [self waitForExpectations:@[resetExpectation] timeout:10];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateRecheckAccountStatus] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of rechecking CK account status");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateRecheckAccountStatus];
+
+    // Assume we have auth again. CKKS should go back into `WaitForCKAccountStatus`, see that we have an account, and eventually get into ready.
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
+    // Retry the reset.
+    resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
+    [self.injectedManager rpcResetCloudKit:nil reason:@"reset-test" reply:^(NSError* result) {
+        XCTAssertNil(result, "shouldn't have received an error resetting ckks zones");
+        ckksnotice_global("ckks", "received a resetCloudKit callback");
+        [resetExpectation fulfill];
+    }];
+    [self waitForExpectations:@[resetExpectation] timeout:10];
+}
+
 - (void)testRecoverFromDeletedTLKWithStashedTLK {
     // We need to handle the case where our syncable TLKs are deleted for some reason. The device that has them might resurrect them
 
@@ -4494,7 +4570,7 @@
         
         dispatch_group_async(group1, queue1, ^{
             NSString* uuid = [NSUUID UUID].UUIDString;
-            SecSecuritySetPersonaMusr((__bridge CFStringRef)uuid);
+            SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)uuid);
             CFTypeRef result = nil;
             NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                      (id)kSecUseDataProtectionKeychain : @(YES),
@@ -4503,12 +4579,12 @@
                                      (id)kSecMatchLimit : (id)kSecMatchLimitAll,
             };
             SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-            SecSecuritySetPersonaMusr(NULL);
+            SecSecuritySetPersonaMusrForTests(NULL);
         });
         
         dispatch_group_async(group2, queue2, ^{
             NSString* uuid = [NSUUID UUID].UUIDString;
-            SecSecuritySetPersonaMusr((__bridge CFStringRef)uuid);
+            SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)uuid);
             CFTypeRef result = nil;
             NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                      (id)kSecUseDataProtectionKeychain : @(YES),
@@ -4517,7 +4593,7 @@
                                      (id)kSecMatchLimit : (id)kSecMatchLimitAll,
             };
             SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-            SecSecuritySetPersonaMusr(NULL);
+            SecSecuritySetPersonaMusrForTests(NULL);
         });
     }
     

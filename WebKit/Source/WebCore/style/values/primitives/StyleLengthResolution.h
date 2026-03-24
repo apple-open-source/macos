@@ -57,6 +57,8 @@ double computeUnzoomedNonCalcLengthDouble(double value, CSS::LengthUnit, CSSProp
 
 double computeNonCalcLengthDouble(double value, CSS::LengthUnit, const CSSToLengthConversionData&);
 
+double computeCanonicalNonCalcLengthDouble(double value, CSS::LengthUnit, const CSSToLengthConversionData&);
+
 // True if `computeNonCalcLengthDouble` would produce identical results when resolved against both these styles.
 bool equalForLengthResolution(const RenderStyle&, const RenderStyle&);
 

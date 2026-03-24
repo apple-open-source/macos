@@ -71,7 +71,7 @@ URL::URL(const URL& base, const String& relative, const URLTextEncoding* encodin
 
 URL::URL(String&& absoluteURL, const URLTextEncoding* encoding)
 {
-    *this = URLParser(WTFMove(absoluteURL), URL(), encoding).result();
+    *this = URLParser(WTF::move(absoluteURL), URL(), encoding).result();
 }
 
 static bool shouldTrimFromURL(char16_t character)
@@ -89,8 +89,8 @@ URL URL::isolatedCopy() const &
 
 URL URL::isolatedCopy() &&
 {
-    URL result { WTFMove(*this) };
-    result.m_string = WTFMove(result.m_string).isolatedCopy();
+    URL result { WTF::move(*this) };
+    result.m_string = WTF::move(result.m_string).isolatedCopy();
     return result;
 }
 
@@ -641,12 +641,12 @@ static String percentEncodeCharacters(const StringType& input, bool(*shouldEncod
 
 void URL::parse(String&& string)
 {
-    *this = URLParser(WTFMove(string)).result();
+    *this = URLParser(WTF::move(string)).result();
 }
 
 void URL::parseAllowingC0AtEnd(String&& string)
 {
-    *this = URLParser(WTFMove(string), { }, URLTextEncodingSentinelAllowingC0AtEnd).result();
+    *this = URLParser(WTF::move(string), { }, URLTextEncodingSentinelAllowingC0AtEnd).result();
 }
 
 void URL::remove(unsigned start, unsigned length)
@@ -657,7 +657,7 @@ void URL::remove(unsigned start, unsigned length)
     ASSERT(length <= m_string.length() - start);
 
     auto stringAfterRemoval = makeStringByRemoving(std::exchange(m_string, { }), start, length);
-    parse(WTFMove(stringAfterRemoval));
+    parse(WTF::move(stringAfterRemoval));
 }
 
 void URL::setUser(StringView newUser)
@@ -979,22 +979,14 @@ bool protocolIsInHTTPFamily(StringView url)
 static StaticStringImpl aboutBlankString { "about:blank" };
 const URL& aboutBlankURL()
 {
-    static LazyNeverDestroyed<URL> staticBlankURL;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&] {
-        staticBlankURL.construct(&aboutBlankString);
-    });
+    static NeverDestroyed<URL> staticBlankURL { &aboutBlankString };
     return staticBlankURL;
 }
 
 static StaticStringImpl aboutSrcDocString { "about:srcdoc" };
 const URL& aboutSrcDocURL()
 {
-    static LazyNeverDestroyed<URL> staticSrcDocURL;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&] {
-        staticSrcDocURL.construct(&aboutSrcDocString);
-    });
+    static NeverDestroyed<URL> staticSrcDocURL { &aboutSrcDocString };
     return staticSrcDocURL;
 }
 
@@ -1008,7 +1000,7 @@ bool portAllowed(const URL& url)
 
     // This blocked port list is defined by the Fetch spec, with the addition of port 0.
     // See https://fetch.spec.whatwg.org/#port-blocking for more information.
-    static const uint16_t blockedPortList[] = {
+    static constexpr auto blockedPortList = std::to_array<uint16_t>({
         0, // reserved
         1, // tcpmux
         7, // echo
@@ -1092,7 +1084,7 @@ bool portAllowed(const URL& url)
         6679, // Alternate IRC SSL [Apple addition]
         6697, // IRC+SSL [Apple addition]
         10080, // amanda
-    };
+    });
 
     // If the port is not in the blocked port list, allow it.
     ASSERT(std::is_sorted(std::begin(blockedPortList), std::end(blockedPortList)));
@@ -1176,12 +1168,6 @@ bool URL::isAboutBlank() const
 bool URL::isAboutSrcDoc() const
 {
     return protocolIsAbout() && path() == "srcdoc"_s;
-}
-
-TextStream& operator<<(TextStream& ts, const URL& url)
-{
-    ts << url.string();
-    return ts;
 }
 
 static bool isIPv4Address(StringView string)

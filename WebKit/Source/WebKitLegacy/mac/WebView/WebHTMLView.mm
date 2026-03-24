@@ -123,7 +123,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
-#import <WebCore/RenderStyleInlines.h>
+#import <WebCore/RenderStyle+GettersInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/SharedBuffer.h>
@@ -160,6 +160,7 @@
 #import <wtf/RunLoop.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SystemTracing.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -829,10 +830,23 @@ const float _WebHTMLViewPrintingMaximumShrinkFactor = WebCore::PrintContext::max
 @implementation WebCoreScrollView
 @end
 
+class EmptyCachedImageClient : public WebCore::CachedImageClient, public RefCounted<EmptyCachedImageClient> {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyCachedImageClient);
+public:
+    static Ref<EmptyCachedImageClient> create() { return adoptRef(*new EmptyCachedImageClient); }
+
+    // CachedResourceClient.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
+private:
+    EmptyCachedImageClient() = default;
+};
+
 // We need this to be able to safely reference the CachedImage for the promised drag data
 static WebCore::CachedImageClient& promisedDataClient()
 {
-    static NeverDestroyed<WebCore::CachedImageClient> staticCachedResourceClient;
+    static NeverDestroyed<Ref<EmptyCachedImageClient>> staticCachedResourceClient = EmptyCachedImageClient::create();
     return staticCachedResourceClient.get();
 }
 
@@ -1808,11 +1822,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
         return owner;
 
     for (NSTrackingArea *trackingArea in self.trackingAreas) {
-        static Class managerClass;
-        static std::once_flag onceFlag;
-        std::call_once(onceFlag, [] {
-            managerClass = NSClassFromString(@"NSToolTipManager");
-        });
+        static Class managerClass = NSClassFromString(@"NSToolTipManager");
 
         id owner = trackingArea.owner;
         if ([owner class] == managerClass)
@@ -3296,9 +3306,7 @@ IGNORE_WARNINGS_END
 #endif
 }
 
-// Do a layout, but set up a new fixed width for the purposes of doing printing layout.
-// minPageWidth==0 implies a non-printing layout
-- (void)layoutToMinimumPageWidth:(float)minPageLogicalWidth height:(float)minPageLogicalHeight originalPageWidth:(float)originalPageWidth originalPageHeight:(float)originalPageHeight maximumShrinkRatio:(float)maximumShrinkRatio adjustingViewSize:(BOOL)adjustViewSize
+- (void)layout
 {
     auto* coreFrame = core([self _frame]);
     if (!coreFrame)
@@ -3312,37 +3320,19 @@ IGNORE_WARNINGS_END
     if (![self _needsLayout])
         return;
 
-#ifdef LOG_TIMES        
+#ifdef LOG_TIMES
     double start = CFAbsoluteTimeGetCurrent();
 #endif
 
     LOG(View, "%@ doing layout", self);
 
-    if (auto* coreView = coreFrame->view()) {
-        if (minPageLogicalWidth > 0.0) {
-            WebCore::FloatSize pageSize(minPageLogicalWidth, minPageLogicalHeight);
-            WebCore::FloatSize originalPageSize(originalPageWidth, originalPageHeight);
-            if (coreFrame->document() && coreFrame->document()->renderView() && !coreFrame->document()->renderView()->writingMode().isHorizontal()) {
-                pageSize = WebCore::FloatSize(minPageLogicalHeight, minPageLogicalWidth);
-                originalPageSize = WebCore::FloatSize(originalPageHeight, originalPageWidth);
-            }
-            coreView->forceLayoutForPagination(pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize ? WebCore::AdjustViewSize::Yes : WebCore::AdjustViewSize::No);
-        } else {
-            coreView->forceLayout(!adjustViewSize);
-            if (adjustViewSize)
-                coreView->adjustViewSize();
-        }
-    }
-    
-#ifdef LOG_TIMES        
+    if (auto* coreView = coreFrame->view())
+        coreView->forceLayout(true);
+
+#ifdef LOG_TIMES
     double thisTime = CFAbsoluteTimeGetCurrent() - start;
     LOG(Timing, "%s layout seconds = %f", [self URL], thisTime);
 #endif
-}
-
-- (void)layout
-{
-    [self layoutToMinimumPageWidth:0 height:0 originalPageWidth:0 originalPageHeight:0 maximumShrinkRatio:0 adjustingViewSize:NO];
 }
 
 #if PLATFORM(MAC)
@@ -4350,7 +4340,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if (auto tiffResource = _private->promisedDragTIFFDataSource) {
         if (auto* buffer = tiffResource->resourceBuffer()) {
-            NSURLResponse *response = tiffResource->response().nsURLResponse();
+            RetainPtr response = tiffResource->response().nsURLResponse();
             draggingElementURL = [response URL];
             wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:buffer->makeContiguous()->createNSData().get()]);
             NSString* filename = [response suggestedFilename];
@@ -4697,34 +4687,24 @@ static RefPtr<WebCore::KeyboardEvent> currentKeyboardEvent(WebCore::LocalFrame* 
     if (printing == _private->printing && paginateScreenContent == _private->paginateScreenContent)
         return;
 
-    for (WebFrame *subframe in [[self _frame] childFrames]) {
-        WebFrameView *frameView = [subframe frameView];
-        if ([[subframe _dataSource] _isDocumentHTML]) {
-            [(WebHTMLView *)[frameView documentView] _setPrinting:printing minimumPageLogicalWidth:0 logicalHeight:0 originalPageWidth:0 originalPageHeight:0 maximumShrinkRatio:0 adjustViewSize:adjustViewSize paginateScreenContent:paginateScreenContent];
-        }
-    }
-
     _private->pageRects = nil;
     _private->printing = printing;
     _private->paginateScreenContent = paginateScreenContent;
-    
-    auto* coreFrame = core([self _frame]);
-    if (coreFrame) {
-        if (auto* coreView = coreFrame->view())
-            coreView->setMediaType(_private->printing ? "print"_s : "screen"_s);
-        if (auto* document = coreFrame->document()) {
-            // In setting printing, we should not validate resources already cached for the document.
-            // See https://bugs.webkit.org/show_bug.cgi?id=43704
-            WebCore::ResourceCacheValidationSuppressor validationSuppressor(document->cachedResourceLoader());
-
-            document->setPaginatedForScreen(_private->paginateScreenContent);
-            document->setPrinting(_private->printing);
-            document->styleScope().didChangeStyleSheetEnvironment();
-        }
-    }
 
     [self setNeedsLayout:YES];
-    [self layoutToMinimumPageWidth:minPageLogicalWidth height:minPageLogicalHeight originalPageWidth:originalPageWidth originalPageHeight:originalPageHeight maximumShrinkRatio:maximumShrinkRatio adjustingViewSize:adjustViewSize];
+
+    auto* coreFrame = core([self _frame]);
+    if (coreFrame) {
+        WebCore::FloatSize pageSize(minPageLogicalWidth, minPageLogicalHeight);
+        WebCore::FloatSize originalPageSize(originalPageWidth, originalPageHeight);
+        if (coreFrame->document() && coreFrame->document()->renderView() && !coreFrame->document()->renderView()->writingMode().isHorizontal()) {
+            pageSize = WebCore::FloatSize(minPageLogicalHeight, minPageLogicalWidth);
+            originalPageSize = WebCore::FloatSize(originalPageHeight, originalPageWidth);
+        }
+
+        coreFrame->setPrinting(printing, pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize ? WebCore::AdjustViewSize::Yes : WebCore::AdjustViewSize::No);
+    }
+
     if (!printing) {
         // Can't do this when starting printing or nested printing won't work, see 3491427.
         [self setNeedsDisplay:NO];
@@ -5205,7 +5185,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_applyEditingStyleToSelection:(Ref<WebCore::EditingStyle>&&)editingStyle withUndoAction:(WebCore::EditAction)undoAction
 {
     if (auto* coreFrame = core([self _frame]))
-        coreFrame->editor().applyStyleToSelection(WTFMove(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
+        coreFrame->editor().applyStyleToSelection(WTF::move(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
 }
 
 #if PLATFORM(MAC)
@@ -6266,7 +6246,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!frame || !frame->document() || !frame->document()->documentElement() || !frame->document()->documentElement()->renderer())
         return WebCore::ScrollbarWidth::Auto;
 
-    return frame->document()->documentElement()->renderer()->style().scrollbarWidth();
+    return WebCore::Style::toPlatform(frame->document()->documentElement()->renderer()->style().scrollbarWidth());
 }
 
 @end

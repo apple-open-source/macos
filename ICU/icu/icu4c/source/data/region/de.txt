@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 de{
     Countries{
         001{"Welt"}
@@ -85,6 +85,7 @@ de{
         CN{"China, Festland"}
         CO{"Kolumbien"}
         CP{"Clipperton-Insel"}
+        CQ{"Sark"}
         CR{"Costa Rica"}
         CU{"Kuba"}
         CV{"Cabo Verde"}

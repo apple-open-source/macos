@@ -54,7 +54,7 @@ template<typename M> void RemoteObjectRegistry::send(M&& message)
         return;
 
     WTF::switchOn(*messageSender, [&] (auto sender) {
-        sender.get().send(WTFMove(message), *messageDestinationID);
+        sender.get().send(WTF::move(message), *messageDestinationID);
     });
 }
 
@@ -92,7 +92,7 @@ void RemoteObjectRegistry::callReplyBlock(IPC::Connection& connection, uint64_t 
         [m_remoteObjectRegistry.get() _callReplyWithID:replyID blockInvocation:blockInvocation];
     } @catch (NSException *exception) {
         NSLog(@"Warning: Exception caught during handling of received message, marking message invalid .\nException: %@", exception);
-        IPC::markCurrentlyDispatchedMessageAsInvalid(connection);
+        IPC::markCurrentlyDispatchedMessageAsInvalid(connection, "Exception caught during handling of RemoteObjectRegistry message"_s);
     }
 }
 

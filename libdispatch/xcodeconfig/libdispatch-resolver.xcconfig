@@ -18,3 +18,5 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 
+#include "libdispatch.xcconfig"
+

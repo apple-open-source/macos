@@ -41,9 +41,9 @@ bool SOSKeyedPubKeyIdentifierIsPrefixed(CFStringRef kpkid) {
 
 static CFStringRef SOSKeyedPubKeyIdentifierCreateWithPrefixAndID(CFStringRef prefix, CFStringRef id) {
     CFMutableStringRef retval = NULL;
-    require_quiet(prefix, errOut);
-    require_quiet(id, errOut);
-    require_quiet(CFStringGetLength(prefix) == SEPLOC, errOut);
+    __Require_Quiet(prefix, errOut);
+    __Require_Quiet(id, errOut);
+    __Require_Quiet(CFStringGetLength(prefix) == SEPLOC, errOut);
     retval = CFStringCreateMutableCopy(kCFAllocatorDefault, 50, prefix);
     CFStringAppend(retval, SEPARATOR);
     CFStringAppend(retval, id);

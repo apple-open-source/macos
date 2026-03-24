@@ -306,8 +306,8 @@ __thread bool CKKSSQLInWriteTransaction = false;
     NSError *tmpError = nil;
     @autoreleasepool {
         __block CFErrorRef cferror = NULL;
-        
-        kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbconn) {
+
+        kc_with_dbt(false, NULL , &cferror, ^bool (SecDbConnectionRef dbconn) {
             NSString * columns = [names componentsJoinedByString:@", "];
             NSString * whereClause = [CKKSSQLDatabaseObject makeWhereClause: whereDict];
             NSString * groupByClause = [CKKSSQLDatabaseObject groupByClause: groupColumns];

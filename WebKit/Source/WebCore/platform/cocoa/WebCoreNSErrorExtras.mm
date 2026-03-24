@@ -27,6 +27,7 @@
 #import "WebCoreNSErrorExtras.h"
 
 #import <AVFoundation/AVError.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 namespace WebCore {
 
@@ -35,9 +36,9 @@ long mediaKeyErrorSystemCode(NSError *error)
     NSInteger code = [error code];
 
     if (code == AVErrorUnknown) {
-        NSError* underlyingError = [error.userInfo valueForKey:NSUnderlyingErrorKey];
-        if (underlyingError && [underlyingError isKindOfClass:[NSError class]])
-            return [underlyingError code];
+        RetainPtr<id> underlyingError = [retainPtr(error.userInfo) valueForKey:NSUnderlyingErrorKey];
+        if (RetainPtr error = dynamic_objc_cast<NSError>(underlyingError.get()))
+            return [error code];
     }
 
     return code;

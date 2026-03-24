@@ -23,6 +23,10 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "loctest.h"
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include "testutil.h" // rdar://162810290
+#include <malloc/malloc.h>  // rdar://165873670
+#endif
 
 
 // This is an API test, not a unit test.  It doesn't test very many cases, and doesn't
@@ -47,12 +51,16 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
         TESTCASE(11, test_jConsistencyOddLocales);
         TESTCASE(12, testBestPattern);
         TESTCASE(13, testDateTimePatterns);
-        TESTCASE(14, testRegionOverride);
-        TESTCASE(15, testISO8601);
+        TESTCASE(14, testISO8601);
+        TESTCASE(15, testRegionOverride);
+        TESTCASE(16, testAlphabeticSubstitution23114);
 #if APPLE_ICU_CHANGES
 // rdar://
-        TESTCASE(16, testHorizontalInheritance);
-        TESTCASE(17, testPunjabiPattern);
+        TESTCASE(17, testHorizontalInheritance);
+        TESTCASE(18, testPunjabiPattern);
+#if U_PLATFORM_IS_DARWIN_BASED
+        TESTCASE(19, checkForUninitializedMemory); // rdar://162810290
+#endif // U_PLATFORM_IS_DARWIN_BASED
 #endif  // APPLE_ICU_CHANGES
         default: name = ""; break;
     }
@@ -60,9 +68,9 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
 
 #if APPLE_ICU_CHANGES
 // rdar://
-#define MAX_LOCALE   15
+#define MAX_LOCALE   14
 #else
-#define MAX_LOCALE   12
+#define MAX_LOCALE   11
 #endif  // APPLE_ICU_CHANGES
 
 /**
@@ -103,13 +111,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         {"zh", "TW", "", "calendar=roc"},       // 8
         {"ru", "", "", ""},                     // 9
         {"zh", "", "", "calendar=chinese"},     // 10
-        {"ja", "JP", "TRADITIONAL", ""},        // 11
 #if APPLE_ICU_CHANGES
 // rdar://16482189&16567439 chinese calendar date formats: Use rU or r (not y), drop 日 in zh formats
 // rdar://
-        {"zh", "", "", "calendar=chinese;numbers=hanidays"},    // 12 Apple add
-        {"ar", "", "", ""},                     // 13 Apple add
-        {"en", "ID", "", "calendar=buddhist"},  // 14 Apple add <rdar://problem/37505940>
+        {"zh", "", "", "calendar=chinese;numbers=hanidays"},    // 11 Apple add
+        {"ar", "", "", ""},                     // 12 Apple add
+        {"en", "ID", "", "calendar=buddhist"},  // 13 Apple add <rdar://problem/37505940>
 #endif  // APPLE_ICU_CHANGES
      };
 
@@ -242,12 +249,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("13 ene"),                              // 05: MMMd  -> "d 'de' MMM"
         UnicodeString("13 de enero"),                         // 06: MMMMd -> "d 'de' MMMM"
         UnicodeString("T1 1999"),                             // 07: yQQQ  -> "QQQ y"
-#if APPLE_ICU_CHANGES
-// rdar://
-        CharsToUnicodeString("11:58\\u202Fp.\\u202Fm."),       // 08: hhmm  -> "hh:mm a"
-#else
-        UnicodeString(u"11:58\u202Fp.\u00A0m.", -1),          // 08: hhmm  -> "hh:mm a"
-#endif  // APPLE_ICU_CHANGES
+        UnicodeString(u"11:58\u202Fp.\u202Fm.", -1),          // 08: hhmm  -> "hh:mm a"
         UnicodeString("23:58"),                               // 09: HHmm  -> "HH:mm"
         UnicodeString("23:58"),                               // 10: jjmm  -> "HH:mm"
         UnicodeString("58:59"),                               // 11: mmss  -> "mm:ss"
@@ -467,32 +469,6 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("23:58"),                                                 // 16: JJmm
     };
 
-    UnicodeString patternResults_ja_jp_traditional[] = { // 11
-        // ja_JP_TRADITIONAL                 // 11 ja_JP_TRADITIONAL
-#if APPLE_ICU_CHANGES
-// rdar://
-        u"AD1999/01",                        // 00: yM
-#else
-        u"AD1999/1",                         // 00: yM
-#endif  // APPLE_ICU_CHANGES
-        u"西暦1999年1月",                     // 01: yMMM
-        u"1999年1月13日",                     // 02: yMd
-        u"西暦1999年1月13日",                  // 03: yMMMd
-        u"1/13",                             // 04: Md
-        u"1月13日",                           // 05: MMMd
-        u"1月13日",                           // 06: MMMMd
-        u"西暦1999/Q1",                       // 07: yQQQ
-        u"午後11:58",                         // 08: hhmm
-        u"23:58",                            // 09: HHmm
-        u"23:58",                            // 10: jjmm
-        u"58:59",                            // 11: mmss
-        u"西暦1999年1月",                     // 12: yyyyMMMM
-        u"1月13日(水)",                       // 13: MMMEd
-        u"13日(水)",                          // 14: Ed
-        u"23:58:59.123",                     // 15: jmmssSSS
-        u"23:58",                            // 16: JJmm
-    };
-
 #if APPLE_ICU_CHANGES
 // rdar://16482189&16567439 chinese calendar date formats: Use rU or r (not y), drop 日 in zh formats
     UnicodeString patternResults_zh_chinese_hanidays[] = { // 12 Apple add
@@ -559,7 +535,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     };
 #endif  // APPLE_ICU_CHANGES
 
-    UnicodeString* patternResults[] = {
+    UnicodeString* patternResults[MAX_LOCALE] = {
         patternResults_en_US, // 0
         patternResults_en_US_japanese, // 1
         patternResults_de_DE, // 2
@@ -571,12 +547,11 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         patternResults_zh_TW_roc, // 8
         patternResults_ru, // 9
         patternResults_zh_chinese, // 10
-        patternResults_ja_jp_traditional, // 11
 #if APPLE_ICU_CHANGES
 // rdar://
-        patternResults_zh_chinese_hanidays, // 12 Apple add
-        patternResults_ar, // 13 Apple add
-        patternResults_en_ID_buddhist, // 14 Apple add
+        patternResults_zh_chinese_hanidays, // 11 Apple add
+        patternResults_ar, // 12 Apple add
+        patternResults_en_ID_buddhist, // 13 Apple add
 #endif  // APPLE_ICU_CHANGES
     };
 
@@ -636,7 +611,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 #endif  // APPLE_ICU_CHANGES
         UnicodeString(u"6:58\u202FAM", -1),
         UnicodeString(u"6:58\u202FAM", -1),
-        UnicodeString(u"6:58\u202FAM GMT", -1),
+        UnicodeString(u"6:58\u202FAM GMT+00:00", -1),
         UnicodeString(""),
     };
 
@@ -1434,7 +1409,8 @@ void IntlTestDateTimePatternGeneratorAPI::testC() {
             {"en",     "CCCCCCm", "hh:mm\\u202Faaaaa"},
             {"en-BN",  "Cm",      "h:mm\\u202Fb"},
             {"gu-IN",  "Cm",      "h:mm B"},
-            {"und-IN", "Cm",      "h:mm B"}
+            {"und-IN", "Cm",      "h:mm B"},
+            {"fi",     "Cm",      "H.mm"}
     };
 
     UErrorCode status = U_ZERO_ERROR;
@@ -1644,10 +1620,6 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             continue;
         }
         // Now check that shortPattern and jPattern use the same hour cycle
-        if ((uprv_strncmp(localeID, "yue_Hant_CN", 11) == 0) 
-        		&& logKnownIssue("CLDR-17979", "Need timeFormats with h for yue_Hant_CN")) {
-            continue;
-        }
 #if APPLE_ICU_CHANGES
 // rdar://123393073&153902727&160427611
         if ((uprv_strncmp(localeID, "lut", 3) == 0 ||
@@ -1664,6 +1636,10 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
         UnicodeString shortPatSkeleton = DateTimePatternGenerator::staticGetSkeleton(shortPattern, status);
         if (U_FAILURE(status)) {
             errln("FAIL: DateTimePatternGenerator::staticGetSkeleton locale %s: %s", localeID, u_errorName(status));
+            continue;
+        }
+        if (uprv_strcmp(localeID, "ku_Latn_IQ")==0) {
+            logKnownIssue("CLDR-19048", "ku_Latn_IQ needs either 'h' in Grego std time patterns or timeData update");
             continue;
         }
         const char16_t* charPtr = timeCycleChars;
@@ -1882,7 +1858,7 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
 // rdar://
         { "en_GB@calendar=japanese", "yMd", u"dd/MM/GGGGGy"    },
 #else
-        { "en_GB@calendar=japanese", "yMd", u"dd/MM/y GGGGG"    },
+        { "en_GB@calendar=japanese", "yMd", u"d/M/y GGGGG"    },
 #endif  // APPLE_ICU_CHANGES
         { "en_GB@calendar=buddhist", "yMd", u"dd/MM/y GGGGG"    },
         // ICU-22757: Not inheriting availableFormats patterns from root
@@ -1893,11 +1869,11 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
 // rdar://
         { "ckb_IR",     "BSSS",        u"SSS \u251C'\u067E.\u0646/\u062F.\u0646': B\u2524" },
         // rdar://71721198: Space before day of week in some zh_Hant patterns
-        { "zh_Hant",    "MMMEd",       u"M\u6708d\u65E5 EEE"         },
+        { "zh_Hant",    "MMMEd",       u"M\u6708d\u65E5EEE"         },
         { "zh_Hant_HK", "MMMEd",       u"M\u6708d\u65E5 EEE"         },
         { "zh_Hant",    "GyMMMEd",     u"Gy\u5E74M\u6708d\u65E5 EEE" },
         { "zh_Hant_HK", "GyMMMEd",     u"Gy\u5E74M\u6708d\u65E5 EEE" },
-        { "zh_Hant",    "yMMMEd",      u"y\u5E74M\u6708d\u65E5 EEE"  },
+        { "zh_Hant",    "yMMMEd",      u"y\u5E74M\u6708d\u65E5EEE"  },
         { "zh_Hant_HK", "yMMMEd",      u"y\u5E74M\u6708d\u65E5 EEE"  },
         { "zh_Hant",    "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
         { "zh_Hant_HK", "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
@@ -2161,6 +2137,30 @@ void IntlTestDateTimePatternGeneratorAPI::doDTPatternTest(DateTimePatternGenerat
     }
 }
 
+void IntlTestDateTimePatternGeneratorAPI::testAlphabeticSubstitution23114() {
+    IcuTestErrorCode status(*this, "testAlphabeticSubstitution23114");
+
+    LocalPointer<DateTimePatternGenerator> dtpg(
+        DateTimePatternGenerator::createEmptyInstance(status), status);
+    status.assertSuccess();
+
+    // Set up the DTPG with English data from CLDR 47
+    UnicodeString conflictingPattern;
+    dtpg->addPatternWithSkeleton(u"y G", u"Gy", true, conflictingPattern, status);
+    dtpg->addPatternWithSkeleton(u"M/d/y G", u"GyMd", true, conflictingPattern, status);
+    dtpg->addPatternWithSkeleton(u"MMM y G", u"GyMMM", true, conflictingPattern, status);
+    dtpg->addPatternWithSkeleton(u"MMM d, y G", u"GyMMMd", true, conflictingPattern, status);
+    dtpg->addPatternWithSkeleton(u"EEE, MMM d, y G", u"GyMMMEd", true, conflictingPattern, status);
+    status.assertSuccess();
+
+    // Test the behavior of selecting GyMEd. In ICU 77, this selected the GyMMMEd skeleton,
+    // and replaced the alphabetic month with a numeric month, which is wrong. In ICU 78,
+    // we still select GyMMMEd, but we don't change it to a numeric month.
+    UnicodeString bestPattern = dtpg->getBestPattern(u"GyMEd", status);
+    status.assertSuccess();
+    assertEquals("Should not substitute numeric for alpha", u"EEE, MMM d, y G", bestPattern);
+}
+
 #if APPLE_ICU_CHANGES
 // rdar://
 // rdar://78420184
@@ -2168,11 +2168,11 @@ void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
     static const char* testCases[] = {
         "en_DK@calendar=buddhist", "MMMd",    "d MMM",
         "en_DK@calendar=buddhist", "MMMEd",   "EEE, d MMM",
-        "en_DK@calendar=buddhist", "GGGGGyM", "M y GGGGG",
+        "en_DK@calendar=buddhist", "GGGGGyM", "M/y GGGGG",
         "en_DK@calendar=buddhist", "h",       "h\\u202Fa",
         "en_DK@calendar=islamic",  "MMMd",    "d MMM",
         "en_DK@calendar=islamic",  "MMMEd",   "EEE, d MMM",
-        "en_DK@calendar=islamic",  "GGGGGyM", "M y GGGGG",
+        "en_DK@calendar=islamic",  "GGGGGyM", "M/y GGGGG",
         "en_DK@calendar=islamic",  "h",       "h\\u202Fa",
         
         "en_IN@calendar=buddhist", "Ed",      "EEE d",
@@ -2187,7 +2187,7 @@ void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
         "es_AR@calendar=buddhist", "yMd",     "d/M/y GGGGG",
         "es_AR@calendar=hebrew",   "MMMd",    "d 'de' MMM",
         "es_AR@calendar=hebrew",   "Ed",      "EEE d",
-        "es_AR@calendar=hebrew",   "yMd",     "d/M/y GGGGG",
+        "es_AR@calendar=hebrew",   "yMd",     "d/M/y",
         "es_AR@calendar=islamic",  "MMMd",    "d 'de' MMM",
         "es_AR@calendar=islamic",  "Ed",      "EEE d",
         "es_AR@calendar=islamic",  "yMd",     "d/M/y GGGGG",
@@ -2264,6 +2264,32 @@ void IntlTestDateTimePatternGeneratorAPI::testPunjabiPattern() {
     delete patGen;
 }
 
+#if U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290 and rdar://165873670
+void IntlTestDateTimePatternGeneratorAPI::checkForUninitializedMemory() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance (Locale::getUS(), status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create DateTimePatternGenerator - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = dtpg.getAlias();
+
+    // Before any changes to reduce uninitialized memory, this test was showing that
+    // over 58% of DateTimePatternGenerator was uninitialized.
+
+    // The uninitialized memory was causing problems for our memory analysis tools as
+    // the DateTimePatternGenerator object appeared to have references to other objects
+    // due to data picked up from the heap in the uninitialized areas.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "DateTimePatternGenerator",
+        sizeof(DateTimePatternGenerator));
+}
+#endif // U_PLATFORM_IS_DARWIN_BASED
 
 #endif  // APPLE_ICU_CHANGES
 

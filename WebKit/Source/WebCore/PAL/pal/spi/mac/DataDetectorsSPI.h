@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
 DECLARE_SYSTEM_HEADER
 
 #import <wtf/Platform.h>
@@ -32,7 +34,6 @@ DECLARE_SYSTEM_HEADER
 #if ENABLE(DATA_DETECTION)
 
 #import <pal/spi/cocoa/DataDetectorsCoreSPI.h>
-#import <wtf/SoftLinking.h>
 
 #if PLATFORM(MAC)
 

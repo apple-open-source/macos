@@ -122,15 +122,15 @@ static void SecAddTrustedCerts(CFArrayRef certs, CFMutableDictionaryRef	sslPropD
 	CFArrayRef existingCertArr;
 	CFIndex i, count;
 	
-	require(certs != NULL, out);
-	require(sslPropDict != NULL, out);
-	
+	__Require(certs != NULL, out);
+	__Require(sslPropDict != NULL, out);
+
 	incomingCerts = NULL;
 	
 	// Make a mutable copy of incoming certs
 	incomingCerts = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, certs);
-	require(incomingCerts != NULL, out);
-	
+	__Require(incomingCerts != NULL, out);
+
 	// Any existing trusted certificates?
 	existingCertArr = CFDictionaryGetValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates);
 	
@@ -142,8 +142,8 @@ static void SecAddTrustedCerts(CFArrayRef certs, CFMutableDictionaryRef	sslPropD
 	else {
 		// Copy old certificates
 		newCertArr = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, existingCertArr);
-		require(newCertArr != NULL, MallocNewCerts);
-		
+		__Require(newCertArr != NULL, MallocNewCerts);
+
 		// Remove old certificates
 		CFDictionaryRemoveValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates);
 		
@@ -214,8 +214,8 @@ CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs)
 	
 	count = CFArrayGetCount(certs);
 	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-	require(array != NULL, CFArrayCreateMutable);
-	
+	__Require(array != NULL, CFArrayCreateMutable);
+
 	for (i = 0; i < count; ++i)
 	{
 		SecCertificateRef cert;
@@ -223,11 +223,11 @@ CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs)
 		
 		certRef = CFArrayGetValueAtIndex(certs, i);
 		cert = *((SecCertificateRef*)((void*)&certRef)); /* ugly but it works */
-		require(cert != NULL, CFArrayGetValueAtIndex);
-		
+		__Require(cert != NULL, CFArrayGetValueAtIndex);
+
 		data = SecCertificateCreateCFData(cert);
-		require(data != NULL, SecCertificateCreateCFData);
-		
+		__Require(data != NULL, SecCertificateCreateCFData);
+
 		CFArrayAppendValue(array, data);
 		CFRelease(data);
 	}
@@ -275,44 +275,44 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURL
 	
 	/* create a dictionary to stuff things all in */
 	dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	require(dict != NULL, CFDictionaryCreateMutable);
-	
+	__Require(dict != NULL, CFDictionaryCreateMutable);
+
 	/* get the certificates from the stream and add it with the kSSLClientPropTLSServerCertificateChain key */
 	certs = (CFArrayRef)CFReadStreamCopyProperty(readStreamRef, kCFStreamPropertySSLPeerCertificates);
-	require(certs != NULL, CFReadStreamCopyProperty);
-	
+	__Require(certs != NULL, CFReadStreamCopyProperty);
+
 	certs_data = SecCertificateArrayCreateCFDataArray(certs);
-	require(certs_data != NULL, CFReadStreamCopyProperty);
-	
+	__Require(certs_data != NULL, CFReadStreamCopyProperty);
+
 	CFDictionaryAddValue(dict, kSSLClientPropTLSServerCertificateChain, certs_data);
 	CFRelease(certs_data);
 	
 	/* convert error to a CFNumberRef and add it with the kSSLClientPropTLSTrustClientStatus key */
 	error_number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &error);
-	require(error_number != NULL, CFNumberCreate);
-	
+	__Require(error_number != NULL, CFNumberCreate);
+
 	CFDictionaryAddValue(dict, kSSLClientPropTLSTrustClientStatus, error_number);
 	CFRelease(error_number);
 	
 	/* get the host name from the base URL and add it with the kSSLClientPropTLSServerHostName key */
 	host_name = CFURLCopyHostName(a_url);
-	require(host_name != NULL, CFURLCopyHostName);
-	
+	__Require(host_name != NULL, CFURLCopyHostName);
+
 	CFDictionaryAddValue(dict, kSSLClientPropTLSServerHostName, host_name);
 	CFRelease(host_name);
 	
 	/* flatten it */
 	theData = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
-	require(theData != NULL, CFPropertyListCreateXMLData);
-	
+	__Require(theData != NULL, CFPropertyListCreateXMLData);
+
 	CFRelease(dict);
 	dict = NULL;
 	
 	/* open a pipe */
-	require(pipe(fd) >= 0, pipe);
-	
+	__Require(pipe(fd) >= 0, pipe);
+
 	pid = fork();
-	require (pid >= 0, fork);
+	__Require (pid >= 0, fork);
 	if ( pid > 0 )
 	{
 		/* parent */
@@ -323,8 +323,8 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURL
 		fd[0] = -1;
 		length = CFDataGetLength(theData);
 		bytes_written = write(fd[1], CFDataGetBytePtr(theData), length);
-		require(bytes_written == (ssize_t)length, write);
-		
+		__Require(bytes_written == (ssize_t)length, write);
+
 		close(fd[1]); /* close write end */
 		fd[1] = -1;
 		
@@ -362,12 +362,12 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURL
 		
 		if ( fd[0] != STDIN_FILENO )
 		{
-			require(dup2(fd[0], STDIN_FILENO) == STDIN_FILENO, dup2);
+			__Require(dup2(fd[0], STDIN_FILENO) == STDIN_FILENO, dup2);
 			close(fd[0]); /* not needed after dup2 */
 			fd[0] = -1;
 		}
 		
-		require(execle(PRIVATE_CERT_UI_COMMAND, PRIVATE_CERT_UI_COMMAND, (char *) 0, env) >= 0, execl);
+		__Require(execle(PRIVATE_CERT_UI_COMMAND, PRIVATE_CERT_UI_COMMAND, (char *) 0, env) >= 0, execl);
 	}
 	
 	return ( result );

@@ -16,8 +16,8 @@ ifeq ($(strip $(PROJVERSION)),)
 PROJVERSION = 999
 endif
 
-Warnings_we_are_not_fixing = -Wno-format -Wno-deprecated-declarations -Wno-format-extra-args -Wno-nullability-completeness -Wno-deprecated-non-prototype
-Supress_new_clang_errors = -Wno-error=implicit-int -Wno-error=implicit-function-declaration -Wno-error=incompatible-function-pointer-types
+Warnings_we_are_not_fixing = -Wno-format -Wno-deprecated-declarations -Wno-format-extra-args -Wno-nullability-completeness -Wno-deprecated-non-prototype -Wno-return-type
+Supress_new_clang_errors = -Wno-error=implicit-int -Wno-error=implicit-function-declaration -Wno-error=incompatible-function-pointer-types -Wno-error=pointer-bool-conversion
 
 Extra_CC_Flags        = -DLDAP_RESPONSE_RB_TREE=1 -DLDAP_DEPRECATED=1 -DLDAP_CONNECTIONLESS=1 -DSLAP_DYNACL=1 -DUSES_KRBNAME=1 -DTGT_OS_VERSION="\\\"$(MACOSX_DEPLOYMENT_TARGET)\\\"" -DPROJVERSION="\\\"$(PROJVERSION)\\\"" -I${SDKROOT}/usr/local/BerkeleyDB/include -I/usr/include/krb5 -I${SRCROOT}/OpenLDAP/include -I${OBJROOT}/include -I${SRCROOT}/OpenLDAP/libraries/libldap -I${SRCROOT}/OpenLDAP/servers/slapd -I${SDKROOT}/usr/include/sasl -fno-common $(Warnings_we_are_not_fixing) $(Supress_new_clang_errors)
 Extra_LD_Flags        = -L${OBJROOT}/libraries -L${SDKROOT}/usr/local/BerkeleyDB/lib/
@@ -73,6 +73,9 @@ apple_port:
 	dsymutil ${SYMROOT}/slapd
 	for client in `ls ${OBJROOT}/clients/tools/`; do \
 		if [ ! -f ${OBJROOT}/clients/tools/$$client ]; then \
+			continue; \
+		fi; \
+		if [ "$$client" == "Makefile" ]; then \
 			continue; \
 		fi; \
 		isobj=`echo $$client | grep -c "\.[o,c]"`; \

@@ -65,7 +65,7 @@ RemoteGPU::RemoteGPU(WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpu
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcessValue())
     , m_workQueue(IPC::StreamConnectionWorkQueue::create("WebGPU work queue"_s))
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_objectHeap(WebGPU::ObjectHeap::create())
     , m_modelObjectHeap(DDModel::ObjectHeap::create())
     , m_identifier(identifier)
@@ -110,7 +110,7 @@ void RemoteGPU::workQueueInitialize()
     // The retain cycle is broken in workQueueUninitialize().
     auto gpuProcessConnection = m_gpuConnectionToWebProcess.get();
     auto backing = WebCore::WebGPU::create([protectedThis = Ref { *this }](WebCore::WebGPU::WorkItem&& workItem) {
-        protectedThis->protectedWorkQueue()->dispatch(WTFMove(workItem));
+        protectedThis->protectedWorkQueue()->dispatch(WTF::move(workItem));
     }, gpuProcessConnection ? &gpuProcessConnection->webProcessIdentity() : nullptr);
 #else
     RefPtr<WebCore::WebGPU::GPU> backing;
@@ -158,19 +158,19 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
         return;
     }
 
-    backing->requestAdapter(*convertedOptions, [callback = WTFMove(callback), objectHeap, streamConnection = Ref { *m_streamConnection }, identifier, gpuConnectionToWebProcess = m_gpuConnectionToWebProcess.get(), gpu = Ref { *this }] (RefPtr<WebCore::WebGPU::Adapter>&& adapter) mutable {
+    backing->requestAdapter(*convertedOptions, [callback = WTF::move(callback), objectHeap, streamConnection = Ref { *m_streamConnection }, identifier, gpuConnectionToWebProcess = m_gpuConnectionToWebProcess.get(), gpu = Ref { *this }] (RefPtr<WebCore::WebGPU::Adapter>&& adapter) mutable {
         if (!adapter) {
             callback(std::nullopt);
             return;
         }
 
-        auto remoteAdapter = RemoteAdapter::create(*gpuConnectionToWebProcess, gpu, *adapter, objectHeap, WTFMove(streamConnection), identifier);
+        auto remoteAdapter = RemoteAdapter::create(*gpuConnectionToWebProcess, gpu, *adapter, objectHeap, WTF::move(streamConnection), identifier);
         objectHeap->addObject(identifier, remoteAdapter);
 
         auto name = adapter->name();
         Ref features = adapter->features();
         Ref limits = adapter->limits();
-        callback({ { WTFMove(name), WebGPU::SupportedFeatures { features->features() }, WebGPU::SupportedLimits {
+        callback({ { WTF::move(name), WebGPU::SupportedFeatures { features->features() }, WebGPU::SupportedLimits {
             limits->maxTextureDimension1D(),
             limits->maxTextureDimension2D(),
             limits->maxTextureDimension3D(),
@@ -271,7 +271,7 @@ void RemoteGPU::createModelBacking(unsigned width, unsigned height, DDModelIdent
     Ref objectHeap = m_modelObjectHeap.get();
 
     RefPtr gpu = m_backing.get();
-    auto mesh = gpu->createModelBacking(width, height, WTFMove(callback));
+    auto mesh = gpu->createModelBacking(width, height, WTF::move(callback));
 #if ENABLE(GPU_PROCESS_MODEL)
     auto remoteMesh = RemoteDDMesh::create(*m_gpuConnectionToWebProcess.get(), *this, *mesh, objectHeap, Ref { *m_streamConnection }, identifier);
     objectHeap->addObject(identifier, remoteMesh);

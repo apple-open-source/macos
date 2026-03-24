@@ -59,7 +59,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Observable);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Observable);
 
 Ref<Observable> Observable::create(Ref<SubscriberCallback> callback)
 {
@@ -88,7 +88,7 @@ void Observable::subscribeInternal(ScriptExecutionContext& context, Ref<Internal
     if (document && !document->isFullyActive())
         return;
 
-    Ref subscriber = Subscriber::create(context, WTFMove(observer), options);
+    Ref subscriber = Subscriber::create(context, WTF::move(observer), options);
 
     Ref vm = context.globalObject()->vm();
     JSC::JSLockHolder lock(vm);
@@ -132,49 +132,49 @@ Ref<Observable> Observable::inspect(ScriptExecutionContext& context, std::option
     if (!inspectorUnion)
         return *this;
 
-    return WTF::switchOn(WTFMove(*inspectorUnion),
+    return WTF::switchOn(WTF::move(*inspectorUnion),
         [&](RefPtr<JSSubscriptionObserverCallback>&& next) {
-            return create(createSubscriberCallbackInspect(context, *this, WTFMove(next)));
+            return create(createSubscriberCallbackInspect(context, *this, WTF::move(next)));
         },
         [&](ObservableInspector&& inspector) {
-            return create(createSubscriberCallbackInspect(context, *this, WTFMove(inspector)));
+            return create(createSubscriberCallbackInspect(context, *this, WTF::move(inspector)));
         }
     );
 }
 
 void Observable::first(ScriptExecutionContext& context, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorFirst(context, *this, options, WTFMove(promise));
+    return createInternalObserverOperatorFirst(context, *this, options, WTF::move(promise));
 }
 
 void Observable::forEach(ScriptExecutionContext& context, Ref<VisitorCallback>&& callback, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorForEach(context, *this, WTFMove(callback), options, WTFMove(promise));
+    return createInternalObserverOperatorForEach(context, *this, WTF::move(callback), options, WTF::move(promise));
 }
 
 void Observable::last(ScriptExecutionContext& context, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorLast(context, *this, options, WTFMove(promise));
+    return createInternalObserverOperatorLast(context, *this, options, WTF::move(promise));
 }
 
 void Observable::find(ScriptExecutionContext& context, Ref<PredicateCallback>&& callback, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorFind(context, *this, WTFMove(callback), options, WTFMove(promise));
+    return createInternalObserverOperatorFind(context, *this, WTF::move(callback), options, WTF::move(promise));
 }
 
 void Observable::every(ScriptExecutionContext& context, Ref<PredicateCallback>&& callback, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorEvery(context, *this, WTFMove(callback), options, WTFMove(promise));
+    return createInternalObserverOperatorEvery(context, *this, WTF::move(callback), options, WTF::move(promise));
 }
 
 void Observable::some(ScriptExecutionContext& context, Ref<PredicateCallback>&& callback, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorSome(context, *this, WTFMove(callback), options, WTFMove(promise));
+    return createInternalObserverOperatorSome(context, *this, WTF::move(callback), options, WTF::move(promise));
 }
 
 void Observable::reduce(ScriptExecutionContext& context, Ref<ReducerCallback>&& callback, JSC::JSValue initialValue, const SubscribeOptions& options, Ref<DeferredPromise>&& promise)
 {
-    return createInternalObserverOperatorReduce(context, *this, WTFMove(callback), initialValue, options, WTFMove(promise));
+    return createInternalObserverOperatorReduce(context, *this, WTF::move(callback), initialValue, options, WTF::move(promise));
 }
 
 Observable::Observable(Ref<SubscriberCallback> callback)

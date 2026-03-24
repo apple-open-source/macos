@@ -70,7 +70,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 IOHIDElementRef IOHIDElementCreateWithDictionary(CFAllocatorRef _Nullable allocator, CFDictionaryRef dictionary)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER
+API_DEPRECATED_WITH_REPLACEMENT("IOHIDDeviceCopyMatchingElements", macos(10.5, API_TO_BE_DEPRECATED));
 
 /*!
 	@function   IOHIDElementGetDevice

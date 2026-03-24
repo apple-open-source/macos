@@ -873,7 +873,7 @@ AppleSCSIEmulatorAdapter::CreateLUN (
 	
 	ERROR_LOG ( ( "AppleSCSIEmulatorAdapter::CreateTargetEmulator, targetID = %qd\n", targetParameters->targetID ) );
 	
-	require ( ( targetParameters->targetID != kInitiatorID ), ErrorExit );
+	__Require(( targetParameters->targetID != kInitiatorID ), ErrorExit);
 	
 	targetStruct = ( AdapterTargetStruct * ) GetHBATargetDataPointer ( targetParameters->targetID );
 	

@@ -51,11 +51,11 @@ PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 
 void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RemoteVideoFrameProxy::Properties&& properties)
 {
-    auto videoFrame = RemoteVideoFrameProxy::create(protectedConnection(), protectedVideoFrameObjectHeapProxy(), WTFMove(properties));
+    auto videoFrame = RemoteVideoFrameProxy::create(protectedConnection(), protectedVideoFrameObjectHeapProxy(), WTF::move(properties));
     if (!m_isGatheringVideoFrameMetadata)
         return;
-    m_videoFrameMetadata = WTFMove(videoFrameMetadata);
-    m_videoFrameGatheredWithVideoFrameMetadata = WTFMove(videoFrame);
+    m_videoFrameMetadata = WTF::move(videoFrameMetadata);
+    m_videoFrameGatheredWithVideoFrameMetadata = WTF::move(videoFrame);
 }
 
 RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
@@ -93,7 +93,7 @@ void MediaPlayerPrivateRemote::layerHostingContextChanged(WebCore::HostingContex
         m_videoLayerManager->didDestroyVideoLayer();
         return;
     }
-    setLayerHostingContext(WTFMove(inlineLayerHostingContext));
+    setLayerHostingContext(WTF::move(inlineLayerHostingContext));
     player->videoLayerSizeDidChange(presentationSize);
 }
 
@@ -106,7 +106,7 @@ WebCore::FloatSize MediaPlayerPrivateRemote::videoLayerSize() const
 
 void MediaPlayerPrivateRemote::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRightAnnotated&& sendRightAnnotated)
 {
-    protectedConnection()->send(Messages::RemoteMediaPlayerProxy::SetVideoLayerSizeFenced(size, WTFMove(sendRightAnnotated)), m_id);
+    protectedConnection()->send(Messages::RemoteMediaPlayerProxy::SetVideoLayerSizeFenced(size, WTF::move(sendRightAnnotated)), m_id);
 }
 
 } // namespace WebKit

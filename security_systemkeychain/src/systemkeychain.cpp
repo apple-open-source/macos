@@ -29,6 +29,7 @@
 #include <securityd_client/ssblob.h>
 #include <securityd_client/ssclient.h>
 #include <Security/cssmapple.h>
+#include <Security/SecCoreAnalytics.h>
 #include <Security/SecRandom.h>
 #include <cstdarg>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
@@ -146,6 +147,10 @@ int main (int argc, char * argv[])
 		case setupSystem:
 			if (optind < argc - 1)
 				usage();
+
+			// ensure that use of this tool during early boot doesn't hang waiting to send CA events at shutdown (rdar://164924925)
+			SecCoreAnalyticsSetEnabledForProcess(false);
+
 			createSystemKeychain(systemKCName, argv[optind]);
 			break;
 		case copyKey:

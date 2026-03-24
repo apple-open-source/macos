@@ -1,0 +1,42 @@
+{
+  "configurations" : [
+    {
+      "id" : "EE5D2EFB-DB42-4AB4-A977-F6C18CEC312C",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "ICU_DATA",
+        "value" : "$(BUILT_PRODUCTS_DIR)\/icudt78l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
+      },
+      {
+        "key" : "ICU_BUILT_PRODUCTS_DIR",
+        "value" : "$(BUILT_PRODUCTS_DIR)"
+      },
+      {
+        "key" : "ICU_EXHAUSTIVE",
+        "value" : "1"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:ICU.xcodeproj",
+      "identifier" : "DE587D572CBDB8A800946D2E",
+      "name" : "xc_intltest"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:ICU.xcodeproj",
+        "identifier" : "DE587D572CBDB8A800946D2E",
+        "name" : "xc_intltest"
+      }
+    }
+  ],
+  "version" : 1
+}

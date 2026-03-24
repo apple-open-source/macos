@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 zh_Hant_JP{
     calendar{
         generic{
@@ -24,8 +24,8 @@ zh_Hant_JP{
                 "Hmmssz",
                 "Hmmss",
                 "Hmm",
-                "GyMEEEEd",
-                "GyMd",
+                "GyMMMEEEEd",
+                "GyMMMd",
                 "GGGGGyMMdd",
                 "GGGGGyMd",
             }
@@ -112,15 +112,15 @@ zh_Hant_JP{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
-                "{1} {0}",
+                "{1} {0}",
             }
             DateTimeSkeletons{
                 "Hmmsszzzz",
                 "Hmmssz",
                 "Hmmss",
                 "Hmm",
-                "yMEEEEd",
-                "yMd",
+                "yMMMEEEEd",
+                "yMMMd",
                 "yMMdd",
                 "yMMdd",
             }

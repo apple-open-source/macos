@@ -23,10 +23,11 @@
 #include "SVGTextChunk.h"
 
 #include "RenderSVGInlineText.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGInlineTextBoxInlines.h"
 #include "SVGTextContentElement.h"
 #include "SVGTextFragment.h"
+#include <ranges>
 
 namespace WebCore {
 
@@ -101,7 +102,7 @@ float SVGTextChunk::totalLength() const
         }
     }
 
-    for (auto& box : makeReversedRange(m_boxes)) {
+    for (auto& box : m_boxes | std::views::reverse) {
         if (box.fragments.size()) {
             lastFragment = &box.fragments.last();
             break;

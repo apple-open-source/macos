@@ -25,11 +25,13 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 // Enables LLINT tracing.
 // - Prints every instruction executed if Options::traceLLIntExecution() is enabled.
 // - Prints some information for some of the more subtle slow paths if
 //   Options::traceLLIntSlowPath() is enabled.
-#define LLINT_TRACING 0
+#define LLINT_TRACING USE_COMPRESSED_HEAP
 
 // Disable inline allocation in the interpreter. This is great if you're changing
 // how the GC allocates.

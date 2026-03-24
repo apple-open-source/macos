@@ -68,7 +68,7 @@ struct FormatsAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FormatsAsyncData);
 
     explicit FormatsAsyncData(CompletionHandler<void(Vector<String>&&)>&& handler)
-        : completionHandler(WTFMove(handler))
+        : completionHandler(WTF::move(handler))
     {
     }
 
@@ -85,15 +85,15 @@ void Clipboard::formats(CompletionHandler<void(Vector<String>&&)>&& completionHa
             GUniquePtr<char> atom(gdk_atom_name(atoms[i]));
             result.append(String::fromUTF8(atom.get()));
         }
-        data->completionHandler(WTFMove(result));
-    }, new FormatsAsyncData(WTFMove(completionHandler)));
+        data->completionHandler(WTF::move(result));
+    }, new FormatsAsyncData(WTF::move(completionHandler)));
 }
 
 struct ReadTextAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ReadTextAsyncData);
 
     explicit ReadTextAsyncData(CompletionHandler<void(String&&)>&& handler)
-        : completionHandler(WTFMove(handler))
+        : completionHandler(WTF::move(handler))
     {
     }
 
@@ -105,14 +105,14 @@ void Clipboard::readText(CompletionHandler<void(String&&)>&& completionHandler, 
     gtk_clipboard_request_text(m_clipboard, [](GtkClipboard*, const char* text, gpointer userData) {
         std::unique_ptr<ReadTextAsyncData> data(static_cast<ReadTextAsyncData*>(userData));
         data->completionHandler(String::fromUTF8(text));
-    }, new ReadTextAsyncData(WTFMove(completionHandler)));
+    }, new ReadTextAsyncData(WTF::move(completionHandler)));
 }
 
 struct ReadFilePathsAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ReadFilePathsAsyncData);
 
     explicit ReadFilePathsAsyncData(CompletionHandler<void(Vector<String>&&)>&& handler)
-        : completionHandler(WTFMove(handler))
+        : completionHandler(WTF::move(handler))
     {
     }
 
@@ -129,15 +129,15 @@ void Clipboard::readFilePaths(CompletionHandler<void(Vector<String>&&)>&& comple
             if (filename)
                 result.append(String::fromUTF8(filename.get()));
         }
-        data->completionHandler(WTFMove(result));
-    }, new ReadFilePathsAsyncData(WTFMove(completionHandler)));
+        data->completionHandler(WTF::move(result));
+    }, new ReadFilePathsAsyncData(WTF::move(completionHandler)));
 }
 
 struct ReadBufferAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ReadBufferAsyncData);
 
     explicit ReadBufferAsyncData(CompletionHandler<void(Ref<WebCore::SharedBuffer>&&)>&& handler)
-        : completionHandler(WTFMove(handler))
+        : completionHandler(WTF::move(handler))
     {
     }
 
@@ -148,7 +148,7 @@ struct ReadURLAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ReadURLAsyncData);
 
     explicit ReadURLAsyncData(CompletionHandler<void(String&& url, String&& title)>&& handler)
-        : completionHandler(WTFMove(handler))
+        : completionHandler(WTF::move(handler))
     {
     }
 
@@ -160,7 +160,7 @@ void Clipboard::readURL(CompletionHandler<void(String&& url, String&& title)>&& 
     gtk_clipboard_request_uris(m_clipboard, [](GtkClipboard*, char** uris, gpointer userData) {
         std::unique_ptr<ReadURLAsyncData> data(static_cast<ReadURLAsyncData*>(userData));
         data->completionHandler(uris && uris[0] ? String::fromUTF8(uris[0]) : String(), { });
-    }, new ReadURLAsyncData(WTFMove(completionHandler)));
+    }, new ReadURLAsyncData(WTF::move(completionHandler)));
 }
 
 void Clipboard::readBuffer(const char* format, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&)>&& completionHandler, ReadMode)
@@ -170,14 +170,14 @@ void Clipboard::readBuffer(const char* format, CompletionHandler<void(Ref<WebCor
         int contentsLength;
         const auto* contents = gtk_selection_data_get_data_with_length(selection, &contentsLength);
         data->completionHandler(WebCore::SharedBuffer::create(std::span { contents, static_cast<size_t>(std::max(0, contentsLength)) }));
-    }, new ReadBufferAsyncData(WTFMove(completionHandler)));
+    }, new ReadBufferAsyncData(WTF::move(completionHandler)));
 }
 
 struct WriteAsyncData {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(WriteAsyncData);
 
     WriteAsyncData(WebCore::SelectionData&& selection, Clipboard& clipboard)
-        : selectionData(WTFMove(selection))
+        : selectionData(WTF::move(selection))
         , clipboard(clipboard)
     {
     }
@@ -216,7 +216,7 @@ void Clipboard::write(WebCore::SelectionData&& selectionData, CompletionHandler<
         return;
     }
 
-    auto data = WTF::makeUnique<WriteAsyncData>(WTFMove(selectionData), *this);
+    auto data = WTF::makeUnique<WriteAsyncData>(WTF::move(selectionData), *this);
     gboolean succeeded = gtk_clipboard_set_with_data(m_clipboard, table, numberOfTargets,
         [](GtkClipboard*, GtkSelectionData* selection, guint info, gpointer userData) {
             auto& data = *static_cast<WriteAsyncData*>(userData);

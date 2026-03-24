@@ -167,7 +167,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
     container.setLastChild(nullptr);
 
     RefPtr<Node> next;
-    for (RefPtr node = container.firstChild(); node; node = WTFMove(next)) {
+    for (RefPtr node = container.firstChild(); node; node = WTF::move(next)) {
         ASSERT(!node->deletionHasBegun());
 
         next = node->nextSibling();

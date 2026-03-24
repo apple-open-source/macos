@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 naq{
     AuxExemplarCharacters{"[j l v]"}
     ExemplarCharacters{"[aâ b c d e f g h iî k m n oô p q r s t uû w x y z ǀ ǁ ǂ ǃ]"}
@@ -124,12 +124,12 @@ naq{
             }
             eras{
                 abbreviated{
-                    "BC",
-                    "AD",
+                    0{"BC"}
+                    1{"AD"}
                 }
                 wide{
-                    "Xristub aiǃâ",
-                    "Xristub khaoǃgâ",
+                    0{"Xristub aiǃâ"}
+                    1{"Xristub khaoǃgâ"}
                 }
             }
             monthNames{

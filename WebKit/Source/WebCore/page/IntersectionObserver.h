@@ -46,6 +46,7 @@ namespace WebCore {
 class ContainerNode;
 class Document;
 class Element;
+class FrameView;
 class IntersectionObserverEntry;
 
 struct IntersectionObserverRegistration {
@@ -68,7 +69,7 @@ struct IntersectionObserverData {
 enum class IncludeObscuredInsets : bool { No, Yes };
 
 class IntersectionObserver : public RefCountedAndCanMakeWeakPtr<IntersectionObserver> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(IntersectionObserver);
+    WTF_MAKE_TZONE_ALLOCATED(IntersectionObserver);
 public:
     struct Init {
         std::optional<Variant<RefPtr<Element>, RefPtr<Document>>> root;
@@ -107,7 +108,7 @@ public:
     void rootDestroyed();
 
     enum class NeedNotify : bool { No, Yes };
-    NeedNotify updateObservations(Document&);
+    NeedNotify updateObservations(const Frame&);
 
     std::optional<ReducedResolutionSeconds> nowTimestamp() const;
 
@@ -136,7 +137,7 @@ private:
     };
 
     enum class ApplyRootMargin : bool { No, Yes };
-    IntersectionObservationState computeIntersectionState(const IntersectionObserverRegistration&, LocalFrameView&, Element& target, ApplyRootMargin) const;
+    IntersectionObservationState computeIntersectionState(const IntersectionObserverRegistration&, FrameView&, Element& target, ApplyRootMargin) const;
 
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_implicitRootDocument;
     WeakPtr<ContainerNode, WeakPtrImplWithEventTargetData> m_root;

@@ -218,15 +218,15 @@ static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeycha
 
     @autoreleasepool {
 
-        require_string(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, "expected XPC_TYPE_DICTIONARY");
+        __Require_String(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, "expected XPC_TYPE_DICTIONARY");
 
         const char *operation = xpc_dictionary_get_string(event, kMessageKeyOperation);
-        require_action(operation, xit, result = false);
+        __Require_Action(operation, xit, result = false);
 
         // Check protocol version
         uint64_t version = xpc_dictionary_get_uint64(event, kMessageKeyVersion);
         secinfo(PROXYXPCSCOPE, "Reply version: %lld", version);
-        require_action(version == kCKDXPCVersion, xit, result = false);
+        __Require_Action(version == kCKDXPCVersion, xit, result = false);
 
         // Operations
         secinfo(PROXYXPCSCOPE, "Handling %s operation", operation);
@@ -316,7 +316,7 @@ static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeycha
             NSArray<NSString*> * peerIDs = [self CreateArrayOfStringsForCFXPCObjectFromKey: event withKey: kMessageKeyPeerIDList];
             NSArray<NSString*> * backupPeerIDs = [self CreateArrayOfStringsForCFXPCObjectFromKey: event withKey: kMesssgeKeyBackupPeerIDList];
 
-            require_action(peerIDs && backupPeerIDs, xit, (secnotice(XPROXYSCOPE, "Bad call to sync with peers"), result = false));
+            __Require_Action(peerIDs && backupPeerIDs, xit, (secnotice(XPROXYSCOPE, "Bad call to sync with peers"), result = false));
 
             [_proxyID requestSyncWithPeerIDs: peerIDs backupPeerIDs: backupPeerIDs];
             [self sendAckResponse: peer forEvent: event];

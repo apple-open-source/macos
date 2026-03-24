@@ -48,7 +48,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteVideoFrameProxy);
 RemoteVideoFrameProxy::Properties RemoteVideoFrameProxy::properties(WebKit::RemoteVideoFrameReference reference, const WebCore::VideoFrame& videoFrame)
 {
     return {
-        WTFMove(reference),
+        WTF::move(reference),
         videoFrame.presentationTime(),
         videoFrame.isMirrored(),
         videoFrame.rotation(),
@@ -60,7 +60,7 @@ RemoteVideoFrameProxy::Properties RemoteVideoFrameProxy::properties(WebKit::Remo
 
 Ref<RemoteVideoFrameProxy> RemoteVideoFrameProxy::create(IPC::Connection& connection, RemoteVideoFrameObjectHeapProxy& videoFrameObjectHeapProxy, Properties&& properties)
 {
-    return adoptRef(*new RemoteVideoFrameProxy(connection, videoFrameObjectHeapProxy, WTFMove(properties)));
+    return adoptRef(*new RemoteVideoFrameProxy(connection, videoFrameObjectHeapProxy, WTF::move(properties)));
 }
 
 static void releaseRemoteVideoFrameProxy(IPC::Connection& connection, const RemoteVideoFrameWriteReference& reference)
@@ -74,7 +74,7 @@ void RemoteVideoFrameProxy::releaseUnused(IPC::Connection& connection, Propertie
 }
 
 RemoteVideoFrameProxy::RemoteVideoFrameProxy(IPC::Connection& connection, RemoteVideoFrameObjectHeapProxy& videoFrameObjectHeapProxy, Properties&& properties)
-    : VideoFrame(properties.presentationTime, properties.isMirrored, properties.rotation, WTFMove(properties.colorSpace))
+    : VideoFrame(properties.presentationTime, properties.isMirrored, properties.rotation, WTF::move(properties.colorSpace))
     , m_connection(&connection)
     , m_referenceTracker(properties.reference)
     , m_size(properties.size)
@@ -128,7 +128,7 @@ CVPixelBufferRef RemoteVideoFrameProxy::pixelBuffer() const
             Ref protectedThis { *this };
             BinarySemaphore semaphore;
             videoFrameObjectHeapProxy->getVideoFrameBuffer(*this, canUseIOSurface, [&protectedThis, &semaphore](auto pixelBuffer) {
-                protectedThis->m_pixelBuffer = WTFMove(pixelBuffer);
+                protectedThis->m_pixelBuffer = WTF::move(pixelBuffer);
                 semaphore.signal();
             });
             semaphore.wait();

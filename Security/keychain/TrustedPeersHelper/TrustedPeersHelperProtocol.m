@@ -37,6 +37,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfCuttlefishCurrentItemSpecifiers = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItemSpecifier class]]];
         NSSet* arrayOfCuttlefishCurrentItems = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItem class]]];
 
+        NSSet* arrayOfOTSerializedPlistEscrowRecords = [NSSet setWithArray:@[[NSArray class], [OTSerializedPlistEscrowRecord class]]];
+
         [interface setXPCType:XPC_TYPE_FD forSelector:@selector(dumpWithSpecificUser:fileDescriptor:reply:) argumentIndex:1 ofReply:NO];
 
         [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:fileDescriptor:reply:) argumentIndex:0 ofReply:YES];
@@ -100,6 +102,11 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(octagonContainsDistrustedRecoveryKeysWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchCurrentItemWithSpecificUser:items:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(performPeerSecretsFixUpsWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses
+            forSelector:@selector(enableWalrusWithSpecificUser:preRecords:extraArgs:flowID:deviceSessionID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses
+            forSelector:@selector(disableWalrusWithSpecificUser:preRecords:extraArgs:flowID:deviceSessionID:reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:arrayOfSettings forSelector:@selector(fetchAccountSettingsWithSpecificUser:forceFetch:altDSID:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:0 ofReply:YES];
        
@@ -284,6 +291,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:arrayOfCuttlefishPCSIdentities forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:arrayOfCKRecords forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:1 ofReply:YES];
 
+        [interface setClasses:arrayOfOTSerializedPlistEscrowRecords forSelector:@selector(enableWalrusWithSpecificUser:preRecords:extraArgs:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:arrayOfOTSerializedPlistEscrowRecords forSelector:@selector(disableWalrusWithSpecificUser:preRecords:extraArgs:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:NO];
     }
     @catch(NSException* e) {
         secerror("TrustedPeersHelperSetupProtocol failed, continuing, but you might crash later: %@", e);
@@ -727,6 +736,37 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     if ((self = [super init])) {
         _item = [coder decodeObjectOfClass:[CKRecord class] forKey:@"item"];
         _itemPtr = [coder decodeObjectOfClass:[CuttlefishCurrentItemSpecifier class] forKey:@"itemPtr"];
+    }
+    return self;
+}
+
+@end
+
+@implementation TPWalrusExtraArguments
+
+- (NSString*)description {
+#if APPLE_FEATURE_DBR
+    return [NSString stringWithFormat:@"<TPWalrusExtraArguments(isDBRv2:%@)>", self.isDBRv2 ? @"YES" : @"NO"];
+#else
+    return @"<TPWalrusExtraArguments()>";
+#endif
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+#if APPLE_FEATURE_DBR
+    [coder encodeBool:self.isDBRv2 forKey:@"isDBRv2"];
+#endif
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
+    if ((self = [super init])) {
+#if APPLE_FEATURE_DBR
+        _isDBRv2 = [coder decodeBoolForKey:@"isDBRv2"];
+#endif
     }
     return self;
 }

@@ -44,16 +44,18 @@ namespace WebKit {
 using namespace WebCore;
 
 struct AuthenticationManager::Challenge {
-    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(AuthenticationManager);
+    WTF_MAKE_STRUCT_TZONE_ALLOCATED(Challenge);
     Challenge(std::optional<WebPageProxyIdentifier> pageID, const WebCore::AuthenticationChallenge& challenge, ChallengeCompletionHandler&& completionHandler)
         : pageID(pageID)
         , challenge(challenge)
-        , completionHandler(WTFMove(completionHandler)) { }
+        , completionHandler(WTF::move(completionHandler)) { }
 
     Markable<WebPageProxyIdentifier> pageID;
     WebCore::AuthenticationChallenge challenge;
     ChallengeCompletionHandler completionHandler;
 };
+
+WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(AuthenticationManager::Challenge);
 
 static bool canCoalesceChallenge(const WebCore::AuthenticationChallenge& challenge)
 {
@@ -97,7 +99,7 @@ AuthenticationChallengeIdentifier AuthenticationManager::addChallengeToChallenge
     ASSERT(RunLoop::isMain());
 
     auto challengeID = AuthenticationChallengeIdentifier::generate();
-    m_challenges.set(challengeID, WTFMove(challenge));
+    m_challenges.set(challengeID, WTF::move(challenge));
     return challengeID;
 }
 
@@ -140,7 +142,7 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(PAL::SessionID ses
     if (!pageID)
         return completionHandler(AuthenticationChallengeDisposition::PerformDefaultHandling, { });
 
-    auto challengeID = addChallengeToChallengeMap(makeUniqueRef<Challenge>(*pageID, authenticationChallenge, WTFMove(completionHandler)));
+    auto challengeID = addChallengeToChallengeMap(makeUniqueRef<Challenge>(*pageID, authenticationChallenge, WTF::move(completionHandler)));
 
     // Coalesce challenges in the same protection space and in the same page.
     if (shouldCoalesceChallenge(*pageID, challengeID, authenticationChallenge))
@@ -155,7 +157,7 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(PAL::SessionID ses
 void AuthenticationManager::didReceiveAuthenticationChallenge(IPC::MessageSender& download, const WebCore::AuthenticationChallenge& authenticationChallenge, ChallengeCompletionHandler&& completionHandler)
 {
     std::optional<WebPageProxyIdentifier> dummyPageID;
-    auto challengeID = addChallengeToChallengeMap(makeUniqueRef<Challenge>(dummyPageID, authenticationChallenge, WTFMove(completionHandler)));
+    auto challengeID = addChallengeToChallengeMap(makeUniqueRef<Challenge>(dummyPageID, authenticationChallenge, WTF::move(completionHandler)));
 
     // Coalesce challenges in the same protection space and in the same page.
     if (shouldCoalesceChallenge(dummyPageID, challengeID, authenticationChallenge))

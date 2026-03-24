@@ -30,6 +30,7 @@
 
 #include "WebContextMenu.h"
 #include "WebPage.h"
+#include <WebCore/DocumentPage.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FrameInlines.h>
 #include <WebCore/FrameLoader.h>

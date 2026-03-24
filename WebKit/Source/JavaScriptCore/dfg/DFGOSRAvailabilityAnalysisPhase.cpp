@@ -139,62 +139,109 @@ public:
                 
                 for (unsigned nodeIndex = 0; nodeIndex < block->size(); ++nodeIndex) {
                     Node* node = block->at(nodeIndex);
-                    if (node->origin.exitOK) {
-                        // If we're allowed to exit here, the heap must be in a state
-                        // where exiting wouldn't crash. These particular fields are
-                        // required for correctness because we use them during OSR exit
-                        // to do meaningful things. It would be wrong for any of them
-                        // to be dead.
 
-                        CodeOrigin exitOrigin = node->origin.forExit;
-                        AvailabilityMap availabilityMap = calculator.m_availability.filterByLiveness(m_graph, exitOrigin);
-
-                        for (auto heapPair : availabilityMap.m_heap) {
-                            switch (heapPair.key.kind()) {
-                            case ActivationScopePLoc:
-                            case ActivationSymbolTablePLoc:
-                            case FunctionActivationPLoc:
-                            case FunctionExecutablePLoc:
-                            case StructurePLoc:
-                                if (heapPair.value.isDead()) {
-                                    WTF::dataFile().atomically([&](auto&) {
-                                        dataLogLn("PromotedHeapLocation is dead, but should not be: ", heapPair.key);
-                                        availabilityMap.dump(WTF::dataFile());
-                                    });
-                                    CRASH();
-                                }
-                                break;
-
-                            default:
-                                break;
-                            }
-                        }
-
-                        // FIXME: It seems like we should be able to do at least some validation when OSR entering. https://bugs.webkit.org/show_bug.cgi?id=215511
-                        if (m_graph.m_plan.mode() != JITCompilationMode::FTLForOSREntry) {
-                            for (size_t i = 0; i < availabilityMap.m_locals.size(); ++i) {
-                                Operand operand = availabilityMap.m_locals.operandForIndex(i);
-                                Availability availability = availabilityMap.m_locals[i];
-                                if (availability.isDead() && m_graph.isLiveInBytecode(operand, exitOrigin)) {
-                                    for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
-                                        dataLogLn("Block #", block->index);
-                                        dataLogLn("Availability at head: ", availabilityAtHead(block));
-                                        dataLogLn("Availability at tail: ", availabilityAtTail(block));
-                                        dataLogLn();
-                                    }
-
-                                    DFG_CRASH(m_graph, node, toCString("Live bytecode local not available: operand = ", operand, ", availabilityMap = ", availabilityMap, ", origin = ", exitOrigin).data());
-                                }
-                            }
-                        }
-                    }
-
-                    calculator.executeNode(block->at(nodeIndex));
+                    validateNode(node, calculator);
+                    calculator.executeNode(node);
                 }
             }
         }
         
         return true;
+    }
+
+    void validateNode(Node* node, LocalOSRAvailabilityCalculator& calculator)
+    {
+        if (node->origin.exitOK) {
+            // If we're allowed to exit here, the heap must be in a state
+            // where exiting wouldn't crash. These particular fields are
+            // required for correctness because we use them during OSR exit
+            // to do meaningful things. It would be wrong for any of them
+            // to be dead.
+
+            CodeOrigin exitOrigin = node->origin.forExit;
+            AvailabilityMap availabilityMap = calculator.m_availability.filterByLiveness(m_graph, exitOrigin);
+
+            for (auto heapPair : availabilityMap.m_heap) {
+                switch (heapPair.key.kind()) {
+                case ActivationScopePLoc:
+                case ActivationSymbolTablePLoc:
+                case FunctionActivationPLoc:
+                case FunctionExecutablePLoc:
+                case StructurePLoc:
+                    if (heapPair.value.isDead()) {
+                        WTF::dataFile().atomically([&](auto&) {
+                            dataLogLn("PromotedHeapLocation is dead, but should not be: ", heapPair.key);
+                            availabilityMap.dump(WTF::dataFile());
+                        });
+                        CRASH();
+                    }
+                    break;
+
+                default:
+                    break;
+                }
+            }
+
+            // FIXME: It seems like we should be able to do at least some validation when OSR entering. https://bugs.webkit.org/show_bug.cgi?id=215511
+            if (m_graph.m_plan.mode() != JITCompilationMode::FTLForOSREntry) {
+                for (size_t i = 0; i < availabilityMap.m_locals.size(); ++i) {
+                    Operand operand = availabilityMap.m_locals.operandForIndex(i);
+                    Availability availability = availabilityMap.m_locals[i];
+                    if (availability.isDead() && m_graph.isLiveInBytecode(operand, exitOrigin)) {
+                        for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
+                            dataLogLn("Block #", block->index);
+                            dataLogLn("Availability at head: ", availabilityAtHead(block));
+                            dataLogLn("Availability at tail: ", availabilityAtTail(block));
+                            dataLogLn();
+                        }
+
+                        DFG_CRASH(m_graph, node, toCString("Live bytecode local not available: operand = ", operand, ", availabilityMap = ", availabilityMap, ", origin = ", exitOrigin).data());
+                    }
+                }
+            }
+        }
+
+        switch (node->op()) {
+        case PhantomCreateRest:
+        case PhantomDirectArguments:
+        case PhantomClonedArguments: {
+            InlineCallFrame* inlineCallFrame = node->origin.semantic.inlineCallFrame();
+            if (!inlineCallFrame) {
+                // We don't need to record anything about how the arguments are to be recovered. It's just a
+                // given that we can read them from the stack.
+                break;
+            }
+
+            unsigned numberOfArgumentsToSkip = 0;
+            if (node->op() == PhantomCreateRest)
+                numberOfArgumentsToSkip = node->numberOfArgumentsToSkip();
+
+            if (inlineCallFrame->isVarargs()) {
+                // Record how to read each argument and the argument count.
+                Availability argumentCount =
+                    calculator.m_availability.m_locals.operand(VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCountIncludingThis));
+
+                RELEASE_ASSERT(!argumentCount.isDead());
+            }
+
+            if (inlineCallFrame->isClosureCall) {
+                Availability callee = calculator.m_availability.m_locals.operand(
+                    VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::callee));
+
+                RELEASE_ASSERT(!callee.isDead());
+            }
+
+            for (unsigned i = numberOfArgumentsToSkip; i < static_cast<unsigned>(inlineCallFrame->argumentCountIncludingThis - 1); ++i) {
+                Availability argument = calculator.m_availability.m_locals.operand(
+                    VirtualRegister(inlineCallFrame->stackOffset + CallFrame::argumentOffset(i)));
+
+                RELEASE_ASSERT(!argument.isDead());
+            }
+            break;
+        }
+        default:
+            break;
+        }
     }
 
     HeadFunctor& availabilityAtHead;
@@ -249,7 +296,7 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
         if (!localAvailability.isFlushUseful() || localAvailability.flushedAt().virtualRegister() == VirtualRegister())
             return;
 
-        // In theory this is O(n) and we could have a seperate HashMap tracking Operand -> AbstractHeap's with relevant flushes. In practice, the availability heap is small (there's not usually a lot of phantom objects) so the O(n) search isn't bad.
+        // In theory this is O(n) and we could have a separate HashMap tracking Operand -> AbstractHeap's with relevant flushes. In practice, the availability heap is small (there's not usually a lot of phantom objects) so the O(n) search isn't bad.
         for (auto& heapPair : m_availability.m_heap) {
             if (heapPair.value.flushedAt().virtualRegister() == localAvailability.flushedAt().virtualRegister())
                 heapPair.value.setFlush(FlushedAt(ConflictingFlush));
@@ -300,7 +347,7 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
         const Vector<FlushFormat>& argumentFormats = m_graph.m_argumentFormats[entrypointIndex];
         for (unsigned argument = argumentFormats.size(); argument--; ) {
             FlushedAt flushedAt = FlushedAt(argumentFormats[argument], virtualRegisterForArgumentIncludingThis(argument));
-            m_availability.m_locals.argument(argument) = Availability(flushedAt);
+            m_availability.m_locals.argument(argument).setFlush(flushedAt);
         }
         break;
     }
@@ -312,7 +359,7 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
     case LoadVarargs:
     case ForwardVarargs: {
         LoadVarargsData* data = node->loadVarargsData();
-        m_availability.m_locals.operand(data->count) = Availability(FlushedAt(FlushedInt32, data->machineCount));
+        m_availability.m_locals.operand(data->count) = Availability(node->child1().node(), FlushedAt(FlushedInt32, data->machineCount));
         for (unsigned i = data->limit; i--;) {
             m_availability.m_locals.operand(data->start + i) =
                 Availability(FlushedAt(FlushedJSValue, data->machineStart.isValid() ? (data->machineStart + i) : VirtualRegister()));
@@ -339,7 +386,6 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
             Availability argumentCount =
                 m_availability.m_locals.operand(VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCountIncludingThis));
             
-            ASSERT(!argumentCount.isDead());
             m_availability.m_heap.set(PromotedHeapLocation(ArgumentCountPLoc, node), argumentCount);
         }
         
@@ -347,7 +393,6 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
             Availability callee = m_availability.m_locals.operand(
                 VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::callee));
 
-            ASSERT(!callee.isDead());
             m_availability.m_heap.set(PromotedHeapLocation(ArgumentsCalleePLoc, node), callee);
         }
         
@@ -355,7 +400,6 @@ void LocalOSRAvailabilityCalculator::executeNode(Node* node)
             Availability argument = m_availability.m_locals.operand(
                 VirtualRegister(inlineCallFrame->stackOffset + CallFrame::argumentOffset(i)));
             
-            ASSERT(!argument.isDead());
             m_availability.m_heap.set(PromotedHeapLocation(ArgumentPLoc, node, i), argument);
         }
         break;

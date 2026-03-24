@@ -3779,6 +3779,13 @@ nfs_flush(nfsnode_t np, int waitfor, thread_t thd, int ignore_writeerr)
 		error = ENXIO;
 		goto out;
 	}
+
+	/* Early exit for read-only mounts - no dirty data possible */
+	if (vfs_isrdonly(nmp->nm_mountp)) {
+		error = 0;
+		goto out;
+	}
+
 	nfsvers = nmp->nm_vers;
 	if (NMFLAG(nmp, INTR)) {
 		slpflag = PCATCH;

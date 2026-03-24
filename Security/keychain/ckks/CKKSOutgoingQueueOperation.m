@@ -677,7 +677,11 @@
     }];
 
     if(ckerror) {
-        self.nextState = self.ckErrorState;
+        if ([ckerror isCKServerAuthTokenError]) {
+            self.nextState = CKKSStateRecheckAccountStatus;
+        } else {
+            self.nextState = self.ckErrorState;
+        }
     } else {
         self.nextState = self.intendedState;
     }

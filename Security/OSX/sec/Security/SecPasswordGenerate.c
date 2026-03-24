@@ -790,7 +790,7 @@ static bool passwordContainsRequiredCharacters(CFStringRef password, CFArrayRef 
     for (CFIndex i = 0; i< CFArrayGetCount(requiredCharacterSets); i++) {
         characterSet = CFArrayGetValueAtIndex(requiredCharacterSets, i);
         CFRange rangeToSearch = CFRangeMake(0, CFStringGetLength(password));
-        require_quiet(CFStringFindCharacterFromSet(password, characterSet, rangeToSearch, 0, NULL), fail);
+        __Require_Quiet(CFStringFindCharacterFromSet(password, characterSet, rangeToSearch, 0, NULL), fail);
     }
     return true;
 
@@ -808,7 +808,7 @@ static bool passwordContainsLessThanNIdenticalCharacters(CFStringRef password, C
         Char = CFStringGetCharacterAtIndex(password, i);
         for(CFIndex j = i; j< CFStringGetLength(password); j++){
             nextChar = CFStringGetCharacterAtIndex(password, j);
-            require_quiet(repeating <= identicalCount, fail);
+            __Require_Quiet(repeating <= identicalCount, fail);
             if(Char == nextChar){
                 repeating++;
             }else{
@@ -862,7 +862,7 @@ static bool passwordDoesNotContainCharacters(CFStringRef password, CFStringRef p
     characterSet = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, prohibitedCharacters);
     CFRange rangeToSearch = CFRangeMake(0, CFStringGetLength(password));
 
-    require_quiet(!CFStringFindCharacterFromSet(password, characterSet, rangeToSearch, 0, NULL), fail);
+    __Require_Quiet(!CFStringFindCharacterFromSet(password, characterSet, rangeToSearch, 0, NULL), fail);
     CFReleaseNull(characterSet);
     return true;
 fail:
@@ -921,7 +921,7 @@ static bool doesPasswordEndWith(CFStringRef password, CFStringRef prohibitedChar
     characterSet = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, prohibitedCharacters);
 
     CFRange rangeToSearch = CFRangeMake(CFStringGetLength(password) - CFStringGetLength(prohibitedCharacters), CFStringGetLength(prohibitedCharacters));
-    require_quiet(0 == CFStringCompareWithOptions(password, prohibitedCharacters, rangeToSearch, 0), fail);
+    __Require_Quiet(0 == CFStringCompareWithOptions(password, prohibitedCharacters, rangeToSearch, 0), fail);
     CFReleaseNull(characterSet);
     return false;
 fail:
@@ -935,7 +935,7 @@ static bool doesPasswordStartWith(CFStringRef password, CFStringRef prohibitedCh
     characterSet = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, prohibitedCharacters);
 
     CFRange rangeToSearch = CFRangeMake(0, CFStringGetLength(prohibitedCharacters));
-    require_quiet(0 == CFStringCompareWithOptions(password, prohibitedCharacters, rangeToSearch, 0), fail);
+    __Require_Quiet(0 == CFStringCompareWithOptions(password, prohibitedCharacters, rangeToSearch, 0), fail);
     CFReleaseNull(characterSet);
     return false; //does not start with prohibitedCharacters
 fail:
@@ -1265,13 +1265,13 @@ static bool isDictionaryFormattedProperly(SecPasswordType type, CFDictionaryRef 
         }
         //check if the values exist!
         if( CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMaxLengthKey, &maxTest) ){
-            require_action_quiet(isNull(maxTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's max length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(maxTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's max length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
 
         }
         if (CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMinLengthKey, &minTest) ){
-            require_action_quiet(isNull(minTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's min length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(minTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's min length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
         }
         //check if the values exist!
         if(maxTest){
@@ -1285,8 +1285,8 @@ static bool isDictionaryFormattedProperly(SecPasswordType type, CFDictionaryRef 
             minPasswordLength = (long)valuePtr;
         }
         //make sure min and max make sense respective to each other and that they aren't less than 4 digits.
-        require_action_quiet(minPasswordLength && maxPasswordLength && minPasswordLength <= maxPasswordLength, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
-        require_action_quiet((minPasswordLength && minPasswordLength >= 4) || (maxPasswordLength && maxPasswordLength >= 4), fail, tempError = CFErrorCreate(kCFAllocatorDefault,  CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(minPasswordLength && maxPasswordLength && minPasswordLength <= maxPasswordLength, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet((minPasswordLength && minPasswordLength >= 4) || (maxPasswordLength && maxPasswordLength >= 4), fail, tempError = CFErrorCreate(kCFAllocatorDefault,  CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
     }
     else{
         CFTypeRef allowedTest, maxTest, minTest, requiredTest, prohibitedCharacters, endWith, startWith,
@@ -1295,88 +1295,88 @@ static bool isDictionaryFormattedProperly(SecPasswordType type, CFDictionaryRef 
         uint64_t valuePtr;
 
         //check if the values exist!
-        require_action_quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordAllowedCharactersKey, &allowedTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
-        require_action_quiet( CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMaxLengthKey, &maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet( CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMinLengthKey, &minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordRequiredCharactersKey, &requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordAllowedCharactersKey, &allowedTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMaxLengthKey, &maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordMinLengthKey, &minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordRequiredCharactersKey, &requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
 
         //check if values are null?
-        require_action_quiet(isNull(allowedTest) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isNull(maxTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isNull(minTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isNull(requiredTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNull(allowedTest) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNull(maxTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a max length"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNull(minTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("To generate a password, need a min length"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNull(requiredTest)!= true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
 
         //check if the values are correct
-        require_action_quiet(isString(allowedTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's allowed characters must be a CFStringRef"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isNumber(maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's max length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isNumber(minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's min length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(isArray(requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's required characters must be an array of CFCharacterSetRefs"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isString(allowedTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's allowed characters must be a CFStringRef"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNumber(maxTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's max length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isNumber(minTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's min length must be a CFNumberRef"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(isArray(requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's required characters must be an array of CFCharacterSetRefs"), (CFIndex)errSecBadReq, NULL));
 
         CFNumberGetValue(minTest, kCFNumberSInt64Type, &valuePtr);
         CFIndex minPasswordLength = (long)valuePtr;
         CFNumberGetValue(maxTest, kCFNumberSInt64Type, &valuePtr);
         CFIndex maxPasswordLength = (long)valuePtr;
 
-        require_action_quiet(minPasswordLength <= maxPasswordLength, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(minPasswordLength <= maxPasswordLength, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The password's length parameters make no sense ( is max < min ?)"),  (CFIndex)errSecBadReq, NULL));
 
-        require_action_quiet(CFStringGetLength((CFStringRef)allowedTest) != 0, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
-        require_action_quiet(CFArrayGetCount((CFArrayRef)requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFStringGetLength((CFStringRef)allowedTest) != 0, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need a string of characters; password must only contain characters in this string"),  (CFIndex)errSecBadReq, NULL));
+        __Require_Action_Quiet(CFArrayGetCount((CFArrayRef)requiredTest), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Need an array of character sets, password must have at least 1 character from each set"), (CFIndex)errSecBadReq, NULL));
 
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordDisallowedCharacters, &prohibitedCharacters)){
-            require_action_quiet(isNull(prohibitedCharacters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Disallowed Characters dictionary parameter is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(prohibitedCharacters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Disallowed Characters dictionary parameter is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(prohibitedCharacters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Disallowed Characters dictionary parameter is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(prohibitedCharacters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("Disallowed Characters dictionary parameter is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordCantEndWithChars, &endWith)){
-            require_action_quiet(isNull(endWith) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'EndWith' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(endWith), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'EndWith' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(endWith) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'EndWith' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(endWith), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'EndWith' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordCantStartWithChars, &startWith)){
-            require_action_quiet(isNull(startWith) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'StartWith' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(startWith), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'StartWith' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(startWith) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'StartWith' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(startWith), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'StartWith' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordGroupSize, &groupSizeRef)){
-            require_action_quiet(isNull(groupSizeRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'groupsize' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(groupSizeRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'groupsize' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(groupSizeRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'groupsize' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(groupSizeRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'groupsize' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
         }
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordNumberOfGroups, &numberOfGroupsRef)){
-            require_action_quiet(isNull(numberOfGroupsRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'number of groupds' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(numberOfGroupsRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'number of groupds' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(numberOfGroupsRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'number of groupds' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(numberOfGroupsRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'number of groupds' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
         }
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordSeparator, &separatorRef)){
-            require_action_quiet(isNull(separatorRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'password separator character' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(separatorRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'password separator character' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(separatorRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'password separator character' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(separatorRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'password separator character' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
 
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordContainsNoMoreThanNSpecificCharacters, &atMostCharactersRef)){
-            require_action_quiet(isNull(atMostCharactersRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isDictionary(atMostCharactersRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(atMostCharactersRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isDictionary(atMostCharactersRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
 
-            require_action_quiet(CFDictionaryGetValueIfPresent(atMostCharactersRef, kSecPasswordCharacterCount, &thresholdRef) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNull(thresholdRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(thresholdRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(CFDictionaryGetValueIfPresent(atMostCharactersRef, kSecPasswordCharacterCount, &thresholdRef) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(thresholdRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(thresholdRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
 
-            require_action_quiet(CFDictionaryGetValueIfPresent(atMostCharactersRef, kSecPasswordCharacters, &characters)!= false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNull(characters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(characters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(CFDictionaryGetValueIfPresent(atMostCharactersRef, kSecPasswordCharacters, &characters)!= false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Most N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(characters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(characters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
 
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordContainsAtLeastNSpecificCharacters, &atLeastCharactersRef)){
-            require_action_quiet(isNull(atLeastCharactersRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isDictionary(atLeastCharactersRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(atLeastCharactersRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isDictionary(atLeastCharactersRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
 
-            require_action_quiet(CFDictionaryGetValueIfPresent(atLeastCharactersRef, kSecPasswordCharacterCount, &thresholdRef) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(CFDictionaryGetValueIfPresent(atLeastCharactersRef, kSecPasswordCharacterCount, &thresholdRef) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
 
-            require_action_quiet(isNull(thresholdRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(thresholdRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(thresholdRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(thresholdRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
 
-            require_action_quiet(CFDictionaryGetValueIfPresent(atLeastCharactersRef, kSecPasswordCharacters, &characters) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNull(characters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isString(characters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(CFDictionaryGetValueIfPresent(atLeastCharactersRef, kSecPasswordCharacters, &characters) != false, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'At Least N Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(characters) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isString(characters), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Characters' is either null or not a string"), (CFIndex)errSecBadReq, NULL));
         }
 
         if(CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordContainsNoMoreThanNConsecutiveIdenticalCharacters, &identicalRef)){
-            require_action_quiet(isNull(identicalRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Identical Consecutive Characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
-            require_action_quiet(isNumber(identicalRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Identical Consecutive Characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNull(identicalRef) != true, fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Identical Consecutive Characters' is either null or not a number"),  (CFIndex)errSecBadReq, NULL));
+            __Require_Action_Quiet(isNumber(identicalRef), fail, tempError = CFErrorCreate(kCFAllocatorDefault, CFSTR("The dictionary parameter 'Identical Consecutive Characters' is either null or not a number"), (CFIndex)errSecBadReq, NULL));
         }
     }
 
@@ -1504,7 +1504,7 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
     else
         isSimple = false;
     check = isDictionaryFormattedProperly(type, passwordRequirements, &localError);
-    require_quiet(check != false, fail);
+    __Require_Quiet(check != false, fail);
 
     //should we generate defaults?
     if(passwordRequirements == NULL || (CFDictionaryGetValueIfPresent(passwordRequirements, kSecPasswordDefaultForType, &defaults) && isString(defaults) == true && 0 == CFStringCompare(defaults, CFSTR("true"), 0) ))
@@ -1512,7 +1512,7 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
     else
         properlyFormattedRequirements = passwordGenerationCreateParametersDictionary(type, passwordRequirements);
 
-    require_quiet(localError == NULL && properlyFormattedRequirements != NULL, fail);
+    __Require_Quiet(localError == NULL && properlyFormattedRequirements != NULL, fail);
 
     numberOfRequiredRandomCharacters = (CFNumberRef)CFDictionaryGetValue(properlyFormattedRequirements, kSecNumberOfRequiredRandomCharactersKey);
     if (isNumber(numberOfRequiredRandomCharacters) && CFNumberGetValue(numberOfRequiredRandomCharacters, kCFNumberSInt64Type, &valuePtr))
@@ -1535,11 +1535,11 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
     else
         CFNumberGetValue((CFNumberRef)numberOfGroupsRef, kCFNumberSInt64Type, &numberOfGroups);
 
-    require(requiredCharactersSize, fail);
+    __Require(requiredCharactersSize, fail);
 
     while (true) {
         allowedChars = CFDictionaryGetValue(properlyFormattedRequirements, kSecAllowedCharactersKey);
-        require_noerr(getPasswordRandomCharacters(&randomCharacters, properlyFormattedRequirements, &requiredCharactersSize, allowedChars), fail);
+        __Require_noErr(getPasswordRandomCharacters(&randomCharacters, properlyFormattedRequirements, &requiredCharactersSize, allowedChars), fail);
 
         if(numberOfGroupsRef && groupSizeRef){
             finalPassword = CFStringCreateMutable(kCFAllocatorDefault, 0);
@@ -1586,7 +1586,7 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
         }
 
         CFReleaseNull(randomCharacters);
-        require_quiet(doesFinalPasswordPass(isSimple, password, properlyFormattedRequirements), no_pass);
+        __Require_Quiet(doesFinalPasswordPass(isSimple, password, properlyFormattedRequirements), no_pass);
         CFReleaseNull(properlyFormattedRequirements);
         return password;
 
@@ -1741,10 +1741,10 @@ SecPasswordValidatePasswordFormat(SecPasswordType type, CFStringRef password, CF
      * First check expected length
      */
 
-    require(CFStringGetLength(password) == numberOfChars, out); /* N groups of M with (N-1) seperator - in-between */
+    __Require(CFStringGetLength(password) == numberOfChars, out); /* N groups of M with (N-1) seperator - in-between */
 
     randomChars = CFStringCreateMutable(SecCFAllocatorZeroize(), 0);
-    require(randomChars, out);
+    __Require(randomChars, out);
 
     /*
      * make sure dash-es are at the expected spots
@@ -1753,7 +1753,7 @@ SecPasswordValidatePasswordFormat(SecPasswordType type, CFStringRef password, CF
     for (CFIndex n = 0; n < numOfTuplesInt; n++) {
         if (n != 0) {
             UniChar c = CFStringGetCharacterAtIndex(password, (n * (tupleLengthInt + 1)) - 1);
-            require(c == '-', out);
+            __Require(c == '-', out);
         }
         CFStringRef substr = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), password, CFRangeMake(n * (tupleLengthInt + 1), tupleLengthInt));
         CFStringAppend(randomChars, substr);
@@ -1766,19 +1766,19 @@ SecPasswordValidatePasswordFormat(SecPasswordType type, CFStringRef password, CF
          */
 
         checksum = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), randomChars, CFRangeMake((numOfTuplesInt * tupleLengthInt) - checkSumChars, checkSumChars));
-        require(checksum, out);
+        __Require(checksum, out);
 
         passwordNoChecksum = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), randomChars, CFRangeMake(0, (numOfTuplesInt * tupleLengthInt) - checkSumChars));
-        require(passwordNoChecksum, out);
+        __Require(passwordNoChecksum, out);
 
         /*
          * Validate checksum
          */
 
         madeChecksum = CreateChecksum(type, passwordNoChecksum, checkSumChars, allowedChars);
-        require(madeChecksum, out);
+        __Require(madeChecksum, out);
 
-        require(CFEqual(madeChecksum, checksum), out);
+        __Require(CFEqual(madeChecksum, checksum), out);
     }
 
     res = true;

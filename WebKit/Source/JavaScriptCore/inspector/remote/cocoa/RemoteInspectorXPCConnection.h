@@ -25,12 +25,14 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(REMOTE_INSPECTOR)
 
-#import <dispatch/dispatch.h>
 #import <wtf/Lock.h>
-#import <wtf/OSObjectPtr.h>
 #import <wtf/ThreadSafeRefCounted.h>
+#import <wtf/darwin/DispatchOSObject.h>
+#import <wtf/darwin/XPCObjectPtr.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
 OBJC_CLASS NSDictionary;
@@ -48,7 +50,11 @@ public:
         virtual void xpcConnectionUnhandledMessage(RemoteInspectorXPCConnection*, xpc_object_t) = 0;
     };
 
-    RemoteInspectorXPCConnection(xpc_connection_t, dispatch_queue_t, Client*);
+    static Ref<RemoteInspectorXPCConnection> create(xpc_connection_t connection, dispatch_queue_t queue, Client* client)
+    {
+        return adoptRef(*new RemoteInspectorXPCConnection(connection, queue, client));
+    }
+
     virtual ~RemoteInspectorXPCConnection();
 
     void close();
@@ -56,6 +62,8 @@ public:
     void sendMessage(NSString *messageName, NSDictionary *userInfo);
 
 private:
+    RemoteInspectorXPCConnection(xpc_connection_t, dispatch_queue_t, Client*);
+
     RetainPtr<NSDictionary> deserializeMessage(xpc_object_t);
     void handleEvent(xpc_object_t);
     void closeOnQueue();
@@ -64,7 +72,7 @@ private:
     // We make sure that m_client is thread safe and immediately cleared in close().
     Lock m_mutex;
 
-    OSObjectPtr<xpc_connection_t> m_connection;
+    XPCObjectPtr<xpc_connection_t> m_connection;
     OSObjectPtr<dispatch_queue_t> m_queue;
     Client* m_client;
     bool m_closed { false };

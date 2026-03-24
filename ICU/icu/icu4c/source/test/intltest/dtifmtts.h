@@ -92,6 +92,9 @@ public:
     void testTicket21939();
     void testTicket20710_FieldIdentity();
     void testTicket20710_IntervalIdentity();
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    void checkForUninitializedMemory(); // rdar://162810290
+#endif
 
 private:
     /**

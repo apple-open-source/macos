@@ -1,9 +1,9 @@
-.Dd November 21, 2024
+.Dd July 10, 2025
 .Dt GCORE 1
 .Os Darwin
 .Sh NAME
 .Nm gcore
-.Nd get core images of running processes
+.Nd get a core image of a running process
 .Sh SYNOPSIS
 .Nm
 .Op Fl v
@@ -85,10 +85,18 @@ The name of the program being dumped, as reported by
 .Xr ps 1 .
 .It Cm U
 The uid of the process being dumped, converted to a string.
+.It Cm G
+The gid of the process being dumped, converted to a string.
 .It Cm P
 The pid of the process being dumped, converted to a string.
 .It Cm T
-The time when the core file was taken, converted to ISO 8601 format.
+The time when the core file was created, converted to ISO 8601 format.
+.It Cm t
+The time when the core file was created, converted to seconds since the epoch.
+.It Cm H
+The hostname of the system, determined from the
+.Ar kern.hostname
+MIB.
 .It Cm %
 Output a percent character.
 .El

@@ -50,7 +50,7 @@ static inline bool isElementForFormatBlock(Node& node)
 }
 
 FormatBlockCommand::FormatBlockCommand(Ref<Document>&& document, const QualifiedName& tagName)
-    : ApplyBlockElementCommand(WTFMove(document), tagName)
+    : ApplyBlockElementCommand(WTF::move(document), tagName)
     , m_didApply(false)
 {
 }
@@ -85,7 +85,7 @@ void FormatBlockCommand::formatRange(const Position& start, const Position& end,
         // Already in a block element that only contains the current paragraph
         if (refNode->hasTagName(tagName()))
             return;
-        nodeAfterInsertionPosition = WTFMove(refNode);
+        nodeAfterInsertionPosition = WTF::move(refNode);
     }
 
     if (!blockNode) {

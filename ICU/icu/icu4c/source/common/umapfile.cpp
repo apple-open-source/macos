@@ -119,9 +119,7 @@ typedef HANDLE MemoryMap;
 
         HANDLE map = nullptr;
         HANDLE file = INVALID_HANDLE_VALUE;
-#if APPLE_ICU_CHANGES // rdar://155639864
         DWORD fileLength = 0;
-#endif
 
         UDataMemory_init(pData); /* Clear the output struct.        */
 
@@ -162,9 +160,7 @@ typedef HANDLE MemoryMap;
             return false;
         }
 
-#if APPLE_ICU_CHANGES // rdar://155639864
         fileLength = GetFileSize(file, nullptr);
-#endif
 
         // Note: We use nullptr/nullptr for lpAttributes parameter below.
         // This means our handle cannot be inherited and we will get the default security descriptor.
@@ -188,9 +184,8 @@ typedef HANDLE MemoryMap;
             return false;
         }
         pData->map = map;
-#if APPLE_ICU_CHANGES // rdar://155639864
         pData->length = fileLength;
-#endif
+
         return true;
     }
 
@@ -247,11 +242,14 @@ typedef HANDLE MemoryMap;
         pData->map = (char *)data + length;
         pData->pHeader=(const DataHeader *)data;
         pData->mapAddr = data;
-#if APPLE_ICU_CHANGES // rdar://155639864
         pData->length = length;
-#endif
-#if U_PLATFORM == U_PF_IPHONE
+#if U_PLATFORM == U_PF_IPHONE || U_PLATFORM == U_PF_ANDROID
+    // Apparently supported from Android 23 and higher:
+    //   https://github.com/ggml-org/llama.cpp/pull/3631
+    // Checking for the flag itself is safer than checking for __ANDROID_API__.
+#   ifdef POSIX_MADV_RANDOM
         posix_madvise(data, length, POSIX_MADV_RANDOM);
+#   endif
 #endif
         return true;
     }
@@ -328,9 +326,7 @@ typedef HANDLE MemoryMap;
         pData->map=p;
         pData->pHeader=(const DataHeader *)p;
         pData->mapAddr=p;
-#if APPLE_ICU_CHANGES // rdar://155639864
         pData->length = fileLength;
-#endif
         return true;
     }
 

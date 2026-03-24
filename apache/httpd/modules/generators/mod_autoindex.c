@@ -179,7 +179,7 @@ static void emit_preamble(request_rec *r, int xhtml, const char *title)
                   " <head>\n  <title>Index of ", title,
                   "</title>\n", NULL);
     } else {
-        ap_rvputs(r, DOCTYPE_HTML_3_2,
+        ap_rvputs(r, DOCTYPE_HTML_4_01,
                   "<html>\n <head>\n"
                   "  <title>Index of ", title,
                   "</title>\n", NULL);
@@ -2052,11 +2052,11 @@ static int index_directory(request_rec *r,
 #endif
     }
     if (*charset) {
-        ap_set_content_type(r, apr_pstrcat(r->pool, ctype, ";charset=",
-                            charset, NULL));
+        ap_set_content_type_ex(r, apr_pstrcat(r->pool, ctype, ";charset=",
+                            charset, NULL), 1);
     }
     else {
-        ap_set_content_type(r, ctype);
+        ap_set_content_type_ex(r, ctype, 1);
     }
 
     if (autoindex_opts & TRACK_MODIFIED) {

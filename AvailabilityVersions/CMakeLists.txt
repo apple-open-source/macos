@@ -33,7 +33,7 @@ cmake_print_variables(CONFIG_KERNELKIT)
 cmake_print_variables(DRIVERKIT)
 
 list(APPEND TEMPLATE_SOURCES  Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityInternalPrivate.h AvailabilityMacros.h
-                              AvailabilityProhibitedInternal.h AvailabilityVersions.h VersionMap.h for_dyld_priv.inc os_availability.h )
+                              AvailabilityProhibitedInternal.h AvailabilityVersions.h VersionMap.h for_dyld_priv.inc dyld_version_defines.h os_availability.h )
 
 list(APPEND LOCAL_HEADERS     AvailabilityInternalPrivate.h AvailabilityProhibitedInternal.h)
 list(APPEND PUBLIC_HEADERS    Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityMacros.h AvailabilityVersions.h)
@@ -89,6 +89,9 @@ if (DRIVERKIT EQUAL "1")
   foreach(header ${LOCAL_HEADERS})
     install(FILES "${OBJROOT}/${header}" DESTINATION ${RUNTIME_LOCAL} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
   endforeach()
+  
+  # Install dyld_version_defines.h to Runtime/usr/local/include/mach-o for DriverKit builds
+  install(FILES "${OBJROOT}/dyld_version_defines.h" DESTINATION "${RUNTIME_LOCAL}/mach-o" PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 endif()
 
 if(INSTALL_KERNEL_HEADERS EQUAL "1")
@@ -116,6 +119,8 @@ if(NOT CONFIG_KERNELKIT EQUAL "1")
   foreach(header ${DYLD_HEADERS})
     install(FILES "${OBJROOT}/${header}" DESTINATION ${DYLD_HEADERS_LOCATION} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
   endforeach()
+  # Install dyld_version_defines.h to /usr/local/include/mach-o
+  install(FILES "${OBJROOT}/dyld_version_defines.h" DESTINATION "${USR_LOCAL_INCLUDE}/mach-o" PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 endif()
 
 foreach(header ${LOCAL_HEADERS})

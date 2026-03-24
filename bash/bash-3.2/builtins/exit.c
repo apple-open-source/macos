@@ -28,6 +28,9 @@ extern sh_builtin_func_t *last_shell_builtin;
 
 static int exit_or_logout __P((WORD_LIST *));
 static int sourced_logout;
+#ifdef __APPLE__
+extern int running_setuid;
+#endif
 
 int
 exit_builtin (list)
@@ -113,7 +116,11 @@ void
 bash_logout ()
 {
   /* Run our `~/.bash_logout' file if it exists, and this is a login shell. */
+#ifdef __APPLE__
+  if (login_shell && sourced_logout++ == 0 && subshell_environment == 0 && running_setuid == 0)
+#else
   if (login_shell && sourced_logout++ == 0 && subshell_environment == 0)
+#endif
     {
       maybe_execute_file ("~/.bash_logout", 1);
 #ifdef SYS_BASH_LOGOUT

@@ -34,11 +34,11 @@ class ResourceLoadInfo final : public ObjectImpl<Object::Type::ResourceLoadInfo>
 public:
     static Ref<ResourceLoadInfo> create(WebKit::ResourceLoadInfo&& info)
     {
-        return adoptRef(*new ResourceLoadInfo(WTFMove(info)));
+        return adoptRef(*new ResourceLoadInfo(WTF::move(info)));
     }
 
     explicit ResourceLoadInfo(WebKit::ResourceLoadInfo&& info)
-        : m_info(WTFMove(info)) { }
+        : m_info(WTF::move(info)) { }
 
     WebKit::NetworkResourceLoadIdentifier resourceLoadID() const { return m_info.resourceLoadID; }
     std::optional<WebCore::FrameIdentifier> frameID() const { return m_info.frameID; }

@@ -64,15 +64,15 @@ RetainPtr<id> CoreIPCCNPostalAddress::toID() const
 {
     RetainPtr<CNMutablePostalAddress> address = adoptNS([[PAL::getCNMutablePostalAddressClassSingleton() alloc] init]);
 
-    address.get().street = nsStringNilIfNull(m_street);
-    address.get().subLocality = nsStringNilIfNull(m_subLocality);
-    address.get().city = nsStringNilIfNull(m_city);
-    address.get().subAdministrativeArea = nsStringNilIfNull(m_subAdministrativeArea);
-    address.get().state = nsStringNilIfNull(m_state);
-    address.get().postalCode = nsStringNilIfNull(m_postalCode);
-    address.get().country = nsStringNilIfNull(m_country);
-    address.get().ISOCountryCode = nsStringNilIfNull(m_isoCountryCode);
-    address.get().formattedAddress = nsStringNilIfNull(m_formattedAddress);
+    address.get().street = nsStringNilIfNull(m_street).get();
+    address.get().subLocality = nsStringNilIfNull(m_subLocality).get();
+    address.get().city = nsStringNilIfNull(m_city).get();
+    address.get().subAdministrativeArea = nsStringNilIfNull(m_subAdministrativeArea).get();
+    address.get().state = nsStringNilIfNull(m_state).get();
+    address.get().postalCode = nsStringNilIfNull(m_postalCode).get();
+    address.get().country = nsStringNilIfNull(m_country).get();
+    address.get().ISOCountryCode = nsStringNilIfNull(m_isoCountryCode).get();
+    address.get().formattedAddress = nsStringNilIfNull(m_formattedAddress).get();
 
     return address;
 }

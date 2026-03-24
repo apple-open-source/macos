@@ -85,25 +85,17 @@ public:
     {
         return !m_operand.isValid() && m_bytecodeIndex.isHashTableDeletedValue();
     }
-private: 
+
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
+
+private:
     BytecodeIndex m_bytecodeIndex;
     Operand m_operand;
-};
-
-struct LazyOperandValueProfileKeyHash {
-    static unsigned hash(const LazyOperandValueProfileKey& key) { return key.hash(); }
-    static bool equal(
-        const LazyOperandValueProfileKey& a,
-        const LazyOperandValueProfileKey& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
 };
 
 } // namespace JSC
 
 namespace WTF {
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::LazyOperandValueProfileKey> : JSC::LazyOperandValueProfileKeyHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::LazyOperandValueProfileKey> : public GenericHashTraits<JSC::LazyOperandValueProfileKey> {

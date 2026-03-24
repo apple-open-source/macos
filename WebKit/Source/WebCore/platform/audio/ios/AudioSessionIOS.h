@@ -51,6 +51,8 @@ public:
     using CategoryChangedObserver = WTF::Observer<void(AudioSession&, CategoryType)>;
     WEBCORE_EXPORT static void addAudioSessionCategoryChangedObserver(const CategoryChangedObserver&);
 
+    void sessionMediaServicesWereReset();
+
 private:
     AudioSessionIOS();
 
@@ -77,6 +79,8 @@ private:
 
     void setSoundStageSize(SoundStageSize) final;
     SoundStageSize soundStageSize() const final { return m_soundStageSize; }
+
+    mutable std::optional<size_t> m_preferredBufferSize;
 
     String m_lastSetPreferredMicrophoneID;
     const RetainPtr<WebInterruptionObserverHelper> m_interruptionObserverHelper;

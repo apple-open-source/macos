@@ -48,7 +48,7 @@ void setHasExplicitBeginTime(CAAnimation *animation, bool value)
     [animation setValue:[NSNumber numberWithBool:value] forKey:WKExplicitBeginTimeFlag];
 }
     
-NSString* toCAFillModeType(PlatformCAAnimation::FillModeType type)
+RetainPtr<NSString> toCAFillModeType(PlatformCAAnimation::FillModeType type)
 {
     switch (type) {
     case PlatformCAAnimation::FillModeType::NoFillMode:
@@ -70,7 +70,7 @@ static PlatformCAAnimation::FillModeType fromCAFillModeType(NSString* string)
     return PlatformCAAnimation::FillModeType::Forwards;
 }
 
-NSString* toCAValueFunctionType(PlatformCAAnimation::ValueFunctionType type)
+RetainPtr<NSString> toCAValueFunctionType(PlatformCAAnimation::ValueFunctionType type)
 {
     switch (type) {
     case PlatformCAAnimation::ValueFunctionType::NoValueFunction: return @"";
@@ -127,7 +127,7 @@ static PlatformCAAnimation::ValueFunctionType fromCAValueFunctionType(NSString* 
     return PlatformCAAnimation::ValueFunctionType::NoValueFunction;
 }
 
-CAMediaTimingFunction* toCAMediaTimingFunction(const TimingFunction& timingFunction, bool reverse)
+RetainPtr<CAMediaTimingFunction> toCAMediaTimingFunction(const TimingFunction& timingFunction, bool reverse)
 {
     if (auto* cubic = dynamicDowncast<CubicBezierTimingFunction>(timingFunction)) {
         RefPtr<CubicBezierTimingFunction> reversed;
@@ -322,7 +322,7 @@ PlatformCAAnimation::FillModeType PlatformCAAnimationCocoa::fillMode() const
 
 void PlatformCAAnimationCocoa::setFillMode(FillModeType value)
 {
-    [m_animation setFillMode:toCAFillModeType(value)];
+    [m_animation setFillMode:toCAFillModeType(value).get()];
 }
 
 void PlatformCAAnimationCocoa::setTimingFunction(const TimingFunction* timingFunction, bool reverse)
@@ -331,17 +331,16 @@ void PlatformCAAnimationCocoa::setTimingFunction(const TimingFunction* timingFun
     switch (animationType()) {
     case AnimationType::Basic:
     case AnimationType::Keyframe:
-        [m_animation setTimingFunction:toCAMediaTimingFunction(*timingFunction, reverse)];
+        [m_animation setTimingFunction:toCAMediaTimingFunction(*timingFunction, reverse).get()];
         break;
     case AnimationType::Spring:
-        if (timingFunction->isSpringTimingFunction()) {
+        if (auto* function = dynamicDowncast<SpringTimingFunction>(timingFunction)) {
             // FIXME: Handle reverse.
-            auto& function = *static_cast<const SpringTimingFunction*>(timingFunction);
             CASpringAnimation *springAnimation = (CASpringAnimation *)m_animation.get();
-            springAnimation.mass = function.mass();
-            springAnimation.stiffness = function.stiffness();
-            springAnimation.damping = function.damping();
-            springAnimation.initialVelocity = function.initialVelocity();
+            springAnimation.mass = function->mass();
+            springAnimation.stiffness = function->stiffness();
+            springAnimation.damping = function->damping();
+            springAnimation.initialVelocity = function->initialVelocity();
         }
         break;
     case AnimationType::Group:
@@ -397,7 +396,7 @@ void PlatformCAAnimationCocoa::setValueFunction(ValueFunctionType value)
         return;
 
     ASSERT([static_cast<CAAnimation *>(m_animation.get()) isKindOfClass:[CAPropertyAnimation class]]);
-    return [static_cast<CAPropertyAnimation *>(m_animation.get()) setValueFunction:[CAValueFunction functionWithName:toCAValueFunctionType(value)]];
+    return [static_cast<CAPropertyAnimation *>(m_animation.get()) setValueFunction:[CAValueFunction functionWithName:toCAValueFunctionType(value).get()]];
 }
 
 void PlatformCAAnimationCocoa::setFromValue(float value)
@@ -565,7 +564,7 @@ void PlatformCAAnimationCocoa::copyKeyTimesFrom(const PlatformCAAnimation& value
 void PlatformCAAnimationCocoa::setTimingFunctions(const Vector<Ref<const TimingFunction>>& timingFunctions, bool reverse)
 {
     [static_cast<CAKeyframeAnimation *>(m_animation.get()) setTimingFunctions:createNSArray(timingFunctions, [&] (auto& function) {
-        return toCAMediaTimingFunction(function.get(), reverse);
+        return toCAMediaTimingFunction(function.get(), reverse).autorelease();
     }).get()];
 }
 

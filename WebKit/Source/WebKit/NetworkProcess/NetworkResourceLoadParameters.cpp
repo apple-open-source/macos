@@ -33,7 +33,17 @@
 namespace WebKit {
 using namespace WebCore;
 
-void NetworkResourceLoadParameters::createSandboxExtensionHandlesIfNecessary()
+static bool networkProcessHasAccessViaSandboxExtension(const String& path)
+{
+#if PLATFORM(IOS_FAMILY)
+    return path.startsWith(WebProcess::singleton().containerTemporaryDirectory());
+#else
+    UNUSED_PARAM(path);
+    return false;
+#endif
+}
+
+bool NetworkResourceLoadParameters::createSandboxExtensionHandlesIfNecessary()
 {
     if (request.httpBody()) {
         for (const FormDataElement& element : request.httpBody()->elements()) {
@@ -42,22 +52,25 @@ void NetworkResourceLoadParameters::createSandboxExtensionHandlesIfNecessary()
                 continue;
             const String& path = fileData->filename;
             if (auto handle = SandboxExtension::createHandle(path, SandboxExtension::Type::ReadOnly))
-                requestBodySandboxExtensions.append(WTFMove(*handle));
+                requestBodySandboxExtensions.append(WTF::move(*handle));
         }
     }
 
     if (request.url().protocolIsFile()) {
+        String path = request.url().fileSystemPath();
 #if HAVE(AUDIT_TOKEN)
         if (auto networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken()) {
-            if (auto handle = SandboxExtension::createHandleForReadByAuditToken(request.url().fileSystemPath(), *networkProcessAuditToken))
-                resourceSandboxExtension = WTFMove(*handle);
+            if (auto handle = SandboxExtension::createHandleForReadByAuditToken(path, *networkProcessAuditToken))
+                resourceSandboxExtension = WTF::move(*handle);
         } else
 #endif
         {
-            if (auto handle = SandboxExtension::createHandle(request.url().fileSystemPath(), SandboxExtension::Type::ReadOnly))
-                resourceSandboxExtension = WTFMove(*handle);
+            if (auto handle = SandboxExtension::createHandle(path, SandboxExtension::Type::ReadOnly))
+                resourceSandboxExtension = WTF::move(*handle);
         }
+        return resourceSandboxExtension.has_value() || networkProcessHasAccessViaSandboxExtension(path);
     }
+    return true;
 }
 
 RefPtr<SecurityOrigin> NetworkResourceLoadParameters::parentOrigin() const

@@ -107,8 +107,8 @@ void SecDbSetCorruptionReset(SecDbRef db, void (^corruptionReset)(void));
 // Read only connections go to the end of the queue, writeable
 // connections go to the start of the queue.  Use SecDbPerformRead() and SecDbPerformWrite() if you
 // can to avoid leaks.
-SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error);
-bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error);
+SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, bool isBackupOperation, CFErrorRef *error);
+bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, bool isBackupOperation, CFErrorRef *error);
 void SecDbConnectionRelease(SecDbConnectionRef dbconn);
 
 // Perform a database read operation,

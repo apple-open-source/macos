@@ -30,6 +30,7 @@
 
 #include "GamepadProvider.h"
 #include <wpe/wpe.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/RunLoop.h>
 
@@ -39,7 +40,7 @@ namespace WebCore {
 
 class GamepadLibWPE;
 
-class GamepadProviderLibWPE final : public GamepadProvider {
+class GamepadProviderLibWPE final : public GamepadProvider, public CanMakeWeakPtr<GamepadProviderLibWPE> {
     WTF_MAKE_NONCOPYABLE(GamepadProviderLibWPE);
     friend class NeverDestroyed<GamepadProviderLibWPE>;
 

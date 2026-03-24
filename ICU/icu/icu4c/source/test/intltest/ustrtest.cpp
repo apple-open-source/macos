@@ -6,6 +6,7 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,6 +22,7 @@
 #include "unicode/ucnv.h"
 #include "unicode/uenum.h"
 #include "unicode/utf16.h"
+#include "unicode/utfiterator.h"
 #include "cmemory.h"
 #include "charstr.h"
 
@@ -30,6 +32,8 @@ using namespace std::string_view_literals;
 
 // Same for u"literal"s std::u16string literals.
 using namespace std::string_literals;
+
+using icu::header::utfStringCodePoints;
 
 #if 0
 #include "unicode/ustream.h"
@@ -77,11 +81,10 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
     TESTCASE_AUTO(TestNullPointers);
     TESTCASE_AUTO(TestUnicodeStringInsertAppendToSelf);
     TESTCASE_AUTO(TestLargeAppend);
-#if APPLE_ICU_CHANGES // rdar://156096279
     TESTCASE_AUTO(TestLargeMemory);
-#endif
     TESTCASE_AUTO(TestU16StringView);
     TESTCASE_AUTO(TestWStringView);
+    TESTCASE_AUTO(TestRange);
     TESTCASE_AUTO_END;
 }
 
@@ -1961,13 +1964,30 @@ UnicodeStringTest::TestUTF8() {
         errln("UnicodeString::toUTF8(sink) did not sink.Flush().");
     }
     // Initial contents for testing that toUTF8String() appends.
-    std::string result8 = "-->";
-    std::string expected8 = "-->" + std::string(reinterpret_cast<const char*>(expected_utf8), sizeof(expected_utf8));
+    std::string prefix = "-->";
+    std::string result8 = prefix;
+    std::string expected8 =
+        prefix +
+        std::string(reinterpret_cast<const char*>(expected_utf8), sizeof(expected_utf8));
     // Use the return value just for testing.
     std::string &result8r = us.toUTF8String(result8);
     if(result8r != expected8 || &result8r != &result8) {
         errln("UnicodeString::toUTF8String() did not create the expected string.");
     }
+    // Version which requires the template parameter and makes a new string.
+    expected8.erase(0, prefix.length());
+    auto result8v = us.toUTF8String<std::string>();
+    if(result8v != expected8) {
+        errln("UnicodeString::toUTF8String<std::string>() did not create the expected string.");
+    }
+#if U_CPLUSPLUS_VERSION >= 20
+    std::u8string expectedU8 =
+        std::u8string(reinterpret_cast<const char8_t*>(expected_utf8), sizeof(expected_utf8));
+    auto resultU8 = us.toUTF8String<std::u8string>();
+    if(resultU8 != expectedU8) {
+        errln("UnicodeString::toUTF8String<std::u8string>() did not create the expected string.");
+    }
+#endif  // C++20
 }
 
 // Test if this compiler supports Return Value Optimization of unnamed temporary objects.
@@ -2354,7 +2374,6 @@ void UnicodeStringTest::TestUnicodeStringInsertAppendToSelf() {
     assertEquals("", u"abbcdcde", str);
 }
 
-#if APPLE_ICU_CHANGES // rdar://156096279
 void UnicodeStringTest::TestLargeMemory() {
 #if U_PLATFORM_IS_LINUX_BASED || U_PLATFORM_IS_DARWIN_BASED
     if(quick) { return; }
@@ -2367,7 +2386,6 @@ void UnicodeStringTest::TestLargeMemory() {
     delete [] buf;
 #endif
 }
-#endif
 
 void UnicodeStringTest::TestLargeAppend() {
     if(quick) return;
@@ -2397,15 +2415,17 @@ void UnicodeStringTest::TestLargeAppend() {
     }
     dest.remove();
     total = 0;
+    // Copy kMaxCapacity from common/unistr.cpp
+    const int32_t kMaxCapacity = 0x7ffffff5;
     for (int32_t i = 0; i < 16; i++) {
         dest.append(str);
         total += len;
-        if (total + len <= INT32_MAX) {
+        if (total + len <= kMaxCapacity) {
             assertFalse("dest is not bogus", dest.isBogus());
-        } else if (total <= INT32_MAX) {
+        } else if (total <= kMaxCapacity) {
             // Check that a string of exactly the maximum size works
             UnicodeString str2;
-            int32_t remain = static_cast<int32_t>(INT32_MAX - total);
+            int32_t remain = static_cast<int32_t>(kMaxCapacity - total);
             char16_t *buf2 = str2.getBuffer(remain);
             if (buf2 == nullptr) {
                 // if somehow memory allocation fail, return the test
@@ -2415,12 +2435,17 @@ void UnicodeStringTest::TestLargeAppend() {
             str2.releaseBuffer(remain);
             dest.append(str2);
             total += remain;
-            assertEquals("When a string of exactly the maximum size works", static_cast<int64_t>(INT32_MAX), total);
-            assertEquals("When a string of exactly the maximum size works", INT32_MAX, dest.length());
+            assertEquals("When a string of exactly the maximum size works", kMaxCapacity, total);
+            assertEquals("When a string of exactly the maximum size works", kMaxCapacity, dest.length());
             assertFalse("dest is not bogus", dest.isBogus());
 
-            // Check that a string size+1 goes bogus
+            // Check that a string size+1 does not go bogus (one more byte reserved for NUL)
             str2.truncate(1);
+            dest.append(str2);
+            total++;
+            assertFalse("dest should be not bogus", dest.isBogus());
+            // Check that a string size+2 goes bogus (beyond the byte reserved
+            // for NUL)
             dest.append(str2);
             total++;
             assertTrue("dest should be bogus", dest.isBogus());
@@ -2457,11 +2482,11 @@ void UnicodeStringTest::TestU16StringView() {
 
     UnicodeString aliasFromSV = UnicodeString::readOnlyAlias(sv16);
     assertTrue("aliasFromSV pointer alias", aliasFromSV.getBuffer() == sv16.data());
-    assertEquals("aliasFromSV length", static_cast<int32_t>(sv16.length()), aliasFromSV.length());
+    assertEquals("aliasFromSV length", sv16.length(), aliasFromSV.length());
 
     UnicodeString aliasFromStr = UnicodeString::readOnlyAlias(str16);
     assertTrue("aliasFromStr pointer alias", aliasFromStr.getBuffer() == str16.data());
-    assertEquals("aliasFromStr length", static_cast<int32_t>(str16.length()), aliasFromStr.length());
+    assertEquals("aliasFromStr length", str16.length(), aliasFromStr.length());
 
     UnicodeString aliasFromUStr = UnicodeString::readOnlyAlias(ustr);
     assertTrue("aliasFromUStr pointer alias", aliasFromUStr.getBuffer() == ustr.getBuffer());
@@ -2512,7 +2537,7 @@ void UnicodeStringTest::TestU16StringView() {
     // Convert UnicodeString to string view.
     std::u16string_view sv16FromUniStr(any);
     assertTrue("sv16FromUniStr buffer alias", sv16FromUniStr.data() == any.getBuffer());
-    assertEquals("sv16FromUniStr length", any.length(), static_cast<int32_t>(sv16FromUniStr.length()));
+    assertEquals("sv16FromUniStr length", any.length(), sv16FromUniStr.length());
 
     // Just to show convenience: Convert UnicodeString to string view, then to std string.
     std::u16string str16FromUniStr(any);
@@ -2623,4 +2648,54 @@ void UnicodeStringTest::TestWStringView() {
     x = any + str16;
     assertEquals("any + str16", UnicodeString(true, L"anystr16", 8), x);
 #endif
+}
+
+void UnicodeStringTest::TestRange() {
+    IcuTestErrorCode status(*this, "TestRange");
+    UnicodeString s(u"süße 🚲 Soße");
+    {
+        int32_t i = 0;
+        for (char16_t c : s) {
+            assertEquals("code unit range for loop", s[i], c);
+            ++i;
+        }
+    }
+    {
+        auto iter = s.begin();
+        auto limit = s.end();
+        for (int32_t i = 0; iter != limit; ++iter, ++i) {
+            assertEquals("code unit begin/end loop", s[i], *iter);
+        }
+    }
+    {
+        auto iter = s.rbegin();
+        auto start = s.rend();
+        for (int32_t i = s.length(); iter != start; ++iter) {
+            assertEquals("code unit rbegin/rend loop", s[--i], *iter);
+        }
+    }
+    {
+        UnicodeString t;
+        std::copy(s.begin(), s.end(), std::back_inserter(t));
+        assertEquals("copy code units to UnicodeString", u"süße 🚲 Soße", t);
+    }
+    {
+        std::u16string s16;
+        std::copy(s.begin(), s.end(), std::back_inserter(s16));
+        assertTrue("copy code units to u16string", s16 == u"süße 🚲 Soße");
+    }
+#if U_CPLUSPLUS_VERSION >= 20
+    {
+        std::u16string s16;
+        std::ranges::copy_if(s, std::back_inserter(s16), [](char16_t c) { return c > 0x7f; });
+        assertTrue("copy non-ASCII code units", s16 == u"üß🚲ß");
+    }
+#endif  // C++20
+    {
+        std::u32string s32;
+        for (auto units : utfStringCodePoints<UChar32, UTF_BEHAVIOR_FFFD>(s)) {
+            s32.push_back(units.codePoint());
+        }
+        assertTrue("code points", s32 == U"süße 🚲 Soße");
+    }
 }

@@ -29,7 +29,7 @@
 #include "CSSCursorImageValue.h"
 #include "DocumentResourceLoader.h"
 #include "DocumentView.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGURIReference.h"
 #include "Settings.h"
 #include "StyleCursor.h"
@@ -70,7 +70,7 @@ static void loadPendingImage(Document& document, const StyleImage* styleImage, c
 
 void loadPendingResources(RenderStyle& style, Document& document, const Element* element)
 {
-    for (auto& backgroundLayer : style.backgroundLayers())
+    for (auto& backgroundLayer : style.backgroundLayers().usedValues())
         loadPendingImage(document, backgroundLayer.image().tryStyleImage().get(), element);
 
     if (auto* contentData = style.content().tryData()) {
@@ -99,7 +99,7 @@ void loadPendingResources(RenderStyle& style, Document& document, const Element*
     // Masking operations may be sensitive to timing attacks that can be used to reveal the pixel data of
     // the image used as the mask. As a means to mitigate such attacks CSS mask images and shape-outside
     // images are retrieved in "Anonymous" mode, which uses a potentially CORS-enabled fetch.
-    for (auto& maskLayer : style.maskLayers())
+    for (auto& maskLayer : style.maskLayers().usedValues())
         loadPendingImage(document, maskLayer.image().tryStyleImage().get(), element, LoadPolicy::CORS);
 
     if (RefPtr shapeValueImage = style.shapeOutside().image())

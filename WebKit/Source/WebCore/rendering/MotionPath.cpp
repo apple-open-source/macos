@@ -32,7 +32,7 @@
 #include "PathTraversalState.h"
 #include "RenderBlock.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "TransformOperationData.h"
 #include "TransformationMatrix.h"
 
@@ -178,42 +178,6 @@ void MotionPath::applyMotionPathTransform(TransformationMatrix& matrix, const Tr
         matrix.rotate(offsetRotate);
 
     matrix.translate(-shiftToOrigin.width(), -shiftToOrigin.height());
-}
-
-void MotionPath::applyMotionPathTransform(TransformationMatrix& matrix, const TransformOperationData& transformData, const RenderStyle& style)
-{
-    auto offsetPath = Style::tryPath(style.offsetPath(), transformData);
-    if (!offsetPath)
-        return;
-
-    auto boundingBox = transformData.boundingBox;
-
-    auto transformOrigin = style.computeTransformOrigin(boundingBox).xy();
-    auto transformBox = style.transformBox();
-
-    auto offsetDistance = Style::evaluate<float>(style.offsetDistance(), offsetPath->length(), Style::ZoomNeeded { });
-    auto offsetAnchor = WTF::switchOn(style.offsetAnchor(),
-        [&](const Style::Position& position) -> std::optional<FloatPoint> {
-            return Style::evaluate<FloatPoint>(position, boundingBox.size(), Style::ZoomNeeded { });
-        },
-        [&](const CSS::Keyword::Auto&) -> std::optional<FloatPoint> {
-            return { };
-        }
-    );
-    auto offsetRotate = style.offsetRotate().angle().value;
-    auto offsetRotateHasAuto = style.offsetRotate().hasAuto();
-
-    applyMotionPathTransform(
-        matrix,
-        transformData,
-        transformOrigin,
-        transformBox,
-        *offsetPath,
-        offsetAnchor,
-        offsetDistance,
-        offsetRotate,
-        offsetRotateHasAuto
-    );
 }
 
 bool MotionPath::needsUpdateAfterContainingBlockLayout(const Style::OffsetPath& offsetPath)

@@ -45,7 +45,7 @@ class MediaKeySystemPermissionRequestProxy : public RefCounted<MediaKeySystemPer
 public:
     static Ref<MediaKeySystemPermissionRequestProxy> create(MediaKeySystemPermissionRequestManagerProxy& manager, WebCore::MediaKeySystemRequestIdentifier mediaKeySystemID, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier frameID, Ref<WebCore::SecurityOrigin>&& mediaOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem)
     {
-        return adoptRef(*new MediaKeySystemPermissionRequestProxy(manager, mediaKeySystemID, mainFrameID, frameID, WTFMove(mediaOrigin), WTFMove(topLevelDocumentOrigin), keySystem));
+        return adoptRef(*new MediaKeySystemPermissionRequestProxy(manager, mediaKeySystemID, mainFrameID, frameID, WTF::move(mediaOrigin), WTF::move(topLevelDocumentOrigin), keySystem));
     }
 
     void allow();
@@ -66,7 +66,7 @@ public:
     const String& keySystem() const { return m_keySystem; }
 
     const String& mediaKeysHashSalt() const { return m_mediaKeysHashSalt; }
-    void setMediaKeysHashSalt(String&& salt) { m_mediaKeysHashSalt = WTFMove(salt); }
+    void setMediaKeysHashSalt(String&& salt) { m_mediaKeysHashSalt = WTF::move(salt); }
 
     void doDefaultAction();
 

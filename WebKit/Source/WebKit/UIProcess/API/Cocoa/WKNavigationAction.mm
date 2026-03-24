@@ -100,7 +100,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 #else
         0L, 0.0, 0.0,
 #endif
-        self.request, self.sourceFrame, self.targetFrame];
+        retainPtr(self.request).get(), retainPtr(self.sourceFrame).get(), retainPtr(self.targetFrame).get()];
 }
 
 - (WKFrameInfo *)sourceFrame

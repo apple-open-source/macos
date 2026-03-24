@@ -64,8 +64,8 @@ static void safeRemoveFromSuperview(NSView *view)
 {
     // If the view is the first responder, then set the window's first responder to nil so
     // we don't leave the window pointing to a view that's no longer in it.
-    NSWindow *window = [view window];
-    auto *firstResponderView = dynamic_objc_cast<NSView>([window firstResponder]);
+    RetainPtr<NSWindow> window = [view window];
+    RetainPtr firstResponderView = dynamic_objc_cast<NSView>([window firstResponder]);
     if ([firstResponderView isDescendantOf:view])
         [window makeFirstResponder:nil];
 
@@ -113,7 +113,7 @@ void Widget::show()
     setSelfVisible(true);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [protectedOuterView() setHidden:NO];
+    [outerView() setHidden:NO];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -125,7 +125,7 @@ void Widget::hide()
     setSelfVisible(false);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [protectedOuterView() setHidden:YES];
+    [outerView() setHidden:YES];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -135,7 +135,7 @@ IntRect Widget::frameRect() const
         return m_frame;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return enclosingIntRect([protectedOuterView() frame]);
+    return enclosingIntRect([outerView() frame]);
     END_BLOCK_OBJC_EXCEPTIONS
     
     return m_frame;
@@ -164,7 +164,7 @@ void Widget::setFrameRect(const IntRect& rect)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-NSView *Widget::outerView() const
+RetainPtr<NSView> Widget::outerView() const
 {
     RetainPtr view = platformWidget();
 
@@ -176,12 +176,7 @@ NSView *Widget::outerView() const
         ASSERT(view);
     }
 
-    return view.unsafeGet();
-}
-
-RetainPtr<NSView> Widget::protectedOuterView() const
-{
-    return outerView();
+    return view;
 }
 
 void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPolicy, RegionContext*)
@@ -211,7 +206,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
         // This is the common case of drawing into a window or an inclusive layer, or printing.
         BEGIN_BLOCK_OBJC_EXCEPTIONS
-        [view displayRectIgnoringOpacity:[view convertRect:r fromView:[view superview]]];
+        [view displayRectIgnoringOpacity:[view convertRect:r fromView:retainPtr([view superview]).get()]];
         END_BLOCK_OBJC_EXCEPTIONS
         return;
     }
@@ -249,7 +244,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     {
         NSGraphicsContext *nsContext = [NSGraphicsContext graphicsContextWithCGContext:cgContext.get() flipped:NO];
-        [view displayRectIgnoringOpacity:[view convertRect:r fromView:[view superview]] inContext:nsContext];
+        [view displayRectIgnoringOpacity:[view convertRect:r fromView:retainPtr([view superview]).get()] inContext:nsContext];
     }
     END_BLOCK_OBJC_EXCEPTIONS
 
@@ -271,7 +266,7 @@ void Widget::setIsSelected(bool isSelected)
 void Widget::removeFromSuperview()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    safeRemoveFromSuperview(protectedOuterView().get());
+    safeRemoveFromSuperview(outerView().get());
     END_BLOCK_OBJC_EXCEPTIONS
 }
 

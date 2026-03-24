@@ -52,6 +52,7 @@ struct ResourceCryptographicDigest {
     Vector<uint8_t> value;
 
     friend bool operator==(const ResourceCryptographicDigest&, const ResourceCryptographicDigest&) = default;
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 };
 
 inline void add(Hasher& hasher, const ResourceCryptographicDigest& digest)
@@ -80,18 +81,6 @@ ResourceCryptographicDigest cryptographicDigestForBytes(ResourceCryptographicDig
 }
 
 namespace WTF {
-
-template<> struct DefaultHash<WebCore::ResourceCryptographicDigest> {
-    static unsigned hash(const WebCore::ResourceCryptographicDigest& digest)
-    {
-        return computeHash(digest);
-    }
-    static bool equal(const WebCore::ResourceCryptographicDigest& a, const WebCore::ResourceCryptographicDigest& b)
-    {
-        return a == b;
-    }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
 
 template<> struct HashTraits<WebCore::ResourceCryptographicDigest> : GenericHashTraits<WebCore::ResourceCryptographicDigest> {
     using Algorithm = WebCore::ResourceCryptographicDigest::Algorithm;

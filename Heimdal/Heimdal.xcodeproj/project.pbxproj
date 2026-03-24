@@ -8557,7 +8557,6 @@
 		EB1BF7C71150101E00D6B8D2 /* heimdal-tests.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "heimdal-tests.sh"; path = "packages/mac/heimdal-tests.sh"; sourceTree = "<group>"; };
 		EB1BF82B1150391C00D6B8D2 /* test_kcred */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_kcred; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB1C8FB717F24B01002F9FF7 /* test_fx */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_fx; sourceTree = BUILT_PRODUCTS_DIR; };
-		EB1FF0E81A7E86090058B847 /* GSS-iPhoneOS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = "GSS-iPhoneOS.modulemap"; path = "Modules/GSS-iPhoneOS.modulemap"; sourceTree = "<group>"; };
 		EB1FF0E91A7E86090058B847 /* GSS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = GSS.modulemap; path = Modules/GSS.modulemap; sourceTree = "<group>"; };
 		EB202352136E0B13005E1B1A /* heimdal-win-mount.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "heimdal-win-mount.py"; path = "tests/bin/heimdal-win-mount.py"; sourceTree = "<group>"; };
 		EB202354136E0BD7005E1B1A /* coswin7-ads-specific.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "coswin7-ads-specific.plist"; path = "tests/apple/coswin7-ads-specific.plist"; sourceTree = "<group>"; };
@@ -11679,7 +11678,6 @@
 		EB1FF0E71A7E85C00058B847 /* Modules */ = {
 			isa = PBXGroup;
 			children = (
-				EB1FF0E81A7E86090058B847 /* GSS-iPhoneOS.modulemap */,
 				EB1FF0E91A7E86090058B847 /* GSS.modulemap */,
 			);
 			name = Modules;

@@ -233,9 +233,9 @@ kern_return_t sanitizer_diagnose_fault_from_crash_reporter(
 /****** Malloc with flags ******/
 
 typedef malloc_zone_malloc_options_t malloc_options_np_t;
-#define MALLOC_NP_OPTION_CLEAR MALLOC_ZONE_MALLOC_OPTION_CLEAR
 #define MALLOC_OPTIONS_NP_DEFAULT_ALIGN (sizeof(void *))
-
+#define MALLOC_NP_OPTION_CLEAR MALLOC_ZONE_MALLOC_OPTION_CLEAR
+#define MALLOC_NP_OPTION_CANONICAL_TAG MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG
 
 #if defined(__LP64__) // MALLOC_TARGET_64BIT
 /*!

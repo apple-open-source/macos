@@ -928,7 +928,7 @@ pcap_ng_externalize_block(void *buffer, size_t buflen, pcapng_block_t block)
 	}
 
 	block_trailer.total_length = (bpf_u_int32)block->pcapng_block_len;
-	bcopy(&block_trailer, ptr + bytes_written, bytes_written);
+	bcopy(&block_trailer, ptr + bytes_written, sizeof(struct pcapng_block_trailer));
 	bytes_written += sizeof(struct pcapng_block_trailer);		
 		
 	return (bytes_written);

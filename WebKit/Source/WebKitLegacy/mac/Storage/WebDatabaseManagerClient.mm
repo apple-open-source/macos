@@ -102,7 +102,7 @@ public:
     static void dispatchToMainThread(WebDatabaseManagerClient& client, const SecurityOriginData& origin)
     {
         auto context = makeUnique<DidModifyOriginData>(client, origin);
-        callOnMainThread([context = WTFMove(context)] {
+        callOnMainThread([context = WTF::move(context)] {
             context->client.dispatchDidModifyOrigin(context->origin);
         });
     }

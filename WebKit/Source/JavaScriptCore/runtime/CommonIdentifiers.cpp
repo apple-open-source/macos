@@ -37,7 +37,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(CommonIdentifiers);
 
 CommonIdentifiers::CommonIdentifiers(VM& vm)
     : nullIdentifier()
-    , emptyIdentifier(Identifier::EmptyIdentifier)
+    , emptyIdentifier(Identifier::EmptyIdentifierFlag::EmptyIdentifier)
     , underscoreProto(Identifier::fromString(vm, "__proto__"_s))
     , useStrictIdentifier(Identifier::fromString(vm, "use strict"_s))
     , timesIdentifier(Identifier::fromString(vm, "*"_s))

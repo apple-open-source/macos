@@ -43,12 +43,12 @@ CoordinatedBackingStoreTile::~CoordinatedBackingStoreTile() = default;
 
 void CoordinatedBackingStoreTile::addUpdate(Update&& update)
 {
-    m_updates.append(WTFMove(update));
+    m_updates.append(WTF::move(update));
 }
 
 void CoordinatedBackingStoreTile::processPendingUpdates(TextureMapper& textureMapper)
 {
-    auto updates = WTFMove(m_updates);
+    auto updates = WTF::move(m_updates);
     auto updatesCount = updates.size();
     if (!updatesCount)
         return;
@@ -73,6 +73,9 @@ void CoordinatedBackingStoreTile::processPendingUpdates(TextureMapper& textureMa
         if (SkiaPaintingEngine::shouldUseLinearTileTextures()) {
             flags.add(BitmapTexture::Flags::BackedByDMABuf);
             flags.add(BitmapTexture::Flags::ForceLinearBuffer);
+        } else if (SkiaPaintingEngine::shouldUseVivanteSuperTiledTileTextures()) {
+            flags.add(BitmapTexture::Flags::BackedByDMABuf);
+            flags.add(BitmapTexture::Flags::ForceVivanteSuperTiledBuffer);
         }
 #endif
 
@@ -84,9 +87,7 @@ void CoordinatedBackingStoreTile::processPendingUpdates(TextureMapper& textureMa
             m_texture->reset(update.tileRect.size(), flags);
         WTFEndSignpost(this, AcquireTexture);
 
-        WTFBeginSignpost(this, WaitPaintingCompletion);
         update.buffer->waitUntilPaintingComplete();
-        WTFEndSignpost(this, WaitPaintingCompletion);
 
 #if USE(SKIA)
         if (update.buffer->isBackedByOpenGL()) {

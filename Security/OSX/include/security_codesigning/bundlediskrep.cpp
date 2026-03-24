@@ -45,19 +45,6 @@ using namespace UnixPlusPlus;
 static std::string findDistFile(const std::string &directory);
 
 
-//
-// We make a CFBundleRef immediately, but everything else is lazy
-//
-BundleDiskRep::BundleDiskRep(const char *path, const Context *ctx)
-	: mBundle(_CFBundleCreateUnique(NULL, CFTempURL(path))), forcePlatform(false)
-{
-	if (!mBundle)
-		MacOSError::throwMe(errSecCSBadBundleFormat);
-	setup(ctx);
-	forcePlatform = mExecRep->appleInternalForcePlatform();
-	CODESIGN_DISKREP_CREATE_BUNDLE_PATH(this, (char*)path, (void*)ctx, mExecRep);
-}
-
 BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 {
 	mBundle = ref;		// retains
@@ -68,6 +55,16 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 
 BundleDiskRep::~BundleDiskRep()
 {
+}
+
+CFBundleRef
+BundleDiskRep::createCFBundle(CFURLRef pathURL, boolean_t isExecutableURL)
+{
+	CFBundleCreateOptions options = kCFBundleCreateSkippingCryptexNormalization;
+	if (isExecutableURL) {
+		options |= kCFBundleCreateWithExecutableURLIfMightBeBundle;
+	}
+	return _CFBundleCreateUniqueWithOptions(NULL, pathURL, NULL, options);
 }
 
 void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
@@ -116,7 +113,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		// treat like a shallow bundle; do not allow Versions arbitration
 		appDisqualified = true;
 	} else if (!(ctx && ctx->skipFrameworkCheck) && ::access(version.c_str(), F_OK) == 0) {	// versioned bundle
-		if (CFBundleRef versionBundle = _CFBundleCreateUnique(NULL, CFTempURL(version))) {
+		if (CFBundleRef versionBundle = BundleDiskRep::createCFBundle(CFTempURL(version), false)) {
 			mBundle.take(versionBundle);	// replace top bundle ref
 		} else {
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);

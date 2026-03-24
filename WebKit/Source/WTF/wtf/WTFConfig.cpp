@@ -60,18 +60,22 @@
 #include <WebKitAdditions/WTFConfigAdditions.h>
 #endif
 #if !USE(SYSTEM_MALLOC)
+#if BUSE(LIBPAS)
 #include "bmalloc/pas_mte_config.h"
+#endif
 #endif
 
 #include <mutex>
 
 #if OS(DARWIN) && !USE(SYSTEM_MALLOC)
 
+#if BUSE(LIBPAS)
 #if HAVE(36BIT_ADDRESS) && !PAS_HAVE(36BIT_ADDRESS)
 #error HAVE(36BIT_ADDRESS) is true, but PAS_HAVE(36BIT_ADDRESS) is false. They should match.
 #elif !HAVE(36BIT_ADDRESS) && PAS_HAVE(36BIT_ADDRESS)
 #error HAVE(36BIT_ADDRESS) is false, but PAS_HAVE(36BIT_ADDRESS) is true. They should match.
 #endif
+#endif // BUSE(LIBPAS)
 
 #endif // OS(DARWIN)
 
@@ -244,7 +248,7 @@ void permanentlyFreezePages(void* base, size_t size, FreezePagePermission permis
     result = vm_protect(mach_task_self(), reinterpret_cast<vm_address_t>(base), size, UpdateMaximumPermission, permission == FreezePagePermission::ReadOnly ? VM_PROT_READ : VM_PROT_NONE);
 #elif OS(LINUX)
     result = mprotect(base, size, permission == FreezePagePermission::ReadOnly ? PROT_READ : PROT_NONE);
-#elif OS(WINDOWS) || PLATFORM(PLAYSTATION)
+#else
     // FIXME: Implement equivalent for Windows, maybe with VirtualProtect.
     // Also need to fix WebKitTestRunner.
     UNUSED_PARAM(base);

@@ -549,8 +549,9 @@ jq/src/parser.c	jq	src/parser.c	a9f97e9e61a910a374a5d768244e8ad63f407d3e
 jq/src/jv_file.c	jq	src/jv_file.c	90bc29c1b544c0436ec44246e180fdbb6d6384df
 jq/src/jq.h	jq	src/jq.h	6d89e297febdbcbad4ecf201e56fc8ec99f67137
 
-lam/lam.1	freebsd	usr.bin/lam/lam.1	07372194c3016882494a28a8a1ae00472ce31e69
-lam/lam.c	freebsd	usr.bin/lam/lam.c	377421df9690cddad7f0c8cba84bd392e62a3b6c
+lam/lam.1	freebsd	usr.bin/lam/lam.1	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+lam/lam.c	freebsd	usr.bin/lam/lam.c	6a9452c8378a1aa767708ad2d235f847c880a21c
+lam/tests/lam_test.sh	freebsd	usr.bin/lam/tests/lam_test.sh	6a9452c8378a1aa767708ad2d235f847c880a21c
 
 look/look.1	freebsd	usr.bin/look/look.1	f3f16c31fea258b2b1ec51ddd1bceb6207b66198
 look/look.c	freebsd	usr.bin/look/look.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97

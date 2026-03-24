@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>w</string>
 		<key>OpenSourceVersion</key>
-		<string>2023-01-25</string>
+		<string>2025-09-11</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/w?id=6fc1bbbf62bda2f1b5be3a4be3d36bc964490ebe</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/w?id=55bd607b9930e5f61219007ad0a81801c8cfdbf3</string>
 		<key>OpenSourceImportDate</key>
-		<string>2024-01-25</string>
+		<string>2025-09-11</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>w.c: Dropped libkvm support (4928955)</string>

@@ -35,6 +35,11 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/WeakObjCPtr.h>
 
+static Ref<WebKit::WebAutomationSession> protectedSession(_WKAutomationSession *session)
+{
+    return *session->_session;
+}
+
 @implementation _WKAutomationSession {
     RetainPtr<_WKAutomationSessionConfiguration> _configuration;
     WeakObjCPtr<id <_WKAutomationSessionDelegate>> _delegate;
@@ -62,8 +67,8 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKAutomationSession.class, self))
         return;
 
-    _session->setClient(nullptr);
-    _session->~WebAutomationSession();
+    protectedSession(self)->setClient(nullptr);
+    SUPPRESS_UNCOUNTED_ARG _session->~WebAutomationSession();
 
     [super dealloc];
 }
@@ -76,7 +81,7 @@
 - (void)setDelegate:(id <_WKAutomationSessionDelegate>)delegate
 {
     _delegate = delegate;
-    _session->setClient(delegate ? makeUnique<WebKit::AutomationSessionClient>(delegate) : nullptr);
+    protectedSession(self)->setClient(delegate ? makeUnique<WebKit::AutomationSessionClient>(delegate) : nullptr);
 }
 
 - (NSString *)sessionIdentifier
@@ -96,33 +101,33 @@
 
 - (BOOL)isPaired
 {
-    return _session->isPaired();
+    return protectedSession(self)->isPaired();
 }
 
 - (BOOL)isPendingTermination
 {
-    return _session->isPendingTermination();
+    return protectedSession(self)->isPendingTermination();
 }
 
 - (BOOL)isSimulatingUserInteraction
 {
-    return _session->isSimulatingUserInteraction();
+    return protectedSession(self)->isSimulatingUserInteraction();
 }
 
 - (void)terminate
 {
-    _session->terminate();
+    protectedSession(self)->terminate();
 }
 
 #if PLATFORM(MAC)
 - (BOOL)wasEventSynthesizedForAutomation:(NSEvent *)event
 {
-    return _session->wasEventSynthesizedForAutomation(event);
+    return protectedSession(self)->wasEventSynthesizedForAutomation(event);
 }
 
 - (void)markEventAsSynthesizedForAutomation:(NSEvent *)event
 {
-    _session->markEventAsSynthesizedForAutomation(event);
+    protectedSession(self)->markEventAsSynthesizedForAutomation(event);
 }
 #endif
 

@@ -122,7 +122,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
         }
         ctx->amountRead += len;
 
-        check(ctx->amountRead == head);
+        __Check(ctx->amountRead == head);
     }
 
 
@@ -142,7 +142,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
         if(err!=0) return errSSLRecordUnexpectedRecord;
     }
 
-    check(ctx->partialReadBuffer.length>=head+contentLen);
+    __Check(ctx->partialReadBuffer.length>=head+contentLen);
 
     if(head+contentLen>ctx->partialReadBuffer.length) {
         sslDebugLog("overflow in SSLReadRecordInternal");
@@ -166,7 +166,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
         ctx->amountRead += len;
     }
 
-    check(ctx->amountRead == head + contentLen);
+    __Check(ctx->amountRead == head + contentLen);
 
     tls_buffer record;
     record.data = ctx->partialReadBuffer.data;
@@ -216,7 +216,7 @@ static int SSLRecordWriteInternal(SSLRecordContextRef ref, SSLRecord rec)
     err = errSSLRecordInternal; /* FIXME: allocation error */
     len=tls_record_encrypted_size(ctx->filter, rec.contentType, rec.contents.length);
 
-    require((out = (WaitingRecord *)sslMalloc(offsetof(WaitingRecord, data) + len)), fail);
+    __Require((out = (WaitingRecord *)sslMalloc(offsetof(WaitingRecord, data) + len)), fail);
     out->next = NULL;
 	out->sent = 0;
 	out->length = len;
@@ -227,7 +227,7 @@ static int SSLRecordWriteInternal(SSLRecordContextRef ref, SSLRecord rec)
     content.data = rec.contents.data;
     content.length = rec.contents.length;
 
-    require_noerr((err=tls_record_encrypt(ctx->filter, content, rec.contentType, &data)), fail);
+    __Require_noErr((err=tls_record_encrypt(ctx->filter, content, rec.contentType, &data)), fail);
 
     out->length = data.length; // This should not be needed if tls_record_encrypted_size works properly.
 
@@ -307,7 +307,7 @@ SSLRecordServiceWriteQueueInternal(SSLRecordContextRef ref)
         rec->sent += written;
         if (rec->sent >= rec->length)
         {
-            check(rec->sent == rec->length);
+            __Check(rec->sent == rec->length);
             ctx->recordWriteQueue = rec->next;
 			sslFree(rec);
         }
@@ -344,8 +344,8 @@ SSLCreateInternalRecordLayer(SSLContextRef sslCtx)
 
     memset(ctx, 0, sizeof(struct SSLRecordInternalContext));
 
-    require((ctx->filter=tls_record_create(sslCtx->isDTLS, CCRNGSTATE)), fail);
-    require_noerr(SSLAllocBuffer(&ctx->partialReadBuffer,
+    __Require((ctx->filter=tls_record_create(sslCtx->isDTLS, CCRNGSTATE)), fail);
+    __Require_noErr(SSLAllocBuffer(&ctx->partialReadBuffer,
                                  DEFAULT_BUFFER_SIZE), fail);
 
     ctx->sslCtx = sslCtx;

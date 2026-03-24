@@ -168,7 +168,7 @@ static MemoryCompactRobinHoodHashMap<URL, ServiceWorkerContextData::ImportedScri
             RELEASE_LOG_ERROR(ServiceWorker, "RegistrationDatabase::populateScriptSourcesFromDisk: Failed to retrieve imported script for %s from disk", pair.key.string().utf8().data());
             continue;
         }
-        importedScripts.add(pair.key, ServiceWorkerContextData::ImportedScript { WTFMove(importedScript), WTFMove(pair.value.responseURL), WTFMove(pair.value.mimeType) });
+        importedScripts.add(pair.key, ServiceWorkerContextData::ImportedScript { WTF::move(importedScript), WTF::move(pair.value.responseURL), WTF::move(pair.value.mimeType) });
     }
     return importedScripts;
 }
@@ -200,7 +200,7 @@ SQLiteStatementAutoResetScope SWRegistrationDatabase::cachedStatement(StatementT
     auto index = enumToUnderlyingType(type);
     if (!m_cachedStatements[index]) {
         if (auto statement = CheckedRef { *m_database }->prepareStatement(statementString(type)))
-            m_cachedStatements[index] = WTFMove(statement);
+            m_cachedStatements[index] = WTF::move(statement);
     }
 
     return SQLiteStatementAutoResetScope { m_cachedStatements[index].get() };
@@ -388,7 +388,7 @@ std::optional<Vector<ServiceWorkerContextData>> SWRegistrationDatabase::importRe
                 RELEASE_LOG_ERROR(ServiceWorker, "SWRegistrationDatabase::importRegistrations failed to decode scriptResourceMapWithoutScripts");
                 continue;
             }
-            scriptResourceMap = populateScriptSourcesFromDisk(scriptStorage(), *key, WTFMove(*scriptResourceMapWithoutScripts));
+            scriptResourceMap = populateScriptSourcesFromDisk(scriptStorage(), *key, WTF::move(*scriptResourceMapWithoutScripts));
         }
 
         auto certificateInfoDataSpan = statement->columnBlobAsSpan(12);
@@ -431,10 +431,10 @@ std::optional<Vector<ServiceWorkerContextData>> SWRegistrationDatabase::importRe
         auto workerIdentifier = ServiceWorkerIdentifier::generate();
         auto registrationIdentifier = ServiceWorkerRegistrationIdentifier::generate();
         auto serviceWorkerData = ServiceWorkerData { workerIdentifier, registrationIdentifier, scriptURL, ServiceWorkerState::Activated, *workerType };
-        auto registration = ServiceWorkerRegistrationData { WTFMove(*key), registrationIdentifier, WTFMove(scopeURL), *updateViaCache, lastUpdateCheckTime, std::nullopt, std::nullopt, WTFMove(serviceWorkerData) };
-        auto contextData = ServiceWorkerContextData { std::nullopt, WTFMove(registration), workerIdentifier, WTFMove(script), WTFMove(*certificateInfo), WTFMove(*contentSecurityPolicy), WTFMove(*coep), WTFMove(referrerPolicy), WTFMove(scriptURL), *workerType, true, LastNavigationWasAppInitiated::Yes, WTFMove(scriptResourceMap), std::nullopt, WTFMove(*navigationPreloadState) };
+        auto registration = ServiceWorkerRegistrationData { WTF::move(*key), registrationIdentifier, WTF::move(scopeURL), *updateViaCache, lastUpdateCheckTime, std::nullopt, std::nullopt, WTF::move(serviceWorkerData) };
+        auto contextData = ServiceWorkerContextData { std::nullopt, WTF::move(registration), workerIdentifier, WTF::move(script), WTF::move(*certificateInfo), WTF::move(*contentSecurityPolicy), WTF::move(*coep), WTF::move(referrerPolicy), WTF::move(scriptURL), *workerType, true, LastNavigationWasAppInitiated::Yes, WTF::move(scriptResourceMap), std::nullopt, WTF::move(*navigationPreloadState) };
 
-        registrations.append(WTFMove(contextData));
+        registrations.append(WTF::move(contextData));
     }
 
     if (result != SQLITE_DONE)
@@ -535,7 +535,7 @@ std::optional<Vector<ServiceWorkerScripts>> SWRegistrationDatabase::updateRegist
             if (importedScript)
                 importedScripts.add(scriptURL, importedScript);
         }
-        result.append(ServiceWorkerScripts { data.serviceWorkerIdentifier, WTFMove(mainScript), WTFMove(importedScripts) });
+        result.append(ServiceWorkerScripts { data.serviceWorkerIdentifier, WTF::move(mainScript), WTF::move(importedScripts) });
     }
 
     return result;

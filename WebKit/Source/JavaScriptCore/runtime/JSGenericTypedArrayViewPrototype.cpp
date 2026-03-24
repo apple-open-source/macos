@@ -205,7 +205,7 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayPrototypeToBase64, (JSGlobalObject* globalObj
         return { };
     }
 
-    return JSValue::encode(jsString(vm, WTFMove(result)));
+    return JSValue::encode(jsString(vm, WTF::move(result)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(uint8ArrayPrototypeToHex, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -228,13 +228,14 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayPrototypeToHex, (JSGlobalObject* globalObject
     if (!length)
         return JSValue::encode(jsEmptyString(vm));
 
-    if ((length * 2) > static_cast<size_t>(StringImpl::MaxLength)) {
-        throwOutOfMemoryError(globalObject, scope, "generated stirng is too long"_s);
+    auto resultLength = checkedProduct<size_t>(length, 2);
+    if (resultLength.hasOverflowed() || !StringImpl::isValidLength<Latin1Character>(resultLength)) {
+        throwOutOfMemoryError(globalObject, scope, "generated string is too long"_s);
         return { };
     }
 
     std::span<Latin1Character> buffer;
-    auto result = StringImpl::createUninitialized(length * 2, buffer);
+    auto result = StringImpl::createUninitialized(resultLength, buffer);
     constexpr size_t stride = 8; // Because loading uint8x8_t.
     if (length >= stride) {
         auto encodeVector = [&](auto input) {
@@ -274,7 +275,7 @@ JSC_DEFINE_HOST_FUNCTION(uint8ArrayPrototypeToHex, (JSGlobalObject* globalObject
         }
     }
 
-    return JSValue::encode(jsNontrivialString(vm, WTFMove(result)));
+    return JSValue::encode(jsNontrivialString(vm, WTF::move(result)));
 }
 
 } // namespace JSC

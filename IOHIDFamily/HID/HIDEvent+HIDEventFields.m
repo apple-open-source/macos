@@ -20,10 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 {
     HIDEventFieldInfo *info = nil;
     NSInteger index = 0;
-    require(block, exit);
+    __Require(block, exit);
     
     info = [self getEventFields];
-    require(info, exit);
+    __Require(info, exit);
     
     while(IS_VALID_EVENT_FIELD(info[index])) {
         block(&info[index]);

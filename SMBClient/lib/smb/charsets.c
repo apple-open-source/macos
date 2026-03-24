@@ -229,10 +229,42 @@ bad:
 
 /*
  * Convert UTF-8 string to little-endian Unicode.
- * XXX - <rdar://problem/7518600>  will clean this up
-*/
+ */
 unsigned short *
 convert_utf8_to_leunicode(const char *utf8_string, size_t utf8_maxLen)
+{
+	return convert_utf8_to_leunicode_normalize(utf8_string, utf8_maxLen, 0);
+}
+
+/* Convert NORMALIZE_FORM_* constant to CFStringNormalizationForm */
+static bool
+normalization_form_to_cf_form(uint64_t form, CFStringNormalizationForm *cf_form)
+{
+	switch (form) {
+		case 0x01: /* NORMALIZE_FORM_D */
+			*cf_form = kCFStringNormalizationFormD;
+			return true;
+		case 0x02: /* NORMALIZE_FORM_KD */
+			*cf_form = kCFStringNormalizationFormKD;
+			return true;
+		case 0x03: /* NORMALIZE_FORM_C */
+			*cf_form = kCFStringNormalizationFormC;
+			return true;
+		case 0x04: /* NORMALIZE_FORM_KC */
+			*cf_form = kCFStringNormalizationFormKC;
+			return true;
+		default:
+			return false; /* Unsupported normalization form */
+	}
+}
+
+/*
+ * Convert UTF-8 string to little-endian Unicode with optional normalization.
+ * This function extends convert_utf8_to_leunicode to support Unicode normalization
+ * for consistent representation, particularly important for Japanese dakuten characters.
+ */
+unsigned short *
+convert_utf8_to_leunicode_normalize(const char *utf8_string, size_t utf8_maxLen, uint64_t normalization_form)
 {
 	CFStringRef s;
 	CFIndex maxlen;
@@ -240,18 +272,49 @@ convert_utf8_to_leunicode(const char *utf8_string, size_t utf8_maxLen)
 	CFRange range;
 	int i;
 
-	s = CFStringCreateWithCString(NULL, utf8_string,
-	     kCFStringEncodingUTF8);
-	if (s == NULL) {
-		os_log_debug(OS_LOG_DEFAULT, "CFStringCreateWithCString for UTF-8 failed on \"%s\", syserr = %s",
-					 utf8_string, strerror(errno));
+	/* Check for NULL input string */
+	if (utf8_string == NULL) {
+        os_log_error(OS_LOG_DEFAULT, "convert_utf8_to_leunicode_normalize: NULL input string");
 		return NULL;
+	}
+
+	/* Apply normalization if requested */
+	if (normalization_form != NORMALIZE_FORM_NONE) {
+		CFStringNormalizationForm cf_form;
+		CFMutableStringRef mutable_s;
+
+		/* Convert normalization form, use default if conversion fails */
+		if (!normalization_form_to_cf_form(normalization_form, &cf_form)) {
+			os_log_error(OS_LOG_DEFAULT, "Unsupported normalization form %llu for \"%s\", using NFC as fallback",
+						normalization_form, utf8_string);
+			cf_form = kCFStringNormalizationFormC; /* Default to canonical composition */
+		}
+
+		/* Create mutable string directly for normalization */
+		mutable_s = CFStringCreateMutable(NULL, 0);
+		if (mutable_s == NULL) {
+			os_log_debug(OS_LOG_DEFAULT, "CFStringCreateMutable failed for normalization on \"%s\", syserr = %s",
+						 utf8_string, strerror(errno));
+			return NULL;
+		}
+
+		CFStringAppendCString(mutable_s, utf8_string, kCFStringEncodingUTF8);
+		CFStringNormalize(mutable_s, cf_form);
+		s = mutable_s; /* Use normalized string for the rest of the function */
+	} else {
+		/* No normalization needed, create immutable string */
+		s = CFStringCreateWithCString(NULL, utf8_string, kCFStringEncodingUTF8);
+		if (s == NULL) {
+			os_log_debug(OS_LOG_DEFAULT, "CFStringCreateWithCString for UTF-8 failed on \"%s\", syserr = %s",
+						 utf8_string, strerror(errno));
+			return NULL;
+		}
 	}
 
 	if (utf8_maxLen > LONG_MAX) {
 		os_log_debug(OS_LOG_DEFAULT, "Illegal utf8_maxLen size %zu on \"%s\"",
 					utf8_maxLen, utf8_string);
-        CFRelease(s);
+		CFRelease(s);
 		return NULL;
 	}
 

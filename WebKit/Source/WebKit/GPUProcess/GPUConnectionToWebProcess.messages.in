@@ -69,6 +69,10 @@ messages -> GPUConnectionToWebProcess WantsDispatchMessage {
 #if ENABLE(EXTENSION_CAPABILITIES)
     SetMediaEnvironment(WebCore::PageIdentifier pageIdentifier, String mediaEnvironment);
 #endif
+
+#if ENABLE(IPC_TESTING_API)
+    TakeInvalidMessageStringForTesting() -> (String error) Synchronous
+#endif
 }
 
 #endif // ENABLE(GPU_PROCESS)

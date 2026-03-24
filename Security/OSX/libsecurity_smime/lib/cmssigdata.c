@@ -230,17 +230,17 @@ OSStatus createTSAMessageImprint(SecCmsSignerInfoRef signerInfo,
 
     OSStatus status = SECFailure;
 
-    require(signerInfo && digestAlg && messageImprint, xit);
+    __Require(signerInfo && digestAlg && messageImprint, xit);
 
     SecCmsDigestContextRef digcx = SecCmsDigestContextStartSingle(digestAlg);
-    require(digcx, xit);
-    require(encDigest, xit);
+    __Require(digcx, xit);
+    __Require(encDigest, xit);
 
     messageImprint->hashAlgorithm = *digestAlg;
 
     SecCmsDigestContextUpdate(digcx, encDigest->Data, encDigest->Length);
 
-    require_noerr(SecCmsDigestContextFinishSingle(
+    __Require_noErr(SecCmsDigestContextFinishSingle(
                       digcx, (SecArenaPoolRef)signerInfo->cmsg->poolp, &messageImprint->hashedMessage),
                   xit);
 
@@ -260,10 +260,10 @@ static OSStatus decodeDERUTF8String(const CSSM_DATA_PTR content, char* statusstr
     CSSM_DATA statusString;
     size_t len = 0;
 
-    require(content && statusstr, xit);
+    __Require(content && statusstr, xit);
 
-    require_noerr(SecAsn1CoderCreate(&coder), xit);
-    require_noerr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1UTF8StringTemplate, &statusString),
+    __Require_noErr(SecAsn1CoderCreate(&coder), xit);
+    __Require_noErr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1UTF8StringTemplate, &statusString),
                   xit);
     status = 0;
     len = (statusString.Length < strsz) ? statusString.Length : strsz;
@@ -294,10 +294,10 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
     int failinfo = -1;
 #endif
 
-    require_action(tsaResponse && tsaResponse->Data && tsaResponse->Length, xit, status = errSecTimestampMissing);
+    __Require_Action(tsaResponse && tsaResponse->Data && tsaResponse->Length, xit, status = errSecTimestampMissing);
 
-    require_noerr(SecAsn1CoderCreate(&coder), xit);
-    require_noerr(SecTSAResponseCopyDEREncoding(coder, tsaResponse, &respDER), xit);
+    __Require_noErr(SecAsn1CoderCreate(&coder), xit);
+    __Require_noErr(SecTSAResponseCopyDEREncoding(coder, tsaResponse, &respDER), xit);
 
 #ifndef NDEBUG
     tsaWriteFileX("/tmp/tsa-timeStampToken.der",
@@ -306,7 +306,7 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
 #endif
 
     tsastatus = (SecAsn1TSAPKIStatusInfo*)&respDER.status;
-    require_action(tsastatus->status.Data, xit, status = errSecTimestampBadDataFormat);
+    __Require_Action(tsastatus->status.Data, xit, status = errSecTimestampBadDataFormat);
     respstatus = (int)tsaDER_ToInt(&tsastatus->status);
 
 #ifndef NDEBUG
@@ -346,11 +346,11 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
             status = errSecTimestampSystemFailure;
             break;
     }
-    require_noerr(status, xit);
+    __Require_noErr(status, xit);
 
     // If we succeeded, then we must have a TimeStampToken
 
-    require_action(respDER.timeStampTokenDER.Data && respDER.timeStampTokenDER.Length,
+    __Require_Action(respDER.timeStampTokenDER.Data && respDER.timeStampTokenDER.Length,
                    xit,
                    status = errSecTimestampBadDataFormat);
 
@@ -362,7 +362,7 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
         verify, except that we also need to check the nonce.
     */
     CSSM_DATA* encDigest = SecCmsSignerInfoGetEncDigest(signerinfo);
-    require_noerr(status = decodeTimeStampToken(signerinfo, &respDER.timeStampTokenDER, encDigest, expectedNonce),
+    __Require_noErr(status = decodeTimeStampToken(signerinfo, &respDER.timeStampTokenDER, encDigest, expectedNonce),
                   xit);
 
     status = SecCmsSignerInfoAddTimeStamp(signerinfo, &respDER.timeStampTokenDER);
@@ -516,21 +516,21 @@ OSStatus SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 
         uint64_t nonce = 0;
 
-        require_noerr(getRandomNonce(&nonce), tsxit);
+        __Require_noErr(getRandomNonce(&nonce), tsxit);
         dprintf("SecCmsSignedDataSignerInfoCount: %d\n", SecCmsSignedDataSignerInfoCount(sigd));
 
         // Calculate hash of encDigest and put in messageImprint.hashedMessage
         SecCmsSignerInfoRef signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0);  // NB - assume 1 signer only!
         CSSM_DATA* encDigest = SecCmsSignerInfoGetEncDigest(signerinfo);
-        require_noerr(createTSAMessageImprint(signerinfo, &signerinfo->digestAlg, encDigest, &messageImprint),
+        __Require_noErr(createTSAMessageImprint(signerinfo, &signerinfo->digestAlg, encDigest, &messageImprint),
                       tsxit);
 
         // Callback to fire up XPC service to talk to TimeStamping server, etc.
-        require_noerr(rv = (*sigd->cmsg->tsaCallback)(
+        __Require_noErr(rv = (*sigd->cmsg->tsaCallback)(
                           sigd->cmsg->tsaContext, &messageImprint, nonce, &tsaResponse),
                       tsxit);
 
-        require_noerr(rv = validateTSAResponseAndAddTimeStamp(signerinfo, &tsaResponse, nonce), tsxit);
+        __Require_noErr(rv = validateTSAResponseAndAddTimeStamp(signerinfo, &tsaResponse, nonce), tsxit);
 
         /*
             It is likely that every occurrence of "goto loser" in this file should

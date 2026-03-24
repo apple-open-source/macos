@@ -70,8 +70,8 @@
 .Op Fl -partial-dir Ns = Ns DIR
 .Op Fl -password-file Ns = Ns Ar pwfile
 .Op Fl -port Ns = Ns Ar service
-.Op Fl -progress Ns = Ns Ar VER
-.Op Fl -protocol
+.Op Fl -progress
+.Op Fl -protocol Ns = Ns Ar VER
 .Op Fl -read-batch Ns = Ns Ar file
 .Op Fl -remove-source-files
 .Op Fl -rsync-path Ns = Ns Ar program
@@ -176,8 +176,9 @@ rules.
 It is advised to use an absolute path outside of the copied tree, or a relative
 path such as "../".
 .It Fl B , -block-size Ns = Ns Ar BLOCKSIZE
-Specify the block size to be used for file transfers.  The upper bound
-is 512M, but it is enforced only if a differential transfer is required.
+Specify the block size to be used for file transfers.
+The upper bound is 512M, but it is enforced only if a differential transfer is
+required.
 .It Fl -blocking-io
 This flag is ignored by openrsync, but is accepted for compatibility.
 .It Fl -bwlimit Ar limit
@@ -223,7 +224,8 @@ to use
 .Ar time(3)
 as the checksum seed.
 .It Fl -chmod Ns = Ns Ar MODE
-Modify the permissions on files that are transferred, overriding the original source permissions.
+Modify the permissions on files that are transferred, overriding the original
+source permissions.
 Only has an effect if
 .Fl -perms
 is specified as well.
@@ -379,7 +381,7 @@ When used in combination with any one of the above
 options, supplied
 .Fl -exclude
 patterns will not prevent a file from being deleted.
-.It Fl d, -dirs
+.It Fl d , -dirs
 Copies directories, which are normally skipped unless
 .Fl -recursive
 is specified.
@@ -406,13 +408,15 @@ Preserve the executability of regular files (i.e., a file is "executable" if
 at least one 'x' mode bit is enabled in its permissions).
 If the source file is executable, then for each 'r' mode bit enabled in the
 destination file's permissions, the corresponding 'x' mode bit will be enabled.
-If the source file is not executable then all ugo 'x' mode bits of the destination
+If the source file is not executable then all ugo 'x' mode bits of the
+destination
 file will be disabled.
 This option has no effect if
 .Fl -perms
 is also specified.
 .It Fl 0 , -from0
-Use a null (\&'\e0\&') character, rather than a newline to separate filenames read from:
+Use a null (\&'\e0\&') character, rather than a newline to separate filenames
+read from:
 .Fl -exclude-from ,
 .Fl -include-from ,
 .Fl -files-from ,
@@ -432,7 +436,7 @@ can be of the form hostname:port:path.
 Force deletion of non-empty directories about to be replaced
 by a non-directory.
 This option has no effect if any of the
-.Fl -delete 
+.Fl -delete
 options are present.
 .It Fl -ignore-errors
 Works in conjunction with
@@ -520,7 +524,7 @@ is also given or if the remote group name is unknown on the local machine,
 set the numeric group ID to match the source instead.
 .It Fl H , -hard-links
 Attempt to preserve hard links within the list of files transferred.
-.It Fl h, -human-readable
+.It Fl h , -human-readable
 Display numbers of bytes in human readable units.
 If specified once, uses units of 1000, if specified twice uses units of 1024.
 .It Fl -help
@@ -554,7 +558,8 @@ If
 is a relative path, it is relative to the destination directory.
 .It Fl -list-only
 Instead of transferring files, only list them.
-This option is implied if there is only a single source argument and no destination argument.
+This option is implied if there is only a single source argument and no
+destination argument.
 .It Fl -log-file Ns = Ns Ar file
 Specify a
 .Ar file
@@ -577,71 +582,71 @@ normal
 .Nm
 usage:
 .Bl -tag -width "%L"
-.It %a
+.It \&%a
 The client's remote IP address.
-.It %h
+.It \&%h
 The client's hostname.
-.It %m
+.It \&%m
 The module requested by the client.
-.It %P
+.It \&%P
 The path to the module requested by the client.
-.It %u
+.It \&%u
 The username that the client has authenticated as.
 .El
 .Pp
 These tokens are globally defined:
 .Bl -tag -width "%L"
-.It %b
+.It \&%b
 The number of bytes transferred.
-.It %B
+.It \&%B
 The file mode, in a human-readable format.
-.It %c
+.It \&%c
 The size of block checksums received for the source file.
 This is not currently implemented by this implementation, but will be accepted.
-.It %f
+.It \&%f
 The long-form filename without a trailing
 .Dq /
 indicator.
-.It %G
+.It \&%G
 The group of the file in decimal format, or
 .Dq DEFAULT
 when the group is
 .Li 0 .
-.It %I
+.It \&%I
 The itemized list of updates including unchanged files, as if
 .Fl -itemize-changes
 was specified twice.
-.It %i
+.It \&%i
 The itemized list of updates, as if
 .Fl -itemize-changes
 was specified.
-.It %l
+.It \&%l
 The length of the file.
-.It %L
+.It \&%L
 An indicator of the file being a symlink or a hardlink.
 For hardlinks, this token is replaced with
 .Dq => FILENAME .
 For symlinks, this token is replaced with
 .Dq => FILENAME .
 For non-links, this token is replaced with the empty string.
-.It %M
+.It \&%M
 The mtime of the file, in full date-time format.
-.It %n
+.It \&%n
 The short-form filename with a trailing
 .Dq /
 indicator.
-.It %o
+.It \&%o
 The operation conducted on the file.
 This can be one of
 .Dq send ,
 .Dq recv ,
 or
 .Dq del. .
-.It %p
+.It \&%p
 The PID of the rsync client.
-.It %t
+.It \&%t
 The current time, in date-time format.
-.It %U
+.It \&%U
 The user of the file in decimal format, or
 .Dq DEFAULT
 when the user is
@@ -897,7 +902,8 @@ Otherwise, it includes an empty directory at each mount point it encounters.
 Print version and exit.
 .It Fl W , -whole-file
 Copy the entire file rather than using the rsync incremental algorithm.
-This option may be faster, especially if the network link is faster than the disk.
+This option may be faster, especially if the network link is faster than the
+disk.
 .It Fl -only-write-batch Ns = Ns Ar file
 Prepare a batch file and write it to
 .Ar file .
@@ -1050,9 +1056,9 @@ The following rule types are supported:
 .It merge     Ta . Ta Merge rules in from a file
 .It dir-merge Ta : Ta Merge rules in from a per-directory file
 .It hide      Ta H Ta Hide a file from the transfer
-.It show      Ta S Ta Do not hide a file from the transfer
+.It show      Ta S Ta \&Do not hide a file from the transfer
 .It protect   Ta P Ta Protect a file from deletion
-.It risk      Ta R Ta Do not protect a file from deletion
+.It risk      Ta R Ta \&Do not protect a file from deletion
 .It clear     Ta ! Ta Clear the current filter list
 .El
 .Pp

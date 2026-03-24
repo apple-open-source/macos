@@ -302,7 +302,7 @@ void PerformanceMonitor::measureCPUUsageInActivityState(ActivityStateForCPUSampl
 #endif
     page->chrome().client().reportProcessCPUTime((cpuTime.value().systemTime + cpuTime.value().userTime) - (m_perActivityStateCPUTime.value().systemTime + m_perActivityStateCPUTime.value().userTime), activityState);
 
-    m_perActivityStateCPUTime = WTFMove(cpuTime);
+    m_perActivityStateCPUTime = WTF::move(cpuTime);
 }
 
 void PerformanceMonitor::processMayBecomeInactiveTimerFired()

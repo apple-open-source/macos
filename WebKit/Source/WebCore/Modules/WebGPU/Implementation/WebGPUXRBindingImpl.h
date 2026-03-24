@@ -52,7 +52,7 @@ class XRBindingImpl final : public XRBinding {
 public:
     static Ref<XRBindingImpl> create(WebGPUPtr<WGPUXRBinding>&& binding, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new XRBindingImpl(WTFMove(binding), convertToBackingContext));
+        return adoptRef(*new XRBindingImpl(WTF::move(binding), convertToBackingContext));
     }
 
     virtual ~XRBindingImpl();

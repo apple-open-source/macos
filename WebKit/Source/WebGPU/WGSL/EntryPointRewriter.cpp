@@ -207,9 +207,9 @@ void EntryPointRewriter::constructInputStruct()
     for (auto& parameter : m_parameters) {
         structMembers.append(m_shaderModule.astBuilder().construct<AST::StructureMember>(
             SourceSpan::empty(),
-            WTFMove(parameter.name),
+            WTF::move(parameter.name),
             parameter.type,
-            WTFMove(parameter.attributes)
+            WTF::move(parameter.attributes)
         ));
     }
 
@@ -229,7 +229,7 @@ void EntryPointRewriter::constructInputStruct()
     auto& structure = m_shaderModule.astBuilder().construct<AST::Structure>(
         SourceSpan::empty(),
         AST::Identifier::make(m_structTypeName),
-        WTFMove(structMembers),
+        WTF::move(structMembers),
         AST::Attribute::List { },
         role
     );
@@ -272,14 +272,14 @@ void EntryPointRewriter::materialize(Vector<String>& path, MemberOrParameter& da
     while (i < path.size()) {
         lhs = m_shaderModule.astBuilder().construct<AST::FieldAccessExpression>(
             SourceSpan::empty(),
-            WTFMove(lhs),
+            WTF::move(lhs),
             AST::Identifier::make(path[i++])
         );
     }
     path.removeLast();
     m_materializations.append(m_shaderModule.astBuilder().construct<AST::AssignmentStatement>(
         SourceSpan::empty(),
-        WTFMove(lhs),
+        WTF::move(lhs),
         *rhs
     ));
 }
@@ -341,7 +341,7 @@ void EntryPointRewriter::visit(Vector<String>& path, MemberOrParameter&& data)
     // parameter was moved into a struct, so we need to reload it
     // ${path}.${data.name} = ${struct}.${data.name}
     materialize(path, data, IsBuiltin::No);
-    m_parameters.append(WTFMove(data));
+    m_parameters.append(WTF::move(data));
 }
 
 void EntryPointRewriter::appendBuiltins()
@@ -351,7 +351,7 @@ void EntryPointRewriter::appendBuiltins()
             SourceSpan::empty(),
             AST::Identifier::make(data.name),
             data.type,
-            WTFMove(data.attributes),
+            WTF::move(data.attributes),
             AST::ParameterRole::UserDefined
         );
         parameter.m_builtin = data.builtin;

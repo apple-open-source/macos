@@ -54,7 +54,7 @@ class RemoteRenderPipeline final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteRenderPipeline> create(WebCore::WebGPU::RenderPipeline& renderPipeline, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteRenderPipeline(renderPipeline, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteRenderPipeline(renderPipeline, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteRenderPipeline();
@@ -78,8 +78,8 @@ private:
 
     Ref<IPC::StreamServerConnection> protectedStreamConnection() const;
 
-    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const { return m_objectHeap.get(); }
-    Ref<RemoteGPU> protectedGPU() const { return m_gpu.get(); }
+    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const { return m_objectHeap; }
+    Ref<RemoteGPU> protectedGPU() const { return m_gpu; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 

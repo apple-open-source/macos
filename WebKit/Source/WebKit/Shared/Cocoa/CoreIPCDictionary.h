@@ -48,7 +48,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCDictionary, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCDictionary>;
 
     using ValueType = Vector<KeyValuePair<CoreIPCNSCFObject, CoreIPCNSCFObject>>;
 

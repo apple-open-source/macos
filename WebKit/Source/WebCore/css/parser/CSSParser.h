@@ -71,6 +71,10 @@ class ImmutableStyleProperties;
 class Element;
 class MutableStyleProperties;
 
+namespace Style {
+struct Color;
+}
+
 enum CSSAtRuleID : uint8_t;
 
 class CSSParser {

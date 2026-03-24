@@ -41,7 +41,7 @@ class AudioWorkletThread final : public WorkerOrWorkletThread {
 public:
     static Ref<AudioWorkletThread> create(AudioWorkletMessagingProxy& messagingProxy, WorkletParameters&& parameters)
     {
-        return adoptRef(*new AudioWorkletThread(messagingProxy, WTFMove(parameters)));
+        return adoptRef(*new AudioWorkletThread(messagingProxy, WTF::move(parameters)));
     }
     ~AudioWorkletThread();
 

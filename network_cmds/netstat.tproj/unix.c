@@ -200,9 +200,6 @@ unixpr_n(struct netstat_parameters *params)
 						}
 						break;
 				}
-			} else {
-				if (params->vflag)
-					printf("got %d twice\n", xgn->xgn_kind);
 			}
 			if (which == ALL_XGN_KIND_UNPCB) {
 				which = 0;

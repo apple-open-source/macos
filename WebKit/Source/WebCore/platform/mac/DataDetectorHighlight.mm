@@ -46,29 +46,29 @@ constexpr double highlightFadeAnimationFrameRate = 30;
 
 Ref<DataDetectorHighlight> DataDetectorHighlight::createForSelection(DataDetectorHighlightClient& client, RetainPtr<DDHighlightRef>&& ddHighlight, SimpleRange&& range)
 {
-    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::Selection, WTFMove(ddHighlight), { WTFMove(range) }));
+    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::Selection, WTF::move(ddHighlight), { WTF::move(range) }));
 }
 
 Ref<DataDetectorHighlight> DataDetectorHighlight::createForTelephoneNumber(DataDetectorHighlightClient& client, RetainPtr<DDHighlightRef>&& ddHighlight, SimpleRange&& range)
 {
-    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::TelephoneNumber, WTFMove(ddHighlight), { WTFMove(range) }));
+    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::TelephoneNumber, WTF::move(ddHighlight), { WTF::move(range) }));
 }
 
 Ref<DataDetectorHighlight> DataDetectorHighlight::createForImageOverlay(DataDetectorHighlightClient& client, RetainPtr<DDHighlightRef>&& ddHighlight, SimpleRange&& range)
 {
-    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::ImageOverlay, WTFMove(ddHighlight), { WTFMove(range) }));
+    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::ImageOverlay, WTF::move(ddHighlight), { WTF::move(range) }));
 }
 
 #if ENABLE(UNIFIED_PDF_DATA_DETECTION)
 Ref<DataDetectorHighlight> DataDetectorHighlight::createForPDFSelection(DataDetectorHighlightClient& client, RetainPtr<DDHighlightRef>&& ddHighlight)
 {
-    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::PDFSelection, WTFMove(ddHighlight), { }));
+    return adoptRef(*new DataDetectorHighlight(client, DataDetectorHighlight::Type::PDFSelection, WTF::move(ddHighlight), { }));
 }
 #endif
 
 DataDetectorHighlight::DataDetectorHighlight(DataDetectorHighlightClient& client, Type type, RetainPtr<DDHighlightRef>&& ddHighlight, std::optional<SimpleRange>&& range)
     : m_client(client)
-    , m_range(WTFMove(range))
+    , m_range(WTF::move(range))
     , m_graphicsLayer(client.createGraphicsLayer(*this).releaseNonNull())
     , m_type(type)
     , m_fadeAnimationTimer(*this, &DataDetectorHighlight::fadeAnimationTimerFired)
@@ -117,13 +117,11 @@ void DataDetectorHighlight::invalidate()
 
 void DataDetectorHighlight::notifyFlushRequired(const GraphicsLayer*)
 {
-    if (!m_client)
-        return;
-
-    m_client->scheduleRenderingUpdate(RenderingUpdateStep::LayerFlush);
+    if (RefPtr client = m_client.get())
+        client->scheduleRenderingUpdate(RenderingUpdateStep::LayerFlush);
 }
 
-void DataDetectorHighlight::paintContents(const GraphicsLayer*, GraphicsContext& graphicsContext, const FloatRect&, OptionSet<GraphicsLayerPaintBehavior>)
+void DataDetectorHighlight::paintContents(const GraphicsLayer&, GraphicsContext& graphicsContext, const FloatRect&, OptionSet<GraphicsLayerPaintBehavior>)
 {
     if (!PAL::isDataDetectorsFrameworkAvailable())
         return;
@@ -146,15 +144,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     CGContextDrawLayerInRect(cgContext.get(), highlightBoundingRect, highlightLayer.get());
 
-    graphicsContext.drawConsumingImageBuffer(WTFMove(imageBuffer), highlightBoundingRect);
+    graphicsContext.drawConsumingImageBuffer(WTF::move(imageBuffer), highlightBoundingRect);
 }
 
 float DataDetectorHighlight::deviceScaleFactor() const
 {
-    if (!m_client)
-        return 1;
-
-    return m_client->deviceScaleFactor();
+    RefPtr client = m_client.get();
+    return client ? client->deviceScaleFactor() : 1;
 }
 
 bool DataDetectorHighlight::isRangeSupportingType() const
@@ -234,10 +230,11 @@ void DataDetectorHighlight::startFadeAnimation()
 
 void DataDetectorHighlight::didFinishFadeOutAnimation()
 {
-    if (!m_client)
+    RefPtr client = m_client.get();
+    if (!client)
         return;
 
-    if (m_client->activeHighlight() == this)
+    if (client->activeHighlight() == this)
         return;
 
     layer().removeFromParent();

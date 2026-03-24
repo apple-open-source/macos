@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fr_CM{
     calendar{
         gregorian{
@@ -12,12 +12,23 @@ fr_CM{
                 "mat.",
                 "soir",
             }
+            availableFormats{
+                h{"h a"}
+            }
             dayPeriod{
                 stand-alone{
                     wide{
                         am{"matin"}
                         pm{"soir"}
                     }
+                }
+            }
+            intervalFormats{
+                h{
+                    a{"h a – h a"}
+                }
+                hv{
+                    a{"h a – h a v"}
                 }
             }
         }

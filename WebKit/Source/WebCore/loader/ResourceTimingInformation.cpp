@@ -76,7 +76,7 @@ void ResourceTimingInformation::addResourceTiming(CachedResource& resource, Docu
 
     resourceTiming.overrideInitiatorType(info.type);
 
-    initiatorWindow->protectedPerformance()->addResourceTiming(WTFMove(resourceTiming));
+    initiatorWindow->protectedPerformance()->addResourceTiming(WTF::move(resourceTiming));
 
     info.added = Added;
 }

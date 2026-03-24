@@ -1838,8 +1838,10 @@ static const char *set_override(cmd_parms *cmd, void *d_, const char *l)
         }
         else if (!ap_cstr_casecmp(k, "Options")) {
             d->override |= OR_OPTIONS;
-            if (v)
-                set_allow_opts(cmd, &(d->override_opts), v);
+            if (v) {
+                if ((err = set_allow_opts(cmd, &(d->override_opts), v)) != NULL)
+                    return err;
+            }
             else
                 d->override_opts = OPT_ALL;
         }
@@ -4547,7 +4549,7 @@ AP_INIT_TAKE1("FlushMaxPipelined", set_flush_max_pipelined, NULL, RSRC_CONF,
   "Maximum number of pipelined responses (pending) above which they are "
   "flushed to the network"),
 #ifdef WIN32
-AP_INIT_TAKE_ARGV("UNCList", set_unc_list, NULL, RSRC_CONF,
+AP_INIT_TAKE_ARGV("UNCList", set_unc_list, NULL, RSRC_CONF|EXEC_ON_READ,
   "Controls what UNC hosts may be looked up"),
 #endif
 
@@ -5513,9 +5515,13 @@ static apr_status_t core_insert_network_bucket(conn_rec *c,
 }
 
 static apr_status_t core_dirwalk_stat(apr_finfo_t *finfo, request_rec *r,
-                                      apr_int32_t wanted) 
+                                      apr_int32_t wanted)
 {
-    return apr_stat(finfo, r->filename, wanted, r->pool);
+    apr_status_t rv = ap_stat_check(r->filename, r->pool);
+    if (rv == APR_SUCCESS) {
+        rv = apr_stat(finfo, r->filename, wanted, r->pool);
+    }
+    return rv;
 }
 
 static void core_dump_config(apr_pool_t *p, server_rec *s)
@@ -5667,8 +5673,8 @@ static apr_status_t check_unc(const char *path, apr_pool_t *p)
         return APR_SUCCESS; /* this early, if we have a UNC, it's specified by an admin */
     }
 
-    if (!path || (path != ap_strstr_c(path, "\\\\") && 
-                path != ap_strstr_c(path, "//"))) { 
+    if (!path || !((path[0] == '\\' || path[0] == '/')
+                && (path[1] == '\\' || path[1] == '/'))) {
         return APR_SUCCESS; /* not a UNC */
     }
 
@@ -5678,7 +5684,7 @@ static apr_status_t check_unc(const char *path, apr_pool_t *p)
     *s++ = '/';
 
     ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, ap_server_conf, 
-                 "ap_filepath_merge: check converted path %s allowed %d", 
+                 "check_unc: check converted path %s allowed %d", 
                  teststring,
                  sconf->unc_list ? sconf->unc_list->nelts : 0);
 
@@ -5690,19 +5696,19 @@ static apr_status_t check_unc(const char *path, apr_pool_t *p)
                  !ap_cstr_casecmp(uri.hostinfo, configured_unc))) { 
             rv = APR_SUCCESS;
             ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, ap_server_conf, 
-                         "ap_filepath_merge: match %s %s", 
+                         "check_unc: match %s %s", 
                          uri.hostinfo, configured_unc);
             break;
         }
         else { 
             ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, ap_server_conf, 
-                         "ap_filepath_merge: no match %s %s", uri.hostinfo, 
+                         "check_unc: no match %s %s", uri.hostinfo, 
                          configured_unc);
         }
     }
     if (rv != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, ap_server_conf, APLOGNO(10504)
-                     "ap_filepath_merge: UNC path %s not allowed by UNCList", teststring);
+                     "check_unc: UNC path %s not allowed by UNCList", teststring);
     }
 
     return rv;
@@ -5732,6 +5738,17 @@ AP_DECLARE(apr_status_t) ap_filepath_merge(char **newpath,
 #endif
 }
 
+#ifdef WIN32
+AP_DECLARE(apr_status_t) ap_stat_check(const char *path, apr_pool_t *p)
+{
+   return check_unc(path, p);
+}
+#else
+AP_DECLARE(apr_status_t) ap_stat_check(const char *path, apr_pool_t *p)
+{
+    return APR_SUCCESS;
+}
+#endif
 
 static void register_hooks(apr_pool_t *p)
 {

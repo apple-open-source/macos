@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 pqm{
     ExemplarCharacters{"[a e {eh} i o u {aw} {ay} {ew} {ey} {iw} c h k l m n p q s t w y]"}
     ExemplarCharactersIndex{"[A E {EH} I O U {AW} {AY} {EW} {EY} {IW} C H K L M N P Q S T W Y]"}

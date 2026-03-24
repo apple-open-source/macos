@@ -110,6 +110,8 @@ public:
     JS_EXPORT_PRIVATE void unlockUnderlyingBuffer();
     JS_EXPORT_PRIVATE virtual CodeBlockHash codeBlockHashConcurrently(int startOffset, int endOffset, CodeSpecializationKind);
 
+    virtual bool isScriptBufferSourceProvider() const { return false; }
+
 private:
     JS_EXPORT_PRIVATE virtual void lockUnderlyingBufferImpl();
     JS_EXPORT_PRIVATE virtual void unlockUnderlyingBufferImpl();
@@ -135,7 +137,7 @@ class StringSourceProvider : public SourceProvider {
 public:
     static Ref<StringSourceProvider> create(const String& source, const SourceOrigin& sourceOrigin, String sourceURL, SourceTaintedOrigin taintedness, const TextPosition& startPosition = TextPosition(), SourceProviderSourceType sourceType = SourceProviderSourceType::Program)
     {
-        return adoptRef(*new StringSourceProvider(source, sourceOrigin, taintedness, WTFMove(sourceURL), startPosition, sourceType));
+        return adoptRef(*new StringSourceProvider(source, sourceOrigin, taintedness, WTF::move(sourceURL), startPosition, sourceType));
     }
 
     unsigned hash() const override
@@ -150,7 +152,7 @@ public:
 
 protected:
     StringSourceProvider(const String& source, const SourceOrigin& sourceOrigin, SourceTaintedOrigin taintedness, String&& sourceURL, const TextPosition& startPosition, SourceProviderSourceType sourceType)
-        : SourceProvider(sourceOrigin, WTFMove(sourceURL), String(), taintedness, startPosition, sourceType)
+        : SourceProvider(sourceOrigin, WTF::move(sourceURL), String(), taintedness, startPosition, sourceType)
         , m_source(source.isNull() ? *StringImpl::empty() : *source.impl())
     {
     }
@@ -172,7 +174,7 @@ class WebAssemblySourceProvider final : public BaseWebAssemblySourceProvider {
 public:
     static Ref<WebAssemblySourceProvider> create(Vector<uint8_t>&& data, const SourceOrigin& sourceOrigin, String sourceURL)
     {
-        return adoptRef(*new WebAssemblySourceProvider(WTFMove(data), sourceOrigin, WTFMove(sourceURL)));
+        return adoptRef(*new WebAssemblySourceProvider(WTF::move(data), sourceOrigin, WTF::move(sourceURL)));
     }
 
     unsigned hash() const final
@@ -202,9 +204,9 @@ public:
 
 private:
     WebAssemblySourceProvider(Vector<uint8_t>&& data, const SourceOrigin& sourceOrigin, String&& sourceURL)
-        : BaseWebAssemblySourceProvider(sourceOrigin, WTFMove(sourceURL))
+        : BaseWebAssemblySourceProvider(sourceOrigin, WTF::move(sourceURL))
         , m_source("[WebAssembly source]"_s)
-        , m_data(WTFMove(data))
+        , m_data(WTF::move(data))
     {
     }
 

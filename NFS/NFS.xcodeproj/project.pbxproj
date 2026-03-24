@@ -133,9 +133,9 @@
 		C4C2BF5C2962DC8C00B56828 /* rquota_rpc.m in Sources */ = {isa = PBXBuildFile; fileRef = C4C2BF5B2962DC8C00B56828 /* rquota_rpc.m */; };
 		C4C2BF602963280400B56828 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = C4C2BF5F2963280400B56828 /* main.c */; };
 		C4C2BF612963289E00B56828 /* rquotad.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B1B1FA3D21000AACC99 /* rquotad.c */; };
-		C4C4813B291944F00020E02E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C4C48137291944F00020E02E /* InfoPlist.strings */; };
 		C4C4813D291944F00020E02E /* NFSMount.c in Sources */ = {isa = PBXBuildFile; fileRef = C4C4813A291944F00020E02E /* NFSMount.c */; };
 		C4C663B729702F0600C49239 /* NFS.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C45987C22631B3B10000FA32 /* NFS.plist */; };
+		C4C7C66A2E6725D1009D742D /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C4C7C6692E6725D1009D742D /* InfoPlist.xcstrings */; };
 		C4C9E62424B36FE0006667D4 /* json_support.m in Sources */ = {isa = PBXBuildFile; fileRef = C4C9E62324B36FE0006667D4 /* json_support.m */; };
 		C4CD59EA270D9AA100066EDC /* iokit.hpp in Headers */ = {isa = PBXBuildFile; fileRef = C4CD59E8270D9AA100066EDC /* iokit.hpp */; };
 		C4CD59EB270D9AA100066EDC /* iokit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4CD59E9270D9AA100066EDC /* iokit.cpp */; };
@@ -202,9 +202,9 @@
 		D6EA4A6C1FB957AF002AF776 /* rpc.statd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B271FA3D22300AACC99 /* rpc.statd.8 */; };
 		D6EA4A6D1FB9590C002AF776 /* showmount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B311FA3D23500AACC99 /* showmount.8 */; };
 		D6EA4A6F1FB95D5F002AF776 /* com.apple.nfsconf.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AC51FA3D0F100AACC99 /* com.apple.nfsconf.plist */; };
-		D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */; };
-		D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */; };
-		D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */; };
+		D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in Copy Plist */ = {isa = PBXBuildFile; fileRef = D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */; };
+		D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in Copy Plist */ = {isa = PBXBuildFile; fileRef = D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */; };
+		D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in Copy Plist */ = {isa = PBXBuildFile; fileRef = D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */; };
 		D6EA4A7D1FB96564002AF776 /* nfs.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A791FB96539002AF776 /* nfs.5 */; };
 		D6EA4A7E1FB96564002AF776 /* nfs.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A7B1FB96539002AF776 /* nfs.conf.5 */; };
 		D6EA4A8E1FB9793F002AF776 /* nfs.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354ACA1FA3D0F100AACC99 /* nfs.conf */; };
@@ -576,34 +576,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D6EA4A701FB95DDD002AF776 /* CopyFiles */ = {
+		D6EA4A701FB95DDD002AF776 /* Copy Plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in CopyFiles */,
+				D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in Copy Plist */,
 			);
+			name = "Copy Plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D6EA4A721FB95E49002AF776 /* CopyFiles */ = {
+		D6EA4A721FB95E49002AF776 /* Copy Plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in CopyFiles */,
+				D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in Copy Plist */,
 			);
+			name = "Copy Plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D6EA4A741FB95E79002AF776 /* CopyFiles */ = {
+		D6EA4A741FB95E79002AF776 /* Copy Plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in CopyFiles */,
+				D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in Copy Plist */,
 			);
+			name = "Copy Plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D6EA4A771FB964D4002AF776 /* CopyFiles */ = {
@@ -714,9 +717,9 @@
 		C4C2BF5D2962E08000B56828 /* rquota_rpc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rquota_rpc.h; sourceTree = "<group>"; };
 		C4C2BF5F2963280400B56828 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		C4C48131291944DB0020E02E /* nfs.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = nfs.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		C4C48138291944F00020E02E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		C4C48139291944F00020E02E /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C4C4813A291944F00020E02E /* NFSMount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = NFSMount.c; sourceTree = "<group>"; };
+		C4C7C6692E6725D1009D742D /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		C4C9E62324B36FE0006667D4 /* json_support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = json_support.m; sourceTree = "<group>"; };
 		C4C9E62524B36FFC006667D4 /* json_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = json_support.h; sourceTree = "<group>"; };
 		C4CD59E5270D968500066EDC /* iphoneos-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iphoneos-Info.plist"; sourceTree = "<group>"; };
@@ -1137,7 +1140,7 @@
 		C4C48136291944F00020E02E /* NFSPlugin */ = {
 			isa = PBXGroup;
 			children = (
-				C4C48137291944F00020E02E /* InfoPlist.strings */,
+				C4C7C6692E6725D1009D742D /* InfoPlist.xcstrings */,
 				C4C48139291944F00020E02E /* Info.plist */,
 				C4C4813A291944F00020E02E /* NFSMount.c */,
 			);
@@ -1648,7 +1651,9 @@
 				D6354A6E1FA3CEAB00AACC99 /* Frameworks */,
 				D6354A6F1FA3CEAB00AACC99 /* CopyFiles */,
 				D6EA4A651FB950AA002AF776 /* CopyFiles */,
-				D6EA4A701FB95DDD002AF776 /* CopyFiles */,
+				D6EA4A701FB95DDD002AF776 /* Copy Plist */,
+				C4BE303B2E8D2B6300622D29 /* Adding LLVM_PROFILE_FILE to plist for CodeCoverage build */,
+				C4BE303F2E8D2F8D00622D29 /* Add Code Coverage Entitlements */,
 			);
 			buildRules = (
 			);
@@ -1683,6 +1688,7 @@
 				D6354A831FA3CECF00AACC99 /* Sources */,
 				D6354A841FA3CECF00AACC99 /* Frameworks */,
 				D6354A851FA3CECF00AACC99 /* CopyFiles */,
+				C4BE303E2E8D2DD700622D29 /* Add Code Coverage Entitlements */,
 			);
 			buildRules = (
 			);
@@ -1700,7 +1706,8 @@
 				D6354A8E1FA3CEDB00AACC99 /* Sources */,
 				D6354A8F1FA3CEDB00AACC99 /* Frameworks */,
 				D6354A901FA3CEDB00AACC99 /* CopyFiles */,
-				D6EA4A721FB95E49002AF776 /* CopyFiles */,
+				D6EA4A721FB95E49002AF776 /* Copy Plist */,
+				C4BE303D2E8D2B8900622D29 /* Adding LLVM_PROFILE_FILE plist for CodeCoverage build */,
 			);
 			buildRules = (
 			);
@@ -1735,7 +1742,8 @@
 				D6354AA41FA3CF0100AACC99 /* Sources */,
 				D6354AA51FA3CF0100AACC99 /* Frameworks */,
 				D6354AA61FA3CF0100AACC99 /* CopyFiles */,
-				D6EA4A741FB95E79002AF776 /* CopyFiles */,
+				D6EA4A741FB95E79002AF776 /* Copy Plist */,
+				C4BE303C2E8D2B8100622D29 /* Adding LLVM_PROFILE_FILE plist for CodeCoverage build */,
 			);
 			buildRules = (
 			);
@@ -1912,7 +1920,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C4C4813B291944F00020E02E /* InfoPlist.strings in Resources */,
+				C4C7C66A2E6725D1009D742D /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1927,6 +1935,96 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C4BE303B2E8D2B6300622D29 /* Adding LLVM_PROFILE_FILE to plist for CodeCoverage build */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Adding LLVM_PROFILE_FILE to plist for CodeCoverage build";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"CodeCoverage\" ]; then\n    echo \"Adding LLVM_PROFILE_FILE to nfsd plist for CodeCoverage build\"\n\n    # Find the plist file in the installation directory\n    PLIST_PATH=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.nfsd.plist\"\n\n    if [ -f \"${PLIST_PATH}\" ]; then\n        # Add EnvironmentVariables dictionary if it doesn't exist\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables dict\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        # Add LLVM_PROFILE_FILE environment variable\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables:LLVM_PROFILE_FILE string '/tmp/coverage/%c%p_nfsd.profraw'\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        echo \"Successfully added LLVM_PROFILE_FILE to ${PLIST_PATH}\"\n    else\n        echo \"Warning: Could not find plist at ${PLIST_PATH}\"\n    fi\nelse\n    echo \"Skipping LLVM_PROFILE_FILE addition - not a CodeCoverage build\"\nfi\n";
+		};
+		C4BE303C2E8D2B8100622D29 /* Adding LLVM_PROFILE_FILE plist for CodeCoverage build */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Adding LLVM_PROFILE_FILE plist for CodeCoverage build";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"CodeCoverage\" ]; then\n    echo \"Adding LLVM_PROFILE_FILE to statd plist for CodeCoverage build\"\n\n    # Find the plist file in the installation directory\n    PLIST_PATH=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.statd.notify.plist\"\n\n    if [ -f \"${PLIST_PATH}\" ]; then\n        # Add EnvironmentVariables dictionary if it doesn't exist\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables dict\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        # Add LLVM_PROFILE_FILE environment variable\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables:LLVM_PROFILE_FILE string '/tmp/coverage/%c%p_statd.notify.profraw'\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        echo \"Successfully added LLVM_PROFILE_FILE to ${PLIST_PATH}\"\n    else\n        echo \"Warning: Could not find plist at ${PLIST_PATH}\"\n    fi\nelse\n    echo \"Skipping LLVM_PROFILE_FILE addition - not a CodeCoverage build\"\nfi\n";
+		};
+		C4BE303D2E8D2B8900622D29 /* Adding LLVM_PROFILE_FILE plist for CodeCoverage build */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Adding LLVM_PROFILE_FILE plist for CodeCoverage build";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"CodeCoverage\" ]; then\n    echo \"Adding LLVM_PROFILE_FILE to lockd plist for CodeCoverage build\"\n\n    # Find the plist file in the installation directory\n    PLIST_PATH=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.lockd.plist\"\n\n    if [ -f \"${PLIST_PATH}\" ]; then\n        # Add EnvironmentVariables dictionary if it doesn't exist\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables dict\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        # Add LLVM_PROFILE_FILE environment variable\n        /usr/libexec/PlistBuddy -c \"Add :EnvironmentVariables:LLVM_PROFILE_FILE string '/tmp/coverage/%c%p_rpc.lockd.profraw'\" \"${PLIST_PATH}\" 2>/dev/null || true\n\n        echo \"Successfully added LLVM_PROFILE_FILE to ${PLIST_PATH}\"\n    else\n        echo \"Warning: Could not find plist at ${PLIST_PATH}\"\n    fi\nelse\n    echo \"Skipping LLVM_PROFILE_FILE addition - not a CodeCoverage build\"\nfi\n";
+		};
+		C4BE303E2E8D2DD700622D29 /* Add Code Coverage Entitlements */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Add Code Coverage Entitlements";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"CodeCoverage\" ]; then\n    echo \"Adding code coverage entitlements for nfsstat CodeCoverage build\"\n\n    # Add /tmp/coverage access to entitlements\n    ENTITLEMENTS_PATH=\"${TARGET_TEMP_DIR}/${PRODUCT_NAME}.xcent\"\n\n    if [ -f \"${ENTITLEMENTS_PATH}\" ]; then\n        # Add file system access entitlement\n        /usr/libexec/PlistBuddy -c \"Add :com.apple.security.temporary-exception.files.absolute-path.read-write array\" \"${ENTITLEMENTS_PATH}\" 2>/dev/null || true\n        /usr/libexec/PlistBuddy -c \"Add :com.apple.security.temporary-exception.files.absolute-path.read-write:0 string '/tmp/coverage'\" \"${ENTITLEMENTS_PATH}\" 2>/dev/null || true\n\n        echo \"Successfully added /tmp/coverage access to ${ENTITLEMENTS_PATH}\"\n    else\n        echo \"Warning: Could not find entitlements file at ${ENTITLEMENTS_PATH}\"\n    fi\nelse\n    echo \"Skipping code coverage entitlements - not a CodeCoverage build\"\nfi\n";
+		};
+		C4BE303F2E8D2F8D00622D29 /* Add Code Coverage Entitlements */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Add Code Coverage Entitlements";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"CodeCoverage\" ]; then\n    echo \"Adding code coverage entitlements for nfsd CodeCoverage build\"\n\n    ENTITLEMENTS_PATH=\"${TARGET_TEMP_DIR}/${PRODUCT_NAME}.xcent\"\n\n    if [ -f \"${ENTITLEMENTS_PATH}\" ]; then\n        # Add file system access entitlement\n        /usr/libexec/PlistBuddy -c \"Add :com.apple.security.temporary-exception.files.absolute-path.read-write array\" \"${ENTITLEMENTS_PATH}\" 2>/dev/null || true\n        /usr/libexec/PlistBuddy -c \"Add :com.apple.security.temporary-exception.files.absolute-path.read-write:0 string '/tmp/coverage'\" \"${ENTITLEMENTS_PATH}\" 2>/dev/null || true\n\n        echo \"Successfully added /tmp/coverage access to ${ENTITLEMENTS_PATH}\"\n    else\n        echo \"Warning: Could not find entitlements file at ${ENTITLEMENTS_PATH}\"\n    fi\nelse\n    echo \"Skipping code coverage settings - not a CodeCoverage build\"\nfi\n";
+		};
 		D6EA4A761FB96404002AF776 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -2313,14 +2411,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		C4C48137291944F00020E02E /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				C4C48138291944F00020E02E /* en */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
 		D6C194081FA4022100FA298E /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -2354,7 +2444,7 @@
 			};
 			name = Debug;
 		};
-		C47BB90C25C1BE3700DB38E2 /* Coverage */ = {
+		C47BB90C25C1BE3700DB38E2 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2369,7 +2459,7 @@
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		C47BB90D25C1BE3700DB38E2 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2418,7 +2508,7 @@
 			};
 			name = Debug;
 		};
-		C47BB91D25C1BE8A00DB38E2 /* Coverage */ = {
+		C47BB91D25C1BE8A00DB38E2 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2441,7 +2531,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		C47BB91E25C1BE8A00DB38E2 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2489,7 +2579,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = NO;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -2497,7 +2586,7 @@
 			};
 			name = Debug;
 		};
-		C47CD3E228A0077C000C5AEE /* Coverage */ = {
+		C47CD3E228A0077C000C5AEE /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -2513,13 +2602,12 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = NO;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		C47CD3E328A0077C000C5AEE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2537,7 +2625,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = NO;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -2584,12 +2671,11 @@
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
 		};
-		C4B26E5D270C564600F021F8 /* Coverage */ = {
+		C4B26E5D270C564600F021F8 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = (
@@ -2618,15 +2704,15 @@
 				MODULE_STOP = nfs_kext_stop;
 				MODULE_VERSION = 1.0.0d1;
 				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.nfs;
 				PRODUCT_NAME = nfs;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = kext;
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		C4B26E5E270C564600F021F8 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2662,7 +2748,6 @@
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -2689,12 +2774,11 @@
 				PRODUCT_NAME = nfs;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Debug;
 		};
-		C4C48134291944DD0020E02E /* Coverage */ = {
+		C4C48134291944DD0020E02E /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -2711,10 +2795,9 @@
 				PRODUCT_NAME = nfs;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		C4C48135291944DD0020E02E /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2733,7 +2816,6 @@
 				PRODUCT_NAME = nfs;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
-				SWIFT_EMIT_LOC_STRINGS = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Release;
@@ -2806,6 +2888,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
@@ -2880,6 +2963,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
@@ -3221,14 +3305,14 @@
 			};
 			name = Debug;
 		};
-		D6E728381FE3815500E0B2FC /* Coverage */ = {
+		D6E728381FE3815500E0B2FC /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 		D6E728391FE3815500E0B2FC /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -3277,11 +3361,11 @@
 			};
 			name = Release;
 		};
-		D6EA4A961FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A961FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CCOVERAGEDIR = /var/tmp/cc;
+				CCOVERAGEDIR = /tmp/coverage;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -3342,7 +3426,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
-					"-fprofile-instr-generate=$(CCOVERAGEDIR)/$(TARGETNAME).%p",
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/%c%p_$(TARGETNAME).profraw",
 					"-fcoverage-mapping",
 					"-DCCOVERAGE",
 				);
@@ -3350,6 +3434,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
@@ -3360,18 +3445,22 @@
 					"-Werror=misleading-indentation",
 				);
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A971FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A971FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/$(TARGETNAME)_%p.profraw",
+					"-fcoverage-mapping",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A981FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A981FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -3379,9 +3468,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9A1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9A1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3394,9 +3483,9 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9B1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9B1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3409,9 +3498,9 @@
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9C1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9C1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3420,9 +3509,9 @@
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9D1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9D1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3435,9 +3524,9 @@
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9E1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9E1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "nfsd/nfsd-entitlements.plist";
@@ -3451,9 +3540,9 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4A9F1FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4A9F1FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3462,9 +3551,9 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA01FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA01FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "nfsstat/nfsstat-entitlements.plist";
@@ -3474,9 +3563,9 @@
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA11FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA11FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3485,9 +3574,9 @@
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA21FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA21FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3496,9 +3585,9 @@
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA31FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA31FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3507,9 +3596,9 @@
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA41FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA41FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -3522,9 +3611,9 @@
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
-		D6EA4AA51FBA8BF0002AF776 /* Coverage */ = {
+		D6EA4AA51FBA8BF0002AF776 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -3539,7 +3628,7 @@
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = fs;
 			};
-			name = Coverage;
+			name = CodeCoverage;
 		};
 /* End XCBuildConfiguration section */
 
@@ -3548,7 +3637,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C47BB90B25C1BE3700DB38E2 /* Debug */,
-				C47BB90C25C1BE3700DB38E2 /* Coverage */,
+				C47BB90C25C1BE3700DB38E2 /* CodeCoverage */,
 				C47BB90D25C1BE3700DB38E2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3558,7 +3647,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C47BB91C25C1BE8A00DB38E2 /* Debug */,
-				C47BB91D25C1BE8A00DB38E2 /* Coverage */,
+				C47BB91D25C1BE8A00DB38E2 /* CodeCoverage */,
 				C47BB91E25C1BE8A00DB38E2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3568,7 +3657,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C47CD3E128A0077C000C5AEE /* Debug */,
-				C47CD3E228A0077C000C5AEE /* Coverage */,
+				C47CD3E228A0077C000C5AEE /* CodeCoverage */,
 				C47CD3E328A0077C000C5AEE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3578,7 +3667,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C4B26E5C270C564600F021F8 /* Debug */,
-				C4B26E5D270C564600F021F8 /* Coverage */,
+				C4B26E5D270C564600F021F8 /* CodeCoverage */,
 				C4B26E5E270C564600F021F8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3588,7 +3677,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C4C48133291944DD0020E02E /* Debug */,
-				C4C48134291944DD0020E02E /* Coverage */,
+				C4C48134291944DD0020E02E /* CodeCoverage */,
 				C4C48135291944DD0020E02E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3598,7 +3687,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A311FA3CCBC00AACC99 /* Debug */,
-				D6EA4A961FBA8BF0002AF776 /* Coverage */,
+				D6EA4A961FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A321FA3CCBC00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3608,7 +3697,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A4A1FA3CDDB00AACC99 /* Debug */,
-				D6EA4A9A1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9A1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A4B1FA3CDDB00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3618,7 +3707,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A551FA3CE5800AACC99 /* Debug */,
-				D6EA4A9B1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9B1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A561FA3CE5800AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3628,7 +3717,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A601FA3CE7500AACC99 /* Debug */,
-				D6EA4A9C1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9C1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A611FA3CE7500AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3638,7 +3727,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A6B1FA3CE8900AACC99 /* Debug */,
-				D6EA4A9D1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9D1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A6C1FA3CE8900AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3648,7 +3737,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A761FA3CEAB00AACC99 /* Debug */,
-				D6EA4A9E1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9E1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A771FA3CEAB00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3658,7 +3747,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A811FA3CEB700AACC99 /* Debug */,
-				D6EA4A9F1FBA8BF0002AF776 /* Coverage */,
+				D6EA4A9F1FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A821FA3CEB700AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3668,7 +3757,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A8C1FA3CECF00AACC99 /* Debug */,
-				D6EA4AA01FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA01FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A8D1FA3CECF00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3678,7 +3767,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354A971FA3CEDB00AACC99 /* Debug */,
-				D6EA4AA11FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA11FBA8BF0002AF776 /* CodeCoverage */,
 				D6354A981FA3CEDB00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3688,7 +3777,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354AA21FA3CEEF00AACC99 /* Debug */,
-				D6EA4AA21FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA21FBA8BF0002AF776 /* CodeCoverage */,
 				D6354AA31FA3CEEF00AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3698,7 +3787,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354AAD1FA3CF0100AACC99 /* Debug */,
-				D6EA4AA31FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA31FBA8BF0002AF776 /* CodeCoverage */,
 				D6354AAE1FA3CF0100AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3708,7 +3797,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6354AB81FA3CF1200AACC99 /* Debug */,
-				D6EA4AA41FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA41FBA8BF0002AF776 /* CodeCoverage */,
 				D6354AB91FA3CF1200AACC99 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3718,7 +3807,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6C194041FA400A900FA298E /* Debug */,
-				D6EA4AA51FBA8BF0002AF776 /* Coverage */,
+				D6EA4AA51FBA8BF0002AF776 /* CodeCoverage */,
 				D6C194051FA400A900FA298E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3728,7 +3817,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6E728371FE3815500E0B2FC /* Debug */,
-				D6E728381FE3815500E0B2FC /* Coverage */,
+				D6E728381FE3815500E0B2FC /* CodeCoverage */,
 				D6E728391FE3815500E0B2FC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3738,7 +3827,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6EA4A1A1FB7B995002AF776 /* Debug */,
-				D6EA4A971FBA8BF0002AF776 /* Coverage */,
+				D6EA4A971FBA8BF0002AF776 /* CodeCoverage */,
 				D6EA4A1B1FB7B995002AF776 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -3748,7 +3837,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D6EA4A1E1FB7BA3A002AF776 /* Debug */,
-				D6EA4A981FBA8BF0002AF776 /* Coverage */,
+				D6EA4A981FBA8BF0002AF776 /* CodeCoverage */,
 				D6EA4A1F1FB7BA3A002AF776 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

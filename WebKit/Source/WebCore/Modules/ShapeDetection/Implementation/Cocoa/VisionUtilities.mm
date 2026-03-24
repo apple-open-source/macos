@@ -73,13 +73,13 @@ void configureRequestToUseCPUOrGPU(VNRequest *request)
     request.usesCPUOnly = YES;
 #else
     NSError *error = nil;
-    auto *supportedComputeStageDevices = [request supportedComputeStageDevicesAndReturnError:&error];
+    RetainPtr supportedComputeStageDevices = [request supportedComputeStageDevicesAndReturnError:&error];
     if (!supportedComputeStageDevices || error)
         return;
 
-    for (VNComputeStage computeStage in supportedComputeStageDevices) {
+    for (VNComputeStage computeStage in supportedComputeStageDevices.get()) {
         bool set = false;
-        for (id<MLComputeDeviceProtocol> device in supportedComputeStageDevices[computeStage]) {
+        for (id<MLComputeDeviceProtocol> device in supportedComputeStageDevices.get()[computeStage]) {
             // FIXME: This is a safer cpp false positive (rdar://160259918).
             SUPPRESS_UNRETAINED_ARG if ([device isKindOfClass:PAL::getMLGPUComputeDeviceClassSingleton()]) {
                 [request setComputeDevice:device forComputeStage:computeStage];
@@ -88,7 +88,7 @@ void configureRequestToUseCPUOrGPU(VNRequest *request)
             }
         }
         if (!set) {
-            for (id<MLComputeDeviceProtocol> device in supportedComputeStageDevices[computeStage]) {
+            for (id<MLComputeDeviceProtocol> device in supportedComputeStageDevices.get()[computeStage]) {
                 // FIXME: This is a safer cpp false positive (rdar://160259918).
                 SUPPRESS_UNRETAINED_ARG if ([device isKindOfClass:PAL::getMLGPUComputeDeviceClassSingleton()]) {
                     [request setComputeDevice:device forComputeStage:computeStage];

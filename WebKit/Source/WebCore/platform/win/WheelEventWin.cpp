@@ -97,13 +97,13 @@ PlatformWheelEvent::PlatformWheelEvent(HWND hWnd, WPARAM wParam, LPARAM lParam, 
     if (isMouseHWheel || shiftKey()) {
         m_deltaX = delta * static_cast<float>(horizontalScrollChars()) * cScrollbarPixelsPerLine;
         m_deltaY = 0;
-        m_granularity = ScrollByPixelWheelEvent;
+        m_granularity = PlatformWheelEventGranularity::ScrollByPixelWheelEvent;
     } else {
         m_deltaX = 0;
         m_deltaY = delta;
         unsigned verticalMultiplier = verticalScrollLines();
-        m_granularity = (verticalMultiplier == WHEEL_PAGESCROLL) ? ScrollByPageWheelEvent : ScrollByPixelWheelEvent;
-        if (m_granularity == ScrollByPixelWheelEvent)
+        m_granularity = (verticalMultiplier == WHEEL_PAGESCROLL) ? PlatformWheelEventGranularity::ScrollByPageWheelEvent : PlatformWheelEventGranularity::ScrollByPixelWheelEvent;
+        if (m_granularity == PlatformWheelEventGranularity::ScrollByPixelWheelEvent)
             m_deltaY *= static_cast<float>(verticalMultiplier) * cScrollbarPixelsPerLine;
     }
 }

@@ -605,8 +605,10 @@ OptionSet<ClearSiteDataValue> parseClearSiteDataHeader(const ResourceResponse& r
             result.add(ClearSiteDataValue::ExecutionContexts);
         else if (trimmedValue == "\"storage\""_s)
             result.add(ClearSiteDataValue::Storage);
+        else if (trimmedValue == "\"prefetchCache\""_s)
+            result.add(ClearSiteDataValue::PrefetchCache);
         else if (trimmedValue == "\"*\""_s)
-            result.add({ ClearSiteDataValue::Cache, ClearSiteDataValue::Cookies, ClearSiteDataValue::ExecutionContexts, ClearSiteDataValue::Storage });
+            result.add({ ClearSiteDataValue::Cache, ClearSiteDataValue::Cookies, ClearSiteDataValue::ExecutionContexts, ClearSiteDataValue::Storage, ClearSiteDataValue::PrefetchCache });
     }
     return result;
 }
@@ -972,7 +974,7 @@ bool isCrossOriginSafeRequestHeader(HTTPHeaderName name, const String& value)
 // Implements <https://fetch.spec.whatwg.org/#concept-method-normalize>.
 String normalizeHTTPMethod(const String& method)
 {
-    const ASCIILiteral methods[] = { "DELETE"_s, "GET"_s, "HEAD"_s, "OPTIONS"_s, "POST"_s, "PUT"_s };
+    constexpr std::array methods { "DELETE"_s, "GET"_s, "HEAD"_s, "OPTIONS"_s, "POST"_s, "PUT"_s };
     for (auto value : methods) {
         if (equalIgnoringASCIICase(method, value)) {
             // Don't bother allocating a new string if it's already all uppercase.
@@ -987,7 +989,7 @@ String normalizeHTTPMethod(const String& method)
 // Defined by https://tools.ietf.org/html/rfc7231#section-4.2.1
 bool isSafeMethod(const String& method)
 {
-    const ASCIILiteral safeMethods[] = { "GET"_s, "HEAD"_s, "OPTIONS"_s, "TRACE"_s };
+    constexpr std::array safeMethods { "GET"_s, "HEAD"_s, "OPTIONS"_s, "TRACE"_s };
     for (auto value : safeMethods) {
         if (equalIgnoringASCIICase(method, value))
             return true;

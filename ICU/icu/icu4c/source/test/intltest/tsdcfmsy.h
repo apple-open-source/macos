@@ -30,6 +30,9 @@ private:
     void testLastResortData();
     void testDigitSymbols();
     void testNumberingSystem();
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    void checkForUninitializedMemory(); // rdar://162810290
+#endif
 
      /** helper functions**/
     void Verify(double value, const UnicodeString& pattern,

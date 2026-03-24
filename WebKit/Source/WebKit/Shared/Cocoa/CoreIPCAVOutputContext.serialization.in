@@ -33,7 +33,7 @@ header: "CoreIPCAVOutputContext.h"
 [CustomHeader, WebKitPlatform] class WebKit::CoreIPCAVOutputContext {
     WebKit::CoreIPCAVOutputContextData m_data;
 };
-#endif // USE(AVFOUNDATION) && HAVE(HAVE_WK_SECURE_CODING_AVOUTPUTCONTEXT)
+#endif // USE(AVFOUNDATION) && HAVE(WK_SECURE_CODING_AVOUTPUTCONTEXT)
 
 #if USE(AVFOUNDATION) && !HAVE(WK_SECURE_CODING_AVOUTPUTCONTEXT)
 secure_coding_header: <pal/cocoa/AVFoundationSoftLink.h>

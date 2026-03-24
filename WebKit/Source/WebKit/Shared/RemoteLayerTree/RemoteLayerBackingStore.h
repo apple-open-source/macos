@@ -239,7 +239,7 @@ public:
     std::optional<WebCore::RenderingResourceIdentifier> contentsRenderingResourceIdentifier() const { return m_contentsRenderingResourceIdentifier; };
 
 private:
-    friend struct IPC::ArgumentCoder<RemoteLayerBackingStoreProperties, void>;
+    friend struct IPC::ArgumentCoder<RemoteLayerBackingStoreProperties>;
 
     LayerContentsBufferInfo lookupCachedBuffer(RemoteLayerTreeNode&);
 

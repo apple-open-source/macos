@@ -121,7 +121,7 @@ If the
 command is specified,
 .Nm
 will ``flush'' the routing tables of all gateway entries.
-When the address family may is specified by any of the
+When the address family is specified by any of the
 .Fl osi ,
 .Fl xns ,
 .Fl atalk ,
@@ -226,7 +226,7 @@ entries marked with the RTF_IFSCOPE flag.
 .Pp
 The optional modifier
 .Fl link
-specify that all subsequent addresses
+specifies that all subsequent addresses
 are specified as link-level addresses,
 and the names must be numeric specifications rather than
 symbolic names.
@@ -354,7 +354,7 @@ command accepts optional modifiers to display only the routing messages that mat
 .Pp
 The optional modifier
 .Fl ifindex
-takes an interface index or an interface name to limit the display of routing messagges
+takes an interface index or an interface name to limit the display of routing messages
 for that interface.
 .Pp
 Optional modifiers of the
@@ -373,17 +373,16 @@ command may be used to select messages with some specific routing flags like:
 .Pp
 And the
 .Cm monitor
-command also may used to print messages for a given type like:
+command may also be used to print messages for a given type like:
 .Fl add
 .Fl delete
 .Fl newmaddr .
 .Pp
-The modifier may excludes message that match the modifier by adding the prefix
+The modifier may exclude messages that match the modifier by adding the prefix
 .Sy no
 to the modifier name.
 .Sh DIAGNOSTICS
 .Bl -diag
-The optional modifiers may also be used to select
 .It "add [host \&| network ] %s: gateway %s flags %x"
 The specified route is being added to the tables.  The
 values printed are from the routing table entry supplied
@@ -421,10 +420,30 @@ The next-hop gateway should be reachable through a different route.
 .El
 .Pp
 .Ex -std
+.Sh EXAMPLES
+Add a default IPv4 route through a gateway:
+.Bd -literal -offset indent
+route add default 192.168.1.1
+.Ed
+.Pp
+Add an IPv6 prefix route through a gateway:
+.Bd -literal -offset indent
+route add -inet6 2001:db8::/32 2001:db8::1
+.Ed
+.Pp
+Add an IPv6 prefix route directly to an interface:
+.Bd -literal -offset indent
+route add -inet6 2001:db8:1234::/64 -interface en0
+.Ed
+.Pp
+Delete an IPv6 route:
+.Bd -literal -offset indent
+route delete -inet6 2001:db8:1234::/64
+.Ed
 .Sh SEE ALSO
 .Xr netintro 4 ,
 .Xr route 4 ,
-.Xr arp 8 ,
+.Xr arp 8
 .Sh HISTORY
 The
 .Nm

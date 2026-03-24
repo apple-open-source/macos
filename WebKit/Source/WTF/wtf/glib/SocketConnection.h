@@ -38,11 +38,11 @@ public:
     using MessageHandlers = UncheckedKeyHashMap<CString, std::pair<CString, MessageCallback>>;
     static Ref<SocketConnection> create(GRefPtr<GSocketConnection>&& connection, const MessageHandlers& messageHandlers, gpointer userData)
     {
-        return adoptRef(*new SocketConnection(WTFMove(connection), messageHandlers, userData));
+        return adoptRef(*new SocketConnection(WTF::move(connection), messageHandlers, userData));
     }
     WTF_EXPORT_PRIVATE ~SocketConnection();
 
-    WTF_EXPORT_PRIVATE void sendMessage(const char*, GVariant*);
+    WTF_EXPORT_PRIVATE void sendMessage(const CString&, GVariant*);
 
     bool isClosed() const { return !m_connection; }
     WTF_EXPORT_PRIVATE void close();
@@ -50,6 +50,7 @@ public:
 private:
     WTF_EXPORT_PRIVATE SocketConnection(GRefPtr<GSocketConnection>&&, const MessageHandlers&, gpointer);
 
+    bool didReceiveInvalidMessage(const CString& message);
     bool read();
     bool readMessage();
     void write();

@@ -193,7 +193,7 @@ AppleSCSITargetEmulator::Create (
 	require_nonzero ( emulator, ErrorExit );
 	
 	result = emulator->Init ( targetID );
-	require ( result, ReleaseEmulator );
+	__Require(result, ReleaseEmulator);
 	
 	return emulator;
 	
@@ -227,7 +227,7 @@ AppleSCSITargetEmulator::Init (
 	STATUS_LOG ( ( "AppleSCSITargetEmulator::Init, targetID = %qd\n", targetID ) );
 	
 	result = super::init ( );
-	require ( result, ErrorExit );
+	__Require(result, ErrorExit);
 	
 	fTargetID = targetID;
 	
@@ -336,8 +336,8 @@ AppleSCSITargetEmulator::AddLogicalUnit (
 	
 	STATUS_LOG ( ( "+AppleSCSITargetEmulator::AddLogicalUnit, logicalUnit = %qd, capacity = %qd\n", logicalUnit, capacity ) );
 	
-	require ( ( logicalUnit < 16384 ), ErrorExit );
-	require ( ( logicalUnit > 0 ), ErrorExit );
+	__Require(( logicalUnit < 16384 ), ErrorExit);
+	__Require(( logicalUnit > 0 ), ErrorExit);
 	
 	emulator = AppleSCSIPDT00Emulator::WithCapacity ( capacity );
 	require_nonzero ( emulator, ErrorExit );
@@ -345,7 +345,7 @@ AppleSCSITargetEmulator::AddLogicalUnit (
 	emulator->SetLogicalUnitNumber ( logicalUnit );
 	
 	result = emulator->SetDeviceBuffers ( inquiryBuffer, inquiryPage00Buffer, inquiryPage80Buffer, inquiryPage83Buffer );
-	require ( result, ReleaseEmulator );
+	__Require(result, ReleaseEmulator);
 	
 	IOLockLock ( fLock );
 	

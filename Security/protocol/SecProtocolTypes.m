@@ -959,6 +959,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
     return self;
 }
 
+- (void)dealloc
+{
+    CFReleaseSafe(self->dictionary);
+}
+
 @end
 
 sec_protocol_configuration_builder_t

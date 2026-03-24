@@ -55,7 +55,7 @@ TBundle::TBundle ( CFBundleRef bundle ) :
 	fLocalizationDictionaryForTable ( NULL )
 {
 	
-	check ( bundle );
+	__Check ( bundle );
 	fCFBundleRef = ( CFBundleRef ) ::CFRetain ( bundle );
 	
 }
@@ -68,7 +68,7 @@ TBundle::TBundle ( CFBundleRef bundle ) :
 TBundle::~TBundle ( void )
 {
 	
-	check ( fCFBundleRef );
+	__Check ( fCFBundleRef );
 	::CFRelease ( fCFBundleRef );
 	fCFBundleRef = NULL;
 	
@@ -139,11 +139,11 @@ TBundle::CopyLocalizationDictionaryForTable ( CFStringRef table )
 				CFSTR ( kStringsTypeString ),
 				fCFBundleRef );
 
-	require ( ( localizedStringsURL != NULL ), ErrorExit );
+	__Require ( ( localizedStringsURL != NULL ), ErrorExit );
 
     tableData = TSystemUtils::ReadDataFromURL ( localizedStringsURL );
     
-	require ( ( tableData != NULL ), ReleaseURL );
+	__Require ( ( tableData != NULL ), ReleaseURL );
 	
 	stringTable = ( CFDictionaryRef ) ::CFPropertyListCreateFromXMLData (
 											kCFAllocatorDefault,
@@ -166,7 +166,7 @@ TBundle::CopyLocalizationDictionaryForTable ( CFStringRef table )
 	::CFRelease ( tableData );
 	tableData = NULL;
 	
-	check ( stringTable != NULL );
+	__Check ( stringTable != NULL );
 	
     
 ReleaseURL:
@@ -229,10 +229,10 @@ TBundle::CopyURLForResourceOfTypeInBundle ( CFStringRef		resource,
 		bundle = ::CFBundleGetMainBundle ( );
 	}
 	
-	require ( ( bundle != NULL ), ErrorExit );
-	
+	__Require ( ( bundle != NULL ), ErrorExit );
+
 	preferredLanguages = TSystemUtils::GetPreferredLanguages ( );
-	require ( ( preferredLanguages != NULL ), ErrorExit );
+	__Require ( ( preferredLanguages != NULL ), ErrorExit );
 	
 	bundleLocalizations		= CopyLocalizations ( );
 	preferredLocalizations	= CopyLocalizationsForPrefs ( bundleLocalizations, preferredLanguages );

@@ -51,7 +51,7 @@ public:
 
     void setLabel(String&& label)
     {
-        m_label = WTFMove(label);
+        m_label = WTF::move(label);
         setLabelInternal(m_label);
     }
 
@@ -83,6 +83,7 @@ public:
     virtual void insertDebugMarker(String&& markerLabel) = 0;
 
     virtual RefPtr<RenderBundle> finish(const RenderBundleDescriptor&) = 0;
+    virtual bool isRemoteRenderBundleEncoderProxy() const { return false; }
 
 protected:
     RenderBundleEncoder() = default;

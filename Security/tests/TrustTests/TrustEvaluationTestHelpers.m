@@ -200,7 +200,7 @@ const NSString *kSecTrustTestPolicyProperties = @"Properties";      /* Optional;
 - (bool)addLeafToCertificates:(NSString *)leafName {
     SecCertificateRef cert;
     NSString *path = nil, *filename = nil;
-    require_string(leafName, errOut, "%@: failed to get leaf for test");
+    __Require_String(leafName, errOut, "%@: failed to get leaf for test");
 #if TARGET_OS_TV
     filename = [self replaceiPhoneNamedFiles:leafName];
 #else
@@ -211,12 +211,12 @@ const NSString *kSecTrustTestPolicyProperties = @"Properties";      /* Optional;
             pathForResource:filename
             ofType:@"cer"
             inDirectory:self.directory];
-    require_string(path, errOut, "failed to get path for leaf");
+    __Require_String(path, errOut, "failed to get path for leaf");
     cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
-    require_string(cert, errOut, "failed to create leaf certificate from path");
+    __Require_String(cert, errOut, "failed to create leaf certificate from path");
     self.certificates = [[NSMutableArray alloc] initWithObjects:(__bridge id)cert, nil];
     CFReleaseNull(cert);
-    require_string(self.certificates, errOut, "failed to initialize certificates array");
+    __Require_String(self.certificates, errOut, "failed to initialize certificates array");
     return true;
 
 errOut:
@@ -226,7 +226,7 @@ errOut:
 - (bool)addCertsToArray:(id)pathsObj outputArray:(NSMutableArray *)outArray {
     __block SecCertificateRef cert = NULL;
     __block NSString* path = nil, *filename = nil;
-    require_string(pathsObj, errOut,
+    __Require_String(pathsObj, errOut,
                          "failed to get certificate paths for test");
 
     if ([pathsObj isKindOfClass:[NSString class]]) {
@@ -240,9 +240,9 @@ errOut:
                 pathForResource:filename
                 ofType:@"cer"
                 inDirectory:self.directory];
-        require_string(path, errOut, "failed to get path for cert");
+        __Require_String(path, errOut, "failed to get path for cert");
         cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
-        require_string(cert, errOut, "failed to create certificate from path");
+        __Require_String(cert, errOut, "failed to create certificate from path");
         [outArray addObject:(__bridge id)cert];
         CFReleaseNull(cert);
     } else if ([pathsObj isKindOfClass:[NSArray class]]) {
@@ -257,9 +257,9 @@ errOut:
                     pathForResource:filename
                     ofType:@"cer"
                     inDirectory:self.directory];
-            require_string(path, blockOut, "failed to get path for cert");
+            __Require_String(path, blockOut, "failed to get path for cert");
             cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
-            require_string(cert, blockOut, "failed to create certificate %ld from path %@");
+            __Require_String(cert, blockOut, "failed to create certificate %ld from path %@");
             [outArray addObject:(__bridge id)cert];
 
             CFReleaseNull(cert);
@@ -270,7 +270,7 @@ errOut:
             *stop = YES;
         }];
     } else {
-        require_string(false, errOut, "unexpected type for intermediates or anchors value");
+        __Require_String(false, errOut, "unexpected type for intermediates or anchors value");
     }
 
     return true;
@@ -281,16 +281,16 @@ errOut:
 }
 
 - (bool)addIntermediatesToCertificates:(id)intermediatesObj {
-    require_string(intermediatesObj, errOut, "failed to get intermediates for test");
+    __Require_String(intermediatesObj, errOut, "failed to get intermediates for test");
 
-    require_string([self addCertsToArray:intermediatesObj outputArray:self.certificates], errOut,
+    __Require_String([self addCertsToArray:intermediatesObj outputArray:self.certificates], errOut,
                    "failed to add intermediates to certificates array");
 
     if ([intermediatesObj isKindOfClass:[NSString class]]) {
-        require_string([self.certificates count] == 2, errOut,
+        __Require_String([self.certificates count] == 2, errOut,
                              "failed to add all intermediates");
     } else if ([intermediatesObj isKindOfClass:[NSArray class]]) {
-        require_string([self.certificates count] == [(NSArray *)intermediatesObj count] + 1, errOut,
+        __Require_String([self.certificates count] == [(NSArray *)intermediatesObj count] + 1, errOut,
                             "failed to add all intermediates");
     }
 
@@ -318,14 +318,14 @@ errOut:
         if (!spkiSHA256StringArray) {
             continue;
         }
-        require_string(isArray(spkiSHA256StringArray), errOut, "SPKISHA256 property is not an array");
+        __Require_String(isArray(spkiSHA256StringArray), errOut, "SPKISHA256 property is not an array");
 
         CFMutableArrayRef spkiSHA256DataArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-        require_string(spkiSHA256DataArray, errOut, "failed to allocate memory for the SPKISHA256 data array");
+        __Require_String(spkiSHA256DataArray, errOut, "failed to allocate memory for the SPKISHA256 data array");
 
         for (CFIndex j = 0; j < CFArrayGetCount(spkiSHA256StringArray); j++) {
             CFStringRef spkiSHA256String = CFArrayGetValueAtIndex(spkiSHA256StringArray, j);
-            require_string(isString(spkiSHA256String), errOut, "SPKISHA256 property array element is not a string");
+            __Require_String(isString(spkiSHA256String), errOut, "SPKISHA256 property array element is not a string");
             CFDataRef spkiSHA256Data = CreateCFDataFromBase64CFString(spkiSHA256String);
             // 'spkiSHA256Data' is optional because we want to allow empty strings.
             if (spkiSHA256Data) {
@@ -352,14 +352,14 @@ errOut:
     SecPolicyRef policy = NULL;
     NSString *policyIdentifier = [(NSDictionary *)policyDict objectForKey:kSecTrustTestPolicyOID];
     NSDictionary *policyProperties = [(NSDictionary *)policyDict objectForKey:kSecTrustTestPolicyProperties];
-    require_string(policyIdentifier, errOut, "failed to get policy OID");
+    __Require_String(policyIdentifier, errOut, "failed to get policy OID");
 
     CFDictionaryRef properties = (__bridge CFDictionaryRef)policyProperties;
     policy = SecPolicyCreateWithProperties((__bridge CFStringRef)policyIdentifier,
                                            properties);
-    require_string(policy, errOut, "failed to create properties for policy OID");
+    __Require_String(policy, errOut, "failed to create properties for policy OID");
 
-    require_string([self addThirdPartyPinningPolicyChecks:properties policy:policy], errOut, "failed to parse properties for third-party-pinning policy checks");
+    __Require_String([self addThirdPartyPinningPolicyChecks:properties policy:policy], errOut, "failed to parse properties for third-party-pinning policy checks");
 
     if (self.disableCT) {
 #pragma clang diagnostic push
@@ -378,15 +378,15 @@ errOut:
 }
 
 - (bool)addPolicies:(id)policiesObj {
-    require_string(policiesObj, errOut,
+    __Require_String(policiesObj, errOut,
                    "failed to get policies for test");
 
     self.policies = [[NSMutableArray alloc] init];
-    require_string(self.policies, errOut,
+    __Require_String(self.policies, errOut,
                    "failed to initialize policies array");
     if ([policiesObj isKindOfClass:[NSDictionary class]]) {
         /* Test has only one policy */
-        require_string([self addPolicy:policiesObj], errOut, "failed to add policy");
+        __Require_String([self addPolicy:policiesObj], errOut, "failed to add policy");
     } else if ([policiesObj isKindOfClass:[NSArray class]]) {
         /* Test more than one policy */
         [(NSArray *)policiesObj enumerateObjectsUsingBlock:^(NSDictionary *policyDict, NSUInteger idx, BOOL *stop) {
@@ -395,9 +395,9 @@ errOut:
             }
         }];
 
-        require_string([(NSArray *)policiesObj count] == [self.policies count], errOut, "failed to add all policies");
+        __Require_String([(NSArray *)policiesObj count] == [self.policies count], errOut, "failed to add all policies");
     } else {
-        require_string(false, errOut, "unexpected type for Policies value");
+        __Require_String(false, errOut, "unexpected type for Policies value");
     }
 
     return true;
@@ -408,13 +408,13 @@ errOut:
 
 - (bool)setAnchorsFromPlist:(id)anchorsObj {
     NSMutableArray *anchors = [NSMutableArray array];
-    require_string(anchorsObj, errOut, "failed to get anchors for test");
-    require_string([self addCertsToArray:anchorsObj outputArray:anchors], errOut, "failed to add anchors to anchors array");
+    __Require_String(anchorsObj, errOut, "failed to get anchors for test");
+    __Require_String([self addCertsToArray:anchorsObj outputArray:anchors], errOut, "failed to add anchors to anchors array");
 
     if ([anchorsObj isKindOfClass:[NSString class]]) {
-        require_string([anchors count] == 1, errOut, "failed to add all anchors");
+        __Require_String([anchors count] == 1, errOut, "failed to add all anchors");
     } else if ([anchorsObj isKindOfClass:[NSArray class]]) {
-        require_string([anchors count] == [(NSArray *)anchorsObj count], errOut, "failed to add all anchors");
+        __Require_String([anchors count] == [(NSArray *)anchorsObj count], errOut, "failed to add all anchors");
     }
 
     // set the anchors in the SecTrustRef
@@ -468,7 +468,7 @@ errOut:
     /* Test name, for documentation purposes */
     majorTestName = testDict[kSecTrustTestMajorTestName];
     minorTestName = testDict[kSecTrustTestMinorTestName];
-    require_string(majorTestName && minorTestName, errOut, "Failed to create test names for test");
+    __Require_String(majorTestName && minorTestName, errOut, "Failed to create test names for test");
     [self setMajorTestName:majorTestName minorTestName:minorTestName];
 
 #if DEBUG
@@ -477,19 +477,19 @@ errOut:
 
     /* Cert directory */
     self.directory = testDict[kSecTrustTestDirectory];
-    require_string(self.directory, errOut, "No directory for test!");
+    __Require_String(self.directory, errOut, "No directory for test!");
 
     /* Populate the certificates array */
-    require_quiet([self addLeafToCertificates:testDict[kSecTrustTestLeaf]], errOut);
+    __Require_Quiet([self addLeafToCertificates:testDict[kSecTrustTestLeaf]], errOut);
 
     /* Add optional intermediates to certificates array */
     if (testDict[kSecTrustTestIntermediates]) {
-        require_quiet([self addIntermediatesToCertificates:testDict[kSecTrustTestIntermediates]], errOut);
+        __Require_Quiet([self addIntermediatesToCertificates:testDict[kSecTrustTestIntermediates]], errOut);
     }
 
     /* Create the policies */
 #if !TARGET_OS_BRIDGE
-    require_quiet([self addPolicies:testDict[kSecTrustTestPolicies]], errOut);
+    __Require_Quiet([self addPolicies:testDict[kSecTrustTestPolicies]], errOut);
 #else // TARGET_OS_BRIDGE
     if (![self addPolicies:testDict[kSecTrustTestPolicies]]) {
         /* Some policies aren't available on bridgeOS (because there is no Certificates bundle on bridgeOS).
@@ -506,7 +506,7 @@ errOut:
 
 
     /* Create the trust object */
-    require_noerr_string(SecTrustCreateWithCertificates((__bridge CFArrayRef)self.certificates,
+    __Require_noErr_String(SecTrustCreateWithCertificates((__bridge CFArrayRef)self.certificates,
                                                               (__bridge CFArrayRef)self.policies,
                                                               &trust),
                                errOut,
@@ -514,14 +514,14 @@ errOut:
     self.trust = trust;
 
     if (self.disableNetwork) {
-        require_noerr_string(SecTrustSetNetworkFetchAllowed(trust, !self.disableNetwork),
+        __Require_noErr_String(SecTrustSetNetworkFetchAllowed(trust, !self.disableNetwork),
                              errOut,
                              "failed to disable network fetching");
     }
 
     /* Optionally set anchors in trust object */
     if (testDict[kSecTrustTestAnchors]) {
-        require_quiet([self setAnchorsFromPlist:testDict[kSecTrustTestAnchors]], errOut);
+        __Require_Quiet([self setAnchorsFromPlist:testDict[kSecTrustTestAnchors]], errOut);
     }
 
     /* Set optional date in trust object */

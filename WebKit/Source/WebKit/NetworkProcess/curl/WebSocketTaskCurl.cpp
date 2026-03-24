@@ -152,7 +152,7 @@ void WebSocketTask::didOpen(WebCore::CurlStreamID)
         memcpy(handshakeMessage.get() + handshakeMessageLength - 2, "\r\n", 2);
     }
 
-    m_scheduler.send(m_streamID, WTFMove(handshakeMessage), handshakeMessageLength);
+    m_scheduler.send(m_streamID, WTF::move(handshakeMessage), handshakeMessageLength);
 }
 
 void WebSocketTask::didReceiveData(WebCore::CurlStreamID, const WebCore::SharedBuffer& buffer)
@@ -256,16 +256,16 @@ void WebSocketTask::didFail(WebCore::CurlStreamID, CURLcode errorCode, WebCore::
         RELEASE_ASSERT(m_state == State::Connecting);
         destructStream();
 
-        tryServerTrustEvaluation({ m_request.url(), WTFMove(certificateInfo), WebCore::ResourceError(errorCode, m_request.url()) }, WTFMove(reason));
+        tryServerTrustEvaluation({ m_request.url(), WTF::move(certificateInfo), WebCore::ResourceError(errorCode, m_request.url()) }, WTF::move(reason));
         return;
     }
 
-    didFail(WTFMove(reason));
+    didFail(WTF::move(reason));
 }
 
 void WebSocketTask::tryServerTrustEvaluation(WebCore::AuthenticationChallenge&& challenge, String&& errorReason)
 {
-    networkSession()->didReceiveChallenge(*this, WTFMove(challenge), [this, errorReason = WTFMove(errorReason)](WebKit::AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential) mutable {
+    networkSession()->didReceiveChallenge(*this, WTF::move(challenge), [this, errorReason = WTF::move(errorReason)](WebKit::AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential) mutable {
         if (disposition == AuthenticationChallengeDisposition::UseCredential && !credential.isEmpty()) {
             auto localhostAlias = WebCore::CurlStream::LocalhostAlias::Disable;
             if (networkSession() && networkSession()->networkProcess().localhostAliasesForTesting().contains<StringViewHashTranslator>(m_request.url().host()))
@@ -273,7 +273,7 @@ void WebSocketTask::tryServerTrustEvaluation(WebCore::AuthenticationChallenge&& 
 
             m_streamID = m_scheduler.createStream(m_request.url(), *this, WebCore::CurlStream::ServerTrustEvaluation::Disable, localhostAlias);
         } else
-            didFail(WTFMove(errorReason));
+            didFail(WTF::move(errorReason));
     });
 }
 
@@ -449,7 +449,7 @@ bool WebSocketTask::sendFrame(WebCore::WebSocketFrame::OpCode opCode, std::span<
     auto buffer = makeUniqueArray<uint8_t>(frameData.size());
     memcpySpan(unsafeMakeSpan(buffer.get(), frameData.size()), frameData.span());
 
-    m_scheduler.send(m_streamID, WTFMove(buffer), frameData.size());
+    m_scheduler.send(m_streamID, WTF::move(buffer), frameData.size());
     return true;
 }
 
@@ -469,7 +469,7 @@ void WebSocketTask::didFail(String&& reason)
     m_hasContinuousFrame = false;
     m_continuousFrameData.clear();
 
-    protectedChannel()->didReceiveMessageError(WTFMove(reason));
+    protectedChannel()->didReceiveMessageError(WTF::move(reason));
     didClose(WebCore::ThreadableWebSocketChannel::CloseEventCode::CloseEventCodeAbnormalClosure, { });
 }
 

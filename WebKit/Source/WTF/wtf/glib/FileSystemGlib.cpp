@@ -68,13 +68,26 @@ CString currentExecutablePath()
     if (result == -1)
         return { };
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // Linux port
-    return CString({ readLinkBuffer, static_cast<size_t>(result) });
+    return CString(std::span { readLinkBuffer, static_cast<size_t>(result) });
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 #elif OS(HURD)
 CString currentExecutablePath()
 {
     return { };
+}
+#elif OS(QNX)
+#include <fcntl.h>
+
+CString currentExecutablePath()
+{
+    static char readBuffer[PATH_MAX];
+    int selfFd = open("/proc/self/exefile", O_RDONLY);
+    ssize_t result = read(selfFd, readBuffer, sizeof(readBuffer));
+    close(selfFd);
+    if (result == -1)
+        return { };
+    return CString(unsafeMakeSpan(readBuffer, static_cast<size_t>(result)));
 }
 #elif OS(UNIX)
 CString currentExecutablePath()

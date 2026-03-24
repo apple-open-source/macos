@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>	/* for P_tmpdir */
+#include "libc_private.h"
 
 #ifndef __has_include
 #include <dirhelper_priv.h>
@@ -118,6 +119,7 @@ confstr(int name, char *buf, size_t len)
 	size_t tlen;
 	int mib[2], sverrno;
 	char *p;
+	char *p_alloc = NULL;
 
 	switch (name) {
 	case _CS_PATH:
@@ -204,7 +206,9 @@ confstr(int name, char *buf, size_t len)
 docopy:
 		if (len != 0 && buf != NULL)
 			strlcpy(buf, p, len);
-		return (strlen(p) + 1);
+		tlen = strlen(p) + 1;
+		free(p_alloc);
+		return tlen;
 
 	case _CS_DARWIN_USER_DIR:
 		if ((p = alloca(PATH_MAX)) == NULL) {
@@ -229,7 +233,7 @@ docopy:
 			 * If __dirhelper() fails, try TMPDIR and P_tmpdir,
 			 * finally failing otherwise.
 			 */
-			if ((p = getenv("TMPDIR")) && access(p, W_OK) == 0)
+			if ((p = p_alloc = getenv_copy_np("TMPDIR")) && access(p, W_OK) == 0)
 				goto docopy;
 			if (access(p = P_tmpdir, W_OK) == 0)
 				goto docopy;
@@ -237,6 +241,7 @@ docopy:
 				errno = ENOMEM;
 			else
 				errno = EIO;
+			free(p_alloc);
 			return (CONFSTR_ERR_RET);
 		}
 		goto docopy;

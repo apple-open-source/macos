@@ -72,12 +72,12 @@ JSC::JSValue createWrapper(JSDOMGlobalObject& globalObject, Ref<NodeList>&& node
     // FIXME: Adopt reportExtraMemoryVisited, and switch to reportExtraMemoryAllocated.
     // https://bugs.webkit.org/show_bug.cgi?id=142595
     globalObject.vm().heap.deprecatedReportExtraMemory(nodeList->memoryCost());
-    return createWrapper<NodeList>(&globalObject, WTFMove(nodeList));
+    return createWrapper<NodeList>(&globalObject, WTF::move(nodeList));
 }
 
 JSC::JSValue toJSNewlyCreated(JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<NodeList>&& nodeList)
 {
-    return createWrapper(*globalObject, WTFMove(nodeList));
+    return createWrapper(*globalObject, WTF::move(nodeList));
 }
 
 } // namespace WebCore

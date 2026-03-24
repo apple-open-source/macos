@@ -57,7 +57,7 @@ class RemoteRenderPassEncoder final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteRenderPassEncoder> create(WebCore::WebGPU::RenderPassEncoder& renderPassEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteRenderPassEncoder(renderPassEncoder, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteRenderPassEncoder(renderPassEncoder, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     ~RemoteRenderPassEncoder();
@@ -80,7 +80,7 @@ private:
     Ref<WebCore::WebGPU::RenderPassEncoder> protectedBacking();
 
     Ref<WebGPU::ObjectHeap> protectedObjectHeap() const;
-    Ref<RemoteGPU> protectedGPU() const { return m_gpu.get(); }
+    Ref<RemoteGPU> protectedGPU() const { return m_gpu; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 

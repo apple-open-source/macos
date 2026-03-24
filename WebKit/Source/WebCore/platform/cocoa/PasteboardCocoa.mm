@@ -207,9 +207,9 @@ Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
 #if PLATFORM(MAC)
 static Ref<SharedBuffer> convertTIFFToPNG(FragmentedSharedBuffer& tiffBuffer)
 {
-    auto image = adoptNS([[NSBitmapImageRep alloc] initWithData: tiffBuffer.makeContiguous()->createNSData().get()]);
-    NSData *pngData = [image representationUsingType:bitmapPNGFileType() properties:@{ }];
-    return SharedBuffer::create(pngData);
+    RetainPtr image = adoptNS([[NSBitmapImageRep alloc] initWithData: tiffBuffer.makeContiguous()->createNSData().get()]);
+    RetainPtr<NSData> pngData = [image representationUsingType:bitmapPNGFileType() properties:@{ }];
+    return SharedBuffer::create(pngData.get());
 }
 #endif
 

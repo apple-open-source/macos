@@ -45,17 +45,17 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSocketTask);
 
 Ref<WebSocketTask> WebSocketTask::create(NetworkSocketChannel& channel, WebPageProxyIdentifier webProxyPageID, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, WeakPtr<SessionSet>&& sessionSet, const WebCore::ResourceRequest& request, const WebCore::ClientOrigin& clientOrigin, RetainPtr<NSURLSessionWebSocketTask>&& task, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
 {
-    return adoptRef(*new WebSocketTask(channel, webProxyPageID, frameID, pageID, WTFMove(sessionSet), request, clientOrigin, WTFMove(task), storedCredentialsPolicy));
+    return adoptRef(*new WebSocketTask(channel, webProxyPageID, frameID, pageID, WTF::move(sessionSet), request, clientOrigin, WTF::move(task), storedCredentialsPolicy));
 }
 
 WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, WebPageProxyIdentifier webProxyPageID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, WeakPtr<SessionSet>&& sessionSet, const WebCore::ResourceRequest& request, const WebCore::ClientOrigin& clientOrigin, RetainPtr<NSURLSessionWebSocketTask>&& task, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
     : NetworkTaskCocoa(*channel.session())
     , m_channel(channel)
-    , m_task(WTFMove(task))
+    , m_task(WTF::move(task))
     , m_webProxyPageID(webProxyPageID)
     , m_frameID(frameID)
     , m_pageID(pageID)
-    , m_sessionSet(WTFMove(sessionSet))
+    , m_sessionSet(WTF::move(sessionSet))
     , m_partition(request.cachePartition())
     , m_storedCredentialsPolicy(storedCredentialsPolicy)
 {
@@ -103,7 +103,7 @@ void WebSocketTask::readNextMessage()
             if (!protectedThis->m_receivedDidConnect) {
                 ResourceResponse response { [protectedThis->m_task response] };
                 if (!response.isNull())
-                    channel->didReceiveHandshakeResponse(WTFMove(response));
+                    channel->didReceiveHandshakeResponse(WTF::move(response));
             }
 
             channel->didReceiveMessageError([error localizedDescription]);
@@ -159,7 +159,7 @@ void WebSocketTask::sendString(std::span<const uint8_t> utf8String, CompletionHa
         return;
     }
     auto message = adoptNS([[NSURLSessionWebSocketMessage alloc] initWithString:text.get()]);
-    [m_task sendMessage:message.get() completionHandler:makeBlockPtr([callback = WTFMove(callback)](NSError * _Nullable) mutable {
+    [m_task sendMessage:message.get() completionHandler:makeBlockPtr([callback = WTF::move(callback)](NSError * _Nullable) mutable {
         callback();
     }).get()];
 }
@@ -168,7 +168,7 @@ void WebSocketTask::sendData(std::span<const uint8_t> data, CompletionHandler<vo
 {
     RetainPtr nsData = toNSData(data);
     auto message = adoptNS([[NSURLSessionWebSocketMessage alloc] initWithData:nsData.get()]);
-    [m_task sendMessage:message.get() completionHandler:makeBlockPtr([callback = WTFMove(callback)](NSError * _Nullable) mutable {
+    [m_task sendMessage:message.get() completionHandler:makeBlockPtr([callback = WTF::move(callback)](NSError * _Nullable) mutable {
         callback();
     }).get()];
 }

@@ -109,6 +109,9 @@ template<CSSValueID C> inline constexpr bool TreatAsNonConverting<Constant<C>> =
 // Specialize `TreatAsNonConverting` for `CustomIdentifier`, to indicate that its type does not change from the CSS representation.
 template<> inline constexpr bool TreatAsNonConverting<CustomIdentifier> = true;
 
+// Specialize `TreatAsNonConverting` for `PropertyIdentifier`, to indicate that its type does not change from the CSS representation.
+template<> inline constexpr bool TreatAsNonConverting<PropertyIdentifier> = true;
+
 // Specialize `TreatAsNonConverting` for `WTF::AtomString`, to indicate that its type does not change from the CSS representation.
 template<> inline constexpr bool TreatAsNonConverting<WTF::AtomString> = true;
 
@@ -403,12 +406,7 @@ template<TupleLike StyleType> struct CSSValueCreation<StyleType> {
             CSSValueListBuilder list;
 
             auto caller = WTF::makeVisitor(
-                [&]<typename T>(const std::optional<T>& element) {
-                    if (!element)
-                        return;
-                    list.append(createCSSValue(pool, style, *element, rest...));
-                },
-                [&]<typename T>(const Markable<T>& element) {
+                [&]<OptionalLike T>(const T& element) {
                     if (!element)
                         return;
                     list.append(createCSSValue(pool, style, *element, rest...));
@@ -419,7 +417,7 @@ template<TupleLike StyleType> struct CSSValueCreation<StyleType> {
             );
             WTF::apply([&](const auto& ...x) { (..., caller(x)); }, value);
 
-            return CSS::makeListCSSValue<SerializationSeparator<StyleType>>(WTFMove(list));
+            return CSS::makeListCSSValue<SerializationSeparator<StyleType>>(WTF::move(list));
         }
     }
 };
@@ -432,7 +430,7 @@ template<RangeLike StyleType> struct CSSValueCreation<StyleType> {
         for (const auto& element : value)
             list.append(createCSSValue(pool, style, element, rest...));
 
-        return CSS::makeListCSSValue<SerializationSeparator<StyleType>>(WTFMove(list));
+        return CSS::makeListCSSValue<SerializationSeparator<StyleType>>(WTF::move(list));
     }
 };
 
@@ -574,13 +572,7 @@ template<typename StyleType, typename... Rest> void serializationForCSSOnTupleLi
 {
     auto swappedSeparator = ""_s;
     auto caller = WTF::makeVisitor(
-        [&]<typename T>(const std::optional<T>& element) {
-            if (!element)
-                return;
-            builder.append(std::exchange(swappedSeparator, separator));
-            serializationForCSS(builder, context, style, *element, rest...);
-        },
-        [&]<typename T>(const Markable<T>& element) {
+        [&]<OptionalLike T>(const T& element) {
             if (!element)
                 return;
             builder.append(std::exchange(swappedSeparator, separator));
@@ -722,12 +714,16 @@ template<typename Result> struct EvaluationInvoker {
     {
         if constexpr (HasTwoParameterEvaluate<StyleType, Result, T1>)
             return Evaluation<StyleType, Result> { }(value, std::forward<T1>(t1));
+        else
+            return operator()(value);
     }
 
     template<typename StyleType, typename T1, typename T2> Result operator()(const StyleType& value, T1&& t1, T2&& t2) const
     {
         if constexpr (HasThreeParameterEvaluate<StyleType, Result, T1, T2>)
             return Evaluation<StyleType, Result> { }(value, std::forward<T1>(t1), std::forward<T2>(t2));
+        else
+            return operator()(value, std::forward<T1>(t1));
     }
 };
 template<typename Result> inline constexpr EvaluationInvoker<Result> evaluate{};
@@ -1273,7 +1269,7 @@ template<typename StyleType, size_t inlineCapacity> struct Blending<SpaceSeparat
         result.reserveInitialCapacity(size);
         for (size_t i = 0; i < size; ++i)
             result.append(WebCore::Style::blend(a[i], b[i], context));
-        return { WTFMove(result) };
+        return { WTF::move(result) };
     }
     auto blend(const SpaceSeparatedVector<StyleType, inlineCapacity>& a, const SpaceSeparatedVector<StyleType, inlineCapacity>& b, const RenderStyle& aStyle, const RenderStyle& bStyle, const auto& context) -> SpaceSeparatedVector<StyleType, inlineCapacity>
     {
@@ -1282,7 +1278,7 @@ template<typename StyleType, size_t inlineCapacity> struct Blending<SpaceSeparat
         result.reserveInitialCapacity(size);
         for (size_t i = 0; i < size; ++i)
             result.append(WebCore::Style::blend(a[i], b[i], aStyle, bStyle, context));
-        return { WTFMove(result) };
+        return { WTF::move(result) };
     }
 };
 
@@ -1355,7 +1351,7 @@ template<typename StyleType, size_t inlineCapacity> struct Blending<CommaSeparat
         result.reserveInitialCapacity(size);
         for (size_t i = 0; i < size; ++i)
             result.append(WebCore::Style::blend(a[i], b[i], context));
-        return { WTFMove(result) };
+        return { WTF::move(result) };
     }
     auto blend(const CommaSeparatedVector<StyleType, inlineCapacity>& a, const CommaSeparatedVector<StyleType, inlineCapacity>& b, const RenderStyle& aStyle, const RenderStyle& bStyle, const auto& context) -> CommaSeparatedVector<StyleType, inlineCapacity>
     {
@@ -1364,7 +1360,7 @@ template<typename StyleType, size_t inlineCapacity> struct Blending<CommaSeparat
         result.reserveInitialCapacity(size);
         for (size_t i = 0; i < size; ++i)
             result.append(WebCore::Style::blend(a[i], b[i], aStyle, bStyle, context));
-        return { WTFMove(result) };
+        return { WTF::move(result) };
     }
 };
 

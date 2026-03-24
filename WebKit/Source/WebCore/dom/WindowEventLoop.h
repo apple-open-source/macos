@@ -28,7 +28,9 @@
 #include <WebCore/EventLoop.h>
 #include <WebCore/GCReachableRef.h>
 #include <WebCore/Timer.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashSet.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/text/WTFString.h>
 
@@ -42,7 +44,9 @@ class Page;
 class SecurityOrigin;
 
 // https://html.spec.whatwg.org/multipage/webappapis.html#window-event-loop
-class WindowEventLoop final : public EventLoop {
+class WindowEventLoop final : public EventLoop, public CanMakeCheckedPtr<WindowEventLoop> {
+    WTF_MAKE_TZONE_ALLOCATED(WindowEventLoop);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WindowEventLoop);
 public:
     static Ref<WindowEventLoop> eventLoopForSecurityOrigin(const SecurityOrigin&);
 
@@ -51,8 +55,8 @@ public:
     void queueMutationObserverCompoundMicrotask();
     Vector<GCReachableRef<HTMLSlotElement>>& signalSlotList() { return m_signalSlotList; }
     Vector<GCReachableRef<Element>>& shadowRootAttachedElements() { return m_shadowRootAttachedElementList; }
-    HashSet<RefPtr<MutationObserver>>& activeMutationObservers() { return m_activeObservers; }
-    HashSet<RefPtr<MutationObserver>>& suspendedMutationObservers() { return m_suspendedObservers; }
+    HashSet<Ref<MutationObserver>>& activeMutationObservers() { return m_activeObservers; }
+    HashSet<Ref<MutationObserver>>& suspendedMutationObservers() { return m_suspendedObservers; }
 
     CustomElementQueue& backupElementQueue();
 
@@ -87,14 +91,14 @@ private:
     // Each task scheduled in event loop is associated with a document so that it can be suspened or stopped
     // when the associated document is suspened or stopped. This task group is used to schedule a task
     // which is not scheduled to a specific document, and should only be used when it's absolutely required.
-    EventLoopTaskGroup m_perpetualTaskGroupForSimilarOriginWindowAgents;
+    const UniqueRef<EventLoopTaskGroup> m_perpetualTaskGroupForSimilarOriginWindowAgents;
 
     bool m_mutationObserverCompoundMicrotaskQueuedFlag { false };
     bool m_deliveringMutationRecords { false }; // FIXME: This flag doesn't exist in the spec.
     Vector<GCReachableRef<HTMLSlotElement>> m_signalSlotList; // https://dom.spec.whatwg.org/#signal-slot-list
     Vector<GCReachableRef<Element>> m_shadowRootAttachedElementList;
-    HashSet<RefPtr<MutationObserver>> m_activeObservers;
-    HashSet<RefPtr<MutationObserver>> m_suspendedObservers;
+    HashSet<Ref<MutationObserver>> m_activeObservers;
+    HashSet<Ref<MutationObserver>> m_suspendedObservers;
 
     std::unique_ptr<CustomElementQueue> m_customElementQueue;
     bool m_processingBackupElementQueue { false };

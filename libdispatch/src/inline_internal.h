@@ -389,10 +389,10 @@ DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_queue_release_storage(dispatch_queue_class_t dqu)
 {
-	// this refcount only delays the _dispatch_object_dealloc() and there's no
-	// need for visibility wrt to the allocation, the internal refcount already
-	// gives us that, and the object becomes immutable after the last internal
-	// refcount release.
+	// this refcount only delays the dx_dealloc() and there's no need for
+	// visibility wrt to the allocation, the internal refcount already gives us
+	// that, and the object becomes immutable after the last internal refcount
+	// release.
 	int ref_cnt = os_atomic_dec(&dqu._dq->dq_sref_cnt, relaxed);
 	if (unlikely(ref_cnt >= 0)) {
 		return;
@@ -401,7 +401,7 @@ _dispatch_queue_release_storage(dispatch_queue_class_t dqu)
 		_OS_OBJECT_CLIENT_CRASH("Over-release of an object");
 	}
 	dqu._dq->dq_state = 0xdead000000000000;
-	_dispatch_object_dealloc(dqu._dq);
+	dx_dealloc(dqu._dq);
 }
 
 DISPATCH_ALWAYS_INLINE DISPATCH_NONNULL_ALL
@@ -700,10 +700,26 @@ _dispatch_queue_atomic_flags_clear(dispatch_queue_class_t dqu,
 }
 
 DISPATCH_ALWAYS_INLINE
+static inline dispatch_queue_flags_t
+_dispatch_queue_atomic_flags_clear_orig(dispatch_queue_class_t dqu,
+		dispatch_queue_flags_t bits)
+{
+	return os_atomic_and_orig(&dqu._dq->dq_atomic_flags, ~bits, relaxed);
+}
+
+DISPATCH_ALWAYS_INLINE
 static inline bool
 _dispatch_queue_is_thread_bound(dispatch_queue_class_t dqu)
 {
 	return _dispatch_queue_atomic_flags(dqu) & DQF_THREAD_BOUND;
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline bool
+_dispatch_queue_is_main_thread_bound(dispatch_queue_class_t dqu)
+{
+	return dx_type(dqu._dq) == DISPATCH_QUEUE_MAIN_TYPE &&
+			_dispatch_queue_is_thread_bound(dqu);
 }
 
 DISPATCH_ALWAYS_INLINE

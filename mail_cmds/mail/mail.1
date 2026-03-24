@@ -25,14 +25,12 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)mail.1	8.8 (Berkeley) 4/28/95
-.\" $FreeBSD$
-.\"
 .Dd August 8, 2018
 .Dt MAIL 1
 .Os
 .Sh NAME
 .Nm mail ,
+.\" .Nm Mail ,
 .Nm mailx
 .Nd send and receive mail
 .Sh SYNOPSIS
@@ -43,6 +41,7 @@
 .Op Fl b Ar bcc-addr
 .Op Fl F
 .Ar to-addr ...
+.\" .Op Fl Ar sendmail-option ...
 .Nm
 .Op Fl dEHiInNv
 .Op Fl F
@@ -134,6 +133,11 @@ list of users.
 The
 .Ar bcc-addr
 argument should be a comma-separated list of names.
+.\".It Fl f Op Ar mbox
+.\" Read in the contents of your
+.\" .Pa mbox
+.\" (or the specified file)
+.\" for processing; when you
 .It Fl f
 Use an alternate mailbox.
 Defaults to the user's
@@ -141,7 +145,8 @@ Defaults to the user's
 if no
 .Ar file
 is specified.
-When quit,
+When you
+.Ic quit ,
 .Nm
 writes undeleted messages back to this file.
 .It Fl F
@@ -1302,6 +1307,10 @@ This man page is derived from
 originally written by
 .An Kurt Shoens .
 .Sh BUGS
+.\" There are some flags that are not documented here.
+.\" Most are
+.\" not useful to the general user.
+.\" .Pp
 Usually,
 .Nm
 is just a link to

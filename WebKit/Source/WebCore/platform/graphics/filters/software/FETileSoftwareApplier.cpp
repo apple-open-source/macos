@@ -67,7 +67,7 @@ bool FETileSoftwareApplier::apply(const Filter& filter, std::span<const Ref<Filt
     auto pattern = Pattern::create({ tileImage.releaseNonNull() }, { true, true, patternTransform });
 
     auto& resultContext = resultImage->context();
-    resultContext.setFillPattern(WTFMove(pattern));
+    resultContext.setFillPattern(WTF::move(pattern));
     resultContext.fillRect(FloatRect(FloatPoint(), resultImageRect.size()));
     return true;
 }

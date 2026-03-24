@@ -34,7 +34,7 @@
 namespace WebCore {
 
 class ImageBufferCGPDFDocumentBackend : public ImageBufferCGBackend {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageBufferCGPDFDocumentBackend);
+    WTF_MAKE_TZONE_ALLOCATED(ImageBufferCGPDFDocumentBackend);
     WTF_MAKE_NONCOPYABLE(ImageBufferCGPDFDocumentBackend);
 public:
     WEBCORE_EXPORT static size_t calculateMemoryCost(const Parameters&);

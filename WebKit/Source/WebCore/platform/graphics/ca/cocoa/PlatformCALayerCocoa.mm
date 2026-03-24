@@ -385,6 +385,10 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::clone(PlatformCALayerClient* owner) c
     newLayer->setBackdropRootIsOpaque(backdropRootIsOpaque());
     newLayer->copyFiltersFrom(*this);
     newLayer->updateCustomAppearance(customAppearance());
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    if (RetainPtr shadowPath = [m_layer shadowPath])
+        newLayer->setShadowPath(this->shadowPath());
+    END_BLOCK_OBJC_EXCEPTIONS
 
     if (type == PlatformCALayer::LayerType::LayerTypeAVPlayerLayer) {
         ASSERT(PAL::isAVFoundationFrameworkAvailable() && [newLayer->platformLayer() isKindOfClass:PAL::getAVPlayerLayerClassSingleton()]);
@@ -555,7 +559,7 @@ void PlatformCALayerCocoa::addAnimationForKey(const String& key, PlatformCAAnima
     if (!m_delegate) {
         auto webAnimationDelegate = adoptNS([[WebAnimationDelegate alloc] init]);
         [webAnimationDelegate setOwner:this];
-        m_delegate = WTFMove(webAnimationDelegate);
+        m_delegate = WTF::move(webAnimationDelegate);
     }
     
     CAAnimation *propertyAnimation = static_cast<CAAnimation *>(downcast<PlatformCAAnimationCocoa>(animation).platformAnimation());
@@ -585,7 +589,7 @@ RefPtr<PlatformCAAnimation> PlatformCALayerCocoa::animationForKey(const String& 
 void PlatformCALayerCocoa::setMaskLayer(RefPtr<WebCore::PlatformCALayer>&& layer)
 {
     auto* caLayer = layer ? layer->platformLayer() : nil;
-    PlatformCALayer::setMaskLayer(WTFMove(layer));
+    PlatformCALayer::setMaskLayer(WTF::move(layer));
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setMask:caLayer];
@@ -1005,6 +1009,20 @@ void PlatformCALayerCocoa::setCornerRadius(float value)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+Path PlatformCALayerCocoa::shadowPath() const
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return { PathCG::create(adoptCF(CGPathCreateMutableCopy([m_layer shadowPath]))) };
+    END_BLOCK_OBJC_EXCEPTIONS
+}
+
+void PlatformCALayerCocoa::setShadowPath(const Path& path)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [m_layer setShadowPath:path.platformPath()];
+    END_BLOCK_OBJC_EXCEPTIONS
+}
+
 void PlatformCALayerCocoa::setAntialiasesEdges(bool antialiases)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
@@ -1025,7 +1043,7 @@ void PlatformCALayerCocoa::setVideoGravity(MediaPlayerVideoGravity gravity)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     if ([m_layer respondsToSelector:@selector(setVideoGravity:)])
-        [(AVPlayerLayer *)m_layer setVideoGravity:convertMediaPlayerToAVLayerVideoGravity(gravity)];
+        [(AVPlayerLayer *)m_layer setVideoGravity:convertMediaPlayerToAVLayerVideoGravity(gravity).get()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 

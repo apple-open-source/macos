@@ -45,10 +45,10 @@ bool SOSPeerOTRTimerHaveAnRTTAvailable(SOSAccount* account, NSString* peerid)
     bool doesRTTExist = false;
     
     CFMutableDictionaryRef timeouts = (CFMutableDictionaryRef)asDictionary(SOSAccountGetValue(account, kSOSAccountPeerNegotiationTimeouts, &error), NULL);
-    require_action_quiet(timeouts, exit, secnotice("otrtimer", "do not have an rtt yet"));
+    __Require_Action_Quiet(timeouts, exit, secnotice("otrtimer", "do not have an rtt yet"));
     
     timeout = CFDictionaryGetValue(timeouts, (__bridge CFStringRef)peerid);
-    require_action_quiet(timeout, exit, secnotice("otrtimer", "do not have an rtt yet"));
+    __Require_Action_Quiet(timeout, exit, secnotice("otrtimer", "do not have an rtt yet"));
     
     doesRTTExist = true;
 exit:
@@ -62,10 +62,10 @@ void SOSPeerOTRTimerRemoveRTTTimeoutForPeer(SOSAccount* account, NSString* peeri
     CFErrorRef error = NULL;
     
     CFMutableDictionaryRef timeouts = (CFMutableDictionaryRef)asDictionary(SOSAccountGetValue(account, kSOSAccountPeerNegotiationTimeouts, &error), NULL);
-    require_action_quiet(timeouts && (error == NULL), exit, secnotice("otrtimer","timeout dictionary doesn't exist"));
+    __Require_Action_Quiet(timeouts && (error == NULL), exit, secnotice("otrtimer","timeout dictionary doesn't exist"));
     
     timeout = CFDictionaryGetValue(timeouts, (__bridge CFStringRef)peerid);
-    require_action_quiet(timeout, exit, secnotice("otrtimer","timeout for peerid: %@, doesn't exist", (__bridge CFStringRef)peerid));
+    __Require_Action_Quiet(timeout, exit, secnotice("otrtimer","timeout for peerid: %@, doesn't exist", (__bridge CFStringRef)peerid));
     
     CFDictionaryRemoveValue(timeouts, (__bridge CFStringRef)peerid);
     SOSAccountSetValue(account, kSOSAccountPeerNegotiationTimeouts, timeouts, &error);
@@ -114,10 +114,10 @@ int SOSPeerOTRTimerTimeoutValue(SOSAccount* account, SOSPeerRef peer)
     int timeoutIntValue = 0;
 
     CFMutableDictionaryRef timeouts = (CFMutableDictionaryRef)asDictionary(SOSAccountGetValue(account, kSOSAccountPeerNegotiationTimeouts, &error), NULL);
-    require_action_quiet(timeouts, xit, secnotice("otrtimer","deadline value not available yet"));
+    __Require_Action_Quiet(timeouts, xit, secnotice("otrtimer","deadline value not available yet"));
 
     CFNumberRef timeout = CFDictionaryGetValue(timeouts, SOSPeerGetID(peer));
-    require_action_quiet(timeout, xit, secnotice("otrtimer","deadline value not available yet"));
+    __Require_Action_Quiet(timeout, xit, secnotice("otrtimer","deadline value not available yet"));
 
     secnotice("otrtimer", "decided to wait %d before restarting negotiation", [(__bridge NSNumber*)timeout intValue]);
     timeoutIntValue = [(__bridge NSNumber*)timeout intValue];

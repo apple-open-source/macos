@@ -36,6 +36,7 @@ class BitmapTexturePool;
 class CoordinatedTileBuffer;
 class GraphicsContext;
 class GraphicsLayer;
+class GraphicsLayerCoordinated;
 class IntRect;
 class IntSize;
 class SkiaRecordingResult;
@@ -45,42 +46,27 @@ class SkiaPaintingEngine {
     WTF_MAKE_TZONE_ALLOCATED(SkiaPaintingEngine);
     WTF_MAKE_NONCOPYABLE(SkiaPaintingEngine);
 public:
-    SkiaPaintingEngine(unsigned numberOfCPUThreads, unsigned numberOfGPUThreads);
+    SkiaPaintingEngine();
     ~SkiaPaintingEngine();
 
     static std::unique_ptr<SkiaPaintingEngine> create();
 
-    enum class HybridPaintingStrategy {
-        PreferCPUIfIdle,
-        PreferGPUIfIdle,
-        PreferGPUAboveMinimumArea,
-        MinimumFractionOfTasksUsingGPU,
-        CPUAffineRendering,
-        GPUAffineRendering
-    };
-
     static unsigned numberOfCPUPaintingThreads();
     static unsigned numberOfGPUPaintingThreads();
-    static unsigned minimumAreaForGPUPainting();
-    static float minimumFractionOfTasksUsingGPUPainting();
-    static HybridPaintingStrategy hybridPaintingStrategy();
     static bool shouldUseLinearTileTextures();
+    static bool shouldUseVivanteSuperTiledTileTextures();
 
-    bool useThreadedRendering() const { return m_cpuWorkerPool || m_gpuWorkerPool; }
+    bool useThreadedRendering() const { return m_workerPool; }
 
-    Ref<CoordinatedTileBuffer> paint(const GraphicsLayer&, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale);
-    Ref<SkiaRecordingResult> record(const GraphicsLayer&, const IntRect& recordRect, bool contentsOpaque, float contentsScale);
-    Ref<CoordinatedTileBuffer> replay(const RefPtr<SkiaRecordingResult>&, const IntRect& dirtyRect);
+    Ref<CoordinatedTileBuffer> paint(const GraphicsLayerCoordinated&, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale);
+    Ref<SkiaRecordingResult> record(const GraphicsLayerCoordinated&, const IntRect& recordRect, bool contentsOpaque, float contentsScale);
+    Ref<CoordinatedTileBuffer> replay(const GraphicsLayerCoordinated&, const RefPtr<SkiaRecordingResult>&, const IntRect& dirtyRect);
 
 private:
     Ref<CoordinatedTileBuffer> createBuffer(RenderingMode, const IntSize&, bool contentsOpaque) const;
     void paintIntoGraphicsContext(const GraphicsLayer&, GraphicsContext&, const IntRect&, bool contentsOpaque, float contentsScale) const;
 
-    bool isHybridMode() const;
-    RenderingMode decideHybridRenderingMode(const IntRect& dirtyRect, float contentsScale) const;
-
-    RefPtr<WorkerPool> m_cpuWorkerPool;
-    RefPtr<WorkerPool> m_gpuWorkerPool;
+    RefPtr<WorkerPool> m_workerPool;
     std::unique_ptr<BitmapTexturePool> m_texturePool;
 };
 

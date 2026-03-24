@@ -148,7 +148,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
         
         if (circleData) {
             SOSCircleRef circle = SOSCircleCreateFromData(kCFAllocatorDefault, circleData, error);
-            require_quiet(circle && CFEqualSafe(circle_name, SOSCircleGetName(circle)), fail);
+            __Require_Quiet(circle && CFEqualSafe(circle_name, SOSCircleGetName(circle)), fail);
             [trust setTrustedCircle:circle];
             CFReleaseNull(circle);
 
@@ -163,7 +163,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
         }
     });
     CFReleaseNull(array);
-    require_action_quiet([account ensureFactoryCircles], fail,
+    __Require_Action_Quiet([account ensureFactoryCircles], fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Cannot EnsureFactoryCircles"), (error != NULL) ? *error : NULL, error));
     result = account;
 
@@ -259,7 +259,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v7(CFAllocatorRef allocator,
     departure_code = (enum DepartureReason) tmp_departure_code;
 
     [trust setDepartureCode:departure_code];
-    require_action_quiet(*der_p && *der_p == der_end, fail,
+    __Require_Action_Quiet(*der_p && *der_p == der_end, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Didn't consume all bytes v7"), (error != NULL) ? *error : NULL, error));
     
     result = account;
@@ -369,7 +369,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
     
     CFReleaseNull(bKey);
 
-    require_action_quiet(*der_p && *der_p == der_end, fail,
+    __Require_Action_Quiet(*der_p && *der_p == der_end, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Didn't consume all bytes v7"), (error != NULL) ? *error : NULL, error));
     
     result = account;

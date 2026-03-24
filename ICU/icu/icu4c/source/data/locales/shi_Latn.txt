@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 shi_Latn{
     %%Parent{"root"}
     AuxExemplarCharacters{"[o p v]"}
@@ -139,12 +139,12 @@ shi_Latn{
             }
             eras{
                 abbreviated{
-                    "daɛ",
-                    "dfɛ",
+                    0{"daɛ"}
+                    1{"dfɛ"}
                 }
                 wide{
-                    "dat n ɛisa",
-                    "dffir n ɛisa",
+                    0{"dat n ɛisa"}
+                    1{"dffir n ɛisa"}
                 }
             }
             monthNames{

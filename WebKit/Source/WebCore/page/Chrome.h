@@ -84,9 +84,11 @@ class SearchPopupMenu;
 class WorkerClient;
 
 struct AppHighlight;
+struct AriaNotifyData;
 struct ContactInfo;
 struct ContactsRequestData;
 struct FocusOptions;
+struct LiveRegionAnnouncementData;
 struct ShareDataWithParsedURL;
 struct ViewportArguments;
 struct WindowFeatures;
@@ -98,7 +100,6 @@ struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct ExceptionData;
 struct MobileDocumentRequest;
-struct OpenID4VPRequest;
 #endif
 
 class Chrome : public HostWindow {
@@ -123,6 +124,8 @@ public:
     PlatformPageClient platformPageClient() const override;
 #if PLATFORM(IOS_FAMILY)
     void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&) const override;
+    void relayAriaNotifyNotification(AriaNotifyData&&) const;
+    void relayLiveRegionNotification(LiveRegionAnnouncementData&&) const;
 #endif
     void setCursor(const Cursor&) override;
     void setCursorHiddenUntilMouseMoves(bool) override;

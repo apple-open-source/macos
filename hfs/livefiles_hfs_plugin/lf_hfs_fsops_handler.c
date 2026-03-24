@@ -647,6 +647,38 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
         goto end;
     }
 
+    if (strcmp(pcAttr, UVFS_FSATTR_FSSUBTYPENUM)==0)
+    {
+        // A number representing the variant of the file system
+        // (Compatible with HFS KEXT)
+
+#define HFS_PLUS_SUBTYPE                        0
+#define HFS_PLUS_JOURNALED_SUBTYPE              1
+#define HFS_PLUS_CASE_SENS_SUBTYPE              2
+#define HFS_PLUS_CASE_SENS_JOURNALED_SUBTYPE    3
+
+        *puRetLen = sizeof(uint64_t);
+        if (uLen < *puRetLen)
+        {
+            return E2BIG;
+        }
+
+        psAttrVal->fsa_number = HFS_PLUS_SUBTYPE;
+        if ( (psMount->hfs_flags & HFS_CASE_SENSITIVE) && psMount->jnl )
+        {
+            psAttrVal->fsa_number = HFS_PLUS_CASE_SENS_JOURNALED_SUBTYPE;
+        }
+        else if ( psMount->hfs_flags & HFS_CASE_SENSITIVE )
+        {
+            psAttrVal->fsa_number = HFS_PLUS_CASE_SENS_SUBTYPE;
+        }
+        else if ( psMount->jnl )
+        {
+            psAttrVal->fsa_number = HFS_PLUS_JOURNALED_SUBTYPE;
+        }
+        goto end;
+    }
+
     if (strcmp(pcAttr, UVFS_FSATTR_VOLNAME)==0)
     {
         *puRetLen = strlen((char *)psMount->vcbVN)+1; // Add 1 for the NULL terminator

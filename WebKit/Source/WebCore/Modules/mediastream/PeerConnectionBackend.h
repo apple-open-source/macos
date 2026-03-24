@@ -139,8 +139,6 @@ public:
     void markAsNeedingNegotiation(uint32_t);
     virtual bool isNegotiationNeeded(uint32_t) const = 0;
 
-    virtual void emulatePlatformEvent(const String& action) = 0;
-
     struct DescriptionStates {
         std::optional<RTCSignalingState> signalingState;
         std::optional<RTCSdpType> currentLocalDescriptionSdpType;
@@ -301,13 +299,13 @@ inline PeerConnectionBackend::DescriptionStates PeerConnectionBackend::Descripti
     return DescriptionStates {
         signalingState,
         currentLocalDescriptionSdpType,
-        WTFMove(currentLocalDescriptionSdp).isolatedCopy(),
+        WTF::move(currentLocalDescriptionSdp).isolatedCopy(),
         pendingLocalDescriptionSdpType,
-        WTFMove(pendingLocalDescriptionSdp).isolatedCopy(),
+        WTF::move(pendingLocalDescriptionSdp).isolatedCopy(),
         currentRemoteDescriptionSdpType,
-        WTFMove(currentRemoteDescriptionSdp).isolatedCopy(),
+        WTF::move(currentRemoteDescriptionSdp).isolatedCopy(),
         pendingRemoteDescriptionSdpType,
-        WTFMove(pendingRemoteDescriptionSdp).isolatedCopy()
+        WTF::move(pendingRemoteDescriptionSdp).isolatedCopy()
     };
 }
 } // namespace WebCore

@@ -49,7 +49,7 @@ class RemoteXRSubImageProxy final : public WebCore::WebGPU::XRSubImage {
 public:
     static Ref<RemoteXRSubImageProxy> create(Ref<RemoteGPUProxy>&& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteXRSubImageProxy(WTFMove(parent), convertToBackingContext, identifier));
+        return adoptRef(*new RemoteXRSubImageProxy(WTF::move(parent), convertToBackingContext, identifier));
     }
 
     virtual ~RemoteXRSubImageProxy();
@@ -68,6 +68,8 @@ private:
     RemoteXRSubImageProxy& operator=(const RemoteXRSubImageProxy&) = delete;
     RemoteXRSubImageProxy& operator=(RemoteXRSubImageProxy&&) = delete;
 
+    bool isRemoteXRSubImageProxy() const final { return true; }
+
     WebGPUIdentifier backing() const { return m_backing; }
     RefPtr<WebCore::WebGPU::Texture> colorTexture() final;
     RefPtr<WebCore::WebGPU::Texture> depthStencilTexture() final;
@@ -76,12 +78,12 @@ private:
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().protectedStreamClientConnection()->send(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->send(WTF::move(message), backing());
     }
     template<typename T>
     WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
     {
-        return root().protectedStreamClientConnection()->sendSync(WTFMove(message), backing());
+        return root().protectedStreamClientConnection()->sendSync(WTF::move(message), backing());
     }
 
     WebGPUIdentifier m_backing;
@@ -93,5 +95,9 @@ private:
 };
 
 } // namespace WebKit::WebGPU
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebGPU::RemoteXRSubImageProxy)
+    static bool isType(const WebCore::WebGPU::XRSubImage& image) { return image.isRemoteXRSubImageProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GPU_PROCESS)

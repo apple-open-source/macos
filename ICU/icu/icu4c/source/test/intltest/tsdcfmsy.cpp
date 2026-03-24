@@ -14,6 +14,10 @@
 #include "unicode/decimfmt.h"
 #include "unicode/unum.h"
 #include "tsdcfmsy.h"
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include "testutil.h" // rdar://162810290
+#include <malloc/malloc.h>  // rdar://165873670
+#endif
 
 void IntlTestDecimalFormatSymbols::runIndexedTest( int32_t index, UBool exec, const char* &name, char* /*par*/ )
 {
@@ -25,6 +29,9 @@ void IntlTestDecimalFormatSymbols::runIndexedTest( int32_t index, UBool exec, co
     TESTCASE_AUTO(testLastResortData);
     TESTCASE_AUTO(testDigitSymbols);
     TESTCASE_AUTO(testNumberingSystem);
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    TESTCASE_AUTO(checkForUninitializedMemory); // rdar://162810290
+#endif
     TESTCASE_AUTO_END;
 }
 
@@ -406,4 +413,30 @@ void IntlTestDecimalFormatSymbols::Verify(double value, const UnicodeString& pat
     }
 }
 
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290 and rdar://165873670
+void IntlTestDecimalFormatSymbols::checkForUninitializedMemory() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<DecimalFormatSymbols> dfs(new DecimalFormatSymbols(Locale::getUS(), status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create DecimalFormatSymbols - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = dfs.getAlias();
+
+    // Before any changes to reduce uninitialized memory, this test was showing that
+    // about 68% of DecimalFormatSymbols was uninitialized.
+
+    // The uninitialized memory was causing problems for our memory analysis tools as
+    // the DecimalFormatSymbols object appeared to have references to other objects
+    // due to data picked up from the heap in the uninitialized areas.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "DecimalFormatSymbols",
+        sizeof(DecimalFormatSymbols));
+}
+#endif /* APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED */
 #endif /* #if !UCONFIG_NO_FORMATTING */

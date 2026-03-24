@@ -81,7 +81,7 @@ if [ "$1" = "skip" ]; then
 	cp $TMP $CONFLICTING_FILES_LIST
 	rm $TMP
 elif [ "$OLD_WORKING_FILE" != "(Dummy first file)" -a "$1" != "repeat" ]; then
-	GREP_RESULT=`grep "<<<\|>>>>" $OLD_WORKING_FILE`
+	GREP_RESULT=`grep "<<<<<\|>>>>" $OLD_WORKING_FILE`
 	if [ "$GREP_RESULT" ]; then
 		echo "$OLD_WORKING_FILE still has conflict markers in it!  Did you remember to save?"
 		exit 1

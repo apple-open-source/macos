@@ -34,6 +34,7 @@
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/NavigationIdentifier.h>
+#include <WebCore/NavigationRequester.h>
 #include <WebCore/OwnerPermissionsPolicyData.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/ReferrerPolicy.h>
@@ -64,12 +65,10 @@ struct NavigationActionData {
     bool hasOpenedFrames { false };
     bool openedByDOMWithOpener { false };
     bool hasOpener { false };
-    bool isPerformingHTTPFallback { false };
+    WebCore::NavigationUpgradeToHTTPSBehavior navigationUpgradeToHTTPSBehavior { WebCore::NavigationUpgradeToHTTPSBehavior::BasedOnPolicy };
     bool isInitialFrameSrcLoad { false };
     bool isContentRuleListRedirect { false };
     String openedMainFrameName;
-    WebCore::SecurityOriginData requesterOrigin;
-    WebCore::SecurityOriginData requesterTopOrigin;
     std::optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
     std::optional<WebCore::BackForwardItemIdentifier> sourceBackForwardItemIdentifier;
     WebCore::LockHistory lockHistory { WebCore::LockHistory::No };
@@ -91,6 +90,7 @@ struct NavigationActionData {
     WebCore::ResourceRequest originalRequest;
     WebCore::ResourceRequest request;
     String invalidURLString;
+    std::optional<WebCore::NavigationRequester> requester;
 };
 
 }

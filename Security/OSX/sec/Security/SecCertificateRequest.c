@@ -150,11 +150,11 @@ static uint8_t * oid_der_data(PRArenaPool *poolp, CFStringRef oid_string, size_t
 {
     CFArrayRef oid = NULL;
     /* estimate encoded length from base 10 (4 bits) to base 128 (7 bits) */
-    require(((size_t)CFStringGetLength(oid_string) < (SIZE_MAX/4)), out); // Guard against integer overflow on size_t
+    __Require(((size_t)CFStringGetLength(oid_string) < (SIZE_MAX/4)), out); // Guard against integer overflow on size_t
     size_t tmp_oid_length = ((((size_t)CFStringGetLength(oid_string)) * 4) / 7) + 1;
     uint8_t *tmp_oid_data = PORT_ArenaAlloc(poolp, tmp_oid_length);
     uint8_t *tmp_oid_data_ptr = tmp_oid_data;
-    require(tmp_oid_data, out); // Allocation failure
+    __Require(tmp_oid_data, out); // Allocation failure
     oid = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault,
                                                             oid_string, CFSTR("."));
     CFIndex i = 0, count = CFArrayGetCount(oid);
@@ -162,7 +162,7 @@ static uint8_t * oid_der_data(PRArenaPool *poolp, CFStringRef oid_string, size_t
     for (i = 0; i < count; i++) {
         CFStringRef oid_octet = CFArrayGetValueAtIndex(oid, i);
         SInt32 oid_octet_int_value = CFStringGetIntValue(oid_octet);
-        require(abs(oid_octet_int_value) != INT32_MAX, out);
+        __Require(abs(oid_octet_int_value) != INT32_MAX, out);
         if (i == 0)
             first_digit = oid_octet_int_value;
         else {
@@ -303,7 +303,7 @@ static bool make_nss_atv(PRArenaPool *poolp,
             oid_length = oidEmailAddress.length; oid_data = oidEmailAddress.data;
         } else {
             oid_data = oid_der_data(poolp, oid, &oid_length);
-            require_action(oid_data, out, SecError(errSecInternal, error, CFSTR("ATV OID encode failed for %@"), oid));
+            __Require_Action(oid_data, out, SecError(errSecInternal, error, CFSTR("ATV OID encode failed for %@"), oid));
         }
     } else if (CFGetTypeID(oid) == CFDataGetTypeID()) {
         /* will remain valid for the duration of the operation, still maybe copy into pool */
@@ -383,7 +383,7 @@ static void add_ip_to_gn(struct make_general_names_context *gn, CFStringRef in_v
     general_name_item.tag = NGT_IPAddress;
     CFErrorRef *error = gn->error;
     CFDataRef ipAddress = SecFrameworkCopyIPAddressData(in_value);
-    require_action(ipAddress, out, SecError(errSecParam, error, CFSTR("failed to copy iPAddress")));
+    __Require_Action(ipAddress, out, SecError(errSecParam, error, CFSTR("failed to copy iPAddress")));
 
     CFIndex buffer_size = CFDataGetLength(ipAddress);
     uint8_t *buffer = PORT_ArenaZNewArray(gn->poolp, uint8_t, buffer_size);
@@ -405,7 +405,7 @@ static void make_general_names(const void *key, const void *value, void *context
     struct make_general_names_context *gn = (struct make_general_names_context *)context;
     CFErrorRef *error = gn->error;
 
-    require(value,out);
+    __Require(value,out);
     CFArrayRef gn_values = NULL;
     CFStringRef gn_value = NULL;
     CFIndex entry_ix, entry_count = 0;
@@ -419,10 +419,10 @@ static void make_general_names(const void *key, const void *value, void *context
         SecError(errSecParam, error, CFSTR("unsupported subjectAltName value type"));
     }
 
-    require(entry_count > 0, out);
+    __Require(entry_count > 0, out);
 
-    require(key,out);
-    require_action(CFGetTypeID(key) == CFStringGetTypeID(), out,
+    __Require(key,out);
+    __Require_Action(CFGetTypeID(key) == CFStringGetTypeID(), out,
                    SecError(errSecParam, error, CFSTR("unsupported subjectAltName key type")));
 
     if (!gn->names || (gn->count == gn->capacity)) {
@@ -450,7 +450,7 @@ static void make_general_names(const void *key, const void *value, void *context
         general_name_item.tag = NGT_URI;
     } else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameIPAddress, key, kCFCompareCaseInsensitive)) {
         if (gn_value) {
-            require_action(CFGetTypeID(gn_value) == CFStringGetTypeID(), out,
+            __Require_Action(CFGetTypeID(gn_value) == CFStringGetTypeID(), out,
                            SecError(errSecParam, error, CFSTR("iPAddress value is not a string")));
             add_ip_to_gn(gn, gn_value);
         } else if (gn_values) {
@@ -487,8 +487,8 @@ static void make_general_names(const void *key, const void *value, void *context
 
         size_t length = 0;
         char *buffer = NULL;
-		require_action(gn_value, out, SecError(errSecParam, error, CFSTR("NTPrincipalName types do not allow multiple values")));
-        require(CFGetTypeID(gn_value) == CFStringGetTypeID(), out);
+		__Require_Action(gn_value, out, SecError(errSecParam, error, CFSTR("NTPrincipalName types do not allow multiple values")));
+        __Require(CFGetTypeID(gn_value) == CFStringGetTypeID(), out);
         length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value),
             kCFStringEncodingUTF8);
         buffer = PORT_ArenaAlloc(gn->poolp, length);
@@ -516,12 +516,12 @@ static void make_general_names(const void *key, const void *value, void *context
     if (gn_values) {
         for (entry_ix = 0; entry_ix < entry_count; entry_ix++) {
             CFStringRef entry_value = (CFStringRef)CFArrayGetValueAtIndex(gn_values, entry_ix);
-            require_action(CFGetTypeID(entry_value) == CFStringGetTypeID(), out,
+            __Require_Action(CFGetTypeID(entry_value) == CFStringGetTypeID(), out,
                            SecError(errSecParam, error, CFSTR("subjectAltName value is not a string")));
             CFIndex buffer_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(entry_value),
                 kCFStringEncodingUTF8); /* we only allow ASCII => only expect IA5Strings */
             char *buffer = (char *)PORT_ArenaZNewArray(gn->poolp, uint8_t, buffer_size);
-            require_action(CFStringGetCString(entry_value, buffer, buffer_size, kCFStringEncodingASCII), out,
+            __Require_Action(CFStringGetCString(entry_value, buffer, buffer_size, kCFStringEncodingASCII), out,
                            SecError(errSecParam, error, CFSTR("failed to get subjectAltName value bytes")));
             general_name_item.item.Data = (uint8_t*)buffer;
             general_name_item.item.Length = strlen(buffer);
@@ -532,7 +532,7 @@ static void make_general_names(const void *key, const void *value, void *context
         CFIndex buffer_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(gn_value),
             kCFStringEncodingUTF8);
         char *buffer = (char *)PORT_ArenaZNewArray(gn->poolp, uint8_t, buffer_size);
-        require_action(CFStringGetCString(gn_value, buffer, buffer_size, kCFStringEncodingASCII), out,
+        __Require_Action(CFStringGetCString(gn_value, buffer, buffer_size, kCFStringEncodingASCII), out,
                        SecError(errSecParam, error, CFSTR("failed to get subjectAltName value bytes")));
         general_name_item.item.Data = (uint8_t*)buffer;
         general_name_item.item.Length = strlen(buffer);
@@ -611,7 +611,7 @@ static void add_custom_extension(const void *key, const void *value, void *conte
     size_t der_data_len;
     CFErrorRef *error = args->error;
 
-    require_action(args->num_extensions < args->max_extensions, out, SecError(errSecParam, error, CFSTR("too many extensions")));
+    __Require_Action(args->num_extensions < args->max_extensions, out, SecError(errSecParam, error, CFSTR("too many extensions")));
 
     uint8_t * der_data = oid_der_data(args->poolp, key, &der_data_len);
     SecAsn1Item encoded_value = {};
@@ -684,7 +684,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
 
         if (basic_contraints_num) {
             int basic_contraints_path_len = 0;
-            require_action(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out,
+            __Require_Action(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out,
                            SecError(errSecParam, &localError, CFSTR("failed to get basic constraints path length value")));
             if (basic_contraints_path_len >= 0 && basic_contraints_path_len < 256) {
                 secdebug("csr", "encoding basic constraints path len");
@@ -703,31 +703,31 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
             SecError(errSecParam, &localError, CFSTR("failed to encode basic constraints extension"));
             goto out;
         }
-        require_action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
+        __Require_Action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
     }
 
     CFDictionaryRef subject_alternate_names = CFDictionaryGetValue(parameters, kSecSubjectAltName);
     if (subject_alternate_names) {
         secdebug("csr", "encoding subjectAltName");
-        require_action(CFGetTypeID(subject_alternate_names) == CFDictionaryGetTypeID(), out,
+        __Require_Action(CFGetTypeID(subject_alternate_names) == CFDictionaryGetTypeID(), out,
                        SecError(errSecParam, &localError, CFSTR("wrong value type for subjectAltName")));
         csr_extension[num_extensions].value = make_subjectAltName_extension(poolp, subject_alternate_names, error);
         /* set up subjectAltName cert request value */
         csr_extension[num_extensions].extnId.Length = oidSubjectAltName.length;
         csr_extension[num_extensions].extnId.Data = oidSubjectAltName.data;
-        require_action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
+        __Require_Action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
     }
 
     CFArrayRef extended_key_usages = CFDictionaryGetValue(parameters, kSecCertificateExtendedKeyUsage);
     if (extended_key_usages) {
         secdebug("csr", "encoding EKU");
-        require_action(CFGetTypeID(extended_key_usages) == CFArrayGetTypeID(), out,
+        __Require_Action(CFGetTypeID(extended_key_usages) == CFArrayGetTypeID(), out,
                        SecError(errSecParam, &localError, CFSTR("wrong value type for EKU")));
-        require_action(make_EKU_extension(poolp, extended_key_usages, &csr_extension[num_extensions].value, error), out,
+        __Require_Action(make_EKU_extension(poolp, extended_key_usages, &csr_extension[num_extensions].value, error), out,
                        SecError(errSecParam, &localError, CFSTR("failed to make EKU extension")));
         csr_extension[num_extensions].extnId.Length = oidExtendedKeyUsage.length;
         csr_extension[num_extensions].extnId.Data = oidExtendedKeyUsage.data;
-        require_action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
+        __Require_Action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
     }
 
     CFNumberRef key_usage_requested = CFDictionaryGetValue(parameters, kSecCertificateKeyUsage);
@@ -735,7 +735,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
     if (key_usage_requested && isNumber(key_usage_requested)) {
         secdebug("csr", "encoding keyUsage");
         int key_usage_value;
-        require_action(CFNumberGetValue(key_usage_requested, kCFNumberIntType, &key_usage_value), out,
+        __Require_Action(CFNumberGetValue(key_usage_requested, kCFNumberIntType, &key_usage_value), out,
                        SecError(errSecParam, &localError, CFSTR("failed to get key usage value")));
         if (key_usage_value > 0) {
             uint32_t key_usage_value_be = 0, key_usage_mask = (uint32_t)0x80000000; // 1L<<31
@@ -761,7 +761,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
             csr_extension[num_extensions].extnId.Length = oidKeyUsage.length;
             csr_extension[num_extensions].critical = asn1_true;
             csr_extension[num_extensions].value = key_usage_asn1_value;
-            require_action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
+            __Require_Action(num_extensions++ < max_extensions, out, SecError(errSecParam, &localError, CFSTR("too many extensions")));
         } else {
             secdebug("csr", "key usage of 0, skipping extension");
         }
@@ -773,7 +773,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
     CFDictionaryRef custom_extension_requested = CFDictionaryGetValue(parameters, kSecCertificateExtensions);
     if (custom_extension_requested) {
         secdebug("csr", "encoding custom extension");
-        require_action(CFGetTypeID(custom_extension_requested) == CFDictionaryGetTypeID(), out,
+        __Require_Action(CFGetTypeID(custom_extension_requested) == CFDictionaryGetTypeID(), out,
                        secerror("csr: wrong value type for custom extensions"));
         struct add_custom_extension_args args = {
             poolp,
@@ -790,7 +790,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
     CFDictionaryRef custom_encoded_extension_requested = CFDictionaryGetValue(parameters, kSecCertificateExtensionsEncoded);
     if (custom_encoded_extension_requested) {
         secdebug("csr", "encoding custom encoded extension");
-        require_action(CFGetTypeID(custom_encoded_extension_requested) == CFDictionaryGetTypeID(), out,
+        __Require_Action(CFGetTypeID(custom_encoded_extension_requested) == CFDictionaryGetTypeID(), out,
                        SecError(errSecParam, &localError, CFSTR("wrong value type for custom extensions")));
         struct add_custom_extension_args args = {
             poolp,
@@ -845,7 +845,7 @@ extensions_from_parameters_or_request_extensions(PRArenaPool *poolp, CFDictionar
         return extensions_from_parameters(poolp, parameters, resultExtensions, error);
     } else if (isData(requestExtensions)) {
         SecAsn1Item requested_extensions = { CFDataGetLength(requestExtensions), (uint8_t*)CFDataGetBytePtr(requestExtensions) };
-        require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, resultExtensions,
+        __Require_noErr_Action_Quiet(SEC_ASN1DecodeItem(poolp, resultExtensions,
                     kSecAsn1SequenceOfCertExtensionTemplate, &requested_extensions), out,
                                    secerror("failed to decode requested CSR extensions"));
         return true;
@@ -1146,9 +1146,9 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
         secinfo("csr", "unable to create public key from private, using input public key");
         realPublicKey = CFRetainSafe(publicKey);
     }
-    require_action_quiet(realPublicKey, out, secerror("csr: failed to get public key"));
+    __Require_Action_Quiet(realPublicKey, out, secerror("csr: failed to get public key"));
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters, &localError);
-    require_action_quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
+    __Require_Action_Quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
 
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
@@ -1165,13 +1165,13 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
         algorithm = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
     }
     signature = make_signature(reqinfo.Data, reqinfo.Length, privateKey, algorithm, &certReq.signatureAlgorithm, &localError);
-    require_action_quiet(signature, out, secerror("csr: failed to create CSR signature"));
+    __Require_Action_Quiet(signature, out, secerror("csr: failed to create CSR signature"));
     certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     certReq.signature.Length = 8 * CFDataGetLength(signature);
 
     /* encode csr */
     SecAsn1Item cert_request = {};
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, kSecAsn1CertRequestTemplate), out,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, kSecAsn1CertRequestTemplate), out,
                          secerror("csr: failed to encode cert request"));
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
 
@@ -1231,9 +1231,9 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
         secinfo("csr", "unable to create public key from private, using input public key");
         realPublicKey = CFRetainSafe(publicKey);
     }
-    require_action_quiet(realPublicKey, out, secerror("csr: failed to get public key"));
+    __Require_Action_Quiet(realPublicKey, out, secerror("csr: failed to get public key"));
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters, &localError);
-    require_action_quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
+    __Require_Action_Quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
 
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
@@ -1250,13 +1250,13 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
         algorithm = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
     }
     signature = make_signature(reqinfo.Data, reqinfo.Length, privateKey, algorithm, &certReq.signatureAlgorithm, &localError);
-    require_action_quiet(signature, out, secerror("csr: failed to create CSR signature"));
+    __Require_Action_Quiet(signature, out, secerror("csr: failed to create CSR signature"));
     certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     certReq.signature.Length = 8 * CFDataGetLength(signature);
 
     /* encode csr */
     SecAsn1Item cert_request = {};
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, kSecAsn1CertRequestTemplate), out,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, kSecAsn1CertRequestTemplate), out,
                          secerror("csr: failed to encode cert request"));
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
 
@@ -1330,9 +1330,9 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
 
     /* Decode the CSR */
     SecAsn1Item csr_item = { CFDataGetLength(csr), (uint8_t*)CFDataGetBytePtr(csr) };
-    require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &decodedCertReq, kSecAsn1CertRequestTemplate,
+    __Require_noErr_Action_Quiet(SEC_ASN1DecodeItem(poolp, &decodedCertReq, kSecAsn1CertRequestTemplate,
         &csr_item), out, secerror("csr: failed to decode CSR"));
-    require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &undecodedCertReq, kSecAsn1SignedCertRequestTemplate,
+    __Require_noErr_Action_Quiet(SEC_ASN1DecodeItem(poolp, &undecodedCertReq, kSecAsn1SignedCertRequestTemplate,
         &csr_item), out, secerror("csr: failed to decode CSR"));
 
     /* get public key */
@@ -1340,7 +1340,7 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
     if (decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Length == oidRsa.length &&
         0 == memcmp(oidRsa.data, decodedCertReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data, oidRsa.length)) {
         secdebug("csr", "rsa CSR");
-        require_action(candidatePublicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
+        __Require_Action(candidatePublicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
                                                               decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data,
                                                               decodedCertReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length / 8,
                                                               kSecKeyEncodingPkcs1), out,
@@ -1356,7 +1356,7 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
                                              &kCFTypeDictionaryValueCallBacks);
         CFDictionaryAddValue(keyAttrs, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
         CFDictionaryAddValue(keyAttrs, kSecAttrKeyClass, kSecAttrKeyClassPublic);
-        require_action(candidatePublicKey = SecKeyCreateWithData(keyData, keyAttrs, NULL),
+        __Require_Action(candidatePublicKey = SecKeyCreateWithData(keyData, keyAttrs, NULL),
                        out, secerror("csr: failed to create EC public key"));
         isRsa = false;
     } else {
@@ -1367,9 +1367,9 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
     /* get the signature algorithm */
     SecAsn1AlgId algId = decodedCertReq.signatureAlgorithm;
     /* check the parameters are NULL or absent */
-    require_action(algId.parameters.Length == asn1_null.Length || algId.parameters.Length == 0, out,
+    __Require_Action(algId.parameters.Length == asn1_null.Length || algId.parameters.Length == 0, out,
                    secerror("csr: non-empty signature algorithm parameters"));
-    require_action(algId.parameters.Length == 0 || 0 == memcmp(asn1_null.Data, algId.parameters.Data, asn1_null.Length), out,
+    __Require_Action(algId.parameters.Length == 0 || 0 == memcmp(asn1_null.Data, algId.parameters.Data, asn1_null.Length), out,
                    secerror("csr: non-empty signature algorithm parameters"));
     SecKeyAlgorithm alg = determine_key_algorithm(isRsa, &algId);
 
@@ -1378,12 +1378,12 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
                                             undecodedCertReq.signature.Length / 8, kCFAllocatorNull);
     data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, undecodedCertReq.certRequestBlob.Data,
                                        undecodedCertReq.certRequestBlob.Length, kCFAllocatorNull);
-    require_quiet(alg && signature && data, out);
-    require_action_quiet(SecKeyVerifySignature(candidatePublicKey, alg, data, signature, NULL), out,
+    __Require_Quiet(alg && signature && data, out);
+    __Require_Action_Quiet(SecKeyVerifySignature(candidatePublicKey, alg, data, signature, NULL), out,
                          secerror("csr: failed to verify signature in CSR"));
 
     SecAsn1Item subject_item = { 0 }, extensions_item = { 0 }, challenge_item = { 0 };
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &subject_item,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &subject_item,
                                             &decodedCertReq.reqInfo.subject, kSecAsn1NameTemplate), out,
                          secerror("csr: failed to decode CSR subject name"));
 
@@ -1482,7 +1482,7 @@ SecGenerateSelfSignedCertificateWithError(CFArrayRef subject, CFDictionaryRef pa
     if (!serialData) {
         const UInt8 serialNumber = 1;
         serialData = CFDataCreate(NULL, &serialNumber, (CFIndex)sizeof(UInt8));
-        require_action_quiet(serialData, out, SecError(errSecMemoryError, &localError, CFSTR("failed to allocate serial number")));
+        __Require_Action_Quiet(serialData, out, SecError(errSecMemoryError, &localError, CFSTR("failed to allocate serial number")));
     }
     cert_tmpl.tbs.serialNumber.Length = (size_t)CFDataGetLength(serialData);
     cert_tmpl.tbs.serialNumber.Data = (uint8_t *)CFDataGetBytePtr(serialData);
@@ -1497,22 +1497,22 @@ SecGenerateSelfSignedCertificateWithError(CFArrayRef subject, CFDictionaryRef pa
         CFNumberGetValue(lifetimeNum, kCFNumberLongLongType, &lifetime);
     }
     CFAbsoluteTime currentTime = CFAbsoluteTimeGetCurrent();
-    require_noerr_action_quiet(SecAsn1EncodeTime(poolp, currentTime, &cert_tmpl.tbs.validity.notBefore), out,
+    __Require_noErr_Action_Quiet(SecAsn1EncodeTime(poolp, currentTime, &cert_tmpl.tbs.validity.notBefore), out,
                                SecError(errSecInternal, &localError, CFSTR("failed to encode notBefore")));
-    require_noerr_action_quiet(SecAsn1EncodeTime(poolp, currentTime + lifetime, &cert_tmpl.tbs.validity.notAfter), out,
+    __Require_noErr_Action_Quiet(SecAsn1EncodeTime(poolp, currentTime + lifetime, &cert_tmpl.tbs.validity.notAfter), out,
                                SecError(errSecInternal, &localError, CFSTR("failed to encode notAfter")));
 
     /* extensions */
-    require_action_quiet(extensions_from_parameters(poolp, parameters, &cert_tmpl.tbs.extensions, &localError), out,
+    __Require_Action_Quiet(extensions_from_parameters(poolp, parameters, &cert_tmpl.tbs.extensions, &localError), out,
                          SecError(errSecInternal, &localError, CFSTR("failed to encode extensions")));
 
     /* encode public key */
     if (privateKey) {
         realPublicKey = SecKeyCopyPublicKey(privateKey);
     }
-    require_action_quiet(realPublicKey, out, SecError(errSecInternal, &localError, CFSTR("failed get public key")));
+    __Require_Action_Quiet(realPublicKey, out, SecError(errSecInternal, &localError, CFSTR("failed get public key")));
     publicKeyData = make_public_key(realPublicKey, &cert_tmpl.tbs.subjectPublicKeyInfo, &allocated_parameters, &localError);
-    require_action_quiet(publicKeyData, out, SecError(errSecInternal, &localError, CFSTR("failed to encode public key")));
+    __Require_Action_Quiet(publicKeyData, out, SecError(errSecInternal, &localError, CFSTR("failed to encode public key")));
 
     /* encode the signature algorithm info */
     CFStringRef algorithm = NULL;
@@ -1530,13 +1530,13 @@ SecGenerateSelfSignedCertificateWithError(CFArrayRef subject, CFDictionaryRef pa
 
     /* calculate signature and encode signature algorithm info */
     signature = make_signature(tbscert.Data, tbscert.Length, privateKey, algorithm, &cert_tmpl.signatureAlgorithm, &localError);
-    require_action_quiet(signature, out, SecError(errSecInvalidSignature, &localError, CFSTR("failed to make signature")));
+    __Require_Action_Quiet(signature, out, SecError(errSecInvalidSignature, &localError, CFSTR("failed to make signature")));
     cert_tmpl.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     cert_tmpl.signature.Length = CFDataGetLength(signature) * 8;
 
     /* encode cert */
     SecAsn1Item signed_cert = {};
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
                                             kSecAsn1SignedCertTemplate), out,
                          SecError(errSecInternal, &localError, CFSTR("failed to encode certificate")));
     cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
@@ -1627,17 +1627,17 @@ SecIdentitySignCertificateWithParameters(SecIdentityRef issuer, CFDataRef serial
         cert_tmpl.tbs.subject.rdns = make_subject(poolp, (CFArrayRef)subject, &localError);
     } else if (isData(subject)) {
         SecAsn1Item subject_item = { CFDataGetLength(subject), (uint8_t*)CFDataGetBytePtr(subject) };
-        require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.subject.rdns, kSecAsn1NameTemplate, &subject_item), out,
+        __Require_noErr_Action_Quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.subject.rdns, kSecAsn1NameTemplate, &subject_item), out,
                                    secerror("csr: failed to decode input subject"));
     } else {
         secerror("csr: unsupported subject CFType");
         goto out;
     }
 
-    require_noerr_action(SecIdentityCopyCertificate(issuer, &issuer_cert), out, secerror("csr: failed to get identity cert"));
+    __Require_noErr_Action(SecIdentityCopyCertificate(issuer, &issuer_cert), out, secerror("csr: failed to get identity cert"));
     issuer_name = SecCertificateCopySubjectSequence(issuer_cert);
     SecAsn1Item issuer_item = { CFDataGetLength(issuer_name), (uint8_t*)CFDataGetBytePtr(issuer_name) };
-    require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.issuer.rdns,
+    __Require_noErr_Action_Quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.issuer.rdns,
         kSecAsn1NameTemplate, &issuer_item), out, secerror("csr: failed to decoder subject name from CA identity"));
     CFReleaseNull(issuer_name);
 
@@ -1647,20 +1647,20 @@ SecIdentitySignCertificateWithParameters(SecIdentityRef issuer, CFDataRef serial
         CFNumberGetValue(lifetimeNum, kCFNumberLongLongType, &lifetime);
     }
     CFAbsoluteTime currentTime = CFAbsoluteTimeGetCurrent();
-    require_noerr_action_quiet(SecAsn1EncodeTime(poolp, currentTime, &cert_tmpl.tbs.validity.notBefore), out,
+    __Require_noErr_Action_Quiet(SecAsn1EncodeTime(poolp, currentTime, &cert_tmpl.tbs.validity.notBefore), out,
                                secerror("csr: failed to encode notBefore"));
-    require_noerr_action_quiet(SecAsn1EncodeTime(poolp, currentTime + lifetime, &cert_tmpl.tbs.validity.notAfter), out,
+    __Require_noErr_Action_Quiet(SecAsn1EncodeTime(poolp, currentTime + lifetime, &cert_tmpl.tbs.validity.notAfter), out,
                                secerror("csr: failed to encode notBefore"));
 
-    require_action_quiet(extensions_from_parameters_or_request_extensions(poolp, parameters, extensions, &cert_tmpl.tbs.extensions, &localError), out,
+    __Require_Action_Quiet(extensions_from_parameters_or_request_extensions(poolp, parameters, extensions, &cert_tmpl.tbs.extensions, &localError), out,
                   secerror("csr: failed to encode extensions"));
 
     /* subject public key info */
     publicKeyData = make_public_key(publicKey, &cert_tmpl.tbs.subjectPublicKeyInfo, &allocated_parameters, &localError);
-    require_action_quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
+    __Require_Action_Quiet(publicKeyData, out, secerror("csr: failed to encode public key"));
 
     /* encode the signature algorithm info */
-    require_noerr_action_quiet(SecIdentityCopyPrivateKey(issuer, &privateKey), out, secerror("csr: failed to get CA private key"));
+    __Require_noErr_Action_Quiet(SecIdentityCopyPrivateKey(issuer, &privateKey), out, secerror("csr: failed to get CA private key"));
     signature = make_signature(NULL, 0, privateKey, hashingAlgorithm, &cert_tmpl.tbs.signature, &localError);
     CFReleaseNull(signature);
 
@@ -1672,13 +1672,13 @@ SecIdentitySignCertificateWithParameters(SecIdentityRef issuer, CFDataRef serial
 
     /* calculate signature and encode signature algorithm info */
     signature = make_signature(tbscert.Data, tbscert.Length, privateKey, hashingAlgorithm, &cert_tmpl.signatureAlgorithm, &localError);
-    require_action_quiet(signature, out, secerror("csr: failed to make signature"));
+    __Require_Action_Quiet(signature, out, secerror("csr: failed to make signature"));
     cert_tmpl.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     cert_tmpl.signature.Length = CFDataGetLength(signature) * 8;
 
     /* encode cert */
     SecAsn1Item signed_cert = {};
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &signed_cert, &cert_tmpl,
                                             kSecAsn1SignedCertTemplate), out,
                          secerror("csr: failed to encode certificate"));
     cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
@@ -1737,7 +1737,7 @@ SecGenerateCertificateRequestSubject(SecCertificateRef ca_certificate, CFArrayRe
     SecAsn1Item subject_item = { 0 };
     SecAsn1Item issuer_item = { CFDataGetLength(issuer_sequence), (uint8_t*)CFDataGetBytePtr(issuer_sequence) };
     NSS_Name nss_subject = { make_subject(poolp, subject, NULL) };
-    require_action_quiet(SEC_ASN1EncodeItem(poolp, &subject_item, &nss_subject, kSecAsn1NameTemplate), out,
+    __Require_Action_Quiet(SEC_ASN1EncodeItem(poolp, &subject_item, &nss_subject, kSecAsn1NameTemplate), out,
                          secerror("csr: failed to encode subject"));
 
     DERSize sequence_length = DERLengthOfLength(subject_item.Length + issuer_item.Length);
@@ -1747,7 +1747,7 @@ SecGenerateCertificateRequestSubject(SecCertificateRef ca_certificate, CFArrayRe
     CFDataSetLength(sequence, seq_len_length);
     uint8_t *sequence_ptr = CFDataGetMutableBytePtr(sequence);
     *sequence_ptr++ = 0x30; //ONE_BYTE_ASN1_CONSTR_SEQUENCE;
-    require_noerr_action_quiet(DEREncodeLength(subject_item.Length + issuer_item.Length, sequence_ptr, &sequence_length), out,
+    __Require_noErr_Action_Quiet(DEREncodeLength(subject_item.Length + issuer_item.Length, sequence_ptr, &sequence_length), out,
                                secerror("csr: failed to encode outer subject sequence"));
     sequence_ptr += sequence_length;
     memcpy(sequence_ptr, issuer_item.Data, issuer_item.Length);

@@ -85,6 +85,8 @@ NSString *const kPMSmartPowerNapServiceName = @"com.apple.powerd.smartpowernap";
             }
             INFO_LOG("Connection to powerd interrupted");
             client.connection_interrupted = YES;
+            [client.connection invalidate];
+            client.connection = nil;
         }];
         [_connection setInvalidationHandler:^{
             typeof(self) client = welf;

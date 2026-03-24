@@ -47,6 +47,7 @@ struct NotificationData {
 #if PLATFORM(COCOA)
     WEBCORE_EXPORT static std::optional<NotificationData> fromDictionary(NSDictionary *dictionaryRepresentation);
     WEBCORE_EXPORT NSDictionary *dictionaryRepresentation() const;
+    WEBCORE_EXPORT RetainPtr<NSDictionary> protectedDictionaryRepresentation() const;
 #endif
 
     bool isPersistent() const { return !serviceWorkerRegistrationURL.isNull(); }

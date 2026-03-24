@@ -7,6 +7,7 @@ set(WTF_PUBLIC_HEADERS
     AbstractRefCounted.h
     AbstractRefCountedAndCanMakeWeakPtr.h
     AbstractThreadSafeRefCountedAndCanMakeWeakPtr.h
+    AllocSpanMixin.h
     ASCIICType.h
     AccessibleAddress.h
     AggregateLogger.h
@@ -109,6 +110,7 @@ set(WTF_PUBLIC_HEADERS
     FunctionDispatcher.h
     FunctionPtr.h
     FunctionTraits.h
+    GenerationalSet.h
     GenericHashKey.h
     GenericTimeMixin.h
     GetPtr.h
@@ -135,15 +137,14 @@ set(WTF_PUBLIC_HEADERS
     IndexSparseSet.h
     IndexedContainerIterator.h
     InlineASM.h
+    InlineWeakPtr.h
+    InlineWeakRef.h
     Insertion.h
     InstanceCounted.h
     Int128.h
     InterferenceGraph.h
     IntervalSet.h
-    IsoMalloc.h
-    IsoMallocInlines.h
     IterationStatus.h
-    IteratorAdaptors.h
     IteratorRange.h
     JSONValues.h
     JSValueMalloc.h
@@ -184,12 +185,13 @@ set(WTF_PUBLIC_HEADERS
     Markable.h
     MathExtras.h
     MediaTime.h
+    MemoryDump.h
     MemoryFootprint.h
     MemoryPressureHandler.h
     MessageQueue.h
     MetaAllocator.h
     MetaAllocatorHandle.h
-    Mmap.h
+    MmapSpan.h
     MonotonicTime.h
     NakedPtr.h
     NativePromise.h
@@ -208,6 +210,7 @@ set(WTF_PUBLIC_HEADERS
     ObjCRuntimeExtras.h
     ObjectIdentifier.h
     Observer.h
+    OptionCountedSet.h
     OptionSet.h
     OptionalOrReference.h
     OptionSetHash.h
@@ -250,6 +253,7 @@ set(WTF_PUBLIC_HEADERS
     RAMSize.h
     RandomDevice.h
     Range.h
+    RangeAdaptors.h
     RangeSet.h
     RawHex.h
     RawPointer.h
@@ -260,9 +264,12 @@ set(WTF_PUBLIC_HEADERS
     RecursiveLockAdapter.h
     RedBlackTree.h
     Ref.h
+    RefCountable.h
+    RefCountDebugger.h
     RefCounted.h
     RefCountedAndCanMakeWeakPtr.h
     RefCountedFixedVector.h
+    RefCountedWithInlineWeakPtr.h
     RefCounter.h
     RefPtr.h
     RefTrackerMixin.h
@@ -299,6 +306,8 @@ set(WTF_PUBLIC_HEADERS
     SingleThreadIntegralWrapper.h
     SinglyLinkedList.h
     SinglyLinkedListWithTail.h
+    UniquelyOwned.h
+    UniquelyOwnedPtr.h
     SixCharacterHash.h
     SmallMap.h
     SmallSet.h
@@ -380,7 +389,6 @@ set(WTF_PUBLIC_HEADERS
     VariantList.h
     VariantListOperations.h
     Vector.h
-    VectorHash.h
     VectorTraits.h
     WTFConfig.h
     WTFProcess.h
@@ -527,6 +535,7 @@ set(WTF_SOURCES
     CPUTime.cpp
     ClockType.cpp
     CodePtr.cpp
+    CompactPtr.cpp
     CompilationThread.cpp
     ConcurrentBuffer.cpp
     ConcurrentPtrHashSet.cpp
@@ -585,7 +594,7 @@ set(WTF_SOURCES
     RAMSize.cpp
     RandomDevice.cpp
     ReadWriteLock.cpp
-    RefCounted.cpp
+    RefCountDebugger.cpp
     RefTrackerMixin.cpp
     RunLoop.cpp
     RuntimeApplicationChecks.cpp
@@ -710,6 +719,9 @@ elseif (APPLE)
         cocoa/TypeCastsCocoa.h
         cocoa/VectorCocoa.h
 
+        darwin/DispatchExtras.h
+        darwin/DispatchOSObject.h
+        darwin/NetworkOSObject.h
         darwin/OSLogPrintStream.h
         darwin/WeakLinking.h
         darwin/XPCExtras.h
@@ -815,6 +827,9 @@ else ()
     set_source_files_properties(
         SIMDUTF.cpp
         text/Base64.cpp
+        text/StringImpl.cpp
+        unicode/UTF8Conversion.cpp
+        text/StringCommon.cpp
         PROPERTIES COMPILE_FLAGS "-Wno-error=undef -Wno-undef")
 endif ()
 

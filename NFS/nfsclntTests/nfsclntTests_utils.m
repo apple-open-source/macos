@@ -434,6 +434,7 @@ writeFlagToOptions(nfstests_options_flags_kind_t option, int enable)
 void
 writeArgToOptions(nfstests_options_kind_t option, const char *value, void *expected_value)
 {
+	int bit_flag;
 	type_t type = nfstests_options_infos[option].nto_type;
 	size_t offset = nfstests_options_infos[option].nto_offset;
 	int mattr_flag = nfstests_options_infos[option].nto_flag;
@@ -447,10 +448,10 @@ writeArgToOptions(nfstests_options_kind_t option, const char *value, void *expec
 	/* Update value in conf struct */
 	switch (type) {
 	case UINT32:
-		*((uint32_t *)(expectedoptionsptr + offset)) = (uint32_t)(expected_value);
+		memcpy(expectedoptionsptr + offset, &expected_value, sizeof(uint32_t));
 		break;
 	case INT:
-		*((int *)(expectedoptionsptr + offset)) = (int)(expected_value);
+		memcpy(expectedoptionsptr + offset, &expected_value, sizeof(int));
 		break;
 	case SEC:
 	case ETYPE:
@@ -462,7 +463,8 @@ writeArgToOptions(nfstests_options_kind_t option, const char *value, void *expec
 		memcpy(expectedoptionsptr + offset, fh, fh->fh_len + sizeof(fh->fh_len));
 		break;
 	case BITMAP:
-		*((int *)(expectedoptionsptr + offset)) |= (int)(expected_value);
+		memcpy(&bit_flag, &expected_value, sizeof(int));
+		*((int *)(expectedoptionsptr + offset)) |= bit_flag;
 		break;
 	case CHAR_PTR:
 		*((char **)(expectedoptionsptr + offset)) = strndup(expected_value, MAXPATHLEN);

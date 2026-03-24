@@ -27,8 +27,8 @@
 #import "_WKMockUserNotificationCenter.h"
 
 #import <wtf/BlockPtr.h>
-#import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/darwin/DispatchOSObject.h>
 
 #if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 
@@ -60,7 +60,7 @@ static _WKMockUserNotificationCenter *centersByBundleIdentifier(NSString *bundle
     if (!self)
         return nil;
 
-    m_queue = adoptOSObject(dispatch_queue_create(nullptr, retainPtr(DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL).get()));
+    m_queue = adoptOSObject(dispatch_queue_create(nullptr, OSObjectPtr { DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL }.get()));
     m_bundleIdentifier = bundleIdentifier;
     m_notifications = adoptNS([[NSMutableArray alloc] init]);
 
@@ -107,7 +107,7 @@ static _WKMockUserNotificationCenter *centersByBundleIdentifier(NSString *bundle
 {
     RetainPtr toRemove = adoptNS([NSMutableArray new]);
     for (UNNotification *notification in m_notifications.get()) {
-        if ([identifiers containsObject:notification.request.identifier])
+        if ([identifiers containsObject:retainPtr(notification.request.identifier).get()])
             [toRemove addObject:notification];
     }
 
@@ -147,7 +147,7 @@ static _WKMockUserNotificationCenter *centersByBundleIdentifier(NSString *bundle
 {
     RetainPtr settings = [UNMutableNotificationSettings emptySettings];
     [settings setAuthorizationStatus:m_hasPermission ? UNAuthorizationStatusAuthorized : UNAuthorizationStatusNotDetermined];
-    return settings.unsafeGet();
+    return settings.autorelease();
 }
 
 @end

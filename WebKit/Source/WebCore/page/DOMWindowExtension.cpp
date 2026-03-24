@@ -54,7 +54,8 @@ DOMWindowExtension::~DOMWindowExtension()
 
 LocalFrame* DOMWindowExtension::frame() const
 {
-    return m_window ? m_window->localFrame() : nullptr;
+    RefPtr window = m_window.get();
+    return window ? window->localFrame() : nullptr;
 }
 
 RefPtr<LocalFrame> DOMWindowExtension::protectedFrame() const

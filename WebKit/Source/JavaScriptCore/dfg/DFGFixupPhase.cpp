@@ -72,6 +72,7 @@ public:
         for (BlockIndex blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex)
             fixupChecksInBlock(m_graph.block(blockIndex));
 
+        ASSERT(m_graph.m_planStage < PlanStage::AfterFixup);
         m_graph.m_planStage = PlanStage::AfterFixup;
 
         return true;
@@ -1357,7 +1358,7 @@ private:
 
         case PutByValDirect:
         case PutByVal:
-        case PutByValAlias: {
+        case PutByValDirectResolved: {
             Edge& child1 = m_graph.varArgChild(node, 0);
             Edge& child2 = m_graph.varArgChild(node, 1);
             Edge& child3 = m_graph.varArgChild(node, 2);
@@ -4368,7 +4369,7 @@ private:
         emitPrimordialCheckFor(globalObject->regExpProtoUnicodeGetter(), vm().propertyNames->unicode.impl());
         // Check that searchRegExp.unicodeSets is the primordial RegExp.prototype.unicodeSets
         emitPrimordialCheckFor(globalObject->regExpProtoUnicodeSetsGetter(), vm().propertyNames->unicodeSets.impl());
-        // Check that searchRegExp[Symbol.match] is the primordial RegExp.prototype[Symbol.replace]
+        // Check that searchRegExp[Symbol.replace] is the primordial RegExp.prototype[Symbol.replace]
         emitPrimordialCheckFor(globalObject->regExpProtoSymbolReplaceFunction(), vm().propertyNames->replaceSymbol.impl());
     }
 
@@ -5116,6 +5117,7 @@ private:
             if (!m_graph.hasExitSite(node->origin.semantic, BadType)) {
                 if (!node->shouldSpeculateInt32() && node->shouldSpeculateNumber()) {
                     node->setResult(NodeResultDouble);
+                    node->mergeFlags(NodeMustGenerate); // Absorbs speculation check from the using edge
                     return true;
                 }
             }

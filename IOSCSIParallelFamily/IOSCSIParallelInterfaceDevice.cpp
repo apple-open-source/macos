@@ -194,14 +194,14 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	
 	// Execute the inherited start
 	result = super::start ( provider );
-	require ( result, PROVIDER_START_FAILURE );
+	__Require(result, PROVIDER_START_FAILURE);
 	
 	// Open the controller, the provider.
 	result = fController->open ( this );
-	require ( result, CONTROLLER_OPEN_FAILURE );
+	__Require(result, CONTROLLER_OPEN_FAILURE);
 	
 	result = fController->InitializeTargetForID ( fTargetIdentifier );
-	require ( result, CONTROLLER_INIT_FAILURE );
+	__Require(result, CONTROLLER_INIT_FAILURE);
 	
 	// Check if controller supports Multipathing
 	fMultiPathSupport = fController->DoesHBASupportMultiPathing ( );
@@ -534,7 +534,7 @@ IOSCSIParallelInterfaceDevice::CreateTarget (
 	require_nonzero ( newDevice, DEVICE_CREATION_FAILURE );
 	
 	result = newDevice->InitTarget ( targetID, sizeOfHBAData, entry );
-	require ( result, RELEASE_DEVICE );
+	__Require(result, RELEASE_DEVICE);
 	
 	STATUS_LOG ( ( "-CreateTarget \n" ) );
 	
@@ -571,7 +571,7 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 	bool	result	= false;
 	
 	result = super::init ( 0 );
-	require ( result, ERROR_EXIT );
+	__Require(result, ERROR_EXIT);
 	
 	queue_init ( &fOutstandingTaskList );
 	queue_init ( &fResendTaskList );
@@ -589,7 +589,7 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 		result = attachToParent ( entry, gIODTPlane );
 		unlockForArbitration ( );
 		
-		require ( result, ATTACH_TO_PARENT_FAILURE );
+		__Require(result, ATTACH_TO_PARENT_FAILURE);
 		
 		value = entry->copyProperty ( kIODeviceLocationKey );
 		if ( value != NULL )
@@ -1067,7 +1067,7 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit);
 		result = protocolDict->setObject ( key, value );
 		result = protocolDict->setObject ( kIOPropertySCSIPortIdentifierKey, value );
 		
@@ -1080,7 +1080,7 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		char		name[27]	= { 0 };
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit);
 		result = protocolDict->setObject ( key, value );
 		
 		snprintf ( name, sizeof ( name ), "FC Target %016qX", OSSwapHostToBigInt64 ( *( UInt64 * ) data->getBytesNoCopy ( ) ) );
@@ -1094,7 +1094,7 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit);
 		result = protocolDict->setObject ( key, value );
 		
 	}
@@ -1105,7 +1105,7 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		OSData * data = OSDynamicCast ( OSData, value );
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kALPADataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kALPADataSize ), ErrorExit);
 		result = protocolDict->setObject ( key, value );
 		
 	}
@@ -1117,7 +1117,7 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		char		name[28]	= { 0 };
 		
 		require_nonzero ( data, ErrorExit );
-		require ( ( data->getLength ( ) == kSASAddressDataSize ), ErrorExit );
+		__Require(( data->getLength ( ) == kSASAddressDataSize ), ErrorExit);
 		result = protocolDict->setObject ( key, value );
 		result = protocolDict->setObject ( kIOPropertySCSIPortIdentifierKey, value );
 		
@@ -1538,7 +1538,7 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 	bool			isSupported = false;
 	OSNumber *		number = NULL;
 	
-	require ( ( isInactive ( ) == false ), ErrorExit );
+	__Require(( isInactive ( ) == false ), ErrorExit);
 	require_nonzero ( fController, ErrorExit );
 	
 	switch ( feature )
@@ -1649,6 +1649,16 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 
 		}
 		break;
+
+        case kSCSIProtocolFeature_SMARTStatus:
+        {
+
+            // Setting isSupported to true, PeripheralDevice
+            // driver can futher investigate it
+            isSupported = true;
+
+        }
+        break;
 
 		default:
 		{
@@ -1911,7 +1921,7 @@ IOSCSIParallelInterfaceDevice::RemoveFromOutstandingTaskList (
 	
 	IOSimpleLockLock ( fQueueLock );
 	
-	require ( ( queue_empty ( &fOutstandingTaskList ) == false ), ExitLocked );
+	__Require(( queue_empty ( &fOutstandingTaskList ) == false ), ExitLocked);
 	
 	queue_remove ( &fOutstandingTaskList, task, SCSIParallelTask *, fCommandChain );
 	
@@ -2101,7 +2111,7 @@ IOSCSIParallelInterfaceDevice::RemoveFromResendTaskList (
 	
 	IOSimpleLockLock ( fQueueLock );
 	
-	require ( ( queue_empty ( &fResendTaskList ) == false ), ExitLocked );
+	__Require(( queue_empty ( &fResendTaskList ) == false ), ExitLocked);
 	
 	queue_remove ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
 	

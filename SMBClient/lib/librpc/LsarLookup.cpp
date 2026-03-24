@@ -289,7 +289,7 @@ NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **dom
 	PRPC_UNICODE_STRING AccountName = NULL;
 	PRPC_UNICODE_STRING DomainName = NULL;
     NTSTATUS nt_status = STATUS_SUCCESS;
-	WCHAR * UTF16ServerName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, 0);
+	WCHAR * UTF16ServerName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, NORMALIZE_FORM_NONE);
     rpc_ss_allocator_t  allocator;
     boolean_t restoreMemAllocator = false;
     

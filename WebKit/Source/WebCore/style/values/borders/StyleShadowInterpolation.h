@@ -51,7 +51,7 @@ struct ShadowInterpolation {
         // FIXME: Something like LLVM ADT's zip_shortest (https://llvm.org/doxygen/structllvm_1_1detail_1_1zip__shortest.html) would allow this to be done without indexing:
         //
         // return std::ranges::all_of(
-        //     zip_shortest(makeReversedRange(fromShadows), makeReversedRange(toShadows)),
+        //     zip_shortest(fromShadows | std::views::reverse, toShadows | std::views::reverse),
         //     [](const auto& pair) {
         //         return shadowStyle(std::get<0>(pair)) == shadowStyle(std::get<1>(pair));
         //     }

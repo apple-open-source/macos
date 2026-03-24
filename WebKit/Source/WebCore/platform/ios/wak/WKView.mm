@@ -31,8 +31,8 @@
 #import "WAKViewInternal.h"
 #import "WAKWindow.h"
 #import "WKUtilities.h"
+#import <ranges>
 #import <wtf/Assertions.h>
-#import <wtf/IteratorRange.h>
 
 void _WKViewSetSuperview(WKViewRef view, WKViewRef superview)
 {
@@ -658,7 +658,7 @@ CGPoint WKViewConvertPointFromBase(WKViewRef view, CGPoint p)
         return CGPointZero;
 
     CGPoint aPoint = p;
-    for (auto& ancestorView : makeReversedRange(ancestorViews))
+    for (auto& ancestorView : ancestorViews | std::views::reverse)
         aPoint = WKViewConvertPointFromSuperview(ancestorView, aPoint);
     return aPoint;
 }
@@ -687,7 +687,7 @@ CGRect WKViewConvertRectFromBase(WKViewRef view, CGRect r)
         return CGRectZero;
     
     CGRect aRect = r;
-    for (auto& ancestorView : makeReversedRange(ancestorViews))
+    for (auto& ancestorView : ancestorViews | std::views::reverse)
         aRect = WKViewConvertRectFromSuperview(ancestorView, aRect);
     return aRect;
 }

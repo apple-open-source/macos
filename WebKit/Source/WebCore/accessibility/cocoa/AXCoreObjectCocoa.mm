@@ -67,12 +67,12 @@ String AXCoreObject::speechHint() const
     auto speakAs = this->speakAs();
 
     StringBuilder builder;
-    builder.append((speakAs & SpeakAs::SpellOut) ? "spell-out"_s : "normal"_s);
-    if (speakAs & SpeakAs::Digits)
+    builder.append(speakAs.contains(Style::SpeakAsValue::SpellOut) ? "spell-out"_s : "normal"_s);
+    if (speakAs.contains(Style::SpeakAsValue::Digits))
         builder.append(" digits"_s);
-    if (speakAs & SpeakAs::LiteralPunctuation)
+    if (speakAs.contains(Style::SpeakAsValue::LiteralPunctuation))
         builder.append(" literal-punctuation"_s);
-    if (speakAs & SpeakAs::NoPunctuation)
+    if (speakAs.contains(Style::SpeakAsValue::NoPunctuation))
         builder.append(" no-punctuation"_s);
 
     return builder.toString();
@@ -273,6 +273,11 @@ RetainPtr<NSMutableAttributedString> AXCoreObject::createAttributedString(String
 
         if (ancestor->role() == AccessibilityRole::Blockquote)
             ++blockquoteLevel;
+
+        if (ancestor->isExposableTable()) {
+            if (id wrapper = ancestor->wrapper())
+                [string.get() addAttribute:NSAccessibilityTableAttribute value:(__bridge id)adoptCF(NSAccessibilityCreateAXUIElementRef(wrapper)).get() range:range];
+        }
     }
     if (blockquoteLevel)
         [string.get() addAttribute:NSAccessibilityBlockQuoteLevelAttribute value:@(blockquoteLevel) range:range];
@@ -449,7 +454,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         // descendants. These anonymous renderers are the only accessible objects
         // containing the operator.
         role = AccessibilityRole::StaticText;
-    } else if (role == AccessibilityRole::Canvas && firstUnignoredChild() && !containsOnlyStaticText()) {
+    } else if (role == AccessibilityRole::Canvas && hasUnignoredChild() && !containsOnlyStaticText()) {
         // If this is a canvas with fallback content (one or more non-text thing), re-map to group.
         role = AccessibilityRole::Group;
     } else {
@@ -482,7 +487,7 @@ bool AXCoreObject::isEmptyGroup()
         return false;
 
     return [rolePlatformString().createNSString() isEqual:NSAccessibilityGroupRole]
-        && !firstUnignoredChild()
+        && !hasUnignoredChild()
         && ![renderWidgetChildren(*this) count];
 }
 
@@ -509,7 +514,7 @@ PlatformRoleMap createPlatformRoleMap()
         AccessibilityRole value;
         NSString *string;
     };
-    static const RoleEntry roles[] = {
+    static const auto roles = std::to_array<RoleEntry>({
         { AccessibilityRole::Unknown, NSAccessibilityUnknownRole },
         { AccessibilityRole::Button, NSAccessibilityButtonRole },
         { AccessibilityRole::RadioButton, NSAccessibilityRadioButtonRole },
@@ -640,7 +645,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::RemoteFrame, NSAccessibilityGroupRole },
         { AccessibilityRole::LocalFrame, NSAccessibilityGroupRole },
         { AccessibilityRole::FrameHost, NSAccessibilityGroupRole },
-    };
+    });
     PlatformRoleMap roleMap;
     for (auto& role : roles)
         roleMap.add(static_cast<unsigned>(role.value), role.string);
@@ -658,7 +663,7 @@ std::optional<AXTextMarkerRange> markerRangeFrom(NSRange range, const AXCoreObje
     auto markerToRangeEnd = markerToLocation.nextMarkerFromOffset(range.length, ForceSingleOffsetMovement::Yes, stopAtID);
     if (!markerToRangeEnd.isValid())
         return std::nullopt;
-    return std::optional(AXTextMarkerRange { WTFMove(markerToLocation), WTFMove(markerToRangeEnd) });
+    return std::optional(AXTextMarkerRange { WTF::move(markerToLocation), WTF::move(markerToRangeEnd) });
 }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 

@@ -971,7 +971,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     auto* frame = core([dataSource webFrame]);
     WebCore::FrameLoadRequest frameLoadRequest { *frame->document(), frame->document()->securityOrigin(), { URL }, { }, WebCore::InitiatedByMainFrame::Unknown };
     frameLoadRequest.setReferrerPolicy(WebCore::ReferrerPolicy::NoReferrer);
-    frame->loader().loadFrameRequest(WTFMove(frameLoadRequest), event.get(), nullptr);
+    frame->loader().loadFrameRequest(WTF::move(frameLoadRequest), event.get(), nullptr);
 }
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender

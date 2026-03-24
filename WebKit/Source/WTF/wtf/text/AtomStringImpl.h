@@ -45,7 +45,7 @@ public:
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(StringImpl*, unsigned offset, unsigned length);
     ALWAYS_INLINE static RefPtr<AtomStringImpl> add(StringImpl*);
     ALWAYS_INLINE static RefPtr<AtomStringImpl> add(RefPtr<StringImpl>&&);
-    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(const StaticStringImpl*);
+    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(const StaticStringImpl&);
     ALWAYS_INLINE static Ref<AtomStringImpl> add(ASCIILiteral);
 
     // Returns null if the input data contains an invalid UTF-8 sequence.
@@ -130,11 +130,11 @@ ALWAYS_INLINE Ref<AtomStringImpl> AtomStringImpl::add(StringImpl& string)
 
 ALWAYS_INLINE Ref<AtomStringImpl> AtomStringImpl::add(Ref<StringImpl>&& string)
 {
-    if (string->isAtom()) {
+    if (is<AtomStringImpl>(string)) {
         ASSERT_WITH_MESSAGE(!string->length() || isInAtomStringTable(string.ptr()), "The atom string comes from an other thread!");
-        return static_reference_cast<AtomStringImpl>(WTFMove(string));
+        return uncheckedDowncast<AtomStringImpl>(WTF::move(string));
     }
-    return addSlowCase(WTFMove(string));
+    return addSlowCase(WTF::move(string));
 }
 
 ALWAYS_INLINE Ref<AtomStringImpl> AtomStringImpl::add(AtomStringTable& stringTable, StringImpl& string)
@@ -161,6 +161,9 @@ template<> struct ValueCheck<const AtomStringImpl*> {
 };
 
 #endif // ASSERT_ENABLED
+
+inline void printInternal(PrintStream& out, const AtomStringImpl* value) { printInternal(out, std::bit_cast<const StringImpl*>(value)); }
+inline void printInternal(PrintStream& out, AtomStringImpl* value) { printInternal(out, static_cast<const AtomStringImpl*>(value)); }
 
 } // namespace WTF
 

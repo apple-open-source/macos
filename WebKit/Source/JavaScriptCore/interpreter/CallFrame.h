@@ -76,6 +76,7 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
         unsigned hash() const { return intHash(m_bits); }
         static CallSiteIndex deletedValue() { return fromBits(s_invalidIndex - 1); }
         bool isHashTableDeletedValue() const { return *this == deletedValue(); }
+        static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 
         uint32_t bits() const { return m_bits; }
         static CallSiteIndex fromBits(uint32_t bits) { return CallSiteIndex(bits); }
@@ -86,12 +87,6 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
         static constexpr uint32_t s_invalidIndex = std::numeric_limits<uint32_t>::max();
 
         uint32_t m_bits { s_invalidIndex };
-    };
-
-    struct CallSiteIndexHash {
-        static unsigned hash(const CallSiteIndex& key) { return key.hash(); }
-        static bool equal(const CallSiteIndex& a, const CallSiteIndex& b) { return a == b; }
-        static constexpr bool safeToCompareToEmptyOrDeleted = true;
     };
 
     class DisposableCallSiteIndex : public CallSiteIndex {
@@ -164,13 +159,15 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
     //
     //  Overloaded slots:
     //
-    //    - 'this': when executing wasm code, the slot contains the value of SP saved before the call.
-    //      Saving the value allows moving the SP freely in tail calls.
-    //    - 'codeBlock': when executing wasm code, the slot contains a pointer to the Wasm instance.
-    //      The pointer is determined by 'resolveWasmCall()' in WasmIPIntSlowPaths.cpp.
+    //    - 'this': when executing Wasm code, the slot contains the value of $sp relative to $fp, saved before the call.
+    //      Saving the value allows moving the $sp freely in tail calls.
+    //    - 'codeBlock': when executing Wasm code, the slot contains a pointer to the Wasm instance.
     //      A special case is calling a module import whose functionCallLinkInfo.targetInstance is
     //      null, which is the case when the imported function is a JS function.
     //      In that case, 'codeBlock' points at the functionCallLinkInfo object.
+    //
+    // Further, in Wasm execution not all slots shown above are used, and not all exist.
+    // Argument slots beyond 'this' typically do not exist and 'argumentCountIncludingThis' value is not meaningful.
 
     enum class CallFrameSlot {
         codeBlock = CallerFrameAndPC::sizeInRegisters,
@@ -437,9 +434,6 @@ JS_EXPORT_PRIVATE bool isFromJSCode(void* returnAddress);
 } // namespace JSC
 
 namespace WTF {
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::CallSiteIndex> : JSC::CallSiteIndexHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::CallSiteIndex> : SimpleClassHashTraits<JSC::CallSiteIndex> {

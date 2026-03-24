@@ -91,17 +91,17 @@ void WebExtensionAPILocalization::getAcceptLanguages(Ref<WebExtensionCallbackHan
         [acceptLanguages addObject:[NSLocale localeWithLocaleIdentifier:localeIdentifier].languageCode];
     }
 
-    callback->call(acceptLanguages.array);
+    callback->call(toJSValueRef(callback->globalContext(), acceptLanguages.array));
 }
 
 void WebExtensionAPILocalization::getPreferredSystemLanguages(Ref<WebExtensionCallbackHandler>&& callback)
 {
-    callback->call(NSLocale.preferredLanguages);
+    callback->call(toJSValueRef(callback->globalContext(), NSLocale.preferredLanguages));
 }
 
 void WebExtensionAPILocalization::getSystemUILanguage(Ref<WebExtensionCallbackHandler>&& callback)
 {
-    callback->call(NSLocale._deviceLanguage);
+    callback->call(toJSValueRef(callback->globalContext(), NSLocale._deviceLanguage));
 }
 
 } // namespace WebKit

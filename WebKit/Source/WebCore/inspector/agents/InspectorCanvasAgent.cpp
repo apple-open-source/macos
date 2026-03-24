@@ -111,7 +111,7 @@ void InspectorCanvasAgent::didCreateFrontendAndBackend()
 
 void InspectorCanvasAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    disable();
+    std::ignore = disable();
 }
 
 void InspectorCanvasAgent::discardAgent()
@@ -251,7 +251,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorCanvasAgent::startRecording(co
         recordingOptions.frameCount = *frameCount;
     if (memoryLimit)
         recordingOptions.memoryLimit = *memoryLimit;
-    startRecording(*inspectorCanvas, Inspector::Protocol::Recording::Initiator::Frontend, WTFMove(recordingOptions));
+    startRecording(*inspectorCanvas, Inspector::Protocol::Recording::Initiator::Frontend, WTF::move(recordingOptions));
 
     return { };
 }
@@ -347,7 +347,7 @@ void InspectorCanvasAgent::didCreateCanvasRenderingContext(CanvasRenderingContex
     if (m_recordingAutoCaptureFrameCount) {
         RecordingOptions recordingOptions;
         recordingOptions.frameCount = m_recordingAutoCaptureFrameCount.value();
-        startRecording(inspectorCanvas, Inspector::Protocol::Recording::Initiator::AutoCapture, WTFMove(recordingOptions));
+        startRecording(inspectorCanvas, Inspector::Protocol::Recording::Initiator::AutoCapture, WTF::move(recordingOptions));
     }
 }
 
@@ -461,7 +461,7 @@ void InspectorCanvasAgent::consoleStartRecordingCanvas(CanvasRenderingContext& c
         if (JSC::JSValue optionName = options->get(&exec, JSC::Identifier::fromString(vm, "name"_s)))
             recordingOptions.name = optionName.toWTFString(&exec);
     }
-    startRecording(*inspectorCanvas, Inspector::Protocol::Recording::Initiator::Console, WTFMove(recordingOptions));
+    startRecording(*inspectorCanvas, Inspector::Protocol::Recording::Initiator::Console, WTF::move(recordingOptions));
 }
 
 void InspectorCanvasAgent::consoleStopRecordingCanvas(CanvasRenderingContext& context)
@@ -490,7 +490,7 @@ void InspectorCanvasAgent::didCreateWebGLProgram(WebGLRenderingContextBase& cont
 
     auto inspectorProgramRef = InspectorShaderProgram::create(program, *inspectorCanvas);
     auto& inspectorProgram = inspectorProgramRef.get();
-    m_identifierToInspectorProgram.set(inspectorProgram.identifier(), WTFMove(inspectorProgramRef));
+    m_identifierToInspectorProgram.set(inspectorProgram.identifier(), WTF::move(inspectorProgramRef));
     m_frontendDispatcher->programCreated(inspectorProgram.buildObjectForShaderProgram());
 }
 
@@ -561,7 +561,7 @@ void InspectorCanvasAgent::recordAction(CanvasRenderingContext& canvasRenderingC
 
     m_recordingCanvasIdentifiers.add(inspectorCanvas->identifier());
 
-    inspectorCanvas->recordAction(WTFMove(name), WTFMove(arguments));
+    inspectorCanvas->recordAction(WTF::move(name), WTF::move(arguments));
 
     if (!inspectorCanvas->hasBufferSpace())
         didFinishRecordingCanvasFrame(canvasRenderingContext, true);

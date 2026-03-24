@@ -89,7 +89,7 @@ private:
 
     bool supportsUnadjustedMovement() const;
 
-    Page& m_page;
+    WeakRef<Page> m_page;
     bool m_lockPending { false };
     bool m_unlockPending { false };
     bool m_forceCursorVisibleUponUnlock { false };

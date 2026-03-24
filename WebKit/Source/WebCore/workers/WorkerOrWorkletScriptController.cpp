@@ -77,7 +77,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerOrWorkletScriptController);
 using namespace JSC;
 
 WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadType type, Ref<VM>&& vm, WorkerOrWorkletGlobalScope* globalScope)
-    : m_vm(WTFMove(vm))
+    : m_vm(WTF::move(vm))
     , m_globalScope(globalScope)
     , m_globalScopeWrapper(*m_vm)
 {
@@ -494,12 +494,12 @@ void WorkerOrWorkletScriptController::loadAndEvaluateModule(const URL& moduleURL
 
     auto parameters = ModuleFetchParameters::create(JSC::ScriptFetchParameters::Type::JavaScript, emptyString(), /* isTopLevelModule */ true);
     RefPtr globalScope = m_globalScope.get();
-    auto scriptFetcher = WorkerScriptFetcher::create(WTFMove(parameters), credentials, globalScope->destination(), globalScope->referrerPolicy());
+    auto scriptFetcher = WorkerScriptFetcher::create(WTF::move(parameters), credentials, globalScope->destination(), globalScope->referrerPolicy());
 
     auto* promise = JSExecState::loadModule(globalObject, moduleURL, JSC::JSScriptFetchParameters::create(vm, scriptFetcher->parameters()), JSC::JSScriptFetcher::create(vm, { scriptFetcher.ptr() }));
     if (promise) [[likely]] {
-        auto task = createSharedTask<void(std::optional<Exception>&&)>([completionHandler = WTFMove(completionHandler)](std::optional<Exception>&& exception) mutable {
-            completionHandler(WTFMove(exception));
+        auto task = createSharedTask<void(std::optional<Exception>&&)>([completionHandler = WTF::move(completionHandler)](std::optional<Exception>&& exception) mutable {
+            completionHandler(WTF::move(exception));
         });
 
         auto& fulfillHandler = *JSNativeStdFunction::create(vm, &globalObject, 1, String(), [task, scriptFetcher](JSGlobalObject* globalObject, CallFrame* callFrame) -> JSC::EncodedJSValue {

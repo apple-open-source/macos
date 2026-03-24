@@ -113,7 +113,7 @@ private:
     void requestMaximizeWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
     {
         if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
-            webkitWebViewMaximizeWindow(webView, WTFMove(completionHandler));
+            webkitWebViewMaximizeWindow(webView, WTF::move(completionHandler));
         else
             completionHandler();
     }
@@ -121,7 +121,7 @@ private:
     void requestHideWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
     {
         if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
-            webkitWebViewMinimizeWindow(webView, WTFMove(completionHandler));
+            webkitWebViewMinimizeWindow(webView, WTF::move(completionHandler));
         else
             completionHandler();
     }
@@ -129,7 +129,7 @@ private:
     void requestRestoreWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
     {
         if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
-            webkitWebViewRestoreWindow(webView, WTFMove(completionHandler));
+            webkitWebViewRestoreWindow(webView, WTF::move(completionHandler));
         else
             completionHandler();
     }
@@ -411,7 +411,7 @@ WebKitAutomationSession* webkitAutomationSessionCreate(WebKitWebContext* webCont
 #else
                 Ref dataStore = webkitWebsiteDataManagerGetDataStore(webkit_web_context_get_website_data_manager(webContext));
 #endif
-                dataStore->setNetworkProxySettings(WTFMove(settings));
+                dataStore->setNetworkProxySettings(WTF::move(settings));
             }
         } else {
             WebKitNetworkProxySettings* proxySettings = nullptr;

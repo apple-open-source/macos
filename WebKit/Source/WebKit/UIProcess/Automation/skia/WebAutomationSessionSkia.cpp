@@ -49,25 +49,36 @@ static std::optional<String> base64EncodedPNGData(SkImage& image)
         return std::nullopt;
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // Skia port
-    return base64EncodeToString(std::span<const uint8_t>(data->bytes(), data->size()));
+    return base64EncodeToString(data->byteSpan());
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(ShareableBitmap::Handle&& handle)
 {
-    auto bitmap = ShareableBitmap::create(WTFMove(handle), SharedMemory::Protection::ReadOnly);
+    auto bitmap = ShareableBitmap::create(WTF::move(handle), SharedMemory::Protection::ReadOnly);
     if (!bitmap)
         return std::nullopt;
 
     auto image = bitmap->createPlatformImage();
+    if (!image)
+        return std::nullopt;
+
     return base64EncodedPNGData(*image.get());
 }
 
 #if !PLATFORM(GTK)
-std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(const ViewSnapshot&)
+std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(const ViewSnapshot& snapshot)
 {
-    notImplemented();
+#if PLATFORM(WPE)
+    auto skiaImage = snapshot.image();
+    if (!skiaImage)
+        return std::nullopt;
+
+    return base64EncodedPNGData(*skiaImage);
+#else
+    UNUSED_PARAM(snapshot);
     return std::nullopt;
+#endif
 }
 #endif
 

@@ -384,6 +384,10 @@
 		F765F92D29217BAA00E9649E /* xzone_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F765F92929217BAA00E9649E /* xzone_malloc.c */; };
 		F765F92E29217BAA00E9649E /* xzone_inline_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F765F92A29217BAA00E9649E /* xzone_inline_internal.h */; };
 		F765F92F29217BAA00E9649E /* xzone_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = F765F92B29217BAA00E9649E /* xzone_malloc.h */; };
+		F7A70B592E4FF02E001194EF /* malloc_config.h in Headers */ = {isa = PBXBuildFile; fileRef = F7A70B572E4FF02E001194EF /* malloc_config.h */; };
+		F7A70B5A2E4FF02E001194EF /* malloc_config.c in Sources */ = {isa = PBXBuildFile; fileRef = F7A70B582E4FF02E001194EF /* malloc_config.c */; };
+		F7A70B5F2E4FFA52001194EF /* malloc_config_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = F7A70B5E2E4FFA4D001194EF /* malloc_config_tests.m */; };
+		F7A70B602E50046C001194EF /* malloc_config.c in Sources */ = {isa = PBXBuildFile; fileRef = F7A70B582E4FF02E001194EF /* malloc_config.c */; };
 		F7FC7599297905AA00D3F81F /* malloc_type_stubs.c in Sources */ = {isa = PBXBuildFile; fileRef = F7FC7598297905A900D3F81F /* malloc_type_stubs.c */; };
 /* End PBXBuildFile section */
 
@@ -632,6 +636,7 @@
 		4DA4F8132A2916B900981635 /* wrapper_zones.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = wrapper_zones.c; sourceTree = "<group>"; };
 		4DABD07D25CB621700AFF1F8 /* stack_trace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stack_trace.h; sourceTree = "<group>"; };
 		4DABD07E25CB621700AFF1F8 /* stack_trace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stack_trace.c; sourceTree = "<group>"; };
+		4DBB5B9D2EC5422900B634B6 /* malloc_logger_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_logger_test.c; sourceTree = "<group>"; };
 		4DC7987424186ECB008F629E /* pgm_zone_api.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pgm_zone_api.c; sourceTree = "<group>"; tabWidth = 2; };
 		4DD5962D23E22A3D00D573D2 /* pgm_internals.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pgm_internals.c; sourceTree = "<group>"; tabWidth = 2; };
 		4DD5E17226F4CDCA00C14B08 /* has_section.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = has_section.c; sourceTree = "<group>"; };
@@ -771,6 +776,9 @@
 		F765F92929217BAA00E9649E /* xzone_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzone_malloc.c; sourceTree = "<group>"; };
 		F765F92A29217BAA00E9649E /* xzone_inline_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xzone_inline_internal.h; sourceTree = "<group>"; };
 		F765F92B29217BAA00E9649E /* xzone_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xzone_malloc.h; sourceTree = "<group>"; };
+		F7A70B572E4FF02E001194EF /* malloc_config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = malloc_config.h; sourceTree = "<group>"; };
+		F7A70B582E4FF02E001194EF /* malloc_config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_config.c; sourceTree = "<group>"; };
+		F7A70B5E2E4FFA4D001194EF /* malloc_config_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = malloc_config_tests.m; sourceTree = "<group>"; };
 		F7FC75962979045000D3F81F /* libmalloc_type_stubs.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc_type_stubs.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		F7FC75972979055500D3F81F /* libmalloc_type_stubs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_type_stubs.xcconfig; sourceTree = "<group>"; };
 		F7FC7598297905A900D3F81F /* malloc_type_stubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = malloc_type_stubs.c; sourceTree = "<group>"; };
@@ -904,6 +912,8 @@
 		3FE91FCC16A90A8D00D1238A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				F7A70B572E4FF02E001194EF /* malloc_config.h */,
+				F7A70B582E4FF02E001194EF /* malloc_config.c */,
 				06057A272A56B4B8005EF06B /* instrumentation.h */,
 				06057A282A56B4B8005EF06B /* instrumentation.c */,
 				F765F92729217BAA00E9649E /* xzone_malloc */,
@@ -1087,6 +1097,7 @@
 				875E02E32125B62300A7FE8A /* aligned_alloc_test.c */,
 				875E02E42125C1D100A7FE8A /* posix_memalign_test.c */,
 				B6A414EA1FBDF01C0038DC53 /* malloc_claimed_address_tests.c */,
+				4DBB5B9D2EC5422900B634B6 /* malloc_logger_test.c */,
 				4D20007425BA687B0018FFE6 /* malloc_zone_unregister_test.c */,
 				B6726EC92092473D00E8AF5A /* malloc_heap_check_test.c */,
 				C9F8C2681D70B521008C4044 /* magazine_small_test.c */,
@@ -1144,6 +1155,7 @@
 		C0ACD6C92510274B000C20CB /* xctests */ = {
 			isa = PBXGroup;
 			children = (
+				F7A70B5E2E4FFA4D001194EF /* malloc_config_tests.m */,
 				F7099C96275346A900C9F66F /* magazine_tiny_tests.m */,
 				C002C5B2251A7A2400D00D15 /* BATS.plist */,
 				C0ACD6CC2510274B000C20CB /* Info.plist */,
@@ -1227,6 +1239,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7A70B592E4FF02E001194EF /* malloc_config.h in Headers */,
 				C957428A1BF3FD290027269A /* base.h in Headers */,
 				6E18E02C29777E0A00EE7E0D /* early_malloc.h in Headers */,
 				C0352EC71C3F3C4400DB5126 /* malloc_private.h in Headers */,
@@ -1883,6 +1896,7 @@
 				93C629F52ACB71240006CBDA /* xzone_metapool.c in Sources */,
 				C99E320B1D6F7366005655A8 /* magazine_rack.c in Sources */,
 				C95742AB1BF685CB0027269A /* legacy_malloc.c in Sources */,
+				F7A70B5A2E4FF02E001194EF /* malloc_config.c in Sources */,
 				C932D2681D6B8D840063B19E /* vm.c in Sources */,
 				3FE91FF116A90B9200D1238A /* magmallocProvider.d in Sources */,
 				4D38D0F928EF983000B75207 /* malloc_type.c in Sources */,
@@ -2064,7 +2078,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7A70B602E50046C001194EF /* malloc_config.c in Sources */,
 				C0545CBD251A7513000273D3 /* magazine_rack.c in Sources */,
+				F7A70B5F2E4FFA52001194EF /* malloc_config_tests.m in Sources */,
 				3AE868482981FC4D00A1625C /* nanov2_malloc.c in Sources */,
 				C002C5AD251A761600D00D15 /* magazine_large.c in Sources */,
 				C002C5AA251A75C100D00D15 /* magazine_malloc.c in Sources */,

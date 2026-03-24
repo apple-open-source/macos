@@ -32,8 +32,7 @@
 #include "DatabaseTask.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
-#include "DocumentPage.h"
-#include <WebCore/FrameDestructionObserver.h>
+#include "DocumentEventLoop.h"
 #include "ExceptionOr.h"
 #include "Logging.h"
 #include "Page.h"
@@ -104,9 +103,9 @@ void DatabaseManager::setIsAvailable(bool available)
 
 Ref<DatabaseContext> DatabaseManager::databaseContext(Document& document)
 {
-    if (auto databaseContext = document.databaseContext())
-        return *databaseContext;
-    auto context = adoptRef(*new DatabaseContext(document));
+    if (RefPtr databaseContext = document.databaseContext())
+        return databaseContext.releaseNonNull();
+    Ref context = adoptRef(*new DatabaseContext(document));
     context->suspendIfNeeded();
     return context;
 }
@@ -156,7 +155,7 @@ ExceptionOr<Ref<Database>> DatabaseManager::openDatabaseBackend(Document& docume
 ExceptionOr<Ref<Database>> DatabaseManager::tryToOpenDatabaseBackend(Document& document, const String& name, const String& expectedVersion, const String& displayName, unsigned estimatedSize, bool setVersionInNewDatabase,
     OpenAttempt attempt)
 {
-    auto* page = document.page();
+    RefPtr page = document.page();
     if (!page || page->usesEphemeralSession())
         return Exception { ExceptionCode::SecurityError };
 
@@ -219,7 +218,7 @@ ExceptionOr<Ref<Database>> DatabaseManager::openDatabase(Document& document, con
     if (database->isNew() && creationCallback.get()) {
         LOG(StorageAPI, "Scheduling DatabaseCreationCallbackTask for database %p\n", database.get());
         database->setHasPendingCreationEvent(true);
-        database->m_document->eventLoop().queueTask(TaskSource::Networking, [creationCallback, database]() {
+        database->m_document->checkedEventLoop()->queueTask(TaskSource::Networking, [creationCallback, database] {
             creationCallback->invoke(*database);
             database->setHasPendingCreationEvent(false);
         });

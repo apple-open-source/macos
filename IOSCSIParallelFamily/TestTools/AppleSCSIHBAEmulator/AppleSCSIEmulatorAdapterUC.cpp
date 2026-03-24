@@ -109,7 +109,7 @@ AppleSCSIEmulatorAdapterUserClient::initWithTask (
 	STATUS_LOG ( ( "AppleSCSIEmulatorAdapterUserClient::initWithTask called\n" ) );
 	
 	result = super::initWithTask ( owningTask, securityToken, type, properties );
-	require ( result, ErrorExit );
+	__Require(result, ErrorExit);
 	
 	fTask = owningTask;
 	result = true;
@@ -136,8 +136,8 @@ AppleSCSIEmulatorAdapterUserClient::start ( IOService * provider )
 	
 	STATUS_LOG ( ( "AppleSCSIEmulatorAdapterUserClient::start\n" ) );
 	
-	require ( ( fProvider == 0 ), ErrorExit );
-	require ( super::start ( provider ), ErrorExit );
+	__Require(( fProvider == 0 ), ErrorExit);
+	__Require(super::start ( provider ), ErrorExit);
 	
 	// Save the provider
 	fProvider = provider;
@@ -159,11 +159,11 @@ AppleSCSIEmulatorAdapterUserClient::start ( IOService * provider )
 	STATUS_LOG ( ( "Opening provider\n" ) );
 	
 	result = provider->open ( this, kSCSIEmulatorAdapterUserClientAccessMask, 0 );
-	require_action ( result,
+	__Require_Action(result,
 					 ErrorExit,
 					 workLoop->removeEventSource ( fCommandGate );
 					 fCommandGate->release ( );
-					 fCommandGate = NULL );
+					 fCommandGate = NULL);
 	
 	fWorkLoop = workLoop;
 	
@@ -266,14 +266,14 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 	
 	// We only have synchronous requests. If the asyncWakePort is a port,
 	// this is an async request and we should reject it.
-	require ( ( args->asyncWakePort == MACH_PORT_NULL ), ErrorExit );
-	require ( ( selector < kUserClientMethodCount ), ErrorExit );
+	__Require(( args->asyncWakePort == MACH_PORT_NULL ), ErrorExit);
+	__Require(( selector < kUserClientMethodCount ), ErrorExit);
 	
 	if ( selector == kUserClientCreateLUN )
 	{
 		
-		require ( ( args->structureInputSize == sizeof ( EmulatorTargetParamsStruct ) ), ErrorExit );
-		require ( ( args->structureOutputSize == 0 ), ErrorExit );
+		__Require(( args->structureInputSize == sizeof ( EmulatorTargetParamsStruct ) ), ErrorExit);
+		__Require(( args->structureOutputSize == 0 ), ErrorExit);
 		
 		STATUS_LOG ( ( "args->structureInputSize = %u\n", args->structureInputSize ) );
 		
@@ -284,8 +284,8 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 	else if ( selector == kUserClientDestroyLUN )
 	{
 		
-		require ( ( args->scalarInputCount == 2 ), ErrorExit );
-		require ( ( args->scalarOutputCount == 0 ), ErrorExit );
+		__Require(( args->scalarInputCount == 2 ), ErrorExit);
+		__Require(( args->scalarOutputCount == 0 ), ErrorExit);
 		
 		STATUS_LOG ( ( "args->scalarInputCount = %u\n", args->scalarInputCount ) );
 		STATUS_LOG ( ( "args->scalarInput[0] = %qd, args->scalarInput[1] = %qd\n", args->scalarInput[0], args->scalarInput[1] ) );
@@ -297,8 +297,8 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 	else if ( selector == kUserClientDestroyTarget )
 	{
 		
-		require ( ( args->scalarInputCount == 1 ), ErrorExit );
-		require ( ( args->scalarOutputCount == 0 ), ErrorExit );
+		__Require(( args->scalarInputCount == 1 ), ErrorExit);
+		__Require(( args->scalarOutputCount == 0 ), ErrorExit);
 		
 		STATUS_LOG ( ( "args->scalarInputCount = %u\n", args->scalarInputCount ) );
 		STATUS_LOG ( ( "args->scalarInput[0] = %qd\n", args->scalarInput[0] ) );

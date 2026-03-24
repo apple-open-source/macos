@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2020 Igalia S.L.
+ * Copyright (C) 2026 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,7 +33,7 @@
 #include "LayoutRect.h"
 #include "Logging.h"
 #include "RenderBox.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
@@ -257,10 +258,10 @@ static LayoutRect computeScrollSnapPortRect(const Style::ScrollPaddingBox& paddi
     return result;
 }
 
-static LayoutRect computeScrollSnapAreaRect(const Style::ScrollMarginBox& margin, const LayoutRect& rect)
+static LayoutRect computeScrollSnapAreaRect(const RenderStyle& style, const LayoutRect& rect)
 {
     auto result = rect;
-    result.expand(Style::extentForRect(margin, rect));
+    result.expand(Style::extentForRect(style.scrollMarginBox(), rect, style.usedZoomForLength()));
     return result;
 }
 
@@ -277,6 +278,19 @@ static LayoutUnit computeScrollSnapAlignOffset(LayoutUnit minLocation, LayoutUni
         ASSERT_NOT_REACHED();
         return 0;
     }
+}
+
+bool hasScrollSnappedBoxes(const RenderBox& scrollingElementBox)
+{
+    auto scrollSnapTypeContainer = scrollingElementBox.style().scrollSnapType().tryContainer();
+    if (!scrollSnapTypeContainer)
+        return false;
+
+    auto& boxesWithScrollSnapPositions = scrollingElementBox.view().boxesWithScrollSnapPositions();
+    if (boxesWithScrollSnapPositions.isEmptyIgnoringNullReferences())
+        return false;
+
+    return true;
 }
 
 void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const RenderBox& scrollingElementBox, const RenderStyle& scrollingElementStyle, LayoutRect viewportRectInBorderBoxCoordinates, WritingMode writingMode, Element* focusedElement)
@@ -345,7 +359,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         if (!scrollableArea.isScrollView())
             scrollSnapArea.moveBy(scrollPosition);
 
-        scrollSnapArea = computeScrollSnapAreaRect(child.style().scrollMarginBox(), scrollSnapArea);
+        scrollSnapArea = computeScrollSnapAreaRect(child.style(), scrollSnapArea);
         LOG_WITH_STREAM(ScrollSnap, stream << "    Considering scroll snap target area " << scrollSnapArea << " scroll snap id: " << child.element()->nodeIdentifier() << " element: " << *child.element());
         auto alignment = child.style().scrollSnapAlign();
         auto stop = child.style().scrollSnapStop();

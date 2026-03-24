@@ -51,9 +51,9 @@ static size_t SOSPiggyBackBlobGetDEREncodedSize(SOSGenCountRef gencount, SecKeyR
         return 0;
     }
 
-    require_quiet(accumulate_size(&total_payload, der_sizeof_number(gencount, error)), errOut);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(publicBytes, error)), errOut);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(signature, error)), errOut);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_number(gencount, error)), errOut);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(publicBytes, error)), errOut);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(signature, error)), errOut);
     CFReleaseNull(publicBytes);
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, total_payload);
 
@@ -144,13 +144,13 @@ bool SOSPiggyBackAddToKeychain(NSArray<NSData*>* identities, NSArray<NSDictionar
                                         };
 
         privKey = SecKeyCreateWithData((__bridge CFDataRef)v_data, (__bridge CFDictionaryRef)keyAttributes, NULL);
-        require_action_quiet(privKey, exit, secnotice("piggy","privKey failed to be created"));
+        __Require_Action_Quiet(privKey, exit, secnotice("piggy","privKey failed to be created"));
 
         publicKey = SecKeyCreatePublicFromPrivate(privKey);
-        require_action_quiet(publicKey, exit, secnotice("piggy","public key failed to be created"));
+        __Require_Action_Quiet(publicKey, exit, secnotice("piggy","public key failed to be created"));
 
         public_key_hash = SecKeyCopyPublicKeyHash(publicKey);
-        require_action_quiet(public_key_hash, exit, secnotice("piggy","can't create public key hash"));
+        __Require_Action_Quiet(public_key_hash, exit, secnotice("piggy","can't create public key hash"));
 
         peerid = SOSCopyIDOfKey(publicKey, NULL);
 
@@ -363,7 +363,7 @@ SOSPiggyBackBlobCreateFromDER(SOSGenCountRef  *retGencount,
     *setInitialSyncTimeoutToV0 = true;
 
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
-    require_action_quiet(sequence_end != NULL, errOut,
+    __Require_Action_Quiet(sequence_end != NULL, errOut,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Blob DER"), (error != NULL) ? *error : NULL, error));
     *der_p = der_decode_number(kCFAllocatorDefault, &gencount, error, *der_p, sequence_end);
     *der_p = der_decode_data_or_null(kCFAllocatorDefault, &publicBytes, error, *der_p, sequence_end);
@@ -384,12 +384,12 @@ SOSPiggyBackBlobCreateFromDER(SOSGenCountRef  *retGencount,
     else{ //V0
         secnotice("piggy","Piggybacking version 0, setting initial sync timeout to 5 minutes");
         *setInitialSyncTimeoutToV0 = true;
-        require_action_quiet(*der_p && *der_p == der_end, errOut,
+        __Require_Action_Quiet(*der_p && *der_p == der_end, errOut,
                              SOSCreateError(kSOSErrorBadFormat, CFSTR("Didn't consume all bytes for pbblob"), (error != NULL) ? *error : NULL, error));
     }
 
     *retPubKey = SecKeyCreateFromPublicData(kCFAllocatorDefault, kSecECDSAAlgorithmID, publicBytes);
-    require_quiet(*retPubKey, errOut);
+    __Require_Quiet(*retPubKey, errOut);
     *retGencount = gencount;
     *retSignature = signature;
 

@@ -44,6 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isCKKSServerPluginError:(NSInteger)code;
 - (BOOL)isCKServerInternalError;
 - (BOOL)isCKInternalServerHTTPError;
+- (BOOL)isCKServerAuthTokenError;
 @end
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)

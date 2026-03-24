@@ -202,17 +202,14 @@ float screenPPIFactor()
     if (auto data = screenData(primaryScreenDisplayID()))
         return data->scaleFactor;
 
-    static float ppiFactor;
-
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    static float ppiFactor = [] {
         int pitch = MGGetSInt32Answer(kMGQMainScreenPitch, 0);
         float scale = MGGetFloat32Answer(kMGQMainScreenScale, 0);
 
-        static const float originalIPhonePPI = 163;
+        constexpr float originalIPhonePPI = 163;
         float mainScreenPPI = (pitch && scale) ? pitch / scale : originalIPhonePPI;
-        ppiFactor = mainScreenPPI / originalIPhonePPI;
-    });
+        return mainScreenPPI / originalIPhonePPI;
+    }();
 
     return ppiFactor;
 }
@@ -287,7 +284,7 @@ ScreenProperties collectScreenProperties()
         screenData.currentEDRHeadroom = [screen currentEDRHeadroom];
 #endif
 
-        screenProperties.screenDataMap.set(++displayID, WTFMove(screenData));
+        screenProperties.screenDataMap.set(++displayID, WTF::move(screenData));
 
         if (screen == [PAL::getUIScreenClassSingleton() mainScreen])
             screenProperties.primaryDisplayID = displayID;

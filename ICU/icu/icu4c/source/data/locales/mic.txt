@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 mic{
     AuxExemplarCharacters{"[b c d f g h r v x z]"}
     ExemplarCharacters{"[aá eé i ɨ j k l m n oó p q s t uú w y ʼ]"}

@@ -429,7 +429,7 @@ void ScrollerMac::mouseEnteredScrollbar()
     RefPtr pair = m_pair.get();
     RetainPtr protectedScrollerImp = m_scrollerImp;
     RetainPtr protectedPair = pair->scrollerImpPair();
-    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTFMove(protectedScrollerImp), protectedPair = WTFMove(protectedPair)](auto&) {
+    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTF::move(protectedScrollerImp), protectedPair = WTF::move(protectedPair)](auto&) {
         // At this time, only legacy scrollbars needs to send notifications here.
         if (pair->scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
             return;
@@ -446,7 +446,7 @@ void ScrollerMac::mouseExitedScrollbar()
     RefPtr pair = m_pair.get();
     RetainPtr protectedScrollerImp = m_scrollerImp;
     RetainPtr protectedPair = pair->scrollerImpPair();
-    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTFMove(protectedScrollerImp), protectedPair = WTFMove(protectedPair)](auto&) {
+    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTF::move(protectedScrollerImp), protectedPair = WTF::move(protectedPair)](auto&) {
         // At this time, only legacy scrollbars needs to send notifications here.
         if (pair->scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
             return;

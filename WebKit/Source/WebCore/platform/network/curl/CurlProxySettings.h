@@ -73,7 +73,7 @@ public:
     long authMethod() const { return m_authMethod; }
 
 private:
-    friend struct IPC::ArgumentCoder<CurlProxySettings, void>;
+    friend struct IPC::ArgumentCoder<CurlProxySettings>;
     using IPCData = Variant<DefaultData, NoProxyData, CustomData>;
     WEBCORE_EXPORT IPCData toIPCData() const;
     WEBCORE_EXPORT static CurlProxySettings fromIPCData(IPCData&&);

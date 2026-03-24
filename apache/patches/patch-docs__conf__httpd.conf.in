@@ -11,10 +11,10 @@
 +<IfDefine !SERVER_APP_HAS_DEFAULT_PORTS>
 +    Listen @@Port@@
 +</IfDefine>
-
+ 
  #
  # Dynamic Shared Object (DSO) Support
-@@ -62,9 +62,13 @@
+@@ -62,8 +67,12 @@
  #
  # Example:
  # LoadModule foo_module modules/mod_foo.so
@@ -27,7 +27,6 @@
  
  <IfModule unixd_module>
  #
- # If you wish httpd to run as a different user or group, you must run
 @@ -74,8 +76,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.
@@ -74,10 +73,10 @@
  
  # Language settings
  #Include @rel_sysconfdir@/extra/httpd-languages.conf
-@@ -422,6 +424,9 @@
- SSLRandomSeed startup builtin
+@@ -426,3 +438,6 @@
  SSLRandomSeed connect builtin
  </IfModule>
-+
+ 
 +Include @rel_sysconfdir@/other/*.conf
++
 +

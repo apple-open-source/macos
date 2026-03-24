@@ -183,6 +183,9 @@ public:
 
     virtual ~AsyncPDFRenderer();
 
+    // WebCore::TiledBackingClient.
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
+
     void startTrackingLayer(WebCore::GraphicsLayer&);
     void stopTrackingLayer(WebCore::GraphicsLayer&);
     void teardown();

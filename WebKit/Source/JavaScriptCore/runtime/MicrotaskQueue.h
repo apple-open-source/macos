@@ -29,8 +29,10 @@
 #include <JavaScriptCore/Microtask.h>
 #include <JavaScriptCore/SlotVisitorMacros.h>
 #include <wtf/CompactRefPtrTuple.h>
+#include <wtf/Compiler.h>
 #include <wtf/Deque.h>
 #include <wtf/SentinelLinkedList.h>
+#include <wtf/TZoneMalloc.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -101,15 +103,15 @@ public:
     using Result = QueuedTaskResult;
 
     QueuedTask(Ref<MicrotaskDispatcher>&& dispatcher)
-        : m_dispatcher(WTFMove(dispatcher), InternalMicrotask::Opaque)
+        : m_dispatcher(WTF::move(dispatcher), static_cast<uint16_t>(InternalMicrotask::Opaque))
         , m_globalObject(nullptr)
     {
     }
 
     template<typename... Args>
     requires (sizeof...(Args) <= maxArguments) && (std::is_convertible_v<Args, JSValue> && ...)
-    QueuedTask(RefPtr<MicrotaskDispatcher>&& dispatcher, InternalMicrotask job, JSGlobalObject* globalObject, Args&&...args)
-        : m_dispatcher(WTFMove(dispatcher), job)
+    QueuedTask(RefPtr<MicrotaskDispatcher>&& dispatcher, InternalMicrotask job, uint8_t payload, JSGlobalObject* globalObject, Args&&...args)
+        : m_dispatcher(WTF::move(dispatcher), static_cast<uint16_t>(job) | (static_cast<uint16_t>(payload) << 8))
         , m_globalObject(globalObject)
         , m_arguments { std::forward<Args>(args)... }
     {
@@ -117,7 +119,7 @@ public:
 
     void setDispatcher(RefPtr<MicrotaskDispatcher>&& dispatcher)
     {
-        m_dispatcher.setPointer(WTFMove(dispatcher));
+        m_dispatcher.setPointer(WTF::move(dispatcher));
     }
 
     bool isRunnable() const;
@@ -131,15 +133,18 @@ public:
         return MicrotaskIdentifier { std::bit_cast<uintptr_t>(pointer) };
     }
     JSGlobalObject* globalObject() const { return m_globalObject; }
-    InternalMicrotask job() const { return m_dispatcher.type(); }
+    InternalMicrotask job() const { return static_cast<InternalMicrotask>(static_cast<uint8_t>(m_dispatcher.type())); }
+    // Task-specific metadata stored in upper 8 bits of m_dispatcher's type field.
+    // Typically holds JSPromise::Status or a nested InternalMicrotask value.
+    uint8_t payload() const { return static_cast<uint8_t>(m_dispatcher.type() >> 8); }
     std::span<const JSValue, maxArguments> arguments() const { return std::span<const JSValue, maxArguments> { m_arguments, maxArguments }; }
 
 private:
-    CompactRefPtrTuple<MicrotaskDispatcher, InternalMicrotask> m_dispatcher;
+    CompactRefPtrTuple<MicrotaskDispatcher, uint16_t> m_dispatcher;
     JSGlobalObject* m_globalObject;
     JSValue m_arguments[maxArguments] { };
 };
-static_assert(sizeof(QueuedTask) <= 48, "Size of QueuedTask is critical for performance");
+static_assert(sizeof(QueuedTask) <= 40, "Size of QueuedTask is critical for performance");
 
 class MarkedMicrotaskDeque {
 public:
@@ -156,7 +161,7 @@ public:
 
     void enqueue(QueuedTask&& task)
     {
-        m_queue.append(WTFMove(task));
+        m_queue.append(WTF::move(task));
     }
 
     bool isEmpty() const

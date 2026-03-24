@@ -42,7 +42,7 @@ public:
 
     WebPageProxyIdentifier webPageProxyID() const { return m_webPageProxyID; }
 
-    void setUserAgent(String&& userAgent) { m_userAgent = WTFMove(userAgent); }
+    void setUserAgent(String&& userAgent) { m_userAgent = WTF::move(userAgent); }
 
     void setServiceWorkerPageIdentifier(WebCore::ScriptExecutionContextIdentifier serviceWorkerPageIdentifier) { m_serviceWorkerPageIdentifier = serviceWorkerPageIdentifier; }
     std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier() const { return m_serviceWorkerPageIdentifier; }

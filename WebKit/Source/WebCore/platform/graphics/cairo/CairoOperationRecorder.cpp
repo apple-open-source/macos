@@ -554,7 +554,7 @@ void OperationRecorder::drawGlyphs(const Font& font, std::span<const GlyphBuffer
     append(createCommand<DrawGlyphs>(Cairo::FillSource(state), Cairo::StrokeSource(state),
         Cairo::ShadowState(state), point,
         RefPtr<cairo_scaled_font_t>(font.platformData().scaledFont()),
-        font.syntheticBoldOffset(), WTFMove(cairoGlyphs), xOffset, state.textDrawingMode(),
+        font.syntheticBoldOffset(), WTF::move(cairoGlyphs), xOffset, state.textDrawingMode(),
         state.strokeThickness(), state.dropShadow(), fontSmoothing));
 }
 
@@ -719,8 +719,8 @@ void OperationRecorder::drawLinesForText(const FloatPoint& point, float thicknes
         return;
 
     auto& state = this->state();
-    Vector<FloatSegment> segmentVector { WTFMove(lineSegments) };
-    append(createCommand<DrawLinesForText>(point, thickness, WTFMove(segmentVector), printing, doubleUnderlines, state.strokeBrush().color()));
+    Vector<FloatSegment> segmentVector { WTF::move(lineSegments) };
+    append(createCommand<DrawLinesForText>(point, thickness, WTF::move(segmentVector), printing, doubleUnderlines, state.strokeBrush().color()));
 }
 
 void OperationRecorder::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
@@ -1178,11 +1178,11 @@ void OperationRecorder::applyDeviceScaleFactor(float)
 
 void OperationRecorder::append(std::unique_ptr<PaintingOperation>&& command)
 {
-    m_commandList.append(WTFMove(command));
+    m_commandList.append(WTF::move(command));
 }
 
 #if ENABLE(VIDEO)
-void OperationRecorder::drawVideoFrame(VideoFrame& frame, const FloatRect& destination, ImageOrientation orientation, bool shouldDiscardAlpha)
+void OperationRecorder::drawVideoFrame(const VideoFrame& frame, const FloatRect& destination, ImageOrientation orientation, bool shouldDiscardAlpha)
 {
     // FIXME: Not implemented.
     GraphicsContext::drawVideoFrame(frame, destination, orientation, shouldDiscardAlpha);

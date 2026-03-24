@@ -1,7 +1,7 @@
 {
     "domain": "Page",
     "description": "Actions and events related to the inspected page belong to the page domain.",
-    "debuggableTypes": ["itml", "page", "web-page"],
+    "debuggableTypes": ["itml", "web-page"],
     "targetTypes": ["itml", "page"],
     "types": [
         {
@@ -143,14 +143,6 @@
             "parameters": [
                 { "name": "ignoreCache", "type": "boolean", "optional": true, "description": "If true, the page is reloaded from its origin without using cached resources." },
                 { "name": "revalidateAllResources", "type": "boolean", "optional": true, "description": "If true, all cached subresources will be revalidated when the main resource loads. Otherwise, only expired cached subresources will be revalidated (the default behavior for most WebKit clients)." }
-            ]
-        },
-        {
-            "name": "navigate",
-            "description": "Navigates current page to the given URL.",
-            "targetTypes": ["page"],
-            "parameters": [
-                { "name": "url", "type": "string", "description": "URL to navigate the page to." }
             ]
         },
         {

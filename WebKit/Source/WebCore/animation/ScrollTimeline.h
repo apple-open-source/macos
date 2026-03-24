@@ -51,8 +51,8 @@ public:
     static Ref<ScrollTimeline> createInactiveStyleOriginatedTimeline(const AtomString& name);
 
     const WeakStyleable& sourceStyleable() const { return m_source; }
-    virtual Element* bindingsSource() const;
-    virtual Element* source() const;
+    virtual RefPtr<Element> bindingsSource() const;
+    virtual RefPtr<Element> source() const;
     void setSource(Element*);
     void setSource(const Styleable&);
 
@@ -84,6 +84,12 @@ public:
         bool isReversed;
     };
 
+#if ENABLE(THREADED_ANIMATIONS)
+    WEBCORE_EXPORT std::optional<ScrollingNodeID> scrollingNodeIDForTesting() const;
+    void updateAcceleratedRepresentation();
+    bool canBeAccelerated() const final;
+#endif
+
 protected:
     explicit ScrollTimeline(const AtomString&, ScrollAxis);
 
@@ -92,17 +98,24 @@ protected:
         float rangeStart { 0 };
         float rangeEnd { 0 };
     };
-    virtual Data computeTimelineData() const;
+    virtual Data computeTimelineData(UseCachedCurrentTime = UseCachedCurrentTime::Yes) const;
 
     static ScrollableArea* scrollableAreaForSourceRenderer(const RenderElement*, Document&);
-
     ResolvedScrollDirection resolvedScrollDirection() const;
+    void sourceMetricsDidChange();
+
+#if ENABLE(THREADED_ANIMATIONS)
+    void scheduleAcceleratedRepresentationUpdate();
+#endif
 
 private:
     explicit ScrollTimeline();
     explicit ScrollTimeline(Scroller, ScrollAxis);
 
     bool isScrollTimeline() const final { return true; }
+#if ENABLE(THREADED_ANIMATIONS)
+    Ref<AcceleratedTimeline> createAcceleratedRepresentation() const final;
+#endif
 
     void animationTimingDidChange(WebAnimation&) override;
 
@@ -111,6 +124,10 @@ private:
         float maxScrollOffset { 0 };
     };
 
+#if ENABLE(THREADED_ANIMATIONS)
+    ProgressResolutionData computeProgressResolutionData() const;
+#endif
+    CurrentTimeData computeCurrentTimeData() const;
     void cacheCurrentTime();
 
     WeakStyleable m_source;

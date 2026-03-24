@@ -55,9 +55,9 @@ public:
     bool isEmpty() const;
 
 private:
-    Ref<RemoteMediaPlayerManager> protectedManager() const;
+    Ref<RemoteMediaPlayerManager> manager() const;
 
-    ThreadSafeWeakPtr<RemoteMediaPlayerManager> m_manager; // Cannot be null.
+    ThreadSafeWeakRef<RemoteMediaPlayerManager> m_manager;
     WebCore::MediaPlayerEnums::MediaEngineIdentifier m_engineIdentifier;
 
     using SupportedTypesAndCodecsKey = std::tuple<String, bool, bool, bool>;

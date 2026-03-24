@@ -45,7 +45,6 @@ struct DigitalCredentialsResponseData;
 struct DigitalCredentialsRevalidationResult;
 struct ExceptionData;
 struct MobileDocumentRequest;
-struct OpenID4VPRequest;
 
 class CredentialRequestCoordinatorClient : public RefCounted<CredentialRequestCoordinatorClient> {
     WTF_MAKE_TZONE_ALLOCATED(CredentialRequestCoordinatorClient);

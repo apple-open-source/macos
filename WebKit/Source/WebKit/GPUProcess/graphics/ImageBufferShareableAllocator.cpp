@@ -84,7 +84,7 @@ RefPtr<ImageBuffer> ImageBufferShareableAllocator::createImageBuffer(const Float
     if (!handle)
         return nullptr;
 
-    transferMemoryOwnership(WTFMove(handle->handle()));
+    transferMemoryOwnership(WTF::move(handle->handle()));
     return imageBuffer;
 }
 
@@ -98,7 +98,7 @@ RefPtr<PixelBuffer> ImageBufferShareableAllocator::createPixelBuffer(const Pixel
     if (!handle)
         return nullptr;
 
-    transferMemoryOwnership(WTFMove(*handle));
+    transferMemoryOwnership(WTF::move(*handle));
     return pixelBuffer;
 }
 

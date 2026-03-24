@@ -3,7 +3,7 @@
 #
 
 BUILDROOT ?= /tmp/NFS
-CCOVERAGEDIR ?= /var/tmp/cc/nfs
+CCOVERAGEDIR ?= /tmp/coverage
 
 ifndef SDKROOT
 SDKROOT := $(shell xcrun --sdk macosx.internal --show-sdk-path)

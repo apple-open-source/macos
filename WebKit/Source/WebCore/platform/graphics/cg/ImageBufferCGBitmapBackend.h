@@ -34,7 +34,7 @@
 namespace WebCore {
 
 class ImageBufferCGBitmapBackend final : public ImageBufferCGBackend {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageBufferCGBitmapBackend);
+    WTF_MAKE_TZONE_ALLOCATED(ImageBufferCGBitmapBackend);
     WTF_MAKE_NONCOPYABLE(ImageBufferCGBitmapBackend);
 public:
     ~ImageBufferCGBitmapBackend();

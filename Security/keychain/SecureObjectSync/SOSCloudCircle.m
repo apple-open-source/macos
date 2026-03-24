@@ -1148,8 +1148,8 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
         bool result = false;
         __block CFStringRef account_dsid = dsid;
 
-        require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
-        require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+        __Require_Action_Quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+        __Require_Action_Quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
 
         if(account_dsid == NULL){
             account_dsid = CFSTR("");
@@ -1173,8 +1173,8 @@ static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDa
         bool result = false;
         __block CFStringRef account_dsid = dsid;
         
-        require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
-        require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+        __Require_Action_Quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+        __Require_Action_Quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
         
         if(account_dsid == NULL){
             account_dsid = CFSTR("");
@@ -1196,8 +1196,8 @@ bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
     }
 
     secnotice("sosops", "SOSCCTryUserCredentialsAndDSID!! %@\n", user_label);
-    require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
-    require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+    __Require_Action_Quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+    __Require_Action_Quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
     CFStringRef account_dsid = (dsid != NULL) ? dsid: CFSTR("");
     return SOSCCTryUserCredentialsAndDSID_internal(user_label, user_password, account_dsid, error);
 out:

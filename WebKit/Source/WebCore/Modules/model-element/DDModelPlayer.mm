@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,17 +30,21 @@
 #if ENABLE(GPU_PROCESS_MODEL)
 
 #import "Document.h"
+#import "FloatPoint3D.h"
 #import "GPU.h"
 #import "GraphicsLayer.h"
 #import "GraphicsLayerContentsDisplayDelegate.h"
 #import "HTMLModelElement.h"
 #import "ModelDDInlineConverters.h"
 #import "ModelDDTypes.h"
+#import "ModelPlayerGraphicsLayerConfiguration.h"
 #import "Navigator.h"
 #import "Page.h"
 #import "PlatformCALayer.h"
 #import "PlatformCALayerDelegatedContents.h"
-#import "WebGPU.h"
+#import <WebCore/DDMesh.h>
+#import <WebGPU/DDModelTypes.h>
+#import <wtf/RetainPtr.h>
 
 namespace WebCore {
 
@@ -128,7 +133,7 @@ DDModelPlayer::~DDModelPlayer()
 
 void DDModelPlayer::ensureOnMainThreadWithProtectedThis(Function<void(Ref<DDModelPlayer>)>&& task)
 {
-    ensureOnMainThread([protectedThis = Ref { *this }, task = WTFMove(task)]() mutable {
+    ensureOnMainThread([protectedThis = Ref { *this }, task = WTF::move(task)]() mutable {
         task(protectedThis);
     });
 }
@@ -139,105 +144,121 @@ void DDModelPlayer::load(Model& modelSource, LayoutSize size)
 {
     RefPtr corePage = m_page.get();
     m_modelLoader = nil;
-    if (!m_modelLoader) {
-        RefPtr document = corePage->localTopDocument();
-        if (!document)
-            return;
+    m_didFinishLoading = false;
+    RefPtr document = corePage->localTopDocument();
+    if (!document)
+        return;
 
-        RefPtr window = document->window();
-        if (!window)
-            return;
+    RefPtr window = document->window();
+    if (!window)
+        return;
 
-        RefPtr gpu = window->protectedNavigator()->gpu();
-        if (!gpu)
-            return;
+    RefPtr gpu = window->protectedNavigator()->gpu();
+    if (!gpu)
+        return;
 
-        m_currentModel = gpu->backing().createModelBacking(size.width().toUnsigned(), size.height().toUnsigned(), [protectedThis = Ref { *this }] (Vector<MachSendRight>&& surfaceHandles) {
-            if (surfaceHandles.size())
-                protectedThis->m_displayBuffers = WTFMove(surfaceHandles);
+    m_currentModel = gpu->backing().createModelBacking(size.width().toUnsigned(), size.height().toUnsigned(), [protectedThis = Ref { *this }] (Vector<MachSendRight>&& surfaceHandles) {
+        if (surfaceHandles.size())
+            protectedThis->m_displayBuffers = WTF::move(surfaceHandles);
+    });
+
+    m_modelLoader = adoptNS([[DDBridgeModelLoader alloc] init]);
+    RetainPtr nsURL = modelSource.url().createNSURL();
+    Ref protectedThis = Ref { *this };
+    [m_modelLoader setCallbacksWithModelUpdatedCallback:^(DDBridgeUpdateMesh *updateRequest) {
+        ensureOnMainThreadWithProtectedThis([updateRequest] (Ref<DDModelPlayer> protectedThis) {
+            RefPtr model = protectedThis->m_currentModel;
+            if (model) {
+                model->update(toCpp(updateRequest));
+                protectedThis->setStageMode(protectedThis->m_stageMode);
+            }
+
+            [protectedThis->m_modelLoader requestCompleted:updateRequest];
+
+            if (RefPtr client = protectedThis->m_client.get(); client && !protectedThis->m_didFinishLoading) {
+                protectedThis->m_didFinishLoading = true;
+                client->didFinishLoading(protectedThis.get());
+                auto [simdCenter, simdExtents] = model->getCenterAndExtents();
+                client->didUpdateBoundingBox(protectedThis.get(), FloatPoint3D(simdCenter.x, simdCenter.y, simdCenter.z), FloatPoint3D(simdExtents.x, simdExtents.y, simdExtents.z));
+                protectedThis->notifyEntityTransformUpdated();
+            }
         });
+    } textureUpdatedCallback:^(DDBridgeUpdateTexture *updateTexture) {
+        ensureOnMainThreadWithProtectedThis([updateTexture] (Ref<DDModelPlayer> protectedThis) {
+            if (protectedThis->m_currentModel)
+                protectedThis->m_currentModel->updateTexture(toCpp(updateTexture));
 
-        m_modelLoader = adoptNS([[WebUSDModelLoader alloc] init]);
-        RetainPtr nsURL = modelSource.url().createNSURL();
-        Ref protectedThis = Ref { *this };
-        [m_modelLoader setCallbacksWithModelAddedCallback:^(WebAddMeshRequest *addRequest) {
-            ensureOnMainThreadWithProtectedThis([addRequest] (Ref<DDModelPlayer> protectedThis) {
-                if (RefPtr client = protectedThis->m_client.get())
-                    client->didFinishLoading(protectedThis.get());
+            [protectedThis->m_modelLoader requestCompleted:updateTexture];
+        });
+    } materialUpdatedCallback:^(DDBridgeUpdateMaterial *updateMaterial) {
+        ensureOnMainThreadWithProtectedThis([updateMaterial] (Ref<DDModelPlayer> protectedThis) {
+            if (protectedThis->m_currentModel)
+                protectedThis->m_currentModel->updateMaterial(toCpp(updateMaterial));
 
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->addMesh(toCpp(addRequest));
-
-                [protectedThis->m_modelLoader requestCompleted:addRequest];
-            });
-        } modelUpdatedCallback:^(WebUpdateMeshRequest *updateRequest) {
-            ensureOnMainThreadWithProtectedThis([updateRequest] (Ref<DDModelPlayer> protectedThis) {
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->update(toCpp(updateRequest));
-
-                [protectedThis->m_modelLoader requestCompleted:updateRequest];
-            });
-        } textureAddedCallback:^(WebDDAddTextureRequest *addTexture) {
-            ensureOnMainThreadWithProtectedThis([addTexture] (Ref<DDModelPlayer> protectedThis) {
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->addTexture(toCpp(addTexture));
-
-                [protectedThis->m_modelLoader requestCompleted:addTexture];
-            });
-        } textureUpdatedCallback:^(WebDDUpdateTextureRequest *updateTexture) {
-            ensureOnMainThreadWithProtectedThis([updateTexture] (Ref<DDModelPlayer> protectedThis) {
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->updateTexture(toCpp(updateTexture));
-
-                [protectedThis->m_modelLoader requestCompleted:updateTexture];
-            });
-        } materialAddedCallback:^(WebDDAddMaterialRequest *addMaterial) {
-            ensureOnMainThreadWithProtectedThis([addMaterial] (Ref<DDModelPlayer> protectedThis) {
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->addMaterial(toCpp(addMaterial));
-
-                [protectedThis->m_modelLoader requestCompleted:addMaterial];
-            });
-        } materialUpdatedCallback:^(WebDDUpdateMaterialRequest *updateMaterial) {
-            ensureOnMainThreadWithProtectedThis([updateMaterial] (Ref<DDModelPlayer> protectedThis) {
-                if (protectedThis->m_currentModel)
-                    protectedThis->m_currentModel->updateMaterial(toCpp(updateMaterial));
-
-                [protectedThis->m_modelLoader requestCompleted:updateMaterial];
-            });
-        }];
-        [m_modelLoader loadModelFrom:nsURL.get()];
-    }
+            [protectedThis->m_modelLoader requestCompleted:updateMaterial];
+        });
+    }];
+    [m_modelLoader loadModelFrom:nsURL.get()];
 }
 
-void DDModelPlayer::sizeDidChange(LayoutSize)
+void DDModelPlayer::notifyEntityTransformUpdated()
 {
+    RefPtr model = m_currentModel;
+    RefPtr client = m_client.get();
+    if (!model || !client || !model->entityTransform())
+        return;
+
+    auto scaledTransform = *model->entityTransform();
+    auto scale = m_currentScale;
+    scaledTransform.column0 *= scale;
+    scaledTransform.column1 *= scale;
+    scaledTransform.column2 *= scale;
+    client->didUpdateEntityTransform(*this, TransformationMatrix(static_cast<simd_float4x4>(scaledTransform)));
 }
 
-PlatformLayer* DDModelPlayer::layer()
+void DDModelPlayer::sizeDidChange(LayoutSize layoutSize)
 {
-    return nullptr;
-}
-
-std::optional<LayerHostingContextIdentifier> DDModelPlayer::layerHostingContextIdentifier()
-{
-    return std::nullopt;
+    m_currentScale = static_cast<float>(layoutSize.minDimension());
 }
 
 void DDModelPlayer::enterFullscreen()
 {
 }
 
-void DDModelPlayer::handleMouseDown(const LayoutPoint&, MonotonicTime)
+void DDModelPlayer::handleMouseDown(const LayoutPoint& startingPoint, MonotonicTime)
 {
+    m_currentPoint = startingPoint;
+    m_yawAcceleration = 0.f;
+    m_pitchAcceleration = 0.f;
 }
 
-void DDModelPlayer::handleMouseMove(const LayoutPoint&, MonotonicTime)
+void DDModelPlayer::handleMouseMove(const LayoutPoint& currentPoint, MonotonicTime)
 {
+    if (!m_currentPoint)
+        return;
+
+    float deltaX = static_cast<float>(m_currentPoint->x() - currentPoint.x());
+    float deltaY = static_cast<float>(currentPoint.y() - m_currentPoint->y());
+    m_currentPoint = currentPoint;
+    if (RefPtr model = m_currentModel) {
+        if (m_yawAcceleration * deltaX < 0.f)
+            m_yawAcceleration = 0.f;
+        if (m_pitchAcceleration * deltaY < 0.f)
+            m_pitchAcceleration = 0.f;
+
+        m_yawAcceleration += 0.1f * deltaX;
+        m_pitchAcceleration += 0.1f * deltaY;
+    }
+}
+
+bool DDModelPlayer::supportsMouseInteraction()
+{
+    return true;
 }
 
 void DDModelPlayer::handleMouseUp(const LayoutPoint&, MonotonicTime)
 {
+    m_currentPoint = std::nullopt;
 }
 
 void DDModelPlayer::getCamera(CompletionHandler<void(std::optional<HTMLModelElementCamera>&&)>&&)
@@ -302,6 +323,11 @@ WebCore::ModelPlayerIdentifier DDModelPlayer::identifier() const
     return m_id;
 }
 
+void DDModelPlayer::configureGraphicsLayer(GraphicsLayer& graphicsLayer, ModelPlayerGraphicsLayerConfiguration&&)
+{
+    graphicsLayer.setContentsDisplayDelegate(contentsDisplayDelegate(), GraphicsLayer::ContentsLayerPurpose::Canvas);
+}
+
 const MachSendRight* DDModelPlayer::displayBuffer() const
 {
     if (m_currentTexture >= m_displayBuffers.size())
@@ -321,9 +347,35 @@ GraphicsLayerContentsDisplayDelegate* DDModelPlayer::contentsDisplayDelegate()
     return m_contentsDisplayDelegate.get();
 }
 
+void DDModelPlayer::simulate(float elapsedTime)
+{
+    RefPtr model = m_currentModel;
+    if (!model)
+        return;
+
+    m_yawAcceleration *= 0.95f;
+    m_pitchAcceleration *= 0.95f;
+
+    m_yawAcceleration = std::clamp(m_yawAcceleration, -5.f, 5.f);
+    m_pitchAcceleration = std::clamp(m_pitchAcceleration, -5.f, 5.f);
+    if (fabs(m_yawAcceleration) < 0.01f)
+        m_yawAcceleration = 0.f;
+    if (fabs(m_pitchAcceleration) < 0.01f)
+        m_pitchAcceleration = 0.f;
+
+    m_yaw += m_yawAcceleration * elapsedTime;
+    m_pitch += m_pitchAcceleration * elapsedTime;
+    m_pitch *= (1.f - elapsedTime);
+
+    model->setRotation(m_yaw, m_pitch);
+}
+
 void DDModelPlayer::update()
 {
-    [m_modelLoader update:1.0 / 60.0];
+    constexpr float elapsedTime = 1.f / 60.f;
+    simulate(elapsedTime);
+
+    [m_modelLoader update:elapsedTime];
     if (RefPtr currentModel = m_currentModel)
         currentModel->render();
 
@@ -333,9 +385,78 @@ void DDModelPlayer::update()
         RefPtr { m_contentsDisplayDelegate }->setDisplayBuffer(*machSendRight);
 
     if (RefPtr client = m_client.get())
-        client->didUpdateDisplayDelegate(*this);
+        client->didUpdate(*this);
 }
 
+bool DDModelPlayer::supportsTransform(TransformationMatrix transformationMatrix)
+{
+    if (m_stageMode != StageModeOperation::None)
+        return false;
+
+    if (RefPtr currentModel = m_currentModel)
+        return currentModel->supportsTransform(transformationMatrix);
+
+    return false;
 }
+
+void DDModelPlayer::play(bool playing)
+{
+    if (RefPtr model = m_currentModel) {
+        model->play(playing);
+        m_pauseState = playing ? PauseState::Playing : PauseState::Paused;
+    }
+}
+
+void DDModelPlayer::setAutoplay(bool autoplay)
+{
+    if (m_pauseState == PauseState::Paused)
+        return;
+
+    play(autoplay);
+    m_pauseState = autoplay ? PauseState::Playing : PauseState::Paused;
+}
+
+void DDModelPlayer::setPaused(bool paused, CompletionHandler<void(bool succeeded)>&& completion)
+{
+    play(!paused);
+    completion(!!m_currentModel);
+}
+
+bool DDModelPlayer::paused() const
+{
+    return m_pauseState != PauseState::Playing;
+}
+
+std::optional<TransformationMatrix> DDModelPlayer::entityTransform() const
+{
+    if (RefPtr model = m_currentModel) {
+        if (auto transform = model->entityTransform())
+            return static_cast<simd_float4x4>(*transform);
+    }
+
+    return std::nullopt;
+}
+
+void DDModelPlayer::setStageMode(StageModeOperation stageMode)
+{
+    m_stageMode = stageMode;
+    if (m_stageMode == StageModeOperation::None)
+        return;
+
+    if (RefPtr model = m_currentModel) {
+        model->setStageMode(m_stageMode);
+        notifyEntityTransformUpdated();
+    }
+}
+
+void DDModelPlayer::setEntityTransform(TransformationMatrix matrix)
+{
+    if (RefPtr model = m_currentModel) {
+        model->setEntityTransform(static_cast<simd_float4x4>(matrix));
+        notifyEntityTransformUpdated();
+    }
+}
+
+} // namespace WebCore
 
 #endif

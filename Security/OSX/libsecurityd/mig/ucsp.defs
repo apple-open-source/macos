@@ -361,6 +361,6 @@ routine pushForLaterUnlock(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in p
 routine unlockDbWithHandle(UCSP_PORTS; in db: IPCDbHandle; in indirectKeyHandle: IPCKeyHandle);
 routine changeDbPassphraseWithHandle(UCSP_PORTS; in db: IPCDbHandle; in indirectKeyHandle: IPCKeyHandle);
 routine changeKeybagPassphrase(UCSP_PORTS; in db: IPCDbHandle; in oldPassPhrase: Data; in newPassPhrase: Data);
-routine generateDerivedEntropy(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in salt: Data; in passphrase: Data);
+routine generateDerivedEntropy(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in db: IPCDbHandle; in salt: Data; in passphrase: Data);
 routine releaseHandle(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle);
 routine getDerivedEntropy(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle; out entropy: Data);

@@ -70,17 +70,17 @@ Box<NetworkLoadMetrics> copyTimingData(NSURLSessionTaskMetrics *incompleteMetric
     RetainPtr<NSArray<NSURLSessionTaskTransactionMetrics *>> transactionMetrics = incompleteMetrics.transactionMetrics;
     RetainPtr<NSURLSessionTaskTransactionMetrics> metrics = transactionMetrics.get().lastObject;
     return packageTimingData(
-        dateToMonotonicTime(transactionMetrics.get().firstObject.fetchStartDate),
-        metrics.get().fetchStartDate,
-        metrics.get().domainLookupStartDate,
-        metrics.get().domainLookupEndDate,
-        metrics.get().connectStartDate,
-        metrics.get().secureConnectionStartDate,
-        metrics.get().connectEndDate,
-        metrics.get().requestStartDate,
-        metrics.get().responseStartDate,
+        dateToMonotonicTime(retainPtr(transactionMetrics.get().firstObject.fetchStartDate).get()),
+        retainPtr(metrics.get().fetchStartDate).get(),
+        retainPtr(metrics.get().domainLookupStartDate).get(),
+        retainPtr(metrics.get().domainLookupEndDate).get(),
+        retainPtr(metrics.get().connectStartDate).get(),
+        retainPtr(metrics.get().secureConnectionStartDate).get(),
+        retainPtr(metrics.get().connectEndDate).get(),
+        retainPtr(metrics.get().requestStartDate).get(),
+        retainPtr(metrics.get().responseStartDate).get(),
         metrics.get().reusedConnection,
-        metrics.get().response.URL.scheme,
+        retainPtr(metrics.get().response.URL.scheme).get(),
         incompleteMetrics.redirectCount,
         metricsFromTask.failsTAOCheck,
         metricsFromTask.hasCrossOriginRedirect
@@ -110,7 +110,7 @@ Box<NetworkLoadMetrics> copyTimingData(NSURLConnection *connection, const Resour
         timingValue(@"_kCFNTimingDataRequestStart").get(),
         timingValue(@"_kCFNTimingDataResponseStart").get(),
         timingValue(@"_kCFNTimingDataConnectionReused").get(),
-        connection.currentRequest.URL.scheme,
+        retainPtr(connection.currentRequest.URL.scheme).get(),
         handle.redirectCount(),
         handle.failsTAOCheck(),
         handle.hasCrossOriginRedirect()

@@ -42,8 +42,8 @@ class StreamConnectionWorkQueue;
 struct StreamServerConnectionHandle {
     WTF_MAKE_NONCOPYABLE(StreamServerConnectionHandle);
     StreamServerConnectionHandle(Connection::Handle&& connection, StreamConnectionBuffer::Handle&& bufferHandle)
-        : outOfStreamConnection(WTFMove(connection))
-        , buffer(WTFMove(bufferHandle))
+        : outOfStreamConnection(WTF::move(connection))
+        , buffer(WTF::move(bufferHandle))
     { }
     StreamServerConnectionHandle(StreamServerConnectionHandle&&) = default;
     StreamServerConnectionHandle& operator=(StreamServerConnectionHandle&&) = default;
@@ -105,7 +105,7 @@ public:
         HasMoreMessages
     };
     DispatchResult dispatchStreamMessages(size_t messageLimit);
-    void markCurrentlyDispatchedMessageAsInvalid();
+    void markCurrentlyDispatchedMessageAsInvalid(ASCIILiteral error);
 
     void open(Client&, StreamConnectionWorkQueue&);
     void invalidate();
@@ -196,7 +196,7 @@ void StreamServerConnection::sendSyncReply(Connection::SyncRequestID syncRequest
     } else {
         // Asynchronously replying from the current thread is supported. Note: This is not thread safe,
         // as any other thread might execute before the buffer release.
-        m_connection->sendSyncReply(WTFMove(encoder));
+        m_connection->sendSyncReply(WTF::move(encoder));
     }
 }
 
@@ -206,15 +206,15 @@ void StreamServerConnection::sendAsyncReply(AsyncReplyID asyncReplyID, Arguments
     m_connection->sendAsyncReply<T>(asyncReplyID, std::forward<Arguments>(arguments)...);
 }
 
-inline void markCurrentlyDispatchedMessageAsInvalid(StreamServerConnection& connection)
+inline void markCurrentlyDispatchedMessageAsInvalid(StreamServerConnection& connection, ASCIILiteral error)
 {
-    connection.markCurrentlyDispatchedMessageAsInvalid();
+    connection.markCurrentlyDispatchedMessageAsInvalid(error);
 }
 
-inline void markCurrentlyDispatchedMessageAsInvalid(const RefPtr<StreamServerConnection>& connection)
+inline void markCurrentlyDispatchedMessageAsInvalid(const RefPtr<StreamServerConnection>& connection, ASCIILiteral error)
 {
     if (connection)
-        connection->markCurrentlyDispatchedMessageAsInvalid();
+        connection->markCurrentlyDispatchedMessageAsInvalid(error);
 }
 
 }

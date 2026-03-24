@@ -463,27 +463,27 @@ Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(double value, CSSUnitType type)
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(String value)
 {
-    return adoptRef(*new CSSPrimitiveValue(WTFMove(value), CSSUnitType::CSS_STRING));
+    return adoptRef(*new CSSPrimitiveValue(WTF::move(value), CSSUnitType::CSS_STRING));
 }
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(Ref<CSSCalc::Value> value)
 {
-    return adoptRef(*new CSSPrimitiveValue(WTFMove(value)));
+    return adoptRef(*new CSSPrimitiveValue(WTF::move(value)));
 }
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(Ref<CSSAttrValue> value)
 {
-    return adoptRef(*new CSSPrimitiveValue(WTFMove(value)));
+    return adoptRef(*new CSSPrimitiveValue(WTF::move(value)));
 }
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::createCustomIdent(String value)
 {
-    return adoptRef(*new CSSPrimitiveValue(WTFMove(value), CSSUnitType::CustomIdent));
+    return adoptRef(*new CSSPrimitiveValue(WTF::move(value), CSSUnitType::CustomIdent));
 }
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::createFontFamily(String value)
 {
-    return adoptRef(*new CSSPrimitiveValue(WTFMove(value), CSSUnitType::CSS_FONT_FAMILY));
+    return adoptRef(*new CSSPrimitiveValue(WTF::move(value), CSSUnitType::CSS_FONT_FAMILY));
 }
 
 Ref<CSSPrimitiveValue> CSSPrimitiveValue::createInteger(double value)

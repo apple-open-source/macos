@@ -83,7 +83,7 @@ int DERDecodeTimeStampResponse(
         DERItem derContents = {.data = contents->Data, .length = contents->Length };
         DERTimeStampResp derResponse = {{0,},{0,}};
         DERReturn rx;
-        require_noerr(DERDecodeItem(&derContents, &decodedPackage), badResponse);
+        __Require_noErr(DERDecodeItem(&derContents, &decodedPackage), badResponse);
 
         rx = DERParseSequenceContent(&decodedPackage.content,
             DERNumTimeStampRespItemSpecs, DERTimeStampRespItemSpecs, 

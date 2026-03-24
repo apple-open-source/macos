@@ -28,6 +28,8 @@
                                         -- Unknown   */
 #include "ssl_private.h"
 
+#include <apr_md5.h>
+
 #include "mpm_common.h"
 #include "mod_md.h"
 
@@ -184,6 +186,110 @@ static void ssl_add_version_components(apr_pool_t *ptemp, apr_pool_t *pconf,
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(01876)
                  "%s compiled against Server: %s, Library: %s",
                  modver, AP_SERVER_BASEVERSION, incver);
+}
+
+#ifdef HAVE_TLSEXT
+/* Helper functions to create the SNI vhost policy hash. The policy
+ * hash captures the configuration elements relevant to the mode
+ * selected at runtime by SSLVHostSNIPolicy. */
+
+#define md5_str_update(ctx_, pfx_, str_) do { apr_md5_update(ctx_, pfx_, strlen(pfx_)); apr_md5_update(ctx_, str_, strlen(str_)); } while (0)
+#define md5_ifstr_update(ctx_, pfx_, str_) do { apr_md5_update(ctx_, pfx_, strlen(pfx_)); if (str_) apr_md5_update(ctx_, str_, strlen(str_)); } while (0)
+#define md5_fmt_update(ctx_, fmt_, i_) do { char s_[128]; apr_snprintf(s_, sizeof s_, fmt_, i_); \
+        apr_md5_update(ctx_, s_, strlen(s_)); } while (0)
+
+static int md5_strarray_cmp(const void *p1, const void *p2)
+{
+    return strcmp(*(char **)p1, *(char **)p2);
+}
+
+/* Hashes an array of strings in sorted order. */
+static void md5_strarray_hash(apr_pool_t *ptemp, apr_md5_ctx_t *hash,
+                              const char *pfx, apr_array_header_t *s)
+{
+    char **elts = apr_pmemdup(ptemp, s->elts, s->nelts * sizeof *elts);
+    int i;
+
+    qsort(elts, s->nelts, sizeof(char *), md5_strarray_cmp);
+
+    apr_md5_update(hash, pfx, strlen(pfx));
+    for (i = 0; i < s->nelts; i++) {
+        md5_str_update(hash, "elm:", elts[i]);
+    }
+}
+
+static void hash_sni_policy_pk(apr_pool_t *ptemp, apr_md5_ctx_t *hash, modssl_ctx_t *ctx)
+{
+    md5_fmt_update(hash, "protocol:%d", ctx->protocol);
+
+    md5_ifstr_update(hash, "ciphers:", ctx->auth.cipher_suite);
+    md5_ifstr_update(hash, "tls13_ciphers:", ctx->auth.tls13_ciphers);
+
+    md5_strarray_hash(ptemp, hash, "cert_files:", ctx->pks->cert_files);
+    md5_strarray_hash(ptemp, hash, "key_files:", ctx->pks->key_files);
+}
+
+static void hash_sni_policy_auth(apr_md5_ctx_t *hash, modssl_ctx_t *ctx)
+{
+    modssl_pk_server_t *pks = ctx->pks;
+    modssl_auth_ctx_t *a = &ctx->auth;
+
+    md5_fmt_update(hash, "verify_depth:%d", a->verify_depth);
+    md5_fmt_update(hash, "verify_mode:%d", a->verify_mode);
+
+    md5_ifstr_update(hash, "ca_name_path:", pks->ca_name_path);
+    md5_ifstr_update(hash, "ca_name_file:", pks->ca_name_file);
+    md5_ifstr_update(hash, "ca_cert_path:", a->ca_cert_path);
+    md5_ifstr_update(hash, "ca_cert_file:", a->ca_cert_file);
+    md5_ifstr_update(hash, "crl_path:", ctx->crl_path);
+    md5_ifstr_update(hash, "crl_file:", ctx->crl_file);
+    md5_fmt_update(hash, "crl_check_mask:%d", ctx->crl_check_mask);
+    md5_fmt_update(hash, "ocsp_mask:%d", ctx->ocsp_mask);
+    md5_fmt_update(hash, "ocsp_force_default:%d", ctx->ocsp_force_default);
+    md5_ifstr_update(hash, "ocsp_responder:", ctx->ocsp_responder);
+
+#ifdef HAVE_SRP
+    md5_ifstr_update(hash, "srp_vfile:", ctx->srp_vfile);
+#endif
+
+#ifdef HAVE_SSL_CONF_CMD
+    {
+        apr_array_header_t *parms = ctx->ssl_ctx_param;
+        int n;
+
+        for (n = 0; n < parms->nelts; n++) {
+            ssl_ctx_param_t *p = &APR_ARRAY_IDX(parms, n, ssl_ctx_param_t);
+
+            md5_str_update(hash, "param:", p->name);
+            md5_str_update(hash, "value:", p->value);
+        }
+    }
+#endif
+}
+#endif
+
+static char *create_sni_policy_hash(apr_pool_t *p, apr_pool_t *ptemp,
+                                    modssl_snivhpolicy_t policy,
+                                    SSLSrvConfigRec *sc)
+{
+    char *rv = NULL;
+#ifdef HAVE_TLSEXT
+    if (policy != MODSSL_SNIVH_STRICT && policy != MODSSL_SNIVH_INSECURE) {
+        apr_md5_ctx_t hash;
+        unsigned char digest[APR_MD5_DIGESTSIZE];
+
+        /* Create the vhost policy hash for comparison later. */
+        apr_md5_init(&hash);
+        hash_sni_policy_auth(&hash, sc->server);
+        if (policy == MODSSL_SNIVH_SECURE)
+            hash_sni_policy_pk(ptemp, &hash, sc->server);
+        apr_md5_final(digest, &hash);
+
+        rv = apr_palloc(p, 2 * APR_MD5_DIGESTSIZE + 1);
+        ap_bin2hex(digest, APR_MD5_DIGESTSIZE, rv); /* sets final '\0' */
+    }
+#endif
+    return rv;
 }
 
 /*  _________________________________________________________________
@@ -427,7 +533,7 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
                                                     &ssl_module);
 
         sc = mySrvConfig(s);
-        if (sc->enabled == SSL_ENABLED_TRUE || sc->enabled == SSL_ENABLED_OPTIONAL) {
+        if (sc->enabled == SSL_ENABLED_TRUE) {
             if ((rv = ssl_run_init_server(s, p, 0, sc->server->ssl_ctx)) != APR_SUCCESS) {
                 return rv;
             }
@@ -439,6 +545,8 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
                 return rv;
             }
         }
+
+        sc->sni_policy_hash = create_sni_policy_hash(p, ptemp, mc->snivh_policy, sc);
     }
 
     /*
@@ -618,7 +726,12 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     int protocol = mctx->protocol;
     SSLSrvConfigRec *sc = mySrvConfig(s);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-    int prot;
+    /* default is highest supported version, will be overridden below */
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    int prot = TLS1_3_VERSION;
+#else
+    int prot = TLS1_2_VERSION;
+#endif
 #endif
 
     /*
@@ -692,6 +805,11 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
         TLS_server_method();  /* server */
 #endif
     ctx = SSL_CTX_new(method);
+    if (ctx == NULL) {
+        /* Can fail for some system/install mis-configuration. */
+        ssl_log_ssl_error(SSLLOG_MARK, APLOG_EMERG, s);
+        return ssl_die(s);
+    }
 
     mctx->ssl_ctx = ctx;
 
@@ -2116,9 +2234,9 @@ apr_status_t ssl_init_ConfigureServer(server_rec *s,
                                                 &ssl_module);
     apr_status_t rv;
 
-    /* Initialize the server if SSL is enabled or optional.
+    /* Initialize the server if SSL is enabled.
      */
-    if ((sc->enabled == SSL_ENABLED_TRUE) || (sc->enabled == SSL_ENABLED_OPTIONAL)) {
+    if (sc->enabled == SSL_ENABLED_TRUE) {
         ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, APLOGNO(01914)
                      "Configuring server %s for SSL protocol", sc->vhost_id);
         if ((rv = ssl_init_server_ctx(s, p, ptemp, sc, pphrases))

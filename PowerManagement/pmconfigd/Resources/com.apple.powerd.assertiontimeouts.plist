@@ -88,5 +88,7 @@
 	<integer>0</integer>
 	<key>inboxupdaterd</key>
 	<integer>0</integer>
+	<key>airplayd</key>
+	<integer>0</integer>
 </dict>
 </plist>

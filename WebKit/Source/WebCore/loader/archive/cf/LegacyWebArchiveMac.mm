@@ -41,7 +41,7 @@ ResourceResponse LegacyWebArchive::createResourceResponseFromMacArchivedData(CFD
     if (!responseData)
         return ResourceResponse();
     
-    NSURLResponse *response = nil;
+    RetainPtr<NSURLResponse> response;
     auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:(__bridge NSData *)responseData error:nullptr]);
     unarchiver.get().decodingFailurePolicy = NSDecodingFailurePolicyRaiseException;
     @try {
@@ -52,7 +52,7 @@ ResourceResponse LegacyWebArchive::createResourceResponseFromMacArchivedData(CFD
         response = nil;
     }
 
-    return ResourceResponse(response);
+    return ResourceResponse(response.get());
 }
 
 RetainPtr<CFDataRef> LegacyWebArchive::createPropertyListRepresentation(const ResourceResponse& response)

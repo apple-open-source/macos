@@ -35,7 +35,7 @@ class CSSFontVariationValue final : public CSSValue {
 public:
     static Ref<CSSFontVariationValue> create(FontTag tag, Ref<CSSValue>&& value)
     {
-        return adoptRef(*new CSSFontVariationValue(tag, WTFMove(value)));
+        return adoptRef(*new CSSFontVariationValue(tag, WTF::move(value)));
     }
 
     const FontTag& tag() const { return m_tag; }

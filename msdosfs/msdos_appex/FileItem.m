@@ -253,7 +253,7 @@
     os_log_debug(OS_LOG_DEFAULT, "%s: offset: %lu, length: %lu, status: %d, flags: %lu, operationID: %lu.",
                  __func__, (unsigned long)offset, (unsigned long)length, ioStatus, flags, operationID);
 
-    if (flags & FSBlockmapFlagsRead) {
+    if (flags & FSCompleteIOFlagsRead) {
         /*
          * Currently MSDOS doesn't support access time updates (mounted by default with MNT_NOATIME),
          * so there's no need to call EndBlockmap for read operations.

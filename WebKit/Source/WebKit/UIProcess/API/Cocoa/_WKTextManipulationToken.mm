@@ -84,10 +84,10 @@ static BOOL isEqualOrBothNil(id a, id b)
     if (!otherToken)
         return NO;
 
-    BOOL equalIdentifiers = isEqualOrBothNil(self.identifier, otherToken.identifier);
+    BOOL equalIdentifiers = isEqualOrBothNil(retainPtr(self.identifier).get(), retainPtr(otherToken.identifier).get());
     BOOL equalExclusion = self.isExcluded == otherToken.isExcluded;
-    BOOL equalContent = !includingContentEquality || isEqualOrBothNil(self.content, otherToken.content);
-    BOOL equalUserInfo = isEqualOrBothNil(self.userInfo, otherToken.userInfo);
+    BOOL equalContent = !includingContentEquality || isEqualOrBothNil(retainPtr(self.content).get(), retainPtr(otherToken.content).get());
+    BOOL equalUserInfo = isEqualOrBothNil(retainPtr(self.userInfo).get(), retainPtr(otherToken.userInfo).get());
 
     return equalIdentifiers && equalExclusion && equalContent && equalUserInfo;
 }
@@ -104,11 +104,11 @@ static BOOL isEqualOrBothNil(id a, id b)
 
 - (NSString *)_descriptionPreservingPrivacy:(BOOL)preservePrivacy
 {
-    NSMutableString *description = [NSMutableString stringWithFormat:@"<%@: %p; identifier = %@; isExcluded = %i", self.class, self, self.identifier, self.isExcluded];
+    RetainPtr description = [NSMutableString stringWithFormat:@"<%@: %p; identifier = %@; isExcluded = %i", self.class, self, retainPtr(self.identifier).get(), self.isExcluded];
     if (preservePrivacy)
         [description appendFormat:@"; content length = %lu", (unsigned long)self.content.length];
     else
-        [description appendFormat:@"; content = %@; user info = %@", self.content, self.userInfo];
+        [description appendFormat:@"; content = %@; user info = %@", retainPtr(self.content).get(), retainPtr(self.userInfo).get()];
 
     [description appendString:@">"];
 

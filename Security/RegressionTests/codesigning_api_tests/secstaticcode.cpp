@@ -18,6 +18,7 @@
 #include <Security/SecStaticCode.h>
 #include <kern/cs_blobs.h>
 #include <security_utilities/entitlements.h>
+#include "featureflags.h"
 
 #include "secstaticcode.h"
 
@@ -67,6 +68,12 @@ using namespace CodeSigning;
 #define kSafariBundleOnSystemPath       kApplicationsPath "/" kSafariBundleName
 #define kSafariBundleOnVolumePath       kFAT32DiskImageVolumePath "/" kSafariBundleName
 
+#define kTemporaryPath                      "/tmp"
+#define kSystemBinariesPath                 "/bin"
+#define k_ls_BinaryName                     "ls"
+#define k_ls_BinaryPath                     kSystemBinariesPath "/" k_ls_BinaryName
+#define k_ls_TemporaryBinaryPath            kTemporaryPath "/" k_ls_BinaryName "_secstatic"
+
 static void
 _cleanUpFAT32DiskImage(void)
 {
@@ -101,6 +108,14 @@ _copySafariBundleToVolume(void)
 }
 
 static int
+_copyPath(const char *dst, const char *src)
+{
+    std::string command = std::string("cp -r ") + src + " " + dst + " " + kCommandRedirectOutputToDevNULL;
+    return system(command.c_str());
+}
+
+
+static int
 _confirmValidationPolicy(const char *path)
 {
     int ret = -1;
@@ -111,17 +126,17 @@ _confirmValidationPolicy(const char *path)
     SecCSFlags createFlags = kSecCSDefaultFlags;
     SecCSFlags validateFlags = kSecCSDefaultFlags | kSecCSStrictValidateStructure;
 
-    require(path, done);
+    __Require(path, done);
 
     stringPath.take(CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8*)path, strlen(path), kCFStringEncodingASCII, false));
-    require(stringPath, done);
+    __Require(stringPath, done);
 
     url.take(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, stringPath, kCFURLPOSIXPathStyle, false));
-    require(url, done);
+    __Require(url, done);
 
     status = SecStaticCodeCreateWithPath(url, createFlags, &codeRef.aref());
-    require_noerr(status, done);
-    require(codeRef, done);
+    __Require_noErr(status, done);
+    __Require(codeRef, done);
 
     // Validate binary without kSecCSSkipXattrFiles. Expectation is this should pass since the default behavior
     // now includes allowing xattr files.
@@ -133,8 +148,8 @@ _confirmValidationPolicy(const char *path)
 
     // Create codeRef again to clear state.
     status = SecStaticCodeCreateWithPath(url, createFlags, &codeRef.aref());
-    require_noerr(status, done);
-    require(codeRef, done);
+    __Require_noErr(status, done);
+    __Require(codeRef, done);
 
     // Validate binary with kSecCSSkipXattrFiles. Expectation is this should also pass as this flag
     // no longer has any particular meaning.
@@ -1040,6 +1055,125 @@ done:
     return ret;
 }
 
+// Test that a SecStaticCode with a detached signature set doesn't fall back
+// to the base rep when signature components (e.g. code directories, entitlements)
+// are not present in the detached signature.
+static int
+CheckDetachedSignatureComponentsNoFallback(void)
+{
+    int ret = -1;
+    OSStatus status;
+    CFRef<SecCodeSignerRef> signerRef = NULL;
+    CFRef<SecStaticCodeRef> codeRef = NULL;
+    CFRef<CFMutableDictionaryRef> parameters = makeCFMutableDictionary();
+    CFRef<CFMutableArrayRef> digests;
+    CFRef<CFURLRef> url;
+    CFRef<CFDataRef> detachedSig = NULL;
+    CFRef<CFMutableDictionaryRef> detachedParameters = makeCFMutableDictionary();
+    CFDictionaryRef cfInfo = NULL;
+    CFRef<CFNumberRef> hashType = NULL;
+    uint32_t hashTypeInt = 0;
+    CFRef<CFArrayRef> outputDigests = NULL;
+    const char *path = k_ls_TemporaryBinaryPath;
+    const char *copyPath = k_ls_BinaryPath;
+    CFIndex count = 0;
+
+    BEGIN();
+    
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto done;
+    }
+    
+    // first sign the original binary with SHA-1 and SHA-256 CodeDirectories
+    CFDictionaryAddValue(parameters, kSecCodeSignerIdentity, SecIdentityRef(kCFNull));
+    digests = makeCFMutableArray(0);
+    CFArrayAppendValue(digests, CFTempNumber((uint32_t) kSecCodeSignatureHashSHA1));
+    CFArrayAppendValue(digests, CFTempNumber((uint32_t) kSecCodeSignatureHashSHA256));
+    CFDictionaryAddValue(parameters, kSecCodeSignerDigestAlgorithm, digests);
+
+    status = SecCodeSignerCreate(parameters, kSecCSDefaultFlags, signerRef.take());
+    if (status != errSecSuccess) {
+        FAIL("Unable to create SecCodeSigner: %d", status);
+        goto done;
+    }
+    
+    url.take(CFURLCreateWithString(NULL, CFSTR(k_ls_TemporaryBinaryPath), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status != errSecSuccess) {
+        FAIL("Unable to create SecStaticCode: %d", status);
+        goto done;
+    }
+    
+    status = SecCodeSignerAddSignature(signerRef, codeRef, kSecCSDefaultFlags);
+    if (status != errSecSuccess) {
+        FAIL("Error on adding signature through SecCodeSignerAddSignature: %d", status);
+        goto done;
+    }
+    
+    // now create a detached signature with only one SHA-1 CodeDirectory
+    detachedSig.take(CFDataCreateMutable(NULL, 0));
+    CFDictionaryAddValue(detachedParameters, kSecCodeSignerIdentity, SecIdentityRef(kCFNull));
+    CFDictionaryAddValue(detachedParameters, kSecCodeSignerDigestAlgorithm, CFTempNumber((uint32_t) kSecCodeSignatureHashSHA1));
+    CFDictionaryAddValue(detachedParameters, kSecCodeSignerDetached, detachedSig);
+    
+    status = SecCodeSignerCreate(detachedParameters, kSecCSDefaultFlags, signerRef.take());
+    if (status != errSecSuccess) {
+        FAIL("Unable to create SecCodeSigner for detached signature: %d", status);
+        goto done;
+    }
+
+    status = SecCodeSignerAddSignature(signerRef, codeRef, kSecCSDefaultFlags);
+    if (status != errSecSuccess) {
+        FAIL("Error on creating detached signature through SecCodeSignerAddSignature: %d", status);
+        goto done;
+    }
+    
+    // Check that SecStaticCode only sees one SHA-1 code directory
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status != errSecSuccess) {
+        FAIL("Unable to create SecStaticCode: %d", status);
+        goto done;
+    }
+    status = SecCodeSetDetachedSignature(codeRef, detachedSig, kSecCSDefaultFlags);
+    if (status != errSecSuccess) {
+        FAIL("Unable to set detached signature: %d", status);
+        goto done;
+    }
+    status = SecCodeCopySigningInformation(codeRef, kSecCSDefaultFlags, &cfInfo);
+    if (status != errSecSuccess) {
+        FAIL("Unable to copy signing information through SecCodeCopySigningInformation: %d", status);
+        goto done;
+    }
+    hashType = (CFNumberRef) CFDictionaryGetValue(cfInfo, kSecCodeInfoDigestAlgorithm);
+    if (!hashType) {
+        FAIL("hashType NULL");
+        goto done;
+    }
+    hashTypeInt = cfNumber(hashType);
+    if (hashTypeInt != CS_HASHTYPE_SHA1) {
+        FAIL("SecStaticCode picks wrong code directory with hash type %u", hashTypeInt);
+        goto done;
+    }
+    
+    outputDigests = (CFArrayRef) CFDictionaryGetValue(cfInfo, kSecCodeInfoCdHashes);
+    if (!outputDigests) {
+        FAIL("outputDigests NULL");
+        goto done;
+    }
+    count = CFArrayGetCount(outputDigests);
+    if (count != 1) {
+        FAIL("SecStaticCode falls back to base signature when looking for code directories: %ld", count);
+        goto done;
+    }
+
+    PASS("SecStaticCode with a detached signature doesn't fall back to the base signature");
+    ret = 0;
+
+done:
+    return ret;
+}
+
 static int
 CheckUnsignedProcessNetworkByDefault(void)
 {
@@ -1146,6 +1280,73 @@ done:
     return ret;
 }
 
+#if TARGET_OS_OSX
+
+static int
+CheckPathNormalizationOnCryptexExecutableBundle(void)
+{
+    int ret = -1;
+    CFRef<CFURLRef> outputURL;
+    SecStaticCodeRef codeRef = NULL;
+    OSStatus status = 0;
+    std::string canonicalPath;
+
+    BEGIN();
+
+    const char *bundlePath = "/System/Cryptexes/OS/System/Library/PrivateFrameworks/SafariFoundation.framework/Versions/A/XPCServices/CredentialProviderExtensionHelper.xpc";
+    const char *executablePath = "/System/Cryptexes/OS/System/Library/PrivateFrameworks/SafariFoundation.framework/Versions/A/XPCServices/CredentialProviderExtensionHelper.xpc/Contents/MacOS/CredentialProviderExtensionHelper";
+
+    // Test 1: Create SecStaticCode from bundle path and verify canonical path
+    status = SecStaticCodeCreateWithPath(CFTempURL(bundlePath), kSecCSDefaultFlags, &codeRef);
+    if (status) {
+        FAIL("Failed to create SecStaticCode from bundle path: %d", status);
+        goto done;
+    }
+
+    status = SecCodeCopyPath(codeRef, kSecCSDefaultFlags, &outputURL.aref());
+    if (status) {
+        FAIL("Failed to copy path from bundle SecStaticCode: %d", status);
+        goto done;
+    }
+
+    canonicalPath = cfString(outputURL);
+    if (canonicalPath != bundlePath) {
+        FAIL("Bundle path canonical URL mismatch: expected %s, got %s", bundlePath, canonicalPath.c_str());
+        goto done;
+    }
+    INFO("Bundle path canonical URL matches: %s", canonicalPath.c_str());
+    SAFE_RELEASE(codeRef);
+
+    // Test 2: Create SecStaticCode from main executable path and verify it resolves to bundle
+    status = SecStaticCodeCreateWithPath(CFTempURL(executablePath), kSecCSDefaultFlags, &codeRef);
+    if (status) {
+        FAIL("Failed to create SecStaticCode from executable path: %d", status);
+        goto done;
+    }
+
+    status = SecCodeCopyPath(codeRef, kSecCSDefaultFlags, &outputURL.aref());
+    if (status) {
+        FAIL("Failed to copy path from executable SecStaticCode: %d", status);
+        goto done;
+    }
+
+    canonicalPath = cfString(outputURL);
+    if (canonicalPath != bundlePath) {
+        FAIL("Executable path canonical URL mismatch: expected %s, got %s", bundlePath, canonicalPath.c_str());
+        goto done;
+    }
+    INFO("Executable path canonical URL correctly resolves to bundle: %s", canonicalPath.c_str());
+
+    PASS("Path normalization on cryptexes works correctly");
+    ret = 0;
+
+done:
+    SAFE_RELEASE(codeRef);
+    return ret;
+}
+
+#endif // TARGET_OS_OSX
+
 static int runTests(int (*testList[])(void), int testCount)
 {
     fprintf(stdout, "[TEST] secsecstaticcodeapitest\n");
@@ -1179,6 +1380,10 @@ int main(int argc, const char *argv[])
         CheckValidityWithRevocationTraversal,
         CheckAppleProcessHasDer,
         CheckOSInstallerSetupdEntitlementHelpers,
+        CheckDetachedSignatureComponentsNoFallback,
+#if TARGET_OS_OSX
+        CheckPathNormalizationOnCryptexExecutableBundle,
+#endif
     };
 
     static int (*unsignedTestList[])(void) = {

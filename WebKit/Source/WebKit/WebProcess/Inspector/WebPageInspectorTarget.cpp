@@ -28,8 +28,8 @@
 
 #include "WebPage.h"
 #include "WebPageInspectorTargetFrontendChannel.h"
-#include <WebCore/InspectorController.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageInspectorController.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 

@@ -54,7 +54,7 @@ struct Opacity {
     {
     }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     constexpr explicit Opacity(AcceleratedEffectOpacity opacity)
         : value { opacity.value }
     {
@@ -77,7 +77,7 @@ template<> struct CSSValueConversion<Opacity> { auto operator()(BuilderState&, c
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 template<> struct Evaluation<Opacity, AcceleratedEffectOpacity> {
     auto operator()(const Opacity& value) -> AcceleratedEffectOpacity

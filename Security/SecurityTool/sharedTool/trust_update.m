@@ -80,9 +80,9 @@ static int check_OTA_sec_experiment_asset(void) {
     return 0;
 }
 
-static int check_valid_update(void) {
+static int check_valid_update(CFIndex version) {
     CFErrorRef error = NULL;
-    bool result = SecTrustTriggerValidUpdate(&error);
+    bool result = SecTrustTriggerValidUpdateToVersion(version, &error);
     if (!result) {
         CFStringRef errorDescription = error ? CFErrorCopyDescription(error) : NULL;
         if (errorDescription) {
@@ -102,23 +102,37 @@ static int check_valid_update(void) {
 
 int check_trust_update(int argc, char * const *argv) {
     int arg;
+    CFIndex version = SEC_TRUST_VALID_VERSION_DATABASE_VERSION;
+    bool validUpdate = false;
 
     if (argc == 1) {
         return SHOW_USAGE_MESSAGE;
     }
 
-    while ((arg = getopt(argc, argv, "ser")) != -1) {
+    while ((arg = getopt(argc, argv, "v:ser")) != -1) {
         switch(arg) {
             case 's':
                 return check_OTA_Supplementals_asset();
             case 'e':
                 return check_OTA_sec_experiment_asset();
             case 'r':
-                return check_valid_update();
+                validUpdate = true;
+                break;
+            case 'v':
+                version = atoi(optarg);
+                if (version <= 0) {
+                    fprintf(stdout, "invalid version %s", optarg);
+                    return SHOW_USAGE_MESSAGE;
+                }
+                break;
             case '?':
             default:
                 return SHOW_USAGE_MESSAGE;
         }
+    }
+    
+    if (validUpdate) {
+        return check_valid_update(version);
     }
 
     return 0;

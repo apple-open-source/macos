@@ -99,16 +99,17 @@ const void* const webViewVisualIdentificationOverlayKey = &webViewVisualIdentifi
     [_layer setZPosition:999];
     [_layer setDelegate:self];
     [_layer web_disableAllActions];
-    [[_view layer] addSublayer:_layer.get()];
+    RetainPtr viewLayer = [_view layer];
+    [viewLayer addSublayer:_layer.get()];
 
-    [[_view layer] addObserver:self forKeyPath:@"bounds" options:0 context:boundsObservationContext];
+    [viewLayer addObserver:self forKeyPath:@"bounds" options:0 context:boundsObservationContext];
 
     return self;
 }
 
 - (void)dealloc
 {
-    [[_view layer] removeObserver:self forKeyPath:@"bounds" context:boundsObservationContext];
+    [retainPtr([_view layer]) removeObserver:self forKeyPath:@"bounds" context:boundsObservationContext];
 
     [super dealloc];
 }

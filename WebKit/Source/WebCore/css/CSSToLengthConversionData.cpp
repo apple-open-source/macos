@@ -31,8 +31,9 @@
 #include "config.h"
 #include "CSSToLengthConversionData.h"
 
+#include "DocumentView.h"
 #include "FloatSize.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "StyleBuilderState.h"
 
@@ -42,11 +43,19 @@ CSSToLengthConversionData::CSSToLengthConversionData() = default;
 CSSToLengthConversionData::CSSToLengthConversionData(const CSSToLengthConversionData&) = default;
 CSSToLengthConversionData::CSSToLengthConversionData(CSSToLengthConversionData&&) = default;
 
+// FIXME: Only rely on the RenderView for style resolution if we have an active LocalFrameView.
+static RenderView* renderViewForDocument(const Document& document)
+{
+    if (document.view()) [[likely]]
+        return document.renderView();
+    return nullptr;
+}
+
 CSSToLengthConversionData::CSSToLengthConversionData(const RenderStyle& style, Style::BuilderState& builderState)
     : m_style(&style)
-    , m_rootStyle(builderState.rootElementStyle())
-    , m_parentStyle(&builderState.parentStyle())
-    , m_renderView(builderState.document().renderView())
+    , m_rootStyle(builderState.rootElementRenderStyle())
+    , m_parentStyle(&builderState.parentRenderStyle())
+    , m_renderView(renderViewForDocument(builderState.document()))
     , m_elementForContainerUnitResolution(builderState.element())
     , m_styleBuilderState(&builderState)
 {
@@ -74,7 +83,7 @@ const FontCascade& CSSToLengthConversionData::fontCascadeForFontUnits() const
     return style()->fontCascade();
 }
 
-int CSSToLengthConversionData::computedLineHeightForFontUnits() const
+float CSSToLengthConversionData::computedLineHeightForFontUnits() const
 {
     if (computingFontSize()) {
         ASSERT(parentStyle());
@@ -142,6 +151,12 @@ void CSSToLengthConversionData::setUsesContainerUnits() const
 CheckedPtr<Style::BuilderState> CSSToLengthConversionData::protectedStyleBuilderState() const
 {
     return m_styleBuilderState;
+}
+
+bool CSSToLengthConversionData::evaluationTimeZoomEnabled() const
+{
+    ASSERT(m_style);
+    return CheckedPtr { m_style }->evaluationTimeZoomEnabled();
 }
 
 } // namespace WebCore

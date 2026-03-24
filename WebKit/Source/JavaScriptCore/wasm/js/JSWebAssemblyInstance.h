@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <JavaScriptCore/CallLinkInfo.h>
@@ -173,7 +175,7 @@ public:
 
     void elemDrop(uint32_t elementIndex);
 
-    bool memoryInit(uint32_t dstAddress, uint32_t srcAddress, uint32_t length, uint32_t dataSegmentIndex);
+    bool memoryInit(uint64_t dstAddress, uint32_t srcAddress, uint32_t length, uint32_t dataSegmentIndex);
 
     void dataDrop(uint32_t dataSegmentIndex);
 
@@ -201,12 +203,15 @@ public:
 #endif
             m_cachedMemorySize = m_wasmMemory->size();
             m_cachedMemory = CagedPtr<Gigacage::Primitive, void>(m_wasmMemory->basePointer());
+            m_cachedIsMemory64 = moduleInformation().memory.isMemory64();
             ASSERT(m_wasmMemory->basePointer() == cachedMemory());
         }
     }
 
     uint32_t cachedTable0Length() const { return m_cachedTable0Length; }
     Wasm::FuncRefTable::Function* cachedTable0Buffer() const { return m_cachedTable0Buffer; }
+
+    bool cachedIsMemory64() const { return m_cachedIsMemory64; }
 
     void updateCachedTable0();
 
@@ -286,6 +291,7 @@ public:
     static constexpr ptrdiff_t offsetOfCachedTable0Length() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_cachedTable0Length); }
     static constexpr ptrdiff_t offsetOfTemporaryCallFrame() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_temporaryCallFrame); }
     static constexpr ptrdiff_t offsetOfBuiltinCalleeBits() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_builtinCalleeBits); }
+    static constexpr ptrdiff_t offsetOfCachedIsMemory64() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_cachedIsMemory64); }
 
     // Tail accessors.
     static_assert(sizeof(WasmOrJSImportableFunctionCallLinkInfo) == WTF::roundUpToMultipleOf<sizeof(uint64_t)>(sizeof(WasmOrJSImportableFunctionCallLinkInfo)), "We rely on this for the alignment to be correct");
@@ -368,6 +374,8 @@ public:
     }
     WriteBarrier<JSObject>& importFunction(unsigned importFunctionNum) { return importFunctionInfo(importFunctionNum)->importFunction; }
 
+    JSObject* getImportFunctionObject(unsigned importFunctionIndex, JSGlobalObject*);
+
     RefPtr<Wasm::BaselineData>& baselineData(Wasm::FunctionCodeIndex index)
     {
         return baselineDatas()[index];
@@ -427,6 +435,7 @@ private:
     const Ref<const Wasm::ModuleInformation> m_moduleInformation;
     RefPtr<Wasm::InstanceAnchor> m_anchor;
     RefPtr<SourceProvider> m_sourceProvider;
+    bool m_cachedIsMemory64 { false };
 
     RefPtr<Wasm::Memory> m_wasmMemory;
     CallFrame* m_temporaryCallFrame { nullptr };

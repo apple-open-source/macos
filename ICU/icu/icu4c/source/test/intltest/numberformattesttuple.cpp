@@ -17,6 +17,9 @@
 #include "cstring.h"
 #include "cmemory.h"
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static NumberFormatTestTuple emptyObject;
 
 static NumberFormatTestTuple *gNullPtr = &emptyObject;
@@ -30,8 +33,16 @@ struct Numberformattesttuple_EnumConversion {
     const char *str;
     int32_t value;
 };
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static NumberFormatTestTuple::Numberformattesttuple_EnumConversion gRoundingEnum[] = {
+#else
 static Numberformattesttuple_EnumConversion gRoundingEnum[] = {
+#endif // APPLE_ICU_CHANGES
+
     {"ceiling", DecimalFormat::kRoundCeiling},
     {"floor", DecimalFormat::kRoundFloor},
     {"down", DecimalFormat::kRoundDown},
@@ -44,17 +55,35 @@ static Numberformattesttuple_EnumConversion gRoundingEnum[] = {
     {"halfCeiling", DecimalFormat::kRoundHalfCeiling},
     {"halfFloor", DecimalFormat::kRoundHalfFloor}};
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static NumberFormatTestTuple::Numberformattesttuple_EnumConversion gCurrencyUsageEnum[] = {
+#else
 static Numberformattesttuple_EnumConversion gCurrencyUsageEnum[] = {
+#endif // APPLE_ICU_CHANGES
     {"standard", UCURR_USAGE_STANDARD},
     {"cash", UCURR_USAGE_CASH}};
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static NumberFormatTestTuple::Numberformattesttuple_EnumConversion gPadPositionEnum[] = {
+#else
 static Numberformattesttuple_EnumConversion gPadPositionEnum[] = {
+#endif // APPLE_ICU_CHANGES
     {"beforePrefix", DecimalFormat::kPadBeforePrefix},
     {"afterPrefix", DecimalFormat::kPadAfterPrefix},
     {"beforeSuffix", DecimalFormat::kPadBeforeSuffix},
     {"afterSuffix", DecimalFormat::kPadAfterSuffix}};
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static NumberFormatTestTuple::Numberformattesttuple_EnumConversion gFormatStyleEnum[] = {
+#else
 static Numberformattesttuple_EnumConversion gFormatStyleEnum[] = {
+#endif // APPLE_ICU_CHANGES
     {"patternDecimal", UNUM_PATTERN_DECIMAL},
     {"decimal", UNUM_DECIMAL},
     {"currency", UNUM_CURRENCY},
@@ -72,7 +101,13 @@ static Numberformattesttuple_EnumConversion gFormatStyleEnum[] = {
     {"default", UNUM_DEFAULT},
     {"ignore", UNUM_IGNORE}};
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+int32_t NumberFormatTestTuple::toEnum(
+#else
 static int32_t toEnum(
+#endif // APPLE_ICU_CHANGES
         const Numberformattesttuple_EnumConversion *table,
         int32_t tableLength,
         const UnicodeString &str,
@@ -94,7 +129,13 @@ static int32_t toEnum(
     return 0;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::fromEnum(
+#else
 static void fromEnum(
+#endif // APPLE_ICU_CHANGES
         const Numberformattesttuple_EnumConversion *table,
         int32_t tableLength,
         int32_t val,
@@ -106,17 +147,35 @@ static void fromEnum(
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::identVal(
+#else
 static void identVal(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *strPtr, UErrorCode & /*status*/) {
     *static_cast<UnicodeString *>(strPtr) = str;
 }
  
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::identStr(
+#else
 static void identStr(
+#endif // APPLE_ICU_CHANGES
         const void *strPtr, UnicodeString &appendTo) {
     appendTo.append(*static_cast<const UnicodeString *>(strPtr));
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToLocale(
+#else
 static void strToLocale(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *localePtr, UErrorCode &status) {
     if (U_FAILURE(status)) {
         return;
@@ -126,15 +185,27 @@ static void strToLocale(
     *static_cast<Locale *>(localePtr) = Locale(localeStr.data());
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::localeToStr(
+#else
 static void localeToStr(
+#endif // APPLE_ICU_CHANGES
         const void *localePtr, UnicodeString &appendTo) {
     appendTo.append(
             UnicodeString(
                     static_cast<const Locale *>(localePtr)->getName()));
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToInt(
+#else
 static void strToInt(
-        const UnicodeString &str, void *intPtr, UErrorCode &status) {
+#endif // APPLE_ICU_CHANGES
+       const UnicodeString &str, void *intPtr, UErrorCode &status) {
     if (U_FAILURE(status)) {
         return;
     }
@@ -162,7 +233,13 @@ static void strToInt(
     *static_cast<int32_t *>(intPtr) = signedValue;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::intToStr(
+#else
 static void intToStr(
+#endif // APPLE_ICU_CHANGES
         const void *intPtr, UnicodeString &appendTo) {
     char16_t buffer[20];
     // int64_t such that all int32_t values can be negated
@@ -178,7 +255,13 @@ static void intToStr(
     appendTo.append(buffer, 0, len);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToDouble(
+#else
 static void strToDouble(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *doublePtr, UErrorCode &status) {
     if (U_FAILURE(status)) {
         return;
@@ -191,7 +274,13 @@ static void strToDouble(
     *static_cast<double *>(doublePtr) = atof(buffer.data());
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::doubleToStr(
+#else
 static void doubleToStr(
+#endif // APPLE_ICU_CHANGES
         const void *doublePtr, UnicodeString &appendTo) {
     char buffer[256];
     double x = *static_cast<const double *>(doublePtr);
@@ -199,14 +288,26 @@ static void doubleToStr(
     appendTo.append(buffer);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToERounding(
+#else
 static void strToERounding(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *roundPtr, UErrorCode &status) {
     int32_t val = toEnum(
             gRoundingEnum, UPRV_LENGTHOF(gRoundingEnum), str, status);
     *static_cast<DecimalFormat::ERoundingMode*>(roundPtr) = static_cast<DecimalFormat::ERoundingMode>(val);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::eRoundingToStr(
+#else
 static void eRoundingToStr(
+#endif // APPLE_ICU_CHANGES
         const void *roundPtr, UnicodeString &appendTo) {
     DecimalFormat::ERoundingMode rounding = 
             *static_cast<const DecimalFormat::ERoundingMode *>(roundPtr);
@@ -217,14 +318,26 @@ static void eRoundingToStr(
             appendTo);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToCurrencyUsage(
+#else
 static void strToCurrencyUsage(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *currencyUsagePtr, UErrorCode &status) {
     int32_t val = toEnum(
             gCurrencyUsageEnum, UPRV_LENGTHOF(gCurrencyUsageEnum), str, status);
     *static_cast<UCurrencyUsage*>(currencyUsagePtr) = static_cast<UCurrencyUsage>(val);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::currencyUsageToStr(
+#else
 static void currencyUsageToStr(
+#endif // APPLE_ICU_CHANGES
         const void *currencyUsagePtr, UnicodeString &appendTo) {
     UCurrencyUsage currencyUsage = 
             *static_cast<const UCurrencyUsage *>(currencyUsagePtr);
@@ -235,7 +348,13 @@ static void currencyUsageToStr(
             appendTo);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToEPadPosition(
+#else
 static void strToEPadPosition(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *padPositionPtr, UErrorCode &status) {
     int32_t val = toEnum(
             gPadPositionEnum, UPRV_LENGTHOF(gPadPositionEnum), str, status);
@@ -243,7 +362,13 @@ static void strToEPadPosition(
             static_cast<DecimalFormat::EPadPosition>(val);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::ePadPositionToStr(
+#else
 static void ePadPositionToStr(
+#endif // APPLE_ICU_CHANGES
         const void *padPositionPtr, UnicodeString &appendTo) {
     DecimalFormat::EPadPosition padPosition = 
             *static_cast<const DecimalFormat::EPadPosition *>(padPositionPtr);
@@ -254,14 +379,26 @@ static void ePadPositionToStr(
             appendTo);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::strToFormatStyle(
+#else
 static void strToFormatStyle(
+#endif // APPLE_ICU_CHANGES
         const UnicodeString &str, void *formatStylePtr, UErrorCode &status) {
     int32_t val = toEnum(
             gFormatStyleEnum, UPRV_LENGTHOF(gFormatStyleEnum), str, status);
     *static_cast<UNumberFormatStyle*>(formatStylePtr) = static_cast<UNumberFormatStyle>(val);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void NumberFormatTestTuple::formatStyleToStr(
+#else
 static void formatStyleToStr(
+#endif // APPLE_ICU_CHANGES
         const void *formatStylePtr, UnicodeString &appendTo) {
     UNumberFormatStyle formatStyle = 
             *static_cast<const UNumberFormatStyle *>(formatStylePtr);
@@ -272,6 +409,9 @@ static void formatStyleToStr(
             appendTo);
 }
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 struct NumberFormatTestTupleFieldOps {
     void (*toValue)(const UnicodeString &str, void *valPtr, UErrorCode &);
     void (*toString)(const void *valPtr, UnicodeString &appendTo);
@@ -342,6 +482,7 @@ const NumberFormatTestTupleFieldData gFieldData[] = {
     FIELD_INIT(parseCaseSensitive, &gIntOps),
     FIELD_INIT(outputCurrency, &gStrOps)
 };
+#endif // APPLE_ICU_CHANGES
 
 UBool
 NumberFormatTestTuple::setField(
@@ -409,7 +550,13 @@ NumberFormatTestTuple::toString(
 
 ENumberFormatTestTupleField
 NumberFormatTestTuple::getFieldByName(
-        const UnicodeString &name) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+                                      const UnicodeString &name) const {
+#else
+                                      const UnicodeString &name) {
+#endif // APPLE_ICU_CHANGES
     CharString buffer;
     UErrorCode status = U_ZERO_ERROR;
     buffer.appendInvariantChars(name, status);
@@ -431,24 +578,48 @@ NumberFormatTestTuple::getFieldByName(
 
 const void *
 NumberFormatTestTuple::getFieldAddress(int32_t fieldId) const {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    return gFieldData[fieldId].fieldPtr;
+#else
     return reinterpret_cast<const char *>(this) + gFieldData[fieldId].offset;
+#endif // APPLE_ICU_CHANGES
 }
 
 void *
 NumberFormatTestTuple::getMutableFieldAddress(int32_t fieldId) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    return gFieldData[fieldId].fieldPtr;
+#else
     return reinterpret_cast<char *>(this) + gFieldData[fieldId].offset;
+#endif // APPLE_ICU_CHANGES
 }
 
 void 
 NumberFormatTestTuple::setFlag(int32_t fieldId, UBool value) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    gFieldData[fieldId].flag = value;
+#else
     void *flagAddr = reinterpret_cast<char *>(this) + gFieldData[fieldId].flagOffset;
     *static_cast<UBool *>(flagAddr) = value;
+#endif // APPLE_ICU_CHANGES
 }
 
 UBool
 NumberFormatTestTuple::isFlag(int32_t fieldId) const {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    return gFieldData[fieldId].flag;
+#else
     const void *flagAddr = reinterpret_cast<const char *>(this) + gFieldData[fieldId].flagOffset;
     return *static_cast<const UBool *>(flagAddr);
+#endif // APPLE_ICU_CHANGES
 }
 
 #endif /* !UCONFIG_NO_FORMATTING */

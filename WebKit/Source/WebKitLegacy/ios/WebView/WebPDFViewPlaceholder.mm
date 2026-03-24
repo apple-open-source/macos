@@ -471,7 +471,7 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
     auto* frame = core([_dataSource webFrame]);
     FrameLoadRequest frameLoadRequest { *frame->document(), frame->document()->securityOrigin(), { URL }, { }, InitiatedByMainFrame::Unknown };
     frameLoadRequest.setReferrerPolicy(ReferrerPolicy::NoReferrer);
-    frame->loader().loadFrameRequest(WTFMove(frameLoadRequest), event.ptr(), nullptr);
+    frame->loader().loadFrameRequest(WTF::move(frameLoadRequest), event.ptr(), nullptr);
 }
 
 @end

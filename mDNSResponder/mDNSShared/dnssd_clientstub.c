@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2445,23 +2445,15 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
     }
     rref = mdns_calloc(1, sizeof(*rref));
     if (!rref) { mdns_free(hdr); return kDNSServiceErr_NoMemory; }
-#if defined(MEMORY_OBJECT_TRACKING) && !defined(__clang_analyzer__)
-    extern int rref_created;
-    rref_created++;
-#endif
     rref->AppContext = context;
     rref->AppCallback = callBack;
     rref->record_index = sdRef->max_index++;
     rref->sdr = sdRef;
-    *RecordRef = rref;
     // Remember the uid that we are sending across so that we can match
     // when the response comes back.
     rref->uid = sdRef->uid;
     hdr->reg_index = rref->record_index;
 
-    p = &(sdRef)->rec;
-    while (*p) p = &(*p)->recnext;
-    *p = rref;
     // If kDNSServiceFlagsQueueRequest flag is set, put the hdr in linked records
     if (flags & kDNSServiceFlagsQueueRequest)
     {
@@ -2475,6 +2467,19 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
         {
             err = kDNSServiceErr_NoError;
         }
+    }
+    if (err == kDNSServiceErr_NoError) {
+        // Add the reference to the list for receiving future callbacks
+        p = &(sdRef)->rec;
+        while (*p) p = &(*p)->recnext;
+        *p = rref;
+        *RecordRef = rref;
+#if defined(MEMORY_OBJECT_TRACKING) && !defined(__clang_analyzer__)
+        extern int rref_created;
+        rref_created++;
+#endif
+    } else {
+        mdns_free(rref);
     }
     return err;
 }

@@ -80,7 +80,7 @@ void ScrollView::platformAddChild(Widget* child)
     ASSERT(![parentView isDescendantOf:childView.get()]);
     
     // Suppress the resetting of drag margins since we know we can't affect them.
-    NSWindow *window = [parentView window];
+    RetainPtr<NSWindow> window = [parentView window];
     BOOL resetDragMargins = [window _needsToResetDragMargins];
     [window _setNeedsToResetDragMargins:NO];
     if ([childView superview] != parentView)
@@ -256,7 +256,7 @@ IntRect ScrollView::platformContentsToScreen(const IntRect& rect) const
     if (RetainPtr documentView = this->documentView()) {
         NSRect tempRect = rect;
         tempRect = [documentView convertRect:tempRect toView:nil];
-        tempRect.origin = [[documentView window] convertPointToScreen:tempRect.origin];
+        tempRect.origin = [retainPtr([documentView window]) convertPointToScreen:tempRect.origin];
         return enclosingIntRect(tempRect);
     }
     END_BLOCK_OBJC_EXCEPTIONS
@@ -267,7 +267,7 @@ IntPoint ScrollView::platformScreenToContents(const IntPoint& point) const
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     if (RetainPtr documentView = this->documentView()) {
-        NSPoint windowCoord = [[documentView window] convertPointFromScreen: point];
+        NSPoint windowCoord = [retainPtr([documentView window]) convertPointFromScreen: point];
         return IntPoint([documentView convertPoint:windowCoord fromView:nil]);
     }
     END_BLOCK_OBJC_EXCEPTIONS

@@ -65,6 +65,8 @@ public:
 
     bool makeBuffersVolatile(OptionSet<BufferInSetType> requestedBuffers, OptionSet<BufferInSetType>& volatileBuffers, bool forcePurge);
 
+    bool isPreparingForDisplay() const { return m_context.get(); }
+
 private:
     RemoteImageBufferSet(ImageBufferSetIdentifier, RemoteGraphicsContextIdentifier, RemoteRenderingBackend&);
 
@@ -76,7 +78,7 @@ private:
 
     // Messages
     void updateConfiguration(const RemoteImageBufferSetConfiguration&);
-    void endPrepareForDisplay(RenderingUpdateID);
+    void endPrepareForDisplay(RenderingUpdateID, CompletionHandler<void(ImageBufferSetPrepareBufferForDisplayOutputData, RenderingUpdateID)>&&);
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     void dynamicContentScalingDisplayList(CompletionHandler<void(std::optional<WebCore::DynamicContentScalingDisplayList>&&)>&&);

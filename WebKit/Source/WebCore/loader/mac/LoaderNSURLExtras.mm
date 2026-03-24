@@ -47,8 +47,8 @@ NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType)
 NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType, const String& defaultValue)
 {
     // Get the filename from the URL. Try the lastPathComponent first.
-    NSString *lastPathComponent = [[url path] lastPathComponent];
-    RetainPtr filename = filenameByFixingIllegalCharacters(lastPathComponent);
+    RetainPtr<NSString> lastPathComponent = [[url path] lastPathComponent];
+    RetainPtr filename = filenameByFixingIllegalCharacters(lastPathComponent.get());
     RetainPtr<NSString> extension;
 
     if ([filename length] == 0 || [lastPathComponent isEqualToString:@"/"]) {

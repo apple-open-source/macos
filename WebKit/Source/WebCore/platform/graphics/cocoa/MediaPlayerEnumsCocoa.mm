@@ -42,7 +42,7 @@ MediaPlayerVideoGravity convertAVLayerToMediaPlayerVideoGravity(NSString *gravit
     return MediaPlayerVideoGravity::ResizeAspect;
 }
 
-NSString *convertMediaPlayerToAVLayerVideoGravity(MediaPlayerVideoGravity gravity)
+RetainPtr<NSString> convertMediaPlayerToAVLayerVideoGravity(MediaPlayerVideoGravity gravity)
 {
     switch (gravity) {
     case MediaPlayerVideoGravity::ResizeAspect:

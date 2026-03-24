@@ -1078,6 +1078,10 @@ extern void _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor(UIUserIn
 
 #endif // USE(APPLE_INTERNAL_SDK)
 
+@interface UITextChecker (Staging_165842824)
+- (void)requestProofreadingReviewOfString:(NSString *)stringToCheck range:(NSRange)range language:(NSString *)language options:(NSDictionary<NSString *, id> *)options completionHandler:(void (^)(NSArray<NSTextCheckingResult *> *results))completionHandler;
+@end
+
 #if HAVE(UITOOLTIPINTERACTION)
 @interface NSObject (NSViewDynamicToolTipManager)
 @property (readonly) NSObject *_dynamicToolTipManager;

@@ -83,10 +83,11 @@ public:
     }
     
     // This does not find the cell if the pointer is pointing at the middle of a JSCell.
-    static bool isValueGCObject(
-        JSC::Heap& heap, TinyBloomFilter<uintptr_t> filter, JSValue value)
+    static bool isValueGCObject(JSC::Heap& heap, TinyBloomFilter<uintptr_t> filter, JSValue value)
     {
         ASSERT(heap.objectSpace().preciseAllocationSet());
+        if (!value)
+            return false;
         if (!value.isCell())
             return false;
         return isPointerGCObjectJSCell(heap, filter, value.asCell());

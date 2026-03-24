@@ -51,8 +51,8 @@ bool hasPresentationRole(Element&);
 bool hasTableRole(Element&);
 bool isRowGroup(Element&);
 bool isRowGroup(Node*);
-ContainerNode* composedParentIgnoringDocumentFragments(const Node&);
-ContainerNode* composedParentIgnoringDocumentFragments(const Node*);
+RefPtr<ContainerNode> composedParentIgnoringDocumentFragments(const Node&);
+RefPtr<ContainerNode> composedParentIgnoringDocumentFragments(const Node*);
 
 // Returns NodeName and not ElementName because it's impossible to forward declare ElementName.
 NodeName elementName(Node*);
@@ -82,5 +82,7 @@ void dumpAccessibilityTreeToStderr(Document&);
 String roleToString(AccessibilityRole);
 
 std::optional<CursorType> cursorTypeFrom(const StyleProperties&);
+
+RefPtr<Node> lastNode(const FixedVector<AXID>&, AXObjectCache&);
 
 } // WebCore

@@ -122,7 +122,7 @@ static bool entryHasObject(const WebGLFramebuffer::AttachmentEntry& entry)
 
 RefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContextBase& context)
 {
-    auto object = context.protectedGraphicsContextGL()->createFramebuffer();
+    auto object = context.graphicsContextGL()->createFramebuffer();
     if (!object)
         return nullptr;
     return adoptRef(*new WebGLFramebuffer { context, object, Type::Plain });
@@ -131,7 +131,7 @@ RefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContextBase& con
 #if ENABLE(WEBXR)
 RefPtr<WebGLFramebuffer> WebGLFramebuffer::createOpaque(WebGLRenderingContextBase& context)
 {
-    auto object = context.protectedGraphicsContextGL()->createFramebuffer();
+    auto object = context.graphicsContextGL()->createFramebuffer();
     if (!object)
         return nullptr;
     return adoptRef(*new WebGLFramebuffer { context, object, Type::Opaque });
@@ -160,7 +160,7 @@ void WebGLFramebuffer::setAttachmentForBoundFramebuffer(GCGLenum target, GCGLenu
     ASSERT(object());
     ASSERT(isBound(target));
     auto attachmentCount = m_attachments.size();
-    RefPtr gl = context()->graphicsContextGL();
+    RefPtr gl = graphicsContextGL();
     if (attachment == GraphicsContextGL::DEPTH_STENCIL_ATTACHMENT && context()->isWebGL2()) {
         setAttachmentInternal(GraphicsContextGL::STENCIL_ATTACHMENT, entry);
         entryContextSetAttachment(entry, gl.get(), target, GraphicsContextGL::STENCIL_ATTACHMENT);
@@ -190,14 +190,14 @@ void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(const AbstractLocker
         return;
     auto attachmentCount = m_attachments.size();
     bool checkMore = true;
-    RefPtr gl = context()->graphicsContextGL();
+    RefPtr gl = graphicsContextGL();
     do {
         checkMore = false;
         for (auto it = m_attachments.begin(); it != m_attachments.end(); ++it) {
             if (entryObject(it->value) != removedObject)
                 continue;
             GCGLenum attachment = it->key;
-            auto entry = WTFMove(it->value);
+            auto entry = WTF::move(it->value);
             m_attachments.remove(it);
             checkMore = true;
             entryDetachAndClear(entry, locker, gl.get());
@@ -219,7 +219,7 @@ void WebGLFramebuffer::deleteObjectImpl(const AbstractLocker& locker, GraphicsCo
 
 bool WebGLFramebuffer::isBound(GCGLenum target) const
 {
-    return protectedContext()->getFramebufferBinding(target) == this;
+    return context()->getFramebufferBinding(target) == this;
 }
 
 void WebGLFramebuffer::drawBuffers(const Vector<GCGLenum>& bufs)
@@ -233,7 +233,8 @@ void WebGLFramebuffer::drawBuffers(const Vector<GCGLenum>& bufs)
 
 void WebGLFramebuffer::drawBuffersIfNecessary(bool force)
 {
-    if (context()->isWebGL2() || context()->m_webglDrawBuffers) {
+    RefPtr context = this->context();
+    if (context->isWebGL2() || context->m_webglDrawBuffers) {
         bool reset = force;
         // This filtering works around graphics driver bugs on macOS.
         for (size_t i = 0; i < m_drawBuffers.size(); ++i) {
@@ -250,10 +251,10 @@ void WebGLFramebuffer::drawBuffersIfNecessary(bool force)
             }
         }
         if (reset) {
-            if (context()->isWebGL2())
-                context()->protectedGraphicsContextGL()->drawBuffers(m_filteredDrawBuffers);
+            if (context->isWebGL2())
+                context->graphicsContextGL()->drawBuffers(m_filteredDrawBuffers);
             else
-                context()->protectedGraphicsContextGL()->drawBuffersEXT(m_filteredDrawBuffers);
+                context->graphicsContextGL()->drawBuffersEXT(m_filteredDrawBuffers);
         }
     }
 }
@@ -282,17 +283,17 @@ void WebGLFramebuffer::setAttachmentInternal(GCGLenum attachment, AttachmentEntr
         return;
     }
     Locker locker { objectGraphLockForContext() };
-
     auto it = m_attachments.find(attachment);
     if (it != m_attachments.end()) {
         if (entry == it->value)
             return;
-        entryDetachAndClear(it->value, locker, context()->protectedGraphicsContextGL().get());
+        RefPtr gl = graphicsContextGL();
+        entryDetachAndClear(it->value, locker, gl.get());
         m_attachments.remove(it);
     }
     if (!entryHasObject(entry))
         return;
-    auto result = m_attachments.add(attachment, WTFMove(entry));
+    auto result = m_attachments.add(attachment, WTF::move(entry));
     entryAttach(result.iterator->value);
 }
 

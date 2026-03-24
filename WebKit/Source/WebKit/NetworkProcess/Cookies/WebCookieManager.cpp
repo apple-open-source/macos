@@ -86,7 +86,7 @@ void WebCookieManager::getHostnamesWithCookies(PAL::SessionID sessionID, Complet
 void WebCookieManager::deleteCookiesForHostnames(PAL::SessionID sessionID, const Vector<String>& hostnames, CompletionHandler<void()>&& completionHandler)
 {
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
-        storageSession->deleteCookiesForHostnames(hostnames, WTFMove(completionHandler));
+        storageSession->deleteCookiesForHostnames(hostnames, WTF::move(completionHandler));
     else
         completionHandler();
 }
@@ -94,7 +94,7 @@ void WebCookieManager::deleteCookiesForHostnames(PAL::SessionID sessionID, const
 void WebCookieManager::deleteAllCookies(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
-        storageSession->deleteAllCookies(WTFMove(completionHandler));
+        storageSession->deleteAllCookies(WTF::move(completionHandler));
     else
         completionHandler();
 }
@@ -102,7 +102,7 @@ void WebCookieManager::deleteAllCookies(PAL::SessionID sessionID, CompletionHand
 void WebCookieManager::deleteCookie(PAL::SessionID sessionID, const Cookie& cookie, CompletionHandler<void()>&& completionHandler)
 {
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
-        storageSession->deleteCookie(cookie, WTFMove(completionHandler));
+        storageSession->deleteCookie(cookie, WTF::move(completionHandler));
     else
         completionHandler();
 }
@@ -110,7 +110,7 @@ void WebCookieManager::deleteCookie(PAL::SessionID sessionID, const Cookie& cook
 void WebCookieManager::deleteAllCookiesModifiedSince(PAL::SessionID sessionID, WallTime time, CompletionHandler<void()>&& completionHandler)
 {
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
-        storageSession->deleteAllCookiesModifiedSince(time, WTFMove(completionHandler));
+        storageSession->deleteAllCookiesModifiedSince(time, WTF::move(completionHandler));
     else
         completionHandler();
 }
@@ -120,7 +120,7 @@ void WebCookieManager::getAllCookies(PAL::SessionID sessionID, CompletionHandler
     Vector<Cookie> cookies;
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
         cookies = storageSession->getAllCookies();
-    completionHandler(WTFMove(cookies));
+    completionHandler(WTF::move(cookies));
 }
 
 void WebCookieManager::getCookies(PAL::SessionID sessionID, const URL& url, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&& completionHandler)
@@ -128,7 +128,7 @@ void WebCookieManager::getCookies(PAL::SessionID sessionID, const URL& url, Comp
     Vector<Cookie> cookies;
     if (CheckedPtr storageSession = protectedProcess()->storageSession(sessionID))
         cookies = storageSession->getCookies(url);
-    completionHandler(WTFMove(cookies));
+    completionHandler(WTF::move(cookies));
 }
 
 void WebCookieManager::setCookie(PAL::SessionID sessionID, const Vector<Cookie>& cookies, uint64_t cookiesVersion, CompletionHandler<void()>&& completionHandler)
@@ -174,7 +174,7 @@ void WebCookieManager::stopObservingCookieChanges(PAL::SessionID sessionID)
 void WebCookieManager::setHTTPCookieAcceptPolicy(PAL::SessionID sessionID, HTTPCookieAcceptPolicy policy, CompletionHandler<void()>&& completionHandler)
 {
     RELEASE_LOG(Storage, "WebCookieManager::setHTTPCookieAcceptPolicy set policy %d for session %" PRIu64, static_cast<int>(policy), sessionID.toUInt64());
-    platformSetHTTPCookieAcceptPolicy(sessionID, policy, [policy, process = protectedProcess(), completionHandler = WTFMove(completionHandler)] () mutable {
+    platformSetHTTPCookieAcceptPolicy(sessionID, policy, [policy, process = protectedProcess(), completionHandler = WTF::move(completionHandler)] () mutable {
         process->cookieAcceptPolicyChanged(policy);
         completionHandler();
     });

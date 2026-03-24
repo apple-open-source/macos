@@ -190,12 +190,12 @@ bool CanSupportYuvInternalFormat(const Renderer *renderer)
 
     const Format &twoPlane8bitYuvFormat = renderer->getFormat(GL_G8_B8R8_2PLANE_420_UNORM_ANGLE);
     bool twoPlane8bitYuvFormatSupported = renderer->hasImageFormatFeatureBits(
-        twoPlane8bitYuvFormat.getActualImageFormatID(vk::ImageAccess::SampleOnly),
+        twoPlane8bitYuvFormat.getActualImageFormatID(vk::ImageFormatSupport::SampleOnly),
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
 
     const Format &threePlane8bitYuvFormat = renderer->getFormat(GL_G8_B8_R8_3PLANE_420_UNORM_ANGLE);
     bool threePlane8bitYuvFormatSupported = renderer->hasImageFormatFeatureBits(
-        threePlane8bitYuvFormat.getActualImageFormatID(vk::ImageAccess::SampleOnly),
+        threePlane8bitYuvFormat.getActualImageFormatID(vk::ImageFormatSupport::SampleOnly),
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
 
     return twoPlane8bitYuvFormatSupported && threePlane8bitYuvFormatSupported;
@@ -1355,9 +1355,10 @@ void Renderer::ensureCapsInitialized() const
     // GL_QCOM_shading_rate
     mNativeExtensions.shadingRateQCOM = mFeatures.supportsFragmentShadingRate.enabled;
 
-    // GL_EXT_fragment_shading_rate, will enable after CTS fix patch merged.
-    mNativeExtensions.fragmentShadingRateEXT = false;
-    mNativeExtensions.fragmentShadingRatePrimitiveEXT = false;
+    // GL_EXT_fragment_shading_rate
+    mNativeExtensions.fragmentShadingRateEXT = mFeatures.supportsFragmentShadingRate.enabled;
+    mNativeExtensions.fragmentShadingRatePrimitiveEXT =
+        mFeatures.supportsPrimitiveFragmentShadingRate.enabled;
 
     // GL_QCOM_framebuffer_foveated
     mNativeExtensions.framebufferFoveatedQCOM = mFeatures.supportsFoveatedRendering.enabled;

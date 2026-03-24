@@ -39,6 +39,7 @@ class WebPageInspectorTargetFrontendChannel;
 class WebPageInspectorTarget final : public Inspector::InspectorTarget {
     WTF_MAKE_TZONE_ALLOCATED(WebPageInspectorTarget);
     WTF_MAKE_NONCOPYABLE(WebPageInspectorTarget);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebPageInspectorTarget);
 public:
     explicit WebPageInspectorTarget(WebPage&);
     virtual ~WebPageInspectorTarget();

@@ -33,8 +33,8 @@ namespace WebCore {
 struct BackgroundFetchUIOptions {
     BackgroundFetchUIOptions() = default;
     BackgroundFetchUIOptions(Vector<ImageResource>&& icons, String&& title)
-        : icons(WTFMove(icons))
-        , title(WTFMove(title))
+        : icons(WTF::move(icons))
+        , title(WTF::move(title))
     {
     }
 

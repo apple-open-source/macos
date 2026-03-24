@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 wal{
     ExemplarCharacters{
         "[\u135F ᎐-᎙ ሀ-ሏ ⶀ ሐ-ሟ ᎀ-ᎃ ⶁ ሠ-ሯ ⶂ ሰ-ሷ ⶃ ሸ-ሿ ⶄ ቀ-ቈ ቊ-ቍ ቐ-ቖ ቘ ቚ-ቝ በ-ቧ ᎄ-ᎇ ⶅ ቨ-"
@@ -19,7 +19,7 @@ wal{
                 currencyFormat{"¤#,##0.00"}
             }
             symbols{
-                group{"’"}
+                group{"'"}
             }
         }
         traditional{"ethi"}
@@ -112,8 +112,8 @@ wal{
             }
             eras{
                 abbreviated{
-                    "አዳ ዎዴ",
-                    "ግሮተታ ላይታ",
+                    0{"አዳ ዎዴ"}
+                    1{"ግሮተታ ላይታ"}
                 }
             }
             monthNames{

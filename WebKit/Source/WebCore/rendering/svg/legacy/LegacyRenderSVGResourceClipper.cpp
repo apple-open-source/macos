@@ -36,7 +36,7 @@
 #include "Logging.h"
 #include "RenderObjectDocument.h"
 #include "RenderSVGText.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "SVGClipPathElement.h"
 #include "SVGElementTypeHelpers.h"
@@ -51,10 +51,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyRenderSVGResourceClipper);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LegacyRenderSVGResourceClipper);
 
 LegacyRenderSVGResourceClipper::LegacyRenderSVGResourceClipper(SVGClipPathElement& element, RenderStyle&& style)
-    : LegacyRenderSVGResourceContainer(Type::LegacySVGResourceClipper, element, WTFMove(style))
+    : LegacyRenderSVGResourceContainer(Type::LegacySVGResourceClipper, element, WTF::move(style))
 {
 }
 
@@ -121,13 +121,16 @@ auto LegacyRenderSVGResourceClipper::pathOnlyClipping(GraphicsContext& context, 
         CheckedPtr renderer = graphicsElement->renderer();
         if (!renderer)
             continue;
-        if (rendererRequiresMaskClipping(*renderer))
-            return { };
 
-        // For <use> elements, delegate the decision whether to use mask clipping or not to the referenced element.
+        // For <use> elements, check visibility of the target element and skip if no visible target.
         if (auto* useElement = dynamicDowncast<SVGUseElement>(graphicsElement.get())) {
             auto* clipChildRenderer = useElement->rendererClipChild();
-            if (clipChildRenderer && rendererRequiresMaskClipping(*clipChildRenderer))
+            if (!clipChildRenderer)
+                continue;
+            if (rendererRequiresMaskClipping(*clipChildRenderer))
+                return { };
+        } else {
+            if (rendererRequiresMaskClipping(*renderer))
                 return { };
         }
 
@@ -265,7 +268,7 @@ bool LegacyRenderSVGResourceClipper::drawContentIntoMaskImage(ImageBuffer& maskI
             return false;
         }
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.usedVisibility() != Visibility::Visible)
+        if (style.display() == DisplayType::None || (style.usedVisibility() != Visibility::Visible && !is<SVGUseElement>(child)))
             continue;
 
         WindRule newClipRule = style.clipRule();
@@ -304,11 +307,16 @@ void LegacyRenderSVGResourceClipper::calculateClipContentRepaintRect(RepaintRect
         if (!renderer->isRenderOrLegacyRenderSVGShape() && !renderer->isRenderSVGText() && !childNode->hasTagName(SVGNames::useTag))
             continue;
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.usedVisibility() != Visibility::Visible)
-             continue;
+        if (style.display() == DisplayType::None || (style.usedVisibility() != Visibility::Visible && !childNode->hasTagName(SVGNames::useTag)))
+            continue;
+
+        // For <use> elements, check if the clipping target is visible.
+        if (auto* useElement = dynamicDowncast<SVGUseElement>(childNode)) {
+            if (!useElement->visibleTargetGraphicsElement())
+                continue;
+        }
         m_clipBoundaries[repaintRectCalculation].unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates(repaintRectCalculation)));
     }
-    m_clipBoundaries[repaintRectCalculation] = clipPathElement().animatedLocalTransform().mapRect(m_clipBoundaries[repaintRectCalculation]);
 }
 
 bool LegacyRenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundingBox, const FloatPoint& nodeAtPoint)
@@ -325,14 +333,16 @@ bool LegacyRenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectB
     if (!SVGRenderSupport::pointInClippingArea(*this, point))
         return false;
 
+    // The forward transform order is: OBB first, then local transform.
+    // So the inverse order is: inverse local first, then inverse OBB.
+    point = valueOrDefault(clipPathElement().animatedLocalTransform().inverse()).mapPoint(point);
+
     if (clipPathElement().clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         AffineTransform transform;
         transform.translate(objectBoundingBox.location());
         transform.scale(objectBoundingBox.size());
         point = valueOrDefault(transform.inverse()).mapPoint(point);
     }
-
-    point = valueOrDefault(clipPathElement().animatedLocalTransform().inverse()).mapPoint(point);
 
     for (Node* childNode = clipPathElement().firstChild(); childNode; childNode = childNode->nextSibling()) {
         RenderObject* renderer = childNode->renderer();
@@ -360,19 +370,21 @@ FloatRect LegacyRenderSVGResourceClipper::resourceBoundingBox(const RenderObject
         });
         return object.objectBoundingBox();
     }
-    
+
     if (m_clipBoundaries[repaintRectCalculation].isEmpty())
         calculateClipContentRepaintRect(repaintRectCalculation);
+
+    auto clipBoundaries = m_clipBoundaries[repaintRectCalculation];
 
     if (clipPathElement().clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         FloatRect objectBoundingBox = object.objectBoundingBox();
         AffineTransform transform;
         transform.translate(objectBoundingBox.location());
         transform.scale(objectBoundingBox.size());
-        return transform.mapRect(m_clipBoundaries[repaintRectCalculation]);
+        clipBoundaries = transform.mapRect(clipBoundaries);
     }
 
-    return m_clipBoundaries[repaintRectCalculation];
+    return clipPathElement().animatedLocalTransform().mapRect(clipBoundaries);
 }
 
 }

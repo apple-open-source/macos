@@ -78,7 +78,7 @@ struct Styleable {
     bool mayHaveNonZeroOpacity() const;
 
     bool isRunningAcceleratedAnimationOfProperty(CSSPropertyID) const;
-
+    bool isRunningAcceleratedTransformRelatedAnimation() const;
     bool hasRunningAcceleratedAnimations() const;
 
     bool capturedInViewTransition() const;
@@ -143,7 +143,7 @@ struct Styleable {
 
     void setAnimationsCreatedByMarkup(CSSAnimationCollection&& collection) const
     {
-        element.setAnimationsCreatedByMarkup(pseudoElementIdentifier, WTFMove(collection));
+        element.setAnimationsCreatedByMarkup(pseudoElementIdentifier, WTF::move(collection));
     }
 
     const RenderStyle* lastStyleChangeEventStyle() const
@@ -153,7 +153,7 @@ struct Styleable {
 
     void setLastStyleChangeEventStyle(std::unique_ptr<const RenderStyle>&& style) const
     {
-        element.setLastStyleChangeEventStyle(pseudoElementIdentifier, WTFMove(style));
+        element.setLastStyleChangeEventStyle(pseudoElementIdentifier, WTF::move(style));
     }
 
     bool hasPropertiesOverridenAfterAnimation() const

@@ -182,18 +182,18 @@ static SSLContextRef make_ssl_ref(int sock, SSLProtocol maxprot, Boolean false_s
 {
     SSLContextRef ctx = NULL;
 
-    require_noerr(SSLNewContext(false, &ctx), out);
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLNewContext(false, &ctx), out);
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
 
-    require_noerr(SSLSetSessionOption(ctx,
+    __Require_noErr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
     
-    require_noerr(SSLSetSessionOption(ctx,
+    __Require_noErr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionFalseStart, false_start), out);
 
-    require_noerr(SSLSetProtocolVersionMax(ctx, maxprot), out);
+    __Require_noErr(SSLSetProtocolVersionMax(ctx, maxprot), out);
 
     return ctx;
 out:
@@ -214,7 +214,7 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 
     ortn = SSLHandshake(ctx);
 
-    require_action_quiet(ortn==errSSLWouldBlock, out, printf("SSLHandshake failed with err %ld\n", (long)ortn));
+    __Require_Action_Quiet(ortn==errSSLWouldBlock, out, printf("SSLHandshake failed with err %ld\n", (long)ortn));
 
     size_t sent, received;
     const char *r=request;
@@ -231,23 +231,23 @@ static OSStatus securetransport(ssl_test_handle * ssl)
         
         if (ortn == errSSLServerAuthCompleted)
         {
-            require_string(!got_server_auth, out, "second server auth");
-            require_string(!got_client_cert_req, out, "got client cert req before server auth");
+            __Require_String(!got_server_auth, out, "second server auth");
+            __Require_String(!got_client_cert_req, out, "got client cert req before server auth");
             got_server_auth = true;
-            require_string(!trust, out, "Got errSSLServerAuthCompleted twice?");
+            __Require_String(!trust, out, "Got errSSLServerAuthCompleted twice?");
             /* verify peer cert chain */
-            require_noerr(SSLCopyPeerTrust(ctx, &trust), out);
+            __Require_noErr(SSLCopyPeerTrust(ctx, &trust), out);
             SecTrustResultType trust_result = 0;
             /* this won't verify without setting up a trusted anchor */
-            require_noerr(SecTrustEvaluate(trust, &trust_result), out);
+            __Require_noErr(SecTrustEvaluate(trust, &trust_result), out);
         }
     } while(ortn == errSSLWouldBlock || ortn == errSSLServerAuthCompleted);
 
     //fprintf(stderr, "\nHTTP Request Sent\n");
 
-    require_noerr_action_quiet(ortn, out, printf("SSLWrite failed with err %ld\n", (long)ortn));
+    __Require_noErr_Action_Quiet(ortn, out, printf("SSLWrite failed with err %ld\n", (long)ortn));
 
-    require_string(got_server_auth, out, "never got server auth");
+    __Require_String(got_server_auth, out, "never got server auth");
 
     do {
         ortn = SSLRead(ctx, reply, sizeof(reply)-1, &received);
@@ -256,7 +256,7 @@ static OSStatus securetransport(ssl_test_handle * ssl)
     
     //fprintf(stderr, "\n");
     
-    require_noerr_action_quiet(ortn, out, printf("SSLRead failed with err %ld\n", (long)ortn));
+    __Require_noErr_Action_Quiet(ortn, out, printf("SSLRead failed with err %ld\n", (long)ortn));
 
     reply[received]=0;
 

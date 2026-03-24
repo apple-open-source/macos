@@ -73,7 +73,7 @@ public:
     void graphicsLayerDidEnterContext(GraphicsLayerCARemote&);
     void graphicsLayerWillLeaveContext(GraphicsLayerCARemote&);
 
-    WebCore::LayerPool& layerPool() { return m_layerPool; }
+    WebCore::LayerPool& layerPool() { return m_layerPool.get(); }
 
     float deviceScaleFactor() const;
     
@@ -94,9 +94,6 @@ public:
     void willStartAnimationOnLayer(PlatformCALayerRemote&);
 
     RemoteLayerBackingStoreCollection& backingStoreCollection() { return m_backingStoreCollection; }
-    
-    void setNextRenderingUpdateRequiresSynchronousImageDecoding() { m_nextRenderingUpdateRequiresSynchronousImageDecoding = true; }
-    bool nextRenderingUpdateRequiresSynchronousImageDecoding() const { return m_nextRenderingUpdateRequiresSynchronousImageDecoding; }
 
     void adoptLayersFromContext(RemoteLayerTreeContext&);
 
@@ -137,11 +134,10 @@ private:
 
     const UniqueRef<RemoteLayerBackingStoreCollection> m_backingStoreCollection;
 
-    WebCore::LayerPool m_layerPool;
+    const UniqueRef<WebCore::LayerPool> m_layerPool;
 
     CheckedPtr<RemoteLayerTreeTransaction> m_currentTransaction;
 
-    bool m_nextRenderingUpdateRequiresSynchronousImageDecoding { false };
     bool m_useDynamicContentScalingDisplayListsForDOMRendering { false };
 };
 

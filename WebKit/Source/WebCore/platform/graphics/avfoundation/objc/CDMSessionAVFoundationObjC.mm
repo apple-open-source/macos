@@ -124,7 +124,7 @@ void CDMSessionAVFoundationObjC::releaseKeys()
 bool CDMSessionAVFoundationObjC::update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, uint32_t& systemCode)
 {
     RetainPtr keyData = toNSData(key->span());
-    [[m_request dataRequest] respondWithData:keyData.get()];
+    [retainPtr([m_request dataRequest]) respondWithData:keyData.get()];
     [m_request finishLoading];
     errorCode = MediaPlayer::NoError;
     systemCode = 0;
@@ -142,13 +142,14 @@ RefPtr<ArrayBuffer> CDMSessionAVFoundationObjC::cachedKeyForKeyID(const String&)
 
 void CDMSessionAVFoundationObjC::playerDidReceiveError(NSError *error)
 {
-    if (!m_client)
+    RefPtr client = m_client.get();
+    if (!client)
         return;
 
     ERROR_LOG(LOGIDENTIFIER, error);
 
     unsigned long code = mediaKeyErrorSystemCode(error);
-    m_client->sendError(LegacyCDMSessionClient::MediaKeyErrorDomain, code);
+    client->sendError(LegacyCDMSessionClient::MediaKeyErrorDomain, code);
 }
 
 #if !RELEASE_LOG_DISABLED

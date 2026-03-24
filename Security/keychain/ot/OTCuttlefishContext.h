@@ -206,6 +206,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)performCKServerUnreadableDataRemoval:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply;
 
+- (void)enableWalrus:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+               reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)disableWalrus:(NSArray<OTSerializedPlistEscrowRecord*>*)preRecords
+                reply:(void (^)(NSError* _Nullable error))reply;
+
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)rpcEstablish:(nonnull NSString *)altDSID

@@ -244,7 +244,7 @@ static void decidePolicyForNavigationAction(WKPageRef pageRef, WKNavigationActio
     toImpl(listenerRef)->ignore();
 
     // And instead load it in the inspected page.
-    inspector->protectedInspectedPage()->loadRequest(WTFMove(request));
+    inspector->protectedInspectedPage()->loadRequest(WTF::move(request));
 }
 
 static void webProcessDidCrash(WKPageRef, const void* clientInfo)
@@ -494,7 +494,7 @@ void WebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::
     // Currently, file saving is only possible with SaveMode::SingleFile.
     // This is determined in WebInspectorUI::canSave().
     ASSERT(saveDatas.size() == 1);
-    WebInspectorUIProxy::showSavePanelForSingleFile(m_inspectedViewWindow, WTFMove(saveDatas));
+    WebInspectorUIProxy::showSavePanelForSingleFile(m_inspectedViewWindow, WTF::move(saveDatas));
 }
 
 void WebInspectorUIProxy::platformLoad(const String&, CompletionHandler<void(const String&)>&& completionHandler)

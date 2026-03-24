@@ -50,6 +50,8 @@
 #include <utilities/SecFileLocations.h>
 #include <utilities/debugging.h>
 #include <utilities/SecXPCError.h>
+#include <utilities/SecInternalReleasePriv.h>
+
 #include "trust/trustd/SecOCSPCache.h"
 #include "trust/trustd/SecTrustSettingsServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
@@ -75,7 +77,7 @@ static bool SecXPCDictionarySetChainOptional(xpc_object_t message, const char *k
     if (!path)
         return true;
     __block xpc_object_t xpc_chain = NULL;
-    require_action_quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
+    __Require_Action_Quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
     CFArrayForEach(path, ^(const void *value) {
         SecCertificateRef cert = (SecCertificateRef)value;
         if (xpc_chain && !SecCertificateAppendToXPCArray(cert, xpc_chain, error)) {
@@ -529,9 +531,17 @@ static bool SecXPCTrustIncrementExceptionResetCount(SecurityClient * __unused cl
     return result;
 }
 
-static bool SecXPC_Valid_Update(SecurityClient * __unused client, xpc_object_t __unused event,
+static bool SecXPC_Valid_Update(SecurityClient * __unused client, xpc_object_t event,
                                 xpc_object_t reply, CFErrorRef *error) {
-    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecRevocationDbUpdate(error));
+
+    CFIndex version = SEC_TRUST_VALID_VERSION_DATABASE_VERSION;
+    if (SecIsInternalRelease()) {
+        int64_t v = xpc_dictionary_get_int64(event, "version");
+        if (v > 0 && v < INT_MAX/2) {
+            version = (CFIndex)v;
+        }
+    }
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecRevocationDbUpdate(version, error));
     return true;
 }
 

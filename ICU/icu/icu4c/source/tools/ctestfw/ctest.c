@@ -148,6 +148,9 @@ int QUICK = 1;  /* Skip some of the slower tests? */
 int WARN_ON_MISSING_DATA = 0; /* Reduce data errs to warnings? */
 UTraceLevel ICU_TRACE = UTRACE_OFF;  /* ICU tracing level */
 int WRITE_GOLDEN_DATA = 0; /* Overwrite golden data files? */
+#if APPLE_ICU_CHANGES // rdar://168155160
+int SLEEP_FOR_MEMORY_CHECK = 0; /* Enable sleep for heap/leak checking? */
+#endif  // APPLE_ICU_CHANGES
 size_t MINIMUM_MEMORY_SIZE_FAILURE = (size_t)-1; /* Minimum library memory allocation window that will fail. */
 size_t MAXIMUM_MEMORY_SIZE_FAILURE = (size_t)-1; /* Maximum library memory allocation window that will fail. */
 static const char *ARGV_0 = "[ALL]";
@@ -201,7 +204,9 @@ static TestNode *createTestNode(const char* name, int32_t nameLen)
     newNode->sibling = NULL;
     newNode->child = NULL;
 
-    strncpy( newNode->name, name, nameLen );
+    if (nameLen > 0) {
+        strncpy( newNode->name, name, nameLen );
+    }
     newNode->name[nameLen] = 0;
 
     return  newNode;
@@ -1107,6 +1112,11 @@ initArgs( int argc, const char* const argv[], ArgHandlerPtr argHandler, void *co
         else if (strcmp( argv[i], "-G") == 0) {
             WRITE_GOLDEN_DATA = 1;
         }
+#if APPLE_ICU_CHANGES // rdar://168155160
+        else if (strcmp( argv[i], "-s") == 0 || strcmp( argv[i], "--sleep") == 0) {
+            SLEEP_FOR_MEMORY_CHECK = 1;
+        }
+#endif  // APPLE_ICU_CHANGES
         else if (strcmp( argv[i], "-h" )==0 || strcmp( argv[i], "--help" )==0)
         {
             help( argv[0] );
@@ -1241,6 +1251,9 @@ static void help ( const char *argv0 )
     printf("        The default is the maximum value of size_t. Max is optional.\n");
     printf("    -r  Repeat tests after calling u_cleanup \n");
     printf("    -G  Write golden data files \n");
+#if APPLE_ICU_CHANGES // rdar://168155160
+    printf("    -s  Enable sleep delays for heap/leak checking \n");
+#endif  // APPLE_ICU_CHANGES
     printf("    [/subtest]  To run a subtest \n");
     printf("    eg: to run just the utility tests type: cintltest /tsutil) \n");
 }
@@ -1262,6 +1275,10 @@ getTestOption ( int32_t testOption ) {
             return ICU_TRACE;
         case WRITE_GOLDEN_DATA_OPTION:
             return WRITE_GOLDEN_DATA;
+#if APPLE_ICU_CHANGES // rdar://168155160
+        case SLEEP_OPTION:
+            return SLEEP_FOR_MEMORY_CHECK;
+#endif  // APPLE_ICU_CHANGES
         default :
             return 0;
     }
@@ -1291,6 +1308,12 @@ setTestOption ( int32_t testOption, int32_t value) {
             break;
         case WRITE_GOLDEN_DATA_OPTION:
             WRITE_GOLDEN_DATA = value;
+#if APPLE_ICU_CHANGES // rdar://168155160
+            break;
+        case SLEEP_OPTION:
+            SLEEP_FOR_MEMORY_CHECK = value;
+            break;
+#endif  // APPLE_ICU_CHANGES
         default :
             break;
     }

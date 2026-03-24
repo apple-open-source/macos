@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WPEWebViewLegacy.h"
 
+#if USE(LIBWPE)
 #include "APIPageConfiguration.h"
 #include "APIViewClient.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
@@ -167,8 +168,8 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
             // to a 'stop' event. Motion events with zero motion don't exist naturally,
             // so this allows a backend to express 'stop' events without changing API.
             // The wheel event phase is adjusted accordingly.
-            WebWheelEvent::Phase phase = WebWheelEvent::Phase::PhaseChanged;
-            WebWheelEvent::Phase momentumPhase = WebWheelEvent::Phase::PhaseNone;
+            WebWheelEvent::Phase phase = WebWheelEvent::Phase::Changed;
+            WebWheelEvent::Phase momentumPhase = WebWheelEvent::Phase::None;
 
 #if WPE_CHECK_VERSION(1, 5, 0)
             if (event->type & wpe_input_axis_event_type_mask_2d) {
@@ -176,7 +177,7 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
                 view.m_horizontalScrollActive = !!event2D->x_axis;
                 view.m_verticalScrollActive = !!event2D->y_axis;
                 if (!view.m_horizontalScrollActive && !view.m_verticalScrollActive)
-                    phase = WebWheelEvent::Phase::PhaseEnded;
+                    phase = WebWheelEvent::Phase::Ended;
 
                 auto& page = view.page();
                 page.handleNativeWheelEvent(WebKit::NativeWebWheelEvent(event, page.deviceScaleFactor(), phase, momentumPhase));
@@ -196,7 +197,7 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
             bool shouldDispatch = !!event->value;
             if (!view.m_horizontalScrollActive && !view.m_verticalScrollActive) {
                 shouldDispatch = true;
-                phase = WebWheelEvent::Phase::PhaseEnded;
+                phase = WebWheelEvent::Phase::Ended;
             }
 
             if (shouldDispatch) {
@@ -233,7 +234,7 @@ ViewLegacy::ViewLegacy(struct wpe_view_backend* backend, const API::PageConfigur
 #endif
                         if (event->type != wpe_input_axis_event_type_null) {
                             page.handleNativeWheelEvent(WebKit::NativeWebWheelEvent(event, page.deviceScaleFactor(),
-                                axisEvent.phase, WebWheelEvent::Phase::PhaseNone));
+                                axisEvent.phase, WebWheelEvent::Phase::None));
                             handledThroughGestureController = true;
                         }
                     });
@@ -351,7 +352,7 @@ void ViewLegacy::synthesizeCompositionKeyPress(const String& text, std::optional
     // composition results. WPE doesn't have an equivalent, so we send VoidSymbol
     // here to WebCore. PlatformKeyEvent converts this code into VK_PROCESSKEY.
     static struct wpe_input_keyboard_event event = { 0, WPE_KEY_VoidSymbol, 0, true, 0 };
-    page().handleKeyboardEvent(WebKit::NativeWebKeyboardEvent(&event, text, false, NativeWebKeyboardEvent::HandledByInputMethod::Yes, WTFMove(underlines), WTFMove(selectionRange)));
+    page().handleKeyboardEvent(WebKit::NativeWebKeyboardEvent(&event, text, false, NativeWebKeyboardEvent::HandledByInputMethod::Yes, WTF::move(underlines), WTF::move(selectionRange)));
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -408,7 +409,7 @@ void ViewLegacy::callAfterNextPresentationUpdate(CompletionHandler<void()>&& cal
     if (!m_pageProxy->drawingArea())
         return callback();
 
-    downcast<DrawingAreaProxyCoordinatedGraphics>(*m_pageProxy->drawingArea()).dispatchAfterEnsuringDrawing(WTFMove(callback));
+    downcast<DrawingAreaProxyCoordinatedGraphics>(*m_pageProxy->drawingArea()).dispatchAfterEnsuringDrawing(WTF::move(callback));
 }
 
 #if USE(ATK)
@@ -421,3 +422,5 @@ WebKitWebViewAccessible* ViewLegacy::accessible() const
 #endif
 
 } // namespace WKWPE
+
+#endif // USE(LIBWPE)

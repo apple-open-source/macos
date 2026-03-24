@@ -28,9 +28,6 @@ static icu::CalendarCache *gNewYearCache = nullptr;
 static icu::TimeZone *gAstronomerTimeZone = nullptr;
 static icu::UInitOnce gAstronomerTimeZoneInitOnce {};
 
-// same as for Chinese calendar (see also kVietnameseRelatedYearDiff below)
-static const int32_t VIETNAMESE_EPOCH_YEAR = -2636; // Gregorian year
-
 U_CDECL_BEGIN
 static UBool calendar_vietnamese_cleanup() {
     if (gWinterSolsticeCache) {
@@ -128,30 +125,8 @@ static const TimeZone* getVietnameseAstronomerTimeZone(UErrorCode &status) {
     return gAstronomerTimeZone;
 }
 
-// same as for Chinese calendar
-constexpr uint32_t kVietnameseRelatedYearDiff = -2637;
-
-int32_t VietnameseCalendar::getRelatedYear(UErrorCode &status) const
-{
-    int32_t year = get(UCAL_EXTENDED_YEAR, status);
-    if (U_FAILURE(status)) {
-        return 0;
-    }
-    if (uprv_add32_overflow(year, kVietnameseRelatedYearDiff, &year)) {
-        status = U_ILLEGAL_ARGUMENT_ERROR;
-        return 0;
-    }
-    return year;
-}
-
-void VietnameseCalendar::setRelatedYear(int32_t year)
-{
-    // set extended year
-    set(UCAL_EXTENDED_YEAR, year - kVietnameseRelatedYearDiff);
-}
-
 ChineseCalendar::Setting VietnameseCalendar::getSetting(UErrorCode& status) const {
-  return { VIETNAMESE_EPOCH_YEAR,
+  return { /*VIETNAMESE_EPOCH_YEAR,*/ // epoch year removed by OSICU-- do we need it?
     getVietnameseAstronomerTimeZone(status),
     &gWinterSolsticeCache, &gNewYearCache
   };

@@ -32,4 +32,4 @@ OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1 -D__LIBLIBC_F_UBSA
 OTHER_CFLAGS_asan = $(inherited) -fno-sanitize=address -fsanitize=undefined
 
 // Set on files that can build with bounds attributes in the xcodeproj
-MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-attributes
+MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-safety -fbounds-safety-bringup-missing-checks=batch_0

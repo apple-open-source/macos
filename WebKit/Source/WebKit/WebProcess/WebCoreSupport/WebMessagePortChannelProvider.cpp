@@ -90,7 +90,7 @@ void WebMessagePortChannelProvider::messagePortSentToRemote(const WebCore::Messa
 {
     auto inProcessPortMessages = m_inProcessPortMessages.take(port);
     for (auto& message : inProcessPortMessages)
-        postMessageToRemote(WTFMove(message), port);
+        postMessageToRemote(WTF::move(message), port);
 }
 
 void WebMessagePortChannelProvider::messagePortClosed(const MessagePortIdentifier& port)
@@ -101,7 +101,7 @@ void WebMessagePortChannelProvider::messagePortClosed(const MessagePortIdentifie
 
 void WebMessagePortChannelProvider::takeAllMessagesForPort(const MessagePortIdentifier& port, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, CompletionHandler<void()>&&)>&& completionHandler)
 {
-    protectedNetworkProcessConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::TakeAllMessagesForPort { port }, [completionHandler = WTFMove(completionHandler), port](Vector<WebCore::MessageWithMessagePorts>&& messages, std::optional<MessageBatchIdentifier> messageBatchIdentifier) mutable {
+    protectedNetworkProcessConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::TakeAllMessagesForPort { port }, [completionHandler = WTF::move(completionHandler), port](Vector<WebCore::MessageWithMessagePorts>&& messages, std::optional<MessageBatchIdentifier> messageBatchIdentifier) mutable {
         if (!messageBatchIdentifier)
             return completionHandler({ }, [] { }); // IPC failure.
 
@@ -109,9 +109,9 @@ void WebMessagePortChannelProvider::takeAllMessagesForPort(const MessagePortIden
         auto iterator = inProcessPortMessages.find(port);
         if (iterator != inProcessPortMessages.end()) {
             auto pendingMessages = std::exchange(iterator->value, { });
-            messages.appendVector(WTFMove(pendingMessages));
+            messages.appendVector(WTF::move(pendingMessages));
         }
-        completionHandler(WTFMove(messages), [messageBatchIdentifier] {
+        completionHandler(WTF::move(messages), [messageBatchIdentifier] {
             protectedNetworkProcessConnection()->send(Messages::NetworkConnectionToWebProcess::DidDeliverMessagePortMessages { *messageBatchIdentifier }, 0);
         });
     }, 0);
@@ -121,7 +121,7 @@ void WebMessagePortChannelProvider::postMessageToRemote(MessageWithMessagePorts&
 {
     auto iterator = m_inProcessPortMessages.find(remoteTarget);
     if (iterator != m_inProcessPortMessages.end()) {
-        iterator->value.append(WTFMove(message));
+        iterator->value.append(WTF::move(message));
         WebProcess::singleton().messagesAvailableForPort(remoteTarget);
         return;
     }

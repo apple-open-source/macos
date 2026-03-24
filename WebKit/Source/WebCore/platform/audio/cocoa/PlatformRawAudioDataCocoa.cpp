@@ -49,7 +49,7 @@ namespace WebCore {
 
 Ref<PlatformRawAudioData> PlatformRawAudioData::create(Ref<MediaSample>&& sample)
 {
-    return PlatformRawAudioDataCocoa::create(downcast<MediaSampleAVFObjC>(WTFMove(sample)));
+    return PlatformRawAudioDataCocoa::create(downcast<MediaSampleAVFObjC>(WTF::move(sample)));
 }
 
 static AudioStreamDescription::PCMFormat audioSampleFormatToPCMFormat(AudioSampleFormat format)
@@ -101,7 +101,7 @@ static RetainPtr<CMSampleBufferRef> createSampleBuffer(const CAAudioStreamDescri
     if (!result)
         return nullptr;
 
-    auto [newList, blockBuffer] = WTFMove(*result);
+    auto [newList, blockBuffer] = WTF::move(*result);
     if (PAL::CMSampleBufferSetDataBuffer(rawSampleBuffer, blockBuffer.get()))
         return nullptr;
     return sampleBuffer;
@@ -144,7 +144,7 @@ RefPtr<PlatformRawAudioData> PlatformRawAudioData::create(std::span<const uint8_
 }
 
 PlatformRawAudioDataCocoa::PlatformRawAudioDataCocoa(Ref<MediaSampleAVFObjC>&& sample)
-    : m_sample(WTFMove(sample))
+    : m_sample(WTF::move(sample))
     , m_description(asbd())
 {
 }

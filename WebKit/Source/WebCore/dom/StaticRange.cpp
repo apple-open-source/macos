@@ -34,16 +34,16 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(StaticRange);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(StaticRange);
 
 StaticRange::StaticRange(SimpleRange&& range)
-    : SimpleRange(WTFMove(range))
+    : SimpleRange(WTF::move(range))
 {
 }
 
 Ref<StaticRange> StaticRange::create(SimpleRange&& range)
 {
-    return adoptRef(*new StaticRange(WTFMove(range)));
+    return adoptRef(*new StaticRange(WTF::move(range)));
 }
 
 Ref<StaticRange> StaticRange::create(const SimpleRange& range)

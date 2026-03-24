@@ -56,16 +56,16 @@ static std::optional<bool> nsValueToOptionalBool(id value)
 
 std::optional<NotificationData> NotificationData::fromDictionary(NSDictionary *dictionary)
 {
-    NSString *defaultActionURL = dictionary[WebNotificationDefaultActionURLKey];
-    NSString *title = dictionary[WebNotificationTitleKey];
-    NSString *body = dictionary[WebNotificationBodyKey];
-    NSString *iconURL = dictionary[WebNotificationIconURLKey];
-    NSString *tag = dictionary[WebNotificationTagKey];
-    NSString *language = dictionary[WebNotificationLanguageKey];
-    NSString *originString = dictionary[WebNotificationOriginKey];
-    NSString *serviceWorkerRegistrationURL = dictionary[WebNotificationServiceWorkerRegistrationURLKey];
-    NSNumber *sessionID = dictionary[WebNotificationSessionIDKey];
-    NSData *notificationData = dictionary[WebNotificationDataKey];
+    RetainPtr<NSString> defaultActionURL = dictionary[WebNotificationDefaultActionURLKey];
+    RetainPtr<NSString> title = dictionary[WebNotificationTitleKey];
+    RetainPtr<NSString> body = dictionary[WebNotificationBodyKey];
+    RetainPtr<NSString> iconURL = dictionary[WebNotificationIconURLKey];
+    RetainPtr<NSString> tag = dictionary[WebNotificationTagKey];
+    RetainPtr<NSString> language = dictionary[WebNotificationLanguageKey];
+    RetainPtr<NSString> originString = dictionary[WebNotificationOriginKey];
+    RetainPtr<NSString> serviceWorkerRegistrationURL = dictionary[WebNotificationServiceWorkerRegistrationURLKey];
+    RetainPtr<NSNumber> sessionID = dictionary[WebNotificationSessionIDKey];
+    RetainPtr<NSData> notificationData = dictionary[WebNotificationDataKey];
 
     String uuidString = dictionary[WebNotificationUUIDStringKey];
     auto uuid = WTF::UUID::parseVersion4(uuidString);
@@ -83,19 +83,19 @@ std::optional<NotificationData> NotificationData::fromDictionary(NSDictionary *d
     }
 
     NotificationDirection direction;
-    NSNumber *directionNumber = dictionary[WebNotificationDirectionKey];
-    switch ((NotificationDirection)(directionNumber.unsignedLongValue)) {
+    RetainPtr<NSNumber> directionNumber = dictionary[WebNotificationDirectionKey];
+    switch ((NotificationDirection)(directionNumber.get().unsignedLongValue)) {
     case NotificationDirection::Auto:
     case NotificationDirection::Ltr:
     case NotificationDirection::Rtl:
-        direction = (NotificationDirection)directionNumber.unsignedLongValue;
+        direction = (NotificationDirection)directionNumber.get().unsignedLongValue;
         break;
     default:
         return std::nullopt;
     }
 
-    NotificationData data { URL { String { defaultActionURL } }, title, body, iconURL, tag, language, direction, originString, URL { String { serviceWorkerRegistrationURL } }, *uuid, contextIdentifier, PAL::SessionID { sessionID.unsignedLongLongValue }, { }, makeVector(notificationData), nsValueToOptionalBool(dictionary[WebNotificationSilentKey]) };
-    return WTFMove(data);
+    NotificationData data { URL { String { defaultActionURL.get() } }, title.get(), body.get(), iconURL.get(), tag.get(), language.get(), direction, originString.get(), URL { String { serviceWorkerRegistrationURL.get() } }, *uuid, contextIdentifier, PAL::SessionID { sessionID.get().unsignedLongLongValue }, { }, makeVector(notificationData.get()), nsValueToOptionalBool(dictionary[WebNotificationSilentKey]) };
+    return WTF::move(data);
 }
 
 NSDictionary *NotificationData::dictionaryRepresentation() const
@@ -122,6 +122,11 @@ NSDictionary *NotificationData::dictionaryRepresentation() const
         result.get()[WebNotificationSilentKey] = @(*silent);
 
     return result.autorelease();
+}
+
+RetainPtr<NSDictionary> NotificationData::protectedDictionaryRepresentation() const
+{
+    return dictionaryRepresentation();
 }
 
 } // namespace WebKit

@@ -132,7 +132,7 @@ struct ResourceLoadStatistics {
     OptionSet<NavigatorAPIsAccessed> navigatorFunctionsAccessed;
     OptionSet<ScreenAPIsAccessed> screenFunctionsAccessed;
 #endif
-    friend struct IPC::ArgumentCoder<ResourceLoadStatistics, void>;
+    friend struct IPC::ArgumentCoder<ResourceLoadStatistics>;
 };
 
 } // namespace WebCore

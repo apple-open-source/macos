@@ -31,6 +31,7 @@
 
 #include "RemoteLayerTreeHost.h"
 #include "RemoteScrollingCoordinatorProxy.h"
+#include <WebCore/AcceleratedTimeline.h>
 #include <WebCore/ScrollingTreeFixedNodeCocoa.h>
 #include <WebCore/ScrollingTreeFrameHostingNode.h>
 #include <WebCore/ScrollingTreeFrameScrollingNode.h>
@@ -38,6 +39,7 @@
 #include <WebCore/ScrollingTreePluginHostingNode.h>
 #include <WebCore/ScrollingTreePluginScrollingNode.h>
 #include <WebCore/ScrollingTreePositionedNodeCocoa.h>
+#include <WebCore/ScrollingTreeScrollingNode.h>
 #include <WebCore/ScrollingTreeStickyNodeCocoa.h>
 
 namespace WebKit {
@@ -82,7 +84,7 @@ void RemoteScrollingTree::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNode&
         layoutViewportOrigin = scrollingNode->layoutViewport().location();
 
     auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), node.currentScrollPosition(), layoutViewportOrigin, ScrollUpdateType::PositionUpdate, scrollingLayerPositionAction };
-    addPendingScrollUpdate(WTFMove(scrollUpdate));
+    addPendingScrollUpdate(WTF::move(scrollUpdate));
 
     scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
 }
@@ -96,7 +98,7 @@ void RemoteScrollingTree::scrollingTreeNodeDidStopAnimatedScroll(ScrollingTreeSc
         return;
 
     auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::AnimatedScrollDidEnd };
-    addPendingScrollUpdate(WTFMove(scrollUpdate));
+    addPendingScrollUpdate(WTF::move(scrollUpdate));
 
     scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
 }
@@ -110,7 +112,7 @@ void RemoteScrollingTree::scrollingTreeNodeDidStopWheelEventScroll(WebCore::Scro
         return;
 
     auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::WheelEventScrollDidEnd };
-    addPendingScrollUpdate(WTFMove(scrollUpdate));
+    addPendingScrollUpdate(WTF::move(scrollUpdate));
 
     scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
 }
@@ -146,7 +148,7 @@ void RemoteScrollingTree::scrollingTreeNodeDidStopProgrammaticScroll(WebCore::Sc
         return;
 
     auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::ProgrammaticScrollDidEnd };
-    addPendingScrollUpdate(WTFMove(scrollUpdate));
+    addPendingScrollUpdate(WTF::move(scrollUpdate));
 
     scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
 }
@@ -297,6 +299,36 @@ void RemoteScrollingTree::tryToApplyLayerPositions()
     applyLayerPositionsInternal();
 }
 
+#if ENABLE(THREADED_ANIMATIONS)
+void RemoteScrollingTree::updateTimelinesRegistration(WebCore::ProcessIdentifier processIdentifier, const WebCore::AcceleratedTimelinesUpdate& timelinesUpdate)
+{
+    if (!m_progressBasedTimelineRegistry)
+        m_progressBasedTimelineRegistry = makeUnique<RemoteProgressBasedTimelineRegistry>();
+    m_progressBasedTimelineRegistry->update(*this, processIdentifier, timelinesUpdate);
+    if (m_progressBasedTimelineRegistry->isEmpty())
+        m_progressBasedTimelineRegistry = nullptr;
+}
+
+RefPtr<const RemoteAnimationTimeline> RemoteScrollingTree::timeline(const TimelineID& timelineID) const
+{
+    if (m_progressBasedTimelineRegistry)
+        return m_progressBasedTimelineRegistry->get(timelineID);
+    return nullptr;
+}
+
+void RemoteScrollingTree::updateProgressBasedTimelinesForNode(const WebCore::ScrollingTreeScrollingNode& node)
+{
+    if (m_progressBasedTimelineRegistry)
+        m_progressBasedTimelineRegistry->updateTimelinesForNode(node);
+}
+
+HashSet<Ref<RemoteProgressBasedTimeline>> RemoteScrollingTree::timelinesForScrollingNodeIDForTesting(WebCore::ScrollingNodeID scrollingNodeID) const
+{
+    if (m_progressBasedTimelineRegistry)
+        return m_progressBasedTimelineRegistry->timelinesForScrollingNodeIDForTesting(scrollingNodeID);
+    return { };
+}
+#endif
 
 } // namespace WebKit
 

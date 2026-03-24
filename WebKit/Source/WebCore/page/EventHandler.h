@@ -46,10 +46,19 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/InlineWeakPtr.h>
 #include <wtf/Platform.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/WeakObjCPtr.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY) && defined(__OBJC__)
+#include <WebCore/WAKAppKitStubs.h>
+#endif
 
 #if PLATFORM(COCOA)
 OBJC_CLASS NSView;
@@ -61,10 +70,6 @@ OBJC_CLASS WebEvent;
 
 #if PLATFORM(MAC)
 OBJC_CLASS NSEvent;
-#endif
-
-#if PLATFORM(IOS_FAMILY) && defined(__OBJC__)
-#include <WebCore/WAKAppKitStubs.h>
 #endif
 
 namespace WebCore {
@@ -135,6 +140,7 @@ extern const unsigned InvalidTouchIdentifier;
 
 enum AppendTrailingWhitespace { ShouldAppendTrailingWhitespace, DontAppendTrailingWhitespace };
 enum CheckDragHysteresis { ShouldCheckDragHysteresis, DontCheckDragHysteresis };
+enum class LastKnownMousePositionSource : uint8_t { Mouse, Wheel, Touch };
 
 class EventHandler final : public CanMakeCheckedPtr<EventHandler> {
     WTF_MAKE_TZONE_ALLOCATED(EventHandler);
@@ -237,7 +243,7 @@ public:
     void defaultWheelEventHandler(Node*, WheelEvent&);
     void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, OptionSet<EventHandling>);
 
-    WEBCORE_EXPORT void setLastKnownMousePosition(DoublePoint position, DoublePoint globalPosition);
+    WEBCORE_EXPORT void setLastKnownMousePosition(const DoublePoint& position, const DoublePoint& globalPosition, std::optional<LastKnownMousePositionSource>&& = std::nullopt);
 
     bool handlePasteGlobalSelection();
 
@@ -405,10 +411,12 @@ public:
     bool keyboardScrollRecursively(std::optional<ScrollDirection>, std::optional<ScrollGranularity>, Node*, bool isKeyRepeat);
     WEBCORE_EXPORT bool shouldUseSmoothKeyboardScrollingForFocusedScrollableArea();
 
-    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
+    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const DoublePoint&);
 
     WEBCORE_EXPORT void updateMouseEventTargetAfterLayoutIfNeeded();
     WEBCORE_EXPORT void scheduleMouseEventTargetUpdateAfterLayout();
+
+    ScrollableArea* enclosingScrollableArea(Node*) const;
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -480,7 +488,6 @@ private:
     enum class FireMouseOverOut : bool { No, Yes };
     void updateMouseEventTargetNode(const AtomString& eventType, Node*, const PlatformMouseEvent&, FireMouseOverOut);
 
-    ScrollableArea* enclosingScrollableArea(Node*) const;
     void notifyScrollableAreasOfMouseEvents(const AtomString& eventType, Element* lastElementUnderMouse, Element* elementUnderMouse);
 
     MouseEventWithHitTestResults prepareMouseEvent(const HitTestRequest&, const PlatformMouseEvent&);
@@ -610,7 +617,7 @@ private:
     CapturesDragging capturesDragging() const { return m_capturesDragging; }
 
 #if PLATFORM(COCOA) && defined(__OBJC__)
-    NSView *mouseDownViewIfStillGood();
+    RetainPtr<NSView> mouseDownViewIfStillGood();
 
     PlatformMouseEvent currentPlatformMouseEvent() const;
 #endif
@@ -652,7 +659,7 @@ private:
     Timer m_mouseEventTargetUpdateTimer;
     Timer m_mouseEventTargetFinalUpdateTimer;
     const UniqueRef<AutoscrollController> m_autoscrollController;
-    SingleThreadWeakPtr<RenderLayer> m_resizeLayer;
+    InlineWeakPtr<RenderLayer> m_resizeLayer;
 
     double m_maxMouseMovedDuration { 0 };
 
@@ -696,6 +703,7 @@ private:
 
     std::optional<DoublePoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
     DoublePoint m_lastKnownMouseGlobalPosition;
+    std::optional<LastKnownMousePositionSource> m_lastKnownMousePositionSource;
     IntPoint m_mouseDownContentsPosition;
     MonotonicTime m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDownEvent;
@@ -760,7 +768,7 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-    NSView *m_mouseDownView { nullptr };
+    WeakObjCPtr<NSView> m_mouseDownView;
     bool m_sendingEventToSubview { false };
 #endif
 

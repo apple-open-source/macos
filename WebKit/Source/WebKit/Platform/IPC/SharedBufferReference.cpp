@@ -48,12 +48,12 @@ SharedBufferReference::SharedBufferReference(std::optional<SerializableBuffer>&&
     if (!serializableBuffer->handle)
         return;
 
-    auto sharedMemoryBuffer = SharedMemory::map(WTFMove(*serializableBuffer->handle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryBuffer = SharedMemory::map(WTF::move(*serializableBuffer->handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer || sharedMemoryBuffer->size() < serializableBuffer->size)
         return;
 
     m_size = serializableBuffer->size;
-    m_memory = WTFMove(sharedMemoryBuffer);
+    m_memory = WTF::move(sharedMemoryBuffer);
 }
 
 auto SharedBufferReference::serializableBuffer() const -> std::optional<SerializableBuffer>

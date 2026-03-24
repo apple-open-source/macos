@@ -71,6 +71,11 @@ extern CKKSState* const CKKSStateOutgoingQueueOperationFailed;
 
 extern CKKSState* const CKKSStateExpandToHandleAllViews;
 
+extern CKKSState* const CKKSStateFixupZoneStateEntries;
+
+extern CKKSState* const CKKSStateCreateCKZones;
+extern CKKSState* const CKKSStateRecheckAccountStatus;
+
 // Fatal error. Will not proceed unless fixed from outside class.
 extern CKKSState* const CKKSStateError;
 
@@ -116,6 +121,8 @@ extern CKKSFlag* const CKKSFlag24hrNotification;
 
 extern CKKSFlag* const CKKSFlagZoneCreation;
 extern CKKSFlag* const CKKSFlagZoneDeletion;
+
+extern CKKSFlag* const CKKSFlagRecheckCKAccountStatus;
 
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void);
 

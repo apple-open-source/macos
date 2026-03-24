@@ -106,10 +106,11 @@ protected:
     WeakPtr<PlaybackSessionModel> m_playbackSessionModel;
 
     // CheckedPtr interface
-    uint32_t checkedPtrCount() const final;
-    uint32_t checkedPtrCountWithoutThreadCheck() const final;
-    void incrementCheckedPtrCount() const final;
-    void decrementCheckedPtrCount() const final;
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     WeakPtr<VideoPresentationInterfaceIOS> m_videoPresentationInterface;
 

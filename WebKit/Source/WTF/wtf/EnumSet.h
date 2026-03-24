@@ -44,6 +44,8 @@ template<typename E> class EnumSet {
     static_assert(std::is_enum_v<E>, "E is not an enum type");
 
 public:
+    using value_type = E;
+
     static constexpr size_t storageSize()
     {
         if constexpr (requires { E::HighestEnumValue; })

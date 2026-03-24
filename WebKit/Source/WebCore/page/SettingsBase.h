@@ -113,23 +113,23 @@ public:
     WEBCORE_EXPORT void setMediaContentTypesRequiringHardwareSupport(const String&);
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const { return m_mediaContentTypesRequiringHardwareSupport; }
 
-    void setAllowedMediaContainerTypes(std::optional<Vector<String>>&& types) { m_allowedMediaContainerTypes = WTFMove(types); }
+    void setAllowedMediaContainerTypes(std::optional<Vector<String>>&& types) { m_allowedMediaContainerTypes = WTF::move(types); }
     WEBCORE_EXPORT void setAllowedMediaContainerTypes(const String&);
     const std::optional<Vector<String>>& allowedMediaContainerTypes() const { return m_allowedMediaContainerTypes; }
 
-    void setAllowedMediaCodecTypes(std::optional<Vector<String>>&& types) { m_allowedMediaCodecTypes = WTFMove(types); }
+    void setAllowedMediaCodecTypes(std::optional<Vector<String>>&& types) { m_allowedMediaCodecTypes = WTF::move(types); }
     WEBCORE_EXPORT void setAllowedMediaCodecTypes(const String&);
     const std::optional<Vector<String>>& allowedMediaCodecTypes() const { return m_allowedMediaCodecTypes; }
 
-    void setAllowedMediaVideoCodecIDs(std::optional<Vector<FourCC>>&& types) { m_allowedMediaVideoCodecIDs = WTFMove(types); }
+    void setAllowedMediaVideoCodecIDs(std::optional<Vector<FourCC>>&& types) { m_allowedMediaVideoCodecIDs = WTF::move(types); }
     WEBCORE_EXPORT void setAllowedMediaVideoCodecIDs(const String&);
     const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const { return m_allowedMediaVideoCodecIDs; }
 
-    void setAllowedMediaAudioCodecIDs(std::optional<Vector<FourCC>>&& types) { m_allowedMediaAudioCodecIDs = WTFMove(types); }
+    void setAllowedMediaAudioCodecIDs(std::optional<Vector<FourCC>>&& types) { m_allowedMediaAudioCodecIDs = WTF::move(types); }
     WEBCORE_EXPORT void setAllowedMediaAudioCodecIDs(const String&);
     const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const { return m_allowedMediaAudioCodecIDs; }
 
-    void setAllowedMediaCaptionFormatTypes(std::optional<Vector<FourCC>>&& types) { m_allowedMediaCaptionFormatTypes = WTFMove(types); }
+    void setAllowedMediaCaptionFormatTypes(std::optional<Vector<FourCC>>&& types) { m_allowedMediaCaptionFormatTypes = WTF::move(types); }
     WEBCORE_EXPORT void setAllowedMediaCaptionFormatTypes(const String&);
     const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const { return m_allowedMediaCaptionFormatTypes; }
 

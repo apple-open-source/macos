@@ -110,12 +110,12 @@ static SecKeyRef _SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer, CFStringRef keyDict
     SecKeyRef result = NULL;
     
     CFDataRef pubKeyBytes = asData(CFDictionaryGetValue(peer->description, keyDictionaryKey), error);
-    require_quiet(pubKeyBytes, fail);
+    __Require_Quiet(pubKeyBytes, fail);
     
     CFAllocatorRef allocator = CFGetAllocator(peer);
     result = SecKeyCreateFromPublicData(allocator, kSecECDSAAlgorithmID, pubKeyBytes);
     
-    require_quiet(SecAllocationError(result, error, CFSTR("Failed to create public key from data %@"), pubKeyBytes), fail);
+    __Require_Quiet(SecAllocationError(result, error, CFSTR("Failed to create public key from data %@"), pubKeyBytes), fail);
     
 fail:
     return result;
@@ -178,11 +178,11 @@ bool SOSPeerInfoSign(SecKeyRef privKey, SOSPeerInfoRef peer, CFErrorRef *error) 
     uint8_t hbuf[di->output_size];
     CFDataRef newSignature = NULL;
     
-    require_action_quiet(SOSDescriptionHash(peer, di, hbuf, error), fail,
+    __Require_Action_Quiet(SOSDescriptionHash(peer, di, hbuf, error), fail,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to hash description for peer"), NULL, error));
     
     newSignature = sosCopySignedHash(privKey, di, hbuf);
-    require_action_quiet(newSignature, fail, SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to sign peerinfo for peer"), NULL, error));
+    __Require_Action_Quiet(newSignature, fail, SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to sign peerinfo for peer"), NULL, error));
 
     CFReleaseNull(peer->signature);
     peer->signature = newSignature;
@@ -201,11 +201,11 @@ bool SOSPeerInfoVerify(SOSPeerInfoRef peer, CFErrorRef *error) {
     uint8_t hbuf[di->output_size];
 
     SecKeyRef pubKey = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pubKey, error_out);
+    __Require_Quiet(pubKey, error_out);
 
-    require_quiet(SOSDescriptionHash(peer, di, hbuf, error), error_out);
+    __Require_Quiet(SOSDescriptionHash(peer, di, hbuf, error), error_out);
 
-    require_action_quiet(sosVerifyHash(pubKey, di, hbuf, peer->signature), error_out,
+    __Require_Action_Quiet(sosVerifyHash(pubKey, di, hbuf, peer->signature), error_out,
                          SOSErrorCreate(kSOSErrorBadSignature, error, NULL,
                                         CFSTR("Signature didn't verify for %@"), peer));
     result = true;
@@ -318,7 +318,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
     pi->verifiedAppKeyID = NULL;
     pi->verifiedResult = false;
 
-    require_quiet(pi->peerID, exit);
+    __Require_Quiet(pi->peerID, exit);
     
     // ================ V2 Additions Start
     
@@ -439,9 +439,9 @@ SOSPeerInfoRef SOSPeerInfoCopyWithModification(CFAllocatorRef allocator, SOSPeer
     SOSPeerInfoRef result = NULL;
     SOSPeerInfoRef copy = SOSPeerInfoCreateCopy(allocator, original, error);
 
-    require_quiet(modification(copy, error), fail);
+    __Require_Quiet(modification(copy, error), fail);
 
-    require_quiet(SOSPeerInfoSign(signingKey, copy, error), fail);
+    __Require_Quiet(SOSPeerInfoSign(signingKey, copy, error), fail);
 
     CFTransferRetained(result, copy);
 
@@ -506,13 +506,13 @@ SOSPeerInfoRef SOSPeerInfoCopyWithViewsChange(CFAllocatorRef allocator, SOSPeerI
     SOSPeerInfoRef pi = SOSPeerInfoCreateCopy(allocator, toCopy, error);
     if(action == kSOSCCViewEnable) {
         *retval = SOSViewsEnable(pi, viewname, error);
-        require((kSOSCCViewMember == *retval), exit);
+        __Require((kSOSCCViewMember == *retval), exit);
     } else if(action == kSOSCCViewDisable) {
         *retval = SOSViewsDisable(pi, viewname, error);
-        require((kSOSCCViewNotMember == *retval), exit);
+        __Require((kSOSCCViewNotMember == *retval), exit);
     }
     
-    require_action_quiet(SOSPeerInfoSign(signingKey, pi, error), exit, *retval = kSOSCCGeneralViewError);
+    __Require_Action_Quiet(SOSPeerInfoSign(signingKey, pi, error), exit, *retval = kSOSCCGeneralViewError);
     return pi;
 
 exit:
@@ -528,11 +528,11 @@ SOSPeerInfoRef SOSPeerInfoCopyWithPing(CFAllocatorRef allocator, SOSPeerInfoRef 
     CFDataRef ping = CFDataCreateWithRandomBytes(8);
     SOSPeerInfoV2DictionarySetValue(pi, sPingKey, ping);
     SecKeyRef pub_key = SOSPeerInfoCopyPubKey(pi, error);
-    require_quiet(pub_key, exit);
+    __Require_Quiet(pub_key, exit);
     pi->peerID = SOSCopyIDOfKey(pub_key, error);
     pi->spid = CFStringCreateTruncatedCopy(pi->peerID, 8);
-    require_quiet(pi->peerID, exit);
-    require_action_quiet(SOSPeerInfoSign(signingKey, pi, error), exit, CFReleaseNull(pi));
+    __Require_Quiet(pi->peerID, exit);
+    __Require_Action_Quiet(SOSPeerInfoSign(signingKey, pi, error), exit, CFReleaseNull(pi));
 exit:
     CFReleaseNull(ping);
     CFReleaseNull(pub_key);
@@ -923,11 +923,11 @@ SOSPeerInfoRef SOSPeerInfoCopyAsApplication(SOSPeerInfoRef original, SecKeyRef u
     CFReleaseNull(creationDate);
 
     // Create User Application Signature
-    require_action_quiet(sospeer_application_hash(pi, di, hbuf), fail,
+    __Require_Action_Quiet(sospeer_application_hash(pi, di, hbuf), fail,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to create hash for peer applicant"), NULL, error));
     
     usersig = sosCopySignedHash(userkey, di, hbuf);
-    require_action_quiet(usersig, fail,
+    __Require_Action_Quiet(usersig, fail,
                         SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to sign public key hash for peer"), NULL, error));
 
     CFDictionarySetValue(pi->description, sApplicationUsig, usersig);
@@ -937,7 +937,7 @@ SOSPeerInfoRef SOSPeerInfoCopyAsApplication(SOSPeerInfoRef original, SecKeyRef u
     } else {
         pi->verifiedResult = true;
     }
-    require_quiet(SOSPeerInfoSign(peerkey, pi, error), fail);
+    __Require_Quiet(SOSPeerInfoSign(peerkey, pi, error), fail);
 
     result = pi;
     pi = NULL;
@@ -955,20 +955,20 @@ bool SOSPeerInfoApplicationVerify(SOSPeerInfoRef pi, SecKeyRef userkey, CFErrorR
     CFStringRef userKeyID = NULL;
     
     // If we've already succeeded signature check with this key move on.
-    require_action_quiet(userkey, exit, SOSErrorCreate(kSOSErrorNoKey, error, NULL, CFSTR("Can't validate PeerInfos with no userKey")));
+    __Require_Action_Quiet(userkey, exit, SOSErrorCreate(kSOSErrorNoKey, error, NULL, CFSTR("Can't validate PeerInfos with no userKey")));
     userKeyID = SOSCopyIDOfKey(userkey, error);
-    require_action_quiet(!CFEqualSafe(userKeyID, pi->verifiedAppKeyID), exit, result = pi->verifiedResult);
+    __Require_Action_Quiet(!CFEqualSafe(userKeyID, pi->verifiedAppKeyID), exit, result = pi->verifiedResult);
     
     // verifiedAppKeyID was NULL or not the key we're looking for - clear it.
     CFReleaseNull(pi->verifiedAppKeyID);
     pi->verifiedResult = false;
     CFDataRef usig = CFDictionaryGetValue(pi->description, sApplicationUsig);
-    require_action_quiet(usig, exit,
+    __Require_Action_Quiet(usig, exit,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Peer is not an applicant"), NULL, error));
     // Verify User Application Signature
-    require_action_quiet(sospeer_application_hash(pi, di, hbuf), exit,
+    __Require_Action_Quiet(sospeer_application_hash(pi, di, hbuf), exit,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Failed to create hash for peer applicant"), NULL, error));
-    require_action_quiet(sosVerifyHash(userkey, di, hbuf, usig), exit,
+    __Require_Action_Quiet(sosVerifyHash(userkey, di, hbuf, usig), exit,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("user signature of public key hash fails to verify"), NULL, error));
     // Remember the userkey we validated for this peerinfo.
     pi->verifiedAppKeyID = CFStringCreateCopy(kCFAllocatorDefault, userKeyID);
@@ -1023,14 +1023,14 @@ SOSPeerInfoRef SOSPeerInfoCreateRetirementTicket(CFAllocatorRef allocator, SecKe
     // Copy PeerInfo
     SOSPeerInfoRef pi = SOSPeerInfoCreateCopy(allocator, peer, error);
 
-    require(pi, fail);
+    __Require(pi, fail);
 
     // Fill out Resignation Date
     CFDataRef resignationDate = sosCreateDate();
     CFDictionaryAddValue(pi->description, sRetirementDate, resignationDate);
     CFReleaseNull(resignationDate);
 
-    require(SOSPeerInfoSign(privKey, pi, error), fail);
+    __Require(SOSPeerInfoSign(privKey, pi, error), fail);
 
     return pi;
 
@@ -1045,16 +1045,16 @@ CFStringRef SOSPeerInfoInspectRetirementTicket(SOSPeerInfoRef pi, CFErrorRef *er
     CFDateRef retirement = NULL;
     CFDataRef dateData = NULL;
 
-    require_quiet(SOSPeerInfoVerify(pi, error), err);
+    __Require_Quiet(SOSPeerInfoVerify(pi, error), err);
 
     dateData = CFDictionaryGetValue(pi->description, sRetirementDate);
-    require_action_quiet(dateData, err, SOSCreateError(kSOSErrorUnexpectedType, CFSTR("PeerInfo doesn't have a retirement date"), NULL, error));
+    __Require_Action_Quiet(dateData, err, SOSCreateError(kSOSErrorUnexpectedType, CFSTR("PeerInfo doesn't have a retirement date"), NULL, error));
 
     retirement = sosCreateCFDate(dateData);
-    require_action_quiet(retirement, err,
+    __Require_Action_Quiet(retirement, err,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Peer is not retired"), NULL, error));
 
-    require_action_quiet(CFDateCompare(now, retirement, NULL) == kCFCompareGreaterThan, err,
+    __Require_Action_Quiet(CFDateCompare(now, retirement, NULL) == kCFCompareGreaterThan, err,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Retirement date is after current date"), NULL, error));
 
     retval = SOSPeerInfoGetPeerID(pi);
@@ -1111,8 +1111,8 @@ bool SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octa
     OSStatus copySigningKeyResult = SecKeyCopyPublicBytes(octagonSigningKey, &signingPublicKeyBytes);
     OSStatus copyEncryptionKeyResult = SecKeyCopyPublicBytes(octagonEncryptionKey, &encryptionPublicKeyBytes);
 
-    require_action_quiet(errSecSuccess == copySigningKeyResult, fail, SecError(copySigningKeyResult, error, CFSTR("failed to copy signing public key bytes")));
-    require_action_quiet(errSecSuccess == copyEncryptionKeyResult, fail, SecError(copyEncryptionKeyResult, error, CFSTR("failed to copy encryption public key bytes")));
+    __Require_Action_Quiet(errSecSuccess == copySigningKeyResult, fail, SecError(copySigningKeyResult, error, CFSTR("failed to copy signing public key bytes")));
+    __Require_Action_Quiet(errSecSuccess == copyEncryptionKeyResult, fail, SecError(copyEncryptionKeyResult, error, CFSTR("failed to copy encryption public key bytes")));
 
 
     CFDictionarySetValue(peer->description, sOctagonPeerSigningPublicKeyKey, signingPublicKeyBytes);
@@ -1146,8 +1146,8 @@ SOSPeerInfoSetBothOctagonKeys(CFAllocatorRef allocator,
     OSStatus copySigningKeyResult = SecKeyCopyPublicBytes(octagonSigningKey, &signingPublicKeyBytes);
     OSStatus copyEncryptionKeyResult = SecKeyCopyPublicBytes(octagonEncryptionKey, &encryptionPublicKeyBytes);
 
-    require_action_quiet(0 == copySigningKeyResult, fail, SecError(copySigningKeyResult, error, CFSTR("failed to copy signing public key bytes")));
-    require_action_quiet(0 == copyEncryptionKeyResult, fail, SecError(copyEncryptionKeyResult, error, CFSTR("failed to copy encryption public key bytes")));
+    __Require_Action_Quiet(0 == copySigningKeyResult, fail, SecError(copySigningKeyResult, error, CFSTR("failed to copy signing public key bytes")));
+    __Require_Action_Quiet(0 == copyEncryptionKeyResult, fail, SecError(copyEncryptionKeyResult, error, CFSTR("failed to copy encryption public key bytes")));
 
     pi = SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                          ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
@@ -1159,7 +1159,7 @@ SOSPeerInfoSetBothOctagonKeys(CFAllocatorRef allocator,
                                              }
                                              return true;
                                          });
-    require(pi, fail);
+    __Require(pi, fail);
 
 fail:
     CFReleaseNull(signingPublicKeyBytes);
@@ -1190,7 +1190,7 @@ SOSPeerInfoSetOctagonKey(CFAllocatorRef allocator,
     SOSPeerInfoRef pi = NULL;
 
     OSStatus copyResult = SecKeyCopyPublicBytes(octagonKey, &publicKeyBytes);
-    require_action_quiet(0 == copyResult, fail, SecError(copyResult, error, CFSTR("failed to copy public key bytes")));
+    __Require_Action_Quiet(0 == copyResult, fail, SecError(copyResult, error, CFSTR("failed to copy public key bytes")));
 
     pi = SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                          ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
@@ -1201,7 +1201,7 @@ SOSPeerInfoSetOctagonKey(CFAllocatorRef allocator,
                                              }
                                              return true;
                                          });
-    require(pi, fail);
+    __Require(pi, fail);
 
 fail:
     CFReleaseNull(publicKeyBytes);

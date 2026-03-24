@@ -571,7 +571,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                  json: false)
     }
 
-    func testFetchEmptyOptimalBottleList () throws {
+    func testFetchEmptyOptimalBottleList() throws {
         self.startCKAccountStatusMock()
 
         let bottleIDs = try OTClique.findOptimalBottleIDs(withContextData: self.otcliqueContext)
@@ -592,7 +592,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         XCTAssertEqual(bottleIDs.partialRecoveryBottleIDs.count, 0, "partialRecoveryBottleIDs should be empty")
     }
 
-    func testMakeNewFriendsAndFetchEscrowContents () throws {
+    func testMakeNewFriendsAndFetchEscrowContents() throws {
         self.startCKAccountStatusMock()
 
         let clique: OTClique

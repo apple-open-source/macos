@@ -53,13 +53,13 @@ void AXAttachmentHelpers::accessibilityText(const HTMLAttachmentElement& attachm
     auto& action = attachmentElement.getAttribute(actionAttr);
 
     if (action.length())
-        textOrder.append(AccessibilityText(WTFMove(action), AccessibilityTextSource::Action));
+        textOrder.append(AccessibilityText(action, AccessibilityTextSource::Action));
 
     if (title.length())
-        textOrder.append(AccessibilityText(WTFMove(title), AccessibilityTextSource::Title));
+        textOrder.append(AccessibilityText(WTF::move(title), AccessibilityTextSource::Title));
 
     if (subtitle.length())
-        textOrder.append(AccessibilityText(WTFMove(subtitle), AccessibilityTextSource::Subtitle));
+        textOrder.append(AccessibilityText(subtitle, AccessibilityTextSource::Subtitle));
 }
 
 } // namespace WebCore

@@ -60,8 +60,8 @@ NetShareGetInfo(
         uint32_t Level,
         PSHARE_INFO * ShareInfo)
 {
-	WCHAR * serverName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, 0);
-	WCHAR * netName = SMBConvertFromUTF8ToUTF16(NetName, 1024, 0);
+	WCHAR * serverName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, NORMALIZE_FORM_NONE);
+	WCHAR * netName = SMBConvertFromUTF8ToUTF16(NetName, 1024, NORMALIZE_FORM_NONE);
 
     if (!serverName || !netName || !ShareInfo) {
 		if (serverName) 
@@ -141,7 +141,7 @@ NetShareEnum(
         uint32_t Level,
         PSHARE_ENUM_STRUCT * InfoStruct)
 {	    
-	WCHAR * serverName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, 0);
+	WCHAR * serverName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, NORMALIZE_FORM_NONE);
     if (!serverName || !InfoStruct) {
 		if (serverName)
 			free(serverName);

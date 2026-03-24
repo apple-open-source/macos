@@ -564,7 +564,7 @@ Ref<MutableStyleProperties> Extractor::copyProperties(std::span<const CSSPropert
             return CSSProperty(property, value.releaseNonNull());
         return std::nullopt;
     });
-    return MutableStyleProperties::create(WTFMove(vector));
+    return MutableStyleProperties::create(WTF::move(vector));
 }
 
 Ref<MutableStyleProperties> Extractor::copyProperties() const

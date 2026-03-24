@@ -27,28 +27,18 @@
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
 	</dict>
-	<key>SecureAllocator_SingleCluster</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-		<string>UnderDevelopment</string>
-	</dict>
-	<key>SecureAllocator_Nano</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-#if TARGET_OS_IOS || TARGET_OS_VISION || TARGET_OS_OSX
-		<string>FeatureComplete</string>
-#else
-		<string>UnderDevelopment</string>
-#endif
-	</dict>
-	<key>SecureAllocator_NanoOnXzone</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-		<string>UnderDevelopment</string>
-	</dict>
 	<key>SecureAllocator_ThreadCaching</key>
 	<dict>
 		<key>DevelopmentPhase</key>
+#if TARGET_OS_IOS || TARGET_OS_VISION || TARGET_OS_OSX || TARGET_OS_TV
+		<string>FeatureComplete</string>
+#else
+		<string>UnderDevelopment</string>
+#endif
+	</dict>
+	<key>SecureAllocator_GuardObjects</key>
+	<dict>
+		<key>DevelopmentPhase</key>
 #if TARGET_OS_IOS || TARGET_OS_VISION || TARGET_OS_OSX
 		<string>FeatureComplete</string>
 #else
@@ -56,33 +46,14 @@
 #endif
 	</dict>
 
-#if TARGET_OS_OSX
-	<key>SecureAllocator_Intel</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-		<string>UnderDevelopment</string>
-	</dict>
-#endif
-
-#if TARGET_OS_IOS || TARGET_OS_VISION || TARGET_OS_OSX || TARGET_OS_WATCH
-#define HAS_SECURE_ALLOCATOR_PROCESS_FEATURES 1
-#define SECURE_ALLOCATOR_SYSTEMWIDE_ENABLED 1
-#else
-#define HAS_SECURE_ALLOCATOR_PROCESS_FEATURES 0
-#define SECURE_ALLOCATOR_SYSTEMWIDE_ENABLED 0
-#endif
-
+#if TARGET_OS_TV
 	<key>SecureAllocator_SystemWide</key>
 	<dict>
 		<key>DevelopmentPhase</key>
-#if SECURE_ALLOCATOR_SYSTEMWIDE_ENABLED
 		<string>FeatureComplete</string>
-#else
-		<string>UnderDevelopment</string>
-#endif
 	</dict>
+#endif
 
-#if HAS_SECURE_ALLOCATOR_PROCESS_FEATURES
 #define SECURE_ALLOCATOR_PROCESS_FEATURE(name, state) \
 	<key>SecureAllocator_process_##name</key> \
 	<dict> \
@@ -90,15 +61,10 @@
 		<string>state</string> \
 	</dict>
 
-#if TARGET_OS_VISION
-SECURE_ALLOCATOR_PROCESS_FEATURE(arkitd, FeatureComplete)
-SECURE_ALLOCATOR_PROCESS_FEATURE(backboardd, FeatureComplete)
-SECURE_ALLOCATOR_PROCESS_FEATURE(wakeboardd, FeatureComplete)
-SECURE_ALLOCATOR_PROCESS_FEATURE(realitycamerad, FeatureComplete)
-#endif
-
+#if TARGET_OS_IOS
 SECURE_ALLOCATOR_PROCESS_FEATURE(aegirposter, UnderDevelopment)
 SECURE_ALLOCATOR_PROCESS_FEATURE(CollectionsPoster, UnderDevelopment)
+#endif
 
 #if TARGET_OS_OSX
 SECURE_ALLOCATOR_PROCESS_FEATURE(VTEncoderXPCService, UnderDevelopment)
@@ -107,7 +73,6 @@ SECURE_ALLOCATOR_PROCESS_FEATURE(VTEncoderXPCService, UnderDevelopment)
 #if TARGET_OS_WATCH
 SECURE_ALLOCATOR_PROCESS_FEATURE(backboardd, UnderDevelopment)
 SECURE_ALLOCATOR_PROCESS_FEATURE(ClockFace, UnderDevelopment)
-#endif
 #endif
 </dict>
 </plist>

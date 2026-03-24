@@ -18,6 +18,7 @@
 @property bool allZoneCreationsSucceeded;
 @property bool allZoneSubscriptionsSucceeded;
 @property bool networkError;
+@property bool authTokenError;
 
 @property NSError* zoneModificationError;
 @property NSError* zoneSubscriptionError;
@@ -42,6 +43,7 @@
         _allZoneCreationsSucceeded = true;
         _allZoneSubscriptionsSucceeded = true;
         _networkError = false;
+        _authTokenError = false;
     }
     return self;
 }
@@ -119,6 +121,9 @@
             if ([self.deps.reachabilityTracker isNetworkError:operationError]){
                 ckksnotice_global("ckkszonemodifier", "Waiting for reachability before issuing zone creation");
                 self.networkError = true;
+            } else if ([operationError isCKServerAuthTokenError]) {
+                ckksnotice_global("ckkszonemodifier", "Failed zone creation due to missing auth token, need to recheck CK Account Status and potentially re-auth");
+                self.authTokenError = true;
             }
         }
         ckksnotice_global("ckkszonemodifier", "created zones: %@", savedRecordZones);
@@ -154,6 +159,9 @@
                 if ([self.deps.reachabilityTracker isNetworkError:zoneSubscriptionError]) {
                     ckksnotice_global("ckkszonemodifier", "Waiting for reachability before issuing zone subscription");
                     self.networkError = true;
+                } else if ([zoneSubscriptionError isCKServerAuthTokenError]) {
+                    ckksnotice_global("ckkszonemodifier", "Failed zone subscription due to missing auth token, need to recheck CK Account Status and potentially re-auth");
+                    self.authTokenError = true;
                 }
             }
             ckksnotice_global("ckkszonemodifier", "Successfully subscribed to %@", savedSubscriptions);
@@ -240,6 +248,7 @@
                     CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
                     ckse.ckzonecreated = zoneCreated;
                     ckse.ckzonesubscribed = zoneSubscribed;
+                    ckse.altDSID = self.deps.activeAccount.altDSID;
 
                     // Although, if the zone subscribed error says there's no zone, mark down that there's no zone
                     if(zoneSubscriptionError &&
@@ -282,8 +291,10 @@
         if (self.networkError) {
             self.nextState = CKKSStateZoneCreationFailedDueToNetworkError;
             self.error = self.zoneModificationError ?: self.zoneSubscriptionError;
-        }
-        else if (!self.allZoneCreationsSucceeded || !self.allZoneSubscriptionsSucceeded) {
+        } else if (self.authTokenError) {
+            self.nextState = CKKSStateRecheckAccountStatus;
+            self.error = self.zoneModificationError ?: self.zoneSubscriptionError;
+        } else if (!self.allZoneCreationsSucceeded || !self.allZoneSubscriptionsSucceeded) {
             // Go into 'zonecreationfailed'
             self.nextState = CKKSStateZoneCreationFailed;
             self.error = self.zoneModificationError ?: self.zoneSubscriptionError;

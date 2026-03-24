@@ -47,14 +47,14 @@ public:
     }
 
     CoreIPCCVPixelBufferRef(MachSendRight&& sendRight)
-        : m_sendRight(WTFMove(sendRight))
+        : m_sendRight(WTF::move(sendRight))
     {
     }
 
     RetainPtr<CVPixelBufferRef> toCF() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCCVPixelBufferRef, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCCVPixelBufferRef>;
 
     MachSendRight sendRightFromPixelBuffer(const RetainPtr<CVPixelBufferRef>&);
 

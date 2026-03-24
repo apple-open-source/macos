@@ -28,6 +28,11 @@
 messages -> AcceleratedBackingStore {
     DidCreateDMABufBuffer(uint64_t id, WebCore::IntSize size, uint32_t format, Vector<UnixFileDescriptor> fds, Vector<uint32_t> offsets, Vector<uint32_t> strides, uint64_t modifier, WebKit::RendererBufferFormat::Usage usage)
     DidCreateSHMBuffer(uint64_t id, WebCore::ShareableBitmapHandle handle)
+
+#if OS(ANDROID)
+    DidCreateAndroidBuffer(uint64_t id, RefPtr<AHardwareBuffer> androidBuffer)
+#endif
+
     DidDestroyBuffer(uint64_t id)
     Frame(uint64_t id, Vector<WebCore::IntRect, 1> damage, UnixFileDescriptor syncFD)
 }

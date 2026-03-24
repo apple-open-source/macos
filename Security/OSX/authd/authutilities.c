@@ -12,15 +12,15 @@ xpc_object_t
 SerializeItemSet(const AuthorizationItemSet * itemSet)
 {
     xpc_object_t set = NULL;
-    require_quiet(itemSet != NULL, done);
-    require_quiet(itemSet->count != 0, done);
+    __Require_Quiet(itemSet != NULL, done);
+    __Require_Quiet(itemSet->count != 0, done);
     
     set = xpc_array_create(NULL, 0);
-    require(set != NULL, done);
+    __Require(set != NULL, done);
     
     for (uint32_t i = 0; i < itemSet->count; i++) {
         xpc_object_t item = xpc_dictionary_create(NULL, NULL, 0);
-        require(item != NULL, done);
+        __Require(item != NULL, done);
         
         if (itemSet->items[i].name == NULL) {
             os_log_error(AUTHD_LOG, "ItemSet - item #%d name is NULL", i);
@@ -42,27 +42,27 @@ AuthorizationItemSet *
 DeserializeItemSet(const xpc_object_t data)
 {
     AuthorizationItemSet * set = NULL;
-    require_quiet(data != NULL, done);
+    __Require_Quiet(data != NULL, done);
     xpc_retain(data);
-    require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
+    __Require(xpc_get_type(data) == XPC_TYPE_ARRAY, done);
     
     set = (AuthorizationItemSet*)calloc(1u, sizeof(AuthorizationItemSet));
-    require(set != NULL, done);
+    __Require(set != NULL, done);
     
     set->count = (uint32_t)xpc_array_get_count(data);
     if (set->count) {
         set->items = (AuthorizationItem*)calloc(set->count, sizeof(AuthorizationItem));
-        require_action(set->items != NULL, done, set->count = 0);
+        __Require_Action(set->items != NULL, done, set->count = 0);
         
         xpc_array_apply(data, ^bool(size_t index, xpc_object_t value) {
             void *dataCopy = 0;
-            require(xpc_get_type(value) == XPC_TYPE_DICTIONARY, done);
+            __Require(xpc_get_type(value) == XPC_TYPE_DICTIONARY, done);
             size_t nameLen = 0;
             const char * name = xpc_dictionary_get_string(value, AUTH_XPC_ITEM_NAME);
             if (name) {
                 nameLen = strlen(name) + 1;
                 set->items[index].name = calloc(1u, nameLen);
-                require(set->items[index].name != NULL, done);
+                __Require(set->items[index].name != NULL, done);
                 
                 strlcpy((char*)set->items[index].name, name, nameLen);
             }
@@ -78,20 +78,20 @@ DeserializeItemSet(const xpc_object_t data)
                     goto done;
                 }
                 dataCopy = malloc(sensitiveLength);
-                require(dataCopy != NULL, done);
+                __Require(dataCopy != NULL, done);
                 memcpy(dataCopy, valueData, sensitiveLength);
                 memset_s((void *)valueData, len, 0, sensitiveLength); // clear the sensitive data, memset_s is never optimized away
                 len = sensitiveLength;
             } else {
                 dataCopy = malloc(len);
-                require(dataCopy != NULL, done);
+                __Require(dataCopy != NULL, done);
                 memcpy(dataCopy, valueData, len);
             }
 
             set->items[index].valueLength = len;
             if (len) {
                 set->items[index].value = calloc(1u, len);
-                require(set->items[index].value != NULL, done);
+                __Require(set->items[index].value != NULL, done);
                 
                 memcpy(set->items[index].value, dataCopy, len);
             }
@@ -133,14 +133,14 @@ char *
 _copy_cf_string(CFTypeRef str, const char * defaultValue)
 {
     char * result = NULL;
-    require(str != NULL, done);   
-    require(CFGetTypeID(str) == CFStringGetTypeID(), done);
+    __Require(str != NULL, done);   
+    __Require(CFGetTypeID(str) == CFStringGetTypeID(), done);
     
     CFIndex length = CFStringGetLength(str);
     CFIndex size = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
     
     result = (char*)calloc(1u, (size_t)size);
-    check(result != NULL);
+    __Check(result != NULL);
     
     if (!CFStringGetCString(str, result, size, kCFStringEncodingUTF8)) {
         free_safe(result);
@@ -150,7 +150,7 @@ done:
     if (result == NULL && defaultValue) {
         size_t len = strlen(defaultValue);
         result = (char*)calloc(1u, len);
-        check(result != NULL);
+        __Check(result != NULL);
         
         strlcpy(result, defaultValue, len);
     }
@@ -162,8 +162,8 @@ int64_t
 _get_cf_int(CFTypeRef num, int64_t defaultValue)
 {
     int64_t result = defaultValue;
-    require(num != NULL, done);
-    require(CFGetTypeID(num) == CFNumberGetTypeID(), done);
+    __Require(num != NULL, done);
+    __Require(CFGetTypeID(num) == CFNumberGetTypeID(), done);
     
     if (!CFNumberGetValue(num, kCFNumberSInt64Type, &result)) {
         result = defaultValue;
@@ -177,8 +177,8 @@ bool
 _get_cf_bool(CFTypeRef value, bool defaultValue)
 {
     bool result = defaultValue;
-    require(value != NULL, done);
-    require(CFGetTypeID(value) == CFBooleanGetTypeID(), done);
+    __Require(value != NULL, done);
+    __Require(CFGetTypeID(value) == CFBooleanGetTypeID(), done);
     
     result = CFBooleanGetValue(value);
     
@@ -206,11 +206,11 @@ char *
 _copy_string(const char * str)
 {
     char * result = NULL;
-    require(str != NULL, done);
+    __Require(str != NULL, done);
     
     size_t len = strlen(str) + 1;
     result = calloc(1u, len);
-    require(result != NULL, done);
+    __Require(result != NULL, done);
     
     strlcpy(result, str, len);
     
@@ -222,10 +222,10 @@ void *
 _copy_data(const void * data, size_t dataLen)
 {
     void * result = NULL;
-    require(data != NULL, done);
+    __Require(data != NULL, done);
     
     result = calloc(1u, dataLen);
-    require(result != NULL, done);
+    __Require(result != NULL, done);
     
     memcpy(result, data, dataLen);
     
@@ -238,11 +238,11 @@ bool _cf_set_iterate(CFSetRef set, bool(^iterator)(CFTypeRef value))
     bool result = false;
     CFTypeRef* values = NULL;
     
-    require(set != NULL, done);
+    __Require(set != NULL, done);
     
     CFIndex count = CFSetGetCount(set);
     values = calloc((size_t)count, sizeof(CFTypeRef));
-    require(values != NULL, done);
+    __Require(values != NULL, done);
     
     CFSetGetValues(set, values);
     for (CFIndex i = 0; i < count; i++) {
@@ -262,11 +262,11 @@ bool _cf_bag_iterate(CFBagRef bag, bool(^iterator)(CFTypeRef value))
     bool result = false;
     CFTypeRef* values = NULL;
 
-    require(bag != NULL, done);
+    __Require(bag != NULL, done);
 
     CFIndex count = CFBagGetCount(bag);
     values = calloc((size_t)count, sizeof(CFTypeRef));
-    require(values != NULL, done);
+    __Require(values != NULL, done);
 
     CFBagGetValues(bag, values);
     for (CFIndex i = 0; i < count; i++) {
@@ -287,14 +287,14 @@ bool _cf_dictionary_iterate(CFDictionaryRef dict, bool(^iterator)(CFTypeRef key,
     CFTypeRef* keys = NULL;
     CFTypeRef* values = NULL;
     
-    require(dict != NULL, done);
+    __Require(dict != NULL, done);
     
     CFIndex count = CFDictionaryGetCount(dict);
     keys = calloc((size_t)count, sizeof(CFTypeRef));
-    require(keys != NULL, done);
+    __Require(keys != NULL, done);
     
     values = calloc((size_t)count, sizeof(CFTypeRef));
-    require(values != NULL, done);
+    __Require(values != NULL, done);
     
     CFDictionaryGetKeysAndValues(dict, keys, values);
     for (CFIndex i = 0; i < count; i++) {

@@ -26,31 +26,38 @@
 #include "CachedImage.h"
 #include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
-#include <wtf/PointerComparison.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
 namespace Style {
 
-MaskLayer::MaskLayer(ImageOrNone&& image)
-    : m_image(WTFMove(image))
-    , m_position({ MaskLayer::initialFillXPosition(), MaskLayer::initialFillYPosition() })
-    , m_size(MaskLayer::initialFillSize())
-    , m_repeat(MaskLayer::initialFillRepeat())
-    , m_clip(static_cast<unsigned>(MaskLayer::initialFillClip()))
-    , m_origin(static_cast<unsigned>(MaskLayer::initialFillOrigin()))
-    , m_composite(static_cast<unsigned>(MaskLayer::initialFillComposite()))
-    , m_maskMode(static_cast<unsigned>(MaskLayer::initialFillMaskMode()))
+MaskLayer::MaskLayer()
+    : m_image(MaskLayer::initialImage())
+    , m_positionX(MaskLayer::initialPositionX())
+    , m_positionY(MaskLayer::initialPositionY())
+    , m_size(MaskLayer::initialSize())
+    , m_repeat(MaskLayer::initialRepeat())
+    , m_clip(static_cast<unsigned>(MaskLayer::initialClip()))
+    , m_origin(static_cast<unsigned>(MaskLayer::initialOrigin()))
+    , m_composite(static_cast<unsigned>(MaskLayer::initialComposite()))
+    , m_maskMode(static_cast<unsigned>(MaskLayer::initialMaskMode()))
+    , m_clipMax(static_cast<unsigned>(MaskLayer::initialClip()))
 {
 }
 
-MaskLayer::MaskLayer(CSS::Keyword::None)
-    : MaskLayer { ImageOrNone { CSS::Keyword::None { } } }
+MaskLayer::MaskLayer(ImageOrNone&& image)
+    : MaskLayer { }
+{
+    setImage(WTF::move(image));
+}
+
+MaskLayer::MaskLayer(CSS::Keyword::None keyword)
+    : MaskLayer { ImageOrNone { keyword } }
 {
 }
 
 MaskLayer::MaskLayer(RefPtr<StyleImage>&& image)
-    : MaskLayer { ImageOrNone { WTFMove(image) } }
+    : MaskLayer { ImageOrNone { WTF::move(image) } }
 {
 }
 
@@ -58,14 +65,10 @@ bool MaskLayer::operator==(const MaskLayer& other) const
 {
     // NOTE: Default operator== is not used due to exclusion of m_clipMax.
 
-    return m_image == other.m_image
-        && m_position == other.m_position
-        && m_clip == other.m_clip
-        && m_composite == other.m_composite
-        && m_origin == other.m_origin
-        && m_repeat == other.m_repeat
-        && m_size == other.m_size
-        && m_maskMode == other.m_maskMode;
+    return allOfCoordinatedValueListProperties<MaskLayer>([this, &other]<auto propertyID>() {
+        using PropertyAccessor = CoordinatedValueListPropertyConstAccessor<propertyID>;
+        return PropertyAccessor { *this } == PropertyAccessor { other };
+    });
 }
 
 bool MaskLayer::hasOpaqueImage(const RenderElement& renderer) const
@@ -82,6 +85,15 @@ bool MaskLayer::hasOpaqueImage(const RenderElement& renderer) const
         && composite() == CompositeOperator::SourceOver
         && image->knownToBeOpaque(renderer);
 }
+
+// MARK: - Blending
+
+auto Blending<MaskLayer>::canBlend(const MaskLayer& a, const MaskLayer& b) -> bool
+{
+    return a.size().hasSameType(b.size());
+}
+
+// MARK: - Logging
 
 TextStream& operator<<(TextStream& ts, const MaskLayer& layer)
 {

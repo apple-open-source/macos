@@ -105,8 +105,8 @@ static bool is_configured_test_system_root(SecCertificateRef root, CFStringRef p
     bool result = false;
     CFDataRef rootHash = SecCertificateCopySHA256Digest(root);
     CFTypeRef value = CFPreferencesCopyAppValue(preference, CFSTR("com.apple.security"));
-    require_quiet(isData(value), out);
-    require_quiet(CFEqual(rootHash, value), out);
+    __Require_Quiet(isData(value), out);
+    __Require_Quiet(CFEqual(rootHash, value), out);
     result = true;
 
 out:
@@ -197,33 +197,33 @@ static bool SecPolicyRootCACertificateIsEV(SecCertificateRef certificate,
             break;
         }
     }
-    require_action_quiet(good_ev_anchor, notEV, secnotice("ev", "anchor not in plist"));
+    __Require_Action_Quiet(good_ev_anchor, notEV, secnotice("ev", "anchor not in plist"));
 
     CFAbsoluteTime october2006 = 178761600;
     if (SecCertificateNotValidBefore(certificate) >= october2006) {
-        require_action_quiet(SecCertificateVersion(certificate) >= 3, notEV,
+        __Require_Action_Quiet(SecCertificateVersion(certificate) >= 3, notEV,
                              secnotice("ev", "Anchor issued after October 2006 and is not v3"));
     }
     if (SecCertificateVersion(certificate) >= 3
         && SecCertificateNotValidBefore(certificate) >= october2006) {
         const SecCEBasicConstraints *bc = SecCertificateGetBasicConstraints(certificate);
-        require_action_quiet(bc && bc->isCA == true, notEV,
+        __Require_Action_Quiet(bc && bc->isCA == true, notEV,
                              secnotice("ev", "Anchor has invalid basic constraints"));
         SecKeyUsage ku = SecCertificateGetKeyUsage(certificate);
-        require_action_quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign))
+        __Require_Action_Quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign))
             == (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign), notEV,
                              secnotice("ev", "Anchor has invalid key usage %u", ku));
     }
 
     /* At least RSA 2048 or ECC NIST P-256. */
-    require_quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
-    require_quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
+    __Require_Quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
+    __Require_Quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
     const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
     const void *values[] = { rsaSize, ecSize };
-    require_quiet(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
+    __Require_Quiet(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks), notEV);
-    require_action_quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
+    __Require_Action_Quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
                          secnotice("ev", "Anchor's public key is too weak for EV"));
 
     isEV = true;
@@ -242,38 +242,38 @@ static bool SecPolicySubordinateCACertificateCouldBeEV(SecCertificateRef certifi
 
     const SecCECertificatePolicies *cp;
     cp = SecCertificateGetCertificatePolicies(certificate);
-    require_action_quiet(cp && cp->numPolicies > 0, notEV,
+    __Require_Action_Quiet(cp && cp->numPolicies > 0, notEV,
                          secnotice("ev", "SubCA missing certificate policies"));
     CFArrayRef cdp = SecCertificateGetCRLDistributionPoints(certificate);
-    require_action_quiet(cdp && CFArrayGetCount(cdp) > 0, notEV,
+    __Require_Action_Quiet(cdp && CFArrayGetCount(cdp) > 0, notEV,
                          secnotice("ev", "SubCA missing CRLDP"));
     const SecCEBasicConstraints *bc = SecCertificateGetBasicConstraints(certificate);
-    require_action_quiet(bc && bc->isCA == true, notEV,
+    __Require_Action_Quiet(bc && bc->isCA == true, notEV,
                          secnotice("ev", "SubCA has invalid basic constraints"));
     SecKeyUsage ku = SecCertificateGetKeyUsage(certificate);
-    require_action_quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign))
+    __Require_Action_Quiet((ku & (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign))
         == (kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign), notEV,
                          secnotice("ev", "SubCA has invalid key usage %u", ku));
 
     /* 6.1.5 Key Sizes */
     CFAbsoluteTime jan2011 = 315532800;
     CFAbsoluteTime jan2014 = 410227200;
-    require_quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
-    require_quiet(keySizes = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks,
+    __Require_Quiet(ecSize = CFNumberCreateWithCFIndex(NULL, 256), notEV);
+    __Require_Quiet(keySizes = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks,
                                                  &kCFTypeDictionaryValueCallBacks), notEV);
     CFDictionaryAddValue(keySizes, kSecAttrKeyTypeEC, ecSize);
     if (SecCertificateNotValidBefore(certificate) < jan2011 ||
         SecCertificateNotValidAfter(certificate) < jan2014) {
         /* At least RSA 1024 or ECC NIST P-256. */
-        require_quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 1024), notEV);
+        __Require_Quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 1024), notEV);
         CFDictionaryAddValue(keySizes, kSecAttrKeyTypeRSA, rsaSize);
-        require_action_quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
+        __Require_Action_Quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
                              secnotice("ev", "SubCA's public key is too small for issuance before 2011 or expiration before 2014"));
     } else {
         /* At least RSA 2028 or ECC NIST P-256. */
-        require_quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
+        __Require_Quiet(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), notEV);
         CFDictionaryAddValue(keySizes, kSecAttrKeyTypeRSA, rsaSize);
-        require_action_quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
+        __Require_Action_Quiet(SecCertificateIsAtLeastMinKeySize(certificate, keySizes), notEV,
                              secnotice("ev", "SubCA's public key is too small for issuance after 2010 or expiration after 2013"));
     }
 
@@ -281,7 +281,7 @@ static bool SecPolicySubordinateCACertificateCouldBeEV(SecCertificateRef certifi
     CFAbsoluteTime jan2016 = 473299200;
     if (SecCertificateNotValidBefore(certificate) > jan2016) {
         /* SHA-2 only */
-        require_action_quiet(SecCertificateGetSignatureHashAlgorithm(certificate) > kSecSignatureHashAlgorithmSHA1,
+        __Require_Action_Quiet(SecCertificateGetSignatureHashAlgorithm(certificate) > kSecSignatureHashAlgorithmSHA1,
                              notEV, secnotice("ev", "SubCA was issued with SHA-1 after 2015"));
     }
 
@@ -1327,9 +1327,9 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         excluded_subtrees = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
 
-    require_action_quiet(permitted_subtrees != NULL, errOut,
+    __Require_Action_Quiet(permitted_subtrees != NULL, errOut,
                          SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, 0, kCFBooleanFalse, true));
-    require_action_quiet(excluded_subtrees != NULL, errOut,
+    __Require_Action_Quiet(excluded_subtrees != NULL, errOut,
                          SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, 0, kCFBooleanFalse, true));
 #endif
 
@@ -1859,7 +1859,7 @@ static void SecPolicyCheckSystemTrustedWeakHash(SecPVCRef pvc,
      *  1. One of the certs in the path has this usage constraint, and
      *  2. One of the policies in the PVC has this key
      * (As compared to normal policy options which require only one to be true..) */
-    require_quiet(SecPVCKeyIsConstraintPolicyOption(pvc, key) &&
+    __Require_Quiet(SecPVCKeyIsConstraintPolicyOption(pvc, key) &&
                   keyInPolicy, out);
 
     /* Ignore the anchor if it's trusted */
@@ -1896,7 +1896,7 @@ static void SecPolicyCheckSystemTrustedWeakKey(SecPVCRef pvc,
      *  1. One of the certs in the path has this usage constraint, and
      *  2. One of the policies in the PVC has this key
      * (As compared to normal policy options which require only one to be true..) */
-    require_quiet(SecPVCKeyIsConstraintPolicyOption(pvc, key) &&
+    __Require_Quiet(SecPVCKeyIsConstraintPolicyOption(pvc, key) &&
                   keyInPolicy, out);
 
     /* Ignore the anchor if it's trusted */
@@ -2091,32 +2091,32 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
 
     /* Skip this check if we haven't done the CT checks yet */
-    require_quiet(SecCertificatePathVCIsPathValidated(path), out);
+    __Require_Quiet(SecCertificatePathVCIsPathValidated(path), out);
 
     /* We only enforce this check when all of the following are true:
      * 0. Kill Switch not enabled */
-    require_quiet(!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT), out);
+    __Require_Quiet(!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT), out);
 
     /*  1. Not a pinning policy or a policy that explicitly disabled this check (see rdar://132272332) */
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
-    require_quiet(CFEqualSafe(SecPolicyGetName(policy),kSecPolicyNameSSLServer), out);
+    __Require_Quiet(CFEqualSafe(SecPolicyGetName(policy),kSecPolicyNameSSLServer), out);
     CFTypeRef optionValue = CFDictionaryGetValue(policy->_options, kSecPolicyCheckSystemTrustedCTRequired);
-    require_quiet(optionValue && !CFEqual(optionValue, kCFBooleanFalse), out);
+    __Require_Quiet(optionValue && !CFEqual(optionValue, kCFBooleanFalse), out);
 
     /*  2. Device has checked in to MobileAsset for a current log list within the last 60 days.
      *     Or the caller passed in the trusted log list. */
-    require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
+    __Require_Quiet(SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
 
     /*  3. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC and not expired. */
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
-    require_quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0 &&
+    __Require_Quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0 &&
                   SecCertificateIsValid(leaf, SecPVCGetVerifyTime(pvc)), out);
 
     /*  4. Chain is anchored with root in the system anchor source but not the Apple anchor source
      *     with certain excepted CAs and configurable included CAs. */
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
+    __Require_Quiet(SecPathBuilderIsAnchored(pvc->builder), out);
     bool isAppleAnchor = SecCertificateSourceContains(kSecAppleAnchorSource, root, pvc);
     if (!_SecTrustRemoveOldAppleAnchorSource()) {
         appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
@@ -2125,7 +2125,7 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
             SecMemoryCertificateSourceDestroy(appleAnchorSource);
         }
     }
-    require_quiet(is_system_root(root, pvc, CFSTR("TestCTRequiredSystemRoot")) && !isAppleAnchor, out);
+    __Require_Quiet(is_system_root(root, pvc, CFSTR("TestCTRequiredSystemRoot")) && !isAppleAnchor, out);
 
     if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {
         /* Set failure. By not using the Forced variant, we implicitly check that this
@@ -3117,7 +3117,7 @@ static bool SecPVCContainsString(SecPVCRef pvc, CFIndex policyIX, CFStringRef st
     }
     /* Some users have strings that only contain the null-termination, so we need to check that we
      * still have a string. */
-    require(tmpStringValue, out);
+    __Require(tmpStringValue, out);
 
     if (policyIX >= 0 && policyIX < CFArrayGetCount(pvc->policies)) {
         SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, policyIX);
@@ -3261,13 +3261,13 @@ static bool SecPVCCallerIsApplication(SecPathBuilderRef builder, CFTypeRef appRe
     SecRequirementRef requirement = NULL;
     CFStringRef stringRequirement = NULL;
 
-    require_quiet(appRef && builder, out);
-    require(CFGetTypeID(appRef) == SecTrustedApplicationGetTypeID(), out);
-    require_noerr(SecTrustedApplicationCopyRequirement((SecTrustedApplicationRef)appRef, &requirement), out);
-    require(requirement, out);
-    require_noerr(SecRequirementsCopyString(requirement, kSecCSDefaultFlags, &stringRequirement), out);
-    require(stringRequirement, out);
-    require(task = SecPathBuilderCopyClientTask(builder), out);
+    __Require_Quiet(appRef && builder, out);
+    __Require(CFGetTypeID(appRef) == SecTrustedApplicationGetTypeID(), out);
+    __Require_noErr(SecTrustedApplicationCopyRequirement((SecTrustedApplicationRef)appRef, &requirement), out);
+    __Require(requirement, out);
+    __Require_noErr(SecRequirementsCopyString(requirement, kSecCSDefaultFlags, &stringRequirement), out);
+    __Require(stringRequirement, out);
+    __Require(task = SecPathBuilderCopyClientTask(builder), out);
 
     if(errSecSuccess == SecTaskValidateForRequirement(task, stringRequirement)) {
         result = true;
@@ -3405,7 +3405,7 @@ bool SecPVCIsAnchorPerConstraints(SecPVCRef pvc, SecCertificateSourceRef source,
      *      -self-signed certificates with empty contraints arrays
      */
     Boolean selfSigned = false;
-    require(errSecSuccess == SecCertificateIsSelfSigned(certificate, &selfSigned), out);
+    __Require(errSecSuccess == SecCertificateIsSelfSigned(certificate, &selfSigned), out);
     if ((NULL == source->copyUsageConstraints) ||
         (constraints && (CFArrayGetCount(constraints) == 0) && selfSigned)) {
         secinfo("trust", "unrestricted anchor%s",
@@ -3417,7 +3417,7 @@ bool SecPVCIsAnchorPerConstraints(SecPVCRef pvc, SecCertificateSourceRef source,
     /* Get the trust settings result for the PVC. Only one PVC need match to
      * trigger the anchor behavior -- policy validation will handle whether the
      * path is truly anchored for that PVC. */
-    require_quiet(constraints, out);
+    __Require_Quiet(constraints, out);
     SecTrustSettingsResult settingsResult = kSecTrustSettingsResultInvalid;
     settingsResult = SecPVCGetTrustSettingsResult(pvc,
                                                   certificate,

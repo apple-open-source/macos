@@ -302,7 +302,7 @@ static void ios_shim_V2_tests(void) {
     is(SecCMSVerifyCopyDataAndAttributes((__bridge CFDataRef)message, (__bridge CFDataRef)contentData, policy, &trust,  NULL, &tmpAttrs),
        errSecSuccess, "Verify valid CMS message and get attributes");
     attrs = CFBridgingRelease(tmpAttrs);
-    require_action(attrs, exit, fail("Copy CMS attributes"));
+    __Require_Action(attrs, exit, fail("Copy CMS attributes"));
 
     /* verify we can get the parsed attribute */
     uint8_t appleHashAgilityOid[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x63, 0x64, 0x9, 0x2 };
@@ -311,7 +311,7 @@ static void ios_shim_V2_tests(void) {
     is([attrValues count], (size_t)2, "Two attribute values");
 
     /* verify we can get the "cooked" parsed attribute */
-    require_action(hashAgilityValue = (NSDictionary *)attrs[(__bridge NSString*)kSecCMSHashAgilityV2], exit,
+    __Require_Action(hashAgilityValue = (NSDictionary *)attrs[(__bridge NSString*)kSecCMSHashAgilityV2], exit,
                    fail("Get cooked hash agility value"));
     ok([hashAgilityValue[@(SEC_OID_SHA1)] isEqualToData:[NSData dataWithBytes:_attributev2 length:20]],
        "Got wrong SHA1 agility value");
@@ -323,7 +323,7 @@ static void ios_shim_V2_tests(void) {
     CFReleaseNull(trust);
 
     /*verify we can get the signing time attribute */
-    require_action(signingTime = attrs[(__bridge NSString*)kSecCMSSignDate], exit, fail("Failed to get signing time"));
+    __Require_Action(signingTime = attrs[(__bridge NSString*)kSecCMSSignDate], exit, fail("Failed to get signing time"));
     ok([signingTime isEqualToDate:[NSDate dateWithTimeIntervalSinceReferenceDate:530700000.0]], "Got wrong signing time");
 
     /* verify the invalid message */
@@ -357,17 +357,17 @@ static void encode_V2_test(SecIdentityRef identity) {
     NSDictionary *attrValues = nil;
 
     /* Create encoder */
-    require_noerr_action(CMSEncoderCreate(&encoder), exit, fail("Failed to create CMS encoder"));
-    require_noerr_action(CMSEncoderSetSignerAlgorithm(encoder, kCMSEncoderDigestAlgorithmSHA256), exit,
+    __Require_noErr_Action(CMSEncoderCreate(&encoder), exit, fail("Failed to create CMS encoder"));
+    __Require_noErr_Action(CMSEncoderSetSignerAlgorithm(encoder, kCMSEncoderDigestAlgorithmSHA256), exit,
               fail("Failed to set digest algorithm to SHA256"));
 
     /* Set identity as signer */
-    require_noerr_action(CMSEncoderAddSigners(encoder, identity), exit, fail("Failed to add signer identity"));
+    __Require_noErr_Action(CMSEncoderAddSigners(encoder, identity), exit, fail("Failed to add signer identity"));
 
     /* Add signing time attribute for 26 October 2017 */
-    require_noerr_action(CMSEncoderAddSignedAttributes(encoder, kCMSAttrSigningTime), exit,
+    __Require_noErr_Action(CMSEncoderAddSignedAttributes(encoder, kCMSAttrSigningTime), exit,
                          fail("Failed to set signing time flag"));
-    require_noerr_action(CMSEncoderSetSigningTime(encoder, 530700000.0), exit, fail("Failed to set signing time"));
+    __Require_noErr_Action(CMSEncoderSetSigningTime(encoder, 530700000.0), exit, fail("Failed to set signing time"));
 
     /* Add hash agility attribute */
     attrValues = @{ @(SEC_OID_SHA1) : [NSData dataWithBytes:_attributev2 length:20],
@@ -379,19 +379,19 @@ static void encode_V2_test(SecIdentityRef identity) {
               "Set hash agility data");
 
     /* Load content */
-    require_noerr_action(CMSEncoderSetHasDetachedContent(encoder, true), exit, fail("Failed to set detached content"));
-    require_noerr_action(CMSEncoderUpdateContent(encoder, content, content_size), exit, fail("Failed to set content"));
+    __Require_noErr_Action(CMSEncoderSetHasDetachedContent(encoder, true), exit, fail("Failed to set detached content"));
+    __Require_noErr_Action(CMSEncoderUpdateContent(encoder, content, content_size), exit, fail("Failed to set content"));
 
     /* output cms message */
     ok_status(CMSEncoderCopyEncodedContent(encoder, &message), "Finish encoding and output message");
     isnt(message, NULL, "Encoded message exists");
 
     /* decode message */
-    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Create CMS decoder"));
-    require_noerr_action(CMSDecoderUpdateMessage(decoder, CFDataGetBytePtr(message),
+    __Require_noErr_Action(CMSDecoderCreate(&decoder), exit, fail("Create CMS decoder"));
+    __Require_noErr_Action(CMSDecoderUpdateMessage(decoder, CFDataGetBytePtr(message),
                                                  CFDataGetLength(message)), exit,
                          fail("Update decoder with CMS message"));
-    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)[NSData dataWithBytes:content
+    __Require_noErr_Action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)[NSData dataWithBytes:content
                                                                                                   length:content_size]),
                          exit, fail("Set detached content"));
     ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
@@ -413,16 +413,16 @@ static void decode_V2_positive_test(void) {
     NSDictionary *attrValue = nil;
 
     /* Create decoder and decode */
-    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
-    require_noerr_action(CMSDecoderUpdateMessage(decoder, _V2_valid_message, _V2_valid_message_size), exit,
+    __Require_noErr_Action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
+    __Require_noErr_Action(CMSDecoderUpdateMessage(decoder, _V2_valid_message, _V2_valid_message_size), exit,
               fail("Failed to update decoder with CMS message"));
     contentData = [NSData dataWithBytes:content length:content_size];
-    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
+    __Require_noErr_Action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
                          fail("Failed to set detached content"));
     ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
 
     /* Get signer status */
-    require_action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
     ok_status(CMSDecoderCopySignerStatus(decoder, 0, policy, false, &signerStatus, &trust, NULL),
               "Copy Signer status");
     is(signerStatus, kCMSSignerValid, "Valid signature");
@@ -454,16 +454,16 @@ static void decode_V2_negative_test(void) {
     /* Create decoder and decode */
     invalid_message = [NSMutableData dataWithBytes:_V2_valid_message length:_V2_valid_message_size];
     [invalid_message resetBytesInRange:NSMakeRange(2110, 1)]; /* reset byte in hash agility attribute */
-    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
-    require_noerr_action(CMSDecoderUpdateMessage(decoder, [invalid_message bytes], [invalid_message length]), exit,
+    __Require_noErr_Action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
+    __Require_noErr_Action(CMSDecoderUpdateMessage(decoder, [invalid_message bytes], [invalid_message length]), exit,
                          fail("Failed to update decoder with CMS message"));
     contentData = [NSData dataWithBytes:content length:content_size];
-    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
+    __Require_noErr_Action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
                          fail("Failed to set detached content"));
     ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
 
     /* Get signer status */
-    require_action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
     ok_status(CMSDecoderCopySignerStatus(decoder, 0, policy, false, &signerStatus, &trust, NULL),
               "Copy Signer status");
     is(signerStatus, kCMSSignerInvalidSignature, "Valid signature");
@@ -484,16 +484,16 @@ static void decodeV2_no_attr_test(void) {
     CFDictionaryRef attrValue = NULL;
 
     /* Create decoder and decode */
-    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
-    require_noerr_action(CMSDecoderUpdateMessage(decoder, valid_message, valid_message_size), exit,
+    __Require_noErr_Action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
+    __Require_noErr_Action(CMSDecoderUpdateMessage(decoder, valid_message, valid_message_size), exit,
                          fail("Failed to update decoder with CMS message"));
     contentData = [NSData dataWithBytes:content length:content_size];
-    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
+    __Require_noErr_Action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)contentData), exit,
                          fail("Failed to set detached content"));
     ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
 
     /* Get signer status */
-    require_action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
     ok_status(CMSDecoderCopySignerStatus(decoder, 0, policy, false, &signerStatus, &trust, NULL),
               "Copy Signer status");
     is(signerStatus, kCMSSignerValid, "Valid signature");
@@ -523,15 +523,15 @@ static bool setup_keychain(const uint8_t *p12, size_t p12_len, SecIdentityRef *i
 
     NSDictionary *options = @{ (__bridge NSString *)kSecImportExportPassphrase : @"password" };
     NSData *p12Data = [NSData dataWithBytes:signing_identity_p12 length:sizeof(signing_identity_p12)];
-    require_noerr_action(SecPKCS12Import((__bridge CFDataRef)p12Data, (__bridge CFDictionaryRef)options,
+    __Require_noErr_Action(SecPKCS12Import((__bridge CFDataRef)p12Data, (__bridge CFDictionaryRef)options,
                                          &tmp_imported_items), exit,
                          fail("Failed to import identity"));
     imported_items = CFBridgingRelease(tmp_imported_items);
-    require_noerr_action([imported_items count] == 0 &&
+    __Require_noErr_Action([imported_items count] == 0 &&
                          [imported_items[0] isKindOfClass:[NSDictionary class]], exit,
                          fail("Wrong imported items output"));
     *identity = (SecIdentityRef)CFBridgingRetain(imported_items[0][(__bridge NSString*)kSecImportItemIdentity]);
-    require_action(*identity, exit, fail("Failed to get identity"));
+    __Require_Action(*identity, exit, fail("Failed to get identity"));
 
     return true;
 

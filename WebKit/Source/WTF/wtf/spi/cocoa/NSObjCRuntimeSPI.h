@@ -25,7 +25,13 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
 DECLARE_SYSTEM_HEADER
+
+#include <wtf/Platform.h>
+
+#ifdef __OBJC__
 
 #if USE(APPLE_INTERNAL_SDK)
 #include <Foundation/NSObjCRuntime_Private.h>
@@ -50,3 +56,5 @@ DECLARE_SYSTEM_HEADER
 #define NS_DIRECT_MEMBERS
 #endif
 #endif
+
+#endif // __OBJC__

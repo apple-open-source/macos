@@ -920,7 +920,7 @@ else
 dnl <sys/types.h> should be available everywhere!
   cat > conftest.c <<EOF
 #include <sys/types.h>
-  int main() { return 0; }
+  int main(int argc, const char *argv[]) { return 0; }
 EOF
   MKDEP="true"
   for i in "$CC -MM" "$CC -M" "$CPP -MM" "$CPP -M" "cpp -M"; do

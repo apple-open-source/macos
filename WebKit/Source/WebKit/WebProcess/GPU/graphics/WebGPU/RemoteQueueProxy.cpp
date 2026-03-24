@@ -74,7 +74,7 @@ void RemoteQueueProxy::submit(Vector<Ref<WebCore::WebGPU::CommandBuffer>>&& comm
 
 void RemoteQueueProxy::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
 {
-    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::OnSubmittedWorkDone(), [callback = WTFMove(callback)]() mutable {
+    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::OnSubmittedWorkDone(), [callback = WTF::move(callback)]() mutable {
         callback();
     });
     UNUSED_PARAM(sendResult);
@@ -91,12 +91,8 @@ void RemoteQueueProxy::writeBuffer(
 
     size_t actualSourceSize = static_cast<size_t>(size.value_or(source.size() - dataOffset));
     if (actualSourceSize > maxCrossProcessResourceCopySize) {
-        auto sharedMemory = WebCore::SharedMemory::copySpan(source.subspan(dataOffset, actualSourceSize));
-        std::optional<WebCore::SharedMemoryHandle> handle;
-        if (sharedMemory)
-            handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
-        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, WTFMove(handle)), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
-            RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+        auto handle = WebCore::SharedMemoryHandle::createCopy(source.subspan(dataOffset, actualSourceSize), WebCore::SharedMemoryProtection::ReadOnly);
+        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, WTF::move(handle)), [](auto) mutable {
         });
         UNUSED_VARIABLE(sendResult);
     } else {
@@ -121,12 +117,8 @@ void RemoteQueueProxy::writeTexture(
         return;
 
     if (source.size() > maxCrossProcessResourceCopySize) {
-        auto sharedMemory = WebCore::SharedMemory::copySpan(source);
-        std::optional<WebCore::SharedMemoryHandle> handle;
-        if (sharedMemory)
-            handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
-        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteTexture(*convertedDestination, WTFMove(handle), *convertedDataLayout, *convertedSize), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
-            RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+        auto handle = WebCore::SharedMemoryHandle::createCopy(source, WebCore::SharedMemoryProtection::ReadOnly);
+        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteTexture(*convertedDestination, WTF::move(handle), *convertedDataLayout, *convertedSize), [](auto) mutable {
         });
         UNUSED_VARIABLE(sendResult);
     } else {

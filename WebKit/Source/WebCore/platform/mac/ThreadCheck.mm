@@ -44,7 +44,7 @@ static void readThreadViolationBehaviorFromUserDefaults()
     didReadThreadViolationBehaviorFromUserDefaults = true;
 
     ThreadViolationBehavior newBehavior = LogOnFirstThreadViolation;
-    NSString *threadCheckLevel = [[NSUserDefaults standardUserDefaults] stringForKey:@"WebCoreThreadCheck"];
+    RetainPtr<NSString> threadCheckLevel = [[NSUserDefaults standardUserDefaults] stringForKey:@"WebCoreThreadCheck"];
     if (!threadCheckLevel)
         return;
 

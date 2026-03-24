@@ -31,7 +31,7 @@
 namespace WebKit {
 
 class ImageBufferRemotePDFDocumentBackend final : public WebCore::NullImageBufferBackend {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageBufferRemotePDFDocumentBackend);
+    WTF_MAKE_TZONE_ALLOCATED(ImageBufferRemotePDFDocumentBackend);
     WTF_MAKE_NONCOPYABLE(ImageBufferRemotePDFDocumentBackend);
 public:
     static unsigned calculateBytesPerRow(const WebCore::IntSize& backendSize);

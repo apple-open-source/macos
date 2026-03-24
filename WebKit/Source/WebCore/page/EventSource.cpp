@@ -58,7 +58,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(EventSource);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EventSource);
 
 const uint64_t EventSource::defaultReconnectDelay = 3000;
 
@@ -124,7 +124,7 @@ void EventSource::connect()
     options.contentSecurityPolicyEnforcement = context->shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective;
     options.initiatorType = cachedResourceRequestInitiatorTypes().eventsource;
 
-    m_loader = ThreadableLoader::create(*context, *this, WTFMove(request), options);
+    m_loader = ThreadableLoader::create(*context, *this, WTF::move(request), options);
 
     // FIXME: Can we just use m_loader for this, null it out when it's no longer in flight, and eliminate the m_requestInFlight member?
     if (m_loader)
@@ -190,7 +190,7 @@ bool EventSource::responseIsValid(const ResourceResponse& response) const
     if (!equalLettersIgnoringASCIICase(response.mimeType(), "text/event-stream"_s)) {
         auto message = makeString("EventSource's response has a MIME type (\""_s, response.mimeType(), "\") that is not \"text/event-stream\". Aborting the connection."_s);
         // FIXME: Console message would be better with a source code location; where would we get that?
-        protectedScriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, WTFMove(message));
+        protectedScriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, WTF::move(message));
         return false;
     }
 
@@ -200,7 +200,7 @@ bool EventSource::responseIsValid(const ResourceResponse& response) const
     if (!charset.isEmpty() && !equalLettersIgnoringASCIICase(charset, "utf-8"_s)) {
         auto message = makeString("EventSource's response has a charset (\""_s, charset, "\") that is not UTF-8. The response will be decoded as UTF-8."_s);
         // FIXME: Console message would be better with a source code location; where would we get that?
-        protectedScriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, WTFMove(message));
+        protectedScriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, WTF::move(message));
     }
 
     return true;
@@ -218,7 +218,7 @@ void EventSource::didReceiveResponse(ScriptExecutionContextIdentifier, std::opti
         return;
     }
 
-    m_eventStreamOrigin = SecurityOriginData::fromURL(response.url()).toString();
+    m_eventStreamOrigin = SecurityOrigin::create(response.url());
     m_state = OPEN;
     dispatchEvent(Event::create(eventNames().openEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
@@ -437,7 +437,7 @@ void EventSource::dispatchMessageEvent()
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!m_isSuspendedForBackForwardCache);
 
     if (!m_currentlyParsedEventId.isNull())
-        m_lastEventId = WTFMove(m_currentlyParsedEventId);
+        m_lastEventId = WTF::move(m_currentlyParsedEventId);
 
     auto& name = m_eventName.isEmpty() ? eventNames().messageEvent : m_eventName;
 
@@ -447,7 +447,7 @@ void EventSource::dispatchMessageEvent()
     String data(m_data.subspan(0, m_data.size() - 1));
     m_data = { };
 
-    dispatchEvent(MessageEvent::create(name, WTFMove(data), m_eventStreamOrigin, m_lastEventId));
+    dispatchEvent(MessageEvent::create(name, WTF::move(data), m_eventStreamOrigin.copyRef(), m_lastEventId));
 }
 
 } // namespace WebCore

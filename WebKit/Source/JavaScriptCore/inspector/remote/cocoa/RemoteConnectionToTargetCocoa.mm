@@ -74,7 +74,7 @@ static void RemoteTargetQueueTaskOnGlobalQueue(Function<void ()>&& function)
 
     {
         Locker locker { rwiQueueMutex };
-        rwiQueue->append(WTFMove(function));
+        rwiQueue->append(WTF::move(function));
     }
 
     CFRunLoopSourceSignal(rwiRunLoopSource().get());
@@ -151,13 +151,13 @@ NSString *RemoteConnectionToTarget::destination() const
 void RemoteConnectionToTarget::dispatchAsyncOnTarget(Function<void ()>&& callback)
 {
     if (m_runLoop) {
-        queueTaskOnPrivateRunLoop(WTFMove(callback));
+        queueTaskOnPrivateRunLoop(WTF::move(callback));
         return;
     }
 
 #if USE(WEB_THREAD)
     if (WebCoreWebThreadIsEnabled && WebCoreWebThreadIsEnabled()) {
-        __block auto blockCallback(WTFMove(callback));
+        __block auto blockCallback(WTF::move(callback));
         WebCoreWebThreadRun(^{
             blockCallback();
         });
@@ -165,7 +165,7 @@ void RemoteConnectionToTarget::dispatchAsyncOnTarget(Function<void ()>&& callbac
     }
 #endif
 
-    RemoteTargetQueueTaskOnGlobalQueue(WTFMove(callback));
+    RemoteTargetQueueTaskOnGlobalQueue(WTF::move(callback));
 }
 
 bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automaticallyPause)
@@ -311,7 +311,7 @@ void RemoteConnectionToTarget::queueTaskOnPrivateRunLoop(Function<void ()>&& fun
 
     {
         Locker lock { m_queueMutex };
-        m_queue.append(WTFMove(function));
+        m_queue.append(WTF::move(function));
     }
 
     CFRunLoopSourceSignal(m_runLoopSource.get());

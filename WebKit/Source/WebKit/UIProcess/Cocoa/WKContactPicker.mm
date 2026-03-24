@@ -135,7 +135,7 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
 
 - (id<WKContactPickerDelegate>)delegate
 {
-    return _delegate.get().unsafeGet();
+    return _delegate.getAutoreleased();
 }
 
 - (void)setDelegate:(id<WKContactPickerDelegate>)delegate
@@ -156,7 +156,7 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
 - (void)presentWithRequestData:(const WebCore::ContactsRequestData&)requestData completionHandler:(WTF::CompletionHandler<void(std::optional<Vector<WebCore::ContactInfo>>&&)>&&)completionHandler
 {
     _properties = requestData.properties;
-    _completionHandler = WTFMove(completionHandler);
+    _completionHandler = WTF::move(completionHandler);
 
     if (requestData.multiple)
         _contactPickerDelegate = adoptNS([[WKCNContactPickerMultiSelectDelegate alloc] initWithContactPickerDelegate:self]);
@@ -208,13 +208,13 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
 - (void)contactPickerDidCancel:(CNContactPickerViewController *)picker
 {
     Vector<WebCore::ContactInfo> info;
-    [self _contactPickerDidDismissWithContactInfo:WTFMove(info)];
+    [self _contactPickerDidDismissWithContactInfo:WTF::move(info)];
 }
 
 - (void)contactPicker:(CNContactPickerViewController *)picker didSelectContact:(CNContact *)contact
 {
     Vector<WebCore::ContactInfo> info = { [self _contactInfoFromCNContact:contact] };
-    [self _contactPickerDidDismissWithContactInfo:WTFMove(info)];
+    [self _contactPickerDidDismissWithContactInfo:WTF::move(info)];
 }
 
 - (void)contactPicker:(CNContactPickerViewController *)picker didSelectContacts:(NSArray<CNContact*> *)contacts
@@ -222,14 +222,14 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
     Vector<WebCore::ContactInfo> info(contacts.count, [&](size_t i) {
         return WebCore::ContactInfo { [self _contactInfoFromCNContact:contacts[i]] };
     });
-    [self _contactPickerDidDismissWithContactInfo:WTFMove(info)];
+    [self _contactPickerDidDismissWithContactInfo:WTF::move(info)];
 }
 
 #endif
 
 - (void)_contactPickerDidDismissWithContactInfo:(Vector<WebCore::ContactInfo>&&)info
 {
-    _completionHandler(WTFMove(info));
+    _completionHandler(WTF::move(info));
 
     RetainPtr delegate = _delegate.get();
     if ([delegate respondsToSelector:@selector(contactPickerDidDismiss:)])

@@ -90,8 +90,8 @@ void ContentExtensionsBackend::addContentExtension(const String& identifier, Ref
     if (identifier.isEmpty())
         return;
     
-    auto contentExtension = ContentExtension::create(identifier, WTFMove(compiledContentExtension), WTFMove(extensionBaseURL), shouldCompileCSS);
-    m_contentExtensions.set(identifier, WTFMove(contentExtension));
+    auto contentExtension = ContentExtension::create(identifier, WTF::move(compiledContentExtension), WTF::move(extensionBaseURL), shouldCompileCSS);
+    m_contentExtensions.set(identifier, WTF::move(contentExtension));
 }
 
 void ContentExtensionsBackend::removeContentExtension(const String& identifier)
@@ -154,7 +154,7 @@ auto ContentExtensionsBackend::actionsFromContentRuleList(const ContentExtension
             auto action = DeserializedAction::deserialize(serializedActions, vector[i]);
             if (std::holds_alternative<IgnoreFollowingRulesAction>(action.data()))
                 break;
-            actionsStruct.actions.append(WTFMove(action));
+            actionsStruct.actions.append(WTF::move(action));
         }
 
         // ...and iterate in reverse order to properly deal with IgnorePreviousRules.
@@ -359,7 +359,7 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
             }
         }
 
-        results.results.append({ contentRuleListIdentifier, WTFMove(result) });
+        results.results.append({ contentRuleListIdentifier, WTF::move(result) });
     }
 
     if (currentDocument) {
@@ -372,10 +372,10 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
         if (results.shouldBlock()) {
             String consoleMessage;
             if (auto message = customTrackerBlockingMessageForConsole(results, url, mainDocumentURL))
-                consoleMessage = WTFMove(*message);
+                consoleMessage = WTF::move(*message);
             else
                 consoleMessage = makeString("Content blocker prevented frame displaying "_s, mainDocumentURL.string(), " from loading a resource from "_s, url.string());
-            currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, WTFMove(consoleMessage));
+            currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, WTF::move(consoleMessage));
         
             // Quirk for content-blocker interference with Google's anti-flicker optimization (rdar://problem/45968770).
             // https://developers.google.com/optimize/
@@ -474,7 +474,7 @@ void applyResultsToRequestIfCrossOriginRedirect(ContentRuleListResults&& results
     if (RegistrableDomain { request.url() } == RegistrableDomain { url })
         return;
 
-    applyResultsToRequest(WTFMove(results), page, request, url);
+    applyResultsToRequest(WTF::move(results), page, request, url);
 }
 
 void applyResultsToRequest(ContentRuleListResults&& results, Page* page, ResourceRequest& request, const URL& redirectURL)

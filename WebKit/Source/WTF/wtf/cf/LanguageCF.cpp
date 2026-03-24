@@ -33,6 +33,7 @@
 #include <wtf/Logging.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/cf/NotificationCenterCF.h>
+#include <wtf/cf/TypeCastsCF.h>
 #include <wtf/spi/cf/CFBundleSPI.h>
 #include <wtf/text/TextStream.h>
 #include <wtf/text/WTFString.h>
@@ -103,8 +104,8 @@ Vector<String> platformUserPreferredLanguages(ShouldMinimizeLanguages shouldMini
         return { "en"_s };
 
     Vector<String> languages(platformLanguagesCount, [&](size_t i) {
-        auto platformLanguage = static_cast<CFStringRef>(CFArrayGetValueAtIndex(platformLanguages.get(), i));
-        return httpStyleLanguageCode(platformLanguage, shouldMinimizeLanguages);
+        RetainPtr platformLanguage = checked_cf_cast<CFStringRef>(CFArrayGetValueAtIndex(platformLanguages.get(), i));
+        return httpStyleLanguageCode(platformLanguage.get(), shouldMinimizeLanguages);
     });
 
     LOG_WITH_STREAM(Language, stream << "After passing through httpStyleLanguageCode: "_s << languages);

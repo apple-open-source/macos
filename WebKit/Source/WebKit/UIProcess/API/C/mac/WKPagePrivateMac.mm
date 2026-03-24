@@ -41,11 +41,17 @@
 #import <wtf/MainThread.h>
 
 @interface WKObservablePageState : NSObject <_WKObservablePageState> {
+    @package
     RefPtr<WebKit::WebPageProxy> _page;
     RefPtr<WebKit::PageLoadStateObserver> _observer;
 }
 
 @end
+
+static Ref<WebKit::WebPageProxy> protectedPage(WKObservablePageState *state)
+{
+    return *state->_page;
+}
 
 @implementation WKObservablePageState
 
@@ -54,24 +60,19 @@
     if (!(self = [super init]))
         return nil;
 
-    _page = WTFMove(page);
+    _page = WTF::move(page);
     Ref observer = WebKit::PageLoadStateObserver::create(self, @"URL");
     _observer = observer.get();
-    self._protectedPage->protectedPageLoadState()->addObserver(observer.get());
+    protectedPage(self)->protectedPageLoadState()->addObserver(observer.get());
 
     return self;
-}
-
-- (Ref<WebKit::WebPageProxy>)_protectedPage
-{
-    return *_page;
 }
 
 - (void)dealloc
 {
     Ref { *_observer }->clearObject();
 
-    ensureOnMainRunLoop([page = WTFMove(_page), observer = std::exchange(_observer, nullptr)] {
+    ensureOnMainRunLoop([page = WTF::move(_page), observer = std::exchange(_observer, nullptr)] {
         page->protectedPageLoadState()->removeObserver(*observer);
     });
 
@@ -80,42 +81,42 @@
 
 - (BOOL)isLoading
 {
-    return self._protectedPage->protectedPageLoadState()->isLoading();
+    return protectedPage(self)->protectedPageLoadState()->isLoading();
 }
 
 - (NSString *)title
 {
-    return self._protectedPage->protectedPageLoadState()->title().createNSString().autorelease();
+    return protectedPage(self)->protectedPageLoadState()->title().createNSString().autorelease();
 }
 
 - (NSURL *)URL
 {
-    return [NSURL _web_URLWithWTFString:self._protectedPage->protectedPageLoadState()->activeURL()];
+    return [NSURL _web_URLWithWTFString:protectedPage(self)->protectedPageLoadState()->activeURL()];
 }
 
 - (BOOL)hasOnlySecureContent
 {
-    return self._protectedPage->protectedPageLoadState()->hasOnlySecureContent();
+    return protectedPage(self)->protectedPageLoadState()->hasOnlySecureContent();
 }
 
 - (BOOL)_webProcessIsResponsive
 {
-    return self._protectedPage->protectedLegacyMainFrameProcess()->isResponsive();
+    return protectedPage(self)->protectedLegacyMainFrameProcess()->isResponsive();
 }
 
 - (double)estimatedProgress
 {
-    return self._protectedPage->estimatedProgress();
+    return protectedPage(self)->estimatedProgress();
 }
 
 - (NSURL *)unreachableURL
 {
-    return [NSURL _web_URLWithWTFString:self._protectedPage->pageLoadState().unreachableURL()];
+    return [NSURL _web_URLWithWTFString:protectedPage(self)->pageLoadState().unreachableURL()];
 }
 
 - (SecTrustRef)serverTrust
 {
-    return self._protectedPage->pageLoadState().certificateInfo().trust().get();
+    return protectedPage(self)->pageLoadState().certificateInfo().trust().get();
 }
 
 @end
@@ -142,7 +143,7 @@ bool WKPageIsURLKnownHSTSHost(WKPageRef page, WKURLRef url)
 WKNavigation *WKPageLoadURLRequestReturningNavigation(WKPageRef pageRef, WKURLRequestRef urlRequestRef)
 {
     auto resourceRequest = WebKit::toImpl(urlRequestRef)->resourceRequest();
-    return WebKit::wrapper(WebKit::toProtectedImpl(pageRef)->loadRequest(WTFMove(resourceRequest))).autorelease();
+    return WebKit::wrapper(WebKit::toProtectedImpl(pageRef)->loadRequest(WTF::move(resourceRequest))).autorelease();
 }
 
 WKNavigation *WKPageLoadFileReturningNavigation(WKPageRef pageRef, WKURLRef fileURL, WKURLRef resourceDirectoryURL)

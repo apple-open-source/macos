@@ -30,8 +30,8 @@
 #include <WebCore/BoxExtents.h>
 #include <WebCore/EventListener.h>
 #include <WebCore/ExceptionOr.h>
+#include <WebCore/FloatSize.h>
 #include <WebCore/FrameIdentifier.h>
-#include <WebCore/HTMLMediaElement.h>
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/IntRect.h>
 #include <wtf/RefCounted.h>

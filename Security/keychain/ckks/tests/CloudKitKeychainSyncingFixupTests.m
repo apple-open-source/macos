@@ -490,6 +490,67 @@
     [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
 }
 
+- (void)testFixupUpgradesZoneStateEntries {
+    // Test that if our CKZSEs don't have an altDSID filled in, CKKS fixes that for us.
+
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // Tear down the CKKS object
+    [self.defaultCKKS halt];
+
+    // Now drop the altDSID from the CKSE.
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        NSError* localerror = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&localerror];
+
+        XCTAssertNil(localerror, "no error pulling ckse from database");
+        XCTAssertNotNil(ckse, "received a ckse");
+
+        ckse.altDSID = nil;
+        [ckse saveToDatabase: &localerror];
+        XCTAssertNil(localerror, "no error saving to database");
+        return CKKSDatabaseTransactionCommit;
+    }];
+
+    // Force a fixup to happen.
+    [self setFixupNumber:CKKSFixupDeleteAllCKKSTombstones ckks:self.defaultCKKS viewState:self.keychainView];
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
+
+    // Sneakily set a TPSpecific user for CKKSFixups to do its job.
+    NSError* error = nil;
+    TPSpecificUser* user = [self.mockAccountsAuthKitAdapter findAccountForCurrentThread:self.mockPersonaAdapter optionalAltDSID:nil cloudkitContainerName:OTCKContainerName octagonContextID:OTDefaultContext error:&error];
+    self.defaultCKKS.operationDependencies.activeAccount = user;
+
+    self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
+
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateFixupZoneStateEntries];
+
+    // Observe CKKS go through a fixup
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateFixupZoneStateEntries] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'fixup_zone_state_entries'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateFixupZoneStateEntries];
+
+    // Wait for CKKS to get back into ready
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    
+    // And ensure that the CKSE has an altDSID filled in
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
+        NSError* localerror = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&localerror];
+        XCTAssertNil(error, "no error pulling ckse from database");
+        XCTAssertNotNil(ckse, "received a ckse");
+        XCTAssertEqualObjects(ckse.altDSID, self.defaultCKKS.operationDependencies.activeAccount.altDSID, "CKSE should have altDSID filled in");
+    }];
+}
+
 @end
 
 #endif // OCTAGON

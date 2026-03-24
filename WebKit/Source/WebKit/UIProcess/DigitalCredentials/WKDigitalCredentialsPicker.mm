@@ -223,7 +223,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 
 - (id<WKDigitalCredentialsPickerDelegate>)delegate
 {
-    return _delegate.get().unsafeGet();
+    return _delegate.getAutoreleased();
 }
 
 - (void)setDelegate:(id<WKDigitalCredentialsPickerDelegate>)delegate
@@ -243,12 +243,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
         RetainPtr<NSMutableArray<WKIdentityDocumentPresentmentRawRequest *>> rawRequests = adoptNS([[NSMutableArray alloc] init]);
 
         for (auto&& unvalidatedRequest : unvalidatedRequests) {
-            if (!std::holds_alternative<WebCore::MobileDocumentRequest>(unvalidatedRequest)) {
-                LOG(DigitalCredentials, "Incoming request is not a supported type, skipping for return to raw request");
-                continue;
-            }
-
-            const auto &mobileDocumentRequest = std::get<WebCore::MobileDocumentRequest>(unvalidatedRequest);
+            const auto &mobileDocumentRequest = unvalidatedRequest;
             RetainPtr deviceRequest = mobileDocumentRequest.deviceRequest.createNSString();
             RetainPtr encryptionInfo = mobileDocumentRequest.encryptionInfo.createNSString();
 
@@ -276,7 +271,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 - (void)presentWithRequestData:(const WebCore::DigitalCredentialsRequestData &)requestData completionHandler:(CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData> &&)> &&)completionHandler
 {
     LOG(DigitalCredentials, "WKDigitalCredentialsPicker: Digital Credentials - Presenting with request data: %s.", requestData.topOrigin.toString().utf8().data());
-    _completionHandler = WTFMove(completionHandler);
+    _completionHandler = WTF::move(completionHandler);
 
     ASSERT(!_presentmentController);
 
@@ -303,13 +298,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 {
     RetainPtr<NSMutableArray<WKIdentityDocumentPresentmentMobileDocumentRequest *>> mobileDocumentRequests = adoptNS([[NSMutableArray alloc] init]);
 
-    for (auto&& request : requestData.requests) {
-        if (!std::holds_alternative<WebCore::ValidatedMobileDocumentRequest>(request)) {
-            LOG(DigitalCredentials, "Incoming request is not a supported type.");
-            continue;
-        }
-
-        auto validatedRequest = std::get<WebCore::ValidatedMobileDocumentRequest>(request);
+    for (auto&& validatedRequest : requestData.requests) {
 
         RetainPtr<NSArray<WKIdentityDocumentPresentmentMobileDocumentPresentmentRequest *>> presentmentRequests = mapPresentmentRequests(validatedRequest.presentmentRequests);
         RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticationCertificate *> *>> authenticationCertificates = mapRequestAuthentications(validatedRequest.requestAuthentications);
@@ -376,10 +365,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
             Ref object = JSON::Object::create();
             object->setString("response"_s, responseData);
             auto responseObject = WebCore::DigitalCredentialsResponseData(IdentityCredentialProtocol::OrgIsoMdoc, object->toJSONString());
-            [self completeWith:WTFMove(responseObject)];
-        } else if ([protocol isEqualToString:@"openid4vp"]) {
-            WebCore::ExceptionData exceptionData = { ExceptionCode::NotSupportedError, "OpenID4VP protocol is not supported."_s };
-            [self completeWith:makeUnexpected(exceptionData)];
+            [self completeWith:WTF::move(responseObject)];
         } else {
             LOG(DigitalCredentials, "Unknown protocol response from document provider. Can't convert it %s.", [protocol UTF8String]);
             WebCore::ExceptionData exceptionData = { ExceptionCode::TypeError, "Unknown protocol response from document."_s };
@@ -447,7 +433,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
         return;
     }
 
-    _completionHandler(WTFMove(result));
+    _completionHandler(WTF::move(result));
 
     [self dismiss];
 }

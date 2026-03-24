@@ -367,7 +367,9 @@ struct MockFunction{
     manager.uptimeFn = ^long() {
         return currentUptime;
     };
-    manager.currentState[kTribecaLastEscAuth] = lastEscAuth;
+    NSMutableDictionary *newState = [manager.currentState mutableCopy];
+    newState[kTribecaLastEscAuth] = lastEscAuth;
+    manager.currentState = [newState copy];
     __block TribecaStatus *status = NULL;
     [manager statusV2:^(TribecaStatus * _Nonnull s) {
         status = s;
@@ -479,10 +481,10 @@ struct MockFunction{
         return currentUptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestore,
         kTribecaLastEscAuth: lastEscAuth
-    }];
+    };
         
     // trigger that build should be expired via the last restore time hitting min case
     int testResult = tribecaShouldObliterate(passcodeEnable, lastUnlock, lastCheckin, minTTL.doubleValue, maxTTL.doubleValue, currentTime, gracePeriod, [manager getLastRestore].timeIntervalSinceReferenceDate, inactivityWindow, connectivityWindow, currentUptime, false);
@@ -520,10 +522,10 @@ struct MockFunction{
         return currentUptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestore,
         kTribecaLastEscAuth: lastEscAuth
-    }];
+    };
         
     int testResult = tribecaShouldObliterate(passcodeEnable, lastUnlock, lastCheckin, minTTL.doubleValue, maxTTL.doubleValue, currentTime, gracePeriod, [manager getLastRestore].timeIntervalSinceReferenceDate, inactivityWindow, connectivityWindow, currentUptime, false);
     XCTAssertEqual(tribecaObliterateStatusMinLife, testResult);
@@ -578,10 +580,10 @@ struct MockFunction{
         return currentUptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestore,
         kTribecaLastEscAuth: lastEscAuth
-    }];
+    };
         
     // trigger that build should NOT be expired via the last restore time hitting min case
     int testResult = tribecaShouldObliterate(passcodeEnable, lastUnlock, lastCheckin, minTTL.doubleValue, maxTTL.doubleValue, currentTime, gracePeriod, [manager getLastRestore].timeIntervalSinceReferenceDate, inactivityWindow, connectivityWindow, currentUptime, false);
@@ -638,10 +640,10 @@ struct MockFunction{
         return currentUptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestore,
         kTribecaLastEscAuth: lastEscAuth
-    }];
+    };
         
     // trigger that build should be expired via the last restore time hitting max case
     int testResult = tribecaShouldObliterate(passcodeEnable, lastUnlock, lastCheckin, minTTL.doubleValue, maxTTL.doubleValue, currentTime, gracePeriod, [manager getLastRestore].timeIntervalSinceReferenceDate, inactivityWindow, connectivityWindow, currentUptime, false);
@@ -682,10 +684,10 @@ struct MockFunction{
         return currentUptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestore,
         kTribecaLastEscAuth: lastEscAuth
-    }];
+    };
         
     // trigger that build should be expired via the last restore time hitting max case
     int testResult = tribecaShouldObliterate(passcodeEnable, lastUnlock, lastCheckin, minTTL.doubleValue, maxTTL.doubleValue, currentTime, gracePeriod, [manager getLastRestore].timeIntervalSinceReferenceDate, inactivityWindow, connectivityWindow, currentUptime, false);
@@ -854,10 +856,10 @@ struct MockFunction{
         return 0;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -896,10 +898,10 @@ struct MockFunction{
         return uptime;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -935,10 +937,10 @@ struct MockFunction{
         return [now doubleValue];
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)true;
@@ -978,10 +980,10 @@ struct MockFunction{
         return [now doubleValue];
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -1018,10 +1020,10 @@ struct MockFunction{
         return 0;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)hasPasscode;
@@ -1059,10 +1061,10 @@ struct MockFunction{
         return uptime.longValue;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -1856,10 +1858,10 @@ struct MockFunction{
         return maxTTL.unsignedLongLongValue;
     };
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
 
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -1913,10 +1915,10 @@ struct MockFunction{
         return [now doubleValue];
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
 
     manager.isPasscodeEnabledFn = ^{
         return (BOOL)false;
@@ -1980,10 +1982,10 @@ struct MockFunction{
         return NULL;
     };
 
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @0
-    }];
+    };
     
     manager.deadlineForInactiveUseFn = ^NSDate*{
         return [[NSDate alloc] initWithTimeIntervalSinceReferenceDate:0];
@@ -2171,10 +2173,10 @@ struct MockFunction{
     manager.checkForBypassFn = ^ValidatedAETokenPolicy* {
         return NULL;
     };
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @10
-    }];
+    };
     
     __block TribecaStatus *status = NULL;
     [manager statusV2:^(TribecaStatus * _Nonnull s) {
@@ -2202,10 +2204,10 @@ struct MockFunction{
             timeLeft:10000]
         ;
     };
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @10
-    }];
+    };
     
     [manager statusV2:^(TribecaStatus * _Nonnull s) {
         status = s;
@@ -2237,10 +2239,10 @@ struct MockFunction{
             timeLeft:aeTokenDuration]
         ;
     };
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastEscAuth: @10
-    }];
+    };
     
     [manager statusV2:^(TribecaStatus * _Nonnull s) {
         status = s;
@@ -2325,10 +2327,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastInteractivity:  lastInteractivity,
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2364,10 +2366,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastInteractivity:  lastInteractivity,
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2404,10 +2406,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime,
         kTribecaLastInteractivity:  lastInteractivity
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2445,10 +2447,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastConnectivity: lastConnectivity,
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2488,9 +2490,9 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2530,9 +2532,9 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2576,10 +2578,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastConnectivity:  lastConnectivity,
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2620,10 +2622,10 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastConnectivity: lastRestoreTime,
         kTribecaLastInteractivity:  lastConnectivity
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2660,9 +2662,9 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2693,9 +2695,9 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;
@@ -2741,9 +2743,9 @@ struct MockFunction{
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
     
-    manager.currentState = [NSMutableDictionary dictionaryWithDictionary:@{
+    manager.currentState = @{
         kTribecaLastRestoreTime: lastRestoreTime
-    }];
+    };
     
     manager.getMinTTLFn = ^uint64_t{
         return minTTL.unsignedLongLongValue;

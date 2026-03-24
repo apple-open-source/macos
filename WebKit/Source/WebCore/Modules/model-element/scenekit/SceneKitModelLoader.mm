@@ -45,7 +45,7 @@ class SceneKitModelLoaderFailure final : public SceneKitModelLoader {
 public:
     static Ref<SceneKitModelLoaderFailure> create(ResourceError error)
     {
-        return adoptRef(*new SceneKitModelLoaderFailure(WTFMove(error)));
+        return adoptRef(*new SceneKitModelLoaderFailure(WTF::move(error)));
     }
 
     virtual ~SceneKitModelLoaderFailure() = default;
@@ -58,7 +58,7 @@ public:
 
 private:
     SceneKitModelLoaderFailure(ResourceError error)
-        : m_error { WTFMove(error) }
+        : m_error { WTF::move(error) }
     {
     }
 

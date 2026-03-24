@@ -35,6 +35,7 @@
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -67,7 +68,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 static String fromStdFileSystemPath(const std::filesystem::path& path)
 {
 #if HAVE(MISSING_U8STRING)
-    return String::fromUTF8(unsafeSpan8(path.u8string().c_str()));
+    // FIXME: This uses u8string so how can it be correct inside HAVE(MISSING_U8STRING)?
+    return String::fromUTF8(unsafeSpan(path.u8string().c_str()));
 #else
     return String::fromUTF8(span(path.u8string()));
 #endif
@@ -235,12 +237,6 @@ String decodeFromFilename(const String& inputString)
 
 String lastComponentOfPathIgnoringTrailingSlash(const String& path)
 {
-#if OS(WINDOWS)
-    char pathSeparator = '\\';
-#else
-    char pathSeparator = '/';
-#endif
-
     auto position = path.reverseFind(pathSeparator);
     if (position == notFound)
         return path;
@@ -343,9 +339,9 @@ MappedFileData createMappedFileData(const String& path, size_t bytesSize, FileHa
         return { };
 
     if (outputHandle)
-        *outputHandle = WTFMove(handle);
+        *outputHandle = WTF::move(handle);
 
-    return WTFMove(*mappedFile);
+    return WTF::move(*mappedFile);
 }
 
 void finalizeMappedFileData(MappedFileData& mappedFileData, size_t bytesSize)
@@ -712,6 +708,15 @@ String createTemporaryFile(StringView prefix, StringView suffix)
     return path;
 }
 
+FileHandle createDumpFile(StringView filename, StringView extension, StringView path)
+{
+    if (path.isEmpty()) {
+        auto [p, handle] = openTemporaryFile(filename, extension);
+        return WTF::move(handle);
+    }
+    return openFile(makeString(path, pathSeparator, filename, extension), FileOpenMode::Truncate);
+}
+
 #if !PLATFORM(PLAYSTATION)
 String realPath(const String& path)
 {
@@ -730,7 +735,7 @@ Vector<String> listDirectory(const String& path)
     for (auto it = std::filesystem::begin(entries), end = std::filesystem::end(entries); !ec && it != end; it.increment(ec)) {
         auto fileName = fromStdFileSystemPath(it->path().filename());
         if (!fileName.isNull())
-            fileNames.append(WTFMove(fileName));
+            fileNames.append(WTF::move(fileName));
     }
     return fileNames;
 }

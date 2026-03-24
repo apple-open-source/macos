@@ -91,7 +91,7 @@ const NSString *kSecTrustKnownExtensionResources = @"si-18-certificate-parse/Kno
             NSData *certData = [NSData dataWithContentsOfURL:url];
             SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
             SecKeyRef pubkey = NULL;
-            require_action(cert, blockOut,
+            __Require_Action(cert, blockOut,
                            fail("Failed to parse cert with SPKI error: %@", url));
             pubkey = SecCertificateCopyKey(cert);
             is(pubkey, NULL, "Successfully parsed bad SPKI: %@", url);
@@ -113,7 +113,7 @@ const NSString *kSecTrustKnownExtensionResources = @"si-18-certificate-parse/Kno
             NSData *certData = [NSData dataWithContentsOfURL:url];
             SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
             SecKeyRef pubkey = NULL;
-            require_action(cert, blockOut,
+            __Require_Action(cert, blockOut,
                            fail("Failed to parse cert with SPKI error: %@", url));
             pubkey = SecCertificateCopyKey(cert);
             isnt(pubkey, NULL, "Failed to parse cert with good SPKI: %@", url);

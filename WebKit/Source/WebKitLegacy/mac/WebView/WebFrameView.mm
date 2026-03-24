@@ -1239,7 +1239,7 @@ enum {
     // together with our becomeFirstResponder and setNextKeyView overrides.
     [super setNextKeyView:scrollView.get()];
 
-    _private->frameScrollView = WTFMove(scrollView);
+    _private->frameScrollView = WTF::move(scrollView);
 
     [self _setDocumentView:documentView.get()];
     [self _install];

@@ -71,15 +71,15 @@ inline Node* AXObjectCache::nodeForID(std::optional<AXID> axID) const
 
 inline AccessibilityObject* AXObjectCache::getOrCreate(Node& node, IsPartOfRelation isPartOfRelation)
 {
-    if (RefPtr object = get(node))
-        return object.unsafeGet();
+    if (auto* object = get(node))
+        return object;
     return getOrCreateSlow(node, isPartOfRelation);
 }
 
 inline AccessibilityObject* AXObjectCache::getOrCreate(Element& element, IsPartOfRelation isPartOfRelation)
 {
-    if (RefPtr object = get(element))
-        return object.unsafeGet();
+    if (auto* object = get(element))
+        return object;
     return getOrCreateSlow(element, isPartOfRelation);
 }
 

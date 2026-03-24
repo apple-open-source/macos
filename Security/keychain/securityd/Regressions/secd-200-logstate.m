@@ -107,7 +107,7 @@ static bool MakeTheBigCircle(CFMutableDictionaryRef changes, SOSAccount* master_
         ProcessChangesForMasterAndMinions(changes, master_account, minion_accounts);
         return localret;
     });
-    require_quiet(retval, errOut);
+    __Require_Quiet(retval, errOut);
     CFArrayRef applicants = SOSAccountCopyApplicants(master_account, error);
     retval = SOSAccountAcceptApplicants(master_account , applicants, error);
     CFReleaseNull(applicants);

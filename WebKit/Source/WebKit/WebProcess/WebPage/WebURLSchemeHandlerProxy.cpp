@@ -87,19 +87,19 @@ void WebURLSchemeHandlerProxy::stopAllTasks()
 void WebURLSchemeHandlerProxy::taskDidPerformRedirection(WebCore::ResourceLoaderIdentifier taskIdentifier, WebCore::ResourceResponse&& redirectResponse, WebCore::ResourceRequest&& newRequest, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
 {
     if (RefPtr task = m_tasks.get(taskIdentifier))
-        task->didPerformRedirection(WTFMove(redirectResponse), WTFMove(newRequest), WTFMove(completionHandler));
+        task->didPerformRedirection(WTF::move(redirectResponse), WTF::move(newRequest), WTF::move(completionHandler));
 }
 
 void WebURLSchemeHandlerProxy::taskDidReceiveResponse(WebCore::ResourceLoaderIdentifier taskIdentifier, ResourceResponse&& response)
 {
     if (RefPtr task = m_tasks.get(taskIdentifier))
-        task->didReceiveResponse(WTFMove(response));
+        task->didReceiveResponse(WTF::move(response));
 }
 
 void WebURLSchemeHandlerProxy::taskDidReceiveData(WebCore::ResourceLoaderIdentifier taskIdentifier, Ref<WebCore::SharedBuffer>&& data)
 {
     if (RefPtr task = m_tasks.get(taskIdentifier))
-        task->didReceiveData(WTFMove(data));
+        task->didReceiveData(WTF::move(data));
 }
 
 void WebURLSchemeHandlerProxy::taskDidComplete(WebCore::ResourceLoaderIdentifier taskIdentifier, const ResourceError& error)

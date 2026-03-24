@@ -220,16 +220,7 @@ framework module IOKit [extern_c] [system] {
   }
 
   explicit module video {
-    // rdar://problem/19486850
-    requires cplusplus, unavailable
-    header "video/IOVideoControlDictionary.h"
-    header "video/IOVideoDeviceUserClient.h"
-    header "video/IOVideoDevice.h"
-    header "video/IOVideoStream.h"
-    header "video/IOVideoDeviceClientInit.h"
-    header "video/IOVideoStreamDictionary.h"
     header "video/IOVideoDeviceLib.h"
-    header "video/IOVideoStreamFormatDictionary.h"
     header "video/IOVideoDeviceShared.h"
     header "video/IOVideoTypes.h"
     export *

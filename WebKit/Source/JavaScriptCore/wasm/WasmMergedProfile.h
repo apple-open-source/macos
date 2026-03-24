@@ -30,6 +30,7 @@
 #include <JavaScriptCore/WasmBaselineData.h>
 #include <JavaScriptCore/WasmCallProfile.h>
 #include <JavaScriptCore/WasmCallee.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
 
 namespace JSC::Wasm {
@@ -41,37 +42,47 @@ class MergedProfile {
     WTF_MAKE_NONMOVABLE(MergedProfile);
     friend class Module;
 public:
-    class CallSite {
+    class Candidates {
     public:
-        void merge(const CallProfile&);
-        uint32_t count() const { return m_count; }
+        Candidates() = default;
 
-        Callee* callee() const
+        std::span<const std::tuple<Callee*, uint32_t>> callees() const LIFETIME_BOUND
         {
-            if (m_callee == megamorphic)
-                return nullptr;
-            return std::bit_cast<Callee*>(m_callee);
+            return std::span { m_callees }.first(m_size);
         }
 
-        bool isMegamorphic() const { return m_callee == megamorphic; }
+        bool isCalled() const { return !!m_totalCount; }
+        bool isEmpty() const { return !m_size; }
+        bool isMegamorphic() const { return m_isMegamorphic; }
+        uint32_t totalCount() const { return m_totalCount; }
+
+        void merge(IPIntCallee*, const CallProfile&);
+        Candidates finalize() const;
 
     private:
-        static constexpr uintptr_t megamorphic = 1;
+        bool add(Callee*, uint32_t);
+        void markAsMegamorphic(uint32_t count);
 
-        uint32_t m_count { 0 };
-        uintptr_t m_callee { 0 };
+        uint32_t m_totalCount { 0 };
+        uint8_t m_size { 0 };
+        bool m_isMegamorphic { false };
+        std::array<std::tuple<Callee*, uint32_t>, CallProfile::maxPolymorphicCallees> m_callees { };
     };
 
     MergedProfile(const IPIntCallee&);
-    bool isCalled(size_t index) const { return !!m_callSites[index].count(); }
-    Callee* callee(size_t index) const { return m_callSites[index].callee(); }
+    unsigned size() const { return m_callSites.size(); }
+    bool isCalled(size_t index) const { return m_callSites[index].isCalled(); }
+    Candidates candidates(size_t index) const { return m_callSites[index].finalize(); }
     bool isMegamorphic(size_t index) const { return m_callSites[index].isMegamorphic(); }
 
-    std::span<CallSite> mutableSpan() { return m_callSites.mutableSpan(); }
-    std::span<const CallSite> span() const { return m_callSites.span(); }
+    void merge(const Module&, const IPIntCallee&, BaselineData&);
+    bool merged() const { return m_merged; }
+    uint32_t totalCount() const { return m_totalCount; }
 
 private:
-    Vector<CallSite> m_callSites;
+    Vector<Candidates> m_callSites;
+    uint32_t m_totalCount { 0 };
+    bool m_merged { false };
 };
 
 } // namespace JSC::Wasm

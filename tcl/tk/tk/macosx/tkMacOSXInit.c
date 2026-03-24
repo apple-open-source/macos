@@ -230,33 +230,40 @@ TkpInit(
 #   error Mac OS X 10.5 required
 #endif
 
-	if (!uname(&name)) {
-	    char *darwinVersionString = strdup(name.release);
-	    char *ptr = darwinVersionString;
-	    char *darwinMajorVersionString = strsep(&ptr, ".");
-	    char *darwinMinorVersionString = NULL;
-	    if (ptr) {
-		darwinMinorVersionString = strsep(&ptr, ".");
-	    }
+    char osproductversion[OSVERLEN] = { '\0' };
+    size_t size = OSVERLEN;
 
-	    long darwinMajorVersion = 0;
-	    long darwinMinorVersion = 0;
+    // returns string of form: 14.1
+    if (!sysctlbyname("kern.osproductversion", osproductversion, &size, NULL, 0)) {
+        char *darwinVersionString = strdup(osproductversion);
+        char *ptr = darwinVersionString;
+        char *darwinMajorVersionString = strsep(&ptr, ".");
+        char *darwinMinorVersionString = NULL;
+        if (ptr) {
+            darwinMinorVersionString = strsep(&ptr, ".");
+        }
 
-	    if (darwinMajorVersionString) {
-		darwinMajorVersion = strtol(darwinMajorVersionString, NULL, 10);
-	    }
-	    if (darwinMinorVersionString) {
-		darwinMinorVersion = strtol(darwinMinorVersionString, NULL, 10);
-	    }
-	    tkMacOSXMacOSXVersion = darwinMajorVersion < 20 ? darwinMajorVersion + 996 : 100 * (darwinMajorVersion - 9) + darwinMinorVersion;
+        long darwinMajorVersion = 0;
+        long darwinMinorVersion = 0;
 
-	    free(darwinVersionString);
+        if (darwinMajorVersionString) {
+            darwinMajorVersion = strtol(darwinMajorVersionString, NULL, 10);
+        }
+        if (darwinMinorVersionString) {
+            darwinMinorVersion = strtol(darwinMinorVersionString, NULL, 10);
+        }
+        // 1401 = (14 * 10) + 1
+        tkMacOSXMacOSXVersion = (darwinMajorVersion * 100) + darwinMinorVersion;
+
+        free(darwinVersionString);
 	}
+
 	long minVersionRequired = TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED);
 	if (tkMacOSXMacOSXVersion &&
 		tkMacOSXMacOSXVersion < minVersionRequired) {
 	    Tcl_Panic("macOS %ld (%ld) or later required, have instead %ld (%ld) !",
 		      minVersionRequired / 100, minVersionRequired, tkMacOSXMacOSXVersion / 100, tkMacOSXMacOSXVersion);
+
 	}
 
 #ifdef TK_FRAMEWORK

@@ -269,7 +269,12 @@ end
 .checkStack:
     operationCallMayThrowPreservingVolatileRegisters(macro()
         move scratch, a1
+if X86_64
+        # On x86_64, callee parameter (ws0) gets clobbered by saveCallSiteIndex(). Reload from stack.
+        loadp UnboxedWasmCalleeStackSlot[cfr], a2
+else
         move callee, a2
+end
         cCall3(_ipint_extern_check_stack_and_vm_traps)
     end)
 
@@ -428,7 +433,7 @@ end
 
     restoreWasmArgumentRegisters()
 
-    btpz ws0, .recover
+    btpz ws0, .continue
 
     restoreIPIntRegisters()
     restoreCallerPCAndCFR()
@@ -440,8 +445,6 @@ end
         jmp ws0, WasmEntryPtrTag
     end
 
-.recover:
-    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
 .continue:
     if ARMv7
         break # FIXME: ipint support.
@@ -1061,16 +1064,8 @@ end
     move cfr, a1
     move wasmInstance, a3
     cCall4(_operationWasmToJSExitMarshalArguments)
-    btpnz r1, .oom
+    btpnz r0, .handleException
 
-    bineq r0, 0, .safe
-    move wasmInstance, a0
-    move (constexpr Wasm::ExceptionType::TypeErrorInvalidValueUse), a1
-    cCall2(_operationWasmToJSException)
-    jumpToException()
-    break
-
-.safe:
     loadp WasmToJSCallableFunctionSlot[cfr], t2
     loadp JSC::Wasm::WasmOrJSImportableFunctionCallLinkInfo::importFunction[t2], t0
 if not JSVALUE64
@@ -1110,24 +1105,10 @@ if not JSVALUE64
     storep r1, TagOffset[sp]
 end
 
-    loadp WasmToJSCallableFunctionSlot[cfr], a0
-    call _operationWasmToJSExitNeedToUnpack
-    btpnz r0, .unpack
-
     move sp, a0
     move cfr, a1
     move wasmInstance, a2
     cCall3(_operationWasmToJSExitMarshalReturnValues)
-    btpnz r0, .handleException
-    jmp .end
-
-.unpack:
-
-    move r0, a1
-    move wasmInstance, a0
-    move sp, a2
-    move cfr, a3
-    cCall4(_operationWasmToJSExitIterateResults)
     btpnz r0, .handleException
 
 .end:
@@ -1168,9 +1149,6 @@ end
     move wasmInstance, a0
     call _operationWasmUnwind
     jumpToException()
-
-.oom:
-    throwException(OutOfMemory)
 end)
 
 macro jumpToException()
@@ -1263,10 +1241,14 @@ if ARMv7
 else
     ipintPrologueOSR(5)
 end
-    move sp, PL
+    move cfr, a1
+    operationCall(macro() cCall2(_ipint_extern_prepare_function_body) end)
+    move r0, ws0
 
+    move sp, PL
     loadp Wasm::IPIntCallee::m_bytecode[ws0], PC
     loadp Wasm::IPIntCallee::m_metadata + VectorBufferOffset[ws0], MC
+
     # Load memory
     ipintReloadMemory()
 
@@ -1284,79 +1266,6 @@ end
 else
     break
 end
-
-op(ipint_simd_entry, macro ()
-    if not WEBASSEMBLY or C_LOOP
-        error
-    end
-
-if (WEBASSEMBLY_BBQJIT or WEBASSEMBLY_OMGJIT) and not ARMv7
-    preserveCallerPCAndCFR()
-    saveIPIntRegisters()
-    storep wasmInstance, CodeBlock[cfr]
-    loadp Callee[cfr], ws0
-    unboxWasmCallee(ws0, ws1)
-    storep ws0, UnboxedWasmCalleeStackSlot[cfr]
-    reloadMemoryRegistersFromInstance(wasmInstance, ws0)
-
-    const gprStorageSize = NumberOfVolatileGPRs * MachineRegisterSize
-    const fprStorageSize = NumberOfWasmArgumentFPRs * VectorRegisterSize
-    move sp, ws1
-    subp gprStorageSize + fprStorageSize + maxFrameExtentForSlowPathCall, ws1
-
-if not JSVALUE64
-    subp 8, ws1 # align stack pointer
-end
-
-if not ADDRESS64
-    bpa ws1, cfr, .stackOverflow
-end
-    bpbeq JSWebAssemblyInstance::m_stackMirror + StackManager::Mirror::m_trapAwareSoftStackLimit[wasmInstance], ws1, .stackHeightOK
-
-.checkStack:
-    preserveWasmVolatileRegisters()
-    storei PC, CallSiteIndex[cfr]
-    move wasmInstance, a0
-    move ws1, a1
-    move ws0, a2
-    cCall3(_ipint_extern_check_stack_and_vm_traps)
-    bpneq r1, (constexpr JSC::IPInt::SlowPathExceptionTag), .stackHeightOKNeedRestoreRegisters
-    restoreWasmVolatileRegisters()
-
-.stackOverflow:
-    # It's safe to request a StackOverflow error even if a TerminationException has
-    # been thrown. The exception throwing code downstream will handle it correctly
-    # and only throw the StackOverflow if a TerminationException is not already present.
-    # See slow_path_wasm_throw_exception() and Wasm::throwWasmToJSException().
-    throwException(StackOverflow)
-
-.oom:
-    throwException(OutOfMemory)
-
-.stackHeightOKNeedRestoreRegisters:
-    restoreWasmVolatileRegisters()
-
-.stackHeightOK:
-    preserveWasmArgumentRegisters()
-
-    move wasmInstance, a0
-    move cfr, a1
-    cCall2(_ipint_extern_simd_go_straight_to_bbq)
-    btpnz r1, .oom
-    move r0, ws0
-
-    restoreWasmArgumentRegisters()
-    restoreIPIntRegisters()
-    restoreCallerPCAndCFR()
-    if ARM64E
-        leap _g_config, ws1
-        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmOSREntry) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
-    else
-        jmp ws0, WasmEntryPtrTag
-    end
-end
-    break
-end)
 
 macro ipintCatchCommon()
     validateOpcodeConfig(t0)

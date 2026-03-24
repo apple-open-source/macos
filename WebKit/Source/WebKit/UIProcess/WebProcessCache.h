@@ -26,12 +26,14 @@
 
 #pragma once
 
+#include "EnhancedSecurity.h"
 #include "WebProcessProxy.h"
 #include <WebCore/Site.h>
 #include <pal/SessionID.h>
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/text/WTFString.h>
@@ -48,8 +50,8 @@ public:
     explicit WebProcessCache(WebProcessPool&);
 
     bool addProcessIfPossible(Ref<WebProcessProxy>&&);
-    RefPtr<WebProcessProxy> takeProcess(const WebCore::Site&, WebsiteDataStore&, WebProcessProxy::LockdownMode, WebProcessProxy::EnhancedSecurity, const API::PageConfiguration&);
-    RefPtr<WebProcessProxy> takeSharedProcess(const WebCore::Site& mainFrameSite, WebsiteDataStore&, WebProcessProxy::LockdownMode, WebProcessProxy::EnhancedSecurity, const API::PageConfiguration&);
+    RefPtr<WebProcessProxy> takeProcess(const WebCore::Site&, WebsiteDataStore&, WebProcessProxy::LockdownMode, EnhancedSecurity, const API::PageConfiguration&);
+    RefPtr<WebProcessProxy> takeSharedProcess(const WebCore::Site& mainFrameSite, WebsiteDataStore&, WebProcessProxy::LockdownMode, EnhancedSecurity, const API::PageConfiguration&);
 
     void updateCapacity(WebProcessPool&);
     unsigned capacity() const { return m_capacity; }
@@ -74,7 +76,7 @@ private:
     static Seconds clearingDelayAfterApplicationResignsActive;
     static int capacityOverride;
 
-    class CachedProcess : public RefCounted<CachedProcess> {
+    class CachedProcess : public RefCountedAndCanMakeWeakPtr<CachedProcess> {
         WTF_MAKE_TZONE_ALLOCATED(CachedProcess);
     public:
         static Ref<CachedProcess> create(Ref<WebProcessProxy>&&, Seconds);

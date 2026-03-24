@@ -62,4 +62,6 @@ public:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIBookmarks, bookmarks);
+
 #endif

@@ -967,6 +967,11 @@ smb2_mc_remove_nic_if_unused(struct session_network_interface_info *session_tabl
                 /* remove it from the main list */
                 TAILQ_REMOVE(&session_table->session_con_list, con, next);
             
+                if ((con->state != SMB2_MC_STATE_FAILED_TO_CONNECT)&& (con->state != SMB2_MC_STATE_NO_POTENTIAL)) {
+                    /* Shouldnt happen, so log it if it does */
+                    SMBERROR("Freeing con with unexpected state of 0x%x?", con->state);
+                }
+
                 SMB_FREE_TYPE(struct session_con_entry, con);
             }
         }
@@ -1403,6 +1408,7 @@ smb2_mc_report_connection_trial_results(struct session_network_interface_info* s
         client_nic->nic_state = SMB2_MC_STATE_IDLE;
         server_nic->nic_state = SMB2_MC_STATE_IDLE;
         con_entry_p->iod = NULL;
+        con_entry_p->state = SMB2_MC_STATE_FAILED_TO_CONNECT;
 
         // Clean up session table
         struct session_con_entry *con = NULL;
@@ -1413,8 +1419,10 @@ smb2_mc_report_connection_trial_results(struct session_network_interface_info* s
             if ((con->con_client_nic->nic_index & SMB2_IF_INDEX_MASK) == (client_nic_idx & SMB2_IF_INDEX_MASK)) {
                 // there is no need trying to connect the client NIC to all of the RSS permutations.
                 if ((con->con_server_nic->nic_index & SMB2_IF_INDEX_MASK) == (server_nic_idx & SMB2_IF_INDEX_MASK)) {
-                        // If one RSS failed, we can fail all the rest.
+                    // If one RSS failed, we can fail all the rest if its not connected or still in trials
+                    if ((con->state != SMB2_MC_STATE_CONNECTED) && (con->state != SMB2_MC_STATE_IN_TRIAL)) {
                         con->state = SMB2_MC_STATE_FAILED_TO_CONNECT;
+                    }
 
                 // Enable other connections for these nics
                 } else if (con->state == SMB2_MC_STATE_SURPLUS) {

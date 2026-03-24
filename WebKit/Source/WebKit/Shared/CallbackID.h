@@ -77,7 +77,7 @@ public:
     }
 
 private:
-    friend struct IPC::ArgumentCoder<CallbackID, void>;
+    friend struct IPC::ArgumentCoder<CallbackID>;
     ALWAYS_INLINE explicit CallbackID(uint64_t newID)
         : m_id(newID)
     {

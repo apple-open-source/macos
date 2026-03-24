@@ -84,7 +84,7 @@ public:
 
     void append(T v)
     {
-        m_data[m_current] = WTFMove(v);
+        m_data[m_current] = WTF::move(v);
         incrementIndex(m_current);
     }
 
@@ -125,15 +125,15 @@ private:
 
 static RetainPtr<CGColorRef> createColor(float r, float g, float b, float a)
 {
-    CGFloat components[4] = { r, g, b, a };
-    return adoptCF(CGColorCreate(sRGBColorSpaceSingleton(), components));
+    std::array<CGFloat, 4> components { r, g, b, a };
+    return adoptCF(CGColorCreate(sRGBColorSpaceSingleton(), components.data()));
 }
 
 struct HistoricMemoryCategoryInfo {
     HistoricMemoryCategoryInfo() { } // Needed for std::array.
 
     HistoricMemoryCategoryInfo(unsigned category, SRGBA<uint8_t> color, String name, bool subcategory = false)
-        : name(WTFMove(name))
+        : name(WTF::move(name))
         , color(cachedCGColor(color))
         , isSubcategory(subcategory)
         , type(category)
@@ -189,12 +189,8 @@ HistoricResourceUsageData::HistoricResourceUsageData()
 
 static HistoricResourceUsageData& historicUsageData()
 {
-    static HistoricResourceUsageData* data { nullptr };
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [&] {
-        data = new HistoricResourceUsageData;
-    });
-    return *data;
+    static NeverDestroyed<UniqueRef<HistoricResourceUsageData>> data = makeUniqueRef<HistoricResourceUsageData>();
+    return data.get();
 }
 
 static void appendDataToHistory(const ResourceUsageData& data)
@@ -244,7 +240,7 @@ void ResourceUsageOverlay::platformInitialize()
         // FIXME: It shouldn't be necessary to update the bounds on every single thread loop iteration,
         // but something is causing them to become 0x0.
         [CATransaction begin];
-        CALayer *containerLayer = [m_layer superlayer];
+        RetainPtr<CALayer> containerLayer = [m_layer superlayer];
         CGRect rect = CGRectMake(0, 0, ResourceUsageOverlay::normalWidth, ResourceUsageOverlay::normalHeight);
         [m_layer setBounds:rect];
         [containerLayer setBounds:rect];

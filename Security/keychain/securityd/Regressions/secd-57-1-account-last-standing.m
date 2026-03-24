@@ -65,7 +65,7 @@ static bool acceptApplicants(SOSAccount* account, CFIndex count) {
     CFArrayRef applicants = SOSAccountCopyApplicants(account, &error);
     ok(applicants && CFArrayGetCount(applicants) == count, "See %ld applicants %@ (%@)", count, applicants, error);
     CFReleaseNull(error);
-    require_quiet(CFArrayGetCount(applicants) == count, xit);
+    __Require_Quiet(CFArrayGetCount(applicants) == count, xit);
     ok((retval=SOSAccountAcceptApplicants(account, applicants, &error)), "Accept applicants into the fold");
     CFReleaseNull(error);
 xit:

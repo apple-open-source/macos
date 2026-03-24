@@ -7780,7 +7780,6 @@
 				C9B536DD138D9E990028D27C /* crypt.c */,
 				C9B536DE138D9E990028D27C /* devname.3 */,
 				C9B536DF138D9E990028D27C /* devname.c */,
-				C9B536E0138D9E990028D27C /* directory.3 */,
 				3FB7E1B4146EF2E000843438 /* dirfd.c */,
 				C9B536E1138D9E990028D27C /* disklabel.c */,
 				C9B536E2138D9E990028D27C /* errlst.c */,
@@ -7837,6 +7836,7 @@
 		C9B536E5138D9E990028D27C /* FreeBSD */ = {
 			isa = PBXGroup;
 			children = (
+				C9B536E0138D9E990028D27C /* directory.3 */,
 				C9EB354F138F7EA50075BB52 /* getmntinfo64.c */,
 				C9EB350E138F769B0075BB52 /* scandir_b.c */,
 				C9B536E8138D9E990028D27C /* alarm.3 */,

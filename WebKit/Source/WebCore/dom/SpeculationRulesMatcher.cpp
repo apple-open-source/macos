@@ -26,17 +26,31 @@
 #include "config.h"
 #include "SpeculationRulesMatcher.h"
 
+#include "CheckVisibilityOptions.h"
 #include "Document.h"
 #include "Element.h"
 #include "HTMLAnchorElement.h"
 #include "JSDOMGlobalObject.h"
+#include "ReferrerPolicy.h"
 #include "ScriptController.h"
 #include "SelectorQuery.h"
+#include "ShadowRoot.h"
 #include "SpeculationRules.h"
 #include "URLPattern.h"
 #include "URLPatternOptions.h"
 
 namespace WebCore {
+
+static bool isUnslottedElement(Element& element)
+{
+    for (RefPtr ancestor = &element; ancestor; ) {
+        RefPtr parent = ancestor->parentElement();
+        if (parent && parent->shadowRoot() && !ancestor->assignedSlot())
+            return true;
+        ancestor = WTF::move(parent);
+    }
+    return false;
+}
 
 static bool matches(const SpeculationRules::DocumentPredicate&, Document&, HTMLAnchorElement&);
 
@@ -93,6 +107,7 @@ static bool matches(const Box<SpeculationRules::Negation>& predicate, Document& 
     return !matches(*predicate->clause, document, anchor);
 }
 
+// https://html.spec.whatwg.org/C#dr-predicate-matches
 static bool matches(const SpeculationRules::DocumentPredicate& predicate, Document& document, HTMLAnchorElement& anchor)
 {
     return WTF::switchOn(predicate.value(),
@@ -104,20 +119,42 @@ static bool matches(const SpeculationRules::DocumentPredicate& predicate, Docume
     );
 }
 
-// https://wicg.github.io/nav-speculation/speculation-rules.html#document-rule-predicate-matching
+// https://html.spec.whatwg.org/C#find-matching-links
 std::optional<PrefetchRule> SpeculationRulesMatcher::hasMatchingRule(Document& document, HTMLAnchorElement& anchor)
 {
-    const auto& speculationRules = document.speculationRules();
+    Ref speculationRules = document.speculationRules();
+    if (speculationRules->prefetchRules().isEmptyIgnoringNullReferences())
+        return std::nullopt;
+
+    // 2.2 If descendant is not being rendered or is part of skipped contents, then continue.
+    // An element is not being rendered if:
+    // - It's unslotted (light DOM child of a shadow host without a slot assignment)
+    // - It or an ancestor has display:none
+    // - It's part of content-visibility:hidden content
+    if (isUnslottedElement(anchor) || !anchor.checkVisibility(CheckVisibilityOptions { }))
+        return std::nullopt;
+
     const auto& url = anchor.href();
 
-    for (const auto& rule : speculationRules->prefetchRules()) {
-        for (const auto& href : rule.urls) {
-            if (href == url)
-                return PrefetchRule { rule.tags, rule.referrerPolicy, rule.eagerness == SpeculationRules::Eagerness::Conservative };
-        }
+    for (auto [node, rules] : speculationRules->prefetchRules()) {
+        for (const auto& rule : rules) {
+            for (const auto& href : rule.urls) {
+                if (href == url)
+                    return PrefetchRule { rule.tags, rule.referrerPolicy, rule.eagerness };
+            }
 
-        if (rule.predicate && matches(rule.predicate.value(), document, anchor))
-            return PrefetchRule { rule.tags, rule.referrerPolicy, rule.eagerness == SpeculationRules::Eagerness::Conservative || rule.eagerness == SpeculationRules::Eagerness::Moderate };
+            if (rule.predicate && matches(rule.predicate.value(), document, anchor)) {
+                // For document rules, if the rule doesn't specify a referrer policy,
+                // use the link element's referrerPolicy attribute if present.
+                auto referrerPolicy = rule.referrerPolicy;
+                if (!referrerPolicy) {
+                    auto linkReferrerPolicy = anchor.referrerPolicy();
+                    if (linkReferrerPolicy != ReferrerPolicy::EmptyString)
+                        referrerPolicy = linkReferrerPolicy;
+                }
+                return PrefetchRule { rule.tags, referrerPolicy, rule.eagerness };
+            }
+        }
     }
 
     return std::nullopt;

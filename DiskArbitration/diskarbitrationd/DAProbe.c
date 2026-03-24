@@ -344,6 +344,8 @@ void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback,
     context->startTime       = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 #ifdef DA_FSKIT
     context->gotFSModules = 0;
+	context->probeToRetry_fs = NULL;
+    // FSKit related properties (probeToRetry_match, skipLimitedProbe) initialized in __DAFileSystemGetModulesCallback
 #endif
     
     __DAProbeCallback( -1, NULL, NULL, NULL, NULL, context );

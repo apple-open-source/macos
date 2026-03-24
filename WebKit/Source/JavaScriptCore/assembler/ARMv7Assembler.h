@@ -419,6 +419,11 @@ public:
         ConditionInvalid
     } Condition;
 
+    static Condition invert(Condition cond)
+    {
+        return static_cast<Condition>(cond ^ 1);
+    }
+
 #define JUMP_ENUM_WITH_SIZE(index, value) (((value) << 3) | (index))
 #define JUMP_ENUM_SIZE(jump) ((jump) >> 3) 
     enum JumpType { JumpFixed = JUMP_ENUM_WITH_SIZE(0, 0), 
@@ -697,6 +702,8 @@ private:
         OP_ROR_reg_T2   = 0xFA60,
         OP_RBIT         = 0xFA90,
         OP_CLZ          = 0xFAB0,
+        OP_MUL_T2       = 0xFB00,
+        OP_MLA_T1       = 0xFB00,
         OP_SMULL_T1     = 0xFB80,
         OP_UMULL_T1     = 0xFBA0,
 #if HAVE(ARM_IDIV_INSTRUCTIONS)
@@ -1743,6 +1750,23 @@ public:
         m_formatter.twoWordOp12Reg4FourFours(OP_UMULL_T1, rn, FourFours(rdLo, rdHi, 0, rm));
     }
 
+    ALWAYS_INLINE void mul(RegisterID rd, RegisterID rn, RegisterID rm)
+    {
+        ASSERT(!BadReg(rd));
+        ASSERT(!BadReg(rn));
+        ASSERT(!BadReg(rm));
+        m_formatter.twoWordOp12Reg4FourFours(OP_MUL_T2, rn, FourFours(0xF, rd, 0, rm));
+    }
+
+    ALWAYS_INLINE void mla(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
+    {
+        ASSERT(!BadReg(rd));
+        ASSERT(!BadReg(rn));
+        ASSERT(!BadReg(rm));
+        ASSERT(!BadReg(ra));
+        m_formatter.twoWordOp12Reg4FourFours(OP_MLA_T1, rn, FourFours(ra, rd, 0, rm));
+    }
+
     // rt == ARMRegisters::pc only allowed if last instruction in IT (if then) block.
     ALWAYS_INLINE void str(RegisterID rt, RegisterID rn, ARMThumbImmediate imm)
     {
@@ -2614,9 +2638,7 @@ public:
     
     Vector<LinkRecord, 0, UnsafeVectorOverflow>& jumpsToLink()
     {
-        std::sort(m_jumpsToLink.begin(), m_jumpsToLink.end(), [](auto& a, auto& b) {
-            return a.from() < b.from();
-        });
+        std::ranges::sort(m_jumpsToLink, { }, &LinkRecord::from);
         return m_jumpsToLink;
     }
 

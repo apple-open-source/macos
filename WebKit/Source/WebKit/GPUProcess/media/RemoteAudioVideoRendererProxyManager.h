@@ -34,11 +34,14 @@
 #include "MessageReceiver.h"
 #include "RemoteAudioVideoRendererIdentifier.h"
 #include "RemoteAudioVideoRendererState.h"
+#include "RemoteCDMInstanceIdentifier.h"
+#include "RemoteLegacyCDMSessionIdentifier.h"
 #include "RemoteVideoFrameProxy.h"
 #include <WebCore/AudioVideoRenderer.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/MediaPlayerEnums.h>
 #include <WebCore/MediaPromiseTypes.h>
+#include <WebCore/MediaSampleConverter.h>
 #include <wtf/Forward.h>
 #include <wtf/Logger.h>
 #include <wtf/MediaTime.h>
@@ -92,9 +95,9 @@ private:
     void addTrack(RemoteAudioVideoRendererIdentifier, WebCore::TrackInfo::TrackType, CompletionHandler<void(Expected<TrackIdentifier, WebCore::PlatformMediaError>)>&&);
     void removeTrack(RemoteAudioVideoRendererIdentifier, TrackIdentifier);
 
-    void enqueueSample(RemoteAudioVideoRendererIdentifier, TrackIdentifier, WebCore::MediaSamplesBlock&&, std::optional<MediaTime>);
+    void newTrackInfoForTrack(RemoteAudioVideoRendererIdentifier, TrackIdentifier, Ref<WebCore::TrackInfo>&&);
+    void enqueueSample(RemoteAudioVideoRendererIdentifier, TrackIdentifier, WebCore::MediaSamplesBlock&&, std::optional<MediaTime>, CompletionHandler<void(bool)>&&);
     void requestMediaDataWhenReady(RemoteAudioVideoRendererIdentifier, TrackIdentifier);
-    void stopRequestingMediaData(RemoteAudioVideoRendererIdentifier, TrackIdentifier);
 
     void notifyTimeReachedAndStall(RemoteAudioVideoRendererIdentifier, const MediaTime&);
     void cancelTimeReachedAction(RemoteAudioVideoRendererIdentifier);
@@ -146,6 +149,15 @@ private:
     void setTextTrackRepresentation(RemoteAudioVideoRendererIdentifier, WebCore::TextTrackRepresentation*);
     void syncTextTrackBounds(RemoteAudioVideoRendererIdentifier);
 
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    void setLegacyCDMSession(RemoteAudioVideoRendererIdentifier, std::optional<RemoteLegacyCDMSessionIdentifier>);
+#endif
+#if ENABLE(ENCRYPTED_MEDIA)
+    void setCDMInstance(RemoteAudioVideoRendererIdentifier, std::optional<RemoteCDMInstanceIdentifier>);
+    void setInitData(RemoteAudioVideoRendererIdentifier, Ref<WebCore::SharedBuffer>, CompletionHandler<void(Expected<void, WebCore::PlatformMediaError>)>&&);
+    void attemptToDecrypt(RemoteAudioVideoRendererIdentifier);
+#endif
+
     struct RendererContext {
         RefPtr<WebCore::AudioVideoRenderer> renderer;
         Markable<WebCore::HTMLMediaElementIdentifier> mediaElementIdentifier;
@@ -153,6 +165,7 @@ private:
 #if PLATFORM(COCOA)
         LayerHostingContextManager layerHostingContextManager;
 #endif
+        HashMap<TrackIdentifier, WebCore::MediaSampleConverter> converters { };
         WebCore::VideoRendererPreferences preferences { };
     };
     RefPtr<WebCore::AudioVideoRenderer> createRenderer();
@@ -162,6 +175,7 @@ private:
     void rendereringModeChanged(RemoteAudioVideoRendererIdentifier);
     using LayerHostingContextCallback = CompletionHandler<void(WebCore::HostingContext)>;
     void requestHostingContext(RemoteAudioVideoRendererIdentifier, LayerHostingContextCallback&&);
+    WebCore::MediaSampleConverter& converterFor(RendererContext&, TrackIdentifier);
 
 #if PLATFORM(COCOA)
     void setVideoLayerSizeFenced(RemoteAudioVideoRendererIdentifier, const WebCore::FloatSize&, WTF::MachSendRightAnnotated&&);

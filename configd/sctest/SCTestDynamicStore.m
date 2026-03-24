@@ -638,14 +638,14 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 	CFPropertyListRef	plist = NULL;
 
 	uuid = CFUUIDCreate(kCFAllocatorDefault);
-	require_quiet(uuid, exit);
+	__Require_Quiet(uuid, exit);
 	uuidString = CFUUIDCreateString(kCFAllocatorDefault, uuid);
-	require_quiet(uuidString, exit);
+	__Require_Quiet(uuidString, exit);
 	testKey = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault, CFSTR("SCTest"), uuidString, kSCEntNetDNS);
-	require_quiet(testKey, exit);
+	__Require_Quiet(testKey, exit);
 
 	plist = SCDynamicStoreCopyValue(NULL, testKey);
-	require_action_quiet(plist == NULL,
+	__Require_Action_Quiet(plist == NULL,
 			     exit,
 			     SCTestLog("FAILURE: %@, failed to get a NULL response from the SCDynamicStore on bridgeOS.",
 				       NSStringFromSelector(_cmd)));

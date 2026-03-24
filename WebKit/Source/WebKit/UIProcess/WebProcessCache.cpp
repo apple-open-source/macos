@@ -27,6 +27,7 @@
 #include "WebProcessCache.h"
 
 #include "APIPageConfiguration.h"
+#include "EnhancedSecurity.h"
 #include "LegacyGlobalSettings.h"
 #include "Logging.h"
 #include "ProcessThrottler.h"
@@ -175,7 +176,7 @@ bool WebProcessCache::addProcess(Ref<CachedProcess>&& cachedProcess)
         evictAtRandomIfNeeded();
 
         WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added shared process to WebProcess cache (size=%u, capacity=%u) %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), site->toString().utf8().data());
-        m_sharedProcessesPerSite.add(*site, WTFMove(cachedProcess));
+        m_sharedProcessesPerSite.add(*site, WTF::move(cachedProcess));
 
         return true;
     }
@@ -190,7 +191,7 @@ bool WebProcessCache::addProcess(Ref<CachedProcess>&& cachedProcess)
     evictAtRandomIfNeeded();
 
     WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added process to WebProcess cache (size=%u, capacity=%u) %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), site.toString().utf8().data());
-    m_processesPerSite.add(site, WTFMove(cachedProcess));
+    m_processesPerSite.add(site, WTF::move(cachedProcess));
 
     return true;
 }
@@ -218,7 +219,7 @@ void WebProcessCache::evictAtRandomIfNeeded()
     }
 }
 
-RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
+RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
 {
     auto it = m_processesPerSite.find(site);
     if (it == m_processesPerSite.end()) {
@@ -261,7 +262,7 @@ RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, 
     return process;
 }
 
-RefPtr<WebProcessProxy> WebProcessCache::takeSharedProcess(const WebCore::Site& mainFrameSite, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
+RefPtr<WebProcessProxy> WebProcessCache::takeSharedProcess(const WebCore::Site& mainFrameSite, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
 {
     auto it = m_sharedProcessesPerSite.find(mainFrameSite);
     if (it == m_sharedProcessesPerSite.end()) {
@@ -409,13 +410,13 @@ void WebProcessCache::removeProcess(WebProcessProxy& process, ShouldShutDownProc
     if (auto expectedSite = process.site()) {
         auto it = m_processesPerSite.find(expectedSite.value());
         if (it != m_processesPerSite.end() && &it->value->process() == &process) {
-            cachedProcess = WTFMove(it->value);
+            cachedProcess = WTF::move(it->value);
             m_processesPerSite.remove(it);
         }
     } else if (process.isSharedProcess()) {
         for (auto it = m_sharedProcessesPerSite.begin(); it != m_sharedProcessesPerSite.end(); ++it) {
             if (&it->value->process() == &process) {
-                cachedProcess = WTFMove(it->value);
+                cachedProcess = WTF::move(it->value);
                 m_sharedProcessesPerSite.remove(it);
                 break;
             }
@@ -425,7 +426,7 @@ void WebProcessCache::removeProcess(WebProcessProxy& process, ShouldShutDownProc
     if (!cachedProcess) {
         for (auto& pair : m_pendingAddRequests) {
             if (&pair.value->process() == &process) {
-                cachedProcess = WTFMove(pair.value);
+                cachedProcess = WTF::move(pair.value);
                 m_pendingAddRequests.remove(pair.key);
                 break;
             }
@@ -443,11 +444,11 @@ void WebProcessCache::removeProcess(WebProcessProxy& process, ShouldShutDownProc
 
 Ref<WebProcessCache::CachedProcess> WebProcessCache::CachedProcess::create(Ref<WebProcessProxy>&& process, Seconds cachedProcessEvictionDelay)
 {
-    return adoptRef(*new WebProcessCache::CachedProcess(WTFMove(process), cachedProcessEvictionDelay));
+    return adoptRef(*new WebProcessCache::CachedProcess(WTF::move(process), cachedProcessEvictionDelay));
 }
 
 WebProcessCache::CachedProcess::CachedProcess(Ref<WebProcessProxy>&& process, Seconds cachedProcessEvictionDelay)
-    : m_process(WTFMove(process))
+    : m_process(WTF::move(process))
     , m_evictionTimer(RunLoop::mainSingleton(), "WebProcessCache::CachedProcess::EvictionTimer"_s, this, &CachedProcess::evictionTimerFired)
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     , m_suspensionTimer(RunLoop::mainSingleton(), "WebProcessCache::CachedProcess::SuspensionTimer"_s, this, &CachedProcess::suspensionTimerFired)
@@ -496,7 +497,7 @@ Ref<WebProcessProxy> WebProcessCache::CachedProcess::takeProcess()
     //
     // To avoid this, let the background activity live until the next runloop turn.
     if (m_backgroundActivity)
-        RunLoop::currentSingleton().dispatch([backgroundActivity = WTFMove(m_backgroundActivity)]() { });
+        RunLoop::currentSingleton().dispatch([backgroundActivity = WTF::move(m_backgroundActivity)]() { });
 #endif
     process->setIsInProcessCache(false);
     return m_process.releaseNonNull();

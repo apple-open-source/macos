@@ -44,6 +44,14 @@ public:
     void writeRenderTreeAsText(TextStream&, OptionSet<RenderAsTextFlag>) override;
     RemoteFrame& frame() const final { return m_frame; }
 
+    WEBCORE_EXPORT LayoutRect layoutViewportRect() const final;
+    std::optional<LayoutRect> visibleRectOfChild(const Frame&) const final;
+
+    // Set the frame rectangle, like setFrameRect, without synching the new rect to other Local/RemoteFrameViews.
+    // When frameRect of a RemoteFrameView changes, it syncs the new rect to other Local/RemoteFrameViews.
+    // RemoteFrameViews on the receiving end will set using this method to avoid repeating the sync.
+    WEBCORE_EXPORT void setFrameRectWithoutSync(const IntRect&);
+
 private:
     WEBCORE_EXPORT RemoteFrameView(RemoteFrame&);
 

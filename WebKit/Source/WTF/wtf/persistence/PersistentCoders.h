@@ -61,7 +61,7 @@ template<typename T, typename U> struct Coder<std::pair<T, U>> {
         if (!second)
             return std::nullopt;
 
-        return {{ WTFMove(*first), WTFMove(*second) }};
+        return {{ WTF::move(*first), WTF::move(*second) }};
     }
 };
 
@@ -93,7 +93,7 @@ template<typename T> struct Coder<std::optional<T>> {
         if (!value)
             return std::nullopt;
         
-        return std::optional<std::optional<T>> { std::optional<T> { WTFMove(*value) } };
+        return std::optional<std::optional<T>> { std::optional<T> { WTF::move(*value) } };
     }
 };
 
@@ -117,7 +117,7 @@ template<typename KeyType, typename ValueType> struct Coder<WTF::KeyValuePair<Ke
         if (!value)
             return std::nullopt;
 
-        return {{ WTFMove(*key), WTFMove(*value) }};
+        return {{ WTF::move(*key), WTF::move(*value) }};
     }
 };
 
@@ -146,7 +146,7 @@ template<typename T, size_t inlineCapacity> struct VectorCoder<false, T, inlineC
             decoder >> element;
             if (!element)
                 return std::nullopt;
-            tmp.append(WTFMove(*element));
+            tmp.append(WTF::move(*element));
         }
 
         tmp.shrinkToFit();
@@ -224,7 +224,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
             if (!value)
                 return std::nullopt;
 
-            if (!tempHashMap.add(WTFMove(*key), WTFMove(*value)).isNewEntry) {
+            if (!tempHashMap.add(WTF::move(*key), WTF::move(*value)).isNewEntry) {
                 // The hash map already has the specified key, bail.
                 return std::nullopt;
             }
@@ -260,7 +260,7 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Coder<
             if (!key)
                 return std::nullopt;
 
-            if (!tempHashSet.add(WTFMove(*key)).isNewEntry) {
+            if (!tempHashSet.add(WTF::move(*key)).isNewEntry) {
                 // The hash map already has the specified key, bail.
                 return std::nullopt;
             }

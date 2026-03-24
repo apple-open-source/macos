@@ -51,11 +51,11 @@ bool IOHIDProviderPropertyMerger::mergeProperties(IOService * provider, OSDictio
     OSCollectionIterator *  iterator        = NULL;
     bool                    result          = false;
 
-    require(provider && properties, exit);
+    __Require(provider && properties, exit);
 
     // Iterate through the properties until we run out of entries
     iterator = OSCollectionIterator::withCollection(properties);
-    require(iterator, exit);
+    __Require(iterator, exit);
 
     while ( (dictionaryEntry = (const OSSymbol *)iterator->getNextObject()) ) {
         OSDictionary *	sourceDictionary    = NULL;
@@ -74,15 +74,15 @@ bool IOHIDProviderPropertyMerger::mergeProperties(IOService * provider, OSDictio
             OSDictionary *  providerDictionaryCopy = NULL;
 
             providerDictionaryCopy = OSDictionary::withDictionary( providerDictionary, 0);
-            require_action(providerDictionaryCopy, dictionaryExit, result=false);
+            __Require_Action(providerDictionaryCopy, dictionaryExit, result=false);
             
             // Recursively merge the two dictionaries
             result = mergeDictionaries(sourceDictionary, providerDictionaryCopy);
-            require(result, dictionaryExit);
+            __Require(result, dictionaryExit);
             
             // OK, now we can just set the property in our provider
             result = provider->setProperty(dictionaryEntry, providerDictionaryCopy);
-            require(result, dictionaryExit);
+            __Require(result, dictionaryExit);
 
 dictionaryExit:
             if ( providerDictionaryCopy )
@@ -115,11 +115,11 @@ bool IOHIDProviderPropertyMerger::mergeDictionaries(OSDictionary * source,  OSDi
     OSSymbol*               keyObject   = NULL;
     bool                    result      = false;
 
-    require(source && target, exit);
+    __Require(source && target, exit);
 
     // Get our source dictionary
     srcIterator = OSCollectionIterator::withCollection(source);
-    require(srcIterator, exit);
+    __Require(srcIterator, exit);
 
     while ((keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject()))) {
         OSDictionary *	childSourceDictionary   = NULL;

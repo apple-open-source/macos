@@ -339,7 +339,7 @@ __unused static const uint8_t _k1_digest[] = {
     XCTAssertEqual(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     XCTAssert(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLNewContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     XCTAssertEqual(errSecSuccess, SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -350,7 +350,7 @@ __unused static const uint8_t _k1_digest[] = {
     XCTAssertEqual(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     XCTAssert(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     XCTAssertEqual(errSecSuccess, SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -361,7 +361,7 @@ __unused static const uint8_t _k1_digest[] = {
     XCTAssertEqual(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     XCTAssert(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
-    require(ctx, errOut);
+    __Require(ctx, errOut);
     XCTAssertEqual(errSecSuccess,SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     XCTAssertEqual(errSecSuccess,SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);

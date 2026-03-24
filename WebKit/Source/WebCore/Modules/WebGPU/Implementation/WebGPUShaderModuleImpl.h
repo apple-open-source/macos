@@ -41,7 +41,7 @@ class ShaderModuleImpl final : public ShaderModule {
 public:
     static Ref<ShaderModuleImpl> create(WebGPUPtr<WGPUShaderModule>&& shaderModule, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new ShaderModuleImpl(WTFMove(shaderModule), convertToBackingContext));
+        return adoptRef(*new ShaderModuleImpl(WTF::move(shaderModule), convertToBackingContext));
     }
 
     virtual ~ShaderModuleImpl();

@@ -62,7 +62,7 @@ struct _WPEDisplayPrivate {
     EGLDisplay eglDisplay;
     GUniqueOutPtr<GError> eglDisplayError;
     HashMap<String, bool> extensionsMap;
-    GRefPtr<WPEBufferDMABufFormats> preferredDMABufFormats;
+    GRefPtr<WPEBufferFormats> preferredBufferFormats;
     GRefPtr<WPEKeymap> keymap;
     GRefPtr<WPEClipboard> clipboard;
     GRefPtr<WPESettings> settings;
@@ -85,6 +85,8 @@ static std::array<GParamSpec*, N_PROPERTIES> sObjProperties;
 enum {
     SCREEN_ADDED,
     SCREEN_REMOVED,
+
+    DISCONNECTED,
 
     LAST_SIGNAL
 };
@@ -205,6 +207,22 @@ static void wpe_display_class_init(WPEDisplayClass* displayClass)
         g_cclosure_marshal_generic,
         G_TYPE_NONE, 1,
         WPE_TYPE_SCREEN);
+
+    /**
+     * WPEDisplay::disconnected:
+     * @display: a #WPEDisplay
+     * @error: (nullable): a #GError or %NULL
+     *
+     * Emitted when the @display is disconnected from the platform display.
+     */
+    signals[DISCONNECTED] = g_signal_new(
+        "disconnected",
+        G_TYPE_FROM_CLASS(displayClass),
+        G_SIGNAL_RUN_LAST,
+        0, nullptr, nullptr,
+        g_cclosure_marshal_generic,
+        G_TYPE_NONE, 1,
+        G_TYPE_ERROR);
 }
 
 WPEView* wpeDisplayCreateView(WPEDisplay* display)
@@ -253,7 +271,7 @@ WPEDisplay* wpe_display_get_default(void)
                 GUniqueOutPtr<GError> error;
                 GRefPtr<WPEDisplay> display = adoptGRef(WPE_DISPLAY(g_object_new(g_io_extension_get_type(extension), nullptr)));
                 if (wpe_display_connect(display.get(), &error.outPtr())) {
-                    s_defaultDisplay = WTFMove(display);
+                    s_defaultDisplay = WTF::move(display);
                     return;
                 }
                 g_error("Failed to connect to display of type %s: %s", extensionName, error->message);
@@ -267,7 +285,7 @@ WPEDisplay* wpe_display_get_default(void)
             auto* extension = static_cast<GIOExtension*>(i->data);
             GRefPtr<WPEDisplay> display = adoptGRef(WPE_DISPLAY(g_object_new(g_io_extension_get_type(extension), nullptr)));
             if (wpe_display_connect(display.get(), nullptr)) {
-                s_defaultDisplay = WTFMove(display);
+                s_defaultDisplay = WTF::move(display);
                 return;
             }
         }
@@ -320,6 +338,23 @@ gboolean wpe_display_connect(WPEDisplay* display, GError** error)
 
     auto* wpeDisplayClass = WPE_DISPLAY_GET_CLASS(display);
     return wpeDisplayClass->connect(display, error);
+}
+
+/**
+ * wpe_display_disconnected:
+ * @display: a #WPEDisplay
+ * @error: (nullable): a #GError or %NULL
+ *
+ * Emit the signal #WPEDisplay::disconnected with the given @error
+ *
+ * This function should only be called by platform implementations.
+ */
+void wpe_display_disconnected(WPEDisplay* display, GError* error)
+{
+    g_return_if_fail(WPE_IS_DISPLAY(display));
+    g_return_if_fail(!error || g_error_matches(error, WPE_DISPLAY_ERROR, WPE_DISPLAY_ERROR_CONNECTION_LOST));
+
+    g_signal_emit(display, signals[DISCONNECTED], 0, error);
 }
 
 /**
@@ -440,7 +475,7 @@ WPESettings* wpe_display_get_settings(WPEDisplay* display)
 }
 
 #if USE(LIBDRM)
-static GRefPtr<WPEBufferDMABufFormats> wpeDisplayPreferredDMABufFormats(WPEDisplay* display)
+static GRefPtr<WPEBufferFormats> wpeDisplayPreferredBufferFormats(WPEDisplay* display)
 {
     auto eglDisplay = static_cast<EGLDisplay>(wpe_display_get_egl_display(display, nullptr));
     if (!eglDisplay)
@@ -480,42 +515,42 @@ static GRefPtr<WPEBufferDMABufFormats> wpeDisplayPreferredDMABufFormats(WPEDispl
         return modifiers;
     };
 
-    auto* builder = wpe_buffer_dma_buf_formats_builder_new(wpe_display_get_drm_device(display));
-    wpe_buffer_dma_buf_formats_builder_append_group(builder, nullptr, WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING);
+    auto* builder = wpe_buffer_formats_builder_new(wpe_display_get_drm_device(display));
+    wpe_buffer_formats_builder_append_group(builder, nullptr, WPE_BUFFER_FORMAT_USAGE_RENDERING);
     for (auto format : formats) {
         auto modifiers = modifiersForFormat(format);
         for (auto modifier : modifiers)
-            wpe_buffer_dma_buf_formats_builder_append_format(builder, format, modifier);
+            wpe_buffer_formats_builder_append_format(builder, format, modifier);
     }
-    return adoptGRef(wpe_buffer_dma_buf_formats_builder_end(builder));
+    return adoptGRef(wpe_buffer_formats_builder_end(builder));
 }
 #endif
 
 /**
- * wpe_display_get_preferred_dma_buf_formats:
+ * wpe_display_get_preferred_buffer_formats:
  * @display: a #WPEDisplay
  *
- * Get the list of preferred DMA-BUF buffer formats for @display.
+ * Get the list of preferred buffer formats for @display.
  *
- * Returns: (transfer none) (nullable): a #WPEBufferDMABufFormats
+ * Returns: (transfer none) (nullable): a #WPEBufferFormats
  */
-WPEBufferDMABufFormats* wpe_display_get_preferred_dma_buf_formats(WPEDisplay* display)
+WPEBufferFormats* wpe_display_get_preferred_buffer_formats(WPEDisplay* display)
 {
     g_return_val_if_fail(WPE_IS_DISPLAY(display), nullptr);
 
     auto* priv = display->priv;
-    if (!priv->preferredDMABufFormats) {
+    if (!priv->preferredBufferFormats) {
         auto* wpeDisplayClass = WPE_DISPLAY_GET_CLASS(display);
-        if (wpeDisplayClass->get_preferred_dma_buf_formats)
-            priv->preferredDMABufFormats = adoptGRef(wpeDisplayClass->get_preferred_dma_buf_formats(display));
+        if (wpeDisplayClass->get_preferred_buffer_formats)
+            priv->preferredBufferFormats = adoptGRef(wpeDisplayClass->get_preferred_buffer_formats(display));
 
 #if USE(LIBDRM)
-        if (!priv->preferredDMABufFormats)
-            priv->preferredDMABufFormats = wpeDisplayPreferredDMABufFormats(display);
+        if (!priv->preferredBufferFormats)
+            priv->preferredBufferFormats = wpeDisplayPreferredBufferFormats(display);
 #endif
     }
 
-    return display->priv->preferredDMABufFormats.get();
+    return display->priv->preferredBufferFormats.get();
 }
 
 /**
@@ -615,7 +650,7 @@ static bool isSotfwareRast()
  * will be used to initialize the EGL display and allocate GBM
  * buffers by default. The DRM device required to allocate GBM
  * buffers for direct scanout will be set as main or group device
- * in #WPEBufferDMABufFormats.
+ * in #WPEBufferFormats.
  *
  * Returns: (transfer none) (nullable): a #WPEDRMDevice or %NULL
  */

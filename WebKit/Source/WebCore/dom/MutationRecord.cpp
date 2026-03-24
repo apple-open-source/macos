@@ -47,18 +47,20 @@ static void visitNodeList(JSC::AbstractSlotVisitor& visitor, NodeList& nodeList)
 {
     ASSERT(!nodeList.isLiveNodeList());
     unsigned length = nodeList.length();
-    for (unsigned i = 0; i < length; ++i)
-        addWebCoreOpaqueRoot(visitor, nodeList.item(i));
+    for (unsigned i = 0; i < length; ++i) {
+        // We cannot ref the item here as this function may get called from the GC thread.
+        SUPPRESS_UNRETAINED_ARG addWebCoreOpaqueRoot(visitor, nodeList.item(i));
+    }
 }
 
 class ChildListRecord final : public MutationRecord {
 public:
     ChildListRecord(ContainerNode& target, Ref<NodeList>&& added, Ref<NodeList>&& removed, RefPtr<Node>&& previousSibling, RefPtr<Node>&& nextSibling)
         : m_target(target)
-        , m_addedNodes(WTFMove(added))
-        , m_removedNodes(WTFMove(removed))
-        , m_previousSibling(WTFMove(previousSibling))
-        , m_nextSibling(WTFMove(nextSibling))
+        , m_addedNodes(WTF::move(added))
+        , m_removedNodes(WTF::move(removed))
+        , m_previousSibling(WTF::move(previousSibling))
+        , m_nextSibling(WTF::move(nextSibling))
     {
     }
 
@@ -73,10 +75,14 @@ private:
     void visitNodesConcurrently(JSC::AbstractSlotVisitor& visitor) const final
     {
         addWebCoreOpaqueRoot(visitor, m_target.get());
-        if (m_addedNodes)
-            visitNodeList(visitor, *m_addedNodes);
-        if (m_removedNodes)
-            visitNodeList(visitor, *m_removedNodes);
+        if (m_addedNodes) {
+            // We cannot ref m_addedNodes here as this function may get called from the GC thread.
+            SUPPRESS_UNRETAINED_ARG visitNodeList(visitor, *m_addedNodes);
+        }
+        if (m_removedNodes) {
+            // We cannot ref m_removedNodes here as this function may get called from the GC thread.
+            SUPPRESS_UNRETAINED_ARG visitNodeList(visitor, *m_removedNodes);
+        }
     }
     
     const Ref<ContainerNode> m_target;
@@ -196,7 +202,7 @@ const AtomString& CharacterDataRecord::type()
 
 Ref<MutationRecord> MutationRecord::createChildList(ContainerNode& target, Ref<NodeList>&& added, Ref<NodeList>&& removed, RefPtr<Node>&& previousSibling, RefPtr<Node>&& nextSibling)
 {
-    return adoptRef(static_cast<MutationRecord&>(*new ChildListRecord(target, WTFMove(added), WTFMove(removed), WTFMove(previousSibling), WTFMove(nextSibling))));
+    return adoptRef(static_cast<MutationRecord&>(*new ChildListRecord(target, WTF::move(added), WTF::move(removed), WTF::move(previousSibling), WTF::move(nextSibling))));
 }
 
 Ref<MutationRecord> MutationRecord::createAttributes(Element& target, const QualifiedName& name, const AtomString& oldValue)

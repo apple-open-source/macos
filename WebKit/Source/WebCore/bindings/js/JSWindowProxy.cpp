@@ -208,7 +208,7 @@ static std::optional<FrameInfo> frameInfo(JSGlobalObject* globalObject)
         return std::nullopt;
 
     Ref mainFrame { frame->mainFrame() };
-    return FrameInfo { frame.releaseNonNull(), WTFMove(mainFrame) };
+    return FrameInfo { frame.releaseNonNull(), WTF::move(mainFrame) };
 }
 
 static bool hasSameMainFrame(const Frame* a, const FrameInfo& b)

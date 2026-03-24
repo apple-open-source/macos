@@ -164,7 +164,7 @@ Vector<RendererBufferFormat> AcceleratedBackingStore::preferredBufferFormats()
             uint64_t modifier = tokens.size() > 1 ? g_ascii_strtoull(tokens[1].ascii().data(), &endptr, 16) : DRM_FORMAT_MOD_INVALID;
             if (!(modifier == G_MAXUINT64 && errno == ERANGE) && !(!modifier && !endptr)) {
                 format.formats.append({ fourcc, { modifier } });
-                return { WTFMove(format) };
+                return { WTF::move(format) };
             }
         }
 
@@ -177,7 +177,7 @@ Vector<RendererBufferFormat> AcceleratedBackingStore::preferredBufferFormats()
         format.drmDevice = drmMainDevice();
         format.formats.append({ DRM_FORMAT_XRGB8888, { DRM_FORMAT_MOD_LINEAR } });
         format.formats.append({ DRM_FORMAT_ARGB8888, { DRM_FORMAT_MOD_LINEAR } });
-        return { WTFMove(format) };
+        return { WTF::move(format) };
     }
 
     RELEASE_ASSERT(display.glDisplay());
@@ -188,7 +188,7 @@ Vector<RendererBufferFormat> AcceleratedBackingStore::preferredBufferFormats()
     format.formats = display.glDisplay()->bufferFormats().map([](const auto& format) -> RendererBufferFormat::Format {
         return { format.fourcc.value, format.modifiers };
     });
-    return { WTFMove(format) };
+    return { WTF::move(format) };
 }
 #endif
 
@@ -305,7 +305,7 @@ static RefPtr<NativeImage> nativeImageFromGdkTexture(GdkTexture* texture)
     RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, gdk_texture_get_width(texture), gdk_texture_get_height(texture)));
     gdk_texture_download(texture, cairo_image_surface_get_data(surface.get()), cairo_image_surface_get_stride(surface.get()));
     cairo_surface_mark_dirty(surface.get());
-    return NativeImage::create(WTFMove(surface));
+    return NativeImage::create(WTF::move(surface));
 #elif USE(SKIA)
     auto imageInfo = SkImageInfo::MakeN32Premul(gdk_texture_get_width(texture), gdk_texture_get_height(texture), SkColorSpace::MakeSRGB());
     SkBitmap bitmap;
@@ -336,13 +336,13 @@ RefPtr<AcceleratedBackingStore::Buffer> AcceleratedBackingStore::BufferDMABuf::c
         gdk_dmabuf_texture_builder_set_offset(builder.get(), i, offsets[i]);
     }
 
-    return adoptRef(*new BufferDMABuf(webPage, id, surfaceID, size, usage, WTFMove(fds), WTFMove(builder)));
+    return adoptRef(*new BufferDMABuf(webPage, id, surfaceID, size, usage, WTF::move(fds), WTF::move(builder)));
 }
 
 AcceleratedBackingStore::BufferDMABuf::BufferDMABuf(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, const IntSize& size, RendererBufferFormat::Usage usage, Vector<UnixFileDescriptor>&& fds, GRefPtr<GdkDmabufTextureBuilder>&& builder)
     : Buffer(webPage, id, surfaceID, size, usage)
-    , m_fds(WTFMove(fds))
-    , m_builder(WTFMove(builder))
+    , m_fds(WTF::move(fds))
+    , m_builder(WTF::move(builder))
 {
 }
 
@@ -432,12 +432,12 @@ RefPtr<AcceleratedBackingStore::Buffer> AcceleratedBackingStore::BufferEGLImage:
         return nullptr;
     }
 
-    return adoptRef(*new BufferEGLImage(webPage, id, surfaceID, size, usage, format, WTFMove(fds), modifier, image));
+    return adoptRef(*new BufferEGLImage(webPage, id, surfaceID, size, usage, format, WTF::move(fds), modifier, image));
 }
 
 AcceleratedBackingStore::BufferEGLImage::BufferEGLImage(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, const IntSize& size, RendererBufferFormat::Usage usage, uint32_t format, Vector<UnixFileDescriptor>&& fds, uint64_t modifier, EGLImage image)
     : Buffer(webPage, id, surfaceID, size, usage)
-    , m_fds(WTFMove(fds))
+    , m_fds(WTF::move(fds))
     , m_image(image)
     , m_fourcc(format)
     , m_modifier(modifier)
@@ -532,7 +532,7 @@ RefPtr<AcceleratedBackingStore::Buffer> AcceleratedBackingStore::BufferGBM::crea
     auto& manager = DRMDeviceManager::singleton();
     if (!manager.isInitialized()) {
         DRMDevice device = drmMainDevice();
-        manager.initializeMainDevice(WTFMove(device));
+        manager.initializeMainDevice(WTF::move(device));
     }
     auto gbmDevice = manager.mainGBMDevice(DRMDeviceManager::NodeType::Render);
     if (!gbmDevice) {
@@ -547,12 +547,12 @@ RefPtr<AcceleratedBackingStore::Buffer> AcceleratedBackingStore::BufferGBM::crea
         return nullptr;
     }
 
-    return adoptRef(*new BufferGBM(webPage, id, surfaceID, size, usage, WTFMove(fd), buffer));
+    return adoptRef(*new BufferGBM(webPage, id, surfaceID, size, usage, WTF::move(fd), buffer));
 }
 
 AcceleratedBackingStore::BufferGBM::BufferGBM(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, const IntSize& size, RendererBufferFormat::Usage usage, UnixFileDescriptor&& fd, struct gbm_bo* buffer)
     : Buffer(webPage, id, surfaceID, size, usage)
-    , m_fd(WTFMove(fd))
+    , m_fd(WTF::move(fd))
     , m_buffer(buffer)
 {
 }
@@ -608,12 +608,12 @@ RefPtr<AcceleratedBackingStore::Buffer> AcceleratedBackingStore::BufferSHM::crea
     if (!bitmap)
         return nullptr;
 
-    return adoptRef(*new BufferSHM(webPage, id, surfaceID, WTFMove(bitmap)));
+    return adoptRef(*new BufferSHM(webPage, id, surfaceID, WTF::move(bitmap)));
 }
 
 AcceleratedBackingStore::BufferSHM::BufferSHM(WebPageProxy& webPage, uint64_t id, uint64_t surfaceID, RefPtr<ShareableBitmap>&& bitmap)
     : Buffer(webPage, id, surfaceID, bitmap->size(), RendererBufferFormat::Usage::Rendering)
-    , m_bitmap(WTFMove(bitmap))
+    , m_bitmap(WTF::move(bitmap))
 {
 }
 
@@ -663,21 +663,21 @@ void AcceleratedBackingStore::didCreateDMABufBuffer(uint64_t id, const IntSize& 
 #if USE(GBM)
     if (!Display::singleton().glDisplayIsSharedWithGtk()) {
         ASSERT(fds.size() == 1 && strides.size() == 1);
-        if (auto buffer = BufferGBM::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds[0]), strides[0]))
-            m_buffers.add(id, WTFMove(buffer));
+        if (auto buffer = BufferGBM::create(*webPage, id, m_surfaceID, size, usage, format, WTF::move(fds[0]), strides[0]))
+            m_buffers.add(id, WTF::move(buffer));
         return;
     }
 #endif
 
 #if GTK_CHECK_VERSION(4, 13, 4)
-    if (auto buffer = BufferDMABuf::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier)) {
-        m_buffers.add(id, WTFMove(buffer));
+    if (auto buffer = BufferDMABuf::create(*webPage, id, m_surfaceID, size, usage, format, WTF::move(fds), WTF::move(offsets), WTF::move(strides), modifier)) {
+        m_buffers.add(id, WTF::move(buffer));
         return;
     }
 #endif
 
-    if (auto buffer = BufferEGLImage::create(*webPage, id, m_surfaceID, size, usage, format, WTFMove(fds), WTFMove(offsets), WTFMove(strides), modifier))
-        m_buffers.add(id, WTFMove(buffer));
+    if (auto buffer = BufferEGLImage::create(*webPage, id, m_surfaceID, size, usage, format, WTF::move(fds), WTF::move(offsets), WTF::move(strides), modifier))
+        m_buffers.add(id, WTF::move(buffer));
 }
 
 void AcceleratedBackingStore::didCreateSHMBuffer(uint64_t id, ShareableBitmap::Handle&& handle)
@@ -686,8 +686,8 @@ void AcceleratedBackingStore::didCreateSHMBuffer(uint64_t id, ShareableBitmap::H
     if (!webPage)
         return;
 
-    if (auto buffer = BufferSHM::create(*webPage, id, m_surfaceID, ShareableBitmap::create(WTFMove(handle), SharedMemory::Protection::ReadOnly)))
-        m_buffers.add(id, WTFMove(buffer));
+    if (auto buffer = BufferSHM::create(*webPage, id, m_surfaceID, ShareableBitmap::create(WTF::move(handle), SharedMemory::Protection::ReadOnly)))
+        m_buffers.add(id, WTF::move(buffer));
 }
 
 void AcceleratedBackingStore::didDestroyBuffer(uint64_t id)
@@ -705,8 +705,8 @@ void AcceleratedBackingStore::frame(uint64_t bufferID, Rects&& damageRects, WTF:
     }
 
     m_pendingBuffer = buffer;
-    m_pendingDamageRects = WTFMove(damageRects);
-    m_fenceMonitor.addFileDescriptor(WTFMove(renderingFenceFD));
+    m_pendingDamageRects = WTF::move(damageRects);
+    m_fenceMonitor.addFileDescriptor(WTF::move(renderingFenceFD));
 }
 
 void AcceleratedBackingStore::frameDone()
@@ -795,7 +795,7 @@ bool AcceleratedBackingStore::swapBuffersIfNeeded()
     if (m_committedBuffer)
         m_committedBuffer->release();
 
-    m_committedBuffer = WTFMove(m_pendingBuffer);
+    m_committedBuffer = WTF::move(m_pendingBuffer);
     return true;
 }
 

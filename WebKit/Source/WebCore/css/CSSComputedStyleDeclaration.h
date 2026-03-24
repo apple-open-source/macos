@@ -35,7 +35,7 @@ class Element;
 class MutableStyleProperties;
 
 class CSSComputedStyleDeclaration final : public CSSStyleProperties, public RefCounted<CSSComputedStyleDeclaration> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(CSSComputedStyleDeclaration, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(CSSComputedStyleDeclaration, WEBCORE_EXPORT);
 public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }

@@ -244,7 +244,7 @@ void NamedSlotAssignment::resolveSlotsAfterSlotMutation(ShadowRoot& shadowRoot, 
         slotCount++;
         if (currentSlot->element != currentElement) {
             if (shadowRoot.shouldFireSlotchangeEvent() && hasAssignedNodes(shadowRoot, *currentSlot)) {
-                currentSlot->oldElement = WTFMove(currentSlot->element);
+                currentSlot->oldElement = WTF::move(currentSlot->element);
                 currentElement->enqueueSlotChangeEvent();
             }
             currentSlot->element = *currentElement;
@@ -276,7 +276,7 @@ void NamedSlotAssignment::resolveSlotsAfterSlotMutation(ShadowRoot& shadowRoot, 
         slot->seenFirstElement = true;
         ASSERT(slot->element);
         if (hasAssignedNodes(shadowRoot, *slot))
-            slot->oldElement = WTFMove(slot->element);
+            slot->oldElement = WTF::move(slot->element);
         slot->element = nullptr;
     }
 }

@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WebInspectorUI.h"
 
-#include "WebInspectorMessages.h"
+#include "WebInspectorBackendMessages.h"
 #include "WebInspectorUIProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
@@ -35,10 +35,10 @@
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/ExceptionDetails.h>
 #include <WebCore/FloatRect.h>
-#include <WebCore/InspectorController.h>
 #include <WebCore/InspectorFrontendHost.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageInspectorController.h>
 #include <WebCore/Settings.h>
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
@@ -94,11 +94,11 @@ void WebInspectorUI::updateConnection()
     if (!connectionIdentifiers)
         return;
 
-    backendConnection = IPC::Connection::createServerConnection(WTFMove(connectionIdentifiers->server));
+    backendConnection = IPC::Connection::createServerConnection(WTF::move(connectionIdentifiers->server));
     m_backendConnection = backendConnection.copyRef();
     backendConnection->open(*this);
 
-    sendToParentProcess(Messages::WebInspectorUIProxy::SetFrontendConnection(WTFMove(connectionIdentifiers->client)));
+    sendToParentProcess(Messages::WebInspectorUIProxy::SetFrontendConnection(WTF::move(connectionIdentifiers->client)));
 }
 
 void WebInspectorUI::windowObjectCleared()
@@ -295,17 +295,17 @@ void WebInspectorUI::revealFileExternally(const String& path)
 
 void WebInspectorUI::save(Vector<InspectorFrontendClient::SaveData>&& saveDatas, bool forceSaveAs)
 {
-    sendToParentProcess(Messages::WebInspectorUIProxy::Save(WTFMove(saveDatas), forceSaveAs));
+    sendToParentProcess(Messages::WebInspectorUIProxy::Save(WTF::move(saveDatas), forceSaveAs));
 }
 
 void WebInspectorUI::load(const WTF::String& path, CompletionHandler<void(const String&)>&& completionHandler)
 {
-    sendToParentProcessWithAsyncReply(Messages::WebInspectorUIProxy::Load(path), WTFMove(completionHandler));
+    sendToParentProcessWithAsyncReply(Messages::WebInspectorUIProxy::Load(path), WTF::move(completionHandler));
 }
 
 void WebInspectorUI::pickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
 {
-    sendToParentProcessWithAsyncReply(Messages::WebInspectorUIProxy::PickColorFromScreen(), WTFMove(completionHandler));
+    sendToParentProcessWithAsyncReply(Messages::WebInspectorUIProxy::PickColorFromScreen(), WTF::move(completionHandler));
 }
 
 void WebInspectorUI::inspectedURLChanged(const String& urlString)

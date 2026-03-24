@@ -71,7 +71,7 @@ public:
     Ref<ArchiveResource> protectedMainResource() const { return *mainResource(); }
     std::optional<FrameIdentifier> frameIdentifier() const { return m_frameIdentifier; }
     Vector<FrameIdentifier> subframeIdentifiers() const { return m_subframeIdentifiers; }
-    void appendSubframeArchive(Ref<Archive>&& subframeArchive) { addSubframeArchive(WTFMove(subframeArchive)); }
+    void appendSubframeArchive(Ref<Archive>&& subframeArchive) { addSubframeArchive(WTF::move(subframeArchive)); }
 
 private:
     LegacyWebArchive() = default;

@@ -45,7 +45,7 @@ class VoidCallback;
 enum class CreatePlugins : bool { No, Yes };
 
 class HTMLPlugInElement : public HTMLFrameOwnerElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLPlugInElement);
+    WTF_MAKE_TZONE_ALLOCATED(HTMLPlugInElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLPlugInElement);
 public:
     virtual ~HTMLPlugInElement();
@@ -111,7 +111,7 @@ protected:
     void didAddUserAgentShadowRoot(ShadowRoot&) final;
 
     // This will load the plugin if necessary.
-    virtual RenderWidget* renderWidgetLoadingPlugin() const;
+    virtual CheckedPtr<RenderWidget> renderWidgetLoadingPlugin() const;
 
     bool isImageType();
     HTMLImageLoader* imageLoader() { return m_imageLoader.get(); }
@@ -153,7 +153,7 @@ private:
 
     RefPtr<JSC::Bindings::Instance> m_instance;
     Timer m_swapRendererTimer;
-    RefPtr<PluginReplacement> m_pluginReplacement;
+    const RefPtr<PluginReplacement> m_pluginReplacement;
     bool m_isCapturingMouseEvents { false };
     DisplayState m_displayState { DisplayState::Playing };
 

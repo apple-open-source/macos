@@ -81,6 +81,7 @@ JSSpeechSynthesisErrorCode.cpp
 JSSpeechSynthesisErrorEvent.cpp
 JSSpeechSynthesisErrorEventInit.cpp
 JSSpeechSynthesisEventInit.cpp
+Modules/Model/Implementation/DDMeshImpl.mm
 Modules/ShapeDetection/Implementation/Cocoa/BarcodeDetectorImplementation.mm @nonARC
 Modules/ShapeDetection/Implementation/Cocoa/FaceDetectorImplementation.mm @nonARC
 Modules/ShapeDetection/Implementation/Cocoa/TextDetectorImplementation.mm @nonARC
@@ -137,8 +138,8 @@ Modules/speech/cocoa/WebSpeechRecognizerTask.mm @nonARC
 Modules/speech/cocoa/WebSpeechRecognizerTaskMock.mm @nonARC
 Modules/system-preview/ARKitBadgeSystemImage.mm @nonARC
 Modules/webdatabase/cocoa/DatabaseManagerCocoa.mm @nonARC
-Modules/webxr/WebXROpaqueFramebufferCocoa.cpp
 accessibility/cocoa/AXCoreObjectCocoa.mm @nonARC
+accessibility/cocoa/AXObjectCacheCocoa.mm @nonARC
 accessibility/cocoa/AXTextMarkerCocoa.mm @nonARC
 accessibility/cocoa/AccessibilityObjectCocoa.mm @nonARC
 accessibility/ios/AXObjectCacheIOS.mm @nonARC
@@ -284,6 +285,8 @@ platform/audio/cocoa/SpatialAudioExperienceHelper.mm @nonARC
 platform/audio/cocoa/WebAudioBufferList.cpp
 platform/audio/ios/AudioOutputUnitAdaptorIOS.cpp @no-unify
 platform/audio/ios/AudioSessionIOS.mm @nonARC @no-unify
+platform/audio/ios/MediaDeviceRoute.mm @nonARC
+platform/audio/ios/MediaDeviceRouteController.mm @nonARC
 platform/audio/ios/MediaSessionHelperIOS.mm @nonARC @no-unify
 platform/audio/ios/MediaSessionManagerIOS.mm @nonARC @no-unify
 platform/audio/mac/AudioBusMac.mm @nonARC
@@ -354,11 +357,11 @@ platform/graphics/MediaPlaybackTargetPicker.cpp
 platform/graphics/avfoundation/AVTrackPrivateAVFObjCImpl.mm @nonARC @no-unify
 platform/graphics/avfoundation/AudioSourceProviderAVFObjC.mm @nonARC @no-unify
 platform/graphics/avfoundation/AudioVideoRendererAVFObjC.mm @nonARC
-platform/graphics/avfoundation/CDMPrivateMediaSourceAVFObjC.mm @nonARC
 platform/graphics/avfoundation/FormatDescriptionUtilities.cpp
 platform/graphics/avfoundation/ISOFairPlayStreamingPsshBox.cpp
 platform/graphics/avfoundation/InbandMetadataTextTrackPrivateAVF.cpp
 platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp
+platform/graphics/avfoundation/LegacyCDMPrivateAVFObjC.mm @nonARC
 platform/graphics/avfoundation/MediaPlaybackTargetCocoa.mm @nonARC
 platform/graphics/avfoundation/MediaPlayerPrivateAVFoundation.cpp
 platform/graphics/avfoundation/MediaSelectionGroupAVFObjC.mm @nonARC
@@ -375,7 +378,6 @@ platform/graphics/avfoundation/objc/AudioTrackPrivateMediaSourceAVFObjC.cpp
 platform/graphics/avfoundation/objc/CDMFairPlayStreamingAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm @nonARC
 platform/graphics/avfoundation/objc/CDMSessionAVFoundationObjC.mm @nonARC
-platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/ContentKeyGroupFactoryAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/InbandTextTrackPrivateAVFObjC.mm @nonARC @no-unify
@@ -499,8 +501,22 @@ platform/graphics/cv/CVUtilities.mm @nonARC
 platform/graphics/cv/ImageTransferSessionVT.mm @nonARC
 platform/graphics/cv/PixelBufferConformerCV.cpp
 platform/graphics/cv/VideoFrameCV.mm @nonARC
+platform/graphics/coreimage/FEBlendCoreImageApplier.mm @nonARC
 platform/graphics/coreimage/FEColorMatrixCoreImageApplier.mm @nonARC
 platform/graphics/coreimage/FEComponentTransferCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FECompositeCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEConvolveMatrixCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEDisplacementMapCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEDropShadowCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEFloodCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEGaussianBlurCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEImageCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FELightingCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEMergeCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEMorphologyCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FEOffsetCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FETileCoreImageApplier.mm @nonARC
+platform/graphics/coreimage/FETurbulenceCoreImageApplier.mm @nonARC
 platform/graphics/coreimage/FilterImageCoreImage.mm @nonARC
 platform/graphics/coreimage/SourceAlphaCoreImageApplier.mm @nonARC
 platform/graphics/coreimage/SourceGraphicCoreImageApplier.mm @nonARC
@@ -660,14 +676,14 @@ platform/mediastream/ios/ReplayKitCaptureSource.mm @nonARC @no-unify
 platform/mediastream/libwebrtc/LibWebRTCProviderCocoa.cpp
 platform/mediastream/mac/AVCaptureDeviceManager.mm @nonARC
 platform/mediastream/mac/AVVideoCaptureSource.mm @nonARC @no-unify
-platform/mediastream/mac/BaseAudioSharedUnit.cpp
+platform/mediastream/mac/BaseAudioCaptureUnit.cpp
 platform/mediastream/mac/CoreAudioCaptureDevice.cpp
 platform/mediastream/mac/CoreAudioCaptureDeviceManager.cpp
 platform/mediastream/mac/CoreAudioCaptureSource.cpp
-platform/mediastream/mac/CoreAudioSharedUnit.cpp
+platform/mediastream/mac/CoreAudioCaptureUnit.cpp
 platform/mediastream/mac/DisplayCaptureManagerCocoa.cpp
 platform/mediastream/mac/MediaStreamTrackAudioSourceProviderCocoa.cpp
-platform/mediastream/mac/MockAudioSharedUnit.mm @nonARC
+platform/mediastream/mac/MockAudioCaptureUnit.mm @nonARC
 platform/mediastream/mac/MockRealtimeVideoSourceMac.mm @nonARC
 platform/mediastream/mac/RealtimeIncomingAudioSourceCocoa.cpp
 platform/mediastream/mac/RealtimeIncomingVideoSourceCocoa.mm @nonARC
@@ -717,7 +733,6 @@ platform/text/mac/TextBoundaries.mm @nonARC
 platform/text/mac/TextCheckingMac.mm @nonARC
 platform/video-codecs/cocoa/RTCVideoDecoderVTBAV1.mm @nonARC
 platform/video-codecs/cocoa/WebRTCVideoDecoder.mm @nonARC
-platform/xr/cocoa/PlatformXRCocoa.mm @nonARC
 platform/xr/cocoa/PlatformXRPose.cpp
 platform/text/mac/CoreTextChineseCompositionEngine.cpp
 platform/text/mac/CoreTextCompositionEngine.cpp

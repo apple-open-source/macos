@@ -185,12 +185,12 @@ private:
     std::optional<OverflowingTextContent::BreakingPosition> tryBreakingNextOverflowingRuns(const LineStatus&, const ContinuousContent::RunList&, size_t overflowingRunIndex, InlineLayoutUnit nonOverflowingContentWidth) const;
     std::optional<OverflowingTextContent::BreakingPosition> tryHyphenationAcrossOverflowingInlineTextItems(const LineStatus&, const ContinuousContent::RunList&, size_t overflowingRunIndex) const;
 
-    enum class WordBreakRule {
-        AtArbitraryPositionWithinWords = 1 << 0,
-        AtArbitraryPosition            = 1 << 1,
-        AtHyphenationOpportunities     = 1 << 2
+    enum class WordBreakRule : uint8_t {
+        AtArbitraryPositionWithinWords,
+        AtArbitraryPosition,
+        AtHyphenationOpportunities
     };
-    OptionSet<WordBreakRule> wordBreakBehavior(const RenderStyle&, bool hasWrapOpportunityAtPreviousPosition) const;
+    EnumSet<WordBreakRule> wordBreakBehavior(const RenderStyle&, bool hasWrapOpportunityAtPreviousPosition) const;
     bool isMinimumInIntrinsicWidthMode() const { return m_isMinimumInIntrinsicWidthMode; }
 
 private:

@@ -49,7 +49,7 @@ static inline RTCSctpTransportState toRTCSctpTransportState(GstWebRTCSCTPTranspo
 }
 
 GStreamerSctpTransportBackend::GStreamerSctpTransportBackend(GRefPtr<GstWebRTCSCTPTransport>&& transport)
-    : m_backend(WTFMove(transport))
+    : m_backend(WTF::move(transport))
 {
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
@@ -67,7 +67,7 @@ UniqueRef<RTCDtlsTransportBackend> GStreamerSctpTransportBackend::dtlsTransportB
 {
     GRefPtr<GstWebRTCDTLSTransport> transport;
     g_object_get(m_backend.get(), "transport", &transport.outPtr(), nullptr);
-    return makeUniqueRef<GStreamerDtlsTransportBackend>(WTFMove(transport));
+    return makeUniqueRef<GStreamerDtlsTransportBackend>(WTF::move(transport));
 }
 
 void GStreamerSctpTransportBackend::registerClient(RTCSctpTransportBackendClient& client)
@@ -95,11 +95,9 @@ void GStreamerSctpTransportBackend::stateChanged()
     uint64_t maxMessageSize;
     g_object_get(m_backend.get(), "state", &transportState, "max-message-size", &maxMessageSize, "max-channels", &maxChannels, nullptr);
     GST_DEBUG("Notifying SCTP transport state, max-message-size: %" G_GUINT64_FORMAT " max-channels: %" G_GUINT16_FORMAT, maxMessageSize, maxChannels);
-    callOnMainThread([client = m_client, transportState, maxChannels, maxMessageSize] {
-        if (!client)
-            return;
-
-        client->onStateChanged(toRTCSctpTransportState(transportState), maxMessageSize, maxChannels);
+    callOnMainThread([weakClient = m_client, transportState, maxChannels, maxMessageSize] {
+        if (RefPtr client = weakClient.get())
+            client->onStateChanged(toRTCSctpTransportState(transportState), maxMessageSize, maxChannels);
     });
 }
 

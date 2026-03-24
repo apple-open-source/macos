@@ -46,7 +46,7 @@ struct GPUCanvasConfiguration;
 template<typename> class ExceptionOr;
 
 class GPUCanvasContext : public GPUBasedCanvasRenderingContext {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(GPUCanvasContext);
+    WTF_MAKE_TZONE_ALLOCATED(GPUCanvasContext);
 public:
 #if ENABLE(OFFSCREEN_CANVAS)
     using CanvasType = Variant<RefPtr<HTMLCanvasElement>, RefPtr<OffscreenCanvas>>;

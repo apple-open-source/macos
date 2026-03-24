@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 nl{
     units{
         acceleration{
@@ -47,6 +47,11 @@ nl{
                 gender{"common"}
                 one{"{0} toer"}
                 other{"{0} toeren"}
+            }
+            steradian{
+                dnam{"ste­ra­diaal"}
+                one{"{0} ste­ra­diaal"}
+                other{"{0} ste­ra­dialen"}
             }
         }
         area{
@@ -180,7 +185,7 @@ nl{
             item{
                 dnam{"onderdelen"}
                 gender{"neuter"}
-                one{"{0} ond."}
+                one{"{0} onderdeel"}
                 other{"{0} onderdelen"}
             }
             karat{
@@ -188,6 +193,11 @@ nl{
                 gender{"neuter"}
                 one{"{0} karaat"}
                 other{"{0} karaat"}
+            }
+            katal{
+                dnam{"katal"}
+                one{"{0} katal"}
+                other{"{0} katals"}
             }
             milligram-ofglucose-per-deciliter{
                 dnam{"milligram per deciliter"}
@@ -203,6 +213,27 @@ nl{
             }
             mole{
                 gender{"common"}
+            }
+            ofglucose{
+                one{"{0} glucose"}
+                other{"{0} glucose"}
+            }
+            part{
+                dnam{"deel"}
+                one{"{0} deel"}
+                other{"{0} delen"}
+            }
+            part-per-1e6{
+                dnam{"parts per million"}
+                gender{"common"}
+                one{"{0} part per million"}
+                other{"{0} parts per million"}
+            }
+            part-per-1e9{
+                dnam{"parts per billion"}
+                gender{"common"}
+                one{"{0} part per billion"}
+                other{"{0} parts per billion"}
             }
             percent{
                 gender{"neuter"}
@@ -367,10 +398,7 @@ nl{
                 other{"{0} nanoseconden"}
             }
             night{
-                dnam{"nachten"}
                 gender{"common"}
-                one{"{0} nacht"}
-                other{"{0} nachten"}
                 per{"{0} per nacht"}
             }
             quarter{
@@ -408,6 +436,21 @@ nl{
                 one{"{0} ampère"}
                 other{"{0} ampère"}
             }
+            coulomb{
+                dnam{"coulomb"}
+                one{"{0} coulomb"}
+                other{"{0} coulomb"}
+            }
+            farad{
+                dnam{"farad"}
+                one{"{0} farad"}
+                other{"{0} farad"}
+            }
+            henry{
+                dnam{"henry"}
+                one{"{0} henry"}
+                other{"{0} henry's"}
+            }
             milliampere{
                 dnam{"milliampère"}
                 gender{"common"}
@@ -420,6 +463,11 @@ nl{
                 one{"{0} ohm"}
                 other{"{0} ohm"}
             }
+            siemens{
+                dnam{"siemens"}
+                one{"{0} siemens"}
+                other{"{0} siemens"}
+            }
             volt{
                 dnam{"volt"}
                 gender{"common"}
@@ -428,6 +476,11 @@ nl{
             }
         }
         energy{
+            becquerel{
+                dnam{"becquerel"}
+                one{"{0} becquerel"}
+                other{"{0} becquerels"}
+            }
             british-thermal-unit{
                 dnam{"British thermal unit"}
                 one{"{0} British thermal unit"}
@@ -439,6 +492,11 @@ nl{
                 one{"{0} calorie"}
                 other{"{0} calorieën"}
             }
+            calorie-it{
+                dnam{"calorieën [IT]"}
+                one{"{0} calorie [IT]"}
+                other{"{0} calorieën [IT]"}
+            }
             electronvolt{
                 dnam{"elektronvolt"}
                 one{"{0} elektronvolt"}
@@ -449,6 +507,11 @@ nl{
                 gender{"common"}
                 one{"{0} kilocalorie"}
                 other{"{0} kilocalorieën"}
+            }
+            gray{
+                dnam{"gray"}
+                one{"{0} gray"}
+                other{"{0} gray"}
             }
             joule{
                 dnam{"joule"}
@@ -474,11 +537,21 @@ nl{
                 one{"{0} kilowattuur"}
                 other{"{0} kilowattuur"}
             }
+            sievert{
+                dnam{"sievert"}
+                one{"{0} sievert"}
+                other{"{0} sieverts"}
+            }
             therm-us{
                 dnam{"US therms"}
             }
         }
         force{
+            kilogram-force{
+                dnam{"kilogramkracht"}
+                one{"{0} kilogramkracht"}
+                other{"{0} kilogramkracht"}
+            }
             kilowatt-hour-per-100-kilometer{
                 dnam{"ki­lo­wattuur per 100 kilometer"}
                 gender{"neuter"}
@@ -719,6 +792,18 @@ nl{
                 other{"{0} solar luminosity"}
             }
         }
+        magnetic{
+            tesla{
+                dnam{"tesla"}
+                one{"{0} tesla"}
+                other{"{0} tesla"}
+            }
+            weber{
+                dnam{"weber"}
+                one{"{0} weber"}
+                other{"{0} weber"}
+            }
+        }
         mass{
             carat{
                 dnam{"karaat"}
@@ -886,6 +971,11 @@ nl{
                 one{"{0} millimeter-kwikdruk"}
                 other{"{0} millimeter-kwikdruk"}
             }
+            ofhg{
+                dnam{"kwik"}
+                one{"{0} kwik"}
+                other{"{0} kwik"}
+            }
             pascal{
                 dnam{"pascal"}
                 gender{"common"}
@@ -909,10 +999,7 @@ nl{
                 other{"{0} knopen"}
             }
             light-speed{
-                dnam{"licht"}
                 gender{"neuter"}
-                one{"{0} licht"}
-                other{"{0} licht"}
             }
             meter-per-second{
                 dnam{"meter per seconde"}
@@ -1073,6 +1160,11 @@ nl{
                 one{"{0} Imp. fluid ounce"}
                 other{"{0} Imp. fluid ounce"}
             }
+            fluid-ounce-metric{
+                dnam{"metrische fluid ounces"}
+                one{"{0} metrische fluid ounce"}
+                other{"{0} metrische fluid ounces"}
+            }
             gallon{
                 dnam{"gallon"}
                 gender{"common"}
@@ -1167,6 +1259,16 @@ nl{
                 other{"{0} t"}
             }
         }
+        concentr{
+            ofglucose{
+                dnam{"Glc"}
+            }
+            part{
+                dnam{"deel"}
+                one{"{0} deel"}
+                other{"{0} delen"}
+            }
+        }
         consumption{
             mile-per-gallon-imperial{
                 one{"{0} m/gUK"}
@@ -1198,12 +1300,6 @@ nl{
                 other{"{0} m"}
                 per{"{0}/m"}
             }
-            night{
-                dnam{"nachten"}
-                one{"{0} nacht"}
-                other{"{0} nachten"}
-                per{"{0}/nacht"}
-            }
             quarter{
                 dnam{"kw."}
                 one{"{0} kw."}
@@ -1220,6 +1316,11 @@ nl{
                 one{"{0} w"}
                 other{"{0} w"}
                 per{"{0}/w"}
+            }
+        }
+        energy{
+            calorie-it{
+                dnam{"cal-IT"}
             }
         }
         graphics{
@@ -1251,7 +1352,6 @@ nl{
         }
         speed{
             light-speed{
-                dnam{"licht"}
                 one{"{0}licht"}
                 other{"{0}licht"}
             }
@@ -1387,6 +1487,20 @@ nl{
                 one{"{0} mol"}
                 other{"{0} mol"}
             }
+            ofglucose{
+                dnam{"Glc"}
+            }
+            part{
+                dnam{"deel"}
+                one{"{0} deel"}
+                other{"{0} delen"}
+            }
+            part-per-1e6{
+                dnam{"parts/million"}
+            }
+            part-per-1e9{
+                dnam{"parts/billion"}
+            }
             percent{
                 dnam{"procent"}
             }
@@ -1508,6 +1622,9 @@ nl{
                 dnam{"Btu"}
                 one{"{0} Btu"}
                 other{"{0} Btu"}
+            }
+            calorie-it{
+                dnam{"cal-IT"}
             }
             electronvolt{
                 dnam{"eV"}

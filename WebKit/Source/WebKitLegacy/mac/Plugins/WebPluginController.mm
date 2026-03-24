@@ -444,7 +444,7 @@ static void cancelOutstandingCheck(const void *item, void *context)
         WebCore::FrameLoadRequest frameLoadRequest { *core(frame), request };
         frameLoadRequest.setFrameName(target);
         frameLoadRequest.setShouldCheckNewWindowPolicy(true);
-        core(frame)->loader().load(WTFMove(frameLoadRequest));
+        core(frame)->loader().load(WTF::move(frameLoadRequest));
     }
 }
 

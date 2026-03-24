@@ -144,7 +144,7 @@ IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
 
     IOBufferMemoryDescriptor * buffer         = 0;
     UInt64                     bufferBase     = 0;
-    UInt32                     bufferSize     = 0;
+    IOByteCount                bufferSize     = 0;
     applelabel *               headerMap      = 0;
     UInt64                     labelBase      = 0;
     UInt32                     labelCheck     = 0;

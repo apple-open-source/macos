@@ -56,7 +56,7 @@ WKTypeID WKWebsiteDataStoreGetTypeID()
 
 WKWebsiteDataStoreRef WKWebsiteDataStoreGetDefaultDataStore()
 {
-    return WebKit::toAPI(WebKit::WebsiteDataStore::defaultDataStore().ptr());
+    return WebKit::toAPI(WebKit::WebsiteDataStore::protectedDefaultDataStore().get());
 }
 
 WKWebsiteDataStoreRef WKWebsiteDataStoreCreateNonPersistentDataStore()
@@ -85,7 +85,7 @@ void WKWebsiteDataStoreRemoveITPDataForDomain(WKWebsiteDataStoreRef dataStoreRef
     WebKit::WebsiteDataRecord dataRecord;
     dataRecord.types.add(WebKit::WebsiteDataType::ResourceLoadStatistics);
     dataRecord.addResourceLoadStatisticsRegistrableDomain(WebCore::RegistrableDomain::uncheckedCreateFromHost(WebKit::toProtectedImpl(host)->string()));
-    Vector<WebKit::WebsiteDataRecord> dataRecords = { WTFMove(dataRecord) };
+    Vector<WebKit::WebsiteDataRecord> dataRecords = { WTF::move(dataRecord) };
 
     OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::ResourceLoadStatistics;
     WebKit::toProtectedImpl(dataStoreRef)->removeData(dataTypes, dataRecords, [context, callback] {
@@ -524,7 +524,7 @@ void WKWebsiteDataStoreSetAppBoundDomainsForTesting(WKArrayRef originURLsRef, vo
             domains.add(WebCore::RegistrableDomain { URL { originURL->string() } });
     }
 
-    WebKit::WebsiteDataStore::setAppBoundDomainsForTesting(WTFMove(domains), [context, completionHandler] {
+    WebKit::WebsiteDataStore::setAppBoundDomainsForTesting(WTF::move(domains), [context, completionHandler] {
         completionHandler(context);
     });
 #else
@@ -549,7 +549,7 @@ void WKWebsiteDataStoreSetManagedDomainsForTesting(WKArrayRef originURLsRef, voi
         domains.add(WebCore::RegistrableDomain { URL { originURL->string() } });
     }
 
-    WebKit::WebsiteDataStore::setManagedDomainsForTesting(WTFMove(domains), [context, completionHandler] {
+    WebKit::WebsiteDataStore::setManagedDomainsForTesting(WTF::move(domains), [context, completionHandler] {
         completionHandler(context);
     });
 #else
@@ -605,7 +605,7 @@ void WKWebsiteDataStoreRemoveFetchCacheForOrigin(WKWebsiteDataStoreRef dataStore
 {
     WebKit::WebsiteDataRecord dataRecord;
     dataRecord.add(WebKit::WebsiteDataType::DOMCache, WebKit::toImpl(origin)->securityOrigin());
-    Vector<WebKit::WebsiteDataRecord> dataRecords = { WTFMove(dataRecord) };
+    Vector<WebKit::WebsiteDataRecord> dataRecords = { WTF::move(dataRecord) };
 
     OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::DOMCache;
     WebKit::toProtectedImpl(dataStoreRef)->removeData(dataTypes, dataRecords, [context, callback] {
@@ -647,7 +647,7 @@ void WKWebsiteDataStoreGetFetchCacheOrigins(WKWebsiteDataStoreRef dataStoreRef, 
             for (const auto& origin : dataRecord.origins)
                 securityOrigins.append(API::SecurityOrigin::create(origin.securityOrigin()));
         }
-        callback(WebKit::toAPI(API::Array::create(WTFMove(securityOrigins)).ptr()), context);
+        callback(WebKit::toAPI(API::Array::create(WTF::move(securityOrigins)).ptr()), context);
     });
 }
 

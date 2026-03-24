@@ -45,7 +45,7 @@ class VideoTrackPrivateRemote
 public:
     static Ref<VideoTrackPrivateRemote> create(GPUProcessConnection& gpuProcessConnection, WebCore::MediaPlayerIdentifier playerIdentifier, VideoTrackPrivateRemoteConfiguration&& configuration)
     {
-        return adoptRef(*new VideoTrackPrivateRemote(gpuProcessConnection, playerIdentifier, WTFMove(configuration)));
+        return adoptRef(*new VideoTrackPrivateRemote(gpuProcessConnection, playerIdentifier, WTF::move(configuration)));
     }
 
     void updateConfiguration(VideoTrackPrivateRemoteConfiguration&&);
@@ -53,8 +53,8 @@ public:
     using VideoTrackKind = WebCore::VideoTrackPrivate::Kind;
     VideoTrackKind kind() const final { return m_kind; }
     WebCore::TrackID id() const final { return m_id; }
-    AtomString label() const final { return AtomString { m_label.isolatedCopy() }; }
-    AtomString language() const final { return AtomString { m_language.isolatedCopy() }; }
+    String label() const final { return m_label; }
+    String language() const final { return m_language; }
     int trackIndex() const final { return m_trackIndex; }
     MediaTime startTimeVariance() const final { return m_startTimeVariance; }
 

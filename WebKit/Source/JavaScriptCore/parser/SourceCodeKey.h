@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/ExecutableInfo.h>
 #include <JavaScriptCore/ParserModes.h>
 #include <JavaScriptCore/UnlinkedSourceCode.h>
 #include <wtf/HashTraits.h>
@@ -118,12 +119,6 @@ public:
             && host() == other.host()
             && (m_sourceCode == other.m_sourceCode || string() == other.string());
     }
-
-    struct Hash {
-        static unsigned hash(const SourceCodeKey& key) { return key.hash(); }
-        static bool equal(const SourceCodeKey& a, const SourceCodeKey& b) { return a == b; }
-        static constexpr bool safeToCompareToEmptyOrDeleted = false;
-    };
 
     struct HashTraits : SimpleClassHashTraits<SourceCodeKey> {
         static constexpr bool hasIsEmptyValueFunction = true;

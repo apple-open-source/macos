@@ -103,7 +103,6 @@ public:
 
 #if PLATFORM(COCOA)
     void prepareToDisplay(const WebCore::Region& dirtyRegion, bool supportsPartialRepaint, bool hasEmptyDirtyRegion, bool drawingRequiresClearedPixels);
-    void didPrepareForDisplay(ImageBufferSetPrepareBufferForDisplayOutputData, RenderingUpdateID);
 #endif
 
     WebCore::GraphicsContext& context();
@@ -122,15 +121,13 @@ public:
 #endif
 
     unsigned generation() const { return m_generation; }
-
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
-
     void close();
 
 private:
     RemoteImageBufferSetProxy(RemoteRenderingBackendProxy&, ImageBufferSetClient&);
     template<typename T> auto send(T&& message);
     template<typename T> auto sendSync(T&& message);
+    template<typename T, typename C> auto sendWithAsyncReply(T&& message, C&& handler);
     RefPtr<IPC::StreamClientConnection> connection() const;
     void didBecomeUnresponsive() const;
 
@@ -149,8 +146,6 @@ private:
     bool m_remoteNeedsConfigurationUpdate { false };
 
     Lock m_lock;
-    RefPtr<RemoteImageBufferSetProxyFlushFence> m_pendingFlush WTF_GUARDED_BY_LOCK(m_lock);
-    RefPtr<IPC::StreamClientConnection> m_streamConnection  WTF_GUARDED_BY_LOCK(m_lock);
     bool m_prepareForDisplayIsPending WTF_GUARDED_BY_LOCK(m_lock) { false };
     bool m_closed WTF_GUARDED_BY_LOCK(m_lock) { false };
 };

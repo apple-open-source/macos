@@ -367,8 +367,8 @@ void JIT::emit_compareAndJumpSlow(const JSInstruction* instruction, DoubleCondit
     emit_compareSlowImpl(op1, op2, instruction->size(), operation, iter, handleReturnValueGPR, emitCompareAndJump);
 }
 
-template<typename SlowOperation, typename HanldeReturnValueGPRFunctor, typename EmitDoubleCompareFunctor>
-void JIT::emit_compareSlowImpl(VirtualRegister op1, VirtualRegister op2, size_t instructionSize, SlowOperation operation, Vector<SlowCaseEntry>::iterator& iter, const HanldeReturnValueGPRFunctor& handleReturnValueGPR, const EmitDoubleCompareFunctor& emitDoubleCompare)
+template<typename SlowOperation, typename HandleReturnValueGPRFunctor, typename EmitDoubleCompareFunctor>
+void JIT::emit_compareSlowImpl(VirtualRegister op1, VirtualRegister op2, size_t instructionSize, SlowOperation operation, Vector<SlowCaseEntry>::iterator& iter, const HandleReturnValueGPRFunctor& handleReturnValueGPR, const EmitDoubleCompareFunctor& emitDoubleCompare)
 {
 
     // We generate inline code for the following cases in the slow path:
@@ -403,19 +403,17 @@ void JIT::emit_compareSlowImpl(VirtualRegister op1, VirtualRegister op2, size_t 
             return false;
         linkAllSlowCases(iter);
 
-        if (supportsFloatingPoint()) {
-            Jump fail1 = branchIfNotNumber(jsReg2, regT4);
-            unboxDouble(jsReg2, fpReg2);
+        Jump fail1 = branchIfNotNumber(jsReg2, regT4);
+        unboxDouble(jsReg2, fpReg2);
 
-            move(Imm32(getConstantOperand(op).asInt32()), jsReg1.payloadGPR());
-            convertInt32ToDouble(jsReg1.payloadGPR(), fpReg1);
+        move(Imm32(getConstantOperand(op).asInt32()), jsReg1.payloadGPR());
+        convertInt32ToDouble(jsReg1.payloadGPR(), fpReg1);
 
-            emitDoubleCompare(fpRegT0, fpRegT1);
+        emitDoubleCompare(fpRegT0, fpRegT1);
 
-            emitJumpSlowToHot(jump(), instructionSize);
+        emitJumpSlowToHot(jump(), instructionSize);
 
-            fail1.link(this);
-        }
+        fail1.link(this);
 
         emitGetVirtualRegister(op, jsReg1);
         loadGlobalObject(regT4);
@@ -431,21 +429,19 @@ void JIT::emit_compareSlowImpl(VirtualRegister op1, VirtualRegister op2, size_t 
 
     linkSlowCase(iter); // LHS is not Int.
 
-    if (supportsFloatingPoint()) {
-        Jump fail1 = branchIfNotNumber(jsRegT10, regT4);
-        Jump fail2 = branchIfNotNumber(jsRegT32, regT4);
-        Jump fail3 = branchIfInt32(jsRegT32);
-        unboxDouble(jsRegT10, fpRegT0);
-        unboxDouble(jsRegT32, fpRegT1);
+    Jump fail1 = branchIfNotNumber(jsRegT10, regT4);
+    Jump fail2 = branchIfNotNumber(jsRegT32, regT4);
+    Jump fail3 = branchIfInt32(jsRegT32);
+    unboxDouble(jsRegT10, fpRegT0);
+    unboxDouble(jsRegT32, fpRegT1);
 
-        emitDoubleCompare(fpRegT0, fpRegT1);
+    emitDoubleCompare(fpRegT0, fpRegT1);
 
-        emitJumpSlowToHot(jump(), instructionSize);
+    emitJumpSlowToHot(jump(), instructionSize);
 
-        fail1.link(this);
-        fail2.link(this);
-        fail3.link(this);
-    }
+    fail1.link(this);
+    fail2.link(this);
+    fail3.link(this);
 
     linkSlowCase(iter); // RHS is not Int.
     loadGlobalObject(regT4);

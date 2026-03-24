@@ -36,7 +36,6 @@
 #include <WebCore/DDMaterialDescriptor.h>
 #include <WebCore/DDMesh.h>
 #include <WebCore/DDMeshDescriptor.h>
-#include <WebCore/DDTextureDescriptor.h>
 #include <WebCore/DDUpdateMaterialDescriptor.h>
 #include <WebCore/DDUpdateMeshDescriptor.h>
 #include <WebCore/DDUpdateTextureDescriptor.h>
@@ -51,7 +50,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteDDMesh);
 RemoteDDMesh::RemoteDDMesh(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteGPU& gpu, WebCore::DDModel::DDMesh& mesh, DDModel::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, DDModelIdentifier identifier)
     : m_backing(mesh)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_identifier(identifier)
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_gpu(gpu)
@@ -81,25 +80,12 @@ void RemoteDDMesh::destruct()
 
 void RemoteDDMesh::setLabel(String&& label)
 {
-    m_backing->setLabel(WTFMove(label));
-}
-
-void RemoteDDMesh::addMesh(const WebCore::DDModel::DDMeshDescriptor& descriptor)
-{
-#if PLATFORM(COCOA)
-    m_backing->addMesh(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
+    m_backing->setLabel(WTF::move(label));
 }
 
 void RemoteDDMesh::update(const WebCore::DDModel::DDUpdateMeshDescriptor& descriptor)
 {
-#if PLATFORM(COCOA)
     m_backing->update(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
 }
 
 void RemoteDDMesh::render()
@@ -107,40 +93,29 @@ void RemoteDDMesh::render()
     m_backing->render();
 }
 
-void RemoteDDMesh::addTexture(const WebCore::DDModel::DDTextureDescriptor& descriptor)
-{
-#if PLATFORM(COCOA)
-    m_backing->addTexture(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
-}
-
 void RemoteDDMesh::updateTexture(const WebCore::DDModel::DDUpdateTextureDescriptor& descriptor)
 {
-#if PLATFORM(COCOA)
     m_backing->updateTexture(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
-}
-
-void RemoteDDMesh::addMaterial(const WebCore::DDModel::DDMaterialDescriptor& descriptor)
-{
-#if PLATFORM(COCOA)
-    m_backing->addMaterial(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
 }
 
 void RemoteDDMesh::updateMaterial(const WebCore::DDModel::DDUpdateMaterialDescriptor& descriptor)
 {
-#if PLATFORM(COCOA)
     m_backing->updateMaterial(descriptor);
-#else
-    UNUSED_PARAM(descriptor);
-#endif
+}
+
+void RemoteDDMesh::updateTransform(const WebCore::DDModel::DDFloat4x4& transform)
+{
+    m_backing->setEntityTransform(transform);
+}
+
+void RemoteDDMesh::setCameraDistance(float distance)
+{
+    m_backing->setCameraDistance(distance);
+}
+
+void RemoteDDMesh::play(bool playing)
+{
+    m_backing->play(playing);
 }
 
 } // namespace WebKit

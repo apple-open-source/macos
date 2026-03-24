@@ -694,9 +694,6 @@ _SecKeychainRestoreBackupFromFileDescriptor(int fd, CFDataRef backupKeybag, CFDa
 CFStringRef
 _SecKeychainCopyKeybagUUIDFromFileDescriptor(int fd, CFErrorRef *error);
 
-OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out);
-OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in);
-
 /* Called by clients to push sync circle and message changes to us.
    Requires caller to have the kSecEntitlementKeychainSyncUpdates entitlement. */
 CFArrayRef _SecKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
@@ -906,6 +903,20 @@ CF_RETURNS_RETAINED;
  *             passwords. This set may change in the future (rdar://78624586).
 */
 bool SecDeleteItemsOnSignOut(CFErrorRef *error) SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
+
+/*!
+ * @function SecDeleteInternalItemsOnSignOut
+ * @abstract Removes Apple internal items from the Keychain when the current user
+ *           signs out of their Apple Account.
+ * @param persona  For primary accounts, pass NULL for this field to delete a primary account's internal keychain items.
+ *                For secondary accounts, pass the persona identifier of the guest account.
+ * @param error An optional error reference.
+ * @result A Boolean indicating whether the operation succeeded.
+ * @discussion Currently, the set of affected items to remove includes
+ *             synchronized HomeKit items.
+*/
+bool SecDeleteInternalItemsOnSignOut(CFStringRef persona, CFErrorRef *error);
+
 
 /*!
  * @function SecKeychainCopyDatabasePath

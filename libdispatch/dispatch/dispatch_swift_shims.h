@@ -38,7 +38,8 @@ DISPATCH_REFINED_FOR_SWIFT DISPATCH_SWIFT_NAME(DispatchSerialQueue.init(__label:
 static inline dispatch_queue_serial_t
 dispatch_serial_queue_create_with_target_4swift(const char *_Nullable DISPATCH_UNSAFE_INDEXABLE label,
 		dispatch_queue_attr_t _Nullable attr, dispatch_queue_t _Nullable target) {
-	return dispatch_queue_create_with_target(label, attr, target);
+	return (dispatch_queue_serial_t)
+			dispatch_queue_create_with_target(label, attr, target);
 }
 
 DISPATCH_MALLOC DISPATCH_RETURNS_RETAINED DISPATCH_WARN_RESULT
@@ -47,7 +48,8 @@ DISPATCH_REFINED_FOR_SWIFT DISPATCH_SWIFT_NAME(DispatchConcurrentQueue.init(__la
 static inline dispatch_queue_concurrent_t
 dispatch_concurrent_queue_create_with_target_4swift(const char *_Nullable DISPATCH_UNSAFE_INDEXABLE label,
 		dispatch_queue_attr_t _Nullable attr, dispatch_queue_t _Nullable target) {
-	return dispatch_queue_create_with_target(label, attr, target);
+	return (dispatch_queue_concurrent_t)
+			dispatch_queue_create_with_target(label, attr, target);
 }
 #endif
 

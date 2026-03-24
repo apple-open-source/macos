@@ -28,7 +28,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-dictionary DOMPointInit {
+[
+    ExportMacro=WEBCORE_EXPORT,
+] dictionary DOMPointInit {
     unrestricted double x = 0;
     unrestricted double y = 0;
     unrestricted double z = 0;

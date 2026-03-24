@@ -53,7 +53,7 @@ static RefPtr<Node> enclosingListChild(Node* node, Node* listNode)
 
 RefPtr<HTMLElement> InsertListCommand::insertList(Ref<Document>&& document, Type type)
 {
-    RefPtr<InsertListCommand> insertCommand = create(WTFMove(document), type);
+    RefPtr<InsertListCommand> insertCommand = create(WTF::move(document), type);
     insertCommand->apply();
     return insertCommand->m_listElement;
 }
@@ -71,7 +71,7 @@ HTMLElement* InsertListCommand::fixOrphanedListChild(Node& node)
 
     removeNode(node);
     appendNode(node, listElement.copyRef());
-    m_listElement = WTFMove(listElement);
+    m_listElement = WTF::move(listElement);
     return m_listElement.get();
 }
 
@@ -112,7 +112,7 @@ bool InsertListCommand::selectionHasListOfType(const VisibleSelection& selection
 }
 
 InsertListCommand::InsertListCommand(Ref<Document>&& document, Type type)
-    : CompositeEditCommand(WTFMove(document))
+    : CompositeEditCommand(WTF::move(document))
     , m_type(type)
 {
 }
@@ -408,13 +408,13 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
     auto nextList = adjacentEnclosingList(start.deepEquivalent(), end.next(CannotCrossEditingBoundary), listTag);
     RefPtr<HTMLElement> listElement;
     if (previousList)
-        appendNode(WTFMove(listItemElement), *previousList);
+        appendNode(WTF::move(listItemElement), *previousList);
     else if (nextList)
-        insertNodeAt(WTFMove(listItemElement), positionBeforeNode(nextList.get()));
+        insertNodeAt(WTF::move(listItemElement), positionBeforeNode(nextList.get()));
     else {
         // Create the list.
         listElement = createHTMLElement(document(), listTag);
-        appendNode(WTFMove(listItemElement), *listElement);
+        appendNode(WTF::move(listItemElement), *listElement);
 
         if (start == end) {
             RefPtr node = start.deepEquivalent().deprecatedNode();

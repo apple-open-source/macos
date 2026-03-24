@@ -73,6 +73,7 @@
 #import "_WKAttachmentInternal.h"
 #import "_WKAutomationSessionInternal.h"
 #import "_WKContentRuleListActionInternal.h"
+#import "_WKContentWorldConfigurationInternal.h"
 #import "_WKContextMenuElementInfoInternal.h"
 #import "_WKCustomHeaderFieldsInternal.h"
 #import "_WKDataTaskInternal.h"
@@ -84,6 +85,7 @@
 #import "_WKInspectorConfigurationInternal.h"
 #import "_WKInspectorDebuggableInfoInternal.h"
 #import "_WKInspectorInternal.h"
+#import "_WKJSBufferInternal.h"
 #import "_WKJSHandleInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import "_WKResourceLoadInfoInternal.h"
@@ -385,6 +387,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [WKContentWorld alloc];
         break;
 
+    case Type::ContentWorldConfiguration:
+        SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKContentWorldConfiguration alloc];
+        break;
+
     case Type::TargetedElementInfo:
         SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKTargetedElementInfo alloc];
         break;
@@ -534,6 +540,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKJSHandle alloc];
         break;
 
+    case Type::JSBuffer:
+        SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKJSBuffer alloc];
+        break;
+
     default:
         SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = allocateWKObject([WKObject class], size);
         break;
@@ -612,17 +622,17 @@ RefPtr<API::Object> Object::fromNSObject(NSObject<NSSecureCoding> *object)
         result.reserveInitialCapacity(array.count);
         for (id member in array) {
             if (auto memberObject = fromNSObject(member))
-                result.append(WTFMove(memberObject));
+                result.append(WTF::move(memberObject));
         }
-        return API::Array::create(WTFMove(result));
+        return API::Array::create(WTF::move(result));
     }
     if (auto *dictionary = dynamic_objc_cast<NSDictionary>(object)) {
         __block HashMap<WTF::String, RefPtr<API::Object>> result;
         [dictionary enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
             if (auto valueObject = fromNSObject(value); valueObject && [key isKindOfClass:NSString.class])
-                result.add(key, WTFMove(valueObject));
+                result.add(key, WTF::move(valueObject));
         }];
-        return API::Dictionary::create(WTFMove(result));
+        return API::Dictionary::create(WTF::move(result));
     }
     // Other NSObject types are intentionally not supported.
     return nullptr;

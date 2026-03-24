@@ -14,6 +14,7 @@
 .Op Fl f Ar filename
 .Op Fl d Ar name
 .Op Fl c
+.Op Fl s
 .Op Ar name Op = Ar value Op ...
 .Sh DESCRIPTION
 The
@@ -22,7 +23,18 @@ command allows manipulation of firmware NVRAM variables.
 It can be used to get or set a variable.
 It can also be used to print all of the variables or set a list of
 variables from a file.
-Changes to NVRAM variables are only saved by clean restart or shutdown.
+.Pp
+Changes to NVRAM variables are automatically saved to storage, with the caveat
+that changes are buffered in memory if we performed a write in the last 15
+minutes (to reduce NAND wear). Additionally, writes are saved to storage upon:
+.Bl -dash -compact -offset indent
+.It
+A clean shutdown or restart
+.It
+A forced sync via
+.Nm
+.Fl s .
+.El
 .Pp
 In principle,
 .Ar name

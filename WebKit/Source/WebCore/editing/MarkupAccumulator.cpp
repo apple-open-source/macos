@@ -31,6 +31,7 @@
 #include "CDATASection.h"
 #include "Comment.h"
 #include "CommonAtomStrings.h"
+#include "CustomElementRegistry.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
@@ -201,7 +202,7 @@ MarkupAccumulator::MarkupAccumulator(Vector<Ref<Node>>* nodes, ResolveURLs resol
     , m_resolveURLs(resolveURLs)
     , m_serializationSyntax(serializationSyntax)
     , m_serializeShadowRoots(serializeShadowRoots)
-    , m_explicitShadowRoots(WTFMove(explicitShadowRoots))
+    , m_explicitShadowRoots(WTF::move(explicitShadowRoots))
     , m_exclusionRules(exclusionRules)
 {
     ASSERT(serializeShadowRoots != SerializeShadowRoots::AllForInterchange || explicitShadowRoots.isEmpty());
@@ -212,8 +213,8 @@ MarkupAccumulator::~MarkupAccumulator() = default;
 void MarkupAccumulator::enableURLReplacement(HashMap<String, String>&& replacementURLStrings, HashMap<Ref<CSSStyleSheet>, String>&& replacementURLStringsForCSSStyleSheet)
 {
     m_serializationContext = CSS::SerializationContext {
-        WTFMove(replacementURLStrings),
-        WTFMove(replacementURLStringsForCSSStyleSheet),
+        WTF::move(replacementURLStrings),
+        WTF::move(replacementURLStringsForCSSStyleSheet),
         true,
     };
 }
@@ -273,7 +274,7 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
         Namespaces namespaceHash;
         namespaceHash.set(xmlAtom().impl(), XMLNames::xmlNamespaceURI->impl());
         namespaceHash.set(XMLNames::xmlNamespaceURI->impl(), xmlAtom().impl());
-        namespaceStack.append(WTFMove(namespaceHash));
+        namespaceStack.append(WTF::move(namespaceHash));
     } else
         namespaceStack.constructAndAppend();
 
@@ -319,7 +320,7 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
 
         while (current != &targetNode) {
             if (RefPtr nextSibling = current->nextSibling()) {
-                current = WTFMove(nextSibling);
+                current = WTF::move(nextSibling);
                 namespaceStack.removeLast();
                 namespaceStack.append(namespaceStack.last());
                 break;
@@ -381,7 +382,7 @@ std::pair<String, MarkupAccumulator::IsCreatedByURLReplacement> MarkupAccumulato
     return { element.resolveURLStringIfNeeded(urlString, m_resolveURLs), IsCreatedByURLReplacement::No };
 }
 
-const ShadowRoot* MarkupAccumulator::suitableShadowRoot(const Node& node)
+RefPtr<const ShadowRoot> MarkupAccumulator::suitableShadowRoot(const Node& node)
 {
     if (!shouldIncludeShadowRoots())
         return nullptr;
@@ -389,7 +390,7 @@ const ShadowRoot* MarkupAccumulator::suitableShadowRoot(const Node& node)
     RefPtr shadowRoot = dynamicDowncast<ShadowRoot>(node);
     if (!shadowRoot || !includeShadowRoot(*shadowRoot))
         return nullptr;
-    return shadowRoot.unsafeGet();
+    return shadowRoot;
 }
 
 void MarkupAccumulator::startAppendingNode(const Node& node, Namespaces* namespaces)
@@ -423,7 +424,19 @@ void MarkupAccumulator::startAppendingNode(const Node& node, Namespaces* namespa
             m_markup.append(" shadowrootserializable=\"\""_s);
         if (shadowRoot->isClonable())
             m_markup.append(" shadowrootclonable=\"\""_s);
-        if (shadowRoot->protectedHost()->customElementRegistry() != shadowRoot->registryForBindings())
+        bool shouldAppendRegistryAttribute = [&] {
+            Ref document = shadowRoot->document();
+            if (document->usesNullCustomElementRegistry() && shadowRoot->usesNullCustomElementRegistry())
+                return false;
+
+            RefPtr documentRegistry = document->customElementRegistry();
+            RefPtr shadowRegistry = shadowRoot->customElementRegistry();
+            bool documentHasGlobalRegistry = (documentRegistry && !documentRegistry->isScoped()) || document->window();
+            bool shadowHasGlobalRegistry = (shadowRegistry && !shadowRegistry->isScoped())
+                || (!shadowRegistry && !shadowRoot->usesNullCustomElementRegistry() && document->window());
+            return !(documentHasGlobalRegistry && shadowHasGlobalRegistry);
+        }();
+        if (shouldAppendRegistryAttribute)
             m_markup.append(" shadowrootcustomelementregistry=\"\""_s);
         m_markup.append('>');
     } else
@@ -728,7 +741,7 @@ QualifiedName MarkupAccumulator::xmlAttributeSerialization(const Attribute& attr
             bool prefixIsAlreadyMappedToOtherNS = foundNS && foundNS != attribute.namespaceURI().impl();
             if (attribute.prefix().isEmpty() || !foundNS || prefixIsAlreadyMappedToOtherNS) {
                 if (RefPtr prefix = namespaces ? namespaces->get(attribute.namespaceURI().impl()) : nullptr)
-                    prefixedName.setPrefix(AtomString(WTFMove(prefix)));
+                    prefixedName.setPrefix(AtomString(WTF::move(prefix)));
                 else {
                     bool shouldBeDeclaredUsingAppendNamespace = !attribute.prefix().isEmpty() && !foundNS;
                     if (!shouldBeDeclaredUsingAppendNamespace && attribute.localName() != xmlnsAtom() && namespaces)

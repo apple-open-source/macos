@@ -91,7 +91,7 @@ bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef
 
 void SOSAccountRemoveRing(SOSAccount* a, CFStringRef ringName) {
     CFMutableDictionaryRef rings = [a.trust getRings:NULL];
-    require_quiet(rings, fail);
+    __Require_Quiet(rings, fail);
     CFDictionaryRemoveValue(rings, ringName);
 fail:
     return;
@@ -121,7 +121,7 @@ bool SOSAccountUpdateRingFromRemote(SOSAccount* account, SOSRingRef newRing, CFE
         return true; // we want to drop circle notifications when account is changing
     }
 
-    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
+    __Require_Quiet(SOSAccountHasPublicKey(account, error), errOut);
   
     return [account.trust handleUpdateRing:account prospectiveRing:newRing transport:account.circle_transport userPublicKey:account.accountKey writeUpdate:false err:error];
 errOut:
@@ -129,7 +129,7 @@ errOut:
 }
 
 bool SOSAccountUpdateRing(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error) {
-    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
+    __Require_Quiet(SOSAccountHasPublicKey(account, error), errOut);
 
     return [account.trust handleUpdateRing:account prospectiveRing:newRing transport:account.circle_transport userPublicKey:account.accountKey writeUpdate:true err:error];
 

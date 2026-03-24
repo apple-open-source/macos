@@ -31,13 +31,13 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
+#include "ExecutionHandlerTest.h"
 #include "InitializeThreading.h"
+#include "Options.h"
+#include "TestUtilities.h"
 #include "WasmVirtualAddress.h"
 #include <wtf/HexNumber.h>
-#include <wtf/Vector.h>
-#include <wtf/WTFProcess.h>
 #include <wtf/text/MakeString.h>
-#include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 #if OS(WINDOWS)
@@ -47,22 +47,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 using namespace JSC;
 using namespace JSC::Wasm;
 
-// Test counters
-static int testsRun = 0;
-static int testsPassed = 0;
+// Test counter for VirtualAddress tests (assertion-based, crash on failure)
 static int testsFailed = 0;
-
-#define TEST_ASSERT(condition, message)                          \
-    do {                                                         \
-        testsRun++;                                              \
-        if (condition) {                                         \
-            testsPassed++;                                       \
-            dataLogLn("PASS: ", message);                        \
-        } else {                                                 \
-            testsFailed++;                                       \
-            dataLogLn("FAIL: ", message, " (", #condition, ")"); \
-        }                                                        \
-    } while (0)
 
 static void testWASMVirtualAddressConstants()
 {
@@ -300,11 +286,12 @@ static void testWASMVirtualAddressOperators()
     dataLogLn("VirtualAddress operators tests completed");
 }
 
-static void runAllTests()
+static int runAllTests()
 {
-    dataLogLn("Starting VirtualAddress Infrastructure Test Suite");
+    dataLogLn("Starting WASM Debugger Test Suite");
     dataLogLn("===============================================");
 
+    dataLogLn("\n--- VirtualAddress Infrastructure Tests ---");
     testWASMVirtualAddressConstants();
     testWASMVirtualAddressEncoding();
     testWASMVirtualAddressBoundaries();
@@ -313,20 +300,30 @@ static void runAllTests()
     testWASMVirtualAddressHashTraits();
     testWASMVirtualAddressOperators();
 
-    dataLogLn("===============================================");
-    dataLogLn("Test Results:");
-    dataLogLn("  Tests run: ", testsRun);
-    dataLogLn("  Passed: ", testsPassed);
-    dataLogLn("  Failed: ", testsFailed);
+    dataLogLn("\n--- WASM Debug Info Tests ---");
+    int debugInfoTestsFailed = testWasmDebugInfo();
 
-    if (!testsFailed) {
+    dataLogLn("\n--- WASM Debugger Execution Handler Tests ---");
+    int executionHandlerTestsFailed = testExecutionHandler();
+
+    dataLogLn("===============================================");
+    dataLogLn("Combined Test Results:");
+    dataLogLn("  VirtualAddress Tests - PASSED (assertion-based)");
+    dataLogLn("  WASM Debug Info Tests - See detailed results above");
+    dataLogLn("  WASM Debugger Stress Tests - See detailed results above");
+    dataLogLn("  Total Failures: ", testsFailed, " (VirtualAddress) + ", debugInfoTestsFailed, " (Debug Info) + ", executionHandlerTestsFailed, " (Stress) = ", testsFailed + debugInfoTestsFailed + executionHandlerTestsFailed);
+
+    int totalFailures = testsFailed + debugInfoTestsFailed + executionHandlerTestsFailed;
+    if (!totalFailures) {
         dataLogLn("All tests PASSED!");
-        dataLogLn("VirtualAddress infrastructure is working correctly");
+        dataLogLn("WASM debugger infrastructure is working correctly");
         dataLogLn("allWasmDebuggerTestsPassed");
     } else {
         dataLogLn("Some tests FAILED!");
-        dataLogLn("VirtualAddress infrastructure needs attention");
+        dataLogLn("WASM debugger infrastructure needs attention");
     }
+
+    return totalFailures;
 }
 
 int main(int argc, char** argv)
@@ -343,9 +340,10 @@ int main(int argc, char** argv)
     WTF::disableCRTDebugAssertDialog();
 #endif
 
+    JSC::Config::configureForTesting();
     JSC::initialize();
-    runAllTests();
-    return (!testsFailed) ? 0 : 1;
+    JSC::Options::setOption("enableWasmDebugger=true");
+    return runAllTests();
 }
 
 #if OS(WINDOWS)

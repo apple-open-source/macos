@@ -27,6 +27,7 @@
 #include "WebProcessActivityState.h"
 
 #include "APIPageConfiguration.h"
+#include "Logging.h"
 #include "RemotePageProxy.h"
 #include "WebPageProxy.h"
 #include "WebProcessPool.h"
@@ -74,6 +75,36 @@ void WebProcessActivityState::takeVisibleActivity()
 #endif
 }
 
+void WebProcessActivityState::takeTextExtractionAssertion()
+{
+    auto page = WTF::visit([](auto&& weakPageRef) -> Variant<WeakPtr<WebPageProxy>, WeakPtr<RemotePageProxy>> {
+        return weakPageRef.get();
+    }, m_page);
+
+    auto processID = protectedProcess()->processID();
+    Ref assertion = ProcessAssertion::create(protectedProcess(), "WebKit text extraction"_s, ProcessAssertionType::Background);
+    m_textExtractionAssertion = assertion.copyRef();
+    assertion->setInvalidationHandler([processID, weakPage = page] {
+        WTF::visit([processID](auto&& weakPage) {
+            RefPtr page = weakPage.get();
+            if (!page)
+                return;
+
+#if RELEASE_LOG_DISABLED
+            UNUSED_PARAM(processID);
+#else
+            RELEASE_LOG(ProcessSuspension, "Text extraction assertion is invalidated (PID=%d)", processID);
+#endif
+            page->processActivityState().m_textExtractionAssertion = nullptr;
+        }, weakPage);
+    });
+}
+
+void WebProcessActivityState::dropTextExtractionAssertion()
+{
+    m_textExtractionAssertion = nullptr;
+}
+
 void WebProcessActivityState::takeAudibleActivity()
 {
     m_isAudibleActivity = protectedProcess()->protectedThrottler()->foregroundActivity("View is playing audio"_s);
@@ -102,6 +133,12 @@ void WebProcessActivityState::takeMutedCaptureAssertion()
         };
         WTF::visit(invalidateCaptureAssertion, weakPage);
     });
+}
+
+void WebProcessActivityState::takeNetworkActivity()
+{
+    RELEASE_LOG(Process, "Taking network activity on WebProcess with PID %d", protectedProcess()->processID());
+    m_networkActivity = protectedProcess()->protectedThrottler()->backgroundActivity("Page Load"_s);
 }
 
 void WebProcessActivityState::reset()
@@ -144,6 +181,12 @@ void WebProcessActivityState::dropMutedCaptureAssertion()
     m_isMutedCaptureAssertion = nullptr;
 }
 
+void WebProcessActivityState::dropNetworkActivity()
+{
+    RELEASE_LOG(Process, "Dropping network activity on WebProcess with PID %d", protectedProcess()->processID());
+    m_networkActivity = nullptr;
+}
+
 bool WebProcessActivityState::hasValidVisibleActivity() const
 {
     return m_isVisibleActivity && m_isVisibleActivity->isValid();
@@ -157,6 +200,11 @@ bool WebProcessActivityState::hasValidAudibleActivity() const
 bool WebProcessActivityState::hasValidCapturingActivity() const
 {
     return m_isCapturingActivity && m_isCapturingActivity->isValid();
+}
+
+bool WebProcessActivityState::hasValidNetworkActivity() const
+{
+    return m_networkActivity && m_networkActivity->isValid();
 }
 
 bool WebProcessActivityState::hasValidMutedCaptureAssertion() const

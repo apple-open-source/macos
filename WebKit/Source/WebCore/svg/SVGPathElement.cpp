@@ -28,7 +28,7 @@
 #include "LegacyRenderSVGResource.h"
 #include "MutableStyleProperties.h"
 #include "RenderSVGPath.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGMPathElement.h"
@@ -41,7 +41,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGPathElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SVGPathElement);
 
 class PathSegListCache {
 public:
@@ -87,7 +87,7 @@ void PathSegListCache::add(const AtomString& attributeValue, DataRef<SVGPathByte
         m_sizeInBytes -= iteratorToRemove->value->size();
         m_cache.remove(iteratorToRemove);
     }
-    m_cache.add(attributeValue, WTFMove(data));
+    m_cache.add(attributeValue, WTF::move(data));
 }
 
 void PathSegListCache::clear()
@@ -101,10 +101,11 @@ inline SVGPathElement::SVGPathElement(const QualifiedName& tagName, Document& do
 {
     ASSERT(hasTagName(SVGNames::pathTag));
 
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
+    static bool didRegistration = false;
+    if (!didRegistration) [[unlikely]] {
+        didRegistration = true;
         PropertyRegistry::registerProperty<SVGNames::dAttr, &SVGPathElement::m_pathSegList>();
-    });
+    }
 }
 
 Ref<SVGPathElement> SVGPathElement::create(const QualifiedName& tagName, Document& document)
@@ -119,7 +120,7 @@ void SVGPathElement::attributeChanged(const QualifiedName& name, const AtomStrin
         if (newValue.isEmpty())
             Ref { m_pathSegList }->baseVal()->clearByteStreamData();
         else if (auto data = cache.get(newValue))
-            Ref { m_pathSegList }->baseVal()->updateByteStreamData(WTFMove(data.value()));
+            Ref { m_pathSegList }->baseVal()->updateByteStreamData(WTF::move(data.value()));
         else if (Ref { m_pathSegList }->baseVal()->parse(newValue))
             cache.add(newValue, m_pathSegList->baseVal()->existingPathByteStream().data());
         else
@@ -230,8 +231,8 @@ FloatRect SVGPathElement::getBBox(StyleUpdateStrategy styleUpdateStrategy)
 RenderPtr<RenderElement> SVGPathElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (document().settings().layerBasedSVGEngineEnabled())
-        return createRenderer<RenderSVGPath>(*this, WTFMove(style));
-    return createRenderer<LegacyRenderSVGPath>(*this, WTFMove(style));
+        return createRenderer<RenderSVGPath>(*this, WTF::move(style));
+    return createRenderer<LegacyRenderSVGPath>(*this, WTF::move(style));
 }
 
 const SVGPathByteStream& SVGPathElement::pathByteStream() const
@@ -284,7 +285,7 @@ void SVGPathElement::collectDPresentationalHint(MutableStyleProperties& style)
     auto property = cssPropertyIdForSVGAttributeName(SVGNames::dAttr, document().settings());
     // The fill rule value passed here is not relevant for the `d` property.
     auto cssPathValue = CSSPathValue::create(CSS::PathFunction { CSS::Keyword::Nonzero { }, CSS::Path::Data { Ref { m_pathSegList }->currentPathByteStream() } });
-    addPropertyToPresentationalHintStyle(style, property, WTFMove(cssPathValue));
+    addPropertyToPresentationalHintStyle(style, property, WTF::move(cssPathValue));
 }
 
 void SVGPathElement::pathDidChange()

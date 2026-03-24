@@ -19,7 +19,7 @@
 
 #pragma once
 
-#if USE(LIBWEBRTC)
+#if USE(LIBWEBRTC) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "RealtimeOutgoingAudioSource.h"
@@ -27,6 +27,7 @@
 #include <gst/audio/audio.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Lock.h>
+#include <wtf/MediaTime.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/glib/GUniquePtr.h>
 
@@ -38,7 +39,7 @@ class RealtimeOutgoingAudioSourceLibWebRTC final : public RealtimeOutgoingAudioS
 public:
     static Ref<RealtimeOutgoingAudioSourceLibWebRTC> create(Ref<MediaStreamTrackPrivate>&& audioTrackPrivate)
     {
-        return adoptRef(*new RealtimeOutgoingAudioSourceLibWebRTC(WTFMove(audioTrackPrivate)));
+        return adoptRef(*new RealtimeOutgoingAudioSourceLibWebRTC(WTF::move(audioTrackPrivate)));
     }
 
 private:
@@ -50,6 +51,7 @@ private:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) final;
 
@@ -70,4 +72,4 @@ private:
 
 } // namespace WebCore
 
-#endif // USE(LIBWEBRTC)
+#endif // USE(LIBWEBRTC) && USE(GSTREAMER)

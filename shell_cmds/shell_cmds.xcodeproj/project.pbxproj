@@ -52,6 +52,7 @@
 				D073AD2129009B70002A6563 /* PBXTargetDependency */,
 				D073AD2329009B70002A6563 /* PBXTargetDependency */,
 				D073AD2529009B70002A6563 /* PBXTargetDependency */,
+				CB1748042DEF92140078A5F7 /* PBXTargetDependency */,
 				D073AD2929009B70002A6563 /* PBXTargetDependency */,
 				D073AD2B29009B70002A6563 /* PBXTargetDependency */,
 				D073AD2D29009B70002A6563 /* PBXTargetDependency */,
@@ -115,6 +116,7 @@
 				FD6060BB1B7C03BC004BCA6A /* PBXTargetDependency */,
 				FCBA168314A146D000AA698B /* PBXTargetDependency */,
 				FCBA168514A146D000AA698B /* PBXTargetDependency */,
+				CB1748002DEF91E10078A5F7 /* PBXTargetDependency */,
 				FCBA168714A146D000AA698B /* PBXTargetDependency */,
 				FCBA168914A146D000AA698B /* PBXTargetDependency */,
 				FCBA168B14A146D000AA698B /* PBXTargetDependency */,
@@ -174,6 +176,7 @@
 				FCE30F8514B619E600CC0294 /* PBXTargetDependency */,
 				FD6060B91B7C03B3004BCA6A /* PBXTargetDependency */,
 				FCE30F8714B619E600CC0294 /* PBXTargetDependency */,
+				CB1748022DEF91F00078A5F7 /* PBXTargetDependency */,
 				FCE30F8914B619E600CC0294 /* PBXTargetDependency */,
 				FCE30F8B14B619E600CC0294 /* PBXTargetDependency */,
 				FCE30F8D14B619E600CC0294 /* PBXTargetDependency */,
@@ -350,14 +353,14 @@
 		C686857C154725700025D623 /* systime.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C686857B154725700025D623 /* systime.1 */; };
 		CB0EC49B290306CC004E5A63 /* libxo.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0EC49A290306CB004E5A63 /* libxo.tbd */; };
 		CB0EC49D290306DC004E5A63 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0EC49C290306DC004E5A63 /* libutil.tbd */; };
-		CB1205152A54310B008069F2 /* libsbuf.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1205142A54310B008069F2 /* libsbuf.tbd */; };
 		CB1205102A4DEA29008069F2 /* stdbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = CB12050E2A4DEA28008069F2 /* stdbuf.c */; };
 		CB1205112A4DEA33008069F2 /* stdbuf.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = CB12050F2A4DEA28008069F2 /* stdbuf.1 */; };
+		CB1205152A54310B008069F2 /* libsbuf.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1205142A54310B008069F2 /* libsbuf.tbd */; };
 		CB2E9CF628B8F24000F6C10B /* renice_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB2E9CF528B8F24000F6C10B /* renice_test.sh */; };
+		CB4251CF297AC86C00373DFD /* libsbuf.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB4251CE297AC85900373DFD /* libsbuf.tbd */; };
 		CB76E9222CB48B1100266D3F /* env_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB76E9212CB48AFA00266D3F /* env_test.sh */; };
 		CB822FD92A60A8DC00913E2B /* regress.R-1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB822FD82A60A8C200913E2B /* regress.R-1.out */; };
 		CB822FDA2A60A8E100913E2B /* regress.n2147483647.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB822FD72A60A8C200913E2B /* regress.n2147483647.out */; };
-		CB4251CF297AC86C00373DFD /* libsbuf.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB4251CE297AC85900373DFD /* libsbuf.tbd */; };
 		CBA040002909C08B00A51845 /* script_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CBA03FFF2909C08B00A51845 /* script_test.sh */; };
 		CBB338932981A56D002C6735 /* path_helper_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CBB338912981A53C002C6735 /* path_helper_test.sh */; };
 		D39B190C25B1218100C43A96 /* regress.bwidth.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = D39B190B25B1216000C43A96 /* regress.bwidth.out */; };
@@ -588,6 +591,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = C6868575154725700025D623;
 			remoteInfo = systime;
+		};
+		CB1747FF2DEF91E10078A5F7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB1205072A4DE9C7008069F2;
+			remoteInfo = stdbuf;
+		};
+		CB1748012DEF91F00078A5F7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB1205072A4DE9C7008069F2;
+			remoteInfo = stdbuf;
+		};
+		CB1748032DEF92140078A5F7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB1205072A4DE9C7008069F2;
+			remoteInfo = stdbuf;
 		};
 		D073ACE029009B70002A6563 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2702,15 +2726,15 @@
 		C686857B154725700025D623 /* systime.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = systime.1; sourceTree = "<group>"; };
 		CB0EC49A290306CB004E5A63 /* libxo.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxo.tbd; path = usr/lib/libxo.tbd; sourceTree = SDKROOT; };
 		CB0EC49C290306DC004E5A63 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = usr/lib/libutil.tbd; sourceTree = SDKROOT; };
-		CB1205142A54310B008069F2 /* libsbuf.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsbuf.tbd; path = usr/lib/libsbuf.tbd; sourceTree = SDKROOT; };
 		CB1205082A4DE9C7008069F2 /* stdbuf */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = stdbuf; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB12050E2A4DEA28008069F2 /* stdbuf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stdbuf.c; sourceTree = "<group>"; };
 		CB12050F2A4DEA28008069F2 /* stdbuf.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = stdbuf.1; sourceTree = "<group>"; };
+		CB1205142A54310B008069F2 /* libsbuf.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsbuf.tbd; path = usr/lib/libsbuf.tbd; sourceTree = SDKROOT; };
 		CB2E9CF528B8F24000F6C10B /* renice_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = renice_test.sh; path = tests/renice_test.sh; sourceTree = "<group>"; };
+		CB4251CE297AC85900373DFD /* libsbuf.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsbuf.tbd; path = usr/lib/libsbuf.tbd; sourceTree = SDKROOT; };
 		CB76E9212CB48AFA00266D3F /* env_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = env_test.sh; sourceTree = "<group>"; };
 		CB822FD72A60A8C200913E2B /* regress.n2147483647.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.n2147483647.out; path = tests/regress.n2147483647.out; sourceTree = "<group>"; };
 		CB822FD82A60A8C200913E2B /* regress.R-1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.R-1.out"; path = "tests/regress.R-1.out"; sourceTree = "<group>"; };
-		CB4251CE297AC85900373DFD /* libsbuf.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsbuf.tbd; path = usr/lib/libsbuf.tbd; sourceTree = SDKROOT; };
 		CBA03FFF2909C08B00A51845 /* script_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = script_test.sh; path = tests/script_test.sh; sourceTree = "<group>"; };
 		CBB338912981A53C002C6735 /* path_helper_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = path_helper_test.sh; path = tests/path_helper_test.sh; sourceTree = "<group>"; };
 		CE799E6024AD3B1B00E73238 /* test_time.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = test_time.sh; sourceTree = "<group>"; usesTabs = 1; };
@@ -3657,14 +3681,6 @@
 			path = realpath;
 			sourceTree = "<group>";
 		};
-		2AEC87FA2B0D99D900D6C838 /* Recovered References */ = {
-			isa = PBXGroup;
-			children = (
-				CB4251CE297AC85900373DFD /* libsbuf.tbd */,
-			);
-			name = "Recovered References";
-			sourceTree = "<group>";
-		};
 		90FB066C271F8F57005007F5 /* lockf */ = {
 			isa = PBXGroup;
 			children = (
@@ -3712,6 +3728,14 @@
 				CB12050E2A4DEA28008069F2 /* stdbuf.c */,
 			);
 			path = stdbuf;
+			sourceTree = "<group>";
+		};
+		CB1747FE2DEF91BC0078A5F7 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				CB4251CE297AC85900373DFD /* libsbuf.tbd */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		CB5CFC172977E8AB0098ACFB /* tests */ = {
@@ -3849,6 +3873,7 @@
 				FCBA142B14A141A300AA698B /* yes */,
 				FC80BF6114A05A2F00C6F7F5 /* Products */,
 				A7892F06293DE8E700BC28EB /* Frameworks */,
+				CB1747FE2DEF91BC0078A5F7 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -4640,7 +4665,6 @@
 			buildConfigurationList = CB12050C2A4DE9C7008069F2 /* Build configuration list for PBXNativeTarget "stdbuf" */;
 			buildPhases = (
 				CB1205042A4DE9C7008069F2 /* Sources */,
-				CB1205052A4DE9C7008069F2 /* Frameworks */,
 				CB1205062A4DE9C7008069F2 /* CopyFiles */,
 			);
 			buildRules = (
@@ -5529,6 +5553,9 @@
 						CreatedOnToolsVersion = 13.0;
 						ProvisioningStyle = Automatic;
 					};
+					CB1205072A4DE9C7008069F2 = {
+						ProvisioningStyle = Automatic;
+					};
 					FD6060B11B7C0388004BCA6A = {
 						CreatedOnToolsVersion = 7.0;
 					};
@@ -5813,7 +5840,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ${BUILT_PRODUCTS_DIR} && sh ${SRCROOT}/sh/mktokens";
+			shellScript = "cd ${BUILT_PRODUCTS_DIR} && sh ${SRCROOT}/sh/mktokens\n";
 		};
 		FD6061321B7D32AD004BCA6A /* sh.1 */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -6363,6 +6390,21 @@
 			isa = PBXTargetDependency;
 			target = C6868575154725700025D623 /* systime */;
 			targetProxy = C6868582154725A30025D623 /* PBXContainerItemProxy */;
+		};
+		CB1748002DEF91E10078A5F7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB1205072A4DE9C7008069F2 /* stdbuf */;
+			targetProxy = CB1747FF2DEF91E10078A5F7 /* PBXContainerItemProxy */;
+		};
+		CB1748022DEF91F00078A5F7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB1205072A4DE9C7008069F2 /* stdbuf */;
+			targetProxy = CB1748012DEF91F00078A5F7 /* PBXContainerItemProxy */;
+		};
+		CB1748042DEF92140078A5F7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB1205072A4DE9C7008069F2 /* stdbuf */;
+			targetProxy = CB1748032DEF92140078A5F7 /* PBXContainerItemProxy */;
 		};
 		D073ACDF29009B70002A6563 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7161,6 +7203,8 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /usr/local/bin;
+				"INSTALL_PATH[sdk=macosx*]" = /usr/bin;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;

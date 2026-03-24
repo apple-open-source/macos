@@ -45,6 +45,7 @@ public:
         InlineBoxStart,
         InlineBoxEnd,
         Float,
+        Block,
         Opaque
     };
     InlineItem(const Box& layoutBox, Type, UBiDiLevel = UBIDI_DEFAULT_LTR);
@@ -67,6 +68,7 @@ public:
     bool isInlineBoxEnd() const { return type() == Type::InlineBoxEnd; }
     bool isInlineBoxStartOrEnd() const { return isInlineBoxStart() || isInlineBoxEnd(); }
     bool isOpaque() const { return type() == Type::Opaque; }
+    bool isBlock() const { return type() == Type::Block; }
 
 private:
     friend class InlineItemsBuilder;

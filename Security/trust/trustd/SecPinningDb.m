@@ -77,7 +77,6 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
 
 @interface SecPinningDb()
 @property dispatch_queue_t queue;
-@property NSURL *dbPath;
 @property (assign) os_unfair_lock regexCacheLock;
 @property NSMutableDictionary *regexCache;
 @property NSMutableArray *regexCacheList;
@@ -423,7 +422,9 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
     mode_t mode = 0600; // Only one trustd.
 #endif
 
-    CFStringRef path = CFStringCreateWithCString(NULL, [_dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
+    NSURL *dbPath = [SecPinningDb pinningDbPath];
+
+    CFStringRef path = CFStringCreateWithCString(NULL, [dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
     SecDbRef result = SecDbCreate(path, mode, readWrite, readWrite, false, false, kSecDbTrustdMaxIdleHandles,
          ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
              if (!SecOTAPKIIsSystemTrustd()) {
@@ -505,7 +506,6 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
 - (void) initializedDb {
     dispatch_sync(_queue, ^{
         if (!self->_db) {
-            self->_dbPath = [SecPinningDb pinningDbPath];
             self->_db = [self createAtPath];
         }
     });
@@ -668,22 +668,22 @@ const CFStringRef kSecPinningDbKeyTransparentConnection = CFSTR("PinningTranspar
                     /* Get the data from the entry */
                     // First Label Regex
                     const uint8_t *regex = sqlite3_column_text(selectDomain, 0);
-                    verify_action(regex, return);
+                    __Verify_Action(regex, return);
                     NSString *regexStr = [NSString stringWithUTF8String:(const char *)regex];
-                    verify_action(regexStr, return);
+                    __Verify_Action(regexStr, return);
                     NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:regexStr
                                                                                                        options:NSRegularExpressionCaseInsensitive
                                                                                                          error:nil];
-                    verify_action(regularExpression, return);
+                    __Verify_Action(regularExpression, return);
                     // Policy name
                     const uint8_t *policyName = sqlite3_column_text(selectDomain, 1);
                     NSString *policyNameStr = [NSString stringWithUTF8String:(const char *)policyName];
                     // Policies
-                    verify_action(sqlite3_column_bytes(selectDomain, 2) > 0, return);
+                    __Verify_Action(sqlite3_column_bytes(selectDomain, 2) > 0, return);
                     NSData *xmlPolicies = [NSData dataWithBytes:sqlite3_column_blob(selectDomain, 2) length:(NSUInteger)sqlite3_column_bytes(selectDomain, 2)];
-                    verify_action(xmlPolicies, return);
+                    __Verify_Action(xmlPolicies, return);
                     id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
-                    verify_action(isNSArray(policies), return);
+                    __Verify_Action(isNSArray(policies), return);
                     // TransparentConnection
                     bool transparentConnection = (sqlite3_column_int(selectDomain, 3) > 0) ? true : false;
 

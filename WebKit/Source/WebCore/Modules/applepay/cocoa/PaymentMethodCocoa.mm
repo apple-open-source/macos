@@ -37,8 +37,8 @@ namespace WebCore {
 static void finishConverting(PKPaymentMethod *paymentMethod, ApplePayPaymentMethod& result)
 {
 #if HAVE(PASSKIT_INSTALLMENTS)
-    if (NSString *bindToken = paymentMethod.bindToken)
-        result.bindToken = bindToken;
+    if (RetainPtr<NSString> bindToken = paymentMethod.bindToken)
+        result.bindToken = bindToken.get();
 #else
     UNUSED_PARAM(paymentMethod);
     UNUSED_PARAM(result);
@@ -71,10 +71,10 @@ static std::optional<ApplePayPaymentPass> convert(PKPaymentPass *paymentPass)
     result.primaryAccountIdentifier = paymentPass.primaryAccountIdentifier;
     result.primaryAccountNumberSuffix = paymentPass.primaryAccountNumberSuffix;
 
-    if (NSString *deviceAccountIdentifier = paymentPass.deviceAccountIdentifier)
-        result.deviceAccountIdentifier = deviceAccountIdentifier;
-    if (NSString *deviceAccountNumberSuffix = paymentPass.deviceAccountNumberSuffix)
-        result.deviceAccountNumberSuffix = deviceAccountNumberSuffix;
+    if (RetainPtr<NSString> deviceAccountIdentifier = paymentPass.deviceAccountIdentifier)
+        result.deviceAccountIdentifier = deviceAccountIdentifier.get();
+    if (RetainPtr<NSString> deviceAccountNumberSuffix = paymentPass.deviceAccountNumberSuffix)
+        result.deviceAccountNumberSuffix = deviceAccountNumberSuffix.get();
 
     result.activationState = convert(paymentPass.activationState);
 
@@ -100,8 +100,8 @@ static std::optional<ApplePayPaymentMethod::Type> convert(PKPaymentMethodType pa
 
 static void convert(CNLabeledValue<CNPostalAddress*> *postalAddress, ApplePayPaymentContact &result)
 {
-    if (NSString *street = postalAddress.value.street)
-        result.addressLines = { String { street } };
+    if (RetainPtr<NSString> street = postalAddress.value.street)
+        result.addressLines = { String { street.get() } };
     result.subLocality = postalAddress.value.subLocality;
     result.locality = postalAddress.value.city;
     result.subAdministrativeArea = postalAddress.value.subAdministrativeArea;
@@ -117,21 +117,21 @@ static std::optional<ApplePayPaymentContact> convert(CNContact *billingContact)
         return std::nullopt;
 
     ApplePayPaymentContact result;
-    
-    if (auto firstPhoneNumber = billingContact.phoneNumbers.firstObject)
-        result.phoneNumber = firstPhoneNumber.value.stringValue;
-    
-    if (auto firstEmailAddress = billingContact.emailAddresses.firstObject)
-        result.emailAddress = firstEmailAddress.value;
-    
+
+    if (auto firstPhoneNumber = retainPtr(billingContact.phoneNumbers.firstObject))
+        result.phoneNumber = firstPhoneNumber.get().value.stringValue;
+
+    if (auto firstEmailAddress = retainPtr(billingContact.emailAddresses.firstObject))
+        result.emailAddress = firstEmailAddress.get().value;
+
     result.givenName = billingContact.givenName;
     result.familyName = billingContact.familyName;
-    
+
     result.phoneticGivenName = billingContact.phoneticGivenName;
     result.phoneticFamilyName = billingContact.phoneticFamilyName;
-    
-    if (CNLabeledValue<CNPostalAddress*> *firstPostalAddress = billingContact.postalAddresses.firstObject)
-        convert(firstPostalAddress, result);
+
+    if (RetainPtr<CNLabeledValue<CNPostalAddress*>> firstPostalAddress = billingContact.postalAddresses.firstObject)
+        convert(firstPostalAddress.get(), result);
 
     return result;
 }
@@ -140,13 +140,13 @@ static ApplePayPaymentMethod convert(PKPaymentMethod *paymentMethod)
 {
     ApplePayPaymentMethod result;
     
-    if (NSString *displayName = paymentMethod.displayName)
-        result.displayName = displayName;
-    if (NSString *network = paymentMethod.network)
-        result.network = network;
-    result.billingContact = convert(paymentMethod.billingAddress);
+    if (RetainPtr<NSString> displayName = paymentMethod.displayName)
+        result.displayName = displayName.get();
+    if (RetainPtr<NSString> network = paymentMethod.network)
+        result.network = network.get();
+    result.billingContact = convert(retainPtr(paymentMethod.billingAddress).get());
     result.type = convert(paymentMethod.type);
-    result.paymentPass = convert(paymentMethod.paymentPass);
+    result.paymentPass = convert(retainPtr(paymentMethod.paymentPass).get());
 
     finishConverting(paymentMethod, result);
 
@@ -156,7 +156,7 @@ static ApplePayPaymentMethod convert(PKPaymentMethod *paymentMethod)
 PaymentMethod::PaymentMethod() = default;
 
 PaymentMethod::PaymentMethod(RetainPtr<PKPaymentMethod>&& pkPaymentMethod)
-    : m_pkPaymentMethod { WTFMove(pkPaymentMethod) }
+    : m_pkPaymentMethod { WTF::move(pkPaymentMethod) }
 {
 }
 

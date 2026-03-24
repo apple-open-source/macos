@@ -37,7 +37,7 @@ static Vector<String>& overrideLanguagesStorage()
 
 void setOverrideLanguages(Vector<String>&& languages)
 {
-    overrideLanguagesStorage() = WTFMove(languages);
+    overrideLanguagesStorage() = WTF::move(languages);
 }
 
 const Vector<String>& overrideLanguages()

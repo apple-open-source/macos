@@ -49,7 +49,12 @@
                                     ops:(FSOperations *)fsOps
                              usingCache:(bool)usingCache;
 {
-    NSString *queueName = [NSString stringWithFormat:@"%@.%s", self.device.BSDName, "fatQueue"];
+    NSString *queueName = nil;
+    if (device.BSDName != nil) {
+        queueName = [NSString stringWithFormat:@"%@.%s", device.BSDName, "fatQueue"];
+    } else {
+        queueName = @"fatQueue";
+    }
 
     self.useCache = usingCache;
     self.device = device;

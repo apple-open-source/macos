@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2016 Igalia S.L.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,7 +33,7 @@
 #pragma once
 
 #include "NetworkDataTask.h"
-#include <WebCore/BlobResourceHandle.h>
+#include <WebCore/BlobResourceHandleBase.h>
 #include <WebCore/FileStreamClient.h>
 #include <WebCore/HTTPParsers.h>
 #include <wtf/FileHandle.h>
@@ -48,7 +49,7 @@ namespace WebKit {
 
 class NetworkProcess;
 
-class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::BlobResourceHandleBase, public WebCore::FileStreamClient {
+class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::BlobResourceHandleBase {
 public:
     static Ref<NetworkDataTask> create(NetworkSession& session, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences, const RefPtr<WebCore::SecurityOrigin>& topOrigin)
     {
@@ -57,45 +58,39 @@ public:
 
     ~NetworkDataTaskBlob();
 
+    // FileStreamClient.
+    void ref() const final { NetworkDataTask::ref(); }
+    void deref() const final { NetworkDataTask::deref(); }
+
 private:
     NetworkDataTaskBlob(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, const Vector<RefPtr<WebCore::BlobDataFileReference>>&, const RefPtr<WebCore::SecurityOrigin>& topOrigin);
 
-    void cancel() override;
-    void resume() override;
-    void invalidateAndCancel() override;
-    NetworkDataTask::State state() const override { return m_state; }
+    // NetworkDataTask.
+    void cancel() final;
+    void resume() final;
+    void invalidateAndCancel() final;
+    NetworkDataTask::State state() const final { return m_state; }
+    void setPendingDownloadLocation(const String&, SandboxExtension::Handle&&, bool /*allowOverwrite*/) final;
+    String suggestedFilename() const final;
 
-    void setPendingDownloadLocation(const String&, SandboxExtension::Handle&&, bool /*allowOverwrite*/) override;
-    String suggestedFilename() const override;
+    // BlobResourceHandleBase.
+    bool didReceiveData(std::span<const uint8_t>) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&) final;
+    void didFail(Error) final;
+    bool erroredOrAborted() const final;
+    void didFinish() final;
+    const WebCore::ResourceRequest& firstRequest() const final { return NetworkDataTask::firstRequest(); }
+    void clearStream() final;
 
-    // FileStreamClient methods.
-    void didGetSize(long long) override;
-    void didOpen(bool) override;
-    void didRead(int) override;
-
-    void clearStream();
-    void getSizeForNext();
-    void dispatchDidReceiveResponse();
-    bool consumeData(std::span<const uint8_t>);
-    void read();
-    bool readData(const WebCore::BlobDataItem&);
-    void readFile(const WebCore::BlobDataItem&);
     void download();
     bool writeDownload(std::span<const uint8_t>);
     void cleanDownloadFiles();
     void didFailDownload(const WebCore::ResourceError&);
     void didFinishDownload();
-    void didFail(Error);
-    void didFinish();
 
-    std::unique_ptr<WebCore::AsyncFileStream> m_stream; // For asynchronous loading.
-    Vector<uint8_t> m_buffer;
     State m_state { State::Suspended };
     uint64_t m_downloadBytesWritten { 0 };
-    unsigned m_sizeItemCount { 0 };
-    bool m_fileOpened { false };
     FileSystem::FileHandle m_downloadFile;
-
     Vector<RefPtr<WebCore::BlobDataFileReference>> m_fileReferences;
     RefPtr<SandboxExtension> m_sandboxExtension;
     const Ref<NetworkProcess> m_networkProcess;

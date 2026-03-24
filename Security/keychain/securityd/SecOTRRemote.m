@@ -46,8 +46,8 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
     CFDataRef result = NULL;
     SecOTRSessionRef ourSession = NULL;
     
-    require_quiet(ds, fail);
-    require_quiet(publicPeerId, fail);
+    __Require_Quiet(ds, fail);
+    __Require_Quiet(publicPeerId, fail);
 
     if (privateAccountData) {
         NSError* ns_error = nil;
@@ -59,17 +59,17 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
         privateAccount = (__bridge SOSAccount*)(SOSKeychainAccountGetSharedAccount());
     }
 
-    require_quiet(privateAccount, fail);
+    __Require_Quiet(privateAccount, fail);
 
     privateKeyRef = SOSAccountCopyDeviceKey(privateAccount, error);
-    require_quiet(privateKeyRef, fail);
+    __Require_Quiet(privateKeyRef, fail);
 
     privateIdentity = SecOTRFullIdentityCreateFromSecKeyRefSOS(kCFAllocatorDefault, privateKeyRef, error);
-    require_quiet(privateIdentity, fail);
+    __Require_Quiet(privateIdentity, fail);
     CFReleaseNull(privateKeyRef);
 
     publicKeyString = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, publicPeerId, kCFStringEncodingUTF8);
-    require_quiet(publicKeyString, fail);
+    __Require_Quiet(publicKeyString, fail);
 
     if (publicAccountData) {
         NSError* ns_error = nil;
@@ -81,7 +81,7 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
         publicAccount = (__bridge SOSAccount*)(SOSKeychainAccountGetSharedAccount());
     }
 
-    require_quiet(publicAccount, fail);
+    __Require_Quiet(publicAccount, fail);
 
     publicKeyRef = [publicAccount.trust copyPublicKeyForPeer:publicKeyString err:error];
 
@@ -99,7 +99,7 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
         }
     }
     publicIdentity = SecOTRPublicIdentityCreateFromSecKeyRef(kCFAllocatorDefault, publicKeyRef, error);
-    require_quiet(publicIdentity, fail);
+    __Require_Quiet(publicIdentity, fail);
 
     CFReleaseNull(publicKeyRef);
 
@@ -131,7 +131,7 @@ bool _SecOTRSessionProcessPacketRemote(CFDataRef sessionData, CFDataRef inputPac
     
     bool result = false;
     SecOTRSessionRef session = SecOTRSessionCreateFromData(kCFAllocatorDefault, sessionData);
-    require_quiet(session, done);
+    __Require_Quiet(session, done);
     
     CFMutableDataRef negotiationResponse = CFDataCreateMutable(kCFAllocatorDefault, 0);
     

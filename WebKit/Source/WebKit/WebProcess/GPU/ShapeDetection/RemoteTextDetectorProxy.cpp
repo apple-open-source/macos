@@ -34,6 +34,7 @@
 #include "RemoteTextDetectorMessages.h"
 #include "StreamClientConnection.h"
 #include "WebProcess.h"
+#include <WebCore/DestinationColorSpace.h>
 #include <WebCore/ImageBuffer.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -41,27 +42,36 @@ namespace WebKit::ShapeDetection {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteTextDetectorProxy);
 
-Ref<RemoteTextDetectorProxy> RemoteTextDetectorProxy::create(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier)
+Ref<RemoteTextDetectorProxy> RemoteTextDetectorProxy::create(RemoteRenderingBackendProxy& renderingBackend)
 {
-    streamClientConnection->send(Messages::RemoteRenderingBackend::CreateRemoteTextDetector(identifier), renderingBackendIdentifier);
-    return adoptRef(*new RemoteTextDetectorProxy(WTFMove(streamClientConnection), renderingBackendIdentifier, identifier));
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    return adoptRef(*new RemoteTextDetectorProxy(renderingBackend));
 }
 
-RemoteTextDetectorProxy::RemoteTextDetectorProxy(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier)
-    : m_backing(identifier)
-    , m_streamClientConnection(WTFMove(streamClientConnection))
-    , m_renderingBackendIdentifier(renderingBackendIdentifier)
+RemoteTextDetectorProxy::RemoteTextDetectorProxy(RemoteRenderingBackendProxy& renderingBackend)
+    : m_renderingBackend(renderingBackend)
 {
 }
 
 RemoteTextDetectorProxy::~RemoteTextDetectorProxy()
 {
-    m_streamClientConnection->send(Messages::RemoteRenderingBackend::ReleaseRemoteTextDetector(m_backing), m_renderingBackendIdentifier);
+    if (RefPtr renderingBackend = m_renderingBackend.get())
+        renderingBackend->releaseTextDetector(*this);
 }
 
-void RemoteTextDetectorProxy::detect(Ref<WebCore::ImageBuffer>&& imageBuffer, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedText>&&)>&& completionHandler)
+void RemoteTextDetectorProxy::detect(const WebCore::NativeImage& image, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedText>&&)>&& completionHandler)
 {
-    m_streamClientConnection->sendWithAsyncReply(Messages::RemoteTextDetector::Detect(imageBuffer->renderingResourceIdentifier()), WTFMove(completionHandler), m_backing);
+    RefPtr renderingBackend = m_renderingBackend.get();
+    RefPtr connection = renderingBackend ? renderingBackend->connection() : nullptr;
+    if (!connection) [[unlikely]] {
+        completionHandler({ });
+        return;
+    }
+    if (!renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(const_cast<WebCore::NativeImage&>(image), WebCore::DestinationColorSpace::SRGB())) {
+        completionHandler({ });
+        return;
+    }
+    connection->sendWithAsyncReply(Messages::RemoteTextDetector::Detect(image.renderingResourceIdentifier()), WTF::move(completionHandler), identifier());
 }
 
 } // namespace WebKit::WebGPU

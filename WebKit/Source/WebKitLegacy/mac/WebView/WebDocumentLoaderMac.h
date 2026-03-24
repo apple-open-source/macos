@@ -42,7 +42,7 @@ class WebDocumentLoaderMac : public WebCore::DocumentLoader {
 public:
     static Ref<WebDocumentLoaderMac> create(WebCore::ResourceRequest&& request, WebCore::SubstituteData&& data)
     {
-        return adoptRef(*new WebDocumentLoaderMac(WTFMove(request), WTFMove(data)));
+        return adoptRef(*new WebDocumentLoaderMac(WTF::move(request), WTF::move(data)));
     }
 
     void setDataSource(WebDataSource *, WebView*);

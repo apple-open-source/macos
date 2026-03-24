@@ -85,6 +85,7 @@ public:
     WebExtensionAPIAction& pageAction() { return action(); }
     WebExtensionAPIPermissions& permissions();
     WebExtensionAPIRuntime& runtime() const final;
+    Ref<WebExtensionAPIRuntime> protectedRuntime() const { return runtime(); }
     WebExtensionAPIScripting& scripting();
 #if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
     WebExtensionAPISidePanel& sidePanel();
@@ -134,5 +135,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPINamespace, namespace);
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

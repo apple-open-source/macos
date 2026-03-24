@@ -8,7 +8,7 @@
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://cgit.freebsd.org/src/tree/lib/libc/gen</string>
 		<key>OpenSourceImportDate</key>
-		<string>2025-04-03</string>
+		<string>2025-09-08</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>basename.c, basename.3: Add basename_r() (12198545)</string>
@@ -20,6 +20,27 @@
 			<string>dirname.c, dirname.3: Add dirname_r() (12198545)</string>
 			<string>dirname.c: Drop const qualifier when in conformance mode.</string>
 			<string>dirname.3: Add reference to compat(5) (4736315)</string>
+			<string>alarm.3: Tweak argument type to match UNIX conformance requirements</string>
+			<string>siglist.c: Remove sys_nsig (3238223)</string>
+			<string>seekdir.c: Remove gen-private.h include (20858169)</string>
+			<string>ftok.3: Remove references to msgget(2) (4736315)</string>
+			<string>ftok.3: Add legacy synopsis section (4605817)</string>
+			<string>fnmatch.c: Support UNIX conformance requirements.</string>
+			<string>fnmatch.c: Adjust code to use Apple locale functions.</string>
+			<string>fnmatch.3: Document return values under __DARWIN_UNIX03.</string>
+			<string>fnmatch.c: locale: STR_LEN -> COLLATE_STR_LEN (110037502).</string>
+			<string>fnmatch.c: locale: move __collate_load_error into the collation definition (109240250).</string>)
+			<string>glob.c: Add extended locale support (3999401)</string>
+			<string>glob.c: Add pragmas to ignore warnings (31378835)</string>
+			<string>glob.c: Work around missing block_abi.h macros (144791746)</string>
+			<string>glob.c: Redefine internal function names to account for embedded libc symbols (5692808)</string>
+			<string>glob.c: move __collate_load_error into the collation definition (109240250)</string>
+			<string>glob.c: Mark internal functions as private_extern (4606172, 5692808)</string>
+			<string>glob.c: Tweak GLOB_LIMIT_* constants (31794424)</string>
+			<string>glob.h: Preserve old _GLOB_ERR_BLOCK value (144791746)</string>
+			<string>glob.3: Document type change for 'gl_matchc' (144791746)</string>
+			<string>glob.3: Adjust history section (144791746)</string>
+			<string>glob2_test.c: Don't build 'glob_pathological_test' since it already exists in 'freebsd_glob.c' (144791746)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

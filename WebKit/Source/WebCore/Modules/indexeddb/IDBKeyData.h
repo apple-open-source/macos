@@ -52,11 +52,11 @@ public:
 
     IDBKeyData() = default;
     IDBKeyData(ValueVariant&& value)
-        : m_value(WTFMove(value)) { }
+        : m_value(WTF::move(value)) { }
     IDBKeyData(const IDBKeyData&, IsolatedCopyTag);
     IDBKeyData(bool isPlaceholder, ValueVariant&& value)
         : m_isPlaceholder(isPlaceholder)
-        , m_value(WTFMove(value)) { }
+        , m_value(WTF::move(value)) { }
     WEBCORE_EXPORT IDBKeyData(const IDBKey*);
     bool isPlaceholder() const { return m_isPlaceholder; }
 
@@ -86,7 +86,7 @@ public:
     WEBCORE_EXPORT IDBKeyData isolatedCopy() const;
 
     WEBCORE_EXPORT void encode(KeyedEncoder&) const;
-    WEBCORE_EXPORT static WARN_UNUSED_RETURN bool decode(KeyedDecoder&, IDBKeyData&);
+    WARN_UNUSED_RETURN WEBCORE_EXPORT static bool decode(KeyedDecoder&, IDBKeyData&);
 
     void setArrayValue(const Vector<IDBKeyData>&);
     void setBinaryValue(const ThreadSafeDataBuffer&);
@@ -168,12 +168,6 @@ inline void add(Hasher& hasher, const IDBKeyData& keyData)
         break;
     }
 }
-
-struct IDBKeyDataHash {
-    static unsigned hash(const IDBKeyData& a) { return computeHash(a); }
-    static bool equal(const IDBKeyData& a, const IDBKeyData& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
 
 struct IDBKeyDataHashTraits : public WTF::CustomHashTraits<IDBKeyData> {
     static const bool emptyValueIsZero = false;

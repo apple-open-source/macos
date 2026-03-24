@@ -93,17 +93,31 @@ template<NonCompositeNumeric StyleType, typename Result> struct Evaluation<Style
 
 // MARK: - Calculation
 
-template<typename Result> struct Evaluation<Ref<CalculationValue>, Result> {
-    auto operator()(Ref<CalculationValue> calculation, Result referenceLength) -> Result
+template<typename Result> struct Evaluation<Ref<Calculation::Value>, Result> {
+    auto operator()(Ref<Calculation::Value> calculation, Result referenceLength, ZoomFactor usedZoom) -> Result
     {
-        return Result(calculation->evaluate(referenceLength));
+        return Result(calculation->evaluate(referenceLength, usedZoom));
+    }
+
+
+    auto operator()(Ref<Calculation::Value> calculation, Result referenceLength, ZoomNeeded token) -> Result
+    {
+        return Result(calculation->evaluate(referenceLength, token));
     }
 };
 
 template<Calc Calculation, typename Result> struct Evaluation<Calculation, Result> {
-    template<typename... Rest> auto operator()(const Calculation& calculation, Result referenceLength, Rest&&... rest) -> Result
+    template<typename... Rest> auto operator()(const Calculation& calculation, Result referenceLength, ZoomNeeded token, Rest&&... rest) -> Result
+        requires (Calculation::range.zoomOptions == CSS::RangeZoomOptions::Default)
     {
-        return evaluate<Result>(calculation.protectedCalculation(), referenceLength, std::forward<Rest>(rest)...);
+        return evaluate<Result>(calculation.protectedCalculation(), referenceLength, token, std::forward<Rest>(rest)...);
+    }
+
+
+    template<typename... Rest> auto operator()(const Calculation& calculation, Result referenceLength, ZoomFactor usedZoom, Rest&&... rest) -> Result
+        requires (Calculation::range.zoomOptions == CSS::RangeZoomOptions::Unzoomed)
+    {
+        return evaluate<Result>(calculation.protectedCalculation(), referenceLength, usedZoom, std::forward<Rest>(rest)...);
     }
 };
 
@@ -121,7 +135,7 @@ template<auto R, typename V, typename Result> struct Evaluation<LengthPercentage
                 return evaluate<Result>(percentage, referenceLength);
             },
             [&](const typename LengthPercentage<R, V>::Calc& calculation) -> Result {
-                return evaluate<Result>(calculation, referenceLength);
+                return evaluate<Result>(calculation, referenceLength, token);
             }
         );
     }
@@ -136,9 +150,22 @@ template<auto R, typename V, typename Result> struct Evaluation<LengthPercentage
                 return evaluate<Result>(percentage, referenceLength);
             },
             [&](const typename LengthPercentage<R, V>::Calc& calculation) -> Result {
-                return evaluate<Result>(calculation, referenceLength);
+                return evaluate<Result>(calculation, referenceLength, zoom);
             }
         );
+    }
+};
+
+// MARK: - NumberOrPercentageResolvedToNumber
+
+template<CSS::Range nR, CSS::Range pR, typename V, typename Result> struct Evaluation<NumberOrPercentageResolvedToNumber<nR, pR, V>, Result> {
+    constexpr auto operator()(const NumberOrPercentageResolvedToNumber<nR, pR, V>& value) -> Result
+    {
+        return evaluate<Result>(value.value);
+    }
+    constexpr auto operator()(const NumberOrPercentageResolvedToNumber<nR, pR, V>& value, Result) -> Result
+    {
+        return evaluate<Result>(value.value);
     }
 };
 

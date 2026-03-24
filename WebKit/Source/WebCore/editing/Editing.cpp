@@ -62,7 +62,7 @@
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTableCell.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderedPosition.h"
@@ -198,12 +198,12 @@ Element* editableRootForPosition(const Position& position, EditableType editable
 // Finds the enclosing element until which the tree can be split.
 // When a user hits ENTER, he/she won't expect this element to be split into two.
 // You may pass it as the second argument of splitTreeToNode.
-Element* unsplittableElementForPosition(const Position& position)
+RefPtr<Element> unsplittableElementForPosition(const Position& position)
 {
     // Since enclosingNodeOfType won't search beyond the highest root editable node,
     // this code works even if the closest table cell was outside of the root editable node.
-    if (auto enclosingCell = downcast<Element>(enclosingNodeOfType(position, &isTableCell)))
-        return enclosingCell.unsafeGet();
+    if (RefPtr enclosingCell = downcast<Element>(enclosingNodeOfType(position, &isTableCell)))
+        return enclosingCell;
     return editableRootForPosition(position);
 }
 
@@ -659,7 +659,7 @@ RefPtr<HTMLElement> outermostEnclosingList(Node* node, Node* rootList)
     while (RefPtr nextList = enclosingList(list.get())) {
         if (nextList == rootList)
             break;
-        list = WTFMove(nextList);
+        list = WTF::move(nextList);
     }
 
     return list;
@@ -822,7 +822,7 @@ static Ref<Element> createTabSpanElement(Document& document, Text& tabTextNode)
 
 Ref<Element> createTabSpanElement(Document& document, String&& tabText)
 {
-    return createTabSpanElement(document, document.createTextNode(WTFMove(tabText)));
+    return createTabSpanElement(document, document.createTextNode(WTF::move(tabText)));
 }
 
 Ref<Element> createTabSpanElement(Document& document)
@@ -981,7 +981,7 @@ int indexForVisiblePosition(const VisiblePosition& visiblePosition, RefPtr<Conta
         if (position.containerNode()->isInShadowTree())
             scope = position.containerNode()->containingShadowRoot();
         else
-            scope = WTFMove(document);
+            scope = WTF::move(document);
     }
 
     auto range = *makeSimpleRange(makeBoundaryPointBeforeNodeContents(*scope), position);
@@ -1211,9 +1211,9 @@ IntRect absoluteBoundsForLocalCaretRect(RenderBlock* rendererForCaretPainting, c
     return rendererForCaretPainting->localToAbsoluteQuad(FloatRect(localRect), UseTransforms, insideFixed).enclosingBoundingBox();
 }
 
-HashSet<RefPtr<HTMLImageElement>> visibleImageElementsInRangeWithNonLoadedImages(const SimpleRange& range)
+HashSet<Ref<HTMLImageElement>> visibleImageElementsInRangeWithNonLoadedImages(const SimpleRange& range)
 {
-    HashSet<RefPtr<HTMLImageElement>> result;
+    HashSet<Ref<HTMLImageElement>> result;
     for (TextIterator iterator(range); !iterator.atEnd(); iterator.advance()) {
         RefPtr imageElement = dynamicDowncast<HTMLImageElement>(iterator.node());
         if (!imageElement)
@@ -1221,7 +1221,7 @@ HashSet<RefPtr<HTMLImageElement>> visibleImageElementsInRangeWithNonLoadedImages
 
         auto* cachedImage = imageElement->cachedImage();
         if (cachedImage && cachedImage->isLoading())
-            result.add(WTFMove(imageElement));
+            result.add(imageElement.releaseNonNull());
     }
     return result;
 }
@@ -1448,7 +1448,7 @@ static std::optional<SimpleRange> makeVisuallyContiguousIfNeeded(const SimpleRan
         }
 
         if (firstLineOnlyContainsSelectedTextInOppositeDirection)
-            adjustedStart = WTFMove(firstPositionForSelectedTextInOppositeDirectionOnFirstLine);
+            adjustedStart = WTF::move(firstPositionForSelectedTextInOppositeDirectionOnFirstLine);
 
         bool lastLineOnlyContainsSelectedTextInOppositeDirection = true;
         lastLineDirection = end.primaryDirection();
@@ -1471,7 +1471,7 @@ static std::optional<SimpleRange> makeVisuallyContiguousIfNeeded(const SimpleRan
         }
 
         if (lastLineOnlyContainsSelectedTextInOppositeDirection)
-            adjustedEnd = WTFMove(lastPositionForSelectedTextInOppositeDirectionOnLastLine);
+            adjustedEnd = WTF::move(lastPositionForSelectedTextInOppositeDirectionOnLastLine);
     }
 
     if (!adjustedStart && bidiLevelAtStart > targetBidiLevelAtStart && start != logicalStartOfLine(start) && endpoints.contains(RangeEndpointsToAdjust::Start))
@@ -1485,10 +1485,10 @@ static std::optional<SimpleRange> makeVisuallyContiguousIfNeeded(const SimpleRan
 
     auto adjustedRange = range;
     if (adjustedStart)
-        adjustedRange.start = WTFMove(*adjustedStart);
+        adjustedRange.start = WTF::move(*adjustedStart);
 
     if (adjustedEnd)
-        adjustedRange.end = WTFMove(*adjustedEnd);
+        adjustedRange.end = WTF::move(*adjustedEnd);
 
     if (!is_lt(treeOrder(adjustedRange.start, adjustedRange.end)))
         return std::nullopt;
@@ -1576,7 +1576,7 @@ EnclosingLayerInfomation computeEnclosingLayer(const SimpleRange& range)
         if (!identifier)
             continue;
 
-        return { WTFMove(startLayer), WTFMove(endLayer), WTFMove(layer), WTFMove(graphicsLayer), WTFMove(identifier) };
+        return { WTF::move(startLayer), WTF::move(endLayer), WTF::move(layer), WTF::move(graphicsLayer), WTF::move(identifier) };
     }
     return { };
 }
@@ -1600,7 +1600,7 @@ void adjustVisibleExtentPreservingVisualContiguity(const VisiblePosition& base, 
     else
         return;
 
-    auto adjustedRange = makeVisuallyContiguousIfNeeded({ WTFMove(*start), WTFMove(*end) }, endpoints, movement);
+    auto adjustedRange = makeVisuallyContiguousIfNeeded({ WTF::move(*start), WTF::move(*end) }, endpoints, movement);
     if (!adjustedRange)
         return;
 

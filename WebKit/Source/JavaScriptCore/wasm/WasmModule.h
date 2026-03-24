@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <wtf/Compiler.h>
@@ -89,7 +91,7 @@ public:
 
     Ref<Wasm::InstanceAnchor> registerAnchor(JSWebAssemblyInstance*);
 
-    std::unique_ptr<MergedProfile> createMergedProfile(IPIntCallee&);
+    std::unique_ptr<MergedProfile> createMergedProfile(const IPIntCallee&);
 
     uint32_t debugId() const;
     void setDebugId(uint32_t);

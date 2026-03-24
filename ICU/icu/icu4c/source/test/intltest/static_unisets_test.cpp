@@ -82,10 +82,20 @@ void StaticUnicodeSetsTest::testSetCoverage() {
 #define ASSERT_IN_SET(name, foo) assertInSet(localeName, UnicodeString("" #name ""), name, foo)
 
         ASSERT_IN_SET(decimals, dfs.getConstSymbol(DecimalFormatSymbols::kDecimalSeparatorSymbol));
+#if APPLE_ICU_CHANGES // rdar://167651963
+        if (locName==nullptr || uprv_strncmp(locName,"nqo",3) == 0) {
+            logKnownIssue("CLDR-17023", "Number symbols and/or parseLenients messed up for N’Ko");
+        } else if (uprv_strncmp(locName,"gez",3) == 0) {
+            logKnownIssue("rdar://167696648", "Ethiopic locales fail in exhaustive run of testSetCoverage");
+        } else {
+            ASSERT_IN_SET(grouping, dfs.getConstSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol));
+        }
+#else
         if (locName==nullptr || uprv_strncmp(locName,"nqo",3) != 0 ||
                 !logKnownIssue("CLDR-17023", "Number symbols and/or parseLenients messed up for N’Ko")) {
             ASSERT_IN_SET(grouping, dfs.getConstSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol));
         }
+#endif
         ASSERT_IN_SET(plusSign, dfs.getConstSymbol(DecimalFormatSymbols::kPlusSignSymbol));
         ASSERT_IN_SET(minusSign, dfs.getConstSymbol(DecimalFormatSymbols::kMinusSignSymbol));
         ASSERT_IN_SET(percent, dfs.getConstSymbol(DecimalFormatSymbols::kPercentSymbol));

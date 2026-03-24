@@ -27,8 +27,11 @@
 #include "DOMWindow.h"
 
 #include "BackForwardController.h"
+#include "BarProp.h"
 #include "CSSRuleList.h"
 #include "CSSStyleProperties.h"
+#include "CookieStore.h"
+#include "CustomElementRegistry.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
 #include "ExceptionOr.h"
@@ -36,17 +39,24 @@
 #include "FrameConsoleClient.h"
 #include "FrameLoader.h"
 #include "HTTPParsers.h"
+#include "History.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
 #include "Location.h"
 #include "MediaQueryList.h"
+#include "Navigation.h"
+#include "Navigator.h"
 #include "NodeList.h"
 #include "Page.h"
+#include "Performance.h"
 #include "PlatformStrategies.h"
 #include "RemoteDOMWindow.h"
 #include "ResourceLoadObserver.h"
 #include "ScheduledAction.h"
+#include "Screen.h"
 #include "SecurityOrigin.h"
+#include "StyleMedia.h"
+#include "VisualViewport.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WebKitPoint.h"
 #include "WindowProxy.h"
@@ -58,10 +68,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DOMWindow);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DOMWindow);
 
 DOMWindow::DOMWindow(GlobalWindowIdentifier&& identifier, DOMWindowType type)
-    : m_identifier(WTFMove(identifier))
+    : m_identifier(WTF::move(identifier))
     , m_type(type)
 {
 }
@@ -568,16 +578,16 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& globalObject, Loca
 {
     switch (m_type) {
     case DOMWindowType::Local:
-        return downcast<LocalDOMWindow>(*this).postMessage(globalObject, incumbentWindow, message, WTFMove(options));
+        return downcast<LocalDOMWindow>(*this).postMessage(globalObject, incumbentWindow, message, WTF::move(options));
     case DOMWindowType::Remote:
-        return downcast<RemoteDOMWindow>(*this).postMessage(globalObject, incumbentWindow, message, WTFMove(options));
+        return downcast<RemoteDOMWindow>(*this).postMessage(globalObject, incumbentWindow, message, WTF::move(options));
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
 
 ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& globalObject, LocalDOMWindow& incumbentWindow, JSC::JSValue message, String&& targetOrigin, Vector<JSC::Strong<JSC::JSObject>>&& transfer)
 {
-    return postMessage(globalObject, incumbentWindow, message, WindowPostMessageOptions { WTFMove(targetOrigin), WTFMove(transfer) });
+    return postMessage(globalObject, incumbentWindow, message, WindowPostMessageOptions { WTF::move(targetOrigin), WTF::move(transfer) });
 }
 
 ExceptionOr<Ref<CSSStyleDeclaration>> DOMWindow::getComputedStyle(Element& element, const String& pseudoElt) const
@@ -668,7 +678,7 @@ ExceptionOr<int> DOMWindow::requestAnimationFrame(Ref<RequestAnimationFrameCallb
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return localThis->requestAnimationFrame(WTFMove(callback));
+    return localThis->requestAnimationFrame(WTF::move(callback));
 }
 
 ExceptionOr<int> DOMWindow::webkitRequestAnimationFrame(Ref<RequestAnimationFrameCallback>&& callback)
@@ -676,7 +686,7 @@ ExceptionOr<int> DOMWindow::webkitRequestAnimationFrame(Ref<RequestAnimationFram
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return localThis->webkitRequestAnimationFrame(WTFMove(callback));
+    return localThis->webkitRequestAnimationFrame(WTF::move(callback));
 }
 
 ExceptionOr<void> DOMWindow::cancelAnimationFrame(int id)
@@ -693,7 +703,7 @@ ExceptionOr<int> DOMWindow::requestIdleCallback(Ref<IdleRequestCallback>&& callb
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return localThis->requestIdleCallback(WTFMove(callback), options);
+    return localThis->requestIdleCallback(WTF::move(callback), options);
 }
 
 ExceptionOr<void> DOMWindow::cancelIdleCallback(int id)
@@ -710,7 +720,7 @@ ExceptionOr<void> DOMWindow::createImageBitmap(ImageBitmap::Source&& source, Ima
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    localThis->createImageBitmap(WTFMove(source), WTFMove(options), WTFMove(promise));
+    localThis->createImageBitmap(WTF::move(source), WTF::move(options), WTF::move(promise));
     return { };
 }
 
@@ -719,7 +729,7 @@ ExceptionOr<void> DOMWindow::createImageBitmap(ImageBitmap::Source&& source, int
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    localThis->createImageBitmap(WTFMove(source), sx, sy, sw, sh, WTFMove(options), WTFMove(promise));
+    localThis->createImageBitmap(WTF::move(source), sx, sy, sw, sh, WTF::move(options), WTF::move(promise));
     return { };
 }
 
@@ -848,7 +858,7 @@ ExceptionOr<int> DOMWindow::setTimeout(std::unique_ptr<ScheduledAction> action, 
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return localThis->setTimeout(WTFMove(action), timeout, WTFMove(arguments));
+    return localThis->setTimeout(WTF::move(action), timeout, WTF::move(arguments));
 }
 
 ExceptionOr<void> DOMWindow::clearTimeout(int timeoutId)
@@ -865,7 +875,7 @@ ExceptionOr<int> DOMWindow::setInterval(std::unique_ptr<ScheduledAction> action,
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return { { } };
-    return localThis->setInterval(WTFMove(action), timeout, WTFMove(arguments));
+    return localThis->setInterval(WTF::move(action), timeout, WTF::move(arguments));
 }
 
 ExceptionOr<void> DOMWindow::clearInterval(int timeoutId)
@@ -901,7 +911,7 @@ ExceptionOr<JSC::JSValue> DOMWindow::structuredClone(JSDOMGlobalObject& lexicalG
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return WindowOrWorkerGlobalScope::structuredClone(lexicalGlobalObject, relevantGlobalObject, value, WTFMove(options));
+    return WindowOrWorkerGlobalScope::structuredClone(lexicalGlobalObject, relevantGlobalObject, value, WTF::move(options));
 }
 
 ExceptionOr<String> DOMWindow::btoa(const String& stringToEncode)

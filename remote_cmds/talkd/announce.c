@@ -56,11 +56,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <vis.h>
 
-#ifdef __APPLE__
-#include <util.h>
-#else
 #include "ttymsg.h"
-#endif
 #include "extern.h"
 
 /*

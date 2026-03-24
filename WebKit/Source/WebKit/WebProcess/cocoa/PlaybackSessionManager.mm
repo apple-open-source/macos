@@ -172,16 +172,10 @@ void PlaybackSessionInterfaceContext::isInWindowFullscreenActiveChanged(bool isI
         manager->isInWindowFullscreenActiveChanged(m_contextId, isInWindow);
 }
 
-void PlaybackSessionInterfaceContext::spatialVideoMetadataChanged(const std::optional<WebCore::SpatialVideoMetadata>& metadata)
+void PlaybackSessionInterfaceContext::immersiveVideoMetadataChanged(const std::optional<WebCore::ImmersiveVideoMetadata>& metadata)
 {
     if (RefPtr manager = m_manager.get())
-        manager->spatialVideoMetadataChanged(m_contextId, metadata);
-}
-
-void PlaybackSessionInterfaceContext::videoProjectionMetadataChanged(const std::optional<VideoProjectionMetadata>& value)
-{
-    if (RefPtr manager = m_manager.get())
-        manager->videoProjectionMetadataChanged(m_contextId, value);
+        manager->immersiveVideoMetadataChanged(m_contextId, metadata);
 }
 
 #pragma mark - PlaybackSessionManager
@@ -234,7 +228,7 @@ PlaybackSessionManager::ModelInterfaceTuple PlaybackSessionManager::createModelA
     auto interface = PlaybackSessionInterfaceContext::create(*this, contextId);
     model->addClient(interface.get());
 
-    return std::make_tuple(WTFMove(model), WTFMove(interface));
+    return std::make_tuple(WTF::move(model), WTF::move(interface));
 }
 
 const PlaybackSessionManager::ModelInterfaceTuple& PlaybackSessionManager::ensureModelAndInterface(WebCore::HTMLMediaElementIdentifier contextId)
@@ -476,14 +470,9 @@ void PlaybackSessionManager::isInWindowFullscreenActiveChanged(WebCore::HTMLMedi
     m_page->send(Messages::PlaybackSessionManagerProxy::IsInWindowFullscreenActiveChanged(processQualify(contextId), inWindow));
 }
 
-void PlaybackSessionManager::spatialVideoMetadataChanged(WebCore::HTMLMediaElementIdentifier contextId, const std::optional<WebCore::SpatialVideoMetadata>& metadata)
+void PlaybackSessionManager::immersiveVideoMetadataChanged(WebCore::HTMLMediaElementIdentifier contextId, const std::optional<WebCore::ImmersiveVideoMetadata>& metadata)
 {
-    m_page->send(Messages::PlaybackSessionManagerProxy::SpatialVideoMetadataChanged(processQualify(contextId), metadata));
-}
-
-void PlaybackSessionManager::videoProjectionMetadataChanged(WebCore::HTMLMediaElementIdentifier contextId, const std::optional<VideoProjectionMetadata>& value)
-{
-    m_page->send(Messages::PlaybackSessionManagerProxy::VideoProjectionMetadataChanged(processQualify(contextId), value));
+    m_page->send(Messages::PlaybackSessionManagerProxy::ImmersiveVideoMetadataChanged(processQualify(contextId), metadata));
 }
 
 #pragma mark Messages from PlaybackSessionManagerProxy:

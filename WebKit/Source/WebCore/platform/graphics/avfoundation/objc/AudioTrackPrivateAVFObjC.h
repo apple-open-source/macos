@@ -84,7 +84,7 @@ private:
     const Ref<AVTrackPrivateAVFObjCImpl> m_impl;
 
     using AudioTrackConfigurationObserver = Observer<void()>;
-    AudioTrackConfigurationObserver m_audioTrackConfigurationObserver;
+    const Ref<AudioTrackConfigurationObserver> m_audioTrackConfigurationObserver;
 };
 
 }

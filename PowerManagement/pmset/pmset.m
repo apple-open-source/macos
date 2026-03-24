@@ -5798,7 +5798,7 @@ static int parseArgs(int argc,
                 long val = -1;
                 val = strtol(argv[i+1], NULL, 0);
                 if (val == 0) {
-                    fprintf(stdout, "Warning: This option disables TCP Keep Alive mechanism when sytem is sleeping. "
+                    fprintf(stdout, "Warning: This option disables TCP Keep Alive mechanism when system is sleeping. "
                             "This will result in some critical features like \'Find My Mac\' not to function properly.\n");
                 }
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMTCPKeepAlivePrefKey),

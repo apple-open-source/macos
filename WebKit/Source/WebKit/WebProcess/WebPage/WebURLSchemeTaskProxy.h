@@ -65,7 +65,7 @@ private:
     WebURLSchemeTaskProxy(WebURLSchemeHandlerProxy&, WebCore::ResourceLoader&, WebFrame&);
     WebCore::ResourceLoader* coreLoader();
 
-    void queueTask(Function<void()>&& task) { m_queuedTasks.append(WTFMove(task)); }
+    void queueTask(Function<void()>&& task) { m_queuedTasks.append(WTF::move(task)); }
     void processNextPendingTask();
 
     WeakRef<WebURLSchemeHandlerProxy> m_urlSchemeHandler;

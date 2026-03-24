@@ -121,7 +121,7 @@ private:
     LocalFrame* frameForAttributeReplacement(const Element&) const;
     Attribute replaceAttributeIfNecessary(const Element&, const Attribute&);
     bool appendURLAttributeForReplacementIfNecessary(StringBuilder&, const Element&, Namespaces*);
-    const ShadowRoot* suitableShadowRoot(const Node&);
+    RefPtr<const ShadowRoot> suitableShadowRoot(const Node&);
     bool shouldExcludeElement(const Element&);
     void appendStartTagWithURLReplacement(StringBuilder&, const Element&, Namespaces*);
 

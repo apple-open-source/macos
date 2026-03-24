@@ -26,29 +26,88 @@
  */
 
 #include "config.h"
+#include "Compiler.h"
 #include <wtf/RunLoop.h>
 
 #include <glib.h>
+#include <wtf/BubbleSort.h>
 #include <wtf/MainThread.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/glib/ActivityObserver.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
+
+#if HAVE(TIMERFD)
+#include <sys/timerfd.h>
+#include <time.h>
+#include <wtf/SystemTracing.h>
+#endif
 
 namespace WTF {
 
 typedef struct {
     GSource source;
     RunLoop* runLoop;
+#if HAVE(TIMERFD)
+    int timerFd;
+    struct itimerspec timerFdSpec;
+#endif
 } RunLoopSource;
 
 GSourceFuncs RunLoop::s_runLoopSourceFunctions = {
-    nullptr, // prepare
+    // prepare
+#if HAVE(TIMERFD)
+    [](GSource* source, int* timeout) -> gboolean {
+        auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(source);
+
+        *timeout = -1;
+
+        if (runLoopSource.timerFd > -1) {
+            struct itimerspec timerFdSpec = { };
+            int64_t readyTime = g_source_get_ready_time(source);
+
+            if (readyTime > -1) {
+                timerFdSpec.it_value.tv_sec = readyTime / G_USEC_PER_SEC;
+                timerFdSpec.it_value.tv_nsec = (readyTime % G_USEC_PER_SEC) * 1000L;
+            }
+
+            if (timerFdSpec.it_interval.tv_sec != runLoopSource.timerFdSpec.it_interval.tv_sec
+                || timerFdSpec.it_interval.tv_nsec != runLoopSource.timerFdSpec.it_interval.tv_nsec
+                || timerFdSpec.it_value.tv_sec != runLoopSource.timerFdSpec.it_value.tv_sec
+                || timerFdSpec.it_value.tv_nsec != runLoopSource.timerFdSpec.it_value.tv_nsec) {
+                runLoopSource.timerFdSpec = timerFdSpec;
+                timerfd_settime(runLoopSource.timerFd, TFD_TIMER_ABSTIME, &runLoopSource.timerFdSpec, nullptr);
+            }
+        }
+        return FALSE;
+    },
+#else
+    nullptr,
+#endif
     nullptr, // check
     // dispatch
     [](GSource* source, GSourceFunc callback, gpointer userData) -> gboolean
     {
-        if (g_source_get_ready_time(source) == -1)
+        gint64 readyTime = g_source_get_ready_time(source);
+        if (readyTime == -1)
             return G_SOURCE_CONTINUE;
+
+#if HAVE(TIMERFD) && USE(SYSPROF_CAPTURE)
+        static const bool shouldEnableSourceDispatchSignposts = ([]() -> bool {
+            bool shouldEnableSignposts = false;
+            if (const char* envString = getenv("WEBKIT_ENABLE_SOURCE_DISPATCH_SIGNPOSTS")) {
+                auto envStringView = StringView::fromLatin1(envString);
+                if (envStringView == "1"_s)
+                    shouldEnableSignposts = true;
+            }
+            return shouldEnableSignposts;
+        })();
+
+        if (shouldEnableSourceDispatchSignposts && readyTime > 0) {
+            gint64 lateness = g_get_monotonic_time() - readyTime;
+            WTFEmitSignpost(source, RunLoopSourceDispatch, "[%s] lateness=%ldµs", g_source_get_name(source), lateness);
+        }
+#endif
+
         g_source_set_ready_time(source, -1);
         const char* name = g_source_get_name(source);
         auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(source);
@@ -57,7 +116,18 @@ GSourceFuncs RunLoop::s_runLoopSourceFunctions = {
         runLoopSource.runLoop->notifyEvent(RunLoop::Event::DidDispatch, name);
         return returnValue;
     },
-    nullptr, // finalize
+    // finalize
+#if HAVE(TIMERFD)
+    [](GSource* source) -> void {
+        auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(source);
+        if (runLoopSource.timerFd > -1) {
+            close(runLoopSource.timerFd);
+            runLoopSource.timerFd = -1;
+        }
+    },
+#else
+    nullptr,
+#endif
     nullptr, // closure_callback
     nullptr, // closure_marshall
 };
@@ -72,6 +142,9 @@ RunLoop::RunLoop()
     m_source = adoptGRef(g_source_new(&RunLoop::s_runLoopSourceFunctions, sizeof(RunLoopSource)));
     auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(m_source.get());
     runLoopSource.runLoop = this;
+#if HAVE(TIMERFD)
+    runLoopSource.timerFd = -1;
+#endif
     g_source_set_priority(m_source.get(), RunLoopSourcePriority::RunLoopDispatcher);
     g_source_set_name(m_source.get(), "[WebKit] RunLoop work");
     g_source_set_can_recurse(m_source.get(), TRUE);
@@ -146,6 +219,7 @@ void RunLoop::run()
 void RunLoop::stop()
 {
     m_shouldStop = true;
+    wakeUp();
 }
 
 void RunLoop::wakeUp()
@@ -173,10 +247,14 @@ void RunLoop::observeActivity(const Ref<ActivityObserver>& observer)
         Locker locker { m_activityObserversLock };
         ASSERT(!m_activityObservers.contains(observer));
         m_activityObservers.append(observer);
+        m_activities.add(observer->activities());
 
-        std::ranges::sort(m_activityObservers, [](const auto& a, const auto& b) {
-            return a->order() < b->order();
-        });
+        if (m_activityObservers.size() > 1) {
+            // We use bubble sort here because the input is always sorted already. See BubbleSort.h.
+            WTF::bubbleSort(m_activityObservers.mutableSpan(), [](const auto& a, const auto& b) {
+                return a->order() < b->order();
+            });
+        }
     }
 
     wakeUp();
@@ -184,10 +262,10 @@ void RunLoop::observeActivity(const Ref<ActivityObserver>& observer)
 
 void RunLoop::unobserveActivity(const Ref<ActivityObserver>& observer)
 {
-    // Don't assert that m_activityObservers contains the observer -- it might have been
-    // removed during notifyActivity() if it was a non-repeating observer.
     Locker locker { m_activityObserversLock };
+    ASSERT(m_activityObservers.contains(observer));
     m_activityObservers.removeFirst(observer);
+    m_activities.remove(observer->activities());
 }
 
 void RunLoop::notifyActivity(Activity activity)
@@ -199,6 +277,9 @@ void RunLoop::notifyActivity(Activity activity)
         if (m_activityObservers.isEmpty())
             return;
 
+        if (!m_activities.contains(activity))
+            return;
+
         for (Ref observer : m_activityObservers) {
             if (observer->activities().contains(activity))
                 observersToBeNotified.append(observer);
@@ -207,18 +288,8 @@ void RunLoop::notifyActivity(Activity activity)
 
     // Notify the activity observers, without holding a lock - as mutations
     // to the activity observers are allowed.
-    ActivityObservers observersToBeInvalidated;
-    for (Ref observer : observersToBeNotified) {
-        if (observer->notify() == ActivityObserver::ContinueObservation::No)
-            observersToBeInvalidated.append(observer);
-    }
-
-    // Invalidation needs to happen _after_ dispatching all notifications.
-    if (!observersToBeInvalidated.isEmpty()) {
-        Locker locker { m_activityObserversLock };
-        for (Ref observer : observersToBeInvalidated)
-            m_activityObservers.removeFirst(observer);
-    }
+    for (Ref observer : observersToBeNotified)
+        observer->notify();
 }
 
 void RunLoop::notifyEvent(RunLoop::Event event, const char* name)
@@ -233,12 +304,15 @@ void RunLoop::notifyEvent(RunLoop::Event event, const char* name)
 }
 
 RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& runLoop, ASCIILiteral description)
-    : m_runLoop(WTFMove(runLoop))
+    : m_runLoop(WTF::move(runLoop))
     , m_description(description)
     , m_source(adoptGRef(g_source_new(&RunLoop::s_runLoopSourceFunctions, sizeof(RunLoopSource))))
 {
     auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(m_source.get());
     runLoopSource.runLoop = m_runLoop.ptr();
+#if HAVE(TIMERFD)
+    runLoopSource.timerFd = -1;
+#endif
 
     g_source_set_priority(m_source.get(), RunLoopSourcePriority::RunLoopTimer);
     g_source_set_name(m_source.get(), m_description);
@@ -283,6 +357,19 @@ void RunLoop::TimerBase::updateReadyTime()
 
 void RunLoop::TimerBase::start(Seconds interval, bool repeat)
 {
+#if HAVE(TIMERFD)
+    // Create the timerfd here so that it's created as late as possible. Some
+    // timers are created but may never be triggered.
+    auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(m_source.get());
+    if (m_interval && runLoopSource.timerFd < 0) {
+        runLoopSource.timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+        if (runLoopSource.timerFd > -1) [[likely]]
+            g_source_add_unix_fd(m_source.get(), runLoopSource.timerFd, G_IO_IN);
+        else
+            LOG_ERROR("Could not create timerfd: %s", safeStrerror(errno).data());
+    }
+#endif
+
     m_interval = interval;
     m_isRepeating = repeat;
     updateReadyTime();

@@ -90,9 +90,9 @@ NSString * const _WKTextManipulationItemErrorItemKey = @"item";
 
     __block BOOL tokensAreEqual = YES;
     NSUInteger count = std::min(self.tokens.count, otherItem.tokens.count);
-    [self.tokens enumerateObjectsAtIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, count)] options:0 usingBlock:^(_WKTextManipulationToken *token, NSUInteger index, BOOL* stop) {
-        _WKTextManipulationToken *otherToken = otherItem.tokens[index];
-        if (![token isEqualToTextManipulationToken:otherToken includingContentEquality:includingContentEquality]) {
+    [retainPtr(self.tokens) enumerateObjectsAtIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, count)] options:0 usingBlock:^(_WKTextManipulationToken *token, NSUInteger index, BOOL* stop) {
+        RetainPtr<_WKTextManipulationToken> otherToken = otherItem.tokens[index];
+        if (![token isEqualToTextManipulationToken:otherToken.get() includingContentEquality:includingContentEquality]) {
             tokensAreEqual = NO;
             *stop = YES;
         }
@@ -114,12 +114,12 @@ NSString * const _WKTextManipulationItemErrorItemKey = @"item";
 - (NSString *)_descriptionPreservingPrivacy:(BOOL)preservePrivacy
 {
     NSMutableArray<NSString *> *recursiveDescriptions = [NSMutableArray array];
-    [self.tokens enumerateObjectsUsingBlock:^(_WKTextManipulationToken *token, NSUInteger index, BOOL* stop) {
-        NSString *description = preservePrivacy ? token.description : token.debugDescription;
-        [recursiveDescriptions addObject:description];
+    [retainPtr(self.tokens) enumerateObjectsUsingBlock:^(_WKTextManipulationToken *token, NSUInteger index, BOOL* stop) {
+        RetainPtr<NSString> description = preservePrivacy ? token.description : token.debugDescription;
+        [recursiveDescriptions addObject:description.get()];
     }];
-    RetainPtr tokenDescription = adoptNS([[NSString alloc] initWithFormat:@"[\n\t%@\n]", [recursiveDescriptions componentsJoinedByString:@",\n\t"]]);
-    return [NSString stringWithFormat:@"<%@: %p; identifier = %@ tokens = %@>", self.class, self, self.identifier, tokenDescription.get()];
+    RetainPtr tokenDescription = adoptNS([[NSString alloc] initWithFormat:@"[\n\t%@\n]", retainPtr([recursiveDescriptions componentsJoinedByString:@",\n\t"]).get()]);
+    return [NSString stringWithFormat:@"<%@: %p; identifier = %@ tokens = %@>", self.class, self, retainPtr(self.identifier).get(), tokenDescription.get()];
 }
 
 @end

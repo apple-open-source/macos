@@ -124,13 +124,11 @@ static bool canOptimizeSingleAttributeExactMatch(const CSSSelector& selector)
 
 SelectorDataList::SelectorDataList(const CSSSelectorList& selectorList)
 {
-    unsigned selectorCount = std::ranges::distance(selectorList);
+    m_selectors = FixedVector<SelectorData>::map(selectorList, [](auto& selector) {
+        return SelectorData { &selector };
+    });
 
-    m_selectors.reserveInitialCapacity(selectorCount);
-    for (auto& selector : selectorList)
-        m_selectors.append({ &selector });
-
-    if (selectorCount == 1) {
+    if (m_selectors.size() == 1) {
         const CSSSelector& selector = *m_selectors.first().selector;
         if (selector.isFirstInComplexSelector()) {
             switch (selector.match()) {
@@ -222,7 +220,7 @@ Ref<NodeList> SelectorDataList::queryAll(ContainerNode& rootNode) const
 {
     Vector<Ref<Element>> result;
     execute(rootNode, result);
-    return StaticElementList::create(WTFMove(result));
+    return StaticElementList::create(WTF::move(result));
 }
 
 Element* SelectorDataList::queryFirst(ContainerNode& rootNode) const
@@ -277,7 +275,7 @@ ALWAYS_INLINE void SelectorDataList::executeFastPathForIdSelector(const Containe
         appendOutputForElement(output, *element);
 }
 
-static ContainerNode& filterRootById(ContainerNode& rootNode, const CSSSelector& firstSelector)
+static Ref<ContainerNode> filterRootById(ContainerNode& rootNode, const CSSSelector& firstSelector)
 {
     if (!rootNode.isConnected())
         return rootNode;
@@ -303,7 +301,7 @@ static ContainerNode& filterRootById(ContainerNode& rootNode, const CSSSelector&
                     if (inAdjacentChain)
                         searchRoot = searchRoot->parentNode();
                     if (searchRoot && (rootNode.isTreeScope() || searchRoot->isInclusiveDescendantOf(rootNode)))
-                        return *searchRoot.unsafeGet();
+                        return searchRoot.releaseNonNull();
                 }
             }
         }
@@ -575,7 +573,7 @@ bool SelectorDataList::compileSelector(const SelectorData& selectorData)
 template<typename OutputType>
 ALWAYS_INLINE void SelectorDataList::execute(ContainerNode& rootNode, OutputType& output) const
 {
-    ContainerNode* searchRootNode = &rootNode;
+    RefPtr<ContainerNode> searchRootNode = &rootNode;
     switch (m_matchType) {
     case RightMostWithIdMatch:
         {
@@ -622,7 +620,7 @@ ALWAYS_INLINE void SelectorDataList::execute(ContainerNode& rootNode, OutputType
 #if ENABLE(CSS_SELECTOR_JIT)
     case CompiledSingleWithRootFilter:
         CompiledSingleWithRootFilterCase:
-        searchRootNode = &filterRootById(*searchRootNode, *m_selectors.first().selector);
+        searchRootNode = filterRootById(*searchRootNode, *m_selectors.first().selector);
         [[fallthrough]];
     case CompiledSingle:
         {
@@ -651,7 +649,7 @@ ALWAYS_INLINE void SelectorDataList::execute(ContainerNode& rootNode, OutputType
 
     case SingleSelectorWithRootFilter:
         SingleSelectorWithRootFilterCase:
-        searchRootNode = &filterRootById(*searchRootNode, *m_selectors.first().selector);
+        searchRootNode = filterRootById(*searchRootNode, *m_selectors.first().selector);
         [[fallthrough]];
     case SingleSelector:
         SingleSelectorCase:
@@ -700,7 +698,7 @@ ALWAYS_INLINE void SelectorDataList::execute(ContainerNode& rootNode, OutputType
 }
 
 SelectorQuery::SelectorQuery(CSSSelectorList&& selectorList)
-    : m_selectorList(WTFMove(selectorList))
+    : m_selectorList(WTF::move(selectorList))
     , m_selectors(m_selectorList)
 {
 }
@@ -730,9 +728,9 @@ SelectorQuery* SelectorQueryCache::add(const String& selectors, const Document& 
             return nullptr;
 
         if (selectorList->hasExplicitNestingParent())
-            selectorList = CSSSelectorParser::resolveNestingParent(WTFMove(*selectorList), nullptr);
+            selectorList = CSSSelectorParser::resolveNestingParent(WTF::move(*selectorList), nullptr);
 
-        return makeUnique<SelectorQuery>(WTFMove(*selectorList));
+        return makeUnique<SelectorQuery>(WTF::move(*selectorList));
     }).iterator->value.get();
 }
 

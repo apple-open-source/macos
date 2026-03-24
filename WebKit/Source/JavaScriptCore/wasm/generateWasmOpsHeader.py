@@ -223,6 +223,8 @@ contents = wasm.header + """
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
+#include <wtf/Platform.h>
+
 #if ENABLE(WEBASSEMBLY)
 
 #include <cstdint>
@@ -474,13 +476,6 @@ inline bool isControlFlowInstruction(OpType op)
     FOR_EACH_WASM_CONTROL_FLOW_OP(CREATE_CASE)
         return true;
 #undef CREATE_CASE
-    case OpType::Call:
-    case OpType::CallIndirect:
-    case OpType::CallRef:
-    case OpType::TailCall:
-    case OpType::TailCallIndirect:
-    case OpType::TailCallRef:
-        return true;
     default:
         break;
     }

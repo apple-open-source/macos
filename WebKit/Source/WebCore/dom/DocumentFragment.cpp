@@ -37,7 +37,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DocumentFragment);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DocumentFragment);
 
 DocumentFragment::DocumentFragment(Document& document, OptionSet<TypeFlag> typeFlags)
     : ContainerNode(document, DOCUMENT_FRAGMENT_NODE, typeFlags)
@@ -95,6 +95,7 @@ void DocumentFragment::parseHTML(const String& source, Element& contextElement, 
 {
     Ref document = this->document();
     if (!registry && tryFastParsingHTMLFragment(source, document, *this, contextElement, parserContentPolicy)) {
+        setWasParsedWithFastPath();
 #if ASSERT_ENABLED
         // As a sanity check for the fast-path, create another fragment using the full parser and compare the results.
         auto referenceFragment = DocumentFragment::create(document);
@@ -103,6 +104,7 @@ void DocumentFragment::parseHTML(const String& source, Element& contextElement, 
 #endif
         return;
     }
+    clearWasParsedWithFastPath();
     if (hasChildNodes())
         removeChildren();
 
@@ -114,19 +116,19 @@ bool DocumentFragment::parseXML(const String& source, Element* contextElement, O
     return XMLDocumentParser::parseDocumentFragment(source, *this, contextElement, parserContentPolicy);
 }
 
-Element* DocumentFragment::getElementById(const AtomString& id) const
+RefPtr<Element> DocumentFragment::getElementById(const AtomString& id) const
 {
     if (id.isEmpty())
         return nullptr;
 
     // Fast path for ShadowRoot, where we are both a DocumentFragment and a TreeScope.
     if (isTreeScope())
-        return protectedTreeScope()->getElementById(id).unsafeGet();
+        return protectedTreeScope()->getElementById(id);
 
     // Otherwise, fall back to iterating all of the element descendants.
-    for (Ref element : descendantsOfType<Element>(*this)) {
+    for (Ref element : descendantsOfType<Element>(*const_cast<DocumentFragment*>(this))) {
         if (element->getIdAttribute() == id)
-            return const_cast<Element*>(element.unsafePtr());
+            return element;
     }
 
     return nullptr;
@@ -144,7 +146,7 @@ SerializedNode DocumentFragment::serializeNode(CloningOperation type) const
         break;
     }
 
-    return { SerializedNode::DocumentFragment { WTFMove(children) } };
+    return { SerializedNode::DocumentFragment { WTF::move(children) } };
 }
 
 }

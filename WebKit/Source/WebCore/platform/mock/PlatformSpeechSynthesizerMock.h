@@ -35,7 +35,7 @@ namespace WebCore {
 
 class PlatformSpeechSynthesizerMock : public PlatformSpeechSynthesizer {
 public:
-    WEBCORE_EXPORT static Ref<PlatformSpeechSynthesizer> create(PlatformSpeechSynthesizerClient&);
+    WEBCORE_EXPORT static Ref<PlatformSpeechSynthesizerMock> create(PlatformSpeechSynthesizerClient&);
 
     virtual ~PlatformSpeechSynthesizerMock();
     virtual void speak(RefPtr<PlatformSpeechSynthesisUtterance>&&);

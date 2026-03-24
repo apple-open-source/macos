@@ -46,7 +46,7 @@
 #import "WKFullKeyboardAccessWatcher.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
 #import "WebFrame.h"
-#import "WebInspectorInternal.h"
+#import "WebInspectorBackend.h"
 #import "WebPage.h"
 #import "WebPageGroupProxy.h"
 #import "WebPreferencesDefaultValues.h"
@@ -238,7 +238,7 @@ id WebProcess::accessibilityFocusedUIElement()
             RefPtr page = WebProcess::singleton().focusedWebPage();
             if (!page || !page->accessibilityRemoteObject())
                 return nil;
-            return [page->accessibilityRemoteObject() accessibilityFocusedUIElement];
+            return [page->protectedAccessibilityRemoteObject() accessibilityFocusedUIElement];
         });
     };
 
@@ -250,7 +250,11 @@ id WebProcess::accessibilityFocusedUIElement()
             bool foundValidTree = false;
             switchOn(tree,
                 [&] (RefPtr<AXIsolatedTree>& typedTree) {
+#if ENABLE_ACCESSIBILITY_LOCAL_FRAME
+                    if (typedTree && typedTree->focusedNode()) {
+#else
                     if (typedTree) {
+#endif
                         OptionSet<ActivityState> state = typedTree->lockedPageActivityState();
                         if (state.containsAll({ ActivityState::IsVisible, ActivityState::IsFocused, ActivityState::WindowIsActive }))
                             foundValidTree = true;
@@ -282,10 +286,9 @@ id WebProcess::accessibilityFocusedUIElement()
         RetainPtr objectWrapper = object ? object->wrapper() : nil;
         if (objectWrapper) {
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            id associatedParent = [objectWrapper accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
+            if (RetainPtr associatedParent = [objectWrapper accessibilityAttributeValue:@"_AXAssociatedPluginParent"])
+                objectWrapper = WTF::move(associatedParent);
             ALLOW_DEPRECATED_DECLARATIONS_END
-            if (associatedParent)
-                objectWrapper = associatedParent;
         }
         return objectWrapper.autorelease();
     }
@@ -386,7 +389,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     unsetenv("BSServiceDomains");
 #endif
 
-    applyProcessCreationParameters(WTFMove(parameters.auxiliaryProcessParameters));
+    applyProcessCreationParameters(WTF::move(parameters.auxiliaryProcessParameters));
 
     setQOS(parameters.latencyQOS, parameters.throughputQOS);
 
@@ -395,7 +398,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor(static_cast<UIUserInterfaceIdiom>(overrideUserInterfaceIdiom), overrideScaleFactor);
 #endif
 
-    populateMobileGestaltCache(WTFMove(parameters.mobileGestaltExtensionHandle));
+    populateMobileGestaltCache(WTF::move(parameters.mobileGestaltExtensionHandle));
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
 
@@ -416,7 +419,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
         // Dispatch this work on a thread to avoid blocking the main thread. We will wait for this to complete at the end of this method.
         codeCheckSemaphore = adoptOSObject(dispatch_semaphore_create(0));
         dispatch_async(globalDispatchQueueSingleton(QOS_CLASS_USER_INTERACTIVE, 0), [codeCheckSemaphore = codeCheckSemaphore] {
-            auto bundleURL = adoptCF(CFBundleCopyBundleURL(CFBundleGetMainBundle()));
+            auto bundleURL = adoptCF(CFBundleCopyBundleURL(RetainPtr { CFBundleGetMainBundle() }.get()));
             SecStaticCodeRef code = nullptr;
             if (bundleURL)
                 SecStaticCodeCreateWithPath(bundleURL.get(), kSecCSDefaultFlags, &code);
@@ -473,6 +476,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     setCurrentUserInterfaceIdiom(parameters.currentUserInterfaceIdiom);
     setLocalizedDeviceModel(parameters.localizedDeviceModel);
     setContentSizeCategory(parameters.contentSizeCategory);
+    m_containerTemporaryDirectory = WTF::move(parameters.containerTemporaryDirectory);
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     setSupportsPictureInPicture(parameters.supportsPictureInPicture);
 #endif
@@ -498,8 +502,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if (PLATFORM(MAC) || PLATFORM(MACCATALYST)) && !ENABLE(LAUNCHSERVICES_SANDBOX_EXTENSION_BLOCKING)
     if (parameters.launchServicesExtensionHandle) {
-        if ((m_launchServicesExtension = SandboxExtension::create(WTFMove(*parameters.launchServicesExtensionHandle)))) {
-            bool ok = m_launchServicesExtension->consume();
+        RefPtr sandboxExtension = SandboxExtension::create(WTF::move(*parameters.launchServicesExtensionHandle));
+        m_launchServicesExtension = sandboxExtension;
+        if (sandboxExtension) {
+            bool ok = sandboxExtension->consume();
             ASSERT_UNUSED(ok, ok);
         }
     }
@@ -519,7 +525,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     // Disable relaunch on login. This is also done from -[NSApplication init] by dispatching -[NSApplication disableRelaunchOnLogin] on a non-main thread.
     // This will be in a race with the closing of the Launch Services connection, so call it synchronously here.
     // The cost of calling this should be small, and it is not expected to have any impact on performance.
-    _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSPersistenceSuppressRelaunchAtLoginKey, kCFBooleanTrue, nullptr);
+    _LSSetApplicationInformationItem(kLSDefaultSessionID, RetainPtr { _LSGetCurrentApplicationASN() }.get(), _kLSPersistenceSuppressRelaunchAtLoginKey, kCFBooleanTrue, nullptr);
 #endif
 
     // App nap must be manually enabled when not running the NSApplication run loop.
@@ -560,7 +566,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     setSystemHasAC(parameters.systemHasAC);
 
 #if PLATFORM(IOS_FAMILY)
-    RenderThemeIOS::setCSSValueToSystemColorMap(WTFMove(parameters.cssValueToSystemColorMap));
+    RenderThemeIOS::setCSSValueToSystemColorMap(WTF::move(parameters.cssValueToSystemColorMap));
     RenderThemeIOS::setFocusRingColor(parameters.focusRingColor);
 #endif
 
@@ -617,6 +623,9 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #if ENABLE(CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH)
     xpc_connection_cancel(parentProcessConnection()->xpcConnection());
 #endif
+
+    if (getenv("WEBKIT_PAUSE_WEB_PROCESS_ON_LAUNCH"))
+        WTF::sleep(5_s);
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&& parameters)
@@ -709,14 +718,14 @@ void WebProcess::updateProcessName(IsInProcessInitialization isInProcessInitiali
         return;
     }
 #if ENABLE(LAUNCHSERVICES_SANDBOX_EXTENSION_BLOCKING)
-    m_pendingDisplayName = WTFMove(displayName);
+    m_pendingDisplayName = WTF::move(displayName);
     return;
 #endif
 #endif // ENABLE(SET_WEBCONTENT_PROCESS_INFORMATION_IN_NETWORK_PROCESS)
 
 #if !ENABLE(LAUNCHSERVICES_SANDBOX_EXTENSION_BLOCKING)
     // Note that it is important for _RegisterApplication() to have been called before setting the display name.
-    auto error = _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey, (CFStringRef)applicationName.get(), nullptr);
+    auto error = _LSSetApplicationInformationItem(kLSDefaultSessionID, RetainPtr { _LSGetCurrentApplicationASN() }.get(), _kLSDisplayNameKey, (CFStringRef)applicationName.get(), nullptr);
     ASSERT(!error);
     if (error) {
         WEBPROCESS_RELEASE_LOG_ERROR(Process, "updateProcessName: Failed to set the display name of the WebContent process, error code=%ld", static_cast<long>(error));
@@ -724,7 +733,7 @@ void WebProcess::updateProcessName(IsInProcessInitialization isInProcessInitiali
     }
 #if ASSERT_ENABLED
     // It is possible for _LSSetApplicationInformationItem() to return 0 and yet fail to set the display name so we make sure the display name has actually been set.
-    String actualApplicationName = adoptCF((CFStringRef)_LSCopyApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey)).get();
+    String actualApplicationName = adoptCF((CFStringRef)_LSCopyApplicationInformationItem(kLSDefaultSessionID, RetainPtr { _LSGetCurrentApplicationASN() }.get(), _kLSDisplayNameKey)).get();
     ASSERT(!actualApplicationName.isEmpty());
 #endif
 #endif
@@ -844,9 +853,9 @@ static void prewarmLogs()
 }
 #endif // PLATFORM(IOS_FAMILY)
 
-static bool shouldIgnoreLogMessage(std::span<const Latin1Character> logChannel)
+static bool shouldIgnoreLogMessage(std::span<const char> logChannel)
 {
-    return equalSpans(logChannel, "com.apple.xpc\0"_span8) || equalSpans(logChannel, "com.apple.CoreAnalytics\0"_span8);
+    return equalSpans(logChannel, "com.apple.xpc\0"_span) || equalSpans(logChannel, "com.apple.CoreAnalytics\0"_span);
 }
 
 static void registerLogClient(bool isDebugLoggingEnabled, std::unique_ptr<LogClient>&& newLogClient)
@@ -856,7 +865,7 @@ static void registerLogClient(bool isDebugLoggingEnabled, std::unique_ptr<LogCli
 #endif
 
     RELEASE_ASSERT(!logClient());
-    logClient() = WTFMove(newLogClient);
+    logClient() = WTF::move(newLogClient);
 
     // OS_LOG_TYPE_DEFAULT implies default, fault, and error.
     // OS_LOG_TYPE_DEBUG implies debug, info, default, fault, and error.
@@ -881,12 +890,12 @@ static void registerLogClient(bool isDebugLoggingEnabled, std::unique_ptr<LogCli
         if (Thread::currentThreadIsRealtime())
             return;
 
-        auto logChannel = unsafeSpan8IncludingNullTerminator(msg->subsystem);
+        auto logChannel = unsafeSpanIncludingNullTerminator(msg->subsystem);
         if (logChannel.size() > logSubsystemMaxSize)
             return;
         if (shouldIgnoreLogMessage(logChannel))
             return;
-        auto logCategory = unsafeSpan8IncludingNullTerminator(msg->category);
+        auto logCategory = unsafeSpanIncludingNullTerminator(msg->category);
         if (logCategory.size() > logCategoryMaxSize)
             return;
 
@@ -894,7 +903,7 @@ static void registerLogClient(bool isDebugLoggingEnabled, std::unique_ptr<LogCli
             type = OS_LOG_TYPE_ERROR;
 
         if (auto messageString = adoptSystemMalloc(os_log_copy_message_string(msg))) {
-            auto logString = spanConstCast<Latin1Character>(unsafeSpan8IncludingNullTerminator(messageString.get()));
+            auto logString = spanConstCast<char>(unsafeSpanIncludingNullTerminator(messageString.get()));
             if (logString.size() > logStringMaxSize) {
                 logString = logString.first(logStringMaxSize);
                 logString.back() = 0;
@@ -922,17 +931,17 @@ void WebProcess::initializeLogForwarding(const WebProcessCreationParameters& par
     auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2, 1_s);
     if (!connectionPair)
         CRASH();
-    auto [connection, handle] = WTFMove(*connectionPair);
+    auto [connection, handle] = WTF::move(*connectionPair);
     connection->open(*this, RunLoop::currentSingleton());
     std::unique_ptr newLogClient = makeUnique<LogClient>(Ref { connection });
-    parentConnection->sendWithAsyncReply(Messages::WebProcessProxy::CreateLogStream(WTFMove(handle), newLogClient->identifier()), [newLogClient = WTFMove(newLogClient), connection = WTFMove(connection), isDebugLoggingEnabled = parameters.isDebugLoggingEnabled] (IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore) mutable {
-        connection->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
-        registerLogClient(isDebugLoggingEnabled, WTFMove(newLogClient));
+    parentConnection->sendWithAsyncReply(Messages::WebProcessProxy::CreateLogStream(WTF::move(handle), newLogClient->identifier()), [newLogClient = WTF::move(newLogClient), connection = WTF::move(connection), isDebugLoggingEnabled = parameters.isDebugLoggingEnabled] (IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore) mutable {
+        connection->setSemaphores(WTF::move(wakeUpSemaphore), WTF::move(clientWaitSemaphore));
+        registerLogClient(isDebugLoggingEnabled, WTF::move(newLogClient));
     });
 #else
     std::unique_ptr newLogClient = makeUnique<LogClient>(*parentConnection);
-    parentConnection->sendWithAsyncReply(Messages::WebProcessProxy::CreateLogStream(newLogClient->identifier()), [newLogClient = WTFMove(newLogClient), isDebugLoggingEnabled = parameters.isDebugLoggingEnabled] mutable {
-        registerLogClient(isDebugLoggingEnabled, WTFMove(newLogClient));
+    parentConnection->sendWithAsyncReply(Messages::WebProcessProxy::CreateLogStream(newLogClient->identifier()), [newLogClient = WTF::move(newLogClient), isDebugLoggingEnabled = parameters.isDebugLoggingEnabled] mutable {
+        registerLogClient(isDebugLoggingEnabled, WTF::move(newLogClient));
     });
 #endif
 
@@ -1070,7 +1079,7 @@ void WebProcess::getProcessDisplayName(CompletionHandler<void(String&&)>&& compl
     auto auditToken = auditTokenForSelf();
     if (!auditToken)
         return completionHandler({ });
-    ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::GetProcessDisplayName(*auditToken), WTFMove(completionHandler));
+    ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::GetProcessDisplayName(*auditToken), WTF::move(completionHandler));
 #else
     completionHandler({ });
 #endif
@@ -1087,11 +1096,11 @@ void WebProcess::updateActivePages(const String& overrideDisplayName)
 #else
     if (!overrideDisplayName) {
         RunLoop::mainSingleton().dispatch([activeOrigins = activePagesOrigins(m_pageMap)] {
-            _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), CFSTR("LSActivePageUserVisibleOriginsKey"), (__bridge CFArrayRef)createNSArray(activeOrigins).get(), nullptr);
+            _LSSetApplicationInformationItem(kLSDefaultSessionID, RetainPtr { _LSGetCurrentApplicationASN() }.get(), CFSTR("LSActivePageUserVisibleOriginsKey"), (__bridge CFArrayRef)createNSArray(activeOrigins).get(), nullptr);
         });
     } else {
         RunLoop::mainSingleton().dispatch([name = overrideDisplayName.createCFString()] {
-            _LSSetApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey, name.get(), nullptr);
+            _LSSetApplicationInformationItem(kLSDefaultSessionID, RetainPtr { _LSGetCurrentApplicationASN() }.get(), _kLSDisplayNameKey, name.get(), nullptr);
         });
     }
 #endif
@@ -1138,8 +1147,8 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason reason)
 {
 #if PLATFORM(MAC)
     if (!m_cpuLimit) {
-        if (m_cpuMonitor)
-            m_cpuMonitor->setCPULimit(std::nullopt);
+        if (CheckedPtr cpuMonitor = m_cpuMonitor.get())
+            cpuMonitor->setCPULimit(std::nullopt);
         return;
     }
 
@@ -1158,9 +1167,9 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason reason)
     } else if (reason == CPUMonitorUpdateReason::VisibilityHasChanged) {
         // If the visibility has changed, stop the CPU monitor before setting its limit. This is needed because the CPU usage can vary wildly based on visibility and we would
         // not want to report that a process has exceeded its background CPU limit even though most of the CPU time was used while the process was visible.
-        m_cpuMonitor->setCPULimit(std::nullopt);
+        CheckedRef { *m_cpuMonitor }->setCPULimit(std::nullopt);
     }
-    m_cpuMonitor->setCPULimit(m_cpuLimit);
+    CheckedRef { *m_cpuMonitor }->setCPULimit(m_cpuLimit);
 #else
     UNUSED_PARAM(reason);
 #endif
@@ -1411,7 +1420,7 @@ void WebProcess::handlePreferenceChange(const String& domain, const String& key,
 {
     if (key == "AppleLanguages"_s) {
         // We need to set AppleLanguages for the volatile domain, similarly to what we do in XPCServiceMain.mm.
-        NSDictionary *existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
+        RetainPtr<NSDictionary> existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
         RetainPtr<NSMutableDictionary> newArguments = adoptNS([existingArguments mutableCopy]);
         [newArguments setValue:value forKey:@"AppleLanguages"];
         [[NSUserDefaults standardUserDefaults] setVolatileDomain:newArguments.get() forName:NSArgumentDomain];
@@ -1434,7 +1443,7 @@ void WebProcess::grantAccessToAssetServices(Vector<WebKit::SandboxExtensionHandl
     if (m_assetServicesExtensions.size())
         return;
     for (auto& handle : assetServicesHandles) {
-        auto extension = SandboxExtension::create(WTFMove(handle));
+        auto extension = SandboxExtension::create(WTF::move(handle));
         if (!extension)
             continue;
         extension->consume();
@@ -1510,8 +1519,8 @@ void WebProcess::updatePageScreenProperties()
 
 void WebProcess::unblockServicesRequiredByAccessibility(Vector<SandboxExtension::Handle>&& handles)
 {
-    auto extensions = WTF::compactMap(WTFMove(handles), [](SandboxExtension::Handle&& handle) -> RefPtr<SandboxExtension> {
-        auto extension = SandboxExtension::create(WTFMove(handle));
+    auto extensions = WTF::compactMap(WTF::move(handles), [](SandboxExtension::Handle&& handle) -> RefPtr<SandboxExtension> {
+        auto extension = SandboxExtension::create(WTF::move(handle));
         if (extension)
             extension->consume();
         return extension;
@@ -1570,19 +1579,19 @@ void WebProcess::systemDidWake()
 #if PLATFORM(MAC)
 void WebProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& handle, SandboxExtension::Handle&& machBootstrapHandle)
 {
-    auto cacheInvalidationHandler = [handle = WTFMove(handle), machBootstrapHandle = WTFMove(machBootstrapHandle)] () mutable {
-        auto bootstrapExtension = SandboxExtension::create(WTFMove(machBootstrapHandle));
+    auto cacheInvalidationHandler = [handle = WTF::move(handle), machBootstrapHandle = WTF::move(machBootstrapHandle)] () mutable {
+        auto bootstrapExtension = SandboxExtension::create(WTF::move(machBootstrapHandle));
 
         if (bootstrapExtension)
             bootstrapExtension->consume();
 
-        AuxiliaryProcess::openDirectoryCacheInvalidated(WTFMove(handle));
+        AuxiliaryProcess::openDirectoryCacheInvalidated(WTF::move(handle));
 
         if (bootstrapExtension)
             bootstrapExtension->revoke();
     };
 
-    dispatch_async(globalDispatchQueueSingleton(QOS_CLASS_UTILITY, 0), makeBlockPtr(WTFMove(cacheInvalidationHandler)).get());
+    dispatch_async(globalDispatchQueueSingleton(QOS_CLASS_UTILITY, 0), makeBlockPtr(WTF::move(cacheInvalidationHandler)).get());
 }
 #endif
 
@@ -1676,8 +1685,8 @@ void WebProcess::registerFontMap(HashMap<String, URL>&& fontMap, HashMap<String,
     RELEASE_LOG(Process, "WebProcess::registerFontMap");
     SandboxExtension::consumePermanently(sandboxExtensions);
     Locker locker(userInstalledFontMapLock());
-    userInstalledFontMap() = WTFMove(fontMap);
-    userInstalledFontFamilyMap() = WTFMove(fontFamilyMap);
+    userInstalledFontMap() = WTF::move(fontMap);
+    userInstalledFontFamilyMap() = WTF::move(fontFamilyMap);
 }
 
 #if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
@@ -1690,8 +1699,8 @@ void WebProcess::initializeAccessibility(Vector<SandboxExtension::Handle>&& hand
 #endif
 
     RELEASE_LOG(Process, "WebProcess::initializeAccessibility, pid = %d", getpid());
-    auto extensions = WTF::compactMap(WTFMove(handles), [](SandboxExtension::Handle&& handle) -> RefPtr<SandboxExtension> {
-        auto extension = SandboxExtension::create(WTFMove(handle));
+    auto extensions = WTF::compactMap(WTF::move(handles), [](SandboxExtension::Handle&& handle) -> RefPtr<SandboxExtension> {
+        auto extension = SandboxExtension::create(WTF::move(handle));
         if (extension)
             extension->consume();
         return extension;

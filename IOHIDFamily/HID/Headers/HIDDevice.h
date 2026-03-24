@@ -67,6 +67,20 @@ typedef void (^HIDDeviceReportCallback)(IOReturn status, const void * report, NS
 typedef void (^HIDDeviceCommitCallback)(IOReturn status);
 
 /*!
+ * @typedef HIDDevicePropertyChangeHandler
+ *
+ * @abstract
+ * The block type used for handling property changes.
+ *
+ * @param key
+ * The key of the changed property.
+ * @param value
+ * The new value of the property.
+ */
+typedef void (^HIDDevicePropertyChangeHandler)(NSString * key, id _Nullable value);
+
+
+/*!
  * @category HIDDevice
  *
  * @abstract
@@ -672,6 +686,47 @@ typedef void (^HIDDeviceCommitCallback)(IOReturn status);
  * Calling cancel on an already cancelled device has no effect.
  */
 - (void)cancel;
+
+/*!
+ * @method setPropertyChangeHandler
+ *
+ * @abstract
+ * Registers a handler to receive property change notifications for specific properties.
+ *
+ * @discussion
+ * The handler will be invoked in two scenarios:
+ * 1. Initially after activation, providing the current value of each monitored property
+ * 2. Subsequently when the kernel-side IOHIDDevice service publishes property changes
+ *    via kIOMessageServicePropertyChange notifications
+ *
+ * Only properties in the kIOHIDDeviceMessagePropertyUpdateKeys are valid
+ *
+ * Note: Some properties like kIOHIDDeviceOpenedByEventSystemKey are set in user-space only
+ * and will not trigger change notifications, though they will receive an initial notification.
+ *
+ * This call must occur before the device is activated. The device must be activated
+ * in order to receive property change notifications. Only one handler can be
+ * registered. Notifications are unregistered on cancellation.
+ *
+ * @param handler
+ * The handler to be invoked when a property changes. Called with the property key and new value.
+ * The handler is first invoked asynchronously after registration with the current property values.
+ *
+ * @param keys
+ * An array of property key strings to monitor. Only keys in the allowed list kIOHIDDeviceMessagePropertyUpdateKeys
+ * will be accepted.
+ *
+ * @param outError
+ * A reference to an NSError that will be filled with an error object if the keys are not
+ * in the allowed list. The reference will be unchanged on success.
+ *
+ * @result
+ * true if the handler was successfully registered, false if keys are invalid or a handler
+ * already exists.
+ */
+- (BOOL)setPropertyChangeHandler:(HIDDevicePropertyChangeHandler)handler
+                          forKey:(NSArray<NSString *> *)keys
+                          error:(out NSError * _Nullable * _Nullable)outError;
 
 /*!
  * @property service

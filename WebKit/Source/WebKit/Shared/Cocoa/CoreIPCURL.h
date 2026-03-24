@@ -41,14 +41,14 @@ public:
     }
 
     CoreIPCURL(URL&& url)
-        : m_url(WTFMove(url))
+        : m_url(WTF::move(url))
     {
     }
 
     RetainPtr<id> toID() const { return m_url.createNSURL(); }
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCURL, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCURL>;
 
     URL m_url;
 };

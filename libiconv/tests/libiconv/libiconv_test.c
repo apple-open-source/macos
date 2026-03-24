@@ -1289,6 +1289,46 @@ ATF_TC_BODY(test_shiftjis_trunc, tc)
 	ATF_REQUIRE(strcmp(out, expected) == 0);
 }
 
+/*
+ * rdar://problem/151072586 - this demonstrates a failure in the MSKanji
+ * encoding (and maybe others) to retain the correct position in the input
+ * string when an invalid sequence is encountered.  It surfaces with either
+ * //IGNORE or ICONV_SET_DISCARD_ILSEQ since we need to advance past the bad
+ * character.
+ */
+ATF_TC_WITHOUT_HEAD(test_shiftjis_ilseq);
+ATF_TC_BODY(test_shiftjis_ilseq, tc)
+{
+	iconv_t cd;
+	char in[] = "\"\xe5\"";
+	char expected[] = "\"\"";
+	char out[8] = { 0 };
+	char *inbuf, *outbuf;
+	size_t inleft, outleft;
+	size_t ret;
+	int error, on = 1;
+
+	inbuf = (void *)&in[0];
+	outbuf = &out[0];
+	inleft = strlen(in);
+	outleft = sizeof(out);
+
+	cd = iconv_open("UTF-8", "SHIFT_JIS");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	error = iconvctl(cd, ICONV_SET_DISCARD_ILSEQ, &on);
+	ATF_REQUIRE(error == 0);
+
+	ret = iconv(cd, &inbuf, &inleft, &outbuf, &outleft);
+	ATF_REQUIRE(ret == 0);
+
+	iconv_close(cd);
+
+	ATF_REQUIRE_INTEQ(inleft, 0);
+	ATF_REQUIRE_INTEQ(outbuf - out, sizeof(expected) - 1);
+	ATF_REQUIRE(strcmp(out, expected) == 0);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -1322,6 +1362,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_zw_oob);
 	ATF_TP_ADD_TC(tp, test_viqr_oob);
 	ATF_TP_ADD_TC(tp, test_shiftjis_trunc);
+	ATF_TP_ADD_TC(tp, test_shiftjis_ilseq);
 	return (atf_no_error());
 }
 

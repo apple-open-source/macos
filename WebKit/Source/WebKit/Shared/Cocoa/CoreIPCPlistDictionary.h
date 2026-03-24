@@ -49,7 +49,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCPlistDictionary, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCPlistDictionary>;
 
     using ValueType = Vector<KeyValuePair<CoreIPCString, CoreIPCPlistObject>>;
 

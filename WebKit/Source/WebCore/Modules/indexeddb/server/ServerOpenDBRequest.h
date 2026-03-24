@@ -38,6 +38,8 @@ class IDBDatabaseInfo;
 
 namespace IDBServer {
 
+class UniqueIDBDatabaseTransaction;
+
 class ServerOpenDBRequest : public RefCounted<ServerOpenDBRequest> {
 public:
     static Ref<ServerOpenDBRequest> create(IDBConnectionToClient&, const IDBOpenRequestData&);
@@ -49,15 +51,15 @@ public:
     bool isDeleteRequest() const;
 
     void maybeNotifyRequestBlocked(uint64_t currentVersion);
-    void notifyDidDeleteDatabase(const IDBDatabaseInfo&);
-
-    uint64_t versionChangeID() const;
 
     void notifiedConnectionsOfVersionChange(HashSet<IDBDatabaseConnectionIdentifier>&& connectionIdentifiers);
     void connectionClosedOrFiredVersionChangeEvent(IDBDatabaseConnectionIdentifier);
     bool hasConnectionsPendingVersionChangeEvent() const { return !m_connectionsPendingVersionChangeEvent.isEmpty(); }
     bool hasNotifiedConnectionsOfVersionChange() const { return m_notifiedConnectionsOfVersionChange; }
 
+    void setVersionChangeTransaction(UniqueIDBDatabaseTransaction&);
+    void didDeleteDatabase(const IDBResultData&);
+    void didOpenDatabase(const IDBResultData&);
 
 private:
     ServerOpenDBRequest(IDBConnectionToClient&, const IDBOpenRequestData&);
@@ -69,6 +71,7 @@ private:
 
     bool m_notifiedConnectionsOfVersionChange { false };
     HashSet<IDBDatabaseConnectionIdentifier> m_connectionsPendingVersionChangeEvent;
+    RefPtr<UniqueIDBDatabaseTransaction> m_versionChangeTransaction;
 };
 
 } // namespace IDBServer

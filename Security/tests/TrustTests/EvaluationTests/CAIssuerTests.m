@@ -96,10 +96,10 @@
 
     certs = CFArrayCreate(NULL, v_certs, 1, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
-    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+    __Require_noErr_Action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
 
     verifyDate = CFDateCreate(NULL, 546700000.0); // April 29, 2018 at 6:06:40 AM PDT
-    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
 
     /* Evaluate trust. This cert does not chain to anything trusted and we can't fetch an
      * intermediate because the URI is https. */

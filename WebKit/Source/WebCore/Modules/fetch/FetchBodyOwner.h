@@ -95,7 +95,7 @@ protected:
     ExceptionOr<void> extractBody(FetchBody::Init&&);
     void consumeOnceLoadingFinished(FetchBodyConsumer::Type, Ref<DeferredPromise>&&);
 
-    void setBody(FetchBody&& body) { m_body = WTFMove(body); }
+    void setBody(FetchBody&& body) { m_body = WTF::move(body); }
     ExceptionOr<void> createReadableStream(JSC::JSGlobalObject&);
 
     // ActiveDOMObject.

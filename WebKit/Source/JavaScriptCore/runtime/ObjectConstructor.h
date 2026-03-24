@@ -80,13 +80,6 @@ inline JSFinalObject* constructEmptyObject(JSGlobalObject* globalObject)
     return JSFinalObject::createDefaultEmptyObject(globalObject);
 }
 
-inline JSObject* constructObject(JSGlobalObject* globalObject, JSValue arg)
-{
-    if (arg.isUndefinedOrNull())
-        return constructEmptyObject(globalObject, globalObject->objectPrototype());
-    return arg.toObject(globalObject);
-}
-
 JS_EXPORT_PRIVATE JSObject* constructObjectFromPropertyDescriptorSlow(JSGlobalObject*, const PropertyDescriptor&);
 
 static constexpr PropertyOffset dataPropertyDescriptorValuePropertyOffset = 0;

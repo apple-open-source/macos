@@ -229,7 +229,7 @@ calcShortSum(u_char *p)
 	int i;
 
 	for (i = 0; i < 11; i++) {
-		sum = (sum << 7)|(sum >> 1);	/* rotate right */
+		sum = ((uint32_t)sum << 7)|((uint32_t)sum >> 1);	/* rotate right */
 		sum += p[i];
 	}
 
@@ -259,6 +259,7 @@ markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir, check_context *
 	cluster = dir->head;
 	prev = 0;
 	count = 0;
+
 	while (cluster >= CLUST_FIRST && cluster < boot->NumClusters && !isUsed(cluster))
 	{
 		/*
@@ -386,6 +387,7 @@ resetDosDirSection(struct bootblock *boot, check_context *context)
 
 		rootDir->head = boot->RootCl;
 		ret |= markDosDirChain(boot, rootDir, context);
+
 	}
 
 	return ret;
@@ -845,7 +847,7 @@ readDosDirSection(struct bootblock *boot, struct dosDirEntry *dir, int rdonly, c
                         }
                         vallfn = NULL;
                     }
-                    if (p[26] | (p[27] << 8)) {
+                    if (p[26] | ((uint32_t)p[27] << 8)) {
                         fsck_print(fsck_ctx, LOG_INFO, "Warning: long filename record cluster start != 0\n");
                         if (!invlfn) {
                             invlfn = vallfn;
@@ -914,11 +916,11 @@ readDosDirSection(struct bootblock *boot, struct dosDirEntry *dir, int rdonly, c
 			}
             
             /* Get the starting cluster number field(s) */
-			dirent.head = p[26] | (p[27] << 8);
+			dirent.head = p[26] | ((uint32_t)p[27] << 8);
 			if (boot->ClustMask == CLUST32_MASK)
-				dirent.head |= (p[20] << 16) | (p[21] << 24);
+				dirent.head |= ((uint32_t)p[20] << 16) | ((uint32_t)p[21] << 24);
             /* Get the file size */
-			dirent.size = p[28] | (p[29] << 8) | (p[30] << 16) | (p[31] << 24);
+			dirent.size = p[28] | ((uint32_t)p[29] << 8) | ((uint32_t)p[30] << 16) | ((uint32_t)p[31] << 24);
             /* Copy the long name, if there is one */
 			if (vallfn) {
 				strlcpy(dirent.lname, longName, sizeof(dirent.lname));

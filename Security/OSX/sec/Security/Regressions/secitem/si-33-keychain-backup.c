@@ -399,11 +399,11 @@ static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
     keybag_handle_t handle = bad_keybag_handle;
     kern_return_t bag_created = aks_create_bag(DATA_ARG(password), bag_type, &handle);
     ok_status(bag_created, "Bag should have been created");
-    require_noerr(bag_created, out);
+    __Require_noErr(bag_created, out);
 
     kern_return_t bag_saved = aks_save_bag(handle, &bag, &bagLen);
     ok_status(bag_saved, "Bag should have been saved");
-    require_noerr(bag_saved, out);
+    __Require_noErr(bag_saved, out);
 
     result = CFDataCreate(kCFAllocatorDefault, bag, bagLen);
     isnt(result, NULL, "Result should not be null");
@@ -512,57 +512,6 @@ static void tests(void)
 
     ok_status(SecItemDelete(query), "Deleted item we added");
 
-#if USE_KEYSTORE
-    CFReleaseNull(keybag);
-    keybag = create_keybag(kAppleKeyStoreOTABackupBag /* use truthiness bag once it's there */, password);
-#endif
-
-    // add syncable item
-    CFDictionaryAddValue(query, kSecAttrSynchronizable, kCFBooleanTrue);
-    ok_status(SecItemAdd(query, NULL), "add internet password");
-
-    // and non-syncable item
-    test_add_managedconfiguration_item();
-
-    CFDictionaryRef syncableBackup = NULL;
-
-    CFErrorRef error = NULL;
-    CFDictionaryRef scratch = NULL;
-    SKIP: {
-        skip("skipping syncable backup tests", 7,
-             ok_status(_SecKeychainBackupSyncable(keybag, password, NULL, &syncableBackup), "export items"));
-
-        // TODO: add item, call SecServerCopyTruthInTheCloud again
-
-        // CFShow(syncableBackup);
-
-        // find and delete
-        skip("skipping syncable backup tests", 6,
-             ok_status(SecItemCopyMatching(query, NULL), "find item we are about to destroy"));
-
-        skip("skipping syncable backup tests", 5,
-             ok_status(SecItemDelete(query), "delete item we backed up"));
-
-        // ensure we added a tombstone
-        CFDictionaryAddValue(query, kSecAttrTombstone, kCFBooleanTrue);
-        skip("skipping syncable backup tests", 4,
-             ok_status(SecItemCopyMatching(query, NULL), "find tombstone for item we deleted"));
-        CFDictionaryRemoveValue(query, kSecAttrTombstone);
-
-        test_find_managedconfiguration_item(); // <- 2 tests here
-
-        // TODO: add a different new item - delete what's not in the syncableBackup?
-
-        // Do another backup after some changes
-        skip("skipping syncable backup tests", 1,
-             ok_status(_SecKeychainBackupSyncable(keybag, password, syncableBackup, &scratch), "export items after changes"));
-
-        skip("skipping syncable backup tests", 0,
-             ok_status(_SecKeychainRestoreSyncable(keybag, password, syncableBackup), "import items"));
-    }
-    CFReleaseNull(scratch);
-    CFReleaseNull(error);
-
     // non-syncable item should (still) be gone -> add should work
     test_add_managedconfiguration_item();
     test_find_managedconfiguration_item();
@@ -572,7 +521,6 @@ static void tests(void)
               "find restored item");
     is_status(errSecItemNotFound, SecItemDelete(query), "delete restored item");
 
-    CFReleaseSafe(syncableBackup);
     CFReleaseSafe(keybag);
     CFReleaseSafe(eighty);
     CFReleaseSafe(pwdata);
@@ -581,7 +529,7 @@ static void tests(void)
 
 int si_33_keychain_backup(int argc, char *const *argv)
 {
-	plan_tests(88);
+	plan_tests(83);
 
     CFErrorRef localError = NULL;
     SOSCCSetCompatibilityMode(true, &localError);

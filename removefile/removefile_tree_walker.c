@@ -92,6 +92,10 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 			}
 #endif
 #if __APPLE__
+			if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED) {
+				res = unlinkat(AT_FDCWD, path, (AT_SYSTEM_DISCARDED|AT_REMOVEDIR));
+				break;
+			}
 			/*
 			 * When traversing a directory with fts_read,
 			 * it will be accessed first in pre-order (FTS_D),
@@ -174,6 +178,8 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 							} else {
 								res = rmdir(path);
 							}
+						} else if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED) {
+							res = unlinkat(AT_FDCWD, path, (AT_SYSTEM_DISCARDED|AT_REMOVEDIR));
 						} else {
 							res = rmdir(path);
 						}
@@ -466,7 +472,16 @@ __removefile_tree_walker_slim(const char *path, removefile_state_t state) {
 			}
 
 			if (!((state->unlink_flags & REMOVEFILE_KEEP_PARENT) && level == 0)) {
+#if __APPLE__
+				if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED) {
+					rval = unlinkat(AT_FDCWD, cur_path, AT_SYSTEM_DISCARDED|AT_REMOVEDIR);
+				} else {
+					rval = rmdir(cur_path);
+				}
+#else
 				rval = rmdir(cur_path);
+#endif
+
 				if (rval && (rval = check_error_cb(cur_path, state, level))) {
 					break;
 				}

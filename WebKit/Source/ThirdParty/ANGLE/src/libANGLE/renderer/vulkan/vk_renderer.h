@@ -516,9 +516,13 @@ class Renderer : angle::NonCopyable
         return mEventStageToPipelineStageFlagsMap[eventStage];
     }
 
-    const ImageMemoryBarrierData &getImageMemoryBarrierData(ImageLayout layout) const
+    const ImageMemoryBarrierData &getImageMemoryBarrierData(ImageAccess imageAccess) const
     {
-        return mImageLayoutAndMemoryBarrierDataMap[layout];
+        return mImageLayoutAndMemoryBarrierDataMap[imageAccess];
+    }
+    VkImageLayout getVkImageLayout(ImageAccess imageAccess) const
+    {
+        return getImageMemoryBarrierData(imageAccess).layout;
     }
 
     VkShaderStageFlags getSupportedVulkanShaderStageMask() const
@@ -715,6 +719,12 @@ class Renderer : angle::NonCopyable
     uint32_t getNativeVectorWidthHalf() const { return mNativeVectorWidthHalf; }
     uint32_t getPreferredVectorWidthDouble() const { return mPreferredVectorWidthDouble; }
     uint32_t getPreferredVectorWidthHalf() const { return mPreferredVectorWidthHalf; }
+
+    bool isVertexAttributeInstanceRateZeroDivisorAllowed() const
+    {
+        return !mFeatures.supportsVertexInputDynamicState.enabled ||
+               mVertexAttributeDivisorFeatures.vertexAttributeInstanceRateZeroDivisor == VK_TRUE;
+    }
 
   private:
     angle::Result setupDevice(vk::ErrorContext *context,
@@ -917,10 +927,12 @@ class Renderer : angle::NonCopyable
     VkPhysicalDeviceMaintenance3Properties mMaintenance3Properties;
     VkPhysicalDeviceFaultFeaturesEXT mFaultFeatures;
     VkPhysicalDeviceASTCDecodeFeaturesEXT mPhysicalDeviceAstcDecodeFeatures;
+    VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR mUnifiedImageLayoutsFeatures;
     VkPhysicalDeviceShaderIntegerDotProductFeatures mShaderIntegerDotProductFeatures;
     VkPhysicalDeviceShaderIntegerDotProductProperties mShaderIntegerDotProductProperties;
     VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT mPhysicalDeviceGlobalPriorityQueryFeatures;
     VkPhysicalDeviceExternalMemoryHostPropertiesEXT mExternalMemoryHostProperties;
+    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR mBufferDeviceAddressFeatures;
 
     uint32_t mLegacyDitheringVersion = 0;
 
@@ -981,8 +993,8 @@ class Renderer : angle::NonCopyable
     // 1. initialization of the cache
     // 2. Vulkan driver guarantees synchronization for read and write operations but the spec
     //    requires external synchronization when mPipelineCache is the dstCache of
-    //    vkMergePipelineCaches. Lock the mutex if mergeProgramPipelineCachesToGlobalCache is
-    //    enabled
+    //    vkMergePipelineCaches. Though some buggy vulkan drivers need external synchronization
+    //    for all access. Lock the mutex if externallySynchronizePipelineCacheAccess is enabled
     angle::SimpleMutex mPipelineCacheMutex;
     vk::PipelineCache mPipelineCache;
     size_t mCurrentPipelineCacheBlobCacheSlotIndex;
@@ -1077,7 +1089,7 @@ class Renderer : angle::NonCopyable
     VkShaderStageFlags mSupportedVulkanShaderStageMask;
     // The 1:1 mapping between EventStage and VkPipelineStageFlags
     EventStageToVkPipelineStageFlagsMap mEventStageToPipelineStageFlagsMap;
-    ImageLayoutToMemoryBarrierDataMap mImageLayoutAndMemoryBarrierDataMap;
+    ImageAccessToMemoryBarrierDataMap mImageLayoutAndMemoryBarrierDataMap;
 
     // Use thread pool to compress cache data.
     std::shared_ptr<angle::WaitableEvent> mCompressEvent;

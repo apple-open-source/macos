@@ -58,6 +58,7 @@ typedef enum {
 #endif
 //test only
 @property (nonatomic) uint64_t piggybacking_version_for_tests;
+@property (nonatomic) BOOL failSOSForTests;
 @end
 
 @implementation KCJoiningRequestCircleSession
@@ -77,9 +78,14 @@ typedef enum {
     return self.session;
 }
 
+// tests only
 - (void)setPiggybackingVersion:(uint64_t)version
 {
     self.piggybacking_version_for_tests = version;
+}
+
+- (void)setFailSOSPropertyForTests:(BOOL)fail {
+    self.failSOSForTests = fail;
 }
 
 #endif
@@ -214,18 +220,14 @@ typedef enum {
         }
 
         NSData* encryptedPi = nil;
-        if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+        if (SOSCCIsSOSTrustAndSyncingEnabled() || self.failSOSForTests) {
             encryptedPi = [self encryptPeerInfo:&localError];
-            if (encryptedPi == nil || localError) {
+            if (encryptedPi == nil || localError || self.failSOSForTests) {
                 if (localError == nil) {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptPeerInfo description:@"failed to encrypt peer info"];
                 }
-                secerror("joining: failed to create encrypted peer info: %@", localError);
-                [eventS sendMetricWithResult:NO error:localError];
-                if (error) {
-                    *error = localError;
-                }
-                return nil;
+                secerror("joining: failed to create encrypted peer info, %@, but continuing for Octagon", localError);
+                localError = nil;
             }
         } else {
             secnotice("joining", "SOS not enabled, skipping peer info encryption");
@@ -445,31 +447,23 @@ typedef enum {
             return nil;
         }
 
-        if ([self shouldJoinSOS:message pairingMessage:pairingMessage]) {
+        if ([self shouldJoinSOS:message pairingMessage:pairingMessage] || self.failSOSForTests) {
             secnotice("joining", "doing SOS processCircleJoinData");
             //note we are stuffing SOS into the payload "secondData"
             NSData* circleBlob = [self.session decryptAndVerify:message.secondData error:&localError];
-            if (circleBlob == nil || localError) {
+            if (circleBlob == nil || localError || self.failSOSForTests) {
                 if (localError == nil) {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToDecryptCircleBlob description:@"Failed to decrypt and verify message"];
                 }
-                secnotice("joining", "decryptAndVerify failed: %@", localError);
-                [eventS sendMetricWithResult:NO error:localError];
-                if (error) {
-                    *error = localError;
-                }
-                return nil;
+                secnotice("joining", "decryptAndVerify failed: %@, but continuing for Octagon", localError);
+                localError = nil;
             }
-            if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:&localError]) {
+            if ((circleBlob && ![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:&localError]) || self.failSOSForTests) {
                 if (localError == nil || localError) {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToProcessCircleJoinData description:@"Failed to process circle join data"];
                 }
-                secerror("joining: processCircleJoinData failed %@", localError);
-                [eventS sendMetricWithResult:NO error:localError];
-                if (error) {
-                    *error = localError;
-                }
-                return nil;
+                secerror("joining: processCircleJoinData failed %@, but continuing for Octagon", localError);
+                localError = nil;
             }
         }
 

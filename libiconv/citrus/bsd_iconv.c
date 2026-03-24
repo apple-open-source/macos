@@ -230,9 +230,27 @@ __bsd_iconvlist(int (*do_one) (unsigned int, const char * const *,
 	}
 	qsort((void *)list, sz, sizeof(char *), qsort_helper);
 	while (i < sz) {
+#ifdef __APPLE__
+		size_t namecnt;
+#endif
 		j = 0;
 		slashpos = strchr(list[i], '/');
+#ifdef __APPLE__
+		/*
+		 * This is the theoretical maximum number of names that we need
+		 * to fit, but we're almost never going to actually hit this.
+		 * The names are sourced from real data in the system esdb,
+		 * which will not provide us with a list populated with entirely
+		 * same-prefixed names.  The below loop covers the latter half
+		 * of each mapping from the entry `i` that we're starting with
+		 * up until `sz`, + 1 entry for to cover the first half of the
+		 * entry that we're starting with.
+		 */
+		namecnt = (sz - i) + 1;
+		names = calloc(namecnt, sizeof(char *));
+#else
 		names = malloc(sz * sizeof(char *));
+#endif
 		if (names == NULL)
 			goto out;
 		curkey = strndup(list[i], slashpos - list[i]);
@@ -250,6 +268,9 @@ __bsd_iconvlist(int (*do_one) (unsigned int, const char * const *,
 			curitem = strdup(&slashpos[1]);
 			if (curitem == NULL)
 				goto out;
+#ifdef __APPLE__
+			assert(j < namecnt);
+#endif
 			names[j++] = curitem;
 		}
 		np = (const char * const *)names;

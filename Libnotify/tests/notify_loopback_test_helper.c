@@ -27,7 +27,7 @@ if (!(expr)) { \
 #define ASSERT_EQ(a, b, fmt, ...) ASSERT((a) == (b), fmt, ##__VA_ARGS__)
 
 static int
-run_test()
+run_test(void)
 {
 	uint32_t rc;
 	int c_token, d_token, check;

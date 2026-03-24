@@ -62,12 +62,12 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Notification);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Notification);
 
 static Lock nonPersistentNotificationMapLock;
-static HashMap<WTF::UUID, Notification*>& nonPersistentNotificationMap() WTF_REQUIRES_LOCK(nonPersistentNotificationMapLock)
+static HashMap<WTF::UUID, WeakRef<Notification, WeakPtrImplWithEventTargetData>>& nonPersistentNotificationMap() WTF_REQUIRES_LOCK(nonPersistentNotificationMapLock)
 {
-    static NeverDestroyed<HashMap<WTF::UUID, Notification*>> map;
+    static NeverDestroyed<HashMap<WTF::UUID, WeakRef<Notification, WeakPtrImplWithEventTargetData>>> map;
     return map;
 }
 
@@ -78,7 +78,7 @@ static void addNotificationToMapIfNecessary(Notification& notification)
 
     Locker locker { nonPersistentNotificationMapLock };
     ASSERT(!nonPersistentNotificationMap().contains(notification.identifier()));
-    nonPersistentNotificationMap().add(notification.identifier(), &notification);
+    nonPersistentNotificationMap().add(notification.identifier(), notification);
 }
 
 static ExceptionOr<Ref<SerializedScriptValue>> createSerializedScriptValue(ScriptExecutionContext& context, JSC::JSValue value)
@@ -100,7 +100,7 @@ ExceptionOr<Ref<Notification>> Notification::create(ScriptExecutionContext& cont
     if (dataResult.hasException())
         return dataResult.releaseException();
 
-    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), WTFMove(title), WTFMove(options), dataResult.releaseReturnValue()));
+    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), WTF::move(title), WTF::move(options), dataResult.releaseReturnValue()));
     notification->suspendIfNeeded();
     addNotificationToMapIfNecessary(notification);
     notification->showSoon();
@@ -113,7 +113,7 @@ ExceptionOr<Ref<Notification>> Notification::createForServiceWorker(ScriptExecut
     if (dataResult.hasException())
         return dataResult.releaseException();
 
-    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), WTFMove(title), WTFMove(options), dataResult.releaseReturnValue()));
+    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), WTF::move(title), WTF::move(options), dataResult.releaseReturnValue()));
     notification->m_serviceWorkerRegistrationURL = serviceWorkerRegistrationURL;
     notification->suspendIfNeeded();
     addNotificationToMapIfNecessary(notification);
@@ -123,13 +123,13 @@ ExceptionOr<Ref<Notification>> Notification::createForServiceWorker(ScriptExecut
 Ref<Notification> Notification::create(ScriptExecutionContext& context, NotificationData&& data)
 {
 #if ENABLE(DECLARATIVE_WEB_PUSH)
-    Options options { data.direction, WTFMove(data.language), WTFMove(data.body), WTFMove(data.tag), WTFMove(data.iconURL), JSC::jsNull(), nullptr, nullptr, data.silent, data.navigateURL.string() };
+    Options options { data.direction, WTF::move(data.language), WTF::move(data.body), WTF::move(data.tag), WTF::move(data.iconURL), JSC::jsNull(), nullptr, nullptr, data.silent, data.navigateURL.string() };
 #else
-    Options options { data.direction, WTFMove(data.language), WTFMove(data.body), WTFMove(data.tag), WTFMove(data.iconURL), JSC::jsNull(), nullptr, nullptr, data.silent };
+    Options options { data.direction, WTF::move(data.language), WTF::move(data.body), WTF::move(data.tag), WTF::move(data.iconURL), JSC::jsNull(), nullptr, nullptr, data.silent };
 #endif
-    auto notification = adoptRef(*new Notification(context, data.notificationID, WTFMove(data.title), WTFMove(options), SerializedScriptValue::createFromWireBytes(WTFMove(data.data))));
+    auto notification = adoptRef(*new Notification(context, data.notificationID, WTF::move(data.title), WTF::move(options), SerializedScriptValue::createFromWireBytes(WTF::move(data.data))));
     notification->suspendIfNeeded();
-    notification->m_serviceWorkerRegistrationURL = WTFMove(data.serviceWorkerRegistrationURL);
+    notification->m_serviceWorkerRegistrationURL = WTF::move(data.serviceWorkerRegistrationURL);
     addNotificationToMapIfNecessary(notification);
     return notification;
 }
@@ -156,7 +156,7 @@ Ref<Notification> Notification::create(ScriptExecutionContext& context, const UR
     if (!dataScriptValue)
         dataScriptValue = SerializedScriptValue::nullValue();
 
-    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), payload.title, WTFMove(options), dataScriptValue.releaseNonNull()));
+    auto notification = adoptRef(*new Notification(context, WTF::UUID::createVersion4(), payload.title, WTF::move(options), dataScriptValue.releaseNonNull()));
 
     notification->suspendIfNeeded();
     notification->m_serviceWorkerRegistrationURL = registrationURL;
@@ -169,10 +169,10 @@ Notification::Notification(ScriptExecutionContext& context, WTF::UUID identifier
     , m_identifier(identifier)
     , m_title(title.isolatedCopy())
     , m_direction(options.dir)
-    , m_lang(WTFMove(options.lang).isolatedCopy())
-    , m_body(WTFMove(options.body).isolatedCopy())
-    , m_tag(WTFMove(options.tag).isolatedCopy())
-    , m_dataForBindings(WTFMove(dataForBindings))
+    , m_lang(WTF::move(options.lang).isolatedCopy())
+    , m_body(WTF::move(options.body).isolatedCopy())
+    , m_tag(WTF::move(options.tag).isolatedCopy())
+    , m_dataForBindings(WTF::move(dataForBindings))
     , m_silent(options.silent)
     , m_state(Idle)
 {
@@ -187,14 +187,14 @@ Notification::Notification(ScriptExecutionContext& context, WTF::UUID identifier
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     if (!options.navigate.isEmpty()) {
-        auto navigate = context.completeURL(WTFMove(options.navigate).isolatedCopy());
+        auto navigate = context.completeURL(WTF::move(options.navigate).isolatedCopy());
         if (navigate.isValid())
-            m_navigate = WTFMove(navigate);
+            m_navigate = WTF::move(navigate);
     }
 #endif
 
     if (!options.icon.isEmpty()) {
-        auto iconURL = context.completeURL(WTFMove(options.icon).isolatedCopy());
+        auto iconURL = context.completeURL(WTF::move(options.icon).isolatedCopy());
         if (iconURL.isValid())
             m_icon = iconURL;
     }
@@ -204,7 +204,7 @@ Notification::~Notification()
 {
     if (!isPersistent()) {
         Locker locker { nonPersistentNotificationMapLock };
-        ASSERT(nonPersistentNotificationMap().contains(identifier()));
+        ASSERT(nonPersistentNotificationMap().get(identifier()) == this);
         nonPersistentNotificationMap().remove(identifier());
     }
 
@@ -234,7 +234,7 @@ void Notification::markAsShown()
 
 void Notification::show(CompletionHandler<void()>&& callback)
 {
-    CompletionHandlerCallingScope scope { WTFMove(callback) };
+    CompletionHandlerCallingScope scope { WTF::move(callback) };
 
     // prevent double-showing
     if (m_state != Idle)
@@ -266,11 +266,11 @@ void Notification::show(CompletionHandler<void()>&& callback)
     // as well as the icon resources for the notification's actions (if any).
     m_resourcesLoader = makeUnique<NotificationResourcesLoader>(*this);
     m_resourcesLoader->start([this, protectedThis = Ref { *this }, client, callback = scope.release()](RefPtr<NotificationResources>&& resources) mutable {
-        CompletionHandlerCallingScope scope { WTFMove(callback) };
+        CompletionHandlerCallingScope scope { WTF::move(callback) };
 
         RefPtr context = scriptExecutionContext();
 
-        m_resources = WTFMove(resources);
+        m_resources = WTF::move(resources);
         if (m_state == Idle && context && client->show(*context, data(), this->resources(), scope.release()))
             m_state = Showing;
         m_resourcesLoader = nullptr;
@@ -401,8 +401,8 @@ auto Notification::permission(ScriptExecutionContext& context) -> Permission
 
 void Notification::requestPermission(Document& document, RefPtr<NotificationPermissionCallback>&& callback, Ref<DeferredPromise>&& promise)
 {
-    auto resolvePromiseAndCallback = [document = Ref { document }, callback = WTFMove(callback), promise = WTFMove(promise)](Permission permission) mutable {
-        document->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [callback = WTFMove(callback), promise = WTFMove(promise), permission]() mutable {
+    auto resolvePromiseAndCallback = [document = Ref { document }, callback = WTF::move(callback), promise = WTF::move(promise)](Permission permission) mutable {
+        document->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [callback = WTF::move(callback), promise = WTF::move(promise), permission]() mutable {
             if (callback)
                 callback->invoke(permission);
             promise->resolve<IDLEnumeration<NotificationPermission>>(permission);
@@ -430,7 +430,7 @@ void Notification::requestPermission(Document& document, RefPtr<NotificationPerm
         return resolvePromiseAndCallback(Permission::Denied);
     }
 
-    client->requestPermission(document, WTFMove(resolvePromiseAndCallback));
+    client->requestPermission(document, WTF::move(resolvePromiseAndCallback));
 }
 
 void Notification::eventListenersDidChange()
@@ -486,7 +486,7 @@ ScriptExecutionContext* Notification::scriptExecutionContext() const
 
 void Notification::ensureOnNotificationThread(ScriptExecutionContextIdentifier contextIdentifier, WTF::UUID notificationIdentifier, Function<void(Notification*)>&& task)
 {
-    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [notificationIdentifier = notificationIdentifier, task = WTFMove(task)](auto&) mutable {
+    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [notificationIdentifier = notificationIdentifier, task = WTF::move(task)](auto&) mutable {
         RefPtr<Notification> notification;
         {
             Locker locker { nonPersistentNotificationMapLock };
@@ -499,7 +499,7 @@ void Notification::ensureOnNotificationThread(ScriptExecutionContextIdentifier c
 void Notification::ensureOnNotificationThread(const NotificationData& notification, Function<void(Notification*)>&& task)
 {
     RELEASE_ASSERT(notification.contextIdentifier);
-    ensureOnNotificationThread(*notification.contextIdentifier, notification.notificationID, WTFMove(task));
+    ensureOnNotificationThread(*notification.contextIdentifier, notification.notificationID, WTF::move(task));
 }
 
 } // namespace WebCore

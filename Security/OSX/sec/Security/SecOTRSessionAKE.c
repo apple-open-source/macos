@@ -157,19 +157,19 @@ static const uint8_t* FindGXHash(CFDataRef dhPacket)
     
     OTRMessageType messageType;
     
-    require_noerr(ReadHeader(&messageBytes, &remainingBytes, &messageType), fail);
-    require(messageType == kDHMessage, fail);
+    __Require_noErr(ReadHeader(&messageBytes, &remainingBytes, &messageType), fail);
+    __Require(messageType == kDHMessage, fail);
     
     uint32_t egxiLength = 0;
-    require_noerr(ReadLong(&messageBytes, &remainingBytes, & egxiLength), fail);
-    require(egxiLength <= remainingBytes, fail);
+    __Require_noErr(ReadLong(&messageBytes, &remainingBytes, & egxiLength), fail);
+    __Require(egxiLength <= remainingBytes, fail);
     messageBytes += egxiLength;
     remainingBytes -= egxiLength;
     
     uint32_t dataLength = 0;
-    require_noerr(ReadLong(&messageBytes, &remainingBytes, &dataLength), fail);
-    require(dataLength <= remainingBytes, fail);
-    require(dataLength == CCSHA256_OUTPUT_SIZE, fail);
+    __Require_noErr(ReadLong(&messageBytes, &remainingBytes, &dataLength), fail);
+    __Require(dataLength <= remainingBytes, fail);
+    __Require(dataLength == CCSHA256_OUTPUT_SIZE, fail);
     
     return messageBytes;
     
@@ -188,8 +188,8 @@ static bool SecOTRMyGXHashIsBigger(SecOTRSessionRef session, CFDataRef dhCommitM
     const uint8_t* myHash = FindGXHash(myDHCommitMessage);
     const uint8_t* theirHash = FindGXHash(dhCommitMessage);
     
-    require(myHash, fail);
-    require(theirHash, fail);
+    __Require(myHash, fail);
+    __Require(theirHash, fail);
 
     mineIsBigger = 0 < memcmp(myHash, theirHash, CCSHA256_OUTPUT_SIZE);
     
@@ -262,7 +262,7 @@ static OSStatus SecOTRSProcessDHMessage(SecOTRSessionRef session,
 static OSStatus SecOTRSetupTheirKeyFrom(SecOTRSessionRef session, const uint8_t**data, size_t*size)
 {
     SecOTRPublicDHKeyRef tempKey = SecOTRPublicDHKCreateFromSerialization(kCFAllocatorDefault, data, size);
-    require(tempKey != NULL, fail);
+    __Require(tempKey != NULL, fail);
     
     return SecOTRSetupInitialRemoteKey(session, tempKey);
 
@@ -279,7 +279,7 @@ static OSStatus SecOTRSExtractTheirPublicDHKey(SecOTRSessionRef session, CFDataR
     OTRMessageType messageType = kDHMessage; // Suppress warning.
     
     ReadHeader(&messageBytes, &messageSize, &messageType);
-    require(messageType == kDHKeyMessage, exit);
+    __Require(messageType == kDHKeyMessage, exit);
     
     result = SecOTRSetupTheirKeyFrom(session, &messageBytes, &messageSize);
 
@@ -296,7 +296,7 @@ static OSStatus SecOTRSProcessDHKeyMessage(SecOTRSessionRef session,
     CFStringRef messageMessage = CFSTR("");
 
     result = SecOTRSExtractTheirPublicDHKey(session, incomingPacket);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
 
     switch (session->_state) {
         case kAwaitingDHKey:
@@ -349,12 +349,12 @@ static OSStatus SecOTRSExtractR(SecOTRSessionRef session,
     OTRMessageType messageType = kDHMessage; // Suppress warning
     
     ReadHeader(messageBytes, messageSize, &messageType);
-    require(messageType == kRevealSignatureMessage, exit);
+    __Require(messageType == kRevealSignatureMessage, exit);
     
     {
         uint32_t rSize = 0;
         ReadLong(messageBytes, messageSize, &rSize);
-        require(rSize == kOTRAuthKeyBytes, exit);
+        __Require(rSize == kOTRAuthKeyBytes, exit);
     }
     
     memcpy(session->_r, *messageBytes, kOTRAuthKeyBytes);
@@ -373,16 +373,16 @@ static OSStatus FindEncGYInDHPacket(SecOTRSessionRef session,
                                       size_t* encGYBufferSize)
 {
     OSStatus result = errSecParam;
-    require_action(*encGYBufferSize >= kExponentiationBytes + 4, exit, result = errSecParam);
+    __Require_Action(*encGYBufferSize >= kExponentiationBytes + 4, exit, result = errSecParam);
     
     OTRMessageType messageType;
     result = ReadHeader(dhMessageBytesPtr, messageSizePtr, &messageType);
-    require_noerr(result, exit);
-    require_action(messageType == kDHMessage, exit, result = errSecDecode);
+    __Require_noErr(result, exit);
+    __Require_Action(messageType == kDHMessage, exit, result = errSecDecode);
     
     uint32_t readEncSize;
     result = ReadLong(dhMessageBytesPtr, messageSizePtr, &readEncSize);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
 
     *encGYBufferSize = readEncSize;
 exit:
@@ -397,9 +397,9 @@ static OSStatus SecOTRSExtractRAndTheirDHKey(SecOTRSessionRef session,
 {
     OSStatus result = errSecDecode;
     
-    require(session->_receivedDHMessage != NULL, exit);
+    __Require(session->_receivedDHMessage != NULL, exit);
     result = SecOTRSExtractR(session, messageBytes, messageSize);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
     
     uint8_t gxiDecrypted[kExponentiationBytes + 4];
     const uint8_t *gxiDecryptedBuffer = gxiDecrypted;
@@ -409,8 +409,8 @@ static OSStatus SecOTRSExtractRAndTheirDHKey(SecOTRSessionRef session,
     
     size_t encGYSize = sizeof(gxiDecrypted);
     result = FindEncGYInDHPacket(session, &dhMessageBytes, &dhMessageSize, &encGYSize);
-    require_noerr(result, exit);
-    require_action(encGYSize <= kExponentiationBytes + 4, exit, result = errSecDecode);
+    __Require_noErr(result, exit);
+    __Require_Action(encGYSize <= kExponentiationBytes + 4, exit, result = errSecDecode);
     
     AES_CTR_IV0_Transform(sizeof(session->_r), session->_r, encGYSize, dhMessageBytes, gxiDecrypted);
 
@@ -451,18 +451,18 @@ static OSStatus SecVerifySignatureAndMac(SecOTRSessionRef session,
 
                 uint32_t xbSize = 0;
                 result = ReadLong(signatureAndMacBytes, signatureAndMacSize, &xbSize);
-                require_noerr(result, exit);
-                require_action(xbSize > 4, exit, result = errSecDecode);
-                require_action(xbSize <= *signatureAndMacSize, exit, result = errSecDecode);
+                __Require_noErr(result, exit);
+                __Require_Action(xbSize > 4, exit, result = errSecDecode);
+                __Require_Action(xbSize <= *signatureAndMacSize, exit, result = errSecDecode);
 
                 uint8_t signatureMac[CCSHA256_OUTPUT_SIZE];
                 cchmac(ccsha256_di(), m2_size, m2, xbSize + 4, encSigDataBlobStart, signatureMac);
 
-                require_action(xbSize + kSHA256HMAC160Bytes <= *signatureAndMacSize, exit, result = errSecDecode);
+                __Require_Action(xbSize + kSHA256HMAC160Bytes <= *signatureAndMacSize, exit, result = errSecDecode);
                 const uint8_t *macStart = *signatureAndMacBytes + xbSize;
 
                 // check the outer hmac
-                require_action(0 == cc_cmp_safe(kSHA256HMAC160Bytes, macStart, signatureMac), exit, result = errSecDecode);
+                __Require_Action(0 == cc_cmp_safe(kSHA256HMAC160Bytes, macStart, signatureMac), exit, result = errSecDecode);
 
 
                 PerformWithBufferAndClear(xbSize, ^(size_t size, uint8_t *xb) {
@@ -489,14 +489,14 @@ static OSStatus SecVerifySignatureAndMac(SecOTRSessionRef session,
 
                     uint16_t pubKeyType;
                     result = ReadShort(&signaturePacket, &signaturePacketSize, &pubKeyType);
-                    require_noerr(result, exit);
-                    require_action(pubKeyType == 0xF000, exit, result = errSecUnimplemented);
+                    __Require_noErr(result, exit);
+                    __Require_Action(pubKeyType == 0xF000, exit, result = errSecUnimplemented);
 
                     uint32_t pubKeySize;
                     result = ReadLong(&signaturePacket, &signaturePacketSize, &pubKeySize);
-                    require_noerr(result, exit);
-                    require_action(pubKeySize <= signaturePacketSize, exit, result = errSecDecode);
-                    require(((CFIndex)pubKeySize) >= 0, exit);
+                    __Require_noErr(result, exit);
+                    __Require_Action(pubKeySize <= signaturePacketSize, exit, result = errSecDecode);
+                    __Require(((CFIndex)pubKeySize) >= 0, exit);
 
                     // Add the signature and keyid to the hash.
                     // PUBKEY of our type is 2 bytes of type, 2 bytes of size and size bytes.
@@ -507,22 +507,22 @@ static OSStatus SecVerifySignatureAndMac(SecOTRSessionRef session,
                     cchmac_final(ccsha256_di(), mBContext, mb);
 
                     // Make reference to the deflated key
-                    require_action(SecOTRPIEqualToBytes(session->_them, signaturePacket, (CFIndex)pubKeySize), exit, result = errSecAuthFailed);
+                    __Require_Action(SecOTRPIEqualToBytes(session->_them, signaturePacket, (CFIndex)pubKeySize), exit, result = errSecAuthFailed);
                     
                     signaturePacket += pubKeySize;
                     signaturePacketSize -= pubKeySize;
                     
                     result = ReadLong(&signaturePacket, &signaturePacketSize, &session->_theirKeyID);
-                    require_noerr(result, exit);
+                    __Require_noErr(result, exit);
                     
                     uint32_t sigSize;
                     result = ReadLong(&signaturePacket, &signaturePacketSize, &sigSize);
-                    require_noerr(result, exit);
-                    require_action(sigSize <= signaturePacketSize, exit, result = errSecDecode);
+                    __Require_noErr(result, exit);
+                    __Require_Action(sigSize <= signaturePacketSize, exit, result = errSecDecode);
                     
                     bool bresult = SecOTRPIVerifySignature(session->_them, mb, sizeof(mb), signaturePacket, sigSize, NULL);
                     result = bresult ? errSecSuccess : errSecDecode;
-                    require_noerr(result, exit);
+                    __Require_noErr(result, exit);
                 exit:
                     ;
                 });
@@ -542,16 +542,16 @@ static OSStatus SecOTRSProcessRevealSignatureMessage(SecOTRSessionRef session,
 {
     OSStatus result = errSecParam;
     
-    require_action_quiet(session->_state == kAwaitingRevealSignature, exit, result = errSecSuccess);
+    __Require_Action_Quiet(session->_state == kAwaitingRevealSignature, exit, result = errSecSuccess);
 
     const uint8_t *messageBytes = CFDataGetBytePtr(incomingPacket);
     size_t messageSize = (size_t)CFDataGetLength(incomingPacket);
 
     result = SecOTRSExtractRAndTheirDHKey(session, &messageBytes, &messageSize);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
 
     result = SecVerifySignatureAndMac(session, false, &messageBytes, &messageSize);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
 
     SecOTRAppendSignatureMessage(session, negotiationResponse);
 
@@ -578,18 +578,18 @@ static OSStatus SecOTRSProcessSignatureMessage(SecOTRSessionRef session,
 {
     OSStatus result = errSecParam;
 
-    require_action_quiet(session->_state == kAwaitingSignature, exit, result = errSecSuccess);
+    __Require_Action_Quiet(session->_state == kAwaitingSignature, exit, result = errSecSuccess);
 
     const uint8_t *messageBytes = CFDataGetBytePtr(incomingPacket);
     size_t messageSize = (size_t)CFDataGetLength(incomingPacket);
     
     OTRMessageType messageType;
     result = ReadHeader(&messageBytes, &messageSize, &messageType);
-    require_noerr(result, exit);
-    require_action(messageType == kSignatureMessage, exit, result = errSecDecode);
+    __Require_noErr(result, exit);
+    __Require_Action(messageType == kSignatureMessage, exit, result = errSecDecode);
     
     result = SecVerifySignatureAndMac(session, true, &messageBytes, &messageSize);
-    require_noerr(result, exit);
+    __Require_noErr(result, exit);
 
     CFReleaseNull(session->_receivedDHKeyMessage);
     session->_state = kDone;
@@ -605,7 +605,7 @@ OSStatus SecOTRSProcessPacket(SecOTRSessionRef session,
 {
     __block OSStatus result = errSecParam;
 
-    require(CFDataGetLength(incomingPacket) > 0, fail);
+    __Require(CFDataGetLength(incomingPacket) > 0, fail);
     dispatch_sync(session->_queue, ^{
         os_activity_initiate("OTR Process Packet", OS_ACTIVITY_FLAG_DEFAULT, ^{
             CFDataRef decodedBytes = SecOTRCopyIncomingBytes(incomingPacket);

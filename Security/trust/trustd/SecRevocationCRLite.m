@@ -50,3 +50,17 @@ CF_RETURNS_RETAINED SecCRLiteInfoRef SecCRLiteInfoCreate(bool isRevoked, uint32_
     
     return crliteInfo;
 }
+
+CF_RETURNS_RETAINED CFDictionaryRef SecCRLiteInfoCopyInfo(SecCRLiteInfoRef crliteInfo) {
+    if (!crliteInfo) {
+        return NULL;
+    }
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    
+    info[@"isRevoked"] = @(crliteInfo->isRevoked);
+    info[@"isDefinitive"] = @YES;
+    info[@"generationUsed"] = @(crliteInfo->generationUsed);
+    info[@"versionUsed"] = @(crliteInfo->versionUsed);
+    
+    return CFBridgingRetain(info);
+}

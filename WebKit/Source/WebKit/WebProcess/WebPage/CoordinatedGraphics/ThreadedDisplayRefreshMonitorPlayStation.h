@@ -28,13 +28,14 @@
 #include <WebCore/DisplayRefreshMonitor.h>
 
 #if USE(COORDINATED_GRAPHICS)
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 
 namespace WebKit {
 
 class ThreadedCompositor;
 
-class ThreadedDisplayRefreshMonitor : public WebCore::DisplayRefreshMonitor {
+class ThreadedDisplayRefreshMonitor : public WebCore::DisplayRefreshMonitor, public CanMakeWeakPtr<ThreadedDisplayRefreshMonitor> {
 public:
     class Client {
     public:

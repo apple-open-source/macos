@@ -248,6 +248,40 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
 @end
 
+@implementation OTSerializedPlistEscrowRecord
+- (instancetype)init:(NSString *)label blob:(NSData *)blob metadata:(NSData *)metadata {
+    if (self = [super init]) {
+        _label = label;
+        _blob = blob;
+        _metadata = metadata;
+    }
+    return self;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"<OTSerializedPlistEscrowRecord(%@)>", self.label];
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+    if (self = [super init]) {
+        _label = [coder decodeObjectOfClass:[NSString class] forKey:@"label"];
+        _blob = [coder decodeObjectOfClass:[NSData class] forKey:@"blob"];
+        _metadata = [coder decodeObjectOfClass:[NSData class] forKey:@"metadata"];
+    }
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.label forKey:@"label"];
+    [coder encodeObject:self.blob forKey:@"blob"];
+    [coder encodeObject:self.metadata forKey:@"metadata"];
+}
+@end
+
 @interface OTClique ()
 @property (nonatomic, copy) NSString* cliqueMemberIdentifier;
 @end
@@ -2848,6 +2882,66 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     return NO;
 #endif
+}
+
+- (void)disableWalrus:(OTConfigurationContext*)ctx
+           preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                reply:(nonnull void (^)(NSError * _Nullable __strong))reply {
+#if OCTAGON
+    NSError *controlError = nil;
+    OTControl *control = [ctx makeOTControl:&controlError];
+    if (!control) {
+        secerror("clique-disable-walrus: unable to create otcontrol: %@", controlError);
+        reply(controlError);
+        return;
+    }
+
+    __block NSError* localError = nil;
+    OTControlArguments* arguments = [[OTControlArguments alloc] initWithConfiguration:ctx];
+    [control disableWalrus:arguments
+                preRecords:preRecords
+                     reply:^(NSError * _Nullable disablementError) {
+                        if (disablementError) {
+                            secerror("clique-disable-walrus: failed to disable walrus: %@", disablementError);
+                            localError = disablementError;
+                        } else {
+                            secnotice("clique-disable-walrus", "successfully disabled walrus");
+                        }
+                        reply(disablementError);
+    }];
+#else // !OCTAGON
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif /* OCTAGON */
+}
+
+- (void)enableWalrus:(OTConfigurationContext*)ctx
+          preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+               reply:(nonnull void (^)(NSError * _Nullable __strong))reply {
+#if OCTAGON
+    NSError *controlError = nil;
+    OTControl *control = [ctx makeOTControl:&controlError];
+    if (!control) {
+        secerror("clique-disable-walrus: unable to create otcontrol: %@", controlError);
+        reply(controlError);
+        return;
+    }
+
+    __block NSError* localError = nil;
+    OTControlArguments* arguments = [[OTControlArguments alloc] initWithConfiguration:ctx];
+    [control enableWalrus:arguments
+            preRecords:preRecords
+                    reply:^(NSError * _Nullable enablementError) {
+                        if (enablementError) {
+                            secerror("clique-enable-walrus: failed to enable walrus: %@", enablementError);
+                            localError = enablementError;
+                        } else {
+                            secnotice("clique-enable-walrus", "successfully enabled walrus");
+                        }
+                        reply(enablementError);
+    }];
+#else // !OCTAGON
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif /* OCTAGON */
 }
 
 @end

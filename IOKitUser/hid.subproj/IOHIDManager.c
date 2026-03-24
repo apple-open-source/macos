@@ -584,6 +584,7 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
         manager->initialEnumSource = CFRunLoopSourceCreate(CFGetAllocator(manager), 0, &context);
 
         if ( manager->runLoop && manager->runLoopMode ) {
+            CFRetain(manager);
             CFRunLoopAddSource(manager->runLoop, manager->initialEnumSource, manager->runLoopMode);
             CFRunLoopSourceSignal(manager->initialEnumSource);
             CFRunLoopWakeUp(manager->runLoop);
@@ -628,6 +629,7 @@ exit:
         manager->initRetVals = NULL;
     }
     os_unfair_recursive_lock_unlock(&manager->managerLock);
+    CFRelease(manager); // Matches retain in __IOHIDManagerDeviceAdded
 }
 
 //------------------------------------------------------------------------------
@@ -1323,6 +1325,7 @@ void IOHIDManagerScheduleWithRunLoop(
 
         // schedule the initial enumeration routine
         if ( manager->initDeviceSet && manager->initialEnumSource) {
+            CFRetain(manager);
             CFRunLoopAddSource(manager->runLoop, manager->initialEnumSource, manager->runLoopMode);
             CFRunLoopSourceSignal(manager->initialEnumSource);
             CFRunLoopWakeUp(manager->runLoop);

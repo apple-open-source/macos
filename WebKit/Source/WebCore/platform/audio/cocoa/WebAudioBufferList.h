@@ -27,7 +27,7 @@
 
 #include <CoreAudio/CoreAudioTypes.h>
 #include <WebCore/PlatformAudioData.h>
-#include <WebCore/SpanCoreAudio.h>
+#include <pal/cf/CoreAudioExtras.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
@@ -83,12 +83,11 @@ private:
     void initializeList(std::span<uint8_t>, size_t);
     RetainPtr<CMBlockBufferRef> setSampleCountWithBlockBuffer(size_t);
 
-    size_t m_listBufferSize { 0 };
     uint32_t m_bytesPerFrame { 0 };
     uint32_t m_channelCount { 0 };
     size_t m_sampleCount { 0 };
-    const std::unique_ptr<AudioBufferList> m_canonicalList;
-    const std::unique_ptr<AudioBufferList> m_list;
+    const std::unique_ptr<AudioBufferList, WTF::SystemFree<AudioBufferList>> m_canonicalList;
+    const std::unique_ptr<AudioBufferList, WTF::SystemFree<AudioBufferList>> m_list;
     RetainPtr<CMBlockBufferRef> m_blockBuffer;
     Vector<uint8_t> m_flatBuffer;
 };

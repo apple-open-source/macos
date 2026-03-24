@@ -194,7 +194,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
             });
 
             if (returnValue)
-                return FunctorResultType { WTFMove(*returnValue) };
+                return FunctorResultType { WTF::move(*returnValue) };
         }
 
         // 6. If V is an Object, V has an [[ArrayBufferData]] internal slot, and IsSharedArrayBuffer(V) is false, then:
@@ -205,7 +205,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
             auto arrayBuffer = (brigand::any<TypeList, IsIDLArrayBufferAllowShared<brigand::_1>>::value) ? JSC::JSArrayBuffer::toWrappedAllowShared(vm, value) : JSC::JSArrayBuffer::toWrapped(vm, value);
             if (arrayBuffer) {
                 if constexpr (hasArrayBufferType) {
-                    return functor(WTFMove(arrayBuffer));
+                    return functor(WTF::move(arrayBuffer));
                 } else if constexpr (hasObjectType) {
                     scope.release();
                     return functor(Converter<ObjectType>::convert(lexicalGlobalObject, value));
@@ -218,7 +218,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
             auto arrayBufferView = (brigand::any<TypeList, IsIDLArrayBufferViewAllowShared<brigand::_1>>::value) ? JSC::JSArrayBufferView::toWrappedAllowShared(vm, value) : JSC::JSArrayBufferView::toWrapped(vm, value);
             if (arrayBufferView) {
                 if constexpr (hasArrayBufferViewType) {
-                    return functor(WTFMove(arrayBufferView));
+                    return functor(WTF::move(arrayBufferView));
                 } else if constexpr (hasObjectType) {
                     scope.release();
                     return functor(Converter<ObjectType>::convert(lexicalGlobalObject, value));
@@ -240,7 +240,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
             auto dataView = JSC::JSDataView::toWrapped(vm, value);
             if (dataView) {
                 if constexpr (hasDataViewType) {
-                    return functor(WTFMove(dataView));
+                    return functor(WTF::move(dataView));
                 } else if constexpr (hasObjectType) {
                     scope.release();
                     return functor(Converter<ObjectType>::convert(lexicalGlobalObject, value));
@@ -269,7 +269,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
             });
 
             if (returnValue)
-                return FunctorResultType { WTFMove(*returnValue) };
+                return FunctorResultType { WTF::move(*returnValue) };
         }
 
         // 10. If IsCallable(V) is true, then:
@@ -402,7 +402,7 @@ template<typename... T> struct Converter<IDLUnion<T...>> : DefaultConverter<IDLU
 
     static Result convert(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSValue value)
     {
-        return convert(lexicalGlobalObject, value, [](auto&& result) -> Result { return Result(WTFMove(result)); });
+        return convert(lexicalGlobalObject, value, [](auto&& result) -> Result { return Result(WTF::move(result)); });
     }
 };
 

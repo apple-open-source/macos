@@ -42,30 +42,42 @@
 os_log_t glog;
 
 static char *
-kern_corefile(void)
+sysc_string(const char *name)
 {
-    char *(^sysc_string)(const char *name) = ^(const char *name) {
-        char *p = NULL;
-        size_t len = 0;
+    char *p = NULL;
+    size_t len = 0;
 
-        if (-1 == sysctlbyname(name, NULL, &len, NULL, 0)) {
+    if (-1 == sysctlbyname(name, NULL, &len, NULL, 0)) {
+        os_log_error(glog, "sysctl: %{public}s: %{darwin.errno}d",
+            name, errno);
+    } else if (0 != len) {
+        p = malloc(len);
+        if (-1 == sysctlbyname(name, p, &len, NULL, 0)) {
             os_log_error(glog, "sysctl: %{public}s: %{darwin.errno}d",
                 name, errno);
-        } else if (0 != len) {
-            p = malloc(len);
-            if (-1 == sysctlbyname(name, p, &len, NULL, 0)) {
-                os_log_error(glog, "sysctl: %{public}s: %{darwin.errno}d",
-                    name, errno);
-                free(p);
-                p = NULL;
-            }
+            free(p);
+            p = NULL;
         }
-        return p;
-    };
+    }
+    return p;
+};
 
+static char *
+kern_corefile(void)
+{
     char *s = sysc_string("kern.corefile");
     if (NULL == s) {
         s = strdup("/cores/core.%P");
+    }
+    return s;
+}
+
+static char *
+kern_hostname(void)
+{
+    char *s = sysc_string("kern.hostname");
+    if (NULL == s) {
+        s = strdup("anon");
     }
     return s;
 }
@@ -85,7 +97,7 @@ get_bsdinfo(pid_t pid)
 }
 
 static char *
-format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
+format_gcore_name(const char *fmt, pid_t pid, uid_t uid, gid_t gid, const char *nm)
 {
     __block size_t resid = MAXPATHLEN;
     __block char *p = calloc(1, resid);
@@ -110,27 +122,43 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
         }
     };
 
-    ptrdiff_t (^outstr)(const char *str) = ^(const char *str) {
-        const char *s = str;
-        while (*s && 0 != outchar(*s++))
+    void (^outstr)(const char *s) = ^(const char *s) {
+        while (s && *s && 0 != outchar(*s++))
             ;
-        return s - str;
     };
 
-    ptrdiff_t (^outint)(int value) = ^(int value) {
+    void (^outint)(int value) = ^(int value) {
         char id[11];
-        snprintf(id, sizeof (id), "%u", value);
-        return outstr(id);
+        snprintf(id, sizeof(id), "%u", value);
+        outstr(id);
     };
 
-    ptrdiff_t (^outtstamp)(void) = ^(void) {
-        time_t now;
-        time(&now);
+    void (^outlong)(long value) = ^(long value) {
+        char id[25];
+        snprintf(id, sizeof(id), "%lu", value);
+        outstr(id);
+    };
+
+    void (^outtstamp)(void) = ^(void) {
+        time_t now = 0;
+        (void) time(&now);
         struct tm tm;
         gmtime_r(&now, &tm);
         char tstamp[50];
-        strftime(tstamp, sizeof (tstamp), "%Y%m%dT%H%M%SZ", &tm);
-        return outstr(tstamp);
+        strftime(tstamp, sizeof(tstamp), "%Y%m%dT%H%M%SZ", &tm);
+        outstr(tstamp);
+    };
+
+    void (^outtimeofday)(void) = ^(void) {
+        struct timeval tv = { };
+        (void) gettimeofday(&tv, NULL);
+        outlong(tv.tv_sec);
+    };
+
+    void (^outhostname)(void) = ^(void) {
+        char *hn = kern_hostname();
+        outstr(hn);
+        free(hn);
     };
 
     int (^ends_with)(const char *s, const char *suff) =
@@ -156,13 +184,22 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
                         outint(pid);
                         break;
                     case 'U':
-						outint(uid);
+                        outint(uid);
+                        break;
+                    case 'G':
+                        outint(gid);
                         break;
                     case 'N':
-						outstr(nm);
+                        outstr(nm);
                         break;
                     case 'T':
-                        outtstamp();	// ISO 8601 format
+                        outtstamp();    // TOD, ISO 8601 format
+                        break;
+                    case 't':
+                        outtimeofday(); // TOD, %lu format
+                        break;
+                    case 'H':
+                        outhostname();
                         break;
                     default:
                         if (isprint(c)) {
@@ -192,7 +229,7 @@ done:
 }
 
 static char *
-make_gcore_path(char **corefmtp, pid_t pid, uid_t uid, const char *nm)
+make_gcore_path(char **corefmtp, pid_t pid, uid_t uid, gid_t gid, const char *nm)
 {
 	char *corefmt = *corefmtp;
 	if (NULL == corefmt) {
@@ -215,7 +252,7 @@ make_gcore_path(char **corefmtp, pid_t pid, uid_t uid, const char *nm)
             }
 		}
 	}
-	char *path = format_gcore_name(corefmt, pid, uid, nm);
+	char *path = format_gcore_name(corefmt, pid, uid, gid, nm);
 	free(corefmt);
 	*corefmtp = NULL;
 	return path;
@@ -744,8 +781,8 @@ main(int argc, char *const *argv)
             exit(EX_NOPERM);
         }
         if (NULL == corefname && fd_arg == -1) {
-            corefname = make_gcore_path(&corefmt, pbi->pbi_pid,
-                pbi->pbi_uid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
+            corefname = make_gcore_path(&corefmt, pbi->pbi_pid, pbi->pbi_uid,
+                pbi->pbi_gid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
         }
 		if (MACH_PORT_NULL == corpse && MACH_PORT_NULL == task &&
             -1 == task_read_for_pid(mach_task_self(), pid, &task)) {
@@ -832,7 +869,7 @@ main(int argc, char *const *argv)
         }
 
         if (NULL == corefname && fd_arg == -1) {
-            corefname = make_gcore_path(&corefmt, cpid, cuid, cname);
+            corefname = make_gcore_path(&corefmt, cpid, cuid, cgid, cname);
         }
 
         /*

@@ -603,6 +603,14 @@
  *                           and AP_REQUEST_TRUSTED_CT BNOTE.
  * 20120211.133 (2.4.60-dev) Add ap_proxy_fixup_uds_filename()
  * 20120211.134 (2.4.60-dev) AP_SLASHES and AP_IS_SLASH
+ * 20120211.135 (2.4.63-dev) Add CONN_STATE_ASYNC_WAITIO, CONN_STATE_KEEPALIVE
+ *                           and CONN_STATE_PROCESSING
+ * 20120211.136 (2.4.63-dev) Add wait_io field to struct process_score
+ * 20120211.137 (2.4.63-dev) Add AP_MPMQ_CAN_WAITIO
+ * 20120211.138 (2.4.63-dev) Add is_host_matchable to proxy_worker_shared
+ * 20120211.139 (2.4.63-dev) Add dav_get_base_path() to mod_dav
+ * 20120211.140 (2.4.64-dev) Add ap_set_time_process_request() to scoreboard.h
+ * 20120211.141 (2.4.64-dev) add ap_stat_check() to httpd.h
  */
 
 #define MODULE_MAGIC_COOKIE 0x41503234UL /* "AP24" */
@@ -610,7 +618,7 @@
 #ifndef MODULE_MAGIC_NUMBER_MAJOR
 #define MODULE_MAGIC_NUMBER_MAJOR 20120211
 #endif
-#define MODULE_MAGIC_NUMBER_MINOR 134                 /* 0...n */
+#define MODULE_MAGIC_NUMBER_MINOR 141                 /* 0...n */
 
 /**
  * Determine if the server's current MODULE_MAGIC_NUMBER is at least a

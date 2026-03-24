@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 arn{
     AuxExemplarCharacters{"[b c h j q x z]"}
     ExemplarCharacters{"[a {ch} d e f g i k lḻ {ll} m nñṉ {ng} o p r s {sh} tṯ {tr} uü w y]"}

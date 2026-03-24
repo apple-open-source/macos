@@ -31,11 +31,12 @@
 #include <AVFoundation/AVPlayerItemOutput.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <pal/spi/cocoa/AVFoundationSPI.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/darwin/DispatchOSObject.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #include <pal/cf/CoreMediaSoftLink.h>
 #include <pal/cocoa/AVFoundationSoftLink.h>
-
-#include <wtf/TZoneMallocInlines.h>
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(AVPlayerItemVideoOutput)
 static bool isType(const AVPlayerItemOutput& output) { return [&output isKindOfClass:PAL::getAVPlayerItemVideoOutputClassSingleton()]; }
@@ -75,15 +76,15 @@ SPECIALIZE_TYPE_TRAITS_END()
         if (!pixelBuffer)
             break;
 
-        videoFrameEntries.append({ WTFMove(pixelBuffer), PAL::toMediaTime(earliestTime) });
+        videoFrameEntries.append({ WTF::move(pixelBuffer), PAL::toMediaTime(earliestTime) });
     } while (true);
 
     if (videoFrameEntries.isEmpty())
         return;
 
-    callOnMainRunLoop([videoFrameEntries = WTFMove(videoFrameEntries), parent = _parent] () mutable {
+    callOnMainRunLoop([videoFrameEntries = WTF::move(videoFrameEntries), parent = _parent] () mutable {
         if (parent)
-            parent->addVideoFrameEntries(WTFMove(videoFrameEntries));
+            parent->addVideoFrameEntries(WTF::move(videoFrameEntries));
     });
 }
 
@@ -103,9 +104,8 @@ SPECIALIZE_TYPE_TRAITS_END()
     if (![keyPath isEqualToString:@"rate"])
         return;
 
-    auto rateValue = (NSNumber*)[change valueForKey:NSKeyValueChangeNewKey];
-    ASSERT([rateValue isKindOfClass:NSNumber.class]);
-    auto rate = rateValue.floatValue;
+    RetainPtr rateValue = checked_objc_cast<NSNumber>([change valueForKey:NSKeyValueChangeNewKey]);
+    auto rate = rateValue.get().floatValue;
 
     ensureOnMainRunLoop([parent = _parent, rate] {
         if (parent)
@@ -120,12 +120,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(QueuedVideoOutput);
 
 static dispatch_queue_t globalOutputDelegateQueue()
 {
-    static dispatch_queue_t globalQueue;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        globalQueue = dispatch_queue_create("WebQueuedVideoOutputDelegate queue", DISPATCH_QUEUE_SERIAL);
-    });
-    return globalQueue;
+    static NeverDestroyed<OSObjectPtr<dispatch_queue_t>> globalQueue = adoptOSObject(dispatch_queue_create("WebQueuedVideoOutputDelegate queue", DISPATCH_QUEUE_SERIAL));
+    return globalQueue.get().get();
 }
 
 RefPtr<QueuedVideoOutput> QueuedVideoOutput::create(AVPlayerItem* item, AVPlayer* player)
@@ -233,7 +229,7 @@ auto QueuedVideoOutput::takeVideoFrameEntryForTime(const MediaTime& time) -> Vid
     if (iter == m_videoFrames.end())
         return { nullptr, MediaTime::invalidTime() };
 
-    VideoFrameEntry entry = { WTFMove(iter->second), iter->first };
+    VideoFrameEntry entry = { WTF::move(iter->second), iter->first };
 
     // Purge all frames before `time`, so that repeated calls with the same time don't return
     // successively earlier images.
@@ -263,7 +259,7 @@ void QueuedVideoOutput::configureNextImageTimeObserver()
     auto nextImageTime = iter->first;
 
     m_nextImageTimebaseObserver = [m_player addBoundaryTimeObserverForTimes:@[[NSValue valueWithCMTime:PAL::toCMTime(nextImageTime)]] queue:globalOutputDelegateQueue() usingBlock:[weakThis = WeakPtr { *this }, protectedDelegate = m_delegate, protectedOutput = m_videoOutput] () mutable {
-        callOnMainRunLoop([weakThis = WTFMove(weakThis)] {
+        callOnMainRunLoop([weakThis = WTF::move(weakThis)] {
             if (weakThis)
                 weakThis->nextImageTimeReached();
         });
@@ -295,7 +291,7 @@ void QueuedVideoOutput::addVideoFrameEntries(Vector<VideoFrameEntry>&& videoFram
     for (auto& entry : videoFrameEntries) {
         if (hasCurrentImageChangedObservers && entry.displayTime <= currentTime)
             needsImageForCurrentTimeChanged = true;
-        m_videoFrames.emplace(entry.displayTime, WTFMove(entry.pixelBuffer));
+        m_videoFrames.emplace(entry.displayTime, WTF::move(entry.pixelBuffer));
     }
 
     if (needsImageForCurrentTimeChanged)

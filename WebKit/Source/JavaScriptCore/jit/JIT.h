@@ -61,6 +61,10 @@ namespace JSC {
     class StructureChain;
     class StructureStubInfo;
 
+    namespace LOL {
+        class LOLJIT;
+    }
+
     template<typename> struct BaseInstruction;
     struct JSOpcodeTraits;
     using JSInstruction = BaseInstruction<JSOpcodeTraits>;
@@ -118,7 +122,7 @@ namespace JSC {
     struct SlowCaseEntry {
         MacroAssembler::Jump from;
         BytecodeIndex to;
-        
+
         SlowCaseEntry(MacroAssembler::Jump f, BytecodeIndex t)
             : from(f)
             , to(t)
@@ -153,12 +157,13 @@ namespace JSC {
         BaselineUnlinkedCallLinkInfo* unlinkedCallLinkInfo;
     };
 
-    class JIT final : public JSInterfaceJIT {
+    class JIT : public JSInterfaceJIT {
         WTF_MAKE_TZONE_NON_HEAP_ALLOCATABLE(JIT);
 
         friend class JITSlowPathCall;
         friend class JITStubCall;
         friend class JITThunks;
+        friend class LOL::LOLJIT;
 
         using MacroAssembler::Jump;
         using MacroAssembler::JumpList;
@@ -286,7 +291,8 @@ namespace JSC {
         void compileOpStrictEqCommon(VirtualRegister src1,  VirtualRegister src2);
 #endif
 
-        enum WriteBarrierMode { UnconditionalWriteBarrier, ShouldFilterBase, ShouldFilterValue, ShouldFilterBaseAndValue };
+        enum class WriteBarrierMode { UnconditionalWriteBarrier, ShouldFilterBase, ShouldFilterValue, ShouldFilterBaseAndValue };
+        using enum WriteBarrierMode;
         // value register in write barrier is used before any scratch registers
         // so may safely be the same as either of the scratch registers.
         void emitWriteBarrier(VirtualRegister owner, WriteBarrierMode);
@@ -335,6 +341,7 @@ namespace JSC {
         void emitJumpSlowCaseIfNotInt(RegisterID);
 #endif
 
+        void emitJumpSlowCaseIfNotInt(JSValueRegs, JSValueRegs, RegisterID scratch);
         void emitJumpSlowCaseIfNotInt(JSValueRegs);
 
         void emitJumpSlowCaseIfNotJSCell(JSValueRegs);
@@ -671,12 +678,12 @@ namespace JSC {
                 iter->from.link(this);
             ++iter;
         }
-        void linkAllSlowCasesForBytecodeIndex(Vector<SlowCaseEntry>& slowCases,
+        void linkAllSlowCasesUpToBytecodeIndex(Vector<SlowCaseEntry>& slowCases,
             Vector<SlowCaseEntry>::iterator&, BytecodeIndex bytecodeOffset);
 
         void linkAllSlowCases(Vector<SlowCaseEntry>::iterator& iter)
         {
-            linkAllSlowCasesForBytecodeIndex(m_slowCases, iter, m_bytecodeIndex);
+            linkAllSlowCasesUpToBytecodeIndex(m_slowCases, iter, m_bytecodeIndex);
         }
 
         bool hasAnySlowCases(Vector<SlowCaseEntry>& slowCases, Vector<SlowCaseEntry>::iterator&, BytecodeIndex bytecodeOffset);

@@ -45,7 +45,7 @@ static CASoundStageSize toCASoundStageSize(MediaPlayerSoundStageSize size)
 RetainPtr<CASpatialAudioExperience> createSpatialAudioExperienceWithOptions(const SpatialAudioExperienceOptions& options)
 {
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    if (options.isVisible && options.hasTarget) {
+    if (options.isVisible && options.hasTarget && !options.spatialTrackingLabel.isEmpty()) {
         // Automatic anchoring does not yet work with remote video targets, so rely on
         // the spatial tracking label, and use that label to create a CAAudioTether. This
         // tether informs the audio rendering subsystem about the connection between the

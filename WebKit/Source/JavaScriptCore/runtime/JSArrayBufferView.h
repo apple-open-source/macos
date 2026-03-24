@@ -279,10 +279,10 @@ public:
     }
 
     bool hasVector() const { return !!m_vector; }
-    void* vector() const { return m_vector.getMayBeNull(); }
-    void* vectorWithoutPACValidation() const { return m_vector.getUnsafe(); }
+    void* vector() const LIFETIME_BOUND { return m_vector.getMayBeNull(); }
+    void* vectorWithoutPACValidation() const LIFETIME_BOUND { return m_vector.getUnsafe(); }
 
-    std::span<const uint8_t> span() const { return { static_cast<const uint8_t*>(vector()), byteLength() }; }
+    std::span<const uint8_t> span() const LIFETIME_BOUND { return { static_cast<const uint8_t*>(vector()), byteLength() }; }
     
     size_t byteOffset() const
     {
@@ -362,7 +362,7 @@ private:
     JS_EXPORT_PRIVATE ArrayBuffer* slowDownAndWasteMemory();
     static void finalize(JSCell*);
     void detachFromArrayBuffer();
-
+    void refreshVector(void* newData);
 
 protected:
     friend class LLIntOffsetsExtractor;

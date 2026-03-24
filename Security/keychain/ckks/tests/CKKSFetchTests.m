@@ -628,6 +628,42 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testFetchFailsDueToAuthTokenError {
+    // As we're in the midst of a fetch, the CK account status silently goes from authenticated to not authenticated, and the fetch fails with a `CKUnderlyingErrorAuthTokenError` error. How does CKKS handle it?
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+    // Set up error hierarchy to reflect CK Not Authenticated Error
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorAuthTokenError userInfo:@{
+        NSLocalizedDescriptionKey: @"User rejected a prompt to enter their iCloud account password"}];
+    NSError* authTokenError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+    [ckzone failNextFetchWith:authTokenError];
+
+    // Set our CK Account status to no account, but _don't_ notify CKKS of this account state change.
+    self.accountStatus = CKAccountStatusNoAccount;
+
+    // Make sure state machine will recheck the CK Account Status.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateRecheckAccountStatus];
+
+    // Kick off the next fetch, and observe that CKKS goes into `recheck_ck_account_status`
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateRecheckAccountStatus] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of rechecking CK account status");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateRecheckAccountStatus];
+
+    // CKKS will eventually fetch the new account state, and go into loggedout.
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS entered 'loggedout'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'loggedout'");
+}
 
 @end
 

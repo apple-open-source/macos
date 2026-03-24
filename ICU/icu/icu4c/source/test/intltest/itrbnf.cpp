@@ -81,10 +81,16 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(29, TestNumberingSystem);
         TESTCASE(30, TestDFRounding);
         TESTCASE(31, TestMemoryLeak22899);
-        TESTCASE(32, TestInfiniteRecursion);
-        TESTCASE(33, testOmissionReplacementWithPluralRules);
-        TESTCASE(34, TestGujaratiSpellout);
-        TESTCASE(35, TestMarathiSpellout);
+        TESTCASE(32, TestParseRuleDescriptorOverflow23002);
+        TESTCASE(33, TestInfiniteRecursion);
+        TESTCASE(34, testOmissionReplacementWithPluralRules);
+        TESTCASE(35, TestNullDereferenceWRITE23149);
+        TESTCASE(36, TestNullDereferenceREAD23184);
+#if APPLE_ICU_CHANGES
+// rdar:// 
+        TESTCASE(37, TestGujaratiSpellout);
+        TESTCASE(38, TestMarathiSpellout);
+#endif // APPLE_ICU_CHANGES
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -1886,84 +1892,6 @@ IntlTestRBNF::TestSwedishSpellout()
 }
 
 void
-IntlTestRBNF::TestGujaratiSpellout()
-{
-  UErrorCode status = U_ZERO_ERROR;
-  RuleBasedNumberFormat* guFormatter
-      = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("gu"), status);
-
-  if (U_FAILURE(status)) {
-      errcheckln(status, "FAIL: could not construct formatter - %s", u_errorName(status));
-  } else {
-      static const char* testDataDefault[][2] = {
-        { "1", "\\u0A8F\\u0A95" },
-        { "6", "\\u0A9B" },
-        { "16", "\\u0AB8\\u0ACB\\u0AB3" },
-        { "20", "\\u0AB5\\u0AC0\\u0AB8" },
-        { "24", "\\u0A9A\\u0ACB\\u0AB5\\u0AC0\\u0AB8" },
-        { "26", "\\u0A9B\\u0AB5\\u0AC0\\u0AB8" },
-        { "73", "\\u0AA4\\u0ACB\\u0AA4\\u0AC7\\u0AB0" },
-        { "88", "\\u0A88\\u0AA0\\u0ACD\\u0AAF\\u0ABE\\u0AB8\\u0AC0" },
-        { "100", "\\u0a8f\\u0a95 \\u0ab8\\u0acb" },
-        { "106", "\\u0a8f\\u0a95 \\u0ab8\\u0acb \\u0a9b" },
-        { "127", "\\u0a8f\\u0a95\\u0020\\u0ab8\\u0acb\\u0020\\u0ab8\\u0aa4\\u0acd\\u0aa4\\u0abe\\u0ab5\\u0ac0\\u0ab8" },
-        { "200", "\\u0aac\\u0ac7 \\u0ab8\\u0acb" },
-        { "579", "\\u0aaa\\u0abe\\u0a82\\u0a9a \\u0ab8\\u0acb \\u0a93\\u0a97\\u0aa3\\u0abe\\u0a8f\\u0a82\\u0ab8\\u0ac0" },
-        { "1,000", "\\u0a8f\\u0a95\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0" },
-        { "2,000", "\\u0aac\\u0ac7\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0" },
-        { "3,004", "\\u0aa4\\u0acd\\u0ab0\\u0aa3\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0a9a\\u0abe\\u0ab0" },
-        { "4,567", "\\u0a9a\\u0abe\\u0ab0\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0aaa\\u0abe\\u0a82\\u0a9a\\u0020\\u0ab8\\u0acb\\u0020\\u0ab8\\u0aa1\\u0ab8\\u0aa0" },
-        { "15,943", "\\u0aaa\\u0a82\\u0aa6\\u0ab0\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0aa8\\u0ab5\\u0020\\u0ab8\\u0acb\\u0020\\u0aa4\\u0acd\\u0ab0\\u0ac7\\u0aa4\\u0abe\\u0ab2\\u0ac0\\u0ab8" },
-        { "2,345,678", "\\u0aa4\\u0ac7\\u0ab5\\u0ac0\\u0ab8\\u0020\\u0ab2\\u0abe\\u0a96\\u0020\\u0aaa\\u0abf\\u0ab8\\u0acd\\u0aa4\\u0abe\\u0ab2\\u0ac0\\u0ab8\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0a9b\\u0020\\u0ab8\\u0acb\\u0020\\u0a87\\u0aa0\\u0acd\\u0aaf\\u0acb\\u0aa4\\u0ac7\\u0ab0"},
-        { "-36", "\\u0aa8\\u0a95\\u0abe\\u0ab0\\u0abe\\u0aa4\\u0acd\\u0aae\\u0a95\\u0020\\u0a9b\\u0aa4\\u0acd\\u0ab0\\u0ac0\\u0ab8" },
-        { "234.567", "\\u0aac\\u0ac7\\u0020\\u0ab8\\u0acb\\u0020\\u0a9a\\u0acb\\u0aa4\\u0acd\\u0ab0\\u0ac0\\u0ab8\\u0020\\u0aa6\\u0ab6\\u0abe\\u0a82\\u0ab6\\u0020\\u0aaa\\u0abe\\u0a82\\u0a9a\\u0020\\u0a9b\\u0020\\u0ab8\\u0abe\\u0aa4" },
-        { nullptr, nullptr }
-      };
-      doTest(guFormatter, testDataDefault, true);
-  }
-  delete guFormatter;
-}
-
-void
-IntlTestRBNF::TestMarathiSpellout()
-{
-  UErrorCode status = U_ZERO_ERROR;
-  RuleBasedNumberFormat* guFormatter
-      = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("mr"), status);
-
-  if (U_FAILURE(status)) {
-      errcheckln(status, "FAIL: could not construct formatter - %s", u_errorName(status));
-  } else {
-      static const char* testDataDefault[][2] = {
-        { "1", "\\u090f\\u0915" }, // एक
-        { "6", "\\u0938\\u0939\\u093e" }, // सहा
-        { "16", "\\u0938\\u094b\\u0933\\u093e" }, // सोळा
-        { "20", "\\u0935\\u0940\\u0938" }, // वीस
-        { "24", "\\u091a\\u094b\\u0935\\u0940\\u0938" }, // चोवीस
-        { "26", "\\u0938\\u0935\\u094d\\u0935\\u0940\\u0938" }, // सव्वीस
-        { "73", "\\u0924\\u094d\\u0930\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930" }, // त्र्याहत्तर
-        { "88", "\\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0910\\u0902\\u0936\\u0940" }, // अठ्ठ्याऐंशी
-        { "100", "\\u090f\\u0915\\u0936\\u0947" }, // एकशे
-        { "106", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0939\\u093e" }, // एकशे सहा
-        { "127", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0924\\u094d\\u0924\\u093e\\u0935\\u0940\\u0938" }, // एकशे सत्तावीस
-        { "200", "\\u0926\\u094b\\u0928\\u0936\\u0947" }, // दोनशे
-        { "579", "\\u092a\\u093e\\u091a\\u0936\\u0947 \\u090f\\u0915\\u094b\\u0923\\u0910\\u0902\\u0936\\u0940" }, // पाचशे एकोणऐंशी
-        { "1,000", "\\u090f\\u0915 \\u0939\\u091c\\u093e\\u0930" }, // एक हजार
-        { "2,000", "\\u0926\\u094b\\u0928 \\u0939\\u091c\\u093e\\u0930" }, // दोन हजार
-        { "3,004", "\\u0924\\u0940\\u0928 \\u0939\\u091c\\u093e\\u0930 \\u091a\\u093e\\u0930" }, // तीन हजार चार
-        { "4,567", "\\u091a\\u093e\\u0930 \\u0939\\u091c\\u093e\\u0930 \\u092a\\u093e\\u091a\\u0936\\u0947 \\u0938\\u0926\\u0941\\u0938\\u0937\\u094d\\u091f" }, // चार हजार पाचशे सदुसष्ट
-        { "15,943", "\\u092a\\u0902\\u0927\\u0930\\u093e \\u0939\\u091c\\u093e\\u0930 \\u0928\\u090a\\u0936\\u0947 \\u0924\\u094d\\u0930\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938" }, // पंधरा हजार नऊशे त्रेचाळीस
-        { "2,345,678", "\\u0924\\u0947\\u0935\\u0940\\u0938 \\u0932\\u093e\\u0916 \\u092a\\u0902\\u091a\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938 \\u0939\\u091c\\u093e\\u0930 \\u0938\\u0939\\u093e\\u0936\\u0947 \\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930"}, // तेवीस लाख पंचेचाळीस हजार सहाशे अठ्ठ्याहत्तर
-        { "-36", "\\u0935\\u091c\\u093e \\u091b\\u0924\\u094d\\u0924\\u0940\\u0938" }, // वजा छत्तीस
-        { "234.567", "\\u0926\\u094b\\u0928\\u0936\\u0947 \\u091a\\u094c\\u0924\\u0940\\u0938 \\u092a\\u0942\\u0930\\u094d\\u0923\\u093e\\u0902\\u0915 \\u092a\\u093e\\u091a \\u0938\\u0939\\u093e \\u0938\\u093e\\u0924" }, // दोनशे चौतीस पूर्णांक पाच सहा सात
-        { nullptr, nullptr }
-      };
-      doTest(guFormatter, testDataDefault, true);
-  }
-  delete guFormatter;
-}
-
-void
 IntlTestRBNF::TestSmallValues()
 {
     UErrorCode status = U_ZERO_ERROR;
@@ -2761,6 +2689,18 @@ IntlTestRBNF::TestNumberingSystem() {
 }
 
 void
+IntlTestRBNF::TestParseRuleDescriptorOverflow23002() {
+    UParseError perror;
+    UErrorCode status = U_ZERO_ERROR;
+    // Test int64 overflow inside parseRuleDescriptor
+    UnicodeString testStr(u"0110110/300113001103000113001103000110i/3013033:");
+    icu::RuleBasedNumberFormat rbfmt(
+        testStr,
+        Locale("as"), perror, status);
+    assertEquals("number too large", U_PARSE_ERROR, status);
+}
+
+void
 IntlTestRBNF::TestInfiniteRecursion() {
     UnicodeString badRules[] = {
         ">>",
@@ -2883,6 +2823,113 @@ IntlTestRBNF::testOmissionReplacementWithPluralRules() {
     };
     doTest(&rbnf, enTestFullData, false);
 }
+
+void
+IntlTestRBNF::TestNullDereferenceWRITE23149() {
+   UnicodeString test("x00:><>");
+   UParseError perror;
+   UErrorCode status = U_ZERO_ERROR;
+   // The following call should not crash
+   icu::RuleBasedNumberFormat rbfmt(test, Locale("en"), perror, status);
+}
+
+void
+IntlTestRBNF::TestNullDereferenceREAD23184() {
+    icu::Formattable result;
+    UParseError perror;
+    UErrorCode status = U_ZERO_ERROR;
+    icu::RuleBasedNumberFormat rbfmt(u"x00:>%>>;%:;<0<<", Locale::getUS(), perror, status);
+    if (U_SUCCESS(status)) {
+       errln("Construct \"x00:>%%>>;%%:;<0<<\" should get error");
+    }
+
+    status = U_ZERO_ERROR;
+    icu::RuleBasedNumberFormat rbfmt2(u"x00:>%>>;%;<0<<", Locale::getUS(), perror, status);
+    if (U_SUCCESS(status)) {
+       errln("Construct \"x00:>%%>>;%%;<0<<\" should get error");
+    }
+}
+
+#if APPLE_ICU_CHANGES
+// rdar:// 
+void
+IntlTestRBNF::TestGujaratiSpellout()
+{
+  UErrorCode status = U_ZERO_ERROR;
+  RuleBasedNumberFormat* guFormatter
+      = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("gu"), status);
+
+  if (U_FAILURE(status)) {
+      errcheckln(status, "FAIL: could not construct formatter - %s", u_errorName(status));
+  } else {
+      static const char* testDataDefault[][2] = {
+        { "1", "\\u0A8F\\u0A95" },
+        { "6", "\\u0A9B" },
+        { "16", "\\u0AB8\\u0ACB\\u0AB3" },
+        { "20", "\\u0AB5\\u0AC0\\u0AB8" },
+        { "24", "\\u0A9A\\u0ACB\\u0AB5\\u0AC0\\u0AB8" },
+        { "26", "\\u0A9B\\u0AB5\\u0AC0\\u0AB8" },
+        { "73", "\\u0AA4\\u0ACB\\u0AA4\\u0AC7\\u0AB0" },
+        { "88", "\\u0A88\\u0AA0\\u0ACD\\u0AAF\\u0ABE\\u0AB8\\u0AC0" },
+        { "100", "\\u0a8f\\u0a95 \\u0ab8\\u0acb" },
+        { "106", "\\u0a8f\\u0a95 \\u0ab8\\u0acb \\u0a9b" },
+        { "127", "\\u0a8f\\u0a95\\u0020\\u0ab8\\u0acb\\u0020\\u0ab8\\u0aa4\\u0acd\\u0aa4\\u0abe\\u0ab5\\u0ac0\\u0ab8" },
+        { "200", "\\u0aac\\u0ac7 \\u0ab8\\u0acb" },
+        { "579", "\\u0aaa\\u0abe\\u0a82\\u0a9a \\u0ab8\\u0acb \\u0a93\\u0a97\\u0aa3\\u0abe\\u0a8f\\u0a82\\u0ab8\\u0ac0" },
+        { "1,000", "\\u0a8f\\u0a95\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0" },
+        { "2,000", "\\u0aac\\u0ac7\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0" },
+        { "3,004", "\\u0aa4\\u0acd\\u0ab0\\u0aa3\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0a9a\\u0abe\\u0ab0" },
+        { "4,567", "\\u0a9a\\u0abe\\u0ab0\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0aaa\\u0abe\\u0a82\\u0a9a\\u0020\\u0ab8\\u0acb\\u0020\\u0ab8\\u0aa1\\u0ab8\\u0aa0" },
+        { "15,943", "\\u0aaa\\u0a82\\u0aa6\\u0ab0\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0aa8\\u0ab5\\u0020\\u0ab8\\u0acb\\u0020\\u0aa4\\u0acd\\u0ab0\\u0ac7\\u0aa4\\u0abe\\u0ab2\\u0ac0\\u0ab8" },
+        { "2,345,678", "\\u0aa4\\u0ac7\\u0ab5\\u0ac0\\u0ab8\\u0020\\u0ab2\\u0abe\\u0a96\\u0020\\u0aaa\\u0abf\\u0ab8\\u0acd\\u0aa4\\u0abe\\u0ab2\\u0ac0\\u0ab8\\u0020\\u0ab9\\u0a9c\\u0abe\\u0ab0\\u0020\\u0a9b\\u0020\\u0ab8\\u0acb\\u0020\\u0a87\\u0aa0\\u0acd\\u0aaf\\u0acb\\u0aa4\\u0ac7\\u0ab0"},
+        { "-36", "\\u0aa8\\u0a95\\u0abe\\u0ab0\\u0abe\\u0aa4\\u0acd\\u0aae\\u0a95\\u0020\\u0a9b\\u0aa4\\u0acd\\u0ab0\\u0ac0\\u0ab8" },
+        { "234.567", "\\u0aac\\u0ac7\\u0020\\u0ab8\\u0acb\\u0020\\u0a9a\\u0acb\\u0aa4\\u0acd\\u0ab0\\u0ac0\\u0ab8\\u0020\\u0aa6\\u0ab6\\u0abe\\u0a82\\u0ab6\\u0020\\u0aaa\\u0abe\\u0a82\\u0a9a\\u0020\\u0a9b\\u0020\\u0ab8\\u0abe\\u0aa4" },
+        { nullptr, nullptr }
+      };
+      doTest(guFormatter, testDataDefault, true);
+  }
+  delete guFormatter;
+}
+
+void
+IntlTestRBNF::TestMarathiSpellout()
+{
+  UErrorCode status = U_ZERO_ERROR;
+  RuleBasedNumberFormat* guFormatter
+      = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("mr"), status);
+
+  if (U_FAILURE(status)) {
+      errcheckln(status, "FAIL: could not construct formatter - %s", u_errorName(status));
+  } else {
+      static const char* testDataDefault[][2] = {
+        { "1", "\\u090f\\u0915" }, // एक
+        { "6", "\\u0938\\u0939\\u093e" }, // सहा
+        { "16", "\\u0938\\u094b\\u0933\\u093e" }, // सोळा
+        { "20", "\\u0935\\u0940\\u0938" }, // वीस
+        { "24", "\\u091a\\u094b\\u0935\\u0940\\u0938" }, // चोवीस
+        { "26", "\\u0938\\u0935\\u094d\\u0935\\u0940\\u0938" }, // सव्वीस
+        { "73", "\\u0924\\u094d\\u0930\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930" }, // त्र्याहत्तर
+        { "88", "\\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0910\\u0902\\u0936\\u0940" }, // अठ्ठ्याऐंशी
+        { "100", "\\u090f\\u0915\\u0936\\u0947" }, // एकशे
+        { "106", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0939\\u093e" }, // एकशे सहा
+        { "127", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0924\\u094d\\u0924\\u093e\\u0935\\u0940\\u0938" }, // एकशे सत्तावीस
+        { "200", "\\u0926\\u094b\\u0928\\u0936\\u0947" }, // दोनशे
+        { "579", "\\u092a\\u093e\\u091a\\u0936\\u0947 \\u090f\\u0915\\u094b\\u0923\\u0910\\u0902\\u0936\\u0940" }, // पाचशे एकोणऐंशी
+        { "1,000", "\\u090f\\u0915 \\u0939\\u091c\\u093e\\u0930" }, // एक हजार
+        { "2,000", "\\u0926\\u094b\\u0928 \\u0939\\u091c\\u093e\\u0930" }, // दोन हजार
+        { "3,004", "\\u0924\\u0940\\u0928 \\u0939\\u091c\\u093e\\u0930 \\u091a\\u093e\\u0930" }, // तीन हजार चार
+        { "4,567", "\\u091a\\u093e\\u0930 \\u0939\\u091c\\u093e\\u0930 \\u092a\\u093e\\u091a\\u0936\\u0947 \\u0938\\u0926\\u0941\\u0938\\u0937\\u094d\\u091f" }, // चार हजार पाचशे सदुसष्ट
+        { "15,943", "\\u092a\\u0902\\u0927\\u0930\\u093e \\u0939\\u091c\\u093e\\u0930 \\u0928\\u090a\\u0936\\u0947 \\u0924\\u094d\\u0930\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938" }, // पंधरा हजार नऊशे त्रेचाळीस
+        { "2,345,678", "\\u0924\\u0947\\u0935\\u0940\\u0938 \\u0932\\u093e\\u0916 \\u092a\\u0902\\u091a\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938 \\u0939\\u091c\\u093e\\u0930 \\u0938\\u0939\\u093e\\u0936\\u0947 \\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930"}, // तेवीस लाख पंचेचाळीस हजार सहाशे अठ्ठ्याहत्तर
+        { "-36", "\\u0935\\u091c\\u093e \\u091b\\u0924\\u094d\\u0924\\u0940\\u0938" }, // वजा छत्तीस
+        { "234.567", "\\u0926\\u094b\\u0928\\u0936\\u0947 \\u091a\\u094c\\u0924\\u0940\\u0938 \\u092a\\u0942\\u0930\\u094d\\u0923\\u093e\\u0902\\u0915 \\u092a\\u093e\\u091a \\u0938\\u0939\\u093e \\u0938\\u093e\\u0924" }, // दोनशे चौतीस पूर्णांक पाच सहा सात
+        { nullptr, nullptr }
+      };
+      doTest(guFormatter, testDataDefault, true);
+  }
+  delete guFormatter;
+}
+#endif // APPLE_ICU_CHANGES
 
 /* U_HAVE_RBNF */
 #else

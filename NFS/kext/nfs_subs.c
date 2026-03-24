@@ -2217,7 +2217,7 @@ nfs_mountopts(struct nfsmount *nmp, char *buf, int buflen)
 	int c;
 
 	c = snprintf(buf, buflen, "%s,%s,%s,%s,vers=%d,sec=%s,%sdeadtimeout=%d",
-	    (vfs_flags(nmp->nm_mountp) & MNT_RDONLY) ? "ro" : "rw",
+	    vfs_isrdonly(nmp->nm_mountp) ? "ro" : "rw",
 	    NMFLAG(nmp, SOFT) ? "soft" : "hard",
 	    NMFLAG(nmp, INTR) ? "intr" : "nointr",
 	    nmp->nm_sotype == SOCK_STREAM ? "tcp" : "udp",

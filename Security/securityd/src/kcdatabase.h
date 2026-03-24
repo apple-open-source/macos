@@ -243,6 +243,8 @@ public:
     // returns true if the passphrase was derived
     bool derivePassphraseIfNecessary(const CssmData &passphraseIn, CssmDataContainer& passphraseOut) const;
 
+    bool validatePassphraseAgainstKeybag(const CssmData &passphrase) const;
+
 	bool isLocked()			{ return common().isLocked(); }	// lock status
     void notify(NotificationEvent event) { return common().notify(event); }
     void activity() const	{ common().activity(); }		// reset timeout clock

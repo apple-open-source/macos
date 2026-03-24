@@ -227,11 +227,9 @@
 		D0B745792A2E54F5005C6A8A /* bufq.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B745752A2E54EF005C6A8A /* bufq.c */; };
 		D0B7457C2A2E5553005C6A8A /* cf-haproxy.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B7457A2A2E5547005C6A8A /* cf-haproxy.c */; };
 		D0B7457E2A2E55A1005C6A8A /* cf-h1-proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B7457D2A2E55A1005C6A8A /* cf-h1-proxy.c */; };
-		D0B745802A2E55FB005C6A8A /* cf-https-connect.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B7457F2A2E55FB005C6A8A /* cf-https-connect.c */; };
 		D0B745852A2E5667005C6A8A /* dynhds.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B745832A2E5655005C6A8A /* dynhds.c */; };
 		D0B745862A2E5669005C6A8A /* cf-h2-proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B745812A2E562A005C6A8A /* cf-h2-proxy.c */; };
 		D0B745892A2E56FD005C6A8A /* http1.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B745872A2E56E5005C6A8A /* http1.c */; };
-		D0B7458C2A2E5841005C6A8A /* tool_stderr.c in Sources */ = {isa = PBXBuildFile; fileRef = D0B7458A2A2E5840005C6A8A /* tool_stderr.c */; };
 		D0C51D0C2919DBE1001021D6 /* websockets.h in Headers */ = {isa = PBXBuildFile; fileRef = D0C51D0B2919DBD7001021D6 /* websockets.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D0D7BE66291ACCB00080062D /* noproxy.c in Sources */ = {isa = PBXBuildFile; fileRef = D0D7BE5F291ACC630080062D /* noproxy.c */; };
 		D0D7BE67291ACCC50080062D /* noproxy.h in Headers */ = {isa = PBXBuildFile; fileRef = D0D7BE61291ACC630080062D /* noproxy.h */; };
@@ -1662,7 +1660,6 @@
 		D0B745752A2E54EF005C6A8A /* bufq.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = bufq.c; sourceTree = "<group>"; };
 		D0B7457A2A2E5547005C6A8A /* cf-haproxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-haproxy.c"; sourceTree = "<group>"; };
 		D0B7457D2A2E55A1005C6A8A /* cf-h1-proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-h1-proxy.c"; sourceTree = "<group>"; };
-		D0B7457F2A2E55FB005C6A8A /* cf-https-connect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-https-connect.c"; sourceTree = "<group>"; };
 		D0B745812A2E562A005C6A8A /* cf-h2-proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-h2-proxy.c"; sourceTree = "<group>"; };
 		D0B745832A2E5655005C6A8A /* dynhds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dynhds.c; sourceTree = "<group>"; };
 		D0B745872A2E56E5005C6A8A /* http1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = http1.c; sourceTree = "<group>"; };
@@ -2592,7 +2589,6 @@
 				D0B745872A2E56E5005C6A8A /* http1.c */,
 				D0B745832A2E5655005C6A8A /* dynhds.c */,
 				D0B745812A2E562A005C6A8A /* cf-h2-proxy.c */,
-				D0B7457F2A2E55FB005C6A8A /* cf-https-connect.c */,
 				D0B7457D2A2E55A1005C6A8A /* cf-h1-proxy.c */,
 				D0B7457A2A2E5547005C6A8A /* cf-haproxy.c */,
 				D0B745752A2E54EF005C6A8A /* bufq.c */,
@@ -4088,7 +4084,6 @@
 				D047076F29CCD0F200292F46 /* dynbuf.c in Sources */,
 				FDC61C8514983DC7005BBE36 /* strtoofft.c in Sources */,
 				D06D277929B69D350098F98B /* timediff.c in Sources */,
-				D0B7458C2A2E5841005C6A8A /* tool_stderr.c in Sources */,
 				D06D277A29B69D450098F98B /* nonblock.c in Sources */,
 				D06D277B29B69D540098F98B /* warnless.c in Sources */,
 				D06D277C29B69D670098F98B /* curl_multibyte.c in Sources */,

@@ -50,6 +50,12 @@ using namespace Inspector;
 
 InspectorAuditResourcesObject::InspectorAuditResourcesObject(InspectorAuditAgent& auditAgent)
     : m_auditAgent(auditAgent)
+    , m_cachedResourceClient(*this)
+    , m_cachedFontClient(*this)
+    , m_cachedImageClient(*this)
+    , m_cachedRawResourceClient(*this)
+    , m_cachedSVGDocumentClient(*this)
+    , m_cachedStyleSheetClient(*this)
 {
 }
 
@@ -89,7 +95,7 @@ ExceptionOr<Vector<InspectorAuditResourcesObject::Resource>> InspectorAuditResou
             m_resources.add(resource.id, cachedResource);
         }
 
-        resources.append(WTFMove(resource));
+        resources.append(WTF::move(resource));
     }
 
     return resources;
@@ -116,7 +122,7 @@ ExceptionOr<InspectorAuditResourcesObject::ResourceContent> InspectorAuditResour
     return resourceContent;
 }
 
-CachedResourceClient& InspectorAuditResourcesObject::clientForResource(const CachedResource& cachedResource)
+Ref<CachedResourceClient> InspectorAuditResourcesObject::clientForResource(const CachedResource& cachedResource)
 {
     if (is<CachedCSSStyleSheet>(cachedResource))
         return m_cachedStyleSheetClient;

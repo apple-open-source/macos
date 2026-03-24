@@ -62,7 +62,7 @@ class StyleRuleFunctionDeclarations : public StyleRuleBase {
 public:
     static Ref<StyleRuleFunctionDeclarations> create(Ref<StyleProperties>&& properties)
     {
-        return adoptRef(*new StyleRuleFunctionDeclarations(WTFMove(properties)));
+        return adoptRef(*new StyleRuleFunctionDeclarations(WTF::move(properties)));
     }
 
     Ref<StyleRuleFunctionDeclarations> copy() const { return adoptRef(*new StyleRuleFunctionDeclarations(*this)); }

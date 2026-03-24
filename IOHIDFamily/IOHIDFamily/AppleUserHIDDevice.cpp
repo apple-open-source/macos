@@ -102,21 +102,21 @@ bool AppleUserHIDDevice::init (OSDictionary * dict)
 {
     bool ret = false;
 
-    require (super::init(dict), exit);
+    __Require(super::init(dict), exit);
     
     ivar = IOMallocType(AppleUserHIDDevice::AppleUserHIDDevice_IVars);
-    require (ivar, exit);
+    __Require(ivar, exit);
 
     bzero(ivar, sizeof(AppleUserHIDDevice::AppleUserHIDDevice_IVars));
     
     _syncActions = OSSet::withCapacity(2);
-    require_action (_syncActions, exit, HIDDeviceLogError("syncActions\n"));
+    __Require_Action(_syncActions, exit, HIDDeviceLogError("syncActions\n"));
 
     _asyncActions = OSSet::withCapacity(1);
-    require_action (_asyncActions, exit, HIDDeviceLogError("asyncActions\n"));
+    __Require_Action(_asyncActions, exit, HIDDeviceLogError("asyncActions\n"));
 
     _asyncActionsLock = IOLockAlloc();
-    require_action (_asyncActionsLock, exit, HIDDeviceLogError("asyncActionsLock\n"));
+    __Require_Action(_asyncActionsLock, exit, HIDDeviceLogError("asyncActionsLock\n"));
 
     super::setProperty(kIOServiceDEXTEntitlementsKey, kIOHIDDeviceDextEntitlement);
     
@@ -180,10 +180,10 @@ bool AppleUserHIDDevice::start(IOService * provider)
    
     if (!dkStart) {
         ret = Start(provider);
-        require_noerr_action(ret, exit, HIDDeviceLogError("IOHIDDevice::Start:0x%x\n", ret));
+        __Require_noErr_Action(ret, exit, HIDDeviceLogError("IOHIDDevice::Start:0x%x\n", ret));
     } else if (krStart) {
         status = super::start(provider);
-        require_action(status, exit, HIDDeviceLogError("super::start:0x%x\n", status));
+        __Require_Action(status, exit, HIDDeviceLogError("super::start:0x%x\n", status));
     } else {
         return super::start(provider);
     }
@@ -240,14 +240,14 @@ bool AppleUserHIDDevice::handleStart( IOService * provider )
     OSNumber     * value            = NULL;
 
     status = super::handleStart(provider);
-    require_action(status, exit, HIDDeviceLogError("handleStart"));
+    __Require_Action(status, exit, HIDDeviceLogError("handleStart"));
     
     _workLoop = getWorkLoop();
-    require_action (_workLoop, exit,  HIDDeviceLogError("workLoop\n"));
+    __Require_Action(_workLoop, exit,  HIDDeviceLogError("workLoop\n"));
     _workLoop->retain();
 
     _commandGate = IOCommandGate::commandGate(this);
-    require_action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDDeviceLogError("_commandGate"));
+    __Require_Action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDDeviceLogError("_commandGate"));
 
     value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
     _requestTimeout = value && value->unsigned32BitValue() >= kIOHIDDeviceMinAsyncRequestTimeout * 1000 && value->unsigned32BitValue() <= kIOHIDDeviceMaxAsyncRequestTimeout * 1000 ? value->unsigned32BitValue() : kIOHIDDeviceDefaultAsyncRequestTimeout * 1000;
@@ -256,7 +256,7 @@ bool AppleUserHIDDevice::handleStart( IOService * provider )
                                               OSMemberFunctionCast(OSSerializerCallback,
                                                                    this,
                                                                    &AppleUserHIDDevice::serializeDebugState));
-    require(debugSerializer, exit);
+    __Require(debugSerializer, exit);
     super::setProperty("DebugState", debugSerializer);
 
     status = true;
@@ -514,28 +514,28 @@ bool AppleUserHIDDevice::setProperty(const OSSymbol * aKey, OSObject * anObject)
     IOBufferMemoryDescriptor    * md        = NULL;
     
     
-    require (_state & kAppleUserHIDDeviceStateStarted, exit);
+    __Require(_state & kAppleUserHIDDeviceStateStarted, exit);
     
     //optimization, skip sending property set by registerInterestForNotifier
-    require (OSDynamicCast(IOCommand, anObject) == NULL, exit);
+    __Require(OSDynamicCast(IOCommand, anObject) == NULL, exit);
     
-    require_action (!isInactive(), exit, HIDDeviceLogError("inactive"));
+    __Require_Action(!isInactive(), exit, HIDDeviceLogError("inactive"));
 
     dict = OSDictionary::withObjects((const OSObject **) &anObject, &aKey, 1);
     
     s = OSSerialize::binaryWithCapacity(4096);
-    require_action (s, exit, HIDDeviceLogError("OSSerialize"));
+    __Require_Action(s, exit, HIDDeviceLogError("OSSerialize"));
     s->setIndexed(true);
     
-    require_action (dict->serialize(s), exit, HIDDeviceLogError("serialize"));
+    __Require_Action(dict->serialize(s), exit, HIDDeviceLogError("serialize"));
     
-    require_action(s->text() && s->getLength(), exit, HIDDeviceLogError("serialize"));
+    __Require_Action(s->text() && s->getLength(), exit, HIDDeviceLogError("serialize"));
     
     md = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
                                                kIOMemoryKernelUserShared |
                                                kIOMemoryThreadSafe,
                                                s->getLength());
-    require_action (md, exit, HIDDeviceLogError("IOBufferMemoryDescriptor"));
+    __Require_Action(md, exit, HIDDeviceLogError("IOBufferMemoryDescriptor"));
     
     bcopy(s->text(), md->getBytesNoCopy(), s->getLength());
    
@@ -560,7 +560,7 @@ IOReturn AppleUserHIDDevice::setProperties(OSObject * properties)
     IOReturn  result = kIOReturnBadArgument;
     
     OSDictionary * propertyDict = OSDynamicCast(OSDictionary, properties);
-    require_action (propertyDict, exit, HIDDeviceLogError("invalid object type"));
+    __Require_Action(propertyDict, exit, HIDDeviceLogError("invalid object type"));
     
     propertyDict->iterateObjects (^bool(const OSSymbol * key, OSObject * object) {
         if (IsIOHIDRestrictedIOKitProperty(key)) {
@@ -591,9 +591,9 @@ IOReturn AppleUserHIDDevice::getReport(IOMemoryDescriptor   * report,
 {
     IOReturn ret;
     
-    require_action (report, exit, ret = kIOReturnBadArgument);
+    __Require_Action(report, exit, ret = kIOReturnBadArgument);
 
-    require_action (isInactive() == false, exit, ret = kIOReturnOffline);
+    __Require_Action(isInactive() == false, exit, ret = kIOReturnOffline);
 
     if (completion && completion->action) {
         ret = processReport (kIOHIDReportCommandGetReport, report, reportType, options, completionTimeout, completion);
@@ -621,19 +621,19 @@ IOReturn AppleUserHIDDevice::setReport(IOMemoryDescriptor  * report,
     bool prepared = false;
     IOBufferMemoryDescriptor *memBuff = NULL;
 
-    require_action (report, exit, ret = kIOReturnBadArgument);
+    __Require_Action(report, exit, ret = kIOReturnBadArgument);
     
-    require_action (isInactive() == false, exit, ret = kIOReturnOffline);
+    __Require_Action(isInactive() == false, exit, ret = kIOReturnOffline);
 
     // Create IOBufferMemoryDescriptor with correct options for access in the DK HIDDevice driver.
     if (OSDynamicCast(IOBufferMemoryDescriptor, report) == NULL || ((IOBufferMemoryDescriptor*)report)->getCapacity() < PAGE_SIZE) {
-        require_noerr_action(report->prepare(), exit, HIDDeviceLogError("Unable to prepare report for setReport."));
+        __Require_noErr_Action(report->prepare(), exit, HIDDeviceLogError("Unable to prepare report for setReport."));
         memBuff = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
                                                         kIOMemoryKernelUserShared |
                                                         kIOMemoryThreadSafe,
                                                         report->getLength());
 
-        require_action(memBuff, exit, ret = kIOReturnNoMemory);
+        __Require_Action(memBuff, exit, ret = kIOReturnNoMemory);
 
         report->readBytes(0, memBuff->getBytesNoCopy(), report->getLength());
 
@@ -641,7 +641,7 @@ IOReturn AppleUserHIDDevice::setReport(IOMemoryDescriptor  * report,
 
         memBuff->setLength(report->getLength());
 
-        require_noerr_action(memBuff->prepare(), exit, HIDDeviceLogError("Unable to prepare temp report for setReport."));
+        __Require_noErr_Action(memBuff->prepare(), exit, HIDDeviceLogError("Unable to prepare temp report for setReport."));
         prepared = true;
         report = memBuff;
     }
@@ -685,7 +685,7 @@ IOReturn AppleUserHIDDevice::processReport(HIDReportCommandType    command,
     IOHIDReportCompletion   * reportCompletion;
 
     ret = CreateAction_CompleteReport(sizeof(IOHIDReportCompletion), &action);
-    require_noerr_action(ret, exit, HIDDeviceLogError("CreateAction_CompleteReport:%x", ret));
+    __Require_noErr_Action(ret, exit, HIDDeviceLogError("CreateAction_CompleteReport:%x", ret));
     
     reportCompletion                = (IOHIDReportCompletion *) action->GetReference();
     reportCompletion->report        = report;
@@ -790,7 +790,7 @@ void AppleUserHIDDevice::completeReport(OSAction * action, IOReturn status, uint
     uint64_t remaining = 0;
     bool async = false;
 
-    require_action (_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
+    __Require_Action(_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
 
     IOHIDReportCompletion *reportCompletion;
     reportCompletion = (IOHIDReportCompletion *)action->GetReference();
@@ -841,7 +841,7 @@ IOReturn AppleUserHIDDevice::handleReportWithTime(AbsoluteTime timeStamp,
 {
     IOReturn ret = kIOReturnNotReady;
     
-    require_action (_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
+    __Require_Action(_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
     
     _inputReportCount++;
     _inputReportTime = mach_continuous_time();
@@ -887,7 +887,7 @@ bool AppleUserHIDDevice::serializeDebugState(void *ref __unused,
     OSDictionary  *dict = OSDictionary::withCapacity(4);
     uint64_t      now = mach_continuous_time();
     
-    require(dict, exit);
+    __Require(dict, exit);
     
     SET_DICT_NUM(dict, "SetReportCount", _setReportCount);
     SET_DICT_NUM(dict, "SetReportFailCount", _setReportFailCount);

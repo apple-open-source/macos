@@ -65,15 +65,15 @@ class SceneKitModelUSD final : public SceneKitModel {
 public:
     static Ref<SceneKitModelUSD> create(Ref<Model> modelSource, RetainPtr<SCNScene> scene)
     {
-        return adoptRef(*new SceneKitModelUSD(WTFMove(modelSource), WTFMove(scene)));
+        return adoptRef(*new SceneKitModelUSD(WTF::move(modelSource), WTF::move(scene)));
     }
 
     virtual ~SceneKitModelUSD() = default;
 
 private:
     SceneKitModelUSD(Ref<Model> modelSource, RetainPtr<SCNScene> scene)
-        : m_modelSource { WTFMove(modelSource) }
-        , m_scene { WTFMove(scene) }
+        : m_modelSource { WTF::move(modelSource) }
+        , m_scene { WTF::move(scene) }
     {
     }
 
@@ -141,7 +141,7 @@ Ref<SceneKitModelLoader> loadSceneKitModelUsingUSDLoader(Model& modelSource, Sce
 
         ASSERT(scene);
 
-        strongClient->didFinishLoading(loader.get(), SceneKitModelUSD::create(WTFMove(modelSource), WTFMove(scene)));
+        strongClient->didFinishLoading(loader.get(), SceneKitModelUSD::create(WTF::move(modelSource), WTF::move(scene)));
     });
 
     return loader;

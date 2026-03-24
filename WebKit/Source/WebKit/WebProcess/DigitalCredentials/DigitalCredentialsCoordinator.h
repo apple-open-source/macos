@@ -41,7 +41,6 @@ struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct ExceptionData;
 struct MobileDocumentRequest;
-struct OpenID4VPRequest;
 struct PageIdentifierType;
 using PageIdentifier = ObjectIdentifier<PageIdentifierType>;
 }

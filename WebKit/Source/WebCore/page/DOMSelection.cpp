@@ -155,7 +155,7 @@ unsigned DOMSelection::rangeCount() const
     RefPtr frame = this->frame();
     if (!frame)
         return 0;
-    if (frame->selection().associatedLiveRange())
+    if (frame->checkedSelection()->associatedLiveRange())
         return 1;
     if (selectionShadowAncestor(*frame))
         return 1;
@@ -300,7 +300,7 @@ ExceptionOr<void> DOMSelection::extend(Node& node, unsigned offset)
     auto newSelection = selection->selection();
     newSelection.setExtent(makeContainerOffsetPosition(&node, offset));
     selection->disassociateLiveRange();
-    selection->setSelection(WTFMove(newSelection));
+    selection->setSelection(WTF::move(newSelection));
     return { };
 }
 
@@ -317,7 +317,7 @@ ExceptionOr<Ref<Range>> DOMSelection::getRangeAt(unsigned index)
     if (index >= rangeCount())
         return Exception { ExceptionCode::IndexSizeError };
     Ref frame = this->frame().releaseNonNull();
-    if (RefPtr liveRange = frame->selection().associatedLiveRange())
+    if (RefPtr liveRange = frame->checkedSelection()->associatedLiveRange())
         return liveRange.releaseNonNull();
     return createLiveRangeBeforeShadowHostWithSelection(frame.get()).releaseNonNull();
 }
@@ -345,7 +345,7 @@ ExceptionOr<void> DOMSelection::removeRange(Range& liveRange)
     RefPtr frame = this->frame();
     if (!frame)
         return { };
-    if (&liveRange != frame->selection().associatedLiveRange())
+    if (&liveRange != frame->checkedSelection()->associatedLiveRange())
         return Exception { ExceptionCode::NotFoundError };
     removeAllRanges();
     return { };
@@ -371,7 +371,7 @@ Vector<Ref<StaticRange>> DOMSelection::getComposedRanges(std::optional<Variant<R
             auto* options = std::get_if<GetComposedRangesOptions>(&*firstShadowRootOrOptions);
             RELEASE_ASSERT(options);
             for (auto& shadowRoot : options->shadowRoots)
-                shadowRootSet.add(WTFMove(shadowRoot));
+                shadowRootSet.add(WTF::move(shadowRoot));
         }
     }
 
@@ -393,7 +393,7 @@ Vector<Ref<StaticRange>> DOMSelection::getComposedRanges(std::optional<Variant<R
         endOffset = host->computeNodeIndex() + 1;
     }
 
-    return { StaticRange::create(SimpleRange { BoundaryPoint { WTFMove(startNode), startOffset }, BoundaryPoint { WTFMove(endNode), endOffset } }) };
+    return { StaticRange::create(SimpleRange { BoundaryPoint { WTF::move(startNode), startOffset }, BoundaryPoint { WTF::move(endNode), endOffset } }) };
 }
 
 void DOMSelection::deleteFromDocument()
@@ -401,7 +401,7 @@ void DOMSelection::deleteFromDocument()
     RefPtr frame = this->frame();
     if (!frame)
         return;
-    if (RefPtr range = frame->selection().associatedLiveRange())
+    if (RefPtr range = frame->checkedSelection()->associatedLiveRange())
         range->deleteContents();
 }
 
@@ -425,7 +425,7 @@ String DOMSelection::toString() const
         return String();
 
     OptionSet<TextIteratorBehavior> options;
-    if (!frame->document()->quirks().needsToCopyUserSelectNoneQuirk())
+    if (!frame->protectedDocument()->quirks().needsToCopyUserSelectNoneQuirk())
         options.add(TextIteratorBehavior::IgnoresUserSelectNone);
 
     auto range = frame->selection().selection().range();

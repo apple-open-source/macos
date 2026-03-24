@@ -65,18 +65,18 @@ TSystemUtils::GetPreferredLanguages ( void )
 	seteuid ( uid );
 	
 	userName = ::CFCopyUserName ( );
-	require ( ( userName != NULL ), ErrorExit );
-	
+	__Require ( ( userName != NULL ), ErrorExit );
+
 	equal = ::CFStringCompare ( userName, CFSTR ( kEmptyString ), 0 );
-	require ( ( equal != kCFCompareEqualTo ), ReleaseExit );
+	__Require ( ( equal != kCFCompareEqualTo ), ReleaseExit );
 	
 	languages = ::CFPreferencesCopyValue ( CFSTR ( kAppleLanguagesString ),
 										   kCFPreferencesAnyApplication,
 										   userName,
 										   kCFPreferencesAnyHost );
 	
-	require ( ( languages != NULL ), ReleaseExit );
-	require_action ( ( ::CFGetTypeID ( languages ) == ::CFArrayGetTypeID ( ) ),
+	__Require ( ( languages != NULL ), ReleaseExit );
+	__Require_Action ( ( ::CFGetTypeID ( languages ) == ::CFArrayGetTypeID ( ) ),
 					 ReleaseExit,
 					 ::CFRelease ( languages ) );
 	
@@ -116,19 +116,19 @@ TSystemUtils::FindUIDToUse ( void )
 										CFSTR ( "cddafs.util" ),
 										NULL,
 										NULL );
-	require ( ( storeRef != NULL ), ErrorExit );
+	__Require ( ( storeRef != NULL ), ErrorExit );
 
 	userName = ::SCDynamicStoreCopyConsoleUser ( storeRef,
 												 &uid,
 												 &gid );
-	require ( ( userName != NULL ), ReleaseDynamicStore );
+	__Require ( ( userName != NULL ), ReleaseDynamicStore );
 	::CFRelease ( userName );
 	
 	
 ReleaseDynamicStore:
 	
 	
-	require_quiet ( ( storeRef != NULL ), ErrorExit );
+	__Require_Quiet ( ( storeRef != NULL ), ErrorExit );
 	::CFRelease ( storeRef );
 	storeRef = NULL;
 	
@@ -159,26 +159,26 @@ TSystemUtils::ReadDataFromURL ( CFURLRef url )
     CFIndex             bytesRead       = 0;
     
     result = CFURLCopyResourcePropertyForKey ( url, kCFURLFileSizeKey, &fileSizeNumber, NULL );
-    require ( result, ErrorExit );
-    require ( fileSizeNumber != NULL, ErrorExit );
-    
+	__Require ( result, ErrorExit );
+	__Require ( fileSizeNumber != NULL, ErrorExit );
+
     result = CFNumberGetValue ( fileSizeNumber, kCFNumberCFIndexType, &fileSize );
-    require ( result, ReleaseNumber );
-    
+	__Require ( result, ReleaseNumber );
+
     data = CFDataCreateMutable ( kCFAllocatorDefault, fileSize );
-    require ( data, ReleaseNumber );
-    
+	__Require ( data, ReleaseNumber );
+
     CFDataSetLength ( data, fileSize );
     
     dataPtr = CFDataGetMutableBytePtr ( data );
-    require ( dataPtr, ReleaseNumber );
-    
+	__Require ( dataPtr, ReleaseNumber );
+
     readStream = CFReadStreamCreateWithFile ( kCFAllocatorDefault, url );
-    require ( readStream, ErrorExit );
-    
+	__Require ( readStream, ErrorExit );
+
     result = CFReadStreamOpen ( readStream );
-    require ( result, ReleaseStream );
-    
+	__Require ( result, ReleaseStream );
+
     endPtr  = ( UInt8 * ) dataPtr + fileSize;
     
     while ( dataPtr < endPtr )

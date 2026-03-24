@@ -58,7 +58,7 @@ void AutomationSessionClient::requestNewPageWithOptions(WebKit::WebAutomationSes
             // FIXME: Attributes of the window of firstPage should be set to windowFeatures.
             //        That way, the application can use them in WKPageUIClient.createNewPage().
             //        https://webkit.org/b/290979
-            configuration->setWindowFeatures(WTFMove(windowFeatures));
+            configuration->setWindowFeatures(WTF::move(windowFeatures));
             configuration->setRelatedPage(firstPage);
             configuration->setControlledByAutomation(true);
 
@@ -79,12 +79,10 @@ void AutomationSessionClient::requestNewPageWithOptions(WebKit::WebAutomationSes
                 false, /* hasOpenedFrames */
                 false, /* openedByDOMWithOpener */
                 false, /* hasOpener */
-                false, /* isPerformingHTTPFallback */
+                WebCore::NavigationUpgradeToHTTPSBehavior::BasedOnPolicy, /* navigationUpgradeToHTTPSBehavior */
                 false, /* isInitialFrameSrcLoad */
                 false, /* isContentExtensionRedirect */
                 { }, /* openedMainFrameName */
-                { }, /* requesterOrigin */
-                { }, /* requesterTopOrigin */
                 std::nullopt, /* targetBackForwardItemIdentifier */
                 std::nullopt, /* sourceBackForwardItemIdentifier */
                 WebCore::LockHistory::No, /* lockHistory */
@@ -102,13 +100,14 @@ void AutomationSessionClient::requestNewPageWithOptions(WebKit::WebAutomationSes
                 std::nullopt, /* navigationID */
                 { }, /* originalRequest */
                 { }, /* request */
-                { } /* invalidURLString */
+                { }, /* invalidURLString */
+                std::nullopt, /* requester */
             };
 
             auto userInitiatedActivity = API::UserInitiatedAction::create();
-            Ref navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), nullptr, nullptr, String(), WebCore::ResourceRequest(), URL(), false, WTFMove(userInitiatedActivity));
+            Ref navigationAction = API::NavigationAction::create(WTF::move(navigationActionData), nullptr, nullptr, String(), WebCore::ResourceRequest(), URL(), false, WTF::move(userInitiatedActivity));
 
-            firstPage->uiClient().createNewPage(firstPage, WTFMove(configuration), WTFMove(navigationAction), [completionHandler = WTFMove(completionHandler)](auto&& newPage) mutable {
+            firstPage->uiClient().createNewPage(firstPage, WTF::move(configuration), WTF::move(navigationAction), [completionHandler = WTF::move(completionHandler)](auto&& newPage) mutable {
                 if (newPage) {
                     newPage->setControlledByAutomation(true);
                     completionHandler(newPage.get());

@@ -114,7 +114,7 @@ public:
     WEBCORE_EXPORT IDBResultData();
 
 private:
-    friend struct IPC::ArgumentCoder<IDBResultData, void>;
+    friend struct IPC::ArgumentCoder<IDBResultData>;
 
     IDBResultData(const IDBResourceIdentifier&);
     IDBResultData(IDBResultType, const IDBResourceIdentifier&);

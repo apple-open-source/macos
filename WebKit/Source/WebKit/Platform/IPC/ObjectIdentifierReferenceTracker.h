@@ -31,6 +31,7 @@
 #include <wtf/Hasher.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/ObjectIdentifier.h>
+#include <wtf/text/TextStream.h>
 
 namespace IPC {
 
@@ -96,6 +97,8 @@ public:
     uint64_t pendingReads() const { return m_pendingReads; }
     Reference reference() const { return m_reference; }
     ObjectIdentifierReference<T> retiredReference() const { return { identifier(), version() + 1 }; }
+
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = DefaultHash<T>::safeToCompareToEmptyOrDeleted;
 
 private:
     Reference m_reference;
@@ -179,18 +182,6 @@ namespace WTF {
 template<typename T> struct HashTraits<IPC::ObjectIdentifierReference<T>> : SimpleClassHashTraits<IPC::ObjectIdentifierReference<T>> {
     static constexpr bool emptyValueIsZero = HashTraits<T>::emptyValueIsZero;
     static IPC::ObjectIdentifierReference<T> emptyValue() { return { HashTraits<T>::emptyValue(), 0 }; }
-};
-
-template<typename T> struct DefaultHash<IPC::ObjectIdentifierReference<T>> {
-    static unsigned hash(const IPC::ObjectIdentifierReference<T>& reference)
-    {
-        return computeHash(reference);
-    }
-    static bool equal(const IPC::ObjectIdentifierReference<T>& a, const IPC::ObjectIdentifierReference<T>& b)
-    {
-        return a == b;
-    }
-    static constexpr bool safeToCompareToEmptyOrDeleted = DefaultHash<T>::safeToCompareToEmptyOrDeleted;
 };
 
 } // namespace IPC

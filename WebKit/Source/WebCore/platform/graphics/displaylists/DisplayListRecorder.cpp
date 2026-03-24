@@ -48,7 +48,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(Recorder);
 Recorder::Recorder(IsDeferred isDeferred, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, const DestinationColorSpace& colorSpace, DrawGlyphsMode drawGlyphsMode)
     : GraphicsContext(isDeferred, state)
     , m_colorSpace(colorSpace)
-    , m_initialClip(initialClip)
+    , m_initialClip(initialCTM.mapRect(initialClip))
     , m_drawGlyphsMode(drawGlyphsMode)
 #if USE(CORE_TEXT)
     , m_initialScale(initialCTM.xScale())
@@ -207,7 +207,15 @@ bool Recorder::updateStateForEndTransparencyLayer()
 
 void Recorder::updateStateForResetClip()
 {
-    currentState().clipBounds = m_initialClip;
+    currentState().clipBounds = initialClip();
+}
+
+FloatRect Recorder::initialClip() const
+{
+    if (auto inverse = ctm().inverse())
+        return inverse->mapRect(m_initialClip);
+
+    return m_initialClip;
 }
 
 void Recorder::updateStateForClip(const FloatRect& rect)

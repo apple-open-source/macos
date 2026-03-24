@@ -39,7 +39,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKJSHandle.class, self))
         return;
-    _ref->API::JSHandle::~JSHandle();
+    SUPPRESS_UNRETAINED_ARG _ref->API::JSHandle::~JSHandle();
     [super dealloc];
 }
 
@@ -61,7 +61,7 @@
     webFrame->getFrameInfo([completionHandler = makeBlockPtr(completionHandler)] (auto&& data) mutable {
         if (!data)
             return completionHandler(nil);
-        completionHandler(wrapper(API::FrameInfo::create(WTFMove(*data))).get());
+        completionHandler(wrapper(API::FrameInfo::create(WTF::move(*data))).get());
     });
 }
 

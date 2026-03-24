@@ -36,6 +36,11 @@
 
 namespace API {
 
+OptionSet<WebKit::ContentWorldOption> ContentWorld::defaultOptions()
+{
+    return WebKit::ContentWorldOption::Inspectable;
+}
+
 static HashMap<WTF::String, WeakRef<ContentWorld>>& sharedWorldNameMap()
 {
     static NeverDestroyed<HashMap<WTF::String, WeakRef<ContentWorld>>> sharedMap;
@@ -78,6 +83,7 @@ ContentWorld::ContentWorld(const WTF::String& name, OptionSet<WebKit::ContentWor
 
 ContentWorld::ContentWorld(WebKit::ContentWorldIdentifier identifier)
     : m_identifier(identifier)
+    , m_options(defaultOptions())
 {
     ASSERT(m_identifier == WebKit::pageContentWorldIdentifier());
 }
@@ -100,7 +106,7 @@ ContentWorld& ContentWorld::pageContentWorldSingleton()
 
 ContentWorld& ContentWorld::defaultClientWorldSingleton()
 {
-    static NeverDestroyed<Ref<ContentWorld>> world(adoptRef(*new ContentWorld(WTF::String { }, { })));
+    static NeverDestroyed<Ref<ContentWorld>> world(adoptRef(*new ContentWorld(WTF::String { }, defaultOptions())));
     return world.get();
 }
 

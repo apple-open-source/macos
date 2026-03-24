@@ -40,7 +40,7 @@ template<auto R, typename V, CSS::PrimitiveKeyword... Ks> struct ToCSS<Primitive
                 if constexpr (R.zoomOptions == CSS::RangeZoomOptions::Default) {
                     return CSS::LengthPercentageRaw<R, V> { length.unit, adjustForZoom(length.unresolvedValue(), style) };
                 } else if constexpr (R.zoomOptions == CSS::RangeZoomOptions::Unzoomed) {
-                    if (shouldUseEvaluationTimeZoom(style))
+                    if (evaluationTimeZoomEnabled(style))
                         return CSS::LengthPercentageRaw<R, V> { length.unit, length.unresolvedValue() };
 
                     return CSS::LengthPercentageRaw<R, V> { length.unit, adjustForZoom(length.unresolvedValue(), style) };

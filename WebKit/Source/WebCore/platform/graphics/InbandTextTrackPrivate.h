@@ -71,10 +71,10 @@ public:
     virtual bool isMainProgramContent() const { return true; }
     virtual bool isEasyToRead() const { return false; }
     virtual bool isDefault() const { return false; }
-    AtomString label() const override { return emptyAtom(); }
-    AtomString language() const override { return emptyAtom(); }
-    std::optional<AtomString> trackUID() const override { return emptyAtom(); }
-    virtual AtomString inBandMetadataTrackDispatchType() const { return emptyAtom(); }
+    String label() const override { return emptyString(); }
+    String language() const override { return emptyString(); }
+    std::optional<String> trackUID() const override { return emptyString(); }
+    virtual String inBandMetadataTrackDispatchType() const { return emptyString(); }
 
     CueFormat cueFormat() const { return m_format; }
     

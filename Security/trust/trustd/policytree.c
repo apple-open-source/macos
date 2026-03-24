@@ -38,7 +38,7 @@
 #include <stdio.h>
 #endif
 
-static policy_set_t policy_set_create(const oid_t *p_oid) {
+policy_set_t policy_set_create(const oid_t *p_oid) {
     policy_set_t policy_set =
         (policy_set_t)malloc(sizeof(*policy_set));
     policy_set->oid_next = NULL;

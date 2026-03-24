@@ -46,7 +46,7 @@ struct IntrinsicWidthConstraints;
 class LayoutState;
 
 class FormattingContext {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(FormattingContext);
+    WTF_MAKE_TZONE_ALLOCATED(FormattingContext);
 public:
     virtual ~FormattingContext();
 

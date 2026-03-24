@@ -402,7 +402,7 @@ inline void ComposedTreeIterator<ContextInlineCapacity>::traverseShadowRoot(Shad
     if (m_didDropAssertions)
         shadowContext.iterator.dropAssertions();
 
-    m_contextStack.append(WTFMove(shadowContext));
+    m_contextStack.append(WTF::move(shadowContext));
 }
 
 template <size_t ContextInlineCapacity>

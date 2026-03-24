@@ -69,7 +69,7 @@ AppleSCSIEmulatorEventSource::Create ( OSObject * owner, Action action )
 	require_nonzero ( es, ErrorExit );
 	
 	result = es->Init ( owner, action );
-	require ( result, ReleaseEventSource );
+	__Require(result, ReleaseEventSource);
 	
 	return es;
 	

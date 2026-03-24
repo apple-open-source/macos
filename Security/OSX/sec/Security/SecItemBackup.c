@@ -271,25 +271,6 @@ CFDataRef SecItemBackupCreateManifest(CFDictionaryRef backup, CFErrorRef *error)
     return manifest;
 }
 
-OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out)
-{
-    return SecOSStatusWith(^bool (CFErrorRef *error) {
-        *backup_out = SECURITYD_XPC(sec_keychain_backup_syncable, data_data_dict_to_dict_error_request, backup_in, keybag, password, error);
-        return *backup_out != NULL;
-    });
-}
-
-OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in)
-{
-    __block OSStatus result;
-    os_activity_initiate("_SecKeychainRestoreSyncable", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SecOSStatusWith(^bool (CFErrorRef *error) {
-            return SECURITYD_XPC(sec_keychain_restore_syncable, dict_data_data_to_error_request, backup_in, keybag, password, error);
-        });
-    });
-    return result;
-}
-
 // Client code
 
 static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error, void(^with)(FILE *bufile)) {

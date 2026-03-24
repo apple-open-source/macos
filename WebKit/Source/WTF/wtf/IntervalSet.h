@@ -575,7 +575,7 @@ public:
         iterator() = default;
 
         iterator(Path&& path)
-            : m_path(WTFMove(path)) { }
+            : m_path(WTF::move(path)) { }
 
         const Interval& interval() const
         {
@@ -637,7 +637,7 @@ public:
         ASSERT(nodeRef->size());
         path.append({ nodeRef, 0 });
         ASSERT(path.size() == m_height + 1);
-        return iterator(WTFMove(path));
+        return iterator(WTF::move(path));
     }
 
     iterator end() const

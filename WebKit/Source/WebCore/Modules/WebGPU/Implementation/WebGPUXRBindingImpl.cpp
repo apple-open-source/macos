@@ -37,7 +37,7 @@
 namespace WebCore::WebGPU {
 
 XRBindingImpl::XRBindingImpl(WebGPUPtr<WGPUXRBinding>&& binding, ConvertToBackingContext& convertToBackingContext)
-    : m_backing(WTFMove(binding))
+    : m_backing(WTF::move(binding))
     , m_convertToBackingContext(convertToBackingContext)
 {
 }

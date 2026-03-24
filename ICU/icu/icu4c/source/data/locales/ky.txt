@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ky{
     AuxExemplarCharacters{"[в ф ц щ ь]"}
     ExemplarCharacters{"[а б г д е ё ж з и й к л м н ң о ө п р с т у ү х ч ш ъ ы э ю я]"}
@@ -11,12 +11,20 @@ ky{
         " #]"
     }
     NumberElements{
+        arabext{
+            patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
+            }
+        }
         latn{
             miscPatterns{
                 atLeast{"{0}+"}
             }
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
             }
             patternsLong{
                 decimalFormat{
@@ -225,7 +233,6 @@ ky{
                 MMMMd{"d MMMM"}
                 MMMd{"d-MMM"}
                 Md{"dd/MM"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 y{"y-G"}
@@ -364,7 +371,6 @@ ky{
                 MMMMd{"d-MMMM"}
                 MMMd{"d-MMM"}
                 Md{"dd-MM"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a v"}
@@ -458,16 +464,16 @@ ky{
             }
             eras{
                 abbreviated{
-                    "б.з.ч.",
-                    "б.з.",
+                    0{"б.з.ч."}
+                    1{"б.з."}
                 }
                 narrow{
-                    "б.з.ч.",
-                    "б.з.",
+                    0{"б.з.ч."}
+                    1{"б.з."}
                 }
                 wide{
-                    "биздин заманга чейин",
-                    "биздин заман",
+                    0{"биздин заманга чейин"}
+                    1{"биздин заман"}
                 }
             }
             intervalFormats{

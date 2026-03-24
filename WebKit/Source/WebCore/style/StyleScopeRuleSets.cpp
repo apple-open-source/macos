@@ -33,6 +33,7 @@
 #include "CSSStyleSheet.h"
 #include "CSSViewTransitionRule.h"
 #include "DeclarationOrigin.h"
+#include "DocumentInlines.h"
 #include "ExtensionStyleSheets.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
@@ -44,6 +45,8 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
+#include <JavaScriptCore/ConsoleTypes.h>
+#include <ranges>
 
 namespace WebCore {
 namespace Style {
@@ -141,10 +144,10 @@ void ScopeRuleSets::initializeUserStyle()
     collectRulesFromUserStyleSheets(extensionStyleSheets->documentUserStyleSheets(), userStyle, mediaQueryEvaluator);
 
     if (userStyle->ruleCount() > 0 || userStyle->pageRules().size() > 0)
-        m_userStyle = WTFMove(userStyle);
+        m_userStyle = WTF::move(userStyle);
 }
 
-void ScopeRuleSets::collectRulesFromUserStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& userSheets, RuleSet& userStyle, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
+void ScopeRuleSets::collectRulesFromUserStyleSheets(const Vector<Ref<CSSStyleSheet>>& userSheets, RuleSet& userStyle, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
 {
     RuleSetBuilder builder(userStyle, mediaQueryEvaluator, &m_styleResolver);
     for (auto& sheet : userSheets) {
@@ -233,7 +236,7 @@ std::optional<DynamicMediaQueryEvaluationChanges> ScopeRuleSets::evaluateDynamic
             return;
         if (auto changes = ruleSet->evaluateDynamicMediaQueryRules(evaluator)) {
             if (evaluationChanges)
-                evaluationChanges->append(WTFMove(*changes));
+                evaluationChanges->append(WTF::move(*changes));
             else
                 evaluationChanges = changes;
         }
@@ -246,7 +249,7 @@ std::optional<DynamicMediaQueryEvaluationChanges> ScopeRuleSets::evaluateDynamic
     return evaluationChanges;
 }
 
-void ScopeRuleSets::appendAuthorStyleSheets(std::span<const RefPtr<CSSStyleSheet>> styleSheets, MQ::MediaQueryEvaluator* mediaQueryEvaluator, InspectorCSSOMWrappers& inspectorCSSOMWrappers)
+void ScopeRuleSets::appendAuthorStyleSheets(std::span<const Ref<CSSStyleSheet>> styleSheets, MQ::MediaQueryEvaluator* mediaQueryEvaluator, InspectorCSSOMWrappers& inspectorCSSOMWrappers)
 {
     RuleSetBuilder builder(*m_authorStyle, *mediaQueryEvaluator, &m_styleResolver, RuleSetBuilder::ShrinkToFit::Enable);
 
@@ -257,14 +260,14 @@ void ScopeRuleSets::appendAuthorStyleSheets(std::span<const RefPtr<CSSStyleSheet
         // the content is exact same to the previous one.
         if (previous) {
             if (&previous->contents() == &cssSheet->contents() && previous->mediaQueries().isEmpty() && cssSheet->mediaQueries().isEmpty()) {
-                inspectorCSSOMWrappers.collectFromStyleSheetIfNeeded(cssSheet.get());
+                inspectorCSSOMWrappers.collectFromStyleSheetIfNeeded(cssSheet);
                 continue;
             }
         }
 
         builder.addRulesFromSheet(cssSheet->contents(), cssSheet->mediaQueries());
-        inspectorCSSOMWrappers.collectFromStyleSheetIfNeeded(cssSheet.get());
-        previous = cssSheet;
+        inspectorCSSOMWrappers.collectFromStyleSheetIfNeeded(cssSheet);
+        previous = cssSheet.ptr();
     }
 
     collectFeatures();
@@ -334,14 +337,27 @@ static Vector<InvalidationRuleSet>* ensureInvalidationRuleSets(const KeyType& ke
 
             builder.ruleSet->addRule(*feature.styleRule, feature.selectorIndex, feature.selectorListIndex);
 
-            if constexpr (std::is_same<typename RuleFeatureVectorType::ValueType, RuleFeatureWithInvalidationSelector>::value)
-                builder.invalidationSelectors.append(&feature.invalidationSelector);
+            if constexpr (std::is_same<typename RuleFeatureVectorType::ValueType, RuleFeatureWithInvalidationSelector>::value) {
+                auto alreadyContains = [&](const CSSSelectorList& invalidationSelector) {
+                    constexpr auto maximumSearchCount = 8;
+                    auto count = 0;
+                    for (auto& existing : builder.invalidationSelectors | std::views::reverse) {
+                        if (++count > maximumSearchCount)
+                            break;
+                        if (invalidationSelector == *existing)
+                            return true;
+                    }
+                    return false;
+                };
+                if (!alreadyContains(feature.invalidationSelector))
+                    builder.invalidationSelectors.append(&feature.invalidationSelector);
+            }
         }
 
         return makeUnique<Vector<InvalidationRuleSet>>(WTF::map(builderMap.values(), [](auto&& builder) {
             builder.ruleSet->shrinkToFit();
             return InvalidationRuleSet {
-                WTFMove(builder.ruleSet),
+                WTF::move(builder.ruleSet),
                 CSSSelectorList::makeJoining(builder.invalidationSelectors),
                 builder.matchElement,
                 builder.isNegation

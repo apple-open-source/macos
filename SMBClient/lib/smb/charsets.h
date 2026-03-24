@@ -31,4 +31,5 @@ extern char *convert_utf8_to_wincs(const char *utf8_string, CFStringEncoding cod
 extern char *convert_leunicode_to_utf8(unsigned short *windows_string, size_t maxLen);
 extern char *convert_unicode_to_utf8(const uint16_t *unicode_string, size_t maxLen, uint32_t decompose);
 extern unsigned short *convert_utf8_to_leunicode(const char *utf8_string, size_t utf8_maxLen);
+extern unsigned short *convert_utf8_to_leunicode_normalize(const char *utf8_string, size_t utf8_maxLen, uint64_t normalization_form);
 #endif /* !__CHARSETS_H__ */

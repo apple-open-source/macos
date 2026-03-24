@@ -88,6 +88,7 @@ const char * kobject_name(natural_t kotype)
         case IKOT_TASK_FATAL:       return "TASK_FATAL";
         case IKOT_KCDATA:           return "KCDATA";
         case IKOT_EXCLAVES_RESOURCE:return "EXCLAVES_RESOURCE";
+        case IKOT_THREAD_RESUME:    return "THREAD_RESUME";
         case IKOT_UNKNOWN:
         default:                    return "UNKNOWN";
 	}
@@ -658,8 +659,19 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
     if (ret == KERN_SUCCESS && kotype != 0) {
         JSON_OBJECT_SET(json, identifier, "0x%08x", (natural_t)kobject);
         JSON_OBJECT_SET(json, type, "%s", kobject_name(kotype));
-        
-        if (desc[0] && kotype != IKOT_TASK_ID_TOKEN) {
+
+        if ((kotype == IKOT_TASK_ID_TOKEN) ||
+            (kotype == IKOT_THREAD_RESUME)) {
+            // desc should store the pid
+            int pid = atoi(desc);
+            if (pid) {
+                char *proc_name = get_task_name_by_pid(pid);
+                JSON_OBJECT_SET(json, pid, %d, pid);
+                JSON_OBJECT_SET(json, process, "%s", escape(proc_name));
+                printf("                                             0x%08x  %s (%d) %s",
+                    (natural_t)kobject, kobject_name(kotype), pid, proc_name);
+            }
+        } else if (desc[0]) {
             JSON_OBJECT_SET(json, description, "%s", escape(desc));
             printf("                                             0x%08x  %s %s", (natural_t)kobject, kobject_name(kotype), desc);
         } else {
@@ -692,14 +704,6 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
                     printf(" (%#llx)", taskinfo->threadInfos[i].th_id);
                     break;
                 }
-            }
-        }
-
-        if (kotype == IKOT_TASK_ID_TOKEN) {
-            // desc should store the pid
-            int pid = atoi(desc);
-            if (pid) {
-                printf(" (%d) %s", pid, get_task_name_by_pid(pid));
             }
         }
 

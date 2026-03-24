@@ -52,7 +52,7 @@ void WebExtensionContext::commandsGetAll(CompletionHandler<void(Vector<WebExtens
         return command->parameters();
     });
 
-    completionHandler(WTFMove(results));
+    completionHandler(WTF::move(results));
 }
 
 void WebExtensionContext::fireCommandEventIfNeeded(const WebExtensionCommand& command, WebExtensionTab* tab)

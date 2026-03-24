@@ -97,11 +97,7 @@ static inline void abortSendLastPosition(WebGeolocationProviderIOS* provider)
 #pragma mark - Public API of WebGeolocationProviderIOS.
 + (WebGeolocationProviderIOS *)sharedGeolocationProvider
 {
-    static dispatch_once_t once;
-    static NeverDestroyed<RetainPtr<WebGeolocationProviderIOS>> sharedGeolocationProvider;
-    dispatch_once(&once, ^{
-        sharedGeolocationProvider.get() = adoptNS([[WebGeolocationProviderIOS alloc] init]);
-    });
+    static NeverDestroyed<RetainPtr<WebGeolocationProviderIOS>> sharedGeolocationProvider = adoptNS([[WebGeolocationProviderIOS alloc] init]);
     return sharedGeolocationProvider.get().get();
 }
 
@@ -351,7 +347,7 @@ static inline void abortSendLastPosition(WebGeolocationProviderIOS* provider)
 
 - (void)positionChanged:(WebCore::GeolocationPositionData&&)position
 {
-    RetainPtr<WebGeolocationPosition> webPosition = adoptNS([[WebGeolocationPosition alloc] initWithGeolocationPosition:WTFMove(position)]);
+    RetainPtr<WebGeolocationPosition> webPosition = adoptNS([[WebGeolocationPosition alloc] initWithGeolocationPosition:WTF::move(position)]);
     WebThreadRun(^{
         [_provider positionChanged:webPosition.get()];
     });

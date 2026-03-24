@@ -42,7 +42,7 @@ class BindGroupImpl final : public BindGroup {
 public:
     static Ref<BindGroupImpl> create(WebGPUPtr<WGPUBindGroup>&& bindGroup, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new BindGroupImpl(WTFMove(bindGroup), convertToBackingContext));
+        return adoptRef(*new BindGroupImpl(WTF::move(bindGroup), convertToBackingContext));
     }
 
     virtual ~BindGroupImpl();

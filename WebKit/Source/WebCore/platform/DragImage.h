@@ -116,8 +116,8 @@ public:
     WEBCORE_EXPORT ~DragImage();
 
     DragImage(RefPtr<TextIndicator> textIndicator, std::optional<Path>&& visiblePath)
-        : m_textIndicator(WTFMove(textIndicator))
-        , m_visiblePath(WTFMove(visiblePath))
+        : m_textIndicator(WTF::move(textIndicator))
+        , m_visiblePath(WTF::move(visiblePath))
     { }
 
     WEBCORE_EXPORT DragImage& operator=(DragImage&&);

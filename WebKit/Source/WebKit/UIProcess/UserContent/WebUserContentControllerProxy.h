@@ -45,6 +45,7 @@ namespace API {
 class Array;
 class ContentRuleList;
 class ContentWorld;
+class JSBuffer;
 class UserScript;
 class UserStyleSheet;
 }
@@ -58,11 +59,14 @@ class WebProcessProxy;
 class WebCompiledContentRuleListData;
 class WebScriptMessageHandler;
 
+struct ContentWorldIdentifierType;
 struct FrameInfoData;
 struct UserContentControllerParameters;
 struct WebPageCreationParameters;
 
 enum class InjectUserScriptImmediately : bool;
+
+using ContentWorldIdentifier = WebCore::ProcessQualified<ObjectIdentifier<ContentWorldIdentifierType>>;
 
 class WebUserContentControllerProxy : public API::ObjectImpl<API::Object::Type::UserContentController>, public CanMakeWeakPtr<WebUserContentControllerProxy>, public Identified<UserContentControllerIdentifier> {
 public:
@@ -102,6 +106,9 @@ public:
     void removeAllUserStyleSheets();
 #endif
 
+    void addJSBuffer(API::JSBuffer&, API::ContentWorld&, const String&);
+    void removeJSBuffer(API::ContentWorld&, const String&);
+
     // Returns false if there was a name conflict.
     bool addUserScriptMessageHandler(WebScriptMessageHandler&);
     void removeUserMessageHandlerForName(const String&, API::ContentWorld&);
@@ -133,6 +140,7 @@ private:
     const Ref<API::Array> m_userScripts;
     const Ref<API::Array> m_userStyleSheets;
     HashMap<ScriptMessageHandlerIdentifier, Ref<WebScriptMessageHandler>> m_scriptMessageHandlers;
+    HashMap<std::pair<WebKit::ContentWorldIdentifier, String>, Ref<API::JSBuffer>> m_buffers;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     WeakHashSet<NetworkProcessProxy> m_networkProcesses;

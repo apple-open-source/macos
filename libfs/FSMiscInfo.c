@@ -31,11 +31,6 @@
 
 #include "FSPrivate.h"
 
-#if TARGET_OS_SIMULATOR
-#define statfs_ext(path, buf, flags) statfs((path), (buf))
-#define fstatfs_ext(fd, buf, flags) fstatfs((fd), &(buf))
-#endif
-
 static bool
 check_mntfromname(const char *fstype)
 {

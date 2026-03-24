@@ -53,7 +53,7 @@
 #include "RenderSVGRoot.h"
 #include "RenderSVGShapeInlines.h"
 #include "RenderSVGText.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGClipPathElement.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGeometryElement.h"
@@ -87,7 +87,7 @@ std::optional<FloatRect> SVGRenderSupport::computeFloatVisibleRectInContainer(co
         return FloatRect();
 
     FloatRect adjustedRect = rect;
-    adjustedRect.inflate(Style::evaluate<float>(renderer.style().outlineWidth(), Style::ZoomNeeded { }));
+    adjustedRect.inflate(Style::evaluate<float>(renderer.style().usedOutlineWidth(), Style::ZoomNeeded { }));
 
     // Translate to coords in our parent renderer, and then call computeFloatVisibleRectInContainer() on our parent.
     adjustedRect = renderer.localToParentTransform().mapRect(adjustedRect);
@@ -364,6 +364,11 @@ bool SVGRenderSupport::isOverflowHidden(const RenderElement& renderer)
     return isNonVisibleOverflow(renderer.style().overflowX());
 }
 
+void SVGRenderSupport::applyResourceEffectsToRect(const RenderElement& renderer, FloatRect& rect)
+{
+    intersectRepaintRectWithResources(renderer, rect, RepaintRectCalculation::Accurate);
+}
+
 void SVGRenderSupport::intersectRepaintRectWithResources(const RenderElement& renderer, FloatRect& repaintRect, RepaintRectCalculation repaintRectCalculation)
 {
     auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer);
@@ -378,6 +383,29 @@ void SVGRenderSupport::intersectRepaintRectWithResources(const RenderElement& re
 
     if (auto* masker = resources->masker())
         repaintRect.intersect(masker->resourceBoundingBox(renderer, repaintRectCalculation));
+}
+
+FloatRect SVGRenderSupport::computeContainerDecoratedBoundingBox(const RenderElement& container)
+{
+    FloatRect decoratedBoundingBox;
+
+    for (auto& current : childrenOfType<RenderObject>(container)) {
+        if (current.isLegacyRenderSVGHiddenContainer())
+            continue;
+        if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(current); shape && shape->isRenderingDisabled())
+            continue;
+
+        FloatRect childDecoratedBox = current.decoratedBoundingBox();
+
+        const AffineTransform& transform = current.localToParentTransform();
+        if (!transform.isIdentity())
+            childDecoratedBox = transform.mapRect(childDecoratedBox);
+
+        if (!childDecoratedBox.isNaN())
+            decoratedBoundingBox.unite(childDecoratedBox);
+    }
+
+    return decoratedBoundingBox;
 }
 
 bool SVGRenderSupport::filtersForceContainerLayout(const RenderElement& renderer)
@@ -493,7 +521,7 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
     }
 
     SVGLengthContext lengthContext(element.get());
-    context.setStrokeThickness(lengthContext.valueForLength(style.strokeWidth()));
+    context.setStrokeThickness(lengthContext.valueForLength(style.strokeWidth(), style.usedZoomForLength()));
     context.setLineCap(style.capStyle());
     context.setLineJoin(style.joinStyle());
     if (style.joinStyle() == LineJoin::Miter)
@@ -518,14 +546,14 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
         
         bool canSetLineDash = false;
         auto dashArray = DashArray::map(dashes, [&](auto& dash) -> DashArrayElement {
-            auto value = lengthContext.valueForLength(dash) * scaleFactor;
+            auto value = lengthContext.valueForLength(dash, Style::ZoomNeeded { }) * scaleFactor;
             if (value > 0)
                 canSetLineDash = true;
             return value;
         });
 
         if (canSetLineDash)
-            context.setLineDash(dashArray, lengthContext.valueForLength(style.strokeDashOffset()) * scaleFactor);
+            context.setLineDash(dashArray, lengthContext.valueForLength(style.strokeDashOffset(), Style::ZoomNeeded { }) * scaleFactor);
         else
             context.setStrokeStyle(StrokeStyle::SolidStroke);
     }

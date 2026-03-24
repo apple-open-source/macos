@@ -159,10 +159,10 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
     policy = SecPolicyCreateiAPSWAuth();
-    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
-    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
+    __Require_noErr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), trustFail);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
 
 trustFail:
@@ -235,31 +235,31 @@ trustFail:
     certs = CFArrayCreate(NULL, (const void **)&sw_auth_test_leaf, 1, &kCFTypeArrayCallBacks);
     anchors = CFArrayCreate(NULL, (const void **)&sw_auth_test_CA, 1, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateiAPSWAuth();
-    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
-    require(date = CFDateCreate(NULL, 530000000.0), trustFail);  /* 17 Oct 2017, BEFORE issuance */
-    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
+    __Require_noErr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    __Require(date = CFDateCreate(NULL, 530000000.0), trustFail);  /* 17 Oct 2017, BEFORE issuance */
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), trustFail);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
     is_status(trustResult, kSecTrustResultUnspecified, "trust is kSecTrustResultUnspecified");
 
     /* Test SW Auth certs fail iAP policy */
     CFReleaseNull(policy);
     CFReleaseNull(trust);
     policy = SecPolicyCreateiAP();
-    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
-    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
+    __Require_noErr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), trustFail);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
 
     /* Test SW Auth certs fail when not-yet-valid with expiration check */
     CFReleaseNull(policy);
     CFReleaseNull(trust);
     policy = SecPolicyCreateiAPSWAuthWithExpiration(true);
-    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
-    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
+    __Require_noErr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), trustFail);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
 
 trustFail:
@@ -422,11 +422,11 @@ trustFail:
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, subCA);
     anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks);
-    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
-    require(date = CFDateCreate(NULL, 576000000.0), trustFail);  /* April 3, 2019 at 9:00:00 AM PDT */
-    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
+    __Require_noErr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    __Require(date = CFDateCreate(NULL, 576000000.0), trustFail);  /* April 3, 2019 at 9:00:00 AM PDT */
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), trustFail);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), trustFail);
     is_status(trustResult, kSecTrustResultUnspecified, "trust is kSecTrustResultUnspecified");
 
 trustFail:

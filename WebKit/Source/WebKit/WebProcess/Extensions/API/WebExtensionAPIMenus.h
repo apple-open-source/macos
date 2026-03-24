@@ -68,4 +68,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIMenus, menus);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

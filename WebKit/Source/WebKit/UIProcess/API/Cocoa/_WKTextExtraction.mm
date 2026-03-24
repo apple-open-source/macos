@@ -26,24 +26,193 @@
 #import "config.h"
 #import "_WKTextExtractionInternal.h"
 
+#import "Logging.h"
 #import "WKWebViewInternal.h"
+#import "_WKJSHandleInternal.h"
 #import <WebKit/WKError.h>
 #import <wtf/RetainPtr.h>
 
-@implementation _WKTextExtractionConfiguration
+@implementation _WKTextExtractionConfiguration {
+    RetainPtr<_WKJSHandle> _targetNode;
+    HashMap<RetainPtr<NSString>, HashMap<RetainPtr<_WKJSHandle>, RetainPtr<NSString>>> _clientNodeAttributes;
+    RetainPtr<NSDictionary<NSString *, NSString *>> _replacementStrings;
+    RetainPtr<NSArray<_WKJSHandle *>> _nodesToSkip;
+}
 
 - (instancetype)init
+{
+    return [self _initForOnlyVisibleText:NO];
+}
+
++ (instancetype)configurationForVisibleTextOnly
+{
+    return adoptNS([[self alloc] _initForOnlyVisibleText:YES]).autorelease();
+}
+
+- (instancetype)_initForOnlyVisibleText:(BOOL)onlyVisibleText
 {
     if (!(self = [super init]))
         return nil;
 
-    _canIncludeIdentifiers = YES;
-    _shouldFilterText = YES;
-    _includeURLs = YES;
-    _includeRects = YES;
+    _filterOptions = _WKTextExtractionFilterAll;
+    _includeURLs = !onlyVisibleText;
+    _includeRects = !onlyVisibleText;
+    _nodeIdentifierInclusion = onlyVisibleText ? _WKTextExtractionNodeIdentifierInclusionNone : _WKTextExtractionNodeIdentifierInclusionInteractive;
+    _includeEventListeners = !onlyVisibleText;
+    _includeAccessibilityAttributes = !onlyVisibleText;
+    _includeTextInAutoFilledControls = !onlyVisibleText;
+    _onlyIncludeVisibleText = onlyVisibleText;
     _targetRect = CGRectNull;
     _maxWordsPerParagraph = NSUIntegerMax;
     return self;
+}
+
+- (_WKJSHandle *)targetNode
+{
+    return _targetNode.get();
+}
+
+- (void)setTargetNode:(_WKJSHandle *)targetNode
+{
+    _targetNode = adoptNS([targetNode copy]);
+}
+
+- (NSArray<_WKJSHandle *> *)nodesToSkip
+{
+    return _nodesToSkip.get();
+}
+
+- (void)setNodesToSkip:(NSArray<_WKJSHandle *> *)nodesToSkip
+{
+    _nodesToSkip = adoptNS([nodesToSkip copy]);
+}
+
+- (void)addClientAttribute:(NSString *)attributeName value:(NSString *)attributeValue forNode:(_WKJSHandle *)node
+{
+    _clientNodeAttributes.ensure(RetainPtr { attributeName }, [] {
+        return HashMap<RetainPtr<_WKJSHandle>, RetainPtr<NSString>> { };
+    }).iterator->value.set(RetainPtr { node }, RetainPtr { attributeValue });
+}
+
+- (void)forEachClientNodeAttribute:(void(^)(NSString *attribute, NSString *value, _WKJSHandle *))block
+{
+    for (auto [attribute, values] : _clientNodeAttributes) {
+        for (auto [handle, value] : values)
+            block(attribute.get(), value.get(), handle.get());
+    }
+}
+
+- (NSDictionary<NSString *, NSString *> *)replacementStrings
+{
+    return _replacementStrings.get();
+}
+
+- (void)setReplacementStrings:(NSDictionary<NSString *, NSString *> *)replacementStrings
+{
+    _replacementStrings = adoptNS([replacementStrings copy]);
+}
+
+#define ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value) do { \
+    if (_onlyIncludeVisibleText && value) { \
+        RELEASE_LOG_ERROR(TextExtraction, "%{public}s ignored for text-only %{public}@", __PRETTY_FUNCTION__, [self class]); \
+        return; \
+    } \
+} while (0)
+
+- (void)setIncludeURLs:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _includeURLs = value;
+}
+
+- (void)setIncludeRects:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _includeRects = value;
+}
+
+- (void)setNodeIdentifierInclusion:(_WKTextExtractionNodeIdentifierInclusion)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _nodeIdentifierInclusion = value;
+}
+
+- (void)setIncludeEventListeners:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _includeEventListeners = value;
+}
+
+- (void)setIncludeAccessibilityAttributes:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _includeAccessibilityAttributes = value;
+}
+
+- (void)setIncludeTextInAutoFilledControls:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _includeTextInAutoFilledControls = value;
+}
+
+- (void)setOutputFormat:(_WKTextExtractionOutputFormat)outputFormat
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(outputFormat != _WKTextExtractionOutputFormatTextTree);
+
+    _outputFormat = outputFormat;
+}
+
+- (void)setShortenURLs:(BOOL)value
+{
+    ENSURE_VALID_TEXT_ONLY_CONFIGURATION(value);
+
+    _shortenURLs = value;
+}
+
+#undef ENSURE_VALID_TEXT_ONLY_CONFIGURATION
+
+@end
+
+@implementation _WKTextExtractionResult {
+    RetainPtr<NSString> _textContent;
+    RetainPtr<NSDictionary<NSString *, NSURL *>> _shortenedURLs;
+    __weak WKWebView *_webView;
+}
+
+- (instancetype)initWithWebView:(WKWebView *)webView textContent:(NSString *)textContent filteredOutAnyText:(BOOL)filteredOutAnyText shortenedURLs:(NSDictionary<NSString *, NSURL *> *)shortenedURLs
+{
+    if (self = [super init]) {
+        _textContent = textContent;
+        _filteredOutAnyText = filteredOutAnyText;
+        _shortenedURLs = shortenedURLs;
+        _webView = webView;
+    }
+    return self;
+}
+
+- (NSString *)textContent
+{
+    return _textContent.get();
+}
+
+- (NSDictionary<NSString *, NSURL *> *)shortenedURLs
+{
+    return _shortenedURLs.get();
+}
+
+- (void)requestJSHandleForNodeIdentifier:(NSString *)nodeIdentifier searchText:(NSString *)searchText completionHandler:(void (^)(_WKJSHandle *))completionHandler
+{
+    RetainPtr webView = _webView;
+    if (!webView)
+        return completionHandler(nil);
+
+    [webView _requestJSHandleForNodeIdentifier:nodeIdentifier searchText:searchText completionHandler:completionHandler];
 }
 
 @end
@@ -57,6 +226,8 @@
 @synthesize replaceAll = _replaceAll;
 @synthesize location = _location;
 @synthesize hasSetLocation = _hasSetLocation;
+@synthesize scrollToVisible = _scrollToVisible;
+@synthesize scrollDelta = _scrollDelta;
 
 - (instancetype)initWithAction:(_WKTextExtractionAction)action
 {

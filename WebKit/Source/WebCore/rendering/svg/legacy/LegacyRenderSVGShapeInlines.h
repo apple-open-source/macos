@@ -26,7 +26,7 @@
 #pragma once
 
 #include "LegacyRenderSVGShape.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGGraphicsElement.h"
 
 namespace WebCore {

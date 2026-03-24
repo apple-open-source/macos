@@ -92,6 +92,9 @@ private:
     LayoutRect elementRect() const final;
     LayoutRect boundingBoxRect() const final { return elementRect(); }
     AccessibilityObject* parentObject() const final;
+    RefPtr<AccessibilityObject> protectedHorizontalScrollbar() const { return m_horizontalScrollbar; }
+    RefPtr<AccessibilityObject> protectedVerticalScrollbar() const { return m_verticalScrollbar; }
+    RefPtr<HTMLFrameOwnerElement> protectedFrameOwnerElement() const { return m_frameOwnerElement.get(); }
 
     AccessibilityObject* firstChild() const final { return webAreaObject(); }
     AccessibilityScrollbar* addChildScrollbar(Scrollbar*);

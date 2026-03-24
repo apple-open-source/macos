@@ -1277,7 +1277,7 @@ See remaining rules for examples.
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
-			<true/>
+			<false/>
 		</dict>
 		<key>system.preferences.softwareupdate</key>
 		<dict>

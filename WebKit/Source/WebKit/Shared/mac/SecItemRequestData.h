@@ -58,7 +58,7 @@ public:
     RetainPtr<CFDictionaryRef> protectedAttributesToMatch() const { return m_attributesToMatch; }
 
 private:
-    friend struct IPC::ArgumentCoder<WebKit::SecItemRequestData, void>;
+    friend struct IPC::ArgumentCoder<WebKit::SecItemRequestData>;
 
     Type m_type { Type::Invalid };
     RetainPtr<CFDictionaryRef> m_queryDictionary;

@@ -302,72 +302,72 @@ static SecCertificateRef createCertFromStaticData(const UInt8 *certData, CFIndex
     NSDate *verifyDate = nil;
     SecTrustResultType trustResult = kSecTrustResultInvalid;
 
-    require(root = SecCertificateCreateWithBytes(NULL, _datetest_root, sizeof(_datetest_root)), out);
-    require(beforeInt = SecCertificateCreateWithBytes(NULL, _datetest_before_int, sizeof(_datetest_before_int)), out);
-    require(afterInt = SecCertificateCreateWithBytes(NULL, _datetest_after_int, sizeof(_datetest_after_int)), out);
-    require(beforeLeaf = SecCertificateCreateWithBytes(NULL, _datetest_before_leaf, sizeof(_datetest_before_leaf)), out);
-    require(afterLeaf = SecCertificateCreateWithBytes(NULL, _datetest_after_leaf, sizeof(_datetest_after_leaf)), out);
+    __Require(root = SecCertificateCreateWithBytes(NULL, _datetest_root, sizeof(_datetest_root)), out);
+    __Require(beforeInt = SecCertificateCreateWithBytes(NULL, _datetest_before_int, sizeof(_datetest_before_int)), out);
+    __Require(afterInt = SecCertificateCreateWithBytes(NULL, _datetest_after_int, sizeof(_datetest_after_int)), out);
+    __Require(beforeLeaf = SecCertificateCreateWithBytes(NULL, _datetest_before_leaf, sizeof(_datetest_before_leaf)), out);
+    __Require(afterLeaf = SecCertificateCreateWithBytes(NULL, _datetest_after_leaf, sizeof(_datetest_after_leaf)), out);
 
     anchors = @[(__bridge id)root];
-    require(policy = SecPolicyCreateSSL(true, CFSTR("testserver.apple.com")), out);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("testserver.apple.com")), out);
     verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:504000000.0];  /* 21 Dec 2016 */
 
     /* Leaf issued before cutoff should pass */
     certs = @[(__bridge id)beforeLeaf, (__bridge id)beforeInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultUnspecified, "leaf issued before cutoff failed evaluation");
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
     /* Leaf issued after cutoff should fail */
     certs = @[(__bridge id)afterLeaf, (__bridge id)beforeInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultFatalTrustFailure, "leaf issued after cutoff succeeded evaluation");
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
     /* Intermediate issued after cutoff should fail (even for leaf issued before) */
     certs = @[(__bridge id)beforeLeaf, (__bridge id)afterInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultFatalTrustFailure, "intermediate issued after cutoff succeeded evaluation");
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
     /* Intermediate issued after cutoff should fail */
     certs = @[(__bridge id)afterLeaf, (__bridge id)afterInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultFatalTrustFailure, "intermediate issued before cutoff succeeded evaluation");
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
     /* Leaf issued before cutoff should choose acceptable path */
     certs = @[(__bridge id)beforeLeaf, (__bridge id) afterInt, (__bridge id)beforeInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultUnspecified, "leaf issued before cutoff failed evaluation (multi-path)");
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
     /* No good path for leaf issued after cutoff */
     certs = @[(__bridge id)afterLeaf, (__bridge id)beforeInt, (__bridge id)afterInt];
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     is(trustResult, kSecTrustResultFatalTrustFailure, "leaf issued after cutoff succeeded evaluation (multi-path)");
 
 out:
@@ -394,20 +394,20 @@ out:
 
     memset(certs, 0, 3 * sizeof(SecCertificateRef));
 
-    require(certs[0] = SecCertificateCreateWithBytes(NULL, leafOnAllowList_Cert, sizeof(leafOnAllowList_Cert)), out);
-    require(certs[1] = SecCertificateCreateWithBytes(NULL, ca1_Cert, sizeof(ca1_Cert)), out);
-    require(certs[2] = SecCertificateCreateWithBytes(NULL, root_Cert, sizeof(root_Cert)), out);
+    __Require(certs[0] = SecCertificateCreateWithBytes(NULL, leafOnAllowList_Cert, sizeof(leafOnAllowList_Cert)), out);
+    __Require(certs[1] = SecCertificateCreateWithBytes(NULL, ca1_Cert, sizeof(ca1_Cert)), out);
+    __Require(certs[2] = SecCertificateCreateWithBytes(NULL, root_Cert, sizeof(root_Cert)), out);
 
     anchors = @[(__bridge id)certs[2]];
     certArray = @[(__bridge id)certs[0], (__bridge id)certs[1], (__bridge id)certs[2]];
     verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]; // January 6, 2020 at 2:40:00 AM PST
 
     /* Mismatched policy, should fail */
-    require(policy = SecPolicyCreateSSL(true, (__bridge CFStringRef)@"example.com"), out);
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certArray, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require(policy = SecPolicyCreateSSL(true, (__bridge CFStringRef)@"example.com"), out);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certArray, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
        "hostname failure with cert on allow list succeeded evaluation");
     CFReleaseNull(policy);
@@ -415,20 +415,20 @@ out:
 
     /* Expired, should fail */
     verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // November 4, 2016 at 5:53:20 PM PDT
-    require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
-    require_noerr(SecTrustSetPolicies(trust, policy), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
        "EKU failure with cert on allow list succeeded evaluation");
     CFReleaseNull(policy);
     trustResult = kSecTrustResultInvalid;
 
     /* Apple pinning policy, should fail */
-    require(policy = SecPolicyCreateAppleSSLPinned((__bridge CFStringRef)@"aPolicy",
+    __Require(policy = SecPolicyCreateAppleSSLPinned((__bridge CFStringRef)@"aPolicy",
                                                    (__bridge CFStringRef)@"example.com", NULL,
                                                    (__bridge CFStringRef)@"1.2.840.113635.100.6.27.12"), out);
-    require_noerr(SecTrustSetPolicies(trust, policy), out);
-    require_noerr(SecTrustGetTrustResult(trust, &trustResult), out);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), out);
+    __Require_noErr(SecTrustGetTrustResult(trust, &trustResult), out);
     ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
        "Apple pinning policy with cert on allow list succeeded evaluation");
 

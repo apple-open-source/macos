@@ -112,7 +112,7 @@ ScriptedAnimationController::CallbackId ScriptedAnimationController::registerCal
     RefPtr<ImminentlyScheduledWorkScope> workScope;
     if (RefPtr page = this->page())
         workScope = page->opportunisticTaskScheduler().makeScheduledWorkScope();
-    m_callbackDataList.append({ WTFMove(callback), UserGestureIndicator::currentUserGesture(), WTFMove(workScope) });
+    m_callbackDataList.append({ WTF::move(callback), UserGestureIndicator::currentUserGesture(), WTF::move(workScope) });
 
     if (RefPtr document = m_document.get())
         InspectorInstrumentation::didRequestAnimationFrame(*document, callbackId);

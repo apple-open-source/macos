@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 nnp{
     ExemplarCharacters{
         "[𞋀 𞋁 𞋂 𞋃 𞋄 𞋅 𞋆 𞋇 𞋈 𞋉 𞋊 𞋋 𞋌 𞋍 𞋎 𞋏  𞋐 𞋑 𞋒 𞋓 𞋔 𞋕 𞋖 𞋗 "

@@ -210,15 +210,15 @@ ServiceWorkerRouteCondition ServiceWorkerRouteCondition::isolatedCopy() &&
 {
     std::unique_ptr<ServiceWorkerRouteCondition> notConditionCopy;
     if (notCondition)
-        notConditionCopy = makeUnique<ServiceWorkerRouteCondition>(WTFMove(*notCondition));
+        notConditionCopy = makeUnique<ServiceWorkerRouteCondition>(WTF::move(*notCondition));
     return {
-        crossThreadCopy(WTFMove(urlPattern)),
-        crossThreadCopy(WTFMove(requestMethod)),
+        crossThreadCopy(WTF::move(urlPattern)),
+        crossThreadCopy(WTF::move(requestMethod)),
         requestMode,
         requestDestination,
         runningStatus,
-        crossThreadCopy(WTFMove(orConditions)),
-        WTFMove(notConditionCopy)
+        crossThreadCopy(WTF::move(orConditions)),
+        WTF::move(notConditionCopy)
     };
 }
 
@@ -235,7 +235,7 @@ ServiceWorkerRouteCondition ServiceWorkerRouteCondition::copy() const
         requestDestination,
         runningStatus,
         orConditions.map([](auto& condition) { return condition.copy(); }),
-        WTFMove(notConditionCopy)
+        WTF::move(notConditionCopy)
     };
 }
 
@@ -243,21 +243,21 @@ ServiceWorkerRouteCondition ServiceWorkerRouteCondition::copy() const
 ServiceWorkerRoutePattern ServiceWorkerRoutePattern::isolatedCopy() &&
 {
     return {
-        crossThreadCopy(WTFMove(protocol)),
-        crossThreadCopy(WTFMove(username)),
-        crossThreadCopy(WTFMove(password)),
-        crossThreadCopy(WTFMove(hostname)),
-        crossThreadCopy(WTFMove(port)),
-        crossThreadCopy(WTFMove(pathname)),
-        crossThreadCopy(WTFMove(search)),
-        crossThreadCopy(WTFMove(hash))
+        crossThreadCopy(WTF::move(protocol)),
+        crossThreadCopy(WTF::move(username)),
+        crossThreadCopy(WTF::move(password)),
+        crossThreadCopy(WTF::move(hostname)),
+        crossThreadCopy(WTF::move(port)),
+        crossThreadCopy(WTF::move(pathname)),
+        crossThreadCopy(WTF::move(search)),
+        crossThreadCopy(WTF::move(hash))
     };
 }
 
 static RouterSource crossThreadCopyRouterSource(RouterSource&& source)
 {
     return WTF::switchOn(source, [](RouterSourceDict& dict) -> RouterSource {
-        return WTFMove(dict).isolatedCopy();
+        return WTF::move(dict).isolatedCopy();
     }, [](auto value) -> RouterSource {
         return value;
     });
@@ -266,8 +266,8 @@ static RouterSource crossThreadCopyRouterSource(RouterSource&& source)
 ServiceWorkerRoute ServiceWorkerRoute::isolatedCopy() &&
 {
     return {
-        WTFMove(condition).isolatedCopy(),
-        crossThreadCopyRouterSource(WTFMove(source))
+        WTF::move(condition).isolatedCopy(),
+        crossThreadCopyRouterSource(WTF::move(source))
     };
 }
 

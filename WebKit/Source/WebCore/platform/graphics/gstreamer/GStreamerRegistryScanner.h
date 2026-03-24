@@ -115,7 +115,7 @@ public:
     Vector<RTCRtpCapabilities::HeaderExtensionCapability> audioRtpExtensions();
     Vector<RTCRtpCapabilities::HeaderExtensionCapability> videoRtpExtensions();
     RegistryLookupResult isRtpPacketizerSupported(const String& encoding);
-    bool isRtpHeaderExtensionSupported(StringView);
+    bool isRtpHeaderExtensionSupported(const String&);
 #endif
 
 protected:
@@ -139,7 +139,9 @@ protected:
         explicit ElementFactories(OptionSet<Type>);
         ~ElementFactories();
 
-        static const char* elementFactoryTypeToString(Type);
+#ifndef GST_DISABLE_GST_DEBUG
+        static ASCIILiteral elementFactoryTypeToString(Type);
+#endif
         GList* factory(Type) const;
 
         enum class CheckHardwareClassifier : bool { No, Yes };

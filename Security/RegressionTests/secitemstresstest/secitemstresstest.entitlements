@@ -7,5 +7,17 @@
 		<string>keychain-test1</string>
 		<string>keychain-test2</string>
 	</array>
+	<key>com.apple.private.security.no-sandbox</key>
+	<true/>
+	<key>restore-keychain</key>
+	<true/>
+	<key>migrate-keychain</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>com.apple.security.secitemstresstest</string>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
+	<key>com.apple.keystore.keybag.load</key>
+	<true/>
 </dict>
 </plist>

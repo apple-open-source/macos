@@ -1,7 +1,10 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fr_CA{
+    Keys{
+        em{"Présentation des émojis"}
+    }
     Languages{
         ady{"adygué"}
         ang{"vieil anglais"}
@@ -66,6 +69,9 @@ fr_CA{
         tru{"turoyo"}
         tzm{"tamazight"}
     }
+    Languages%extension{
+        ku{"kurmanji"}
+    }
     Languages%long{
         zh_Hans{"chinois, mandarin simplifié"}
         zh_Hant{"chinois, mandarin traditionnel"}
@@ -92,10 +98,8 @@ fr_CA{
     }
     Types{
         collation{
-            big5han{"ordre de tri chinois traditionnel - Big5"}
             dictionary{"ordre de tri du dictionnaire"}
             eor{"ordre multilingue européen"}
-            gb2312han{"ordre de tri chinois simplifié - GB2312"}
             phonebook{"ordre de tri de l’annuaire"}
             pinyin{"ordre de tri pinyin"}
             searchjl{"Rechercher par consonne initiale en hangeul"}
@@ -103,9 +107,18 @@ fr_CA{
             traditional{"ordre de tri traditionnel"}
             zhuyin{"ordre de tri zhuyin"}
         }
+        collation%core{
+            compat{"par compatibilité"}
+            dictionary{"du dictionnaire"}
+            phonebook{"de l’annuaire"}
+            stroke{"des traits"}
+        }
         d0{
             fwidth{"pleine chasse"}
             hwidth{"demi-chasse"}
+        }
+        em%core{
+            emoji{"émoji"}
         }
         m0{
             bgn{"BGN (commission de toponymie des États-Unis)"}
@@ -125,6 +138,6 @@ fr_CA{
         territory{"région : {0}"}
     }
     localeDisplayPattern{
-        keyTypePattern{"{0} : {1}"}
+        keyTypePattern{"{0} : {1}"}
     }
 }

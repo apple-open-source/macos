@@ -167,9 +167,9 @@ struct __SecOCSPCache {
 static SecOCSPCacheRef SecOCSPCacheCreate(CFStringRef db_name) {
 	SecOCSPCacheRef this;
 
-	require(this = (SecOCSPCacheRef)malloc(sizeof(struct __SecOCSPCache)), errOut);
-    require(this->db = SecOCSPCacheDbCreate(db_name), errOut);
-    require(SecOCSPCacheDbUpdateTables(this->db), errOut);
+	__Require(this = (SecOCSPCacheRef)malloc(sizeof(struct __SecOCSPCache)), errOut);
+    __Require(this->db = SecOCSPCacheDbCreate(db_name), errOut);
+    __Require(SecOCSPCacheDbUpdateTables(this->db), errOut);
 
 	return this;
 
@@ -391,10 +391,10 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
     __block CFErrorRef localError = NULL;
     __block bool ok = true;
 
-    require(publicKey = SecCertificateGetPublicKeyData(request->issuer), errOut);
-    require(issuer = SecCertificateCopyIssuerSequence(request->certificate), errOut);
-    require(serial = SecCertificateCopySerialNumberData(request->certificate, NULL), errOut);
-    require(CFDataGetLength(serial) > 0 && publicKey->length < LONG_MAX, errOut);
+    __Require(publicKey = SecCertificateGetPublicKeyData(request->issuer), errOut);
+    __Require(issuer = SecCertificateCopyIssuerSequence(request->certificate), errOut);
+    __Require(serial = SecCertificateCopySerialNumberData(request->certificate, NULL), errOut);
+    __Require(CFDataGetLength(serial) > 0 && publicKey->length < LONG_MAX, errOut);
 
     ok &= SecDbPerformRead(this->db, &localError, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbWithSQL(dbconn, selectHashAlgorithmSQL, &localError, ^bool(sqlite3_stmt *selectHash) {

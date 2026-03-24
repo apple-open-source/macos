@@ -1,13 +1,15 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 xog{
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
             }
         }
     }
@@ -113,12 +115,12 @@ xog{
             }
             eras{
                 abbreviated{
-                    "AZ",
-                    "AF",
+                    0{"AZ"}
+                    1{"AF"}
                 }
                 wide{
-                    "Kulisto nga azilawo",
-                    "Kulisto nga affile",
+                    0{"Kulisto nga azilawo"}
+                    1{"Kulisto nga affile"}
                 }
             }
             monthNames{

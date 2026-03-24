@@ -44,34 +44,32 @@ std::unique_ptr<SystemSleepListener> SystemSleepListener::create(Client& client)
 
 SystemSleepListenerMac::SystemSleepListenerMac(Client& client)
     : SystemSleepListener(client)
-    , m_sleepObserver(nil)
-    , m_wakeObserver(nil)
 {
-    NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
-    NSOperationQueue *queue = [NSOperationQueue mainQueue];
+    RetainPtr center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    RetainPtr queue = [NSOperationQueue mainQueue];
 
     WeakPtr weakThis { *this };
 
-    m_sleepObserver = [center addObserverForName:NSWorkspaceWillSleepNotification object:nil queue:queue usingBlock:^(NSNotification *) {
+    lazyInitialize(m_sleepObserver, RetainPtr { [center addObserverForName:NSWorkspaceWillSleepNotification object:nil queue:queue.get() usingBlock:^(NSNotification *) {
         callOnMainThread([weakThis] {
             if (CheckedPtr checkedThis = weakThis.get())
                 checkedThis->m_client.systemWillSleep();
         });
-    }];
+    }] });
 
-    m_wakeObserver = [center addObserverForName:NSWorkspaceDidWakeNotification object:nil queue:queue usingBlock:^(NSNotification *) {
+    lazyInitialize(m_wakeObserver, RetainPtr { [center addObserverForName:NSWorkspaceDidWakeNotification object:nil queue:queue.get() usingBlock:^(NSNotification *) {
         callOnMainThread([weakThis] {
             if (CheckedPtr checkedThis = weakThis.get())
                 checkedThis->m_client.systemDidWake();
         });
-    }];
+    }] });
 }
 
 SystemSleepListenerMac::~SystemSleepListenerMac()
 {
-    NSNotificationCenter* center = [[NSWorkspace sharedWorkspace] notificationCenter];
-    [center removeObserver:m_sleepObserver];
-    [center removeObserver:m_wakeObserver];
+    RetainPtr center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    [center removeObserver:m_sleepObserver.get()];
+    [center removeObserver:m_wakeObserver.get()];
 }
 
 } // namespace PAL

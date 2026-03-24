@@ -36,8 +36,6 @@ typedef struct {
   int submatch_id;
   /* Current invisible submatch ID. */
   int submatch_id_invisible;
-  /* Current position (number of literal). */
-  int position;
   /* The highest back reference or -1 if none seen so far. */
   int max_backref;
   /* Number of tags that need reordering. */
@@ -50,6 +48,8 @@ typedef struct {
   int nofirstsub;
   /* The currently set approximate matching parameters. */
   int params[TRE_PARAM_LAST];
+  /* the MB_CUR_MAX in use */
+  int mb_cur_max;
 } tre_parse_ctx_t;
 
 /* Parses a wide character regexp pattern into a syntax tree.  This parser

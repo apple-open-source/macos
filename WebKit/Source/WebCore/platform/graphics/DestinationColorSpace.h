@@ -51,7 +51,7 @@ public:
 #endif
 
     explicit DestinationColorSpace(PlatformColorSpace platformColorSpace)
-        : m_platformColorSpace { WTFMove(platformColorSpace) }
+        : m_platformColorSpace { WTF::move(platformColorSpace) }
     {
 #if USE(CG) || USE(SKIA)
         ASSERT(m_platformColorSpace);

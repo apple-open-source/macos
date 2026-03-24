@@ -21,6 +21,7 @@
 @property (readwrite) NSString* custom_directory;
 @property (readwrite) NSString* platform_directory;
 @property (readwrite) NSString* test_root_directory;
+@property (readwrite) NSString* test_custom_directory;
 @property (readwrite) NSString* test_platform_directory;
 @property (readwrite) NSString* revoked_directory;
 @property (readwrite) NSString* distrusted_directory;
@@ -171,7 +172,13 @@
                 return nil;
             }
         }
-
+        if (nil == _test_custom_directory) {
+            _test_custom_directory = [self checkPath:@"certificates/test-custom" basePath:_top_level_directory isDirectory:YES];
+            if (nil == _test_custom_directory) {
+                [self usage];
+                return nil;
+            }
+        }
         if (nil == _platform_directory) {
             _platform_directory = [self checkPath:@"certificates/platform" basePath:_top_level_directory isDirectory:YES];
             if (nil == _platform_directory) {
@@ -477,7 +484,8 @@
     PSCerts* pscerts_test_roots = [[PSCerts alloc] initWithCertFilePath:self.test_root_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
     certFlags = isAnchor | hasFullCert | isPlatform | isTest;
     PSCerts* pscerts_test_platform = [[PSCerts alloc] initWithCertFilePath:self.test_platform_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
-
+    certFlags = isAnchor | hasFullCert | isCustom| isTest;
+    PSCerts* pscerts_test_custom = [[PSCerts alloc] initWithCertFilePath:self.test_custom_directory withFlags:[NSNumber numberWithUnsignedLong:certFlags]];
 
     NSMutableArray* certs = [NSMutableArray array];
     [certs addObjectsFromArray:pscerts_roots.certs];
@@ -485,6 +493,7 @@
     [certs addObjectsFromArray:pscerts_custom.certs];
     [certs addObjectsFromArray:pscerts_test_roots.certs];
     [certs addObjectsFromArray:pscerts_test_platform.certs];
+    [certs addObjectsFromArray:pscerts_test_custom.certs];
     return certs;
 }
 

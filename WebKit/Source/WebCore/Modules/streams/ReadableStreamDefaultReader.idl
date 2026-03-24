@@ -29,6 +29,7 @@
  */
 
 [
+    CustomIsReachable,
     Exposed=*,
     JSCustomMarkFunction,
     PrivateIdentifier,

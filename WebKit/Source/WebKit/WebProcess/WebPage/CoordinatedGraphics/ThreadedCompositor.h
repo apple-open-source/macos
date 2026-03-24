@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Igalia S.L.
+ * Copyright (C) 2014, 2025 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,12 @@
 #pragma once
 
 #if USE(COORDINATED_GRAPHICS)
-#include "CompositingRunLoop.h"
+#include <WebCore/CoordinatedCompositionReason.h>
 #include <WebCore/Damage.h>
 #include <WebCore/DisplayUpdate.h>
 #include <WebCore/GLContext.h>
 #include <WebCore/IntSize.h>
+#include <WebCore/RunLoopObserver.h>
 #include <WebCore/TextureMapperDamageVisualizer.h>
 #include <atomic>
 #include <optional>
@@ -40,6 +41,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 class TextureMapper;
@@ -50,8 +52,9 @@ namespace WebKit {
 class AcceleratedSurface;
 class CoordinatedSceneState;
 class LayerTreeHost;
+struct RenderProcessInfo;
 
-class ThreadedCompositor : public ThreadSafeRefCounted<ThreadedCompositor>, public CanMakeThreadSafeCheckedPtr<ThreadedCompositor> {
+class ThreadedCompositor : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ThreadedCompositor>, public CanMakeThreadSafeCheckedPtr<ThreadedCompositor> {
     WTF_MAKE_TZONE_ALLOCATED(ThreadedCompositor);
     WTF_MAKE_NONCOPYABLE(ThreadedCompositor);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ThreadedCompositor);
@@ -63,13 +66,14 @@ public:
     int maxTextureSize() const { return m_maxTextureSize; }
 
     void backgroundColorDidChange();
-#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM) && (USE(GBM) || OS(ANDROID))
     void preferredBufferFormatsDidChange();
 #endif
+    void pendingTilesDidChange();
 
     void setSize(const WebCore::IntSize&, float);
-    uint32_t requestComposition();
-    void scheduleUpdate();
+    void requestCompositionForRenderingUpdate(Function<void()>&&);
+    void requestComposition(WebCore::CompositionReason);
     RunLoop* runLoop();
 
     void invalidate();
@@ -89,21 +93,29 @@ public:
     void enableFrameDamageNotificationForTesting();
 #endif
 
+    void fillGLInformation(RenderProcessInfo&&, CompletionHandler<void(RenderProcessInfo&&)>&&);
+
 private:
     explicit ThreadedCompositor(LayerTreeHost&);
 
-    void updateSceneState();
+    void startRenderTimer();
+    void stopRenderTimer();
+    bool isOnlyRenderingUpdatePendingAndWaitingForTiles() const;
+
+    void scheduleUpdateLocked();
+    void flushCompositingState(const OptionSet<WebCore::CompositionReason>&);
     void renderLayerTree();
     void paintToCurrentGLContext(const WebCore::TransformationMatrix&, const WebCore::IntSize&);
     void frameComplete();
 
-    void didRenderFrameTimerFired();
+    void didCompositeRunLoopObserverFired();
 
     void updateSceneAttributes(const WebCore::IntSize&, float deviceScaleFactor);
 
     void initializeFPSCounter();
     void updateFPSCounter();
 
+    const Ref<WorkQueue> m_workQueue;
     CheckedPtr<LayerTreeHost> m_layerTreeHost;
     RefPtr<AcceleratedSurface> m_surface;
     RefPtr<CoordinatedSceneState> m_sceneState;
@@ -113,7 +125,22 @@ private:
     int m_maxTextureSize { 0 };
     std::atomic<unsigned> m_suspendedCount { 0 };
 
-    std::unique_ptr<CompositingRunLoop> m_compositingRunLoop;
+    enum class State {
+        Idle,
+        Scheduled,
+        InProgress,
+        ScheduledWhileInProgress
+    };
+    static ASCIILiteral stateToString(State);
+
+    struct {
+        mutable Lock lock;
+        State state WTF_GUARDED_BY_LOCK(lock) { State::Idle };
+        bool isRenderTimerActive WTF_GUARDED_BY_LOCK(lock) { false };
+        bool isWaitingForTiles WTF_GUARDED_BY_LOCK(lock) { false };
+        OptionSet<WebCore::CompositionReason> reasons WTF_GUARDED_BY_LOCK(lock);
+        Function<void()> didCompositeRenderingUpdateFunction WTF_GUARDED_BY_LOCK(lock);
+    } m_state;
 
     struct {
         Lock lock;
@@ -121,6 +148,7 @@ private:
         float deviceScaleFactor { 1 };
     } m_attributes;
 
+    RunLoop::Timer m_renderTimer;
     std::unique_ptr<WebCore::TextureMapper> m_textureMapper;
 
     struct {
@@ -139,9 +167,7 @@ private:
     } m_damage;
 #endif
 
-    std::atomic<uint32_t> m_compositionRequestID { 0 };
-    std::atomic<uint32_t> m_compositionResponseID { 0 };
-    RunLoop::Timer m_didRenderFrameTimer;
+    std::unique_ptr<WebCore::RunLoopObserver> m_didCompositeRunLoopObserver;
 };
 
 } // namespace WebKit

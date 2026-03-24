@@ -56,7 +56,7 @@ struct URL;
 }
 
 class ReferencedSVGResources {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ReferencedSVGResources);
+    WTF_MAKE_TZONE_ALLOCATED(ReferencedSVGResources);
 public:
     ReferencedSVGResources(RenderElement&);
     ~ReferencedSVGResources();

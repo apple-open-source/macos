@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/JSBigIntInlines.h>
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/TypedArrayAdaptors.h>
 

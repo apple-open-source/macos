@@ -103,7 +103,7 @@ public:
 
     void validate();
     
-    const ValueList& values() const { return m_values; }
+    const ValueList& values() const LIFETIME_BOUND { return m_values; }
 
 private:
     Vector<unsigned, 0, OverflowHandler, 1> m_map;
@@ -153,7 +153,7 @@ inline bool IndexSparseSet<EntryType, EntryTypeTraits, OverflowHandler>::remove(
 
     if (EntryTypeTraits::key(m_values[position]) == value) {
         EntryType lastValue = m_values.last();
-        m_values[position] = WTFMove(lastValue);
+        m_values[position] = WTF::move(lastValue);
         m_map[EntryTypeTraits::key(lastValue)] = position;
         m_values.removeLast();
         return true;

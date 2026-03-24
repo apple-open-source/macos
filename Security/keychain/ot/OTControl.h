@@ -206,7 +206,7 @@ API_DEPRECATED("Use -status:xpcFd:reply:", macos(13.0, 16.0), ios(16.0, 19.0), t
               resetReason:(CuttlefishResetReason)resetReason
         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-	       notifyIdMS:(bool)notifyIdMS
+               notifyIdMS:(bool)notifyIdMS
           accountSettings:(OTAccountSettings *_Nullable)accountSettings
                accountIsW:(BOOL)accountIsW
                     reply:(void (^)(NSError* _Nullable error))reply;
@@ -309,10 +309,10 @@ API_DEPRECATED("Use -status:xpcFd:reply:", macos(13.0, 16.0), ios(16.0, 19.0), t
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
-         danglingPeerCleanup:(BOOL)danglingPeerCleanup
-           caesarPeerCleanup:(BOOL)caesarPeerCleanup
-                  updateIdMS:(BOOL)updateIdMS
-reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
+danglingPeerCleanup:(BOOL)danglingPeerCleanup
+  caesarPeerCleanup:(BOOL)caesarPeerCleanup
+         updateIdMS:(BOOL)updateIdMS
+              reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
 
 - (void)escrowCheck:(OTControlArguments*)arguments
   isBackgroundCheck:(BOOL)isBackgroundCheck
@@ -449,6 +449,14 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
 
 - (void)icscRepairReset:(OTControlArguments*)arguments
                   reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)enableWalrus:(OTControlArguments*)arguments
+          preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+               reply:(nonnull void (^)(NSError * _Nullable))reply;
+
+- (void)disableWalrus:(OTControlArguments*)arguments
+           preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
+                reply:(nonnull void (^)(NSError * _Nullable))reply;
 
 @end
 

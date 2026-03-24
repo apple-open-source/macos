@@ -557,6 +557,118 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
 
 #if TARGET_OS_OSX
 
+/// Test for rdar://163352443 - SecKeyCreateAttestation fails for attestation ref_keys if nonce is set
+- (void)testAnonymousAttestationWithNonceAndSystemKeychain {
+#if TARGET_OS_SIMULATOR
+    XCTSkip(@"SEP not available on simulator");
+#endif
+
+    NSString *testLabel = @"SecKeyTests:testAnonymousAttestation";
+    NSString *testTag = @"com.apple.seckeytests.attestation.key";
+    NSData *applicationTag = [testTag dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self cleanupKeyWithLabel:testLabel];
+
+    NSError *error = nil;
+
+    id accessControl = CFBridgingRelease(SecAccessControlCreateWithFlags(
+        kCFAllocatorDefault,
+        kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
+        kSecAccessControlPrivateKeyUsage,
+        (void *)&error
+    ));
+    XCTAssertNotNil(accessControl, @"Failed to create access control: %@", error);
+
+    NSDictionary *attestationKeyParams = @{
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDSecureEnclave,
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation,
+        (id)kSecUseSystemKeychainAlways: @YES,
+        (id)kSecPrivateKeyAttrs: @{
+            (id)kSecAttrAccessControl: accessControl,
+            (id)kSecAttrIsPermanent: @NO,
+            (id)kSecAttrApplicationTag: applicationTag,
+            (id)kSecAttrLabel: testLabel,
+        }
+    };
+
+    error = nil;
+    id attestationKey = CFBridgingRelease(SecKeyCreateRandomKey(
+        (CFDictionaryRef)attestationKeyParams,
+        (void *)&error
+    ));
+    XCTAssertNotNil(attestationKey, @"Failed to create anonymous attestation key: %@", error);
+
+    NSDictionary *leafKeyParams = @{
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDSecureEnclave,
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits: @256,
+        (id)kSecUseSystemKeychainAlways: @YES,
+        (id)kSecPrivateKeyAttrs: @{
+            (id)kSecAttrAccessControl: accessControl,
+            (id)kSecAttrApplicationTag: applicationTag,
+        }
+    };
+
+    error = nil;
+    id leafKey = CFBridgingRelease(SecKeyCreateRandomKey(
+        (CFDictionaryRef)leafKeyParams,
+        (void *)&error
+    ));
+    XCTAssertNotNil(leafKey, @"Failed to create leaf key: %@", error);
+
+    error = nil;
+    id dakKey = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeDAKCommitted, (void *)&error));
+    if (dakKey == nil) {
+        XCTSkip(@"DAK not available on this platform");
+    }
+    XCTAssertNotNil(dakKey, @"Failed to get DAK system key: %@", error);
+
+    NSData *nonce = [NSData dataWithBytes:(const uint8_t[]){0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                                                              0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                                                              0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                                                              0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+                                   length:32];
+    error = nil;
+    XCTAssert(SecKeySetParameter((__bridge SecKeyRef)dakKey,
+                                 kSecKeyParameterSETokenAttestationNonce,
+                                 (__bridge CFPropertyListRef)nonce,
+                                 (void *)&error),
+             @"Failed to set nonce on DAK: %@", error);
+
+    error = nil;
+    NSData *dakAttestation = CFBridgingRelease(SecKeyCreateAttestation(
+        (__bridge SecKeyRef)dakKey,
+        (__bridge SecKeyRef)leafKey,
+        (void *)&error
+    ));
+    XCTAssertNotNil(dakAttestation, @"DAK attestation failed: %@", error);
+
+    error = nil;
+    NSData *attestationWithoutNonce = CFBridgingRelease(SecKeyCreateAttestation(
+        (__bridge SecKeyRef)attestationKey,
+        (__bridge SecKeyRef)leafKey,
+        (void *)&error
+    ));
+    XCTAssertNotNil(attestationWithoutNonce, @"Anonymous attestation without nonce failed: %@", error);
+
+    error = nil;
+    XCTAssert(SecKeySetParameter((__bridge SecKeyRef)attestationKey,
+                                 kSecKeyParameterSETokenAttestationNonce,
+                                 (__bridge CFPropertyListRef)nonce,
+                                 (void *)&error),
+             @"Failed to set nonce on anonymous attestation key: %@", error);
+
+    error = nil;
+    NSData *attestationWithNonce = CFBridgingRelease(SecKeyCreateAttestation(
+        (__bridge SecKeyRef)attestationKey,
+        (__bridge SecKeyRef)leafKey,
+        (void *)&error
+    ));
+    XCTAssertNotNil(attestationWithNonce, @"Anonymous attestation with nonce failed (rdar://163352443): %@", error);
+
+    [self cleanupKeyWithLabel:testLabel];
+}
+
 /// Test for rdar://156935718 - Ensure non-extractable keys cannot be exported
 - (void)testNonExtractableCDSAKeys {
     NSString *testLabel = @"SecKeyTests:testNonExtractableKey";
@@ -698,6 +810,8 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     }
 }
 
+#endif
+
 - (void)cleanupKeyWithLabel:(NSString *)label {
     NSDictionary *deleteQuery = @{
         (id)kSecClass: (id)kSecClassKey,
@@ -711,7 +825,5 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     SecItemDelete((CFDictionaryRef)deleteQuery);
     SecItemDelete((CFDictionaryRef)deleteQuery1);
 }
-
-#endif
 
 @end

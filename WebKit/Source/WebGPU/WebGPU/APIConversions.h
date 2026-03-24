@@ -359,7 +359,7 @@ inline Ref<XRView> protectedFromAPI(WGPUXRView view)
 template<typename R, typename... Args>
 inline BlockPtr<R (Args...)> fromAPI(R (^ __strong &&block)(Args...))
 {
-    return makeBlockPtr(WTFMove(block));
+    return makeBlockPtr(WTF::move(block));
 }
 
 template <typename T>

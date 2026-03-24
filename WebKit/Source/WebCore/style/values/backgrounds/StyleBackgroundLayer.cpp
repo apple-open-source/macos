@@ -26,32 +26,38 @@
 #include "CachedImage.h"
 #include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
-#include <wtf/PointerComparison.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
 namespace Style {
 
-BackgroundLayer::BackgroundLayer(ImageOrNone&& image)
-    : m_image(WTFMove(image))
-    , m_position({ BackgroundLayer::initialFillXPosition(), BackgroundLayer::initialFillYPosition() })
-    , m_size(BackgroundLayer::initialFillSize())
-    , m_repeat(BackgroundLayer::initialFillRepeat())
-    , m_attachment(static_cast<unsigned>(BackgroundLayer::initialFillAttachment()))
-    , m_clip(static_cast<unsigned>(BackgroundLayer::initialFillClip()))
-    , m_origin(static_cast<unsigned>(BackgroundLayer::initialFillOrigin()))
-    , m_blendMode(static_cast<unsigned>(BackgroundLayer::initialFillBlendMode()))
+BackgroundLayer::BackgroundLayer()
+    : m_image(BackgroundLayer::initialImage())
+    , m_positionX(BackgroundLayer::initialPositionX())
+    , m_positionY(BackgroundLayer::initialPositionY())
+    , m_size(BackgroundLayer::initialSize())
+    , m_repeat(BackgroundLayer::initialRepeat())
+    , m_attachment(static_cast<unsigned>(BackgroundLayer::initialAttachment()))
+    , m_clip(static_cast<unsigned>(BackgroundLayer::initialClip()))
+    , m_origin(static_cast<unsigned>(BackgroundLayer::initialOrigin()))
+    , m_blendMode(static_cast<unsigned>(BackgroundLayer::initialBlendMode()))
+    , m_clipMax(static_cast<unsigned>(BackgroundLayer::initialClip()))
 {
 }
 
-BackgroundLayer::BackgroundLayer(CSS::Keyword::None)
-    : BackgroundLayer { ImageOrNone { CSS::Keyword::None { } } }
+BackgroundLayer::BackgroundLayer(ImageOrNone&& image)
+    : BackgroundLayer { }
+{
+    setImage(WTF::move(image));
+}
+
+BackgroundLayer::BackgroundLayer(CSS::Keyword::None keyword)
+    : BackgroundLayer { ImageOrNone { keyword } }
 {
 }
 
 BackgroundLayer::BackgroundLayer(RefPtr<StyleImage>&& image)
-    : BackgroundLayer { ImageOrNone { WTFMove(image) } }
+    : BackgroundLayer { ImageOrNone { WTF::move(image) } }
 {
 }
 
@@ -59,14 +65,10 @@ bool BackgroundLayer::operator==(const BackgroundLayer& other) const
 {
     // NOTE: Default operator== is not used due to exclusion of m_clipMax.
 
-    return m_image == other.m_image
-        && m_position == other.m_position
-        && m_attachment == other.m_attachment
-        && m_clip == other.m_clip
-        && m_blendMode == other.m_blendMode
-        && m_origin == other.m_origin
-        && m_repeat == other.m_repeat
-        && m_size == other.m_size;
+    return allOfCoordinatedValueListProperties<BackgroundLayer>([this, &other]<auto propertyID>() {
+        using PropertyAccessor = CoordinatedValueListPropertyConstAccessor<propertyID>;
+        return PropertyAccessor { *this } == PropertyAccessor { other };
+    });
 }
 
 bool BackgroundLayer::hasOpaqueImage(const RenderElement& renderer) const
@@ -83,6 +85,15 @@ bool BackgroundLayer::hasOpaqueImage(const RenderElement& renderer) const
         && composite() == CompositeOperator::SourceOver
         && image->knownToBeOpaque(renderer);
 }
+
+// MARK: - Blending
+
+auto Blending<BackgroundLayer>::canBlend(const BackgroundLayer& a, const BackgroundLayer& b) -> bool
+{
+    return a.size().hasSameType(b.size());
+}
+
+// MARK: - Logging
 
 TextStream& operator<<(TextStream& ts, const BackgroundLayer& layer)
 {

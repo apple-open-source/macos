@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WasmMergedProfile.h"
 
+#include "WasmModule.h"
+#include "WasmModuleInformation.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -40,26 +42,107 @@ MergedProfile::MergedProfile(const IPIntCallee& callee)
 {
 }
 
-void MergedProfile::CallSite::merge(const CallProfile& slot)
+void MergedProfile::Candidates::markAsMegamorphic(uint32_t count)
 {
-    m_count += slot.count();
+    if (!m_isMegamorphic) {
+        m_size = 0;
+        m_callees.fill({ });
+        m_isMegamorphic = true;
+    }
+    m_totalCount += count;
+}
 
-    auto bits = slot.boxedCallee();
-    if (bits == CallProfile::megamorphicCallee) {
-        m_callee = megamorphic;
+bool MergedProfile::Candidates::add(Callee* observedCallee, uint32_t observedCount)
+{
+    for (auto& [callee, count] : m_callees) {
+        if (callee == observedCallee) {
+            count += observedCount;
+            return true;
+        }
+        if (!callee) {
+            callee = observedCallee;
+            count = observedCount;
+            ++m_size;
+            return true;
+        }
+    }
+    return false;
+}
+
+void MergedProfile::Candidates::merge(IPIntCallee* target, const CallProfile& slot)
+{
+    EncodedJSValue boxedCallee = slot.boxedCallee();
+    uint32_t speculativeTotalCount = slot.count();
+
+    if (!boxedCallee) {
+        // boxedCallee becomes nullptr when it is (1) a direct call or (2) an indirect call not recording anything yet.
+        if (target) {
+            // Direct call case.
+            add(target, speculativeTotalCount);
+        }
+        m_totalCount += speculativeTotalCount;
         return;
     }
-    if (!bits)
-        return;
 
-    auto callee = std::bit_cast<uintptr_t>(CalleeBits(bits).asNativeCallee());
-    if (!m_callee) {
-        m_callee = callee;
+    if (CallProfile::isMegamorphic(boxedCallee)) {
+        markAsMegamorphic(speculativeTotalCount);
         return;
     }
-    if (m_callee == callee)
-        return;
-    m_callee = megamorphic;
+
+    // Let's not use slot.count() as we are concurrently reading polymorphic callee.
+    // Make m_count consistent with all the polymorphic callee's counts.
+    uint32_t addedCount = 0;
+    if (auto* poly = CallProfile::polymorphic(boxedCallee)) {
+        for (auto& profile : *poly) {
+            if (SUPPRESS_UNCOUNTED_LOCAL auto* callee = CallProfile::monomorphic(profile.boxedCallee())) {
+                if (add(callee, profile.count()))
+                    addedCount += profile.count();
+                else {
+                    markAsMegamorphic(speculativeTotalCount);
+                    return;
+                }
+            }
+        }
+    } else if (SUPPRESS_UNCOUNTED_LOCAL auto* callee = CallProfile::monomorphic(boxedCallee)) {
+        if (add(callee, speculativeTotalCount))
+            addedCount += speculativeTotalCount;
+        else {
+            markAsMegamorphic(speculativeTotalCount);
+            return;
+        }
+    }
+    m_totalCount += addedCount;
+}
+
+auto MergedProfile::Candidates::finalize() const -> Candidates
+{
+    Candidates result(*this);
+    unsigned totalCount = 0;
+    auto mutableSpan = std::span { result.m_callees }.first(result.m_size);
+    std::ranges::sort(mutableSpan, [&](const auto& lhs, const auto& rhs) {
+        return std::get<1>(lhs) > std::get<1>(rhs);
+    });
+    for (auto& [callee, count] : mutableSpan)
+        totalCount += count;
+    result.m_totalCount = totalCount;
+    return result;
+}
+
+void MergedProfile::merge(const Module& module, const IPIntCallee& callee, BaselineData& data)
+{
+    m_totalCount += data.totalCount();
+    m_merged = true;
+    auto span = m_callSites.mutableSpan();
+    RELEASE_ASSERT(data.size() == span.size());
+    for (unsigned i = 0; i < data.size(); ++i) {
+        IPIntCallee* target = nullptr;
+        FunctionSpaceIndex index = callee.callTarget(i);
+        if (index != FunctionSpaceIndex { }) {
+            if (!module.moduleInformation().isImportedFunctionFromFunctionIndexSpace(index))
+                target = module.ipintCallees().at(module.moduleInformation().toCodeIndex(index)).ptr();
+        }
+        span[i].merge(target, data.at(i));
+    }
 }
 
 } // namespace JSC::Wasm

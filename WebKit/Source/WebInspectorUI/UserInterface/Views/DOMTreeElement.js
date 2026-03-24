@@ -872,6 +872,17 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                     InspectorFrontendHost.copyText(outerHTML);
                 });
             });
+
+            subMenus.copy.appendItem(WI.UIString("HTML (Formatted)"), () => {
+                this.representedObject.getOuterHTML()
+                .then((outerHTML) => {
+                    let workerProxy = WI.FormatterWorkerProxy.singleton();
+                    const includeSourceMapData = false;
+                    workerProxy.formatHTML(outerHTML, WI.indentString(), includeSourceMapData, ({formattedText}) => {
+                        InspectorFrontendHost.copyText(formattedText);
+                    });
+                });
+            });
         }
 
         if (attributeName) {

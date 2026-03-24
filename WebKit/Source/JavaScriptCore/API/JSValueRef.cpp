@@ -30,6 +30,7 @@
 #include "APIUtils.h"
 #include "DateInstance.h"
 #include "JSAPIWrapperObject.h"
+#include "JSBigIntInlines.h"
 #include "JSCInlines.h"
 #include "JSCallbackObject.h"
 #include "JSONObject.h"

@@ -209,7 +209,7 @@ public:
     void unlock(DbHandle db, const KeyHandle kh);
     void changePassphrase(DbHandle db, const KeyHandle kh);
     void changeKeybagPassphrase(DbHandle db, const CssmData &oldPassphrase, const CssmData &newPassphrase);
-    KeyHandle generateDerivedEntropy(const CssmData &salt, const CssmData &passphrase);
+    KeyHandle generateDerivedEntropy(DbHandle db, const CssmData &salt, const CssmData &passphrase);
     void releaseHandle(const KeyHandle kh);
     void getDerivedEntropy(const KeyHandle kh, CssmData& entropy);
 

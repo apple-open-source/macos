@@ -204,13 +204,9 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("share_with_group");
         case sec_keychain_backup_id:
             return CFSTR("keychain_backup");
-        case sec_keychain_backup_syncable_id: 
-            return CFSTR("keychain_backup_syncable");
-        case sec_keychain_restore_id: 
+        case sec_keychain_restore_id:
             return CFSTR("keychain_restore");
-        case sec_keychain_restore_syncable_id: 
-            return CFSTR("keychain_restore_syncable");
-        case sec_keychain_sync_update_message_id: 
+        case sec_keychain_sync_update_message_id:
             return CFSTR("keychain_sync_update_message");
         case sec_ota_pki_trust_store_asset_version_id:
             return CFSTR("ota_pki_trust_store_asset_version");
@@ -635,12 +631,12 @@ static CFDataRef CFDataCreateWithXPCArrayAtIndex(xpc_object_t xpc_data_array, si
 
 static CFArrayRef CFDataXPCArrayCopyArray(xpc_object_t xpc_data_array, CFErrorRef *error) {
     CFMutableArrayRef data_array = NULL;
-    require_action_quiet(xpc_get_type(xpc_data_array) == XPC_TYPE_ARRAY, exit,
+    __Require_Action_Quiet(xpc_get_type(xpc_data_array) == XPC_TYPE_ARRAY, exit,
                          SecError(errSecParam, error, CFSTR("data_array xpc value is not an array")));
     size_t count = xpc_array_get_count(xpc_data_array);
-    require_action_quiet(count < LONG_MAX, exit,
+    __Require_Action_Quiet(count < LONG_MAX, exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
-    require_action_quiet(data_array = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
+    __Require_Action_Quiet(data_array = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
 
     size_t ix;

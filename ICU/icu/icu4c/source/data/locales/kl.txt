@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 kl{
     AuxExemplarCharacters{"[áâã éêẽ íîĩ ôõ ĸ úûũ]"}
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v w x y z æ ø å]"}
@@ -9,7 +9,11 @@ kl{
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;¤-#,##0.00"}
+                accountingFormat%noCurrency{"#,##0.00"}
                 currencyFormat{"¤#,##0.00;¤-#,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00;¤-#,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00"}
                 percentFormat{"#,##0 %"}
             }
             symbols{

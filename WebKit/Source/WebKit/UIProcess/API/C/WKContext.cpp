@@ -249,7 +249,7 @@ void WKContextSetDownloadClient(WKContextRef context, const WKContextDownloadCli
         {
             if (m_client.didReceiveServerRedirect)
                 m_client.didReceiveServerRedirect(m_context, WebKit::toAPI(&downloadProxy), WebKit::toURLRef(request.url().string().impl()), m_client.base.clientInfo);
-            completionHandler(WTFMove(request));
+            completionHandler(WTF::move(request));
         }
         WKContextRef m_context;
     };

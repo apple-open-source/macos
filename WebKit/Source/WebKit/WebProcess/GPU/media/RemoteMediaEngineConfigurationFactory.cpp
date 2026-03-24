@@ -56,11 +56,11 @@ void RemoteMediaEngineConfigurationFactory::registerFactory()
 
     auto createDecodingConfiguration = [weakThis = WeakPtr { *this }] (MediaDecodingConfiguration&& configuration, MediaEngineConfigurationFactory::DecodingConfigurationCallback&& callback) {
         if (!weakThis) {
-            callback({{ }, WTFMove(configuration)});
+            callback({{ }, WTF::move(configuration)});
             return;
         }
 
-        weakThis->createDecodingConfiguration(WTFMove(configuration), WTFMove(callback));
+        weakThis->createDecodingConfiguration(WTF::move(configuration), WTF::move(callback));
     };
 
 #if PLATFORM(COCOA)
@@ -68,15 +68,15 @@ void RemoteMediaEngineConfigurationFactory::registerFactory()
 #else
     auto createEncodingConfiguration = [weakThis = WeakPtr { *this }] (MediaEncodingConfiguration&& configuration, MediaEngineConfigurationFactory::EncodingConfigurationCallback&& callback) {
         if (!weakThis) {
-            callback({{ }, WTFMove(configuration)});
+            callback({{ }, WTF::move(configuration)});
             return;
         }
 
-        weakThis->createEncodingConfiguration(WTFMove(configuration), WTFMove(callback));
+        weakThis->createEncodingConfiguration(WTF::move(configuration), WTF::move(callback));
     };
 #endif
 
-    MediaEngineConfigurationFactory::installFactory({ WTFMove(createDecodingConfiguration), WTFMove(createEncodingConfiguration) });
+    MediaEngineConfigurationFactory::installFactory({ WTF::move(createDecodingConfiguration), WTF::move(createEncodingConfiguration) });
 }
 
 ASCIILiteral RemoteMediaEngineConfigurationFactory::supplementName()
@@ -94,8 +94,8 @@ void RemoteMediaEngineConfigurationFactory::createDecodingConfiguration(MediaDec
     if (!m_webProcess->mediaPlaybackEnabled())
         return callback({ });
 
-    gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateDecodingConfiguration(WTFMove(configuration)), [callback = WTFMove(callback)] (MediaCapabilitiesDecodingInfo&& info) mutable {
-        callback(WTFMove(info));
+    gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateDecodingConfiguration(WTF::move(configuration)), [callback = WTF::move(callback)] (MediaCapabilitiesDecodingInfo&& info) mutable {
+        callback(WTF::move(info));
     });
 }
 
@@ -104,8 +104,8 @@ void RemoteMediaEngineConfigurationFactory::createEncodingConfiguration(MediaEnc
     if (!m_webProcess->mediaPlaybackEnabled())
         return callback({ });
 
-    gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateEncodingConfiguration(WTFMove(configuration)), [callback = WTFMove(callback)] (MediaCapabilitiesEncodingInfo&& info) mutable {
-        callback(WTFMove(info));
+    gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteMediaEngineConfigurationFactoryProxy::CreateEncodingConfiguration(WTF::move(configuration)), [callback = WTF::move(callback)] (MediaCapabilitiesEncodingInfo&& info) mutable {
+        callback(WTF::move(info));
     });
 }
 

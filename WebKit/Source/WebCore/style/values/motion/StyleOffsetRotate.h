@@ -41,7 +41,7 @@ struct OffsetRotate {
     constexpr OffsetRotate(CSS::Keyword::Auto keyword) : m_angle { 0 }, m_autoKeyword { keyword } { }
     constexpr OffsetRotate(std::optional<CSS::Keyword::Auto> autoKeyword, Angle angle) : m_angle(angle), m_autoKeyword(autoKeyword) { }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     constexpr explicit OffsetRotate(AcceleratedEffectOffsetRotate rotate) : m_angle(rotate.angle), m_autoKeyword(rotate.hasAuto ? std::make_optional(CSS::Keyword::Auto { }) : std::nullopt) { }
 #endif
 
@@ -79,7 +79,7 @@ template<> struct Blending<OffsetRotate> {
 
 // MARK: - Evaluation
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 template<> struct Evaluation<OffsetRotate, AcceleratedEffectOffsetRotate> {
     auto operator()(const OffsetRotate&) -> AcceleratedEffectOffsetRotate;

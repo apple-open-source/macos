@@ -47,12 +47,12 @@ void collectDictationTextAlternatives(NSAttributedString *string, Vector<TextAlt
     NSRange effectiveRange = NSMakeRange(0, 0);
     NSUInteger length = [string length];
     do {
-        NSDictionary *attributes = [string attributesAtIndex:effectiveRange.location effectiveRange:&effectiveRange];
+        RetainPtr<NSDictionary> attributes = [string attributesAtIndex:effectiveRange.location effectiveRange:&effectiveRange];
         if (!attributes)
             break;
-        NSTextAlternatives *textAlternatives = [attributes objectForKey:NSTextAlternativesAttributeName];
+        RetainPtr<NSTextAlternatives> textAlternatives = [attributes objectForKey:NSTextAlternativesAttributeName];
         if (textAlternatives)
-            alternatives.append(TextAlternativeWithRange(textAlternatives, effectiveRange));
+            alternatives.append(TextAlternativeWithRange(textAlternatives.get(), effectiveRange));
         effectiveRange.location = NSMaxRange(effectiveRange);
     } while (effectiveRange.location < length);
 }

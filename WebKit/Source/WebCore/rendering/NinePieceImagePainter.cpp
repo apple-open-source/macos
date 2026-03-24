@@ -3,7 +3,7 @@
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
- * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2025-2026 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,7 +31,7 @@
 #include "ImageQualityController.h"
 #include "LayoutRect.h"
 #include "RenderStyleConstants.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleImage.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <wtf/Vector.h>
@@ -75,7 +75,7 @@ static bool isVerticalPiece(ImagePiece piece)
 }
 
 template<typename WidthValue>
-static LayoutUnit computeSlice(const WidthValue& length, LayoutUnit width, LayoutUnit slice, LayoutUnit extent)
+static LayoutUnit computeSlice(const WidthValue& length, LayoutUnit width, LayoutUnit slice, LayoutUnit extent, const Style::ZoomFactor&)
 {
     return WTF::switchOn(length,
         [&](const typename WidthValue::LengthPercentage& value) {
@@ -91,13 +91,13 @@ static LayoutUnit computeSlice(const WidthValue& length, LayoutUnit width, Layou
 }
 
 template<typename WidthValues>
-static LayoutBoxExtent computeSlices(const LayoutSize& size, const WidthValues& widths, const FloatBoxExtent& borderWidths, const LayoutBoxExtent& slices)
+static LayoutBoxExtent computeSlices(const LayoutSize& size, const WidthValues& widths, const FloatBoxExtent& borderWidths, const LayoutBoxExtent& slices, const Style::ZoomFactor& zoom)
 {
     return {
-        computeSlice(widths.values.top(),    LayoutUnit(borderWidths.top()),    slices.top(),    size.height()),
-        computeSlice(widths.values.right(),  LayoutUnit(borderWidths.right()),  slices.right(),  size.width()),
-        computeSlice(widths.values.bottom(), LayoutUnit(borderWidths.bottom()), slices.bottom(), size.height()),
-        computeSlice(widths.values.left(),   LayoutUnit(borderWidths.left()),   slices.left(),   size.width()),
+        computeSlice(widths.values.top(),    LayoutUnit(borderWidths.top()),    slices.top(),    size.height(), zoom),
+        computeSlice(widths.values.right(),  LayoutUnit(borderWidths.right()),  slices.right(),  size.width(), zoom),
+        computeSlice(widths.values.bottom(), LayoutUnit(borderWidths.bottom()), slices.bottom(), size.height(), zoom),
+        computeSlice(widths.values.left(),   LayoutUnit(borderWidths.left()),   slices.left(),   size.width(), zoom),
     };
 }
 
@@ -230,7 +230,7 @@ static void paintNinePieceImage(const T& ninePieceImage, GraphicsContext& graphi
     ASSERT(styleImage->isLoaded(renderer));
 
     auto sourceSlices      = computeSlices(source, ninePieceImage.slice(), styleImage->imageScaleFactor());
-    auto destinationSlices = computeSlices(destination.size(), ninePieceImage.width(), Style::evaluate<LayoutBoxExtent>(style.borderWidth(), Style::ZoomNeeded { }), sourceSlices);
+    auto destinationSlices = computeSlices(destination.size(), ninePieceImage.width(), Style::evaluate<LayoutBoxExtent>(style.usedBorderWidths().to<Style::LineWidthBox>(), Style::ZoomNeeded { }), sourceSlices, style.usedZoomForLength());
 
     scaleSlicesIfNeeded(destination.size(), destinationSlices, deviceScaleFactor);
 

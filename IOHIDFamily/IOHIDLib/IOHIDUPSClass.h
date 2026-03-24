@@ -56,6 +56,8 @@
     
     NSTimer                                 *_timer;
     CFRunLoopSourceRef                      _runLoopSource;
+
+    NSTimeInterval                          _powerFeaturePollInterval;
 }
 
 @end

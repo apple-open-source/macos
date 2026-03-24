@@ -39,7 +39,6 @@
 #include "CSSCanvasValue.h"
 #include "CSSColorSchemeValue.h"
 #include "CSSColorValue.h"
-#include "CSSContentDistributionValue.h"
 #include "CSSCounterValue.h"
 #include "CSSCrossfadeValue.h"
 #include "CSSCursorImageValue.h"
@@ -132,8 +131,6 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
     case ColorScheme:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSColorSchemeValue>(*this));
 #endif
-    case ContentDistribution:
-        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSContentDistributionValue>(*this));
     case Counter:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSCounterValue>(*this));
     case Crossfade:

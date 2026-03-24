@@ -50,7 +50,7 @@ using namespace WebCore;
 RemoteScrollingCoordinatorTransaction::RemoteScrollingCoordinatorTransaction() = default;
 
 RemoteScrollingCoordinatorTransaction::RemoteScrollingCoordinatorTransaction(std::unique_ptr<WebCore::ScrollingStateTree>&& scrollingStateTree, bool clearScrollLatching, std::optional<WebCore::FrameIdentifier> frameID, FromDeserialization fromDeserialization)
-    : m_scrollingStateTree(WTFMove(scrollingStateTree))
+    : m_scrollingStateTree(WTF::move(scrollingStateTree))
     , m_clearScrollLatching(clearScrollLatching)
     , m_rootFrameID(frameID)
 {

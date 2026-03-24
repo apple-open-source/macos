@@ -115,7 +115,7 @@ static NSArray<NSString *> *controlArray()
     _page = page;
     _deviceScaleFactor = page.deviceScaleFactor();
     _visible = YES;
-    [self _setupLayer:self.layer];
+    [self _setupLayer:retainPtr(self.layer).get()];
     [self setFrame:frame];
 
     WeakObjCPtr<WKPDFHUDView> weakSelf = self;

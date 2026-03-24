@@ -32,6 +32,7 @@
 
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/glib/GMallocString.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_data_channel_debug);
 #define GST_CAT_DEFAULT webkit_webrtc_data_channel_debug
@@ -88,7 +89,7 @@ GUniquePtr<GstStructure> GStreamerDataChannelHandler::fromRTCDataChannelInit(con
 }
 
 GStreamerDataChannelHandler::GStreamerDataChannelHandler(GRefPtr<GstWebRTCDataChannel>&& channel)
-    : m_channel(WTFMove(channel))
+    : m_channel(WTF::move(channel))
 {
     static Atomic<uint64_t> nChannel = 0;
     m_channelId = makeString("webkit-webrtc-data-channel-"_s, nChannel.exchangeAdd(1));
@@ -115,7 +116,7 @@ GStreamerDataChannelHandler::GStreamerDataChannelHandler(GRefPtr<GstWebRTCDataCh
         handler->onMessageData(bytes);
     }), this);
     g_signal_connect_swapped(m_channel.get(), "on-message-string", G_CALLBACK(+[](GStreamerDataChannelHandler* handler, const char* message) {
-        handler->onMessageString(message);
+        handler->onMessageString(CStringView::unsafeFromUTF8(message));
     }), this);
     g_signal_connect_swapped(m_channel.get(), "on-error", G_CALLBACK(+[](GStreamerDataChannelHandler* handler, GError* error) {
         handler->onError(error);
@@ -167,7 +168,7 @@ void GStreamerDataChannelHandler::setClient(RTCDataChannelHandlerClient& client,
 
     auto readyStateDispatched = checkState();
 
-    auto messages = WTFMove(m_pendingMessages);
+    auto messages = WTF::move(m_pendingMessages);
     for (auto& message : messages) {
         switchOn(message, [&](Ref<FragmentedSharedBuffer>& data) {
             DC_DEBUG("Notifying queued raw data (size: %zu)", data->size());
@@ -304,8 +305,8 @@ bool GStreamerDataChannelHandler::checkState()
     }
 
 #ifndef GST_DISABLE_GST_DEBUG
-    GUniquePtr<char> stateString(g_enum_to_string(GST_TYPE_WEBRTC_DATA_CHANNEL_STATE, channelState));
-    DC_DEBUG("Dispatching state change to %s on channel %p", stateString.get(), m_channel.get());
+    auto stateString = GMallocString::unsafeAdoptFromUTF8(g_enum_to_string(GST_TYPE_WEBRTC_DATA_CHANNEL_STATE, channelState));
+    DC_DEBUG("Dispatching state change to %s on channel %p", stateString.utf8(), m_channel.get());
 #endif
     postTask([client = m_client, state] {
         if (!*client) {
@@ -360,14 +361,14 @@ void GStreamerDataChannelHandler::onMessageData(GBytes* bytes)
 
     auto buffer = SharedBuffer::create(bytes);
     if (!m_client) {
-        m_pendingMessages.append(WTFMove(buffer));
+        m_pendingMessages.append(WTF::move(buffer));
         return;
     }
 
     if (!*m_client)
         return;
 
-    postTask([this, client = m_client, buffer = WTFMove(buffer)] {
+    postTask([this, client = m_client, buffer = WTF::move(buffer)] {
         UNUSED_VARIABLE(this); // Conditionally used in DC_MEMDUMP.
         if (!*client)
             return;
@@ -377,30 +378,28 @@ void GStreamerDataChannelHandler::onMessageData(GBytes* bytes)
     });
 }
 
-IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage")
-void GStreamerDataChannelHandler::onMessageString(const char* message)
+void GStreamerDataChannelHandler::onMessageString(CStringView message)
 {
     Locker locker { m_clientLock };
 
-    DC_TRACE("Incoming string: %s", message);
+    DC_TRACE("Incoming string: %s", message.utf8());
     if (!m_client) {
         DC_DEBUG("No client yet, keeping as buffered message");
-        m_pendingMessages.append(String::fromUTF8(message));
+        m_pendingMessages.append(String(message.span()));
         return;
     }
 
     if (!*m_client)
         return;
 
-    DC_DEBUG("Dispatching string of size %zu", strlen(message));
-    postTask([client = m_client, string = String::fromUTF8(message)] {
+    DC_DEBUG("Dispatching string of size %zu", message.lengthInBytes());
+    postTask([client = m_client, string = String(message.span())] mutable {
         if (!*client)
             return;
 
-        client.value()->didReceiveStringData(string);
+        client.value()->didReceiveStringData(WTF::move(string));
     });
 }
-IGNORE_CLANG_WARNINGS_END
 
 void GStreamerDataChannelHandler::onError(GError* error)
 {
@@ -410,7 +409,7 @@ void GStreamerDataChannelHandler::onError(GError* error)
 
     DC_WARNING("Got data-channel error %s", error->message);
     GUniquePtr<GError> errorCopy(g_error_copy(error));
-    postTask([client = m_client, error = WTFMove(errorCopy)] {
+    postTask([client = m_client, error = WTF::move(errorCopy)] {
         if (!client || !error)
             return;
 
@@ -433,10 +432,10 @@ void GStreamerDataChannelHandler::postTask(Function<void()>&& function)
     ASSERT(m_clientLock.isHeld());
 
     if (!m_contextIdentifier) {
-        callOnMainThread(WTFMove(function));
+        callOnMainThread(WTF::move(function));
         return;
     }
-    ScriptExecutionContext::postTaskTo(*m_contextIdentifier, WTFMove(function));
+    ScriptExecutionContext::postTaskTo(*m_contextIdentifier, WTF::move(function));
 }
 
 #undef GST_CAT_DEFAULT

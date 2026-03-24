@@ -27,7 +27,7 @@
 #include "BooleanConstructor.h"
 #include "CustomGetterSetter.h"
 #include "GetterSetter.h"
-#include "JSBigInt.h"
+#include "JSBigIntInlines.h"
 #include "JSCInlines.h"
 #include "NumberObject.h"
 #include "NumberPrototype.h"
@@ -444,6 +444,21 @@ WTF::String JSValue::toWTFStringForConsole(JSGlobalObject* globalObject) const
     if (jsDynamicCast<JSBigInt*>(*this))
         return tryMakeString(result.data, 'n');
     return result;
+}
+
+bool JSValue::isGetterSetterSlow() const
+{
+    return isGetterSetter();
+}
+
+bool JSValue::isCustomGetterSetterSlow() const
+{
+    return isCustomGetterSetter();
+}
+
+bool JSValue::isStringSlow() const
+{
+    return isString();
 }
 
 } // namespace JSC

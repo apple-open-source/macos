@@ -140,6 +140,7 @@ void
 dispatch_workloop_set_autorelease_frequency(dispatch_workloop_t workloop,
 		dispatch_autorelease_frequency_t frequency);
 
+#ifdef __APPLE__
 /*!
   * @function dispatch_workloop_set_os_workgroup
   *
@@ -171,6 +172,7 @@ DISPATCH_REFINED_FOR_SWIFT
 void
 dispatch_workloop_set_os_workgroup(dispatch_workloop_t workloop,
 		os_workgroup_t workgroup);
+#endif
 
 __END_DECLS
 

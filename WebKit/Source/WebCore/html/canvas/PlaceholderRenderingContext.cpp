@@ -64,15 +64,15 @@ void PlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer& imageB
     RefPtr clone = imageBuffer.clone();
     if (!clone)
         return;
-    std::unique_ptr serializedClone = ImageBuffer::sinkIntoSerializedImageBuffer(WTFMove(clone));
+    std::unique_ptr serializedClone = ImageBuffer::sinkIntoSerializedImageBuffer(WTF::move(clone));
     if (!serializedClone)
         return;
-    callOnMainThread([weakPlaceholder = m_placeholder, buffer = WTFMove(serializedClone), bufferVersion, originClean, opaque] () mutable {
+    callOnMainThread([weakPlaceholder = m_placeholder, buffer = WTF::move(serializedClone), bufferVersion, originClean, opaque] () mutable {
         assertIsMainThread();
         RefPtr placeholder = weakPlaceholder.get();
         if (!placeholder)
             return;
-        RefPtr imageBuffer = SerializedImageBuffer::sinkIntoImageBuffer(WTFMove(buffer), placeholder->protectedCanvas()->protectedScriptExecutionContext()->graphicsClient());
+        RefPtr imageBuffer = SerializedImageBuffer::sinkIntoImageBuffer(WTF::move(buffer), placeholder->protectedCanvas()->protectedScriptExecutionContext()->graphicsClient());
         if (!imageBuffer)
             return;
         Ref source = placeholder->source();
@@ -104,7 +104,7 @@ void PlaceholderRenderingContextSource::setContentsToLayer(GraphicsLayer& layer,
     }
 }
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(PlaceholderRenderingContext);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PlaceholderRenderingContext);
 
 std::unique_ptr<PlaceholderRenderingContext> PlaceholderRenderingContext::create(HTMLCanvasElement& element)
 {
@@ -145,7 +145,7 @@ void PlaceholderRenderingContext::setPlaceholderBuffer(Ref<ImageBuffer>&& buffer
         canvasBase().setOriginClean();
     else
         canvasBase().setOriginTainted();
-    canvasBase().setImageBufferAndMarkDirty(WTFMove(buffer));
+    canvasBase().setImageBufferAndMarkDirty(WTF::move(buffer));
 }
 
 PixelFormat PlaceholderRenderingContext::pixelFormat() const

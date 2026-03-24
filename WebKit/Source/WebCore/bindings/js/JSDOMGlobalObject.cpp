@@ -111,7 +111,7 @@ const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject"_s, &JSGlobalObje
 JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, Ref<DOMWrapperWorld>&& world, const GlobalObjectMethodTable* globalObjectMethodTable)
     : JSGlobalObject(vm, structure, globalObjectMethodTable)
     , m_constructors(makeUniqueRef<DOMConstructors>())
-    , m_world(WTFMove(world))
+    , m_world(WTF::move(world))
     , m_worldIsNormal(m_world->isNormal())
     , m_builtinInternalFunctions(makeUniqueRefWithoutFastMallocCheck<JSBuiltinInternalFunctions>(vm))
     , m_crossOriginFunctionMap(vm)
@@ -222,7 +222,7 @@ JSC_DEFINE_HOST_FUNCTION(createWritableStreamFromInternal, (JSGlobalObject* glob
 
     auto* jsDOMGlobalObject = JSC::jsCast<JSDOMGlobalObject*>(globalObject);
     auto internalWritableStream = InternalWritableStream::fromObject(*jsDOMGlobalObject, *callFrame->uncheckedArgument(0).toObject(globalObject));
-    return JSValue::encode(toJSNewlyCreated(globalObject, jsDOMGlobalObject, WritableStream::create(WTFMove(internalWritableStream))));
+    return JSValue::encode(toJSNewlyCreated(globalObject, jsDOMGlobalObject, WritableStream::create(WTF::move(internalWritableStream))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(addAbortAlgorithmToSignal, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -237,7 +237,7 @@ JSC_DEFINE_HOST_FUNCTION(addAbortAlgorithmToSignal, (JSGlobalObject* globalObjec
     auto* jsDOMGlobalObject = JSC::jsCast<JSDOMGlobalObject*>(globalObject);
     Ref<AbortAlgorithm> abortAlgorithm = JSAbortAlgorithm::create(callFrame->uncheckedArgument(1).getObject(), jsDOMGlobalObject);
 
-    auto algorithmIdentifier = AbortSignal::addAbortAlgorithmToSignal(abortSignal->protectedWrapped().get(), WTFMove(abortAlgorithm));
+    auto algorithmIdentifier = AbortSignal::addAbortAlgorithmToSignal(abortSignal->protectedWrapped().get(), WTF::move(abortAlgorithm));
     return JSValue::encode(JSC::jsNumber(algorithmIdentifier));
 }
 
@@ -601,7 +601,7 @@ static JSC::JSPromise* handleResponseOnStreamingAction(JSC::JSGlobalObject* glob
     auto compiler = JSC::Wasm::StreamingCompiler::create(vm, compilerMode, globalObject, jsCast<JSC::JSPromise*>(deferred->promise()), importObject, JSC::makeSource("handleResponseOnStreamingAction"_s, JSC::SourceOrigin(), JSC::SourceTaintedOrigin::Untainted));
 
     if (inputResponse->isBodyReceivedByChunk()) {
-        inputResponse->consumeBodyReceivedByChunk([globalObject, compiler = WTFMove(compiler)](auto&& result) mutable {
+        inputResponse->consumeBodyReceivedByChunk([globalObject, compiler = WTF::move(compiler)](auto&& result) mutable {
             VM& vm = globalObject->vm();
             JSLockHolder lock(vm);
 
@@ -620,7 +620,7 @@ static JSC::JSPromise* handleResponseOnStreamingAction(JSC::JSGlobalObject* glob
                 }
 
                 auto scope = DECLARE_THROW_SCOPE(vm);
-                auto error = createDOMException(*globalObject, WTFMove(exception));
+                auto error = createDOMException(*globalObject, WTF::move(exception));
                 if (scope.exception()) [[unlikely]] {
                     ASSERT(vm.hasPendingTerminationException());
                     compiler->cancel();
@@ -773,12 +773,12 @@ JSC::JSGlobalObject* JSDOMGlobalObject::deriveShadowRealmGlobalObject(JSC::JSGlo
     auto structure = JSShadowRealmGlobalScope::createStructure(vm, nullptr, JSC::jsNull());
     auto proxyStructure = JSGlobalProxy::createStructure(vm, nullptr, JSC::jsNull());
     auto proxy = JSGlobalProxy::create(vm, proxyStructure);
-    auto wrapper = JSShadowRealmGlobalScope::create(vm, structure, WTFMove(scope), proxy);
+    auto wrapper = JSShadowRealmGlobalScope::create(vm, structure, WTF::move(scope), proxy);
 
     wrapper->setPrototypeDirect(vm, wrapper->objectPrototype());
     proxy->setTarget(vm, wrapper);
 
-    wrapper->setConsoleClient(domGlobalObject->consoleClient());
+    wrapper->setConsoleClient(domGlobalObject->consoleClient().get());
 
     return wrapper;
 }

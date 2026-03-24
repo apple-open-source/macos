@@ -64,6 +64,7 @@ struct SerializeInvoker {
 inline constexpr SerializeInvoker serializationForCSS{};
 
 void serializationForCSSCustomIdentifier(StringBuilder&, const SerializationContext&, const CustomIdentifier&);
+void serializationForCSSPropertyIdentifier(StringBuilder&, const SerializationContext&, const PropertyIdentifier&);
 void serializationForCSSString(StringBuilder&, const SerializationContext&, const WTF::AtomString&);
 void serializationForCSSString(StringBuilder&, const SerializationContext&, const WTF::String&);
 
@@ -78,13 +79,7 @@ template<typename CSSType, typename... Rest> void serializationForCSSOnTupleLike
 {
     auto swappedSeparator = ""_s;
     auto caller = WTF::makeVisitor(
-        [&]<typename T>(const std::optional<T>& element) {
-            if (!element)
-                return;
-            builder.append(std::exchange(swappedSeparator, separator));
-            serializationForCSS(builder, context, *element, rest...);
-        },
-        [&]<typename T>(const Markable<T>& element) {
+        [&]<OptionalLike T>(const T& element) {
             if (!element)
                 return;
             builder.append(std::exchange(swappedSeparator, separator));
@@ -193,6 +188,14 @@ template<> struct Serialize<CustomIdentifier> {
     template<typename... Rest> void operator()(StringBuilder& builder, const SerializationContext& context, const CustomIdentifier& value, Rest&&...)
     {
         serializationForCSSCustomIdentifier(builder, context, value);
+    }
+};
+
+// Specialization for `PropertyIdentifier`.
+template<> struct Serialize<PropertyIdentifier> {
+    template<typename... Rest> void operator()(StringBuilder& builder, const SerializationContext& context, const PropertyIdentifier& value, Rest&&...)
+    {
+        serializationForCSSPropertyIdentifier(builder, context, value);
     }
 };
 
@@ -323,6 +326,14 @@ template<CSSValueID C> struct ComputedStyleDependenciesCollector<Constant<C>> {
 // Specialization for `CustomIdentifier`.
 template<> struct ComputedStyleDependenciesCollector<CustomIdentifier> {
     constexpr void operator()(ComputedStyleDependencies&, const CustomIdentifier&)
+    {
+        // Nothing to do.
+    }
+};
+
+// Specialization for `PropertyIdentifier`.
+template<> struct ComputedStyleDependenciesCollector<PropertyIdentifier> {
+    constexpr void operator()(ComputedStyleDependencies&, const PropertyIdentifier&)
     {
         // Nothing to do.
     }
@@ -461,6 +472,14 @@ template<> struct CSSValueChildrenVisitor<CustomIdentifier> {
     }
 };
 
+// Specialization for `PropertyIdentifier`.
+template<> struct CSSValueChildrenVisitor<PropertyIdentifier> {
+    constexpr IterationStatus operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>&, const PropertyIdentifier&)
+    {
+        return IterationStatus::Continue;
+    }
+};
+
 // Specialization for `WTF::AtomString`.
 template<> struct CSSValueChildrenVisitor<WTF::AtomString> {
     constexpr IterationStatus operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>&, const WTF::AtomString&)
@@ -499,6 +518,7 @@ inline constexpr CSSValueCreationInvoker createCSSValue{};
 
 Ref<CSSValue> makePrimitiveCSSValue(CSSValueID);
 Ref<CSSValue> makePrimitiveCSSValue(const CustomIdentifier&);
+Ref<CSSValue> makePrimitiveCSSValue(const PropertyIdentifier&);
 Ref<CSSValue> makePrimitiveCSSValue(const WTF::AtomString&);
 Ref<CSSValue> makePrimitiveCSSValue(const WTF::String&);
 Ref<CSSValue> makeFunctionCSSValue(CSSValueID, Ref<CSSValue>&&);
@@ -536,12 +556,7 @@ template<TupleLike CSSType> struct CSSValueCreation<CSSType> {
             CSSValueListBuilder list;
 
             auto caller = WTF::makeVisitor(
-                [&]<typename T>(const std::optional<T>& element) {
-                    if (!element)
-                        return;
-                    list.append(createCSSValue(pool, *element, rest...));
-                },
-                [&]<typename T>(const Markable<T>& element) {
+                [&]<OptionalLike T>(const T& element) {
                     if (!element)
                         return;
                     list.append(createCSSValue(pool, *element, rest...));
@@ -552,7 +567,7 @@ template<TupleLike CSSType> struct CSSValueCreation<CSSType> {
             );
             WTF::apply([&](const auto& ...x) { (..., caller(x)); }, value);
 
-            return makeListCSSValue<SerializationSeparator<CSSType>>(WTFMove(list));
+            return makeListCSSValue<SerializationSeparator<CSSType>>(WTF::move(list));
         }
     }
 };
@@ -565,7 +580,7 @@ template<RangeLike CSSType> struct CSSValueCreation<CSSType> {
         for (const auto& element : value)
             list.append(createCSSValue(pool, element, rest...));
 
-        return makeListCSSValue<SerializationSeparator<CSSType>>(WTFMove(list));
+        return makeListCSSValue<SerializationSeparator<CSSType>>(WTF::move(list));
     }
 };
 
@@ -582,6 +597,14 @@ template<> struct CSSValueCreation<CustomIdentifier> {
     template<typename... Rest> Ref<CSSValue> operator()(CSSValuePool&, const CustomIdentifier& customIdentifier, Rest&&...)
     {
         return makePrimitiveCSSValue(customIdentifier);
+    }
+};
+
+// Specialization for `PropertyIdentifier`.
+template<> struct CSSValueCreation<PropertyIdentifier> {
+    template<typename... Rest> Ref<CSSValue> operator()(CSSValuePool&, const PropertyIdentifier& propertyIdentifier, Rest&&...)
+    {
+        return makePrimitiveCSSValue(propertyIdentifier);
     }
 };
 

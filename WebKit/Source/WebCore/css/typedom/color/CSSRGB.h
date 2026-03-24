@@ -35,7 +35,7 @@ using CSSColorRGBComp = Variant<double, RefPtr<CSSNumericValue>, String, RefPtr<
 using RectifiedCSSColorRGBComp = Variant<RefPtr<CSSNumericValue>, RefPtr<CSSKeywordValue>>;
 
 class CSSRGB final : public CSSOMColorValue {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSRGB);
+    WTF_MAKE_TZONE_ALLOCATED(CSSRGB);
 public:
     static ExceptionOr<Ref<CSSRGB>> create(CSSColorRGBComp&&, CSSColorRGBComp&&, CSSColorRGBComp&&, CSSColorPercent&&);
 

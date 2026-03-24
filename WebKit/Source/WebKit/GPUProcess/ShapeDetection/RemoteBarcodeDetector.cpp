@@ -31,23 +31,22 @@
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
 #include "RemoteResourceCache.h"
-#include "ShapeDetectionObjectHeap.h"
 #include "SharedPreferencesForWebProcess.h"
 #include <WebCore/BarcodeDetectorInterface.h>
 #include <WebCore/DetectedBarcodeInterface.h>
-#include <WebCore/ImageBuffer.h>
+#include <WebCore/NativeImage.h>
 #include <wtf/TZoneMallocInlines.h>
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_renderingBackend.get().streamConnection());
 
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteBarcodeDetector);
 
-RemoteBarcodeDetector::RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
-    : m_backing(WTFMove(barcodeDetector))
-    , m_objectHeap(objectHeap)
-    , m_backend(backend)
+RemoteBarcodeDetector::RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier)
+    : m_backing(WTF::move(barcodeDetector))
+    , m_renderingBackend(backend)
     , m_identifier(identifier)
-    , m_webProcessIdentifier(webProcessIdentifier)
 {
 }
 
@@ -55,30 +54,18 @@ RemoteBarcodeDetector::~RemoteBarcodeDetector() = default;
 
 std::optional<SharedPreferencesForWebProcess> RemoteBarcodeDetector::sharedPreferencesForWebProcess() const
 {
-    return protectedBackend()->sharedPreferencesForWebProcess();
-}
-
-Ref<WebCore::ShapeDetection::BarcodeDetector> RemoteBarcodeDetector::protectedBacking() const
-{
-    return backing();
-}
-
-Ref<RemoteRenderingBackend> RemoteBarcodeDetector::protectedBackend() const
-{
-    return m_backend.get();
+    return Ref { m_renderingBackend.get() }->sharedPreferencesForWebProcess();
 }
 
 void RemoteBarcodeDetector::detect(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedBarcode>&&)>&& completionHandler)
 {
-    auto sourceImage = protectedBackend()->imageBuffer(renderingResourceIdentifier);
-    if (!sourceImage) {
-        completionHandler({ });
-        return;
-    }
-
-    protectedBacking()->detect(*sourceImage, WTFMove(completionHandler));
+    RefPtr sourceImage = m_renderingBackend.get().remoteResourceCache().cachedNativeImage(renderingResourceIdentifier);
+    MESSAGE_CHECK(sourceImage);
+    m_backing->detect(*sourceImage, WTF::move(completionHandler));
 }
 
 } // namespace WebKit
+
+#undef MESSAGE_CHECK
 
 #endif // ENABLE(GPU_PROCESS)

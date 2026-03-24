@@ -48,6 +48,7 @@ public:
     virtual ~RemoteCDMInstanceSessionProxy();
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
+    // WebCore::CDMInstanceSessionClient, IPC::MessageReceiver.
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
@@ -73,7 +74,7 @@ private:
 
     // Messages
     void setLogIdentifier(uint64_t);
-    void requestLicense(LicenseType, KeyGroupingStrategy, AtomString initDataType, RefPtr<WebCore::SharedBuffer>&& initData, LicenseCallback&&);
+    void requestLicense(LicenseType, KeyGroupingStrategy, String initDataType, RefPtr<WebCore::SharedBuffer>&& initData, LicenseCallback&&);
     void updateLicense(String sessionId, LicenseType, RefPtr<WebCore::SharedBuffer>&& response, LicenseUpdateCallback&&);
     void loadSession(LicenseType, String sessionId, String origin, LoadSessionCallback&&);
     void closeSession(const String& sessionId, CloseSessionCallback&&);

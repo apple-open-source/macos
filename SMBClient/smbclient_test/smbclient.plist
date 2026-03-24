@@ -4,6 +4,10 @@
 <dict>
 	<key>Project</key>
 	<string>SMBClient</string>
+	<key>TestSpecificLogs</key>
+	<array>
+		<string>/tmp/coverage/.*profraw</string>
+	</array>
 	<key>Tests</key>
 	<array>
 		<dict>
@@ -486,7 +490,7 @@
 			</array>
 			<key>Timeout</key>
 			<integer>600</integer>
-		</dict>		
+		</dict>
 		<dict>
 			<key>TestName</key>
 			<string>testMultiProcessO_EXLOCK</string>

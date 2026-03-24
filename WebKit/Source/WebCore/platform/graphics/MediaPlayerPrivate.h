@@ -47,6 +47,8 @@ namespace WebCore {
 class MessageClientForTesting;
 class VideoFrame;
 
+enum class MediaPlaybackTargetType : uint8_t;
+
 // MediaPlayerPrivateInterface subclasses should be ref-counted, but each subclass may choose whether
 // to be RefCounted or ThreadSafeRefCounted. Therefore, each subclass must implement a pair of
 // virtual ref()/deref() methods. See NullMediaPlayerPrivate for an example.
@@ -63,6 +65,8 @@ public:
 
 #if ENABLE(MEDIA_SOURCE)
     virtual void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) = 0;
+    virtual void readyStateFromMediaSourceChanged() { }
+    virtual void characteristicsFromMediaSourceChanged() { }
 #endif
 #if ENABLE(MEDIA_STREAM)
     virtual void load(MediaStreamPrivate&) = 0;
@@ -129,6 +133,7 @@ public:
 
     virtual MediaTime duration() const { return MediaTime::zeroTime(); }
 
+    // Methods need to be thread-safe should MSE be enabled in a worker.
     WEBCORE_EXPORT virtual MediaTime currentOrPendingSeekTime() const;
     virtual MediaTime currentTime() const { return MediaTime::zeroTime(); }
     virtual bool timeIsProgressing() const { return !paused(); }
@@ -177,6 +182,10 @@ public:
     virtual MediaPlayer::NetworkState networkState() const = 0;
     virtual MediaPlayer::ReadyState readyState() const = 0;
 
+#if ENABLE(MEDIA_SOURCE)
+    virtual void mediaSourceHasRetrievedAllData() { };
+#endif
+
     WEBCORE_EXPORT virtual const PlatformTimeRanges& seekable() const;
     virtual MediaTime maxTimeSeekable() const { return MediaTime::zeroTime(); }
     virtual MediaTime minTimeSeekable() const { return MediaTime::zeroTime(); }
@@ -216,7 +225,7 @@ public:
     virtual bool wirelessVideoPlaybackDisabled() const { return true; }
     virtual void setWirelessVideoPlaybackDisabled(bool) { }
 
-    virtual bool canPlayToWirelessPlaybackTarget() const { return false; }
+    virtual OptionSet<MediaPlaybackTargetType> supportedPlaybackTargetTypes() const;
     virtual bool isCurrentPlaybackTargetWireless() const { return false; }
     virtual void setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&&) { }
 
@@ -355,9 +364,9 @@ public:
     virtual void setVideoTarget(const PlatformVideoTarget&) { }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    virtual const String& defaultSpatialTrackingLabel() const { return emptyString(); }
+    virtual String defaultSpatialTrackingLabel() const { return emptyString(); }
     virtual void setDefaultSpatialTrackingLabel(const String&) { }
-    virtual const String& spatialTrackingLabel() const { return emptyString(); }
+    virtual String spatialTrackingLabel() const { return emptyString(); }
     virtual void setSpatialTrackingLabel(const String&) { }
 #endif
 

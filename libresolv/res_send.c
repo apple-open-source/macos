@@ -124,6 +124,7 @@ __FBSDID("$FreeBSD$");
 #include <notify.h>
 #include <notify_private.h>
 #include <pthread.h>
+#include <stdbool.h>
 #endif	/* __APPLE__ */
 
 #ifndef __APPLE__
@@ -430,6 +431,14 @@ res_delete_interrupt_token(void *token)
 	free(interrupt_pipe);
 }
 
+static bool
+res_configure_pipefd(int pfd)
+{
+	/* Not a failure unless we fail to set CLOEXEC for some reason. */
+	fcntl(pfd, F_SETFL, O_NONBLOCK);
+	return (fcntl(pfd, F_SETFD, FD_CLOEXEC) == 0);
+}
+
 __attribute__((__visibility__("hidden")))
 void *
 res_init_interrupt_token(void)
@@ -444,9 +453,12 @@ res_init_interrupt_token(void)
 		/* this shouldn't happen */
 		interrupt_pipe[0] = -1;
 		interrupt_pipe[1] = -1;
-	} else {
-		fcntl(interrupt_pipe[0], F_SETFD, FD_CLOEXEC | O_NONBLOCK);
-		fcntl(interrupt_pipe[1], F_SETFD, FD_CLOEXEC | O_NONBLOCK);
+	} else if (!res_configure_pipefd(interrupt_pipe[0]) ||
+	    !res_configure_pipefd(interrupt_pipe[1]))  {
+		close(interrupt_pipe[0]);
+		close(interrupt_pipe[1]);
+		interrupt_pipe[0] = -1;
+		interrupt_pipe[1] = -1;
 	}
 
 	pthread_setspecific(interrupt_pipe_key, interrupt_pipe);

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 is{
     Countries{
         001{"Heimurinn"}
@@ -85,6 +85,7 @@ is{
         CN{"Kína"}
         CO{"Kólumbía"}
         CP{"Clipperton-eyja"}
+        CQ{"Sark"}
         CR{"Kostaríka"}
         CU{"Kúba"}
         CV{"Grænhöfðaeyjar"}
@@ -311,6 +312,7 @@ is{
         CG{"Kongó (Lýðveldið)"}
         FK{"Falklandseyjar (Malvinas)"}
         NZ{"Aotearoa, Nýja-Sjáland"}
+        SZ{"Svasíland"}
         TL{"Austur-Tímor"}
     }
 }

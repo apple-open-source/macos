@@ -425,36 +425,36 @@ CFArrayRef getSslCerts(
 
 	// Find the first private key in the keychain and return both it's
 	// attributes and a ref to it.
-	require(keyQuery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL), errOut);
+	__Require(keyQuery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL), errOut);
 	CFDictionaryAddValue(keyQuery, kSecClass, kSecClassKey);
 	CFDictionaryAddValue(keyQuery, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
 	CFDictionaryAddValue(keyQuery, kSecReturnRef, kCFBooleanTrue);
 	CFDictionaryAddValue(keyQuery, kSecReturnAttributes, kCFBooleanTrue);
-	require_noerr(SecItemCopyMatching(keyQuery, (CFTypeRef *)&keyResult),
+	__Require_noErr(SecItemCopyMatching(keyQuery, (CFTypeRef *)&keyResult),
 		errOut);
-	require(key = (SecKeyRef)CFDictionaryGetValue(keyResult, kSecValueRef),
+	__Require(key = (SecKeyRef)CFDictionaryGetValue(keyResult, kSecValueRef),
 		errOut);
-	require(pkdigest = CFDictionaryGetValue(keyResult, kSecAttrApplicationLabel),
+	__Require(pkdigest = CFDictionaryGetValue(keyResult, kSecAttrApplicationLabel),
 		errOut);
 
 	// Find the first certificate that has the same public key hash as the
 	// returned private key and return it as a ref.
-	require(certQuery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL), errOut);
+	__Require(certQuery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL), errOut);
 	CFDictionaryAddValue(certQuery, kSecClass, kSecClassCertificate);
 	CFDictionaryAddValue(certQuery, kSecAttrPublicKeyHash, pkdigest);
 	CFDictionaryAddValue(certQuery, kSecReturnRef, kCFBooleanTrue);
-	require_noerr(SecItemCopyMatching(certQuery, (CFTypeRef *)&cert), errOut);
+	__Require_noErr(SecItemCopyMatching(certQuery, (CFTypeRef *)&cert), errOut);
 
 	// Create an identity from the key and certificate.
-	require(identity = SecIdentityCreate(NULL, cert, key), errOut);
+	__Require(identity = SecIdentityCreate(NULL, cert, key), errOut);
 
 	// Build a (partial) certificate chain from cert
-	require(certificates = CFArrayCreateMutable(NULL, 0,
+	__Require(certificates = CFArrayCreateMutable(NULL, 0,
 		&kCFTypeArrayCallBacks), errOut);
 	CFArrayAppendValue(certificates, cert);
-	require_noerr(SecTrustCreateWithCertificates(certificates, NULL, &trust),
+	__Require_noErr(SecTrustCreateWithCertificates(certificates, NULL, &trust),
 		errOut);
-    require(result = SecTrustCopyCertificateChain(trust), errOut);
+    __Require(result = SecTrustCopyCertificateChain(trust), errOut);
 
 errOut:
 	CFReleaseSafe(trust);
@@ -1562,10 +1562,10 @@ CFArrayRef chain_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey
     SecIdentityRef ident = NULL;
     CFArrayRef items = NULL;
 
-    require(pkey = create_private_key_from_der(ecdsa, pkey_der, pkey_der_len), errOut);
-    require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, cert_der, cert_der_len), errOut);
-    require(ident = SecIdentityCreate(kCFAllocatorDefault, cert, pkey), errOut);
-    require(items = CFArrayCreate(kCFAllocatorDefault, (const void **)&ident, 1, &kCFTypeArrayCallBacks), errOut);
+    __Require(pkey = create_private_key_from_der(ecdsa, pkey_der, pkey_der_len), errOut);
+    __Require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, cert_der, cert_der_len), errOut);
+    __Require(ident = SecIdentityCreate(kCFAllocatorDefault, cert, pkey), errOut);
+    __Require(items = CFArrayCreate(kCFAllocatorDefault, (const void **)&ident, 1, &kCFTypeArrayCallBacks), errOut);
 
 errOut:
     CFReleaseSafe(pkey);

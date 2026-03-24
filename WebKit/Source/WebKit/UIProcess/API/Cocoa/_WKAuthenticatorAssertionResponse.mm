@@ -30,16 +30,20 @@
 #import "_WKAuthenticatorResponseInternal.h"
 #import <wtf/RetainPtr.h>
 
-@implementation _WKAuthenticatorAssertionResponse
+@implementation _WKAuthenticatorAssertionResponse {
+    RetainPtr<NSData> m_authenticatorData;
+    RetainPtr<NSData> m_signature;
+    RetainPtr<NSData> m_userHandle;
+}
 
 - (instancetype)initWithClientDataJSON:(NSData *)clientDataJSON rawId:(NSData *)rawId extensions:(RetainPtr<_WKAuthenticationExtensionsClientOutputs>&&)extensions authenticatorData:(NSData *)authenticatorData signature:(NSData *)signature userHandle:(NSData *)userHandle attachment:(_WKAuthenticatorAttachment)attachment
 {
-    if (!(self = [super initWithClientDataJSON:clientDataJSON rawId:rawId extensions:WTFMove(extensions) attachment:attachment]))
+    if (!(self = [super initWithClientDataJSON:clientDataJSON rawId:rawId extensions:WTF::move(extensions) attachment:attachment]))
         return nil;
 
-    _authenticatorData = [authenticatorData retain];
-    _signature = [signature retain];
-    _userHandle = [userHandle retain];
+    m_authenticatorData = authenticatorData;
+    m_signature = signature;
+    m_userHandle = userHandle;
     return self;
 }
 
@@ -48,17 +52,29 @@
     if (!(self = [super initWithClientDataJSON:clientDataJSON rawId:rawId extensionOutputsCBOR:extensionOutputsCBOR attachment:attachment]))
         return nil;
 
-    _authenticatorData = [authenticatorData retain];
-    _signature = [signature retain];
-    _userHandle = [userHandle retain];
+    m_authenticatorData = authenticatorData;
+    m_signature = signature;
+    m_userHandle = userHandle;
     return self;
+}
+
+- (NSData *)authenticatorData
+{
+    return m_authenticatorData.get();
+}
+
+- (NSData *)signature
+{
+    return m_signature.get();
+}
+
+- (NSData *)userHandle
+{
+    return m_userHandle.get();
 }
 
 - (void)dealloc
 {
-    [_authenticatorData release];
-    [_signature release];
-    [_userHandle release];
     [super dealloc];
 }
 

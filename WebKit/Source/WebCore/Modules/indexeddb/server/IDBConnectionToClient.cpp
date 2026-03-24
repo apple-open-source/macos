@@ -189,31 +189,30 @@ void IDBConnectionToClient::notifyOpenDBRequestBlocked(const IDBResourceIdentifi
 void IDBConnectionToClient::didGetAllDatabaseNamesAndVersions(const IDBResourceIdentifier& requestIdentifier, Vector<IDBDatabaseNameAndVersion>&& databases)
 {
     if (CheckedPtr delegate = m_delegate)
-        delegate->didGetAllDatabaseNamesAndVersions(requestIdentifier, WTFMove(databases));
+        delegate->didGetAllDatabaseNamesAndVersions(requestIdentifier, WTF::move(databases));
 }
 
 void IDBConnectionToClient::registerDatabaseConnection(UniqueIDBDatabaseConnection& connection)
 {
-    ASSERT(!m_databaseConnections.contains(&connection));
-    m_databaseConnections.add(&connection);
+    ASSERT(!m_databaseConnections.contains(connection));
+    m_databaseConnections.add(connection);
 }
 
 void IDBConnectionToClient::unregisterDatabaseConnection(UniqueIDBDatabaseConnection& connection)
 {
-    m_databaseConnections.remove(&connection);
+    m_databaseConnections.remove(connection);
 }
 
 void IDBConnectionToClient::connectionToClientClosed()
 {
     m_isClosed = true;
-    auto databaseConnections = m_databaseConnections;
 
-    for (RefPtr connection : databaseConnections) {
-        ASSERT(m_databaseConnections.contains(connection.get()));
-        connection->connectionClosedFromClient();
-    }
+    m_databaseConnections.forEach([&](UniqueIDBDatabaseConnection& connection) {
+        ASSERT(m_databaseConnections.contains(connection));
+        connection.connectionClosedFromClient();
+    });
 
-    ASSERT(m_databaseConnections.isEmpty());
+    ASSERT(m_databaseConnections.isEmptyIgnoringNullReferences());
 }
 
 } // namespace IDBServer

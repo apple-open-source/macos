@@ -431,6 +431,7 @@ DISPATCH_CLASS_IMPL(disk)
 
 #pragma mark os_workgroups
 
+#if HAVE_MACH
 @implementation OS_OBJECT_CLASS(os_workgroup)
 DISPATCH_UNAVAILABLE_INIT()
 OS_OBJECT_USES_XREF_DISPOSE()
@@ -475,8 +476,11 @@ DISPATCH_UNAVAILABLE_INIT()
 DISPATCH_UNAVAILABLE_INIT()
 @end
 
+#endif
+
 #pragma mark eventlink
 
+#if HAVE_MACH
 @implementation OS_OBJECT_CLASS(os_eventlink)
 DISPATCH_UNAVAILABLE_INIT()
 
@@ -486,7 +490,7 @@ DISPATCH_UNAVAILABLE_INIT()
 }
 
 @end
-
+#endif
 
 #pragma mark vouchers
 

@@ -53,7 +53,7 @@ bool CaretAnimator::determinePrefersNonBlinkingCursor() const
 
 Page* CaretAnimator::page() const
 {
-    if (auto* document = m_client.document())
+    if (RefPtr document = m_client.document())
         return document->page();
     
     return nullptr;

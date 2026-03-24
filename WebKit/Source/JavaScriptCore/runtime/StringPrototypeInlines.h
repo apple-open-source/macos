@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "CachedCall.h"
+#include "CachedCallInlines.h"
 #include "ExceptionHelpers.h"
 #include "JSCellButterfly.h"
 #include "ObjectConstructor.h"
@@ -68,7 +68,9 @@ ALWAYS_INLINE std::tuple<int32_t, int32_t> extractSliceOffsets(int32_t length, i
     return { from, to };
 }
 
-template<typename NumberType>
+template<typename T> concept Arithmetic = std::is_arithmetic_v<T>;
+
+template<Arithmetic NumberType>
 ALWAYS_INLINE JSString* stringSlice(JSGlobalObject* globalObject, VM& vm, JSString* string, int32_t length, NumberType start, std::optional<NumberType> endValue)
 {
     if constexpr (std::is_same_v<NumberType, int32_t>) {
@@ -91,10 +93,8 @@ ALWAYS_INLINE JSString* stringSlice(JSGlobalObject* globalObject, VM& vm, JSStri
 
 ALWAYS_INLINE std::tuple<int32_t, int32_t> extractSubstringOffsets(int32_t length, int32_t startValue, std::optional<int32_t> endValue)
 {
-    int32_t start = std::min<int32_t>(std::max<int32_t>(startValue, 0), length);
-    int32_t end = length;
-    if (endValue)
-        end = std::min<int32_t>(std::max<int32_t>(endValue.value(), 0), length);
+    int32_t start = std::clamp(startValue, 0, length);
+    int32_t end = std::clamp(endValue.value_or(length), 0, length);
 
     ASSERT(start >= 0);
     ASSERT(end >= 0);
@@ -329,7 +329,7 @@ ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, 
         return nullptr;
     }
 
-    return jsString(vm, WTFMove(result));
+    return jsString(vm, WTF::move(result));
 }
 
 template<StringReplaceSubstitutions substitutions, StringReplaceUseTable useTable, typename TableType>
@@ -696,7 +696,7 @@ ALWAYS_INLINE JSCellButterfly* addToRegExpSearchCache(VM& vm, JSGlobalObject* gl
     if (auto* entry = vm.stringReplaceCache.get(source, regExp)) {
         auto lastMatch = entry->m_lastMatch;
         auto matchResult = entry->m_matchResult;
-        globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, matchResult, WTFMove(lastMatch));
+        globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, matchResult, WTF::move(lastMatch));
         RELEASE_AND_RETURN(scope, entry->m_result);
     }
 
@@ -810,11 +810,6 @@ static ALWAYS_INLINE JSString* replaceAllWithCacheUsingRegExpSearchThreeArgument
         }
         if (static_cast<unsigned>(lastIndex) < sourceLen)
             totalLength += (sourceLen - lastIndex);
-    }
-
-    if (totalLength > StringImpl::MaxLength) [[unlikely]] {
-        throwOutOfMemoryError(globalObject, scope);
-        return nullptr;
     }
 
     StringView sourceView { source };
@@ -948,18 +943,13 @@ static ALWAYS_INLINE JSString* replaceAllWithCacheUsingRegExpSearch(VM& vm, JSGl
                 replacementsAre8Bit &= string.is8Bit();
                 totalLength += string.length();
                 totalLength += (start - lastIndex);
-                slot = WTFMove(string);
+                slot = WTF::move(string);
 
                 lastIndex = end;
                 ++index;
             }
             if (static_cast<unsigned>(lastIndex) < sourceLen)
                 totalLength += (sourceLen - lastIndex);
-        }
-
-        if (totalLength > StringImpl::MaxLength) [[unlikely]] {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
         }
 
         StringView sourceView { source };
@@ -1063,7 +1053,7 @@ static ALWAYS_INLINE JSString* replaceAllWithCacheUsingRegExpSearch(VM& vm, JSGl
         auto string = jsResult.toWTFString(globalObject);
         RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, nullptr);
 
-        slot = WTFMove(string);
+        slot = WTF::move(string);
 
         lastIndex = end;
         cursor += cachedCount;
@@ -1117,6 +1107,7 @@ static ALWAYS_INLINE JSString* tryTrimSpaces(VM& vm, JSGlobalObject* globalObjec
     case Yarr::SpecificPattern::TrailingSpacesStar:
     case Yarr::SpecificPattern::LeadingSpacesStar:
     case Yarr::SpecificPattern::Atom:
+    case Yarr::SpecificPattern::Newlines:
     case Yarr::SpecificPattern::None:
         break;
     }
@@ -1247,7 +1238,7 @@ ALWAYS_INLINE JSString* replaceOneWithStringUsingRegExpSearch(VM& vm, JSGlobalOb
         auto concatenated = tryMakeString(before, StringView { replacementString }, after);
         if (!concatenated) [[unlikely]]
             OUT_OF_MEMORY(globalObject, scope);
-        RELEASE_AND_RETURN(scope, jsString(vm, WTFMove(concatenated)));
+        RELEASE_AND_RETURN(scope, jsString(vm, WTF::move(concatenated)));
     }
 
     StringBuilder replacement(OverflowPolicy::RecordOverflow);
@@ -1257,7 +1248,7 @@ ALWAYS_INLINE JSString* replaceOneWithStringUsingRegExpSearch(VM& vm, JSGlobalOb
     auto concatenated = tryMakeString(before, StringView { replacement }, after);
     if (!concatenated) [[unlikely]]
         OUT_OF_MEMORY(globalObject, scope);
-    RELEASE_AND_RETURN(scope, jsString(vm, WTFMove(concatenated)));
+    RELEASE_AND_RETURN(scope, jsString(vm, WTF::move(concatenated)));
 }
 
 ALWAYS_INLINE JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSString* string, JSValue searchValue, const CallData& callData, const String& replacementString, JSValue replaceValue)
@@ -1300,6 +1291,7 @@ ALWAYS_INLINE JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalO
             break;
         }
         case Yarr::SpecificPattern::Atom:
+        case Yarr::SpecificPattern::Newlines:
         case Yarr::SpecificPattern::None:
             break;
         }
@@ -1572,13 +1564,13 @@ ALWAYS_INLINE JSString* replace(VM& vm, JSGlobalObject* globalObject, JSValue th
         auto searchString = searchJSString->value(globalObject);
         RETURN_IF_EXCEPTION(scope, nullptr);
 
-        RELEASE_AND_RETURN(scope, replaceUsingStringSearch<replaceMode>(vm, globalObject, string, thisString, WTFMove(searchString), replaceValue));
+        RELEASE_AND_RETURN(scope, replaceUsingStringSearch<replaceMode>(vm, globalObject, string, thisString, WTF::move(searchString), replaceValue));
     }
 
     String searchString = searchValue.toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
-    RELEASE_AND_RETURN(scope, replaceUsingStringSearch<replaceMode>(vm, globalObject, string, thisString, WTFMove(searchString), replaceValue));
+    RELEASE_AND_RETURN(scope, replaceUsingStringSearch<replaceMode>(vm, globalObject, string, thisString, WTF::move(searchString), replaceValue));
 }
 
 } // namespace JSC

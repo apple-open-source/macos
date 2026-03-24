@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020, 2022, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1256,6 +1256,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 				   CFArrayRef server_certs,
 				   Boolean revocation_check,
 				   SecTrustRef sec_trust,
+				   bool * ret_trust_exceptions_applied,
 				   OSStatus * ret_status)
 {
     bool		exceptions_applied = FALSE;
@@ -1382,6 +1383,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
  done:
     if (ret_status != NULL) {
 	*ret_status = status;
+    }
+    if (ret_trust_exceptions_applied != NULL) {
+	*ret_trust_exceptions_applied = exceptions_applied;
     }
     my_CFRelease(&trust);
     my_CFRelease(&server_hash_str);
@@ -1921,6 +1925,7 @@ main(int argc, char * argv[])
     status = EAPTLSVerifyServerCertificateChain(properties, 
 						array,
 						FALSE,
+						NULL,
 						NULL,
 						&sec_status);
     printf("status is %d, sec status is %d\n", 

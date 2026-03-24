@@ -114,7 +114,7 @@ static OSStatus ccrsa_pub_decode_apple(ccrsa_pub_ctx_t pubkey, size_t pkcs1_size
 	DERItem keyItem = {(DERByte *)pkcs1, pkcs1_size};
     DERRSAPubKeyApple decodedKey;
 
-	require_noerr_action_quiet(DERParseSequence(&keyItem,
+	__Require_noErr_Action_Quiet(DERParseSequence(&keyItem,
                                                 DERNumRSAPubKeyAppleItemSpecs, DERRSAPubKeyAppleItemSpecs,
                                                 &decodedKey, sizeof(decodedKey)),
                                errOut, result = errSecDecode);
@@ -122,7 +122,7 @@ static OSStatus ccrsa_pub_decode_apple(ccrsa_pub_ctx_t pubkey, size_t pkcs1_size
     // We could honor the reciprocal, but we don't think this is used enough to care.
     // Don't bother exploding the below function to try to handle this case, it computes.
 
-    require_noerr_quiet(ccrsa_pub_init(pubkey,
+    __Require_noErr_Quiet(ccrsa_pub_init(pubkey,
                                        decodedKey.modulus.length, decodedKey.modulus.data,
                                        decodedKey.pubExponent.length, decodedKey.pubExponent.data),
                         errOut);
@@ -160,16 +160,16 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
         case kSecKeyEncodingBytes: // Octets is PKCS1
         case kSecKeyEncodingPkcs1: {
             size_n = ccrsa_import_pub_n(keyDataLength, keyData);
-            require_quiet(size_n != 0, errOut);
-            require_quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
+            __Require_Quiet(size_n != 0, errOut);
+            __Require_Quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
-            require_noerr_quiet(ccrsa_import_pub(pubkey, keyDataLength, keyData), errOut);
+            __Require_noErr_Quiet(ccrsa_import_pub(pubkey, keyDataLength, keyData), errOut);
 
             result = errSecSuccess;
 
@@ -180,7 +180,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccn_nof(kMaximumRSAKeyBits);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
@@ -194,12 +194,12 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccn_nof_size(params->modulusLength);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
-            require_noerr_quiet(ccrsa_pub_init(pubkey,
+            __Require_noErr_Quiet(ccrsa_pub_init(pubkey,
                                                params->modulusLength, params->modulus,
                                                params->exponentLength, params->exponent), errOut);
 
@@ -213,7 +213,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccrsa_ctx_n(fullKey);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
@@ -234,7 +234,7 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                                                     CFArrayRef allAlgorithms, SecKeyOperationMode mode,
                                                     CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFTypeRef result;
-    require_action_quiet(CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit), out, result = kCFNull);
+    __Require_Action_Quiet(CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit), out, result = kCFNull);
 
     ccrsa_pub_ctx_t pubkey = key->key;
     result = kCFBooleanTrue;
@@ -244,14 +244,14 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
             if (mode == kSecKeyOperationModePerform) {
                 // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
                 CFIndex bufferSize = CFDataGetLength(in1);
-                require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
+                __Require_Action_Quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
                                      (result = NULL,
                                       SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
                                                (int)bufferSize)));
 
                 // Verify that plaintext is smaller than modulus.  Note that since we already verified that input algorithm
                 // is kSecKeyAlgorithmRSAEncryptionRawCCUnit, we can safely access in1 CFDataRef contents as cc_unit *.
-                require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
+                __Require_Action_Quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
                                               ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey)) < 0, out,
                                      (result = NULL,
                                       SecError(errSecParam, error, CFSTR("RSApubkey wrong size of buffer to encrypt"))));
@@ -266,7 +266,7 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
             if (mode == kSecKeyOperationModePerform) {
                 // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
                 CFIndex bufferSize = CFDataGetLength(in1);
-                require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
+                __Require_Action_Quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
                                      (result = NULL,
                                       SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
                                                (int)bufferSize)));
@@ -282,7 +282,7 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
             break;
     }
 
-    require_noerr_action_quiet(ccerr, out, (CFReleaseNull(result),
+    __Require_noErr_Action_Quiet(ccerr, out, (CFReleaseNull(result),
                                             SecError(errSecParam, error, CFSTR("rsa_pub_crypt failed, ccerr=%d"), ccerr)));
 out:
     return result;
@@ -362,7 +362,7 @@ static CFStringRef SecRSAPublicKeyCopyDescription(SecKeyRef key) {
     ccrsa_pub_ctx_t pubkey = key->key;
 
     CFStringRef modulusString = CFDataCopyHexString(modRef);
-    require_quiet(modulusString, fail);
+    __Require_Quiet(modulusString, fail);
 
     keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, %d bits (block size: %zu), exponent: {hex: %llx, decimal: %lld}, modulus: %@, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (int)cczp_bitlen(ccrsa_ctx_zm(pubkey)), SecKeyGetBlockSize(key), (long long)*ccrsa_ctx_e(pubkey), (long long)*ccrsa_ctx_e(pubkey), modulusString, key);
 
@@ -486,16 +486,16 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
         case kSecKeyEncodingPkcs1:
         {
             size_n = ccrsa_import_priv_n(keyDataLength,keyData);
-            require_quiet(size_n != 0, errOut);
-            require_quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
+            __Require_Quiet(size_n != 0, errOut);
+            __Require_Quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
 
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             fullkey = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
 
-            require_quiet(ccrsa_import_priv(fullkey, keyDataLength, keyData)==0, errOut);
+            __Require_Quiet(ccrsa_import_priv(fullkey, keyDataLength, keyData)==0, errOut);
 
             result = errSecSuccess;
             break;
@@ -516,7 +516,7 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
             size_n = ccn_nof(keyLengthInBits);
 
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
-            require_action_quiet(key->key, errOut, result = errSecAllocate);
+            __Require_Action_Quiet(key->key, errOut, result = errSecAllocate);
 
             fullkey = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
@@ -547,14 +547,14 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                 if (mode == kSecKeyOperationModePerform) {
                     // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
                     CFIndex bufferSize = CFDataGetLength(in1);
-                    require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
+                    __Require_Action_Quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
                                          (result = NULL,
                                           SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
                                                    (int)bufferSize)));
 
                     // Verify that data is smaller than modulus.  Note that since we already verified that input algorithm
                     // is kSecKeyAlgorithmRSASignatureRawCCUnit, we can safely access in1 CFDataRef contents as cc_unit *.
-                    require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
+                    __Require_Action_Quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
                                                   ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey)) < 0, out,
                                          (result = NULL,
                                           SecError(errSecParam, error, CFSTR("%@: sign - digest too big (%d bytes)"), key,
@@ -575,7 +575,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                 if (mode == kSecKeyOperationModePerform) {
                     // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
                     CFIndex bufferSize = CFDataGetLength(in1);
-                    require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
+                    __Require_Action_Quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
                                          (result = NULL,
                                           SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
                                                    (int)bufferSize)));
@@ -594,7 +594,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
             break;
     }
 
-    require_noerr_action_quiet(ccerr, out, (CFReleaseNull(result),
+    __Require_noErr_Action_Quiet(ccerr, out, (CFReleaseNull(result),
                                             SecError(errSecParam, error, CFSTR("rsa_priv_crypt failed, ccerr=%d"), ccerr)));
 out:
     return result;
@@ -657,7 +657,7 @@ static CFDictionaryRef SecRSAPrivateKeyCopyAttributeDictionary(SecKeyRef key) {
 
 	/* PKCS1 encode the key pair. */
 	fullKeyBlob = SecRSAPrivateKeyCopyPKCS1(key);
-    require_quiet(fullKeyBlob, errOut);
+    __Require_Quiet(fullKeyBlob, errOut);
 
 	dict = SecKeyGeneratePrivateAttributeDictionary(key, kSecAttrKeyTypeRSA, fullKeyBlob);
     CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
@@ -722,13 +722,13 @@ OSStatus SecRSAKeyGeneratePair(CFDictionaryRef parameters,
     SecKeyRef privKey = SecKeyCreate(allocator, &kSecRSAPrivateKeyDescriptor,
                                      (const void*) parameters, 0, kSecGenerateKey);
 
-    require_quiet(privKey, errOut);
+    __Require_Quiet(privKey, errOut);
 
 	/* Create SecKeyRef's from the pkcs1 encoded keys. */
     pubKey = SecKeyCreate(allocator, &kSecRSAPublicKeyDescriptor,
                           privKey->key, 0, kSecExtractPublicFromPrivate);
 
-    require_quiet(pubKey, errOut);
+    __Require_Quiet(pubKey, errOut);
 
     if (rsaPublicKey) {
         *rsaPublicKey = pubKey;

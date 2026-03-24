@@ -38,7 +38,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CSSAnimation);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CSSAnimation);
 
 Ref<CSSAnimation> CSSAnimation::create(const Styleable& owningElement, Style::Animation&& backingStyleAnimation, const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext& resolutionContext)
 {
@@ -46,7 +46,7 @@ Ref<CSSAnimation> CSSAnimation::create(const Styleable& owningElement, Style::An
     auto name = backingStyleAnimation.name().tryKeyframesName();
     RELEASE_ASSERT(name);
 
-    auto result = adoptRef(*new CSSAnimation(owningElement, WTFMove(*name), WTFMove(backingStyleAnimation)));
+    auto result = adoptRef(*new CSSAnimation(owningElement, WTF::move(*name), WTF::move(backingStyleAnimation)));
     result->initialize(oldStyle, newStyle, resolutionContext);
 
     InspectorInstrumentation::didCreateWebAnimation(result.get());
@@ -56,8 +56,8 @@ Ref<CSSAnimation> CSSAnimation::create(const Styleable& owningElement, Style::An
 
 CSSAnimation::CSSAnimation(const Styleable& element, Style::ScopedName&& animationName, Style::Animation&& backingStyleAnimation)
     : StyleOriginatedAnimation(element)
-    , m_animationName(WTFMove(animationName))
-    , m_backingStyleAnimation(WTFMove(backingStyleAnimation))
+    , m_animationName(WTF::move(animationName))
+    , m_backingStyleAnimation(WTF::move(backingStyleAnimation))
 {
 }
 
@@ -210,12 +210,12 @@ void CSSAnimation::syncStyleOriginatedTimeline()
         [&](const Style::ScrollFunction& scrollFunction) {
             auto scrollTimeline = ScrollTimeline::create(scrollFunction->scroller, scrollFunction->axis);
             scrollTimeline->setSource(*owningElement());
-            setTimeline(WTFMove(scrollTimeline));
+            setTimeline(WTF::move(scrollTimeline));
         },
         [&](const Style::ViewFunction& viewFunction) {
             auto viewTimeline = ViewTimeline::create(nullAtom(), viewFunction->axis, viewFunction->insets);
             viewTimeline->setSubject(*owningElement());
-            setTimeline(WTFMove(viewTimeline));
+            setTimeline(WTF::move(viewTimeline));
         }
     );
 
@@ -238,19 +238,19 @@ AnimationTimeline* CSSAnimation::bindingsTimeline() const
 void CSSAnimation::setBindingsTimeline(RefPtr<AnimationTimeline>&& timeline)
 {
     m_overriddenProperties.add(Property::Timeline);
-    StyleOriginatedAnimation::setBindingsTimeline(WTFMove(timeline));
+    StyleOriginatedAnimation::setBindingsTimeline(WTF::move(timeline));
 }
 
 void CSSAnimation::setBindingsRangeStart(TimelineRangeValue&& range)
 {
     m_overriddenProperties.add(Property::RangeStart);
-    StyleOriginatedAnimation::setBindingsRangeStart(WTFMove(range));
+    StyleOriginatedAnimation::setBindingsRangeStart(WTF::move(range));
 }
 
 void CSSAnimation::setBindingsRangeEnd(TimelineRangeValue&& range)
 {
     m_overriddenProperties.add(Property::RangeEnd);
-    StyleOriginatedAnimation::setBindingsRangeEnd(WTFMove(range));
+    StyleOriginatedAnimation::setBindingsRangeEnd(WTF::move(range));
 }
 
 ExceptionOr<void> CSSAnimation::bindingsPlay()
@@ -289,7 +289,7 @@ void CSSAnimation::setBindingsEffect(RefPtr<AnimationEffect>&& newEffect)
     // matching @keyframes rule is removed the animation must still be canceled.
 
     RefPtr previousEffect = effect();
-    StyleOriginatedAnimation::setBindingsEffect(WTFMove(newEffect));
+    StyleOriginatedAnimation::setBindingsEffect(WTF::move(newEffect));
     if (effect() != previousEffect.get()) {
         m_overriddenProperties.add(Property::Duration);
         m_overriddenProperties.add(Property::TimingFunction);

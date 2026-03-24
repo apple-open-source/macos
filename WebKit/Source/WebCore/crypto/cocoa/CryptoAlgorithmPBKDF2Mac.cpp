@@ -62,7 +62,7 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmPBKDF2::platformDeriveBits(const Cry
     auto keySpan = spanReinterpretCast<const char>(key.key().span());
     if (CCKeyDerivationPBKDF(kCCPBKDF2, keySpan.data() ? keySpan.data() : "", key.key().size(), parameters.saltVector().span().data(), parameters.saltVector().size(), CryptoAlgorithmPBKDF2MacInternal::commonCryptoHMACAlgorithm(parameters.hashIdentifier), parameters.iterations, result.mutableSpan().data(), length / 8))
         return Exception { ExceptionCode::OperationError };
-    return WTFMove(result);
+    return WTF::move(result);
 }
 
 } // namespace WebCore

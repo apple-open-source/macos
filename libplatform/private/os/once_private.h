@@ -39,7 +39,13 @@ OS_SWIFT_UNAVAILABLE("Swift has lazy init")
 void
 _os_once(os_once_t *predicate, void *_Nullable context, os_function_t function);
 
-OS_NONNULL1 OS_NONNULL3 OS_NOTHROW
+#if __has_attribute(no_sanitize)
+#define __PLATFORM_NO_UBSAN __attribute__((no_sanitize("undefined")))
+#else
+#define __PLATFORM_NO_UBSAN
+#endif
+
+OS_NONNULL1 OS_NONNULL3 OS_NOTHROW __PLATFORM_NO_UBSAN
 __header_always_inline void
 os_once(os_once_t *predicate, void *_Nullable context, os_function_t function)
 {

@@ -129,6 +129,9 @@ __FBSDID("$FreeBSD$");
 #include <resolv.h>
 
 #include "res_private.h"
+#ifdef __APPLE__
+#include "dns_private.h"	/* notify API */
+#endif
 
 /*% Options.  Should all be left alone. */
 #define RESOLVSORT
@@ -203,6 +206,9 @@ res_build_start(res_state x)
 
 	if (res->_u._ext.ext != NULL)
 	{
+#ifdef __APPLE__
+		res->_u._ext.ext->conf_sys_notify_token = -1;
+#endif
 		strlcpy(res->_u._ext.ext->nsuffix, "ip6.arpa", RES_EXT_SUFFIX_LEN);
 		strlcpy(res->_u._ext.ext->nsuffix2, "ip6.int", RES_EXT_SUFFIX_LEN);
 		strlcpy(res->_u._ext.ext->bsuffix, "ip6.arpa", RES_EXT_SUFFIX_LEN);
@@ -681,6 +687,7 @@ __res_vinit_from_file(res_state statp, int preinit)
 	        memset(statp->_u._ext.ext, 0, sizeof(*statp->_u._ext.ext));
 		statp->_u._ext.ext->nsaddrs[0].sin = statp->nsaddr;
 #ifdef __APPLE__
+		statp->_u._ext.ext->conf_sys_notify_token = -1;
 		strlcpy(statp->_u._ext.ext->nsuffix, "ip6.arpa", RES_EXT_SUFFIX_LEN);
 		strlcpy(statp->_u._ext.ext->nsuffix2, "ip6.int", RES_EXT_SUFFIX_LEN);
 #else
@@ -777,15 +784,9 @@ __res_vinit_from_file(res_state statp, int preinit)
 	    struct timespec now;
 
 	    if (statp->_u._ext.ext != NULL) {
-#ifdef __APPLE__
-		if (fstat(fileno(fp), &sb) == 0) {
-		    statp->_u._ext.ext->conf_mtim = sb.st_mtimespec;
-		    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
-#else
 		if (_fstat(fileno(fp), &sb) == 0) {
 		    statp->_u._ext.ext->conf_mtim = sb.st_mtim;
 		    if (clock_gettime(CLOCK_MONOTONIC_FAST, &now) == 0) {
-#endif /* __APPLE__ */
 			statp->_u._ext.ext->conf_stat = now.tv_sec;
 		    }
 		}
@@ -1077,6 +1078,17 @@ __res_vinit_from_dns(res_state statp, int preinit)
 
 	/* N.B. res_build_start will allocate statp->_u._ext.ext for us */
 	statp = res_build_start(statp);
+
+	_dns_open_sys_config_notify(&statp->_u._ext.ext->conf_sys_notify_token);
+
+	/*
+	 * Prime the reload token immediately before fetching our initial
+	 * configuration to put us at an advantage if we end up racing- having
+	 * checked prior to configuration, we're more likely to get a false
+	 * positive than we are to miss a potentially important configuration
+	 * update.
+	 */
+	(void)_dns_check_sys_config_notify(statp->_u._ext.ext->conf_sys_notify_token);
 
 	p = getenv("RES_RETRY_TIMEOUT");
 	if (p != NULL)
@@ -1463,6 +1475,9 @@ void
 res_ndestroy(res_state statp) {
 	res_nclose(statp);
 	if (statp->_u._ext.ext != NULL) {
+#ifdef __APPLE__
+		_dns_close_sys_config_notify(&statp->_u._ext.ext->conf_sys_notify_token);
+#endif
 		free(statp->_u._ext.ext);
 		statp->_u._ext.ext = NULL;
 	}

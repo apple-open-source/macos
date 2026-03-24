@@ -34,19 +34,15 @@
 #include <wtf/Compiler.h>
 #include <wtf/ForbidHeapAllocation.h>
 #include <wtf/Forward.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/ASCIILiteral.h>
-#include <wtf/text/SuperFastHash.h>
 
 namespace WTF {
 
 class PrintStream;
-class String;
 
-// This is a class designed to contain a UTF8 string, untouched. Interactions with other string classes in WebKit should
-// be handled with care or perform a string conversion through the String class, with the exception of ASCIILiteral
-// because ASCII characters are also UTF8.
+// This is a class designed to contain a null terminated UTF8 string, untouched. It contains char8_t to avoid mixing
+// incompatible encodings at compile time.
 class CStringView final {
     WTF_FORBID_HEAP_ALLOCATION;
 public:
@@ -55,6 +51,14 @@ public:
         if (!string)
             return CStringView();
         return CStringView(unsafeMakeSpan(byteCast<char8_t>(string), std::char_traits<char>::length(string) + 1));
+    }
+
+    static CStringView fromUTF8(std::span<const char8_t> spanWithNullTerminator LIFETIME_BOUND)
+    {
+        if (spanWithNullTerminator.size() < 1)
+            return CStringView();
+        RELEASE_ASSERT(spanWithNullTerminator[spanWithNullTerminator.size() - 1] == '\0');
+        return CStringView(spanWithNullTerminator);
     }
 
     WTF_EXPORT_PRIVATE void dump(PrintStream& out) const;
@@ -70,17 +74,15 @@ public:
         m_spanWithNullTerminator = byteCast<char8_t>(literal.spanIncludingNullTerminator());
     }
 
-    unsigned hash() const;
     bool isNull() const { return m_spanWithNullTerminator.empty(); }
 
-    // This method is designed to interface with external C functions handling UTF8 strings. Interactions with other
-    // strings should be done through String with the exception of ASCIILiteral because ASCII is also UTF8.
+    // This member function is designed to interface with external C functions handling UTF8 strings. Interactions with
+    // other strings should be handled by using the span.
     const char* utf8() const LIFETIME_BOUND { return reinterpret_cast<const char*>(m_spanWithNullTerminator.data()); }
-    size_t length() const { return m_spanWithNullTerminator.size() > 0 ? m_spanWithNullTerminator.size() - 1 : 0; }
-    std::span<const char8_t> span8() const LIFETIME_BOUND { return m_spanWithNullTerminator.first(length()); }
+    size_t lengthInBytes() const { return m_spanWithNullTerminator.size() > 0 ? m_spanWithNullTerminator.size() - 1 : 0; }
+    std::span<const char8_t> span() const LIFETIME_BOUND { return m_spanWithNullTerminator.first(lengthInBytes()); }
     std::span<const char8_t> spanIncludingNullTerminator() const LIFETIME_BOUND { return m_spanWithNullTerminator; }
-    size_t isEmpty() const { return m_spanWithNullTerminator.size() <= 1; }
-    WTF_EXPORT_PRIVATE String toString() const;
+    bool isEmpty() const { return m_spanWithNullTerminator.size() <= 1; }
 
     explicit operator bool() const { return !isEmpty(); }
     bool operator!() const { return isEmpty(); }
@@ -96,16 +98,12 @@ private:
 
 inline bool operator==(CStringView a, CStringView b)
 {
-    if (!a || !b)
-        return a.utf8() == b.utf8();
-    return equalSpans(a.span8(), b.span8());
+    return equalSpans(a.span(), b.span());
 }
 
 inline bool operator==(CStringView a, ASCIILiteral b)
 {
-    if (a.isEmpty() || b.isEmpty())
-        return a.utf8() == b.characters();
-    return equalSpans(a.span8(), byteCast<char8_t>(b.span()));
+    return equalSpans(a.span(), byteCast<char8_t>(b.span()));
 }
 
 inline bool operator==(ASCIILiteral a, CStringView b)

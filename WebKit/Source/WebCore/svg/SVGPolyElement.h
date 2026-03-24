@@ -28,7 +28,7 @@
 namespace WebCore {
 
 class SVGPolyElement : public SVGGeometryElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGPolyElement);
+    WTF_MAKE_TZONE_ALLOCATED(SVGPolyElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGPolyElement);
 public:
     const SVGPointList& points() const { return m_points->currentValue(); }

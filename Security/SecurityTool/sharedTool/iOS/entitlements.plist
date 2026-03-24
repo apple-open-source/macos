@@ -37,5 +37,7 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.keystore.keybag.create</key>
+	<true/>
 </dict>
 </plist>

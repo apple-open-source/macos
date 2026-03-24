@@ -66,7 +66,12 @@ public:
 
 private:
     static DOMCSSPaintWorklet* from(DOMCSSNamespace&);
-    static ASCIILiteral supplementName();
+    static ASCIILiteral supplementName() { return "DOMCSSPaintWorklet"_s; }
+    bool isDOMCSSPaintWorklet() const final { return true; }
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DOMCSSPaintWorklet)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isDOMCSSPaintWorklet(); }
+SPECIALIZE_TYPE_TRAITS_END()

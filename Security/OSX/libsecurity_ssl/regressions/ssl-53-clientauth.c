@@ -128,26 +128,26 @@ ssl_client_handle_create(bool break_on_req, int comm, CFArrayRef certs, CFArrayR
     ssl_client_handle *handle = calloc(1, sizeof(ssl_client_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
         (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
     static const char *peer_domain_name = "localhost";
-    require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
+    __Require_noErr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
-    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
+    __Require_noErr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
 
 
     /* Setting client certificate in advance */
     if (!break_on_req && certs) {
-        require_noerr(SSLSetCertificate(ctx, certs), out);
+        __Require_noErr(SSLSetCertificate(ctx, certs), out);
     }
 
     if (break_on_req) {
-        require_noerr(SSLSetSessionOption(ctx,
+        __Require_noErr(SSLSetSessionOption(ctx,
                 kSSLSessionOptionBreakOnCertRequested, true), out);
     }
 
@@ -188,34 +188,34 @@ static void *securetransport_ssl_client_thread(void *arg)
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLClientCertRequested) {
-            require_string(ssl->auth, out, "cert req not expected");
-            require_string(ssl_state==kSSLHandshake, out, "wrong client handshake state after errSSLClientCertRequested");
-            require_string(!got_client_cert_req, out, "second client cert req");
+            __Require_String(ssl->auth, out, "cert req not expected");
+            __Require_String(ssl_state==kSSLHandshake, out, "wrong client handshake state after errSSLClientCertRequested");
+            __Require_String(!got_client_cert_req, out, "second client cert req");
             got_client_cert_req = true;
 
             SSLClientCertificateState clientState;
             SSLGetClientCertificateState(ctx, &clientState);
-            require_string(clientState==kSSLClientCertRequested, out, "Wrong client cert state after cert request");
+            __Require_String(clientState==kSSLClientCertRequested, out, "Wrong client cert state after cert request");
 
-            require_string(ssl->break_on_req, out, "errSSLClientCertRequested in run not testing that");
+            __Require_String(ssl->break_on_req, out, "errSSLClientCertRequested in run not testing that");
             if(ssl->certs) {
-                require_noerr(SSLSetCertificate(ctx, ssl->certs), out);
+                __Require_noErr(SSLSetCertificate(ctx, ssl->certs), out);
             }
 
         } else if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            __Require_String(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock || ortn == errSSLClientCertRequested);
 
-    require_string((got_client_cert_req || !ssl->auth || !ssl->break_on_req), out, "didn't get client cert req as expected");
+    __Require_String((got_client_cert_req || !ssl->auth || !ssl->break_on_req), out, "didn't get client cert req as expected");
 
 
 out:
@@ -239,21 +239,21 @@ ssl_server_handle_create(SSLAuthenticate client_auth, int comm, CFArrayRef certs
     ssl_server_handle *handle = calloc(1, sizeof(ssl_server_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLServerSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
 
-    require_noerr(SSLSetCertificate(ctx, certs), out);
+    __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
-    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
+    __Require_noErr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
 
     SSLAuthenticate auth;
-    require_noerr(SSLSetClientSideAuthenticate(ctx, client_auth), out);
-    require_noerr(SSLGetClientSideAuthenticate(ctx, &auth), out);
-    require(auth==client_auth, out);
+    __Require_noErr(SSLSetClientSideAuthenticate(ctx, client_auth), out);
+    __Require_noErr(SSLGetClientSideAuthenticate(ctx, &auth), out);
+    __Require(auth==client_auth, out);
 
     handle->client_auth = client_auth;
     handle->comm = comm;
@@ -290,21 +290,21 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            __Require_Action(ssl_state==kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock);
 
-    require_noerr_quiet(ortn, out);
+    __Require_noErr_Quiet(ortn, out);
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
 
 out:
     SSLClose(ssl->st);

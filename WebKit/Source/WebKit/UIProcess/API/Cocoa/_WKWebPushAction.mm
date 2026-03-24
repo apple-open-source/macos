@@ -53,11 +53,11 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
         return nil;
 
     RetainPtr uuidString = adoptNS([[NSString alloc] initWithFormat:@"%@-%@-%@-%@-%@",
-        [pushPartition substringWithRange:NSMakeRange(0, 8)],
-        [pushPartition substringWithRange:NSMakeRange(8, 4)],
-        [pushPartition substringWithRange:NSMakeRange(12, 4)],
-        [pushPartition substringWithRange:NSMakeRange(16, 4)],
-        [pushPartition substringWithRange:NSMakeRange(20, 12)]]);
+        retainPtr([pushPartition substringWithRange:NSMakeRange(0, 8)]).get(),
+        retainPtr([pushPartition substringWithRange:NSMakeRange(8, 4)]).get(),
+        retainPtr([pushPartition substringWithRange:NSMakeRange(12, 4)]).get(),
+        retainPtr([pushPartition substringWithRange:NSMakeRange(16, 4)]).get(),
+        retainPtr([pushPartition substringWithRange:NSMakeRange(20, 12)]).get()]);
     return adoptNS([[NSUUID alloc] initWithUUIDString:uuidString.get()]);
 }
 
@@ -71,26 +71,26 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
 
 + (_WKWebPushAction *)webPushActionWithDictionary:(NSDictionary *)dictionary
 {
-    NSNumber *version = dictionary[WebKit::WebPushD::pushActionVersionKeySingleton()];
+    RetainPtr<NSNumber> version = dictionary[WebKit::WebPushD::pushActionVersionKeySingleton()];
     if (!version || ![version isKindOfClass:[NSNumber class]])
         return nil;
 
-    NSString *pushPartition = dictionary[WebKit::WebPushD::pushActionPartitionKeySingleton()];
+    RetainPtr<NSString> pushPartition = dictionary[WebKit::WebPushD::pushActionPartitionKeySingleton()];
     if (!pushPartition || ![pushPartition isKindOfClass:[NSString class]])
         return nil;
 
-    RetainPtr uuid = uuidFromPushPartition(pushPartition);
+    RetainPtr uuid = uuidFromPushPartition(pushPartition.get());
     if (!uuid)
         return nil;
 
-    NSString *type = dictionary[WebKit::WebPushD::pushActionTypeKeySingleton()];
+    RetainPtr<NSString> type = dictionary[WebKit::WebPushD::pushActionTypeKeySingleton()];
     if (!type || ![type isKindOfClass:[NSString class]])
         return nil;
 
     RetainPtr result = adoptNS([[_WKWebPushAction alloc] init]);
-    result.get().version = version;
+    result.get().version = version.get();
     result.get().webClipIdentifier = uuid.get();
-    result.get().type = type;
+    result.get().type = type.get();
 
     return result.autorelease();
 }
@@ -122,7 +122,7 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
         return nil;
     }
 
-    result.coreNotificationData = WTFMove(notificationData);
+    result.coreNotificationData = WTF::move(notificationData);
 
     return result;
 #else

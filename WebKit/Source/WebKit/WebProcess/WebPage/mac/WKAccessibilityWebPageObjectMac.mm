@@ -133,9 +133,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (NSPoint)convertScreenPointToRootView:(NSPoint)point
 {
     return ax::retrieveValueFromMainThread<NSPoint>([&point, PROTECTED_SELF] () -> NSPoint {
-        if (!protectedSelf->m_page)
-            return point;
-        return protectedSelf->m_page->screenToRootView(WebCore::IntPoint(point.x, point.y));
+        if (RefPtr page = protectedSelf->m_page.get())
+            return page->screenToRootView(WebCore::IntPoint(point.x, point.y));
+        return point;
     });
 }
 
@@ -148,8 +148,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSArray *)accessibilityChildren
 {
-    id wrapper = [self accessibilityRootObjectWrapper:[self focusedLocalFrame]];
-    return wrapper ? @[wrapper] : @[];
+    RetainPtr wrapper = [self accessibilityRootObjectWrapper:[self protectedFocusedLocalFrame].get()];
+    return wrapper ? @[wrapper.get()] : @[];
 }
 
 - (NSArray *)accessibilityChildrenInNavigationOrder
@@ -203,16 +203,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attribute isEqualToString:NSAccessibilityParentAttribute])
-        return [self accessibilityAttributeParentValue].unsafeGet();
+        return [self accessibilityAttributeParentValue].autorelease();
 
     if ([attribute isEqualToString:NSAccessibilityPrimaryScreenHeightAttribute])
         return @(screenHeight.load());
 
     if ([attribute isEqualToString:NSAccessibilityWindowAttribute])
-        return [self accessibilityAttributeWindowValue].unsafeGet();
+        return [self accessibilityAttributeWindowValue].autorelease();
 
     if ([attribute isEqualToString:NSAccessibilityTopLevelUIElementAttribute])
-        return [self accessibilityAttributeTopLevelUIElementValue].unsafeGet();
+        return [self accessibilityAttributeTopLevelUIElementValue].autorelease();
 
     return nil;
 }
@@ -341,20 +341,21 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             // do a coordinate conversion for those hit tests.
             convertedPoint = WebCore::IntPoint { point };
         } else {
-            convertedPoint = protectedSelf->m_page->screenToRootView(WebCore::IntPoint(point));
-            if (CheckedPtr localFrameView = protectedSelf->m_page->localMainFrameView())
+            RefPtr webPage = protectedSelf->m_page.get();
+            convertedPoint = webPage->screenToRootView(WebCore::IntPoint(point));
+            if (CheckedPtr localFrameView = webPage->localMainFrameView())
                 convertedPoint.moveBy(localFrameView->scrollPosition());
             else if (RefPtr focusedLocalFrame = [protectedSelf focusedLocalFrame]) {
                 if (CheckedPtr frameView = focusedLocalFrame->view())
                     convertedPoint.moveBy(frameView->scrollPosition());
             }
-            if (RefPtr page = protectedSelf->m_page->corePage()) {
+            if (RefPtr page = webPage->corePage()) {
                 auto obscuredContentInsets = page->obscuredContentInsets();
                 convertedPoint.move(-obscuredContentInsets.left(), -obscuredContentInsets.top());
             }
         }
 
-        return [[protectedSelf accessibilityRootObjectWrapper:[protectedSelf focusedLocalFrame]] accessibilityHitTest:convertedPoint];
+        return [retainPtr([protectedSelf accessibilityRootObjectWrapper:[protectedSelf protectedFocusedLocalFrame].get()]) accessibilityHitTest:convertedPoint];
     });
 }
 ALLOW_DEPRECATED_DECLARATIONS_END

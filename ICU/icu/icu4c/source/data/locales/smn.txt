@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 smn{
     AuxExemplarCharacters{"[à ç éè í ñń óò q úü w x æ ø å ã ö]"}
     ExemplarCharacters{"[a â b c č d đ e f g h i j k l m n ŋ o p r s š t u v y z ž ä á]"}
@@ -12,7 +12,9 @@ smn{
                 atLeast{"ucemustáá {0}"}
             }
             patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
             patternsLong{
@@ -341,20 +343,20 @@ smn{
             }
             eras{
                 abbreviated{
-                    "oKr.",
-                    "mKr.",
+                    0{"oKr."}
+                    1{"mKr."}
                 }
                 abbreviated%variant{
-                    "oää.",
-                    "mää.",
+                    0{"oää."}
+                    1{"mää."}
                 }
                 wide{
-                    "Ovdil Kristus šoddâm",
-                    "maŋa Kristus šoddâm",
+                    0{"Ovdil Kristus šoddâm"}
+                    1{"maŋa Kristus šoddâm"}
                 }
                 wide%variant{
-                    "Ovdil ääigirekinistem älgim",
-                    "maŋa ääigirekinistem älgim",
+                    0{"Ovdil ääigirekinistem älgim"}
+                    1{"maŋa ääigirekinistem älgim"}
                 }
             }
             intervalFormats{

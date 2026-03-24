@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,28 +27,14 @@
 #pragma once
 
 #include "APIObject.h"
+#include <ranges>
 #include <wtf/Forward.h>
-#include <wtf/IteratorAdaptors.h>
-#include <wtf/IteratorRange.h>
+#include <wtf/RetainReleaseSwift.h>
 #include <wtf/Vector.h>
 
 namespace API {
 
 class Array final : public ObjectImpl<Object::Type::Array> {
-private:
-    template <class T>
-    struct IsTypePredicate {
-        bool operator()(const RefPtr<Object>& object) const { return object->type() == T::APIType; }
-    };
-
-    template <class T>
-    struct GetObjectTransform {
-        const T* operator()(const RefPtr<Object>& object) const { return downcast<T>(object.get()); }
-    };
-
-    template <typename T>
-    using ElementsOfTypeRange = WTF::IteratorRange<WTF::TransformIterator<GetObjectTransform<T>, WTF::FilterIterator<IsTypePredicate<T>, Vector<RefPtr<Object>>::const_iterator>>>;
-
 public:
     static Ref<Array> create();
     static Ref<Array> createWithCapacity(size_t);
@@ -72,12 +59,11 @@ public:
     Vector<RefPtr<Object>>& elements() { return m_elements; }
 
     template<typename T>
-    ElementsOfTypeRange<T> elementsOfType() const
+    decltype(auto) elementsOfType() const
     {
-        return WTF::makeIteratorRange(
-            WTF::makeTransformIterator(GetObjectTransform<T>(), WTF::makeFilterIterator(IsTypePredicate<T>(), m_elements.begin(), m_elements.end())),
-            WTF::makeTransformIterator(GetObjectTransform<T>(), WTF::makeFilterIterator(IsTypePredicate<T>(), m_elements.end(), m_elements.end()))
-        );
+        return m_elements
+            | std::views::filter([](const auto& element) { return element->type() == T::APIType; })
+            | std::views::transform([](const auto& element) { return downcast<T>(element); });
     }
 
     template<typename MatchFunction>
@@ -90,23 +76,32 @@ public:
     unsigned removeAllOfTypeMatching(NOESCAPE const MatchFunction& matchFunction)
     {
         return m_elements.removeAllMatching([&] (const RefPtr<Object>& object) -> bool {
-            if (object->type() != T::APIType)
-                return false;
-            return matchFunction(static_pointer_cast<T>(object));
+            RefPtr objectAsT = dynamicDowncast<T>(*object);
+            return objectAsT && matchFunction(objectAsT.releaseNonNull());
         });
     }
 
-    void append(RefPtr<Object>&& element) { m_elements.append(WTFMove(element)); }
+    void append(RefPtr<Object>&& element) { m_elements.append(WTF::move(element)); }
 
 private:
     explicit Array(Vector<RefPtr<Object>>&& elements)
-        : m_elements(WTFMove(elements))
+        : m_elements(WTF::move(elements))
     {
     }
 
     Vector<RefPtr<Object>> m_elements;
-};
+} SWIFT_SHARED_REFERENCE(refArray, derefArray);
 
 } // namespace API
+
+inline void refArray(API::Array* WTF_NONNULL obj)
+{
+    WTF::ref(obj);
+}
+
+inline void derefArray(API::Array* WTF_NONNULL obj)
+{
+    WTF::deref(obj);
+}
 
 SPECIALIZE_TYPE_TRAITS_API_OBJECT(Array);

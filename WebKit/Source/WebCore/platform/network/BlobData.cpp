@@ -63,19 +63,19 @@ long long BlobDataItem::length() const
 void BlobData::appendData(Ref<DataSegment>&& data)
 {
     auto dataSize = data->size();
-    appendData(WTFMove(data), 0, dataSize);
+    appendData(WTF::move(data), 0, dataSize);
 }
 
 void BlobData::appendData(Ref<DataSegment>&& data, long long offset, long long length)
 {
-    m_items.append(BlobDataItem(WTFMove(data), offset, length));
+    m_items.append(BlobDataItem(WTF::move(data), offset, length));
 }
 
 void BlobData::replaceData(const DataSegment& oldData, Ref<DataSegment>&& newData)
 {
     for (auto& blobItem : m_items) {
         if (blobItem.data() == &oldData) {
-            blobItem.m_data = WTFMove(newData);
+            blobItem.m_data = WTF::move(newData);
             break;
         }
     }
@@ -84,7 +84,7 @@ void BlobData::replaceData(const DataSegment& oldData, Ref<DataSegment>&& newDat
 void BlobData::appendFile(Ref<BlobDataFileReference>&& file)
 {
     file->startTrackingModifications();
-    m_items.append(BlobDataItem(WTFMove(file)));
+    m_items.append(BlobDataItem(WTF::move(file)));
 }
 
 Ref<BlobData> BlobData::clone() const

@@ -85,7 +85,7 @@ public:
     WEBCORE_EXPORT FilterOperations blend(const FilterOperations&, const BlendingContext&) const;
 
 private:
-    friend struct IPC::ArgumentCoder<FilterOperations, void>;
+    friend struct IPC::ArgumentCoder<FilterOperations>;
     WEBCORE_EXPORT friend WTF::TextStream& operator<<(WTF::TextStream&, const FilterOperations&);
 
     Vector<Ref<FilterOperation>> m_operations;

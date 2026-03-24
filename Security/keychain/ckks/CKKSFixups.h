@@ -41,8 +41,9 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
     CKKSFixupLocalReload,
     CKKSFixupResaveDeviceStateEntries,
     CKKSFixupDeleteAllCKKSTombstones,
+    CKKSFixupUpgradeZoneStateEntries,
 };
-#define CKKSCurrentFixupNumber (CKKSFixupDeleteAllCKKSTombstones)
+#define CKKSCurrentFixupNumber (CKKSFixupUpgradeZoneStateEntries)
 
 @interface CKKSFixups : NSObject
 + (CKKSState* _Nullable)fixupOperation:(CKKSFixup)lastfixup;
@@ -70,6 +71,12 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
 @end
 
 @interface CKKSFixupResaveDeviceStateEntriesOperation: CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies;
+@end
+
+@interface CKKSFixupUpgradeZoneStateEntriesOperation:
+    CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
 @property CKKSOperationDependencies* deps;
 - (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies;
 @end

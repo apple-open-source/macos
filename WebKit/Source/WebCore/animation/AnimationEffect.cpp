@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(AnimationEffect);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AnimationEffect);
 
 AnimationEffect::AnimationEffect() = default;
 
@@ -211,7 +211,7 @@ ExceptionOr<void> AnimationEffect::updateTiming(Document& document, std::optiona
         auto timingFunctionResult = CSSPropertyParserHelpers::parseEasingFunctionDeprecated(timing->easing, parsingContext);
         if (!timingFunctionResult)
             return Exception { ExceptionCode::TypeError };
-        setTimingFunction(WTFMove(timingFunctionResult));
+        setTimingFunction(WTF::move(timingFunctionResult));
     }
 
     // 5. Assign each member present in input to the corresponding timing property of effect as follows:
@@ -333,6 +333,12 @@ WebAnimationTime AnimationEffect::iterationDuration()
     return m_timing.iterationDuration;
 }
 
+WebAnimationTime AnimationEffect::iterationDuration() const
+{
+    ASSERT(!m_timingDidMutate);
+    return m_timing.iterationDuration;
+}
+
 void AnimationEffect::setIterationDuration(const std::optional<Seconds>& duration)
 {
     if (m_timing.specifiedIterationDuration == duration)
@@ -408,7 +414,7 @@ Seconds AnimationEffect::timeToNextTick(const BasicEffectTiming& timing)
     return Seconds::infinity();
 }
 
-void AnimationEffect::animationTimelineDidChange(const AnimationTimeline*)
+void AnimationEffect::animationTimelineDidChange()
 {
     m_timingDidMutate = true;
 }

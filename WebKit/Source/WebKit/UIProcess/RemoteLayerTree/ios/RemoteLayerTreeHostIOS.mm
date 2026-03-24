@@ -62,7 +62,7 @@ using namespace WebCore;
 RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
 {
     auto makeWithView = [&] (RetainPtr<UIView>&& view) {
-        return RemoteLayerTreeNode::create(*properties.layerID, properties.hostIdentifier(), WTFMove(view));
+        return RemoteLayerTreeNode::create(*properties.layerID, properties.hostIdentifier(), WTF::move(view));
     };
 
     switch (properties.type) {
@@ -112,9 +112,9 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
                 hostingContext.contextID = properties.hostingContextID();
 #if ENABLE(MACH_PORT_LAYER_HOSTING)
                 if (auto sendRightAnnotated = properties.sendRightAnnotated())
-                    hostingContext.sendRightAnnotated = WTFMove(*sendRightAnnotated);
+                    hostingContext.sendRightAnnotated = WTF::move(*sendRightAnnotated);
 #endif
-                return makeWithView(videoManager->createViewWithID(properties.videoElementData->playerIdentifier, WTFMove(hostingContext), properties.videoElementData->initialSize, properties.videoElementData->naturalSize, properties.hostingDeviceScaleFactor()));
+                return makeWithView(videoManager->createViewWithID(properties.videoElementData->playerIdentifier, WTF::move(hostingContext), properties.videoElementData->initialSize, properties.videoElementData->naturalSize, properties.hostingDeviceScaleFactor()));
             }
         }
 #endif
@@ -127,14 +127,14 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
             if (auto modelPresentationManager = m_drawingArea->page() ? m_drawingArea->page()->modelPresentationManagerProxy() : nullptr) {
                 if (auto view = modelPresentationManager->setUpModelView(*modelContext)) {
                     m_modelLayers.add(modelContext->modelLayerIdentifier());
-                    return makeWithView(WTFMove(view));
+                    return makeWithView(WTF::move(view));
                 }
             }
         }
 #endif
 
         auto view = adoptNS([[WKUIRemoteView alloc] initWithFrame:CGRectZero pid:m_drawingArea->page()->legacyMainFrameProcessID() contextID:properties.hostingContextID()]);
-        return makeWithView(WTFMove(view));
+        return makeWithView(WTF::move(view));
     }
     case PlatformCALayer::LayerType::LayerTypeShapeLayer:
         return makeWithView(adoptNS([[WKShapeView alloc] init]));

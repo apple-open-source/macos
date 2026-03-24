@@ -181,6 +181,7 @@
 	unsigned long const do_type; \
 	void DISPATCH_VTABLE_ENTRY(do_dispose)(struct x##_s *, \
 			bool *allow_free); \
+	void DISPATCH_VTABLE_ENTRY(do_dealloc)(dispatch_object_t); \
 	size_t DISPATCH_VTABLE_ENTRY(do_debug)(struct x##_s *, \
 			char *, size_t); \
 	void DISPATCH_VTABLE_ENTRY(do_invoke)(struct x##_s *, \
@@ -196,6 +197,7 @@
 	const char *const do_kind; \
 	void DISPATCH_VTABLE_ENTRY(do_dispose)(struct x##_s *, \
 			bool *allow_free); \
+	void DISPATCH_VTABLE_ENTRY(do_dealloc)(dispatch_object_t); \
 	size_t DISPATCH_VTABLE_ENTRY(do_debug)(struct x##_s *, \
 			char *, size_t); \
 	void DISPATCH_VTABLE_ENTRY(do_invoke)(struct x##_s *, \
@@ -215,6 +217,7 @@
 #define dx_metatype(x) (dx_vtable(x)->do_type & _DISPATCH_META_TYPE_MASK)
 #define dx_cluster(x) (dx_vtable(x)->do_type & _DISPATCH_TYPE_CLUSTER_MASK)
 #define dx_hastypeflag(x, f) (dx_vtable(x)->do_type & _DISPATCH_##f##_TYPEFLAG)
+#define dx_dealloc(x) dx_vtable(x)->do_dealloc((dispatch_object_t) x)
 #define dx_debug(x, y, z) dx_vtable(x)->do_debug((x), (y), (z))
 #define dx_dispose(x, y) dx_vtable(x)->do_dispose(x, y)
 #define dx_invoke(x, y, z) dx_vtable(x)->do_invoke(x, y, z)

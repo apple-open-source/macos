@@ -33,6 +33,7 @@
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -51,6 +52,8 @@
 @property BOOL cloudkitWriteFailures;
 @property BOOL failedDueToLockState;
 @property BOOL failedDueToEssentialTrustState;
+@property BOOL authTokenFailure;
+
 @end
 
 @implementation CKKSHealTLKSharesOperation
@@ -74,6 +77,7 @@
         _cloudkitWriteFailures = NO;
         _failedDueToLockState = NO;
         _failedDueToEssentialTrustState = NO;
+        _authTokenFailure = NO;
         _ckOperations = [NSHashTable weakObjectsHashTable];
     }
     return self;
@@ -110,6 +114,10 @@
         } else if(self.cloudkitWriteFailures) {
             ckksnotice_global("ckksheal", "Due to write failures, we'll retry later");
             self.nextState = CKKSStateHealTLKSharesFailed;
+            [eventS sendMetricWithResult:NO error:nil];
+        } else if (self.authTokenFailure) {
+            ckksnotice_global("ckksshare", "CloudKit told us of an AuthTokenError, we'll try to re-fetch the current account state");
+            self.nextState = CKKSStateRecheckAccountStatus;
             [eventS sendMetricWithResult:NO error:nil];
         } else {
             self.nextState = self.intendedState;
@@ -352,7 +360,12 @@
                     ckkserror("ckksshare", viewState.zoneID, "Completed TLK Share heal operation with error: %@", error);
                     [uploadMissingTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:error];
                     [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
-                    self.cloudkitWriteFailures = true;
+                    if ([error isCKServerAuthTokenError]) {
+                        ckkserror("ckksshare", viewState.zoneID, "CloudKit tells us of an AuthTokenError, need to recheck CK Account Status");
+                        self.authTokenFailure = YES;
+                    } else {
+                        self.cloudkitWriteFailures = YES;
+                    }
                 }
                 return CKKSDatabaseTransactionCommit;
             }];

@@ -53,7 +53,7 @@ void testRetrieval()
 
     auto result = pas_mar_get_allocation_record(&registry, address);
     CHECK(result.is_valid);
-    CHECK_EQUAL(result.allocation_size, 32);
+    CHECK_EQUAL(result.allocation_size_bytes, 32);
     CHECK_EQUAL(result.allocation_trace.num_frames, 8);
     CHECK_EQUAL(result.allocation_trace.backtrace_buffer[0], backtrace[0]);
 }
@@ -76,12 +76,12 @@ void testRetrievalAfterCycling()
 
     pas_mar_record_allocation(&registry, address, 32, 8, backtrace);
 
-    for (unsigned long i = 1; i < MARTrackedAllocations; ++i)
+    for (unsigned long i = 1; i < PAS_MAR_TRACKED_ALLOCATIONS; ++i)
         pas_mar_record_allocation(&registry, (void*)i, 32, 8, backtrace);
 
     auto result = pas_mar_get_allocation_record(&registry, address);
     CHECK(result.is_valid);
-    CHECK_EQUAL(result.allocation_size, 32);
+    CHECK_EQUAL(result.allocation_size_bytes, 32);
     CHECK_EQUAL(result.allocation_trace.num_frames, 8);
     CHECK_EQUAL(result.allocation_trace.backtrace_buffer[0], backtrace[0]);
 }
@@ -99,17 +99,17 @@ void testRetrievalAfterMultipleCycles()
 
     void* address = (void*)0x11223344;
 
-    for (unsigned long i = 0; i < 3 * MARTrackedAllocations; ++i)
+    for (unsigned long i = 0; i < 3 * PAS_MAR_TRACKED_ALLOCATIONS; ++i)
         pas_mar_record_allocation(&registry, (void*)i, 32, 8, backtrace);
 
     pas_mar_record_allocation(&registry, address, 32, 8, backtrace);
 
-    for (unsigned long i = 1; i < MARTrackedAllocations; ++i)
+    for (unsigned long i = 1; i < PAS_MAR_TRACKED_ALLOCATIONS; ++i)
         pas_mar_record_allocation(&registry, (void*)i, 32, 8, backtrace);
 
     auto result = pas_mar_get_allocation_record(&registry, address);
     CHECK(result.is_valid);
-    CHECK_EQUAL(result.allocation_size, 32);
+    CHECK_EQUAL(result.allocation_size_bytes, 32);
     CHECK_EQUAL(result.allocation_trace.num_frames, 8);
     CHECK_EQUAL(result.allocation_trace.backtrace_buffer[0], backtrace[0]);
 }

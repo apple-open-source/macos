@@ -43,6 +43,7 @@
 #define kIOHIDUnitKelvin        0x00010001
 
 #define kIOHIDUnitExponentVolt  7
+#define kIOHIDDefaultPollRateSec 5.0 
 
 @implementation IOHIDUPSClass
 
@@ -114,7 +115,15 @@
     } else if (props[@(kIOHIDGameControllerTypeKey)]) {
         _properties[@(kIOPSAccessoryCategoryKey)] = @(kIOPSAccessoryCategoryGameController);
     }
-    
+
+    NSNumber *pollRateSec = props[@(kIOHIDPowerFeaturePollRateSec)];
+    if (pollRateSec) {
+        _powerFeaturePollInterval = [pollRateSec doubleValue];
+        UPSLog("Using custom power feature poll rate: %.2f sec", _powerFeaturePollInterval);
+    } else {
+        _powerFeaturePollInterval = kIOHIDDefaultPollRateSec;
+    }
+
     UPSLog("properties: %@", _properties);
 }
 
@@ -386,15 +395,15 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
             UPSLog("Feature element (UP : %x, U : %x) added for polling", element.usagePage, element.usage);
             
             /*
-             * Feature elements should be polled every 5 seconds. We create a
-             * timer here and return it with the array we pass back in the
-             * createAsyncEventSource method.
+             * Feature elements should be polled based on the configured interval.
+             * The interval can be customized via the kIOHIDPowerFeaturePollRateSec device
+             * property, otherwise defaults to 5s.
              */
             if (!_timer) {
-                UPSLog("Create time for polling feature reports");
-                
+                UPSLog("Create timer for polling feature reports (interval: %.2f sec)", _powerFeaturePollInterval);
+
                 _timer = [[NSTimer alloc] initWithFireDate:[NSDate date]
-                                                  interval:5.0
+                                                  interval:_powerFeaturePollInterval
                                                    repeats:YES
                                                      block:^(NSTimer *timer __unused)
                 {
@@ -898,28 +907,28 @@ static void _valueAvailableCallback(void *context,
                                             &deviceProperties,
                                             kCFAllocatorDefault,
                                             0);
-    require_action(ret == kIOReturnSuccess, exit, {
+    __Require_Action(ret == kIOReturnSuccess, exit, {
         UPSLogError("Failed to query properties with error %x",(int)ret);
     });
     
     
-    require_action(deviceProperties, exit, {
+    __Require_Action(deviceProperties, exit, {
         UPSLogError("deviceProperties not valid");
         ret = kIOReturnInvalid;
     });
     
     
     [self parseProperties:(__bridge NSDictionary *)deviceProperties];
-    
+
     ret = IOCreatePlugInInterfaceForService(service,
                                             kIOHIDDeviceTypeID,
                                             kIOCFPlugInInterfaceID,
                                             &plugin, &score);
-    require_action(ret == kIOReturnSuccess , exit, {
+    __Require_Action(ret == kIOReturnSuccess , exit, {
         UPSLogError("Failed to create plugin interface with error %x",(int)ret);
     });
     
-    require_action(plugin, exit, {
+    __Require_Action(plugin, exit, {
         UPSLogError("Plugin not valid");
         ret = kIOReturnInvalid;
     });
@@ -927,27 +936,27 @@ static void _valueAvailableCallback(void *context,
     result = (*plugin)->QueryInterface(plugin,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID),
                             (LPVOID *)&_device);
-    require_action(result == S_OK , exit, {
+    __Require_Action(result == S_OK , exit, {
         UPSLogError("Failed to get device interface with error %d",(int)result);
         ret = kIOReturnError;
     });
     
-    require_action(_device, exit, {
+    __Require_Action(_device, exit, {
         UPSLogError("Device not valid");
         ret = kIOReturnInvalid;
     });
     
     ret = (*_device)->open(_device, 0);
-    require_action(ret == kIOReturnSuccess, exit, {
+    __Require_Action(ret == kIOReturnSuccess, exit, {
          UPSLogError("Failed to open device with error %x",(int)ret);
     });
     
     ret = (*_device)->copyMatchingElements(_device, nil, &elements, 0);
-    require_action(ret == kIOReturnSuccess, exit, {
+    __Require_Action(ret == kIOReturnSuccess, exit, {
         UPSLogError("Failed to copy matching elements with error %x",(int)ret);
     });
     
-    require_action(elements, exit, {
+    __Require_Action(elements, exit, {
         UPSLogError("Elements not valid");
         ret = kIOReturnInvalid;
     });
@@ -957,13 +966,13 @@ static void _valueAvailableCallback(void *context,
     result = (*_device)->QueryInterface(_device,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceQueueInterfaceID),
                             (LPVOID *)&_queue);
-    require_action(result == S_OK, exit, {
+    __Require_Action(result == S_OK, exit, {
         UPSLogError("Failed to get queue interface with error %d",(int)result);
         ret = kIOReturnError;
         
     });
     
-    require_action(_queue, exit, {
+    __Require_Action(_queue, exit, {
         UPSLogError("Queue not valid");
         ret = kIOReturnInvalid;
     });
@@ -972,12 +981,12 @@ static void _valueAvailableCallback(void *context,
     result = (*_device)->QueryInterface(_device,
                         CFUUIDGetUUIDBytes(kIOHIDDeviceTransactionInterfaceID),
                         (LPVOID *)&_transaction);
-    require_action(result == S_OK , exit, {
+    __Require_Action(result == S_OK , exit, {
         UPSLogError("Failed to get transaction interface with error %d",(int)result);
         ret = kIOReturnError;
     });
     
-    require_action(_transaction, exit, {
+    __Require_Action(_transaction, exit, {
         UPSLogError("Transaction not valid");
         ret = kIOReturnInvalid;
     });
@@ -998,15 +1007,15 @@ static void _valueAvailableCallback(void *context,
     }
     
     ret = (*_queue)->getAsyncEventSource(_queue, (CFTypeRef *)&_runLoopSource);
-    require(ret == kIOReturnSuccess && _runLoopSource, exit);
+    __Require(ret == kIOReturnSuccess && _runLoopSource, exit);
     
     ret = (*_queue)->setValueAvailableCallback(_queue,
                                                _valueAvailableCallback,
                                                (__bridge void *)self);
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
     ret = (*_queue)->start(_queue, 0);
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
     [self initialEventUpdate];
     
@@ -1274,6 +1283,7 @@ static IOReturn _createAsyncEventSource(void *iunknown, CFTypeRef *source)
     _upsEvent = [[NSMutableDictionary alloc] init];
     _upsUpdatedEvent = [[NSMutableDictionary alloc] init];
     _debugInformation = [[NSMutableDictionary alloc] init];
+    _powerFeaturePollInterval = kIOHIDDefaultPollRateSec;
     return self;
 }
 

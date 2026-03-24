@@ -31,7 +31,9 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RawPtrTraits.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/SwiftBridging.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/TypeTraits.h>
 
 #if ASAN_ENABLED
 extern "C" void __asan_poison_memory_region(void const volatile *addr, size_t size);
@@ -44,6 +46,8 @@ namespace WTF {
 inline void adopted(const void*) { }
 
 template<typename T> struct DefaultRefDerefTraits {
+    static constexpr bool isDefaultImplementation = true;
+
     static ALWAYS_INLINE T* refIfNotNull(T* ptr)
     {
         if (ptr) [[likely]]
@@ -63,6 +67,9 @@ template<typename T> struct DefaultRefDerefTraits {
             ptr->deref();
     }
 };
+
+template<typename T>
+concept CanUseDefaultRefDerefTraits = HasRefPtrMemberFunctions<T>::value || !DefaultRefDerefTraits<T>::isDefaultImplementation;
 
 template<typename T, typename PtrTraits, typename RefDerefTraits> class Ref;
 template<typename T, typename PtrTraits = RawPtrTraits<T>, typename RefDerefTraits = DefaultRefDerefTraits<T>> Ref<T, PtrTraits, RefDerefTraits> adoptRef(T&);
@@ -112,6 +119,12 @@ public:
         ASSERT(m_ptr);
     }
 
+    template<typename X, typename WeakPtrImplType>
+    Ref(const WeakRef<X, WeakPtrImplType>& other) requires std::is_convertible_v<X*, T*>
+        : m_ptr(&RefDerefTraits::ref(other.get()))
+    {
+    }
+
     Ref& operator=(T&);
     Ref& operator=(Ref&&);
     template<typename X, typename Y, typename Z> Ref& operator=(Ref<X, Y, Z>&&);
@@ -140,13 +153,13 @@ public:
     operator T&() const LIFETIME_BOUND { ASSERT(m_ptr); return *PtrTraits::unwrap(m_ptr); }
     bool operator!() const { ASSERT(m_ptr); return !*m_ptr; }
 
-    template<typename X, typename Y, typename Z> Ref<T, PtrTraits, RefDerefTraits> replace(Ref<X, Y, Z>&&) WARN_UNUSED_RETURN;
+    template<typename X, typename Y, typename Z> WARN_UNUSED_RETURN Ref<T, PtrTraits, RefDerefTraits> replace(Ref<X, Y, Z>&&);
 
     // The following function is deprecated.
     Ref copyRef() && = delete;
-    Ref copyRef() const & WARN_UNUSED_RETURN { return Ref(*m_ptr); }
+    WARN_UNUSED_RETURN Ref copyRef() const & { return Ref(*m_ptr); }
 
-    T& leakRef() WARN_UNUSED_RETURN
+    WARN_UNUSED_RETURN T& leakRef()
     {
         ASSERT(m_ptr);
 
@@ -171,7 +184,11 @@ private:
     }
 
     typename PtrTraits::StorageType m_ptr;
-};
+} SWIFT_ESCAPABLE;
+
+// Template deduction guide.
+template<typename X, typename Y> Ref(const WeakRef<X, Y>&) -> Ref<X, RawPtrTraits<X>, DefaultRefDerefTraits<X>>;
+template<typename X, typename Y> Ref(WeakRef<X, Y>&) -> Ref<X, RawPtrTraits<X>, DefaultRefDerefTraits<X>>;
 
 template<typename T, typename _PtrTraits, typename RefDerefTraits> Ref<T, _PtrTraits, RefDerefTraits> adoptRef(T&);
 
@@ -190,7 +207,7 @@ inline Ref<T, _PtrTraits, RefDerefTraits>& Ref<T, _PtrTraits, RefDerefTraits>::o
     if (__asan_address_is_poisoned(this))
         __asan_unpoison_memory_region(this, sizeof(*this));
 #endif
-    Ref movedReference = WTFMove(reference);
+    Ref movedReference = WTF::move(reference);
     swap(movedReference);
     return *this;
 }
@@ -203,7 +220,7 @@ inline Ref<T, _PtrTraits, RefDerefTraits>& Ref<T, _PtrTraits, RefDerefTraits>::o
     if (__asan_address_is_poisoned(this))
         __asan_unpoison_memory_region(this, sizeof(*this));
 #endif
-    Ref movedReference = WTFMove(reference);
+    Ref movedReference = WTF::move(reference);
     swap(movedReference);
     return *this;
 }
@@ -246,7 +263,8 @@ inline void Ref<X, _PtrTraits, RefDerefTraits>::swap(Ref<Y, _OtherPtrTraits, Oth
     _PtrTraits::swap(m_ptr, other.m_ptr);
 }
 
-template<typename X, typename APtrTraits, typename ARefDerefTraits, typename Y, typename BPtrTraits, typename BRefDerefTraits, typename = std::enable_if_t<!std::is_same<APtrTraits, RawPtrTraits<X>>::value || !std::is_same<BPtrTraits, RawPtrTraits<Y>>::value>>
+template<typename X, typename APtrTraits, typename ARefDerefTraits, typename Y, typename BPtrTraits, typename BRefDerefTraits>
+    requires (!std::same_as<APtrTraits, RawPtrTraits<X>> || !std::same_as<BPtrTraits, RawPtrTraits<Y>>)
 inline void swap(Ref<X, APtrTraits, ARefDerefTraits>& a, Ref<Y, BPtrTraits, BRefDerefTraits>& b)
 {
     a.swap(b);
@@ -266,15 +284,35 @@ inline Ref<X, _PtrTraits, RefDerefTraits> Ref<X, _PtrTraits, RefDerefTraits>::re
 }
 
 template<typename X, typename _PtrTraits = RawPtrTraits<X>, typename RefDerefTraits = DefaultRefDerefTraits<X>, typename Y, typename _OtherPtrTraits, typename OtherRefDerefTraits>
-inline Ref<X, _PtrTraits, RefDerefTraits> static_reference_cast(Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>&& reference)
+inline Ref<X, _PtrTraits, RefDerefTraits> upcast(Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>&& reference)
 {
+    static_assert(!std::same_as<Y, X>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<Y, X>, "Should be an upcast");
     return adoptRef(static_cast<X&>(reference.leakRef()));
 }
 
 template<typename X, typename _PtrTraits = RawPtrTraits<X>, typename RefDerefTraits = DefaultRefDerefTraits<X>, typename Y, typename _OtherPtrTraits, typename OtherRefDerefTraits>
-ALWAYS_INLINE Ref<X, _PtrTraits, RefDerefTraits> static_reference_cast(const Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>& reference)
+ALWAYS_INLINE Ref<X, _PtrTraits, RefDerefTraits> upcast(const Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>& reference)
 {
-    return static_reference_cast<X, _PtrTraits, RefDerefTraits>(reference.copyRef());
+    static_assert(!std::same_as<Y, X>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<Y, X>, "Should be an upcast");
+    return upcast<X, _PtrTraits, RefDerefTraits>(reference.copyRef());
+}
+
+template<typename X, typename _PtrTraits = RawPtrTraits<X>, typename RefDerefTraits = DefaultRefDerefTraits<X>, typename Y, typename _OtherPtrTraits, typename OtherRefDerefTraits>
+inline Ref<X, _PtrTraits, RefDerefTraits> unsafeRefDowncast(Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>&& reference)
+{
+    static_assert(!std::same_as<Y, X>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<X, Y>, "Use upcast instead");
+    SUPPRESS_MEMORY_UNSAFE_CAST return adoptRef(static_cast<X&>(reference.leakRef()));
+}
+
+template<typename X, typename _PtrTraits = RawPtrTraits<X>, typename RefDerefTraits = DefaultRefDerefTraits<X>, typename Y, typename _OtherPtrTraits, typename OtherRefDerefTraits>
+ALWAYS_INLINE Ref<X, _PtrTraits, RefDerefTraits> unsafeRefDowncast(const Ref<Y, _OtherPtrTraits, OtherRefDerefTraits>& reference)
+{
+    static_assert(!std::same_as<Y, X>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<X, Y>, "Use upcast instead");
+    return unsafeRefDowncast<X, _PtrTraits, RefDerefTraits>(reference.copyRef());
 }
 
 template <typename T, typename _PtrTraits, typename RefDerefTraits>
@@ -297,6 +335,19 @@ inline Ref<T, _PtrTraits, RefDerefTraits> adoptRef(T& reference)
     return Ref<T, _PtrTraits, RefDerefTraits>(reference, Ref<T, _PtrTraits, RefDerefTraits>::Adopt);
 }
 
+template<typename T, typename PtrTraits = RawPtrTraits<T>, typename RefDerefTraits = DefaultRefDerefTraits<T>>
+    requires CanUseDefaultRefDerefTraits<T>
+ALWAYS_INLINE CLANG_POINTER_CONVERSION Ref<T, PtrTraits, RefDerefTraits> protect(T& reference)
+{
+    return Ref<T, PtrTraits, RefDerefTraits>(reference);
+}
+
+template<typename T, typename PtrTraits, typename RefDerefTraits>
+ALWAYS_INLINE CLANG_POINTER_CONVERSION Ref<T, PtrTraits, RefDerefTraits> protect(const Ref<T, PtrTraits, RefDerefTraits>& reference)
+{
+    return reference.copyRef();
+}
+
 template<typename ExpectedType, typename ArgType, typename PtrTraits, typename RefDerefTraits>
 inline bool is(const Ref<ArgType, PtrTraits, RefDerefTraits>& source)
 {
@@ -306,29 +357,29 @@ inline bool is(const Ref<ArgType, PtrTraits, RefDerefTraits>& source)
 template<typename Target, typename Source, typename PtrTraits, typename RefDerefTraits>
 inline Ref<match_constness_t<Source, Target>> uncheckedDowncast(Ref<Source, PtrTraits, RefDerefTraits> source)
 {
-    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
-    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    static_assert(!std::same_as<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<Target, Source>, "Should be a downcast");
     ASSERT_WITH_SECURITY_IMPLICATION(is<Target>(source));
-    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
+    return unsafeRefDowncast<match_constness_t<Source, Target>>(WTF::move(source));
 }
 
 template<typename Target, typename Source, typename PtrTraits, typename RefDerefTraits>
 inline Ref<match_constness_t<Source, Target>> downcast(Ref<Source, PtrTraits, RefDerefTraits> source)
 {
-    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
-    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    static_assert(!std::same_as<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<Target, Source>, "Should be a downcast");
     RELEASE_ASSERT(is<Target>(source));
-    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
+    return unsafeRefDowncast<match_constness_t<Source, Target>>(WTF::move(source));
 }
 
 template<typename Target, typename Source, typename PtrTraits, typename RefDerefTraits>
 inline RefPtr<match_constness_t<Source, Target>> dynamicDowncast(Ref<Source, PtrTraits, RefDerefTraits> source)
 {
-    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
-    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    static_assert(!std::same_as<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::derived_from<Target, Source>, "Should be a downcast");
     if (!is<Target>(source))
         return nullptr;
-    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
+    return unsafeRefDowncast<match_constness_t<Source, Target>>(WTF::move(source));
 }
 
 template<typename T, typename PtrTraits, typename RefDerefTraits>
@@ -342,4 +393,6 @@ inline bool arePointingToEqualData(const Ref<T, PtrTraits, RefDerefTraits>& a, c
 using WTF::Ref;
 using WTF::adoptRef;
 using WTF::arePointingToEqualData;
-using WTF::static_reference_cast;
+using WTF::protect;
+using WTF::upcast;
+using WTF::unsafeRefDowncast;

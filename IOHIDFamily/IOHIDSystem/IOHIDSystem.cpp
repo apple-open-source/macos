@@ -299,7 +299,7 @@ public:
     static IOHIDSystem_notificationData * create(IOCommandGate::Action handler, IOService* newService)
     {
         IOHIDSystem_notificationData * data = OSTypeAlloc(IOHIDSystem_notificationData);
-        require(data, bail);
+        __Require(data, bail);
         data->init();
         data->_handler = handler;
         data->_newService = newService;
@@ -494,7 +494,7 @@ bool IOHIDSystem::start(IOService * provider)
     OSDictionary    *matchingGraphicsDevice = serviceMatching("IOGraphicsDevice");
     IOServiceMatchingNotificationHandler iohidNotificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &IOHIDSystem::genericNotificationHandler);
     
-    require(super::start(provider), exit_early);
+    __Require(super::start(provider), exit_early);
 
     _setScrollCountParameters();
     
@@ -511,7 +511,7 @@ bool IOHIDSystem::start(IOService * provider)
     evScreen = IONewZero(EvScreen, EV_MAX_SCREENS);
     savedParameters = OSDictionary::withCapacity(4);
     
-    require(evScreen && savedParameters && _delayedNotificationLock && _delayedNotificationArray, exit_early);
+    __Require(evScreen && savedParameters && _delayedNotificationLock && _delayedNotificationArray, exit_early);
     
     firstWaitCursorFrame = EV_WAITCURSOR;
     maxWaitCursorFrame   = EV_MAXCURSOR;
@@ -548,22 +548,22 @@ bool IOHIDSystem::start(IOService * provider)
     cmdGate = IOCommandGate::commandGate(this);
     keyboardEQES = IOInterruptEventSource::interruptEventSource(this, (IOInterruptEventSource::Action) &doProcessKeyboardEQ);
     
-    require(workLoop && cmdGate && keyboardEQES, exit_early);
+    __Require(workLoop && cmdGate && keyboardEQES, exit_early);
     
-    require_noerr(workLoop->addEventSource(cmdGate), exit_early);
+    __Require_noErr(workLoop->addEventSource(cmdGate), exit_early);
     // Window Server is doing the work for this. rdar://problem/61334485
 //    require_noerr(workLoop->addEventSource(periodicES), exit_early);
-    require_noerr(workLoop->addEventSource(keyboardEQES), exit_early);
+    __Require_noErr(workLoop->addEventSource(keyboardEQES), exit_early);
   
     _delayedNotificationThread = thread_call_allocate( OSMemberFunctionCast(thread_call_func_t, this, &IOHIDSystem::doProcessNotifications), this);
-    require(_delayedNotificationThread, exit_early);
+    __Require(_delayedNotificationThread, exit_early);
     
     publishNotify = addMatchingNotification(gIOPublishNotification,
                                             matchingDevice,
                                             iohidNotificationHandler,
                                             this,
                                             (void *)&IOHIDSystem::handlePublishNotification );
-    require(publishNotify, exit_early);
+    __Require(publishNotify, exit_early);
     
     // RY: Listen to the root domain
     rootDomain = getPMRootDomain();
@@ -578,7 +578,7 @@ bool IOHIDSystem::start(IOService * provider)
                                                       iohidNotificationHandler,
                                                       this,
                                                       (void *)&IOHIDSystem::handleTerminationNotification);
-    require(_graphicsDeviceMatching, exit_early);
+    __Require(_graphicsDeviceMatching, exit_early);
 
     {
         IOReturn ret;
@@ -605,10 +605,10 @@ bool IOHIDSystem::start(IOService * provider)
                                                                    kIOReportUnit_us,
                                                                    sizeof(configs)/sizeof(configs[0]),
                                                                    configs);
-        require(_diags.cursorTotalHistReporter, exit_early);
+        __Require(_diags.cursorTotalHistReporter, exit_early);
 
         ret = IOReportLegend::addReporterLegend(this, _diags.cursorTotalHistReporter, "Cursor", "Total");
-        require(ret == kIOReturnSuccess, exit_early);
+        __Require(ret == kIOReturnSuccess, exit_early);
 
         _diags.cursorGraphicsHistReporter = IOHistogramReporter::with(this,
                                                               kIOReportCategoryPeripheral | kIOReportCategoryPerformance,
@@ -617,10 +617,10 @@ bool IOHIDSystem::start(IOService * provider)
                                                               kIOReportUnit_us,
                                                               sizeof(configs)/sizeof(configs[0]),
                                                               configs);
-        require(_diags.cursorGraphicsHistReporter, exit_early);
+        __Require(_diags.cursorGraphicsHistReporter, exit_early);
 
         ret = IOReportLegend::addReporterLegend(this, _diags.cursorGraphicsHistReporter, "Cursor", "Graphics");
-        require(ret == kIOReturnSuccess, exit_early);
+        __Require(ret == kIOReturnSuccess, exit_early);
     }
     
     /*
@@ -630,7 +630,7 @@ bool IOHIDSystem::start(IOService * provider)
     
     _hidActivityThread = thread_call_allocate(hidActivityThread_cb, (thread_call_param_t)this);
     _hidActivityIdle = true;
-    require(_hidActivityThread, exit_early);
+    __Require(_hidActivityThread, exit_early);
 
     registerService();
     iWasStarted = true;
@@ -744,7 +744,7 @@ bool IOHIDSystem::handleTerminationNotification(void *target, IOService *newServ
     IOHIDSystem         *self           = (IOHIDSystem *)target;
     IOGraphicsDevice    *graphicsDevice = (IOGraphicsDevice *)newService->metaCast("IOGraphicsDevice");
     
-    require(self, exit);
+    __Require(self, exit);
     
     if (graphicsDevice) {
         for (int i = 0; i < EV_MAX_SCREENS; i++) {
@@ -849,13 +849,13 @@ IOReturn IOHIDSystem::configureReport(IOReportChannelList *channels,
     IOReturn ret;
 
     ret = _diags.cursorTotalHistReporter->configureReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
     ret = _diags.cursorGraphicsHistReporter->configureReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
     ret = super::configureReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
 exit:
     return ret;
@@ -869,13 +869,13 @@ IOReturn IOHIDSystem::updateReport(IOReportChannelList *channels,
     IOReturn ret;
 
     ret = _diags.cursorTotalHistReporter->updateReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
     ret = _diags.cursorGraphicsHistReporter->updateReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
     ret = super::updateReport(channels, action, result, destination);
-    require(ret == kIOReturnSuccess, exit);
+    __Require(ret == kIOReturnSuccess, exit);
 
 exit:
     return ret;
@@ -1679,7 +1679,7 @@ void IOHIDSystem::postEvent(int           what,
         proc_rele(process);
     }
     
-    require_action (nxEvent.extension.flags & NX_EVENT_EXTENSION_AUDIT_TOKEN, exit, HIDLogError("Unable to get audit token for event"));
+    __Require_Action(nxEvent.extension.flags & NX_EVENT_EXTENSION_AUDIT_TOKEN, exit, HIDLogError("Unable to get audit token for event"));
     
     
     absolutetime_to_nanoseconds(ts, &ns);
@@ -2610,8 +2610,8 @@ void IOHIDSystem::_onScreenCursorPin()
     // check if current desktop location is in a screen with clipping bounds
     // and apply it
     
-    require_quiet(screen != -1, exit);
-    require_quiet((((1 << screen) & _onScreenPinMask) != 0), exit);
+    __Require_Quiet(screen != -1, exit);
+    __Require_Quiet((((1 << screen) & _onScreenPinMask) != 0), exit);
 
     _cursorHelper.desktopLocation().clipToRect(_onScreenBounds[screen]);
     
@@ -3102,11 +3102,11 @@ IOReturn IOHIDSystem::setBounds( IOGBounds * bounds, IOGPoint * screenPoint, boo
         return kIOReturnNotPermitted;
     
     if (onScreen) {
-        require(bounds, exit);
-        require(screenPoint, exit);
+        __Require(bounds, exit);
+        __Require(screenPoint, exit);
   
         screen = pointToScreen(screenPoint);
-        require(screen != -1, exit);
+        __Require(screen != -1, exit);
         
         screenMask = (1 << screen);
 
@@ -3304,7 +3304,7 @@ IOReturn IOHIDSystem::extSetMouseLocationGated(void *p1)
     SetFixedMouseLocData    *data = (SetFixedMouseLocData *)p1;
     IOFixedPoint32          loc;
 
-    require(data, exit);
+    __Require(data, exit);
 
     _diags.cursorWorkloopTime = mach_absolute_time();
     _diags.lastCursorActionsMask = 0;
@@ -3604,7 +3604,7 @@ bool IOHIDSystem::_cursorStateSerializerCallback(void * target, void * ref __unu
     OSDictionary *  cursorDict = OSDictionary::withCapacity(3);
     bool            retValue = false;
     
-    require(cursorDict, exit);
+    __Require(cursorDict, exit);
 
     for (size_t i = 0; i < Diags::kCursorActionCount; i++) {
         OSString *  string;
@@ -3633,7 +3633,7 @@ bool IOHIDSystem::_displaySerializerCallback(void * target, void * ref __unused,
     IOHIDSystem     *self = (IOHIDSystem *) target;
     bool            retValue = false;
     OSDictionary    *mainDict = OSDictionary::withCapacity(4);
-    require(mainDict, exit_early);
+    __Require(mainDict, exit_early);
 
 #define IfNotNullAddNumToDictWithKey(x,y, w,z) \
     if (x) { \
@@ -3650,7 +3650,7 @@ bool IOHIDSystem::_displaySerializerCallback(void * target, void * ref __unused,
         OSDictionary    *thisDisplay = OSDictionary::withCapacity(4);
         char            key[256];
 
-        require(thisDisplay, next_display);
+        __Require(thisDisplay, next_display);
         snprintf(key, sizeof(key), "%d", i);
         mainDict->setObject(key, thisDisplay);
 
@@ -3712,7 +3712,7 @@ IOReturn IOHIDSystem::_recordCursorAction(uint64_t origTs, uint64_t callTs)
     IOReturn ret = kIOReturnBadArgument;
 
 
-    require(origTs && callTs > origTs, exit);
+    __Require(origTs && callTs > origTs, exit);
 
     absolutetime_to_nanoseconds(origTs, &origTs);
     absolutetime_to_nanoseconds(_diags.cursorWorkloopTime, &workloopNs);
@@ -3723,21 +3723,21 @@ IOReturn IOHIDSystem::_recordCursorAction(uint64_t origTs, uint64_t callTs)
     workloopDelta = (workloopNs - origTs) / NSEC_PER_USEC;
     totalDelta = (nowNs - origTs) / NSEC_PER_USEC;
 
-    require(_diags.cursorTotalHistReporter->tallyValue((int64_t)totalDelta) != -1, exit);
+    __Require(_diags.cursorTotalHistReporter->tallyValue((int64_t)totalDelta) != -1, exit);
 
     for (size_t i = 0; i < Diags::kCursorActionCount; i++) {
         if (_diags.lastCursorActionsMask & (1 << i)) {
             int n;
             uint64_t actionNs;
             absolutetime_to_nanoseconds(_diags.lastActionTimes[i], &actionNs);
-            require(actionNs > origTs, exit);
+            __Require(actionNs > origTs, exit);
 
             actionDeltas[i] = (actionNs - origTs) / NSEC_PER_USEC;
 
-            require(_diags.cursorGraphicsHistReporter->tallyValue((int64_t)actionDeltas[i]) != -1, exit);
+            __Require(_diags.cursorGraphicsHistReporter->tallyValue((int64_t)actionDeltas[i]) != -1, exit);
 
             n = snprintf(actionBuf+strlen(actionBuf), sizeof(actionBuf)-strlen(actionBuf), "%s(us) %llu ", Diags::cursorStrings[i], actionDeltas[i]);
-            require_action(n > 0 && n < sizeof(actionBuf)-strlen(actionBuf), exit, ret = kIOReturnOverrun);
+            __Require_Action(n > 0 && n < sizeof(actionBuf)-strlen(actionBuf), exit, ret = kIOReturnOverrun);
         }
     }
 

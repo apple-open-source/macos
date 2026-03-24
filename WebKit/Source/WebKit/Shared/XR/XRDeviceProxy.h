@@ -68,6 +68,13 @@ private:
     void deleteLayer(PlatformXR::LayerHandle) override { };
     void submitFrame(Vector<PlatformXR::Device::Layer>&&) final;
 
+#if ENABLE(WEBXR_HIT_TEST)
+    void requestHitTestSource(const PlatformXR::HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::HitTestSource>)>&&) final;
+    void deleteHitTestSource(PlatformXR::HitTestSource) final;
+    void requestTransientInputHitTestSource(const PlatformXR::TransientInputHitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::TransientInputHitTestSource>)>&&) final;
+    void deleteTransientInputHitTestSource(PlatformXR::TransientInputHitTestSource) final;
+#endif
+
     XRDeviceIdentifier m_identifier;
     WeakPtr<PlatformXRSystemProxy> m_xrSystem;
     bool m_supportsStereoRendering { false };

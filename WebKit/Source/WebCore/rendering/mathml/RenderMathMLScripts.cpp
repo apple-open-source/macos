@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLScripts);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMathMLScripts);
 
 static bool isPrescriptDelimiter(const RenderObject& renderObject)
 {
@@ -47,7 +47,7 @@ static bool isPrescriptDelimiter(const RenderObject& renderObject)
 }
 
 RenderMathMLScripts::RenderMathMLScripts(Type type, MathMLScriptsElement& element, RenderStyle&& style)
-    : RenderMathMLRow(type, element, WTFMove(style))
+    : RenderMathMLRow(type, element, WTF::move(style))
 {
 }
 
@@ -501,7 +501,8 @@ std::optional<LayoutUnit> RenderMathMLScripts::firstLineBaseline() const
         return RenderMathMLRow::firstLineBaseline();
 
     auto& base = *possibleReference.value().base;
-    return LayoutUnit { roundf(ascentForChild(base) + base.marginBefore() + base.logicalTop()) };
+    auto baseline = settings().subpixelInlineLayoutEnabled() ? base.marginBefore() + base.logicalTop() + ascentForChild(base) : LayoutUnit(roundf(base.marginBefore() + base.logicalTop() + ascentForChild(base)));
+    return { baseline };
 }
 
 }

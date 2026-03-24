@@ -2227,6 +2227,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "rsyncd-entitlements.plist";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = rsync;

@@ -130,8 +130,8 @@ inline bool isSelectScopeMarker(HTMLStackItem& item)
 }
 
 HTMLElementStack::ElementRecord::ElementRecord(HTMLStackItem&& item, std::unique_ptr<ElementRecord> next)
-    : m_item(WTFMove(item))
-    , m_next(WTFMove(next))
+    : m_item(WTF::move(item))
+    , m_next(WTF::move(next))
 {
 }
 
@@ -141,7 +141,7 @@ void HTMLElementStack::ElementRecord::replaceElement(HTMLStackItem&& item)
 {
     ASSERT(m_item.isElement());
     // FIXME: Should this call finishParsingChildren?
-    m_item = WTFMove(item);
+    m_item = WTF::move(item);
 }
 
 bool HTMLElementStack::ElementRecord::isAbove(ElementRecord& other) const
@@ -297,13 +297,13 @@ void HTMLElementStack::popUntilForeignContentScopeMarker()
 void HTMLElementStack::pushRootNode(HTMLStackItem&& rootItem)
 {
     ASSERT(rootItem.isDocumentFragment());
-    pushRootNodeCommon(WTFMove(rootItem));
+    pushRootNodeCommon(WTF::move(rootItem));
 }
 
 void HTMLElementStack::pushHTMLHtmlElement(HTMLStackItem&& item)
 {
     ASSERT(item.elementName() == HTML::html);
-    pushRootNodeCommon(WTFMove(item));
+    pushRootNodeCommon(WTF::move(item));
 }
     
 void HTMLElementStack::pushRootNodeCommon(HTMLStackItem&& rootItem)
@@ -311,7 +311,7 @@ void HTMLElementStack::pushRootNodeCommon(HTMLStackItem&& rootItem)
     ASSERT(!m_top);
     ASSERT(!m_rootNode);
     m_rootNode = &rootItem.node();
-    pushCommon(WTFMove(rootItem));
+    pushCommon(WTF::move(rootItem));
 }
 
 void HTMLElementStack::pushHTMLHeadElement(HTMLStackItem&& item)
@@ -319,7 +319,7 @@ void HTMLElementStack::pushHTMLHeadElement(HTMLStackItem&& item)
     ASSERT(item.elementName() == HTML::head);
     ASSERT(!m_headElement);
     m_headElement = &item.element();
-    pushCommon(WTFMove(item));
+    pushCommon(WTF::move(item));
 }
 
 void HTMLElementStack::pushHTMLBodyElement(HTMLStackItem&& item)
@@ -327,7 +327,7 @@ void HTMLElementStack::pushHTMLBodyElement(HTMLStackItem&& item)
     ASSERT(item.elementName() == HTML::body);
     ASSERT(!m_bodyElement);
     m_bodyElement = &item.element();
-    pushCommon(WTFMove(item));
+    pushCommon(WTF::move(item));
 }
 
 void HTMLElementStack::push(HTMLStackItem&& item)
@@ -336,7 +336,7 @@ void HTMLElementStack::push(HTMLStackItem&& item)
     ASSERT(item.elementName() != HTML::head);
     ASSERT(item.elementName() != HTML::body);
     ASSERT(m_rootNode);
-    pushCommon(WTFMove(item));
+    pushCommon(WTF::move(item));
 }
 
 void HTMLElementStack::insertAbove(HTMLStackItem&& item, ElementRecord& recordBelow)
@@ -347,7 +347,7 @@ void HTMLElementStack::insertAbove(HTMLStackItem&& item, ElementRecord& recordBe
     ASSERT(item.elementName() != HTML::body);
     ASSERT(m_rootNode);
     if (&recordBelow == m_top.get()) {
-        push(WTFMove(item));
+        push(WTF::move(item));
         return;
     }
 
@@ -356,7 +356,7 @@ void HTMLElementStack::insertAbove(HTMLStackItem&& item, ElementRecord& recordBe
             continue;
 
         ++m_stackDepth;
-        recordAbove->setNext(makeUnique<ElementRecord>(WTFMove(item), recordAbove->releaseNext()));
+        recordAbove->setNext(makeUnique<ElementRecord>(WTF::move(item), recordAbove->releaseNext()));
         recordAbove->next()->element().beginParsingChildren();
         return;
     }
@@ -479,6 +479,23 @@ bool HTMLElementStack::inTableScope(ElementName targetElement) const
     return inScopeCommon<isTableScopeMarker>(m_top.get(), targetElement);
 }
 
+bool HTMLElementStack::hasAnyInTableScope(std::initializer_list<ElementName> targetElements) const
+{
+    for (auto* record = m_top.get(); record; record = record->next()) {
+        auto& item = record->stackItem();
+
+        for (auto targetElement : targetElements) {
+            if (item.elementName() == targetElement)
+                return true;
+        }
+
+        if (isTableScopeMarker(item))
+            return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 bool HTMLElementStack::inButtonScope(ElementName targetElement) const
 {
     return inScopeCommon<isButtonScopeMarker>(m_top.get(), targetElement);
@@ -525,7 +542,7 @@ void HTMLElementStack::pushCommon(HTMLStackItem&& item)
         ++m_templateElementCount;
 
     ++m_stackDepth;
-    m_top = makeUnique<ElementRecord>(WTFMove(item), WTFMove(m_top));
+    m_top = makeUnique<ElementRecord>(WTF::move(item), WTF::move(m_top));
 }
 
 void HTMLElementStack::popCommon()

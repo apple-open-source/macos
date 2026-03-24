@@ -53,20 +53,20 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ServiceWorker);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ServiceWorker);
 
 Ref<ServiceWorker> ServiceWorker::getOrCreate(ScriptExecutionContext& context, ServiceWorkerData&& data)
 {
     if (RefPtr existingServiceWorker = context.serviceWorker(data.identifier))
         return existingServiceWorker.releaseNonNull();
-    Ref serviceWorker = adoptRef(*new ServiceWorker(context, WTFMove(data)));
+    Ref serviceWorker = adoptRef(*new ServiceWorker(context, WTF::move(data)));
     serviceWorker->suspendIfNeeded();
     return serviceWorker;
 }
 
 ServiceWorker::ServiceWorker(ScriptExecutionContext& context, ServiceWorkerData&& data)
     : ActiveDOMObject(&context)
-    , m_data(WTFMove(data))
+    , m_data(WTF::move(data))
 {
     context.registerServiceWorker(*this);
 
@@ -116,12 +116,12 @@ ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, 
         return Exception { ExceptionCode::InvalidStateError };
 
     Vector<Ref<MessagePort>> ports;
-    auto messageData = SerializedScriptValue::create(globalObject, messageValue, WTFMove(options.transfer), ports, SerializationForStorage::No, SerializationContext::WorkerPostMessage);
+    auto messageData = SerializedScriptValue::create(globalObject, messageValue, WTF::move(options.transfer), ports, SerializationForStorage::No, SerializationContext::WorkerPostMessage);
     if (messageData.hasException())
         return messageData.releaseException();
 
     // Disentangle the port in preparation for sending it to the remote context.
-    auto portsOrException = MessagePort::disentanglePorts(WTFMove(ports));
+    auto portsOrException = MessagePort::disentanglePorts(WTF::move(ports));
     if (portsOrException.hasException())
         return portsOrException.releaseException();
 
@@ -134,7 +134,7 @@ ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, 
     }();
 
     MessageWithMessagePorts message { messageData.releaseReturnValue(), portsOrException.releaseReturnValue() };
-    protectedSWConnection()->postMessageToServiceWorker(identifier(), WTFMove(message), sourceIdentifier);
+    protectedSWConnection()->postMessageToServiceWorker(identifier(), WTF::move(message), sourceIdentifier);
     return { };
 }
 

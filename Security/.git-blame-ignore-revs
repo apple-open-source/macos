@@ -1,0 +1,16 @@
+# .git-blame-ignore-revs
+#
+# This file contains a list of commits that should be ignored by git blame.
+# These are typically formatting, whitespace, or other mechanical changes
+# that don't represent meaningful code changes.
+#
+# To use this file automatically:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# To use it for a single blame command:
+#   git blame --ignore-revs-file=.git-blame-ignore-revs <file>
+#
+# Add commit SHAs below (one per line):
+
+# Assert Macro underscored replacement
+785a8907d915373adaecd8e427dd0828fc8a9766

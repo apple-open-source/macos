@@ -43,12 +43,12 @@
 - (NSData *)data
 {
     if (auto messageData = self._protectedMessage->data())
-        return toNSData(*messageData).unsafeGet();
+        return toNSData(*messageData).autorelease();
 
     return nil;
 }
 
-- (NSURL *)scope
+- (NSURL *)scopeURL
 {
     return _message->scope().createNSURL().autorelease();
 }

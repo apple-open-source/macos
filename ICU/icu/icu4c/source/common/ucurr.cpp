@@ -380,12 +380,8 @@ struct CReg : public icu::UMemory {
     CReg(const char16_t* _iso, const char* _id)
         : next(nullptr)
     {
-        int32_t len = static_cast<int32_t>(uprv_strlen(_id));
-        if (len > static_cast<int32_t>(sizeof(id) - 1)) {
-            len = (sizeof(id)-1);
-        }
-        uprv_strncpy(id, _id, len);
-        id[len] = 0;
+        uprv_strncpy(id, _id, sizeof(id)-1);
+        id[sizeof(id)-1] = 0;
         u_memcpy(iso, _iso, ISO_CURRENCY_CODE_LENGTH);
         iso[ISO_CURRENCY_CODE_LENGTH] = 0;
     }
@@ -690,6 +686,9 @@ ucurr_getName(const char16_t* currency,
     // this function.
     UErrorCode ec2 = U_ZERO_ERROR;
 
+    if (locale == nullptr) {
+        locale = uloc_getDefault();
+    }
     CharString loc = ulocimp_getName(locale, ec2);
     if (U_FAILURE(ec2)) {
         *ec = U_ILLEGAL_ARGUMENT_ERROR;
@@ -868,6 +867,9 @@ ucurr_getPluralName(const char16_t* currency,
     // this function.
     UErrorCode ec2 = U_ZERO_ERROR;
 
+    if (locale == nullptr) {
+        locale = uloc_getDefault();
+    }
     CharString loc = ulocimp_getName(locale, ec2);
     if (U_FAILURE(ec2)) {
         *ec = U_ILLEGAL_ARGUMENT_ERROR;
@@ -1061,6 +1063,9 @@ collectCurrencyNames(const char* locale,
     // Look up the Currencies resource for the given locale.
     UErrorCode ec2 = U_ZERO_ERROR;
 
+    if (locale == nullptr) {
+        locale = uloc_getDefault();
+    }
     CharString loc = ulocimp_getName(locale, ec2);
     if (U_FAILURE(ec2)) {
         ec = U_ILLEGAL_ARGUMENT_ERROR;

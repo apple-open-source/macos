@@ -77,11 +77,11 @@ CachedResourceHandle<CachedScript> LoadableSpeculationRules::requestSpeculationR
     options.fetchPriority = RequestPriority::Auto;
     options.destination = FetchOptionsDestination::Speculationrules;
 
-    auto request = createPotentialAccessControlRequest(URL { sourceURL }, WTFMove(options), document, ""_s);
+    auto request = createPotentialAccessControlRequest(URL { sourceURL }, WTF::move(options), document, ""_s);
     request.upgradeInsecureRequestIfNeeded(document);
     request.setPriority(ResourceLoadPriority::Low);
 
-    return document.protectedCachedResourceLoader()->requestScript(WTFMove(request)).value_or(nullptr);
+    return document.protectedCachedResourceLoader()->requestScript(WTF::move(request)).value_or(nullptr);
 }
 
 bool LoadableSpeculationRules::load(Document& document, const URL& url)
@@ -137,7 +137,8 @@ void LoadableSpeculationRules::notifyFinished(CachedResource& resource, const Ne
         ScriptSourceCode sourceCode(speculationRulesText, JSC::SourceTaintedOrigin::Untainted, URL(m_url), TextPosition(), JSC::SourceProviderSourceType::Program);
         // 5. Let ruleSet be the result of parsing a speculation rule set string given bodyText, document, and response's URL. If this throws an exception, then abort these steps.
         // 6. Append ruleSet to document's speculation rule sets.
-        if (frame->checkedScript()->registerSpeculationRules(sourceCode, m_url)) {
+        // Header-based rules use the Document as the source node.
+        if (frame->checkedScript()->registerSpeculationRules(*document, sourceCode, m_url)) {
             // 7. Consider speculative loads for document.
             document->considerSpeculationRules();
         }

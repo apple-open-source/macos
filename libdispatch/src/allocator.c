@@ -560,8 +560,13 @@ _dispatch_alloc_maybe_madvise_page(dispatch_continuation_t c)
 	// madvise (syscall) flushes these stores
 	memset(page, DISPATCH_ALLOCATOR_SCRIBBLE, DISPATCH_ALLOCATOR_PAGE_SIZE);
 #endif
+#if defined(MADV_FREE_REUSABLE)
+	(void)dispatch_assume_zero(madvise(page, DISPATCH_ALLOCATOR_PAGE_SIZE,
+			MADV_FREE_REUSABLE));
+#else
 	(void)dispatch_assume_zero(madvise(page, DISPATCH_ALLOCATOR_PAGE_SIZE,
 			MADV_FREE));
+#endif
 
 unlock:
 	while (last_locked > 1) {
@@ -751,6 +756,12 @@ _dispatch_continuation_alloc_init(void *ctxt DISPATCH_UNUSED)
 	char *e = getenv("LIBDISPATCH_CONTINUATION_ALLOCATOR");
 	if (e) {
 		use_dispatch_alloc = atoi(e);
+	} else if (use_dispatch_alloc && (e = getenv("MallocStackLogging"))) {
+		// rdar://161942216: Malloc stack logging only captures allocations
+		// from the default zone. If we're introspecting this process, we
+		// should try to route continuation allocations there. The setting from
+		// LIBDISPATCH_CONTINUATION_ALLOCATOR overrides this check.
+		use_dispatch_alloc = false;
 	}
 	_dispatch_use_dispatch_alloc = use_dispatch_alloc;
 #endif // DISPATCH_CONTINUATION_MALLOC

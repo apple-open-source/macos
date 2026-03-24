@@ -61,7 +61,7 @@ static CFStringRef SOSCopySerialNumberAsString(CFErrorRef *error) {
     CFStringRef retval = NULL;
 
     io_service_t platformExpert = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
-    require_action_quiet(platformExpert, errOut, SOSCreateError(kSOSErrorAllocationFailure,  CFSTR("No Memory"), NULL, error));
+    __Require_Action_Quiet(platformExpert, errOut, SOSCreateError(kSOSErrorAllocationFailure,  CFSTR("No Memory"), NULL, error));
     serialNumber = IORegistryEntryCreateCFProperty(platformExpert, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0);
     if(serialNumber) retval = CFStringCreateCopy(kCFAllocatorDefault, serialNumber);
     IOObjectRelease(platformExpert);
@@ -180,7 +180,7 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     CFMutableSetRef secproperties = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
     CFDictionaryAddValue(v2Dictionary, sViewsKey, views);
     
-    require_action_quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));
+    __Require_Action_Quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));
     CFDictionaryAddValue(pi->description, sV2DictionaryKey, v2data);
     // To use the central serial number setting routine this must be done after the V2 dictionary is installed.
     SOSPeerInfoSetSerialNumber(pi);
@@ -195,8 +195,8 @@ out:
 }
 
 void SOSPeerInfoPackV2Data(SOSPeerInfoRef pi) {
-    require(SOSPeerInfoV2IntegrityCheck(pi), errOut);
-    require_quiet(pi->v2Dictionary, errOut);
+    __Require(SOSPeerInfoV2IntegrityCheck(pi), errOut);
+    __Require_Quiet(pi->v2Dictionary, errOut);
     CFDataRef v2der = SOSCreateDERFromDictionary(pi->v2Dictionary, NULL);
     CFDictionarySetValue(pi->description, sV2DictionaryKey, v2der);
     CFReleaseNull(v2der);
@@ -218,8 +218,8 @@ bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error) {
         pi->v2DictionaryIsExpanded = true;
         return true;
     }
-    require_action_quiet((v2data = SOSPeerInfoGetV2Data(pi)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No V2 Data in description"), NULL, error));
-    require_action_quiet((v2Dictionary = SOSCreateDictionaryFromDER(v2data, error)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Can't expand V2 Dictionary"), NULL, error));
+    __Require_Action_Quiet((v2data = SOSPeerInfoGetV2Data(pi)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No V2 Data in description"), NULL, error));
+    __Require_Action_Quiet((v2Dictionary = SOSCreateDictionaryFromDER(v2data, error)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Can't expand V2 Dictionary"), NULL, error));
     CFReleaseNull(pi->v2Dictionary);
     pi->v2Dictionary = v2Dictionary;
     pi->v2DictionaryIsExpanded = true;
@@ -232,7 +232,7 @@ out:
 }
 
 void SOSPeerInfoV2DictionarySetValue(SOSPeerInfoRef pi, const void *key, const void *value) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     if (value == NULL)
         CFDictionaryRemoveValue(pi->v2Dictionary, key);
     else
@@ -242,14 +242,14 @@ errOut:
 }
 
 void SOSPeerInfoV2DictionaryRemoveValue(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDictionaryRemoveValue(pi->v2Dictionary, key);
 errOut:
     return;
 }
 
 bool SOSPeerInfoV2DictionaryHasBoolean(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFTypeRef value = CFDictionaryGetValue(pi->v2Dictionary, key);
     if(asBoolean(value,NULL) != NULL)
         return true;
@@ -259,7 +259,7 @@ errOut:
 
 // Not API to prevent owenership confusion
 static CFStringRef SOSPeerInfoV2DictionaryGetAsString(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     return asString(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
 errOut:
     return NULL;
@@ -276,7 +276,7 @@ bool SOSPeerInfoV2DictionaryHasString(SOSPeerInfoRef pi, const void *key) {
 }
 
 bool SOSPeerInfoV2DictionaryHasSet(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFTypeRef value = CFDictionaryGetValue(pi->v2Dictionary, key);
     if(asSet(value,NULL) != NULL)
         return true;
@@ -285,7 +285,7 @@ errOut:
 }
 
 bool SOSPeerInfoV2DictionaryHasData(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFTypeRef value = CFDictionaryGetValue(pi->v2Dictionary, key);
     if(asData(value,NULL) != NULL)
         return true;
@@ -294,7 +294,7 @@ errOut:
 }
 
 CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFStringRef value = asString(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFStringCreateMutableCopy(kCFAllocatorDefault, CFStringGetLength(value), value);
@@ -303,7 +303,7 @@ errOut:
 }
 
 static void SOSPeerInfoV2DictionaryWithValue(SOSPeerInfoRef pi, const void *key, void(^operation)(CFTypeRef value)) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFTypeRef value = CFRetainSafe(CFDictionaryGetValue(pi->v2Dictionary, key));
     operation(value);
     CFReleaseNull(value);
@@ -321,7 +321,7 @@ void SOSPeerInfoV2DictionaryWithSet(SOSPeerInfoRef pi, const void *key, void(^op
 }
 
 CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFSetRef value = asSet(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFSetCreateMutableCopy(kCFAllocatorDefault, CFSetGetCount(value), value);
@@ -331,7 +331,7 @@ errOut:
 
 void SOSPeerInfoV2DictionaryForEachSetValue(SOSPeerInfoRef pi, const void *key, void (^action)(const void* value)) {
     CFSetRef value = NULL;
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     value = asSet(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
 
 errOut:
@@ -342,14 +342,14 @@ errOut:
 
 bool SOSPeerInfoV2DictionaryHasSetContaining(SOSPeerInfoRef pi, const void *key, const void* member) {
     CFSetRef value = NULL;
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     value = asSet(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
 errOut:
     return value && CFSetContainsValue(value, member);
 }
 
 CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDataRef value = asData(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFDataCreateMutableCopy(kCFAllocatorDefault, CFDataGetLength(value), value);
@@ -358,7 +358,7 @@ errOut:
 }
 
 CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFBooleanRef value = asBoolean(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFRetainSafe(value);
@@ -367,7 +367,7 @@ errOut:
 }
 
 CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    __Require_Quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDictionaryRef value = asDictionary(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(value), value);
@@ -378,13 +378,13 @@ errOut:
 
 SOSPeerInfoRef SOSPeerInfoCopyWithV2DictionaryUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef newv2dict, SecKeyRef signingKey, CFErrorRef* error) {
     SOSPeerInfoRef retval = SOSPeerInfoCreateCopy(kCFAllocatorDefault, toCopy, error);
-    require_quiet(retval, errOut);
-    require_action_quiet(SOSPeerInfoExpandV2Data(retval, error), errOut, CFReleaseNull(retval));
+    __Require_Quiet(retval, errOut);
+    __Require_Action_Quiet(SOSPeerInfoExpandV2Data(retval, error), errOut, CFReleaseNull(retval));
     CFDictionaryForEach(newv2dict, ^(const void *key, const void *value) {
         CFDictionarySetValue(retval->v2Dictionary, key, value);
     });
     SOSPeerInfoPackV2Data(retval);
-    require_action_quiet(SOSPeerInfoSign(signingKey, retval, error), errOut, CFReleaseNull(retval));
+    __Require_Action_Quiet(SOSPeerInfoSign(signingKey, retval, error), errOut, CFReleaseNull(retval));
 errOut:
     return retval;
 }

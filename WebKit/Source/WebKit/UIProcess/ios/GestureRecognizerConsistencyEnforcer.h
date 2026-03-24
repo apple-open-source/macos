@@ -27,6 +27,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import <wtf/CanMakeWeakPtr.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/Noncopyable.h>
 #import <wtf/RetainPtr.h>
@@ -39,7 +40,7 @@
 
 namespace WebKit {
 
-class GestureRecognizerConsistencyEnforcer {
+class GestureRecognizerConsistencyEnforcer : public CanMakeWeakPtr<GestureRecognizerConsistencyEnforcer> {
     WTF_MAKE_TZONE_ALLOCATED(GestureRecognizerConsistencyEnforcer);
     WTF_MAKE_NONCOPYABLE(GestureRecognizerConsistencyEnforcer);
 public:

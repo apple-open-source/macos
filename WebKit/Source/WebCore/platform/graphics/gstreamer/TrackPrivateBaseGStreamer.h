@@ -64,11 +64,11 @@ public:
 
     // Used for MSE, where the initial caps of the pad are relevant for initializing the matching pad in the
     // playback pipeline.
-    void setInitialCaps(GRefPtr<GstCaps>&& caps) { m_initialCaps = WTFMove(caps); }
+    void setInitialCaps(GRefPtr<GstCaps>&& caps) { m_initialCaps = WTF::move(caps); }
     const GRefPtr<GstCaps>& initialCaps() { return m_initialCaps; }
 
     TrackID streamId() const { return m_id; }
-    const AtomString& gstStreamId() const { return m_gstStreamId; }
+    const String& gstStreamId() const { return m_gstStreamId; }
 
     virtual void updateConfigurationFromCaps(GRefPtr<GstCaps>&&) { }
 
@@ -97,9 +97,9 @@ protected:
 
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
     unsigned m_index;
-    AtomString m_label;
-    AtomString m_language;
-    AtomString m_gstStreamId;
+    String m_label;
+    String m_language;
+    String m_gstStreamId;
     // Track ID parsed from stream-id.
     TrackID m_id;
     GRefPtr<GstPad> m_pad;
@@ -114,11 +114,10 @@ protected:
     bool updateTrackIDFromTags(const GRefPtr<GstTagList>&);
 
 private:
-    bool getLanguageCode(GstTagList* tags, AtomString& value);
-    static AtomString generateUniquePlaybin2StreamID(TrackType, unsigned index);
+    std::optional<String> getLanguageCode(GstTagList*);
+    static String generateUniquePlaybin2StreamID(TrackType, unsigned index);
     static char prefixForType(TrackType);
-    template<class StringType>
-    bool getTag(GstTagList* tags, const gchar* tagName, StringType& value);
+    std::optional<String> getTag(GstTagList* tags, ASCIILiteral tagName);
 
     void streamChanged();
     void tagsChanged();

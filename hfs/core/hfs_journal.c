@@ -575,7 +575,7 @@ free_old_stuff(journal *jnl)
 			blhdr->binfo[0].bnum = 0xdeadc0de;
 			// get block_list_header_in_memory pointer, since this is what we really allocated in memory
 			block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
-			hfs_free_data(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
+			hfs_free_data_shareable(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
 			hfs_delete_with_hdr(blhdrim, block_list_header_in_memory, block_info, journal_max_blocks(jnl));
 
 			KERNEL_DEBUG(0xbbbbc01c, jnl, tr, tr->tbuffer_size, 0, 0);
@@ -1191,7 +1191,7 @@ replay_journal(journal *jnl)
 	// When replaying a journal, the in-memory representation is the same as on disk representation, so no need to use
 	// block_list_header_in_memory structure when replaying
 	buff = hfs_new_with_hdr(block_list_header, block_info, journal_max_blocks(jnl));
-	data_buff = hfs_malloc_data(jnl->jhdr->blhdr_size);
+	data_buff = hfs_malloc_data_shareable(jnl->jhdr->blhdr_size);
 
 	// allocate memory for the coalesce buffer
 	co_buf = hfs_new_data(struct bucket, num_buckets);
@@ -1322,7 +1322,7 @@ restart_replay:
 
 		if (blhdr->flags & BLHDR_CHECK_CHECKSUMS) {
 			check_block_checksums = 1;
-			block_ptr = hfs_malloc_data(max_bsize);
+			block_ptr = hfs_malloc_data_shareable(max_bsize);
 		} else {
 			block_ptr = NULL;
 		}
@@ -1406,7 +1406,7 @@ restart_replay:
 		}
 
 		if (block_ptr) {
-			hfs_free_data(block_ptr, max_bsize);
+			hfs_free_data_shareable(block_ptr, max_bsize);
 			block_ptr = NULL;
 		}
 		
@@ -1476,7 +1476,7 @@ restart_replay:
 		max_bsize = (max_bsize + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	}
 
-	block_ptr = hfs_malloc_data(max_bsize);
+	block_ptr = hfs_malloc_data_shareable(max_bsize);
 	
 	// Replay the coalesced entries in the co-buf
 	for(i = 0; i < num_full; i++) {
@@ -1515,7 +1515,7 @@ restart_replay:
     
 	// free block_ptr
 	if (block_ptr) {
-		hfs_free_data(block_ptr, max_bsize);
+		hfs_free_data_shareable(block_ptr, max_bsize);
 		block_ptr = NULL;
 	}
     
@@ -1525,18 +1525,18 @@ restart_replay:
 
 	blhdr = (block_list_header *)buff;
 	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
-	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
+	hfs_free_data_shareable(data_buff, jnl->jhdr->blhdr_size);
 	return 0;
 
 bad_replay:
 	if (block_ptr) {
-		hfs_free_data(block_ptr, max_bsize);
+		hfs_free_data_shareable(block_ptr, max_bsize);
 	}
 	hfs_delete_data(co_buf, struct bucket, num_buckets);
 
 	blhdr = (block_list_header *)buff;
 	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
-	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
+	hfs_free_data_shareable(data_buff, jnl->jhdr->blhdr_size);
 	return -1;
 }
 
@@ -1772,7 +1772,7 @@ journal_create(struct vnode *jvp,
 
 	get_io_info(jvp, phys_blksz, jnl, vfs_context_kernel());
 
-	jnl->header_buf = hfs_malloc_data(phys_blksz);
+	jnl->header_buf = hfs_malloc_data_shareable(phys_blksz);
 	jnl->header_buf_size = phys_blksz;
 
 	jnl->jhdr = (journal_header *)jnl->header_buf;
@@ -1861,7 +1861,7 @@ journal_create(struct vnode *jvp,
 
 
 bad_write:
-	hfs_free_data(jnl->header_buf, phys_blksz);
+	hfs_free_data_shareable(jnl->header_buf, phys_blksz);
 	jnl->jhdr = NULL;
 	hfs_free_type(jnl, struct journal);
 cleanup_jdev_name:
@@ -1939,7 +1939,7 @@ journal_open(struct vnode *jvp,
 
 	get_io_info(jvp, phys_blksz, jnl, vfs_context_kernel());
 
-	jnl->header_buf = hfs_malloc_data(phys_blksz);
+	jnl->header_buf = hfs_malloc_data_shareable(phys_blksz);
 	jnl->header_buf_size = phys_blksz;
 
 	jnl->jhdr = (journal_header *)jnl->header_buf;
@@ -2130,7 +2130,7 @@ bad_journal:
 		VNOP_IOCTL(jvp, DKIOCSETBLOCKSIZE, (caddr_t)&orig_blksz, FWRITE, vfs_context_kernel());
 		printf("jnl: %s: open: restored block size after error\n", jdev_name);
 	}
-	hfs_free_data(jnl->header_buf, jnl->header_buf_size);
+	hfs_free_data_shareable(jnl->header_buf, jnl->header_buf_size);
 	hfs_free_type(jnl, struct journal);
 cleanup_jdev_name:
 	vnode_putname_printable(jdev_name);
@@ -2182,7 +2182,7 @@ journal_is_clean(struct vnode *jvp,
 
 	memset(&jnl, 0, sizeof(jnl));
 
-	jnl.header_buf = hfs_malloc_data(phys_blksz);
+	jnl.header_buf = hfs_malloc_data_shareable(phys_blksz);
 	jnl.header_buf_size = phys_blksz;
 
 	get_io_info(jvp, phys_blksz, &jnl, vfs_context_kernel());
@@ -2241,7 +2241,7 @@ journal_is_clean(struct vnode *jvp,
 	}
 
 get_out:
-	hfs_free_data(jnl.header_buf, jnl.header_buf_size);
+	hfs_free_data_shareable(jnl.header_buf, jnl.header_buf_size);
 cleanup_jdev_name:
 	vnode_putname_printable(jdev_name);
 	return ret;
@@ -2343,7 +2343,7 @@ journal_close(journal *jnl)
 
 	free_old_stuff(jnl);
 
-	hfs_free_data(jnl->header_buf, jnl->header_buf_size);
+	hfs_free_data_shareable(jnl->header_buf, jnl->header_buf_size);
 	jnl->jhdr = (void *)0xbeefbabe;
 
 	vnode_putname_printable(jnl->jdev_name);
@@ -2540,7 +2540,7 @@ journal_allocate_transaction(journal *jnl)
 	tr->tbuffer_size = jnl->tbuffer_size;
 
 	block_list_header_in_memory* blhdrim = hfs_new_with_hdr(block_list_header_in_memory, block_info, journal_max_blocks(jnl));
-	blhdrim->buffers = hfs_malloc_data(tr->tbuffer_size - jnl->jhdr->blhdr_size);
+	blhdrim->buffers = hfs_malloc_data_shareable(tr->tbuffer_size - jnl->jhdr->blhdr_size);
 	tr->tbuffer = (char*)&blhdrim->blhdr;
 
 	if (vfs_isswapmount(jnl->fsmount) && (was_vm_privileged == FALSE))
@@ -2704,10 +2704,10 @@ journal_modify_block_start(journal *jnl, struct buf *bp)
 
 				printf("jnl: %s: phys blksz got bigger (was: %d/%d now %d)\n",
 				       jnl->jdev_name, jnl->header_buf_size, jnl->jhdr->jhdr_size, phys_blksz);
-				new_header_buf = hfs_malloc_data(phys_blksz);
+				new_header_buf = hfs_malloc_data_shareable(phys_blksz);
 				memcpy(new_header_buf, jnl->header_buf, jnl->header_buf_size);
 				memset(&new_header_buf[jnl->header_buf_size], 0x18, (phys_blksz - jnl->header_buf_size));
-				hfs_free_data(jnl->header_buf, jnl->header_buf_size);
+				hfs_free_data_shareable(jnl->header_buf, jnl->header_buf_size);
 				jnl->header_buf = new_header_buf;
 				jnl->header_buf_size = phys_blksz;
 				
@@ -2891,7 +2891,7 @@ journal_modify_block_end(journal *jnl, struct buf *bp, void (*func)(buf_t bp, vo
 		// avoids having yet another linked list of small data structures to manage.
 
 		block_list_header_in_memory* blhdrim = hfs_new_with_hdr(block_list_header_in_memory, block_info, journal_max_blocks(jnl));
-		blhdrim->buffers = hfs_malloc_data(tr->tbuffer_size - jnl->jhdr->blhdr_size);
+		blhdrim->buffers = hfs_malloc_data_shareable(tr->tbuffer_size - jnl->jhdr->blhdr_size);
 		nblhdr = &blhdrim->blhdr;
 		// journal replay code checksum check depends on this.
 		memset(nblhdr, 0, BLHDR_CHECKSUM_SIZE);
@@ -4115,7 +4115,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 	int		bufs_written = 0;
 	int		ret_val = 0;
 	boolean_t	was_vm_privileged = FALSE;
-	char *data_buff = hfs_malloc_data(jnl->jhdr->blhdr_size);
+	char *data_buff = hfs_malloc_data_shareable(jnl->jhdr->blhdr_size);
 
 	KERNEL_DEBUG(0xbbbbc028|DBG_FUNC_START, jnl, tr, 0, 0, 0);
 
@@ -4410,7 +4410,7 @@ bad_journal:
 	if (vfs_isswapmount(jnl->fsmount) && (was_vm_privileged == FALSE))
 		set_vm_privilege(FALSE);
 
-	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
+	hfs_free_data_shareable(data_buff, jnl->jhdr->blhdr_size);
 
 	KERNEL_DEBUG(0xbbbbc028|DBG_FUNC_END, jnl, tr, bufs_written, ret_val, 0);
 
@@ -4561,7 +4561,7 @@ abort_transaction(journal *jnl, transaction *tr)
 		blhdr->binfo[0].bnum = 0xdeadc0de;
 		// get block_list_header_in_memory pointer, since this is what we really allocated in memory
 		block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
-		hfs_free_data(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
+		hfs_free_data_shareable(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
 		hfs_delete_with_hdr(blhdrim, block_list_header_in_memory, block_info, journal_max_blocks(jnl));
 	}
 

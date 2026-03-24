@@ -25,6 +25,9 @@
 
 #pragma once
 
+// FIXME: Remove the `__has_feature(modules)` condition when possible.
+#if !__has_feature(modules)
+
 DECLARE_SYSTEM_HEADER
 
 #if PLATFORM(IOS_FAMILY)
@@ -34,6 +37,24 @@ typedef struct __GSKeyboard* GSKeyboardRef;
 WTF_EXTERN_C_END
 
 #import <UIKit/UIKit.h>
+
+@class NSColor;
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <Foundation/NSGeometry.h>
+#endif
+
+#ifndef WK_HAS_DEFINED_NS_RECT_EDGE
+#ifndef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
+typedef NS_ENUM(NSUInteger, NSRectEdge) {
+    NSRectEdgeMinX = CGRectMinXEdge,
+    NSRectEdgeMinY = CGRectMinYEdge,
+    NSRectEdgeMaxX = CGRectMaxXEdge,
+    NSRectEdgeMaxY = CGRectMaxYEdge,
+};
+#define WK_HAS_DEFINED_NS_RECT_EDGE 1
+#endif // !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
+#endif // !defined(WK_HAS_DEFINED_NS_RECT_EDGE)
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -66,8 +87,6 @@ WTF_EXTERN_C_END
 #if ENABLE(DRAG_SUPPORT)
 #import <UIKit/NSItemProvider+UIKitAdditions.h>
 #endif
-
-typedef NS_ENUM(NSInteger, NSRectEdge);
 
 typedef NS_ENUM(NSInteger, UIApplicationSceneClassicMode) {
     UIApplicationSceneClassicModeOriginalPad = 4,
@@ -188,53 +207,41 @@ typedef NS_ENUM(NSInteger, _UIDataOwner) {
 + (UIColor *)tableCellDefaultSelectionTintColor;
 @end
 
+#if __has_include(<UIFoundation/NSTextTable.h>) && (!PLATFORM(MACCATALYST) || __has_include(<UIKit/NSTextTable.h>))
+#import <UIFoundation/NSTextTable.h>
+#else
+
 typedef NS_ENUM(NSUInteger, NSTextBlockValueType) {
-    NSTextBlockAbsoluteValueType    = 0, // Absolute value in points
-    NSTextBlockPercentageValueType  = 1 // Percentage value (out of 100)
+    NSTextBlockValueTypeAbsolute    = 0, // Absolute value in points
+    NSTextBlockValueTypePercentage  = 1, // Percentage value (out of 100)
 };
 
 typedef NS_ENUM(NSUInteger, NSTextBlockDimension) {
-    NSTextBlockWidth            = 0,
-    NSTextBlockMinimumWidth     = 1,
-    NSTextBlockMaximumWidth     = 2,
-    NSTextBlockHeight           = 4,
-    NSTextBlockMinimumHeight    = 5,
-    NSTextBlockMaximumHeight    = 6
+    NSTextBlockDimensionWidth               = 0,
+    NSTextBlockDimensionMinimumWidth        = 1,
+    NSTextBlockDimensionMaximumWidth        = 2,
+    NSTextBlockDimensionHeight              = 4,
+    NSTextBlockDimensionMinimumHeight       = 5,
+    NSTextBlockDimensionMaximumHeight       = 6
 };
 
 typedef NS_ENUM(NSInteger, NSTextBlockLayer) {
-    NSTextBlockPadding  = -1,
-    NSTextBlockBorder   =  0,
-    NSTextBlockMargin   =  1
+    NSTextBlockLayerPadding  = -1,
+    NSTextBlockLayerBorder   =  0,
+    NSTextBlockLayerMargin   =  1
 };
 
 typedef NS_ENUM(NSUInteger, NSTextTableLayoutAlgorithm) {
-    NSTextTableAutomaticLayoutAlgorithm = 0,
-    NSTextTableFixedLayoutAlgorithm     = 1
+    NSTextTableLayoutAlgorithmAutomatic  = 0,
+    NSTextTableLayoutAlgorithmFixed      = 1
 };
 
 typedef NS_ENUM(NSUInteger, NSTextBlockVerticalAlignment) {
-    NSTextBlockTopAlignment         = 0,
-    NSTextBlockMiddleAlignment      = 1,
-    NSTextBlockBottomAlignment      = 2,
-    NSTextBlockBaselineAlignment    = 3
+    NSTextBlockVerticalAlignmentTop         = 0,
+    NSTextBlockVerticalAlignmentMiddle      = 1,
+    NSTextBlockVerticalAlignmentBottom      = 2,
+    NSTextBlockVerticalAlignmentBaseline    = 3
 };
-
-typedef NS_ENUM(NSUInteger, NSTextTabType) {
-    NSLeftTabStopType = 0,
-    NSRightTabStopType,
-    NSCenterTabStopType,
-    NSDecimalTabStopType
-};
-
-@interface NSColor : UIColor
-+ (id)colorWithCalibratedRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
-@end
-
-@interface NSTextTab ()
-- (id)initWithType:(NSTextTabType)type location:(CGFloat)loc;
-- (instancetype)initWithTextAlignment:(NSTextAlignment)alignment location:(CGFloat)loc options:(NSDictionary<NSTextTabOptionKey, id> *)options;
-@end
 
 @interface NSTextBlock : NSObject
 - (void)setValue:(CGFloat)val type:(NSTextBlockValueType)type forDimension:(NSTextBlockDimension)dimension;
@@ -247,10 +254,6 @@ typedef NS_ENUM(NSUInteger, NSTextTabType) {
 - (CGFloat)valueForDimension:(NSTextBlockDimension)dimension;
 - (CGFloat)widthForLayer:(NSTextBlockLayer)layer edge:(NSRectEdge)edge;
 - (NSTextBlockVerticalAlignment)verticalAlignment;
-@end
-
-@interface NSTextBlock (Internal)
-- (void)_takeValuesFromTextBlock:(NSTextBlock *)other;
 @end
 
 @interface NSTextTable : NSTextBlock
@@ -277,14 +280,44 @@ typedef NS_ENUM(NSUInteger, NSTextTabType) {
 - (NSInteger)rowSpan;
 @end
 
-@interface NSParagraphStyle ()
-- (NSInteger)headerLevel;
+@interface NSParagraphStyle (TextBlocks)
 - (NSArray<NSTextBlock *> *)textBlocks;
 @end
 
-@interface NSMutableParagraphStyle ()
-- (void)setHeaderLevel:(NSInteger)level;
+@interface NSMutableParagraphStyle (TextBlocks)
 - (void)setTextBlocks:(NSArray<NSTextBlock *> *)array;
 @end
 
+#endif // !__has_include(<UIFoundation/NSTextTable.h>)
+
+@interface NSParagraphStyle (HeaderLevel)
+- (NSInteger)headerLevel;
+@end
+
+@interface NSMutableParagraphStyle (HeaderLevel)
+- (void)setHeaderLevel:(NSInteger)level;
+@end
+
+typedef NS_ENUM(NSUInteger, NSTextTabType) {
+    NSLeftTabStopType = 0,
+    NSRightTabStopType,
+    NSCenterTabStopType,
+    NSDecimalTabStopType
+};
+
+@interface NSColor : UIColor
++ (id)colorWithCalibratedRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue alpha:(CGFloat)alpha;
+@end
+
+@interface NSTextTab ()
+- (id)initWithType:(NSTextTabType)type location:(CGFloat)loc;
+- (instancetype)initWithTextAlignment:(NSTextAlignment)alignment location:(CGFloat)loc options:(NSDictionary<NSTextTabOptionKey, id> *)options;
+@end
+
+@interface NSTextBlock (Internal)
+- (void)_takeValuesFromTextBlock:(NSTextBlock *)other;
+@end
+
 #endif // PLATFORM(IOS_FAMILY)
+
+#endif // !__has_feature(modules)

@@ -16,6 +16,7 @@ int pid = -1;
 char *group_print = NULL;
 char *resource_print = NULL;
 int diff_mode = 0;
+int filter_zeros = 0;
 
 struct proc_list {
 	int pid;
@@ -330,7 +331,6 @@ dump_all_info(void)
 		if (p->seen == 0)
 			continue;
 
-		printf("%5d %32s ", p->pid, p->name);
 		line = 0;
 
 		info = p->ledger->info;
@@ -344,7 +344,16 @@ dump_all_info(void)
 			    strcmp(resource_print, template[i].lti_name))
 				continue;
 
-			if (line++)
+			/* Skip entries with all zero values if filter_zeros is enabled */
+			if (filter_zeros &&
+			    info[i].lei_credit == 0 &&
+			    info[i].lei_debit == 0 &&
+			    info[i].lei_balance == 0)
+				continue;
+
+			if (line++ == 0)
+				printf("%5d %32s ", p->pid, p->name);
+			else
 				printf("%5s %32s ", "", "");
 			printf("%32s ", template[i].lti_name);
 
@@ -421,7 +430,7 @@ const char *pname;
 static void
 usage(void)
 {
-	printf("%s [-hdL] [-g group] [-p pid] [-r resource] [interval]\n", pname);
+	printf("%s [-hdLN] [-g group] [-p pid] [-r resource] [interval]\n", pname);
 }
 
 int
@@ -432,7 +441,7 @@ main(int argc, char **argv)
 
 	pname = argv[0];
 
-	while ((c = getopt(argc, argv, "g:hdLp:r:")) != -1) {
+	while ((c = getopt(argc, argv, "g:hdLNp:r:")) != -1) {
 		switch (c) {
 		case 'g':
 			group_print = optarg;
@@ -450,6 +459,10 @@ main(int argc, char **argv)
 			get_template_info();
 			dump_template_info();
 			exit(0);
+
+		case 'N':
+			filter_zeros = 1;
+			break;
 
 		case 'p':
 			pid = atoi(optarg);

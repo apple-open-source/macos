@@ -52,15 +52,15 @@ RemoteMediaEngineConfigurationFactoryProxy::~RemoteMediaEngineConfigurationFacto
 
 void RemoteMediaEngineConfigurationFactoryProxy:: createDecodingConfiguration(WebCore::MediaDecodingConfiguration&& configuration, CompletionHandler<void(WebCore::MediaCapabilitiesDecodingInfo&&)>&& completion)
 {
-    MediaEngineConfigurationFactory::createDecodingConfiguration(WTFMove(configuration), [completion = WTFMove(completion)] (auto info) mutable {
-        completion(WTFMove(info));
+    MediaEngineConfigurationFactory::createDecodingConfiguration(WTF::move(configuration), [completion = WTF::move(completion)] (auto info) mutable {
+        completion(WTF::move(info));
     });
 }
 
 void RemoteMediaEngineConfigurationFactoryProxy::createEncodingConfiguration(WebCore::MediaEncodingConfiguration&& configuration, CompletionHandler<void(WebCore::MediaCapabilitiesEncodingInfo&&)>&& completion)
 {
-    MediaEngineConfigurationFactory::createEncodingConfiguration(WTFMove(configuration), [completion = WTFMove(completion)] (auto info) mutable {
-        completion(WTFMove(info));
+    MediaEngineConfigurationFactory::createEncodingConfiguration(WTF::move(configuration), [completion = WTF::move(completion)] (auto info) mutable {
+        completion(WTF::move(info));
     });
 }
 
@@ -76,9 +76,7 @@ void RemoteMediaEngineConfigurationFactoryProxy::deref() const
 
 std::optional<SharedPreferencesForWebProcess> RemoteMediaEngineConfigurationFactoryProxy::sharedPreferencesForWebProcess() const
 {
-    if (RefPtr connection = m_connection.get())
-        return connection->sharedPreferencesForWebProcess();
-    return std::nullopt;
+    return m_connection.get()->sharedPreferencesForWebProcess();
 }
 
 }

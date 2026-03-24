@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +32,7 @@ namespace Style {
 
 // <'margin-*'> = auto | <length-percentage>
 // https://drafts.csswg.org/css-box/#margin-physical
-struct MarginEdge : LengthWrapperBase<LengthPercentage<>, CSS::Keyword::Auto> {
+struct MarginEdge : LengthWrapperBase<LengthPercentage<CSS::AllUnzoomed>, CSS::Keyword::Auto> {
     using Base::Base;
     using Base::hasQuirk;
 

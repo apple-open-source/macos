@@ -102,7 +102,7 @@ private:
 #endif
     String m_keySystem;
     String m_mediaKeysHashSalt;
-    std::unique_ptr<CDMPrivate> m_private;
+    const std::unique_ptr<CDMPrivate> m_private;
 };
 
 }

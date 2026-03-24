@@ -45,7 +45,7 @@ class PresentationContextImpl final : public PresentationContext {
 public:
     static Ref<PresentationContextImpl> create(WebGPUPtr<WGPUSurface>&& surface, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new PresentationContextImpl(WTFMove(surface), convertToBackingContext));
+        return adoptRef(*new PresentationContextImpl(WTF::move(surface), convertToBackingContext));
     }
 
     virtual ~PresentationContextImpl();

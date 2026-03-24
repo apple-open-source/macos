@@ -43,7 +43,6 @@
 #include "InspectorAnimationAgent.h"
 #include "InspectorCSSAgent.h"
 #include "InspectorCanvasAgent.h"
-#include "InspectorController.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMDebuggerAgent.h"
 #include "InspectorDOMStorageAgent.h"
@@ -63,6 +62,7 @@
 #include "PageDOMDebuggerAgent.h"
 #include "PageDebuggerAgent.h"
 #include "PageHeapAgent.h"
+#include "PageInspectorController.h"
 #include "PageRuntimeAgent.h"
 #include "PageTimelineAgent.h"
 #include "PlatformStrategies.h"
@@ -237,7 +237,7 @@ void InspectorInstrumentation::documentDetachedImpl(InstrumentingAgents& instrum
 
 void InspectorInstrumentation::frameWindowDiscardedImpl(InstrumentingAgents& instrumentingAgents, LocalDOMWindow* window)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (!window)
@@ -645,7 +645,7 @@ void InspectorInstrumentation::didLoadResourceFromMemoryCacheImpl(InstrumentingA
 
 void InspectorInstrumentation::didReceiveResourceResponseImpl(InstrumentingAgents& instrumentingAgents, ResourceLoaderIdentifier identifier, DocumentLoader* loader, const ResourceResponse& response, ResourceLoader* resourceLoader)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* networkAgent = instrumentingAgents.enabledNetworkAgent())
@@ -674,7 +674,7 @@ void InspectorInstrumentation::didFinishLoadingImpl(InstrumentingAgents& instrum
 
 void InspectorInstrumentation::didFailLoadingImpl(InstrumentingAgents& instrumentingAgents, ResourceLoaderIdentifier identifier, DocumentLoader* loader, const ResourceError& error)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* networkAgent = instrumentingAgents.enabledNetworkAgent())
@@ -739,7 +739,7 @@ void InspectorInstrumentation::frameDetachedFromParentImpl(InstrumentingAgents& 
 
 void InspectorInstrumentation::didCommitLoadImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame, DocumentLoader* loader)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (!frame.page())
@@ -887,13 +887,13 @@ bool InspectorInstrumentation::shouldInterceptResponseImpl(InstrumentingAgents& 
 void InspectorInstrumentation::interceptRequestImpl(InstrumentingAgents& instrumentingAgents, ResourceLoader& loader, Function<void(const ResourceRequest&)>&& handler)
 {
     if (auto* networkAgent = instrumentingAgents.enabledNetworkAgent())
-        networkAgent->interceptRequest(loader, WTFMove(handler));
+        networkAgent->interceptRequest(loader, WTF::move(handler));
 }
 
 void InspectorInstrumentation::interceptResponseImpl(InstrumentingAgents& instrumentingAgents, const ResourceResponse& response, ResourceLoaderIdentifier identifier, CompletionHandler<void(const ResourceResponse&, RefPtr<FragmentedSharedBuffer>)>&& handler)
 {
     if (auto* networkAgent = instrumentingAgents.enabledNetworkAgent())
-        networkAgent->interceptResponse(response, identifier, WTFMove(handler));
+        networkAgent->interceptResponse(response, identifier, WTF::move(handler));
 }
 
 // JavaScriptCore InspectorDebuggerAgent should know Console MessageTypes.
@@ -904,7 +904,7 @@ static bool isConsoleAssertMessage(MessageSource source, MessageType type)
 
 void InspectorInstrumentation::addMessageToConsoleImpl(InstrumentingAgents& instrumentingAgents, std::unique_ptr<ConsoleMessage> message)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     MessageSource source = message->source();
@@ -912,7 +912,7 @@ void InspectorInstrumentation::addMessageToConsoleImpl(InstrumentingAgents& inst
     String messageText = message->message();
 
     if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
-        consoleAgent->addMessageToConsole(WTFMove(message));
+        consoleAgent->addMessageToConsole(WTF::move(message));
     // FIXME: This should just pass the message on to the debugger agent. JavaScriptCore InspectorDebuggerAgent should know Console MessageTypes.
     if (auto* webDebuggerAgent = instrumentingAgents.enabledWebDebuggerAgent()) {
         if (isConsoleAssertMessage(source, type))
@@ -922,7 +922,7 @@ void InspectorInstrumentation::addMessageToConsoleImpl(InstrumentingAgents& inst
 
 void InspectorInstrumentation::consoleCountImpl(InstrumentingAgents& instrumentingAgents, JSC::JSGlobalObject* state, const String& label)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
@@ -931,7 +931,7 @@ void InspectorInstrumentation::consoleCountImpl(InstrumentingAgents& instrumenti
 
 void InspectorInstrumentation::consoleCountResetImpl(InstrumentingAgents& instrumentingAgents, JSC::JSGlobalObject* state, const String& label)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
@@ -940,13 +940,20 @@ void InspectorInstrumentation::consoleCountResetImpl(InstrumentingAgents& instru
 
 void InspectorInstrumentation::takeHeapSnapshotImpl(InstrumentingAgents& instrumentingAgents, const String& title)
 {
-    if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
-        consoleAgent->takeHeapSnapshot(title);
+    if (auto* heapAgent = instrumentingAgents.persistentWebHeapAgent()) {
+        auto result = heapAgent->snapshot();
+        if (!result)
+            return;
+
+        auto [timestamp, snapshotData] = WTF::move(result.value());
+        if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
+            consoleAgent->reportHeapSnapshot(timestamp, snapshotData, title);
+    }
 }
 
 void InspectorInstrumentation::startConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, JSC::JSGlobalObject* exec, const String& label)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* timelineAgent = instrumentingAgents.trackingTimelineAgent())
@@ -957,16 +964,16 @@ void InspectorInstrumentation::startConsoleTimingImpl(InstrumentingAgents& instr
 
 void InspectorInstrumentation::logConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, JSC::JSGlobalObject* exec, const String& label, Ref<Inspector::ScriptArguments>&& arguments)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())
-        consoleAgent->logTiming(exec, label, WTFMove(arguments));
+        consoleAgent->logTiming(exec, label, WTF::move(arguments));
 }
 
 void InspectorInstrumentation::stopConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, JSC::JSGlobalObject* exec, const String& label)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()) [[likely]]
+    if (!instrumentingAgents.developerExtrasEnabled()) [[likely]]
         return;
 
     if (auto* consoleAgent = instrumentingAgents.webConsoleAgent())

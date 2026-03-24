@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,8 @@
 #include "pas_try_allocate_array.h"
 #include "pas_try_allocate_intrinsic.h"
 #include "pas_try_allocate_primitive.h"
+
+#if LIBPAS_ENABLED
 
 PAS_BEGIN_EXTERN_C;
 
@@ -324,7 +326,7 @@ pas_try_reallocate(void* old_ptr,
         if (!begin)
             return allocate_callback(heap, new_size, allocation_mode, allocate_callback_arg);
 
-        if (PAS_UNLIKELY(pas_system_heap_is_enabled(config.kind))) {
+        if (PAS_UNLIKELY(pas_system_heap_should_supplant_bmalloc(config.kind))) {
             void* raw_result;
             
             PAS_ASSERT(free_mode == pas_reallocate_free_if_successful);
@@ -630,5 +632,5 @@ pas_try_reallocate_primitive(
 
 PAS_END_EXTERN_C;
 
+#endif /* LIBPAS_ENABLED */
 #endif /* PAS_TRY_REALLOCATE_H */
-

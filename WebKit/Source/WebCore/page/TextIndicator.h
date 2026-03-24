@@ -160,6 +160,7 @@ public:
 
     FloatRect selectionRectInRootViewCoordinates() const { return m_data.selectionRectInRootViewCoordinates; }
     FloatRect textBoundingRectInRootViewCoordinates() const { return m_data.textBoundingRectInRootViewCoordinates; }
+    void setTextBoundingRectInRootViewCoordinates(FloatRect textBoundingRectInRootViewCoordinates) { m_data.textBoundingRectInRootViewCoordinates = textBoundingRectInRootViewCoordinates; }
     FloatRect contentImageWithoutSelectionRectInRootViewCoordinates() const { return m_data.contentImageWithoutSelectionRectInRootViewCoordinates; }
     const Vector<FloatRect>& textRectsInBoundingRectCoordinates() const { return m_data.textRectsInBoundingRectCoordinates; }
     float contentImageScaleFactor() const { return m_data.contentImageScaleFactor; }

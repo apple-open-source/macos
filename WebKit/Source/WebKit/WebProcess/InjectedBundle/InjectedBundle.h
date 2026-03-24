@@ -131,7 +131,7 @@ public:
     WKWebProcessBundleParameters *bundleParameters();
 
     void extendClassesForParameterCoder(API::Array& classes);
-    NSSet* classesForCoder();
+    RetainPtr<NSSet> classesForCoder();
 #endif
 
 private:

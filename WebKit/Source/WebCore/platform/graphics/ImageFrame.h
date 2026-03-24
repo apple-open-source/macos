@@ -112,13 +112,11 @@ private:
 
         void clear()
         {
-            if (!nativeImage)
-                return;
-
-            nativeImage->clearSubimages();
-            nativeImage = nullptr;
-            decodingOptions = DecodingOptions();
-            headroom = Headroom::None;
+            if (RefPtr image = std::exchange(nativeImage, nullptr)) {
+                image->clearSubimages();
+                decodingOptions = DecodingOptions();
+                headroom = Headroom::None;
+            }
         }
     };
 

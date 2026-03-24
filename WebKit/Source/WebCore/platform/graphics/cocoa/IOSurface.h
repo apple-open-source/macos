@@ -100,7 +100,7 @@ public:
     public:
         static Locker adopt(RetainPtr<IOSurfaceRef> surface)
         {
-            return Locker { WTFMove(surface) };
+            return Locker { WTF::move(surface) };
         }
 
         Locker(Locker&& other)
@@ -138,7 +138,7 @@ public:
 
     private:
         explicit Locker(RetainPtr<IOSurfaceRef> surface)
-            : m_surface(WTFMove(surface))
+            : m_surface(WTF::move(surface))
         {
         }
 
@@ -195,7 +195,7 @@ public:
     // going to be used immediately, use the return value of setVolatile to
     // determine whether the data was purged, instead of first calling state() or isVolatile().
     SetNonVolatileResult state() const;
-    bool isVolatile() const;
+    WEBCORE_EXPORT bool isVolatile() const;
 
     WEBCORE_EXPORT SetNonVolatileResult setVolatile(bool);
 

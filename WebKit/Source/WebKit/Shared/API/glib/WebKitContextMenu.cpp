@@ -117,7 +117,7 @@ void webkitContextMenuSetEvent(WebKitContextMenu* menu, GRefPtr<GdkEvent>&& even
 void webkitContextMenuSetEvent(WebKitContextMenu* menu, GUniquePtr<GdkEvent>&& event)
 #endif
 {
-    menu->priv->event = WTFMove(event);
+    menu->priv->event = WTF::move(event);
 }
 #endif
 

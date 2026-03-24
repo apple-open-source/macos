@@ -41,7 +41,7 @@ RemoteWorkerFrameLoaderClient::RemoteWorkerFrameLoaderClient(WebCore::FrameLoade
 
 Ref<WebCore::DocumentLoader> RemoteWorkerFrameLoaderClient::createDocumentLoader(WebCore::ResourceRequest&& request, WebCore::SubstituteData&& substituteData)
 {
-    return WebCore::DocumentLoader::create(WTFMove(request), WTFMove(substituteData));
+    return WebCore::DocumentLoader::create(WTF::move(request), WTF::move(substituteData));
 }
 
 } // namespace WebKit

@@ -61,7 +61,7 @@ public:
     void finishedPreconnectForMainResource(const URL&, const String& userAgent, const WebCore::ResourceError&);
 
     void setResourceLoadSchedulingMode(WebCore::PageIdentifier, WebCore::LoadSchedulingMode);
-    void prioritizeLoads(const Vector<NetworkLoad*>&);
+    void prioritizeLoads(const Vector<RefPtr<NetworkLoad>>&);
     void clearPageData(WebCore::PageIdentifier);
 
 private:

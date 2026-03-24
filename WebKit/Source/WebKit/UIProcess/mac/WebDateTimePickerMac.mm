@@ -91,11 +91,11 @@ void WebDateTimePickerMac::endPicker()
 void WebDateTimePickerMac::showDateTimePicker(WebCore::DateTimeChooserParameters&& params)
 {
     if (m_picker) {
-        [m_picker updatePicker:WTFMove(params)];
+        [m_picker updatePicker:WTF::move(params)];
         return;
     }
 
-    m_picker = adoptNS([[WKDateTimePicker alloc] initWithParams:WTFMove(params) inView:m_view.get().get()]);
+    m_picker = adoptNS([[WKDateTimePicker alloc] initWithParams:WTF::move(params) inView:m_view.get().get()]);
     [m_picker showPicker:*this];
 }
 
@@ -199,7 +199,7 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
 
     RetainPtr presentingView = _presentingView.get();
 
-    NSRect windowRect = [[presentingView window] convertRectToScreen:[presentingView convertRect:params.anchorRectInRootView toView:nil]];
+    NSRect windowRect = [retainPtr([presentingView window]) convertRectToScreen:[presentingView convertRect:params.anchorRectInRootView toView:nil]];
     windowRect.origin.y = NSMinY(windowRect) - kCalendarHeight;
     windowRect.size.width = kCalendarWidth;
     windowRect.size.height = kCalendarHeight;
@@ -243,7 +243,7 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
     [_dateFormatter setLocale:englishLocale.get()];
     [_dateFormatter setTimeZone:timeZone.get()];
 
-    [self updatePicker:WTFMove(params)];
+    [self updatePicker:WTF::move(params)];
 
     return self;
 }
@@ -252,18 +252,19 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
 {
     _picker = picker;
 
-    [[_enclosingWindow contentView] addSubview:_datePicker.get()];
-    [[_presentingView.get() window] addChildWindow:_enclosingWindow.get() ordered:NSWindowAbove];
+    [retainPtr([_enclosingWindow contentView]) addSubview:_datePicker.get()];
+    RetainPtr window = [_presentingView.get() window];
+    [window addChildWindow:_enclosingWindow.get() ordered:NSWindowAbove];
 
     if (_params.wasActivatedByKeyboard) {
         // Make the date picker first responder to enable keyboard interaction.
-        [[_presentingView.get() window] makeFirstResponder:_datePicker.get()];
+        [window makeFirstResponder:_datePicker.get()];
     }
 }
 
 - (void)updatePicker:(WebCore::DateTimeChooserParameters&&)params
 {
-    _params = WTFMove(params);
+    _params = WTF::move(params);
 
     RetainPtr currentDateValueString = _params.currentValue.createNSString();
 
@@ -289,7 +290,7 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
     [_enclosingWindow setAppearance:[NSAppearance appearanceNamed:_params.useDarkAppearance ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua]];
 
     if (_params.wasActivatedByKeyboard)
-        [[_presentingView.get() window] makeFirstResponder:_datePicker.get()];
+        [retainPtr([_presentingView.get() window]) makeFirstResponder:_datePicker.get()];
 }
 
 - (void)invalidate
@@ -300,17 +301,18 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
     [_datePicker setDateTimePicker:nil];
 
     RetainPtr presentingView = _presentingView.get();
-    if ([[presentingView window] firstResponder] == _datePicker.get()) {
+    RetainPtr window = [presentingView window];
+    if ([window firstResponder] == _datePicker.get()) {
         // If the date picker was the first responder, restore first-respondership
         // to the webview so the user doesn't have to click on the webpage to
         // start moving focus with the keyboard inside web content.
-        [[presentingView window] makeFirstResponder:_presentingView.get().get()];
+        [window makeFirstResponder:_presentingView.get().get()];
     }
 
     _datePicker = nil;
     _dateFormatter = nil;
 
-    [[_presentingView.get() window] removeChildWindow:_enclosingWindow.get()];
+    [window removeChildWindow:_enclosingWindow.get()];
     [_enclosingWindow close];
     _enclosingWindow = nil;
 }
@@ -326,7 +328,7 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
     if (sender != _datePicker)
         return;
 
-    String dateString = [_dateFormatter stringFromDate:[_datePicker dateValue]];
+    String dateString = [_dateFormatter stringFromDate:retainPtr([_datePicker dateValue]).get()];
     Ref { *_picker }->didChooseDate(StringView(dateString));
 
     if (_params.wasActivatedByKeyboard) {
@@ -335,7 +337,7 @@ void WebDateTimePickerMac::didChooseDate(StringView date)
         // which steals first-respondership from our date picker. The act of choosing a date
         // with the keyboard does not dismiss the date picker, so we need to make sure it regains
         // first respondership in case the user wishes to continue interacting with it.
-        [[_presentingView.get() window] makeFirstResponder:_datePicker.get()];
+        [retainPtr([_presentingView.get() window]) makeFirstResponder:_datePicker.get()];
     }
 }
 

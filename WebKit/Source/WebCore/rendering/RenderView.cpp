@@ -25,6 +25,7 @@
 #include "DocumentPage.h"
 #include "Element.h"
 #include "FloatQuad.h"
+#include "FrameInlines.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayerEnums.h"
 #include "HTMLBodyElement.h"
@@ -63,14 +64,13 @@
 #include "RenderMultiColumnSpannerPlaceholder.h"
 #include "RenderQuote.h"
 #include "RenderSVGRoot.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTreeBuilder.h"
 #include "RenderWidget.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "SVGSVGElement.h"
 #include "Settings.h"
-#include "StyleInheritedData.h"
 #include "StyleScope.h"
 #include "TransformState.h"
 #include <wtf/SetForScope.h>
@@ -79,13 +79,13 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderView);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderView);
 
 RenderView::RenderView(Document& document, RenderStyle&& style)
-    : RenderBlockFlow(Type::View, document, WTFMove(style))
+    : RenderBlockFlow(Type::View, document, WTF::move(style))
     , m_frameView(*document.view())
     , m_initialContainingBlock(makeUniqueRef<Layout::InitialContainingBlock>(RenderStyle::clone(this->style())))
-    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, m_initialContainingBlock, Layout::LayoutState::Type::Primary, LayoutIntegration::layoutWithFormattingContextForBox, LayoutIntegration::formattingContextRootLogicalWidthForType, LayoutIntegration::formattingContextRootLogicalHeightForType))
+    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, m_initialContainingBlock, Layout::LayoutState::Type::Primary, LayoutIntegration::layoutWithFormattingContextForBox, LayoutIntegration::formattingContextRootLogicalWidthForType, LayoutIntegration::formattingContextRootLogicalHeightForType, LayoutIntegration::layoutWithFormattingContextForBlockInInline))
     , m_selection(*this)
 {
     // FIXME: We should find a way to enforce this at compile time.
@@ -115,7 +115,7 @@ void RenderView::willBeDestroyed()
     RenderBlockFlow::willBeDestroyed();
 }
 
-void RenderView::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+void RenderView::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     RenderBlockFlow::styleDidChange(diff, oldStyle);
 
@@ -174,7 +174,7 @@ bool RenderView::isChildAllowed(const RenderObject& child, const RenderStyle&) c
 void RenderView::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
-    if (!document().paginated())
+    if (!protectedDocument()->paginated())
         m_pageLogicalSize = { };
 
     if (shouldUsePrintingLayout()) {
@@ -397,7 +397,7 @@ static inline bool rendererObscuresBackground(const RenderElement& rootElement)
     if (!rendererForBackground)
         return false;
 
-    if (rendererForBackground->style().backgroundLayers().first().clip() == FillBox::Text)
+    if (rendererForBackground->style().backgroundLayers().usedFirst().clip() == FillBox::Text)
         return false;
 
     return true;
@@ -496,39 +496,101 @@ void RenderView::repaintRootContents()
     repaintUsingContainer(repaintContainer.get(), computeRectForRepaint(layoutOverflowRect(), repaintContainer.get()));
 }
 
-void RenderView::repaintViewRectangle(const LayoutRect& repaintRect) const
+void RenderView::repaintViewRectangle(const LayoutRect& repaintRect)
 {
     if (!shouldRepaint(repaintRect))
         return;
 
     // FIXME: enclosingRect is needed as long as we integral snap ScrollView/FrameView/RenderWidget size/position.
     auto enclosingRect = enclosingIntRect(repaintRect);
+    auto viewRect = this->viewRect();
+
     Ref document = this->document();
     if (RefPtr ownerElement = document->ownerElement()) {
         auto* ownerBox = ownerElement->renderBox();
         if (!ownerBox)
             return;
 
-        auto viewRect = LayoutRect { this->viewRect() };
-#if PLATFORM(IOS_FAMILY)
-        // Don't clip using the visible rect since clipping is handled at a higher level on iPhone.
-        // FIXME: This statement is wrong for iframes.
-        LayoutRect adjustedRect = enclosingRect;
-#else
-        LayoutRect adjustedRect = intersection(enclosingRect, viewRect);
-#endif
+        auto adjustedRect = intersection(enclosingRect, viewRect);
         if (adjustedRect.isEmpty())
             return;
 
-        if (adjustedRect == viewRect) {
-            // We know this RenderView isn't composited here, which means it has no composited descendants, so it's OK to trigger `setNeedsFullRepaint`
-            // which would otherwise force all compositing layers to repaint.
-            ASSERT(!isComposited());
-            frameView().layoutContext().setNeedsFullRepaint();
+        if (m_accumulatedRepaintRegion) {
+            bool entireViewDirty = accumulateRepaintRect(enclosingIntRect(adjustedRect), enclosingIntRect(viewRect));
+            if (entireViewDirty)
+                frameView().layoutContext().setNeedsFullRepaint();
+        } else {
+            if (adjustedRect == viewRect) {
+                // We know this RenderView isn't composited here, which means it has no composited descendants, so it's OK to trigger `setNeedsFullRepaint`
+                // which would otherwise force all compositing layers to repaint.
+                ASSERT(!isComposited());
+                frameView().layoutContext().setNeedsFullRepaint();
+            }
+
+            adjustedRect.moveBy(-viewRect.location());
+            adjustedRect.moveBy(ownerBox->contentBoxRect().location());
+
+            // A dirty rect in an iframe is relative to the contents of that iframe.
+            // When we traverse between parent frames and child frames, we need to make sure
+            // that the coordinate system is mapped appropriately between the iframe's contents
+            // and the Renderer that contains the iframe. This transformation must account for a
+            // left scrollbar (if one exists).
+            Ref frameView = this->frameView();
+            if (frameView->verticalScrollbar() && frameView->shouldPlaceVerticalScrollbarOnLeft())
+                adjustedRect.move(LayoutSize(frameView->protectedVerticalScrollbar()->occupiedWidth(), 0));
+
+            ownerBox->repaintRectangle(adjustedRect);
+        }
+        return;
+    }
+
+    frameView().addTrackedRepaintRect(snapRectToDevicePixels(repaintRect, document->deviceScaleFactor()));
+
+    if (m_accumulatedRepaintRegion)
+        accumulateRepaintRect(enclosingRect, enclosingIntRect(viewRect));
+    else
+        frameView().repaintContentRectangle(enclosingRect);
+}
+
+bool RenderView::accumulateRepaintRect(IntRect rect, IntRect viewRect)
+{
+    m_accumulatedRepaintRegion->unite(rect);
+
+    bool entireViewDirty = false;
+    // Region will get slow if it gets too complex. Merge all rects so far to bounds if this happens.
+    // FIXME: Maybe there should be a region type that does this automatically.
+    static const unsigned maximumRepaintRegionGridSize = 16 * 16;
+    if (m_accumulatedRepaintRegion->gridSize() > maximumRepaintRegionGridSize) {
+        auto dirtyBounds = m_accumulatedRepaintRegion->bounds();
+        auto dirtyArea = dirtyBounds.area<RecordOverflow>();
+        auto viewArea = viewRect.area<RecordOverflow>();
+        static constexpr auto dirtyEntireViewThreshold = 0.75f; // Derived empirically.
+        if (!dirtyArea.hasOverflowed() && !viewArea.hasOverflowed() && dirtyArea.value() >= viewArea.value() * dirtyEntireViewThreshold) {
+            dirtyBounds = viewRect;
+            entireViewDirty = true;
         }
 
-        adjustedRect.moveBy(-viewRect.location());
-        adjustedRect.moveBy(ownerBox->contentBoxRect().location());
+        m_accumulatedRepaintRegion = makeUnique<Region>(dirtyBounds);
+    } else
+        entireViewDirty = rect.contains(viewRect);
+
+    return entireViewDirty;
+}
+
+void RenderView::flushAccumulatedRepaintRegion() const
+{
+    IntSize rectOffset;
+
+    CheckedPtr<RenderBox> iframeOwnerRenderer;
+    if (RefPtr ownerElement = protectedDocument()->ownerElement()) {
+        iframeOwnerRenderer = ownerElement->renderBox();
+        if (!iframeOwnerRenderer) {
+            m_accumulatedRepaintRegion = nullptr;
+            return;
+        }
+
+        auto viewRect = this->viewRect();
+        auto rectOffsetLayoutSize = toLayoutSize(-viewRect.location() + iframeOwnerRenderer->contentBoxRect().location());
 
         // A dirty rect in an iframe is relative to the contents of that iframe.
         // When we traverse between parent frames and child frames, we need to make sure
@@ -537,32 +599,20 @@ void RenderView::repaintViewRectangle(const LayoutRect& repaintRect) const
         // left scrollbar (if one exists).
         Ref frameView = this->frameView();
         if (frameView->verticalScrollbar() && frameView->shouldPlaceVerticalScrollbarOnLeft())
-            adjustedRect.move(LayoutSize(frameView->protectedVerticalScrollbar()->occupiedWidth(), 0));
+            rectOffsetLayoutSize += LayoutSize { frameView->protectedVerticalScrollbar()->occupiedWidth(), 0 };
 
-        ownerBox->repaintRectangle(adjustedRect);
-        return;
+        rectOffset = roundedIntSize(rectOffsetLayoutSize);
     }
 
-    frameView().addTrackedRepaintRect(snapRectToDevicePixels(repaintRect, document->deviceScaleFactor()));
-    if (!m_accumulatedRepaintRegion) {
-        frameView().repaintContentRectangle(enclosingRect);
-        return;
-    }
-    m_accumulatedRepaintRegion->unite(enclosingRect);
-
-    // Region will get slow if it gets too complex. Merge all rects so far to bounds if this happens.
-    // FIXME: Maybe there should be a region type that does this automatically.
-    static const unsigned maximumRepaintRegionGridSize = 16 * 16;
-    if (m_accumulatedRepaintRegion->gridSize() > maximumRepaintRegionGridSize)
-        m_accumulatedRepaintRegion = makeUnique<Region>(m_accumulatedRepaintRegion->bounds());
-}
-
-void RenderView::flushAccumulatedRepaintRegion() const
-{
     ASSERT(m_accumulatedRepaintRegion);
     auto repaintRects = m_accumulatedRepaintRegion->rects();
-    for (auto& rect : repaintRects)
-        frameView().repaintContentRectangle(rect);
+    for (auto rect : repaintRects) {
+        if (iframeOwnerRenderer) {
+            rect.move(rectOffset);
+            iframeOwnerRenderer->repaintRectangle(rect);
+        } else
+            frameView().repaintContentRectangle(rect);
+    }
     m_accumulatedRepaintRegion = nullptr;
 }
 
@@ -624,7 +674,7 @@ void RenderView::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 
 bool RenderView::printing() const
 {
-    return document().printing();
+    return protectedDocument()->printing();
 }
 
 bool RenderView::shouldUsePrintingLayout() const
@@ -651,7 +701,7 @@ IntRect RenderView::unscaledDocumentRect() const
 bool RenderView::rootBackgroundIsEntirelyFixed() const
 {
     if (auto* rootBackgroundRenderer = rendererForRootBackground())
-        return rootBackgroundRenderer->style().backgroundLayers().hasEntirelyFixedBackground();
+        return Style::hasEntirelyFixedBackground(rootBackgroundRenderer->style().backgroundLayers());
     return false;
 }
 
@@ -1010,7 +1060,7 @@ void RenderView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
             }
         };
 
-        for (auto& layer : renderElement.style().backgroundLayers()) {
+        for (auto& layer : renderElement.style().backgroundLayers().usedValues()) {
             RefPtr image = layer.image().tryStyleImage();
             updateAnimation(image ? image->cachedImage() : nullptr);
         }
@@ -1038,22 +1088,19 @@ RenderView::RepaintRegionAccumulator::RepaintRegionAccumulator(RenderView* view)
     if (!view)
         return;
 
-    if (!view->protectedDocument()->isTopDocument())
-        return;
-
     m_wasAccumulatingRepaintRegion = !!view->m_accumulatedRepaintRegion;
     if (!m_wasAccumulatingRepaintRegion)
         view->m_accumulatedRepaintRegion = makeUnique<Region>();
-    m_rootView = *view;
+    m_view = *view;
 }
 
 RenderView::RepaintRegionAccumulator::~RepaintRegionAccumulator()
 {
     if (m_wasAccumulatingRepaintRegion)
         return;
-    if (!m_rootView)
+    if (!m_view)
         return;
-    m_rootView->flushAccumulatedRepaintRegion();
+    m_view->flushAccumulatedRepaintRegion();
 }
 
 unsigned RenderView::pageNumberForBlockProgressionOffset(int offset) const
@@ -1172,7 +1219,7 @@ void RenderView::removeViewTransitionGroup(const AtomString& name)
 
 RenderBox* RenderView::viewTransitionGroupForName(const AtomString& name)
 {
-    return m_viewTransitionGroups.get(name).get();
+    return m_viewTransitionGroups.get(name);
 }
 
 } // namespace WebCore

@@ -33,18 +33,14 @@ namespace WebKit {
 
 class WebContextMenuProxyWPE final : public WebContextMenuProxy {
 public:
-    static auto create(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+    static auto create(WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     {
-        return adoptRef(*new WebContextMenuProxyWPE(page, WTFMove(context), userData));
+        return adoptRef(*new WebContextMenuProxyWPE(page, WTF::move(frameInfo), WTF::move(context), userData));
     }
 
-    void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) final { }
-    void show() final { };
-
 private:
-    WebContextMenuProxyWPE(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
-        : WebContextMenuProxy(page, WTFMove(context), userData)
-    { }
+    WebContextMenuProxyWPE(WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&);
+    void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) override;
 };
 
 } // namespace WebKit

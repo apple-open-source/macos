@@ -109,7 +109,7 @@ static void debug_data(uint8_t *data, size_t length)
 static void write_data(const char *path, uint8_t *data, size_t length)
 {
     int fd = open(path, O_RDWR|O_TRUNC|O_CREAT, 0644);
-    require(fd>0, out);
+    __Require(fd>0, out);
     write(fd, data, length);
     close(fd);
 out:
@@ -130,10 +130,10 @@ static CFMutableDictionaryRef lc_code_sig(uint8_t *lc_code_signature, size_t lc_
         CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks,
                 &kCFTypeDictionaryValueCallBacks);
-    require(code_signature, out);
+    __Require(code_signature, out);
 
     CS_SuperBlob *sb = (CS_SuperBlob*)lc_code_signature;
-    require(ntohl(sb->magic) == CSMAGIC_EMBEDDED_SIGNATURE, out);
+    __Require(ntohl(sb->magic) == CSMAGIC_EMBEDDED_SIGNATURE, out);
     uint32_t count;
     for (count = 0; count < ntohl(sb->count); count++) {
         //uint32_t type = ntohl(sb->index[count].type);
@@ -150,20 +150,20 @@ static CFMutableDictionaryRef lc_code_sig(uint8_t *lc_code_signature, size_t lc_
             {
                 const CS_CodeDirectory *cd = (const CS_CodeDirectory *)bytes;
                 CFDataRef codedir = CFDataCreate(kCFAllocatorDefault, bytes, length);
-                require(codedir, out);
+                __Require(codedir, out);
                 CFDictionarySetValue(code_signature, CFSTR("CodeDirectory"), codedir);
                 CFRelease(codedir);
-                require_string(ntohl(cd->version) >= 0x20001, out, "incompatible version");
-                require_string(ntohl(cd->version) <= 0x2F000, out, "incompatible version");
-                require_string(cd->hashSize == 20, out, "unexpected hash size");
-                require_string(cd->hashType == 1, out, "unexpected hash type");
+                __Require_String(ntohl(cd->version) >= 0x20001, out, "incompatible version");
+                __Require_String(ntohl(cd->version) <= 0x2F000, out, "incompatible version");
+                __Require_String(cd->hashSize == 20, out, "unexpected hash size");
+                __Require_String(cd->hashType == 1, out, "unexpected hash type");
 
                 uint32_t hash_offset = ntohl(cd->hashOffset);
                 uint32_t entitlement_slot = 5;
 
                 if (ntohl(cd->nSpecialSlots) >= entitlement_slot) {
                     CFDataRef message = CFDataCreate(kCFAllocatorDefault, bytes+hash_offset-entitlement_slot*cd->hashSize, cd->hashSize);
-                    require(message, out);
+                    __Require(message, out);
                     CFDictionarySetValue(code_signature, CFSTR("EntitlementsCDHash"), message);
                     CFRelease(message);
                 } else
@@ -173,7 +173,7 @@ static CFMutableDictionaryRef lc_code_sig(uint8_t *lc_code_signature, size_t lc_
             case 0xfade0b01:  //write_data("signed", lc_code_signature, bytes-lc_code_signature);
                 if (length != 8) {
                     CFDataRef message = CFDataCreate(kCFAllocatorDefault, bytes+8, length-8);
-                    require(message, out);
+                    __Require(message, out);
                     CFDictionarySetValue(code_signature, CFSTR("SignedData"), message);
                     CFRelease(message);
                 }
@@ -184,11 +184,11 @@ static CFMutableDictionaryRef lc_code_sig(uint8_t *lc_code_signature, size_t lc_
                 CCDigest(kCCDigestSHA1, bytes, length, digest);
 
                 CFDataRef message = CFDataCreate(kCFAllocatorDefault, digest, sizeof(digest));
-                require(message, out);
+                __Require(message, out);
                 CFDictionarySetValue(code_signature, CFSTR("EntitlementsHash"), message);
                 CFRelease(message);
                 message = CFDataCreate(kCFAllocatorDefault, bytes+8, length-8);
-                require(message, out);
+                __Require(message, out);
                 CFDictionarySetValue(code_signature, CFSTR("Entitlements"), message);
                 CFRelease(message);
                 break;
@@ -214,14 +214,14 @@ open_bundle(const char * path, const char * mode)
     CFURLRef exec = NULL;
 
     path_cfstring = CFStringCreateWithFileSystemRepresentation(kCFAllocatorDefault, path);
-    require_quiet(path_cfstring, out);
+    __Require_Quiet(path_cfstring, out);
     path_url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, path_cfstring, kCFURLPOSIXPathStyle, true);
-    require_quiet(path_url, out);
+    __Require_Quiet(path_url, out);
 	bundle =  CFBundleCreate(kCFAllocatorDefault, path_url);
-    require_quiet(bundle, out);
+    __Require_Quiet(bundle, out);
     exec = CFBundleCopyExecutableURL(bundle);
-    require(exec, out);
-    require(CFURLGetFileSystemRepresentation(exec, true, (uint8_t*)full_path, sizeof(full_path)), out);
+    __Require(exec, out);
+    __Require(CFURLGetFileSystemRepresentation(exec, true, (uint8_t*)full_path, sizeof(full_path)), out);
 out:
     CFReleaseSafe(path_cfstring);
     CFReleaseSafe(path_url);
@@ -237,21 +237,21 @@ static CFMutableDictionaryRef load_code_signature(FILE *binary, size_t slice_off
     CFMutableDictionaryRef result = NULL;
     struct load_command lc;
     do {
-        require(1 == fread(&lc, sizeof(lc), 1, binary), out);
+        __Require(1 == fread(&lc, sizeof(lc), 1, binary), out);
         if (lc.cmd == LC_CODE_SIGNATURE) {
             struct { uint32_t offset; uint32_t size; } sig;
-            require(1 == fread(&sig, sizeof(sig), 1, binary), out);
-            require_noerr(fseek(binary, slice_offset+sig.offset, SEEK_SET), out);
+            __Require(1 == fread(&sig, sizeof(sig), 1, binary), out);
+            __Require_noErr(fseek(binary, slice_offset+sig.offset, SEEK_SET), out);
             size_t length = sig.size;
             uint8_t *data = malloc(length);
-            require(length && data, out);
-            require(1 == fread(data, length, 1, binary), out);
+            __Require(length && data, out);
+            __Require(1 == fread(data, length, 1, binary), out);
             signature_found = true;
             result = lc_code_sig(data, length);
             free(data);
             break;
         }
-        require_noerr(fseek(binary, lc.cmdsize-sizeof(lc), SEEK_CUR), out);
+        __Require_noErr(fseek(binary, lc.cmdsize-sizeof(lc), SEEK_CUR), out);
     } while(lc.cmd || lc.cmdsize); /* count lc */
 out:
     if (!signature_found)
@@ -268,15 +268,15 @@ static CF_RETURNS_RETAINED CFArrayRef load_code_signatures(const char *path)
 
     FILE *binary = open_bundle(path, "r");
     if (!binary) binary = fopen(path, "r");
-    require(binary, out);
+    __Require(binary, out);
 
     struct mach_header header;
-    require(1 == fread(&header, sizeof(header), 1, binary), out);
+    __Require(1 == fread(&header, sizeof(header), 1, binary), out);
     if ((header.magic == MH_MAGIC) || (header.magic == MH_MAGIC_64)) {
 	if (header.magic == MH_MAGIC_64)
 		fseek(binary, sizeof(struct mach_header_64) - sizeof(struct mach_header), SEEK_CUR);
         result = load_code_signature(binary, 0 /*non fat*/);
-        require(result, out);
+        __Require(result, out);
         CFStringRef type = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("CPU type: (%d,%d)"), header.cputype, header.cpusubtype);
         CFDictionarySetValue(result, CFSTR("ARCH"), type);
         CFRelease(type);
@@ -285,21 +285,21 @@ static CF_RETURNS_RETAINED CFArrayRef load_code_signatures(const char *path)
     else
     {
         struct fat_header fat;
-        require(!fseek(binary, 0L, SEEK_SET), out);
-        require(1 == fread(&fat, sizeof(fat), 1, binary), out);
-        require(ntohl(fat.magic) == FAT_MAGIC, out);
+        __Require(!fseek(binary, 0L, SEEK_SET), out);
+        __Require(1 == fread(&fat, sizeof(fat), 1, binary), out);
+        __Require(ntohl(fat.magic) == FAT_MAGIC, out);
         uint32_t slice, slices = ntohl(fat.nfat_arch);
         archs = calloc(slices, sizeof(struct fat_arch));
-        require(slices == fread(archs, sizeof(struct fat_arch), slices, binary), out);
+        __Require(slices == fread(archs, sizeof(struct fat_arch), slices, binary), out);
         for (slice = 0; slice < slices; slice++) {
             uint32_t slice_offset = ntohl(archs[slice].offset);
-            require(!fseek(binary, slice_offset, SEEK_SET), out);
-            require(1 == fread(&header, sizeof(header), 1, binary), out);
-	    require((header.magic == MH_MAGIC) || (header.magic == MH_MAGIC_64), out);
+            __Require(!fseek(binary, slice_offset, SEEK_SET), out);
+            __Require(1 == fread(&header, sizeof(header), 1, binary), out);
+	    __Require((header.magic == MH_MAGIC) || (header.magic == MH_MAGIC_64), out);
 	    if (header.magic == MH_MAGIC_64)
 		    fseek(binary, sizeof(struct mach_header_64) - sizeof(struct mach_header), SEEK_CUR);
             result = load_code_signature(binary, slice_offset);
-            require(result, out);
+            __Require(result, out);
             CFStringRef type = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("CPU type: (%d,%d)"), header.cputype, header.cpusubtype);
             CFDictionarySetValue(result, CFSTR("ARCH"), type);
             CFRelease(type);
@@ -346,7 +346,7 @@ extern int codesign_util(int argc, char * const *argv)
         return SHOW_USAGE_MESSAGE;
 
     CFArrayRef sigs = load_code_signatures(argv[0]);
-    require(sigs, out);
+    __Require(sigs, out);
 
     if (verbose >= 2)
         CFShow(sigs);

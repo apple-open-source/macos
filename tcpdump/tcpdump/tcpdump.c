@@ -4225,7 +4225,11 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			if (pcap_ng_block_get_option(block, PCAPNG_IF_NAME, &option_info) == 1)
 				ifname = (const char *)option_info.value;
 
-			(void) pcap_add_if_info(dump_info->pd, ifname, -1, idbp->idb_linktype, idbp->idb_snaplen);
+			if (pcap_add_if_info(dump_info->pd, ifname, -1, idbp->idb_linktype, idbp->idb_snaplen) == NULL) {
+				if (dump_info->ndo->ndo_vflag) {
+					 warning("%s: interface id %u incompatible with packet filter", __func__, src_if_id);
+				}
+			}
 
 			goto done;
 		}
@@ -4324,7 +4328,12 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 	if_info = pcap_find_if_info_by_id(dump_info->pd, src_if_id);
 	if (if_info == NULL) {
-		warning("%s: unknown interface id %u", __func__, src_if_id);
+		/*
+		 * Most likely to happen when the packet filter is incompatible with the link type
+		 */
+		if (dump_info->ndo->ndo_vflag) {
+			warning("%s: unknown interface id %u", __func__, src_if_id);
+		}
 		goto done;
 	}
 
@@ -4635,9 +4644,10 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				ifname = (const char *)option_info.value;
 
 			if_info = pcap_add_if_info(ndo->ndo_pcap, ifname, -1, linktype_to_dlt(idbp->idb_linktype), idbp->idb_snaplen);
-			if (if_info == NULL)
-				error("%s: cannot allocate memory", __func__);
-
+			if (if_info == NULL) {
+					/* Most likely to happen when the packet filter is incompatible with the link type */
+					goto done;
+			}
 			if (ndo->ndo_kflag & PRMD_VERBOSE)
 				ND_PRINT("Interface Description Block id: %d name: %s linktype: %u (dlt: %d) snaplen: %u\n",
 						  if_info->if_id, if_info->if_name, idbp->idb_linktype, if_info->if_linktype,
@@ -4883,7 +4893,12 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	if_info = pcap_find_if_info_by_id(ndo->ndo_pcap, if_id);
 	if (if_info == NULL) {
-		warning("%s: unknown interface id %u", __func__, if_id);
+		if (ndo->ndo_vflag) {
+			/*
+			 * Most likely to happen when the packet filter is incompatible with the link type
+			 */
+			warning("%s: unknown interface id %u", __func__, if_id);
+		}
 		goto done;
 	}
 

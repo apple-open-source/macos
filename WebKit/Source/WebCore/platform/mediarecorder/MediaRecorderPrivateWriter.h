@@ -40,8 +40,8 @@ struct CGAffineTransform;
 namespace WebCore {
 
 class MediaSamplesBlock;
-struct AudioInfo;
-struct VideoInfo;
+class AudioInfo;
+class VideoInfo;
 
 class MediaRecorderPrivateWriterListener : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaRecorderPrivateWriterListener> {
 public:

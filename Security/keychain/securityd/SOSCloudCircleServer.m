@@ -219,7 +219,7 @@ static void SOSKeychainAccountEnsureSaved(CFDataRef accountAsData)
     static CFDataRef sLastSavedAccountData = NULL;
 
     CFErrorRef saveError = NULL;
-    require_quiet(!CFEqualSafe(sLastSavedAccountData, accountAsData), exit);
+    __Require_Quiet(!CFEqualSafe(sLastSavedAccountData, accountAsData), exit);
 
     if (!SOSItemUpdateOrAdd(kSOSAccountLabel, kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate, accountAsData, &saveError)) {
         secerror("Can't save account: %@", saveError);
@@ -242,7 +242,7 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
     SOSDataSourceFactoryRef factory = accountDataSourceOverride ? accountDataSourceOverride()
                                                                 : SecItemServerDataSourceFactoryGetDefault();
 
-    require_quiet(factory, done);
+    __Require_Quiet(factory, done);
 
     if (savedAccount) {
         NSError* inflationError = NULL;
@@ -441,12 +441,12 @@ os_state_block_t accountStateBlock = ^os_state_data_t(os_state_hints_t hints) {
     
     /* Get account DER */
     savedAccount = SOSKeychainCopySavedAccountData();
-    require_quiet(savedAccount, errOut);
+    __Require_Quiet(savedAccount, errOut);
 
     /* make a os_state_data_t object to return. */
     size_t statelen = CFDataGetLength(savedAccount);
     retval = (os_state_data_t)calloc(1, OS_STATE_DATA_SIZE_NEEDED(statelen));
-    require_quiet(retval, errOut);
+    __Require_Quiet(retval, errOut);
     
     retval->osd_type = OS_STATE_DATA_PROTOCOL_BUFFER;
     memcpy(retval->osd_data, CFDataGetBytePtr(savedAccount), statelen);
@@ -713,9 +713,9 @@ static bool do_if_after_first_unlock(CFErrorRef *error, dispatch_block_t action)
 #else
     bool beenUnlocked = false;
     // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
-    require_quiet(SecAKSGetHasBeenUnlocked(user_only_keybag_handle, &beenUnlocked, error), fail);
+    __Require_Quiet(SecAKSGetHasBeenUnlocked(user_only_keybag_handle, &beenUnlocked, error), fail);
 
-    require_action_quiet(beenUnlocked, fail,
+    __Require_Action_Quiet(beenUnlocked, fail,
                          SOSCreateErrorWithFormat(kSOSErrorNotReady, NULL, error, NULL,
                                                   CFSTR("Keybag never unlocked, ask after first unlock")));
 
@@ -1699,7 +1699,7 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
         return true;
     });
 
-    require_quiet(result, fail);
+    __Require_Quiet(result, fail);
     
     if(inSyncSema){
         if(shouldUseInitialSyncV0){
@@ -2588,14 +2588,14 @@ void SOSCCPerformWithAllOctagonKeys(void (^action)(SecKeyRef octagonEncryptionKe
         CFErrorRef errorArg = err ? *err : NULL;
         
         SOSFullPeerInfoRef fpi = txn.account.trust.fullPeerInfo;
-        require_action_quiet(fpi, fail, secerror("device does not have a peer"); SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, &errorArg));
+        __Require_Action_Quiet(fpi, fail, secerror("device does not have a peer"); SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, &errorArg));
         
         signingKey = SOSFullPeerInfoCopyOctagonSigningKey(fpi, &errorArg);
-        require_action_quiet(signingKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys signing key error: %@", errorArg));
+        __Require_Action_Quiet(signingKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys signing key error: %@", errorArg));
         CFReleaseNull(errorArg);
         
         encryptionKey = SOSFullPeerInfoCopyOctagonEncryptionKey(fpi, &errorArg);
-        require_action_quiet(encryptionKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys encryption key error: %@", errorArg));
+        __Require_Action_Quiet(encryptionKey && !errorArg, fail, secerror("SOSCCPerformWithAllOctagonKeys encryption key error: %@", errorArg));
         
         action(encryptionKey, signingKey, errorArg);
         CFReleaseNull(signingKey);

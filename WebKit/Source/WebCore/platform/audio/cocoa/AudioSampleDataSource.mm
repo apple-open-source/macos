@@ -109,15 +109,14 @@ OSStatus AudioSampleDataSource::setOutputFormat(const CAAudioStreamDescription& 
 MediaTime AudioSampleDataSource::hostTime() const
 {
     // Based on listing #2 from Apple Technical Q&A QA1398, modified to be thread-safe.
-    static double frequency;
-    static mach_timebase_info_data_t timebaseInfo;
-    static std::once_flag initializeTimerOnceFlag;
-    std::call_once(initializeTimerOnceFlag, [] {
+    static double frequency = [] {
+        static mach_timebase_info_data_t timebaseInfo;
         kern_return_t kr = mach_timebase_info(&timebaseInfo);
-        frequency = 1e-9 * static_cast<double>(timebaseInfo.numer) / static_cast<double>(timebaseInfo.denom);
+        double frequency = 1e-9 * static_cast<double>(timebaseInfo.numer) / static_cast<double>(timebaseInfo.denom);
         ASSERT_UNUSED(kr, kr == KERN_SUCCESS);
         ASSERT(timebaseInfo.denom);
-    });
+        return frequency;
+    }();
 
     return MediaTime::createWithDouble(mach_absolute_time() * frequency);
 }
@@ -341,7 +340,7 @@ bool AudioSampleDataSource::pullAvailableSamplesAsChunks(AudioBufferList& buffer
 #if !RELEASE_LOG_DISABLED
 void AudioSampleDataSource::setLogger(Ref<const Logger>&& logger, uint64_t logIdentifier)
 {
-    m_logger = WTFMove(logger);
+    m_logger = WTF::move(logger);
     m_logIdentifier = logIdentifier;
 }
 

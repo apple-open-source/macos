@@ -270,6 +270,24 @@ bool pas_system_heap_is_enabled(pas_heap_config_kind kind)
     }
 }
 
+bool pas_system_heap_should_supplant_bmalloc(pas_heap_config_kind kind)
+{
+    SystemHeap* heap;
+    switch (kind) {
+    case pas_heap_config_kind_bmalloc:
+        heap = SystemHeap::tryGet();
+        if (!heap)
+            return false;
+        return heap->shouldSupplantBmalloc();
+    case pas_heap_config_kind_jit:
+    case pas_heap_config_kind_pas_utility:
+        return false;
+    default:
+        BCRASH();
+        return false;
+    }
+}
+
 void* pas_system_heap_malloc(size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
@@ -326,6 +344,12 @@ void pas_system_heap_free(void* ptr)
 #else // BUSE(LIBPAS) -> so !BUSE(LIBPAS)
 
 bool pas_system_heap_is_enabled(pas_heap_config_kind kind)
+{
+    BUNUSED_PARAM(kind);
+    return false;
+}
+
+bool pas_system_heap_should_supplant_bmalloc(pas_heap_config_kind kind)
 {
     BUNUSED_PARAM(kind);
     return false;

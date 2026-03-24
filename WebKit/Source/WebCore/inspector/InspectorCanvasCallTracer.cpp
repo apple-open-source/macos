@@ -59,13 +59,13 @@ RefPtr<InspectorCanvas> InspectorCanvasCallTracer::enabledInspectorCanvas(Canvas
 void InspectorCanvasCallTracer::recordAction(CanvasRenderingContext& canvasRenderingContext, String&& name, InspectorCanvasProcessedArguments&& arguments)
 {
     if (auto* canvasAgent = enabledCanvasAgent(canvasRenderingContext))
-        canvasAgent->recordAction(canvasRenderingContext, WTFMove(name), WTFMove(arguments));
+        canvasAgent->recordAction(canvasRenderingContext, WTF::move(name), WTF::move(arguments));
 }
 
 void InspectorCanvasCallTracer::recordAction(const CanvasBase& canvasBase, String&& name, InspectorCanvasProcessedArguments&& arguments)
 {
     ASSERT(canvasBase.renderingContext());
-    recordAction(*canvasBase.renderingContext(), WTFMove(name), WTFMove(arguments));
+    recordAction(*canvasBase.renderingContext(), WTF::move(name), WTF::move(arguments));
 }
 
 } // namespace WebCore

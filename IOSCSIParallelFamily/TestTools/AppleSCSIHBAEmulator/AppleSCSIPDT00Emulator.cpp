@@ -113,7 +113,7 @@ AppleSCSIPDT00Emulator::WithCapacity ( UInt64 capacity )
 	require_nonzero ( logicalUnit, ErrorExit );
 	
 	result = logicalUnit->InitWithCapacity ( capacity );
-	require ( result, ReleaseLogicalUnit );
+	__Require(result, ReleaseLogicalUnit);
 	
 	return logicalUnit;
 	

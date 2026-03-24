@@ -110,7 +110,7 @@ Ref<MediaPromise> SourceBufferPrivateGStreamer::appendInternal(Ref<SharedBuffer>
             static_cast<SharedBuffer*>(data)->deref();
         }));
 
-    m_appendPipeline->pushNewBuffer(WTFMove(buffer));
+    m_appendPipeline->pushNewBuffer(WTF::move(buffer));
     return *m_appendPromise;
 }
 
@@ -228,7 +228,7 @@ void SourceBufferPrivateGStreamer::notifyClientWhenReadyForMoreSamples(TrackID t
     ASSERT(m_tracks.contains(trackId));
     auto track = m_tracks[trackId];
     track->notifyWhenReadyForMoreSamples([weakPtr = WeakPtr { *this }, this, trackId]() mutable {
-        RunLoop::mainSingleton().dispatch([weakPtr = WTFMove(weakPtr), this, trackId]() {
+        RunLoop::mainSingleton().dispatch([weakPtr = WTF::move(weakPtr), this, trackId]() {
             if (!weakPtr)
                 return;
             if (!m_hasBeenRemovedFromMediaSource)
@@ -254,21 +254,21 @@ bool SourceBufferPrivateGStreamer::precheckInitializationSegment(const Initializ
         GRefPtr<GstCaps> initialCaps = videoTrackInfo->initialCaps();
         ASSERT(initialCaps);
         if (!m_tracks.contains(videoTrackInfo->id()))
-            m_tracks.try_emplace(videoTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Video, videoTrackInfo->id(), WTFMove(initialCaps)));
+            m_tracks.try_emplace(videoTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Video, videoTrackInfo->id(), WTF::move(initialCaps)));
     }
     for (auto& trackInfo : segment.audioTracks) {
         auto* audioTrackInfo = static_cast<AudioTrackPrivateGStreamer*>(trackInfo.track.get());
         GRefPtr<GstCaps> initialCaps = audioTrackInfo->initialCaps();
         ASSERT(initialCaps);
         if (!m_tracks.contains(audioTrackInfo->id()))
-            m_tracks.try_emplace(audioTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Audio, audioTrackInfo->id(), WTFMove(initialCaps)));
+            m_tracks.try_emplace(audioTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Audio, audioTrackInfo->id(), WTF::move(initialCaps)));
     }
     for (auto& trackInfo : segment.textTracks) {
         auto* textTrackInfo = static_cast<InbandTextTrackPrivateGStreamer*>(trackInfo.track.get());
         GRefPtr<GstCaps> initialCaps = textTrackInfo->initialCaps();
         ASSERT(initialCaps);
         if (!m_tracks.contains(textTrackInfo->id()))
-            m_tracks.try_emplace(textTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Text, textTrackInfo->id(), WTFMove(initialCaps)));
+            m_tracks.try_emplace(textTrackInfo->id(), MediaSourceTrackGStreamer::create(TrackPrivateBaseGStreamer::TrackType::Text, textTrackInfo->id(), WTF::move(initialCaps)));
     }
 
     return true;
@@ -370,11 +370,12 @@ size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const
         }
     });
 
-    // If any track type size isn't specified, we consider that it has no limit and the values from the
-    // element have to be used. Otherwise, the track limits are accumulative. If everything is specified
-    // but there's no track (eg: because we're processing an init segment that we don't know yet which
-    // kind of track(s) is going to generate) we assume that the 3 kind of tracks might appear (audio,
-    // video, text) and use all the accumulated limits at once to make room for any possible outcome.
+    // If either audio or video track type size isn't specified, we consider that it has no limit
+    // and the values from the element have to be used. Otherwise, the track limits are accumulative.
+    // If at least video and audio are specified but there's no track (eg: because we're processing
+    // an init segment that we don't know yet which kind of track(s) is going to generate) we assume
+    // that the 3 kind of tracks might appear (audio, video, text) and use all the accumulated
+    // limits at once to make room for any possible outcome.
     do {
         bool hasVideo = false;
         bool hasAudio = false;
@@ -412,7 +413,7 @@ size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const
         if (hasText || m_tracks.empty()) {
             if (maxBufferSizeText)
                 bufferSize += maxBufferSizeText;
-            else
+            else if (hasText)
                 break;
         }
         if (bufferSize)

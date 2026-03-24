@@ -433,11 +433,11 @@ SOSViewResultCode SOSViewsEnable(SOSPeerInfoRef pi, CFStringRef viewname, CFErro
     SOSViewResultCode retval = kSOSCCGeneralViewError;
 
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, fail,
+    __Require_Action_Quiet(newviews, fail,
                          SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
-    require_action_quiet(SOSViewsRequireIsKnownView(viewname, error), fail,
+    __Require_Action_Quiet(SOSViewsRequireIsKnownView(viewname, error), fail,
                          retval = kSOSCCNoSuchView);
-    require_action_quiet(SOSPeerInfoViewIsValid(pi, viewname), fail,
+    __Require_Action_Quiet(SOSPeerInfoViewIsValid(pi, viewname), fail,
                          SOSCreateErrorWithFormat(kSOSErrorNameMismatch, NULL, error, NULL, viewInvalidError, viewname, retval = kSOSCCViewNotQualified));
     CFSetAddValue(newviews, viewname);
     SOSPeerInfoSetViews(pi, newviews);
@@ -453,7 +453,7 @@ fail:
 bool SOSViewSetEnable(SOSPeerInfoRef pi, CFSetRef viewSet) {
     __block bool addedView = false;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
+    __Require_Action_Quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
 
     CFSetForEach(viewSet, ^(const void *value) {
         CFStringRef viewName = (CFStringRef) value;
@@ -466,7 +466,7 @@ bool SOSViewSetEnable(SOSPeerInfoRef pi, CFSetRef viewSet) {
             secnotice("views", "couldn't add view %@", viewName);
         }
     });
-    require_quiet(addedView, errOut);
+    __Require_Quiet(addedView, errOut);
 
     SOSPeerInfoSetViews(pi, newviews);
 
@@ -479,9 +479,9 @@ errOut:
 SOSViewResultCode SOSViewsDisable(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
     SOSViewResultCode retval = kSOSCCGeneralViewError;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, fail,
+    __Require_Action_Quiet(newviews, fail,
                          SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
-    require_action_quiet(SOSViewsRequireIsKnownView(viewname, error), fail, retval = kSOSCCNoSuchView);
+    __Require_Action_Quiet(SOSViewsRequireIsKnownView(viewname, error), fail, retval = kSOSCCNoSuchView);
 
     CFSetRemoveValue(newviews, viewname);
     SOSPeerInfoSetViews(pi, newviews);
@@ -498,7 +498,7 @@ fail:
 bool SOSViewSetDisable(SOSPeerInfoRef pi, CFSetRef viewSet) {
     __block bool removed = false;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
+    __Require_Action_Quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
 
     CFSetForEach(viewSet, ^(const void *value) {
         CFStringRef viewName = (CFStringRef) value;
@@ -510,7 +510,7 @@ bool SOSViewSetDisable(SOSPeerInfoRef pi, CFSetRef viewSet) {
         }
     });
 
-    require_quiet(removed, errOut);
+    __Require_Quiet(removed, errOut);
 
     SOSPeerInfoSetViews(pi, newviews);
 
@@ -522,7 +522,7 @@ errOut:
 SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
     SOSViewResultCode retval = kSOSCCNoSuchView;
     CFSetRef views = NULL;
-    require_quiet(SOSViewsRequireIsKnownView(viewname, error), fail);
+    __Require_Quiet(SOSViewsRequireIsKnownView(viewname, error), fail);
 
     views = SOSPeerInfoCopyEnabledViews(pi);
     if(!views){
@@ -588,9 +588,9 @@ xpc_object_t CreateXPCObjectWithCFSetRef(CFSetRef setref, CFErrorRef *error) {
     xpc_object_t result = NULL;
     size_t data_size = 0;
     uint8_t *data = NULL;
-    require_action_quiet(setref, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedNull, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Unexpected Null Set to encode")));
-    require_quiet((data_size = der_sizeof_set(setref, error)) != 0, errOut);
-    require_quiet((data = (uint8_t *)malloc(data_size)) != NULL, errOut);
+    __Require_Action_Quiet(setref, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedNull, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Unexpected Null Set to encode")));
+    __Require_Quiet((data_size = der_sizeof_set(setref, error)) != 0, errOut);
+    __Require_Quiet((data = (uint8_t *)malloc(data_size)) != NULL, errOut);
     
     der_encode_set(setref, error, data, data + data_size);
     result = xpc_data_create(data, data_size);

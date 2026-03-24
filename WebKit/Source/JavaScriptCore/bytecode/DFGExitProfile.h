@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(DFG_JIT)
 
 #include <JavaScriptCore/ConcurrentJSLock.h>
@@ -131,7 +133,9 @@ public:
     {
         return m_kind == ExitKindUnset && m_bytecodeIndex.isHashTableDeletedValue();
     }
-    
+
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
+
     void dump(PrintStream& out) const;
 
 private:
@@ -141,19 +145,10 @@ private:
     ExitingInlineKind m_inlineKind;
 };
 
-struct FrequentExitSiteHash {
-    static unsigned hash(const FrequentExitSite& key) { return key.hash(); }
-    static bool equal(const FrequentExitSite& a, const FrequentExitSite& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
-};
-
 } } // namespace JSC::DFG
 
 
 namespace WTF {
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::DFG::FrequentExitSite> : JSC::DFG::FrequentExitSiteHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::DFG::FrequentExitSite> : SimpleClassHashTraits<JSC::DFG::FrequentExitSite> { };

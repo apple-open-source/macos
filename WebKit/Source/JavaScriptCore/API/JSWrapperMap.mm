@@ -357,7 +357,7 @@ static void copyPrototypeProperties(JSContext *context, Class objcClass, Protoco
         }
 
         // Add the properties to a list.
-        propertyList.append(WTFMove(property));
+        propertyList.append(WTF::move(property));
     });
 
     // Copy methods to the prototype, capturing accessors in the accessorMethods map.
@@ -478,7 +478,7 @@ static JSC::JSObject* allocateConstructorForCustomClass(JSContext *context, cons
 
 typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
 
-- (ConstructorPrototypePair)allocateConstructorAndPrototypeInContext:(JSContext *)context
+- (ConstructorPrototypePair)ensureConstructorAndPrototypeInContext:(JSContext *)context
 {
     JSObjCClassInfo* superClassInfo = [context.wrapperMap classInfoForClass:class_getSuperclass(m_class)];
 
@@ -556,7 +556,7 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
 {
     JSC::JSObject* constructor = m_constructor.get();
     if (!constructor)
-        constructor = [self allocateConstructorAndPrototypeInContext:context].first;
+        constructor = [self ensureConstructorAndPrototypeInContext:context].first;
     ASSERT(!!constructor);
     return constructor;
 }
@@ -565,7 +565,7 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
 {
     JSC::JSObject* prototype = m_prototype.get();
     if (!prototype)
-        prototype = [self allocateConstructorAndPrototypeInContext:context].second;
+        prototype = [self ensureConstructorAndPrototypeInContext:context].second;
     ASSERT(!!prototype);
     return prototype;
 }

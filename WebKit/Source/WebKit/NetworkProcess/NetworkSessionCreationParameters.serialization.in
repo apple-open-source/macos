@@ -115,7 +115,7 @@ enum class WebKit::AllowsCellularAccess : bool;
     bool isLegacyTLSAllowed;
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
     String webContentRestrictionsConfigurationFile;
-    WebKit::SandboxExtension::Handle webContentRestrictionsConfigurationExtensionHandle;
+    WebKit::SandboxExtensionHandle webContentRestrictionsConfigurationExtensionHandle;
 #endif
 };
 

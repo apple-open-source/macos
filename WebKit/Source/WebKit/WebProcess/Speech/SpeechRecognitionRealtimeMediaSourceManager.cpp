@@ -65,8 +65,8 @@ class SpeechRecognitionRealtimeMediaSourceManager::Source final
 public:
     Source(RealtimeMediaSourceIdentifier identifier, Ref<RealtimeMediaSource>&& source, Ref<IPC::Connection>&& connection)
         : m_identifier(identifier)
-        , m_source(WTFMove(source))
-        , m_connection(WTFMove(connection))
+        , m_source(WTF::move(source))
+        , m_connection(WTF::move(connection))
     {
         m_source->addObserver(*this);
         m_source->addAudioSampleObserver(*this);
@@ -93,6 +93,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
 private:
 
@@ -116,9 +117,9 @@ private:
             auto& format = m_description->streamDescription();
             auto result = ProducerSharedCARingBuffer::allocate(format, numberOfFrames);
             RELEASE_ASSERT(result); // FIXME(https://bugs.webkit.org/show_bug.cgi?id=262690): Handle allocation failure.
-            auto [ringBuffer, handle] = WTFMove(*result);
-            m_ringBuffer = WTFMove(ringBuffer);
-            m_connection->send(Messages::SpeechRecognitionRemoteRealtimeMediaSourceManager::SetStorage(m_identifier, WTFMove(handle), format), 0);
+            auto [ringBuffer, handle] = WTF::move(*result);
+            m_ringBuffer = WTF::move(ringBuffer);
+            m_connection->send(Messages::SpeechRecognitionRemoteRealtimeMediaSourceManager::SetStorage(m_identifier, WTF::move(handle), format), 0);
         }
 
         m_ringBuffer->store(downcast<WebAudioBufferList>(audioData).list(), numberOfFrames, time.timeValue());

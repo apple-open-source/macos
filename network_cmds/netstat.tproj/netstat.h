@@ -137,6 +137,9 @@ extern int tcp_reinit(struct netstat_parameters *, uint32_t, char *, int);
 extern int udp_reinit(struct netstat_parameters *, uint32_t, char *, int);
 extern int mptcp_reinit(struct netstat_parameters *, uint32_t, char *, int);
 
+struct in_addr;
+void in_addr_print(struct netstat_parameters *params, struct in_addr *in);
+
 #ifdef INET6
 extern int	ip6_stats(struct netstat_parameters *, uint32_t, char *, int);
 extern int	ip6_ifstats(struct netstat_parameters *, char *);
@@ -151,11 +154,15 @@ struct sockaddr;
 
 extern char	*routename6(struct netstat_parameters *, struct sockaddr_in6 *);
 extern char	*netname6(struct netstat_parameters *, struct sockaddr_in6 *, struct sockaddr *);
+
+void in6_addr_print(struct netstat_parameters *params, struct in6_addr *in6);
 #endif /*INET6*/
 
 #ifdef IPSEC
 extern int	pfkey_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int keysockpr(struct netstat_parameters *, uint32_t, char *, int);
 #endif
+
 
 extern int	systmpr(struct netstat_parameters *, uint32_t, char *, int);
 extern int	kctl_stats(struct netstat_parameters *, uint32_t, char *, int);
@@ -175,6 +182,7 @@ extern void	upHex(char *);
 extern char	*routename(struct netstat_parameters *, uint32_t);
 extern char	*netname(struct netstat_parameters *, uint32_t, uint32_t);
 extern int	routepr(struct netstat_parameters *);
+extern int	rtsock_pcblist(struct netstat_parameters *, uint32_t, char *, int);
 
 extern int	unixpr(struct netstat_parameters *, uint32_t, char *, int);
 extern int	unixstats(struct netstat_parameters *, uint32_t, char *, int);
@@ -193,6 +201,7 @@ extern int	print_nstat_stats(struct netstat_parameters *, uint32_t, char *, int)
 extern int	print_net_api_stats(struct netstat_parameters *, uint32_t, char *, int);
 extern int	print_if_ports_used_stats(struct netstat_parameters *, uint32_t, char *, int);
 extern int	print_if_link_heuristics_stats(struct netstat_parameters *, char *);
+extern int	print_if_lpw_stats(struct netstat_parameters *, char *);
 
 extern int bpf_stats(struct netstat_parameters *, char *);
 extern void bpf_help(void);

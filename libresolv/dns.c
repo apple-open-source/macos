@@ -732,6 +732,23 @@ _pdns_check_search_list(pdns_handle_t *pdns)
 	}
 }
 
+/* Returns -1 if it's not configured, 0 for no change, 1 for change. */
+__attribute__((__visibility__("hidden"))) int
+_dns_check_sys_config_notify(int sys_config_token)
+{
+	int n, status;
+
+	if (sys_config_token == -1)
+		return (-1);
+
+	n = 1;
+	status = notify_check(sys_config_token, &n);
+	if (status != NOTIFY_STATUS_OK)
+		return (-1);
+
+	return ((n == 1) ? 1 : 0);
+}
+
 __attribute__((__visibility__("hidden"))) void
 _check_cache(sdns_handle_t *sdns)
 {
@@ -749,13 +766,8 @@ _check_cache(sdns_handle_t *sdns)
 
 	if (refresh == 0)
 	{
-		if (sdns->notify_sys_config_token == -1) refresh = 1;
-		else
-		{
-			n = 1;
-			status = notify_check(sdns->notify_sys_config_token, &n);
-			if ((status != NOTIFY_STATUS_OK) || (n == 1)) refresh = 1;
-		}
+		if (_dns_check_sys_config_notify(sdns->notify_sys_config_token) != 0)
+			refresh = 1;
 	}
 
 	if (refresh == 0)
@@ -1023,6 +1035,29 @@ _pdns_search_list_domain(pdns_handle_t *pdns, uint32_t i)
 	return strdup(s);
 }
 
+__attribute__((__visibility__("hidden"))) void
+_dns_open_sys_config_notify(int *sys_config_token)
+{
+	int status, token = *sys_config_token;
+
+	if (token != -1)
+		return;
+
+	status = notify_register_check(dns_configuration_notify_key(), &token);
+	if (status != NOTIFY_STATUS_OK)
+		token = -1;
+
+	*sys_config_token = token;
+}
+
+__attribute__((__visibility__("hidden"))) void
+_dns_close_sys_config_notify(int *sys_config_token)
+{
+
+	if (*sys_config_token != -1) notify_cancel(*sys_config_token);
+	*sys_config_token = -1;
+}
+
 static void
 _dns_open_notify(sdns_handle_t *sdns)
 {
@@ -1037,11 +1072,7 @@ _dns_open_notify(sdns_handle_t *sdns)
 		else status = notify_check(sdns->notify_delay_token, &n);
 	}
 
-	if (sdns->notify_sys_config_token == -1)
-	{
-		status = notify_register_check(dns_configuration_notify_key(), &(sdns->notify_sys_config_token));
-		if (status != NOTIFY_STATUS_OK) sdns->notify_sys_config_token = -1;
-	}
+	_dns_open_sys_config_notify(&sdns->notify_sys_config_token);
 
 	if (sdns->notify_dir_token == -1)
 	{
@@ -1070,8 +1101,7 @@ _dns_close_notify(sdns_handle_t *sdns)
 	if (sdns->notify_delay_token != -1) notify_cancel(sdns->notify_delay_token);
 	sdns->notify_delay_token = -1;
 
-	if (sdns->notify_sys_config_token != -1) notify_cancel(sdns->notify_sys_config_token);
-	sdns->notify_sys_config_token = -1;
+	_dns_close_sys_config_notify(&sdns->notify_sys_config_token);
 
 	if (sdns->notify_dir_token != -1) notify_cancel(sdns->notify_dir_token);
 	sdns->notify_dir_token = -1;

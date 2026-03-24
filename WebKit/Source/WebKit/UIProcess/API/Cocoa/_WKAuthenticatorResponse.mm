@@ -40,7 +40,7 @@
 
     _clientDataJSON = [clientDataJSON retain];
     _rawId = [rawId retain];
-    _extensions = WTFMove(extensions);
+    _extensions = WTF::move(extensions);
     _attachment = attachment;
 
     return self;
@@ -61,9 +61,9 @@
 
 - (void)dealloc
 {
-    [_clientDataJSON release];
-    [_rawId release];
-    [_extensionOutputsCBOR release];
+    SUPPRESS_UNRETAINED_ARG [_clientDataJSON release];
+    SUPPRESS_UNRETAINED_ARG [_rawId release];
+    SUPPRESS_UNRETAINED_ARG [_extensionOutputsCBOR release];
     [super dealloc];
 }
 

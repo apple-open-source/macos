@@ -56,19 +56,29 @@ uint64_t NetworkTransportSession::messageSenderDestinationID() const
 void NetworkTransportSession::streamSendBytes(WebCore::WebTransportStreamIdentifier identifier, std::span<const uint8_t> bytes, bool withFin, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
 {
     if (RefPtr stream = m_streams.get(identifier))
-        stream->sendBytes(bytes, withFin, WTFMove(completionHandler));
+        stream->sendBytes(bytes, withFin, WTF::move(completionHandler));
     else
         completionHandler(WebCore::Exception { WebCore::ExceptionCode::InvalidStateError });
 }
 
 void NetworkTransportSession::receiveDatagram(std::span<const uint8_t> datagram, bool withFin, std::optional<WebCore::Exception>&& exception)
 {
-    send(Messages::WebTransportSession::ReceiveDatagram(datagram, withFin, WTFMove(exception)));
+    send(Messages::WebTransportSession::ReceiveDatagram(datagram, withFin, WTF::move(exception)));
 }
 
 void NetworkTransportSession::streamReceiveBytes(WebCore::WebTransportStreamIdentifier identifier, std::span<const uint8_t> bytes, bool withFin, std::optional<WebCore::Exception>&& exception)
 {
-    send(Messages::WebTransportSession::StreamReceiveBytes(identifier, bytes, withFin, WTFMove(exception)));
+    send(Messages::WebTransportSession::StreamReceiveBytes(identifier, bytes, withFin, WTF::move(exception)));
+}
+
+void NetworkTransportSession::streamReceiveError(WebCore::WebTransportStreamIdentifier identifier, uint64_t errorCode)
+{
+    send(Messages::WebTransportSession::StreamReceiveError(identifier, errorCode));
+}
+
+void NetworkTransportSession::streamSendError(WebCore::WebTransportStreamIdentifier identifier, uint64_t errorCode)
+{
+    send(Messages::WebTransportSession::StreamSendError(identifier, errorCode));
 }
 
 void NetworkTransportSession::receiveIncomingUnidirectionalStream(WebCore::WebTransportStreamIdentifier identifier)
@@ -123,15 +133,46 @@ void NetworkTransportSession::getReceiveStreamStats(WebCore::WebTransportStreamI
         completionHandler(std::nullopt);
 }
 
+void NetworkTransportSession::getSendGroupStats(WebCore::WebTransportSendGroupIdentifier identifier, CompletionHandler<void(std::optional<WebCore::WebTransportSendStreamStats>&&)>&& completionHandler)
+{
+    // FIXME: Get better data from the stream.
+    uint64_t bytesSent = m_datagramStats.get(identifier);
+    completionHandler(WebCore::WebTransportSendStreamStats {
+        bytesSent,
+        bytesSent,
+        bytesSent
+    });
+}
+
+void NetworkTransportSession::datagramIncomingMaxAgeUpdated(std::optional<double>)
+{
+    // FIXME: Use this value.
+}
+
+void NetworkTransportSession::datagramOutgoingMaxAgeUpdated(std::optional<double>)
+{
+    // FIXME: Use this value.
+}
+
+void NetworkTransportSession::datagramIncomingHighWaterMarkUpdated(double)
+{
+    // FIXME: Use this value.
+}
+
+void NetworkTransportSession::datagramOutgoingHighWaterMarkUpdated(double)
+{
+    // FIXME: Use this value.
+}
+
 #if !PLATFORM(COCOA)
 RefPtr<NetworkTransportSession> NetworkTransportSession::create(NetworkConnectionToWebProcess&, WebTransportSessionIdentifier, URL&&, WebCore::WebTransportOptions&&, WebKit::WebPageProxyIdentifier&&, WebCore::ClientOrigin&&)
 {
     return nullptr;
 }
 
-void NetworkTransportSession::initialize(CompletionHandler<void(bool)>&& completionHandler)
+void NetworkTransportSession::initialize(CompletionHandler<void(std::optional<WebCore::WebTransportConnectionInfo>&&)>&& completionHandler)
 {
-    completionHandler(false);
+    completionHandler(std::nullopt);
 }
 
 NetworkTransportSession::NetworkTransportSession()
@@ -139,7 +180,7 @@ NetworkTransportSession::NetworkTransportSession()
 {
 }
 
-void NetworkTransportSession::sendDatagram(std::span<const uint8_t>, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
+void NetworkTransportSession::sendDatagram(std::optional<WebCore::WebTransportSendGroupIdentifier>, std::span<const uint8_t>, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
 {
     completionHandler(std::nullopt);
 }
@@ -161,6 +202,11 @@ void NetworkTransportSession::getStats(CompletionHandler<void(WebCore::WebTransp
 
 void NetworkTransportSession::terminate(WebCore::WebTransportSessionErrorCode, CString&&)
 {
+}
+
+bool NetworkTransportSession::isSessionClosed() const
+{
+    return false;
 }
 #endif
 

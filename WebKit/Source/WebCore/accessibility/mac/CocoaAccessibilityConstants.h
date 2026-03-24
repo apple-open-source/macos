@@ -133,7 +133,6 @@
 #define NSAccessibilityHeadingLevelAttribute @"AXHeadingLevel"
 #define NSAccessibilityLanguageAttribute @"AXLanguage"
 #define NSAccessibilityPathAttribute @"AXPath"
-#define NSAccessibilitySelectedCellsAttribute @"AXSelectedCells"
 #define NSAccessibilityTextCompletionAttribute @"AXTextCompletion"
 #define NSAccessibilityTextInputMarkedRangeAttribute @"AXTextInputMarkedRange"
 #define NSAccessibilityVisitedAttribute @"AXVisited"
@@ -307,6 +306,7 @@
 #define NSAccessibilityIsSuggestedInsertionAttribute @"AXIsSuggestedInsertion"
 #define NSAccessibilityIsSuggestedDeletionAttribute @"AXIsSuggestedDeletion"
 #define NSAccessibilityIsSuggestionAttribute @"AXIsSuggestion"
+#define NSAccessibilityTableAttribute @"AXTable"
 
 //
 // Notifications
@@ -497,3 +497,12 @@
 #define NSAccessibilityMathSubscriptAttribute @"AXMathSubscript"
 #define NSAccessibilityMathSuperscriptAttribute @"AXMathSuperscript"
 #define NSAccessibilityMathUnderAttribute @"AXMathUnder"
+
+// ariaNotify notification userInfo attributes.
+#define NSAccessibilityARIAAnnouncementPriority @"AXARIAAnnouncementPriority"
+#define NSAccessibilityARIAAnnouncementInterrupt @"AXARIAAnnouncementInterruptBehavior"
+
+// User info key to specify an announcment's language.
+#define NSAccessibilityAnnouncementLanguageKey @"AXAnnouncementLanguageKey"
+
+#define NSAccessibilityAnnouncementIsLiveRegionKey @"AXAnnouncementIsLiveRegionKey"

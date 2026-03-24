@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #include <wtf/text/ASCIILiteral.h>
 
 #if ENABLE(WEBASSEMBLY)

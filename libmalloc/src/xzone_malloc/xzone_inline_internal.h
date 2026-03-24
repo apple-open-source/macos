@@ -141,7 +141,7 @@ _xzm_segment_table_index_of(const void *segment_body, size_t *extended_idx)
 		return XZM_SEGMENT_TABLE_ENTRIES;
 	}
 
-	uintptr_t segindex = segment_bits / XZM_SEGMENT_SIZE;
+	uintptr_t segindex = segment_bits / XZM_NORMAL_SEGMENT_SIZE;
 #if CONFIG_EXTERNAL_METADATA_LARGE
 	// The segment map index we return in the large address space is the index
 	// into the bottom level table, the extended_idx is the index into top table
@@ -241,10 +241,31 @@ MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static xzm_segment_t
 _xzm_segment_for_slice(xzm_malloc_zone_t zone, xzm_slice_t slice)
 {
+	uintptr_t block_size =
+			slice->xzc_bits.xzcb_on_multi_segment ?
+			XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SIZE :
+			XZM_METAPOOL_SEGMENT_BLOCK_SIZE;
 	xzm_segment_t segment = (xzm_segment_t)
-			((uintptr_t)slice & ~(XZM_METAPOOL_SEGMENT_BLOCK_SIZE - 1));
+			((uintptr_t)slice & ~(block_size - 1));
 	xzm_debug_assert(!segment || (slice >= segment->xzs_slices &&
 			slice < (segment->xzs_slices + segment->xzs_slice_entry_count)));
+	return segment;
+}
+
+// mimalloc: _mi_page_segment
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_segment_t
+_xzm_segment_for_multi_slice(xzm_malloc_zone_t zone, xzm_slice_t slice,
+		bool multi)
+{
+	xzm_debug_assert(multi == slice->xzc_bits.xzcb_on_multi_segment);
+	uintptr_t block_size = multi ? XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SIZE :
+			XZM_METAPOOL_SEGMENT_BLOCK_SIZE;
+	xzm_segment_t segment = (xzm_segment_t)
+			((uintptr_t)slice & ~(block_size - 1));
+	xzm_debug_assert(!segment || (slice >= segment->xzs_slices &&
+			slice < (segment->xzs_slices + segment->xzs_slice_entry_count)));
+	xzm_debug_assert(multi == (segment->xzs_kind == XZM_SEGMENT_KIND_MULTI));
 	return segment;
 }
 
@@ -253,6 +274,15 @@ static xzm_segment_group_t
 _xzm_segment_group_for_slice(xzm_malloc_zone_t zone, xzm_slice_t slice)
 {
 	xzm_segment_t segment = _xzm_segment_for_slice(zone, slice);
+	return segment->xzs_segment_group;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_segment_group_t
+_xzm_segment_group_for_multi_slice(xzm_malloc_zone_t zone, xzm_slice_t slice,
+		bool multi)
+{
+	xzm_segment_t segment = _xzm_segment_for_multi_slice(zone, slice, multi);
 	return segment->xzs_segment_group;
 }
 
@@ -343,6 +373,18 @@ _xzm_slice_start(xzm_malloc_zone_t zone, xzm_slice_t slice)
 	return _xzm_segment_slice_start(_xzm_segment_for_slice(zone, slice), slice);
 }
 
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uint8_t *
+_xzm_multi_slice_start(xzm_malloc_zone_t zone, xzm_slice_t slice, bool multi)
+{
+	return _xzm_segment_slice_start(
+			_xzm_segment_for_multi_slice(zone, slice, multi), slice);
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_gzone_t
+_xzm_get_guard_chunk_gzone(xzm_malloc_zone_t zone, xzm_chunk_t chunk);
+
 // mimalloc: _mi_page_start
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static uintptr_t
@@ -362,6 +404,7 @@ _xzm_chunk_start(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 			break;
 		case XZM_SLICE_KIND_LARGE_CHUNK:
 		case XZM_SLICE_KIND_HUGE_CHUNK:
+		case XZM_SLICE_KIND_GUARD_CHUNK:
 			*chunk_size_out = ((size_t)chunk->xzcs_slice_count) <<
 					XZM_SEGMENT_SLICE_SHIFT;
 			break;
@@ -375,6 +418,37 @@ _xzm_chunk_start(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uintptr_t
+_xzm_multi_chunk_start(xzm_malloc_zone_t zone, xzm_chunk_t chunk, bool multi,
+		size_t *chunk_size_out)
+{
+	if (chunk_size_out) {
+		switch (chunk->xzc_bits.xzcb_kind) {
+		case XZM_SLICE_KIND_TINY_CHUNK:
+			*chunk_size_out = XZM_TINY_CHUNK_SIZE;
+			break;
+		case XZM_SLICE_KIND_SMALL_CHUNK:
+			*chunk_size_out = XZM_SMALL_CHUNK_SIZE;
+			break;
+		case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK:
+			*chunk_size_out = XZM_SMALL_FREELIST_CHUNK_SIZE;
+			break;
+		case XZM_SLICE_KIND_LARGE_CHUNK:
+		case XZM_SLICE_KIND_HUGE_CHUNK:
+		case XZM_SLICE_KIND_GUARD_CHUNK:
+			*chunk_size_out = ((size_t)chunk->xzcs_slice_count) <<
+					XZM_SEGMENT_SLICE_SHIFT;
+			break;
+		default:
+			xzm_abort_with_reason("asking for start of chunk with invalid kind",
+					(unsigned)chunk->xzc_bits.xzcb_kind);
+		}
+	}
+
+	return (uintptr_t)_xzm_multi_slice_start(zone, (xzm_slice_t)chunk, multi);
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static uint8_t *
 _xzm_chunk_start_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 		size_t *chunk_size_out)
@@ -384,6 +458,16 @@ _xzm_chunk_start_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 	return (uint8_t *)ptr;
 }
 
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uint8_t *
+_xzm_multi_chunk_start_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
+		bool multi, size_t *chunk_size_out)
+{
+	xzm_debug_assert(chunk_size_out);
+	uintptr_t ptr = _xzm_multi_chunk_start(zone, chunk, multi, chunk_size_out);
+	return (uint8_t *)ptr;
+}
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static xzm_slice_count_t
@@ -417,7 +501,7 @@ _xzm_segment_slice_offset_of(xzm_segment_t segment, uintptr_t ptr)
 	// possible for malloc_size() to be passed a pointer that is within a
 	// segment granule, but isn't within the segment that owns that granule. We
 	// need to not crash in the debug dylib when that happens
-	size_t rounded_size = roundup(_xzm_segment_size(segment), XZM_SEGMENT_SIZE);
+	size_t rounded_size = roundup(_xzm_segment_size(segment), XZM_NORMAL_SEGMENT_SIZE);
 	xzm_debug_assert(diff >= 0 && diff < (ptrdiff_t)rounded_size);
 #endif // DEBUG
 	return (size_t)diff;
@@ -506,6 +590,8 @@ _xzm_segment_kind_to_string(xzm_segment_kind_t kind)
 		return "normal_segment";
 	case XZM_SEGMENT_KIND_HUGE:
 		return "huge_segment";
+	case XZM_SEGMENT_KIND_MULTI:
+		return "multi_segment";
 	default:
 		return "unknown";
 	}
@@ -518,6 +604,8 @@ _xzm_metapool_id_to_string(xzm_metapool_id_t id)
 	switch(id) {
 	case XZM_METAPOOL_SEGMENT:
 		return "segment metadata slab";
+	case XZM_METAPOOL_SEGMENT_MULTI:
+		return "multi-segment metadata slab";
 	case XZM_METAPOOL_SEGMENT_TABLE:
 		return "segment table slab";
 	case XZM_METAPOOL_MZONE_IDX:
@@ -544,7 +632,8 @@ _xzm_span_contains_slice(xzm_slice_t span, xzm_slice_t slice)
 	case XZM_SLICE_KIND_LARGE_CHUNK:
 	case XZM_SLICE_KIND_HUGE_CHUNK:
 	case XZM_SLICE_KIND_MULTI_FREE:
-	case XZM_SLICE_KIND_GUARD:
+	case XZM_SLICE_KIND_GUARD_PAGE:
+	case XZM_SLICE_KIND_GUARD_CHUNK:
 		xzm_debug_assert(slice >= span);
 		return (slice < span + span->xzcs_slice_count);
 	default:
@@ -566,8 +655,14 @@ _xzm_span_slice_first(xzm_slice_t slice)
 	xzm_slice_t out_slice = (xzm_slice_t)
 			((uintptr_t)slice - slice->xzsl_slice_offset_bytes);
 
+#ifdef DEBUG
+	uintptr_t block_size =
+			slice->xzc_bits.xzcb_on_multi_segment ?
+			XZM_METAPOOL_SEGMENT_MULTI_BLOCK_SIZE :
+			XZM_METAPOOL_SEGMENT_BLOCK_SIZE;
+#endif
 	xzm_debug_assert(out_slice >= ((xzm_segment_t)((uintptr_t)slice &
-			~(XZM_METAPOOL_SEGMENT_BLOCK_SIZE - 1)))->xzs_slices);
+			~(block_size - 1)))->xzs_slices);
 	if (os_likely(_xzm_span_contains_slice(out_slice, slice))) {
 		return out_slice;
 	}
@@ -591,6 +686,7 @@ _xzm_slice_kind_is_chunk(xzm_slice_kind_t kind)
 	case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK:
 	case XZM_SLICE_KIND_LARGE_CHUNK:
 	case XZM_SLICE_KIND_HUGE_CHUNK:
+	case XZM_SLICE_KIND_GUARD_CHUNK:
 		return true;
 	default:
 		xzm_abort_with_reason("bad chunk kind", (unsigned)kind);
@@ -610,6 +706,7 @@ _xzm_slice_kind_is_chunk_safe(xzm_slice_kind_t kind)
 	case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK:
 	case XZM_SLICE_KIND_LARGE_CHUNK:
 	case XZM_SLICE_KIND_HUGE_CHUNK:
+	case XZM_SLICE_KIND_GUARD_CHUNK:
 		return true;
 	default:
 		return false;
@@ -632,10 +729,27 @@ _xzm_slice_kind_uses_xzones(xzm_slice_kind_t kind)
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static bool
+_xzm_chunk_slice_kind_valid(xzm_main_malloc_zone_t main, xzm_chunk_t chunk)
+{
+	xzm_slice_kind_t kind = chunk->xzc_bits.xzcb_kind;
+	if (kind == XZM_SLICE_KIND_MULTI_BODY) {
+		xzm_slice_t parent = (xzm_slice_t)
+			((uintptr_t)chunk - chunk->xzsl_slice_offset_bytes);
+		return main->xzmz_guard_object_config.xgoc_large_enabled &&
+				parent->xzc_bits.xzcb_kind == XZM_SLICE_KIND_GUARD_CHUNK;
+	} else if (kind == XZM_SLICE_KIND_GUARD_CHUNK) {
+		return main->xzmz_guard_object_config.xgoc_large_enabled;
+	}
+
+	return _xzm_slice_kind_is_chunk(kind);
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static bool
 _xzm_chunk_should_defer_reclamation(xzm_main_malloc_zone_t main,
 		xzm_chunk_t chunk)
 {
-	xzm_debug_assert(_xzm_slice_kind_is_chunk(chunk->xzc_bits.xzcb_kind));
+	xzm_debug_assert(_xzm_chunk_slice_kind_valid(main, chunk));
 	switch (chunk->xzc_bits.xzcb_kind) {
 	case XZM_SLICE_KIND_TINY_CHUNK:
 		return main->xzmz_defer_tiny;
@@ -645,7 +759,22 @@ _xzm_chunk_should_defer_reclamation(xzm_main_malloc_zone_t main,
 	case XZM_SLICE_KIND_LARGE_CHUNK:
 	case XZM_SLICE_KIND_HUGE_CHUNK:
 		return main->xzmz_defer_large;
+	case XZM_SLICE_KIND_MULTI_BODY: {
+		xzm_slice_t parent = (xzm_slice_t)
+			((uintptr_t)chunk - chunk->xzsl_slice_offset_bytes);
+		if (main->xzmz_guard_object_config.xgoc_large_enabled &&
+				parent->xzc_bits.xzcb_kind == XZM_SLICE_KIND_GUARD_CHUNK) {
+			return true;
+		}
+		goto abort;
+	}
+	case XZM_SLICE_KIND_GUARD_CHUNK:
+		if (main->xzmz_guard_object_config.xgoc_large_enabled) {
+			return true;
+		}
+		MALLOC_FALLTHROUGH;
 	default:
+abort:
 		xzm_abort("Attempt to check for deferred reclamation on "
 				"non-chunk slice");
 	}
@@ -674,8 +803,10 @@ _xzm_slice_kind_to_string(xzm_slice_kind_t kind)
 		return "large_chunk";
 	case XZM_SLICE_KIND_HUGE_CHUNK:
 		return "huge_chunk";
-	case XZM_SLICE_KIND_GUARD:
+	case XZM_SLICE_KIND_GUARD_PAGE:
 		return "guard_page";
+	case XZM_SLICE_KIND_GUARD_CHUNK:
+		return "guard_chunk";
 	default:
 		return "unknown";
 	}
@@ -713,22 +844,234 @@ _xzm_segment_offset_chunk_block_index_of(xzm_segment_t segment,
 			(offset - chunk_idx * XZM_SEGMENT_SLICE_SIZE) / block_size;
 }
 
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_states_t
+_xzm_guard_chunk_slot_state_all_guard(xzm_gzone_chunk_slot_index_t index)
+{
+	xzm_debug_assert(XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index <
+			CHAR_BIT * sizeof(xzm_guard_chunk_slot_states_t));
+	return 0ull;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_states_t
+_xzm_guard_chunk_slot_state_all_empty(xzm_gzone_chunk_slot_index_t index)
+{
+	xzm_debug_assert(XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index <
+			CHAR_BIT * sizeof(xzm_guard_chunk_slot_states_t));
+	return (1ull << (XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index)) - 1ull;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_states_t
+_xzm_get_guard_chunk_slot_state(xzm_xzone_guard_config_t guard_config,
+		xzm_guard_chunk_slot_states_t bitmap, xzm_gzone_chunk_slot_index_t index)
+{
+	xzm_debug_assert(index < guard_config->xxgc_length);
+	xzm_debug_assert(XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index <
+			CHAR_BIT * sizeof(bitmap));
+	return (bitmap >> (XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index)) &
+			(XZM_GUARD_CHUNK_SLOT_STATE_COUNT - 1ul);
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_states_t
+_xzm_set_guard_chunk_slot_state(xzm_xzone_guard_config_t guard_config,
+		xzm_guard_chunk_slot_states_t bitmap, xzm_gzone_chunk_slot_index_t index,
+		xzm_guard_slot_state_t state)
+{
+	xzm_debug_assert(index < guard_config->xxgc_length);
+	xzm_debug_assert(XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index <
+			CHAR_BIT * sizeof(bitmap));
+	unsigned lsh = XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * index;
+	return (xzm_guard_chunk_slot_states_t)state << lsh |
+			(bitmap & ~((XZM_GUARD_CHUNK_SLOT_STATE_COUNT - 1ul) << lsh));
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_indices_t
+_xzm_get_guard_chunk_slot_state_indices(xzm_chunk_t chunk,
+		xzm_xzone_guard_config_t guard_config)
+{
+	xzm_guard_chunk_slot_indices_t result = { 0 };
+	xzm_guard_chunk_slot_states_t bitmap = chunk->xzc_slot_state;
+	for (xzm_gzone_chunk_slot_index_t index = 0;
+			index < guard_config->xxgc_length; ++index) {
+		xzm_guard_slot_state_t current = bitmap &
+				(XZM_GUARD_CHUNK_SLOT_STATE_COUNT - 1ul);
+		switch (current) {
+		case XZM_GUARD_CHUNK_SLOT_STATE_ALLOCATED:
+			result.xgcsi_allocated |= 1u << index;
+			break;
+		case XZM_GUARD_CHUNK_SLOT_STATE_EMPTY:
+			result.xgcsi_empty |= 1u << index;
+			break;
+		case XZM_GUARD_CHUNK_SLOT_STATE_GUARD:
+			result.xgcsi_guard |= 1u << index;
+			break;
+		case XZM_GUARD_CHUNK_SLOT_STATE_QUARANTINE:
+			result.xgcsi_quarantine |= 1u << index;
+			break;
+		default:
+			xzm_abort("Unexpected guard bitmap state!");
+			break;
+		}
+		bitmap >>= XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS;
+	}
+
+	xzm_debug_assert(__builtin_popcount(result.xgcsi_empty) ==
+			chunk->xzc_empty_count);
+	xzm_debug_assert(__builtin_popcount(result.xgcsi_guard) ==
+			chunk->xzc_guard_count);
+	xzm_debug_assert(__builtin_popcount(result.xgcsi_quarantine) ==
+			chunk->xzc_quarantine_count);
+	return result;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_guard_chunk_slot_states_t
+_xzm_set_guard_chunk_slot_states(xzm_xzone_guard_config_t guard_config,
+		xzm_guard_chunk_slot_states_t bitmap,
+		xzm_gzone_chunk_slot_index_t indices,
+		xzm_guard_slot_state_t state)
+{
+	xzm_guard_chunk_slot_states_t result = bitmap;
+	while (indices) {
+		// update the state of each slot in the set of indices
+		xzm_gzone_chunk_slot_index_t index = __builtin_ctzl(indices);
+		result = _xzm_set_guard_chunk_slot_state(guard_config, result, index,
+				state);
+		indices &= ~(1u << index);
+	}
+	return result;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_gzone_t
+_xzm_get_guard_chunk_gzone(xzm_malloc_zone_t zone, xzm_chunk_t chunk)
+{
+	xzm_debug_assert(chunk->xzc_gzone_idx < XZM_NUM_GZONES);
+	return &zone->xzz_gzones[chunk->xzc_gzone_idx];
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_gzone_chunk_slot_index_t
+_xzm_get_guard_chunk_nth_slot_of_state(xzm_xzone_guard_config_t guard_config,
+		xzm_guard_chunk_slot_states_t bitmap, xzm_gzone_chunk_slot_index_t nth,
+		xzm_guard_slot_state_t state)
+{
+	xzm_debug_assert(nth < guard_config->xxgc_length);
+	xzm_debug_assert(XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS * nth <
+			CHAR_BIT * sizeof(bitmap));
+	xzm_gzone_chunk_slot_index_t index = 0, matches = 0;
+	// Find the index of the nth (zero-indexed) slot with matching state
+	while (index < guard_config->xxgc_length) {
+		xzm_guard_slot_state_t current = bitmap &
+				(XZM_GUARD_CHUNK_SLOT_STATE_COUNT - 1ul);
+		if (current == state) {
+			if (matches == nth) {
+				return index;
+			}
+			matches += 1;
+		}
+
+		bitmap >>= XZM_GUARD_CHUNK_SLOT_STATE_NUM_BITS;
+		index += 1;
+	}
+
+	xzm_abort("Unexpected guard bitmap state!");
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static uint8_t *
+_xzm_get_guard_slot_ptr(xzm_malloc_zone_t zone, xzm_gzone_t gz,
+		xzm_chunk_t chunk, xzm_gzone_chunk_slot_index_t index)
+{
+	xzm_debug_assert(index < gz->xgz_guard_config.xxgc_length);
+	return (uint8_t *)_xzm_chunk_start(zone, chunk, NULL) +
+			index * gz->xgz_block_size;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_slice_t
+_xzm_get_guard_slot_slice(xzm_gzone_t gz, xzm_chunk_t chunk,
+		xzm_gzone_chunk_slot_index_t index)
+{
+	xzm_debug_assert(chunk->xzc_bits.xzcb_kind == XZM_SLICE_KIND_GUARD_CHUNK);
+	unsigned slices_per_block = gz->xgz_block_size / XZM_SEGMENT_SLICE_SIZE;
+	return &chunk[index * slices_per_block];
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_gzone_chunk_slot_index_t
+_xzm_get_guard_slot_slice_index(xzm_malloc_zone_t zone, xzm_gzone_t gz,
+		xzm_chunk_t chunk, const void *ptr)
+{
+	size_t offset = (uintptr_t)ptr - _xzm_chunk_start(zone, chunk, NULL);
+	xzm_debug_assert(!(offset % XZM_SEGMENT_SLICE_SIZE));
+	xzm_gzone_chunk_slot_index_t index = offset / gz->xgz_block_size;
+	xzm_debug_assert(index < gz->xgz_guard_config.xxgc_length);
+	return index;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static size_t
+_xzm_get_guard_slot_user_size(xzm_slice_t slice)
+{
+	return slice->xzc_slot_slices * XZM_SEGMENT_SLICE_SIZE;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static void
+_xzm_set_guard_slot_user_size(xzm_slice_t slice, size_t size)
+{
+	xzm_debug_assert(!(size % XZM_SEGMENT_SLICE_SIZE));
+	slice->xzc_slot_slices = (uint8_t)(size / XZM_SEGMENT_SLICE_SIZE);
+	xzm_debug_assert(size == _xzm_get_guard_slot_user_size(slice));
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static size_t
+_xzm_get_guard_chunk_user_size(xzm_malloc_zone_t zone, xzm_gzone_t gz,
+		xzm_chunk_t chunk, const void *ptr)
+{
+	xzm_debug_assert(chunk->xzc_bits.xzcb_kind == XZM_SLICE_KIND_GUARD_CHUNK);
+	// lookup the multi-body slice using the actual pointer from the chunk
+	xzm_gzone_chunk_slot_index_t index = _xzm_get_guard_slot_slice_index(zone,
+			gz, chunk, ptr);
+	xzm_slice_t slice = _xzm_get_guard_slot_slice(gz, chunk, index);
+	return _xzm_get_guard_slot_user_size(slice);
+}
+
 // mimalloc: mi_page_block_size
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static uint64_t
-_xzm_chunk_block_size(xzm_malloc_zone_t zone, xzm_chunk_t chunk)
+_xzm_chunk_block_size(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
+		xzm_gxzone_u *gxz_out)
 {
 	switch (chunk->xzc_bits.xzcb_kind) {
 	case XZM_SLICE_KIND_TINY_CHUNK:
 	case XZM_SLICE_KIND_SMALL_CHUNK:
-	case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK:
+	case XZM_SLICE_KIND_SMALL_FREELIST_CHUNK: {
 		// TODO: depending on the size class scheme, it may be better to
 		// directly compute the block size from the xzone index using the
 		// inverse of the bin function
-		return zone->xzz_xzones[chunk->xzc_xzone_idx].xz_block_size;
+		xzm_xzone_t xz = &zone->xzz_xzones[chunk->xzc_xzone_idx];
+		if (gxz_out) {
+			gxz_out->xz = xz;
+		}
+		return xz->xz_block_size;
+	}
 	case XZM_SLICE_KIND_LARGE_CHUNK:
 	case XZM_SLICE_KIND_HUGE_CHUNK:
 		return ((uint64_t)chunk->xzcs_slice_count) << XZM_SEGMENT_SLICE_SHIFT;
+	case XZM_SLICE_KIND_GUARD_CHUNK: {
+		xzm_gzone_t gz = _xzm_get_guard_chunk_gzone(zone, chunk);
+		if (gxz_out) {
+			gxz_out->gz = gz;
+		}
+		return gz->xgz_block_size;
+	}
 	default:
 		xzm_abort_with_reason("asking for size of chunk with invalid kind",
 				(unsigned)chunk->xzc_bits.xzcb_kind);
@@ -829,6 +1172,7 @@ _xzm_chunk_reset_free(xzm_xzone_t xz, xzm_chunk_t chunk, bool reusable)
 		if (reusable) {
 			chunk->xzc_free |= _xzm_xzone_free_mask(xz, xz->xz_chunk_capacity);
 		} else {
+			chunk->xzc_lock = _MALLOC_LOCK_INIT;
 			chunk->xzc_free = 0;
 		}
 		break;
@@ -869,11 +1213,34 @@ _xzm_chunk_offset_of_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static xzm_block_offset_t
+_xzm_multi_chunk_offset_of_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
+		uintptr_t ptr, bool multi)
+{
+	uintptr_t start = _xzm_multi_chunk_start(zone, chunk, NULL, false);
+#if CONFIG_MTE
+	// Remove tag bits for pointer arithmetic
+	ptr = (uintptr_t)memtag_strip_address((uint8_t *)ptr);
+#endif
+	xzm_block_offset_t offset = (xzm_block_offset_t)(ptr - start);
+	return offset;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_block_offset_t
 _xzm_chunk_block_offset(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 		xzm_block_t block)
 {
 	return _xzm_chunk_offset_of_ptr(zone, chunk, (uintptr_t)block);
 }
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static xzm_block_offset_t
+_xzm_multi_chunk_block_offset(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
+		xzm_block_t block, bool multi)
+{
+	return _xzm_multi_chunk_offset_of_ptr(zone, chunk, (uintptr_t)block, multi);
+}
+
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static uint8_t *
@@ -884,7 +1251,7 @@ _xzm_chunk_block_start_of(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 	xzm_debug_assert(ptr);
 
 	xzm_block_offset_t offset = _xzm_chunk_offset_of_ptr(zone, chunk, ptr);
-	size_t adjust = offset % _xzm_chunk_block_size(zone, chunk);
+	size_t adjust = offset % _xzm_chunk_block_size(zone, chunk, NULL);
 	return (uint8_t *)(ptr - adjust);
 }
 
@@ -902,7 +1269,7 @@ _xzm_chunk_block_index(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 		xzm_block_t block)
 {
 	return (xzm_block_index_t)(_xzm_chunk_block_offset(zone, chunk, block) /
-			_xzm_chunk_block_size(zone, chunk));
+			_xzm_chunk_block_size(zone, chunk, NULL));
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -911,7 +1278,7 @@ _xzm_chunk_block_index_of_ptr(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 		uintptr_t ptr)
 {
 	return (xzm_block_index_t)(_xzm_chunk_offset_of_ptr(zone, chunk, ptr) /
-			_xzm_chunk_block_size(zone, chunk));
+			_xzm_chunk_block_size(zone, chunk, NULL));
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -921,8 +1288,8 @@ _xzm_chunk_block_index_start(xzm_malloc_zone_t zone, xzm_chunk_t chunk,
 {
 	xzm_debug_assert(idx <
 			zone->xzz_xzones[chunk->xzc_xzone_idx].xz_chunk_capacity);
-	return (uint8_t *)(_xzm_chunk_start(zone, chunk, NULL) +
-			(idx * _xzm_chunk_block_size(zone, chunk)));
+	return (uint8_t *)_xzm_chunk_start(zone, chunk, NULL) +
+			idx * _xzm_chunk_block_size(zone, chunk, NULL);
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -1073,10 +1440,7 @@ MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static xzm_chunk_t *
 _xzm_segment_slice_meta_batch_next(xzm_malloc_zone_t zone, xzm_slice_t slice)
 {
-	xzm_segment_t segment = _xzm_segment_for_slice(zone, slice);
-	xzm_xzone_slice_metadata_u *metadata =
-			&segment->xzs_slice_metadata[_xzm_slice_index(segment, slice)];
-	return &metadata->xzsm_batch_next;
+	return &slice->xzcs_slice_metadata.xzsm_batch_next;
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -1089,48 +1453,39 @@ _xzm_slice_meta_is_batch_pointer(xzm_malloc_zone_t zone, xzm_slice_t slice)
 	}
 #endif // CONFIG_XZM_DEFERRED_RECLAIM
 	const uintptr_t slice_addr = (uintptr_t)slice;
+	if (!slice_addr) {
+		return true;
+	}
 	xzm_segment_t segment = _xzm_segment_for_slice(zone, slice);
-	return !slice || (slice_addr >= (uintptr_t)(segment->xzs_slices) &&
-			slice_addr < (uintptr_t)(segment->xzs_slices + segment->xzs_slice_entry_count));
+	return slice_addr >= (uintptr_t)(segment->xzs_slices) &&
+			slice_addr < (uintptr_t)(segment->xzs_slices + segment->xzs_slice_entry_count);
 }
 
 #if CONFIG_XZM_DEFERRED_RECLAIM
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static mach_vm_reclaim_id_t *
-_xzm_segment_slice_meta_reclaim_id(xzm_segment_t segment,
-		xzm_slice_t slice)
+_xzm_slice_meta_reclaim_id(xzm_slice_t slice)
 {
-	xzm_xzone_slice_metadata_u *metadata =
-			&segment->xzs_slice_metadata[_xzm_slice_index(segment, slice)];
-	return &metadata->xzsm_reclaim_id;
-}
-
-MALLOC_ALWAYS_INLINE MALLOC_INLINE
-static mach_vm_reclaim_id_t *
-_xzm_slice_meta_reclaim_id(xzm_malloc_zone_t zone, xzm_slice_t slice)
-{
-	xzm_segment_t segment = _xzm_segment_for_slice(zone, slice);
-	return _xzm_segment_slice_meta_reclaim_id(segment, slice);
+	return &slice->xzcs_slice_metadata.xzsm_reclaim_id;
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static bool
-_xzm_segment_slice_is_deferred(xzm_segment_t segment, xzm_slice_t slice)
+_xzm_slice_is_deferred(xzm_slice_t slice)
 {
-	mach_vm_reclaim_id_t *reclaim_index = _xzm_segment_slice_meta_reclaim_id(
-			segment, slice);
+	mach_vm_reclaim_id_t *reclaim_index = _xzm_slice_meta_reclaim_id(slice);
 	return (*reclaim_index != VM_RECLAIM_ID_NULL);
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static bool
-_xzm_slice_is_deferred(xzm_malloc_zone_t zone, xzm_slice_t slice)
+_xzm_guard_slot_is_deferred(xzm_gzone_t gz, xzm_chunk_t chunk,
+		xzm_gzone_chunk_slot_index_t index)
 {
-	xzm_segment_t segment = _xzm_segment_for_slice(zone, slice);
-	return _xzm_segment_slice_is_deferred(segment, slice);
+	xzm_slice_t slice = _xzm_get_guard_slot_slice(gz, chunk, index);
+	return _xzm_slice_is_deferred(slice);
 }
-
 #endif // CONFIG_XZM_DEFERRED_RECLAIM
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -1228,6 +1583,31 @@ _xzm_slot_config_to_string(xzm_slot_config_t slot_config)
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static bool
+_xzm_segment_group_id_uses_deferred_reclamation(xzm_main_malloc_zone_t main,
+		xzm_segment_group_id_t sg_id)
+{
+#if CONFIG_XZM_DEFERRED_RECLAIM
+	switch(sg_id) {
+	case XZM_SEGMENT_GROUP_DATA:
+	case XZM_SEGMENT_GROUP_POINTER_XZONES:
+		// XXX: There is an implicit assumption that tiny chunks are
+		// always sequestered. If tiny chunks every support recirculation,
+		// they'll be subject to deferred reclaim alongside their small
+		// counterparts once freed back to the segment group
+		return main->xzmz_defer_small;
+	case XZM_SEGMENT_GROUP_POINTER_LARGE:
+	case XZM_SEGMENT_GROUP_DATA_LARGE:
+		return main->xzmz_defer_large;
+	default:
+		xzm_abort_with_reason("unknown segment group id", sg_id);
+	}
+#else // CONFIG_XZM_DEFERRED_RECLAIM
+	return false;
+#endif // CONFIG_XZM_DEFERRED_RECLAIM
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static bool
 _xzm_segment_group_has_madvise_workaround(xzm_segment_group_t sg)
 {
 	return sg->xzsg_main_ref->xzmz_madvise_workaround;
@@ -1237,24 +1617,8 @@ MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static bool
 _xzm_segment_group_uses_deferred_reclamation(xzm_segment_group_t sg)
 {
-#if CONFIG_XZM_DEFERRED_RECLAIM
-	switch(sg->xzsg_id) {
-	case XZM_SEGMENT_GROUP_DATA:
-	case XZM_SEGMENT_GROUP_POINTER_XZONES:
-		// XXX: There is an implicit assumption that tiny chunks are
-		// always sequestered. If tiny chunks every support recirculation,
-		// they'll be subject to deferred reclaim alongside their small
-		// counterparts once freed back to the segment group
-		return sg->xzsg_main_ref->xzmz_defer_small;
-	case XZM_SEGMENT_GROUP_POINTER_LARGE:
-	case XZM_SEGMENT_GROUP_DATA_LARGE:
-		return sg->xzsg_main_ref->xzmz_defer_large;
-	default:
-		xzm_abort_with_reason("unknown segment group id", sg->xzsg_id);
-	}
-#else // CONFIG_XZM_DEFERRED_RECLAIM
-	return false;
-#endif // CONFIG_XZM_DEFERRED_RECLAIM
+	return _xzm_segment_group_id_uses_deferred_reclamation(sg->xzsg_main_ref,
+			sg->xzsg_id);
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE

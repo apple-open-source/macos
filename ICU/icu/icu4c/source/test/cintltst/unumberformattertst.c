@@ -18,6 +18,7 @@
 #include "unicode/ustring.h"
 #include "cformtst.h"
 #include "cintltst.h"
+#include "cstring.h"
 #include "cmemory.h"
 
 static void TestSkeletonFormatToString(void);
@@ -46,6 +47,7 @@ static void TestNegativeDegrees(void);
 // rdar://
 // Apple rdar://79621279
 static void TestPressureUnits(void);
+static void TestTemperatureUnitWidthShort(void);
 #endif  // APPLE_ICU_CHANGES
 
 void addUNumberFormatterTest(TestNode** root);
@@ -64,6 +66,7 @@ void addUNumberFormatterTest(TestNode** root) {
     TESTCASE(TestPerUnitInArabic);
     TESTCASE(Test21674_State);
     TESTCASE(TestNegativeDegrees);
+    TESTCASE(TestTemperatureUnitWidthShort);
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestPressureUnits);  // rdar://79621279
@@ -263,7 +266,7 @@ static void TestSimpleNumberFormatterFull(void) {
     int32_t len;
     const UChar* str = str = ufmtval_getString(unumf_resultAsValue(uresult, &ec), &len, &ec);
     if (assertSuccess("Formatting end-to-end 2", &ec)) {
-        assertUEquals("Should produce a result with Swiss symbols", u"4’321", str);
+        assertUEquals("Should produce a result with Swiss symbols", u"4'321", str);
     }
 
     USimpleNumber* unumber = usnum_openForInt64(1000007, &ec);
@@ -278,7 +281,7 @@ static void TestSimpleNumberFormatterFull(void) {
     usnumf_format(uformatter, unumber, uresult, &ec);
     str = ufmtval_getString(unumf_resultAsValue(uresult, &ec), &len, &ec);
     if (assertSuccess("Formatting end-to-end 3", &ec)) {
-        assertUEquals("Should produce a result with mutated number", u"+0’007.600", str);
+        assertUEquals("Should produce a result with mutated number", u"+0'007.600", str);
     }
 
     // Cleanup:
@@ -441,6 +444,10 @@ static void TestPerUnitInArabic(void) {
                 log_err("FAIL u_strFromUTF8: %s = %s ( %s )\n", locale, buffer,
                         u_errorName(status));
             }
+            if (uprv_strncmp(simpleMeasureUnits[i], "volume-",7)==0 || uprv_strncmp(simpleMeasureUnits[j], "volume-",7)==0) {
+                log_knownIssue("ICU-23104", "Strange handling of part-per-1e9 & volumes in skeletons");
+                continue;
+            }
             UNumberFormatter* nf = unumf_openForSkeletonAndLocale(
                 ubuffer, outputlen, locale, &status);
             if (U_FAILURE(status)) {
@@ -507,7 +514,7 @@ static void TestNegativeDegrees(void) {
         double value;
         const UChar* expectedResult;
     } TestCase;
-    
+
     TestCase testCases[] = {
         { u"measure-unit/temperature-celsius unit-width-short",               0,  u"0°C" },
         { u"measure-unit/temperature-celsius unit-width-short usage/default", 0,  u"32°F" },
@@ -517,22 +524,22 @@ static void TestNegativeDegrees(void) {
         { u"measure-unit/temperature-celsius unit-width-short usage/default", -1, u"30°F" },
         { u"measure-unit/temperature-celsius unit-width-short usage/weather", -1, u"30°F" }
     };
-    
+
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
         UErrorCode err = U_ZERO_ERROR;
         UNumberFormatter* nf = unumf_openForSkeletonAndLocale(testCases[i].skeleton, -1, "en_US", &err);
         UFormattedNumber* fn = unumf_openResult(&err);
-        
+
         if (assertSuccess("Failed to create formatter or result", &err)) {
             UChar result[200];
             unumf_formatDouble(nf, testCases[i].value, fn, &err);
             unumf_resultToString(fn, result, 200, &err);
-            
+
             if (assertSuccess("Formatting number failed", &err)) {
                 assertUEquals("Got wrong result", testCases[i].expectedResult, result);
             }
         }
-        
+
         unumf_closeResult(fn);
         unumf_close(nf);
     }
@@ -549,6 +556,19 @@ static void TestPressureUnits(void) {
         u"measure-unit/pressure-pound-force-per-square-inch usage/default", u"3.1 psi",
         u"measure-unit/pressure-inch-ofhg usage/default",                   u"1.5 psi",
         u"measure-unit/pressure-millimeter-ofhg usage/default",             u"0.061 psi",
+        
+        // Additional tests for https://unicode-org.atlassian.net/browse/ICU-23264
+        u"measure-unit/volume-acre-foot unit-width-full-name",              u"3.14 acre-feet",
+        u"measure-unit/volume-liter unit-width-full-name",                  u"3.14 liters",
+        
+        // Additional tests for https://unicode-org.atlassian.net/browse/ICU-23265
+        u"measure-unit/concentr-part-per-1e6", u"3.14 ppm",
+        u"measure-unit/concentr-part-per-million", u"3.14 ppm",
+        u"measure-unit/concentr-permillion", u"3.14 ppm",
+        u"measure-unit/concentr-milligram-ofglucose-per-deciliter", u"3.14 mg/dL",
+        u"measure-unit/concentr-milligram-per-deciliter", u"3.14 mg/dL",
+        u"measure-unit/mass-tonne", u"3.14 t",
+        u"measure-unit/mass-metric-ton", u"3.14 t",
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i += 2) {
@@ -572,6 +592,58 @@ static void TestPressureUnits(void) {
         }
         
         unumf_closeResult(result);
+        unumf_close(nf);
+    }
+}
+
+// Test for temperature units with unit-width-short.
+// This is related to the changes made for:
+// https://unicode-org.atlassian.net/browse/ICU-23265
+// (see also TestPressureUnits above)
+// This exercises code that was failing in Foundation's
+//     TestMeasurementAttributedStyle
+//     -> testFormattingWithPreferredTemperature
+static void TestTemperatureUnitWidthShort(void) {
+    typedef struct {
+        const UChar* skeleton;
+        double value;
+        const UChar* expectedResult;
+    } TestCase;
+
+    TestCase testCases[] = {
+        // temperature-generic should show just the degree symbol with unit-width-short
+        { u"measure-unit/temperature-generic unit-width-short", 212.0, u"212°" },
+        { u"measure-unit/temperature-generic unit-width-short", 100.0, u"100°" },
+        { u"measure-unit/temperature-generic unit-width-short", 0.0,   u"0°" },
+        { u"measure-unit/temperature-generic unit-width-short", -40.0, u"-40°" },
+
+        // temperature-fahrenheit should show °F with unit-width-short
+        { u"measure-unit/temperature-fahrenheit unit-width-short", 212.0, u"212°F" },
+        { u"measure-unit/temperature-fahrenheit unit-width-short", 32.0,  u"32°F" },
+        { u"measure-unit/temperature-fahrenheit unit-width-short", -40.0, u"-40°F" },
+
+        // temperature-celsius should show °C with unit-width-short
+        { u"measure-unit/temperature-celsius unit-width-short", 100.0, u"100°C" },
+        { u"measure-unit/temperature-celsius unit-width-short", 0.0,   u"0°C" },
+        { u"measure-unit/temperature-celsius unit-width-short", -40.0, u"-40°C" },
+    };
+
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormatter* nf = unumf_openForSkeletonAndLocale(testCases[i].skeleton, -1, "en_US", &err);
+        UFormattedNumber* fn = unumf_openResult(&err);
+
+        if (assertSuccess("Failed to create formatter or result", &err)) {
+            UChar result[200];
+            unumf_formatDouble(nf, testCases[i].value, fn, &err);
+            unumf_resultToString(fn, result, 200, &err);
+
+            if (assertSuccess("Formatting number failed", &err)) {
+                assertUEquals("Got wrong result for temperature unit formatting", testCases[i].expectedResult, result);
+            }
+        }
+
+        unumf_closeResult(fn);
         unumf_close(nf);
     }
 }

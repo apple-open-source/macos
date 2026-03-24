@@ -25,11 +25,13 @@
 
 #pragma once
 
+#include <WebCore/CSSPropertyNames.h>
 #include <WebCore/GraphicsTypes.h>
 #include <WebCore/RenderStyleConstants.h>
 #include <WebCore/StyleBackgroundSize.h>
-#include <WebCore/StyleFillLayers.h>
+#include <WebCore/StyleCoordinatedValueListValue.h>
 #include <WebCore/StyleImageOrNone.h>
+#include <WebCore/StyleMaskMode.h>
 #include <WebCore/StylePosition.h>
 #include <WebCore/StyleRepeatStyle.h>
 #include <wtf/RefPtr.h>
@@ -41,21 +43,45 @@ class RenderElement;
 
 namespace Style {
 
-struct MaskLayer {
-    static constexpr FillLayerType type() { return FillLayerType::Mask; }
+// macro(ownerType, property, type, lowercaseName, uppercaseName)
 
+#define FOR_EACH_MASK_LAYER_REFERENCE(macro) \
+    macro(MaskLayer, MaskImage, ImageOrNone, image, Image) \
+    macro(MaskLayer, WebkitMaskPositionX, PositionX, positionX, PositionX) \
+    macro(MaskLayer, WebkitMaskPositionY, PositionY, positionY, PositionY) \
+    macro(MaskLayer, MaskSize, BackgroundSize, size, Size) \
+    macro(MaskLayer, MaskRepeat, RepeatStyle, repeat, Repeat) \
+\
+
+#define FOR_EACH_MASK_LAYER_ENUM(macro) \
+    macro(MaskLayer, MaskClip, FillBox, clip, Clip) \
+    macro(MaskLayer, MaskOrigin, FillBox, origin, Origin) \
+    macro(MaskLayer, MaskComposite, CompositeOperator, composite, Composite) \
+    macro(MaskLayer, MaskMode, MaskMode, maskMode, MaskMode) \
+\
+
+#define FOR_EACH_MASK_LAYER_SHORTHAND(macro) \
+    macro(MaskLayer, MaskPosition, Position, position, Position) \
+\
+
+#define FOR_EACH_MASK_LAYER_PROPERTY(macro) \
+    FOR_EACH_MASK_LAYER_REFERENCE(macro) \
+    FOR_EACH_MASK_LAYER_ENUM(macro) \
+\
+
+struct MaskLayer {
+    MaskLayer();
     MaskLayer(CSS::Keyword::None);
     MaskLayer(ImageOrNone&&);
     MaskLayer(RefPtr<StyleImage>&&);
 
     const ImageOrNone& image() const { return m_image; }
-    const Position& position() const { return m_position; }
-    const PositionX& xPosition() const { return m_position.x; }
-    const PositionY& yPosition() const { return m_position.y; }
+    const PositionX& positionX() const { return m_positionX; }
+    const PositionY& positionY() const { return m_positionY; }
     const BackgroundSize& size() const { return m_size; }
     FillBox clip() const { return static_cast<FillBox>(m_clip); }
     FillBox origin() const { return static_cast<FillBox>(m_origin); }
-    RepeatStyle repeat() const { return m_repeat; }
+    const RepeatStyle& repeat() const { return m_repeat; }
     CompositeOperator composite() const { return static_cast<CompositeOperator>(m_composite); }
     MaskMode maskMode() const { return static_cast<MaskMode>(m_maskMode); }
 
@@ -71,27 +97,15 @@ struct MaskLayer {
         return composite();
     }
 
-    bool isEmpty() const { return m_size.isEmpty(); }
-
-    void setImage(ImageOrNone&& image) { m_image = WTFMove(image); }
-    void setXPosition(PositionX&& positionX) { m_position.x = WTFMove(positionX); }
-    void setYPosition(PositionY&& positionY) { m_position.y = WTFMove(positionY); }
-    void setSize(BackgroundSize&& size) { m_size = WTFMove(size); }
-    void setClip(FillBox b) { m_clip = static_cast<unsigned>(b); }
-    void setOrigin(FillBox b) { m_origin = static_cast<unsigned>(b); }
-    void setRepeat(RepeatStyle r) { m_repeat = r; }
-    void setComposite(CompositeOperator c) { m_composite = static_cast<unsigned>(c); }
-    void setMaskMode(MaskMode m) { m_maskMode = static_cast<unsigned>(m); }
-
-    static ImageOrNone initialFillImage() { return CSS::Keyword::None { }; }
-    static FillBox initialFillClip() { return FillBox::BorderBox; }
-    static FillBox initialFillOrigin() { return FillBox::BorderBox; }
-    static RepeatStyle initialFillRepeat() { return { .values { FillRepeat::Repeat, FillRepeat::Repeat } }; }
-    static CompositeOperator initialFillComposite() { return CompositeOperator::SourceOver; }
-    static BackgroundSize initialFillSize() { return CSS::Keyword::Auto { }; }
-    static PositionX initialFillXPosition() { using namespace CSS::Literals; return 0_css_percentage; }
-    static PositionY initialFillYPosition() { using namespace CSS::Literals; return 0_css_percentage; }
-    static MaskMode initialFillMaskMode() { return MaskMode::MatchSource; }
+    static ImageOrNone initialImage() { return CSS::Keyword::None { }; }
+    static PositionX initialPositionX() { using namespace CSS::Literals; return 0_css_percentage; }
+    static PositionY initialPositionY() { using namespace CSS::Literals; return 0_css_percentage; }
+    static BackgroundSize initialSize() { return CSS::Keyword::Auto { }; }
+    static constexpr RepeatStyle initialRepeat() { return { .values { FillRepeat::Repeat, FillRepeat::Repeat } }; }
+    static constexpr FillBox initialClip() { return FillBox::BorderBox; }
+    static constexpr FillBox initialOrigin() { return FillBox::BorderBox; }
+    static constexpr CompositeOperator initialComposite() { return CompositeOperator::SourceOver; }
+    static constexpr MaskMode initialMaskMode() { return MaskMode::MatchSource; }
 
     bool hasImage() const { return m_image.isImage(); }
     bool hasOpaqueImage(const RenderElement&) const;
@@ -102,9 +116,31 @@ struct MaskLayer {
 
     bool operator==(const MaskLayer&) const;
 
+    FOR_EACH_MASK_LAYER_REFERENCE(DECLARE_COORDINATED_VALUE_LIST_GETTER_AND_SETTERS_REFERENCE)
+    FOR_EACH_MASK_LAYER_ENUM(DECLARE_COORDINATED_VALUE_LIST_GETTER_AND_SETTERS_ENUM)
+
+    // Support for the `mask-position` shorthand.
+    static Position initialPosition() { return { initialPositionX(), initialPositionY() }; }
+    Position position() const { return { m_positionX, m_positionY }; }
+    void setPosition(Position&& position) { setPositionX(WTF::move(position.x)); setPositionY(WTF::move(position.y)); }
+    void fillPosition(Position&& position) { fillPositionX(WTF::move(position.x)); fillPositionY(WTF::move(position.y)); }
+    void clearPosition() { clearPositionX(); clearPositionY(); }
+    bool isPositionUnset() const { return isPositionXUnset() && isPositionYUnset(); }
+    bool isPositionSet() const { return isPositionXSet() || isPositionYSet(); }
+    bool isPositionFilled() const { return isPositionXFilled() || isPositionYFilled(); }
+
+    // CoordinatedValueList interface.
+
+    static constexpr auto computedValueUsesUsedValues = true;
+    static constexpr auto baseProperty = PropertyNameConstant<CSSPropertyMaskImage> { };
+    static constexpr auto properties =  std::tuple { FOR_EACH_MASK_LAYER_PROPERTY(DECLARE_COORDINATED_VALUE_LIST_PROPERTY) };
+    static MaskLayer clone(const MaskLayer& other) { return other; }
+    bool isInitial() const { return m_image.isNone(); }
+
 private:
     ImageOrNone m_image;
-    Position m_position;
+    PositionX m_positionX;
+    PositionY m_positionY;
     BackgroundSize m_size;
     RepeatStyle m_repeat;
 
@@ -114,11 +150,32 @@ private:
     PREFERRED_TYPE(MaskMode) unsigned m_maskMode : 2;
 
     PREFERRED_TYPE(FillBox) mutable unsigned m_clipMax : FillBoxBitWidth; // maximum m_clip value from this to bottom layer
+
+    FOR_EACH_MASK_LAYER_PROPERTY(DECLARE_COORDINATED_VALUE_LIST_IS_SET_AND_IS_FILLED_MEMBERS)
+
+    // Needed by macros to access members.
+    MaskLayer& data() { return *this; }
+    const MaskLayer& data() const { return *this; }
 };
 
-using MaskLayers = FillLayers<MaskLayer>;
+FOR_EACH_MASK_LAYER_REFERENCE(DECLARE_COORDINATED_VALUE_LIST_PROPERTY_ACCESSOR_REFERENCE)
+FOR_EACH_MASK_LAYER_ENUM(DECLARE_COORDINATED_VALUE_LIST_PROPERTY_ACCESSOR_ENUM)
+FOR_EACH_MASK_LAYER_SHORTHAND(DECLARE_COORDINATED_VALUE_LIST_PROPERTY_ACCESSOR_SHORTHAND)
+
+// MARK: - Blending
+
+template<> struct Blending<MaskLayer> {
+    auto canBlend(const MaskLayer&, const MaskLayer&) -> bool;
+};
+
+// MARK: - Logging
 
 WTF::TextStream& operator<<(WTF::TextStream&, const MaskLayer&);
+
+#undef FOR_EACH_MASK_LAYER_REFERENCE
+#undef FOR_EACH_MASK_LAYER_ENUM
+#undef FOR_EACH_MASK_LAYER_SHORTHAND
+#undef FOR_EACH_MASK_LAYER_PROPERTY
 
 } // namespace Style
 } // namespace WebCore

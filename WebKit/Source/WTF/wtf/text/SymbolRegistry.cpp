@@ -38,19 +38,15 @@ SymbolRegistry::SymbolRegistry(Type type)
 
 SymbolRegistry::~SymbolRegistry()
 {
-    for (auto& key : m_table) {
-        ASSERT(key->isSymbol());
-        static_cast<SymbolImpl*>(key.get())->asRegisteredSymbolImpl()->clearSymbolRegistry();
-    }
+    for (auto& key : m_table)
+        downcast<SymbolImpl>(key.get())->asRegisteredSymbolImpl()->clearSymbolRegistry();
 }
 
 Ref<RegisteredSymbolImpl> SymbolRegistry::symbolForKey(const String& rep)
 {
     auto addResult = m_table.add(rep.impl());
-    if (!addResult.isNewEntry) {
-        ASSERT(addResult.iterator->get()->isSymbol());
-        return *static_cast<SymbolImpl*>(addResult.iterator->get())->asRegisteredSymbolImpl();
-    }
+    if (!addResult.isNewEntry)
+        return *downcast<SymbolImpl>(addResult.iterator->get())->asRegisteredSymbolImpl();
 
     RefPtr<RegisteredSymbolImpl> symbol;
     if (m_symbolType == Type::PrivateSymbol)

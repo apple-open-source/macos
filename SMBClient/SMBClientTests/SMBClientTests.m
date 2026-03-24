@@ -6104,7 +6104,7 @@ done:
         {
             uint16_t *puWspNamedPipeName = SMBConvertFromUTF8ToUTF16(pcWspNamedPipeName,
                                                                      strlen(pcWspNamedPipeName)+1,
-                                                                     1);
+                                                                     NORMALIZE_FORM_NONE);
 
             uint32_t *puMsg = calloc(1, 1024);
             uint32_t uItr = 0;
@@ -18752,4 +18752,314 @@ static int diffsToTest[] = {500 ,3750, 7500, 11250, 15000, 18750, 22500};
     [self CheckAlternatingEnumWithDiff: diffsToTest[6]];
 }
 
+// Helper function to count UTF-16 length
+static size_t
+count_utf16_length(const uint16_t *str)
+{
+    size_t len = 0;
+    if (str) {
+        while (str[len] != 0) len++;
+    }
+    return len;
+}
+
+/*
+ * testSMBConvertFromUTF8ToUTF16 - Test Unicode normalization behavior
+ *
+ * This test verifies that SMBConvertFromUTF8ToUTF16 correctly handles:
+ * 1. No normalization (NORMALIZE_FORM_NONE)
+ * 2. All four Unicode normalization forms (D, C, KD, KC)
+ * 3. Invalid normalization form values
+ * 4. Japanese dakuten characters that require normalization
+ */
+- (void)testSMBConvertFromUTF8ToUTF16
+{
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test Unicode normalization behavior in SMBConvertFromUTF8ToUTF16",
+                               "unicode,normalization,utf8,utf16,japanese,dakuten",
+                               NULL,
+                               NULL,
+                               "no_server_required");
+        return;
+    }
+
+    // Test strings - Japanese dakuten characters that benefit from normalization
+    const char *test_string_composed = "が"; // U+304C (single composed character)
+    const char *test_string_decomposed = "か\u3099"; // U+304B + U+3099 (base + combining mark)
+    const char *basic_ascii = "Hello World";
+
+    uint16_t *result = NULL;
+    size_t result_len = 0;
+
+    printf("Testing SMBConvertFromUTF8ToUTF16 normalization behavior\n");
+
+    // Test 1: No normalization with ASCII
+    printf("Test 1: NORMALIZE_FORM_NONE with ASCII\n");
+    result = SMBConvertFromUTF8ToUTF16(basic_ascii, 256, NORMALIZE_FORM_NONE);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_NONE should succeed with basic ASCII");
+    if (result) {
+        result_len = count_utf16_length(result);
+        XCTAssertEqual(result_len, strlen(basic_ascii), "ASCII should have same length in UTF-16");
+        // Verify first few characters
+        XCTAssertEqual(result[0], 'H', "First character should be 'H'");
+        XCTAssertEqual(result[1], 'e', "Second character should be 'e'");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 2: No normalization with decomposed Japanese (should preserve decomposition)
+    printf("Test 2: NORMALIZE_FORM_NONE with decomposed Japanese\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_decomposed, 256, NORMALIZE_FORM_NONE);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_NONE should succeed with Japanese");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Decomposed Japanese without normalization: %zu UTF-16 code units\n", result_len);
+        XCTAssertEqual(result_len, 2, "Decomposed Japanese should have 2 UTF-16 code units without normalization");
+        XCTAssertEqual(result[0], 0x304B, "First code unit should be か (U+304B)");
+        XCTAssertEqual(result[1], 0x3099, "Second code unit should be combining mark (U+3099)");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 3: Canonical Decomposition (NFD) - should decompose composed characters
+    printf("Test 3: NORMALIZE_FORM_D (NFD) with composed Japanese\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_composed, 256, NORMALIZE_FORM_D);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_D should succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Composed Japanese with NFD: %zu UTF-16 code units\n", result_len);
+        XCTAssertEqual(result_len, 2, "NFD should decompose が into 2 code units");
+        XCTAssertEqual(result[0], 0x304B, "First code unit should be か (U+304B)");
+        XCTAssertEqual(result[1], 0x3099, "Second code unit should be combining mark (U+3099)");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 4: Canonical Composition (NFC) - should compose decomposed characters
+    printf("Test 4: NORMALIZE_FORM_C (NFC) with decomposed Japanese\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_decomposed, 256, NORMALIZE_FORM_C);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_C should succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Decomposed Japanese with NFC: %zu UTF-16 code units\n", result_len);
+        XCTAssertEqual(result_len, 1, "NFC should compose into 1 code unit");
+        XCTAssertEqual(result[0], 0x304C, "Should be composed が (U+304C)");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 5: Compatibility Decomposition (NFKD)
+    printf("Test 5: NORMALIZE_FORM_KD (NFKD) with composed Japanese\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_composed, 256, NORMALIZE_FORM_KD);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_KD should succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Composed Japanese with NFKD: %zu UTF-16 code units\n", result_len);
+        XCTAssertEqual(result_len, 2, "NFKD should decompose が into 2 code units");
+        XCTAssertEqual(result[0], 0x304B, "First code unit should be か (U+304B)");
+        XCTAssertEqual(result[1], 0x3099, "Second code unit should be combining mark (U+3099)");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 6: Compatibility Composition (NFKC)
+    printf("Test 6: NORMALIZE_FORM_KC (NFKC) with decomposed Japanese\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_decomposed, 256, NORMALIZE_FORM_KC);
+    XCTAssertNotEqual(result, NULL, "NORMALIZE_FORM_KC should succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Decomposed Japanese with NFKC: %zu UTF-16 code units\n", result_len);
+        XCTAssertEqual(result_len, 1, "NFKC should compose into 1 code unit");
+        XCTAssertEqual(result[0], 0x304C, "Should be composed が (U+304C)");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 7: Invalid normalization form (should use NFC as fallback)
+    printf("Test 7: Invalid normalization form (0xFF) - should fallback to NFC\n");
+    result = SMBConvertFromUTF8ToUTF16(test_string_decomposed, 256, 0xFF);
+    XCTAssertNotEqual(result, NULL, "Invalid normalization form should fallback to NFC and succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        printf("Invalid form with decomposed Japanese (fallback to NFC): %zu UTF-16 code units\n", result_len);
+        // Should fallback to NFC behavior - compose the characters
+        XCTAssertEqual(result_len, 1, "Invalid form should fallback to NFC and compose into 1 code unit");
+        XCTAssertEqual(result[0], 0x304C, "Should be composed が (U+304C) via NFC fallback");
+        free(result);
+        result = NULL;
+    }
+
+    // Test 8: Compare NFD vs NFC directly
+    printf("Test 8: Direct comparison of NFD vs NFC results\n");
+    uint16_t *result_nfd = SMBConvertFromUTF8ToUTF16(test_string_composed, 256, NORMALIZE_FORM_D);
+    uint16_t *result_nfc = SMBConvertFromUTF8ToUTF16(test_string_composed, 256, NORMALIZE_FORM_C);
+
+    XCTAssertNotEqual(result_nfd, NULL, "NFD should succeed");
+    XCTAssertNotEqual(result_nfc, NULL, "NFC should succeed");
+
+    if (result_nfd && result_nfc) {
+        size_t len_nfd = count_utf16_length(result_nfd);
+        size_t len_nfc = count_utf16_length(result_nfc);
+
+        printf("NFD length: %zu, NFC length: %zu\n", len_nfd, len_nfc);
+
+        // NFD should decompose (2 code units), NFC should keep composed (1 code unit)
+        XCTAssertEqual(len_nfd, 2, "NFD should decompose into 2 code units");
+        XCTAssertEqual(len_nfc, 1, "NFC should keep as 1 code unit");
+        XCTAssertNotEqual(len_nfd, len_nfc, "NFD and NFC should produce different lengths");
+
+        // Verify specific code points
+        if (len_nfd == 2) {
+            XCTAssertEqual(result_nfd[0], 0x304B, "NFD first code unit should be か");
+            XCTAssertEqual(result_nfd[1], 0x3099, "NFD second code unit should be combining mark");
+        }
+        if (len_nfc == 1) {
+            XCTAssertEqual(result_nfc[0], 0x304C, "NFC should be composed が");
+        }
+    }
+
+    if (result_nfd) {
+        free(result_nfd);
+    }
+    if (result_nfc) {
+        free(result_nfc);
+    }
+
+    // Test 9: NULL input handling
+    printf("Test 9: NULL input handling\n");
+    result = SMBConvertFromUTF8ToUTF16(NULL, 256, NORMALIZE_FORM_NONE);
+    XCTAssertEqual(result, NULL, "NULL input should return NULL");
+
+    // Test 10: Empty string
+    printf("Test 10: Empty string\n");
+    result = SMBConvertFromUTF8ToUTF16("", 256, NORMALIZE_FORM_C);
+    XCTAssertNotEqual(result, NULL, "Empty string should succeed");
+    if (result) {
+        result_len = count_utf16_length(result);
+        XCTAssertEqual(result_len, 0, "Empty string should have length 0");
+        XCTAssertEqual(result[0], 0, "Empty string should result in null-terminated UTF-16");
+        free(result);
+        result = NULL;
+    }
+
+    printf("SMBConvertFromUTF8ToUTF16 normalization tests completed successfully\n");
+}
+
+#define LARGE_RSRC_SIZE (10)
+-(void)testLargeResourceForkPartialRead
+{
+    int error = 0;
+    char file_path[PATH_MAX] = {0};
+    char mp1[PATH_MAX] = {0};
+    int options = 0;
+    ssize_t xa_size = 0;
+    uint8_t* rsrc_data = NULL;
+    uint8_t read_byte = 0;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test reading 1 byte at offset 5 from 10 byte resource fork using getxattr",
+                               "open,close,xattr,resource_fork,getxattr,setxattr",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+    
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testLargeResourceForkPartialRead");
+    
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+    
+    error = setup_file_paths(mp1, NULL, default_test_filename, file_path, PATH_MAX, NULL, 0);
+    if (error) {
+        XCTFail("setup_file_paths failed %d \n", error);
+        goto done;
+    }
+    
+    /* Allocate memory for resource fork data */
+    rsrc_data = malloc(LARGE_RSRC_SIZE);
+    if (rsrc_data == NULL) {
+        XCTFail("failed to allocate %d bytes for resource fork data\n", LARGE_RSRC_SIZE);
+        goto done;
+    }
+    
+    /* Fill resource fork data with a recognizable pattern */
+    for (int i = 0; i < LARGE_RSRC_SIZE; i++) {
+        rsrc_data[i] = (uint8_t)(i % 256);
+    }
+    
+    /* Create the resource fork using setxattr */
+    xa_size = setxattr(file_path, XATTR_RESOURCEFORK_NAME, rsrc_data, LARGE_RSRC_SIZE, 0, options);
+    if (xa_size < 0) {
+        XCTFail("setxattr() failed %d for resource fork\n", errno);
+        goto cleanup;
+    }
+    fprintf(stdout, "Created resource fork using setxattr\n");
+    
+    /* Verify the resource fork was created with correct size */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, NULL, 0, 0, options);
+    if (xa_size != LARGE_RSRC_SIZE) {
+        XCTFail("getxattr() size check failed: got %zd, expected %d\n", xa_size, LARGE_RSRC_SIZE);
+        goto cleanup;
+    }
+    fprintf(stdout, "Verified resource fork size is %d bytes\n", LARGE_RSRC_SIZE);
+    
+    /*
+     * Test reading 1 byte at offset 10 from the resource fork using getxattr
+     * getxattr signature: getxattr(path, name, value, size, position, options)
+     */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, &read_byte, 1, 5, options);
+    if (xa_size != 1) {
+        XCTFail("getxattr() failed to read 1 byte at offset 5: got %zd bytes, errno %d (%s)\n",
+                xa_size, errno, strerror(errno));
+        goto cleanup;
+    }
+    
+    /* Verify the byte we read matches our expected pattern */
+    uint8_t expected_byte = (uint8_t)(5 % 256);  // Based on our pattern
+    if (read_byte != expected_byte) {
+        XCTFail("Data verification failed: read byte 0x%02x at offset 10, expected 0x%02x\n",
+                read_byte, expected_byte);
+        goto cleanup;
+    }
+
+cleanup:
+    /* Clean up the resource fork by removing it */
+    error = removexattr(file_path, XATTR_RESOURCEFORK_NAME, options);
+    if (error == -1) {
+        fprintf(stderr, "Warning: removexattr() failed %d for resource fork cleanup\n", errno);
+        // Don't fail the test for cleanup issues
+    }
+    
+    /* Do the Delete on test file */
+    error = remove(file_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)>\n",
+                file_path, strerror(errno), errno);
+        goto done;
+    }
+    
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+    
+done:
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+    
+    if (rsrc_data) {
+        free(rsrc_data);
+    }
+    
+    rmdir(mp1);
+}
 @end

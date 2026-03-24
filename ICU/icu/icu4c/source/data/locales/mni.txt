@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 mni{
     AuxExemplarCharacters{"[\u200C\u200D]"}
     ExemplarCharacters{
@@ -136,12 +136,12 @@ mni{
             }
             eras{
                 abbreviated{
-                    "খৃ: মমাং",
-                    "খৃ: মতুং",
+                    0{"খৃ: মমাং"}
+                    1{"খৃ: মতুং"}
                 }
                 abbreviated%variant{
-                    "বি সি ই",
-                    "সি ই",
+                    0{"বি সি ই"}
+                    1{"সি ই"}
                 }
             }
             monthNames{

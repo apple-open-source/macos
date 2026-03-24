@@ -53,9 +53,6 @@ public:
         String display;
         String sizeAdjust;
     };
-
-    using RefCounted::ref;
-    using RefCounted::deref;
     
     using Source = Variant<String, RefPtr<JSC::ArrayBuffer>, RefPtr<JSC::ArrayBufferView>>;
     static Ref<FontFace> create(ScriptExecutionContext&, const String& family, Source&&, const Descriptors&);

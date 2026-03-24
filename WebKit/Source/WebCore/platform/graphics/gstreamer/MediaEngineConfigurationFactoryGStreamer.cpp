@@ -51,7 +51,7 @@ void createMediaPlayerDecodingConfigurationGStreamer(MediaDecodingConfiguration&
     auto& scanner = isMediaSource ? GStreamerRegistryScannerMSE::singleton() : GStreamerRegistryScanner::singleton();
 #else
     if (isMediaSource) {
-        callback({{ }, WTFMove(configuration)});
+        callback({{ }, WTF::move(configuration)});
         return;
     }
     auto& scanner = GStreamerRegistryScanner::singleton();
@@ -60,9 +60,9 @@ void createMediaPlayerDecodingConfigurationGStreamer(MediaDecodingConfiguration&
     MediaCapabilitiesDecodingInfo info;
     info.supported = lookupResult.isSupported;
     info.powerEfficient = lookupResult.isUsingHardware;
-    info.configuration = WTFMove(configuration);
+    info.configuration = WTF::move(configuration);
 
-    callback(WTFMove(info));
+    callback(WTF::move(info));
 }
 
 void createMediaPlayerEncodingConfigurationGStreamer(MediaEncodingConfiguration&& configuration, Function<void(MediaCapabilitiesEncodingInfo&&)>&& callback)
@@ -72,9 +72,9 @@ void createMediaPlayerEncodingConfigurationGStreamer(MediaEncodingConfiguration&
     MediaCapabilitiesEncodingInfo info;
     info.supported = lookupResult.isSupported;
     info.powerEfficient = lookupResult.isUsingHardware;
-    info.configuration = WTFMove(configuration);
+    info.configuration = WTF::move(configuration);
 
-    callback(WTFMove(info));
+    callback(WTF::move(info));
 }
 }
 #endif

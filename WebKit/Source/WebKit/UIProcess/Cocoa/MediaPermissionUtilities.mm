@@ -51,27 +51,22 @@ namespace WebKit {
 bool checkSandboxRequirementForType(MediaPermissionType type)
 {
 #if PLATFORM(MAC)
-    static std::once_flag audioFlag;
-    static std::once_flag videoFlag;
-    static bool isAudioEntitled = true;
-    static bool isVideoEntitled = true;
-    
-    auto checkFunction = [](ASCIILiteral operation, bool* entitled) {
+    auto checkFunction = [](ASCIILiteral operation) {
         if (!currentProcessIsSandboxed())
-            return;
+            return true;
 
         int result = sandbox_check(getpid(), operation, static_cast<enum sandbox_filter_type>(SANDBOX_CHECK_NO_REPORT | SANDBOX_FILTER_NONE));
         if (result == -1)
             WTFLogAlways("Error checking '%s' sandbox access, errno=%ld", operation.characters(), (long)errno);
-        *entitled = !result;
+        return !result;
     };
 
     switch (type) {
     case MediaPermissionType::Audio:
-        std::call_once(audioFlag, checkFunction, "device-microphone"_s, &isAudioEntitled);
+        static bool isAudioEntitled = checkFunction("device-microphone"_s);
         return isAudioEntitled;
     case MediaPermissionType::Video:
-        std::call_once(videoFlag, checkFunction, "device-camera"_s, &isVideoEntitled);
+        static bool isVideoEntitled = checkFunction("device-camera"_s);
         return isVideoEntitled;
     }
 #endif
@@ -80,27 +75,18 @@ bool checkSandboxRequirementForType(MediaPermissionType type)
 
 bool checkUsageDescriptionStringForType(MediaPermissionType type)
 {
-    static std::once_flag audioDescriptionFlag;
-    static std::once_flag videoDescriptionFlag;
-    static bool hasMicrophoneDescriptionString = false;
-    static bool hasCameraDescriptionString = false;
-
     switch (type) {
     case MediaPermissionType::Audio:
         static TCCAccessPreflightResult audioAccess = TCCAccessPreflight(get_TCC_kTCCServiceMicrophoneSingleton(), NULL);
         if (audioAccess == kTCCAccessPreflightGranted)
             return true;
-        std::call_once(audioDescriptionFlag, [] {
-            hasMicrophoneDescriptionString = dynamic_objc_cast<NSString>(NSBundle.mainBundle.infoDictionary[@"NSMicrophoneUsageDescription"]).length > 0;
-        });
+        static bool hasMicrophoneDescriptionString= dynamic_objc_cast<NSString>(NSBundle.mainBundle.infoDictionary[@"NSMicrophoneUsageDescription"]).length > 0;
         return hasMicrophoneDescriptionString;
     case MediaPermissionType::Video:
         static TCCAccessPreflightResult videoAccess = TCCAccessPreflight(get_TCC_kTCCServiceCameraSingleton(), NULL);
         if (videoAccess == kTCCAccessPreflightGranted)
             return true;
-        std::call_once(videoDescriptionFlag, [] {
-            hasCameraDescriptionString = dynamic_objc_cast<NSString>(NSBundle.mainBundle.infoDictionary[@"NSCameraUsageDescription"]).length > 0;
-        });
+        static bool hasCameraDescriptionString = dynamic_objc_cast<NSString>(NSBundle.mainBundle.infoDictionary[@"NSCameraUsageDescription"]).length > 0;
         return hasCameraDescriptionString;
     }
 }
@@ -217,7 +203,7 @@ void alertForPermission(WebPageProxy& page, MediaPermissionReason reason, const 
 
     RetainPtr allowButtonString = allowButtonText(reason);
     RetainPtr doNotAllowButtonString = doNotAllowButtonText(reason);
-    auto completionBlock = makeBlockPtr(WTFMove(completionHandler));
+    auto completionBlock = makeBlockPtr(WTF::move(completionHandler));
 
 #if PLATFORM(MAC)
     auto alert = adoptNS([NSAlert new]);
@@ -226,7 +212,7 @@ void alertForPermission(WebPageProxy& page, MediaPermissionReason reason, const 
     button.get().keyEquivalent = @"";
     button = [alert addButtonWithTitle:doNotAllowButtonString.get()];
     button.get().keyEquivalent = @"\E";
-    [alert beginSheetModalForWindow:[webView window] completionHandler:[completionBlock](NSModalResponse returnCode) {
+    [alert beginSheetModalForWindow:retainPtr([webView window]).get() completionHandler:[completionBlock](NSModalResponse returnCode) {
         auto shouldAllow = returnCode == NSAlertFirstButtonReturn;
         completionBlock(shouldAllow);
     }];
@@ -255,8 +241,8 @@ void requestAVCaptureAccessForType(MediaPermissionType type, CompletionHandler<v
 
 #if HAVE(AVCAPTUREDEVICE)
     RetainPtr mediaType = type == MediaPermissionType::Audio ? AVMediaTypeAudio : AVMediaTypeVideo;
-    auto decisionHandler = makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL authorized) mutable {
-        callOnMainRunLoop([completionHandler = WTFMove(completionHandler), authorized]() mutable {
+    auto decisionHandler = makeBlockPtr([completionHandler = WTF::move(completionHandler)](BOOL authorized) mutable {
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler), authorized]() mutable {
             completionHandler(authorized);
         });
     });
@@ -289,9 +275,9 @@ void requestSpeechRecognitionAccess(CompletionHandler<void(bool authorized)>&& c
 {
     ASSERT(isMainRunLoop());
 
-    auto decisionHandler = makeBlockPtr([completionHandler = WTFMove(completionHandler)](SFSpeechRecognizerAuthorizationStatus status) mutable {
+    auto decisionHandler = makeBlockPtr([completionHandler = WTF::move(completionHandler)](SFSpeechRecognizerAuthorizationStatus status) mutable {
         bool authorized = status == SFSpeechRecognizerAuthorizationStatusAuthorized;
-        callOnMainRunLoop([completionHandler = WTFMove(completionHandler), authorized]() mutable {
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler), authorized]() mutable {
             completionHandler(authorized);
         });
     });

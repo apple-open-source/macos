@@ -1,12 +1,14 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en_SI{
     %%Parent{"en_150"}
     NumberElements{
         latn{
             patterns{
                 accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤;(#,##0.00 ¤)"}
+                accountingFormat%noCurrency{"#,##0.00;(#,##0.00)"}
             }
             symbols{
                 decimal{","}
@@ -43,7 +45,6 @@ en_SI{
                 "GGGGGyMMd",
             }
             availableFormats{
-                GyM{"M/y G"}
                 GyMd{"d. M. y GGGGG"}
                 yyyyM{"M/y G"}
                 yyyyMEd{"E, d. M. y G"}
@@ -103,7 +104,7 @@ en_SI{
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
-                "d. M. yy",
+                "d. M. y",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
@@ -118,7 +119,7 @@ en_SI{
                 "yMMMMEEEEd",
                 "yMMMMd",
                 "yMMMd",
-                "yyMMd",
+                "yMMd",
             }
             availableFormats{
                 GyM{"MMM y G"}

@@ -84,7 +84,7 @@ public:
     WEBCORE_EXPORT static CheckedUint32 calculateSizeInBytes(const IntSize&, const DestinationColorSpace&);
 
 private:
-    friend struct IPC::ArgumentCoder<ShareableBitmapConfiguration, void>;
+    friend struct IPC::ArgumentCoder<ShareableBitmapConfiguration>;
 
     static std::optional<DestinationColorSpace> validateColorSpace(std::optional<DestinationColorSpace>);
     static CheckedUint32 calculateBitsPerComponent(const DestinationColorSpace&);
@@ -125,7 +125,7 @@ public:
     WEBCORE_EXPORT void setOwnershipOfMemory(const ProcessIdentity&, MemoryLedger) const;
 
 private:
-    friend struct IPC::ArgumentCoder<ShareableBitmapHandle, void>;
+    friend struct IPC::ArgumentCoder<ShareableBitmapHandle>;
     friend class ShareableBitmap;
 
     SharedMemory::Handle m_handle;

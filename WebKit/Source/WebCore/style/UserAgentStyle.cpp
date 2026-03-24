@@ -48,7 +48,6 @@
 #include "HTMLHeadElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLInputElement.h"
-#include "HTMLMediaElement.h"
 #include "HTMLMeterElement.h"
 #include "HTMLObjectElement.h"
 #include "HTMLProgressElement.h"
@@ -60,6 +59,7 @@
 #include "RenderTheme.h"
 #include "RuleSetBuilder.h"
 #include "SVGElement.h"
+#include "Settings.h"
 #include "StyleResolver.h"
 #include "StyleSheetContents.h"
 #include "UserAgentStyleSheets.h"
@@ -81,6 +81,8 @@ StyleSheetContents* UserAgentStyle::quirksStyleSheet;
 StyleSheetContents* UserAgentStyle::svgStyleSheet;
 StyleSheetContents* UserAgentStyle::mathMLStyleSheet;
 StyleSheetContents* UserAgentStyle::mathMLCoreExtrasStyleSheet;
+StyleSheetContents* UserAgentStyle::mathMLFontSizeMathStyleSheet;
+StyleSheetContents* UserAgentStyle::mathMLLegacyFontSizeMathStyleSheet;
 StyleSheetContents* UserAgentStyle::mediaQueryStyleSheet;
 StyleSheetContents* UserAgentStyle::popoverStyleSheet;
 StyleSheetContents* UserAgentStyle::horizontalFormControlsStyleSheet;
@@ -231,6 +233,17 @@ void UserAgentStyle::ensureDefaultStyleSheetsForElement(const Element& element)
         if (!mathMLCoreExtrasStyleSheet && element.document().settings().coreMathMLEnabled()) {
             mathMLCoreExtrasStyleSheet = parseUASheet(StringImpl::createWithoutCopying(mathmlCoreExtrasUserAgentStyleSheet));
             addToDefaultStyle(*mathMLCoreExtrasStyleSheet);
+        }
+        if (element.document().settings().cssMathDepthEnabled()) {
+            if (!mathMLFontSizeMathStyleSheet) {
+                mathMLFontSizeMathStyleSheet = parseUASheet(StringImpl::createWithoutCopying(mathmlFontSizeMathUserAgentStyleSheet));
+                addToDefaultStyle(*mathMLFontSizeMathStyleSheet);
+            }
+        } else {
+            if (!mathMLLegacyFontSizeMathStyleSheet) {
+                mathMLLegacyFontSizeMathStyleSheet = parseUASheet(StringImpl::createWithoutCopying(mathmlLegacyFontSizeMathUserAgentStyleSheet));
+                addToDefaultStyle(*mathMLLegacyFontSizeMathStyleSheet);
+            }
         }
     }
 #endif // ENABLE(MATHML)

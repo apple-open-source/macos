@@ -138,7 +138,7 @@ void RemoteRenderPassEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, 
 
 void RemoteRenderPassEncoderProxy::pushDebugGroup(String&& groupLabel)
 {
-    auto sendResult = send(Messages::RemoteRenderPassEncoder::PushDebugGroup(WTFMove(groupLabel)));
+    auto sendResult = send(Messages::RemoteRenderPassEncoder::PushDebugGroup(WTF::move(groupLabel)));
     UNUSED_VARIABLE(sendResult);
 }
 
@@ -150,7 +150,7 @@ void RemoteRenderPassEncoderProxy::popDebugGroup()
 
 void RemoteRenderPassEncoderProxy::insertDebugMarker(String&& markerLabel)
 {
-    auto sendResult = send(Messages::RemoteRenderPassEncoder::InsertDebugMarker(WTFMove(markerLabel)));
+    auto sendResult = send(Messages::RemoteRenderPassEncoder::InsertDebugMarker(WTF::move(markerLabel)));
     UNUSED_VARIABLE(sendResult);
 }
 
@@ -204,7 +204,7 @@ void RemoteRenderPassEncoderProxy::executeBundles(Vector<Ref<WebCore::WebGPU::Re
         return m_convertToBackingContext->convertToBacking(renderBundle);
     });
 
-    auto sendResult = send(Messages::RemoteRenderPassEncoder::ExecuteBundles(WTFMove(convertedRenderBundles)));
+    auto sendResult = send(Messages::RemoteRenderPassEncoder::ExecuteBundles(WTF::move(convertedRenderBundles)));
     UNUSED_VARIABLE(sendResult);
 }
 

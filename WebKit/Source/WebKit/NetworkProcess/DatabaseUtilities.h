@@ -48,7 +48,7 @@ protected:
     ~DatabaseUtilities();
 
     WebCore::SQLiteStatementAutoResetScope scopedStatement(std::unique_ptr<WebCore::SQLiteStatement>&, ASCIILiteral query, ASCIILiteral logString) const;
-    ScopeExit<Function<void()>> WARN_UNUSED_RETURN beginTransactionIfNecessary();
+    WARN_UNUSED_RETURN ScopeExit<Function<void()>> beginTransactionIfNecessary();
     enum class CreatedNewFile : bool { No, Yes };
     CreatedNewFile openDatabaseAndCreateSchemaIfNecessary();
     void enableForeignKeys();
@@ -70,7 +70,7 @@ protected:
     WebCore::PrivateClickMeasurement buildPrivateClickMeasurementFromDatabase(WebCore::SQLiteStatement&, PrivateClickMeasurementAttributionType) const;
 
     const String m_storageFilePath;
-    mutable WebCore::SQLiteDatabase m_database;
+    const UniqueRef<WebCore::SQLiteDatabase> m_database;
     mutable WebCore::SQLiteTransaction m_transaction;
 };
 

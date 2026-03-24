@@ -36,7 +36,6 @@
 #import "WebExtensionConstants.h"
 #import "WebExtensionPermission.h"
 #import "WebExtensionUtilities.h"
-#import "_WKWebExtensionSQLiteStore.h"
 #import <wtf/BlockPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -127,7 +126,7 @@ void WebExtensionContext::declarativeNetRequestUpdateEnabledRulesets(const Vecto
     }
 
     if (declarativeNetRequestEnabledRulesetCount() - rulesetIdentifiersToDisable.size() + rulesetIdentifiersToEnable.size() > webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets) {
-        completionHandler(toWebExtensionError(@"declarativeNetRequest.updateEnabledRulesets()", nullString(), @"The number of enabled static rulesets exceeds the limit. Only %lu rulesets can be enabled at once.", webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets));
+        completionHandler(toWebExtensionError(@"declarativeNetRequest.updateEnabledRulesets()", nullString(), makeString("The number of enabled static rulesets exceeds the limit. Only "_s, webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets, " rulesets can be enabled at once."_s)));
         return;
     }
 
@@ -135,7 +134,7 @@ void WebExtensionContext::declarativeNetRequestUpdateEnabledRulesets(const Vecto
     declarativeNetRequestToggleRulesets(rulesetIdentifiersToDisable, false, rulesetIdentifiersToEnabledState);
     declarativeNetRequestToggleRulesets(rulesetIdentifiersToEnable, true, rulesetIdentifiersToEnabledState);
 
-    loadDeclarativeNetRequestRules([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), rulesetIdentifiersToEnable, rulesetIdentifiersToDisable, rulesetIdentifiersToEnabledState = RetainPtr { rulesetIdentifiersToEnabledState }](bool success) mutable {
+    loadDeclarativeNetRequestRules([this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler), rulesetIdentifiersToEnable, rulesetIdentifiersToDisable, rulesetIdentifiersToEnabledState = RetainPtr { rulesetIdentifiersToEnabledState }](bool success) mutable {
         if (success) {
             saveDeclarativeNetRequestRulesetStateToStorage(rulesetIdentifiersToEnabledState.get());
             completionHandler({ });
@@ -232,13 +231,13 @@ void WebExtensionContext::declarativeNetRequestGetMatchedRules(std::optional<Web
         allURLs.append(matchedRule.url);
     }
 
-    requestPermissionToAccessURLs(allURLs, tab, [protectedThis = Ref { *this }, filteredRules = WTFMove(filteredRules), completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
+    requestPermissionToAccessURLs(allURLs, tab, [protectedThis = Ref { *this }, filteredRules = WTF::move(filteredRules), completionHandler = WTF::move(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
         auto result = WTF::compactMap(filteredRules, [protectedThis](auto& matchedRule) -> std::optional<WebExtensionMatchedRuleParameters> {
             RefPtr matchTab = protectedThis->getTab(matchedRule.tabIdentifier);
             return protectedThis->hasPermission(matchedRule.url, matchTab.get()) ? std::optional(matchedRule) : std::nullopt;
         });
 
-        completionHandler(WTFMove(result));
+        completionHandler(WTF::move(result));
     });
 }
 

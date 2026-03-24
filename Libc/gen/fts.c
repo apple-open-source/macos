@@ -73,6 +73,13 @@
 #endif /* __BLOCKS__ */
 #include <malloc_private.h>
 
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+/* 161606925 Restore legacy NAPPEND semantics for older binaries */
+#include <mach-o/dyld_priv.h>
+static int __nappend_compat = -1;
+#endif // TARGET_OS_OSX
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wstrict-prototypes"
 
@@ -148,6 +155,11 @@ __fts_open(char * const *argv, FTS *sp)
 	int nitems;
 	FTSENT *parent, *tmp;
 	ssize_t len;
+
+#if TARGET_OS_OSX
+	if (__nappend_compat < 0)
+		__nappend_compat = dyld_get_program_min_os_version() < DYLD_MACOSX_VERSION_15_4;
+#endif // TARGET_OS_OSX
 
 	/* Logical walks turn on NOCHDIR; symbolic links are too hard. */
 	if (ISSET(FTS_LOGICAL))
@@ -363,9 +375,18 @@ fts_close(FTS *sp)
  * Special case of "/" at the end of the path so that slashes aren't
  * appended which would cause paths to be written as "....//foo".
  */
+#if TARGET_OS_OSX
+#define	NAPPEND(p)							\
+	(__nappend_compat ?						\
+	(p->fts_level == FTS_ROOTLEVEL && p->fts_pathlen == 1 &&	\
+	    p->fts_path[0] == '/' ? 0 : p->fts_pathlen) :		\
+	(p->fts_path[p->fts_pathlen - 1] == '/'				\
+	    ? p->fts_pathlen - 1 : p->fts_pathlen))
+#else /* !TARGET_OS_OSX */
 #define	NAPPEND(p)							\
 	(p->fts_path[p->fts_pathlen - 1] == '/'				\
 	    ? p->fts_pathlen - 1 : p->fts_pathlen)
+#endif /* TARGET_OS_OSX */
 
 FTSENT *
 fts_read(FTS *sp)

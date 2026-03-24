@@ -43,7 +43,7 @@ WebFormClient::WebFormClient(const WKPageFormClientBase* wkClient)
     initialize(wkClient);
 }
 
-void WebFormClient::willSubmitForm(WebPageProxy& page, WebFrameProxy& frame, WebFrameProxy& sourceFrame, FrameInfoData&& frameInfoData, FrameInfoData&& sourceFrameInfoData, const Vector<std::pair<String, String>>& textFieldValues, API::Object* userData, CompletionHandler<void()>&& completionHandler)
+void WebFormClient::willSubmitForm(WebPageProxy& page, WebFrameProxy& frame, WebFrameProxy& sourceFrame, FrameInfoData&& frameInfoData, FrameInfoData&& sourceFrameInfoData, const Vector<std::pair<String, String>>& textFieldValues, API::Object* userData, const WTF::URL&, const WTF::String&, CompletionHandler<void()>&& completionHandler)
 {
     if (!m_client.willSubmitForm) {
         completionHandler();
@@ -53,8 +53,8 @@ void WebFormClient::willSubmitForm(WebPageProxy& page, WebFrameProxy& frame, Web
     API::Dictionary::MapType map;
     for (size_t i = 0; i < textFieldValues.size(); ++i)
         map.set(textFieldValues[i].first, API::String::create(textFieldValues[i].second));
-    auto textFieldsMap = API::Dictionary::create(WTFMove(map));
-    auto listener = WebFormSubmissionListenerProxy::create(WTFMove(completionHandler));
+    auto textFieldsMap = API::Dictionary::create(WTF::move(map));
+    auto listener = WebFormSubmissionListenerProxy::create(WTF::move(completionHandler));
     m_client.willSubmitForm(toAPI(&page), toAPI(&frame), toAPI(&sourceFrame), toAPI(textFieldsMap.ptr()), toAPI(userData), toAPI(listener.ptr()), m_client.base.clientInfo);
 }
 

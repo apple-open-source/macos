@@ -454,6 +454,13 @@ class TransliteratorRegistry : public UMemory {
      * Vector of public full IDs.
      */
     Hashtable availableIDs;
+    
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    UnicodeString fBogus;
+#endif // APPLE_ICU_CHANGES
+
 
     TransliteratorRegistry(const TransliteratorRegistry &other); // forbid copying of this class
     TransliteratorRegistry &operator=(const TransliteratorRegistry &other); // forbid copying of this class

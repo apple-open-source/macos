@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -28,9 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)hash.h	8.3 (Berkeley) 5/31/94
- * $FreeBSD: src/lib/libc/db/hash/hash.h,v 1.9 2009/03/28 05:45:29 delphij Exp $
  */
 
 /* Operations */
@@ -113,14 +112,12 @@ typedef struct htab	 {		/* Memory resident data structure */
 					 * allocate */
 	BUFHEAD 	bufhead;	/* Header of buffer lru list */
 	SEGMENT 	*dir;		/* Hash Bucket directory */
-					/* other flags */
-	u_int		nextkey_eof :1;	/* dbm_nextkey() reached EOF */
 } HTAB;
 
 /*
  * Constants
  */
-#define	MAX_BSIZE		65536		/* 2^16 */
+#define	MAX_BSIZE		32768		/* 2^15 but should be 65536 */
 #define MIN_BUFFERS		6
 #define MINHDRSIZE		512
 #define DEF_BUFSIZE		65536		/* 64 K */
@@ -140,11 +137,11 @@ typedef struct htab	 {		/* Memory resident data structure */
 #define ALL_SET			((u_int32_t)0xFFFFFFFF)
 #define ALL_CLEAR		0
 
-#define PTROF(X)	((BUFHEAD *)((ptrdiff_t)(X)&~0x3))
-#define ISMOD(X)	((u_int32_t)(ptrdiff_t)(X)&0x1)
-#define DOMOD(X)	((X) = (char *)((ptrdiff_t)(X)|0x1))
-#define ISDISK(X)	((u_int32_t)(ptrdiff_t)(X)&0x2)
-#define DODISK(X)	((X) = (char *)((ptrdiff_t)(X)|0x2))
+#define PTROF(X)	((BUFHEAD *)((intptr_t)(X)&~0x3))
+#define ISMOD(X)	((u_int32_t)(intptr_t)(X)&0x1)
+#define DOMOD(X)	((X) = (char *)((intptr_t)(X)|0x1))
+#define ISDISK(X)	((u_int32_t)(intptr_t)(X)&0x2)
+#define DODISK(X)	((X) = (char *)((intptr_t)(X)|0x2))
 
 #define BITS_PER_MAP	32
 

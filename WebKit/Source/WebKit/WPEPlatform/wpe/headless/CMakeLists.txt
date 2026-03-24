@@ -25,11 +25,11 @@ set(WPEPlatformHeadless_SOURCES_FOR_INTROSPECTION
 )
 
 add_library(WPEPlatformHeadless OBJECT ${WPEPlatformHeadless_SOURCES})
-add_dependencies(WPEPlatformHeadless WPEPlatformGeneratedEnumTypesHeader)
 target_compile_options(WPEPlatformHeadless PRIVATE ${DEVELOPER_MODE_CXX_FLAGS})
 target_include_directories(WPEPlatformHeadless PRIVATE ${WPEPlatformHeadless_PRIVATE_INCLUDE_DIRECTORIES})
 target_include_directories(WPEPlatformHeadless SYSTEM PRIVATE ${WPEPlatform_SYSTEM_INCLUDE_DIRECTORIES})
 target_link_libraries(WPEPlatformHeadless ${WPEPlatform_LIBRARIES})
+add_dependencies(WPEPlatformHeadless WPEPlatformGeneratedEnumTypesHeader)
 
 set_target_properties(WPEPlatformHeadless PROPERTIES
     SOURCES_FOR_INTROSPECTION "${WPEPlatformHeadless_SOURCES_FOR_INTROSPECTION}"

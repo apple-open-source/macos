@@ -34,12 +34,12 @@
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderMarquee.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLMarqueeElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLMarqueeElement);
 
 using namespace HTMLNames;
 
@@ -148,13 +148,13 @@ void HTMLMarqueeElement::collectPresentationalHintsForAttribute(const QualifiedN
 
 void HTMLMarqueeElement::start()
 {
-    if (auto* renderer = renderMarquee())
+    if (CheckedPtr renderer = renderMarquee())
         renderer->start();
 }
 
 void HTMLMarqueeElement::stop()
 {
-    if (auto* renderer = renderMarquee())
+    if (CheckedPtr renderer = renderMarquee())
         renderer->stop();
 }
 
@@ -200,21 +200,22 @@ void HTMLMarqueeElement::didMoveToNewDocument(Document& oldDocument, Document& n
 
 void HTMLMarqueeElement::suspend(ReasonForSuspension)
 {
-    if (RenderMarquee* marqueeRenderer = renderMarquee())
+    if (CheckedPtr marqueeRenderer = renderMarquee())
         marqueeRenderer->suspend();
 }
 
 void HTMLMarqueeElement::resume()
 {
-    if (RenderMarquee* marqueeRenderer = renderMarquee())
+    if (CheckedPtr marqueeRenderer = renderMarquee())
         marqueeRenderer->updateMarqueePosition();
 }
 
 RenderMarquee* HTMLMarqueeElement::renderMarquee() const
 {
-    if (!renderer() || !renderer()->hasLayer())
+    CheckedPtr renderer = this->renderer();
+    if (!renderer || !renderer->hasLayer())
         return nullptr;
-    auto* scrollableArea = renderBoxModelObject()->layer()->scrollableArea();
+    CheckedPtr scrollableArea = downcast<RenderBoxModelObject>(*renderer).checkedLayer()->scrollableArea();
     if (!scrollableArea)
         return nullptr;
     return scrollableArea->marquee();

@@ -31,6 +31,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "AnotherGuardedInternalBuiltinBuiltins.h"
 #include "ArbitraryConditionalGuardBuiltins.h"
 #include "GuardedBuiltinBuiltins.h"
@@ -184,6 +186,8 @@ private:
 // builtins by the script: Source/JavaScriptCore/Scripts/generate-js-builtins.py
 
 #pragma once
+
+#include <cstdint>
 
 #include "AnotherGuardedInternalBuiltinBuiltins.h"
 #include "GuardedInternalBuiltinBuiltins.h"

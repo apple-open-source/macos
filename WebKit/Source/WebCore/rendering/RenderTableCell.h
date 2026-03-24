@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "HTMLTableCellElement.h"
 #include "RenderBlockFlow.h"
 #include "RenderTableRow.h"
 #include "RenderTableSection.h"
@@ -37,7 +38,7 @@ static const unsigned maxColumnIndex = 0x1FFFFFE; // 33554430
 enum IncludeBorderColorOrNot { DoNotIncludeBorderColor, IncludeBorderColor };
 
 class RenderTableCell final : public RenderBlockFlow {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderTableCell);
+    WTF_MAKE_TZONE_ALLOCATED(RenderTableCell);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTableCell);
 public:
     RenderTableCell(Element&, RenderStyle&&);
@@ -46,6 +47,7 @@ public:
     
     unsigned colSpan() const;
     unsigned rowSpan() const;
+    bool hasRowSpanZero() const;
 
     // Called from HTMLTableCellElement.
     void colSpanOrRowSpanChanged();
@@ -61,7 +63,7 @@ public:
     RenderTable* table() const;
     CheckedPtr<RenderTable> checkedTable() const;
     unsigned rowIndex() const;
-    inline Style::PreferredSize styleOrColLogicalWidth() const;
+    inline std::pair<Style::PreferredSize, Style::ZoomFactor> styleOrColLogicalWidth() const;
     LayoutUnit logicalHeightForRowSizing() const;
     LayoutUnit minLogicalWidthForColumnSizing();
     LayoutUnit maxLogicalWidthForColumnSizing();
@@ -142,7 +144,7 @@ protected:
     LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
 private:
-    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
+    void styleDidChange(Style::Difference, const RenderStyle* oldStyle) override;
     void computePreferredLogicalWidths() override;
 
     LayoutRect frameRectForStickyPositioning() const override;
@@ -195,10 +197,13 @@ private:
 
     Style::PreferredSize logicalWidthFromColumns(RenderTableCol* firstColForThisCell, const Style::PreferredSize& widthFromStyle) const;
 
+    CollapsedBorderValue emptyBorder() const;
+
     void updateColAndRowSpanFlags();
 
     unsigned parseRowSpanFromDOM() const;
     unsigned parseColSpanFromDOM() const;
+    unsigned calculateRowSpanForRowSpanZero() const;
 
     void nextSibling() const = delete;
     void previousSibling() const = delete;
@@ -241,7 +246,20 @@ inline unsigned RenderTableCell::rowSpan() const
 {
     if (!m_hasRowSpan)
         return 1;
-    return parseRowSpanFromDOM();
+
+    unsigned span = parseRowSpanFromDOM();
+
+    // Handle rowspan="0" which means "span all remaining rows in the row group"
+    // Per HTML spec: https://html.spec.whatwg.org/multipage/tables.html#attr-tdth-rowspan
+    if (!span)
+        span = calculateRowSpanForRowSpanZero();
+
+    return std::min(span, maxRowIndex);
+}
+
+inline bool RenderTableCell::hasRowSpanZero() const
+{
+    return m_hasRowSpan && !parseRowSpanFromDOM();
 }
 
 inline void RenderTableCell::setCol(unsigned column)

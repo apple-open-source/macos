@@ -29,11 +29,12 @@
 #include "EllipsisBoxPainter.h"
 #include "InlineBoxPainter.h"
 #include "InlineDisplayBoxInlines.h"
+#include "OutlinePainter.h"
 #include "PaintInfo.h"
 #include "RenderBox.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "TextBoxPainter.h"
 #include <wtf/Assertions.h>
 
@@ -87,6 +88,9 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
     if (box.isInlineBox()) {
         if (!box.isVisible() || !hasDamage(box))
             return;
+        // Don't paint inline boxes wrapping block-in-inline.
+        if (m_inlineContent.isInlineBoxWrapperForBlockLevelBox(box))
+            return;
 
         auto canSkipInlineBoxPainting = [&]() {
             if (m_paintInfo.phase != PaintPhase::Foreground)
@@ -120,10 +124,17 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
         return;
     }
 
-    if (auto* renderer = dynamicDowncast<RenderBox>(box.layoutBox().rendererForIntegration()); renderer && renderer->isBlockLevelReplacedOrAtomicInline()) {
+    if (auto* renderer = dynamicDowncast<RenderBox>(box.layoutBox().rendererForIntegration()); renderer) {
         if (m_paintInfo.shouldPaintWithinRoot(*renderer)) {
             // FIXME: Painting should not require a non-const renderer.
-            const_cast<RenderBox*>(renderer)->paintAsInlineBlock(m_paintInfo, flippedContentOffsetIfNeeded(*renderer));
+            CheckedRef paintRenderer = const_cast<RenderBox&>(*renderer);
+            auto flippedOffset = flippedContentOffsetIfNeeded(*renderer);
+            if (box.isBlockLevelBox()) {
+                // Blocks-in-inline.
+                auto paintInfoForChild = m_root.paintInfoForBlockChildren(m_paintInfo);
+                paintRenderer->paint(paintInfoForChild, flippedOffset);
+            } else
+                paintRenderer->paintAsInlineBlock(m_paintInfo, flippedOffset);
         }
     }
 }
@@ -155,19 +166,25 @@ void InlineContentPainter::paint()
         auto shouldPaintBoxForPhase = [&] {
             switch (m_paintInfo.phase) {
             case PaintPhase::ChildOutlines:
-                return box.isNonRootInlineBox();
+                return box.isNonRootInlineBox() || box.isBlockLevelBox();
             case PaintPhase::SelfOutline:
                 return box.isRootInlineBox();
             case PaintPhase::Outline:
-                return box.isInlineBox();
+                return box.isInlineBox() || box.isBlockLevelBox();
             case PaintPhase::Mask:
                 return box.isInlineBox();
+            case PaintPhase::Float:
+            case PaintPhase::ChildBlockBackground:
+            case PaintPhase::ChildBlockBackgrounds:
+                return box.isBlockLevelBox();
             default:
                 return true;
             }
         };
 
-        if (shouldPaintBoxForPhase() && layerPaintScope.includes(box)) {
+        bool includedInPaintScope = layerPaintScope.testIsIncludesAndUpdate(box);
+
+        if (includedInPaintScope && shouldPaintBoxForPhase()) {
             paintLineEndingEllipsisIfApplicable(box.lineIndex());
             paintDisplayBox(box);
         }
@@ -175,8 +192,9 @@ void InlineContentPainter::paint()
     }
     paintLineEndingEllipsisIfApplicable({ });
 
+    OutlinePainter outlinePainter { m_paintInfo };
     for (auto& renderInline : m_outlineObjects)
-        renderInline.paintOutline(m_paintInfo, m_paintOffset);
+        outlinePainter.paintOutline(renderInline, m_paintOffset);
 }
 
 LayoutPoint InlineContentPainter::flippedContentOffsetIfNeeded(const RenderBox& childRenderer) const
@@ -196,7 +214,7 @@ LayerPaintScope::LayerPaintScope(const RenderInline* inlineBoxWithLayer)
 {
 }
 
-bool LayerPaintScope::includes(const InlineDisplay::Box& box)
+bool LayerPaintScope::testIsIncludesAndUpdate(const InlineDisplay::Box& box)
 {
     auto isInside = [](auto& displayBox, auto& inlineBox)
     {
@@ -219,9 +237,12 @@ bool LayerPaintScope::includes(const InlineDisplay::Box& box)
     if (m_currentExcludedInlineBox && isInside(box, *m_currentExcludedInlineBox))
         return false;
 
+    if (box.isRootInlineBox())
+        return true;
+
     m_currentExcludedInlineBox = nullptr;
 
-    if (box.isRootInlineBox() || box.isText() || box.isLineBreak())
+    if (box.isText() || box.isLineBreak())
         return true;
 
     auto* renderer = dynamicDowncast<RenderLayerModelObject>(box.layoutBox().rendererForIntegration());

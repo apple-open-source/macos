@@ -25,14 +25,14 @@
 
 #include "config.h"
 #include "WebWheelEvent.h"
-
+#include <wtf/text/TextStream.h>
 
 namespace WebKit {
 
 using namespace WebCore;
 
 WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Granularity granularity)
-    : WebEvent(WTFMove(event))
+    : WebEvent(WTF::move(event))
     , m_position(position)
     , m_globalPosition(globalPosition)
     , m_delta(delta)
@@ -44,7 +44,7 @@ WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const I
 
 #if PLATFORM(COCOA)
 WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Granularity granularity, bool directionInvertedFromDevice, Phase phase, Phase momentumPhase, bool hasPreciseScrollingDeltas, uint32_t scrollCount, const WebCore::FloatSize& unacceleratedScrollingDelta, MonotonicTime ioHIDEventTimestamp, std::optional<WebCore::FloatSize> rawPlatformDelta, MomentumEndType momentumEndType)
-    : WebEvent(WTFMove(event))
+    : WebEvent(WTF::move(event))
     , m_position(position)
     , m_globalPosition(globalPosition)
     , m_delta(delta)
@@ -62,9 +62,9 @@ WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const I
 {
     ASSERT(isWheelEventType(type()));
 }
-#elif PLATFORM(GTK) || USE(LIBWPE)
+#elif PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
 WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Granularity granularity, Phase phase, Phase momentumPhase, bool hasPreciseScrollingDeltas)
-    : WebEvent(WTFMove(event))
+    : WebEvent(WTF::move(event))
     , m_position(position)
     , m_globalPosition(globalPosition)
     , m_delta(delta)
@@ -81,6 +81,67 @@ WebWheelEvent::WebWheelEvent(WebEvent&& event, const IntPoint& position, const I
 bool WebWheelEvent::isWheelEventType(WebEventType type)
 {
     return type == WebEventType::Wheel;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, WebWheelEvent::Granularity granularity)
+{
+    using enum WebWheelEvent::Granularity;
+    switch (granularity) {
+    case ScrollByPageWheelEvent: ts << "scrollByPageWheelEvent"; break;
+    case ScrollByPixelWheelEvent: ts << "scrollByPixelWheelEvent"; break;
+    }
+    return ts;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, WebWheelEvent::Phase phase)
+{
+    using enum WebWheelEvent::Phase;
+    switch (phase) {
+    case None: ts << "none"; break;
+    case Began: ts << "began"; break;
+    case Stationary: ts << "stationary"; break;
+    case Changed: ts << "changed"; break;
+    case Ended: ts << "ended"; break;
+    case Cancelled: ts << "cancelled"; break;
+    case MayBegin: ts << "mayBegin"; break;
+    case WillBegin: ts << "willBegin"; break;
+    }
+    return ts;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, WebWheelEvent::MomentumEndType endType)
+{
+    using enum WebWheelEvent::MomentumEndType;
+    switch (endType) {
+    case Unknown: ts << "unknown"; break;
+    case Interrupted: ts << "interrupted"; break;
+    case Natural: ts << "natural"; break;
+    }
+    return ts;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, const WebWheelEvent& event)
+{
+    TextStream::GroupScope group(ts);
+    ts.dumpProperty("position"_s, event.position());
+    ts.dumpProperty("globalPosition"_s, event.globalPosition());
+    ts.dumpProperty("delta"_s, event.delta());
+    ts.dumpProperty("wheelTicks"_s, event.wheelTicks());
+    ts.dumpProperty("granularity"_s, event.granularity());
+    ts.dumpProperty("directionInvertedFromDevice"_s, event.directionInvertedFromDevice());
+    ts.dumpProperty("phase"_s, event.phase());
+    ts.dumpProperty("momentumPhase"_s, event.momentumPhase());
+    ts.dumpProperty("momentumEndType"_s, event.momentumEndType());
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
+    ts.dumpProperty("hasPreciseScrollingDeltas"_s, event.hasPreciseScrollingDeltas());
+#endif
+#if PLATFORM(COCOA)
+    ts.dumpProperty("ioHIDEventTimestamp"_s, event.ioHIDEventTimestamp().secondsSinceEpoch().value());
+    ts.dumpProperty("rawPlatformDelta"_s, event.rawPlatformDelta());
+    ts.dumpProperty("scrollCount"_s, event.scrollCount());
+    ts.dumpProperty("unacceleratedScrollingDelta"_s, event.unacceleratedScrollingDelta());
+#endif
+    return ts;
 }
 
 } // namespace WebKit

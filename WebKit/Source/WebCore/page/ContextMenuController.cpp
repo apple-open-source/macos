@@ -61,7 +61,6 @@
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "ImageOverlay.h"
-#include "InspectorController.h"
 #include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
 #include "LocalizedStrings.h"
@@ -69,6 +68,7 @@
 #include "NavigationAction.h"
 #include "Node.h"
 #include "Page.h"
+#include "PageInspectorController.h"
 #include "PlatformEvent.h"
 #include "PlatformMouseEvent.h"
 #include "RenderImage.h"
@@ -107,7 +107,7 @@ using namespace WTF::Unicode;
 
 ContextMenuController::ContextMenuController(Page& page, UniqueRef<ContextMenuClient>&& client)
     : m_page(page)
-    , m_client(WTFMove(client))
+    , m_client(WTF::move(client))
 {
 }
 
@@ -159,7 +159,7 @@ void ContextMenuController::showContextMenu(Event& event, ContextMenuProvider& p
     if (contextType == ContextMenuContext::Type::ContextMenu)
         hitType.add(HitTestRequest::Type::DisallowUserAgentShadowContent);
 
-    m_contextMenu = maybeCreateContextMenu(event, WTFMove(hitType), contextType);
+    m_contextMenu = maybeCreateContextMenu(event, WTF::move(hitType), contextType);
     if (!m_contextMenu) {
         clearContextMenu();
         return;
@@ -213,14 +213,14 @@ static void prepareContextForQRCode(ContextMenuContext& context)
         return;
 
     auto nodeSnapshotImageBuffer = snapshotNode(*frame, *element, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
-    RefPtr nodeSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(nodeSnapshotImageBuffer)));
+    RefPtr nodeSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTF::move(nodeSnapshotImageBuffer)));
     context.setPotentialQRCodeNodeSnapshotImage(nodeSnapshotImage.get());
 
     // FIXME: Node snapshotting does not take transforms into account, making it unreliable for QR code detection.
     // As a fallback, also take a viewport-level snapshot. A node snapshot is still required to capture partially
     // obscured elements. This workaround can be removed once rdar://87204215 is fixed.
     auto viewportSnapshotImageBuffer = snapshotFrameRect(*frame, elementRect, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
-    RefPtr viewportSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(viewportSnapshotImageBuffer)));
+    RefPtr viewportSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTF::move(viewportSnapshotImageBuffer)));
     context.setPotentialQRCodeViewportSnapshotImage(viewportSnapshotImage.get());
 }
 
@@ -239,7 +239,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
     if (!frame)
         return nullptr;
 
-    auto result = frame->eventHandler().hitTestResultAtPoint(flooredIntPoint(mouseEvent->absoluteLocation()), WTFMove(hitType));
+    auto result = frame->eventHandler().hitTestResultAtPoint(flooredIntPoint(mouseEvent->absoluteLocation()), WTF::move(hitType));
     if (!result.innerNonSharedNode())
         return nullptr;
 
@@ -247,7 +247,10 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
 #if ENABLE(CONTEXT_MENU_QR_CODE_DETECTION)
     prepareContextForQRCode(m_context);
 #endif
-    
+
+    if (RefPtr menuProvider = m_menuProvider)
+        menuProvider->prepareContext(m_context);
+
     return makeUnique<ContextMenu>();
 }
 
@@ -280,7 +283,7 @@ static void openNewWindow(const URL& urlToLoad, LocalFrame& frame, Event* event,
         return;
     newPage->chrome().show();
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(newPage->mainFrame()))
-        localMainFrame->loader().loadFrameRequest(WTFMove(frameLoadRequest), event, { });
+        localMainFrame->loader().loadFrameRequest(WTF::move(frameLoadRequest), event, { });
 }
 
 #if PLATFORM(GTK)
@@ -416,8 +419,10 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagCopyLinkWithHighlight:
         if (RefPtr page = frame->page()) {
             auto url = page->fragmentDirectiveURLForSelectedText();
-            if (url.isValid())
-                frame->editor().copyURL(url, { });
+            if (url.isValid()) {
+                auto selectedRange = frame->selection().selection().toNormalizedRange();
+                frame->editor().copyURL(url, selectedRange ? plainText(*selectedRange) : nullString());
+            }
         }
         break;
     case ContextMenuItemTagGoBack:
@@ -523,11 +528,11 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagOpenLink:
         if (RefPtr targetFrame = m_context.hitTestResult().targetFrame()) {
             ResourceRequest resourceRequest { m_context.hitTestResult().absoluteLinkURL(), frame->loader().outgoingReferrer() };
-            FrameLoadRequest frameLoadRequest { frame->protectedDocument().releaseNonNull(), frame->document()->securityOrigin(), WTFMove(resourceRequest), { }, InitiatedByMainFrame::Unknown };
+            FrameLoadRequest frameLoadRequest { frame->protectedDocument().releaseNonNull(), frame->document()->securityOrigin(), WTF::move(resourceRequest), { }, InitiatedByMainFrame::Unknown };
             frameLoadRequest.setNewFrameOpenerPolicy(NewFrameOpenerPolicy::Suppress);
             if (targetFrame->isMainFrame())
                 frameLoadRequest.setShouldOpenExternalURLsPolicy(ShouldOpenExternalURLsPolicy::ShouldAllow);
-            targetFrame->loadFrameRequest(WTFMove(frameLoadRequest), eventForLoadRequests.get());
+            targetFrame->loadFrameRequest(WTF::move(frameLoadRequest), eventForLoadRequests.get());
         } else
             openNewWindow(m_context.hitTestResult().absoluteLinkURL(), *frame, eventForLoadRequests.get(), ShouldOpenExternalURLsPolicy::ShouldAllow);
         break;
@@ -1098,7 +1103,7 @@ void ContextMenuController::populate()
         URL linkURL = m_context.hitTestResult().absoluteLinkURL();
         const bool linkURLEmpty = linkURL.isEmpty();
         if (!linkURLEmpty) {
-            if (loader->client().canHandleRequest(ResourceRequest(WTFMove(linkURL)))) {
+            if (loader->client().canHandleRequest(ResourceRequest(WTF::move(linkURL)))) {
                 appendItem(OpenLinkItem, m_contextMenu.get());
                 appendItem(OpenLinkInNewWindowItem, m_contextMenu.get());
                 appendItem(DownloadFileItem, m_contextMenu.get());
@@ -1166,7 +1171,7 @@ void ContextMenuController::populate()
             appendItem(ToggleVideoEnhancedFullscreen, m_contextMenu.get());
             appendItem(ToggleVideoViewer, m_contextMenu.get());
 #endif
-            if (m_context.hitTestResult().isDownloadableMedia() && loader->client().canHandleRequest(ResourceRequest(WTFMove(mediaURL)))) {
+            if (m_context.hitTestResult().isDownloadableMedia() && loader->client().canHandleRequest(ResourceRequest(WTF::move(mediaURL)))) {
                 appendItem(*separatorItem(), m_contextMenu.get());
                 appendItem(CopyMediaLinkItem, m_contextMenu.get());
                 appendItem(OpenMediaInNewWindowItem, m_contextMenu.get());
@@ -1342,7 +1347,7 @@ void ContextMenuController::populate()
         Ref loader = frame->loader();
         URL linkURL = m_context.hitTestResult().absoluteLinkURL();
         if (!linkURL.isEmpty()) {
-            if (loader->client().canHandleRequest(ResourceRequest(WTFMove(linkURL)))) {
+            if (loader->client().canHandleRequest(ResourceRequest(WTF::move(linkURL)))) {
                 appendItem(OpenLinkItem, m_contextMenu.get());
                 appendItem(OpenLinkInNewWindowItem, m_contextMenu.get());
                 appendItem(DownloadFileItem, m_contextMenu.get());
@@ -1863,6 +1868,10 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagRewrite:
         case ContextMenuItemTagSummarize:
             break;
+#if ENABLE(VIDEO)
+        case ContextMenuItemCaptionDisplayStyleSubmenu:
+            break;
+#endif
     }
 
     item.setChecked(shouldCheck);

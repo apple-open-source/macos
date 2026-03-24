@@ -301,6 +301,9 @@ that may add risk when run with privileges.
 .Pp
 .Fn removefile
 operates on symbolic links, rather than the target of the link.
+.Pp
+REMOVEFILE_ALLOW_LONG_PATHS
+may change the working directory of the process, making it not thread safe.
 .Sh EXAMPLE
 .Bd -literal -offset indent
 /* Initialize a state variable */

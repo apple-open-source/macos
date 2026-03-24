@@ -528,9 +528,13 @@ end
 writeH("Opcode") {
     | outp |
     outp.puts "#include <wtf/Compiler.h>"
+    outp.puts "#include <wtf/Platform.h>"
     outp.puts "WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN"
     outp.puts ""
     outp.puts "#if ENABLE(B3_JIT)"
+    outp.puts ""
+    outp.puts "#include <JavaScriptCore/JSExportMacros.h>"
+    outp.puts "#include <cstdint>"
     outp.puts ""
     outp.puts "#pragma push_macro(\"RotateLeft32\")"
     outp.puts "#pragma push_macro(\"RotateLeft64\")"

@@ -31,6 +31,37 @@
 #include <errno.h>
 
 #include "magic.h"
+#ifdef __APPLE__
+#include "../src/file.h"
+static const char *
+magic_buffer_name(struct magic_set *ms, const void *buf, size_t nb,
+    const char *inname)
+{
+	if (ms == NULL)
+		return NULL;
+	if (file_reset(ms, 1) == -1)
+		return NULL;
+	/*
+	 * The main work is done here!
+	 * We have the file name and/or the data buffer to be identified.
+	 */
+	if (file_buffer(ms, -1, NULL, inname, buf, nb) == -1) {
+		return NULL;
+	}
+	return file_getbuffer(ms);
+}
+static unsigned int
+hex(char ch)
+{
+	if (ch >= '0' && ch <= '9')
+		return (ch - '0' + 0x0);
+	if (ch >= 'A' && ch <= 'F')
+		return (ch - 'A' + 0xA);
+	if (ch >= 'a' && ch <= 'f')
+		return (ch - 'a' + 0xa);
+	return (ch);
+}
+#endif /* __APPLE__ */
 
 static const char *prog;
 
@@ -111,6 +142,33 @@ main(int argc, char **argv)
 		magic_close(ms);
 		goto bad;
 	}
+#ifdef __APPLE__
+	char *buf;
+	size_t len, namelen = strlen(argv[1]);
+	if (namelen > 5 && strcmp(argv[1] + namelen - 4, ".hex") == 0) {
+		if ((fp = fopen(argv[1], "r")) == NULL ||
+		    (buf = slurp(fp, &len)) == NULL ||
+		    ferror(fp)) {
+			(void)fprintf(stderr, "%s: ERROR loading file %s: %s\n",
+			    prog, argv[1], strerror(errno));
+			if (fp != NULL)
+				fclose(fp);
+			goto bad;
+		}
+		fclose(fp);
+		for (unsigned int i = 0; i < len / 2; i++) {
+			((unsigned char *)buf)[i] =
+			    hex(buf[i * 2]) << 4 | hex(buf[i * 2 + 1]);
+		}
+		argv[1][namelen - 4] = '\0';
+		result = magic_buffer_name(ms, buf, len / 2, argv[1]);
+		if (result == NULL) {
+			(void)fprintf(stderr, "%s: ERROR loading file %s: %s\n",
+			    prog, argv[1], magic_error(ms));
+			goto bad;
+		}
+	} else
+#endif /* __APPLE__ */
 	if ((result = magic_file(ms, argv[1])) == NULL) {
 		(void)fprintf(stderr, "%s: ERROR loading file %s: %s\n",
 		    prog, argv[1], magic_error(ms));

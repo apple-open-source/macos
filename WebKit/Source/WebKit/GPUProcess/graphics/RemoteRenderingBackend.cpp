@@ -34,6 +34,7 @@
 #include "GPUProcessProxyMessages.h"
 #include "ImageBufferShareableBitmapBackend.h"
 #include "Logging.h"
+#include "PrepareBackingStoreBuffersData.h"
 #include "RemoteBarcodeDetector.h"
 #include "RemoteBarcodeDetectorMessages.h"
 #include "RemoteDisplayListRecorder.h"
@@ -53,7 +54,6 @@
 #include "RemoteTextDetector.h"
 #include "RemoteTextDetectorMessages.h"
 #include "ShapeDetectionObjectHeap.h"
-#include "SwapBuffersDisplayRequirement.h"
 #include "WebPageProxy.h"
 #include <WebCore/Filter.h>
 #include <WebCore/FontCustomPlatformData.h>
@@ -108,20 +108,21 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteRenderingBackend);
 
 Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendIdentifier identifier, Ref<IPC::StreamServerConnection>&& streamConnection)
 {
-    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, identifier, WTFMove(streamConnection)));
+    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, identifier, WTF::move(streamConnection)));
     instance->startListeningForIPC();
     return instance;
 }
 
 RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendIdentifier identifier, Ref<IPC::StreamServerConnection>&& streamConnection)
     : m_workQueue(IPC::StreamConnectionWorkQueue::create("RemoteRenderingBackend work queue"_s))
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_sharedResourceCache(gpuConnectionToWebProcess.sharedResourceCache())
     , m_renderingBackendIdentifier(identifier)
     , m_shapeDetectionObjectHeap(ShapeDetection::ObjectHeap::create())
 {
     ASSERT(RunLoop::isMain());
+    weakPtrFactory().prepareForUseOnlyOnNonMainThread();
 }
 
 RemoteRenderingBackend::~RemoteRenderingBackend() = default;
@@ -176,7 +177,7 @@ void RemoteRenderingBackend::didReceiveInvalidMessage(IPC::StreamServerConnectio
 
 void RemoteRenderingBackend::dispatch(Function<void()>&& task)
 {
-    m_workQueue->dispatch(WTFMove(task));
+    m_workQueue->dispatch(WTF::move(task));
 }
 
 void RemoteRenderingBackend::moveToSerializedBuffer(RenderingResourceIdentifier identifier, RemoteSerializedImageBufferIdentifier serializedIdentifier)
@@ -187,7 +188,7 @@ void RemoteRenderingBackend::moveToSerializedBuffer(RenderingResourceIdentifier 
     MESSAGE_CHECK(remoteImageBuffer, "Missing ImageBuffer");
     Ref imageBuffer = RemoteImageBuffer::sinkIntoImageBuffer(remoteImageBuffer.releaseNonNull());
     MESSAGE_CHECK(imageBuffer->hasOneRef(), "ImageBuffer in use");
-    bool success = m_sharedResourceCache->addSerializedImageBuffer(serializedIdentifier, WTFMove(imageBuffer));
+    bool success = m_sharedResourceCache->addSerializedImageBuffer(serializedIdentifier, WTF::move(imageBuffer));
     MESSAGE_CHECK(success, "Duplicate SerializedImageBuffer");
 }
 
@@ -265,7 +266,7 @@ static RefPtr<ImageBuffer> allocateImageBufferInternal(const FloatSize& logicalS
 
     case RenderingMode::DisplayList:
         if (auto backend = ImageBufferDisplayListBackend::create(logicalSize, resolutionScale, colorSpace, bufferFormat.pixelFormat, purpose, ControlFactory::create()))
-            imageBuffer = ImageBuffer::create<ImageBufferDisplayListBackend, ImageBufferType>(logicalSize, creationContext, WTFMove(backend));
+            imageBuffer = ImageBuffer::create<ImageBufferDisplayListBackend, ImageBufferType>(logicalSize, creationContext, WTF::move(backend));
         break;
     }
 
@@ -304,6 +305,13 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::allocateImageBuffer(const FloatSize&
 void RemoteRenderingBackend::createImageBuffer(const FloatSize& logicalSize, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferFormat pixelFormat, RenderingResourceIdentifier identifier, RemoteGraphicsContextIdentifier contextIdentifier)
 {
     assertIsCurrent(workQueue());
+
+    // Verify DisplayList rendering mode is only used when RemoteSnapshotting is enabled
+    if (renderingMode == RenderingMode::DisplayList) {
+        auto prefs = sharedPreferencesForWebProcess();
+        MESSAGE_CHECK(prefs && prefs->remoteSnapshottingEnabled, "RemoteSnapshotting is not enabled");
+    }
+
     RefPtr<ImageBuffer> imageBuffer = allocateImageBuffer(logicalSize, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, { });
     if (!imageBuffer) {
         RELEASE_LOG(RemoteLayerBuffers, "[renderingBackend=%" PRIu64 "] RemoteRenderingBackend::createImageBuffer - failed to allocate image buffer %" PRIu64, m_renderingBackendIdentifier.toUInt64(), identifier.toUInt64());
@@ -367,18 +375,18 @@ void RemoteRenderingBackend::nativeImageBitmap(RenderingResourceIdentifier image
             ASSERT_NOT_REACHED();
             return;
         }
-        image->replacePlatformImage(WTFMove(platformImage));
-        result = WTFMove(handle);
+        image->replacePlatformImage(WTF::move(platformImage));
+        result = WTF::move(handle);
     }();
     ASSERT(result);
-    completionHandler(WTFMove(result));
+    completionHandler(WTF::move(result));
 }
 
 void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, RenderingResourceIdentifier imageIdentifier)
 {
     ASSERT(!RunLoop::isMain());
 
-    auto bitmap = ShareableBitmap::create(WTFMove(handle));
+    auto bitmap = ShareableBitmap::create(WTF::move(handle));
     if (!bitmap)
         return;
 
@@ -387,6 +395,15 @@ void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, 
         return;
 
     bool success = m_remoteResourceCache.cacheNativeImage(imageIdentifier, image.releaseNonNull());
+    MESSAGE_CHECK(success, "NativeImage already cached.");
+}
+
+void RemoteRenderingBackend::cacheNativeImageFromSharedNativeImage(WebCore::RenderingResourceIdentifier identifier)
+{
+    assertIsCurrent(workQueue());
+    RefPtr image = m_sharedResourceCache->takeNativeImage(identifier);
+    MESSAGE_CHECK(image, "Shared NativeImage not found.");
+    bool success = m_remoteResourceCache.cacheNativeImage(identifier, image.releaseNonNull());
     MESSAGE_CHECK(success, "NativeImage already cached.");
 }
 
@@ -411,7 +428,7 @@ void RemoteRenderingBackend::cacheFont(const Font::Attributes& fontAttributes, F
 
     Ref<Font> font = Font::create(platform, fontAttributes.origin, fontAttributes.isInterstitial, fontAttributes.visibility, fontAttributes.isTextOrientationFallback, fontAttributes.renderingResourceIdentifier);
 
-    m_remoteResourceCache.cacheFont(WTFMove(font));
+    m_remoteResourceCache.cacheFont(WTF::move(font));
 }
 
 void RemoteRenderingBackend::releaseFont(WebCore::RenderingResourceIdentifier identifier)
@@ -425,10 +442,10 @@ void RemoteRenderingBackend::cacheFontCustomPlatformData(WebCore::FontCustomPlat
 {
     ASSERT(!RunLoop::isMain());
 
-    auto customPlatformData = FontCustomPlatformData::tryMakeFromSerializationData(WTFMove(fontCustomPlatformSerializedData), shouldUseLockdownFontParser());
+    auto customPlatformData = FontCustomPlatformData::tryMakeFromSerializationData(WTF::move(fontCustomPlatformSerializedData), shouldUseLockdownFontParser());
     MESSAGE_CHECK(customPlatformData.has_value(), "cacheFontCustomPlatformData couldn't deserialize FontCustomPlatformData");
 
-    m_remoteResourceCache.cacheFontCustomPlatformData(WTFMove(customPlatformData.value()));
+    m_remoteResourceCache.cacheFontCustomPlatformData(WTF::move(customPlatformData.value()));
 }
 
 void RemoteRenderingBackend::releaseFontCustomPlatformData(WebCore::RenderingResourceIdentifier identifier)
@@ -441,7 +458,7 @@ void RemoteRenderingBackend::releaseFontCustomPlatformData(WebCore::RenderingRes
 void RemoteRenderingBackend::cacheGradient(Ref<Gradient>&& gradient, RemoteGradientIdentifier identifier)
 {
     assertIsCurrent(workQueue());
-    bool success = m_remoteResourceCache.cacheGradient(identifier, WTFMove(gradient));
+    bool success = m_remoteResourceCache.cacheGradient(identifier, WTF::move(gradient));
     MESSAGE_CHECK(success, "Gradient already cached.");
 }
 
@@ -457,7 +474,7 @@ void RemoteRenderingBackend::cacheFilter(Ref<Filter>&& filter)
 {
     ASSERT(!RunLoop::isMain());
     if (filter->hasValidRenderingResourceIdentifier())
-        m_remoteResourceCache.cacheFilter(WTFMove(filter));
+        m_remoteResourceCache.cacheFilter(WTF::move(filter));
     else
         LOG_WITH_STREAM(DisplayLists, stream << "Received a Filter without a valid resource identifier");
 }
@@ -482,7 +499,7 @@ void RemoteRenderingBackend::sinkDisplayListRecorderIntoDisplayList(RemoteDispla
     RefPtr recorder = m_remoteDisplayListRecorders.take(identifier).get();
     MESSAGE_CHECK(recorder, "Recorder sunk into display list before being cached");
     Ref displayList = recorder->takeDisplayList();
-    bool success = m_remoteResourceCache.cacheDisplayList(displayListIdentifier, WTFMove(displayList));
+    bool success = m_remoteResourceCache.cacheDisplayList(displayListIdentifier, WTF::move(displayList));
     MESSAGE_CHECK(success, "Display list already created");
 }
 
@@ -535,7 +552,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplaySync(Vector<ImageBu
         remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], outputData[i], true);
     }
 
-    completionHandler(WTFMove(outputData));
+    completionHandler(WTF::move(outputData));
 
     // Defer preparing all the front buffers (which triggers pixel copy
     // operations) until after we've sent the completion handler (and any
@@ -563,6 +580,7 @@ void RemoteRenderingBackend::markSurfacesVolatile(MarkSurfacesAsVolatileRequestI
         RefPtr<RemoteImageBufferSet> remoteImageBufferSet = m_remoteImageBufferSets.get(identifier.first);
 
         MESSAGE_CHECK(remoteImageBufferSet, "BufferSet is being marked volatile before being created");
+        MESSAGE_CHECK(!remoteImageBufferSet->isPreparingForDisplay(), "BufferSet is being marked volatile while preparing for display");
 
         OptionSet<BufferInSetType> volatileBuffers;
         if (!remoteImageBufferSet->makeBuffersVolatile(identifier.second, volatileBuffers, forcePurge))
@@ -573,7 +591,7 @@ void RemoteRenderingBackend::markSurfacesVolatile(MarkSurfacesAsVolatileRequestI
     }
 
     LOG_WITH_STREAM(RemoteLayerBuffers, stream << "GPU Process: markSurfacesVolatile - surfaces marked volatile " << markedBufferSets);
-    send(Messages::RemoteRenderingBackendProxy::DidMarkLayersAsVolatile(requestIdentifier, WTFMove(markedBufferSets), allSucceeded));
+    send(Messages::RemoteRenderingBackendProxy::DidMarkLayersAsVolatile(requestIdentifier, WTF::move(markedBufferSets), allSucceeded));
 }
 
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)
@@ -581,11 +599,11 @@ void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID rendering
     send(Messages::RemoteRenderingBackendProxy::DidFinalizeRenderingUpdate(renderingUpdateID));
 }
 
-void RemoteRenderingBackend::createRemoteBarcodeDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions)
+void RemoteRenderingBackend::createBarcodeDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions)
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::BarcodeDetectorImpl::create(barcodeDetectorOptions);
-    auto remoteBarcodeDetector = RemoteBarcodeDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, *this, identifier, m_gpuConnectionToWebProcess->webProcessIdentifier());
+    auto remoteBarcodeDetector = RemoteBarcodeDetector::create(WTF::move(inner), *this, identifier);
     m_shapeDetectionObjectHeap->addObject(identifier, remoteBarcodeDetector);
     m_streamConnection->startReceivingMessages(remoteBarcodeDetector, Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
 #else
@@ -594,26 +612,30 @@ void RemoteRenderingBackend::createRemoteBarcodeDetector(ShapeDetectionIdentifie
 #endif
 }
 
-void RemoteRenderingBackend::releaseRemoteBarcodeDetector(ShapeDetectionIdentifier identifier)
-{
-    m_streamConnection->stopReceivingMessages(Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
-    m_shapeDetectionObjectHeap->removeObject(identifier);
-}
-
-void RemoteRenderingBackend::getRemoteBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&& completionHandler)
+void RemoteRenderingBackend::releaseBarcodeDetector(ShapeDetectionIdentifier identifier)
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
-    WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTFMove(completionHandler));
+    m_streamConnection->stopReceivingMessages(Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
+    m_shapeDetectionObjectHeap->removeObject(identifier);
+#else
+    UNUSED_PARAM(identifier);
+#endif
+}
+
+void RemoteRenderingBackend::supportedBarcodeDetectorBarcodeFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&& completionHandler)
+{
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+    WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTF::move(completionHandler));
 #else
     completionHandler({ });
 #endif
 }
 
-void RemoteRenderingBackend::createRemoteFaceDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::FaceDetectorOptions& faceDetectorOptions)
+void RemoteRenderingBackend::createFaceDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::FaceDetectorOptions& faceDetectorOptions)
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::FaceDetectorImpl::create(faceDetectorOptions);
-    auto remoteFaceDetector = RemoteFaceDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, *this, identifier, m_gpuConnectionToWebProcess->webProcessIdentifier());
+    auto remoteFaceDetector = RemoteFaceDetector::create(WTF::move(inner), *this, identifier);
     m_shapeDetectionObjectHeap->addObject(identifier, remoteFaceDetector);
     m_streamConnection->startReceivingMessages(remoteFaceDetector, Messages::RemoteFaceDetector::messageReceiverName(), identifier.toUInt64());
 #else
@@ -622,17 +644,21 @@ void RemoteRenderingBackend::createRemoteFaceDetector(ShapeDetectionIdentifier i
 #endif
 }
 
-void RemoteRenderingBackend::releaseRemoteFaceDetector(ShapeDetectionIdentifier identifier)
+void RemoteRenderingBackend::releaseFaceDetector(ShapeDetectionIdentifier identifier)
 {
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     m_streamConnection->stopReceivingMessages(Messages::RemoteFaceDetector::messageReceiverName(), identifier.toUInt64());
     m_shapeDetectionObjectHeap->removeObject(identifier);
+#else
+    UNUSED_PARAM(identifier);
+#endif
 }
 
-void RemoteRenderingBackend::createRemoteTextDetector(ShapeDetectionIdentifier identifier)
+void RemoteRenderingBackend::createTextDetector(ShapeDetectionIdentifier identifier)
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::TextDetectorImpl::create();
-    auto remoteTextDetector = RemoteTextDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, *this, identifier, m_gpuConnectionToWebProcess->webProcessIdentifier());
+    auto remoteTextDetector = RemoteTextDetector::create(WTF::move(inner), *this, identifier);
     m_shapeDetectionObjectHeap->addObject(identifier, remoteTextDetector);
     m_streamConnection->startReceivingMessages(remoteTextDetector, Messages::RemoteTextDetector::messageReceiverName(), identifier.toUInt64());
 #else
@@ -640,10 +666,14 @@ void RemoteRenderingBackend::createRemoteTextDetector(ShapeDetectionIdentifier i
 #endif
 }
 
-void RemoteRenderingBackend::releaseRemoteTextDetector(ShapeDetectionIdentifier identifier)
+void RemoteRenderingBackend::releaseTextDetector(ShapeDetectionIdentifier identifier)
 {
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     m_streamConnection->stopReceivingMessages(Messages::RemoteTextDetector::messageReceiverName(), identifier.toUInt64());
     m_shapeDetectionObjectHeap->removeObject(identifier);
+#else
+    UNUSED_PARAM(identifier);
+#endif
 }
 
 RefPtr<ImageBuffer> RemoteRenderingBackend::imageBuffer(RenderingResourceIdentifier renderingResourceIdentifier)

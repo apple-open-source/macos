@@ -131,11 +131,11 @@ void CSSFontFaceSet::ensureLocalFontFacesForFamilyRegistered(const AtomString& f
         auto& pool = owningFontSelector->protectedScriptExecutionContext()->cssValuePool();
         face->setFamily(pool.createFontFamilyValue(familyName));
         face->setFontSelectionCapabilities(item);
-        face->adoptSource(makeUnique<CSSFontFaceSource>(face.get(), familyName));
+        face->adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(face.get(), familyName));
         ASSERT(!face->computeFailureState());
-        faces.append(WTFMove(face));
+        faces.append(WTF::move(face));
     }
-    m_locallyInstalledFacesLookupTable.add(familyName, WTFMove(faces));
+    m_locallyInstalledFacesLookupTable.add(familyName, WTF::move(faces));
 }
 
 String CSSFontFaceSet::familyNameFromPrimitive(const CSSPrimitiveValue& value)
@@ -413,7 +413,7 @@ ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> CSSFontFaceSet::matchin
             [&](CSSValueID familyKeyword) -> AtomString {
                 if (familyKeyword == CSSValueWebkitBody)
                     return AtomString { context.settingsValues().fontGenericFamilies.standardFontFamily() };
-                return familyNamesData->at(CSSPropertyParserHelpers::genericFontFamilyIndex(familyKeyword));
+                return *familyNamesData->at(CSSPropertyParserHelpers::genericFontFamilyIndex(familyKeyword));
             },
             [&](const AtomString& familyString) -> AtomString  {
                 return familyString;

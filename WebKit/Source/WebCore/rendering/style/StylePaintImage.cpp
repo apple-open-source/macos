@@ -39,8 +39,8 @@ namespace WebCore {
 
 StylePaintImage::StylePaintImage(String&& name, Ref<CSSVariableData>&& arguments)
     : StyleGeneratedImage { Type::PaintImage, StylePaintImage::isFixedSize }
-    , m_name { WTFMove(name) }
-    , m_arguments { WTFMove(arguments) }
+    , m_name { WTF::move(name) }
+    , m_arguments { WTF::move(arguments) }
 {
 }
 
@@ -80,7 +80,7 @@ RefPtr<Image> StylePaintImage::image(const RenderElement* renderer, const FloatS
         return nullptr;
 
     Locker locker { selectedGlobalScope->paintDefinitionLock() };
-    auto* registration = selectedGlobalScope->paintDefinitionMap().get(m_name);
+    CheckedPtr registration = selectedGlobalScope->paintDefinitionMap().get(m_name);
 
     if (!registration)
         return nullptr;

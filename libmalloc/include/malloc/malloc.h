@@ -86,19 +86,13 @@ __BEGIN_DECLS
  * @constant MALLOC_ZONE_MALLOC_OPTION_CLEAR
  * Zero out the allocated memory, similar to calloc().
  *
- */
-#if HEADER_MTE
-/*!
  * @constant MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG
  * Under MTE, use a tag of zero (canonical) instead of a random value.
  */
-#endif // HEADER_MTE
 typedef enum __enum_options : uint64_t {
 	MALLOC_ZONE_MALLOC_OPTION_NONE = 0u,
 	MALLOC_ZONE_MALLOC_OPTION_CLEAR MALLOC_SWIFT_NAME(clear) = 1u << 0,
-#if HEADER_MTE
 	MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG MALLOC_SWIFT_NAME(canonicalTag) = 1u << 1,
-#endif // HEADER_MTE
 } malloc_zone_malloc_options_t;
 
 /*!

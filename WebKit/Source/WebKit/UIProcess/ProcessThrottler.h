@@ -88,7 +88,7 @@ private:
     IsQuietActivity m_isQuietActivity;
 };
 
-class ProcessThrottlerTimedActivity : public RefCounted<ProcessThrottlerTimedActivity> {
+class ProcessThrottlerTimedActivity : public RefCountedAndCanMakeWeakPtr<ProcessThrottlerTimedActivity> {
     WTF_MAKE_TZONE_ALLOCATED(ProcessThrottlerTimedActivity);
     WTF_MAKE_NONCOPYABLE(ProcessThrottlerTimedActivity);
     using Activity = ProcessThrottlerActivity;

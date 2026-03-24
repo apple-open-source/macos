@@ -14,7 +14,7 @@
 <script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
-<link href="../images/favicon.ico" rel="shortcut icon" /></head>
+<link href="../images/favicon.png" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
@@ -328,49 +328,6 @@
             </p>
         </div>
 
-        <div class="note"><h3>tailscale</h3>
-            <p>
-                Depuis la version 2.4.14 du module, vous pouvez l'utiliser pour
-		obtenir des certificats pour vos domaines <a href="https://tailscale.com">tailscale</a>.
-            </p>
-            <pre class="prettyprint lang-config">&lt;MDomain mydomain.some-thing.ts.net&gt;
-  MDCertificateProtocol tailscale
-  MDCertificateAuthority file://localhost/var/run/tailscale/tailscaled.sock",
-&lt;/MDomain&gt;</pre>
-
-            <p>
-                Tailscale permet des communications sécurisées entre vos
-		machines, où qu'elles se trouvent, et peut leur fournir des noms de
-		domaine dans l'espace *.ts.net. Pour ceux-ci, il fournira
-		aussi ensuite des certificats Let's Encrypt de façon à ce que
-		vous puissiez ouvrir ces domaines dans votre navigateur en toute
-		sécurité.
-            </p>
-            <p>
-                Apache va contacter le démon tailscale local à l'aide des
-		directives listées ci-dessous pour obtenir et renouveler les
-		certificats. Ceci ne fonctionnera cependant que pour les noms de
-		domaine que tailscale aura assigné à votre machine.
-            </p>
-            <p>
-                Dans le cas contraire, ces certificats fonctionneront exactement
-		de la même façon que ceux qui auront été obtenus à l'aide du
-		protocole ACME de Lets Encrypt. Vous les verrez dans le rapport
-		d'état et les directives MDMessageCmd seront aussi exécutées
-		pour eux.
-            </p>
-            <p>
-		Vous trouverez plus de détails dans la <a href="https://github.com/icing/mod_md#tailscale">documentation
-		github de mod_md</a>.
-            </p>
-            <p>
-                Notez que cette fonctionnalité n'est disponible que sur les
-		machines où le démon tailscale fournit un socket de domaine unix.
-		Jusqu'à présent, ceci ne semble être le cas que sur les systèmes
-		de style Unix.
-            </p>
-        </div>
-
     </div>
 <div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3 class="directives">Directives</h3>
 <ul id="toc">
@@ -387,10 +344,12 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#mdcertificatestatus">MDCertificateStatus</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdchallengedns01">MDChallengeDns01</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdchallengedns01version">MDChallengeDns01Version</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mdcheckinterval">MDCheckInterval</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdcontactemail">MDContactEmail</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mddrivemode">MDDriveMode</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdexternalaccountbinding">MDExternalAccountBinding</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdhttpproxy">MDHttpProxy</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mdinitialdelay">MDInitialDelay</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdmatchnames">MDMatchNames</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdmember">MDMember</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdmembers">MDMembers</a></li>
@@ -401,7 +360,10 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#mdomainsetsection">&lt;MDomainSet&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdportmap">MDPortMap</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdprivatekeys">MDPrivateKeys</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mdprofile">MDProfile</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mdprofilemandatory">MDProfileMandatory</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdrenewmode">MDRenewMode</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mdrenewviaari">MDRenewViaARI</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdrenewwindow">MDRenewWindow</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdrequirehttps">MDRequireHttps</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mdretrydelay">MDRetryDelay</a></li>
@@ -558,9 +520,8 @@
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="mdcertificatecheck" id="mdcertificatecheck">Directive</a> <a name="MDCertificateCheck" id="MDCertificateCheck">MDCertificateCheck</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit le motif de nom pour un nom sitSet de
-	vérification de certificat et un motif d'URL pour un sitee de
-	vérification de certificat</td></tr>
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit le motif de nom et d’URL pour un nom de site de
+	vérification de certificat.</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDCertificateCheck <var>name</var> <var>url</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
@@ -777,6 +738,35 @@
         
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="mdcheckinterval" id="mdcheckinterval">Directive</a> <a name="MDCheckInterval" id="MDCheckInterval">MDCheckInterval</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Détermine la périodicité de la vérification des certificats</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDCheckInterval <var>duration</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDCheckInterval 12h</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.60 du serveur HTTP
+	Apache</td></tr>
+</table>
+	    <p>
+	    Cette option permet de définir l’intervalle entre deux
+	    vérifications de certificat. Par défaut, la validité et le besoin de
+	    renouvellement sont vérifiés deux fois par jour. Cet intervalle
+	    n’est cependant pas appliqué avec précision. En effet, le module lui
+	    applique une plage de variation aléatoire de +/- 50%. Avec
+	    l’intervalle par défaut de 12&nbsp;heures, cela signifie que l’intervalle
+	    réel entre deux vérifications varie entre 6&nbsp;et 18&nbsp;heures, la
+	    variation s’appliquant à nouveau à chaque vérification. Cela permet
+	    d’atténuer les pics de trafic sur les serveurs ACME.
+            </p><p>
+	    La valeur minimale pouvant être définie pour l’intervalle est de
+	    1&nbsp;seconde. Il est cependant déconseillé de définir un intervalle
+	    aussi court sur un serveur en production.
+            </p>
+        
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="mdcontactemail" id="mdcontactemail">Directive</a> <a name="MDContactEmail" id="MDContactEmail">MDContactEmail</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Adresse Email pour l'enregistrement du compte</td></tr>
@@ -880,6 +870,25 @@
 	    <code class="directive"><a href="#mdcertificateauthority">MDCertificateAuthority</a></code>. Vous
 	    devez la définir si votre serveur web ne peut atteindre internet que
 	    via un serveur mandataire.
+            </p>
+        
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="mdinitialdelay" id="mdinitialdelay">Directive</a> <a name="MDInitialDelay" id="MDInitialDelay">MDInitialDelay</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Le délai avant la première vérification de certificat.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDInitialDelay <var>duration</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDInitialDelay 0s</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.66 du serveur HTTP
+	Apache</td></tr>
+</table>
+            <p>
+                Le temps d’attente, après le démarrage du serveur, avant de
+		vérifier si des certificats doivent être renouvelés. Par défaut,
+		cette vérification est immédiate.
             </p>
         
 </div>
@@ -1318,6 +1327,69 @@ MDomain example2.org auto
         
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="mdprofile" id="mdprofile">Directive</a> <a name="MDProfile" id="MDProfile">MDProfile</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Utiliser un profile ACME spécifique depuis le CA</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDProfile name</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.64 du serveur HTTP
+	Apache</td></tr>
+</table>
+            <p>
+                Il s’agit d’une extension non standard d’ACME par Let's Encrypt.
+            </p><p>
+		Lets Encrypt a annoncé qu’ils allaient ajouter la prise en
+		charge des profiles de certificat à leurs CA courant&nbsp;2025, en
+		commençant par leurs serveurs de test. Cette fonctionnalité,
+		entre autres détails, vous permettra de définir la durée de
+		validité des certificats que vous recevez. À ce titre, le
+		profile «&nbsp;default&nbsp;» conservera la valeur de 90&nbsp;jours, alors que
+		le profile «&nbsp;tlsserver&nbsp;» délivrera des certificats dont la durée
+		de validité sera de 6&nbsp;jours seulement.
+            </p><p>
+                Si vous ne modifiez pas la configuration de votre module mod_md,
+		vous continuerez à recevoir des certificats d’une durée de
+		validité de 90&nbsp;jours. Si vous pensez qu’une durée de validité
+		plus courte convient mieux à votre situation (et acceptez le
+		risque que le temps de renouvellement soit beaucoup plus court),
+		vous pouvez définir le profile à utiliser à l’aide de
+		«&nbsp;MDProfile tlsserver&nbsp;».
+           </p><p>
+                Les noms de profile sont définis par le CA. Si vous tentez de
+		définie un profile non valable, aucun profile ne sera utilisé,
+		et le certificat sera délivré avec les valeurs par défaut du CA.
+           </p><p>
+                Voir la directive <code class="directive"><a href="#mdprofilemandatory">MDProfileMandatory</a></code> pour la manière
+		de désactiver les valeurs par défaut pour les profiles.
+            </p>
+        
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="mdprofilemandatory" id="mdprofilemandatory">Directive</a> <a name="MDProfileMandatory" id="MDProfileMandatory">MDProfileMandatory</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Contrôler si un MDProfile est obligatoire.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDProfileMandatory on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDProfileMandatory off</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
+</table>
+            <p>
+                Cette directive permet de contrôler si un <code class="directive"><a href="#mdprofile">MDProfile</a></code> que vous définissez est
+		obligatoire ou non. S’il est obligatoire et si le CA ne propose
+		pas de profile configuré, le renouvellement du certificat
+		échouera.
+           </p><p>
+                S’il n’est pas obligatoire et si le CA ne propose
+		pas de profile, les renouvellements seront effectués sans
+		profile particulier et le CA délivrera les certificats avec les
+		valeurs par défaut.
+            </p>
+        
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="mdrenewmode" id="mdrenewmode">Directive</a> <a name="MDRenewMode" id="MDRenewMode">MDRenewMode</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Contrôle le renouvellement des certificats.</td></tr>
@@ -1349,6 +1421,31 @@ MDomain example2.org auto
             <p>
                 A l'opposé, avec le mode "manual", mod_md n'effectuera aucune
 		demande automatique de renouvellement pour aucun domaine géré.
+            </p>
+        
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="mdrenewviaari" id="mdrenewviaari">Directive</a> <a name="MDRenewViaARI" id="MDRenewViaARI">MDRenewViaARI</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Utilisation de l’extension ACME ARI (rfc9773).</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDRenewViaARI on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDRenewViaARI on</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
+</table>
+            <p>
+                Cette directive permet d’activer ou de désactiver le
+		déclenchement du renouvellement des certificats à l’aide de
+		l’extension ACME ARI (rfc9773). Ces renouvellements s’ajoutent à
+		ceux déclenchés par le mécanisme contrôlé à l’aide de la
+		directive <code class="directive">MDRenewWindow</code>.
+           </p><p>
+                ACME ARI permet en quelque sorte à une CA ACME de façonner le
+		trafic entrant des renouvellements. Plus important cependant,
+		cette extension peut informer les clients de l’urgence d’un
+		renouvellement, par exemple lorsqu’un certificat ou une partie
+		de sa chaîne de certification a été révoqué(e).
             </p>
         
 </div>
@@ -1460,7 +1557,7 @@ MDRenewWindow 10%</pre>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Temps d'attente avant de réessayer, doublé à chaque erreur
 	consécutive</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>MDRetryDelay <var>duration</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDRetryDelay 5s</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>MDRetryDelay 30s</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Expérimental</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_md</td></tr>
@@ -1476,6 +1573,10 @@ MDRenewWindow 10%</pre>
                 Ce temps d'attente est spécifique à chaque renouvellement de
 		certificat. Autrement dit, une erreur sur un MDomain ne retarde
 		pas les renouvellements des autres domaines.
+            </p>
+	    <p>
+                Dans mod_md version 2.6.1, le délai par défaut a été augmenté de
+		5 à 30 secondes.
             </p>
         
 </div>
@@ -1775,7 +1876,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_md.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2024 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2025 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

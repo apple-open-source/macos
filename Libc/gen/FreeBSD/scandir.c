@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,12 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)scandir.c	8.3 (Berkeley) 1/2/94";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 /*
  * Scan the directory dirname calling select to make a list of selected
  * directory entries then sort using qsort and compare routine dcomp.
@@ -42,100 +38,221 @@ __FBSDID("$FreeBSD$");
 
 #include "namespace.h"
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#ifdef __APPLE__
+#include <malloc_private.h>
+#endif /* __APPLE__ */
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "un-namespace.h"
 
-/*
- * The DIRSIZ macro is the minimum record length which will hold the directory
- * entry.  This requires the amount of space in struct dirent without the
- * d_name field, plus enough space for the name and a terminating nul byte
- * (dp->d_namlen + 1), rounded up to a 4 byte boundary.
- */
-#undef DIRSIZ
-#define DIRSIZ(dp)							\
-	((sizeof(struct dirent) - sizeof(dp)->d_name) +			\
-	    (((dp)->d_namlen + 1 + 3) &~ 3))
-
-int
-#ifdef I_AM_SCANDIR_B
-scandir_b(const char *dirname, struct dirent ***namelist,
-    int (^select)(const struct dirent *),
-    int (^_dcomp)(const struct dirent **, const struct dirent **))
+#ifdef	I_AM_SCANDIR_B
+#ifdef __APPLE__
+#define	SELECT(x)	select(x)
 #else
-scandir(const char *dirname, struct dirent ***namelist,
+#include "block_abi.h"
+#define	SELECT(x)	CALL_BLOCK(select, x)
+#endif /* __APPLE__ */
+#ifndef __BLOCKS__
+void qsort_b(void *, size_t, size_t, void *);
+#endif
+#else
+#define	SELECT(x)	select(x)
+#endif
+
+#ifdef I_AM_SCANDIR_B
+#ifdef __APPLE__
+typedef int (^select_block)(const struct dirent *);
+typedef int (^dcomp_block)(const struct dirent **, const struct dirent **);
+#else
+typedef DECLARE_BLOCK(int, select_block, const struct dirent *);
+typedef DECLARE_BLOCK(int, dcomp_block, const struct dirent **,
+    const struct dirent **);
+#endif /* __APPLE__ */
+#else
+#ifdef __APPLE__
+static int scandir_thunk_cmp(void *thunk, const void *p1, const void *p2);
+#else
+static int scandir_thunk_cmp(const void *p1, const void *p2, void *thunk);
+#endif /* __APPLE__ */
+#endif
+
+static int
+#ifdef I_AM_SCANDIR_B
+scandir_dirp_b(DIR *dirp, struct dirent ***namelist, select_block select,
+    dcomp_block dcomp)
+#else
+scandir_dirp(DIR *dirp, struct dirent ***namelist,
     int (*select)(const struct dirent *),
-    int (*_dcomp)(const struct dirent **, const struct dirent **))
+    int (*dcomp)(const struct dirent **, const struct dirent **))
 #endif
 {
-	struct dirent *d, *p, **names = NULL;
-	size_t nitems = 0;
-	long arraysz;
-	DIR *dirp;
+	struct dirent *d, *p = NULL, **names = NULL, **names2;
+	size_t arraysz = 32, numitems = 0;
+	int serrno;
 
-	/* see <rdar://problem/10293482> */
-#ifdef I_AM_SCANDIR_B
-	int (^dcomp)(const void *, const void *) = (void *)_dcomp;
-#else
-	int (*dcomp)(const void *, const void *) = (void *)_dcomp;
-#endif
-
-	if ((dirp = opendir(dirname)) == NULL)
-		return(-1);
-
-	arraysz = 32;	/* initial estimate of the array size */
-	names = (struct dirent **)malloc(arraysz * sizeof(struct dirent *));
+	names = malloc(arraysz * sizeof(*names));
 	if (names == NULL)
-		goto fail;
+		return (-1);
 
-	while ((d = readdir(dirp)) != NULL) {
-		if (select != NULL && !select(d))
+#if __APPLE__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcomma"
+#endif
+	while (errno = 0, (d = readdir(dirp)) != NULL) {
+#if __APPLE__
+#pragma clang diagnostic pop
+#endif
+		if (select != NULL && !SELECT(d))
 			continue;	/* just selected names */
 		/*
 		 * Make a minimum size copy of the data
 		 */
-		p = (struct dirent *)malloc(DIRSIZ(d));
+		p = malloc(_GENERIC_DIRSIZ(d));
 		if (p == NULL)
 			goto fail;
 		p->d_fileno = d->d_fileno;
 		p->d_type = d->d_type;
 		p->d_reclen = d->d_reclen;
 		p->d_namlen = d->d_namlen;
-		bcopy(d->d_name, p->d_name, p->d_namlen + 1);
+		memcpy(p->d_name, d->d_name, p->d_namlen + 1);
 		/*
 		 * Check to make sure the array has space left and
 		 * realloc the maximum size.
 		 */
-		if (nitems >= arraysz) {
-			struct dirent **names2;
-
-			names2 = (struct dirent **)realloc((char *)names,
-				(arraysz * 2) * sizeof(struct dirent *));
-			if (names2 == NULL) {
-				free(p);
+		if (numitems >= arraysz) {
+			arraysz = arraysz * 2;
+			names2 = reallocarray(names, arraysz, sizeof(*names));
+			if (names2 == NULL)
 				goto fail;
-			}
 			names = names2;
-			arraysz *= 2;
 		}
-		names[nitems++] = p;
+		names[numitems++] = p;
 	}
-	closedir(dirp);
-	if (nitems && dcomp != NULL)
+	/*
+	 * Since we can't simultaneously return both -1 and a count, we
+	 * must either suppress the error or discard the partial result.
+	 * The latter seems the lesser of two evils.
+	 */
+	if (errno != 0)
+		goto fail;
+	if (numitems > 0 && dcomp != NULL) {
 #ifdef I_AM_SCANDIR_B
-		qsort_b(names, nitems, sizeof(struct dirent *), dcomp);
+		qsort_b(names, numitems, sizeof(struct dirent *),
+		    (void *)dcomp);
 #else
-		qsort(names, nitems, sizeof(struct dirent *), dcomp);
+		qsort_r(names, numitems, sizeof(struct dirent *),
+#ifdef __APPLE__
+		    &dcomp, scandir_thunk_cmp);
+#else
+		    scandir_thunk_cmp, &dcomp);
 #endif
+#endif
+	}
 	*namelist = names;
-	return (int) (nitems);
+#ifdef __APPLE__
+	return ((int)numitems);
+#else
+	return (numitems);
+#endif /* __APPLE__ */
 
 fail:
-	while (nitems > 0)
-		free(names[--nitems]);
+	serrno = errno;
+	if (numitems == 0 || names[numitems - 1] != p)
+		free(p);
+	while (numitems > 0)
+		free(names[--numitems]);
 	free(names);
-	closedir(dirp);
+	errno = serrno;
 	return (-1);
+}
+
+int
+#ifdef I_AM_SCANDIR_B
+scandir_b(const char *dirname, struct dirent ***namelist, select_block select,
+    dcomp_block dcomp)
+#else
+scandir(const char *dirname, struct dirent ***namelist,
+    int (*select)(const struct dirent *),
+    int (*dcomp)(const struct dirent **, const struct dirent **))
+#endif
+{
+	DIR *dirp;
+	int ret, serrno;
+
+	dirp = opendir(dirname);
+	if (dirp == NULL)
+		return (-1);
+	ret =
+#ifdef I_AM_SCANDIR_B
+	    scandir_dirp_b
+#else
+	    scandir_dirp
+#endif
+	    (dirp, namelist, select, dcomp);
+	serrno = errno;
+	closedir(dirp);
+	errno = serrno;
+	return (ret);
+}
+
+int
+#ifdef I_AM_SCANDIR_B
+fdscandir_b(int dirfd, struct dirent ***namelist, select_block select,
+    dcomp_block dcomp)
+#else
+fdscandir(int dirfd, struct dirent ***namelist,
+    int (*select)(const struct dirent *),
+    int (*dcomp)(const struct dirent **, const struct dirent **))
+#endif
+{
+	DIR *dirp;
+	int ret, serrno;
+
+	dirp = fdopendir(dirfd);
+	if (dirp == NULL)
+		return (-1);
+	ret =
+#ifdef I_AM_SCANDIR_B
+	    scandir_dirp_b
+#else
+	    scandir_dirp
+#endif
+	    (dirp, namelist, select, dcomp);
+	serrno = errno;
+	fdclosedir(dirp);
+	errno = serrno;
+	return (ret);
+}
+
+int
+#ifdef I_AM_SCANDIR_B
+scandirat_b(int dirfd, const char *dirname, struct dirent ***namelist,
+    select_block select, dcomp_block dcomp)
+#else
+scandirat(int dirfd, const char *dirname, struct dirent ***namelist,
+    int (*select)(const struct dirent *),
+    int (*dcomp)(const struct dirent **, const struct dirent **))
+#endif
+{
+	int fd, ret, serrno;
+
+	fd = _openat(dirfd, dirname, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (fd == -1)
+		return (-1);
+	ret =
+#ifdef I_AM_SCANDIR_B
+	    fdscandir_b
+#else
+	    fdscandir
+#endif
+	    (fd, namelist, select, dcomp);
+	serrno = errno;
+	_close(fd);
+	errno = serrno;
+	return (ret);
 }
 
 #ifndef I_AM_SCANDIR_B
@@ -149,5 +266,26 @@ alphasort(const struct dirent **d1, const struct dirent **d2)
 
 	return (strcoll((*d1)->d_name, (*d2)->d_name));
 }
-#endif // I_AM_SCANDIR_B
 
+#ifndef __APPLE__
+int
+versionsort(const struct dirent **d1, const struct dirent **d2)
+{
+
+	return (strverscmp((*d1)->d_name, (*d2)->d_name));
+}
+#endif /* !__APPLE__ */
+
+static int
+#ifdef __APPLE__
+scandir_thunk_cmp(void *thunk, const void *p1, const void *p2)
+#else
+scandir_thunk_cmp(const void *p1, const void *p2, void *thunk)
+#endif /* __APPLE__ */
+{
+	int (*dc)(const struct dirent **, const struct dirent **);
+
+	dc = *(int (**)(const struct dirent **, const struct dirent **))thunk;
+	return (dc((const struct dirent **)p1, (const struct dirent **)p2));
+}
+#endif

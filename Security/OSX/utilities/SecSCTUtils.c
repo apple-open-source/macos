@@ -37,22 +37,22 @@ CFArrayRef SecCreateSignedCertificateTimestampsArrayFromSerializedSCTList(const 
 {
     size_t encodedListLen;
     CFMutableArrayRef sctArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    require_quiet(sctArray, out);
+    __Require_Quiet(sctArray, out);
 
-    require(listLen > 2 , out);
+    __Require(listLen > 2 , out);
     encodedListLen = SSLDecodeSize(p); p+=2; listLen-=2;
 
-    require(encodedListLen==listLen, out);
+    __Require(encodedListLen==listLen, out);
 
     while (listLen > 0)
     {
         size_t itemLen;
-        require(listLen >= 2, out);
+        __Require(listLen >= 2, out);
         itemLen = SSLDecodeSize(p); p += 2; listLen-=2;
-        require(itemLen <= listLen, out);
+        __Require(itemLen <= listLen, out);
         CFDataRef sctData = CFDataCreate(kCFAllocatorDefault, p, itemLen);
         p += itemLen; listLen -= itemLen;
-        require(sctData, out);
+        __Require(sctData, out);
         CFArrayAppendValue(sctArray, sctData);
         CFReleaseSafe(sctData);
     }

@@ -285,7 +285,7 @@
 		<key>FSCheckOptionSyntax</key>
 		<dict>
 			<key>shortOptions</key>
-			<string>pynfqM:</string>
+			<string>pynqM:</string>
 		</dict>
 		<key>FSFormatOptionSyntax</key>
 		<dict>
@@ -297,6 +297,8 @@
 			<key>shortOptions</key>
 			<string>u:g:m:o:</string>
 		</dict>
+		<key>FSVolumeAlwaysIgnoreOwnership</key>
+		<true/>
 	</dict>
 </dict>
 </plist>

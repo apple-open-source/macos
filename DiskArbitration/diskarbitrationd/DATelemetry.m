@@ -9,6 +9,12 @@
 #include <libproc.h>
 #include <sys/codesign.h>
 #include <os/feature_private.h>
+#if TARGET_OS_OSX
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#endif
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 #import "DATelemetry.h"
 #import "DADisk.h"
 #import "DAFileSystem.h"
@@ -46,7 +52,10 @@ typedef enum DATelemetryDiskState {
     DATelemetryDiskStateMounting,
     DATelemetryDiskStateMounted,
     DATelemetryDiskStateUnrepairable,
-    DATelemetryDiskStateRemoved
+    DATelemetryDiskStateRemoved,
+    DATelemetryDiskStateWake,
+    DATelemetryDiskStateDarkWake,
+    DATelemetryDiskStateWakeFromSleep
 } DATelemetryDiskState;
 
 typedef enum DATelemetryUnmountApprovalStatus {
@@ -65,6 +74,10 @@ typedef enum DATelemetryUnmountApprovalStatus {
 #define DA_TELEMETRY_VOLUME_IS_MOUNTING  0x00000020 // If the terminated volume is in the middle of mount
 #define DA_TELEMETRY_VOLUME_UNREPAIRABLE 0x00000040 // If the terminated volume is unrepairable
 #define DA_TELEMETRY_VOLUME_IS_REMOVED   0x00000080 // If the terminated volume is removed already
+// macOS-specific wake event telemetry flags
+#define DA_TELEMETRY_VOLUME_WAKE         0x00000100 // If the volume is terminated during a full wake
+#define DA_TELEMETRY_VOLUME_DARKWAKE     0x00000200 // If the volume is terminated during a dark wake
+#define DA_TELEMETRY_VOLUME_SLEEPWAKE    0x00000400 // If the volume is terminated during wake from sleep
 
 typedef enum DATelemetryOperationType {
     DATelemetryOpProbe = 0,
@@ -74,6 +87,26 @@ typedef enum DATelemetryOperationType {
     DATelemetryOpRemove,
     DATelemetryOpUnmount
 } DATelemetryOperationType;
+
+typedef enum DATelemetryDeviceType {
+    DATelemetryDeviceTypeOther = 0,
+    DATelemetryDeviceTypeIOUSB,
+    DATelemetryDeviceTypeIONVMeFamily,
+    DATelemetryDeviceTypeSD,
+    DATelemetryDeviceTypeAppleSDXC
+} DATelemetryDeviceType;
+
+typedef enum DATelemetryInterconnectType {
+    DATelemetryInterconnectTypeOther = 0,
+    DATelemetryInterconnectTypeUSB,
+    DATelemetryInterconnectTypePCI,
+    DATelemetryInterconnectTypePCIe,
+    DATelemetryInterconnectTypeFibreChannel,
+    DATelemetryInterconnectTypeSCSI,
+    DATelemetryInterconnectTypeFirewire,
+    DATelemetryInterconnectTypeVirtual,
+    DATelemetryInterconnectTypeAppleFabric
+} DATelemetryInterconnectType;
 
 typedef struct __DATelemetry {
     DATelemetryOperationType    operationType;
@@ -88,6 +121,8 @@ typedef struct __DATelemetry {
     bool                        dissentedViaAPI;
     bool                        isExternal;
     bool                        automounted;
+    DATelemetryDeviceType       deviceType;
+    DATelemetryInterconnectType interconnect;
 } __DATelemetry;
 
 static NSString *__DA_pidToFirstPartyProcName( pid_t pid )
@@ -256,6 +291,18 @@ static int __DADiskStateToTelemetryValue( __DATelemetry *telemetry )
     {
         state = DATelemetryDiskStateRemoved;
     }
+    else if ( telemetry->volumeFlags & DA_TELEMETRY_VOLUME_WAKE )
+    {
+        state = DATelemetryDiskStateWake;
+    }
+    else if ( telemetry->volumeFlags & DA_TELEMETRY_VOLUME_DARKWAKE )
+    {
+        state = DATelemetryDiskStateDarkWake;
+    }
+    else if ( telemetry->volumeFlags & DA_TELEMETRY_VOLUME_SLEEPWAKE )
+    {
+        state = DATelemetryDiskStateWakeFromSleep;
+    }
     else if ( telemetry->volumeFlags & DA_TELEMETRY_VOLUME_UNREPAIRABLE )
     {
         state = DATelemetryDiskStateUnrepairable;
@@ -295,6 +342,108 @@ static bool __DAOperationHasDissenter( DATelemetryOperationType op )
     return op == DATelemetryOpEject || op == DATelemetryOpUnmount;
 }
 
+static DATelemetryInterconnectType __DAInterconnectTypeToTelemetry( DADiskRef disk )
+{
+    CFStringRef protocolType;
+    
+    if ( disk == NULL )
+    {
+        return DATelemetryInterconnectTypeOther;
+    }
+    
+    protocolType = DADiskGetDescription( disk , kDADiskDescriptionDeviceProtocolKey );
+    
+    if ( protocolType == NULL )
+    {
+        return DATelemetryInterconnectTypeOther;
+    }
+    
+    if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeUSB) ,
+                           kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeUSB;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypePCI) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypePCI;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypePCIExpress) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypePCIe;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeFibreChannel) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeFibreChannel;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeSCSIParallel) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeSCSI;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeFireWire) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeFirewire;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeVirtual) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeVirtual;
+    }
+    else if ( !CFStringCompare( protocolType , CFSTR(kIOPropertyPhysicalInterconnectTypeAppleFabric) ,
+                                kCFCompareCaseInsensitive ) )
+    {
+        return DATelemetryInterconnectTypeAppleFabric;
+    }
+    
+    return DATelemetryInterconnectTypeOther;
+}
+
+#if TARGET_OS_OSX
+/*
+ * Check if the device is in dark wake first.
+ * Otherwise, check if the device is returning from sleep or hibernation.
+ * We consider the disk being handled in response to a wake
+ * if the disk's pending sleep flag hasn't been cleared yet.
+ */
+
+static uint32_t __DATelemetryGetWakeState( DADiskRef disk )
+{
+    uint32_t ret = 0;
+    IOPMCapabilityBits currentCaps = IOPMConnectionGetSystemCapabilities();
+    uint64_t sleepType;
+    
+    /* If the system isn't considered awake yet, check the sleep types */
+    if ( DADiskGetState( disk , _kDADiskStateWillSleep ) )
+    {
+        if ( IOPMIsADarkWake( currentCaps ) )
+        {
+            ret = DA_TELEMETRY_VOLUME_DARKWAKE;
+        }
+        else
+        {
+            sleepType = __DAGetSleepSubclass();
+            
+            if ( sleepType == kIOPMSleepTypeHibernate )
+            {
+                /* This disk is responding to a full wake */
+                ret = DA_TELEMETRY_VOLUME_WAKE;
+            }
+            else
+            {
+                /* This disk is responding to a wake from sleep (not from hibernation) */
+                ret = DA_TELEMETRY_VOLUME_SLEEPWAKE;
+            }
+        }
+    }
+    
+    return ret;
+}
+#endif
+
 static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
 {
     NSMutableDictionary *result = [[NSMutableDictionary alloc] init];
@@ -304,6 +453,7 @@ static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
     result[@"fs_type"] = @( __DA_fsTypeToTelemetryValue( telemetry->fsType ) );
     result[@"is_external"] = @( telemetry->isExternal );
     result[@"fs_implementation"] = @( telemetry->fsImplementation );
+    result[@"interconnect_type"] = @( telemetry->interconnect );
     
     if ( telemetry->operationType != DATelemetryOpRemove )
     {
@@ -332,7 +482,10 @@ static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
             result[@"automount"] = @( telemetry->automounted );
             break;
         case DATelemetryOpEject:
-            // Accounted for in common fields
+            if ( telemetry->volumeFlags != 0 )
+            {
+                result[@"disk_state"] = @( __DADiskStateToTelemetryValue( telemetry ) );
+            }
             break;
         case DATelemetryOpRemove:
             result[@"disk_state"] = @( __DADiskStateToTelemetryValue( telemetry ) );
@@ -369,6 +522,7 @@ int DATelemetrySendProbeEvent( int status ,
     telemetry.durationNs = durationNs;
     telemetry.volumeFlags = ( cleanStatus == 0 ) ? DA_TELEMETRY_VOLUME_CLEAN : 0;
     telemetry.isExternal = isExternal;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -416,6 +570,31 @@ int DATelemetrySendFSCKEvent( int status , DADiskRef disk , uint64_t durationNs 
     telemetry.durationNs = durationNs;
     telemetry.volumeSize = volumeSize;
     telemetry.isExternal = isExternal;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
+    
+    eventInfo = __DATelemetrySerialize( &telemetry );
+#if TARGET_OS_OSX || TARGET_OS_IOS
+    AnalyticsSendEventLazy( DA_TELEMETRY_EVENT_NAME , ^NSDictionary<NSString *,NSObject *> * _Nullable {
+        return eventInfo;
+    });
+#endif
+    return 0;
+}
+
+/* fstab mount map entries are considered automounted, not external volumes, and use the kext path */
+int DATelemetrySendMountFstabEvent( int status , CFStringRef fsType )
+{
+    __DATelemetry telemetry;
+    NSDictionary *eventInfo;
+    
+    telemetry.operationType = DATelemetryOpMount;
+    telemetry.fsType = fsType;
+    telemetry.status = status;
+    telemetry.durationNs = 0;
+    telemetry.automounted = TRUE;
+    telemetry.isExternal = FALSE;
+    telemetry.fsImplementation = DATelemetryFSImplementationKext;
+    telemetry.interconnect = DATelemetryInterconnectTypeOther;
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -427,15 +606,28 @@ int DATelemetrySendFSCKEvent( int status , DADiskRef disk , uint64_t durationNs 
 }
 
 int DATelemetrySendMountEvent( int status ,
-                               CFStringRef fsType ,
+                               DADiskRef disk ,
                                DATelemetryFSImplementation mountType ,
-                               bool automount ,
-                               bool isExternal ,
                                uint64_t durationNs )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
-    CFStringRef TelemetryMountStr;
+    DAFileSystemRef filesystem;
+    CFStringRef fsType = NULL;
+    Boolean isExternal = FALSE, automount = FALSE;
+    
+    if ( disk )
+    {
+        filesystem = DADiskGetFileSystem( disk );
+        isExternal = DADiskIsExternalVolume( disk );
+        automount = DADiskGetState( disk , _kDADiskStateMountAutomatic );
+        
+        if ( filesystem )
+        {
+            fsType = DAGetFSTypeWithUUID( filesystem ,
+                                          DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+        }
+    }
     
     telemetry.operationType = DATelemetryOpMount;
     telemetry.fsType = fsType;
@@ -444,6 +636,7 @@ int DATelemetrySendMountEvent( int status ,
     telemetry.automounted = automount;
     telemetry.isExternal = isExternal;
     telemetry.fsImplementation = mountType;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -462,6 +655,9 @@ int DATelemetrySendEjectEvent( int status , DADiskRef disk , pid_t dissenterPid 
     CFStringRef fsType = NULL;
     DATelemetryFSImplementation implementation = DATelemetryFSImplementationKext;
     bool isExternal = false;
+    
+    telemetry.operationType = DATelemetryOpEject;
+    telemetry.volumeFlags = 0;
     
     if ( disk )
     {
@@ -483,14 +679,18 @@ int DATelemetrySendEjectEvent( int status , DADiskRef disk , pid_t dissenterPid 
         {
             implementation = DATelemetryFSImplementationUserFS;
         }
+#if TARGET_OS_OSX
+        telemetry.volumeFlags |= __DATelemetryGetWakeState( disk );
+#endif
     }
     
-    telemetry.operationType = DATelemetryOpEject;
     telemetry.fsType = fsType;
     telemetry.status = status;
     telemetry.dissenterPid = dissenterPid;
     telemetry.isExternal = isExternal;
     telemetry.fsImplementation = implementation;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
+
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -534,6 +734,7 @@ int DATelemetrySendTerminationEvent( DADiskRef disk )
     telemetry.status = -1;
     telemetry.fsImplementation = __DA_fsImplementation( kind , isExternal , probedWithFSKit ); // should match probe event
     telemetry.isExternal = isExternal;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
     
     if ( DADiskGetState( disk , kDADiskStateZombie ) )
     {
@@ -563,6 +764,10 @@ int DATelemetrySendTerminationEvent( DADiskRef disk )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_MOUNTED;
     }
+    
+#if TARGET_OS_OSX
+    volumeFlags |= __DATelemetryGetWakeState( disk );
+#endif
     
     telemetry.volumeFlags = volumeFlags;
     
@@ -612,6 +817,7 @@ int DATelemetrySendUnmountEvent( int status ,
     telemetry.unmountForced = forced;
     telemetry.dissenterPid = dissenterPid;
     telemetry.dissentedViaAPI = dissentedViaAPI;
+    telemetry.interconnect = __DAInterconnectTypeToTelemetry( disk );
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS

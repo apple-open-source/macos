@@ -27,6 +27,7 @@
 
 #if ENABLE(GAMEPAD) && ENABLE(WPE_PLATFORM)
 #include <WebCore/GamepadProvider.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
@@ -38,7 +39,7 @@ typedef struct _WPEGamepadManager WPEGamepadManager;
 namespace WebKit {
 class PlatformGamepadWPE;
 
-class GamepadProviderWPE final : public WebCore::GamepadProvider {
+class GamepadProviderWPE final : public WebCore::GamepadProvider, public CanMakeWeakPtr<GamepadProviderWPE> {
     WTF_MAKE_NONCOPYABLE(GamepadProviderWPE);
     friend class NeverDestroyed<GamepadProviderWPE>;
 public:

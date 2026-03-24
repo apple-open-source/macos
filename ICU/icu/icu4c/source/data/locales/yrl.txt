@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 yrl{
     AuxExemplarCharacters{"[ªáàăâåäā æ cç éèĕêëē f h íìĭîïī j l ñ oºóòŏôöõøō œ q úùŭûüū v ÿỹ z]"}
     Ellipsis{
@@ -179,10 +179,10 @@ yrl{
         buddhist{
             eras{
                 narrow{
-                    "EB",
+                    0{"EB"}
                 }
                 wide{
-                    "EB",
+                    0{"EB"}
                 }
             }
         }
@@ -471,20 +471,20 @@ yrl{
             }
             eras{
                 abbreviated{
-                    "K.s.",
-                    "K.a.",
+                    0{"K.s."}
+                    1{"K.a."}
                 }
                 abbreviated%variant{
-                    "EKS",
-                    "EK",
+                    0{"EKS"}
+                    1{"EK"}
                 }
                 wide{
-                    "Kiristu senũdé",
-                    "Kiristu ariré",
+                    0{"Kiristu senũdé"}
+                    1{"Kiristu ariré"}
                 }
                 wide%variant{
-                    "Era Kumũ senũdé",
-                    "Era Kumũ",
+                    0{"Era Kumũ senũdé"}
+                    1{"Era Kumũ"}
                 }
             }
             intervalFormats{

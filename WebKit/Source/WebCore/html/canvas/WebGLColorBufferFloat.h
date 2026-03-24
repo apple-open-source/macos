@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class WebGLColorBufferFloat final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLColorBufferFloat);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLColorBufferFloat);
 public:
     explicit WebGLColorBufferFloat(WebGLRenderingContextBase&);
     ~WebGLColorBufferFloat();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #import <wtf/SafeStrerror.h>
 #import <wtf/WTFProcess.h>
 #import <wtf/spi/darwin/DataVaultSPI.h>
+#import <wtf/text/StringToIntegerConversion.h>
 
 
 #if PLATFORM(COCOA)
@@ -1804,7 +1805,7 @@ static void parallelPromiseResolveTest()
         auto* startedThreadPtr = &startedThread;
 
         JSValue *promise = [JSValue valueWithNewPromiseInContext:context fromExecutor:^(JSValue *resolve, JSValue *) {
-            thread = Thread::create("async thread"_s, ^() {
+            thread = Thread::create("async thread"_s, [shouldResolveSoonPtr, startedThreadPtr, resolve] {
                 startedThreadPtr->store(true);
                 while (!shouldResolveSoonPtr->load()) { }
                 [resolve callWithArguments:@[[NSNull null]]];
@@ -2962,6 +2963,11 @@ void testObjectiveCAPI(const char* filter)
 {
     NSLog(@"Testing Objective-C API");
 
+    bool skipBytecodeCacheTests = [] {
+        auto var = unsafeSpan(getenv("SkipBytecodeCacheTests"));
+        return var.data() && !!parseInteger<int>(var).value_or(0);
+    }();
+
     auto shouldRun = [&] (const char* test) -> bool {
         if (filter)
             return strcasestr(test, filter);
@@ -2979,12 +2985,14 @@ void testObjectiveCAPI(const char* filter)
     RUN(testFetchWithThreeCycle());
     RUN(testImportModuleTwice());
     RUN(testImportMetaURL());
-    RUN(testModuleBytecodeCache());
-    RUN(testProgramBytecodeCache());
-    RUN(testBytecodeCacheWithSyntaxError(kJSScriptTypeProgram));
-    RUN(testBytecodeCacheWithSyntaxError(kJSScriptTypeModule));
-    RUN(testBytecodeCacheWithSameCacheFileAndDifferentScript(false));
-    RUN(testBytecodeCacheWithSameCacheFileAndDifferentScript(true));
+    if (!skipBytecodeCacheTests) {
+        RUN(testModuleBytecodeCache());
+        RUN(testProgramBytecodeCache());
+        RUN(testBytecodeCacheWithSyntaxError(kJSScriptTypeProgram));
+        RUN(testBytecodeCacheWithSyntaxError(kJSScriptTypeModule));
+        RUN(testBytecodeCacheWithSameCacheFileAndDifferentScript(false));
+        RUN(testBytecodeCacheWithSameCacheFileAndDifferentScript(true));
+    }
     RUN(testProgramJSScriptException());
     RUN(testCacheFileFailsWhenItsAlreadyCached());
     RUN(testCanCacheManyFilesWithTheSameVM());

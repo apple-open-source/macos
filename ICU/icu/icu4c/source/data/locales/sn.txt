@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sn{
     AuxExemplarCharacters{"[q x]"}
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p r s t u v w y z]"}
@@ -105,16 +105,16 @@ sn{
             }
             eras{
                 abbreviated{
-                    "BC",
-                    "AD",
+                    0{"BC"}
+                    1{"AD"}
                 }
                 abbreviated%variant{
-                    "BCE",
-                    "CE",
+                    0{"BCE"}
+                    1{"CE"}
                 }
                 wide{
-                    "Kristo asati auya",
-                    "mugore ramambo vedu",
+                    0{"Kristo asati auya"}
+                    1{"mugore ramambo vedu"}
                 }
             }
             intervalFormats{

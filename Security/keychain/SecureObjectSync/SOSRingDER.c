@@ -41,10 +41,10 @@ size_t SOSRingGetDEREncodedSize(SOSRingRef ring, CFErrorRef *error) {
     SOSRingAssertStable(ring);
     size_t total_payload = 0;
 
-    require_quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->unSignedInformation, error)), fail);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->signedInformation, error)), fail);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->signatures, error)), fail);
-    require_quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->data, error)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->unSignedInformation, error)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->signedInformation, error)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->signatures, error)), fail);
+    __Require_Quiet(accumulate_size(&total_payload, der_sizeof_dictionary((CFDictionaryRef) ring->data, error)), fail);
 
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, total_payload);
 fail:
@@ -75,15 +75,15 @@ SOSRingRef SOSRingCreateFromDER(CFErrorRef* error, const uint8_t** der_p, const 
     CFDictionaryRef signatures = NULL;
     CFDictionaryRef data = NULL;
 
-    require_action_quiet(ring, errOut, secnotice("ring", "Unable to allocate ring"));
+    __Require_Action_Quiet(ring, errOut, secnotice("ring", "Unable to allocate ring"));
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
     *der_p = der_decode_dictionary(ALLOCATOR, &unSignedInformation, error, *der_p, sequence_end);
     *der_p = der_decode_dictionary(ALLOCATOR, &signedInformation, error, *der_p, sequence_end);
     *der_p = der_decode_dictionary(ALLOCATOR, &signatures, error, *der_p, sequence_end);
     *der_p = der_decode_dictionary(ALLOCATOR, &data, error, *der_p, sequence_end);
 
-    require_action_quiet(*der_p, errOut, secnotice("ring", "Unable to decode DER"));
-    require_action_quiet(*der_p == der_end, errOut, secnotice("ring", "Unable to decode DER"));
+    __Require_Action_Quiet(*der_p, errOut, secnotice("ring", "Unable to decode DER"));
+    __Require_Action_Quiet(*der_p == der_end, errOut, secnotice("ring", "Unable to decode DER"));
 
     ring->unSignedInformation = CFDictionaryCreateMutableCopy(ALLOCATOR, 0, unSignedInformation);
     ring->signedInformation = CFDictionaryCreateMutableCopy(ALLOCATOR, 0, signedInformation);

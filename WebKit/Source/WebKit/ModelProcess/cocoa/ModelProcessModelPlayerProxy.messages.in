@@ -51,6 +51,11 @@ messages -> ModelProcessModelPlayerProxy {
     EndStageModeInteraction()
     AnimateModelToFitPortal() -> (bool success)
     ResetModelTransformAfterDrag()
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    EnsureImmersivePresentation() -> (std::optional<WebCore::LayerHostingContextIdentifier> contextID) Async
+    ExitImmersivePresentation() -> () Async
+#endif
 }
 
 #endif

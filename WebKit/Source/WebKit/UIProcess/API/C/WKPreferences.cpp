@@ -68,7 +68,7 @@ void WKPreferencesEndBatchingUpdates(WKPreferencesRef preferencesRef)
 WKArrayRef WKPreferencesCopyExperimentalFeatures(WKPreferencesRef preferencesRef)
 {
     auto experimentalFeatures = toImpl(preferencesRef)->experimentalFeatures();
-    return toAPILeakingRef(API::Array::create(WTFMove(experimentalFeatures)));
+    return toAPILeakingRef(API::Array::create(WTF::move(experimentalFeatures)));
 }
 
 void WKPreferencesEnableAllExperimentalFeatures(WKPreferencesRef preferencesRef)
@@ -84,7 +84,7 @@ void WKPreferencesSetExperimentalFeatureForKey(WKPreferencesRef preferencesRef, 
 WKArrayRef WKPreferencesCopyInternalDebugFeatures(WKPreferencesRef preferencesRef)
 {
     auto internalDebugFeatures = toImpl(preferencesRef)->internalDebugFeatures();
-    return toAPILeakingRef(API::Array::create(WTFMove(internalDebugFeatures)));
+    return toAPILeakingRef(API::Array::create(WTF::move(internalDebugFeatures)));
 }
 
 void WKPreferencesResetAllInternalDebugFeatures(WKPreferencesRef preferencesRef)

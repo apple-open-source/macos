@@ -51,7 +51,7 @@ public:
 
     static Ref<NetworkLoad> create(NetworkLoadClient& networkLoadClient, NetworkLoadParameters&& networkLoadParameters, NetworkSession& networkSession)
     {
-        return adoptRef(*new NetworkLoad(networkLoadClient, WTFMove(networkLoadParameters), networkSession));
+        return adoptRef(*new NetworkLoad(networkLoadClient, WTF::move(networkLoadParameters), networkSession));
     }
 
     template<typename CreateTaskCallback> static Ref<NetworkLoad> create(NetworkLoadClient& networkLoadClient, NetworkSession& networkSession, NOESCAPE const CreateTaskCallback& createTask)

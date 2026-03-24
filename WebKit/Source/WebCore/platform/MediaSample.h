@@ -59,7 +59,7 @@ public:
 #endif
     >;
     PlatformSample(VariantType&& sample)
-        : m_sample(WTFMove(sample))
+        : m_sample(WTF::move(sample))
     { }
 
     const MockSampleBox* mockSampleBox() const { return std::get<const MockSampleBox*>(m_sample); }

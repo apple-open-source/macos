@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 de_CH{
     Keys{
         colCaseFirst{"Sortierung nach Gross- bzw. Kleinbuchstaben"}
@@ -23,12 +23,31 @@ de_CH{
         zh_Hant{"Hochchinesisch (traditionell)"}
     }
     Types{
+        calendar%core{
+            buddhist{"Buddhistisch"}
+            chinese{"Chinesisch"}
+            coptic{"Koptisch"}
+            dangi{"Dangi"}
+            ethiopic{"Äthiopisch"}
+            ethiopic-amete-alem{"Äthiopisch Amäta Aläm"}
+            gregorian{"Gregorianisch"}
+            hebrew{"Hebräisch"}
+            japanese{"Japanisch"}
+            persian{"Persisch"}
+        }
         colCaseFirst{
             upper{"Grossbuchstaben zuerst aufführen"}
         }
         colCaseLevel{
             no{"Ohne Gross-/Kleinschreibung sortieren"}
             yes{"Nach Gross-/Kleinschreibung sortieren"}
+        }
+        collation%core{
+            dictionary{"Lexikografisch"}
+            ducet{"Unicode (Standard)"}
+            phonetic{"Phonetisch"}
+            stroke{"Strichfolge"}
+            traditional{"Traditionell"}
         }
         ms{
             uksystem{"britisches Mass-System"}

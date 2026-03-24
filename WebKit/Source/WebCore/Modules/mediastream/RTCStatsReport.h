@@ -74,7 +74,7 @@ class DOMMapAdapter;
 class RTCStatsReport : public RefCounted<RTCStatsReport> {
 public:
     using MapInitializer = Function<void(DOMMapAdapter&)>;
-    static Ref<RTCStatsReport> create(MapInitializer&& mapInitializer) { return adoptRef(*new RTCStatsReport(WTFMove(mapInitializer))); }
+    static Ref<RTCStatsReport> create(MapInitializer&& mapInitializer) { return adoptRef(*new RTCStatsReport(WTF::move(mapInitializer))); }
 
     void initializeMapLike(DOMMapAdapter& adapter) { m_mapInitializer(adapter); }
 
@@ -407,7 +407,7 @@ public:
     };
     static_assert(!std::is_default_constructible_v<CodecStats>);
 
-    enum DtlsRole {
+    enum class DtlsRole : uint8_t {
         Client,
         Server,
         Unknown
@@ -516,7 +516,7 @@ private:
 };
 
 inline RTCStatsReport::RTCStatsReport(MapInitializer&& mapInitializer)
-    : m_mapInitializer(WTFMove(mapInitializer))
+    : m_mapInitializer(WTF::move(mapInitializer))
 {
 }
 

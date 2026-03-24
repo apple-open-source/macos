@@ -107,7 +107,7 @@ _credential_create(void)
     credential_t cred = NULL;
 
     cred = (credential_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, credential_get_type_id(), AUTH_CLASS_SIZE(credential), NULL);
-    require(cred != NULL, done);
+    __Require(cred != NULL, done);
     
     cred->creationTime = CFAbsoluteTimeGetCurrent();
     cred->cachedGroups = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
@@ -122,7 +122,7 @@ credential_create(uid_t uid)
     credential_t cred = NULL;
     
     cred = _credential_create();
-    require(cred != NULL, done);
+    __Require(cred != NULL, done);
 
     struct passwd *pw = (uid != (uid_t)-1) ? getpwuid(uid) : NULL;
     if (pw != NULL) {
@@ -159,7 +159,7 @@ credential_create_fvunlock(auth_items_t context, bool session)
     credential_t cred = NULL;
     
     cred = _credential_create();
-    require(cred != NULL, done);
+    __Require(cred != NULL, done);
 
     const char *username = session ? "system session" : auth_items_get_string(context, AGENT_USERNAME);
     cred->uid = session ? 0 : -500;
@@ -176,7 +176,7 @@ credential_create_with_credential(credential_t srcCred, bool shared)
     credential_t cred = NULL;
     
     cred = _credential_create();
-    require(cred != NULL, done);
+    __Require(cred != NULL, done);
     
     cred->uid = srcCred->uid;
     cred->name = _copy_string(srcCred->name);
@@ -195,7 +195,7 @@ credential_create_with_right(const char * right)
     credential_t cred = NULL;
     
     cred = _credential_create();
-    require(cred != NULL, done);
+    __Require(cred != NULL, done);
     
     cred->right = true;
     cred->name = _copy_string(right);
@@ -258,12 +258,12 @@ credential_check_membership(credential_t cred, const char* group)
     }
     
     CFStringRef cachedGroup = NULL;
-    require(group != NULL, done);
-    require(cred->uid != 0 || cred->uid != (uid_t)-2, done);
-    require(cred->right != true, done);
+    __Require(group != NULL, done);
+    __Require(cred->uid != 0 || cred->uid != (uid_t)-2, done);
+    __Require(cred->right != true, done);
     
     cachedGroup = CFStringCreateWithCString(kCFAllocatorDefault, group, kCFStringEncodingUTF8);
-    require(cachedGroup != NULL, done);
+    __Require(cachedGroup != NULL, done);
     
     if (CFSetGetValue(cred->cachedGroups, cachedGroup) != NULL) {
         result = true;
@@ -273,13 +273,13 @@ credential_check_membership(credential_t cred, const char* group)
     int rc, ismember;
     uuid_t group_uuid, user_uuid;
     rc = mbr_group_name_to_uuid(group, group_uuid);
-    require_noerr(rc, done);
+    __Require_noErr(rc, done);
     
     rc = mbr_uid_to_uuid(cred->uid, user_uuid);
-    require_noerr(rc, done);
+    __Require_noErr(rc, done);
     
     rc = mbr_check_membership(user_uuid, group_uuid, &ismember);
-    require_noerr(rc, done);
+    __Require_noErr(rc, done);
     
     result = ismember;
     

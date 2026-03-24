@@ -120,6 +120,11 @@ public:
   int32_t fPoolStringIndex16Limit;
   int32_t fLocalStringIndexLimit;
   SRBRoot *fWritePoolBundle;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+  const ResFile kNoPoolBundle;
+#endif // APPLE_ICU_CHANGES
 };
 
 /* write a java resource file */
@@ -139,7 +144,13 @@ void bundle_write_xml(struct SRBRoot *bundle, const char *outputDir,const char* 
  * for use in non-error cases when no resource is to be added to the bundle.
  * (nullptr is used in error cases.)
  */
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+SResource* res_none();
+#else
 struct SResource* res_none();
+#endif // APPLE_ICU_CHANGES
 
 class ArrayResource;
 class TableResource;

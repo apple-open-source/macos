@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)collect.c	8.2 (Berkeley) 4/19/94";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 /*
  * Mail -- a mail program
  *
@@ -46,9 +38,6 @@ __FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include <fcntl.h>
-#ifdef __APPLE__
-#include <stdbool.h>
-#endif
 #include "extern.h"
 
 /*
@@ -74,6 +63,7 @@ static	jmp_buf	colljmp;		/* To get back to work */
 static	int	colljmp_p;		/* whether to long jump */
 static	jmp_buf	collabort;		/* To end collection with error */
 
+#ifdef __APPLE__
 static	jmp_buf	pipejmp;		/* To catch the loss of pipe connection */
 
 void
@@ -81,6 +71,7 @@ brokthepipe(int signo)
 {
         longjmp(pipejmp, 1);
 }
+#endif
 
 FILE *
 collect(struct header *hp, int printheaders)
@@ -91,68 +82,43 @@ collect(struct header *hp, int printheaders)
 	sigset_t nset;
 	int longline, lastlong, rc;	/* So we don't make 2 or more lines
 					   out of a long input line. */
+
+#ifdef __APPLE__
 	int nlines, usepager;
 	char *envptr;
-#ifdef __APPLE__
-	bool handle_signals;
 #endif
-
 	collf = NULL;
 
-#ifdef __APPLE__
-	/*
-	 * If we're not interactive, we're expected to use the default action
-	 * for all signals for conformance purposes.
-	 */
-	handle_signals = value("interactive") != NULL;
-	if (handle_signals) {
-		/*
-		 * Start catching signals from here, but we'll still die on
-		 * interrupts until we're in the main loop.
-		 */
-		(void)sigemptyset(&nset);
-		(void)sigaddset(&nset, SIGINT);
-		if (!unix2003_compat) {
-			(void)sigaddset(&nset, SIGHUP);
-		}
-		(void)sigprocmask(SIG_BLOCK, &nset, NULL);
-		if ((saveint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
-			(void)signal(SIGINT, collint);
-		if (!unix2003_compat) {
-			if ((savehup = signal(SIGHUP, SIG_IGN)) != SIG_IGN)
-				(void)signal(SIGHUP, collhup);
-			savetstp = signal(SIGTSTP, collstop);
-			savettou = signal(SIGTTOU, collstop);
-			savettin = signal(SIGTTIN, collstop);
-		}
-		if (setjmp(collabort) || setjmp(colljmp)) {
-			(void)rm(tempname);
-			goto err;
-		}
-		(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
-	}
-#else
 	/*
 	 * Start catching signals from here, but we're still die on interrupts
 	 * until we're in the main loop.
 	 */
 	(void)sigemptyset(&nset);
-	(void)sigaddset(&nset, SIGINT);
-	(void)sigaddset(&nset, SIGHUP);
+	if (value("interactive") != NULL) {
+		(void)sigaddset(&nset, SIGINT);
+		(void)sigaddset(&nset, SIGHUP);
+	}
 	(void)sigprocmask(SIG_BLOCK, &nset, NULL);
-	if ((saveint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
-		(void)signal(SIGINT, collint);
-	if ((savehup = signal(SIGHUP, SIG_IGN)) != SIG_IGN)
-		(void)signal(SIGHUP, collhup);
-	savetstp = signal(SIGTSTP, collstop);
-	savettou = signal(SIGTTOU, collstop);
-	savettin = signal(SIGTTIN, collstop);
+	if (value("interactive") != NULL) {
+		if ((saveint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
+			(void)signal(SIGINT, collint);
+		if ((savehup = signal(SIGHUP, SIG_IGN)) != SIG_IGN)
+			(void)signal(SIGHUP, collhup);
+#ifdef __APPLE__
+		if (!unix2003_compat) {
+#endif
+		savetstp = signal(SIGTSTP, collstop);
+		savettou = signal(SIGTTOU, collstop);
+		savettin = signal(SIGTTIN, collstop);
+#ifdef __APPLE__
+		}
+#endif
+	}
 	if (setjmp(collabort) || setjmp(colljmp)) {
 		(void)rm(tempname);
 		goto err;
 	}
 	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
-#endif
 
 	noreset++;
 	(void)snprintf(tempname, sizeof(tempname),
@@ -187,6 +153,7 @@ collect(struct header *hp, int printheaders)
 	longline = 0;
 
 	if (!setjmp(colljmp)) {
+#ifdef __APPLE__
 		if (getsub) {
 			if (grabh(hp, GSUBJECT)) {
 				/* grabh was interrupted: must count as first one		*/
@@ -196,6 +163,10 @@ collect(struct header *hp, int printheaders)
 				goto cont;
 			}
 		}
+#else
+		if (getsub)
+			grabh(hp, GSUBJECT);
+#endif
 	} else {
 		/*
 		 * Come here for printing the after-signal message.
@@ -214,7 +185,7 @@ cont:
 	}
 	for (;;) {
 		colljmp_p = 1;
-		c = readline(stdin, linebuf, LINESIZE);
+		c = readline(stdin, linebuf, sizeof(linebuf));
 		colljmp_p = 0;
 		if (c < 0) {
 			if (value("interactive") != NULL &&
@@ -225,7 +196,7 @@ cont:
 			break;
 		}
 		lastlong = longline;
-		longline = c == LINESIZE - 1;
+		longline = c == sizeof(linebuf) - 1;
 		eofcount = 0;
 		hadintr = 0;
 		if (linebuf[0] == '.' && linebuf[1] == '\0' &&
@@ -257,7 +228,7 @@ cont:
 			/*
 			 * Dump core.
 			 */
-			core();
+			core(NULL);
 			break;
 		case '!':
 			/*
@@ -356,11 +327,15 @@ cont:
 			}
 
 			if(*cp != '\0' && (cp = value(cp)) != NULL) {
+#ifdef __APPLE__
 				if (*cp != '\0') {
-					printf("%s\n", cp);
-					if(putline(collf, cp, 1) < 0)
-						goto err;
+#endif
+				printf("%s\n", cp);
+				if(putline(collf, cp, 1) < 0)
+					goto err;
+#ifdef __APPLE__
 				}
+#endif
 			}
 
 			break;
@@ -416,7 +391,11 @@ cont:
 				(void)unlink(tempname2);
 
 				if ((sh = value("SHELL")) == NULL)
+#ifdef __APPLE__
 					sh = _PATH_BSHELL;
+#else
+					sh = _PATH_CSHELL;
+#endif
 
 				rc = run_command(sh, 0, nullfd, fileno(fbuf),
 				    "-c", cp+1, NULL);
@@ -448,11 +427,12 @@ cont:
 			(void)fflush(stdout);
 			lc = 0;
 			cc = 0;
-			while ((rc = readline(fbuf, linebuf, LINESIZE)) >= 0) {
-				if (rc != LINESIZE - 1)
+			while ((rc = readline(fbuf, linebuf,
+			    sizeof(linebuf))) >= 0) {
+				if (rc != sizeof(linebuf) - 1)
 					lc++;
 				if ((t = putline(collf, linebuf,
-					 rc != LINESIZE - 1)) < 0) {
+					 rc != sizeof(linebuf) - 1)) < 0) {
 					(void)Fclose(fbuf);
 					goto err;
 				}
@@ -507,6 +487,7 @@ cont:
 			rewind(collf);
 			printf("-------\nMessage contains:\n");
 			puthead(hp, stdout, GTO|GSUBJECT|GCC|GBCC|GNL);
+#ifdef __APPLE__
 			if ((envptr = value("crt")) != NULL) {
 				nlines = atoi(envptr);
 			} else {
@@ -542,8 +523,10 @@ cont:
 						(void)signal(SIGPIPE, brokthepipe);
 				}
 			}
+#endif
 			while ((t = getc(collf)) != EOF)
 				(void)putchar(t);
+#ifdef __APPLE__
 			if (usepager) {
 				close_pipe:
 			        if (fbuf != stdout) {
@@ -555,6 +538,7 @@ cont:
 					(void)signal(SIGPIPE, SIG_DFL);
 			        }
 			}
+#endif
 			goto cont;
 		case '|':
 			/*
@@ -578,7 +562,6 @@ cont:
 	}
 	goto out;
 err:
-	senderr++;	/* set return code */
 	if (collf != NULL) {
 		(void)Fclose(collf);
 		collf = NULL;
@@ -587,25 +570,21 @@ out:
 	if (collf != NULL)
 		rewind(collf);
 	noreset--;
-#ifdef __APPLE__
-	if (handle_signals) {
-		(void)sigprocmask(SIG_BLOCK, &nset, NULL);
+	(void)sigprocmask(SIG_BLOCK, &nset, NULL);
+	if (value("interactive") != NULL) {
 		(void)signal(SIGINT, saveint);
 		(void)signal(SIGHUP, savehup);
+#ifdef __APPLE__
+		if (!unix2003_compat) {
+#endif
 		(void)signal(SIGTSTP, savetstp);
 		(void)signal(SIGTTOU, savettou);
 		(void)signal(SIGTTIN, savettin);
-		(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
-	}
-#else
-	(void)sigprocmask(SIG_BLOCK, &nset, NULL);
-	(void)signal(SIGINT, saveint);
-	(void)signal(SIGHUP, savehup);
-	(void)signal(SIGTSTP, savetstp);
-	(void)signal(SIGTTOU, savettou);
-	(void)signal(SIGTTIN, savettin);
-	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+#ifdef __APPLE__
+		}
 #endif
+	}
+	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
 	return (collf);
 }
 
@@ -619,9 +598,8 @@ exwrite(char name[], FILE *fp, int f)
 	int c, lc;
 	long cc;
 #ifndef __APPLE__
-        struct stat junk;
+	struct stat junk;
 #endif
-
 
 	if (f) {
 		printf("\"%s\" ", name);
@@ -634,8 +612,10 @@ exwrite(char name[], FILE *fp, int f)
 		fprintf(stderr, "File exists\n");
 		return (-1);
 	}
-#endif
+	if ((of = Fopen(name, "w")) == NULL) {
+#else
 	if ((of = Fopen(name, "a")) == NULL) {
+#endif
 		warn((char *)NULL);
 		return (-1);
 	}
@@ -676,6 +656,7 @@ mesedit(FILE *fp, int c)
 	(void)signal(SIGINT, sigint);
 }
 
+#ifdef __APPLE__
 static char *
 parse_pipe_args(char str[], char **msglist)
 {
@@ -741,7 +722,7 @@ printf("before loop: str=%s,cp=%s\n", str,cp);
 }
 
 int
-mailpipe(char str[])
+mailpipe(void *str)
 {
 	struct message *mp;
 	int *msgvec, *ip;
@@ -782,7 +763,11 @@ mailpipe(char str[])
 	}
 
 	if ((sh = value("SHELL")) == NULL)
+#ifdef __APPLE__
 		sh = _PATH_BSHELL;
+#else
+		sh = _PATH_CSHELL;
+#endif
 
 	/* complete cmd, open a pipe to shell 	*/
 	cmdline[0] = '\0';
@@ -844,6 +829,7 @@ close_pipe:
         }
 	return (0);
 }
+#endif
 
 /*
  * Pipe the message through the command.
@@ -986,18 +972,18 @@ collint(int s __unused)
 		longjmp(colljmp, 1);
 	}
 	rewind(collf);
+#ifdef __APPLE__
 	if (value("save") != NULL)
+#else
+	if (value("nosave") == NULL)
+#endif
 		savedeadletter(collf);
 	longjmp(collabort, 1);
 }
 
 /*ARGSUSED*/
 void
-#ifdef __APPLE__
 collhup(int s)
-#else
-collhup(int s)
-#endif
 {
 	rewind(collf);
 	savedeadletter(collf);
@@ -1005,14 +991,8 @@ collhup(int s)
 	 * Let's pretend nobody else wants to clean up,
 	 * a true statement at this time.
 	 */
-#ifdef __APPLE__
 	signal(s, SIG_DFL);
 	raise(s);
-	/* NOT REACHED */
-	_exit(128 + s);
-#else
-	exit(1);
-#endif
 }
 
 void
@@ -1026,7 +1006,11 @@ savedeadletter(FILE *fp)
 		return;
 	cp = getdeadletter();
 	c = umask(077);
+#ifdef __APPLE__
 	dbuf = Fopen(cp, "w");
+#else
+	dbuf = Fopen(cp, "a");
+#endif
 	(void)umask(c);
 	if (dbuf == NULL)
 		return;

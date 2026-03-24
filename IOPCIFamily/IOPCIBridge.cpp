@@ -3039,7 +3039,7 @@ void IOPCIBridge::updateWakeReason(IOPCIDevice * device)
 	const char * reason;
 
 	reason = device->getName();
-	getPMRootDomain()->claimSystemWakeEvent(this, kIOPMWakeEventSource, reason);
+	getPMRootDomain()->claimSystemWakeEvent(this, kIOPMWakeEventSource|kIOPMWakeEventAOTPossibleExit, reason);
 
 #if ACPI_SUPPORT
 	reserved->hostBridgeData->lockWakeReasonLock();
@@ -5040,6 +5040,7 @@ void IOPCI2PCIBridge::handleAEREvent(bool synchronous)
             space.s.busNum      = (aerSource >> 24);
             space.s.deviceNum   = (31 & (aerSource >> 19));
             space.s.functionNum = (7  & (aerSource >> 16));
+
 
             configOpParams cp = {.device = this, .op = kConfigOpFindEntry, .result = &result, .arg = &space};
             ret = configOp(&cp);

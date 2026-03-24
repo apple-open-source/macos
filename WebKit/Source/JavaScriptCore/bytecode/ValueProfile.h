@@ -95,15 +95,6 @@ struct ValueProfileBase {
 
     bool isSampledBefore() const { return m_prediction != SpecNone; }
     
-    bool isLive() const
-    {
-        for (unsigned i = 0; i < totalNumberOfBuckets; ++i) {
-            if (!!JSValue::decodeConcurrent(&m_buckets[i]))
-                return true;
-        }
-        return false;
-    }
-    
     CString briefDescription(const ConcurrentJSLocker& locker)
     {
         SpeculatedType prediction = computeUpdatedPrediction(locker);

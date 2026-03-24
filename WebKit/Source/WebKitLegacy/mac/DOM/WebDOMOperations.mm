@@ -56,7 +56,7 @@
 #import <WebCore/Range.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObjectInlines.h>
-#import <WebCore/RenderStyleInlines.h>
+#import <WebCore/RenderStyle+GettersInlines.h>
 #import <WebCore/RenderTreeAsText.h>
 #import <WebCore/ShadowRoot.h>
 #import <WebCore/SimpleRange.h>
@@ -92,13 +92,13 @@ using namespace JSC;
 - (WebArchive *)webArchive
 {
     WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
-    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTFMove(options))]).autorelease();
+    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTF::move(options))]).autorelease();
 }
 
 - (WebArchive *)webArchiveByFilteringSubframes:(WebArchiveSubframeFilter)webArchiveSubframeFilter
 {
     WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
-    auto webArchive = adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTFMove(options), [webArchiveSubframeFilter](LocalFrame& subframe) -> bool {
+    auto webArchive = adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTF::move(options), [webArchiveSubframeFilter](LocalFrame& subframe) -> bool {
         return webArchiveSubframeFilter(kit(&subframe));
     })]);
 
@@ -193,7 +193,7 @@ using namespace JSC;
 - (WebArchive *)webArchive
 {
     WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
-    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(makeSimpleRange(*core(self)), WTFMove(options))]).autorelease();
+    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(makeSimpleRange(*core(self)), WTF::move(options))]).autorelease();
 }
 
 - (NSString *)markupString

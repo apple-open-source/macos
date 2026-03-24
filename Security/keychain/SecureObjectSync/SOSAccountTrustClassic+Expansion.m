@@ -55,7 +55,7 @@ static NSString* kSOSRingKey = @"trusted_rings";
 {
     bool success = [self ensureExpansion:error];
     
-    require_quiet(success, errOut);
+    __Require_Quiet(success, errOut);
     
     [self.expansion removeObjectForKey: (__bridge NSString*)(key)];
 errOut:
@@ -66,7 +66,7 @@ errOut:
     if (value == NULL) return [self clearValueFromExpansion:key err:error];
     
     bool success = [self ensureExpansion:error];
-    require_quiet(success, errOut);
+    __Require_Quiet(success, errOut);
     
     [self.expansion setObject:(__bridge id _Nonnull)(value) forKey:(__bridge NSString*)key];
     
@@ -261,11 +261,11 @@ errOut:
 
 -(bool) setRing:(SOSRingRef) addRing ringName:(CFStringRef) ringName err:(CFErrorRef*)error
 {
-    require_quiet(addRing, errOut);
+    __Require_Quiet(addRing, errOut);
     CFMutableDictionaryRef rings = [self getRings:NULL];
-    require_action_quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
+    __Require_Action_Quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
     CFDataRef ringder = SOSRingCopyEncodedData(addRing, error);
-    require_quiet(ringder, errOut);
+    __Require_Quiet(ringder, errOut);
     CFDictionarySetValue(rings, ringName, ringder);
     CFReleaseNull(ringder);
     return true;
@@ -314,20 +314,20 @@ errOut:
         goto errOut;
     }
     
-    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
-    require_action_quiet(peerPubKey, errOut, SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("No device public key to work with"), NULL, error));
-    require_action_quiet(peerPrivKey, errOut, SOSCreateError(kSOSErrorPrivateKeyAbsent, CFSTR("No device private key to work with"), NULL, error));
-    require_action_quiet(prospectiveRing, errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("No Ring to work with"), NULL, error));
-    require_action_quiet(SOSRingIsStable(prospectiveRing), errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("You give rings a bad name"), NULL, error));
+    __Require_Quiet(SOSAccountHasPublicKey(account, error), errOut);
+    __Require_Action_Quiet(peerPubKey, errOut, SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("No device public key to work with"), NULL, error));
+    __Require_Action_Quiet(peerPrivKey, errOut, SOSCreateError(kSOSErrorPrivateKeyAbsent, CFSTR("No device private key to work with"), NULL, error));
+    __Require_Action_Quiet(prospectiveRing, errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("No Ring to work with"), NULL, error));
+    __Require_Action_Quiet(SOSRingIsStable(prospectiveRing), errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("You give rings a bad name"), NULL, error));
     
     // We should at least have a stable ring system in the account object
-    require_quiet([self checkForRings:error], errOut);
+    __Require_Quiet([self checkForRings:error], errOut);
 
     if(ringIsBackup) {
         ringBackupViewName = SOSRingGetBackupView(prospectiveRing, NULL);
         peerActive &= ringBackupViewName && SOSPeerInfoIsViewPermitted(pi, ringBackupViewName) && SOSPeerInfoHasBackupKey(pi);
     }
-    require_action_quiet(peerActive, errOut, success = true);
+    __Require_Action_Quiet(peerActive, errOut, success = true);
 
     newRing = SOSRingCopyRing(prospectiveRing, NULL);
     ringAction_t ringAction = ignore;
@@ -398,9 +398,9 @@ errOut:
              actionstring[ringAction], concStr, userTrustedoldRing ? "trusted" : "untrusted");
 
     // if we're ignoring this ring we're done
-    require_action_quiet(ringAction != ignore, errOut, success = true);
+    __Require_Action_Quiet(ringAction != ignore, errOut, success = true);
     // can't really remove ourselves since we can't sign when we do - need to rely on other peers to remove us
-    require_action_quiet(ringAction != leave, leaveAndAccept, ringAction = accept);
+    __Require_Action_Quiet(ringAction != leave, leaveAndAccept, ringAction = accept);
 
     // This will take care of modify, but we're always going to do this scan if we get this far
     CFSetRef ringPeerIDSet = SOSRingCopyPeerIDs(newRing);
@@ -581,9 +581,9 @@ errOut:
 -(SOSRingRef) copyRing:(CFStringRef)ringName err:(CFErrorRef *)error
 {
     CFMutableDictionaryRef rings = [self getRings:error];
-    require_action_quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
+    __Require_Action_Quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
     CFTypeRef ringder = CFDictionaryGetValue(rings, ringName);
-    require_action_quiet(ringder, errOut, SOSCreateErrorWithFormat(kSOSErrorNoRing, NULL, error, NULL, CFSTR("No Ring found %@"), ringName));
+    __Require_Action_Quiet(ringder, errOut, SOSCreateErrorWithFormat(kSOSErrorNoRing, NULL, error, NULL, CFSTR("No Ring found %@"), ringName));
     SOSRingRef ring = SOSRingCreateFromData(NULL, ringder);
     return (SOSRingRef) ring;
     
@@ -610,7 +610,7 @@ errOut:
     SOSRingRef newring = SOSRingCreate(ringName, NULL, SOSRingGetType(ring), error);
     SOSRingGenerationCreateWithBaseline(newring, ring);
     SOSBackupRingSetViews(newring, self.fullPeerInfo, SOSBackupRingGetViews(ring, NULL), error);
-    require_quiet(newring, errOut);
+    __Require_Quiet(newring, errOut);
     CFReleaseNull(ring);
     retval = SOSAccountUpdateRing(account, newring, error);
 errOut:

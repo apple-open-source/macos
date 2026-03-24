@@ -32,4 +32,9 @@ namespace API {
 
 FrameTreeNode::~FrameTreeNode() = default;
 
+Ref<WebKit::WebPageProxy> FrameTreeNode::protectedPage()
+{
+    return page();
+}
+
 } // namespace API

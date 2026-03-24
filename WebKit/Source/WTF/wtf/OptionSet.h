@@ -248,7 +248,7 @@ struct ConstexprOptionSet {
     }
 
     ALWAYS_INLINE constexpr ConstexprOptionSet(std::initializer_list<E> initializerList)
-        : ConstexprOptionSet<E>(OptionSet<E>(WTFMove(initializerList)))
+        : ConstexprOptionSet<E>(OptionSet<E>(WTF::move(initializerList)))
     {
     }
 

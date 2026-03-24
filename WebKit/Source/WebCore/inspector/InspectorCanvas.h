@@ -57,7 +57,7 @@ class CSSStyleImageValue;
 
 template<typename> struct InspectorCanvasArgumentProcessor;
 
-class InspectorCanvas final : public RefCounted<InspectorCanvas> {
+class InspectorCanvas final : public RefCountedAndCanMakeWeakPtr<InspectorCanvas> {
 public:
     static Ref<InspectorCanvas> create(CanvasRenderingContext&);
 

@@ -1163,10 +1163,15 @@ extern uint64_t hfs_allocated;
 #define hfs_malloc(size)  _io_malloc(IOMalloc, size)
 #define hfs_malloc_zero(size) _io_malloc(IOMallocZero, size)
 
-// Wrapper to allocate data only memory region which doesn't contain any
+// Wrapper to allocate private data only memory region which doesn't contain any
 // pointers or kernel addresses.
 #define hfs_malloc_data(size) _io_malloc(IOMallocData, size)
 #define hfs_malloc_zero_data(size) _io_malloc(IOMallocZeroData, size)
+
+// Wrapper to allocate shareable data only memory region which doesn't contain any
+// pointers or kernel addresses.
+#define hfs_malloc_data_shareable(size) _io_malloc(IOMallocDataShareable, size)
+#define hfs_malloc_zero_data_shareable(size) _io_malloc(IOMallocZeroDataShareable, size)
 
 // Wrapper to allocate an array which contains pointers or kernel addresses.
 #define hfs_new(type, count) _io_new(IONew, type, count)
@@ -1191,8 +1196,12 @@ extern uint64_t hfs_allocated;
 #define hfs_free(ptr, size) _io_free(IOFree, ptr, size)
 
 // Wrapper to release a memory region which doesn't contain any pointers or
-// kernel addresses.
+// kernel addresses, and is allocated on the private data heap
 #define hfs_free_data(ptr, size) _io_free(IOFreeData, ptr, size)
+
+// Wrapper to release a memory region which doesn't contain any pointers or
+// kernel addresses, and is allocated on the shareable data heap
+#define hfs_free_data_shareable(ptr, size) _io_free(IOFreeDataShareable, ptr, size)
 
 // Wrapper to release an array which contains pointers or kernel addresses.
 #define hfs_delete(ptr, type, count) _io_delete(IODelete, ptr, type, count)

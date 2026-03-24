@@ -275,6 +275,15 @@ static apr_status_t setup_store_file(void *baton, apr_pool_t *p, apr_pool_t *pte
 read:
     if (MD_OK(md_util_is_file(fname, ptemp))) {
         rv = read_store_file(s_fs, fname, p, ptemp);
+        if (rv != APR_SUCCESS) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p,
+            "The central store file md/md_store.json seems to exist, but "
+            "its content are not readable as JSON. Either it got somehow corrupted "
+            "or the store directory was configured for a location with a foreign "
+            "md_store.json file. Either way, it is unclear how to proceeed. "
+            "You should either restore the correct file/location or clean the directory "
+            "so it gets initialized again.");
+        }
     }
     else if (APR_STATUS_IS_ENOENT(rv)
         && APR_STATUS_IS_EEXIST(rv = init_store_file(s_fs, fname, p, ptemp))) {
@@ -511,7 +520,6 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
     
     perms = gperms(s_fs, group);
 
-    *pdir = NULL;
     rv = fs_get_dname(pdir, &s_fs->s, group, name, p);
     if ((APR_SUCCESS != rv) || (MD_SG_NONE == group)) goto cleanup;
 
@@ -531,7 +539,7 @@ static apr_status_t mk_group_dir(const char **pdir, md_store_fs_t *s_fs,
 cleanup:
     if (APR_SUCCESS != rv) {
         md_log_perror(MD_LOG_MARK, MD_LOG_ERR, rv, p, "mk_group_dir %d %s",
-            group, (*pdir? *pdir : (name? name : "(null)")));
+                      group, (*pdir? *pdir : (name? name : "(null)")));
     }
     return rv;
 }

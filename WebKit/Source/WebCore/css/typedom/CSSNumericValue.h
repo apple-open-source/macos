@@ -46,7 +46,7 @@ template<typename> class ExceptionOr;
 using CSSNumberish = Variant<double, RefPtr<CSSNumericValue>>;
 
 class CSSNumericValue : public CSSStyleValue {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSNumericValue);
+    WTF_MAKE_TZONE_ALLOCATED(CSSNumericValue);
 public:
 
     ExceptionOr<Ref<CSSNumericValue>> add(FixedVector<CSSNumberish>&&);
@@ -89,7 +89,7 @@ protected:
     template<typename T> Vector<Ref<CSSNumericValue>> prependItemsOfTypeOrThis(Vector<Ref<CSSNumericValue>>&&);
 
     CSSNumericValue(CSSNumericType type = { })
-        : m_type(WTFMove(type)) { }
+        : m_type(WTF::move(type)) { }
 
     CSSNumericType m_type;
 };

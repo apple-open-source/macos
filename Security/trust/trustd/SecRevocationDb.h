@@ -124,6 +124,8 @@ static inline bool SecValidInfoIsDefinitive(SecValidInfoRef info) {
     return false;
 }
 
+CF_RETURNS_RETAINED CFDictionaryRef SecValidInfoCopyInfo(SecValidInfoRef validInfo);
+
 bool SecValidInfoPolicyConstraintsPermitPolicy(SecValidInfoRef info, CFStringRef policyId);
 
 /*!
@@ -136,7 +138,7 @@ void SecRevocationDbCheckNextUpdate(void);
     @function SecRevocationDbUpdate
     @abstract Trigger update now. For use in testing and tools.
  */
-bool SecRevocationDbUpdate(CFErrorRef *error);
+bool SecRevocationDbUpdate(CFIndex version, CFErrorRef *error);
 
 bool SecRevocationDbRemoveAllEntries(CFErrorRef *error);
 
@@ -242,7 +244,8 @@ void SecRevocationDbSetGeneration(CFIndex generation);
 	@param additionalSCTs Any additional SCTs to be used for the CRLite check. These should be SCTs that are *not* embedded in the certificate.
 	@result A SecCRLiteInfoRef if there was matching revocation info. NULL is returned if no info was found.
  */
-SecCRLiteInfoRef SecRevocationDbCopyMatchingCRLite(SecCertificateRef certificate, SecCertificateRef issuer, CFArrayRef additionalSCTs);
+CF_RETURNS_RETAINED SecCRLiteInfoRef
+SecRevocationDbCopyMatchingCRLite(SecCertificateRef certificate, SecCertificateRef issuer, CFArrayRef additionalSCTs);
 
 /*!
 	@function SecRevocationDbRemoveAllCRLiteEntries

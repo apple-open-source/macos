@@ -539,6 +539,9 @@ class GLSLTestNoValidation : public GLSLTest
     GLSLTestNoValidation() { setNoErrorEnabled(true); }
 };
 
+class GLSLTest_ClampPointSize : public GLSLTest
+{};
+
 class GLSLTest_ES3 : public GLSLTest
 {};
 
@@ -2040,6 +2043,41 @@ void main(){
     glDeleteShader(shader);
 }
 
+// Verify that using a struct as both invariant and non-invariant output works.
+// The shader interface block has a variable name in this variant.
+TEST_P(GLSLTest_ES31, StructBothInvariantAndNot2)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_shader_io_blocks"));
+
+    constexpr char kVS[] = R"(#version 310 es
+#extension GL_EXT_shader_io_blocks : require
+
+struct S
+{
+    vec4 s;
+};
+
+out Output
+{
+    vec4 x;
+    invariant S s;
+} o;
+
+out S s2;
+
+void main(){
+    o.x = vec4(0);
+    o.s.s = vec4(1);
+    s2.s = vec4(2);
+    S s3 = o.s;
+    o.s.s = s3.s;
+})";
+
+    GLuint shader = CompileShader(GL_VERTEX_SHADER, kVS);
+    EXPECT_NE(0u, shader);
+    glDeleteShader(shader);
+}
+
 // Verify that using maximum size as atomic counter offset results in compilation failure.
 TEST_P(GLSLTest_ES31, CompileWithMaxAtomicCounterOffsetFails)
 {
@@ -3430,6 +3468,79 @@ void main()
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
 }
 
+// Test that textureLod in a discontinuous loop does not generate HLSL loop unrolling errors.
+TEST_P(GLSLTest_ES3, TextureLODShadowSamplerInDiscontinuousLoop)
+{
+    constexpr char kVS[] =
+        R"(#version 300 es
+out float vLoop;
+void main()
+{
+    gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+    vLoop = 10.0;
+})";
+
+    constexpr char kFS0[] =
+        R"(#version 300 es
+precision highp float;
+precision highp sampler2DShadow;
+
+uniform sampler2DShadow shadowMap;
+in float vLoop;
+out vec4 fragColor;
+
+void main()
+{
+    int loopCount = int(vLoop); /* Each fragment may have a different value here.
+                                   This makes it invalid to use gradient functions
+                                   inside the loop! */
+
+    float shadowSum = 0.0;
+    int i = 0;
+    while (i < loopCount)
+    {
+        float x = float(i) + 1.0; /* Makes sure sample operation cannot be optimized
+                                     to be outside of the loop */
+        shadowSum += textureLod(shadowMap, vec3(1.0 / x, 1.0 / x, 0.5), 0.0);
+        ++i;
+    }
+
+    fragColor = vec4(shadowSum, shadowSum, shadowSum, 1.0);
+})";
+
+    ANGLE_GL_PROGRAM(program0, kVS, kFS0);
+    ASSERT_TRUE(program0.valid());
+
+    constexpr char kFS1[] =
+        R"(#version 300 es
+precision highp float;
+precision highp sampler2DShadow;
+
+uniform sampler2DShadow u_testSampler;
+
+out vec4 fragOut4f;
+
+void main() {
+    float a = texture(u_testSampler, vec3(10.0, 10.0, 0.5));
+    for(;;) {
+        if (a != 10.0) {
+            a = textureLod(u_testSampler, vec3(4.0, 4.0, 0.1), 0.0);
+            break;
+        }
+        if (a != 4.0) {
+            a = textureLod(u_testSampler, vec3(10.0, 10.0, 0.4), 0.0);
+            break;
+        }
+        fragOut4f = vec4(0.0);
+        return;
+    }
+    fragOut4f = vec4(a);
+})";
+
+    ANGLE_GL_PROGRAM(program1, kVS, kFS1);
+    ASSERT_TRUE(program1.valid());
+}
+
 // Test that == and != for structs and array types work.
 TEST_P(GLSLTest_ES31, StructAndArrayEqualOperator)
 {
@@ -4163,6 +4274,32 @@ void main() {
     f(green);
 })";
     CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests that a vertex shader retrieving values from a 2D texture to
+// use as an offset for gl_PointSize successfully compiles.
+// https://issues.angleproject.org/444653099
+TEST_P(GLSLTest_ClampPointSize, MonomorphizeMainPrototypeNoCrash)
+{
+    constexpr char kVS[] = R"(
+attribute vec2 a_texCoord;
+struct Wrapper{
+    sampler2D sampler;
+};
+float getRedValue(Wrapper wrapper){
+    return texture2D(wrapper.sampler, a_texCoord).r;
+}
+uniform Wrapper u_wrappedSampler;
+
+void main();
+void main(){
+    float offset = getRedValue(u_wrappedSampler);
+    gl_PointSize = 10.0 + offset;
+    return;
+}
+)";
+    CompileShader(GL_VERTEX_SHADER, kVS);
     ASSERT_GL_NO_ERROR();
 }
 
@@ -6840,6 +6977,67 @@ void main()
     ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
     drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
     EXPECT_PIXEL_NEAR(0, 0, 255, 127, 0, 255, 1);
+}
+
+// Verify that functions without return statements return zero-initialized vec4
+TEST_P(WebGL2GLSLTest, MissingReturnZeroInitVec4)
+{
+    constexpr char kFS[] = R"(precision highp float;
+uniform float u0;
+uniform float u1;
+vec4 foo(float u)
+{
+    if (u > 0.0) { return vec4(1.0); }
+}
+void main()
+{
+    if (foo(u0) == vec4(0.0) && foo(u1) == vec4(1.0))
+        gl_FragColor = vec4(0, 1, 0, 1);
+    else
+        gl_FragColor = vec4(1, 0, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
+    glUseProgram(program);
+
+    GLint loc = glGetUniformLocation(program, "u1");
+    ASSERT_NE(-1, loc);
+    glUniform1f(loc, 1.0f);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
+// Verify that functions without return statements return zero-initialized struct
+TEST_P(WebGL2GLSLTest, MissingReturnZeroInitStruct)
+{
+    constexpr char kFS[] = R"(precision highp float;
+struct S { float a; int b; };
+uniform float u0;
+uniform float u1;
+S foo(float u)
+{
+    if (u > 0.0) { return S(1.0, 1); }
+}
+void main()
+{
+    S r0 = foo(u0);
+    S r1 = foo(u1);
+    if (r0.a == 0.0 && r0.b == 0 && r1.a == 1.0 && r1.b == 1)
+        gl_FragColor = vec4(0, 1, 0, 1);
+    else
+        gl_FragColor = vec4(1, 0, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
+    glUseProgram(program);
+
+    GLint loc = glGetUniformLocation(program, "u1");
+    ASSERT_NE(-1, loc);
+    glUniform1f(loc, 1.0f);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
 // Tests nameless struct uniforms.
@@ -21587,6 +21785,22 @@ void main() {
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::transparentBlack);
 }
 
+// Verify that missing fragment output components are zero-initialized
+TEST_P(WebGL2GLSLTest, InitMissingFragmentOutputComponents)
+{
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+layout(location = 0) out float outColor;
+void main()
+{
+    outColor = 1.0;
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor(255, 0, 0, 0));
+}
+
 // Test highp int scalar + vec
 TEST_P(GLSLTest_ES3, IntVecOperatorOverloadingAdd1)
 {
@@ -22424,6 +22638,11 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTestLoops);
 ANGLE_INSTANTIATE_TEST_ES3(GLSLTestLoops);
 
 ANGLE_INSTANTIATE_TEST_ES2(WebGLGLSLTest);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ClampPointSize);
+ANGLE_INSTANTIATE_TEST_ES2_AND(GLSLTest_ClampPointSize,
+                               ES2_OPENGL().enable(Feature::ClampPointSize),
+                               ES2_VULKAN().enable(Feature::ClampPointSize));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGL2GLSLTest);
 ANGLE_INSTANTIATE_TEST_ES3(WebGL2GLSLTest);

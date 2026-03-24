@@ -19,6 +19,8 @@
 #ifndef __UNORM2_H__
 #define __UNORM2_H__
 
+DECLARE_SYSTEM_HEADER
+
 /**
  * \file
  * \brief C API: New API for Unicode Normalization.

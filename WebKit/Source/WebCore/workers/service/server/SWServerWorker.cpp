@@ -60,9 +60,9 @@ SWServerWorker::SWServerWorker(SWServer& server, SWServerRegistration& registrat
     , m_certificateInfo(certificateInfo)
     , m_contentSecurityPolicy(contentSecurityPolicy)
     , m_crossOriginEmbedderPolicy(crossOriginEmbedderPolicy)
-    , m_referrerPolicy(WTFMove(referrerPolicy))
+    , m_referrerPolicy(WTF::move(referrerPolicy))
     , m_topSite(m_registrationKey.topOrigin())
-    , m_scriptResourceMap(WTFMove(scriptResourceMap))
+    , m_scriptResourceMap(WTF::move(scriptResourceMap))
     , m_terminationTimer(*this, &SWServerWorker::terminationTimerFired)
     , m_terminationIfPossibleTimer(*this, &SWServerWorker::terminationIfPossibleTimerFired)
     , m_lastNavigationWasAppInitiated(server.clientIsAppInitiatedForRegistrableDomain(m_topSite.domain()))
@@ -117,10 +117,10 @@ void SWServerWorker::terminate(CompletionHandler<void()>&& callback)
 
     switch (m_state) {
     case State::Running:
-        startTermination(WTFMove(callback));
+        startTermination(WTF::move(callback));
         return;
     case State::Terminating:
-        m_terminationCallbacks.append(WTFMove(callback));
+        m_terminationCallbacks.append(WTF::move(callback));
         return;
     case State::NotRunning:
         return callback();
@@ -130,7 +130,7 @@ void SWServerWorker::terminate(CompletionHandler<void()>&& callback)
 void SWServerWorker::whenTerminated(CompletionHandler<void()>&& callback)
 {
     ASSERT(isRunning() || isTerminating());
-    m_terminationCallbacks.append(WTFMove(callback));
+    m_terminationCallbacks.append(WTF::move(callback));
 }
 
 void SWServerWorker::startTermination(CompletionHandler<void()>&& callback)
@@ -147,7 +147,7 @@ void SWServerWorker::startTermination(CompletionHandler<void()>&& callback)
 
     setState(State::Terminating);
 
-    m_terminationCallbacks.append(WTFMove(callback));
+    m_terminationCallbacks.append(WTF::move(callback));
 
     constexpr Seconds terminationDelayForTesting = 1_s;
     RefPtr<SWServer> server = m_server.get();
@@ -166,7 +166,7 @@ void SWServerWorker::terminationCompleted()
 
 void SWServerWorker::callTerminationCallbacks()
 {
-    auto callbacks = WTFMove(m_terminationCallbacks);
+    auto callbacks = WTF::move(m_terminationCallbacks);
     for (auto& callback : callbacks)
         callback();
 }
@@ -264,7 +264,7 @@ void SWServerWorker::matchAll(const ServiceWorkerClientQueryOptions& options, Se
     ASSERT(m_server);
     if (!m_server)
         return callback({ });
-    return protectedServer()->matchAll(*this, options, WTFMove(callback));
+    return protectedServer()->matchAll(*this, options, WTF::move(callback));
 }
 
 String SWServerWorker::userAgent() const
@@ -277,7 +277,7 @@ String SWServerWorker::userAgent() const
 
 void SWServerWorker::setScriptResource(URL&& url, ServiceWorkerContextData::ImportedScript&& script)
 {
-    m_scriptResourceMap.set(WTFMove(url), WTFMove(script));
+    m_scriptResourceMap.set(WTF::move(url), WTF::move(script));
 }
 
 void SWServerWorker::didSaveScriptsToDisk(ScriptBuffer&& mainScript, MemoryCompactRobinHoodHashMap<URL, ScriptBuffer>&& importedScripts)
@@ -288,14 +288,14 @@ void SWServerWorker::didSaveScriptsToDisk(ScriptBuffer&& mainScript, MemoryCompa
 
     // The scripts were saved to disk, replace our scripts with the mmap'd version to save dirty memory.
     ASSERT(mainScript == m_script); // Do a memcmp to make sure the scripts are identical.
-    m_script = WTFMove(mainScript);
+    m_script = WTF::move(mainScript);
     for (auto& pair : importedScripts) {
         auto it = m_scriptResourceMap.find(pair.key);
         ASSERT(it != m_scriptResourceMap.end());
         if (it == m_scriptResourceMap.end())
             continue;
         ASSERT(it->value.script == pair.value); // Do a memcmp to make sure the scripts are identical.
-        it->value.script = WTFMove(pair.value);
+        it->value.script = WTF::move(pair.value);
     }
 }
 
@@ -336,7 +336,7 @@ bool SWServerWorker::isIdle(Seconds idleTime) const
 void SWServerWorker::whenActivated(CompletionHandler<void(bool)>&& handler)
 {
     if (state() == ServiceWorkerState::Activating) {
-        m_whenActivatedHandlers.append(WTFMove(handler));
+        m_whenActivatedHandlers.append(WTF::move(handler));
         return;
     }
     ASSERT(state() == ServiceWorkerState::Activated);
@@ -372,7 +372,7 @@ void SWServerWorker::setState(ServiceWorkerState state)
 
 void SWServerWorker::callWhenActivatedHandler(bool success)
 {
-    auto whenActivatedHandlers = WTFMove(m_whenActivatedHandlers);
+    auto whenActivatedHandlers = WTF::move(m_whenActivatedHandlers);
     for (auto& handler : whenActivatedHandlers)
         handler(success);
 }
@@ -514,7 +514,7 @@ std::optional<ExceptionData> SWServerWorker::addRoutes(Vector<ServiceWorkerRoute
     if (routesConditionCount > maxRouteConditionCount)
         return ExceptionData { ExceptionCode::TypeError, "Too many routes are registered"_s };
 
-    m_routes.appendVector(WTFMove(routes));
+    m_routes.appendVector(WTF::move(routes));
 
     return { };
 }

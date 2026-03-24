@@ -44,7 +44,14 @@ U_NAMESPACE_USE
 void  processFile(const char *filename, const char* cp,
                   const char *inputDir, const char *outputDir, const char *filterDir,
                   const char *packageName,
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+                  SRBRoot *newPoolBundle, UBool omitBinaryCollation,
+                  const ResFile& poolBundle, UErrorCode &status);
+#else
                   SRBRoot *newPoolBundle, UBool omitBinaryCollation, UErrorCode &status);
+#endif // APPLE_ICU_CHANGES
 static char *make_res_filename(const char *filename, const char *outputDir,
                                const char *packageName, UErrorCode &status);
 
@@ -125,7 +132,11 @@ static     UBool       write_java = false;
 static     UBool       write_xliff = false;
 static     const char* outputEnc ="";
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static ResFile poolBundle;
+#endif // APPLE_ICU_CHANGES
 
 /*added by Jing*/
 static     const char* language = nullptr;
@@ -142,6 +153,11 @@ main(int argc,
     const char *encoding  = "";
     int         i;
     UBool illegalArg = false;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    ResFile poolBundle;
+#endif // APPLE_ICU_CHANGES
 
     U_MAIN_INIT_ARGS(argc, argv);
 
@@ -166,7 +182,7 @@ main(int argc,
     }
     if(options[FORMAT_VERSION].doesOccur) {
         const char *s = options[FORMAT_VERSION].value;
-        if(uprv_strlen(s) != 1 || (s[0] < '1' && '3' < s[0])) {
+        if(uprv_strlen(s) != 1 || (s[0] < '1' || '3' < s[0])) {
             fprintf(stderr, "%s: unsupported --formatVersion %s\n", argv[0], s);
             illegalArg = true;
         } else if(s[0] == '1' &&
@@ -562,9 +578,17 @@ main(int argc,
         if (isVerbose()) {
             printf("Processing file \"%s\"\n", theCurrentFileName.data());
         }
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+        processFile(arg, encoding, inputDir, outputDir, filterDir, nullptr,
+                    newPoolBundle.getAlias(),
+                    options[NO_BINARY_COLLATION].doesOccur, poolBundle, status);
+#else
         processFile(arg, encoding, inputDir, outputDir, filterDir, nullptr,
                     newPoolBundle.getAlias(),
                     options[NO_BINARY_COLLATION].doesOccur, status);
+#endif // APPLE_ICU_CHANGES
     }
 
     poolBundle.close();
@@ -603,7 +627,15 @@ processFile(const char *filename, const char *cp,
             const char *inputDir, const char *outputDir, const char *filterDir,
             const char *packageName,
             SRBRoot *newPoolBundle,
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+            UBool omitBinaryCollation,
+            const ResFile& poolBundle,
+            UErrorCode &status) {
+#else
             UBool omitBinaryCollation, UErrorCode &status) {
+#endif // APPLE_ICU_CHANGES
     LocalPointer<SRBRoot> data;
     LocalUCHARBUFPointer ucbuf;
     CharString openFileName;

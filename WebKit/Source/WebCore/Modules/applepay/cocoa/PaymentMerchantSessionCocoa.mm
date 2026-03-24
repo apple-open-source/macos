@@ -43,13 +43,13 @@ std::optional<PaymentMerchantSession> PaymentMerchantSession::fromJS(JSC::JSGlob
     if (!jsonString)
         return std::nullopt;
 
-    RetainPtr dictionary = dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:[jsonString.createNSString().get() dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil]);
+    RetainPtr dictionary = dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:retainPtr([jsonString.createNSString().get() dataUsingEncoding:NSUTF8StringEncoding]).get() options:0 error:nil]);
     if (!dictionary || ![dictionary isKindOfClass:[NSDictionary class]])
         return std::nullopt;
 
     RetainPtr pkPaymentMerchantSession = adoptNS([PAL::allocPKPaymentMerchantSessionInstance() initWithDictionary:dictionary.get()]);
 
-    return PaymentMerchantSession(WTFMove(pkPaymentMerchantSession));
+    return PaymentMerchantSession(WTF::move(pkPaymentMerchantSession));
 }
 
 }

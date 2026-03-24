@@ -98,8 +98,13 @@ main(int argc, char *argv[])
 	if (argc != 2)
 		usage();
 
-	if (realpath(argv[1], dir) == NULL)
-		err(1, "realpath %s", dir);
+	/* Skip calling realpath() if MNT_NOFOLLOW is set in order to prevent following symlinks, and just use the path as it is */
+	if (mntflags & MNT_NOFOLLOW) {
+		strlcpy(dir, argv[1], sizeof(dir));
+	} else {
+		if (realpath(argv[1], dir) == NULL)
+			err(1, "realpath %s", argv[1]);
+	}
 
 	if (mount("devfs", dir, mntflags, NULL))
 		err(1, NULL);

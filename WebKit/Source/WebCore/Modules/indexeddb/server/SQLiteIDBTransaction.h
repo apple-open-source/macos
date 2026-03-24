@@ -95,7 +95,7 @@ private:
     CheckedPtr<SQLiteDatabase> m_sqliteDatabase;
     std::unique_ptr<SQLiteTransaction> m_sqliteTransaction;
     HashMap<IDBResourceIdentifier, std::unique_ptr<SQLiteIDBCursor>> m_cursors;
-    HashSet<SQLiteIDBCursor*> m_backingStoreCursors;
+    HashSet<CheckedPtr<SQLiteIDBCursor>> m_backingStoreCursors;
     Vector<std::pair<String, String>> m_blobTemporaryAndStoredFilenames;
     MemoryCompactRobinHoodHashSet<String> m_blobRemovedFilenames;
 };

@@ -154,7 +154,7 @@ void AutoscrollController::updateAutoscrollRenderer()
 void AutoscrollController::updateDragAndDrop(Node* dropTargetNode, const IntPoint& eventPosition, MonotonicTime eventTime)
 {
     IntSize offset;
-    auto findDragAndDropScroller = [&]() -> RenderBox* {
+    auto findDragAndDropScroller = [&]() -> CheckedPtr<RenderBox> {
         if (!dropTargetNode)
             return nullptr;
 
@@ -170,7 +170,7 @@ void AutoscrollController::updateDragAndDrop(Node* dropTargetNode, const IntPoin
         if (offset.isZero())
             return nullptr;
 
-        return scrollable.unsafeGet();
+        return scrollable;
     };
     
     CheckedPtr scrollable = findDragAndDropScroller();

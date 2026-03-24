@@ -51,23 +51,23 @@
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:517282600.0]; // 23 May 2017
 
-    require_action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
                    fail("Failed to create root cert"));
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
+    __Require_Action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
                    fail("Failed to create leaf cert 1"));
 
     certs1 = @[(__bridge id)leaf1, (__bridge id)subca];
     test_anchors = @[(__bridge id)root];
 
     /* Test multiple pre-pended labels and intersecting name constraints in the subCA */
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 1"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
                          fail("Failed to set anchors"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 
@@ -86,23 +86,23 @@ errOut:
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:517282600.0]; // 23 May 2017
 
-    require_action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
                    fail("Failed to create root cert"));
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf2 = SecCertificateCreateWithBytes(NULL, _test_leaf2, sizeof(_test_leaf2)), errOut,
+    __Require_Action(leaf2 = SecCertificateCreateWithBytes(NULL, _test_leaf2, sizeof(_test_leaf2)), errOut,
                    fail("Failed to create leaf cert 2"));
 
     certs2 = @[(__bridge id)leaf2, (__bridge id)subca];
     test_anchors = @[(__bridge id)root];
 
     /* Test no pre-pended labels */
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs2,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs2,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 2"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
                          fail("Failed to set anchors"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 
@@ -121,23 +121,23 @@ errOut:
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:548800000.0]; // 23 May 2018
 
-    require_action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _test_root, sizeof(_test_root)), errOut,
                    fail("Failed to create root cert"));
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf3 = SecCertificateCreateWithBytes(NULL, _test_leaf3, sizeof(_test_leaf3)), errOut,
+    __Require_Action(leaf3 = SecCertificateCreateWithBytes(NULL, _test_leaf3, sizeof(_test_leaf3)), errOut,
                    fail("Failed to create leaf cert 3"));
 
     certs3 = @[(__bridge id)leaf3, (__bridge id)subca];
     test_anchors = @[(__bridge id)root];
 
     /* Test DNS-looking Common Name */
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs3,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs3,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 3"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
                          fail("Failed to set anchors"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 
@@ -160,17 +160,17 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:517282600.0]; // 23 May 2017
     id persistentRef = nil;
 
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
+    __Require_Action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
                    fail("Failed to create leaf cert 1"));
 
     certs1 = @[(__bridge id)leaf1, (__bridge id)subca];
     persistentRef = [self addTrustSettingsForCert:subca];  // subCA has name constraints
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 1"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
     [self removeTrustSettingsForCert:subca persistentRef:persistentRef];
@@ -188,20 +188,20 @@ errOut:
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:517282600.0]; // 23 May 2017
 
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
+    __Require_Action(leaf1 = SecCertificateCreateWithBytes(NULL, _test_leaf1, sizeof(_test_leaf1)), errOut,
                    fail("Failed to create leaf cert 1"));
 
     certs1 = @[(__bridge id)leaf1, (__bridge id)subca];
     test_anchors = @[(__bridge id)subca]; // subCA has name constraints
 
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 1"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
                          fail("Failed to set anchors"));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 errOut:
@@ -222,17 +222,17 @@ errOut:
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // 23 May 2017
     id persistentRef = nil;
 
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf4 = SecCertificateCreateWithBytes(NULL, _test_leaf4, sizeof(_test_leaf4)), errOut,
+    __Require_Action(leaf4 = SecCertificateCreateWithBytes(NULL, _test_leaf4, sizeof(_test_leaf4)), errOut,
                    fail("Failed to create leaf cert 4"));
 
     certs1 = @[(__bridge id)leaf4, (__bridge id)subca];
     persistentRef = [self addTrustSettingsForCert:subca];  // subCA has name constraints
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 4"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
     [self removeTrustSettingsForCert:subca persistentRef:persistentRef];
@@ -250,20 +250,20 @@ errOut:
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // 23 May 2017
 
-    require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
+    __Require_Action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
-    require_action(leaf4 = SecCertificateCreateWithBytes(NULL, _test_leaf4, sizeof(_test_leaf4)), errOut,
+    __Require_Action(leaf4 = SecCertificateCreateWithBytes(NULL, _test_leaf4, sizeof(_test_leaf4)), errOut,
                    fail("Failed to create leaf cert 4"));
 
     certs1 = @[(__bridge id)leaf4, (__bridge id)subca];
     test_anchors = @[(__bridge id)subca]; // subCA has name constraints
 
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 4"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)test_anchors), errOut,
                          fail("Failed to set anchors"));
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 errOut:
@@ -338,14 +338,14 @@ static NSURL *tmpCertsDir = nil;
         testPlist = [[NSBundle bundleForClass:[self class]] URLForResource:@"expects" withExtension:@"plist"
                                                               subdirectory:kSecTrustTestNameConstraintsResources];
     }
-    require_action_quiet(testPlist, exit,
+    __Require_Action_Quiet(testPlist, exit,
                          fail("Failed to get tests plist from %@", kSecTrustTestNameConstraintsResources));
     testsDict = [NSDictionary dictionaryWithContentsOfURL:testPlist];
-    require_action_quiet(testsDict, exit, fail("Failed to decode tests plist into dictionary"));
+    __Require_Action_Quiet(testsDict, exit, fail("Failed to decode tests plist into dictionary"));
 
     testsArray = testsDict[@"expects"];
-    require_action_quiet(testsArray, exit, fail("Failed to get expects array from test dictionary"));
-    require_action_quiet([testsArray isKindOfClass:[NSArray class]], exit, fail("expected array of tests"));
+    __Require_Action_Quiet(testsArray, exit, fail("Failed to get expects array from test dictionary"));
+    __Require_Action_Quiet([testsArray isKindOfClass:[NSArray class]], exit, fail("expected array of tests"));
 
 exit:
     return testsArray;
@@ -519,11 +519,11 @@ exit:
     SecPolicyRef policy = SecPolicyCreateSSL(true, (__bridge CFStringRef)hostname);
     SecTrustRef trust = NULL;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:531900000.0]; /* November 8, 2017 at 10:00:00 PM PST */
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), exit,
+    __Require_noErr_Action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), exit,
                          fail("Failed to create trust ref"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), exit,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), exit,
                          fail("Failed to add anchor"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), exit,
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), exit,
                          fail("Failed to set verify date"));
     result = SecTrustEvaluateWithError(trust, nil);
 

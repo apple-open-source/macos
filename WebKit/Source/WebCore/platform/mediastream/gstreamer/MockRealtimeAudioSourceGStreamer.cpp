@@ -64,22 +64,22 @@ CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, AtomStri
         return CaptureSourceOrError({ "No mock microphone device"_s, MediaAccessDenialReason::PermissionDenied });
 #endif
 
-    auto source = adoptRef(*new MockRealtimeAudioSourceGStreamer(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts)));
+    auto source = adoptRef(*new MockRealtimeAudioSourceGStreamer(WTF::move(deviceID), WTF::move(name), WTF::move(hashSalts)));
     if (constraints) {
         if (auto error = source->applyConstraints(*constraints))
             return CaptureSourceOrError(CaptureSourceError { error->invalidConstraint });
     }
 
-    return CaptureSourceOrError(WTFMove(source));
+    return CaptureSourceOrError(WTF::move(source));
 }
 
 Ref<MockRealtimeAudioSource> MockRealtimeAudioSourceGStreamer::createForMockAudioCapturer(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts)
 {
-    return adoptRef(*new MockRealtimeAudioSourceGStreamer(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts)));
+    return adoptRef(*new MockRealtimeAudioSourceGStreamer(WTF::move(deviceID), WTF::move(name), WTF::move(hashSalts)));
 }
 
 MockRealtimeAudioSourceGStreamer::MockRealtimeAudioSourceGStreamer(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts)
-    : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), { })
+    : MockRealtimeAudioSource(WTF::move(deviceID), WTF::move(name), WTF::move(hashSalts), { })
 {
     ensureGStreamerInitialized();
     allMockRealtimeAudioSourcesStorage().add(this);
@@ -91,13 +91,13 @@ MockRealtimeAudioSourceGStreamer::MockRealtimeAudioSourceGStreamer(String&& devi
         return;
 
     device->setIsMockDevice(true);
-    m_capturer = adoptRef(*new GStreamerAudioCapturer(WTFMove(*device)));
+    m_capturer = adoptRef(*new GStreamerAudioCapturer(WTF::move(*device)));
     m_capturer->addObserver(*this);
     m_capturer->setupPipeline();
     m_capturer->setSinkAudioCallback([this](auto&& sample, auto&& presentationTime) {
         const auto& info = m_streamFormat->getInfo();
         auto samplesCount = gst_buffer_get_size(gst_sample_get_buffer(sample.get())) / m_streamFormat->bytesPerFrame();
-        GStreamerAudioData data(WTFMove(sample), info);
+        GStreamerAudioData data(WTF::move(sample), info);
         audioSamplesAvailable(presentationTime, data, *m_streamFormat, samplesCount);
     });
     singleton.registerCapturer(m_capturer);

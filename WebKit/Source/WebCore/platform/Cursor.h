@@ -241,7 +241,7 @@ inline Cursor::Type Cursor::type() const
 
 inline std::optional<Cursor> Cursor::fromIPCData(IPCData&& ipcData)
 {
-    return WTF::switchOn(WTFMove(ipcData), [](Type&& type) -> std::optional<Cursor> {
+    return WTF::switchOn(WTF::move(ipcData), [](Type&& type) -> std::optional<Cursor> {
         if (type == Type::Invalid || type == Type::Custom)
             return std::nullopt;
         auto& cursorReference = Cursor::fromType(type);

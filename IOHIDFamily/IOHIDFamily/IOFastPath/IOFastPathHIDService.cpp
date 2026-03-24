@@ -51,18 +51,18 @@ static IOHIDEvent * getMatchingChildEvent(IOHIDEvent * event, IOHIDEventType typ
 {
     IOHIDEvent * ret = nullptr;
     OSArray * children = event->getChildren();
-    require_quiet(children, exit);
+    __Require_Quiet(children, exit);
 
     for (unsigned int i = 0, count = children->getCount(); i < count; ++i) {
         IOHIDEvent * child = OSRequiredCast(IOHIDEvent, children->getObject(i));
-        require_quiet(type == child->getType(), loop);
+        __Require_Quiet(type == child->getType(), loop);
         if (type == kIOHIDEventTypeVendorDefined) {
-            require_quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsagePage), loop);
-            require_quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsage), loop);
+            __Require_Quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsagePage), loop);
+            __Require_Quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldVendorDefinedUsage), loop);
         }
         else if (type == kIOHIDEventTypeCollection) {
-            require_quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldCollectionUsagePage), loop);
-            require_quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldCollectionUsage), loop);
+            __Require_Quiet(page == 0 || page == child->getIntegerValue(kIOHIDEventFieldCollectionUsagePage), loop);
+            __Require_Quiet(usage == 0 || usage == child->getIntegerValue(kIOHIDEventFieldCollectionUsage), loop);
         }
         ret = child;
         break;
@@ -91,7 +91,7 @@ IOFastPathHIDService::start(IOService * provider)
     _service = OSSharedPtr<IOHIDEventService>(OSRequiredCast(IOHIDEventService, provider), OSRetain);
 
     started = super::start(provider);
-    require_action(started, exit, HIDServiceLogError("super::start failed"));
+    __Require_Action(started, exit, HIDServiceLogError("super::start failed"));
 
     prop = getProvider()->copyProperty(kIOHIDPhysicalDeviceUniqueIDKey, gIOServicePlane);
     if (prop) {
@@ -103,7 +103,7 @@ IOFastPathHIDService::start(IOService * provider)
     _sample->appendBytes(NULL, copyDescriptor()->getSampleSize());
 
     opened = _service->open(this, 0, NULL, OSMemberFunctionCast(IOHIDEventService::Action, this, &IOFastPathHIDService::handleEvent));
-    require_action(opened, exit, HIDServiceLogError("failed to open provider"));
+    __Require_Action(opened, exit, HIDServiceLogError("failed to open provider"));
 
     success = true;
 
@@ -150,9 +150,9 @@ IOFastPathHIDService::getSyncedTimestampForHIDEvent(IOHIDEvent * event)
     UInt64 timestamp = 0;
 
     IOHIDEvent * child = getMatchingChildEvent(event, kIOHIDEventTypeVendorDefined, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp);
-    require_quiet(child, exit); // no time sync child event
-    require_quiet(child->getDataValue(kIOHIDEventFieldVendorDefinedData), exit);
-    require_quiet(child->getIntegerValue(kIOHIDEventFieldVendorDefinedDataLength) == sizeof(UInt64), exit);
+    __Require_Quiet(child, exit); // no time sync child event
+    __Require_Quiet(child->getDataValue(kIOHIDEventFieldVendorDefinedData), exit);
+    __Require_Quiet(child->getIntegerValue(kIOHIDEventFieldVendorDefinedDataLength) == sizeof(UInt64), exit);
 
     timestamp = *(UInt64 *)child->getDataValue(kIOHIDEventFieldVendorDefinedData);
 
@@ -167,8 +167,8 @@ IOFastPathHIDService::doTimeSyncForLocalTimeGated(UInt64 timestamp, OSData ** ou
     OSSharedPtr<IOHIDComplexEventDriver> service = OSDynamicPtrCast<IOHIDComplexEventDriver>(_service);
 
     assert(getWorkLoop()->inGate());
-    require_action_quiet(!isInactive(), exit, ret = kIOReturnOffline);
-    require_action_quiet(service, exit, ret = kIOReturnUnsupported);
+    __Require_Action_Quiet(!isInactive(), exit, ret = kIOReturnOffline);
+    __Require_Action_Quiet(service, exit, ret = kIOReturnUnsupported);
 
     ret = service->convertMachToDeviceTimestamp(timestamp, outTime);
 
@@ -187,7 +187,7 @@ IOFastPathHIDAccelService::start(IOService * provider)
     setName("accel");
 
     bool ok = super::start(provider);
-    require(ok, exit);
+    __Require(ok, exit);
 
     registerService();
 
@@ -253,6 +253,7 @@ IOFastPathHIDAccelService::handleAccelerometerEvent(IOHIDEvent * event)
     }
 }
 
+
 #pragma mark - IOFastPathGyroHIDService
 
 OSDefineMetaClassAndStructors(IOFastPathHIDGyroService, IOFastPathHIDService);
@@ -263,7 +264,7 @@ IOFastPathHIDGyroService::start(IOService * provider)
     setName("gyro");
 
     bool ok = super::start(provider);
-    require(ok, exit);
+    __Require(ok, exit);
 
     registerService();
 
@@ -329,6 +330,7 @@ IOFastPathHIDGyroService::handleGyroEvent(IOHIDEvent * event)
     }
 }
 
+
 #if APPLE_FEATURE_P192
 
 #pragma mark - IOFastPathHIDButtonService
@@ -341,7 +343,7 @@ IOFastPathHIDButtonService::start(IOService * provider)
     setName("buttons");
 
     bool ok = super::start(provider);
-    require_quiet(ok, exit);
+    __Require_Quiet(ok, exit);
 
     registerService();
 
@@ -455,13 +457,13 @@ IOFastPathHIDLEDService::start(IOService * provider)
     IOHIDDevice * device;
     bool ok = false;
 
-    require(super::start(provider), exit);
+    __Require(super::start(provider), exit);
 
     interface = OSDynamicCast(IOHIDInterface, provider->getProvider());
-    require_quiet(interface, exit);
+    __Require_Quiet(interface, exit);
 
     device = OSDynamicCast(IOHIDDevice, interface->getProvider());
-    require_quiet(device, exit);
+    __Require_Quiet(device, exit);
 
     _device = OSSharedPtr<IOHIDDevice>(device, OSRetain);
     assert(_device);
@@ -543,8 +545,8 @@ IOFastPathHIDLEDService::timerCallback(IOTimerEventSource * sender)
     LEDState newState;
 
     ret = IOCircularDataQueueCopyLatest(getQueue(), buf, &size);
-    require_action_quiet(ret != kIOReturnUnderrun, exit, emptyQueueTimerCnt++);
-    require_noerr_action_quiet(ret, exit, HIDServiceLogError("IOCircularDataQueueCopyLatest:0x%x", ret));
+    __Require_Action_Quiet(ret != kIOReturnUnderrun, exit, emptyQueueTimerCnt++);
+    __Require_noErr_Action_Quiet(ret, exit, HIDServiceLogError("IOCircularDataQueueCopyLatest:0x%x", ret));
 
     if (!dequeuedSample) {
         HIDServiceLogDebug("%llu attempts to dequeue before first enqueue", emptyQueueTimerCnt);
@@ -569,7 +571,7 @@ IOFastPathHIDLEDService::parseElements(OSArray * elements)
     bool success = false;
     bool parsed = false;
     unsigned int numParsed = 0;
-    require_quiet(elements, exit);
+    __Require_Quiet(elements, exit);
 
     for (unsigned int i = 0, count = elements->getCount(); i < count; ++i) {
         IOHIDElementPrivate * element = OSRequiredCast(IOHIDElementPrivate, elements->getObject(i));
@@ -634,10 +636,10 @@ IOFastPathHIDLEDService::parseElements(OSArray * elements)
             default:
                 break;
         }
-        require_quiet(parsed, exit);
+        __Require_Quiet(parsed, exit);
         ++numParsed;
     }
-    require_quiet(numParsed == NUM_REQUIRED_LED_ELEMENTS, exit);
+    __Require_Quiet(numParsed == NUM_REQUIRED_LED_ELEMENTS, exit);
 
     success = true;
 
@@ -652,12 +654,12 @@ IOFastPathHIDLEDService::parseElement(IOHIDElementPrivate * element, UInt32 page
     assert(output);
     bool success = false;
 
-    require_quiet(element, exit);
-    require_quiet(element->getUsagePage() == page, exit);
-    require_quiet(element->getUsage() == usage, exit);
-    require_quiet(element->getType() == type, exit);
-    require_quiet(bits == 0 || element->getReportSize() == bits, exit);
-    require_quiet(*output == nullptr, exit);
+    __Require_Quiet(element, exit);
+    __Require_Quiet(element->getUsagePage() == page, exit);
+    __Require_Quiet(element->getUsage() == usage, exit);
+    __Require_Quiet(element->getType() == type, exit);
+    __Require_Quiet(bits == 0 || element->getReportSize() == bits, exit);
+    __Require_Quiet(*output == nullptr, exit);
 
     *output = element;
     success = true;
@@ -724,7 +726,7 @@ IOFastPathHIDLEDService::updateLEDState(LEDState newState)
 
     // do timesync as first step; if unsuccessful, don't change anything
     ret = doTimeSyncForLocalTimeGated(newState.pulseMidpoint, &ts);
-    require_noerr_action_quiet(ret, exit, HIDServiceLogError("doTimeSyncForLocalTimeGated:0x%x", ret));
+    __Require_noErr_Action_Quiet(ret, exit, HIDServiceLogError("doTimeSyncForLocalTimeGated:0x%x", ret));
 
     _ledState = newState;
 
@@ -749,7 +751,7 @@ IOFastPathHIDLEDService::updateLEDState(LEDState newState)
     _blinkOffTime->setDataBits(data.get());
 
     ret = _device->postElementValues(cookies, count);
-    require_noerr_action_quiet(ret, exit, HIDServiceLogError("setLEDOutputReport:0x%x", ret));
+    __Require_noErr_Action_Quiet(ret, exit, HIDServiceLogError("setLEDOutputReport:0x%x", ret));
 
 exit:
     OSSafeReleaseNULL(ts);

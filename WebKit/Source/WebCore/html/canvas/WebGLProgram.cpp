@@ -57,7 +57,7 @@ Lock& WebGLProgram::instancesLock()
 
 RefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContextBase& context)
 {
-    auto object = context.protectedGraphicsContextGL()->createProgram();
+    auto object = context.graphicsContextGL()->createProgram();
     if (!object)
         return nullptr;
     return adoptRef(*new WebGLProgram { context, object });
@@ -192,9 +192,8 @@ void WebGLProgram::cacheInfoIfNeeded()
         return;
     GCGLint linkStatus = context->getProgrami(object(), GraphicsContextGL::LINK_STATUS);
     m_linkStatus = linkStatus;
-    if (m_linkStatus) {
+    if (m_linkStatus)
         m_requiredTransformFeedbackBufferCount = m_requiredTransformFeedbackBufferCountAfterNextLink;
-    }
     m_infoValid = true;
 }
 

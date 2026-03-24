@@ -66,4 +66,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIWebRequest, webRequest);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cmdtab.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "def.h"
 #include "extern.h"
 
@@ -74,11 +66,15 @@ const struct cmd cmdtab[] = {
 	{ "unread",	unread,		MSGLIST,	0,	MMNDEL	},
 	{ "!",		shell,		I|STRLIST,	0,	0	},
 	{ "copy",	copycmd,	M|STRLIST,	0,	0 	},
+#ifdef __APPLE__
 	{ "Copy",	Capcopycmd,	MSGLIST,	0,	0 	},
+#endif
 	{ "chdir",	schdir,		M|RAWLIST,	0,	1 	},
 	{ "cd",		schdir,		M|RAWLIST,	0,	1 	},
 	{ "save",	save,		STRLIST,	0,	0	},
+#ifdef __APPLE__
 	{ "Save",	Capsave,	STRLIST,	0,	0	},
+#endif
 	{ "source",	source,		M|RAWLIST,	1,	1	},
 	{ "set",	set,		M|RAWLIST,	0,	1000 	},
 	{ "shell",	dosh,		I|NOLIST,	0,	0 	},
@@ -87,12 +83,16 @@ const struct cmd cmdtab[] = {
 	{ "write",	swrite,		STRLIST,	0,	0 	},
 	{ "from",	from,		MSGLIST,	0,	MMNORM	},
 	{ "file",	file,		T|M|RAWLIST,	0,	1 	},
+#ifdef __APPLE__
 	{ "followup",	followup,	MSGLIST,	0,	0 	},
+#endif
 	{ "folder",	file,		T|M|RAWLIST,	0,	1 	},
 	{ "folders",	folders,	T|M|NOLIST,	0,	0 	},
+#ifdef __APPLE__
 	{ "Followup",	Capfollowup,	MSGLIST,	0,	0 	},
 	{ "|",		mailpipe,	STRLIST,	0,	0 	},
 	{ "pipe",	mailpipe,	STRLIST,	0,	0 	},
+#endif
 	{ "?",		help,		M|NOLIST,	0,	0 	},
 	{ "z",		scroll,		M|STRLIST,	0,	0 	},
 	{ "headers",	headers,	MSGLIST,	0,	MMNDEL	},

@@ -21,6 +21,8 @@
 #include "config.h"
 #include "JSTestDictionary.h"
 
+#include "DOMWrapperWorld.h"
+#include "JSDOMConvertBoolean.h"
 #include "JSDOMConvertNumbers.h"
 #include <JavaScriptCore/JSCInlines.h>
 
@@ -40,6 +42,21 @@ template<> ConversionResult<IDLDictionary<TestDictionary>> convertDictionary<Tes
         return ConversionResultException { };
     }
     TestDictionary result;
+    if (worldForDOMObject(*&lexicalGlobalObject).someWorld()) {
+        JSValue guardedMemberValue;
+        if (isNullOrUndefined)
+            guardedMemberValue = jsUndefined();
+        else {
+            guardedMemberValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "guardedMember"_s));
+            RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+        }
+        if (!guardedMemberValue.isUndefined()) {
+            auto guardedMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, guardedMemberValue);
+            if (guardedMemberConversionResult.hasException(throwScope)) [[unlikely]]
+                return ConversionResultException { };
+            result.guardedMember = guardedMemberConversionResult.releaseReturnValue();
+        }
+    }
     JSValue memberValue;
     if (isNullOrUndefined)
         memberValue = jsUndefined();

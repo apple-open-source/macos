@@ -275,7 +275,7 @@ class WEBCORE_EXPORT BlurFilterOperation : public FilterOperation {
 public:
     static Ref<BlurFilterOperation> create(float stdDeviation)
     {
-        return adoptRef(*new BlurFilterOperation(WTFMove(stdDeviation)));
+        return adoptRef(*new BlurFilterOperation(WTF::move(stdDeviation)));
     }
 
     Ref<FilterOperation> clone() const override

@@ -43,6 +43,7 @@
 #include "csdatabase.h"
 #endif
 #include "dirscanner.h"
+#include "featureflags/featureflags.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
@@ -90,6 +91,9 @@
 #if TARGET_OS_OSX
 #import <rootless.h>
 #endif
+
+#import <utilities/SecCoreAnalytics.h>
+#import <CoreAnalytics/CoreAnalytics.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -1639,6 +1643,13 @@ bool SecStaticCode::hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t ver
 }
 
 
+
+#if TARGET_OS_OSX
+#endif // TARGET_OS_OSX
+
+
+
+
 //
 // Load, validate, cache, and return CFDictionary forms of sealed resources.
 //
@@ -2816,6 +2827,8 @@ void SecStaticCode::staticValidateCore(SecCSFlags flags, const SecRequirement *r
 	try {
 		this->validateNonResourceComponents();	// also validates the CodeDirectory
 		this->validateTopDirectory();
+#if TARGET_OS_OSX
+#endif
 		if (!(flags & kSecCSDoNotValidateExecutable))
 			this->validateExecutable();
 		if (req)

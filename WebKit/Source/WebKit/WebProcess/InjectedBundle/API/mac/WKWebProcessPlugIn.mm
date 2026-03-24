@@ -37,20 +37,22 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 
-@interface WKWebProcessPlugInController () {
+@implementation WKWebProcessPlugInController {
     AlignedStorage<WebKit::InjectedBundle> _bundle;
     RetainPtr<id <WKWebProcessPlugIn>> _principalClassInstance;
 }
-@end
 
-@implementation WKWebProcessPlugInController
+static Ref<WebKit::InjectedBundle> protectedBundle(WKWebProcessPlugInController *controller)
+{
+    return *controller->_bundle;
+}
 
 - (void)dealloc
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebProcessPlugInController.class, self))
         return;
 
-    _bundle->~InjectedBundle();
+    SUPPRESS_UNCOUNTED_ARG _bundle->~InjectedBundle();
 
     [super dealloc];
 }
@@ -61,7 +63,7 @@ static void didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* 
     RetainPtr principalClassInstance = plugInController->_principalClassInstance.get();
 
     if ([principalClassInstance respondsToSelector:@selector(webProcessPlugIn:didCreateBrowserContextController:)])
-        [principalClassInstance webProcessPlugIn:plugInController didCreateBrowserContextController:wrapper(*WebKit::toImpl(page))];
+        [principalClassInstance webProcessPlugIn:plugInController didCreateBrowserContextController:protectedWrapper(*WebKit::toProtectedImpl(page)).get()];
 }
 
 static void willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
@@ -70,7 +72,7 @@ static void willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void
     RetainPtr principalClassInstance = plugInController->_principalClassInstance.get();
 
     if ([principalClassInstance respondsToSelector:@selector(webProcessPlugIn:willDestroyBrowserContextController:)])
-        [principalClassInstance webProcessPlugIn:plugInController willDestroyBrowserContextController:wrapper(*WebKit::toImpl(page))];
+        [principalClassInstance webProcessPlugIn:plugInController willDestroyBrowserContextController:protectedWrapper(*WebKit::toProtectedImpl(page)).get()];
 }
 
 static void setUpBundleClient(WKWebProcessPlugInController *plugInController, WebKit::InjectedBundle& bundle)
@@ -91,12 +93,12 @@ static void setUpBundleClient(WKWebProcessPlugInController *plugInController, We
     ASSERT(!_principalClassInstance);
     _principalClassInstance = principalClassInstance;
 
-    setUpBundleClient(self, *_bundle);
+    setUpBundleClient(self, protectedBundle(self));
 }
 
 - (id)parameters
 {
-    return _bundle->bundleParameters();
+    return protectedBundle(self)->bundleParameters();
 }
 
 static Ref<API::Array> createWKArray(NSArray *array)
@@ -110,13 +112,13 @@ static Ref<API::Array> createWKArray(NSArray *array)
             strings.append(adoptRef(WebKit::toImpl(WKStringCreateWithCFString((__bridge CFStringRef)entry))));
     }
     
-    return API::Array::create(WTFMove(strings));
+    return API::Array::create(WTF::move(strings));
 }
 
 - (void)extendClassesForParameterCoder:(NSArray *)classes
 {
     auto classList = createWKArray(classes);
-    _bundle->extendClassesForParameterCoder(classList.get());
+    protectedBundle(self)->extendClassesForParameterCoder(classList.get());
 }
 
 #pragma mark WKObject protocol implementation
@@ -132,7 +134,7 @@ static Ref<API::Array> createWKArray(NSArray *array)
 
 - (WKBundleRef)_bundleRef
 {
-    return toAPI(_bundle.get());
+    return toAPI(protectedBundle(self).ptr());
 }
 
 @end

@@ -130,10 +130,10 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     CFRetain(pi->gestalt);
     
     pubKey = SOSPeerInfoCopyPubKey(pi, error);
-    require_quiet(pubKey, fail);
+    __Require_Quiet(pubKey, fail);
     
     pi->peerID = SOSCopyIDOfKey(pubKey, error);
-    require_quiet(pi->peerID, fail);
+    __Require_Quiet(pi->peerID, fail);
     pi->spid = CFStringCreateTruncatedCopy(pi->peerID, 8);
 
     if(pi->version >= 2) SOSPeerInfoExpandV2Data(pi, error);

@@ -1816,6 +1816,314 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         }
     }
 
+    func storeEscrowKeyWithInsufficientProtectionClass(keyData: Data, label: String, applicationLabel: String) throws -> Bool {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassKey,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecUseDataProtectionKeychain: true,
+            kSecAttrAccessGroup: "com.apple.security.octagon",
+            kSecAttrSynchronizable: false,
+            kSecAttrApplicationLabel: applicationLabel,
+            kSecAttrLabel: label,
+            kSecValueData: keyData,
+            ]
+        return try EscrowKeys.setKeyMaterialInKeychain(query: query)
+    }
+
+    func storeRecoveryKeyWithInsufficientProtectionClass(keyData: Data, label: String, applicationLabel: String) throws -> Bool {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassKey,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecUseDataProtectionKeychain: true,
+            kSecAttrAccessGroup: "com.apple.security.octagon",
+            kSecAttrSynchronizable: false,
+            kSecAttrApplicationLabel: applicationLabel,
+            kSecAttrLabel: label,
+            kSecValueData: keyData,
+            ]
+        return try RecoveryKeySet.setKeyMaterialInKeychain(query: query)
+    }
+
+    func saveSecrethWithInsufficientProtectionClass(_ secret: Data, label: String) throws {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassInternetPassword,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecUseDataProtectionKeychain: true,
+            kSecAttrAccessGroup: "com.apple.security.octagon",
+            kSecAttrSynchronizable: false,
+            kSecAttrDescription: label,
+            kSecAttrPath: label,
+            kSecValueData: secret,
+            ]
+        return try saveSecretInKeychain(query: query, secret: secret, label: label)
+    }
+
+    func loadAllSecretItems(label: String?) throws -> [[CFString: Any]]? {
+        var secretSet: [[CFString: Any]]?
+
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassInternetPassword,
+            kSecAttrAccessGroup: "com.apple.security.octagon",
+            kSecReturnAttributes: true,
+            kSecReturnData: true,
+            kSecAttrSynchronizable: false,
+            kSecUseDataProtectionKeychain: true,
+            kSecMatchLimit: kSecMatchLimitAll,
+        ]
+
+        if let label = label {
+            query[kSecAttrDescription] = label
+        }
+
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        if status != errSecSuccess || result == nil {
+            throw ContainerError.failedToLoadSecret(errorCode: Int(status))
+        }
+
+        if result != nil {
+            if let dictionaryArray = result as? [[CFString: Any]] {
+                secretSet = dictionaryArray
+            } else {
+                if let dictionary = result as? [CFString: Any] {
+                    secretSet = [dictionary]
+                } else {
+                    secretSet = nil
+                }
+            }
+        }
+
+        return secretSet
+    }
+
+    func verifyEscrowKeysHaveThisDeviceOnlyProtection(expectedCount: Int, labels: [String], context: String) throws {
+        var allKeys: [[CFString: Any]] = []
+        for label in labels {
+            guard let keys = try EscrowKeys.retrieveEscrowKeysFromKeychain(label: label) else {
+                XCTFail("Retrieved keys for label \(label) should not be nil \(context)")
+                return
+            }
+            allKeys.append(contentsOf: keys)
+        }
+
+        XCTAssertEqual(allKeys.count, expectedCount, "Should have \(expectedCount) keys \(context)")
+        for (index, key) in allKeys.enumerated() {
+            guard key[kSecAttrLabel] is String, let accessible = key[kSecAttrAccessible] as? String else {
+                XCTFail("Key at index \(index) should have a label and accessible attribute \(context)")
+                continue
+            }
+            XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Should have WhenUnlockedThisDeviceOnly protection \(context)")
+        }
+    }
+
+    func verifyRecoveryKeysHaveThisDeviceOnlyProtection(expectedCount: Int, labels: [String], context: String) throws {
+        var allKeys: [[CFString: Any]] = []
+        for label in labels {
+            guard let keys = try RecoveryKeySet.retrieveRecoveryKeysFromKeychain(label: label) else {
+                XCTFail("Retrieved recovery keys for label \(label) should not be nil \(context)")
+                return
+            }
+            allKeys.append(contentsOf: keys)
+        }
+
+        XCTAssertEqual(allKeys.count, expectedCount, "Should have \(expectedCount) recovery keys \(context)")
+        for (index, key) in allKeys.enumerated() {
+            guard key[kSecAttrLabel] is String, let accessible = key[kSecAttrAccessible] as? String else {
+                XCTFail("Recovery key at index \(index) should have a label and accessible attribute \(context)")
+                continue
+            }
+            XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Should have WhenUnlockedThisDeviceOnly protection \(context)")
+        }
+    }
+
+    func verifySecretsHaveThisDeviceOnlyProtection(expectedCount: Int, labels: [String], context: String) throws {
+        var allSecrets: [[CFString: Any]] = []
+        for label in labels {
+            guard let secrets = try loadAllSecretItems(label: label) else {
+                XCTFail("Retrieved secrets for label \(label) should not be nil \(context)")
+                return
+            }
+            allSecrets.append(contentsOf: secrets)
+        }
+
+        XCTAssertEqual(allSecrets.count, expectedCount, "Should have \(expectedCount) secrets \(context)")
+        for (index, secret) in allSecrets.enumerated() {
+            guard let accessible = secret[kSecAttrAccessible] as? String else {
+                XCTFail("Secret at index \(index) should have an accessible attribute \(context)")
+                continue
+            }
+            XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Should have WhenUnlockedThisDeviceOnly protection \(context)")
+        }
+    }
+
+    func testPeerSecretsFixUp() throws {
+        // Add one set of Escrow, Recovery keys and entropy secret with `kSecAttrAccessibleWhenUnlocked` and one set of each with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`. Make sure after fixup everthing becomes `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+        let key1Label: String
+        let key2Label: String
+        let recKey1Label: String
+        let recKey2Label: String
+
+        do { // Escrow keys
+            let secret = Data("I'm a secretI'm a secretI'm a secretI'm a secretI'm a secretI'm a secret".utf8)
+
+            // Generate first escrow key set
+            let key1SigningKey = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySigning, escrowSecret: secret, bottleSalt: testDSID)
+            XCTAssertEqual(key1SigningKey, signingKey_384, "signing keys should match")
+
+            let key1EncryptionKey = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeyEncryption, escrowSecret: secret, bottleSalt: testDSID)
+            XCTAssertEqual(key1EncryptionKey, encryptionKey_384, "encryption keys should match")
+
+            let key1SymmetricKey = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySymmetric, escrowSecret: secret, bottleSalt: testDSID)
+            XCTAssertEqual(key1SymmetricKey, symmetricKey_384, "symmetric keys should match")
+
+            let key1SigningKeySF = _SFECKeyPair.init(secKey: try EscrowKeys.createSecKey(keyData: key1SigningKey))
+            key1Label = try EscrowKeys.hashEscrowedSigningPublicKey(keyData: key1SigningKeySF.publicKey().spki())
+
+            // Store generated first escrow key set with hash-based label and insufficient protection
+            let result1 = try storeEscrowKeyWithInsufficientProtectionClass(keyData: key1SigningKey, label: key1Label, applicationLabel: "Escrowed Signing Key")
+            XCTAssertTrue(result1, "first signing key should be stored successfully")
+
+            let result2 = try storeEscrowKeyWithInsufficientProtectionClass(keyData: key1EncryptionKey, label: key1Label, applicationLabel: "Escrowed Encryption Key")
+            XCTAssertTrue(result2, "first encryption key should be stored successfully")
+
+            let result3 = try storeEscrowKeyWithInsufficientProtectionClass(keyData: key1SymmetricKey, label: key1Label, applicationLabel: "Escrowed Symmetric Key")
+            XCTAssertTrue(result3, "first symmetric key should be stored successfully")
+
+            // Generate second escrow key set with different secret/salt. This will generate all three key pairs by itself and with necessary protections
+            let keys2 = try EscrowKeys(secret: Data("abcs".utf8), bottleSalt: "123")
+            XCTAssertNotNil(keys2, "keys2 should be successfully created")
+            key2Label = try EscrowKeys.hashEscrowedSigningPublicKey(keyData: keys2.signingKey.publicKey().spki())
+
+            // Expected labels before fixup
+            let expectedLabels = Set([key1Label, key2Label])
+
+            // Retrieve escrow keys before fixup
+            guard let keys1 = try EscrowKeys.retrieveEscrowKeysFromKeychain(label: key1Label),
+                  let keys2 = try EscrowKeys.retrieveEscrowKeysFromKeychain(label: key2Label) else {
+                XCTFail("Retrieved keys should not be nil")
+                return
+            }
+            let keys = keys1 + keys2
+
+            XCTAssertEqual(keys.count, 6, "Should have 6 keys before fixup")
+            var foundLabels = Set<String>()
+            for (index, key) in keys.enumerated() {
+                guard let label = key[kSecAttrLabel] as? String, let accessible = key[kSecAttrAccessible] as? String  else {
+                    XCTFail("Key at index \(index) should have a label an accessible attribute")
+                    continue
+                }
+                foundLabels.insert(label)
+                if label == key1Label {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlocked as String, "First label keys should have WhenUnlocked protection before fixup")
+                } else if label == key2Label {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Second label keys should have WhenUnlockedThisDeviceOnly protection before fixup")
+                }
+            }
+            XCTAssertEqual(foundLabels, expectedLabels, "Labels should match expected hash values before fixup")
+        }
+        do {
+            // Recovery keys
+            let recoveryKeySecret = Data("I'm a secretI'm a secretI'm a secretI'm a secretI'm a secretI'm a secret".utf8)
+
+            // Generate first recovery key set
+            let recKey1SigningKey = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeySigning, recoverySecret: recoveryKeySecret, recoverySalt: testDSID)
+            XCTAssertEqual(recKey1SigningKey, recovery_signingKey_384, "recovery signing keys should match")
+
+            let recKey1EncryptionKey = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeyEncryption, recoverySecret: recoveryKeySecret, recoverySalt: testDSID)
+            XCTAssertEqual(recKey1EncryptionKey, recovery_encryptionKey_384, "recovery encryption keys should match")
+
+            let recKey1SigningKeySF = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: recKey1SigningKey))
+            recKey1Label = RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: recKey1SigningKeySF.publicKey().spki())
+
+            // Store first recovery key set with hash-based label and insufficient protection
+            let recResult1 = try storeRecoveryKeyWithInsufficientProtectionClass(keyData: recKey1SigningKey, label: recKey1Label, applicationLabel: "Recovery Signing Key")
+            XCTAssertTrue(recResult1, "first recovery signing key should be stored successfully")
+
+            let recResult2 = try storeRecoveryKeyWithInsufficientProtectionClass(keyData: recKey1EncryptionKey, label: recKey1Label, applicationLabel: "Recovery Encryption Key")
+            XCTAssertTrue(recResult2, "first recovery encryption key should be stored successfully")
+
+            // Generate second recovery key set with different secret/salt. This will generate both key pairs by itself and with necessary protections
+            let recKeys2 = try RecoveryKeySet(secret: Data("xyzs".utf8), recoverySalt: "123")
+            XCTAssertNotNil(recKeys2, "recKeys2 should be successfully created")
+            recKey2Label = RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: recKeys2.signingKey.publicKey().spki())
+
+            // Expected labels before fixup
+            let expectedRecLabels = Set([recKey1Label, recKey2Label])
+
+            // Retrieve recovery keys before fixup
+            guard let recKeys1 = try RecoveryKeySet.retrieveRecoveryKeysFromKeychain(label: recKey1Label),
+                  let recKeys2 = try RecoveryKeySet.retrieveRecoveryKeysFromKeychain(label: recKey2Label) else {
+                XCTFail("Retrieved recovery keys should not be nil")
+                return
+            }
+            let recKeys = recKeys1 + recKeys2
+
+            XCTAssertEqual(recKeys.count, 4, "Should have 4 recovery keys before fixup")
+            var foundRecLabels = Set<String>()
+            for (index, key) in recKeys.enumerated() {
+                guard let label = key[kSecAttrLabel] as? String, let accessible = key[kSecAttrAccessible] as? String else {
+                    XCTFail("Recovery key at index \(index) should have a label and accessible attribute")
+                    continue
+                }
+                foundRecLabels.insert(label)
+                if label == recKey1Label {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlocked as String, "First label recovery keys should have WhenUnlocked protection before fixup")
+                } else if label == recKey2Label {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Second label recovery keys should have WhenUnlockedThisDeviceOnly protection before fixup")
+                }
+            }
+            XCTAssertEqual(foundRecLabels, expectedRecLabels, "Recovery labels should match expected hash values before fixup")
+        }
+        do {
+            // Entropy Secrets
+            // Save secret with insufficient protection (WhenUnlocked)
+            let secret1 = try BottledPeer.makeMeSomeEntropy(requiredLength: Int(OTMasterSecretLength))
+            try saveSecrethWithInsufficientProtectionClass(secret1, label: "secret-1")
+
+            // Save secret with ThisDeviceOnly protection
+            let secret2 = try BottledPeer.makeMeSomeEntropy(requiredLength: Int(OTMasterSecretLength))
+            try saveSecret(secret2, label: "secret-2")
+
+            // Retrieve secrets before fixup
+            guard let secrets1 = try loadAllSecretItems(label: "secret-1"),
+                  let secrets2 = try loadAllSecretItems(label: "secret-2") else {
+                XCTFail("Retrieved secrets should not be nil")
+                return
+            }
+            let secrets = secrets1 + secrets2
+
+            XCTAssertEqual(secrets.count, 2, "Should have 2 secrets before fixup")
+            for (index, secret) in secrets.enumerated() {
+                guard let label = secret[kSecAttrDescription] as? String,
+                      let accessible = secret[kSecAttrAccessible] as? String else {
+                    XCTFail("Secret at index \(index) should have a description and accessible attribute")
+                    continue
+                }
+                if label == "secret-1" {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlocked as String, "First secret should have WhenUnlocked protection before fixup")
+                } else if label == "secret-2" {
+                    XCTAssertEqual(accessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String, "Second secret should have WhenUnlockedThisDeviceOnly protection before fixup")
+                }
+            }
+        }
+        // Call doPeerSecretsFixUps to update keys and secrets
+        try doPeerSecretsFixUps()
+
+        // Verify all keys and entropy secrets have ThisDeviceOnly protection after fixup
+        try verifyEscrowKeysHaveThisDeviceOnlyProtection(expectedCount: 6, labels: [key1Label, key2Label], context: "after fixup")
+        try verifyRecoveryKeysHaveThisDeviceOnlyProtection(expectedCount: 4, labels: [recKey1Label, recKey2Label], context: "after fixup")
+        try verifySecretsHaveThisDeviceOnlyProtection(expectedCount: 2, labels: ["secret-1", "secret-2"], context: "after fixup")
+
+        // Make sure fixup again doesn't change anything
+        try doPeerSecretsFixUps()
+
+        // Verify all keys and entropy secrets have ThisDeviceOnly protection after second fixup as well
+        try verifyEscrowKeysHaveThisDeviceOnlyProtection(expectedCount: 6, labels: [key1Label, key2Label], context: "after second fixup")
+        try verifyRecoveryKeysHaveThisDeviceOnlyProtection(expectedCount: 4, labels: [recKey1Label, recKey2Label], context: "after second fixup")
+        try verifySecretsHaveThisDeviceOnlyProtection(expectedCount: 2, labels: ["secret-1", "secret-2"], context: "after second fixup")
+    }
+
     func testJoiningWithBottle() throws {
         var bottleA: ContainerState.Bottle
         var entropy: Data
@@ -5671,7 +5979,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertFalse(container.fullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
     }
 
-    func testEvictedUserInitiatedAndUnknownReason () throws {
+    func testEvictedUserInitiatedAndUnknownReason() throws {
         let description = tmpStoreDescription(name: "container.db")
         let container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, darwinNotifier: FakeCKKSNotifier.self, managedConfigurationAdapter: mcAdapterPlaceholder, cuttlefish: cuttlefish)
 

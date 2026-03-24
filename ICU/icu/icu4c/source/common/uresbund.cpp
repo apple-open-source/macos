@@ -2767,6 +2767,9 @@ ures_openWithType(UResourceBundle *r, const char* path, const char* localeID,
 
     UResourceDataEntry *entry;
     if(openType != URES_OPEN_DIRECT) {
+        if (localeID == nullptr) {
+            localeID = uloc_getDefault();
+        }
         /* first "canonicalize" the locale ID */
         CharString canonLocaleID = ulocimp_getBaseName(localeID, *status);
         if(U_FAILURE(*status)) {
@@ -3304,6 +3307,9 @@ ures_getFunctionalEquivalent(char *result, int32_t resultCapacity,
             kwVal.clear();
         }
     }
+    if (locid == nullptr) {
+        locid = uloc_getDefault();
+    }
     CharString base = ulocimp_getBaseName(locid, subStatus);
 #if defined(URES_TREE_DEBUG)
     fprintf(stderr, "getFunctionalEquivalent: \"%s\" [%s=%s] in %s - %s\n", 
@@ -3468,7 +3474,7 @@ ures_getFunctionalEquivalent(char *result, int32_t resultCapacity,
             const char *validLoc = ures_getLocaleByType(res, ULOC_VALID_LOCALE, &subStatus);
             if (U_SUCCESS(subStatus) && validLoc != nullptr && validLoc[0] != 0 && uprv_strcmp(validLoc, "root") != 0) {
                 CharString validLang = ulocimp_getLanguage(validLoc, subStatus);
-                CharString parentLang = ulocimp_getLanguage(parent.data(), subStatus);
+                CharString parentLang = ulocimp_getLanguage(parent.toStringPiece(), subStatus);
                 if (U_SUCCESS(subStatus) && validLang != parentLang) {
                     // validLoc is not root and has a different language than parent, use it instead
                     found.clear().append(validLoc, subStatus);

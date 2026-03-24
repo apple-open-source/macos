@@ -35,6 +35,12 @@ NS_ASSUME_NONNULL_BEGIN
                            code:(NSInteger)code
                     description:(NSString*)description
                      underlying:(NSError* _Nullable)underlying;
+
+// Format an NSError and its underlying errors as a nested JSON-like string representation
+// Returns a string like "{(domain,code):{(underlyingDomain,code):{}}}" for nested errors
+// Returns "{Success:{}}" if error is nil
+- (NSString*)formatAsNestedJSON;
+
 @end
 
 NS_ASSUME_NONNULL_END

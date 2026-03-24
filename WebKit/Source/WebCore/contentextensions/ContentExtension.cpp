@@ -40,13 +40,13 @@ namespace WebCore::ContentExtensions {
 
 Ref<ContentExtension> ContentExtension::create(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension, URL&& extensionBaseURL, ShouldCompileCSS shouldCompileCSS)
 {
-    return adoptRef(*new ContentExtension(identifier, WTFMove(compiledExtension), WTFMove(extensionBaseURL), shouldCompileCSS));
+    return adoptRef(*new ContentExtension(identifier, WTF::move(compiledExtension), WTF::move(extensionBaseURL), shouldCompileCSS));
 }
 
 ContentExtension::ContentExtension(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension, URL&& extensionBaseURL, ShouldCompileCSS shouldCompileCSS)
     : m_identifier(identifier)
-    , m_compiledExtension(WTFMove(compiledExtension))
-    , m_extensionBaseURL(WTFMove(extensionBaseURL))
+    , m_compiledExtension(WTF::move(compiledExtension))
+    , m_extensionBaseURL(WTF::move(extensionBaseURL))
 {
     DFABytecodeInterpreter interpreter(m_compiledExtension->urlFiltersBytecode());
     m_universalActions = copyToVector(interpreter.actionsMatchingEverything());

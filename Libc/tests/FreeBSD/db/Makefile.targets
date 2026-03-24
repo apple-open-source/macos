@@ -1,0 +1,3 @@
+FREEBSD_TESTS += dbm_nextkey_test
+FREEBSD_TESTS += dbm_open_test
+FREEBSD_TESTS += dbm_perm_test

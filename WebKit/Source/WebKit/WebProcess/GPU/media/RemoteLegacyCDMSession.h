@@ -62,7 +62,7 @@ private:
 
     // LegacyCDMSession
     void invalidate() final;
-    WebCore::LegacyCDMSessionType type() final { return WebCore::CDMSessionTypeRemote; }
+    WebCore::LegacyCDMSessionType type() const final { return WebCore::CDMSessionTypeRemote; }
     const String& sessionId() const final { return m_sessionId; }
     RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode) final;
     void releaseKeys() final;

@@ -40,7 +40,7 @@ class TimeContainer;
 enum AnimatedPropertyValueType { RegularPropertyValue, CurrentColorValue, InheritValue };
 
 class SVGAnimationElement : public SVGSMILElement, public SVGTests {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGAnimationElement);
+    WTF_MAKE_TZONE_ALLOCATED(SVGAnimationElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGAnimationElement);
 public:
     ExceptionOr<float> getStartTime() const;

@@ -42,6 +42,9 @@ enum class TrackingType : uint8_t {
 };
 
 enum class EventTrackingRegionsEventType : uint8_t {
+    Gesturechange,
+    Gestureend,
+    Gesturestart,
     Mousedown,
     Mousemove,
     Mouseup,

@@ -37,10 +37,10 @@
 namespace WebCore {
 namespace Style {
 
-// Out of line to avoid inclusion of RenderStyleInlines.h
+// Out of line to avoid inclusion of RenderStyle+GettersInlines.h
 float adjustForZoom(float, const RenderStyle&);
-bool shouldUseEvaluationTimeZoom(const RenderStyle&);
-bool shouldUseEvaluationTimeZoom(const BuilderState&);
+bool evaluationTimeZoomEnabled(const RenderStyle&);
+bool evaluationTimeZoomEnabled(const BuilderState&);
 
 // MARK: Conversion Data specialization
 
@@ -59,7 +59,7 @@ template<auto R, typename V> struct ConversionDataSpecializer<CSS::LengthRaw<R, 
                 ? state.cssToLengthConversionData().copyWithAdjustedZoom(1.0f)
                 : state.cssToLengthConversionData();
         } else if constexpr (R.zoomOptions == CSS::RangeZoomOptions::Unzoomed) {
-            if (shouldUseEvaluationTimeZoom(state))
+            if (evaluationTimeZoomEnabled(state))
                 return state.cssToLengthConversionData().copyWithAdjustedZoom(1.0f, R.zoomOptions);
 
             return state.useSVGZoomRulesForLength()
@@ -253,7 +253,7 @@ template<auto R, typename V> struct ToCSS<Length<R, V>> {
         if constexpr (R.zoomOptions == CSS::RangeZoomOptions::Default) {
             return CSS::LengthRaw<R, V> { value.unit, adjustForZoom(value.unresolvedValue(), style) };
         } else if constexpr (R.zoomOptions == CSS::RangeZoomOptions::Unzoomed) {
-            if (shouldUseEvaluationTimeZoom(style))
+            if (evaluationTimeZoomEnabled(style))
                 return CSS::LengthRaw<R, V> { value.unit, value.unresolvedValue() };
 
             return CSS::LengthRaw<R, V> { value.unit, adjustForZoom(value.unresolvedValue(), style) };

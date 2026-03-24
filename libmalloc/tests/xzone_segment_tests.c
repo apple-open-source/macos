@@ -2,7 +2,7 @@
 
 #include "xzone_testing.h"
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_TAG_VM_PREFERRED,
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
 		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 #if CONFIG_XZONE_MALLOC && CONFIG_VM_USER_RANGES
@@ -16,6 +16,9 @@ struct ptr_range_test {
 		struct mach_vm_range right_void;
 		uint64_t ptr_range_size;
 		uint64_t entropy;
+		size_t allocation_size;
+		size_t initial_allocation_size;
+		size_t initial_allocation_count;
 	} input;
 	struct {
 		struct mach_vm_range expected_ranges[2];
@@ -24,6 +27,12 @@ struct ptr_range_test {
 	struct {
 		struct xzm_range_group_s expected_range_groups[XZM_RANGE_GROUP_PTR + 2];
 	} range_group_output;
+	struct {
+		struct allocation_result {
+			uint64_t total_count;
+			uint64_t total_bytes;
+		} expected_results[XZM_RANGE_GROUP_PTR + 2];
+	} allocation_output;
 };
 
 static void
@@ -49,49 +58,76 @@ test_fake_range_groups_init(struct xzm_range_group_s *range_groups)
 }
 
 static void
-test_exhaust_range_group(xzm_range_group_t rg)
+test_exhaust_range_group(xzm_range_group_t rg, size_t allocation_size,
+		size_t initial_allocation_size, size_t initial_count,
+		uint64_t expected_total_count, uint64_t expected_total_bytes)
 {
 	uintptr_t last_allocated = 0;
-	uint64_t total_allocated = 0;
+	size_t last_size = 0;
+	uint64_t total_count = 0;
+	uint64_t total_bytes = 0;
 	bool warn_on_exhaustion = true;
 	while (true) {
-		uintptr_t addr = _xzm_range_group_bump_alloc_segment(rg,
-				XZM_SEGMENT_SIZE, warn_on_exhaustion);
+		size_t size = allocation_size;
+		if (initial_count) {
+			size = initial_allocation_size;
+			initial_count--;
+		}
+
+		uintptr_t addr = _xzm_range_group_bump_alloc_segment(rg, size,
+				warn_on_exhaustion);
 		if (!addr) {
-			T_EXPECT_GE(total_allocated, (XZM_POINTER_RANGE_SIZE / 2) - MiB(16),
-					"allocated at least expected amount");
+			T_EXPECT_EQ(total_count, expected_total_count,
+					"allocated the expected count");
+			T_EXPECT_EQ(total_bytes, expected_total_bytes,
+					"allocated the expected bytes");
 			break;
 		}
 
-		T_QUIET; T_EXPECT_EQ(addr % XZM_SEGMENT_SIZE, 0ull,
+		T_QUIET; T_EXPECT_EQ(addr % XZM_NORMAL_SEGMENT_SIZE, 0ull,
 				"segment alignment");
 		if (rg->xzrg_direction == XZM_FRONT_INCREASING) {
-			T_QUIET; T_EXPECT_GE((uint64_t)addr,
-					last_allocated + XZM_SEGMENT_SIZE, "address increased");
-			T_QUIET; T_EXPECT_LE(addr + XZM_SEGMENT_SIZE,
-					rg->xzrg_base + rg->xzrg_size + rg->xzrg_skip_size,
-					"address in bounds");
-			if (rg->xzrg_skip_addr && addr >= rg->xzrg_skip_addr) {
-				T_QUIET; T_EXPECT_GE((uint64_t)addr,
-						rg->xzrg_skip_addr + rg->xzrg_skip_size,
-						"skip respected");
+			if (last_allocated) {
+				T_QUIET; T_EXPECT_GE(addr,
+						(uintptr_t)(last_allocated + last_size),
+						"address increased");
+			}
+			T_QUIET; T_EXPECT_GE(addr, (uintptr_t)rg->xzrg_base,
+					"allocation above minimum");
+			T_QUIET; T_EXPECT_LE((uintptr_t)addr + size,
+					(uintptr_t)(
+							rg->xzrg_base + rg->xzrg_size + rg->xzrg_skip_size),
+					"allocation within maximum");
+			if (rg->xzrg_skip_addr) {
+				if (addr + size > rg->xzrg_skip_addr) {
+					T_QUIET; T_EXPECT_GE((uint64_t)addr + size,
+							rg->xzrg_skip_addr + rg->xzrg_skip_size,
+							"skip respected");
+				}
 			}
 		} else {
-			T_QUIET; T_EXPECT_LE((uint64_t)addr,
-					last_allocated - XZM_SEGMENT_SIZE, "address decreased");
+			if (last_allocated) {
+				T_QUIET; T_EXPECT_LE(addr, (uintptr_t)(last_allocated - size),
+						"address decreased");
+			}
 			T_QUIET; T_EXPECT_GE((uint64_t)addr,
 					rg->xzrg_base - (rg->xzrg_size + rg->xzrg_skip_size),
-					"address in bounds");
-			if (rg->xzrg_skip_addr && addr < rg->xzrg_skip_addr) {
-				T_QUIET; T_EXPECT_LE((uint64_t)addr,
-						rg->xzrg_skip_addr -
-								(rg->xzrg_skip_size + XZM_SEGMENT_SIZE),
-						"skip respected");
+					"allocation above minimum");
+			T_QUIET; T_EXPECT_LE((uint64_t)addr + size, rg->xzrg_base,
+					"allocation within maximum");
+			if (rg->xzrg_skip_addr) {
+				if (addr < rg->xzrg_skip_addr) {
+					T_QUIET; T_EXPECT_LE((uint64_t)addr,
+							rg->xzrg_skip_addr - (rg->xzrg_skip_size + size),
+							"skip respected");
+				}
 			}
 		}
 
 		last_allocated = addr;
-		total_allocated += XZM_SEGMENT_SIZE;
+		last_size = size;
+		total_count++;
+		total_bytes += size;
 	}
 }
 
@@ -140,7 +176,27 @@ test_ptr_range_setup(struct ptr_range_test *test)
 		T_EXPECT_EQ(actual->xzrg_direction, expected->xzrg_direction,
 				"xzrg_direction");
 
-		test_exhaust_range_group(actual);
+		size_t allocation_size = test->input.allocation_size;
+		if (!allocation_size) {
+			allocation_size = XZM_NORMAL_SEGMENT_SIZE;
+		}
+
+		size_t expected_allocation_count =
+				test->allocation_output.expected_results[i].total_count;
+		if (!expected_allocation_count) {
+			expected_allocation_count = expected->xzrg_size / allocation_size;
+		}
+		size_t expected_allocation_bytes =
+				test->allocation_output.expected_results[i].total_bytes;
+		if (!expected_allocation_bytes) {
+			expected_allocation_bytes = expected->xzrg_size;
+		}
+
+		test_exhaust_range_group(actual, allocation_size,
+				test->input.initial_allocation_size,
+				test->input.initial_allocation_count,
+				expected_allocation_count,
+				expected_allocation_bytes);
 	}
 }
 
@@ -159,6 +215,7 @@ T_DECL(xzone_segment_ptr_range_setup, "set up ptr ranges")
 			},
 			.ptr_range_size = XZM_POINTER_RANGE_SIZE,
 			.entropy = 0,
+			.allocation_size = XZM_NORMAL_SEGMENT_SIZE,
 		},
 		.range_output = {
 			.expected_ranges = {
@@ -483,6 +540,42 @@ T_DECL(xzone_segment_ptr_range_setup, "set up ptr ranges")
 
 	test_ptr_range_setup(&split_exact_middle_left);
 
+	struct ptr_range_test split_middle_left_multi_skip =
+			split_exact_middle_left;
+	split_middle_left_multi_skip.desc =
+			"split on the left with multi segments that have to skip";
+	// Prime with 1 normal allocation
+	split_middle_left_multi_skip.input.initial_allocation_size =
+			XZM_NORMAL_SEGMENT_SIZE;
+	split_middle_left_multi_skip.input.initial_allocation_count = 1;
+	split_middle_left_multi_skip.input.allocation_size =
+			XZM_MULTI_SEGMENT_SIZE;
+
+	// Both sides lose 12MB from the priming allocation:
+	// - The left side loses it in the space before the skip
+	// - The right side loses it in the space at the end
+
+	size_t smlms_right_size = split_middle_left_multi_skip
+			.range_group_output
+			.expected_range_groups[XZM_RANGE_GROUP_PTR + 0].xzrg_size;
+	split_middle_left_multi_skip
+			.allocation_output
+			.expected_results[XZM_RANGE_GROUP_PTR + 0] = (struct allocation_result){
+				.total_count = smlms_right_size / XZM_MULTI_SEGMENT_SIZE,
+				.total_bytes = (smlms_right_size - MiB(12))
+			};
+	size_t smlms_left_size = split_middle_left_multi_skip
+			.range_group_output
+			.expected_range_groups[XZM_RANGE_GROUP_PTR + 1].xzrg_size;
+	split_middle_left_multi_skip
+			.allocation_output
+			.expected_results[XZM_RANGE_GROUP_PTR + 1] = (struct allocation_result){
+				.total_count = smlms_left_size / XZM_MULTI_SEGMENT_SIZE,
+				.total_bytes = (smlms_left_size - MiB(12))
+			};
+
+	test_ptr_range_setup(&split_middle_left_multi_skip);
+
 	struct ptr_range_test split_exact_middle_right = {
 		.desc = "split almost exactly down the middle on the right",
 		.input = {
@@ -540,6 +633,43 @@ T_DECL(xzone_segment_ptr_range_setup, "set up ptr ranges")
 	};
 
 	test_ptr_range_setup(&split_exact_middle_right);
+
+	// Symmetric multi skip test for the increasing direction
+	struct ptr_range_test split_middle_right_multi_skip =
+			split_exact_middle_right;
+	split_middle_right_multi_skip.desc =
+			"split on the right with multi segments that have to skip";
+	// Prime with 1 normal allocation
+	split_middle_right_multi_skip.input.initial_allocation_size =
+			XZM_NORMAL_SEGMENT_SIZE;
+	split_middle_right_multi_skip.input.initial_allocation_count = 1;
+	split_middle_right_multi_skip.input.allocation_size =
+			XZM_MULTI_SEGMENT_SIZE;
+
+	// Both sides lose 12MB from the priming allocation:
+	// - The right side loses it in the space before the skip
+	// - The left side loses it in the space at the end
+
+	size_t smrms_right_size = split_middle_right_multi_skip
+			.range_group_output
+			.expected_range_groups[XZM_RANGE_GROUP_PTR + 0].xzrg_size;
+	split_middle_right_multi_skip
+			.allocation_output
+			.expected_results[XZM_RANGE_GROUP_PTR + 0] = (struct allocation_result){
+				.total_count = smrms_right_size / XZM_MULTI_SEGMENT_SIZE,
+				.total_bytes = (smrms_right_size - MiB(12))
+			};
+	size_t smrms_left_size = split_middle_right_multi_skip
+			.range_group_output
+			.expected_range_groups[XZM_RANGE_GROUP_PTR + 1].xzrg_size;
+	split_middle_right_multi_skip
+			.allocation_output
+			.expected_results[XZM_RANGE_GROUP_PTR + 1] = (struct allocation_result){
+				.total_count = smrms_left_size / XZM_MULTI_SEGMENT_SIZE,
+				.total_bytes = (smrms_left_size - MiB(12))
+			};
+
+	test_ptr_range_setup(&split_middle_right_multi_skip);
 
 	struct ptr_range_test empty_right_void_end = {
 		.desc = "empty right void, last possible position",

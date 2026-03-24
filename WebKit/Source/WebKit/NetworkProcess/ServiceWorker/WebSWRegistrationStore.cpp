@@ -58,7 +58,7 @@ void WebSWRegistrationStore::clearAll(CompletionHandler<void()>&& callback)
     m_updateTimer.stop();
 
     if (RefPtr manager = m_manager.get())
-        manager->clearServiceWorkerRegistrations(WTFMove(callback));
+        manager->clearServiceWorkerRegistrations(WTF::move(callback));
     else
         callback();
 }
@@ -68,13 +68,13 @@ void WebSWRegistrationStore::flushChanges(CompletionHandler<void()>&& callback)
     if (m_updateTimer.isActive())
         m_updateTimer.stop();
 
-    updateToStorage(WTFMove(callback));
+    updateToStorage(WTF::move(callback));
 }
 
 void WebSWRegistrationStore::closeFiles(CompletionHandler<void()>&& callback)
 {
     if (RefPtr manager = m_manager.get())
-        manager->closeServiceWorkerRegistrationFiles(WTFMove(callback));
+        manager->closeServiceWorkerRegistrationFiles(WTF::move(callback));
     else
         callback();
 }
@@ -82,7 +82,7 @@ void WebSWRegistrationStore::closeFiles(CompletionHandler<void()>&& callback)
 void WebSWRegistrationStore::importRegistrations(CompletionHandler<void(std::optional<Vector<WebCore::ServiceWorkerContextData>>&&)>&& callback)
 {
     if (RefPtr manager = m_manager.get())
-        manager->importServiceWorkerRegistrations(WTFMove(callback));
+        manager->importServiceWorkerRegistrations(WTF::move(callback));
     else
         callback(std::nullopt);
 }
@@ -119,7 +119,7 @@ void WebSWRegistrationStore::updateToStorage(CompletionHandler<void()>&& callbac
         if (!registation)
             registrationsToDelete.append(key);
         else
-            registrationsToUpdate.append(WTFMove(*registation));
+            registrationsToUpdate.append(WTF::move(*registation));
     }
     m_updates.clear();
 
@@ -127,16 +127,16 @@ void WebSWRegistrationStore::updateToStorage(CompletionHandler<void()>&& callbac
     if (!manager)
         return callback();
 
-    manager->updateServiceWorkerRegistrations(WTFMove(registrationsToUpdate), WTFMove(registrationsToDelete), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& result) mutable {
+    manager->updateServiceWorkerRegistrations(WTF::move(registrationsToUpdate), WTF::move(registrationsToDelete), [weakThis = WeakPtr { *this }, callback = WTF::move(callback)](auto&& result) mutable {
         ASSERT(RunLoop::isMain());
 
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !protectedThis->m_server || !result)
             return callback();
 
-        auto allScripts = WTFMove(result.value());
+        auto allScripts = WTF::move(result.value());
         for (auto&& scripts : allScripts)
-            protectedThis->protectedServer()->didSaveWorkerScriptsToDisk(scripts.identifier, WTFMove(scripts.mainScript), WTFMove(scripts.importedScripts));
+            protectedThis->protectedServer()->didSaveWorkerScriptsToDisk(scripts.identifier, WTF::move(scripts.mainScript), WTF::move(scripts.importedScripts));
 
         callback();
     });

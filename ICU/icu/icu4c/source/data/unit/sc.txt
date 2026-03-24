@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sc{
     units{
         acceleration{
@@ -180,6 +180,16 @@ sc{
                 one{"{0} mole"}
                 other{"{0} moles"}
             }
+            part-per-1e6{
+                dnam{"partes pro millione"}
+                one{"{0} parte pro millione"}
+                other{"{0} partes pro millione"}
+            }
+            part-per-1e9{
+                dnam{"partes pro milliardu"}
+                one{"{0} parte pro milliardu"}
+                other{"{0} partes pro milliardu"}
+            }
             percent{
                 dnam{"pro chentu"}
                 one{"{0} pro chentu"}
@@ -189,11 +199,6 @@ sc{
                 dnam{"pro milli"}
                 one{"{0} pro milli"}
                 other{"{0} pro milli"}
-            }
-            permillion{
-                dnam{"partes pro millione"}
-                one{"{0} parte pro millione"}
-                other{"{0} partes pro millione"}
             }
             permyriad{
                 dnam{"pro deghemìgia"}
@@ -1113,9 +1118,13 @@ sc{
                 one{"{0}mol"}
                 other{"{0}mol"}
             }
-            permillion{
+            part-per-1e6{
                 one{"{0}ppm"}
                 other{"{0}ppm"}
+            }
+            part-per-1e9{
+                one{"{0}ppb"}
+                other{"{0}ppb"}
             }
         }
         consumption{
@@ -1847,6 +1856,9 @@ sc{
                 dnam{"mmol/l"}
                 one{"{0} mmol/l"}
                 other{"{0} mmol/l"}
+            }
+            part-per-1e9{
+                dnam{"partes/milliardu"}
             }
         }
         consumption{

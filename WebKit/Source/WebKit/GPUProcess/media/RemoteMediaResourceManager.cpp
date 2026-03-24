@@ -53,7 +53,7 @@ RemoteMediaResourceManager::~RemoteMediaResourceManager()
 {
     Locker locker { m_lock };
     // Shutdown any stale RemoteMediaResources. We must complete this step in a follow-up task to prevent re-entry in RemoteMediaResourceManager.
-    callOnMainRunLoop([resources = WTFMove(m_remoteMediaResources)] {
+    callOnMainRunLoop([resources = WTF::move(m_remoteMediaResources)] {
         for (auto&& resource : resources) {
             if (RefPtr protectedResource = resource.value.get())
                 protectedResource->shutdown();
@@ -109,7 +109,7 @@ void RemoteMediaResourceManager::responseReceived(RemoteMediaResourceIdentifier 
 {
     if (RefPtr resource = resourceForId(identifier)) {
         assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
-        resource->responseReceived(response, didPassAccessControlCheck, WTFMove(completionHandler));
+        resource->responseReceived(response, didPassAccessControlCheck, WTF::move(completionHandler));
     } else
         completionHandler(ShouldContinuePolicyCheck::No);
 }
@@ -118,7 +118,7 @@ void RemoteMediaResourceManager::redirectReceived(RemoteMediaResourceIdentifier 
 {
     if (RefPtr resource = resourceForId(identifier)) {
         assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
-        resource->redirectReceived(WTFMove(request), response, WTFMove(completionHandler));
+        resource->redirectReceived(WTF::move(request), response, WTF::move(completionHandler));
     } else
         completionHandler({ });
 }
@@ -147,7 +147,7 @@ void RemoteMediaResourceManager::dataReceived(RemoteMediaResourceIdentifier iden
         return completionHandler(std::nullopt);
 
     resource->dataReceived(sharedMemory->createSharedBuffer(buffer.size()));
-    completionHandler(WTFMove(handle));
+    completionHandler(WTF::move(handle));
 }
 
 void RemoteMediaResourceManager::accessControlCheckFailed(RemoteMediaResourceIdentifier identifier, const ResourceError& error)

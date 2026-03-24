@@ -67,13 +67,13 @@ void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, Sc
         // An item in the list either specifies a string (local font name) or a URL (remote font to download).
         if (auto local = dynamicDowncast<CSSFontFaceSrcLocalValue>(src)) {
             if (!local->svgFontFaceElement())
-                fontFace.adoptSource(makeUnique<CSSFontFaceSource>(fontFace, local->fontFaceName()));
+                fontFace.adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(fontFace, local->fontFaceName()));
             else if (allowDownloading)
-                fontFace.adoptSource(makeUnique<CSSFontFaceSource>(fontFace, local->fontFaceName(),  CheckedRef { *local->svgFontFaceElement() }));
+                fontFace.adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(fontFace, local->fontFaceName(),  CheckedRef { *local->svgFontFaceElement() }));
         } else {
             if (allowDownloading) {
                 if (auto request = downcast<CSSFontFaceSrcResourceValue>(const_cast<CSSValue&>(src)).fontLoadRequest(*context, isInitiatingElementInUserAgentShadowTree))
-                    fontFace.adoptSource(makeUnique<CSSFontFaceSource>(fontFace, *context->cssFontSelector(), makeUniqueRefFromNonNullUniquePtr(WTFMove(request))));
+                    fontFace.adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(fontFace, *context->cssFontSelector(), request.releaseNonNull()));
             }
         }
     }
@@ -283,7 +283,7 @@ void CSSFontFace::setUnicodeRange(CSSValueList& list)
     if (ranges == m_ranges)
         return;
 
-    m_ranges = WTFMove(ranges);
+    m_ranges = WTF::move(ranges);
 
     iterateClients(m_clients, [&](CSSFontFaceClient& client) {
         client.fontPropertyChanged(*this);
@@ -310,7 +310,7 @@ void CSSFontFace::setFeatureSettings(CSSValue& featureSettings)
     if (m_featureSettings == settings)
         return;
 
-    m_featureSettings = WTFMove(settings);
+    m_featureSettings = WTF::move(settings);
 
     iterateClients(m_clients, [&](CSSFontFaceClient& client) {
         client.fontPropertyChanged(*this);
@@ -518,9 +518,9 @@ void CSSFontFace::setWrapper(FontFace& newWrapper)
     initializeWrapper();
 }
 
-void CSSFontFace::adoptSource(std::unique_ptr<CSSFontFaceSource>&& source)
+void CSSFontFace::adoptSource(std::unique_ptr<CSSFontFaceSource> source)
 {
-    m_sources.append(WTFMove(source));
+    m_sources.append(WTF::move(source));
 
     // We should never add sources in the middle of loading.
     ASSERT(!m_sourcesPopulated);
@@ -622,7 +622,7 @@ void CSSFontFace::opportunisticallyStartFontDataURLLoading(DownloadableBinaryFon
 {
     // We don't want to go crazy here and blow the cache. Usually these data URLs are the first item in the src: list, so let's just check that one.
     if (!m_sources.isEmpty())
-        m_sources[0]->opportunisticallyStartFontDataURLLoading(trustedType);
+        Ref { *m_sources[0] }->opportunisticallyStartFontDataURLLoading(trustedType);
 }
 
 size_t CSSFontFace::pump(ExternalResourceDownloadPolicy policy)
@@ -757,12 +757,9 @@ void CSSFontFace::updateStyleIfNeeded()
 
 bool CSSFontFace::hasSVGFontFaceSource() const
 {
-    size_t size = m_sources.size();
-    for (size_t i = 0; i < size; i++) {
-        if (m_sources[i]->isSVGFontFaceSource())
-            return true;
-    }
-    return false;
+    return m_sources.containsIf([](auto& source) {
+        return Ref { *source }->isSVGFontFaceSource();
+    });
 }
 
 void CSSFontFace::setErrorState()

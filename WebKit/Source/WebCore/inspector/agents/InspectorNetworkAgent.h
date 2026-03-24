@@ -143,7 +143,7 @@ protected:
 
     virtual Inspector::Protocol::Network::LoaderId loaderIdentifier(DocumentLoader*) = 0;
     virtual Inspector::Protocol::Network::FrameId frameIdentifier(DocumentLoader*) = 0;
-    virtual Vector<WebSocket*> activeWebSockets() WTF_REQUIRES_LOCK(WebSocket::allActiveWebSocketsLock()) = 0;
+    virtual Vector<Ref<WebSocket>> activeWebSockets() WTF_REQUIRES_LOCK(WebSocket::allActiveWebSocketsLock()) = 0;
     virtual void setResourceCachingDisabledInternal(bool) = 0;
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
     virtual bool setEmulatedConditionsInternal(std::optional<int>&& bytesPerSecondLimit) = 0;
@@ -159,7 +159,7 @@ private:
     void continuePendingRequests();
     void continuePendingResponses();
 
-    WebSocket* webSocketForRequestId(const Inspector::Protocol::Network::RequestId&);
+    RefPtr<WebSocket> webSocketForRequestId(const Inspector::Protocol::Network::RequestId&);
 
     Ref<Inspector::Protocol::Network::Initiator> buildInitiatorObject(Document*, const ResourceRequest* = nullptr);
     Ref<Inspector::Protocol::Network::ResourceTiming> buildObjectForTiming(const NetworkLoadMetrics&, ResourceLoader&);

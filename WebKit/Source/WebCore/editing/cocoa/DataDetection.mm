@@ -126,7 +126,7 @@ static std::optional<DetectedItem> detectItem(const VisiblePosition& position, c
     [actionContext setMainResult:mainResult];
 
     return { {
-        WTFMove(actionContext),
+        WTF::move(actionContext),
         view->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(RenderObject::absoluteTextQuads(*mainResultRange)))),
         *mainResultRange,
     } };
@@ -521,7 +521,7 @@ static std::optional<Vector<Vector<SimpleRange>>> parseAllResultRanges(const Sim
             else
                 fragmentRanges.append(fragmentRange);
         }
-        allResultRanges.append(WTFMove(fragmentRanges));
+        allResultRanges.append(WTF::move(fragmentRanges));
     }
 
     return { allResultRanges };
@@ -652,11 +652,11 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
                 textNodeData = currentTextNode->data().substring(contentOffset, range.start.offset - contentOffset);
 
             if (!textNodeData.isEmpty())
-                parentNode->insertBefore(Text::create(document, WTFMove(textNodeData)), currentTextNode.get());
+                parentNode->insertBefore(Text::create(document, WTF::move(textNodeData)), currentTextNode.get());
 
             // Create the actual anchor node and insert it before the current node.
             textNodeData = currentTextNode->data().substring(range.start.offset, range.end.offset - range.start.offset);
-            auto newTextNode = Text::create(document, WTFMove(textNodeData));
+            auto newTextNode = Text::create(document, WTF::move(textNodeData));
             parentNode->insertBefore(newTextNode.copyRef(), currentTextNode.get());
 
             Ref anchorElement = HTMLAnchorElement::create(document);
@@ -668,7 +668,7 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
 
                 auto* renderStyle = parentNode->computedStyle();
                 if (renderStyle) {
-                    auto textColor = renderStyle->visitedDependentColor(CSSPropertyColor);
+                    auto textColor = renderStyle->visitedDependentColor();
                     if (textColor.isValid()) {
                         // FIXME: Consider using LCHA<float> rather than HSLA<float> for better perceptual results and to avoid clamping to sRGB gamut, which is what HSLA does.
                         auto hsla = textColor.toColorTypeLossy<HSLA<float>>().resolved();
@@ -687,19 +687,19 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
                 }
             }
 
-            anchorElement->appendChild(WTFMove(newTextNode));
+            anchorElement->appendChild(WTF::move(newTextNode));
 
             // Add a special attribute to mark this URLification as the result of data detectors.
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectorsAttr, trueAtom());
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_typeAttr, dataDetectorTypeForCategory(PAL::softLink_DataDetectorsCore_DDResultGetCategory(coreResult)));
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_resultAttr, identifier.get());
 
-            parentNode->insertBefore(WTFMove(anchorElement), currentTextNode.get());
+            parentNode->insertBefore(WTF::move(anchorElement), currentTextNode.get());
 
             contentOffset = range.end.offset;
 
             lastNodeContent = currentTextNode->data().substring(range.end.offset, currentTextNode->length() - range.end.offset);
-            lastTextNodeToUpdate = WTFMove(currentTextNode);
+            lastTextNodeToUpdate = WTF::move(currentTextNode);
         }
     }
 
@@ -738,15 +738,15 @@ void DataDetection::detectContentInFrame(LocalFrame* frame, OptionSet<DataDetect
     if (types.contains(DataDetectorType::LookupSuggestion))
         PAL::softLink_DataDetectorsCore_DDScannerEnableOptionalSource(scanner.get(), DDScannerSourceSpotlight, true);
 
-    workQueue().dispatch([scanner = WTFMove(scanner), types, referenceDateFromContext, scanQuery = WTFMove(scanQuery), weakDocument = WeakPtr { *document }, fragments = WTFMove(fragments), completionHandler = WTFMove(completionHandler)]() mutable {
+    workQueue().dispatch([scanner = WTF::move(scanner), types, referenceDateFromContext, scanQuery = WTF::move(scanQuery), weakDocument = WeakPtr { *document }, fragments = WTF::move(fragments), completionHandler = WTF::move(completionHandler)]() mutable {
         if (!PAL::softLink_DataDetectorsCore_DDScannerScanQuery(scanner.get(), scanQuery.get())) {
-            callOnMainRunLoop([scanner = WTFMove(scanner), scanQuery = WTFMove(scanQuery), weakDocument = WTFMove(weakDocument), fragments = WTFMove(fragments), completionHandler = WTFMove(completionHandler)]() mutable {
+            callOnMainRunLoop([scanner = WTF::move(scanner), scanQuery = WTF::move(scanQuery), weakDocument = WTF::move(weakDocument), fragments = WTF::move(fragments), completionHandler = WTF::move(completionHandler)]() mutable {
                 completionHandler(nil);
             });
             return;
         }
 
-        callOnMainRunLoop([scanner = WTFMove(scanner), types, referenceDateFromContext, scanQuery = WTFMove(scanQuery), weakDocument = WTFMove(weakDocument), fragments = WTFMove(fragments), completionHandler = WTFMove(completionHandler)]() mutable {
+        callOnMainRunLoop([scanner = WTF::move(scanner), types, referenceDateFromContext, scanQuery = WTF::move(scanQuery), weakDocument = WTF::move(weakDocument), fragments = WTF::move(fragments), completionHandler = WTF::move(completionHandler)]() mutable {
             RefPtr document = weakDocument.get();
             if (!document)
                 return;
@@ -842,7 +842,7 @@ std::optional<std::pair<Ref<HTMLElement>, IntRect>> DataDetection::findDataDetec
     for (auto& element : dataDetectorElements) {
         auto elementBounds = element->boundsInRootViewSpace();
         if (elementBounds.contains(roundedIntPoint(location)))
-            return { { WTFMove(element), elementBounds } };
+            return { { WTF::move(element), elementBounds } };
     }
 
     return std::nullopt;

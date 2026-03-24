@@ -43,7 +43,7 @@ class RenderPipelineImpl final : public RenderPipeline {
 public:
     static Ref<RenderPipelineImpl> create(WebGPUPtr<WGPURenderPipeline>&& renderPipeline, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new RenderPipelineImpl(WTFMove(renderPipeline), convertToBackingContext));
+        return adoptRef(*new RenderPipelineImpl(WTF::move(renderPipeline), convertToBackingContext));
     }
 
     virtual ~RenderPipelineImpl();

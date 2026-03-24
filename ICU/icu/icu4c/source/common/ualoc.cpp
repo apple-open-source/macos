@@ -447,8 +447,8 @@ static const char * forceParent[] = { // Not used by ualoc_localizationsToUse
     "en_ZM",   "en_GB",
     "en_ZW",   "en_GB",
     "yue",     "yue_HK",
-    "yue_CN",  "root",  // should this change to e.g. "zh_Hans_CN" for rdar://30671866?
-    "yue_HK",  "root",  // should this change to e.g. "zh_Hant_HK" for rdar://30671866?
+    "yue_CN",  "zh_Hans_CN",
+    "yue_HK",  "zh_Hant_HK",
     "yue_Hans","yue_CN",
     "yue_Hant","yue_HK",
     "zh",      "zh_CN",

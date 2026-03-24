@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -30,12 +32,6 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)hash.c	8.9 (Berkeley) 6/16/94";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/hash/hash.c,v 1.21 2009/03/28 07:20:39 delphij Exp $");
-
 #include "namespace.h"
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -51,12 +47,16 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/hash.c,v 1.21 2009/03/28 07:20:39 delph
 #endif
 #include "un-namespace.h"
 
+#ifdef __APPLE__
 #include "libc_private.h" // for LIBC_ABORT
+#endif
 
 #include <db.h>
 #include "hash.h"
 #include "page.h"
+#ifdef __APPLE__
 #include "hash_extern.h"
+#endif
 
 static int   alloc_segs(HTAB *, int);
 static int   flush_meta(HTAB *);
@@ -105,10 +105,6 @@ __hash_open(const char *file, int flags, int mode,
 	DB *dbp;
 	int bpages, hdrsize, new_table, nsegs, save_errno;
 
-	if ((flags & O_ACCMODE) == O_WRONLY) {
-		flags += O_RDWR - O_WRONLY; /* POSIX */
-	}
-
 	if (!(hashp = (HTAB *)calloc(1, sizeof(HTAB))))
 		return (NULL);
 	hashp->fp = -1;
@@ -120,11 +116,14 @@ __hash_open(const char *file, int flags, int mode,
 	 * we can check accesses.
 	 */
 	hashp->flags = flags;
+	if ((flags & O_ACCMODE) == O_WRONLY) {
+		flags &= ~O_WRONLY;
+		flags |= O_RDWR;
+	}
 
 	if (file) {
-		if ((hashp->fp = _open(file, flags, mode)) == -1)
+		if ((hashp->fp = _open(file, flags | O_CLOEXEC, mode)) == -1)
 			RETURN_ERROR(errno, error0);
-		(void)_fcntl(hashp->fp, F_SETFD, 1);
 		new_table = _fstat(hashp->fp, &statbuf) == 0 &&
 		    statbuf.st_size == 0 &&
 		    ((flags & O_ACCMODE) != O_RDONLY || (flags & O_CREAT) != 0);
@@ -163,8 +162,7 @@ __hash_open(const char *file, int flags, int mode,
 		 * maximum bucket number, so the number of buckets is
 		 * max_bucket + 1.
 		 */
-		nsegs = (hashp->MAX_BUCKET + 1 + hashp->SGSIZE - 1) /
-			 hashp->SGSIZE;
+		nsegs = howmany(hashp->MAX_BUCKET + 1, hashp->SGSIZE);
 		if (alloc_segs(hashp, nsegs))
 			/*
 			 * If alloc_segs fails, table will have been destroyed
@@ -187,7 +185,7 @@ __hash_open(const char *file, int flags, int mode,
 		__buf_init(hashp, DEF_BUFSIZE);
 
 	hashp->new_file = new_table;
-	hashp->save_file = file && (hashp->flags & O_RDWR);
+	hashp->save_file = file && (flags & O_RDWR);
 	hashp->cbucket = -1;
 	if (!(dbp = (DB *)malloc(sizeof(DB)))) {
 		save_errno = errno;
@@ -295,6 +293,8 @@ init_hash(HTAB *hashp, const char *file, const HASHINFO *info)
 		if (stat(file, &statbuf))
 			return (NULL);
 		hashp->BSIZE = statbuf.st_blksize;
+		if (hashp->BSIZE > MAX_BSIZE)
+			hashp->BSIZE = MAX_BSIZE;
 		hashp->BSHIFT = __log2(hashp->BSIZE);
 	}
 
@@ -423,8 +423,11 @@ hdestroy(HTAB *hashp)
 	if (hashp->tmp_buf)
 		free(hashp->tmp_buf);
 
-	if (hashp->fp != -1)
+	if (hashp->fp != -1) {
+		if (hashp->save_file)
+			(void)_fsync(hashp->fp);
 		(void)_close(hashp->fp);
+	}
 
 	free(hashp);
 
@@ -458,6 +461,8 @@ hash_sync(const DB *dbp, u_int32_t flags)
 	if (!hashp->save_file)
 		return (0);
 	if (__buf_free(hashp, 0, 1) || flush_meta(hashp))
+		return (ERROR);
+	if (hashp->fp != -1 && _fsync(hashp->fp) != 0)
 		return (ERROR);
 	hashp->new_file = 0;
 	return (0);
@@ -522,6 +527,10 @@ hash_get(const DB *dbp, const DBT *key, DBT *data, u_int32_t flag)
 	hashp = (HTAB *)dbp->internal;
 	if (flag) {
 		hashp->error = errno = EINVAL;
+		return (ERROR);
+	}
+	if ((hashp->flags & O_ACCMODE) == O_WRONLY) {
+		hashp->error = errno = EPERM;
 		return (ERROR);
 	}
 	return (hash_access(hashp, HASH_GET, (DBT *)key, data));
@@ -686,7 +695,11 @@ found:
 			return (ERROR);
 		break;
 	default:
+#ifdef __APPLE__
 		LIBC_ABORT("illegal action (%d)", action);
+#else
+		abort();
+#endif
 	}
 	save_bufp->flags &= ~BUF_PIN;
 	return (SUCCESS);
@@ -701,19 +714,21 @@ hash_seq(const DB *dbp, DBT *key, DBT *data, u_int32_t flag)
 	u_int16_t *bp, ndx;
 
 	hashp = (HTAB *)dbp->internal;
-	if (flag && flag != R_FIRST && flag != R_NEXT) {
+	if (flag != R_FIRST && flag != R_NEXT) {
 		hashp->error = errno = EINVAL;
 		return (ERROR);
 	}
 #ifdef HASH_STATISTICS
 	hash_accesses++;
 #endif
-	if ((hashp->cbucket < 0) || (flag == R_FIRST)) {
+	if (flag == R_FIRST) {
 		hashp->cbucket = 0;
 		hashp->cndx = 1;
 		hashp->cpage = NULL;
+	} else if (hashp->cbucket < 0) { /* R_NEXT */
+		return (ABNORMAL);
 	}
- next_bucket:
+next_bucket:
 	for (bp = NULL; !bp || !bp[0]; ) {
 		if (!(bufp = hashp->cpage)) {
 			for (bucket = hashp->cbucket;
@@ -734,7 +749,7 @@ hash_seq(const DB *dbp, DBT *key, DBT *data, u_int32_t flag)
 			}
 		} else {
 			bp = (u_int16_t *)hashp->cpage->page;
-			if (flag == R_NEXT) {
+			if (flag == R_NEXT || flag == 0) {
 				hashp->cndx += 2;
 				if (hashp->cndx > bp[0]) {
 					hashp->cpage = NULL;
@@ -767,7 +782,7 @@ hash_seq(const DB *dbp, DBT *key, DBT *data, u_int32_t flag)
 		if (__big_keydata(hashp, bufp, key, data, 1))
 			return (ERROR);
 	} else {
-		if (hashp->cpage == 0)
+		if (hashp->cpage == NULL)
 			return (ERROR);
 		key->data = (u_char *)hashp->cpage->page + bp[ndx];
 		key->size = (ndx > 1 ? bp[ndx - 1] : hashp->BSIZE) - bp[ndx];
@@ -809,7 +824,7 @@ __expand_table(HTAB *hashp)
 			hashp->DSIZE = dirsize << 1;
 		}
 		if ((hashp->dir[new_segnum] =
-		    (SEGMENT)calloc(hashp->SGSIZE, sizeof(SEGMENT))) == NULL)
+		    calloc(hashp->SGSIZE, sizeof(SEGMENT))) == NULL)
 			return (-1);
 		hashp->exsegs++;
 		hashp->nsegs++;
@@ -878,7 +893,7 @@ alloc_segs(HTAB *hashp, int nsegs)
 	int save_errno;
 
 	if ((hashp->dir =
-	    (SEGMENT *)calloc(hashp->DSIZE, sizeof(SEGMENT *))) == NULL) {
+	    calloc(hashp->DSIZE, sizeof(SEGMENT *))) == NULL) {
 		save_errno = errno;
 		(void)hdestroy(hashp);
 		errno = save_errno;
@@ -888,8 +903,7 @@ alloc_segs(HTAB *hashp, int nsegs)
 	if (nsegs == 0)
 		return (0);
 	/* Allocate segments */
-	if ((store = (SEGMENT)calloc(nsegs << hashp->SSHIFT,
-	    sizeof(SEGMENT))) == NULL) {
+	if ((store = calloc(nsegs << hashp->SSHIFT, sizeof(SEGMENT))) == NULL) {
 		save_errno = errno;
 		(void)hdestroy(hashp);
 		errno = save_errno;

@@ -34,6 +34,7 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/LayoutPoint.h>
+#include <WebCore/LayoutRange.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Forward.h>
 
@@ -73,6 +74,8 @@ public:
     LayoutUnit maxY() const { return y() + height(); }
     LayoutUnit width() const { return m_size.width(); }
     LayoutUnit height() const { return m_size.height(); }
+    LayoutRange xRange() const { return { x(), width() }; }
+    LayoutRange yRange() const { return { y(), height() }; }
 
     template<typename T> void setX(T x) { m_location.setX(x); }
     template<typename T> void setY(T y) { m_location.setY(y); }
@@ -175,6 +178,8 @@ public:
     
     bool intersects(const LayoutRect&) const;
     WEBCORE_EXPORT bool contains(const LayoutRect&) const;
+    bool containsX(const LayoutRect& other) const { return x() <= other.x() && other.maxX() <= maxX(); }
+    bool containsY(const LayoutRect& other) const { return y() <= other.y() && other.maxY() <= maxY(); }
 
     // This checks to see if the rect contains x,y in the traditional sense.
     // Equivalent to checking if the rect contains a 1x1 rect below and to the right of (px,py).
@@ -186,6 +191,8 @@ public:
     bool edgeInclusiveIntersect(const LayoutRect&);
     WEBCORE_EXPORT void unite(const LayoutRect&);
     void uniteEvenIfEmpty(const LayoutRect&);
+    void uniteXEvenIfEmpty(const LayoutRect&);
+    void uniteYEvenIfEmpty(const LayoutRect&);
     void uniteIfNonZero(const LayoutRect&);
     bool checkedUnite(const LayoutRect&);
 
@@ -221,7 +228,7 @@ public:
     friend bool operator==(const LayoutRect&, const LayoutRect&) = default;
 
 private:
-    friend struct IPC::ArgumentCoder<WebCore::LayoutRect, void>;
+    friend struct IPC::ArgumentCoder<WebCore::LayoutRect>;
 
     LayoutPoint m_location;
     LayoutSize m_size;

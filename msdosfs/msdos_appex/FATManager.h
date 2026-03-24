@@ -19,7 +19,7 @@ typedef NS_ENUM(uint8_t, iterateClustersResult) {
     iterateClustersStop
 };
 
-@interface FATBlock :NSObject
+@interface FATBlock : NSObject
 
 -(instancetype)initWithOffset:(uint64_t)offset;
 

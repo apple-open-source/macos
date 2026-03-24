@@ -38,7 +38,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-using WorldMap = HashMap<SingleThreadWeakRef<DOMWrapperWorld>, WeakRef<InjectedBundleScriptWorld>>;
+using WorldMap = HashMap<SingleThreadWeakRef<const DOMWrapperWorld>, WeakRef<InjectedBundleScriptWorld>>;
 
 static WorldMap& allWorlds()
 {
@@ -69,7 +69,7 @@ Ref<InjectedBundleScriptWorld> InjectedBundleScriptWorld::getOrCreate(DOMWrapper
     return adoptRef(*new InjectedBundleScriptWorld(ContentWorldIdentifier::generate(), world, uniqueWorldName()));
 }
 
-RefPtr<InjectedBundleScriptWorld> InjectedBundleScriptWorld::get(WebCore::DOMWrapperWorld& world)
+RefPtr<InjectedBundleScriptWorld> InjectedBundleScriptWorld::get(const WebCore::DOMWrapperWorld& world)
 {
     if (&world == &mainThreadNormalWorldSingleton())
         return normalWorldSingleton();

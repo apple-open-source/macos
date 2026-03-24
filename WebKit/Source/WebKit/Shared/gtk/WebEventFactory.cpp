@@ -278,9 +278,9 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, 
         WebKeyboardEvent::windowsKeyCodeForGdkKeyval(keyval),
         static_cast<int>(keyval),
         handledByInputMethod,
-        WTFMove(preeditUnderlines),
-        WTFMove(preeditSelectionRange),
-        WTFMove(commands),
+        WTF::move(preeditUnderlines),
+        WTF::move(preeditSelectionRange),
+        WTF::move(commands),
         isAutoRepeat,
         isGdkKeyCodeFromKeyPad(keyval)
         );
@@ -308,13 +308,13 @@ WebTouchEvent WebEventFactory::createWebTouchEvent(const GdkEvent* event, Vector
         ASSERT_NOT_REACHED();
     }
 
-    return WebTouchEvent({ type, modifiersForEvent(event), monotonicTimeForEvent(event) }, WTFMove(touchPoints), { }, { });
+    return WebTouchEvent({ type, modifiersForEvent(event), monotonicTimeForEvent(event) }, WTF::move(touchPoints), { }, { });
 }
 #endif
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, const WebCore::FloatSize& delta, const WebCore::FloatSize& wheelTicks, WebWheelEvent::Phase phase, WebWheelEvent::Phase momentumPhase, bool hasPreciseDeltas)
 {
-    return WebWheelEvent({ WebEventType::Wheel, modifiersForEvent(event), monotonicTimeForEvent(event) }, position, globalPosition, delta, wheelTicks, WebWheelEvent::ScrollByPixelWheelEvent, phase, momentumPhase, hasPreciseDeltas);
+    return WebWheelEvent({ WebEventType::Wheel, modifiersForEvent(event), monotonicTimeForEvent(event) }, position, globalPosition, delta, wheelTicks, WebWheelEvent::Granularity::ScrollByPixelWheelEvent, phase, momentumPhase, hasPreciseDeltas);
 }
 
 } // namespace WebKit

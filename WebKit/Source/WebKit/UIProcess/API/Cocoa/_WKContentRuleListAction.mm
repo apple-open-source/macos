@@ -29,6 +29,11 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+static Ref<API::ContentRuleListAction> protectedAction(_WKContentRuleListAction *action)
+{
+    return *action->_action;
+}
+
 @implementation _WKContentRuleListAction
 
 - (void)dealloc
@@ -36,7 +41,7 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKContentRuleListAction.class, self))
         return;
 
-    _action->~ContentRuleListAction();
+    SUPPRESS_UNRETAINED_ARG _action->~ContentRuleListAction();
     
     [super dealloc];
 }
@@ -44,7 +49,7 @@
 - (BOOL)blockedLoad
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _action->blockedLoad();
+    return protectedAction(self)->blockedLoad();
 #else
     return NO;
 #endif
@@ -53,7 +58,7 @@
 - (BOOL)blockedCookies
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _action->blockedCookies();
+    return protectedAction(self)->blockedCookies();
 #else
     return NO;
 #endif
@@ -62,7 +67,7 @@
 - (BOOL)madeHTTPS
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _action->madeHTTPS();
+    return protectedAction(self)->madeHTTPS();
 #else
     return NO;
 #endif
@@ -71,7 +76,7 @@
 - (BOOL)redirected
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _action->redirected();
+    return protectedAction(self)->redirected();
 #else
     return NO;
 #endif
@@ -80,7 +85,7 @@
 - (BOOL)modifiedHeaders
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _action->modifiedHeaders();
+    return protectedAction(self)->modifiedHeaders();
 #else
     return NO;
 #endif
@@ -89,7 +94,7 @@
 - (NSArray<NSString *> *)notifications
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    auto& vector = _action->notifications();
+    auto& vector = protectedAction(self)->notifications();
     if (vector.isEmpty())
         return nil;
     return createNSArray(vector).autorelease();

@@ -44,37 +44,37 @@ WKTypeID WKWebArchiveGetTypeID()
 WKWebArchiveRef WKWebArchiveCreate(WKWebArchiveResourceRef mainResourceRef, WKArrayRef subresourcesRef, WKArrayRef subframeArchivesRef)
 {
     auto webArchive = API::WebArchive::create(WebKit::toProtectedImpl(mainResourceRef).get(), WebKit::toImpl(subresourcesRef), WebKit::toImpl(subframeArchivesRef));
-    return WebKit::toAPILeakingRef(WTFMove(webArchive));
+    return WebKit::toAPILeakingRef(WTF::move(webArchive));
 }
 
 WKWebArchiveRef WKWebArchiveCreateWithData(WKDataRef dataRef)
 {
     auto webArchive = API::WebArchive::create(WebKit::toProtectedImpl(dataRef).get());
-    return WebKit::toAPILeakingRef(WTFMove(webArchive));
+    return WebKit::toAPILeakingRef(WTF::move(webArchive));
 }
 
 WKWebArchiveRef WKWebArchiveCreateFromRange(WKBundleRangeHandleRef rangeHandleRef)
 {
     Ref webArchive = API::WebArchive::create(makeSimpleRange(WebKit::toProtectedImpl(rangeHandleRef)->coreRange()));
-    return WebKit::toAPILeakingRef(WTFMove(webArchive));
+    return WebKit::toAPILeakingRef(WTF::move(webArchive));
 }
 
 WKWebArchiveResourceRef WKWebArchiveCopyMainResource(WKWebArchiveRef webArchiveRef)
 {
     RefPtr<API::WebArchiveResource> mainResource = WebKit::toProtectedImpl(webArchiveRef)->mainResource();
-    return WebKit::toAPILeakingRef(WTFMove(mainResource));
+    return WebKit::toAPILeakingRef(WTF::move(mainResource));
 }
 
 WKArrayRef WKWebArchiveCopySubresources(WKWebArchiveRef webArchiveRef)
 {
     RefPtr<API::Array> subresources = WebKit::toProtectedImpl(webArchiveRef)->subresources();
-    return WebKit::toAPILeakingRef(WTFMove(subresources));
+    return WebKit::toAPILeakingRef(WTF::move(subresources));
 }
 
 WKArrayRef WKWebArchiveCopySubframeArchives(WKWebArchiveRef webArchiveRef)
 {
     RefPtr<API::Array> subframeArchives = WebKit::toProtectedImpl(webArchiveRef)->subframeArchives();
-    return WebKit::toAPILeakingRef(WTFMove(subframeArchives));
+    return WebKit::toAPILeakingRef(WTF::move(subframeArchives));
 }
 
 WKDataRef WKWebArchiveCopyData(WKWebArchiveRef webArchiveRef)

@@ -72,7 +72,7 @@ RefPtr<WebCore::SharedBuffer> AuxiliaryProcessProxy::fetchAudioComponentServerRe
 
 Vector<String> AuxiliaryProcessProxy::platformOverrideLanguages() const
 {
-    static const NeverDestroyed<Vector<String>> overrideLanguages = makeVector<String>([[NSUserDefaults standardUserDefaults] stringArrayForKey:@"AppleLanguages"]);
+    static const NeverDestroyed<Vector<String>> overrideLanguages = makeVector<String>(retainPtr([[NSUserDefaults standardUserDefaults] stringArrayForKey:@"AppleLanguages"]).get());
     return overrideLanguages;
 }
 
@@ -96,24 +96,24 @@ void AuxiliaryProcessProxy::platformStartConnectionTerminationWatchdog()
         return;
 
     Ref assertion = ProcessAndUIAssertion::create(processID(), reason, ProcessAssertionType::Background, environmentIdentifier(), extensionProcess());
-    auto terminationHandler = [assertion = WTFMove(assertion), extensionProcess = WTFMove(*maybeExtensionProcess)] {
+    auto terminationHandler = [assertion = WTF::move(assertion), extensionProcess = WTF::move(*maybeExtensionProcess)] {
         extensionProcess.invalidate();
     };
 #else
     if (!m_connection)
         return;
 
-    OSObjectPtr xpcConnection = m_connection->xpcConnection();
+    XPCObjectPtr<xpc_connection_t> xpcConnection = m_connection->xpcConnection();
     if (!xpcConnection)
         return;
 
     Ref assertion = ProcessAndUIAssertion::create(processID(), reason, ProcessAssertionType::Background, environmentIdentifier());
-    auto terminationHandler = [assertion = WTFMove(assertion), xpcConnection = WTFMove(xpcConnection)]() {
+    auto terminationHandler = [assertion = WTF::move(assertion), xpcConnection = WTF::move(xpcConnection)]() {
         terminateWithReason(xpcConnection.get(), ReasonCode::WatchdogTimerFired, reason);
     };
 #endif
 
-    RunLoop::mainSingleton().dispatchAfter(30_s, WTFMove(terminationHandler));
+    RunLoop::mainSingleton().dispatchAfter(30_s, WTF::move(terminationHandler));
 #endif // USE(RUNNINGBOARD)
 }
 

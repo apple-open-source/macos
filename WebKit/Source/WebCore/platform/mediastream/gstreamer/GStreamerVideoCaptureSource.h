@@ -41,6 +41,11 @@ public:
 
     WEBCORE_EXPORT static DisplayCaptureFactory& displayFactory();
 
+    using RealtimeVideoCaptureSource::ref;
+    using RealtimeVideoCaptureSource::deref;
+    void virtualRef() const final { RealtimeVideoCaptureSource::ref(); }
+    void virtualDeref() const final { RealtimeVideoCaptureSource::deref(); }
+
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
     void configurationChanged() final;

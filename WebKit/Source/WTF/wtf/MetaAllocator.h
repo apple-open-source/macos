@@ -36,6 +36,7 @@
 #include <wtf/PageBlock.h>
 #include <wtf/RedBlackTree.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WTF {
 
@@ -138,9 +139,19 @@ protected:
 private:
     
     friend class MetaAllocatorHandle;
-    
-    class FreeSpaceNode : public RedBlackTree<FreeSpaceNode, size_t>::Node {
+
+    DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER_AND_EXPORT(MetaAllocatorFreeSpace, WTF_INTERNAL);
+
+    class FreeSpaceNode final : public RedBlackTree<FreeSpaceNode, size_t>::ThreadSafeNode {
+        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FreeSpaceNode);
     public:
+        void operator delete(void* object) { MetaAllocatorFreeSpaceMalloc::free(object); }
+        void* operator new(size_t size)
+        {
+            ASSERT(sizeof(FreeSpaceNode) == size);
+            return MetaAllocatorFreeSpaceMalloc::malloc(size);
+        }
+
         size_t sizeInBytes()
         {
             return m_end.untaggedPtr<size_t>() - m_start.untaggedPtr<size_t>();
@@ -179,7 +190,7 @@ private:
     size_t roundUp(size_t sizeInBytes);
     
     FreeSpaceNode* allocFreeSpaceNode();
-    WTF_EXPORT_PRIVATE void freeFreeSpaceNode(FreeSpaceNode*);
+    WTF_EXPORT_PRIVATE void freeFreeSpaceNode(CheckedPtr<FreeSpaceNode>&&);
     
     size_t m_allocationGranule;
     size_t m_pageSize;
@@ -187,8 +198,8 @@ private:
     unsigned m_logPageSize;
     
     Tree m_freeSpaceSizeMap;
-    UncheckedKeyHashMap<FreeSpacePtr, FreeSpaceNode*> m_freeSpaceStartAddressMap;
-    UncheckedKeyHashMap<FreeSpacePtr, FreeSpaceNode*> m_freeSpaceEndAddressMap;
+    UncheckedKeyHashMap<FreeSpacePtr, CheckedPtr<FreeSpaceNode>> m_freeSpaceStartAddressMap;
+    UncheckedKeyHashMap<FreeSpacePtr, CheckedPtr<FreeSpaceNode>> m_freeSpaceEndAddressMap;
     UncheckedKeyHashMap<uintptr_t, size_t> m_pageOccupancyMap;
     
     size_t m_bytesAllocated;

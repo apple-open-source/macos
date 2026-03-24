@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2025 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -23,6 +23,7 @@
 import itertools
 
 from collections import Counter, defaultdict
+from .opaque_ipc_types import is_opaque_type, opaque_ipc_types
 
 BUILTIN_ATTRIBUTE = "Builtin"
 MAINTHREADCALLBACK_ATTRIBUTE = "MainThreadCallback"
@@ -33,7 +34,7 @@ SYNCHRONOUS_ATTRIBUTE = 'Synchronous'
 STREAM_ATTRIBUTE = "Stream"
 
 class MessageReceiver(object):
-    def __init__(self, name, superclass, attributes, receiver_enabled_by, receiver_enabled_by_exception, receiver_enabled_by_conjunction, receiver_dispatched_from, receiver_dispatched_from_exception, receiver_dispatched_to, receiver_dispatched_to_exception, shared_preferences_needs_connection, messages, condition, namespace, wants_send_cancel_reply):
+    def __init__(self, name, superclass, attributes, receiver_enabled_by, receiver_enabled_by_exception, receiver_enabled_by_conjunction, receiver_dispatched_from, receiver_dispatched_from_exception, receiver_dispatched_to, receiver_dispatched_to_exception, shared_preferences_needs_connection, messages, condition, namespace, wants_send_cancel_reply, swift_receiver):
         self.name = name
         self.superclass = superclass
         self.attributes = frozenset(attributes or [])
@@ -49,6 +50,7 @@ class MessageReceiver(object):
         self.condition = condition
         self.namespace = namespace
         self.wants_send_cancel_reply = wants_send_cancel_reply
+        self.swift_receiver = swift_receiver
 
     def iterparameters(self):
         return itertools.chain((parameter for message in self.messages for parameter in message.parameters),
@@ -62,6 +64,18 @@ class MessageReceiver(object):
             raise Exception("ERROR: %s not annotated with 'DispatchedFrom=' attribute" % self.name)
         if not self.receiver_dispatched_to and not self.receiver_dispatched_to_exception:
             raise Exception("ERROR: %s not annotated with 'DispatchedTo=' attribute" % self.name)
+
+    def enforce_opaque_ipc_types_usage(self):
+        for message in self.messages:
+            for parameter in message.parameters:
+                if is_opaque_type(parameter.type):
+                    if not opaque_ipc_types.message_param_tracked(self.name, message.name, parameter.name, parameter.type):
+                        raise Exception(f"Justification needed in opaque_ipc_types.tracking.in: [] MessageParam {self.name}.{message.name} {parameter.name} {parameter.type}")
+            if message.reply_parameters is not None:
+                for parameter in message.reply_parameters:
+                    if is_opaque_type(parameter.type):
+                        if not opaque_ipc_types.message_param_reply_tracked(self.name, message.name, parameter.name, parameter.type):
+                            raise Exception(f"Justification needed in opaque_ipc_types.tracking.in: [] MessageParamReply {self.name}.{message.name} {parameter.name} {parameter.type}")
 
 
 class Message(object):
@@ -94,7 +108,7 @@ class Parameter(object):
         return attribute in self.attributes
 
 
-ipc_receiver = MessageReceiver(name="IPC", superclass=None, attributes=[BUILTIN_ATTRIBUTE], receiver_enabled_by=None, receiver_enabled_by_exception=False, receiver_enabled_by_conjunction=None, receiver_dispatched_from=None, receiver_dispatched_from_exception=None, receiver_dispatched_to=None, receiver_dispatched_to_exception=None, shared_preferences_needs_connection=False, messages=[
+ipc_receiver = MessageReceiver(name="IPC", superclass=None, attributes=[BUILTIN_ATTRIBUTE], receiver_enabled_by=None, receiver_enabled_by_exception=False, receiver_enabled_by_conjunction=None, receiver_dispatched_from=None, receiver_dispatched_from_exception=None, receiver_dispatched_to=None, receiver_dispatched_to_exception=None, shared_preferences_needs_connection=False, swift_receiver=False, messages=[
     Message('WrappedAsyncMessageForTesting', [], [], attributes=[BUILTIN_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, ALLOWEDWHENWAITINGFORSYNCREPLY_ATTRIBUTE], condition=None),
     Message('SyncMessageReply', [], [], attributes=[BUILTIN_ATTRIBUTE], condition=None),
     Message('CancelSyncMessageReply', [], [], attributes=[BUILTIN_ATTRIBUTE], condition=None),

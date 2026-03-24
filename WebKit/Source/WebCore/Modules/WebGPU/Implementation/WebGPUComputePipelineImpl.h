@@ -43,7 +43,7 @@ class ComputePipelineImpl final : public ComputePipeline {
 public:
     static Ref<ComputePipelineImpl> create(WebGPUPtr<WGPUComputePipeline>&& computePipeline, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new ComputePipelineImpl(WTFMove(computePipeline), convertToBackingContext));
+        return adoptRef(*new ComputePipelineImpl(WTF::move(computePipeline), convertToBackingContext));
     }
 
     virtual ~ComputePipelineImpl();

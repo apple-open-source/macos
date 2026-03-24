@@ -373,7 +373,7 @@ static const char * propagateProps[] = {kIOHIDPropagatePropertyKeys};
 
 bool IOHIDInterface::setProperty( const OSSymbol * key, OSObject * object)
 {
-    require(_owner, exit);
+    __Require(_owner, exit);
 
     for (const char * prop : propagateProps) {
         const OSSymbol *sym = OSSymbol::withCString(prop);
@@ -605,9 +605,9 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
     IOBufferMemoryDescriptor *poolReport = NULL;
     DextDebugStats *stats;
     
-    require(_opened && !_terminated, exit);
+    __Require(_opened && !_terminated, exit);
     
-    require_action(_reportPool, exit, HIDServiceLogError("No report pool"));
+    __Require_Action(_reportPool, exit, HIDServiceLogError("No report pool"));
 
     poolReport = OSDynamicCast(IOBufferMemoryDescriptor, _reportPool->getLastObject());
 
@@ -630,7 +630,7 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
         }
 
         poolReport = IOBufferMemoryDescriptor::withOptions(kIOMemoryDirectionOutIn | kIOMemoryKernelUserShared, report->getLength(), page_size);
-        require_action(poolReport, exit, HIDServiceLogError("BMD create"));
+        __Require_Action(poolReport, exit, HIDServiceLogError("BMD create"));
     } else {
         poolReport->retain();
         _reportPool->removeObject(_reportPool->getCount() - 1);
@@ -684,7 +684,7 @@ IOReturn IOHIDInterface::addReportToPoolGated(IOMemoryDescriptor *report)
         _reportPool = OSArray::withCapacity(1);
     }
     
-    require_action(_reportPool, exit, ret = kIOReturnNoMemory);
+    __Require_Action(_reportPool, exit, ret = kIOReturnNoMemory);
     
     _reportPool->setObject(report);
     
@@ -714,9 +714,9 @@ bool IOHIDInterface::openGated(IOService *forClient, IOOptionBits options, OSAct
     reportAction = OSMemberFunctionCast(InterruptReportAction, this,
                                         &IOHIDInterface::HandleReportPrivate);
     
-    require(action, exit);
+    __Require(action, exit);
     
-    require_action(!_opened, exit, result = true);
+    __Require_Action(!_opened, exit, result = true);
     
     OSSafeReleaseNULL(_reportAction);
     
@@ -756,12 +756,12 @@ IMPL(IOHIDInterface, GetSupportedCookies)
     IOBufferMemoryDescriptor *md = NULL;
     UInt32 *buff = NULL;
     
-    require_action(cookies, exit, ret = kIOReturnBadArgument);
+    __Require_Action(cookies, exit, ret = kIOReturnBadArgument);
     
     md = IOBufferMemoryDescriptor::withOptions(kIODirectionInOut |
                                                kIOMemoryKernelUserShared,
                                                _elementArray->getCount() * sizeof(UInt32));
-    require_action(md, exit, ret = kIOReturnNoMemory);
+    __Require_Action(md, exit, ret = kIOReturnNoMemory);
     
     buff = (UInt32 *)md->getBytesNoCopy();
     
@@ -785,13 +785,13 @@ IMPL(IOHIDInterface, SetElementValues)
     IOBufferMemoryDescriptor *md = NULL;
     
     md = OSDynamicCast(IOBufferMemoryDescriptor, elementValues);
-    require_action(md && count, exit, ret = kIOReturnBadArgument);
+    __Require_Action(md && count, exit, ret = kIOReturnBadArgument);
 
     values = (UInt8 *)md->getBytesNoCopy();
     
     // Post the data to the device
     ret = _owner->postElementTransaction(values, (UInt32)md->getLength());
-    require_noerr_action(ret, exit, HIDServiceLogError("postElementValues failed: 0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDServiceLogError("postElementValues failed: 0x%x", ret));
 
 exit:
     return ret;
@@ -809,9 +809,9 @@ IMPL(IOHIDInterface, GetElementValues)
     uint32_t allocSize;
     
     md = OSDynamicCast(IOBufferMemoryDescriptor, elementValues);
-    require_action(md && count, exit, ret = kIOReturnBadArgument);
+    __Require_Action(md && count, exit, ret = kIOReturnBadArgument);
     
-    require(!os_mul_overflow(count, sizeof(IOHIDElementCookie), &allocSize), exit);
+    __Require(!os_mul_overflow(count, sizeof(IOHIDElementCookie), &allocSize), exit);
     
     values = (UInt8 *)md->getBytesNoCopy();
 
@@ -821,7 +821,7 @@ IMPL(IOHIDInterface, GetElementValues)
     #pragma clang diagnostic ignored "-Wxnu-typed-allocators"
     cookies = (IOHIDElementCookie *)IONewData(IOHIDElementCookie, count);
     #pragma clang diagnostic pop
-    require_action(cookies, exit, ret = kIOReturnNoMemory);
+    __Require_Action(cookies, exit, ret = kIOReturnNoMemory);
     
     memset(cookies, 0, count);
     
@@ -837,7 +837,7 @@ IMPL(IOHIDInterface, GetElementValues)
         header = (IOHIDElementValueHeader *)values;
         
         element = (IOHIDElementPrivate *)_deviceElements->getObject(header->cookie);
-        require_action(element, exit, {
+        __Require_Action(element, exit, {
             HIDLogError("No element for cookie %d", (unsigned int)header->cookie);
             ret = kIOReturnBadArgument;
         });
@@ -846,7 +846,7 @@ IMPL(IOHIDInterface, GetElementValues)
         
         // size check
         totalSize += sizeof(IOHIDElementValueHeader) + valueSize;
-        require_action(totalSize <= elementValues->getLength(), exit, {
+        __Require_Action(totalSize <= elementValues->getLength(), exit, {
             HIDLogError("IOHIDInterface GetElementValues totalSize: %d length: %d",
                         (unsigned int)totalSize, (int)elementValues->getLength());
             ret = kIOReturnBadArgument;
@@ -858,7 +858,7 @@ IMPL(IOHIDInterface, GetElementValues)
     }
     
     ret = _owner->updateElementValues(cookies, count);
-    require_noerr_action(ret, exit, HIDServiceLogError("updateElementValues failed: 0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDServiceLogError("updateElementValues failed: 0x%x", ret));
     
     values = (UInt8 *)md->getBytesNoCopy();
     totalSize = 0;
@@ -919,7 +919,7 @@ bool IOHIDInterface::serializeDebugState(void *ref __unused,
     OSNumber       * num;
     DextDebugStats   stats = {0, 0, 0, 0};
 
-    require(dict, exit);
+    __Require(dict, exit);
 
     if (_debugStats) {
         memcpy(&stats, (void *)_debugStats->getVirtualAddress(), sizeof(DextDebugStats));

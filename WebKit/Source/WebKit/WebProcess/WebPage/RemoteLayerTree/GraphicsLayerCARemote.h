@@ -40,7 +40,7 @@ namespace WebKit {
 
 class RemoteLayerTreeContext;
 
-class GraphicsLayerCARemote final : public WebCore::GraphicsLayerCA, public CanMakeWeakPtr<GraphicsLayerCARemote> {
+class GraphicsLayerCARemote final : public WebCore::GraphicsLayerCA {
     WTF_MAKE_TZONE_ALLOCATED(GraphicsLayerCARemote);
 public:
     GraphicsLayerCARemote(Type layerType, WebCore::GraphicsLayerClient&, RemoteLayerTreeContext&);

@@ -190,9 +190,6 @@ systmpr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 					}
 					break;
 			}
-		} else {
-			if (params->vflag)
-				printf("got %d twice\n", xgn->xgn_kind);
 		}
 
 		if ((proto == 0 && which != ALL_XGN_KIND_KCREG) ||
@@ -473,7 +470,7 @@ printf(m, STATDIFF(f))
 	p(nstat_successmsgfailures, "\t%u enqueue success message failure%s\n");
 	p(nstat_sendcountfailures, "\t%u enqueue source counts message failure%s\n");
 	p(nstat_sysinfofailures, "\t%u enqueue sysinfo message failure%s\n");
-	p(nstat_srcupatefailures, "\t%u enqueue source udpate message failure%s\n");
+	p(nstat_srcupatefailures, "\t%u enqueue source update message failure%s\n");
 	p(nstat_descriptionfailures, "\t%u enqueue description message failure%s\n");
 	p(nstat_msgremovedfailures, "\t%u enqueue remove message failure%s\n");
 	p(nstat_srcaddedfailures, "\t%u enqueue source added message failure%s\n");

@@ -32,6 +32,7 @@
 #include "config.h"
 #include "HTMLDocumentParserFastPath.h"
 
+#include "ContainerNode.h"
 #include "Document.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementTraversal.h"
@@ -94,6 +95,102 @@ private:
 };
 
 namespace WebCore {
+
+static constexpr unsigned s_maxCachedStringSize = 40000;
+
+unsigned maxCachedSetInnerHTMLStringSize()
+{
+    return s_maxCachedStringSize;
+}
+
+template<typename CharacterType>
+class HTMLFastPathParser;
+
+
+enum class FragmentReuseResult : uint8_t {
+    Success,
+    CannotReuse,
+    ParseFailure
+};
+
+ALWAYS_INLINE static bool isCachedSubtreeValid(Node& cachedContainer)
+{
+    return !cachedContainer.hasDidMutateSubtreeAfterSetInnerHTML();
+}
+
+template<typename CharacterType>
+static bool isCachedPrefixMatch(const CachedSetInnerHTML& cache, std::span<const CharacterType> source, const ElementName& elementName)
+{
+    if (cache.source.length() > source.size())
+        return false;
+
+    if (cache.contextElementName != elementName)
+        return false;
+
+    // Check if character types and prefix content match.
+    StringView cachedStringView(cache.source);
+    if (cachedStringView.is8Bit()) {
+        if constexpr (std::is_same_v<CharacterType, Latin1Character>) {
+            auto cachedSourceSpan = cachedStringView.span8();
+            return std::equal(cachedSourceSpan.begin(), cachedSourceSpan.end(), source.begin());
+        }
+        return false;
+    }
+    if constexpr (std::is_same_v<CharacterType, char16_t>) {
+        auto cachedSourceSpan = cachedStringView.span16();
+        return std::equal(cachedSourceSpan.begin(), cachedSourceSpan.end(), source.begin());
+    }
+    return false;
+}
+
+template<typename CharacterType>
+static FragmentReuseResult tryAvoidParsingByCloningExistingSubtree(std::span<const CharacterType> source, ContainerNode& destinationParent, Element& contextElement)
+{
+    auto& cache = destinationParent.protectedDocument()->cachedSetInnerHTML();
+    RefPtr cachedContainer = cache.cachedContainer.get();
+    if (!cachedContainer)
+        return FragmentReuseResult::CannotReuse;
+    if (!isCachedSubtreeValid(*cachedContainer)) {
+        destinationParent.protectedDocument()->invalidateCachedSetInnerHTML();
+        return FragmentReuseResult::CannotReuse;
+    }
+
+    if (!isCachedPrefixMatch<CharacterType>(cache, source, contextElement.elementName()))
+        return FragmentReuseResult::CannotReuse;
+
+    // Only allow prefix reuse if cached string ends with '>' or whitespace to avoid splitting text/entities.
+    // Example: "<br>&apos", then "<br>&apos;" would incorrectly split the entity into "&apos" and ";".
+    if (cache.source.length() < source.size() && !cache.source.isEmpty()) {
+        char16_t lastChar = cache.source[cache.source.length() - 1];
+        if (lastChar != '>' && !isASCIIWhitespace(lastChar))
+            return FragmentReuseResult::CannotReuse;
+    }
+
+    auto unparsedSuffix = source.subspan(cache.source.length());
+    return cloneCachedPrefixAndParseSuffix(unparsedSuffix, destinationParent, contextElement, cachedContainer.get());
+}
+
+template<typename CharacterType>
+static FragmentReuseResult cloneCachedPrefixAndParseSuffix(std::span<const CharacterType> unparsedSuffix, ContainerNode& destinationParent, Element& contextElement, Node* cachedContainer)
+{
+
+    ASSERT(cachedContainer->hasChildNodes());
+
+    for (RefPtr nodeToClone = cachedContainer->firstChild(); nodeToClone; nodeToClone = nodeToClone->nextSibling()) {
+        Ref<Node> clonedChild = nodeToClone->cloneNodeInternal(destinationParent.protectedDocument(), Node::CloningOperation::SelfOnly, nullptr);
+        if (RefPtr nodeToCloneAsContainer = dynamicDowncast<ContainerNode>(*nodeToClone))
+            nodeToCloneAsContainer->cloneSubtreeForFastParser(destinationParent.protectedDocument(), nullptr, downcast<ContainerNode>(clonedChild.get()), 0);
+        destinationParent.parserAppendChildIntoIsolatedTree(clonedChild.get());
+    }
+
+    if (unparsedSuffix.empty())
+        return FragmentReuseResult::Success;
+
+    HTMLFastPathParser<CharacterType> parser { unparsedSuffix, destinationParent.document(), destinationParent };
+    if (!parser.parse(contextElement))
+        return FragmentReuseResult::ParseFailure;
+    return FragmentReuseResult::Success;
+}
 
 // Captures the potential outcomes for fast path html parser.
 enum class HTMLFastPathResult : uint8_t {
@@ -821,9 +918,9 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                     parent.parserAppendChild(Text::create(m_document, result.tryUseWhitespaceCache()));
             } else if (!result.escapedText.isEmpty()) {
                 if (!parent.isConnected())
-                    parent.parserAppendChildIntoIsolatedTree(Text::create(m_document, WTFMove(result.escapedText)));
+                    parent.parserAppendChildIntoIsolatedTree(Text::create(m_document, WTF::move(result.escapedText)));
                 else
-                    parent.parserAppendChild(Text::create(m_document, WTFMove(result.escapedText)));
+                    parent.parserAppendChild(Text::create(m_document, WTF::move(result.escapedText)));
             }
 
             if (m_parsingBuffer.atEnd())
@@ -879,9 +976,9 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                 hasDuplicateAttributes = true;
                 continue;
             }
-            m_attributeBuffer.append(Attribute { WTFMove(attributeName), WTFMove(attributeValue) });
+            m_attributeBuffer.append(Attribute { WTF::move(attributeName), WTF::move(attributeValue) });
         }
-        parent.parserSetAttributes(m_attributeBuffer);
+        parent.parserSetAttributes(m_attributeBuffer, Element::AttributeModificationReason::ParserFastPath);
         if (hasDuplicateAttributes) [[unlikely]]
             parent.setHasDuplicateAttribute(true);
     }
@@ -975,7 +1072,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     {
         parseAttributes(element);
         if (parsingFailed())
-            return WTFMove(element);
+            return WTF::move(element);
         if (!parent.isConnected())
             parent.parserAppendChildIntoIsolatedTree(element);
         else
@@ -1000,21 +1097,21 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             return didFail(HTMLFastPathResult::FailedUnexpectedTagNameCloseState, element);
 
         element->finishParsingChildren();
-        return WTFMove(element);
+        return WTF::move(element);
     }
 
     template<typename HTMLElementType> Ref<HTMLElementType> parseVoidElement(Ref<HTMLElementType>&& element, ContainerNode& parent)
     {
         parseAttributes(element);
         if (parsingFailed())
-            return WTFMove(element);
+            return WTF::move(element);
         if (!parent.isConnected())
             parent.parserAppendChildIntoIsolatedTree(element);
         else
             parent.parserAppendChild(element);
         element->beginParsingChildren();
         element->finishParsingChildren();
-        return WTFMove(element);
+        return WTF::move(element);
     }
 };
 
@@ -1036,6 +1133,12 @@ static bool canUseFastPath(Element& contextElement, OptionSet<ParserContentPolic
 template<typename CharacterType>
 static bool tryFastParsingHTMLFragmentImpl(std::span<const CharacterType> source, Document& document, ContainerNode& destinationParent, Element& contextElement)
 {
+    auto reuseResult = tryAvoidParsingByCloningExistingSubtree(source, destinationParent, contextElement);
+    if (reuseResult == FragmentReuseResult::Success)
+        return true;
+    if (reuseResult == FragmentReuseResult::ParseFailure)
+        return false;
+
     HTMLFastPathParser parser { source, document, destinationParent };
     return parser.parse(contextElement);
 }

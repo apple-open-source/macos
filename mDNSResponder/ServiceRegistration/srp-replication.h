@@ -369,6 +369,7 @@ struct srpl_domain {
     uint64_t partner_id; // SRP replication partner ID
     uint64_t dataset_id;
     uint64_t advertised_dataset_id;
+    uint32_t advertised_priority;
     bool have_dataset_id;
     bool dataset_id_committed;
     bool partner_discovery_pending;
@@ -463,9 +464,9 @@ void srpl_connection_release_(srpl_connection_t *NONNULL srpl_connection, const 
 void srpl_connection_retain_(srpl_connection_t *NONNULL srpl_connection, const char *NONNULL file, int line);
 srpl_domain_t *NULLABLE srpl_domain_create_or_copy(srp_server_t *NONNULL server_state, const char *NONNULL domain_name);
 void srpl_dump_connection_states(srp_server_t *NONNULL server_state);
-void srpl_change_server_priority(srp_server_t *NONNULL server_state, uint32_t new);
+void srpl_change_server_base_priority(srp_server_t *NONNULL server_state, uint32_t new);
 void srpl_thread_service_set_changed(srp_server_t *NONNULL server_state);
-void srpl_primary_resident_updated(srp_server_t *NONNULL server_state, bool is_primary);
+void srpl_primary_resident_updated(srp_server_t *NONNULL server_state, bool was_primary, bool is_primary);
 #endif // __SRP_REPLICATION_H__
 
 // Local Variables:

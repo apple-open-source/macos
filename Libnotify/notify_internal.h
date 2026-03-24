@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <os/assumes.h>
 #include <os/atomic_private.h>
 #include <os/crashlog_private.h>
 #include <os/lock.h>

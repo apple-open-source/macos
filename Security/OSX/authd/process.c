@@ -166,11 +166,11 @@ process_create(const audit_info_s * auditInfo, session_t session)
     CFURLRef code_url = NULL;
     SecCodeRef codeRef = NULL;
 
-    require(session != NULL, done);
-    require(auditInfo != NULL, done);
+    __Require(session != NULL, done);
+    __Require(auditInfo != NULL, done);
     
     proc = (process_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, process_get_type_id(), AUTH_CLASS_SIZE(process), NULL);
-    require(proc != NULL, done);
+    __Require(proc != NULL, done);
     
     proc->auditInfo = *auditInfo;
     
@@ -179,10 +179,10 @@ process_create(const audit_info_s * auditInfo, session_t session)
     proc->connections = CFSetCreateMutable(kCFAllocatorDefault, 0, NULL);
     
     proc->authTokens = CFBagCreateMutable(kCFAllocatorDefault, 0, &kCFTypeBagCallBacks);
-    check(proc->authTokens != NULL);
+    __Check(proc->authTokens != NULL);
     
     proc->dispatch_queue = dispatch_queue_create("Process Dispatch Queue", DISPATCH_QUEUE_SERIAL);
-    check(proc->dispatch_queue != NULL);
+    __Check(proc->dispatch_queue != NULL);
 
     // to have at least some code URL just for case later methods fail
     int retval = proc_pidpath(proc->auditInfo.pid, proc->code_url, sizeof(proc->code_url));
@@ -224,10 +224,10 @@ process_create(const audit_info_s * auditInfo, session_t session)
     }
     
     status = SecCodeCheckValidity(codeRef, kSecCSDefaultFlags, NULL);
-    require_noerr_action(status, done, os_log_error(AUTHD_LOG, "process: PID %d SecCodeCheckValidity failed with %d", proc->auditInfo.pid, (int)status));
+    __Require_noErr_Action(status, done, os_log_error(AUTHD_LOG, "process: PID %d SecCodeCheckValidity failed with %d", proc->auditInfo.pid, (int)status));
     
     status = SecCodeCopySigningInformation(codeRef, kSecCSRequirementInformation, &code_info);
-    require_noerr_action(status, done, os_log_debug(AUTHD_LOG, "process: PID %d SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
+    __Require_noErr_Action(status, done, os_log_debug(AUTHD_LOG, "process: PID %d SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
 
     CFTypeRef value = NULL;
     if (CFDictionaryGetValueIfPresent(code_info, kSecCodeInfoDesignatedRequirement, (const void**)&value)) {
@@ -460,7 +460,7 @@ CFTypeRef
 process_copy_entitlement_value(process_t proc, const char * entitlement)
 {
     CFTypeRef value = NULL;
-    require(entitlement != NULL, done);
+    __Require(entitlement != NULL, done);
 
     CFStringRef key = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, entitlement, kCFStringEncodingUTF8, kCFAllocatorNull);
     if (proc->code_entitlements && key && (CFDictionaryGetValueIfPresent(proc->code_entitlements, key, &value))) {
@@ -476,7 +476,7 @@ bool
 process_has_entitlement(process_t proc, const char * entitlement)
 {
     bool entitled = false;
-    require(entitlement != NULL, done);
+    __Require(entitlement != NULL, done);
 
     CFStringRef key = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, entitlement, kCFStringEncodingUTF8, kCFAllocatorNull);
     CFTypeRef value = NULL;
@@ -495,13 +495,13 @@ bool
 process_has_entitlement_for_right(process_t proc, const char * right)
 {
     bool entitled = false;
-    require(right != NULL, done);
+    __Require(right != NULL, done);
 
     CFTypeRef rights = NULL;
     if (proc->code_entitlements && CFDictionaryGetValueIfPresent(proc->code_entitlements, CFSTR("com.apple.private.AuthorizationServices"), &rights)) {
         if (CFGetTypeID(rights) == CFArrayGetTypeID()) {
             CFStringRef key = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, right, kCFStringEncodingUTF8, kCFAllocatorNull);
-            require(key != NULL, done);
+            __Require(key != NULL, done);
             
             CFIndex count = CFArrayGetCount(rights);
             for (CFIndex i = 0; i < count; i++) {

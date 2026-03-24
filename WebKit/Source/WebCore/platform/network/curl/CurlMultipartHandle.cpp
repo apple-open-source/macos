@@ -35,6 +35,7 @@
 #include "HTTPParsers.h"
 #include "ParsedContentType.h"
 #include "SharedBuffer.h"
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
@@ -73,12 +74,12 @@ std::unique_ptr<CurlMultipartHandle> CurlMultipartHandle::createIfNeeded(CurlMul
     if (!boundary)
         return nullptr;
 
-    return makeUnique<CurlMultipartHandle>(client, WTFMove(*boundary));
+    return makeUnique<CurlMultipartHandle>(client, WTF::move(*boundary));
 }
 
 CurlMultipartHandle::CurlMultipartHandle(CurlMultipartHandleClient& client, CString&& boundary)
     : m_client(client)
-    , m_boundary(WTFMove(boundary))
+    , m_boundary(WTF::move(boundary))
 {
 }
 
@@ -156,7 +157,7 @@ bool CurlMultipartHandle::processContent()
     case State::InHeader: {
         switch (parseHeadersIfPossible()) {
         case ParseHeadersResult::Success:
-            m_client->didReceiveHeaderFromMultipart(WTFMove(m_headers));
+            m_client->didReceiveHeaderFromMultipart(WTF::move(m_headers));
             m_state = State::WaitingForHeaderProcessing;
             return true;
 
@@ -203,18 +204,18 @@ CurlMultipartHandle::FindBoundaryResult CurlMultipartHandle::findBoundary()
 {
     FindBoundaryResult result;
 
-    auto contentLength = m_buffer.size();
-    const auto contentStartPtr = m_buffer.span().data();
+    auto contentSpan = m_buffer.span();
+    auto contentLength = contentSpan.size();
+    const auto contentStartPtr = contentSpan.data();
     const auto contentEndPtr = contentStartPtr + contentLength;
 
-    auto boundaryLength = m_boundary.length();
-    auto boundaryStartPtr = m_boundary.data();
+    auto boundarySpan = byteCast<uint8_t>(m_boundary.span());
 
-    auto matchedStartPtr = static_cast<const uint8_t*>(memmem(contentStartPtr, contentLength, boundaryStartPtr, boundaryLength));
-    if (!matchedStartPtr) {
+    auto matchedIndex = find(contentSpan, boundarySpan);
+    if (matchedIndex == notFound) {
         if (!m_didCompleteMessage) {
             // Not enough data to check the boundary (Temporarily retain "Initial CRLF + (boundary - 1)" bytes for the next search.)
-            result.dataEnd = std::max(int(contentLength) - int(boundaryLength) + 1 - 2, 0);
+            result.dataEnd = std::max(static_cast<int>(contentLength) - static_cast<int>(boundarySpan.size()) + 1 - 2, 0);
         } else
             result.dataEnd = contentLength;
 
@@ -222,7 +223,9 @@ CurlMultipartHandle::FindBoundaryResult CurlMultipartHandle::findBoundary()
         return result;
     }
 
-    auto matchedEndPtr = matchedStartPtr + boundaryLength;
+    auto matchedStartPtr = contentStartPtr + matchedIndex;
+
+    auto matchedEndPtr = matchedStartPtr + boundarySpan.size();
 
     // The initial CRLF is considered to be attached to the boundary delimiter line rather than
     // part of the preceding part. (See RFC2046 [5.1.1. Common Syntax])
@@ -272,19 +275,27 @@ CurlMultipartHandle::FindBoundaryResult CurlMultipartHandle::findBoundary()
 CurlMultipartHandle::ParseHeadersResult CurlMultipartHandle::parseHeadersIfPossible()
 {
     static const auto maxHeaderSize = 300 * 1024;
+    static constexpr std::array<uint8_t, 4> crlfcrlf = { '\r', '\n', '\r', '\n' };
+    static constexpr std::array<uint8_t, 2> lflf = { '\n', '\n' };
 
-    auto contentLength = m_buffer.size();
-    const auto contentStartPtr = m_buffer.span().data();
+    auto contentSpan = m_buffer.span();
+    auto contentLength = contentSpan.size();
+    const auto contentStartPtr = contentSpan.data();
 
     // Check if we have the header closing strings.
     const uint8_t* end = nullptr;
-    if ((end = static_cast<const uint8_t*>(memmem(contentStartPtr, contentLength, "\r\n\r\n", 4))))
-        end += 4;
-    else if ((end = static_cast<const uint8_t*>(memmem(contentStartPtr, contentLength, "\n\n", 2))))
-        end += 2;
-    else if (contentLength > maxHeaderSize)
-        return ParseHeadersResult::HeaderSizeTooLarge;
+    auto crlfcrlfIndex = find(contentSpan, std::span { crlfcrlf });
+    if (crlfcrlfIndex != notFound)
+        end = contentStartPtr + crlfcrlfIndex + 4;
     else {
+        auto lflIndex = find(contentSpan, std::span { lflf });
+        if (lflIndex != notFound)
+            end = contentStartPtr + lflIndex + 2;
+    }
+
+    if (!end) {
+        if (contentLength > maxHeaderSize)
+            return ParseHeadersResult::HeaderSizeTooLarge;
         // Don't have the header closing string. Wait for more data.
         return ParseHeadersResult::NeedMoreData;
     }

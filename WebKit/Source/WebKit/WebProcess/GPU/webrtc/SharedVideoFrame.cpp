@@ -81,7 +81,7 @@ bool SharedVideoFrameWriter::allocateStorage(size_t size, NOESCAPE const Functio
     if (!handle)
         return false;
 
-    newMemoryCallback(WTFMove(*handle));
+    newMemoryCallback(WTF::move(*handle));
     return true;
 }
 
@@ -113,7 +113,7 @@ std::optional<SharedVideoFrame> SharedVideoFrameWriter::write(const VideoFrame& 
     auto buffer = writeBuffer(frame, newSemaphoreCallback, newMemoryCallback);
     if (!buffer)
         return { };
-    return SharedVideoFrame { frame.presentationTime(), frame.isMirrored(), frame.rotation(), WTFMove(*buffer) };
+    return SharedVideoFrame { frame.presentationTime(), frame.isMirrored(), frame.rotation(), WTF::move(*buffer) };
 }
 
 std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(const VideoFrame& frame, NOESCAPE const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, NOESCAPE const Function<void(SharedMemory::Handle&&)>& newMemoryCallback)
@@ -208,7 +208,7 @@ void SharedVideoFrameWriter::disable()
 WTF_MAKE_TZONE_ALLOCATED_IMPL(SharedVideoFrameReader);
 
 SharedVideoFrameReader::SharedVideoFrameReader(RefPtr<RemoteVideoFrameObjectHeap>&& objectHeap, const ProcessIdentity& resourceOwner, UseIOSurfaceBufferPool useIOSurfaceBufferPool)
-    : m_objectHeap(WTFMove(objectHeap))
+    : m_objectHeap(WTF::move(objectHeap))
     , m_resourceOwner(resourceOwner)
     , m_useIOSurfaceBufferPool(useIOSurfaceBufferPool)
 {
@@ -255,7 +255,7 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBufferFromSharedMemory()
 
 RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame::Buffer&& buffer)
 {
-    return switchOn(WTFMove(buffer),
+    return switchOn(WTF::move(buffer),
     [this](RemoteVideoFrameReadReference&& reference) -> RetainPtr<CVPixelBufferRef> {
         ASSERT(m_objectHeap);
         if (!m_objectHeap) {
@@ -263,7 +263,7 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame:
             return nullptr;
         }
 
-        auto sample = m_objectHeap->get(WTFMove(reference));
+        auto sample = m_objectHeap->get(WTF::move(reference));
         if (!sample) {
             RELEASE_LOG_ERROR(WebRTC, "SharedVideoFrameReader::readBuffer no sample");
             return nullptr;
@@ -272,7 +272,7 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame:
         ASSERT(sample->pixelBuffer());
         return sample->pixelBuffer();
     } , [](MachSendRight&& sendRight) -> RetainPtr<CVPixelBufferRef> {
-        auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(sendRight));
+        auto surface = WebCore::IOSurface::createFromSendRight(WTF::move(sendRight));
         if (!surface) {
             RELEASE_LOG_ERROR(WebRTC, "SharedVideoFrameReader::readBuffer no surface");
             return nullptr;
@@ -293,11 +293,11 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame:
 
 RefPtr<VideoFrame> SharedVideoFrameReader::read(SharedVideoFrame&& sharedVideoFrame)
 {
-    auto pixelBuffer = readBuffer(WTFMove(sharedVideoFrame.buffer));
+    auto pixelBuffer = readBuffer(WTF::move(sharedVideoFrame.buffer));
     if (!pixelBuffer)
         return nullptr;
 
-    return VideoFrameCV::create(sharedVideoFrame.time, sharedVideoFrame.mirrored, sharedVideoFrame.rotation, WTFMove(pixelBuffer));
+    return VideoFrameCV::create(sharedVideoFrame.time, sharedVideoFrame.mirrored, sharedVideoFrame.rotation, WTF::move(pixelBuffer));
 }
 
 CVPixelBufferPoolRef SharedVideoFrameReader::pixelBufferPool(const SharedVideoFrameInfo& info)
@@ -322,7 +322,7 @@ RetainPtr<CVPixelBufferPoolRef> SharedVideoFrameReader::protectedPixelBufferPool
 
 bool SharedVideoFrameReader::setSharedMemory(SharedMemory::Handle&& handle)
 {
-    m_storage = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadOnly);
+    m_storage = SharedMemory::map(WTF::move(handle), SharedMemory::Protection::ReadOnly);
     return !!m_storage;
 }
 

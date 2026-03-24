@@ -112,6 +112,7 @@ header: <WebCore/ScrollingStatePositionedNode.h>
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::WheelEventGesturesBecomeNonBlocking] bool wheelEventGesturesBecomeNonBlocking();
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::ScrollingPerformanceTestingEnabled] bool scrollingPerformanceTestingEnabled();
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::LayoutViewport] WebCore::FloatRect layoutViewport();
+    [OptionalTupleBit=WebCore::ScrollingStateNode::Property::SizeForVisibleContent] WebCore::FloatSize sizeForVisibleContent();
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::MinLayoutViewportOrigin] WebCore::FloatPoint minLayoutViewportOrigin();
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::MaxLayoutViewportOrigin] WebCore::FloatPoint maxLayoutViewportOrigin();
     [OptionalTupleBit=WebCore::ScrollingStateNode::Property::OverrideVisualViewportSize] std::optional<WebCore::FloatSize> overrideVisualViewportSize();

@@ -4248,6 +4248,9 @@ void TransliteratorTest::TestAlternateSyntax() {
            UNICODE_STRING_SIMPLE("<=\\N{LEFTWARDS ARROW}; >=\\N{RIGHTWARDS ARROW}; <>=\\N{LEFT RIGHT ARROW}; &=\\N{INCREMENT}"));
 }
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 static const char* BEGIN_END_RULES[] = {
     // [0]
     "abc > xy;"
@@ -4346,9 +4349,15 @@ static const char* BEGIN_END_RULES[] = {
     "::END;",
 */
     "", // test case commented out below, this is here to keep from messing up the indexes
+#endif // APPLE_ICU_CHANGES
 
-    // [12]
 /*
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static constexpr const char* BEGIN_END_RULES_12 = {
+#endif // APPLE_ICU_CHANGES
+    // [12]
     "$ws = [[:Separator:][\\u0009-\\u000C]$];"
     "$delim = [\\-$ws];"
     "$ab = [ab];"
@@ -4363,9 +4372,20 @@ static const char* BEGIN_END_RULES[] = {
     "::BEGIN;"
     "'a-a' > a\\%|a;"
     "::END;",
-*/
+#if APPLE_ICU_CHANGES
+        // rdar://165672453 (ICU-23254 Remove C++ static initialization)
+        // (Port of ICU-23254: Should be included in ICU 78.2)
+};
+#else
     "", // test case commented out below, this is here to keep from messing up the indexes
+#endif // APPLE_ICU_CHANGES
+*/
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static constexpr const char* BEGIN_END_RULES_13 = {
+#endif // APPLE_ICU_CHANGES
     // [13]
     "$ws = [[:Separator:][\\u0009-\\u000C]$];"
     "$delim = [\\-$ws];"
@@ -4378,7 +4398,13 @@ static const char* BEGIN_END_RULES[] = {
     "c { ' ' > ;"
     "::Null;"
     "'a-a' > a\\%|a;",
+#if APPLE_ICU_CHANGES
+        // rdar://165672453 (ICU-23254 Remove C++ static initialization)
+        // (Port of ICU-23254: Should be included in ICU 78.2)
+};
+#endif // APPLE_ICU_CHANGES
 
+#if !APPLE_ICU_CHANGES
     // [14]
 /*
     "::[abc];"
@@ -4421,6 +4447,7 @@ static const char* BEGIN_END_RULES[] = {
     "::Upper(Lower);"
     "::([XYZ]);"
 };
+#endif // APPLE_ICU_CHANGES
 
 /*
 (This entire test is commented out below and will need some heavy revision when we re-add
@@ -4447,6 +4474,110 @@ static const char* BOGUS_BEGIN_END_RULES[] = {
 static const int32_t BOGUS_BEGIN_END_RULES_length = UPRV_LENGTHOF(BOGUS_BEGIN_END_RULES);
 */
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+static const char* BEGIN_END_TEST_CASES[][3] = {
+    {"abc > xy;"
+     "aba > z;",  "abc ababc aba",        "xy zbc z"},
+//    {"::BEGIN;"
+//      "abc > xy;"
+//      "::END;"
+//      "::BEGIN;"
+//      "aba > z;"
+//      "::END;",  "abc ababc aba",        "xy abxy z"},
+//    {"abc > xy;"
+//     "::BEGIN;"
+//     "aba > z;"
+//     "::END;",  "abc ababc aba",        "xy abxy z"},
+//    {"::BEGIN;"
+//     "abc > xy;"
+//     "::END;"
+//     "aba > z;",  "abc ababc aba",        "xy abxy z"},
+    {"abc > xy;"
+     "::Null;"
+     "aba > z;",  "abc ababc aba",        "xy abxy z"},
+    {"::Upper;"
+     "ABC > xy;"
+     "AB > x;"
+     "C > z;"
+     "::Upper;"
+     "XYZ > p;"
+     "XY > q;"
+     "Z > r;"
+     "::Upper;",  "abccabaacababcbc",     "PXAARXQBR"},
+
+    {"$ws = [[:Separator:][\\u0009-\\u000C]$];"
+     "$delim = [\\-$ws];"
+     "$ws $delim* > ' ';"
+     "'-' $delim* > '-';",  "e   e - e---e-  e",    "e e e-e-e"},
+    {"::Null;"
+     "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+     "$delim = [\\-$ws];"
+     "$ws $delim* > ' ';"
+     "'-' $delim* > '-';",  "e   e - e---e-  e",    "e e e-e-e"},
+    {"$ws = [[:Separator:][\\u0009-\\u000C]$];"
+     "$delim = [\\-$ws];"
+     "$ws $delim* > ' ';"
+     "'-' $delim* > '-';"
+     "::Null;",  "e   e - e---e-  e",    "e e e-e-e"},
+    {"$ws = [[:Separator:][\\u0009-\\u000C]$];"
+     "$delim = [\\-$ws];"
+     "::Null;"
+     "$ws $delim* > ' ';"
+     "'-' $delim* > '-';",  "e   e - e---e-  e",    "e e e-e-e"},
+//    {"::BEGIN;"
+//     "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+//     "$delim = [\\-$ws];"
+//     "::END;"
+//     "$ws $delim* > ' ';"
+//     "'-' $delim* > '-';",  "e   e - e---e-  e",    "e e e-e-e"},
+//    {"$ws = [[:Separator:][\\u0009-\\u000C]$];"
+//     "$delim = [\\-$ws];"
+//     "::BEGIN;"
+//     "$ws $delim* > ' ';"
+//     "'-' $delim* > '-';"
+//     "::END;", "e   e - e---e-  e",    "e e e-e-e"},
+//    {BEGIN_END_RULES_12, "e   e - e---e-  e",    "e e e-e-e"},
+//    {BEGIN_END_RULES_12, "a    a    a    a",     "a%a%a%a"},
+//    {BEGIN_END_RULES_12, "a a-b c b a",          "a%a-b cb-a"},
+    {BEGIN_END_RULES_13, "e   e - e---e-  e",    "e e e-e-e"},
+    {BEGIN_END_RULES_13, "a    a    a    a",     "a%a%a%a"},
+    {BEGIN_END_RULES_13, "a a-b c b a",          "a%a-b cb-a"},
+
+//    {"::[abc];"
+//     "::BEGIN;"
+//     "abc > xy;"
+//     "::END;"
+//     "::BEGIN;"
+//     "aba > yz;"
+//     "::END;"
+//     "::Upper;", "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"},
+    {"::[abc];"
+     "abc > xy;"
+     "::Null;"
+     "aba > yz;"
+     "::Upper;", "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"},
+//    {"::[abc];"
+//     "::BEGIN;"
+//     "abc <> xy;"
+//     "::END;"
+//     "::BEGIN;"
+//     "aba <> yz;"
+//     "::END;"
+//     "::Upper(Lower);"
+//     "::([XYZ]);", "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"},
+    {"::[abc];" // NOTE: Keep this one last to allow reversing.
+     "abc <> xy;"
+     "::Null;"
+     "aba <> yz;"
+     "::Upper(Lower);"
+     "::([XYZ]);", "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"}
+};
+
+static const int32_t BEGIN_END_TEST_CASES_length = UPRV_LENGTHOF(BEGIN_END_TEST_CASES);
+static const int32_t BEGIN_END_TEST_CASES_REVERSIBLE = BEGIN_END_TEST_CASES_length - 1;
+#else
 static const char* BEGIN_END_TEST_CASES[] = {
     // rules             input                   expected output
     BEGIN_END_RULES[0],  "abc ababc aba",        "xy zbc z",
@@ -4475,22 +4606,40 @@ static const char* BEGIN_END_TEST_CASES[] = {
     BEGIN_END_RULES[17], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"
 };
 static const int32_t BEGIN_END_TEST_CASES_length = UPRV_LENGTHOF(BEGIN_END_TEST_CASES);
+#endif // APPLE_ICU_CHANGES
 
 void TransliteratorTest::TestBeginEnd() {
     // run through the list of test cases above
     int32_t i = 0;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    for (i = 0; i < BEGIN_END_TEST_CASES_length; i++) {
+        expect(UnicodeString("Test case #") + i,
+               UnicodeString(BEGIN_END_TEST_CASES[i][0], -1, US_INV),
+               UnicodeString(BEGIN_END_TEST_CASES[i][1], -1, US_INV),
+               UnicodeString(BEGIN_END_TEST_CASES[i][2], -1, US_INV));    }
+#else
     for (i = 0; i < BEGIN_END_TEST_CASES_length; i += 3) {
         expect(UnicodeString("Test case #") + (i / 3),
                UnicodeString(BEGIN_END_TEST_CASES[i], -1, US_INV),
                UnicodeString(BEGIN_END_TEST_CASES[i + 1], -1, US_INV),
                UnicodeString(BEGIN_END_TEST_CASES[i + 2], -1, US_INV));
     }
+#endif // APPLE_ICU_CHANGES
 
     // instantiate the one reversible rule set in the reverse direction and make sure it does the right thing
     UParseError parseError;
     UErrorCode status = U_ZERO_ERROR;
-    Transliterator* reversed  = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_RULES[17]),
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    Transliterator* reversed  = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_TEST_CASES[BEGIN_END_TEST_CASES_REVERSIBLE][0]),
+             UTRANS_REVERSE, parseError, status);
+#else
+   Transliterator* reversed  = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_RULES[17]),
             UTRANS_REVERSE, parseError, status);
+#endif // APPLE_ICU_CHANGES
     if (reversed == nullptr || U_FAILURE(status)) {
         reportParseError(UnicodeString("FAIL: Couldn't create reversed transliterator"), parseError, status);
     } else {
@@ -4521,11 +4670,24 @@ void TransliteratorTest::TestBeginEndToRules() {
     // a Transliterator from the rules, do toRules() on it, instantiate a Transliterator from
     // the resulting set of rules, and make sure that the generated rule set is semantically equivalent
     // to (i.e., does the same thing as) the original rule set
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    for (int32_t i = 0; i < BEGIN_END_TEST_CASES_length; i++) {
+#else
     for (int32_t i = 0; i < BEGIN_END_TEST_CASES_length; i += 3) {
+#endif // APPLE_ICU_CHANGES
         UParseError parseError;
         UErrorCode status = U_ZERO_ERROR;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+        Transliterator* t = Transliterator::createFromRules("--", UnicodeString(BEGIN_END_TEST_CASES[i][0], -1, US_INV),
+                UTRANS_FORWARD, parseError, status);
+#else
         Transliterator* t = Transliterator::createFromRules("--", UnicodeString(BEGIN_END_TEST_CASES[i], -1, US_INV),
                 UTRANS_FORWARD, parseError, status);
+#endif // APPLE_ICU_CHANGES
         if (U_FAILURE(status)) {
             reportParseError(UnicodeString("FAIL: Couldn't create transliterator"), parseError, status);
         } else {
@@ -4538,9 +4700,17 @@ void TransliteratorTest::TestBeginEndToRules() {
                         parseError, status);
                 delete t;
             } else {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+                expect(*t2,
+                       UnicodeString(BEGIN_END_TEST_CASES[i][1], -1, US_INV),
+                       UnicodeString(BEGIN_END_TEST_CASES[i][2], -1, US_INV));
+#else
                 expect(*t2,
                        UnicodeString(BEGIN_END_TEST_CASES[i + 1], -1, US_INV),
                        UnicodeString(BEGIN_END_TEST_CASES[i + 2], -1, US_INV));
+#endif // APPLE_ICU_CHANGES
                 delete t;
                 delete t2;
             }
@@ -4550,8 +4720,15 @@ void TransliteratorTest::TestBeginEndToRules() {
     // do the same thing for the reversible test case
     UParseError parseError;
     UErrorCode status = U_ZERO_ERROR;
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+        Transliterator* reversed = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_TEST_CASES[BEGIN_END_TEST_CASES_REVERSIBLE][0]),
+            UTRANS_REVERSE, parseError, status);
+#else
     Transliterator* reversed = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_RULES[17]),
             UTRANS_REVERSE, parseError, status);
+#endif // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         reportParseError(UnicodeString("FAIL: Couldn't create reversed transliterator"), parseError, status);
     } else {

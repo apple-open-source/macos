@@ -40,6 +40,7 @@
 #include "StyleScopeRuleSets.h"
 #include "StyleSheetContents.h"
 #include "TypedElementDescendantIteratorInlines.h"
+#include <ranges>
 #include <wtf/SetForScope.h>
 
 namespace WebCore {
@@ -302,10 +303,8 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
         break;
     case MatchElement::AnySibling:
         // :nth-last-child(even of .changed)
-        if (CheckedPtr parentNode = element.parentNode()) {
-            for (auto& parentChild : childrenOfType<Element>(*element.parentNode()))
-                invalidateIfNeeded(parentChild, nullptr);
-        }
+        for (auto& parentChild : childrenOfType<Element>(*element.parentNode()))
+            invalidateIfNeeded(parentChild, nullptr);
         break;
     case MatchElement::ParentSibling:
         // .changed ~ .a > .subject
@@ -355,7 +354,7 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
 
         SelectorMatchingState selectorMatchingState;
         selectorMatchingState.selectorFilter.parentStackReserveInitialCapacity(ancestors.size());
-        for (auto* ancestor : makeReversedRange(ancestors)) {
+        for (auto* ancestor : ancestors | std::views::reverse) {
             invalidateIfNeeded(*ancestor, &selectorMatchingState);
             selectorMatchingState.selectorFilter.pushParent(ancestor);
         }
@@ -393,7 +392,7 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
 
         SelectorMatchingState selectorMatchingState;
         selectorMatchingState.selectorFilter.parentStackReserveInitialCapacity(elementAndAncestors.size());
-        for (auto* elementOrAncestor : makeReversedRange(elementAndAncestors)) {
+        for (auto* elementOrAncestor : elementAndAncestors | std::views::reverse) {
             for (auto* sibling = elementOrAncestor->previousElementSibling(); sibling; sibling = sibling->previousElementSibling())
                 invalidateIfNeeded(*sibling, &selectorMatchingState);
 
@@ -409,7 +408,7 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
 
         SelectorMatchingState selectorMatchingState;
         selectorMatchingState.selectorFilter.parentStackReserveInitialCapacity(ancestors.size());
-        for (auto* ancestor : makeReversedRange(ancestors)) {
+        for (auto* ancestor : ancestors | std::views::reverse) {
             selectorMatchingState.selectorFilter.pushParent(ancestor);
             for (auto& ancestorChild : childrenOfType<Element>(*ancestor))
                 invalidateIfNeeded(ancestorChild, &selectorMatchingState);

@@ -35,6 +35,7 @@
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
 #include "RenderButton.h"
+#include "RenderStyle+GettersInlines.h"
 #include "Settings.h"
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
@@ -50,7 +51,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLButtonElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLButtonElement);
 
 using namespace HTMLNames;
 
@@ -75,10 +76,9 @@ Ref<HTMLButtonElement> HTMLButtonElement::create(Document& document)
 RenderPtr<RenderElement> HTMLButtonElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& position)
 {
     // https://html.spec.whatwg.org/multipage/rendering.html#button-layout
-    DisplayType display = style.display();
-    if (display == DisplayType::InlineGrid || display == DisplayType::Grid || display == DisplayType::InlineFlex || display == DisplayType::Flex)
-        return HTMLFormControlElement::createElementRenderer(WTFMove(style), position);
-    return createRenderer<RenderButton>(*this, WTFMove(style));
+    if (style.isDisplayFlexibleOrGridFormattingContextBox())
+        return HTMLFormControlElement::createElementRenderer(WTF::move(style), position);
+    return createRenderer<RenderButton>(*this, WTF::move(style));
 }
 
 int HTMLButtonElement::defaultTabIndex() const
@@ -295,7 +295,7 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
             return;
         }
 
-        handlePopoverTargetAction(event.target());
+        handlePopoverTargetAction(event.protectedTarget().get());
     }
 
     if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event)) {

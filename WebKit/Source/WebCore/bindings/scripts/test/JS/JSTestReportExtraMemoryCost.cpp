@@ -119,7 +119,7 @@ void JSTestReportExtraMemoryCostPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestReportExtraMemoryCost::s_info = { "TestReportExtraMemoryCost"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestReportExtraMemoryCost) };
 
 JSTestReportExtraMemoryCost::JSTestReportExtraMemoryCost(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestReportExtraMemoryCost>&& impl)
-    : JSDOMWrapper<TestReportExtraMemoryCost>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestReportExtraMemoryCost>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -252,7 +252,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestReportExtraMemoryCost>(impl.ptr());
 #endif
-    return createWrapper<TestReportExtraMemoryCost>(globalObject, WTFMove(impl));
+    return createWrapper<TestReportExtraMemoryCost>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestReportExtraMemoryCost& impl)

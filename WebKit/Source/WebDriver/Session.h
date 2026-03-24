@@ -75,12 +75,12 @@ public RefCounted<Session>
 public:
     static Ref<Session> create(Ref<SessionHost>&& host)
     {
-        return adoptRef(*new Session(WTFMove(host)));
+        return adoptRef(*new Session(WTF::move(host)));
     }
 #if ENABLE(WEBDRIVER_BIDI)
     static Ref<Session> create(Ref<SessionHost>&& host, WeakPtr<WebSocketServer> bidiServer)
     {
-        return adoptRef(*new Session(WTFMove(host), WTFMove(bidiServer)));
+        return adoptRef(*new Session(WTF::move(host), WTF::move(bidiServer)));
     }
 #endif
     virtual ~Session();

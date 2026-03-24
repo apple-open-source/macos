@@ -69,9 +69,11 @@ void WebPasteboardProxy::getTypes(const String&, CompletionHandler<void(Vector<S
     }
 #endif
 
+#if USE(LIBWPE)
     Vector<String> pasteboardTypes;
     PlatformPasteboard().getTypes(pasteboardTypes);
-    completionHandler(WTFMove(pasteboardTypes));
+    completionHandler(WTF::move(pasteboardTypes));
+#endif
 }
 
 void WebPasteboardProxy::readText(IPC::Connection&, const String&, const String& pasteboardType, CompletionHandler<void(String&&)>&& completionHandler)
@@ -86,7 +88,9 @@ void WebPasteboardProxy::readText(IPC::Connection&, const String&, const String&
     }
 #endif
 
+#if USE(LIBWPE)
     completionHandler(PlatformPasteboard().readString(0, pasteboardType.startsWith("text/plain"_s) ? "text/plain;charset=utf-8"_s : pasteboardType));
+#endif
 }
 
 void WebPasteboardProxy::readFilePaths(IPC::Connection&, const String&, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
@@ -134,12 +138,14 @@ void WebPasteboardProxy::writeToClipboard(const String&, SelectionData&& selecti
     }
 #endif
 
+#if USE(LIBWPE)
     PasteboardWebContent contents;
     if (selectionData.hasText())
         contents.text = selectionData.text();
     if (selectionData.hasMarkup())
         contents.markup = selectionData.markup();
     PlatformPasteboard().write(contents);
+#endif
 }
 
 void WebPasteboardProxy::clearClipboard(const String&)
@@ -226,7 +232,9 @@ void WebPasteboardProxy::writeCustomData(IPC::Connection&, const Vector<Pasteboa
     }
 #endif
 
+#if USE(LIBWPE)
     completionHandler(PlatformPasteboard().write(data));
+#endif
 }
 
 #if ENABLE(WPE_PLATFORM)
@@ -239,7 +247,7 @@ static PasteboardItemInfo pasteboardItemInfoFromFormats(Vector<String>&& formats
         info.webSafeTypesByFidelity.append("text/html"_s);
     if (formats.contains("text/uri-list"_s))
         info.webSafeTypesByFidelity.append("text/uri-list"_s);
-    info.platformTypesByFidelity = WTFMove(formats);
+    info.platformTypesByFidelity = WTF::move(formats);
     return info;
 }
 #endif
@@ -341,7 +349,10 @@ void WebPasteboardProxy::getPasteboardChangeCount(IPC::Connection&, const String
         return;
     }
 #endif
+
+#if USE(LIBWPE)
     completionHandler(PlatformPasteboard().changeCount());
+#endif
 }
 
 } // namespace WebKit

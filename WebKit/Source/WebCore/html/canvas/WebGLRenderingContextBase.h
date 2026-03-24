@@ -161,7 +161,7 @@ class VideoFrame;
 template<typename> class ExceptionOr;
 
 class WebGLRenderingContextBase : public GraphicsContextGL::Client, public GPUBasedCanvasRenderingContext {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLRenderingContextBase);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLRenderingContextBase);
 public:
     USING_CAN_MAKE_WEAKPTR(GPUBasedCanvasRenderingContext);
 
@@ -335,7 +335,7 @@ public:
         using VariantType = Variant<RefPtr<TypedArray>, Vector<DataType>>;
 
         TypedList(VariantType&& variant)
-            : m_variant(WTFMove(variant))
+            : m_variant(WTF::move(variant))
         {
         }
 
@@ -425,8 +425,7 @@ public:
     using SimulatedEventForTesting = GraphicsContextGL::SimulatedEventForTesting;
     WEBCORE_EXPORT void simulateEventForTesting(SimulatedEventForTesting);
 
-    GraphicsContextGL* graphicsContextGL() const { return m_context.get(); }
-    RefPtr<GraphicsContextGL> protectedGraphicsContextGL() const { return m_context; }
+    RefPtr<GraphicsContextGL> graphicsContextGL() const { return m_context; }
 
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() override;
 
@@ -584,7 +583,6 @@ protected:
     RefPtr<Image> videoFrameToImage(HTMLVideoElement&, ASCIILiteral functionName);
 #endif
 
-    bool enableSupportedExtension(ASCIILiteral extensionNameLiteral);
     void loseExtensions(LostContextMode);
 
     virtual void uncacheDeletedBuffer(const AbstractLocker&, WebGLBuffer*);

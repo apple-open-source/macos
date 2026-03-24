@@ -103,7 +103,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
             // We want to use error.message, but here we want to only pass on CompileFailed with userInfo from the std::error_code.
             return completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorContentRuleListStoreCompileFailed userInfo:userInfo.get()]);
         }
-        completionHandler(wrapper(WTFMove(contentRuleList)).get(), nil);
+        completionHandler(wrapper(WTF::move(contentRuleList)).get(), nil);
     });
 #endif
 }
@@ -119,7 +119,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
             return completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:wkError userInfo:userInfo.get()]);
         }
 
-        completionHandler(wrapper(WTFMove(contentRuleList)).get(), nil);
+        completionHandler(wrapper(WTF::move(contentRuleList)).get(), nil);
     });
 #endif
 }

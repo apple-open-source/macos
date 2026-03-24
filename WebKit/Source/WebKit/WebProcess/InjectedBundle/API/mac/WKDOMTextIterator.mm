@@ -48,7 +48,7 @@
     if (!range)
         return self;
 
-    _textIterator = makeUnique<WebCore::TextIterator>(makeSimpleRange(*WebKit::toWebCoreRange(range)));
+    _textIterator = makeUnique<WebCore::TextIterator>(makeSimpleRange(*WebKit::toProtectedWebCoreRange(range)));
     return self;
 }
 

@@ -65,6 +65,10 @@ OBJC_CLASS PKPaymentToken;
 OBJC_CLASS PKShippingMethod;
 #endif
 
+#if !HAVE(WEBCONTENTRESTRICTIONS) && HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+OBJC_CLASS WebFilterEvaluator;
+#endif
+
 OBJC_CLASS PlatformColor;
 OBJC_CLASS NSShadow;
 
@@ -88,12 +92,6 @@ enum class NSType : uint8_t {
     CNContact,
     CNPhoneNumber,
     CNPostalAddress,
-#endif
-#if ENABLE(DATA_DETECTION) && HAVE(WK_SECURE_CODING_DATA_DETECTORS)
-    DDScannerResult,
-#if PLATFORM(MAC)
-    WKDDActionContext,
-#endif
 #endif
     NSDateComponents,
     Data,
@@ -159,6 +157,9 @@ template<> Class getClass<PKDateComponentsRange>();
 template<> Class getClass<PKPaymentMethod>();
 template<> Class getClass<PKSecureElementPass>();
 #endif
+#if !HAVE(WEBCONTENTRESTRICTIONS) && HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
+template<> Class getClass<WebFilterEvaluator>();
+#endif
 
 template<> Class getClass<PlatformColor>();
 template<> Class getClass<NSShadow>();
@@ -170,19 +171,6 @@ template<typename T> void encodeObjectDirectly(StreamConnectionEncoder&, T);
 template<typename T> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClasses(Decoder&);
 
 template<typename T, typename = IsObjCObject<T>> void encode(Encoder&, T *);
-
-#ifdef __OBJC__
-template<typename T> static inline bool arrayContainsAnythingBut(const RetainPtr<NSArray>& array)
-{
-    if (!array)
-        return false;
-    for (id element in array.get()) {
-        if (![element isKindOfClass:getClass<T>()])
-            return true;
-    }
-    return false;
-}
-#endif // __OBJC__
 
 #if ASSERT_ENABLED
 
@@ -258,12 +246,23 @@ template<typename T> struct ArgumentCoder<RetainPtr<T>> {
     template<typename U = T, typename = IsObjCObject<U>>
     static void encode(Encoder& encoder, const RetainPtr<U>& object)
     {
+        if (!object) {
+            encoder << false;
+            return;
+        }
+
+        encoder << true;
         ArgumentCoder<U *>::encode(encoder, object.get());
     }
 
     template<typename U = T, typename = IsObjCObject<U>>
     static std::optional<RetainPtr<U>> decode(Decoder& decoder)
     {
+        auto isEngaged = decoder.template decode<bool>();
+        if (!isEngaged)
+            return std::nullopt;
+        if (!*isEngaged)
+            return { nullptr };
         return decoder.decodeWithAllowedClasses<U>();
     }
 };

@@ -31,6 +31,7 @@
 #include "ProvisionalFrameCreationParameters.h"
 #include "SandboxExtension.h"
 #include "SessionState.h"
+#include "TextManipulationParameters.h"
 #include "UserContentControllerParameters.h"
 #include "ViewWindowCoordinates.h"
 #include "VisitedLinkTableIdentifier.h"
@@ -42,6 +43,7 @@
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/ContentSecurityPolicy.h>
+#include <WebCore/CornerRadii.h>
 #include <WebCore/DestinationColorSpace.h>
 #include <WebCore/FloatSize.h>
 #include <WebCore/FrameIdentifier.h>
@@ -73,7 +75,7 @@
 #include "WebExtensionControllerParameters.h"
 #endif
 
-#if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
+#if (PLATFORM(GTK) || PLATFORM(WPE)) && (USE(GBM) || OS(ANDROID))
 #include "RendererBufferFormat.h"
 #endif
 
@@ -182,7 +184,6 @@ struct WebPageCreationParameters {
     bool hasResourceLoadClient { false };
 
     Vector<String> mimeTypesWithCustomContentProviders { };
-    String overrideReferrerForAllRequests;
 
     bool controlledByAutomation { false };
     bool isProcessSwap { false };
@@ -324,6 +325,9 @@ struct WebPageCreationParameters {
 
 #if PLATFORM(MAC)
     double overflowHeightForTopScrollEdgeEffect { 0 };
+#if HAVE(NSVIEW_CORNER_CONFIGURATION)
+    WebCore::CornerRadii scrollbarAvoidanceCornerRadii;
+#endif
 #endif
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
@@ -350,7 +354,7 @@ struct WebPageCreationParameters {
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-#if USE(GBM)
+#if USE(GBM) || OS(ANDROID)
     Vector<RendererBufferFormat> preferredBufferFormats { };
 #endif
 #endif
@@ -369,8 +373,10 @@ struct WebPageCreationParameters {
     bool shouldSendConsoleLogsToUIProcessForTesting { false };
 
 #if ENABLE(IMAGE_ANALYSIS)
-    std::optional<WebCore::ImageTranslationLanguageIdentifiers> imageTranslationLanguageIdentifiers;
+    std::optional<WebCore::ImageTranslationLanguageIdentifiers> imageTranslationLanguageIdentifiers { std::nullopt };
 #endif
+
+    std::optional<TextManipulationParameters> textManipulationParameters { std::nullopt };
 };
 
 } // namespace WebKit

@@ -92,9 +92,9 @@ protected:
 
 inline void PathImpl::addSegment(PathSegment segment)
 {
-    WTF::switchOn(WTFMove(segment).data(),
+    WTF::switchOn(WTF::move(segment).data(),
         [&](auto&& segment) {
-            add(WTFMove(segment));
+            add(WTF::move(segment));
         },
         [&](PathDataLine segment) {
             add(PathMoveTo { segment.start() });

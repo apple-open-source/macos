@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 lt{
     Countries{
         001{"pasaulis"}
@@ -85,6 +85,7 @@ lt{
         CN{"Kinija"}
         CO{"Kolumbija"}
         CP{"Klipertono sala"}
+        CQ{"Sarkas"}
         CR{"Kosta Rika"}
         CU{"Kuba"}
         CV{"Žaliasis Kyšulys"}
@@ -111,7 +112,7 @@ lt{
         EZ{"euro zona"}
         FI{"Suomija"}
         FJ{"Fidžis"}
-        FK{"Folklando Salos"}
+        FK{"Folklando salos"}
         FM{"Mikronezija"}
         FO{"Farerų Salos"}
         FR{"Prancūzija"}
@@ -312,6 +313,6 @@ lt{
         CG{"Kongo Respublika"}
         CI{"Dramblio Kaulo Kranto Respublika"}
         CZ{"Čekijos Respublika"}
-        FK{"Folklando (Malvinų) Salos"}
+        FK{"Folklando (Malvinų) salos"}
     }
 }

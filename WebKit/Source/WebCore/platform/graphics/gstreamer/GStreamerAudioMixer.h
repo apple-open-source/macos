@@ -23,6 +23,7 @@
 
 #include "GRefPtrGStreamer.h"
 #include <wtf/Forward.h>
+#include <wtf/text/CStringView.h>
 
 namespace WebCore {
 
@@ -36,7 +37,7 @@ public:
     GRefPtr<GstPad> registerProducer(GstElement*, std::optional<int> forcedSampleRate);
     void unregisterProducer(const GRefPtr<GstPad>&);
 
-    void configureSourcePeriodTime(StringView sourceName, uint64_t periodTime);
+    void configureSourcePeriodTime(CStringView sourceName, uint64_t periodTime);
 
 private:
     GStreamerAudioMixer();

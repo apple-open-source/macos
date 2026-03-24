@@ -65,7 +65,7 @@ RefPtr<PathOperation> CSSValueConversion<RefPtr<PathOperation>>::operator()(Buil
         }();
         auto target = SVGURIReference::targetElementFromIRIString(styleURL, treeScope);
 
-        return ReferencePathOperation::create(WTFMove(styleURL), fragment, dynamicDowncast<SVGElement>(target.element.get()));
+        return ReferencePathOperation::create(WTF::move(styleURL), fragment, dynamicDowncast<SVGElement>(target.element.get()));
     }
 
     if (RefPtr ray = dynamicDowncast<CSSRayValue>(value)) {

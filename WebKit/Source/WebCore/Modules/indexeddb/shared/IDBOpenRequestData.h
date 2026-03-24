@@ -50,7 +50,7 @@ public:
     bool isDeleteRequest() const { return m_requestType == IndexedDB::RequestType::Delete; }
 
 private:
-    friend struct IPC::ArgumentCoder<IDBOpenRequestData, void>;
+    friend struct IPC::ArgumentCoder<IDBOpenRequestData>;
     WEBCORE_EXPORT IDBOpenRequestData(IDBConnectionIdentifier, IDBResourceIdentifier, IDBDatabaseIdentifier&&, uint64_t requestedVersion, IndexedDB::RequestType);
 
     IDBConnectionIdentifier m_serverConnectionIdentifier;

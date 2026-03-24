@@ -27,6 +27,7 @@
 
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/darwin/XPCObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 
 namespace JSC {
@@ -52,7 +53,7 @@ public:
     
 private:
     enum class DebugModeEnabled : bool { No, Yes };
-    HashMap<RetainPtr<xpc_connection_t>, DebugModeEnabled> m_connections;
+    HashMap<XPCObjectPtr<xpc_connection_t>, DebugModeEnabled> m_connections;
     size_t m_connectionsWithDebugModeEnabled { 0 };
 };
 

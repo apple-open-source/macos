@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 tg{
     Languages{
         af{"африкаанс"}
@@ -374,8 +374,16 @@ tg{
             islamic-tbla{"Тақвими ҳиҷрӣ (ҷадвал, давраи ситорашиносӣ)"}
             iso8601{"Тақвими ISO-8601"}
         }
+        calendar%core{
+            gregorian{"Грегорианӣ"}
+            islamic-civil{"Ҳиҷрӣ (ҷадвалӣ, давраи шаҳрвандӣ)"}
+            islamic-tbla{"Ҳиҷрӣ (ҷадвал, давраи ситорашиносӣ)"}
+        }
         collation{
             standard{"Тартиби мураттабсозии стандартӣ"}
+        }
+        collation%core{
+            standard{"Стандартӣ"}
         }
         numbers{
             arab{"Рақамҳои ҳинду-арабӣ"}

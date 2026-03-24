@@ -34,6 +34,7 @@
 #import "WebPreferences.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/CADisplayLink.h>
+#import <WebCore/DisplayUpdate.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/ScrollView.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -44,6 +45,9 @@ constexpr WebCore::FramesPerSecond DisplayLinkFramesPerSecond = 60;
 @interface WKDisplayLinkHandler : NSObject {
     WebKit::RemoteLayerTreeDrawingAreaProxy* _drawingAreaProxy;
     CADisplayLink *_displayLink;
+    WebCore::FramesPerSecond _preferredFramesPerSecond;
+    BOOL _wantsHighFrameRate;
+    WebCore::DisplayUpdate _currentUpdate;
 #if ENABLE(TIMER_DRIVEN_DISPLAY_REFRESH_FOR_TESTING)
     RetainPtr<NSTimer> _updateTimer;
     std::optional<WebCore::FramesPerSecond> _overrideFrameRate;
@@ -51,11 +55,20 @@ constexpr WebCore::FramesPerSecond DisplayLinkFramesPerSecond = 60;
 }
 
 - (id)initWithDrawingAreaProxy:(WebKit::RemoteLayerTreeDrawingAreaProxy*)drawingAreaProxy;
-- (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond;
 - (void)displayLinkFired:(CADisplayLink *)sender;
 - (void)invalidate;
 - (void)schedule;
 - (WebCore::FramesPerSecond)nominalFramesPerSecond;
+// The methods setPreferredFramesPerSecond and setWantsHighFrameRate provide the data that
+// will let WKDisplayLinkHandler compute the effective frames per second for its managed
+// CADisplayLink. The value provided by setPreferredFramesPerSecond identify the frames
+// per second wanted by default and dictated by the Web process according to, for instance,
+// low-power mode and the "Prefer Page Rendering Updates near 60fps" setting. That value can
+// be overridden temporarily by setWantsHighFrameRate to opt into the maximum frames per second
+// supported by the display link for things like high-performance animations.
+- (void)setPreferredFramesPerSecond:(WebCore::FramesPerSecond)preferredFramesPerSecond;
+- (void)setWantsHighFrameRate:(BOOL)wantsHighFrameRate;
+- (BOOL)isDisplayRefreshRelevantForPreferredUpdateFrequency;
 
 @end
 
@@ -67,6 +80,9 @@ static void* displayRefreshRateObservationContext = &displayRefreshRateObservati
 {
     if (self = [super init]) {
         _drawingAreaProxy = drawingAreaProxy;
+        _wantsHighFrameRate = NO;
+        _preferredFramesPerSecond = DisplayLinkFramesPerSecond;
+        _currentUpdate = { 0, _preferredFramesPerSecond };
         // Note that CADisplayLink retains its target (self), so a call to -invalidate is needed on teardown.
         bool createDisplayLink = true;
 #if ENABLE(TIMER_DRIVEN_DISPLAY_REFRESH_FOR_TESTING)
@@ -77,20 +93,13 @@ static void* displayRefreshRateObservationContext = &displayRefreshRateObservati
         }
 #endif
         if (createDisplayLink) {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+            // FIXME: CoreAnimation version deprecated rdar://164090713
             _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
+        ALLOW_DEPRECATED_DECLARATIONS_END
             [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
             [_displayLink.display addObserver:self forKeyPath:@"refreshRate" options:NSKeyValueObservingOptionNew context:displayRefreshRateObservationContext];
             _displayLink.paused = YES;
-
-            if (drawingAreaProxy && drawingAreaProxy->page() && !drawingAreaProxy->page()->preferences().preferPageRenderingUpdatesNear60FPSEnabled()) {
-#if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
-                [_displayLink setPreferredFrameRateRange:WebKit::highFrameRateRange()];
-                [_displayLink setHighFrameRateReason:WebKit::preferPageRenderingUpdatesNear60FPSDisabledHighFrameRateReason];
-#else
-                _displayLink.preferredFramesPerSecond = (1.0 / _displayLink.maximumRefreshRate);
-#endif
-            } else
-                _displayLink.preferredFramesPerSecond = DisplayLinkFramesPerSecond;
         }
     }
     return self;
@@ -102,15 +111,11 @@ static void* displayRefreshRateObservationContext = &displayRefreshRateObservati
     [super dealloc];
 }
 
-- (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond
-{
-    _displayLink.preferredFramesPerSecond = preferredFramesPerSecond;
-}
-
 - (void)displayLinkFired:(CADisplayLink *)sender
 {
     ASSERT(isUIThread());
     _drawingAreaProxy->didRefreshDisplay();
+    _currentUpdate = _currentUpdate.nextUpdate();
 }
 
 #if ENABLE(TIMER_DRIVEN_DISPLAY_REFRESH_FOR_TESTING)
@@ -118,6 +123,7 @@ static void* displayRefreshRateObservationContext = &displayRefreshRateObservati
 {
     ASSERT(isUIThread());
     _drawingAreaProxy->didRefreshDisplay();
+    _currentUpdate = _currentUpdate.nextUpdate();
 }
 #endif // ENABLE(TIMER_DRIVEN_DISPLAY_REFRESH_FOR_TESTING)
 
@@ -179,6 +185,56 @@ static void* displayRefreshRateObservationContext = &displayRefreshRateObservati
         page->windowScreenDidChange(*displayID);
 }
 
+- (void)setPreferredFramesPerSecond:(WebCore::FramesPerSecond)preferredFramesPerSecond
+{
+    if (_preferredFramesPerSecond == preferredFramesPerSecond)
+        return;
+
+    _preferredFramesPerSecond = preferredFramesPerSecond;
+    [self updateFrameRate];
+}
+
+- (void)setWantsHighFrameRate:(BOOL)wantsHighFrameRate
+{
+    if (_wantsHighFrameRate == wantsHighFrameRate)
+        return;
+
+    _wantsHighFrameRate = wantsHighFrameRate;
+    [self updateFrameRate];
+}
+
+- (void)updateFrameRate
+{
+    auto effectiveFramesPerSecond = _preferredFramesPerSecond;
+    bool canHaveHighFrameRate = _preferredFramesPerSecond >= DisplayLinkFramesPerSecond;
+
+    if (canHaveHighFrameRate && _wantsHighFrameRate) {
+#if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
+        auto frameRateRange = WebKit::highFrameRateRange();
+        effectiveFramesPerSecond = frameRateRange.maximum;
+        [_displayLink setPreferredFrameRateRange:frameRateRange];
+
+        RefPtr page = _drawingAreaProxy->page();
+        auto preferPageRenderingUpdatesNear60FPSEnabled = !page || page->preferences().preferPageRenderingUpdatesNear60FPSEnabled();
+        auto highFrameRateReason = preferPageRenderingUpdatesNear60FPSEnabled ? WebKit::webAnimationHighFrameRateReason :
+            WebKit::preferPageRenderingUpdatesNear60FPSDisabledHighFrameRateReason;
+        [_displayLink setHighFrameRateReason:highFrameRateReason];
+#else
+        effectiveFramesPerSecond = 1.0 / _displayLink.maximumRefreshRate;
+        _displayLink.preferredFramesPerSecond = effectiveFramesPerSecond;
+#endif
+    } else
+        _displayLink.preferredFramesPerSecond = effectiveFramesPerSecond;
+
+    if (_currentUpdate.updatesPerSecond != effectiveFramesPerSecond)
+        _currentUpdate = { 0, effectiveFramesPerSecond };
+}
+
+- (BOOL)isDisplayRefreshRelevantForPreferredUpdateFrequency
+{
+    return _currentUpdate.relevantForUpdateFrequency(_preferredFramesPerSecond);
+}
+
 @end
 
 namespace WebKit {
@@ -232,10 +288,10 @@ void RemoteLayerTreeDrawingAreaProxyIOS::didRefreshDisplay()
     if (RefPtr page = this->page())
         page->didRefreshDisplay();
 
-    if (m_needsDisplayRefreshCallbacksForDrawing)
+    if (m_needsDisplayRefreshCallbacksForDrawing && [displayLinkHandler() isDisplayRefreshRelevantForPreferredUpdateFrequency])
         RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay();
 
-    if (m_needsDisplayRefreshCallbacksForAnimation) {
+    if (m_needsDisplayRefreshCallbacksForMonotonicAnimations) {
         RefPtr page = this->page();
         if (!page)
             return;
@@ -247,32 +303,55 @@ void RemoteLayerTreeDrawingAreaProxyIOS::didRefreshDisplay()
 void RemoteLayerTreeDrawingAreaProxyIOS::scheduleDisplayRefreshCallbacks()
 {
     m_needsDisplayRefreshCallbacksForDrawing = true;
-    [displayLinkHandler() schedule];
+    scheduleDisplayLinkAndSetFrameRate();
 }
 
 void RemoteLayerTreeDrawingAreaProxyIOS::pauseDisplayRefreshCallbacks()
 {
     m_needsDisplayRefreshCallbacksForDrawing = false;
-    if (!m_needsDisplayRefreshCallbacksForAnimation)
-        [displayLinkHandler() pause];
+    pauseDisplayLinkIfNeeded();
 }
 
-void RemoteLayerTreeDrawingAreaProxyIOS::scheduleDisplayRefreshCallbacksForAnimation()
+void RemoteLayerTreeDrawingAreaProxyIOS::scheduleDisplayRefreshCallbacksForMonotonicAnimations()
 {
-    m_needsDisplayRefreshCallbacksForAnimation = true;
+    m_needsDisplayRefreshCallbacksForMonotonicAnimations = true;
+    scheduleDisplayLinkAndSetFrameRate();
+}
+
+void RemoteLayerTreeDrawingAreaProxyIOS::pauseDisplayRefreshCallbacksForMonotonicAnimations()
+{
+    m_needsDisplayRefreshCallbacksForMonotonicAnimations = false;
+    pauseDisplayLinkIfNeeded();
+}
+
+void RemoteLayerTreeDrawingAreaProxyIOS::scheduleDisplayLinkAndSetFrameRate()
+{
+    auto preferPageRenderingUpdatesNear60FPSEnabled = [&] {
+        return !page() || page()->preferences().preferPageRenderingUpdatesNear60FPSEnabled();
+    };
+
+    auto wantsHighFrameRate = m_needsDisplayRefreshCallbacksForMonotonicAnimations
+        || (m_needsDisplayRefreshCallbacksForDrawing && !preferPageRenderingUpdatesNear60FPSEnabled());
+    [displayLinkHandler() setWantsHighFrameRate:wantsHighFrameRate];
     [displayLinkHandler() schedule];
 }
 
-void RemoteLayerTreeDrawingAreaProxyIOS::pauseDisplayRefreshCallbacksForAnimation()
+void RemoteLayerTreeDrawingAreaProxyIOS::pauseDisplayLinkIfNeeded()
 {
-    m_needsDisplayRefreshCallbacksForAnimation = false;
-    if (!m_needsDisplayRefreshCallbacksForDrawing)
+    if (!m_needsDisplayRefreshCallbacksForDrawing && !m_needsDisplayRefreshCallbacksForMonotonicAnimations)
         [displayLinkHandler() pause];
 }
 
 std::optional<WebCore::FramesPerSecond> RemoteLayerTreeDrawingAreaProxyIOS::displayNominalFramesPerSecond()
 {
     return [displayLinkHandler() nominalFramesPerSecond];
+}
+
+UIView *RemoteLayerTreeDrawingAreaProxyIOS::viewWithLayerIDForTesting(WebCore::PlatformLayerIdentifier layerID) const
+{
+    if (RefPtr node = m_remoteLayerTreeHost->nodeForID(layerID))
+        return node->uiView();
+    return nil;
 }
 
 } // namespace WebKit

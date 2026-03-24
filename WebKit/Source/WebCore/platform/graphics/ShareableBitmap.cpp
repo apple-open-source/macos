@@ -109,7 +109,7 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const ShareableBitmapConfigurati
         return nullptr;
     }
 
-    return adoptRef(new ShareableBitmap(configuration, WTFMove(sharedMemory)));
+    return adoptRef(new ShareableBitmap(configuration, WTF::move(sharedMemory)));
 }
 
 RefPtr<ShareableBitmap> ShareableBitmap::createFromImageDraw(NativeImage& image, const DestinationColorSpace& colorSpace)
@@ -138,7 +138,7 @@ RefPtr<ShareableBitmap> ShareableBitmap::createFromImageDraw(NativeImage& image,
 
 RefPtr<ShareableBitmap> ShareableBitmap::create(Handle&& handle, SharedMemory::Protection protection)
 {
-    auto sharedMemory = SharedMemory::map(WTFMove(handle.m_handle), protection);
+    auto sharedMemory = SharedMemory::map(WTF::move(handle.m_handle), protection);
     if (!sharedMemory)
         return nullptr;
 
@@ -150,7 +150,7 @@ std::optional<Ref<ShareableBitmap>> ShareableBitmap::createReadOnly(std::optiona
     if (!handle)
         return std::nullopt;
 
-    auto sharedMemory = SharedMemory::map(WTFMove(handle->m_handle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemory = SharedMemory::map(WTF::move(handle->m_handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemory)
         return std::nullopt;
 
@@ -162,7 +162,7 @@ auto ShareableBitmap::createHandle(SharedMemory::Protection protection) const ->
     auto memoryHandle = m_sharedMemory->createHandle(protection);
     if (!memoryHandle)
         return std::nullopt;
-    return { Handle(WTFMove(*memoryHandle), m_configuration) };
+    return { Handle(WTF::move(*memoryHandle), m_configuration) };
 }
 
 auto ShareableBitmap::createReadOnlyHandle() const -> std::optional<Handle>
@@ -172,7 +172,7 @@ auto ShareableBitmap::createReadOnlyHandle() const -> std::optional<Handle>
 
 ShareableBitmap::ShareableBitmap(ShareableBitmapConfiguration configuration, Ref<SharedMemory>&& sharedMemory)
     : m_configuration(configuration)
-    , m_sharedMemory(WTFMove(sharedMemory))
+    , m_sharedMemory(WTF::move(sharedMemory))
 {
     ASSERT(m_configuration.headroom() >= Headroom::None);
 }

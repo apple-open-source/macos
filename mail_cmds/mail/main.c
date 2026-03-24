@@ -29,21 +29,9 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
-__unused static const char copyright[] =
-"@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)main.c	8.2 (Berkeley) 4/20/95";
-#endif
-#endif /* not lint */
+#ifdef __APPLE__
 #include <sys/ioctl.h>
-__FBSDID("$FreeBSD$");
-
+#endif
 #include "rcv.h"
 #include <fcntl.h>
 #include "extern.h"
@@ -131,6 +119,7 @@ main(int argc, char *argv[])
 		assign("interactive", "");
 	image = -1;
 
+#ifdef __APPLE__
 	/* Define defaults for internal variables, based on Unix 2003 standard  */
 	/* noallnet			allnet  off	*/
 	/* noappend			append off	*/
@@ -163,6 +152,7 @@ main(int argc, char *argv[])
 	/* noshowto			showto off	*/
 	/* nosign			sign off	*/
 	/* noSign			Sign off	*/
+#endif
 
 	/*
 	 * Now, determine how we are being used.
@@ -177,8 +167,25 @@ main(int argc, char *argv[])
 	bcc = NULL;
 	smopts = NULL;
 	subject = NULL;
+#ifdef __APPLE__
 	while ((i = getopt(argc, argv, "FEHINb:c:edfins:u:v")) != -1) {
+#else
+	while ((i = getopt(argc, argv, "FEHINT:b:c:edfins:u:v")) != -1) {
+#endif
 		switch (i) {
+#ifndef __APPLE__
+		case 'T':
+			/*
+			 * Next argument is temp file to write which
+			 * articles have been read/deleted for netnews.
+			 */
+			Tflag = optarg;
+			if ((i = open(Tflag, O_CREAT | O_TRUNC | O_WRONLY,
+			    0600)) < 0)
+				err(1, "%s", Tflag);
+			(void)close(i);
+			break;
+#endif
 		case 'u':
 			/*
 			 * Next argument is person to pretend to be.
@@ -194,7 +201,11 @@ main(int argc, char *argv[])
 			assign("ignore", "");
 			break;
 		case 'd':
+#ifdef __APPLE__
 			debug = 1; /* 1 -> set from command line; disables env var [no]debug */
+#else
+			debug++;
+#endif
 			break;
 		case 'e':
 			/*
@@ -223,6 +234,7 @@ main(int argc, char *argv[])
 			subject = optarg;
 			break;
 		case 'f':
+#ifdef __APPLE__
 			/*
 			 * User is specifying file to "edit" with Mail,
 			 * as opposed to reading system mailbox.
@@ -230,6 +242,21 @@ main(int argc, char *argv[])
 			 * is specified after the arguments.
 			 */
 			ef = "&";
+#else
+			/*
+			 * User is specifying file to "edit" with Mail,
+			 * as opposed to reading system mailbox.
+			 * If no argument is given after -f, we read his
+			 * mbox file.
+			 *
+			 * getopt() can't handle optional arguments, so here
+			 * is an ugly hack to get around it.
+			 */
+			if ((argv[optind] != NULL) && (argv[optind][0] != '-'))
+				ef = argv[optind++];
+			else
+				ef = "&";
+#endif
 			break;
 		case 'n':
 			/*
@@ -241,7 +268,11 @@ main(int argc, char *argv[])
 			/*
 			 * Avoid initial header printing.
 			 */
+#ifdef __APPLE__
 			assign("quiet", "");
+#else
+			assign("noheader", "");
+#endif
 			break;
 		case 'v':
 			/*
@@ -274,15 +305,26 @@ main(int argc, char *argv[])
 			assign("dontsendempty", "");
 			break;
 		case '?':
+#ifdef __APPLE__
 			fprintf(stderr, "\
 Usage: %s [-dEiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
        %s [-dEHiInNv] [-F] -f [name]\n\
        %s [-dEHiInNv] [-F] [-u user]\n\
        %s [-d] -e [-f name]\n\
        %s -H\n", __progname, __progname, __progname, __progname, __progname);
+#else
+			fprintf(stderr, "\
+Usage: %s [-dEiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
+       %*s [-sendmail-option ...]\n\
+       %s [-dEHiInNv] [-F] -f [name]\n\
+       %s [-dEHiInNv] [-F] [-u user]\n\
+       %s [-d] -e [-f name]\n", __progname, (int)strlen(__progname), "",
+				__progname, __progname, __progname);
+#endif
 			exit(1);
 		}
 	}
+#ifdef __APPLE__
 	if (ef != NULL) {
 		/* Check for optional mailbox file name. */
 		if (optind < argc) {
@@ -294,11 +336,21 @@ Usage: %s [-dEiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
 		for (i = optind; argv[i]; i++)
 			to = cat(to, nalloc(argv[i], GTO));
 	}
+#else
+	for (i = optind; (argv[i] != NULL) && (*argv[i] != '-'); i++)
+		to = cat(to, nalloc(argv[i], GTO));
+	for (; argv[i] != NULL; i++)
+		smopts = cat(smopts, nalloc(argv[i], 0));
+#endif
 	/*
 	 * Check for inconsistent arguments.
 	 */
 	if (to == NULL && (subject != NULL || cc != NULL || bcc != NULL))
 		errx(1, "You must specify direct recipients with -s, -c, or -b.");
+#ifndef __APPLE__
+	if (ef != NULL && to != NULL)
+		errx(1, "Cannot give -f and people to send to.");
+#endif
 	tinit();
 	setscreensize();
 	input = stdin;
@@ -355,11 +407,16 @@ Usage: %s [-dEiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
 	if (setjmp(hdrjmp) == 0) {
 		if ((prevint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
 			(void)signal(SIGINT, hdrstop);
-		if (value("quiet") == NULL) {
+		if (value("quiet") == NULL)
+#ifdef __APPLE__
+		{
+#endif
 			printf("Mail version %s.  Type ? for help.\n",
 				version);
-			announce();
+		announce();
+#ifdef __APPLE__
 		}
+#endif
 		(void)fflush(stdout);
 		(void)signal(SIGINT, prevint);
 	}

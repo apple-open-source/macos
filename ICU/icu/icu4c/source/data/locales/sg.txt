@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sg{
     AuxExemplarCharacters{"[c q x]"}
     ExemplarCharacters{"[aâä b d eêë f g h iîï j k l m n oôö p r s t uùûü v w y z]"}
@@ -8,7 +8,11 @@ sg{
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;¤-#,##0.00"}
+                accountingFormat%noCurrency{"#,##0.00"}
                 currencyFormat{"¤#,##0.00;¤-#,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00;¤-#,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00"}
             }
             symbols{
                 decimal{","}
@@ -148,12 +152,12 @@ sg{
             }
             eras{
                 abbreviated{
-                    "KnK",
-                    "NpK",
+                    0{"KnK"}
+                    1{"NpK"}
                 }
                 wide{
-                    "Kôzo na Krîstu",
-                    "Na pekô tî Krîstu",
+                    0{"Kôzo na Krîstu"}
+                    1{"Na pekô tî Krîstu"}
                 }
             }
             monthNames{

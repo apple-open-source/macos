@@ -87,7 +87,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
         [self release];
         return nil;
     }
-    coreArchive = WTFMove(_coreArchive);
+    coreArchive = WTF::move(_coreArchive);
     return self;
 }
 
@@ -98,8 +98,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
 - (void)setCoreArchive:(Ref<LegacyWebArchive>&&)newCoreArchive
 {
-    ASSERT(coreArchive);
-    coreArchive = WTFMove(newCoreArchive);
+    coreArchive = WTF::move(newCoreArchive);
 }
 
 - (void)dealloc
@@ -175,7 +174,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
     for (WebArchive *subframeArchive in subframeArchives)
         coreArchives.append(*[subframeArchive->_private coreArchive]);
 
-    [_private setCoreArchive:LegacyWebArchive::create([mainResource _coreResource].get(), WTFMove(coreResources), WTFMove(coreArchives), std::nullopt)];
+    [_private setCoreArchive:LegacyWebArchive::create([mainResource _coreResource].get(), WTF::move(coreResources), WTF::move(coreArchives), std::nullopt)];
     return self;
 }
 
@@ -345,7 +344,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
     if (!self)
         return nil;
     
-    _private = [[WebArchivePrivate alloc] initWithCoreArchive:WTFMove(coreLegacyWebArchive)];
+    _private = [[WebArchivePrivate alloc] initWithCoreArchive:WTF::move(coreLegacyWebArchive)];
     if (!_private) {
         [self release];
         return nil;

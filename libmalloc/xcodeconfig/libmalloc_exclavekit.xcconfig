@@ -48,4 +48,4 @@ TAPI_EXTRA_PRIVATE_HEADERS = $(inherited) $(SRCROOT)/private/make_tapi_happy.h
 OTHER_TAPI_FLAGS = $(inherited) -umbrella System $(OTHER_TAPI_FLAGS_$(CURRENT_VARIANT))
 
 // Set on files that can build with bounds attributes in the xcodeproj
-MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-attributes
+MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-safety -fbounds-safety-bringup-missing-checks=batch_0

@@ -700,7 +700,7 @@ GOptionGroup* jsc_options_get_option_group(void)
         entry->arg = G_OPTION_ARG_CALLBACK;                             \
         entry->arg_data = reinterpret_cast<gpointer>(setOptionEntry);   \
         entry->description = description_;                              \
-        names->append(WTFMove(name));                                   \
+        names->append(WTF::move(name));                                   \
     }
 
     Options::initialize([] { });

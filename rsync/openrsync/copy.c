@@ -539,13 +539,17 @@ move_file(int fromdfd, const char *fname, int todfd, const char *tname,
 	ret = renameat(fromdfd, fname, todfd, tname);
 	if (ret == 0)
 		return (0);
-	if (ret == -1 && errno != EXDEV)
+	if (ret == -1 && errno != EXDEV) {
+		ERR("renameat");
 		return (ret);
+	}
 
 	/* Fallback to a copy. */
 	fromfd = openat(fromdfd, fname, O_RDONLY | O_NOFOLLOW);
-	if (fromfd == -1)
+	if (fromfd == -1) {
+		ERR("openat from (%s)", fname);
 		return (-1);
+	}
 
 	/* Unlink tname if it exists and is not writeable */
 	if (faccessat(todfd, tname, W_OK, AT_RESOLVE_BENEATH) == -1 &&
@@ -557,6 +561,7 @@ move_file(int fromdfd, const char *fname, int todfd, const char *tname,
 		serrno = errno;
 		close(fromfd);
 		errno = serrno;
+		ERR("openat to (%s)", fname);
 		return (-1);
 	}
 

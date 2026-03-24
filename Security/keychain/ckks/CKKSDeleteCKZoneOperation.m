@@ -14,6 +14,7 @@
 
 @interface CKKSDeleteCKZoneOperation ()
 @property bool networkError;
+@property bool authTokenError;
 
 @property CKKSResultOperation* setResultStateOperation;
 @end
@@ -33,6 +34,7 @@
         _nextState = errorState;
         
         _networkError = false;
+        _authTokenError = false;
     }
     return self;
 }
@@ -80,6 +82,9 @@
             if ([self.deps.reachabilityTracker isNetworkError:operationError]) {
                 ckksnotice_global("ckkszonemodifier", "Waiting for reachability before issuing zone deletion");
                 self.networkError = true;
+            } else if ([operationError isCKServerAuthTokenError]) {
+                ckksnotice_global("ckkszonemodifier", "Failed zone deletion due to missing auth token, need to recheck CK Account Status and potentially re-auth");
+                self.authTokenError = true;
             }
         }
         ckksnotice_global("ckkszonemodifier", "deleted zones: %@", deletedRecordZoneIDs);
@@ -138,6 +143,7 @@
                 ckse.ckzonecreated = NO;
                 ckse.ckzonesubscribed = NO;
                 ckse.initialSyncFinished = NO;
+                ckse.altDSID = nil;
 
                 [ckse saveToDatabase:&error];
                 if(error) {
@@ -161,9 +167,9 @@
         
         if (self.networkError) {
             self.nextState = CKKSStateZoneDeletionFailedDueToNetworkError;
-        }
-
-        else if (!self.error) {
+        } else if (self.authTokenError) {
+            self.nextState = CKKSStateRecheckAccountStatus;
+        } else if (!self.error) {
             self.nextState = self.intendedState;
             ckksnotice_global("ckkszonemodifier", "no fatal errors discovered!");
         }

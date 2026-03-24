@@ -77,7 +77,7 @@ void WKUserContentExtensionStoreCompile(WKUserContentExtensionStoreRef store, WK
 {
 #if ENABLE(CONTENT_EXTENSIONS)
     toProtectedImpl(store)->compileContentRuleList(toWTFString(identifier), toWTFString(jsonSource), [context, callback](RefPtr<API::ContentRuleList> contentRuleList, std::error_code error) {
-        callback(error ? nullptr : toAPILeakingRef(WTFMove(contentRuleList)), toResult(error), context);
+        callback(error ? nullptr : toAPILeakingRef(WTF::move(contentRuleList)), toResult(error), context);
     });
 #else
     UNUSED_PARAM(jsonSource);
@@ -89,7 +89,7 @@ void WKUserContentExtensionStoreLookup(WKUserContentExtensionStoreRef store, WKS
 {
 #if ENABLE(CONTENT_EXTENSIONS)
     toProtectedImpl(store)->lookupContentRuleList(toWTFString(identifier), [context, callback](RefPtr<API::ContentRuleList> contentRuleList, std::error_code error) {
-        callback(error ? nullptr : toAPILeakingRef(WTFMove(contentRuleList)), toResult(error), context);
+        callback(error ? nullptr : toAPILeakingRef(WTF::move(contentRuleList)), toResult(error), context);
     });
 #else
     callback(nullptr, kWKUserContentExtensionStoreLookupFailed, context);

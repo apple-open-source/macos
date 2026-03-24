@@ -207,7 +207,7 @@ bool SOSCircleSetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFDataRef sign
     bool result = false;
     
     CFStringRef pubKeyID = SOSCopyIDOfKey(pubkey, error);
-    require_quiet(pubKeyID, fail);
+    __Require_Quiet(pubKeyID, fail);
     CFDictionarySetValue(circle->signatures, pubKeyID, signature);
     result = true;
 
@@ -224,7 +224,7 @@ static bool SOSCircleRemoveSignatures(SOSCircleRef circle, CFErrorRef *error) {
 CFDataRef SOSCircleGetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error) {
     CFStringRef pubKeyID = SOSCopyIDOfKey(pubkey, error);
     CFDataRef result = NULL;
-    require_quiet(pubKeyID, fail);
+    __Require_Quiet(pubKeyID, fail);
 
     CFTypeRef value = (CFDataRef)CFDictionaryGetValue(circle->signatures, pubKeyID);
     
@@ -248,7 +248,7 @@ static CFDataRef SecKeyCopyRawHashSignature(const struct ccdigest_info *di, cons
     size_t signatureSpace = CFDataGetLength(signature);
 
     OSStatus status = SecKeyRawSign(privKey, kSecPaddingNone, hashToSign, di->output_size, CFDataGetMutableBytePtr(signature), &signatureSpace);
-    require_quiet(SecError(status, error, CFSTR("Signing failed: %d"), (int)status), fail);
+    __Require_Quiet(SecError(status, error, CFSTR("Signing failed: %d"), (int)status), fail);
 
     if (signatureSpace < (size_t)CFDataGetLength(signature)) {
         CFDataSetLength(signature, signatureSpace);
@@ -265,15 +265,15 @@ bool SOSCircleSign(SOSCircleRef circle, SecKeyRef privKey, CFErrorRef *error) {
 
     __block CFDataRef signature = NULL;
     bool didSign = false;
-    require_quiet(privKey, fail);
+    __Require_Quiet(privKey, fail);
 
     PerformWithBuffer(di->output_size, ^(size_t size, uint8_t *hash_result) {
         if (SOSCircleHash(di, circle, hash_result, error)) {
             signature = SecKeyCopyRawHashSignature(di, hash_result, privKey, error);
         }
     });
-    require_quiet(signature, fail);
-    require_quiet(SOSCircleSetSignature(circle, privKey, signature, error), fail);
+    __Require_Quiet(signature, fail);
+    __Require_Quiet(SOSCircleSetSignature(circle, privKey, signature, error), fail);
 
     didSign = true;
 
@@ -286,7 +286,7 @@ CFDataRef SOSCircleCopyNextGenSignatureWithPeerAdded(SOSCircleRef circle, SOSPee
     const struct ccdigest_info *di = circle_signature_di();
 
     __block CFDataRef signature = NULL;
-    require_quiet(privKey, fail);
+    __Require_Quiet(privKey, fail);
 
     PerformWithBuffer(di->output_size, ^(size_t size, uint8_t *hash_result) {
         if (SOSCircleHashNextGenWithAdditionalPeer(di, circle, peer, hash_result, error)) {
@@ -338,7 +338,7 @@ bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error) {
 bool SOSCircleVerifyPeerSignatureExists(SOSCircleRef circle, SOSPeerInfoRef peer) {
     bool result = false;
     SecKeyRef pub_key = SOSPeerInfoCopyPubKey(peer, NULL);
-    require_quiet(pub_key, fail);
+    __Require_Quiet(pub_key, fail);
     result = SOSCircleVerifySignatureExists(circle, pub_key, NULL);
 fail:
     CFReleaseSafe(pub_key);
@@ -348,7 +348,7 @@ fail:
 bool SOSCircleVerifyPeerSigned(SOSCircleRef circle, SOSPeerInfoRef peer, CFErrorRef *error) {
     bool result = false;
     SecKeyRef pub_key = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pub_key, fail);
+    __Require_Quiet(pub_key, fail);
     
     result = SOSCircleVerify(circle, pub_key, error);
 fail:
@@ -401,8 +401,8 @@ static bool SOSCircleUpgradePeerInfo(SOSCircleRef circle, SecKeyRef user_approve
     SecKeyRef userPubKey = SecKeyCreatePublicFromPrivate(user_approver);
     SOSPeerInfoRef fpi_pi = SOSFullPeerInfoGetPeerInfo(peerinfo);
     SOSPeerInfoRef pi = SOSCircleCopyPeerInfo(circle, SOSPeerInfoGetPeerID(fpi_pi), NULL);
-    require_quiet(pi, out);
-    require_quiet(SOSPeerInfoApplicationVerify(pi, userPubKey, NULL), re_sign);
+    __Require_Quiet(pi, out);
+    __Require_Quiet(SOSPeerInfoApplicationVerify(pi, userPubKey, NULL), re_sign);
     CFReleaseNull(userPubKey);
     CFReleaseNull(pi);
     return true;
@@ -410,7 +410,7 @@ static bool SOSCircleUpgradePeerInfo(SOSCircleRef circle, SecKeyRef user_approve
 re_sign:
     secnotice("circle", "SOSCircleGenerationSign: Upgraded peer's Application Signature");
     SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(peerinfo, NULL);
-    require_quiet(device_key, out);
+    __Require_Quiet(device_key, out);
     SOSPeerInfoRef new_pi = SOSPeerInfoCopyAsApplication(pi, user_approver, device_key, NULL);
     if(SOSCircleUpdatePeerInfo(circle, new_pi))
         retval = true;
@@ -431,18 +431,18 @@ bool SOSCircleSignOldStyleResetToOfferingCircle(SOSCircleRef circle, SOSFullPeer
     
     SecKeyRef ourKey = SOSFullPeerInfoCopyDeviceKey(peerinfo, error);
     SecKeyRef publicKey = NULL;
-    require_quiet(ourKey, fail);
+    __Require_Quiet(ourKey, fail);
     
     // Check if we're using an invalid peerinfo for this op.  There are cases where we might not be "upgraded".
-    require_quiet(SOSCircleUpgradePeerInfo(circle, user_approver, peerinfo), fail);
+    __Require_Quiet(SOSCircleUpgradePeerInfo(circle, user_approver, peerinfo), fail);
     SOSCircleRemoveRetired(circle, error); // Prune off retirees since we're signing this one
     CFSetRemoveAllValues(circle->rejected_applicants); // Dump rejects so we clean them up sometime.
     publicKey = SecKeyCreatePublicFromPrivate(user_approver);
     SOSCircleRejectNonValidApplicants(circle, publicKey);
-    require_quiet(SOSCircleEnsureRingConsistency(circle, error), fail);
-    require_quiet(SOSCircleRemoveSignatures(circle, error), fail);
-    require_quiet(SOSCircleSign(circle, user_approver, error), fail);
-    require_quiet(SOSCircleSign(circle, ourKey, error), fail);
+    __Require_Quiet(SOSCircleEnsureRingConsistency(circle, error), fail);
+    __Require_Quiet(SOSCircleRemoveSignatures(circle, error), fail);
+    __Require_Quiet(SOSCircleSign(circle, user_approver, error), fail);
+    __Require_Quiet(SOSCircleSign(circle, ourKey, error), fail);
     
     CFReleaseNull(ourKey);
     CFReleaseNull(publicKey);
@@ -461,7 +461,7 @@ bool SOSCirclePreGenerationSign(SOSCircleRef circle, SecKeyRef userPubKey, CFErr
     CFSetRemoveAllValues(circle->rejected_applicants); // Dump rejects so we clean them up sometime.
     SOSCircleRejectNonValidApplicants(circle, userPubKey);
 
-    require_quiet(SOSCircleRemoveSignatures(circle, error), errOut);
+    __Require_Quiet(SOSCircleRemoveSignatures(circle, error), errOut);
     
     retval = true;
 
@@ -476,13 +476,13 @@ static bool SOSCircleGenerationSign_Internal(SOSCircleRef circle, SecKeyRef user
     SecKeyRef ourKey = NULL;
     if (SOSCircleCountPeers(circle) != 0) {
         ourKey = SOSFullPeerInfoCopyDeviceKey(fpi, error);
-        require_quiet(ourKey, errOut);
+        __Require_Quiet(ourKey, errOut);
         
         // Check if we're using an invalid peerinfo for this op.  There are cases where we might not be "upgraded".
-        require_quiet(SOSCircleUpgradePeerInfo(circle, userKey, fpi), errOut);
+        __Require_Quiet(SOSCircleUpgradePeerInfo(circle, userKey, fpi), errOut);
         
-        require_quiet(SOSCircleSign(circle, userKey, error), errOut);
-        require_quiet(SOSCircleSign(circle, ourKey, error), errOut);
+        __Require_Quiet(SOSCircleSign(circle, userKey, error), errOut);
+        __Require_Quiet(SOSCircleSign(circle, ourKey, error), errOut);
         CFReleaseNull(ourKey);
     }
     retval = true;
@@ -497,9 +497,9 @@ bool SOSCircleGenerationSign(SOSCircleRef circle, SecKeyRef userKey, SOSFullPeer
     SecKeyRef publicKey = NULL;
     publicKey = SecKeyCreatePublicFromPrivate(userKey);
 
-    require_quiet(SOSCirclePreGenerationSign(circle, publicKey, error), errOut);
+    __Require_Quiet(SOSCirclePreGenerationSign(circle, publicKey, error), errOut);
     SOSCircleGenerationIncrement(circle);
-    require_quiet(SOSCircleGenerationSign_Internal(circle, userKey, fpi, error), errOut);
+    __Require_Quiet(SOSCircleGenerationSign_Internal(circle, userKey, fpi, error), errOut);
     retval = true;
     
 errOut:
@@ -511,10 +511,10 @@ errOut:
 static bool SOSCircleGenerationSignWithGenCount(SOSCircleRef circle, SecKeyRef userKey, SOSFullPeerInfoRef fpi, SOSGenCountRef gencount, CFErrorRef *error) {
     bool retval = false;
     SOSGenCountRef currentGen = SOSCircleGetGeneration(circle);
-    require_action_quiet(SOSGenerationIsOlder(currentGen, gencount), errOut, SOSCreateError(kSOSErrorReplay, CFSTR("Generation Count for new circle is too old"), NULL, error));
-    require_quiet(SOSCirclePreGenerationSign(circle, userKey, error), errOut);
+    __Require_Action_Quiet(SOSGenerationIsOlder(currentGen, gencount), errOut, SOSCreateError(kSOSErrorReplay, CFSTR("Generation Count for new circle is too old"), NULL, error));
+    __Require_Quiet(SOSCirclePreGenerationSign(circle, userKey, error), errOut);
     SOSCircleSetGeneration(circle, gencount);
-    require_quiet(SOSCircleGenerationSign_Internal(circle, userKey, fpi, error), errOut);
+    __Require_Quiet(SOSCircleGenerationSign_Internal(circle, userKey, fpi, error), errOut);
     retval = true;
     
 errOut:
@@ -525,7 +525,7 @@ errOut:
 bool SOSCircleConcordanceSign(SOSCircleRef circle, SOSFullPeerInfoRef peerinfo, CFErrorRef *error) {
     bool success = false;
     SecKeyRef ourKey = SOSFullPeerInfoCopyDeviceKey(peerinfo, error);
-    require_quiet(ourKey, exit);
+    __Require_Quiet(ourKey, exit);
     
     success = SOSCircleSign(circle, ourKey, error);
     SOSCircleConcordanceRingSign(circle, ourKey, error);
@@ -538,11 +538,11 @@ exit:
 static inline SOSConcordanceStatus CheckPeerStatus(SOSCircleRef circle, SOSPeerInfoRef peer, SecKeyRef user_public_key, CFErrorRef *error) {
     SOSConcordanceStatus result = kSOSConcordanceNoPeer;
     SecKeyRef pubKey = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pubKey, exit);
+    __Require_Quiet(pubKey, exit);
 
-    require_action_quiet(SOSCircleHasActiveValidPeer(circle, peer, user_public_key, error), exit, result = kSOSConcordanceNoPeer);
-    require_action_quiet(SOSCircleVerifySignatureExists(circle, pubKey, error), exit, result = kSOSConcordanceNoPeerSig);
-    require_action_quiet(SOSCircleVerify(circle, pubKey, error), exit, result = kSOSConcordanceBadPeerSig);
+    __Require_Action_Quiet(SOSCircleHasActiveValidPeer(circle, peer, user_public_key, error), exit, result = kSOSConcordanceNoPeer);
+    __Require_Action_Quiet(SOSCircleVerifySignatureExists(circle, pubKey, error), exit, result = kSOSConcordanceNoPeerSig);
+    __Require_Action_Quiet(SOSCircleVerify(circle, pubKey, error), exit, result = kSOSConcordanceBadPeerSig);
 
     result = kSOSConcordanceTrusted;
     
@@ -607,7 +607,7 @@ bool SOSCircleIsOlderGeneration(SOSCircleRef older, SOSCircleRef newer) {
 static inline bool SOSCircleIsValidReset(SOSCircleRef current, SOSCircleRef proposed) {
     bool retval = false;
     retval = SOSCircleIsEmpty(proposed);
-    require_quiet(retval, errOut);
+    __Require_Quiet(retval, errOut);
     retval = SOSCircleIsOlderGeneration(current, proposed);
 errOut:
     return retval;
@@ -994,7 +994,7 @@ static bool SOSCircleRecordAdmissionRequest(SOSCircleRef circle, SecKeyRef user_
     
     bool isPeer = SOSCircleHasPeer(circle, requestorPeerInfo, error);
     
-    require_action_quiet(!isPeer, fail, SOSCreateError(kSOSErrorAlreadyPeer, CFSTR("Cannot request admission when already a peer"), NULL, error));
+    __Require_Action_Quiet(!isPeer, fail, SOSCreateError(kSOSErrorAlreadyPeer, CFSTR("Cannot request admission when already a peer"), NULL, error));
     
     // This adds to applicants and will take off rejected if it's there.
     CFSetTransferObject(requestorPeerInfo, circle->rejected_applicants, circle->applicants);
@@ -1009,7 +1009,7 @@ fail:
 bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSPeerInfoRef peer, CFErrorRef *error) {
     bool success = false;
     
-    require_quiet(SOSPeerInfoApplicationVerify(peer, user_pubkey, error), fail);
+    __Require_Quiet(SOSPeerInfoApplicationVerify(peer, user_pubkey, error), fail);
     success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, peer, error);
 fail:
     return success;
@@ -1019,9 +1019,9 @@ bool SOSCircleRequestAdmission(SOSCircleRef circle, SecKeyRef user_privkey, SOSF
     bool success = false;
     
     SecKeyRef user_pubkey = SecKeyCreatePublicFromPrivate(user_privkey);
-    require_action_quiet(user_pubkey, fail, SOSCreateError(kSOSErrorBadKey, CFSTR("No public key for key"), NULL, error));
+    __Require_Action_Quiet(user_pubkey, fail, SOSCreateError(kSOSErrorBadKey, CFSTR("No public key for key"), NULL, error));
 
-    require(SOSFullPeerInfoPromoteToApplication(requestor, user_privkey, error), fail);
+    __Require(SOSFullPeerInfoPromoteToApplication(requestor, user_privkey, error), fail);
     
     success = SOSCircleRecordAdmissionRequest(circle, user_pubkey, SOSFullPeerInfoGetPeerInfo(requestor), error);
 fail:
@@ -1075,9 +1075,9 @@ bool SOSCircleRemovePeers(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPe
         }
     });
 
-    require_quiet(removed_all, exit);
+    __Require_Quiet(removed_all, exit);
 
-    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+    __Require_Quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
 
     success = true;
 
@@ -1102,9 +1102,9 @@ bool SOSCircleRemovePeersByID(SOSCircleRef circle, SecKeyRef user_privkey, SOSFu
         }
     });
     
-    require_quiet(removed_all, exit);
+    __Require_Quiet(removed_all, exit);
     
-    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+    __Require_Quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
     
     success = true;
     
@@ -1135,9 +1135,9 @@ bool SOSCircleRemovePeersByIDUnsigned(SOSCircleRef circle, CFSetRef peersToRemov
 bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, SOSPeerInfoRef peer_to_remove, CFErrorRef *error) {
     bool success = false;
 
-    require_quiet(SOSCircleRemovePeerInternal(circle, requestor, peer_to_remove, error), exit);
+    __Require_Quiet(SOSCircleRemovePeerInternal(circle, requestor, peer_to_remove, error), exit);
 
-    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+    __Require_Quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
 
     success = true;
 exit:
@@ -1150,11 +1150,11 @@ bool SOSCircleAcceptRequest(SOSCircleRef circle, SecKeyRef user_privkey, SOSFull
     SecKeyRef publicKey = NULL;
     bool result = false;
 
-    require_action_quiet(CFSetContainsValue(circle->applicants, peerInfo), fail,
+    __Require_Action_Quiet(CFSetContainsValue(circle->applicants, peerInfo), fail,
                          SOSCreateError(kSOSErrorNotApplicant, CFSTR("Cannot accept non-applicant"), NULL, error));
     
     publicKey = SecKeyCreatePublicFromPrivate(user_privkey);
-    require_quiet(SOSPeerInfoApplicationVerify(peerInfo, publicKey, error), fail);
+    __Require_Quiet(SOSPeerInfoApplicationVerify(peerInfo, publicKey, error), fail);
 
     CFSetTransferObject(peerInfo, circle->applicants, circle->peers);
     

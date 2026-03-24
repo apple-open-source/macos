@@ -111,7 +111,7 @@ tre_mem_alloc_impl(tre_mem_t mem, int provided, void *provided_block,
 	    block_size = size * 8;
 	  else
 	    block_size = TRE_MEM_BLOCK_SIZE;
-	  DPRINT(("tre_mem_alloc: allocating new %ld byte block\n",
+	  DPRINT(("tre_mem_alloc: allocating new %zu byte block\n",
 		  block_size));
 	  l = xmalloc(sizeof(*l));
 	  if (l == NULL)

@@ -45,14 +45,11 @@ std::unique_ptr<CanvasFilterContextSwitcher> CanvasFilterContextSwitcher::create
         return nullptr;
 
     auto filterSwitcher = makeUnique<CanvasFilterContextSwitcher>(context);
-    if (!filterSwitcher)
-        return nullptr;
-
-    auto targetSwitcher = CanvasLayerContextSwitcher::create(context, bounds, WTFMove(filter));
+    auto targetSwitcher = CanvasLayerContextSwitcher::create(context, bounds, WTF::move(filter));
     if (!targetSwitcher)
         return nullptr;
 
-    context.modifiableState().targetSwitcher = WTFMove(targetSwitcher);
+    context.modifiableState().targetSwitcher = WTF::move(targetSwitcher);
     return filterSwitcher;
 }
 
@@ -65,7 +62,7 @@ CanvasFilterContextSwitcher::CanvasFilterContextSwitcher(CanvasRenderingContext2
 
 CanvasFilterContextSwitcher::~CanvasFilterContextSwitcher()
 {
-    protectedContext()->restore();
+    context()->restore();
 }
 
 FloatRect CanvasFilterContextSwitcher::expandedBounds() const

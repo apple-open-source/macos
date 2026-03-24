@@ -41,6 +41,7 @@
 #import "WebPageProxy.h"
 #import "WebScriptMessageHandler.h"
 #import "WebUserContentControllerProxy.h"
+#import "_WKJSBufferInternal.h"
 #import "_WKUserContentFilterInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserStyleSheetInternal.h"
@@ -157,10 +158,10 @@ public:
             if (!page.cocoaView())
                 return replyHandler(makeUnexpected("The WKWebView was deallocated before the message was delivered"_s));
 
-            RetainPtr message = wrapper(API::ScriptMessage::create(jsMessage.toID(), page, API::FrameInfo::create(WTFMove(frameInfoData)), RetainPtr { m_name }, world));
+            RetainPtr message = wrapper(API::ScriptMessage::create(jsMessage.toID(), page, API::FrameInfo::create(WTF::move(frameInfoData)), RetainPtr { m_name }, world));
 
             if (m_supportsAsyncReply) {
-                __block auto handler = CompletionHandlerWithFinalizer<void(Expected<WebKit::JavaScriptEvaluationResult, String>&&)>(WTFMove(replyHandler), [](auto& function) {
+                __block auto handler = CompletionHandlerWithFinalizer<void(Expected<WebKit::JavaScriptEvaluationResult, String>&&)>(WTF::move(replyHandler), [](auto& function) {
                     function(makeUnexpected("WKWebView API client did not respond to this postMessage"_s));
                 });
                 [(id<WKScriptMessageHandlerWithReply>)m_handler.get() userContentController:m_controller.get() didReceiveScriptMessage:message.get() replyHandler:^(id result, NSString *errorMessage) {
@@ -173,7 +174,7 @@ public:
                     auto extracted = WebKit::JavaScriptEvaluationResult::extract(result);
                     if (!extracted)
                         return handler(makeUnexpected("The result value passed back from the WKWebView API client was unable to be serialized"_s));
-                    handler(WTFMove(*extracted));
+                    handler(WTF::move(*extracted));
                 }];
                 return;
             }
@@ -316,6 +317,16 @@ private:
     protectedUserContentControllerProxy(self)->removeAllUserStyleSheets(Ref { *contentWorld->_contentWorld });
 }
 
+- (void)_addBuffer:(_WKJSBuffer *)buffer contentWorld:(WKContentWorld *)world name:(NSString *)name
+{
+    protectedUserContentControllerProxy(self)->addJSBuffer(Ref { *buffer->_buffer }, Ref { *world->_contentWorld }, name);
+}
+
+- (void)_removeBufferWithName:(NSString *)name contentWorld:(WKContentWorld *)world
+{
+    protectedUserContentControllerProxy(self)->removeJSBuffer(Ref { *world->_contentWorld }, name);
+}
+
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (void)_addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name userContentWorld:(_WKUserContentWorld *)userContentWorld
 {
@@ -326,7 +337,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)_addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name contentWorld:(WKContentWorld *)contentWorld
 {
-    [self _addScriptMessageHandler:scriptMessageHandler name:name userContentWorld:contentWorld._userContentWorld];
+    [self _addScriptMessageHandler:scriptMessageHandler name:name userContentWorld:retainPtr(contentWorld._userContentWorld).get()];
 }
 
 - (void)_removeScriptMessageHandlerForName:(NSString *)name userContentWorld:(_WKUserContentWorld *)userContentWorld

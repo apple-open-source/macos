@@ -269,7 +269,7 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
     bool		updated = false;
     UInt64		nano;
     
-    require_action(dict, exit, err = kIOReturnBadArgument);
+    __Require_Action(dict, exit, err = kIOReturnBadArgument);
     if( dict->getObject(kIOHIDResetKeyboardKey))
 		resetKeyboard();
 

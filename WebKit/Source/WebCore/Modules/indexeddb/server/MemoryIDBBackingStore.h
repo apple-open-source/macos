@@ -106,8 +106,8 @@ private:
     std::unique_ptr<IDBDatabaseInfo> m_databaseInfo;
 
     HashMap<IDBResourceIdentifier, Ref<MemoryBackingStoreTransaction>> m_transactions;
-    HashMap<IDBObjectStoreIdentifier, RefPtr<MemoryObjectStore>> m_objectStoresByIdentifier;
-    HashMap<String, RefPtr<MemoryObjectStore>> m_objectStoresByName;
+    HashMap<IDBObjectStoreIdentifier, Ref<MemoryObjectStore>> m_objectStoresByIdentifier;
+    HashMap<String, Ref<MemoryObjectStore>> m_objectStoresByName;
 };
 
 } // namespace IDBServer

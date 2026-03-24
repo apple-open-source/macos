@@ -38,7 +38,7 @@ struct CSPInfo;
 struct SecurityPolicyViolationEventInit;
 
 class CSPViolationReportBody final : public ReportBody {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSPViolationReportBody);
+    WTF_MAKE_TZONE_ALLOCATED(CSPViolationReportBody);
 public:
     using Init = SecurityPolicyViolationEventInit;
 

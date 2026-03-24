@@ -36,10 +36,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGEllipse);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGEllipse);
 
 RenderSVGEllipse::RenderSVGEllipse(SVGGraphicsElement& element, RenderStyle&& style)
-    : RenderSVGShape(Type::SVGEllipse, element, WTFMove(style))
+    : RenderSVGShape(Type::SVGEllipse, element, WTF::move(style))
 {
 }
 
@@ -85,10 +85,10 @@ void RenderSVGEllipse::calculateRadiiAndCenter()
     Ref graphicsElement = this->graphicsElement();
     SVGLengthContext lengthContext(graphicsElement.ptr());
     m_center = FloatPoint(
-        lengthContext.valueForLength(style().cx(), SVGLengthMode::Width),
-        lengthContext.valueForLength(style().cy(), SVGLengthMode::Height));
+        lengthContext.valueForLength(style().cx(), Style::ZoomNeeded { }, SVGLengthMode::Width),
+        lengthContext.valueForLength(style().cy(), Style::ZoomNeeded { }, SVGLengthMode::Height));
     if (is<SVGCircleElement>(graphicsElement)) {
-        float radius = lengthContext.valueForLength(style().r());
+        float radius = lengthContext.valueForLength(style().r(), Style::ZoomNeeded { });
         m_radii = FloatSize(radius, radius);
         return;
     }
@@ -98,8 +98,8 @@ void RenderSVGEllipse::calculateRadiiAndCenter()
     auto& rx = style().rx();
     auto& ry = style().ry();
     m_radii = FloatSize(
-        lengthContext.valueForLength(rx.isAuto() ? ry : rx, SVGLengthMode::Width),
-        lengthContext.valueForLength(ry.isAuto() ? rx : ry, SVGLengthMode::Height));
+        lengthContext.valueForLength(rx.isAuto() ? ry : rx, Style::ZoomNeeded { }, SVGLengthMode::Width),
+        lengthContext.valueForLength(ry.isAuto() ? rx : ry, Style::ZoomNeeded { }, SVGLengthMode::Height));
     if (rx.isAuto())
         m_radii.setWidth(m_radii.height());
     else if (ry.isAuto())

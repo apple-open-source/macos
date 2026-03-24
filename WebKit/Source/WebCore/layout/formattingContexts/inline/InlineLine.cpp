@@ -30,9 +30,10 @@
 #include "InlineFormattingContext.h"
 #include "InlineSoftLineBreakItem.h"
 #include "LayoutBoxGeometry.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "TextFlags.h"
 #include "TextUtil.h"
+#include <ranges>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -96,7 +97,7 @@ Line::Result Line::close()
 
     auto contentLogicalRight = this->contentLogicalRight() + m_rubyAlignContentRightOffset;
     auto isContentful = lineHasVisuallyNonEmptyContent();
-    return { WTFMove(m_runs)
+    return { WTF::move(m_runs)
         , contentLogicalWidth() + trailingClonedDecorationWidth
         , contentLogicalRight + trailingClonedDecorationWidth
         , isContentful
@@ -346,7 +347,7 @@ void Line::appendText(const InlineTextItem& inlineTextItem, const RenderStyle& s
         if (InlineTextItem::shouldPreserveSpacesAndTabs(inlineTextItem))
             return false;
         // This content is collapsible. Let's check if the last item is collapsed.
-        for (auto& run : makeReversedRange(m_runs)) {
+        for (auto& run : m_runs | std::views::reverse) {
             if (run.isAtomicInlineBox())
                 return false;
             // https://drafts.csswg.org/css-text-3/#white-space-phase-1
@@ -417,7 +418,7 @@ void Line::appendText(const InlineTextItem& inlineTextItem, const RenderStyle& s
                     return m_contentLogicalWidth - std::max(0.f, lastRun.logicalWidth());
                 // FIXME: Let's see if we need to optimize for this is the rare case of both letter and word spacing being negative.
                 auto rightMostPosition = InlineLayoutUnit { };
-                for (auto& run : makeReversedRange(m_runs))
+                for (auto& run : m_runs | std::views::reverse)
                     rightMostPosition = std::max(rightMostPosition, run.logicalRight());
                 return std::max(0.f, rightMostPosition);
             }();
@@ -459,7 +460,7 @@ void Line::appendText(const InlineTextItem& inlineTextItem, const RenderStyle& s
             return;
         }
         if (TextUtil::hasHangableStopOrCommaEnd(inlineTextItem, style)) {
-            auto isConditionalHanging = style.hangingPunctuation().contains(HangingPunctuation::AllowEnd);
+            auto isConditionalHanging = style.hangingPunctuation().contains(Style::HangingPunctuationValue::AllowEnd);
             m_hangingContent.setTrailingStopOrComma(TextUtil::hangableStopOrCommaEndWidth(inlineTextItem, style), isConditionalHanging);
             return;
         }
@@ -564,6 +565,18 @@ void Line::appendAtomicInlineBox(const InlineItem& inlineItem, const RenderStyle
     m_runs.append({ inlineItem, style, lastRunLogicalRight() + marginStart, marginBoxLogicalWidth - marginStart });
 }
 
+void Line::appendBlock(const InlineItem& blockItem, InlineLayoutUnit marginBoxLogicalWidth)
+{
+#if ASSERT_ENABLED
+    // We may have added line spanning inline boxes when initializing this line for the block content.
+    for (auto& run : m_runs)
+        ASSERT(run.isLineSpanningInlineBoxStart());
+#endif
+    // Cloned decoration should not show up on block lines. Make the line hug the block level element.
+    m_contentLogicalWidth = marginBoxLogicalWidth;
+    m_runs.append({ blockItem, blockItem.style(), { }, marginBoxLogicalWidth });
+}
+
 void Line::appendLineBreak(const InlineItem& inlineItem, const RenderStyle& style)
 {
     m_trailingSoftHyphenWidth = { };
@@ -587,7 +600,7 @@ void Line::appendOpaqueBox(const InlineItem& inlineItem, const RenderStyle& styl
 
 void Line::addTrailingHyphen(InlineLayoutUnit hyphenLogicalWidth)
 {
-    for (auto& run : makeReversedRange(m_runs)) {
+    for (auto& run : m_runs | std::views::reverse) {
         if (!run.isText())
             continue;
         run.setNeedsHyphen(hyphenLogicalWidth);
@@ -600,7 +613,7 @@ void Line::addTrailingHyphen(InlineLayoutUnit hyphenLogicalWidth)
 bool Line::lineHasVisuallyNonEmptyContent() const
 {
     auto& formattingContext = this->formattingContext();
-    for (auto& run : makeReversedRange(m_runs)) {
+    for (auto& run : m_runs | std::views::reverse) {
         if (Line::Run::isContentfulOrHasDecoration(run, formattingContext))
             return true;
     }
@@ -667,6 +680,25 @@ bool Line::restoreTrimmedTrailingWhitespace(InlineLayoutUnit trimmedTrailingWhit
         return true;
     }
     ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool Line::hasTrailingForcedLineBreak(const RunList& runs)
+{
+    return !runs.isEmpty() && runs.last().isLineBreak();
+}
+
+bool Line::hasContentOrDecoration(IncludeInsideListMarker includeInsideListMarker) const
+{
+    if (m_runs.isEmpty())
+        return false;
+    if (includeInsideListMarker == IncludeInsideListMarker::Yes && m_runs.first().isListMarkerInside())
+        return true;
+    auto& formattingContext = this->formattingContext();
+    for (auto& run : m_runs | std::views::reverse) {
+        if (Line::Run::isContentfulOrHasDecoration(run, formattingContext) && !run.isListMarker())
+            return true;
+    }
     return false;
 }
 
@@ -762,6 +794,8 @@ inline static Line::Run::Type toLineRunType(const InlineItem& inlineItem)
         return Line::Run::Type::InlineBoxEnd;
     case InlineItem::Type::Opaque:
         return Line::Run::Type::Opaque;
+    case InlineItem::Type::Block:
+        return Line::Run::Type::Block;
     default:
         ASSERT_NOT_REACHED();
         return { };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,6 +90,9 @@ struct smb_prefs {
     uint32_t            compression_exclude_cnt;
     char *              compression_include[kClientCompressMaxEntries];
     uint32_t            compression_include_cnt;
+    
+    uint32_t            srv_lookup_enabled;     /* Enable DNS SRV record lookups */
+
 };
 
 void getDefaultPreferences(struct smb_prefs *prefs);

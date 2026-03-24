@@ -164,7 +164,7 @@ void RegExp::finishCreation(VM& vm)
         return;
     }
 
-    m_atom = WTFMove(pattern.m_atom);
+    m_atom = WTF::move(pattern.m_atom);
     m_specificPattern = pattern.m_specificPattern;
 
     m_numSubpatterns = pattern.m_numSubpatterns;
@@ -226,7 +226,7 @@ void RegExp::byteCodeCompileIfNecessary(VM* vm)
     }
     ASSERT(m_numSubpatterns == pattern.m_numSubpatterns);
 
-    m_atom = WTFMove(pattern.m_atom);
+    m_atom = WTF::move(pattern.m_atom);
     m_specificPattern = pattern.m_specificPattern;
 
     m_regExpBytecode = byteCodeCompilePattern(vm, pattern, m_constructionErrorCode);
@@ -247,7 +247,7 @@ void RegExp::compile(VM* vm, Yarr::CharSize charSize, std::optional<StringView> 
     }
     ASSERT(m_numSubpatterns == pattern.m_numSubpatterns);
 
-    m_atom = WTFMove(pattern.m_atom);
+    m_atom = WTF::move(pattern.m_atom);
     m_specificPattern = pattern.m_specificPattern;
 
     if (!hasCode()) {
@@ -315,7 +315,7 @@ void RegExp::compileMatchOnly(VM* vm, Yarr::CharSize charSize, std::optional<Str
     }
     ASSERT(m_numSubpatterns == pattern.m_numSubpatterns);
 
-    m_atom = WTFMove(pattern.m_atom);
+    m_atom = WTF::move(pattern.m_atom);
     m_specificPattern = pattern.m_specificPattern;
 
     if (!hasCode()) {

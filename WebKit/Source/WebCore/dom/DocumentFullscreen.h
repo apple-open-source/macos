@@ -30,7 +30,6 @@
 #include <WebCore/Document.h>
 #include <WebCore/FullscreenOptions.h>
 #include <WebCore/GCReachableRef.h>
-#include <WebCore/HTMLMediaElement.h>
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/LayoutRect.h>
 #include <WebCore/Page.h>

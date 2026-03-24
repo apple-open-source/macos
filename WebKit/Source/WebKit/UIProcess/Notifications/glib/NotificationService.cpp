@@ -193,7 +193,7 @@ public:
                 m_iconCache.remove(addResult.iterator);
                 return nullptr;
             }
-            addResult.iterator->value = { 1, WTFMove(path) };
+            addResult.iterator->value = { 1, WTF::move(path) };
         } else
             addResult.iterator->value.first++;
 
@@ -239,7 +239,7 @@ public:
                 m_iconCache.remove(addResult.iterator);
                 return nullptr;
             }
-            addResult.iterator->value = { 1, WTFMove(bytes) };
+            addResult.iterator->value = { 1, WTF::move(bytes) };
         } else
             addResult.iterator->value.first++;
 
@@ -310,13 +310,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(NotificationService);
 
 NotificationService& NotificationService::singleton()
 {
-    static std::once_flag onceFlag;
-    static LazyNeverDestroyed<NotificationService> service;
-
-    std::call_once(onceFlag, [] {
-        service.construct();
-    });
-
+    static NeverDestroyed<NotificationService> service;
     return service;
 }
 

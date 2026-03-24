@@ -93,8 +93,8 @@ struct AXTextRun {
 
     AXTextRun(size_t lineIndex, unsigned startIndex, unsigned endIndexInclusive, Vector<std::array<uint16_t, 2>>&& domOffsets, Vector<uint16_t>&& characterAdvances, float lineHeight, float distanceFromBoundsInDirection)
         : lineIndex(lineIndex)
-        , textRunDomOffsets(WTFMove(domOffsets))
-        , characterAdvances(WTFMove(characterAdvances))
+        , textRunDomOffsets(WTF::move(domOffsets))
+        , characterAdvances(WTF::move(characterAdvances))
         , lineHeight(lineHeight)
         , distanceFromBoundsInDirection(distanceFromBoundsInDirection)
         , startIndex(startIndex)
@@ -112,6 +112,8 @@ struct AXTextRun {
 };
 
 struct AXTextRuns {
+    WTF_MAKE_TZONE_ALLOCATED(AXTextRuns);
+public:
     // The text for all runs, concatenated into a single string.
     String text;
     // The containing block for the text runs. This is required because based on the structure
@@ -124,9 +126,9 @@ struct AXTextRuns {
 
     AXTextRuns() = default;
     AXTextRuns(RenderBlock* containingBlock, Vector<AXTextRun>&& textRuns, String&& text, bool containsOnlyASCII = true)
-        : text(WTFMove(text))
+        : text(WTF::move(text))
         , containingBlock(containingBlock)
-        , runs(WTFMove(textRuns))
+        , runs(WTF::move(textRuns))
         , containsOnlyASCII(containsOnlyASCII)
     { }
 

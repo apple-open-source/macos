@@ -47,7 +47,7 @@ Ref<FilterOperation> createFilterOperation(const CSS::FilterReference& filter, c
         ? StringView(url.resolved.string()).substring(1).toAtomString()
         : url.resolved.fragmentIdentifier().toAtomString();
 
-    return ReferenceFilterOperation::create(WTFMove(url), WTFMove(fragment));
+    return ReferenceFilterOperation::create(WTF::move(url), WTF::move(fragment));
 }
 
 } // namespace Style

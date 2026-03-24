@@ -54,7 +54,7 @@ static WebGPU::XREye convertToBacking(XREye eye)
     }
 }
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(XRGPUBinding);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(XRGPUBinding);
 
 XRGPUBinding::XRGPUBinding(WebXRSession& session, GPUDevice& device)
     : m_backing(device.createXRBinding(session))
@@ -119,8 +119,9 @@ ExceptionOr<Ref<XRGPUSubImage>> XRGPUBinding::getSubImage(XRProjectionLayer& pro
     auto viewport = setupData->viewports[eyeIndex];
     if (eyeIndex)
         viewport.move(-setupData->viewports[0].width(), 0);
-    RefPtr subImage = m_backing->getViewSubImage(projectionLayer.backing());
-    return XRGPUSubImage::create(subImage.releaseNonNull(), convertToBacking(eye), WTFMove(physicalSize), WTFMove(viewport), m_device);
+
+    RefPtr subImage = m_backing->getViewSubImage(static_cast<WebGPU::XRProjectionLayer&>(projectionLayer.backing()));
+    return XRGPUSubImage::create(subImage.releaseNonNull(), convertToBacking(eye), WTF::move(physicalSize), WTF::move(viewport), m_device);
 }
 
 ExceptionOr<Ref<XRGPUSubImage>> XRGPUBinding::getSubImage(XRProjectionLayer& projectionLayer, WebXRFrame&, std::optional<XREye> eye)

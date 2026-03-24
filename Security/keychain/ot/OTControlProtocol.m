@@ -101,6 +101,12 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(totalTrustedPeers:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(trustedFullPeers:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(areRecoveryKeysDistrusted:reply:) argumentIndex:1 ofReply:YES];
+
+        NSSet* preRecordArrayClasses = [NSSet setWithObjects:[NSArray class], [OTSerializedPlistEscrowRecord class], nil];
+        [interface setClasses:preRecordArrayClasses forSelector:@selector(enableWalrus:preRecords:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:preRecordArrayClasses forSelector:@selector(disableWalrus:preRecords:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:errorClasses forSelector:@selector(enableWalrus:preRecords:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(disableWalrus:preRecords:reply:) argumentIndex:0 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

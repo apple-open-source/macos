@@ -53,7 +53,7 @@ template<typename IDLType> class DOMPromiseDeferred;
 template<typename> class ExceptionOr;
 
 class PaymentRequest final : public ActiveDOMObject, public EventTarget, public RefCounted<PaymentRequest> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PaymentRequest);
+    WTF_MAKE_TZONE_ALLOCATED(PaymentRequest);
 public:
     using AbortPromise = DOMPromiseDeferred<void>;
     using CanMakePaymentPromise = DOMPromiseDeferred<IDLBoolean>;

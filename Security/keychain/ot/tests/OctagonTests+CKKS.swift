@@ -1049,7 +1049,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
         // But for some reason, CKKS mistakenly loses trust
-        self.defaultCKKS.endTrustedOperation()
+        self.defaultCKKS.endTrustedOperation(false)
 
         // Now, kick off a priority views RPC. It should fail due to error 52 (No iCloud Keychain trust) but work after a retry
         let waitExpectation = self.expectation(description: "wait should end")

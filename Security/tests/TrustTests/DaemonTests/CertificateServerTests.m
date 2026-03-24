@@ -87,8 +87,8 @@
                                                                                               length:sizeof(_ocsp_response_ca)]);
 
     // Set expire time on responses
-    (void)SecOCSPResponseCalculateValidity(response_leaf, 0.0, 0.0, 632104000.0); // January 11, 2021 at 4:26:40 PM PST
-    (void)SecOCSPResponseCalculateValidity(response_ca, 0.0, 0.0, 632104000.0);
+    (void)SecOCSPResponseCalculateValidity(response_leaf, 0.0, 0.0, 632104000.0, NULL); // January 11, 2021 at 4:26:40 PM PST
+    (void)SecOCSPResponseCalculateValidity(response_ca, 0.0, 0.0, 632104000.0, NULL);
     for (int i = 0; i < 2; i++) {
         SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, i);
         rvc->certIX = i;

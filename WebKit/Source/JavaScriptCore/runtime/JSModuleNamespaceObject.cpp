@@ -53,8 +53,8 @@ void JSModuleNamespaceObject::finishCreation(JSGlobalObject* globalObject, Abstr
     //     The list is ordered as if an Array of those String values had been sorted using Array.prototype.sort using SortCompare as comparator.
     //
     // Sort the exported names by the code point order.
-    std::sort(resolutions.begin(), resolutions.end(), [](const auto& lhs, const auto& rhs) {
-        return codePointCompare(lhs.first.impl(), rhs.first.impl()) < 0;
+    std::ranges::sort(resolutions, WTF::codePointCompareLessThan, [](const auto& resolution) {
+        return resolution.first.impl();
     });
 
     m_moduleRecord.set(vm, this, moduleRecord);
@@ -230,7 +230,7 @@ bool JSModuleNamespaceObject::deletePropertyByIndex(JSCell* cell, JSGlobalObject
     return !thisObject->m_exports.contains(Identifier::from(vm, propertyName).impl());
 }
 
-void JSModuleNamespaceObject::getOwnPropertyNames(JSObject* cell, JSGlobalObject* globalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)
+void JSModuleNamespaceObject::getOwnPropertyNames(JSObject* cell, JSGlobalObject* globalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);

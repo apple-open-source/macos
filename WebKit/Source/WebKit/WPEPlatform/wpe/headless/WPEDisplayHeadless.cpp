@@ -26,7 +26,6 @@
 #include "config.h"
 #include "WPEDisplayHeadless.h"
 
-#include "WPEBufferDMABufFormats.h"
 #include "WPEDRMDevicePrivate.h"
 #include "WPEExtensions.h"
 #include "WPEToplevelHeadless.h"
@@ -67,9 +66,8 @@ WEBKIT_DEFINE_FINAL_TYPE_WITH_CODE(WPEDisplayHeadless, wpe_display_headless, WPE
 
 static void wpeDisplayHeadlessDispose(GObject* object)
 {
-    auto* priv = WPE_DISPLAY_HEADLESS(object)->priv;
-
 #if USE(GBM)
+    auto* priv = WPE_DISPLAY_HEADLESS(object)->priv;
     g_clear_pointer(&priv->gbmDevice, gbm_device_destroy);
     priv->gbmDeviceFD = { };
 #endif
@@ -124,7 +122,7 @@ static gpointer wpeDisplayHeadlessGetEGLDisplay(WPEDisplay* display, GError** er
 
         if (eglDisplay != EGL_NO_DISPLAY) {
             auto* priv = WPE_DISPLAY_HEADLESS(display)->priv;
-            priv->gbmDeviceFD = WTFMove(fd);
+            priv->gbmDeviceFD = WTF::move(fd);
             priv->gbmDevice = device;
             return eglDisplay;
         }
@@ -133,6 +131,8 @@ static gpointer wpeDisplayHeadlessGetEGLDisplay(WPEDisplay* display, GError** er
         g_set_error(error, WPE_EGL_ERROR, WPE_EGL_ERROR_NOT_AVAILABLE, "Can't get EGL display: failed to create GBM EGL display for %s", filename);
         return nullptr;
     }
+#else
+    UNUSED_PARAM(display);
 #endif
 
     if (!epoxy_has_egl_extension(nullptr, "EGL_MESA_platform_surfaceless")) {
@@ -205,9 +205,10 @@ WPEDisplay* wpe_display_headless_new_for_device(const char* name, GError** error
 
     auto* display = WPE_DISPLAY_HEADLESS(wpe_display_headless_new());
     auto* priv = display->priv;
-    priv->drmDevice = WTFMove(drmDevice);
+    priv->drmDevice = WTF::move(drmDevice);
     return WPE_DISPLAY(display);
 #else
+    UNUSED_PARAM(name);
     g_set_error_literal(error, WPE_DISPLAY_ERROR, WPE_DISPLAY_ERROR_NOT_SUPPORTED, "DRM device not supported");
     return nullptr;
 #endif

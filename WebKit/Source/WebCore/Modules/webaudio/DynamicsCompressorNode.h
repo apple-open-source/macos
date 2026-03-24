@@ -35,7 +35,8 @@ namespace WebCore {
 class DynamicsCompressor;
 
 class DynamicsCompressorNode final : public AudioNode {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DynamicsCompressorNode);
+    WTF_MAKE_TZONE_ALLOCATED(DynamicsCompressorNode);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DynamicsCompressorNode);
 public:
     static ExceptionOr<Ref<DynamicsCompressorNode>> create(BaseAudioContext&, const DynamicsCompressorOptions& = { });
 

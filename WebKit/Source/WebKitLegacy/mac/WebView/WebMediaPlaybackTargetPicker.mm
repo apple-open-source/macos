@@ -28,7 +28,6 @@
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
 #import "WebView.h"
-#import <WebCore/MediaPlaybackTarget.h>
 #import <WebCore/Page.h>
 #import <WebCore/WebMediaSessionManager.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -71,7 +70,7 @@ void WebMediaPlaybackTargetPicker::setMockMediaPlaybackTargetPickerEnabled(bool 
     WebCore::WebMediaSessionManager::singleton().setMockMediaPlaybackTargetPickerEnabled(enabled);
 }
 
-void WebMediaPlaybackTargetPicker::setMockMediaPlaybackTargetPickerState(const String& name, WebCore::MediaPlaybackTargetContext::MockState state)
+void WebMediaPlaybackTargetPicker::setMockMediaPlaybackTargetPickerState(const String& name, WebCore::MediaPlaybackTargetMockState state)
 {
     WebCore::WebMediaSessionManager::singleton().setMockMediaPlaybackTargetPickerState(name, state);
 }
@@ -86,7 +85,7 @@ void WebMediaPlaybackTargetPicker::setPlaybackTarget(WebCore::PlaybackTargetClie
     if (!m_page)
         return;
 
-    m_page->setPlaybackTarget(contextId, WTFMove(target));
+    m_page->setPlaybackTarget(contextId, WTF::move(target));
 }
 
 void WebMediaPlaybackTargetPicker::externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, bool available)

@@ -382,13 +382,13 @@ public:
     {
         if (couldOverflowMul<T>(other))
             return top<T>();
-        return IntRange(
-            std::min(
-                std::min(m_min * other.m_min, m_min * other.m_max),
-                std::min(m_max * other.m_min, m_max * other.m_max)),
-            std::max(
-                std::max(m_min * other.m_min, m_min * other.m_max),
-                std::max(m_max * other.m_min, m_max * other.m_max)));
+        auto [min, max] = std::minmax({
+            m_min * other.m_min,
+            m_min * other.m_max,
+            m_max * other.m_min,
+            m_max * other.m_max
+        });
+        return IntRange(min, max);
     }
 
     IntRange mul(const IntRange& other, Type type)
@@ -996,7 +996,7 @@ private:
                         break;
 
                     int32_t divisor = m_value->child(1)->asInt32();
-                    DivisionMagic<int32_t> magic = computeDivisionMagic(divisor);
+                    DivisionMagic<int32_t> magic = computeSignedDivisionMagic(divisor);
                     Value* dividend = m_value->child(0);
 
                     Value* magicQuotient = nullptr;
@@ -1073,8 +1073,85 @@ private:
                     replaceWithIdentity(m_value->child(0));
                     break;
                 default:
-                    // FIXME: We should do comprehensive strength reduction for unsigned numbers. Likely,
-                    // we will just want copy what llvm does. https://bugs.webkit.org/show_bug.cgi?id=164809
+                    // Perform comprehensive strength reduction for unsigned division.
+                    // Currently we only do this for 32-bit divisions, since we need a high multiply
+                    // operation. We emulate it using 64-bit multiply. We can't emulate 64-bit
+                    // high multiply with a 128-bit multiply because we don't have a 128-bit
+                    // multiply. We could do it with a patchpoint if we cared badly enough.
+
+                    if (m_value->type() != Int32)
+                        break;
+
+                    if (m_proc.optLevel() < 2)
+                        break;
+
+                    uint32_t divisor = static_cast<uint32_t>(m_value->child(1)->asInt32());
+                    DivisionMagic<uint32_t> magic = computeUnsignedDivisionMagic(divisor);
+                    Value* dividend = m_value->child(0);
+
+                    // Power of 2 case: magic.magicMultiplier == 0
+                    // Turn this: UDiv(value, 2^k)
+                    // Into this: ZShr(value, k)
+                    if (!magic.magicMultiplier) {
+                        ASSERT(!magic.add && !magic.preShift);
+                        replaceWithNew<Value>(
+                            ZShr, m_value->origin(), dividend,
+                            m_insertionSet.insert<Const32Value>(
+                                m_index, m_value->origin(), magic.shift));
+                        break;
+                    }
+
+                    // Apply pre-shift if needed (for even divisor optimization)
+                    if (magic.preShift > 0) {
+                        dividend = m_insertionSet.insert<Value>(
+                            m_index, ZShr, m_value->origin(), dividend,
+                            m_insertionSet.insert<Const32Value>(
+                                m_index, m_value->origin(), magic.preShift));
+                    }
+
+                    // Compute the high part of the multiplication: UMulHigh(dividend, magic)
+                    Value* magicQuotient = nullptr;
+                    if constexpr (isARM64() || isX86()) {
+                        magicQuotient = m_insertionSet.insert<Value>(m_index, UMulHigh, m_value->origin(),
+                            dividend,
+                            m_insertionSet.insert<Const32Value>(m_index, m_value->origin(), magic.magicMultiplier));
+                    }
+
+                    if (!magicQuotient) {
+                        // Fallback: use 64-bit multiply and extract high 32 bits
+                        // UMulHigh(a, b) = (ZExt32(a) * ZExt32(b)) >> 32
+                        magicQuotient = m_insertionSet.insert<Value>(
+                            m_index, Trunc, m_value->origin(),
+                            m_insertionSet.insert<Value>(
+                                m_index, ZShr, m_value->origin(),
+                                m_insertionSet.insert<Value>(
+                                    m_index, Mul, m_value->origin(),
+                                    m_insertionSet.insert<Value>(
+                                        m_index, ZExt32, m_value->origin(), dividend),
+                                    m_insertionSet.insert<Const64Value>(
+                                        m_index, m_value->origin(), static_cast<uint64_t>(magic.magicMultiplier))),
+                                m_insertionSet.insert<Const32Value>(
+                                    m_index, m_value->origin(), 32)));
+                    }
+
+                    // If 'add' is true, we use the "round down" algorithm from Hacker's Delight:
+                    // quotient = (((n - muluh(n,m)) >> 1) + muluh(n,m)) >> shift
+                    if (magic.add) {
+                        ASSERT(!magic.preShift); // preShift optimization should have eliminated the add case
+                        Value* diff = m_insertionSet.insert<Value>(m_index, Sub, m_value->origin(), dividend, magicQuotient);
+                        diff = m_insertionSet.insert<Value>(m_index, ZShr, m_value->origin(), diff, m_insertionSet.insert<Const32Value>(m_index, m_value->origin(), 1));
+                        magicQuotient = m_insertionSet.insert<Value>(m_index, Add, m_value->origin(), diff, magicQuotient);
+                    }
+
+                    // Apply the final shift if needed
+                    if (magic.shift > 0) {
+                        magicQuotient = m_insertionSet.insert<Value>(
+                            m_index, ZShr, m_value->origin(), magicQuotient,
+                            m_insertionSet.insert<Const32Value>(
+                                m_index, m_value->origin(), magic.shift));
+                    }
+
+                    replaceWithIdentity(magicQuotient);
                     break;
                 }
             }

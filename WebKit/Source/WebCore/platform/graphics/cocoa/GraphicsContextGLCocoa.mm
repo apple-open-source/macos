@@ -68,6 +68,8 @@ namespace WebCore {
 
 using GL = GraphicsContextGL;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsContextGLCocoa);
+
 // This variable is accessed in single-threaded manner.
 // For WK1, this variable is accessed from multiple threads but always sequentially.
 static GraphicsContextGLANGLE* currentContext;
@@ -111,7 +113,7 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
     }
 
 #if ASSERT_ENABLED
-    auto clientExtensions = unsafeSpan8(EGL_QueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS));
+    auto clientExtensions = unsafeSpan(EGL_QueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS));
     ASSERT(clientExtensions.data());
 #endif
 
@@ -159,7 +161,7 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
     LOG(WebGL, "ANGLE initialised Major: %d Minor: %d", majorVersion, minorVersion);
 
 #if ASSERT_ENABLED
-    auto displayExtensions = unsafeSpan8(EGL_QueryString(display, EGL_EXTENSIONS));
+    auto displayExtensions = unsafeSpan(EGL_QueryString(display, EGL_EXTENSIONS));
     ASSERT(WTF::contains(displayExtensions, "EGL_ANGLE_metal_shared_event_sync"_span));
 #endif
 
@@ -168,15 +170,15 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
 
 RefPtr<GraphicsContextGLCocoa> GraphicsContextGLCocoa::create(GraphicsContextGLAttributes&& attributes, ProcessIdentity&& resourceOwner)
 {
-    auto context = adoptRef(*new GraphicsContextGLCocoa(WTFMove(attributes), WTFMove(resourceOwner)));
+    auto context = adoptRef(*new GraphicsContextGLCocoa(WTF::move(attributes), WTF::move(resourceOwner)));
     if (!context->initialize())
         return nullptr;
     return context;
 }
 
 GraphicsContextGLCocoa::GraphicsContextGLCocoa(GraphicsContextGLAttributes&& creationAttributes, ProcessIdentity&& resourceOwner)
-    : GraphicsContextGLANGLE(WTFMove(creationAttributes))
-    , m_resourceOwner(WTFMove(resourceOwner))
+    : GraphicsContextGLANGLE(WTF::move(creationAttributes))
+    , m_resourceOwner(WTF::move(resourceOwner))
     , m_drawingBufferColorSpace(DestinationColorSpace::SRGB())
 {
 }
@@ -268,7 +270,7 @@ bool GraphicsContextGLCocoa::platformInitializeContext()
     eglContextAttributes.append(EGL_FALSE);
 
 #if HAVE(TASK_IDENTITY_TOKEN)
-    auto displayExtensions = unsafeSpan8(EGL_QueryString(m_displayObj, EGL_EXTENSIONS));
+    auto displayExtensions = unsafeSpan(EGL_QueryString(m_displayObj, EGL_EXTENSIONS));
     bool supportsOwnershipIdentity = WTF::contains(displayExtensions, "EGL_ANGLE_metal_create_context_ownership_identity"_span);
     if (m_resourceOwner && supportsOwnershipIdentity) {
         eglContextAttributes.append(EGL_CONTEXT_METAL_OWNERSHIP_IDENTITY_ANGLE);
@@ -300,7 +302,7 @@ bool GraphicsContextGLCocoa::platformInitializeExtensions()
 {
 #if PLATFORM(MAC)
     // For creating the EGL surface from an IOSurface.
-    if (!enableExtension("GL_EXT_texture_format_BGRA8888"_s))
+    if (!enableExtensionsImpl({ "GL_EXT_texture_format_BGRA8888"_s }))
         return false;
 #endif
 #if ENABLE(WEBXR)
@@ -456,7 +458,7 @@ bool GraphicsContextGLCocoa::bindNextDrawingBuffer()
         EGLSurface pbuffer = EGL_CreatePbufferFromClientBuffer(m_displayObj, EGL_IOSURFACE_ANGLE, surface->surface(), m_configObj, surfaceAttributes);
         if (!pbuffer)
             return false;
-        buffer = IOSurfacePbuffer { WTFMove(surface), pbuffer };
+        buffer = IOSurfacePbuffer { WTF::move(surface), pbuffer };
     }
 
     auto [textureTarget, textureBinding] = drawingBufferTextureBindingPoint();
@@ -527,9 +529,9 @@ GCGLExternalImage GraphicsContextGLCocoa::createExternalImage(ExternalImageSourc
         return { };
     }
 
-    RetainPtr<id<MTLTexture>> texture = WTF::switchOn(WTFMove(source),
+    RetainPtr<id<MTLTexture>> texture = WTF::switchOn(WTF::move(source),
     [&](EGLImageSourceIOSurfaceHandle&& ioSurface) -> RetainPtr<id> {
-        auto surface = IOSurface::createFromSendRight(WTFMove(ioSurface.handle));
+        auto surface = IOSurface::createFromSendRight(WTF::move(ioSurface.handle));
         if (!surface)
             return nullptr;
 
@@ -656,7 +658,7 @@ RetainPtr<id> GraphicsContextGLCocoa::newSharedEventWithMachPort(mach_port_t sha
 
 GCGLExternalSync GraphicsContextGLCocoa::createExternalSync(ExternalSyncSource&& syncEvent)
 {
-    auto [syncEventHandle, signalValue] = WTFMove(syncEvent);
+    auto [syncEventHandle, signalValue] = WTF::move(syncEvent);
     auto sharedEvent = newSharedEventWithMachPort(syncEventHandle.sendRight());
     if (!sharedEvent) {
         LOG(WebGL, "Unable to create a MTLSharedEvent from the syncEvent.");
@@ -685,19 +687,21 @@ bool GraphicsContextGLCocoa::enableRequiredWebXRExtensions()
 
 bool GraphicsContextGLCocoa::enableRequiredWebXRExtensionsImpl()
 {
-    return enableExtension("GL_ANGLE_framebuffer_multisample"_s)
-        && enableExtension("GL_ANGLE_framebuffer_blit"_s)
-        && enableExtension("GL_EXT_discard_framebuffer"_s)
-        && enableExtension("GL_EXT_sRGB"_s)
-        && enableExtension("GL_OES_EGL_image"_s)
-        && enableExtension("GL_OES_rgb8_rgba8"_s)
+    return enableExtensionsImpl({
+        "GL_ANGLE_framebuffer_multisample"_s,
+        "GL_ANGLE_framebuffer_blit"_s,
+        "GL_EXT_discard_framebuffer"_s,
+        "GL_EXT_sRGB"_s,
+        "GL_OES_EGL_image"_s,
+        "GL_OES_rgb8_rgba8"_s,
 #if !PLATFORM(IOS_FAMILY_SIMULATOR)
-        && enableExtension("GL_ANGLE_variable_rasterization_rate_metal"_s)
+        "GL_ANGLE_variable_rasterization_rate_metal"_s,
 #endif
 #if PLATFORM(VISION)
-        && enableExtension("GL_WEBKIT_explicit_resolve_target"_s)
+        "GL_WEBKIT_explicit_resolve_target"_s,
 #endif
-        && enableExtension("GL_NV_framebuffer_blit"_s);
+        "GL_NV_framebuffer_blit"_s,
+    });
 }
 #endif
 
@@ -740,7 +744,7 @@ void GraphicsContextGLCocoa::prepareForDisplayWithFinishedSignal(Function<void()
     }
     prepareTexture();
     // The fence inserted by this will be scheduled because next BindTexImage will wait until scheduled.
-    insertFinishedSignalOrInvoke(WTFMove(finishedSignal));
+    insertFinishedSignalOrInvoke(WTF::move(finishedSignal));
     bool success = bindNextDrawingBuffer();
     waitUntilWorkScheduled();
     if (!success)
@@ -813,7 +817,7 @@ RefPtr<VideoFrame> GraphicsContextGLCocoa::surfaceBufferToVideoFrame(SurfaceBuff
         return nullptr;
     if (m_resourceOwner)
         setOwnershipIdentityForCVPixelBuffer(mediaSamplePixelBuffer.get(), m_resourceOwner);
-    return VideoFrameCV::create({ }, false, VideoFrame::Rotation::None, WTFMove(mediaSamplePixelBuffer));
+    return VideoFrameCV::create({ }, false, VideoFrame::Rotation::None, WTF::move(mediaSamplePixelBuffer));
 }
 #endif
 
@@ -833,7 +837,7 @@ void GraphicsContextGLCocoa::invalidateKnownTextureContent(GCGLuint texture)
         m_cv->invalidateKnownTextureContent(texture);
 }
 
-RefPtr<NativeImage> GraphicsContextGLCocoa::bufferAsNativeImage(SurfaceBuffer buffer)
+RefPtr<NativeImage> GraphicsContextGLCocoa::copyNativeImageYFlipped(SurfaceBuffer buffer)
 {
     RetainPtr<CGContextRef> cgContext;
     RefPtr<NativeImage> image;
@@ -879,7 +883,7 @@ void GraphicsContextGLCocoa::insertFinishedSignalOrInvoke(Function<void()> signa
     uint64_t signalValue = ++nextSignalValue;
     RetainPtr<id<MTLSharedEvent>> event = m_finishedMetalSharedEvent.get();
     // The block below has to be a real compiler generated block instead of BlockPtr due to a Metal bug. rdar://108035473
-    __block Function<void()> blockSignal = WTFMove(signal);
+    __block Function<void()> blockSignal = WTF::move(signal);
     [event notifyListener:m_finishedMetalSharedEventListener.get() atValue:signalValue block:^(id<MTLSharedEvent>, uint64_t) {
         blockSignal();
     }];

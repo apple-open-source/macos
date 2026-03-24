@@ -60,7 +60,7 @@ sslMalloc(size_t length)
 #endif
     
     p = _MALLOC(length, M_TEMP, M_WAITOK);
-    check(p);
+    __Check(p);
     
     if(p==NULL)
         return p;
@@ -123,7 +123,7 @@ int SSLAllocBuffer(
 	buf->data = (uint8_t *)sslMalloc(length);
 	if(buf->data == NULL) {
         sslErrorLog("SSLAllocBuffer: NULL buf!\n");
-        check(0);
+        __Check(0);
 		buf->length = 0;
 		return -1;
 	}
@@ -136,7 +136,7 @@ SSLFreeBuffer(SSLBuffer *buf)
 {   
 	if(buf == NULL) {
 		sslErrorLog("SSLFreeBuffer: NULL buf!\n");
-        check(0);
+        __Check(0);
 		return -1;
 	}
     sslFree(buf->data);
@@ -167,7 +167,7 @@ int SSLCopyBufferFromData(
 	dst->data = sslAllocCopy((const uint8_t *)src, len);
 	if(dst->data == NULL) {
         sslErrorLog("SSLCopyBufferFromData: NULL buf!\n");
-        check(0);
+        __Check(0);
 		return -1;
 	}
     dst->length = len;

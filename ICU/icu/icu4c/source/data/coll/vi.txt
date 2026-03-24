@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 vi{
     collations{
         search{
@@ -9,7 +9,7 @@ vi{
                 "[import vi-u-co-standard]"
                 "[reorder others]"
             }
-            Version{"46"}
+            Version{"48"}
         }
         standard{
             Sequence{
@@ -21,7 +21,7 @@ vi{
                 "&o<ô<<<Ô<ơ<<<Ơ"
                 "&u<ư<<<Ư"
             }
-            Version{"46"}
+            Version{"48"}
         }
         traditional{
             Sequence{
@@ -40,7 +40,7 @@ vi{
                 "&T<th<<<Th<<<TH<tr<<<Tr<<<TR"
                 "&u<ư<<<Ư"
             }
-            Version{"46"}
+            Version{"48"}
         }
     }
 }

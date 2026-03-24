@@ -75,6 +75,7 @@ class WallTime;
 class WorkQueue;
 
 struct AnyThreadsAccessTraits;
+struct ARCEnabled;
 struct FastMalloc;
 struct MachSendRightAnnotated;
 struct MainThreadAccessTraits;
@@ -111,6 +112,7 @@ enum class ConcurrencyTag : uint8_t {
     Atomic
 };
 
+template<typename, typename> struct DefaultOSObjectRetainTraits;
 template<typename> struct DefaultRefDerefTraits;
 
 template<typename> class Awaitable;
@@ -129,7 +131,7 @@ template<typename, typename> class LazyUniqueRef;
 template<typename> struct MarkableTraits;
 template<typename T, typename Traits = MarkableTraits<T>> class Markable;
 template<typename, typename = AnyThreadsAccessTraits> class NeverDestroyed;
-template<typename> class OSObjectPtr;
+template<typename T, typename = DefaultOSObjectRetainTraits<T, ARCEnabled>> class OSObjectPtr;
 template<typename, typename, typename> class ObjectIdentifierGeneric;
 template<typename T, typename RawValue = uint64_t> using ObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierMainThreadAccessTraits<RawValue>, RawValue>;
 template<typename T, typename RawValue = uint64_t> using AtomicObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierThreadSafeAccessTraits<RawValue>, RawValue>;
@@ -146,7 +148,7 @@ template<typename> class RetainPtr;
 template<typename> class ScopedLambda;
 template<typename> class StringBuffer;
 template<typename> class StringParsingBuffer;
-template<typename, typename = void> class StringTypeAdapter;
+template<typename> class StringTypeAdapter;
 template<typename> class UniqueRef;
 template<typename T, class... Args> UniqueRef<T> makeUniqueRef(Args&&...);
 template<typename, size_t = 0> class VariantList;
@@ -156,6 +158,7 @@ template<typename> struct VariantListSizer;
 template<typename, size_t = 0, typename = CrashOnOverflow, size_t = 16, typename = VectorBufferMalloc> class Vector;
 template<typename, typename WeakPtrImpl = DefaultWeakPtrImpl, typename = RawPtrTraits<WeakPtrImpl>> class WeakPtr;
 template<typename, typename = DefaultWeakPtrImpl> class WeakRef;
+template<typename T> class InlineWeakPtr;
 
 template <typename T>
 using SaSegmentedVector = SegmentedVector<T, 8, SequesteredArenaMalloc>;
@@ -170,7 +173,6 @@ template<typename T, ConcurrencyTag C> struct DefaultHash<OptionSet<T, C>>;
 template<> struct DefaultHash<String>;
 template<> struct DefaultHash<StringImpl*>;
 template<> struct DefaultHash<URL>;
-template<typename T, size_t inlineCapacity> struct DefaultHash<Vector<T, inlineCapacity>>;
 
 template<typename> struct RawValueTraits;
 template<typename> struct EnumTraits;
@@ -197,6 +199,29 @@ template<typename ResolveValueT, typename RejectValueT, unsigned options = 0> cl
 using GenericPromise = NativePromise<void, void>;
 using GenericNonExclusivePromise = NativePromise<void, void, 1>;
 class NativePromiseRequest;
+
+template<typename ValueArg, typename HashArg = DefaultHash<WeakPtr<ValueArg>>, typename HashTraitsArg = HashTraits<WeakPtr<ValueArg>>, typename HashTableTraitsArg = HashTableTraits>
+using WeakKeyHashSet = HashSet<WeakPtr<ValueArg>, HashArg, HashTraitsArg, HashTableTraitsArg>;
+template<typename KeyArg, typename MappedArg, typename HashArg = DefaultHash<WeakPtr<KeyArg>>, typename KeyTraitsArg = HashTraits<WeakPtr<KeyArg>>, typename MappedTraitsArg = HashTraits<MappedArg>>
+using WeakKeyHashMap = HashMap<WeakPtr<KeyArg>, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>;
+template<typename ValueArg, typename HashArg = DefaultHash<WeakPtr<ValueArg>>>
+using WeakKeyListHashSet = ListHashSet<WeakPtr<ValueArg>, HashArg>;
+
+class SingleThreadWeakPtrImpl;
+
+template<typename ValueArg, typename HashArg = DefaultHash<WeakPtr<ValueArg, SingleThreadWeakPtrImpl>>, typename HashTraitsArg = HashTraits<WeakPtr<ValueArg, SingleThreadWeakPtrImpl>>, typename HashTableTraitsArg = HashTableTraits>
+using SingleThreadWeakKeyHashSet = HashSet<WeakPtr<ValueArg, SingleThreadWeakPtrImpl>, HashArg, HashTraitsArg, HashTableTraitsArg>;
+template<typename KeyArg, typename MappedArg, typename HashArg = DefaultHash<WeakPtr<KeyArg, SingleThreadWeakPtrImpl>>, typename KeyTraitsArg = HashTraits<WeakPtr<KeyArg, SingleThreadWeakPtrImpl>>, typename MappedTraitsArg = HashTraits<MappedArg>>
+using SingleThreadWeakKeyHashMap = HashMap<WeakPtr<KeyArg>, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>;
+template<typename ValueArg, typename HashArg = DefaultHash<WeakPtr<ValueArg, SingleThreadWeakPtrImpl>>>
+using SingleThreadWeakKeyListHashSet = ListHashSet<WeakPtr<ValueArg, SingleThreadWeakPtrImpl>, HashArg>;
+
+template<typename ValueArg, typename HashArg = DefaultHash<InlineWeakPtr<ValueArg>>, typename HashTraitsArg = HashTraits<InlineWeakPtr<ValueArg>>, typename HashTableTraitsArg = HashTableTraits>
+using InlineWeakKeyHashSet = HashSet<InlineWeakPtr<ValueArg>, HashArg, HashTraitsArg, HashTableTraitsArg>;
+template<typename KeyArg, typename MappedArg, typename HashArg = DefaultHash<InlineWeakPtr<KeyArg>>, typename KeyTraitsArg = HashTraits<InlineWeakPtr<KeyArg>>, typename MappedTraitsArg = HashTraits<MappedArg>>
+using InlineWeakKeyHashMap = HashMap<InlineWeakPtr<KeyArg>, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>;
+template<typename ValueArg, typename HashArg = DefaultHash<InlineWeakPtr<ValueArg>>>
+using InlineWeakKeyListHashSet = ListHashSet<InlineWeakPtr<ValueArg>, HashArg>;
 }
 
 namespace JSON {
@@ -232,10 +257,14 @@ using WTF::FixedVector;
 using WTF::Function;
 using WTF::FunctionDispatcher;
 using WTF::GenericPromise;
+using WTF::GuaranteedSerialFunctionDispatcher;
 using WTF::HashCountedSet;
 using WTF::HashMap;
 using WTF::HashSet;
 using WTF::Hasher;
+using WTF::InlineWeakKeyHashMap;
+using WTF::InlineWeakKeyHashSet;
+using WTF::InlineWeakKeyListHashSet;
 using WTF::LazyNeverDestroyed;
 using WTF::LazyUniqueRef;
 using WTF::ListHashSet;
@@ -245,7 +274,6 @@ using WTF::MachSendRight;
 using WTF::MachSendRightAnnotated;
 using WTF::MainThreadDispatcher;
 using WTF::MarkableTraits;
-using WTF::makeUniqueRef;
 using WTF::MonotonicTime;
 using WTF::NativePromise;
 using WTF::NativePromiseRequest;
@@ -260,12 +288,14 @@ using WTF::PrintStream;
 using WTF::RawPtrTraits;
 using WTF::RawValueTraits;
 using WTF::Ref;
-using WTF::GuaranteedSerialFunctionDispatcher;
 using WTF::RefPtr;
 using WTF::RetainPtr;
 using WTF::SHA1;
 using WTF::ScopedLambda;
 using WTF::SerialFunctionDispatcher;
+using WTF::SingleThreadWeakKeyHashMap;
+using WTF::SingleThreadWeakKeyHashSet;
+using WTF::SingleThreadWeakKeyListHashSet;
 using WTF::String;
 using WTF::StringBuffer;
 using WTF::StringBuilder;
@@ -281,9 +311,13 @@ using WTF::UncheckedKeyHashSet;
 using WTF::UniqueRef;
 using WTF::Vector;
 using WTF::WallTime;
+using WTF::WeakKeyHashMap;
+using WTF::WeakKeyHashSet;
+using WTF::WeakKeyListHashSet;
 using WTF::WeakPtr;
 using WTF::WeakRef;
 using WTF::WorkQueue;
+using WTF::makeUniqueRef;
 
 template<class T, class E> using Expected = std::experimental::expected<T, E>;
 template<class E> using Unexpected = std::experimental::unexpected<E>;

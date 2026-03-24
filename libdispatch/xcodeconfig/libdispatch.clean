@@ -39,6 +39,7 @@ __dispatch_host_time_data.1
 __dispatch_host_time_mach2nano
 __dispatch_host_time_nano2mach
 __dispatch_source_timer_use_telemetry
+__dispatch_thread_bound_kqwl_count
 __dispatch_timers_force_max_leeway
 __os_object_debug_missing_pools
 _dispatch_benchmark_f.bdata

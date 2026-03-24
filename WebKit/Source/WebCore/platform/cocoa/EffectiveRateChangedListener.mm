@@ -70,7 +70,7 @@ static void timebaseEffectiveRateChangedCallback(CFNotificationCenterRef, void* 
 }
 
 EffectiveRateChangedListener::EffectiveRateChangedListener(Function<void(double)>&& callback, CMTimebaseRef timebase)
-    : m_callback(WTFMove(callback))
+    : m_callback(WTF::move(callback))
     , m_objcAdapter(adoptNS([[WebEffectiveRateChangedListenerObjCAdapter alloc] initWithEffectiveRateChangedListener:*this]))
     , m_timebase(timebase)
 {

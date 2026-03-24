@@ -97,7 +97,9 @@
 #include <wtf/LogInitialization.h>
 
 #if PLATFORM(COCOA)
+#include <wtf/FileSystem.h>
 #include <wtf/OSObjectPtr.h>
+#include <wtf/spi/darwin/SandboxSPI.h>
 #endif
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
@@ -120,6 +122,10 @@
 #include <WebCore/ResourceMonitorThrottlerHolder.h>
 #endif
 
+#if USE(LIBRICE)
+#include "RiceBackendMessages.h"
+#endif
+
 #define CONNECTION_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, this->webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
 #define CONNECTION_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, this->webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
 
@@ -132,11 +138,11 @@ using namespace WebCore;
 
 Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters&& parameters, IPC::Connection::Identifier&& connectionIdentifier)
 {
-    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, WTFMove(parameters), WTFMove(connectionIdentifier)));
+    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, WTF::move(parameters), WTF::move(connectionIdentifier)));
 }
 
 NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters&& parameters, IPC::Connection::Identifier&& connectionIdentifier)
-    : m_connection(IPC::Connection::createServerConnection(WTFMove(connectionIdentifier)))
+    : m_connection(IPC::Connection::createServerConnection(WTF::move(connectionIdentifier)))
     , m_networkProcess(networkProcess)
     , m_sessionID(sessionID)
     , m_networkResourceLoaders([this](bool hasUpload) { hasUploadStateChanged(hasUpload); })
@@ -230,7 +236,7 @@ void NetworkConnectionToWebProcess::loadImageForDecoding(WebCore::ResourceReques
     CheckedPtr networkSession = this->networkSession();
     if (!networkSession)
         return completionHandler(makeUnexpected<WebCore::ResourceError>({ }));
-    networkSession->loadImageForDecoding(WTFMove(request), pageID, maximumBytesFromNetwork, WTFMove(completionHandler));
+    networkSession->loadImageForDecoding(WTF::move(request), pageID, maximumBytesFromNetwork, WTF::move(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::didCleanupResourceLoader(NetworkResourceLoader& loader)
@@ -315,7 +321,16 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
             networkTransportSession->didReceiveMessage(connection, decoder);
         return true;
     }
-    
+
+#if USE(LIBRICE)
+    if (decoder.messageReceiverName() == Messages::RiceBackend::messageReceiverName()) {
+        MESSAGE_CHECK_WITH_RETURN_VALUE(RiceBackendIdentifier::isValidIdentifier(decoder.destinationID()), false);
+        if (RefPtr iceBackend = m_gstreamerIceBackends.get(RiceBackendIdentifier(decoder.destinationID())))
+            iceBackend->didReceiveMessage(connection, decoder);
+        return true;
+    }
+#endif
+
     if (decoder.messageReceiverName() == Messages::WebSWServerConnection::messageReceiverName()) {
         if (RefPtr swConnection = m_swConnection.get())
             swConnection->didReceiveMessage(connection, decoder);
@@ -388,7 +403,7 @@ void NetworkConnectionToWebProcess::connectToRTCDataChannelRemoteSource(WebCore:
     }
     registerToRTCDataChannelProxy();
     connectionToWebProcess->registerToRTCDataChannelProxy();
-    connectionToWebProcess->m_connection->sendWithAsyncReply(Messages::NetworkProcessConnection::ConnectToRTCDataChannelRemoteSource { remoteIdentifier, localIdentifier }, WTFMove(callback), 0);
+    connectionToWebProcess->m_connection->sendWithAsyncReply(Messages::NetworkProcessConnection::ConnectToRTCDataChannelRemoteSource { remoteIdentifier, localIdentifier }, WTF::move(callback), 0);
 }
 
 void NetworkConnectionToWebProcess::registerToRTCDataChannelProxy()
@@ -439,6 +454,16 @@ bool NetworkConnectionToWebProcess::dispatchSyncMessage(IPC::Connection& connect
         return true;
     }
 #endif
+
+#if USE(LIBRICE)
+    if (decoder.messageReceiverName() == Messages::RiceBackend::messageReceiverName()) {
+        if (RefPtr iceBackend = m_gstreamerIceBackends.get(RiceBackendIdentifier(decoder.destinationID()))) {
+            iceBackend->didReceiveSyncMessage(connection, decoder, reply);
+            return true;
+        }
+    }
+#endif
+
     return false;
 }
 
@@ -508,7 +533,7 @@ void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& r
 
     ASSERT(!m_networkSocketChannels.contains(identifier));
     if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, frameID, pageID, clientOrigin, hadMainFrameMainResourcePrivateRelayed, allowPrivacyProxy, advancedPrivacyProtections, storedCredentialsPolicy))
-        m_networkSocketChannels.add(identifier, WTFMove(channel));
+        m_networkSocketChannels.add(identifier, WTF::move(channel));
 }
 
 void NetworkConnectionToWebProcess::removeSocketChannel(WebSocketIdentifier identifier)
@@ -562,14 +587,14 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
 
     if (CheckedPtr session = networkSession()) {
         if (Ref server = session->ensureSWServer(); !server->isImportCompleted()) {
-            server->whenImportIsCompleted([this, protectedThis = Ref { *this }, loadParameters = WTFMove(loadParameters), existingLoaderToResume]() mutable {
+            server->whenImportIsCompleted([this, protectedThis = Ref { *this }, loadParameters = WTF::move(loadParameters), existingLoaderToResume]() mutable {
                 if (!m_networkProcess->webProcessConnection(webProcessIdentifier()))
                     return;
 
                 ASSERT(networkSession());
                 ASSERT(networkSession()->swServer());
                 ASSERT(networkSession()->swServer()->isImportCompleted());
-                scheduleResourceLoad(WTFMove(loadParameters), existingLoaderToResume);
+                scheduleResourceLoad(WTF::move(loadParameters), existingLoaderToResume);
             });
             return;
         }
@@ -600,7 +625,7 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
         }
     }
 
-    Ref loader = m_networkResourceLoaders.add(*identifier, NetworkResourceLoader::create(WTFMove(loadParameters), *this)).iterator->value;
+    Ref loader = m_networkResourceLoaders.add(*identifier, NetworkResourceLoader::create(WTF::move(loadParameters), *this)).iterator->value;
 
     loader->startWithServiceWorker();
 }
@@ -615,7 +640,7 @@ void NetworkConnectionToWebProcess::performSynchronousLoad(NetworkResourceLoadPa
     RELEASE_ASSERT(RunLoop::isMain());
     ASSERT(!m_networkResourceLoaders.contains(*identifier));
 
-    auto loader = NetworkResourceLoader::create(WTFMove(loadParameters), *this, WTFMove(reply));
+    auto loader = NetworkResourceLoader::create(WTF::move(loadParameters), *this, WTF::move(reply));
     m_networkResourceLoaders.add(*identifier, loader.copyRef());
     loader->start();
 }
@@ -636,7 +661,7 @@ void NetworkConnectionToWebProcess::loadPing(NetworkResourceLoadParameters&& loa
     };
 
     // PingLoad manages its own lifetime, derefing itself when its purpose has been fulfilled.
-    PingLoad::create(*this, WTFMove(loadParameters), WTFMove(completionHandler));
+    PingLoad::create(*this, WTF::move(loadParameters), WTF::move(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::setOnLineState(bool isOnLine)
@@ -693,7 +718,7 @@ void NetworkConnectionToWebProcess::sendH2Ping(NetworkResourceLoadParameters&& p
 
     URL url = parameters.request.url();
     Ref task = PreconnectTask::create(*networkSession, parameters.networkLoadParameters());
-    task->setH2PingCallback(url, WTFMove(completionHandler));
+    task->setH2PingCallback(url, WTF::move(completionHandler));
     task->start();
 #else
     ASSERT_NOT_REACHED();
@@ -707,7 +732,7 @@ void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::Resource
 
     ASSERT(!loadParameters.request.httpBody());
 
-    auto completionHandler = [this, protectedThis = Ref { *this }, preconnectionIdentifier = WTFMove(preconnectionIdentifier)](const ResourceError& error) {
+    auto completionHandler = [this, protectedThis = Ref { *this }, preconnectionIdentifier = WTF::move(preconnectionIdentifier)](const ResourceError& error) {
         if (preconnectionIdentifier)
             didFinishPreconnection(*preconnectionIdentifier, error);
     };
@@ -723,7 +748,7 @@ void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::Resource
     CheckedPtr session = networkSession();
     if (session && session->allowsServerPreconnect()) {
         Ref preconnectTask = PreconnectTask::create(*session, loadParameters.networkLoadParameters());
-        preconnectTask->start([completionHandler = WTFMove(completionHandler)] (const ResourceError& error, const WebCore::NetworkLoadMetrics&) {
+        preconnectTask->start([completionHandler = WTF::move(completionHandler)] (const ResourceError& error, const WebCore::NetworkLoadMetrics&) {
             completionHandler(error);
         });
         return;
@@ -781,8 +806,8 @@ void NetworkConnectionToWebProcess::convertMainResourceLoadToDownload(std::optio
 void NetworkConnectionToWebProcess::registerURLSchemesAsCORSEnabled(Vector<String>&& schemes)
 {
     Ref registry = m_schemeRegistry;
-    for (auto&& scheme : WTFMove(schemes))
-        registry->registerURLSchemeAsCORSEnabled(WTFMove(scheme));
+    for (auto&& scheme : WTF::move(schemes))
+        registry->registerURLSchemeAsCORSEnabled(WTF::move(scheme));
 }
 
 static bool shouldTreatAsSameSite(const URL& firstParty, const URL& url)
@@ -818,7 +843,7 @@ void NetworkConnectionToWebProcess::cookiesForDOM(const URL& firstParty, const S
             NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::cookiesForDOM"_s, reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
     }
 #endif
-    completionHandler(WTFMove(result.first), result.second);
+    completionHandler(WTF::move(result.first), result.second);
 }
 
 void NetworkConnectionToWebProcess::setCookiesFromDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, FrameIdentifier frameID, PageIdentifier pageID, const String& cookieString, RequiresScriptTrackingPrivacy requiresScriptTrackingPrivacy, WebPageProxyIdentifier webPageProxyID)
@@ -847,7 +872,7 @@ void NetworkConnectionToWebProcess::setCookiesFromDOM(const URL& firstParty, con
 
 void NetworkConnectionToWebProcess::cookiesEnabledSync(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, WebPageProxyIdentifier webPageProxyID, CompletionHandler<void(bool)>&& completionHandler)
 {
-    cookiesEnabled(firstParty, url, frameID, pageID, webPageProxyID, WTFMove(completionHandler));
+    cookiesEnabled(firstParty, url, frameID, pageID, webPageProxyID, WTF::move(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::cookiesEnabled(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, WebPageProxyIdentifier webPageProxyID, CompletionHandler<void(bool)>&& completionHandler)
@@ -882,7 +907,7 @@ void NetworkConnectionToWebProcess::cookieRequestHeaderFieldValue(const URL& fir
     if (!networkStorageSession)
         return completionHandler({ }, false);
     auto result = networkStorageSession->cookieRequestHeaderFieldValue(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::Yes, m_networkProcess->shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), NetworkSession::isResourceFromKnownCrossSiteTracker(firstParty, url));
-    completionHandler(WTFMove(result.first), result.second);
+    completionHandler(WTF::move(result.first), result.second);
 }
 
 void NetworkConnectionToWebProcess::getRawCookies(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, std::optional<WebPageProxyIdentifier> webPageProxyID, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&& completionHandler)
@@ -901,7 +926,7 @@ void NetworkConnectionToWebProcess::getRawCookies(const URL& firstParty, const S
         return completionHandler({ });
     Vector<WebCore::Cookie> result;
     networkStorageSession->getRawCookies(firstParty, sameSiteInfo, url, frameID, pageID, ApplyTrackingPrevention::Yes, m_networkProcess->shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), result);
-    completionHandler(WTFMove(result));
+    completionHandler(WTF::move(result));
 }
 
 void NetworkConnectionToWebProcess::setRawCookie(const URL& firstParty, const URL& url, const WebCore::Cookie& cookie, ShouldPartitionCookie shouldPartitionCookie)
@@ -937,7 +962,7 @@ void NetworkConnectionToWebProcess::deleteCookie(const URL& firstParty, const UR
     CheckedPtr networkStorageSession = storageSession();
     if (!networkStorageSession)
         return completionHandler();
-    networkStorageSession->deleteCookie(firstParty, url, cookieName, WTFMove(completionHandler));
+    networkStorageSession->deleteCookie(firstParty, url, cookieName, WTF::move(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::cookiesForDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, WebCore::CookieStoreGetOptions&& options, std::optional<WebPageProxyIdentifier> webPageProxyID, CompletionHandler<void(std::optional<Vector<WebCore::Cookie>>&&)>&& completionHandler)
@@ -954,14 +979,14 @@ void NetworkConnectionToWebProcess::cookiesForDOMAsync(const URL& firstParty, co
     CheckedPtr networkStorageSession = storageSession();
     if (!networkStorageSession)
         return completionHandler(std::nullopt);
-    auto result = networkStorageSession->cookiesForDOMAsVector(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::Yes, m_networkProcess->shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), NetworkSession::isResourceFromKnownCrossSiteTracker(firstParty, url), WTFMove(options));
+    auto result = networkStorageSession->cookiesForDOMAsVector(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::Yes, m_networkProcess->shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), NetworkSession::isResourceFromKnownCrossSiteTracker(firstParty, url), WTF::move(options));
 #if !RELEASE_LOG_DISABLED
     if (CheckedPtr session = networkSession()) {
         if (session->shouldLogCookieInformation())
             NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::cookiesForDOMAsync"_s, reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
     }
 #endif
-    completionHandler(WTFMove(result));
+    completionHandler(WTF::move(result));
 }
 
 void NetworkConnectionToWebProcess::setCookieFromDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, WebCore::Cookie&& cookie, RequiresScriptTrackingPrivacy requiresScriptTrackingPrivacy, std::optional<WebPageProxyIdentifier> webPageProxyID, CompletionHandler<void(bool)>&& completionHandler)
@@ -1058,7 +1083,7 @@ void NetworkConnectionToWebProcess::subscribeToStorageAccessPermissionChanges(Re
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->startListeningForStorageAccessPermissionChanges(*this, WTFMove(topFrameDomain), WTFMove(subFrameDomain));
+            resourceLoadStatistics->startListeningForStorageAccessPermissionChanges(*this, WTF::move(topFrameDomain), WTF::move(subFrameDomain));
     }
 }
 
@@ -1066,7 +1091,7 @@ void NetworkConnectionToWebProcess::unsubscribeFromStorageAccessPermissionChange
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->stopListeningForStorageAccessPermissionChanges(*this, WTFMove(topFrameDomain), WTFMove(subFrameDomain));
+            resourceLoadStatistics->stopListeningForStorageAccessPermissionChanges(*this, WTF::move(topFrameDomain), WTF::move(subFrameDomain));
     }
 }
 
@@ -1112,8 +1137,28 @@ void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, 
     if (blobFileAccessEnforcementEnabled() && shouldCheckBlobFileAccess())
         MESSAGE_CHECK(isFilePathAllowed(*session, path));
 
+    RefPtr sandboxExtension = SandboxExtension::create(WTF::move(extensionHandle));
+
+    if (!replacementPath.isEmpty()) {
+#if PLATFORM(COCOA)
+        // For transcoded files, check if the WebProcess has actual sandbox access
+        // via the extension granted for the original file, rather than checking
+        // our internal allowed paths list (which won't include temporary transcoded files).
+        if (sandboxExtension) {
+            // sandbox_check returns 0 on success (has access), non-zero on failure
+            if (sandbox_check(m_connection->remoteProcessID(), "file-read-data", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), FileSystem::fileSystemRepresentation(replacementPath).data())) {
+                CONNECTION_RELEASE_LOG_ERROR(Sandbox, "registerInternalFileBlobURL: WebProcess does not have sandbox access to replacementPath");
+                MESSAGE_CHECK(false);
+            }
+        } else // No sandbox extension provided, fall back to path allowlist check
+            MESSAGE_CHECK(isFilePathAllowed(*session, replacementPath));
+#else
+        MESSAGE_CHECK(isFilePathAllowed(*session, replacementPath));
+#endif
+    }
+
     m_blobURLs.add({ url, std::nullopt });
-    session->blobRegistry().registerInternalFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, SandboxExtension::create(WTFMove(extensionHandle))), contentType);
+    session->blobRegistry().registerInternalFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, WTF::move(sandboxExtension)), contentType);
 }
 
 void NetworkConnectionToWebProcess::registerInternalBlobURL(const URL& url, Vector<BlobPart>&& blobParts, const String& contentType)
@@ -1123,7 +1168,7 @@ void NetworkConnectionToWebProcess::registerInternalBlobURL(const URL& url, Vect
         return;
 
     m_blobURLs.add({ url, std::nullopt });
-    session->blobRegistry().registerInternalBlobURL(url, WTFMove(blobParts), contentType);
+    session->blobRegistry().registerInternalBlobURL(url, WTF::move(blobParts), contentType);
 }
 
 void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, const URL& srcURL, PolicyContainer&& policyContainer, const std::optional<SecurityOriginData>& topOrigin)
@@ -1133,7 +1178,7 @@ void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, const URL& s
         return;
 
     m_blobURLs.add({ url, topOrigin });
-    session->blobRegistry().registerBlobURL(url, srcURL, WTFMove(policyContainer), topOrigin);
+    session->blobRegistry().registerBlobURL(url, srcURL, WTF::move(policyContainer), topOrigin);
 }
 
 void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(URL&& url, URL&& srcURL, const String& fileBackedPath, String&& contentType)
@@ -1216,7 +1261,7 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
     for (auto& file : fileReferences)
         file->prepareForFileAccess();
 
-    session->blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs, [this, protectedThis = Ref { *this }, fileReferences = WTFMove(fileReferences), completionHandler = WTFMove(completionHandler)](Vector<String>&& filePaths) mutable {
+    session->blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs, [this, protectedThis = Ref { *this }, fileReferences = WTF::move(fileReferences), completionHandler = WTF::move(completionHandler)](Vector<String>&& filePaths) mutable {
         for (auto& file : fileReferences)
             file->revokeFileAccess();
 
@@ -1227,7 +1272,7 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
         for (auto& path : filePaths)
             allowAccessToFile(path);
 
-        completionHandler(WTFMove(filePaths));
+        completionHandler(WTF::move(filePaths));
     });
 }
 
@@ -1274,7 +1319,7 @@ void NetworkConnectionToWebProcess::logUserInteraction(RegistrableDomain&& domai
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->logUserInteraction(WTFMove(domain), [] { });
+            resourceLoadStatistics->logUserInteraction(WTF::move(domain), [] { });
     }
 }
 
@@ -1286,7 +1331,7 @@ void NetworkConnectionToWebProcess::resourceLoadStatisticsUpdated(Vector<Resourc
             return;
         }
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->resourceLoadStatisticsUpdated(WTFMove(statistics), WTFMove(completionHandler));
+            resourceLoadStatistics->resourceLoadStatisticsUpdated(WTF::move(statistics), WTF::move(completionHandler));
             return;
         }
     }
@@ -1297,10 +1342,10 @@ void NetworkConnectionToWebProcess::hasStorageAccess(RegistrableDomain&& subFram
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, WTFMove(completionHandler));
+            resourceLoadStatistics->hasStorageAccess(WTF::move(subFrameDomain), WTF::move(topFrameDomain), frameID, pageID, WTF::move(completionHandler));
             return;
         }
-        CheckedRef { *storageSession() }->hasCookies(subFrameDomain, WTFMove(completionHandler));
+        CheckedRef { *storageSession() }->hasCookies(subFrameDomain, WTF::move(completionHandler));
         return;
     }
 
@@ -1311,7 +1356,7 @@ void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& sub
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, webPageID, webPageProxyID, scope, hasOrShouldIgnoreUserGesture, WTFMove(completionHandler));
+            resourceLoadStatistics->requestStorageAccess(WTF::move(subFrameDomain), WTF::move(topFrameDomain), frameID, webPageID, webPageProxyID, scope, hasOrShouldIgnoreUserGesture, WTF::move(completionHandler));
             return;
         }
     }
@@ -1323,7 +1368,7 @@ void NetworkConnectionToWebProcess::queryStorageAccessPermission(RegistrableDoma
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->queryStorageAccessPermission(WTFMove(subFrameDomain), WTFMove(topFrameDomain), webPageProxyID, WTFMove(completionHandler));
+            resourceLoadStatistics->queryStorageAccessPermission(WTF::move(subFrameDomain), WTF::move(topFrameDomain), webPageProxyID, WTF::move(completionHandler));
             return;
         }
     }
@@ -1340,7 +1385,7 @@ void NetworkConnectionToWebProcess::setLoginStatus(RegistrableDomain&& domain, I
 
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->setLoginStatus(WTFMove(domain), loggedInStatus, WTFMove(lastAuthentication), WTFMove(completionHandler));
+            resourceLoadStatistics->setLoginStatus(WTF::move(domain), loggedInStatus, WTF::move(lastAuthentication), WTF::move(completionHandler));
             return;
         }
     }
@@ -1351,7 +1396,7 @@ void NetworkConnectionToWebProcess::isLoggedIn(RegistrableDomain&& domain, Compl
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->isLoggedIn(WTFMove(domain), WTFMove(completionHandler));
+            resourceLoadStatistics->isLoggedIn(WTF::move(domain), WTF::move(completionHandler));
             return;
         }
     }
@@ -1367,7 +1412,7 @@ void NetworkConnectionToWebProcess::requestStorageAccessUnderOpener(WebCore::Reg
 {
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->requestStorageAccessUnderOpener(WTFMove(domainInNeedOfStorageAccess), openerPageID, WTFMove(openerDomain));
+            resourceLoadStatistics->requestStorageAccessUnderOpener(WTF::move(domainInNeedOfStorageAccess), openerPageID, WTF::move(openerDomain));
     }
 }
 
@@ -1486,7 +1531,7 @@ void NetworkConnectionToWebProcess::establishSharedWorkerContextConnection(WebPa
     CONNECTION_RELEASE_LOG(SharedWorker, "establishSharedWorkerContextConnection:");
     CheckedPtr session = networkSession();
     if (CheckedPtr swServer = session ? session->sharedWorkerServer() : nullptr)
-        m_sharedWorkerContextConnection = WebSharedWorkerServerToContextConnection::create(*this, WTFMove(site), *swServer);
+        m_sharedWorkerContextConnection = WebSharedWorkerServerToContextConnection::create(*this, WTF::move(site), *swServer);
     completionHandler();
 }
 
@@ -1505,7 +1550,7 @@ void NetworkConnectionToWebProcess::establishSharedWorkerServerConnection()
     auto connection = WebSharedWorkerServerConnection::create(m_networkProcess, server.get(), m_connection.get(), m_webProcessIdentifier);
 
     m_sharedWorkerConnection = connection;
-    server->addConnection(WTFMove(connection));
+    server->addConnection(WTF::move(connection));
 }
 
 void NetworkConnectionToWebProcess::closeSharedWorkerContextConnection()
@@ -1557,7 +1602,7 @@ void NetworkConnectionToWebProcess::establishSWServerConnection()
     Ref connection = WebSWServerConnection::create(*this, server, m_connection.get(), m_webProcessIdentifier);
 
     m_swConnection = connection.get();
-    server->addConnection(WTFMove(connection));
+    server->addConnection(WTF::move(connection));
 }
 
 void NetworkConnectionToWebProcess::establishSWContextConnection(WebPageProxyIdentifier webPageProxyID, Site&& site, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
@@ -1568,7 +1613,7 @@ void NetworkConnectionToWebProcess::establishSWContextConnection(WebPageProxyIde
         Ref swServer = session->ensureSWServer();
         auto allowCookieAccess = session->networkProcess().allowsFirstPartyForCookies(webProcessIdentifier(), site.domain());
         MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler());
-        m_swContextConnection = WebSWServerToContextConnection::create(*this, webPageProxyID, WTFMove(site), serviceWorkerPageIdentifier, swServer);
+        m_swContextConnection = WebSWServerToContextConnection::create(*this, webPageProxyID, WTF::move(site), serviceWorkerPageIdentifier, swServer);
     }
     completionHandler();
 }
@@ -1640,14 +1685,14 @@ MessageBatchIdentifier NetworkConnectionToWebProcess::nextMessageBatchIdentifier
 {
     auto identifier = MessageBatchIdentifier::generate();
     ASSERT(!m_messageBatchDeliveryCompletionHandlers.contains(identifier));
-    m_messageBatchDeliveryCompletionHandlers.add(identifier, WTFMove(deliveryCallback));
+    m_messageBatchDeliveryCompletionHandlers.add(identifier, WTF::move(deliveryCallback));
     return identifier;
 }
 
 void NetworkConnectionToWebProcess::takeAllMessagesForPort(const MessagePortIdentifier& port, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, std::optional<MessageBatchIdentifier>)>&& callback)
 {
-    m_networkProcess->checkedMessagePortChannelRegistry()->takeAllMessagesForPort(port, [this, protectedThis = Ref { *this }, callback = WTFMove(callback)](Vector<MessageWithMessagePorts>&& messages, CompletionHandler<void()>&& deliveryCallback) mutable {
-        callback(WTFMove(messages), nextMessageBatchIdentifier(WTFMove(deliveryCallback)));
+    m_networkProcess->checkedMessagePortChannelRegistry()->takeAllMessagesForPort(port, [this, protectedThis = Ref { *this }, callback = WTF::move(callback)](Vector<MessageWithMessagePorts>&& messages, CompletionHandler<void()>&& deliveryCallback) mutable {
+        callback(WTF::move(messages), nextMessageBatchIdentifier(WTF::move(deliveryCallback)));
     });
 }
 
@@ -1660,7 +1705,7 @@ void NetworkConnectionToWebProcess::didDeliverMessagePortMessages(MessageBatchId
 
 void NetworkConnectionToWebProcess::postMessageToRemote(MessageWithMessagePorts&& message, const MessagePortIdentifier& port)
 {
-    if (m_networkProcess->checkedMessagePortChannelRegistry()->didPostMessageToRemote(WTFMove(message), port)) {
+    if (m_networkProcess->checkedMessagePortChannelRegistry()->didPostMessageToRemote(WTF::move(message), port)) {
         // Look up the process for that port
         RefPtr channel = m_networkProcess->checkedMessagePortChannelRegistry()->existingChannelContainingPort(port);
         ASSERT(channel);
@@ -1679,7 +1724,7 @@ void NetworkConnectionToWebProcess::broadcastConsoleMessage(JSC::MessageSource s
 
 void NetworkConnectionToWebProcess::setCORSDisablingPatterns(WebCore::PageIdentifier pageIdentifier, Vector<String>&& patterns)
 {
-    m_networkProcess->setCORSDisablingPatterns(*this, pageIdentifier, WTFMove(patterns));
+    m_networkProcess->setCORSDisablingPatterns(*this, pageIdentifier, WTF::move(patterns));
 }
 
 void NetworkConnectionToWebProcess::setResourceLoadSchedulingMode(WebCore::PageIdentifier pageIdentifier, WebCore::LoadSchedulingMode mode)
@@ -1697,7 +1742,7 @@ void NetworkConnectionToWebProcess::prioritizeResourceLoads(const Vector<WebCore
     if (!session)
         return;
 
-    Vector<NetworkLoad*> loads;
+    Vector<RefPtr<NetworkLoad>> loads;
     for (auto identifier : loadIdentifiers) {
         RefPtr loader = m_networkResourceLoaders.get(identifier);
         if (!loader || !loader->networkLoad())
@@ -1718,14 +1763,14 @@ RefPtr<NetworkResourceLoader> NetworkConnectionToWebProcess::takeNetworkResource
 #if ENABLE(CONTENT_FILTERING)
 void NetworkConnectionToWebProcess::installMockContentFilter(WebCore::MockContentFilterSettings&& settings)
 {
-    MockContentFilterSettings::singleton() = WTFMove(settings);
+    MockContentFilterSettings::singleton() = WTF::move(settings);
 }
 #endif
 
 void NetworkConnectionToWebProcess::useRedirectionForCurrentNavigation(WebCore::ResourceLoaderIdentifier identifier, WebCore::ResourceResponse&& response)
 {
     if (RefPtr loader = m_networkResourceLoaders.get(identifier))
-        loader->useRedirectionForCurrentNavigation(WTFMove(response));
+        loader->useRedirectionForCurrentNavigation(WTF::move(response));
 }
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
@@ -1738,13 +1783,13 @@ void NetworkConnectionToWebProcess::navigatorSubscribeToPushService(URL&& scopeU
     }
 
     auto registrableDomain = RegistrableDomain(scopeURL);
-    session->notificationManager().subscribeToPushService(WTFMove(scopeURL), WTFMove(applicationServerKey), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler), registrableDomain = WTFMove(registrableDomain)](auto&& result) mutable {
+    session->notificationManager().subscribeToPushService(WTF::move(scopeURL), WTF::move(applicationServerKey), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler), registrableDomain = WTF::move(registrableDomain)](auto&& result) mutable {
         if (RefPtr resourceLoadStatistics = weakThis && weakThis->networkSession() ? weakThis->networkSession()->resourceLoadStatistics() : nullptr; result && resourceLoadStatistics) {
-            return resourceLoadStatistics->setMostRecentWebPushInteractionTime(WTFMove(registrableDomain), [result = WTFMove(result), completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler(WTFMove(result));
+            return resourceLoadStatistics->setMostRecentWebPushInteractionTime(WTF::move(registrableDomain), [result = WTF::move(result), completionHandler = WTF::move(completionHandler)]() mutable {
+                completionHandler(WTF::move(result));
             });
         }
-        completionHandler(WTFMove(result));
+        completionHandler(WTF::move(result));
     });
 }
 
@@ -1756,7 +1801,7 @@ void NetworkConnectionToWebProcess::navigatorUnsubscribeFromPushService(URL&& sc
         return;
     }
 
-    session->notificationManager().unsubscribeFromPushService(WTFMove(scopeURL), subscriptionIdentifier, WTFMove(completionHandler));
+    session->notificationManager().unsubscribeFromPushService(WTF::move(scopeURL), subscriptionIdentifier, WTF::move(completionHandler));
 
 }
 
@@ -1768,7 +1813,7 @@ void NetworkConnectionToWebProcess::navigatorGetPushSubscription(URL&& scopeURL,
         return;
     }
 
-    session->notificationManager().getPushSubscription(WTFMove(scopeURL), WTFMove(completionHandler));
+    session->notificationManager().getPushSubscription(WTF::move(scopeURL), WTF::move(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeURL, CompletionHandler<void(Expected<uint8_t, WebCore::ExceptionData>&&)>&& completionHandler)
@@ -1779,24 +1824,24 @@ void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeU
         return;
     }
 
-    session->notificationManager().getPermissionState(SecurityOriginData::fromURL(scopeURL), [completionHandler = WTFMove(completionHandler)](WebCore::PushPermissionState state) mutable {
+    session->notificationManager().getPermissionState(SecurityOriginData::fromURL(scopeURL), [completionHandler = WTF::move(completionHandler)](WebCore::PushPermissionState state) mutable {
         completionHandler(static_cast<uint8_t>(state));
     });
 }
 #endif // ENABLE(DECLARATIVE_WEB_PUSH)
 
-void NetworkConnectionToWebProcess::initializeWebTransportSession(WebTransportSessionIdentifier identifier, URL&& url, WebCore::WebTransportOptions&& options, WebPageProxyIdentifier&& pageID, WebCore::ClientOrigin&& clientOrigin, CompletionHandler<void(bool)>&& completionHandler)
+void NetworkConnectionToWebProcess::initializeWebTransportSession(WebTransportSessionIdentifier identifier, URL&& url, WebCore::WebTransportOptions&& options, WebPageProxyIdentifier&& pageID, WebCore::ClientOrigin&& clientOrigin, CompletionHandler<void(std::optional<WebCore::WebTransportConnectionInfo>&&)>&& completionHandler)
 {
     if (!url.isValid()
         || !portAllowed(url)
         || isIPAddressDisallowed(url)
         || m_networkTransportSessions.contains(identifier))
-        return completionHandler(false);
+        return completionHandler(std::nullopt);
 
-    RefPtr session = NetworkTransportSession::create(*this, identifier, WTFMove(url), WTFMove(options), WTFMove(pageID), WTFMove(clientOrigin));
+    RefPtr session = NetworkTransportSession::create(*this, identifier, WTF::move(url), WTF::move(options), WTF::move(pageID), WTF::move(clientOrigin));
     if (!session)
-        return completionHandler(false);
-    session->initialize(WTFMove(completionHandler));
+        return completionHandler(std::nullopt);
+    session->initialize(WTF::move(completionHandler));
     m_networkTransportSessions.set(identifier, session.releaseNonNull());
 }
 
@@ -1804,6 +1849,28 @@ void NetworkConnectionToWebProcess::destroyWebTransportSession(WebTransportSessi
 {
     m_networkTransportSessions.remove(identifier);
 }
+
+#if USE(LIBRICE)
+void NetworkConnectionToWebProcess::initializeRiceBackend(WebPageProxyIdentifier&& pageID, CompletionHandler<void(std::optional<RiceBackendIdentifier>)>&& completionHandler)
+{
+    RiceBackend::initialize(*this, WTF::move(pageID), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler)](RefPtr<RiceBackend>&& backend) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!backend || !protectedThis)
+            return completionHandler(std::nullopt);
+
+        auto identifier = backend->identifier();
+        ASSERT(!protectedThis->m_gstreamerIceBackends.contains(identifier));
+        protectedThis->m_gstreamerIceBackends.set(identifier, backend.releaseNonNull());
+        completionHandler(identifier);
+    });
+}
+
+void NetworkConnectionToWebProcess::destroyRiceBackend(RiceBackendIdentifier identifier)
+{
+    ASSERT(m_gstreamerIceBackends.contains(identifier));
+    m_gstreamerIceBackends.remove(identifier);
+}
+#endif
 
 void NetworkConnectionToWebProcess::clearFrameLoadRecordsForStorageAccess(WebCore::FrameIdentifier frameID)
 {
@@ -1820,7 +1887,7 @@ bool NetworkConnectionToWebProcess::isAlwaysOnLoggingAllowed() const
 
 void NetworkConnectionToWebProcess::updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess)
 {
-    m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess);
+    m_sharedPreferencesForWebProcess = WTF::move(sharedPreferencesForWebProcess);
     if (CheckedPtr session = networkSession())
         session->storageManager().updateSharedPreferencesForConnection(m_connection, m_sharedPreferencesForWebProcess);
 }
@@ -1830,9 +1897,18 @@ void NetworkConnectionToWebProcess::shouldOffloadIFrameForHost(const String& hos
 {
     CONNECTION_RELEASE_LOG(ResourceMonitoring, "shouldOffloadIFrameForHost: (host=%" SENSITIVE_LOG_STRING ")", host.utf8().data());
     if (CheckedPtr session = networkSession())
-        session->protectedResourceMonitorThrottler()->tryAccess(host, ContinuousApproximateTime::now(), WTFMove(completionHandler));
+        session->protectedResourceMonitorThrottler()->tryAccess(host, ContinuousApproximateTime::now(), WTF::move(completionHandler));
     else
         completionHandler(false);
+}
+#endif
+
+#if ENABLE(IPC_TESTING_API)
+void NetworkConnectionToWebProcess::takeInvalidMessageStringForTesting(CompletionHandler<void(String&&)>&& callback)
+{
+    ASCIILiteral error = connection().takeErrorString();
+    String errorString = !error.isNull() ? String::fromUTF8(error) : emptyString();
+    callback(WTF::move(errorString));
 }
 #endif
 

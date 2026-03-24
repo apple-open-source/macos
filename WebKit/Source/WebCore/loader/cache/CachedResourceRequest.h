@@ -52,7 +52,7 @@ class CachedResourceRequest {
 public:
     CachedResourceRequest(ResourceRequest&&, const ResourceLoaderOptions&, std::optional<ResourceLoadPriority> = std::nullopt, String&& charset = String());
 
-    ResourceRequest&& releaseResourceRequest() { return WTFMove(m_resourceRequest); }
+    ResourceRequest&& releaseResourceRequest() { return WTF::move(m_resourceRequest); }
     const ResourceRequest& resourceRequest() const { return m_resourceRequest; }
     ResourceRequest& resourceRequest() { return m_resourceRequest; }
 
@@ -63,7 +63,7 @@ public:
     void setOptions(const ResourceLoaderOptions& options) { m_options = options; }
 
     const std::optional<ResourceLoadPriority>& priority() const { return m_priority; }
-    void setPriority(std::optional<ResourceLoadPriority>&& priority) { m_priority = WTFMove(priority); }
+    void setPriority(std::optional<ResourceLoadPriority>&& priority) { m_priority = WTF::move(priority); }
 
     RequestPriority fetchPriority() const { return m_options.fetchPriority; }
 
@@ -102,14 +102,14 @@ public:
     bool isLinkPreload() const { return m_isLinkPreload; }
     void setIsLinkPreload() { m_isLinkPreload = true; }
 
-    void setOrigin(Ref<SecurityOrigin>&& origin) { m_origin = WTFMove(origin); }
-    RefPtr<SecurityOrigin> releaseOrigin() { return WTFMove(m_origin); }
+    void setOrigin(Ref<SecurityOrigin>&& origin) { m_origin = WTF::move(origin); }
+    RefPtr<SecurityOrigin> releaseOrigin() { return WTF::move(m_origin); }
     const SecurityOrigin* origin() const { return m_origin.get(); }
     SecurityOrigin* origin() { return m_origin.get(); }
     RefPtr<SecurityOrigin> protectedOrigin() const { return m_origin; }
 
     bool hasFragmentIdentifier() const { return !m_fragmentIdentifier.isEmpty(); }
-    String&& releaseFragmentIdentifier() { return WTFMove(m_fragmentIdentifier); }
+    String&& releaseFragmentIdentifier() { return WTF::move(m_fragmentIdentifier); }
     void clearFragmentIdentifier() { m_fragmentIdentifier = { }; }
 
     static String splitFragmentIdentifierFromRequestURL(ResourceRequest&);

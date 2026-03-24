@@ -38,27 +38,27 @@ FrameState::FrameState(String&& urlString, String&& originalURLString, String&& 
 #endif
     Vector<Ref<FrameState>>&& children, Vector<AtomString>&& documentState
 )
-    : urlString(WTFMove(urlString))
-    , originalURLString(WTFMove(originalURLString))
-    , referrer(WTFMove(referrer))
-    , target(WTFMove(target))
+    : urlString(WTF::move(urlString))
+    , originalURLString(WTF::move(originalURLString))
+    , referrer(WTF::move(referrer))
+    , target(WTF::move(target))
     , frameID(frameID)
-    , stateObjectData(WTFMove(stateObjectData))
+    , stateObjectData(WTF::move(stateObjectData))
     , documentSequenceNumber(documentSequenceNumber)
     , itemSequenceNumber(itemSequenceNumber)
     , scrollPosition(scrollPosition)
     , shouldRestoreScrollPosition(shouldRestoreScrollPosition)
     , pageScaleFactor(pageScaleFactor)
-    , httpBody(WTFMove(httpBody))
+    , httpBody(WTF::move(httpBody))
     , itemID(itemID)
     , frameItemID(frameItemID)
     , hasCachedPage(hasCachedPage)
-    , title(WTFMove(title))
+    , title(WTF::move(title))
     , shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
-    , sessionStateObject(WTFMove(sessionStateObject))
+    , sessionStateObject(WTF::move(sessionStateObject))
     , wasCreatedByJSWithoutUserInteraction(wasCreatedByJSWithoutUserInteraction)
     , wasRestoredFromSession(wasRestoredFromSession)
-    , policyContainer(WTFMove(policyContainer))
+    , policyContainer(WTF::move(policyContainer))
 #if PLATFORM(IOS_FAMILY)
     , exposedContentRect(exposedContentRect)
     , unobscuredContentRect(unobscuredContentRect)
@@ -67,8 +67,8 @@ FrameState::FrameState(String&& urlString, String&& originalURLString, String&& 
     , scaleIsInitial(scaleIsInitial)
     , obscuredInsets(obscuredInsets)
 #endif
-    , children(WTFMove(children))
-    , m_documentState(WTFMove(documentState))
+    , children(WTF::move(children))
+    , m_documentState(WTF::move(documentState))
 {
 }
 
@@ -95,7 +95,7 @@ FrameState::FrameState(const String& urlString, const String& originalURLString,
     , hasCachedPage(hasCachedPage)
     , title(title)
     , shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
-    , sessionStateObject(WTFMove(sessionStateObject))
+    , sessionStateObject(WTF::move(sessionStateObject))
     , wasCreatedByJSWithoutUserInteraction(wasCreatedByJSWithoutUserInteraction)
     , wasRestoredFromSession(wasRestoredFromSession)
     , policyContainer(policyContainer)
@@ -177,7 +177,7 @@ void FrameState::replaceChildFrameState(Ref<FrameState>&& frameState)
 {
     for (auto& child : children) {
         if (child->frameID == frameState->frameID) {
-            child = WTFMove(frameState);
+            child = WTF::move(frameState);
             return;
         }
         child->replaceChildFrameState(frameState.copyRef());

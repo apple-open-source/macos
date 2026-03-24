@@ -40,7 +40,7 @@
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
 #include <wtf/NativePromise.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
@@ -66,8 +66,7 @@ class VideoMediaSampleRenderer;
 class VideoTrackPrivate;
 
 class MediaPlayerPrivateMediaSourceAVFObjC
-    : public CanMakeWeakPtr<MediaPlayerPrivateMediaSourceAVFObjC>
-    , public RefCounted<MediaPlayerPrivateMediaSourceAVFObjC>
+    : public RefCountedAndCanMakeWeakPtr<MediaPlayerPrivateMediaSourceAVFObjC>
     , public MediaPlayerPrivateInterface
     , private LoggerHelper
 {
@@ -75,7 +74,7 @@ public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
-    explicit MediaPlayerPrivateMediaSourceAVFObjC(MediaPlayer*);
+    explicit MediaPlayerPrivateMediaSourceAVFObjC(MediaPlayer&);
     virtual ~MediaPlayerPrivateMediaSourceAVFObjC();
 
     constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::AVFObjCMSE; }
@@ -104,16 +103,17 @@ public:
     void startSeek(const MediaTime&);
     void cancelPendingSeek();
     void completeSeek(const MediaTime&);
-    void setLoadingProgresssed(bool flag) { m_loadingProgressed = flag; }
+    void setLoadingProgresssed(bool);
     void setHasAvailableVideoFrame(bool);
     bool hasAvailableVideoFrame() const override;
     void durationChanged();
 
     void effectiveRateChanged();
     void setNaturalSize(const FloatSize&);
-    void characteristicsChanged();
+    void characteristicsFromMediaSourceChanged() final;
 
     MediaTime currentTime() const override;
+    MediaTime currentOrPendingSeekTime() const final { return currentTime(); }
     bool timeIsProgressing() const final;
     MediaTime clampTimeToSensicalValue(const MediaTime&) const;
 
@@ -139,8 +139,6 @@ public:
     bool waitingForKey() const final;
     void waitingForKeyChanged();
 #endif
-
-    void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
     void keyNeeded(const SharedBuffer&);
@@ -175,7 +173,7 @@ public:
     const Logger& mediaPlayerLogger() { return logger(); }
 #endif
 
-    bool supportsLimitedMatroska() const { return m_loadOptions.supportsLimitedMatroska; }
+    bool supportsLimitedMatroska() const;
 
 private:
     // MediaPlayerPrivateInterface
@@ -285,7 +283,7 @@ private:
 
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
-    std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
+    std::optional<VideoFrameMetadata> videoFrameMetadata() final;
 
     void setResourceOwner(const ProcessIdentity&) final;
 
@@ -297,14 +295,20 @@ private:
     void setShouldMaintainAspectRatio(bool) final;
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    const String& defaultSpatialTrackingLabel() const final;
+    String defaultSpatialTrackingLabel() const final;
     void setDefaultSpatialTrackingLabel(const String&) final;
-    const String& spatialTrackingLabel() const final;
+    String spatialTrackingLabel() const final;
     void setSpatialTrackingLabel(const String&) final;
     void updateSpatialTrackingLabel();
 #endif
 
     void isInFullscreenOrPictureInPictureChanged(bool) final;
+
+    void readyStateFromMediaSourceChanged() final;
+    void updateStateFromReadyState();
+    void mediaSourceHasRetrievedAllData() final;
+
+    bool supportsProgressMonitoring() const final { return false; }
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     bool supportsLinearMediaPlayer() const final { return true; }
@@ -327,56 +331,56 @@ private:
 
     static Ref<AudioVideoRenderer> createRenderer(LoggerHelper&, HTMLMediaElementIdentifier, MediaPlayerIdentifier);
 
-    ThreadSafeWeakPtr<MediaPlayer> m_player;
-    RefPtr<MediaSourcePrivateAVFObjC> m_mediaSourcePrivate;
+    const ThreadSafeWeakPtr<MediaPlayer> m_player;
+    RefPtr<MediaSourcePrivateAVFObjC> m_mediaSourcePrivate; // set on load, immutable after.
 
     struct AudioTrackProperties {
         bool hasAudibleSample { false };
     };
-    HashMap<TrackIdentifier, AudioTrackProperties> m_audioTracksMap;
-    RefPtr<VideoFrame> m_lastVideoFrame;
-    RefPtr<NativeImage> m_lastImage;
+    HashMap<TrackIdentifier, AudioTrackProperties> m_audioTracksMap WTF_GUARDED_BY_CAPABILITY(mainThread);
+    RefPtr<VideoFrame> m_lastVideoFrame WTF_GUARDED_BY_CAPABILITY(mainThread);
+    RefPtr<NativeImage> m_lastImage WTF_GUARDED_BY_CAPABILITY(mainThread);
 
     // Seeking
-    Timer m_seekTimer;
-    bool m_seeking { false };
-    std::optional<SeekTarget> m_pendingSeek;
-    NativePromiseRequest m_rendererSeekRequest;
+    Timer m_seekTimer WTF_GUARDED_BY_CAPABILITY(mainThread);
+    bool m_seeking  WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    std::optional<SeekTarget> m_pendingSeek WTF_GUARDED_BY_CAPABILITY(mainThread);
+    const Ref<NativePromiseRequest> m_rendererSeekRequest WTF_GUARDED_BY_CAPABILITY(mainThread);
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     ThreadSafeWeakPtr<CDMSessionAVContentKeySession> m_session;
 #endif
-    MediaPlayer::NetworkState m_networkState;
-    MediaPlayer::ReadyState m_readyState;
-    bool m_readyStateIsWaitingForAvailableFrame { false };
-    MediaTime m_duration { MediaTime::invalidTime() };
-    MediaTime m_lastSeekTime;
-    FloatSize m_naturalSize;
-    double m_rate { 1 };
-    mutable bool m_loadingProgressed { false };
-    bool m_hasAvailableVideoFrame { false };
-    bool m_allRenderersHaveAvailableSamples { false };
-    bool m_visible { false };
-    RetainPtr<CVOpenGLTextureRef> m_lastTexture;
+    MediaPlayer::NetworkState m_networkState WTF_GUARDED_BY_CAPABILITY(mainThread);
+    MediaPlayer::ReadyState m_readyState WTF_GUARDED_BY_CAPABILITY(mainThread) { MediaPlayer::ReadyState::HaveNothing };
+    bool m_readyStateIsWaitingForAvailableFrame WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    MediaTime m_duration WTF_GUARDED_BY_CAPABILITY(mainThread) { MediaTime::invalidTime() };
+    MediaTime m_lastSeekTime WTF_GUARDED_BY_CAPABILITY(mainThread);
+    FloatSize m_naturalSize; WTF_GUARDED_BY_CAPABILITY(mainThread)
+    double m_rate WTF_GUARDED_BY_CAPABILITY(mainThread) { 1 };
+    mutable bool m_loadingProgressed WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    bool m_hasAvailableVideoFrame WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    bool m_allRenderersHaveAvailableSamples WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    bool m_visible WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    RetainPtr<CVOpenGLTextureRef> m_lastTexture WTF_GUARDED_BY_CAPABILITY(mainThread);
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    RefPtr<MediaPlaybackTarget> m_playbackTarget;
-    bool m_shouldPlayToTarget { false };
+    RefPtr<MediaPlaybackTarget> m_playbackTarget WTF_GUARDED_BY_CAPABILITY(mainThread);
+    bool m_shouldPlayToTarget WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
 #endif
     const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
-    bool m_isGatheringVideoFrameMetadata { false };
-    std::optional<VideoFrameMetadata> m_videoFrameMetadata;
-    uint64_t m_lastConvertedSampleCount { 0 };
+    bool m_isGatheringVideoFrameMetadata WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
+    std::optional<VideoFrameMetadata> m_videoFrameMetadata WTF_GUARDED_BY_CAPABILITY(mainThread);
+    uint64_t m_lastConvertedSampleCount WTF_GUARDED_BY_CAPABILITY(mainThread) { 0 };
     ProcessIdentity m_resourceOwner;
-    LoadOptions m_loadOptions;
+    LoadOptions m_loadOptions WTF_GUARDED_BY_CAPABILITY(mainThread);
 #if HAVE(SPATIAL_TRACKING_LABEL)
     String m_defaultSpatialTrackingLabel;
     String m_spatialTrackingLabel;
 #endif
 
-    bool m_layerRequiresFlush { false };
+    bool m_layerRequiresFlush WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
 #if PLATFORM(IOS_FAMILY)
-    bool m_applicationIsActive { true };
+    bool m_applicationIsActive WTF_GUARDED_BY_CAPABILITY(mainThread) { true };
 #endif
 
     const MediaPlayerIdentifier m_playerIdentifier;

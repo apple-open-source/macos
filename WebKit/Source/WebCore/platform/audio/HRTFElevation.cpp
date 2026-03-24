@@ -259,7 +259,7 @@ std::unique_ptr<HRTFElevation> HRTFElevation::createForSubject(const String& sub
         }
     }
     
-    return makeUnique<HRTFElevation>(WTFMove(kernelListL), WTFMove(kernelListR), elevation, sampleRate);
+    return makeUnique<HRTFElevation>(WTF::move(kernelListL), WTF::move(kernelListR), elevation, sampleRate);
 }
 
 std::unique_ptr<HRTFElevation> HRTFElevation::createByInterpolatingSlices(HRTFElevation* hrtfElevation1, HRTFElevation* hrtfElevation2, float x, float sampleRate)
@@ -287,7 +287,7 @@ std::unique_ptr<HRTFElevation> HRTFElevation::createByInterpolatingSlices(HRTFEl
     // Interpolate elevation angle.
     double angle = (1.0 - x) * hrtfElevation1->elevationAngle() + x * hrtfElevation2->elevationAngle();
     
-    return makeUnique<HRTFElevation>(WTFMove(kernelListL), WTFMove(kernelListR), static_cast<int>(angle), sampleRate);
+    return makeUnique<HRTFElevation>(WTF::move(kernelListL), WTF::move(kernelListR), static_cast<int>(angle), sampleRate);
 }
 
 void HRTFElevation::getKernelsFromAzimuth(double azimuthBlend, unsigned azimuthIndex, HRTFKernel* &kernelL, HRTFKernel* &kernelR, double& frameDelayL, double& frameDelayR)

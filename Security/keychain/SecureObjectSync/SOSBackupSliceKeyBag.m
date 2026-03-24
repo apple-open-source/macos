@@ -124,18 +124,18 @@ const uint8_t* der_decode_BackupSliceKeyBag(CFAllocatorRef allocator,
 
     const uint8_t *result = NULL;
     SOSBackupSliceKeyBagRef vb = CFTypeAllocate(SOSBackupSliceKeyBag, struct __OpaqueSOSBackupSliceKeyBag, allocator);
-    require_quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
+    __Require_Quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
 
     const uint8_t *sequence_end = NULL;
     der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
-    require_quiet(sequence_end == der_end, fail);
+    __Require_Quiet(sequence_end == der_end, fail);
 
     der = der_decode_data(kCFAllocatorDefault, &vb->aks_bag, error, der, sequence_end);
     vb->peers = SOSPeerInfoSetCreateFromArrayDER(kCFAllocatorDefault, &kSOSPeerSetCallbacks, error,
                                                  &der, der_end);
     der = der_decode_dictionary(kCFAllocatorDefault, &vb->wrapped_keys, error, der, sequence_end);
 
-    require_quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
+    __Require_Quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
 
     if (BackupSliceKeyBag)
         CFTransferRetained(*BackupSliceKeyBag, vb);
@@ -150,19 +150,19 @@ fail:
 size_t der_sizeof_BackupSliceKeyBag(SOSBackupSliceKeyBagRef BackupSliceKeyBag, CFErrorRef *error) {
     size_t result = 0;
 
-    require_quiet(SecRequirementError(BackupSliceKeyBag != NULL, error, CFSTR("Null BackupSliceKeyBag")), fail);
-    require_quiet(BackupSliceKeyBag != NULL, fail); // this is redundant with what happens in SecRequirementError, but the analyzer can't understand that.
-    require_quiet(SecRequirementError(BackupSliceKeyBag->aks_bag != NULL, error, CFSTR("null aks_bag in BackupSliceKeyBag")), fail);
-    require_quiet(BackupSliceKeyBag->aks_bag != NULL, fail); // this is redundant with what happens in SecRequirementError, but the analyzer can't understand that.
+    __Require_Quiet(SecRequirementError(BackupSliceKeyBag != NULL, error, CFSTR("Null BackupSliceKeyBag")), fail);
+    __Require_Quiet(BackupSliceKeyBag != NULL, fail); // this is redundant with what happens in SecRequirementError, but the analyzer can't understand that.
+    __Require_Quiet(SecRequirementError(BackupSliceKeyBag->aks_bag != NULL, error, CFSTR("null aks_bag in BackupSliceKeyBag")), fail);
+    __Require_Quiet(BackupSliceKeyBag->aks_bag != NULL, fail); // this is redundant with what happens in SecRequirementError, but the analyzer can't understand that.
 
     size_t bag_size = der_sizeof_data(BackupSliceKeyBag->aks_bag, error);
-    require_quiet(bag_size, fail);
+    __Require_Quiet(bag_size, fail);
 
     size_t peers_size = SOSPeerInfoSetGetDEREncodedArraySize(BackupSliceKeyBag->peers, error);
-    require_quiet(peers_size, fail);
+    __Require_Quiet(peers_size, fail);
 
     size_t wrapped_keys_size = der_sizeof_dictionary(BackupSliceKeyBag->wrapped_keys, error);
-    require_quiet(wrapped_keys_size, fail);
+    __Require_Quiet(wrapped_keys_size, fail);
 
     result = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, bag_size + peers_size + wrapped_keys_size);
 
@@ -175,18 +175,18 @@ uint8_t* der_encode_BackupSliceKeyBag(SOSBackupSliceKeyBagRef set, CFErrorRef *e
     uint8_t *result = NULL;
     if (der_end == NULL) return der_end;
 
-    require_quiet(SecRequirementError(set != NULL, error, CFSTR("Null set passed to encode")), fail);
-    require_quiet(set, fail); // Silence the NULL warning.
+    __Require_Quiet(SecRequirementError(set != NULL, error, CFSTR("Null set passed to encode")), fail);
+    __Require_Quiet(set, fail); // Silence the NULL warning.
 
-    require_quiet(SecRequirementError(set->aks_bag != NULL, error, CFSTR("Null set passed to encode")), fail);
-    require_quiet(set->aks_bag, fail); // Silence the warning.
+    __Require_Quiet(SecRequirementError(set->aks_bag != NULL, error, CFSTR("Null set passed to encode")), fail);
+    __Require_Quiet(set->aks_bag, fail); // Silence the warning.
 
     der_end = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
               der_encode_data(set->aks_bag, error, der,
               SOSPeerInfoSetEncodeToArrayDER(set->peers, error, der,
               der_encode_dictionary(set->wrapped_keys, error, der, der_end))));
 
-    require_quiet(der_end == der, fail);
+    __Require_Quiet(der_end == der, fail);
 
     result = der_end;
 fail:
@@ -204,7 +204,7 @@ SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateFromData(CFAllocatorRef alloca
 
     der = der_decode_BackupSliceKeyBag(allocator, &decodedBag, error, der, der_end);
 
-    require_quiet(SecRequirementError(der == der_end, error, CFSTR("Didn't consume all data supplied")), fail);
+    __Require_Quiet(SecRequirementError(der == der_end, error, CFSTR("Didn't consume all data supplied")), fail);
 
     CFTransferRetained(result, decodedBag);
 
@@ -224,7 +224,7 @@ bool SOSBSKBIsGoodBackupPublic(CFDataRef publicKey, CFErrorRef *error) {
 
     int cc_result = ccec_compact_import_pub(SOSGetBackupKeyCurveParameters(), CFDataGetLength(publicKey), CFDataGetBytePtr(publicKey), pub_key);
 
-    require_action_quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to decode public key: %@"), publicKey));
+    __Require_Action_Quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to decode public key: %@"), publicKey));
 
     result = true;
 exit:
@@ -240,7 +240,7 @@ static CFDataRef SOSCopyECWrapped(CFDataRef publicKey, CFDataRef secret, CFError
 
     int cc_result = ccec_compact_import_pub(SOSGetBackupKeyCurveParameters(), CFDataGetLength(publicKey), CFDataGetBytePtr(publicKey), pub_key);
 
-    require_action_quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to decode public key: %@"), publicKey));
+    __Require_Action_Quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to decode public key: %@"), publicKey));
 
     result = SOSCopyECWrappedData(pub_key, secret, error);
 
@@ -293,10 +293,10 @@ static CFDictionaryRef SOSBackupSliceKeyBagCopyWrappedKeys(SOSBackupSliceKeyBagR
             CFDataRef wrappedKey = NULL;
             CFErrorRef localError = NULL;
             CFStringRef id = SOSKeyedPubKeyIdentifierCreateWithData(prefix, backupKey);
-            require_quiet(id, done);
+            __Require_Quiet(id, done);
 
             wrappedKey = SOSCopyECWrapped(backupKey, secret, &localError);
-            require_quiet(wrappedKey, done);
+            __Require_Quiet(wrappedKey, done);
 
             CFDictionaryAddValue(wrappedKeys, id, wrappedKey);
 
@@ -335,7 +335,7 @@ static bool SOSBackupSliceKeyBagCreateBackupBag(SOSBackupSliceKeyBagRef vb, CFDi
     PerformWithBufferAndClear(kAKSBagSecretLength, ^(size_t size, uint8_t *buffer) {
         CFDataRef secret = NULL;
 
-        require_quiet(SecError(SecRandomCopyBytes(kSecRandomDefault, size, buffer), error, CFSTR("SecRandom falied!")), fail);
+        __Require_Quiet(SecError(SecRandomCopyBytes(kSecRandomDefault, size, buffer), error, CFSTR("SecRandom falied!")), fail);
 
         secret = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buffer, size, kCFAllocatorNull);
 
@@ -355,14 +355,14 @@ CFDataRef SOSBSKBCopyEncoded(SOSBackupSliceKeyBagRef BackupSliceKeyBag, CFErrorR
     CFMutableDataRef encoded = NULL;
 
     size_t encodedSize = der_sizeof_BackupSliceKeyBag(BackupSliceKeyBag, error);
-    require_quiet(encodedSize, fail);
+    __Require_Quiet(encodedSize, fail);
 
     encoded = CFDataCreateMutableWithScratch(kCFAllocatorDefault, encodedSize);
-    require_quiet(SecAllocationError(encoded, error, CFSTR("Faild to create scratch")), fail);
+    __Require_Quiet(SecAllocationError(encoded, error, CFSTR("Faild to create scratch")), fail);
 
     uint8_t *encode_to = CFDataGetMutableBytePtr(encoded);
     uint8_t *encode_to_end = encode_to + CFDataGetLength(encoded);
-    require_quiet(encode_to == der_encode_BackupSliceKeyBag(BackupSliceKeyBag, error, encode_to, encode_to_end), fail);
+    __Require_Quiet(encode_to == der_encode_BackupSliceKeyBag(BackupSliceKeyBag, error, encode_to, encode_to_end), fail);
 
     CFTransferRetained(result, encoded);
 
@@ -397,14 +397,14 @@ SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateWithAdditionalKeys(CFAllocator
                                                                      CFErrorRef* error) {
     SOSBackupSliceKeyBagRef result = NULL;
     SOSBackupSliceKeyBagRef vb = CFTypeAllocate(SOSBackupSliceKeyBag, struct __OpaqueSOSBackupSliceKeyBag, allocator);
-    require_quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
+    __Require_Quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
 
-    require_quiet(SecRequirementError(CFSetGetCount(peers) > 0, error, CFSTR("Need peers")), fail);
+    __Require_Quiet(SecRequirementError(CFSetGetCount(peers) > 0, error, CFSTR("Need peers")), fail);
 
     vb->peers = SOSBackupSliceKeyBagCreatePeerSet(allocator, peers);
     vb->wrapped_keys = CFDictionaryCreateMutableForCFTypes(allocator);
 
-    require_quiet(SOSBackupSliceKeyBagCreateBackupBag(vb, additionalKeys, error), fail);
+    __Require_Quiet(SOSBackupSliceKeyBagCreateBackupBag(vb, additionalKeys, error), fail);
 
     CFTransferRetained(result, vb);
 
@@ -418,9 +418,9 @@ SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateDirect(CFAllocatorRef allocato
 {
     SOSBackupSliceKeyBagRef result = NULL;
     SOSBackupSliceKeyBagRef vb = CFTypeAllocate(SOSBackupSliceKeyBag, struct __OpaqueSOSBackupSliceKeyBag, allocator);
-    require_quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
+    __Require_Quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
 
-    require_quiet(SecRequirementError(aks_bag, error, CFSTR("Need aks bag")), fail);
+    __Require_Quiet(SecRequirementError(aks_bag, error, CFSTR("Need aks bag")), fail);
 
     vb->aks_bag = CFRetainSafe(aks_bag);
     vb->peers = CFSetCreateMutableForSOSPeerInfosByID(allocator);
@@ -464,7 +464,7 @@ bool SOSBSKBPeerIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, SOSPeerInf
 bool SOSBKSBKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFDataRef publicKey) {
     bool result = false;
     CFStringRef keyID = SOSCopyIDOfDataBuffer(publicKey, NULL);
-    require_quiet(keyID, done);
+    __Require_Quiet(keyID, done);
 
     result = CFDictionaryContainsKey(backupSliceKeyBag->wrapped_keys, keyID);
 
@@ -506,7 +506,7 @@ bool SOSBSKBAllPeersBackupKeysAreInKeyBag(SOSBackupSliceKeyBagRef backupSliceKey
 bool SOSBKSBPrefixedKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFStringRef prefix, CFDataRef publicKey) {
     bool result = false;
     CFStringRef kpkid = SOSKeyedPubKeyIdentifierCreateWithData(prefix, publicKey);
-    require_quiet(kpkid, done);
+    __Require_Quiet(kpkid, done);
     
     result = CFDictionaryContainsKey(backupSliceKeyBag->wrapped_keys, kpkid);
     
@@ -518,40 +518,6 @@ done:
 
 
 
-bskb_keybag_handle_t SOSBSKBLoadLocked(SOSBackupSliceKeyBagRef backupSliceKeyBag,
-                                       CFErrorRef *error)
-{
-#if !TARGET_HAS_KEYSTORE
-    return bad_keybag_handle;
-#else
-    keybag_handle_t result = bad_keybag_handle;
-    keybag_handle_t bag_handle = bad_keybag_handle;
-
-    require_quiet(SecRequirementError(backupSliceKeyBag->aks_bag, error,
-                                      CFSTR("No aks bag to load")), exit);
-    require_quiet(SecRequirementError(CFDataGetLength(backupSliceKeyBag->aks_bag) < INT_MAX, error,
-                                      CFSTR("No aks bag to load")), exit);
-
-    kern_return_t aks_result;
-    aks_result = aks_load_bag(CFDataGetBytePtr(backupSliceKeyBag->aks_bag),
-                              (int) CFDataGetLength(backupSliceKeyBag->aks_bag),
-                              &bag_handle);
-    require_quiet(SecKernError(aks_result, error,
-                               CFSTR("aks_load_bag failed: %d"), aks_result), exit);
-
-    result = bag_handle;
-    bag_handle = bad_keybag_handle;
-
-exit:
-    if (bag_handle != bad_keybag_handle) {
-        (void) aks_unload_bag(bag_handle);
-    }
-
-    return result;
-#endif
-
-}
-
 static keybag_handle_t SOSBSKBLoadAndUnlockBagWithSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
                                                            size_t secretSize, const uint8_t *secret,
                                                            CFErrorRef *error)
@@ -562,22 +528,22 @@ static keybag_handle_t SOSBSKBLoadAndUnlockBagWithSecret(SOSBackupSliceKeyBagRef
     keybag_handle_t result = bad_keybag_handle;
     keybag_handle_t bag_handle = bad_keybag_handle;
 
-    require_quiet(SecRequirementError(backupSliceKeyBag->aks_bag, error,
+    __Require_Quiet(SecRequirementError(backupSliceKeyBag->aks_bag, error,
                                       CFSTR("No aks bag to load")), exit);
-    require_quiet(SecRequirementError(CFDataGetLength(backupSliceKeyBag->aks_bag) < INT_MAX, error,
+    __Require_Quiet(SecRequirementError(CFDataGetLength(backupSliceKeyBag->aks_bag) < INT_MAX, error,
                                       CFSTR("No aks bag to load")), exit);
-    require_quiet(SecRequirementError(secretSize <= INT_MAX, error,
+    __Require_Quiet(SecRequirementError(secretSize <= INT_MAX, error,
                                       CFSTR("secret too big")), exit);
 
     kern_return_t aks_result;
     aks_result = aks_load_bag(CFDataGetBytePtr(backupSliceKeyBag->aks_bag),
                               (int) CFDataGetLength(backupSliceKeyBag->aks_bag),
                               &bag_handle);
-    require_quiet(SecKernError(aks_result, error,
+    __Require_Quiet(SecKernError(aks_result, error,
                                CFSTR("aks_load_bag failed: %d"), aks_result), exit);
 
     aks_result = aks_unlock_bag(bag_handle, secret, (int) secretSize);
-    require_quiet(SecKernError(aks_result, error,
+    __Require_Quiet(SecKernError(aks_result, error,
                                CFSTR("failed to unlock bag: %d"), aks_result), exit);
 
     result = bag_handle;
@@ -599,9 +565,9 @@ keybag_handle_t SOSBSKBLoadAndUnlockWithPeerIDAndSecret(SOSBackupSliceKeyBagRef 
     __block keybag_handle_t result = bad_keybag_handle;
 
     CFDataRef lookedUpData = CFDictionaryGetValue(backupSliceKeyBag->wrapped_keys, peerID);
-    require_quiet(SecRequirementError(lookedUpData != NULL, error, CFSTR("%@ has no wrapped key in %@"), peerID, backupSliceKeyBag), exit);
+    __Require_Quiet(SecRequirementError(lookedUpData != NULL, error, CFSTR("%@ has no wrapped key in %@"), peerID, backupSliceKeyBag), exit);
 
-    require_quiet(SOSPerformWithDeviceBackupFullKey(SOSGetBackupKeyCurveParameters(), peerSecret, error, ^(ccec_full_ctx_t fullKey) {
+    __Require_Quiet(SOSPerformWithDeviceBackupFullKey(SOSGetBackupKeyCurveParameters(), peerSecret, error, ^(ccec_full_ctx_t fullKey) {
         SOSPerformWithUnwrappedData(fullKey, lookedUpData, error, ^(size_t size, uint8_t *buffer) {
             result = SOSBSKBLoadAndUnlockBagWithSecret(backupSliceKeyBag, size, buffer, error);
         });
@@ -612,19 +578,12 @@ exit:
 }
 
 
-keybag_handle_t SOSBSKBLoadAndUnlockWithPeerSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
-                                                   SOSPeerInfoRef peer, CFDataRef peerSecret,
-                                                   CFErrorRef *error)
-{
-    return SOSBSKBLoadAndUnlockWithPeerIDAndSecret(backupSliceKeyBag, SOSPeerInfoGetPeerID(peer), peerSecret, error);
-}
-
 keybag_handle_t SOSBSKBLoadAndUnlockWithDirectSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
                                                      CFDataRef secret,
                                                      CFErrorRef *error)
 {
     keybag_handle_t result = bad_keybag_handle;
-    require_quiet(SecRequirementError(SOSBSKBIsDirect(backupSliceKeyBag), error, CFSTR("Not direct bag")), exit);
+    __Require_Quiet(SecRequirementError(SOSBSKBIsDirect(backupSliceKeyBag), error, CFSTR("Not direct bag")), exit);
 
     result = SOSBSKBLoadAndUnlockBagWithSecret(backupSliceKeyBag,
                                                CFDataGetLength(secret),
@@ -646,7 +605,7 @@ static bool SOSPerformWithRecoveryKeyFullKey(CFDataRef wrappingSecret, CFErrorRe
     NSData* fullKeyBytes = NULL;
     NSData* pubKeyBytes = NULL;
     CFStringRef restoreKeySecret = CFStringCreateWithBytes(SecCFAllocatorZeroize(), CFDataGetBytePtr(wrappingSecret), CFDataGetLength(wrappingSecret), kCFStringEncodingUTF8, false);
-    require_action_quiet(restoreKeySecret, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create key string from data.")));
+    __Require_Action_Quiet(restoreKeySecret, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create key string from data.")));
 
     sRecKey = SecRKCreateRecoveryKeyWithError((__bridge NSString *)(restoreKeySecret), &nserror);
     if(!sRecKey) {
@@ -655,13 +614,13 @@ static bool SOSPerformWithRecoveryKeyFullKey(CFDataRef wrappingSecret, CFErrorRe
         goto errOut;
     }
 
-    require_action_quiet(sRecKey, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create recovery key from string.")));
+    __Require_Action_Quiet(sRecKey, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create recovery key from string.")));
     
     fullKeyBytes = SecRKCopyBackupFullKey(sRecKey);
     pubKeyBytes = SecRKCopyBackupPublicKey(sRecKey);
-    require_action_quiet(fullKeyBytes && pubKeyBytes, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to get recovery key public and private keys.")));
+    __Require_Action_Quiet(fullKeyBytes && pubKeyBytes, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to get recovery key public and private keys.")));
     keyID = SOSCopyIDOfDataBuffer(((__bridge CFDataRef) pubKeyBytes), error);
-    require_quiet(keyID, errOut);
+    __Require_Quiet(keyID, errOut);
     {
         size_t keysize = ccec_compact_import_priv_size(CFDataGetLength((__bridge CFDataRef)fullKeyBytes));
         ccec_const_cp_t cp = ccec_curve_for_length_lookup(keysize, ccec_cp_256(), ccec_cp_384(), ccec_cp_521(), NULL);
@@ -687,7 +646,7 @@ bskb_keybag_handle_t SOSBSKBLoadAndUnlockWithWrappingSecret(SOSBackupSliceKeyBag
     __block keybag_handle_t result = bad_keybag_handle;
 
     CFDataRef lookedUpData = SOSBSKBCopyRecoveryKey(backupSliceKeyBag);
-    require_quiet(SecRequirementError(lookedUpData != NULL, error, CFSTR("no recovery key found in %@"), backupSliceKeyBag), errOut);
+    __Require_Quiet(SecRequirementError(lookedUpData != NULL, error, CFSTR("no recovery key found in %@"), backupSliceKeyBag), errOut);
 
     SOSPerformWithRecoveryKeyFullKey(wrappingSecret, error, ^(ccec_full_ctx_t fullKey, CFStringRef keyID) {
         SOSPerformWithUnwrappedData(fullKey, lookedUpData, error, ^(size_t size, uint8_t *buffer) {

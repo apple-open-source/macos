@@ -177,6 +177,14 @@ namespace DOMJIT {
 class Signature;
 }
 
+#if ENABLE(WEBASSEMBLY)
+class JSWebAssemblyInstance;
+namespace Wasm {
+class IPIntCallee;
+struct DebugState;
+}
+#endif
+
 struct EntryFrame;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VM);
@@ -296,6 +304,8 @@ public:
 
     bool executionForbidden() const { return m_executionForbidden; }
     void setExecutionForbidden() { m_executionForbidden = true; }
+
+    static JS_EXPORT_PRIVATE JSValue checkVMEntryPermission();
 
     // Setting this means that the VM can never recover from a TerminationException.
     // Currently, we'll only set this for worker threads. Ideally, we want this
@@ -512,6 +522,8 @@ public:
 #endif
     WriteBarrier<Structure> moduleProgramExecutableStructure;
     WriteBarrier<Structure> promiseReactionStructure;
+    WriteBarrier<Structure> promiseCombinatorsContextStructure;
+    WriteBarrier<Structure> promiseCombinatorsGlobalContextStructure;
     WriteBarrier<Structure> regExpStructure;
     WriteBarrier<Structure> symbolStructure;
     WriteBarrier<Structure> symbolTableStructure;
@@ -544,9 +556,17 @@ public:
     WriteBarrier<NativeExecutable> m_promiseResolvingFunctionRejectExecutable;
     WriteBarrier<NativeExecutable> m_promiseFirstResolvingFunctionResolveExecutable;
     WriteBarrier<NativeExecutable> m_promiseFirstResolvingFunctionRejectExecutable;
-    WriteBarrier<NativeExecutable> m_promiseResolvingFunctionResolveWithoutPromiseExecutable;
-    WriteBarrier<NativeExecutable> m_promiseResolvingFunctionRejectWithoutPromiseExecutable;
+    WriteBarrier<NativeExecutable> m_promiseResolvingFunctionResolveWithInternalMicrotaskExecutable;
+    WriteBarrier<NativeExecutable> m_promiseResolvingFunctionRejectWithInternalMicrotaskExecutable;
     WriteBarrier<NativeExecutable> m_promiseCapabilityExecutorExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllFulfillFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllSlowFulfillFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllSettledFulfillFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllSettledRejectFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllSettledSlowFulfillFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAllSettledSlowRejectFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAnyRejectFunctionExecutable;
+    WriteBarrier<NativeExecutable> m_promiseAnySlowRejectFunctionExecutable;
 
     WriteBarrier<JSCell> m_orderedHashTableDeletedValue;
     WriteBarrier<JSCell> m_orderedHashTableSentinel;
@@ -563,8 +583,8 @@ public:
     const ClassInfo* currentlyDestructingCallbackObjectClassInfo { nullptr };
 
     AtomStringTable* m_atomStringTable;
-    WTF::SymbolRegistry m_symbolRegistry;
-    WTF::SymbolRegistry m_privateSymbolRegistry { WTF::SymbolRegistry::Type::PrivateSymbol };
+    UniqueRef<SymbolRegistry> m_symbolRegistry;
+    UniqueRef<SymbolRegistry> m_privateSymbolRegistry;
     CommonIdentifiers* propertyNames { nullptr };
     const ArgList* emptyList;
     SmallStrings smallStrings;
@@ -584,23 +604,21 @@ public:
     void setMightBeExecutingTaintedCode(bool value = true) { m_mightBeExecutingTaintedCode = value; }
 
     AtomStringTable* atomStringTable() const { return m_atomStringTable; }
-    WTF::SymbolRegistry& symbolRegistry() { return m_symbolRegistry; }
-    WTF::SymbolRegistry& privateSymbolRegistry() { return m_privateSymbolRegistry; }
+    SymbolRegistry& symbolRegistry() { return m_symbolRegistry.get(); }
+    CheckedRef<SymbolRegistry> checkedSymbolRegistry() { return m_symbolRegistry.get(); }
+    SymbolRegistry& privateSymbolRegistry() { return m_privateSymbolRegistry.get(); }
+    CheckedRef<SymbolRegistry> checkedPrivateSymbolRegistry() { return m_privateSymbolRegistry.get(); }
 
     WriteBarrier<JSBigInt> heapBigIntConstantOne;
 
     JSCell* orderedHashTableDeletedValue()
     {
-        if (m_orderedHashTableDeletedValue) [[likely]]
-            return m_orderedHashTableDeletedValue.get();
-        return orderedHashTableDeletedValueSlow();
+        return m_orderedHashTableDeletedValue.get();
     }
 
     JSCell* orderedHashTableSentinel()
     {
-        if (m_orderedHashTableSentinel) [[likely]]
-            return m_orderedHashTableSentinel.get();
-        return orderedHashTableSentinelSlow();
+        return m_orderedHashTableSentinel.get();
     }
 
     JSPropertyNameEnumerator* emptyPropertyNameEnumerator()
@@ -638,18 +656,18 @@ public:
         return promiseFirstResolvingFunctionRejectExecutableSlow();
     }
 
-    NativeExecutable* promiseResolvingFunctionResolveWithoutPromiseExecutable()
+    NativeExecutable* promiseResolvingFunctionResolveWithInternalMicrotaskExecutable()
     {
-        if (m_promiseResolvingFunctionResolveWithoutPromiseExecutable) [[likely]]
-            return m_promiseResolvingFunctionResolveWithoutPromiseExecutable.get();
-        return promiseResolvingFunctionResolveWithoutPromiseExecutableSlow();
+        if (m_promiseResolvingFunctionResolveWithInternalMicrotaskExecutable) [[likely]]
+            return m_promiseResolvingFunctionResolveWithInternalMicrotaskExecutable.get();
+        return promiseResolvingFunctionResolveWithInternalMicrotaskExecutableSlow();
     }
 
-    NativeExecutable* promiseResolvingFunctionRejectWithoutPromiseExecutable()
+    NativeExecutable* promiseResolvingFunctionRejectWithInternalMicrotaskExecutable()
     {
-        if (m_promiseResolvingFunctionRejectWithoutPromiseExecutable) [[likely]]
-            return m_promiseResolvingFunctionRejectWithoutPromiseExecutable.get();
-        return promiseResolvingFunctionRejectWithoutPromiseExecutableSlow();
+        if (m_promiseResolvingFunctionRejectWithInternalMicrotaskExecutable) [[likely]]
+            return m_promiseResolvingFunctionRejectWithInternalMicrotaskExecutable.get();
+        return promiseResolvingFunctionRejectWithInternalMicrotaskExecutableSlow();
     }
 
     NativeExecutable* promiseCapabilityExecutorExecutable()
@@ -657,6 +675,62 @@ public:
         if (m_promiseCapabilityExecutorExecutable) [[likely]]
             return m_promiseCapabilityExecutorExecutable.get();
         return promiseCapabilityExecutorExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllFulfillFunctionExecutable()
+    {
+        if (m_promiseAllFulfillFunctionExecutable) [[likely]]
+            return m_promiseAllFulfillFunctionExecutable.get();
+        return promiseAllFulfillFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllSlowFulfillFunctionExecutable()
+    {
+        if (m_promiseAllSlowFulfillFunctionExecutable) [[likely]]
+            return m_promiseAllSlowFulfillFunctionExecutable.get();
+        return promiseAllSlowFulfillFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllSettledFulfillFunctionExecutable()
+    {
+        if (m_promiseAllSettledFulfillFunctionExecutable) [[likely]]
+            return m_promiseAllSettledFulfillFunctionExecutable.get();
+        return promiseAllSettledFulfillFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllSettledRejectFunctionExecutable()
+    {
+        if (m_promiseAllSettledRejectFunctionExecutable) [[likely]]
+            return m_promiseAllSettledRejectFunctionExecutable.get();
+        return promiseAllSettledRejectFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllSettledSlowFulfillFunctionExecutable()
+    {
+        if (m_promiseAllSettledSlowFulfillFunctionExecutable) [[likely]]
+            return m_promiseAllSettledSlowFulfillFunctionExecutable.get();
+        return promiseAllSettledSlowFulfillFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAllSettledSlowRejectFunctionExecutable()
+    {
+        if (m_promiseAllSettledSlowRejectFunctionExecutable) [[likely]]
+            return m_promiseAllSettledSlowRejectFunctionExecutable.get();
+        return promiseAllSettledSlowRejectFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAnyRejectFunctionExecutable()
+    {
+        if (m_promiseAnyRejectFunctionExecutable) [[likely]]
+            return m_promiseAnyRejectFunctionExecutable.get();
+        return promiseAnyRejectFunctionExecutableSlow();
+    }
+
+    NativeExecutable* promiseAnySlowRejectFunctionExecutable()
+    {
+        if (m_promiseAnySlowRejectFunctionExecutable) [[likely]]
+            return m_promiseAnySlowRejectFunctionExecutable.get();
+        return promiseAnySlowRejectFunctionExecutableSlow();
     }
 
     WeakGCMap<SymbolImpl*, Symbol, PtrHash<SymbolImpl*>> symbolImplToSymbolMap;
@@ -892,16 +966,6 @@ public:
     BumpPointerAllocator m_regExpAllocator;
     ConcurrentJSLock m_regExpAllocatorLock;
 
-#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
-    static constexpr size_t patternContextBufferSize = 8192; // Space allocated to save nested parenthesis context
-    Lock m_regExpPatternContextLock;
-    UniqueArray<char> m_regExpPatternContexBuffer;
-    char* acquireRegExpPatternContexBuffer() WTF_ACQUIRES_LOCK(m_regExpPatternContextLock);
-    void releaseRegExpPatternContexBuffer() WTF_RELEASES_LOCK(m_regExpPatternContextLock);
-#else
-    static constexpr size_t patternContextBufferSize = 0; // Space allocated to save nested parenthesis context
-#endif
-
     const Ref<CompactTDZEnvironmentMap> m_compactVariableMap;
 
     LazyUniqueRef<VM, HasOwnPropertyCache> m_hasOwnPropertyCache;
@@ -992,7 +1056,7 @@ public:
     DrainMicrotaskDelayScope drainMicrotaskDelayScope() { return DrainMicrotaskDelayScope { *this }; }
     void queueMicrotask(QueuedTask&&);
     JS_EXPORT_PRIVATE void drainMicrotasks();
-    void setOnEachMicrotaskTick(WTF::Function<void(VM&)>&& func) { m_onEachMicrotaskTick = WTFMove(func); }
+    void setOnEachMicrotaskTick(WTF::Function<void(VM&)>&& func) { m_onEachMicrotaskTick = WTF::move(func); }
     void callOnEachMicrotaskTick()
     {
         if (m_onEachMicrotaskTick)
@@ -1021,6 +1085,7 @@ public:
     void logEvent(CodeBlock*, const char* summary, const Func& func);
 
     std::optional<RefPtr<Thread>> ownerThread() const { return m_apiLock->ownerThread(); }
+    std::optional<uint64_t> ownerThreadUID() const { return m_apiLock->ownerThreadUID(); }
 
     ALWAYS_INLINE VMTraps& traps() { return m_threadContext.traps(); }
     ALWAYS_INLINE const VMTraps& traps() const { return m_threadContext.traps(); }
@@ -1098,24 +1163,31 @@ public:
     void notifyDebuggerHookInjected() { m_isDebuggerHookInjected = true; }
     bool isDebuggerHookInjected() const { return m_isDebuggerHookInjected; }
 
-    bool isWasmStopWorldActive() { return m_isWasmStopWorldActive; }
-    void setIsWasmStopWorldActive(bool isWasmStopWorldActive) { m_isWasmStopWorldActive = isWasmStopWorldActive; }
+#if ENABLE(WEBASSEMBLY)
+    JS_EXPORT_PRIVATE Wasm::DebugState* debugState();
+#endif
 
 private:
     VM(VMType, HeapType, WTF::RunLoop* = nullptr, bool* success = nullptr);
     static VM*& sharedInstanceInternal();
     void createNativeThunk();
 
-    JS_EXPORT_PRIVATE JSCell* orderedHashTableDeletedValueSlow();
-    JS_EXPORT_PRIVATE JSCell* orderedHashTableSentinelSlow();
     JSPropertyNameEnumerator* emptyPropertyNameEnumeratorSlow();
     NativeExecutable* promiseResolvingFunctionResolveExecutableSlow();
     NativeExecutable* promiseResolvingFunctionRejectExecutableSlow();
     NativeExecutable* promiseFirstResolvingFunctionResolveExecutableSlow();
     NativeExecutable* promiseFirstResolvingFunctionRejectExecutableSlow();
-    NativeExecutable* promiseResolvingFunctionResolveWithoutPromiseExecutableSlow();
-    NativeExecutable* promiseResolvingFunctionRejectWithoutPromiseExecutableSlow();
+    NativeExecutable* promiseResolvingFunctionResolveWithInternalMicrotaskExecutableSlow();
+    NativeExecutable* promiseResolvingFunctionRejectWithInternalMicrotaskExecutableSlow();
     NativeExecutable* promiseCapabilityExecutorExecutableSlow();
+    NativeExecutable* promiseAllFulfillFunctionExecutableSlow();
+    NativeExecutable* promiseAllSlowFulfillFunctionExecutableSlow();
+    NativeExecutable* promiseAllSettledFulfillFunctionExecutableSlow();
+    NativeExecutable* promiseAllSettledRejectFunctionExecutableSlow();
+    NativeExecutable* promiseAllSettledSlowFulfillFunctionExecutableSlow();
+    NativeExecutable* promiseAllSettledSlowRejectFunctionExecutableSlow();
+    NativeExecutable* promiseAnyRejectFunctionExecutableSlow();
+    NativeExecutable* promiseAnySlowRejectFunctionExecutableSlow();
 
     void updateStackLimits();
 
@@ -1225,7 +1297,10 @@ private:
     bool m_executionForbidden { false };
     bool m_executionForbiddenOnTermination { false };
     bool m_isDebuggerHookInjected { false };
-    bool m_isWasmStopWorldActive { false };
+
+#if ENABLE(WEBASSEMBLY)
+    std::unique_ptr<Wasm::DebugState> m_debugState;
+#endif
 
     Lock m_loopHintExecutionCountLock;
     UncheckedKeyHashMap<const JSInstruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;

@@ -64,6 +64,7 @@
 #include <WebCore/InheritsFrom.h>
 #include <WebCore/MoveOnlyBaseClass.h>
 #include <WebCore/MoveOnlyDerivedClass.h>
+#include <WebCore/OpaqueTypeObject.h>
 #if USE(APPKIT)
 #include <WebCore/ScrollbarTrackCornerSystemImageMac.h>
 #endif
@@ -205,11 +206,11 @@ std::optional<Namespace::Subnamespace::StructName> ArgumentCoder<Namespace::Subn
         return std::nullopt;
     return {
         Namespace::Subnamespace::StructName {
-            WTFMove(*firstMemberName),
+            WTF::move(*firstMemberName),
 #if ENABLE(SECOND_MEMBER)
-            WTFMove(*secondMemberName),
+            WTF::move(*secondMemberName),
 #endif
-            WTFMove(*nullableTestMember)
+            WTF::move(*nullableTestMember)
         }
     };
 }
@@ -234,6 +235,7 @@ void ArgumentCoder<Namespace::OtherClass>::encode(Encoder& encoder, const Namesp
 
     encoder << instance.a;
     encoder << instance.b;
+    ASSERT(!isInWebProcess());
     encoder << instance.dataDetectorResults;
 }
 
@@ -241,14 +243,14 @@ std::optional<Namespace::OtherClass> ArgumentCoder<Namespace::OtherClass>::decod
 {
     auto a = decoder.decode<int>();
     auto b = decoder.decode<bool>();
-    auto dataDetectorResults = decoder.decodeWithAllowedClasses<NSArray>({ NSArray.class, PAL::getDDScannerResultClassSingleton() });
+    auto dataDetectorResults = decoder.decodeWithAllowedClasses<RetainPtr<NSArray>>({ NSArray.class, PAL::getDDScannerResultClassSingleton() });
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::OtherClass {
-            WTFMove(*a),
-            WTFMove(*b),
-            WTFMove(*dataDetectorResults)
+            WTF::move(*a),
+            WTF::move(*b),
+            WTF::move(*dataDetectorResults)
         }
     };
 }
@@ -271,12 +273,12 @@ std::optional<Namespace::ClassWithMemberPrecondition> ArgumentCoder<Namespace::C
 {
     if (!(PAL::isPassKitCoreFrameworkAvailable()))
         return std::nullopt;
-    auto m_pkPaymentMethod = decoder.decodeWithAllowedClasses<PKPaymentMethod>({ PAL::getPKPaymentMethodClassSingleton() });
+    auto m_pkPaymentMethod = decoder.decodeWithAllowedClasses<RetainPtr<PKPaymentMethod>>({ PAL::getPKPaymentMethodClassSingleton() });
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::ClassWithMemberPrecondition {
-            WTFMove(*m_pkPaymentMethod)
+            WTF::move(*m_pkPaymentMethod)
         }
     };
 }
@@ -301,9 +303,9 @@ std::optional<Ref<Namespace::ReturnRefClass>> ArgumentCoder<Namespace::ReturnRef
         return std::nullopt;
     return {
         Namespace::ReturnRefClass::create(
-            WTFMove(*functionCallmember1),
-            WTFMove(*functionCallmember2),
-            WTFMove(*uniqueMember)
+            WTF::move(*functionCallmember1),
+            WTF::move(*functionCallmember2),
+            WTF::move(*uniqueMember)
         )
     };
 }
@@ -333,9 +335,9 @@ std::optional<Namespace::EmptyConstructorStruct> ArgumentCoder<Namespace::EmptyC
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     Namespace::EmptyConstructorStruct result;
-    result.m_int = WTFMove(*m_int);
-    result.m_double = WTFMove(*m_double);
-    return { WTFMove(result) };
+    result.m_int = WTF::move(*m_int);
+    result.m_double = WTF::move(*m_double);
+    return { WTF::move(result) };
 }
 
 void ArgumentCoder<Namespace::EmptyConstructorWithIf>::encode(Encoder& encoder, const Namespace::EmptyConstructorWithIf& instance)
@@ -384,12 +386,12 @@ std::optional<Namespace::EmptyConstructorWithIf> ArgumentCoder<Namespace::EmptyC
         return std::nullopt;
     Namespace::EmptyConstructorWithIf result;
 #if CONDITION_AROUND_M_TYPE_AND_M_VALUE
-    result.m_type = WTFMove(*m_type);
+    result.m_type = WTF::move(*m_type);
 #endif
 #if CONDITION_AROUND_M_TYPE_AND_M_VALUE
-    result.m_value = WTFMove(*m_value);
+    result.m_value = WTF::move(*m_value);
 #endif
-    return { WTFMove(result) };
+    return { WTF::move(result) };
 }
 
 void ArgumentCoder<WithoutNamespace>::encode(Encoder& encoder, const WithoutNamespace& instance)
@@ -413,7 +415,7 @@ std::optional<WithoutNamespace> ArgumentCoder<WithoutNamespace>::decode(Decoder&
         return std::nullopt;
     return {
         WithoutNamespace {
-            WTFMove(*a)
+            WTF::move(*a)
         }
     };
 }
@@ -453,7 +455,7 @@ std::optional<WithoutNamespaceWithAttributes> ArgumentCoder<WithoutNamespaceWith
         return std::nullopt;
     return {
         WithoutNamespaceWithAttributes {
-            WTFMove(*a)
+            WTF::move(*a)
         }
     };
 }
@@ -483,9 +485,9 @@ std::optional<WebCore::InheritsFrom> ArgumentCoder<WebCore::InheritsFrom>::decod
     return {
         WebCore::InheritsFrom {
             WithoutNamespace {
-                WTFMove(*a)
+                WTF::move(*a)
             },
-            WTFMove(*b)
+            WTF::move(*b)
         }
     };
 }
@@ -523,11 +525,11 @@ std::optional<WebCore::InheritanceGrandchild> ArgumentCoder<WebCore::Inheritance
         WebCore::InheritanceGrandchild {
             WebCore::InheritsFrom {
                 WithoutNamespace {
-                    WTFMove(*a)
+                    WTF::move(*a)
                 },
-                WTFMove(*b)
+                WTF::move(*b)
             },
-            WTFMove(*c)
+            WTF::move(*c)
         }
     };
 }
@@ -546,7 +548,7 @@ std::optional<WTF::Seconds> ArgumentCoder<WTF::Seconds>::decode(Decoder& decoder
         return std::nullopt;
     return {
         WTF::Seconds {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -572,7 +574,7 @@ std::optional<WTF::CreateUsingClass> ArgumentCoder<WTF::CreateUsingClass>::decod
         return std::nullopt;
     return {
         WTF::CreateUsingClass::fromDouble(
-            WTFMove(*value)
+            WTF::move(*value)
         )
     };
 }
@@ -600,10 +602,10 @@ std::optional<WebCore::FloatBoxExtent> ArgumentCoder<WebCore::FloatBoxExtent>::d
         return std::nullopt;
     return {
         WebCore::FloatBoxExtent {
-            WTFMove(*top),
-            WTFMove(*right),
-            WTFMove(*bottom),
-            WTFMove(*left)
+            WTF::move(*top),
+            WTF::move(*right),
+            WTF::move(*bottom),
+            WTF::move(*left)
         }
     };
 }
@@ -628,14 +630,14 @@ void ArgumentCoder<SoftLinkedMember>::encode(Encoder& encoder, const SoftLinkedM
 
 std::optional<SoftLinkedMember> ArgumentCoder<SoftLinkedMember>::decode(Decoder& decoder)
 {
-    auto firstMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClassSingleton() });
-    auto secondMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClassSingleton() });
+    auto firstMember = decoder.decodeWithAllowedClasses<RetainPtr<DDActionContext>>({ PAL::getDDActionContextClassSingleton() });
+    auto secondMember = decoder.decodeWithAllowedClasses<RetainPtr<DDActionContext>>({ PAL::getDDActionContextClassSingleton() });
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         SoftLinkedMember {
-            WTFMove(*firstMember),
-            WTFMove(*secondMember)
+            WTF::move(*firstMember),
+            WTF::move(*secondMember)
         }
     };
 }
@@ -689,27 +691,27 @@ std::optional<Ref<WebCore::TimingFunction>> ArgumentCoder<WebCore::TimingFunctio
         auto result = decoder.decode<Ref<WebCore::LinearTimingFunction>>();
         if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
-        return WTFMove(*result);
+        return WTF::move(*result);
     }
     if (type == WebCore_TimingFunction_Subclass::CubicBezierTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::CubicBezierTimingFunction>>();
         if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
-        return WTFMove(*result);
+        return WTF::move(*result);
     }
 #if CONDITION
     if (type == WebCore_TimingFunction_Subclass::StepsTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::StepsTimingFunction>>();
         if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
-        return WTFMove(*result);
+        return WTF::move(*result);
     }
 #endif
     if (type == WebCore_TimingFunction_Subclass::SpringTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::SpringTimingFunction>>();
         if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
-        return WTFMove(*result);
+        return WTF::move(*result);
     }
     ASSERT_NOT_REACHED();
     return std::nullopt;
@@ -737,7 +739,7 @@ std::optional<Namespace::ConditionalCommonClass> ArgumentCoder<Namespace::Condit
         return std::nullopt;
     return {
         Namespace::ConditionalCommonClass {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -770,8 +772,8 @@ std::optional<Namespace::CommonClass> ArgumentCoder<Namespace::CommonClass>::dec
         return std::nullopt;
     return {
         Namespace::CommonClass {
-            WTFMove(*value),
-            WTFMove(*nonRefMemberWithSubclasses)
+            WTF::move(*value),
+            WTF::move(*nonRefMemberWithSubclasses)
         }
     };
 }
@@ -800,7 +802,7 @@ std::optional<Ref<Namespace::AnotherCommonClass>> ArgumentCoder<Namespace::Anoth
         return std::nullopt;
     return {
         Namespace::AnotherCommonClass::create(
-            WTFMove(*value)
+            WTF::move(*value)
         )
     };
 }
@@ -814,7 +816,7 @@ void ArgumentCoder<WebCore::MoveOnlyBaseClass>::encode(Encoder& encoder, WebCore
 {
     if (auto* subclass = dynamicDowncast<WebCore::MoveOnlyDerivedClass>(instance)) {
         encoder << WebCore_MoveOnlyBaseClass_Subclass::MoveOnlyDerivedClass;
-        encoder << WTFMove(*subclass);
+        encoder << WTF::move(*subclass);
         return;
     }
     ASSERT_NOT_REACHED();
@@ -832,7 +834,7 @@ std::optional<WebCore::MoveOnlyBaseClass> ArgumentCoder<WebCore::MoveOnlyBaseCla
         auto result = decoder.decode<Ref<WebCore::MoveOnlyDerivedClass>>();
         if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
-        return WTFMove(*result);
+        return WTF::move(*result);
     }
     ASSERT_NOT_REACHED();
     return std::nullopt;
@@ -852,8 +854,8 @@ void ArgumentCoder<WebCore::MoveOnlyDerivedClass>::encode(Encoder& encoder, WebC
         , offsetof(WebCore::MoveOnlyDerivedClass, secondMember)
     >::value);
 
-    encoder << WTFMove(instance.firstMember);
-    encoder << WTFMove(instance.secondMember);
+    encoder << WTF::move(instance.firstMember);
+    encoder << WTF::move(instance.secondMember);
 }
 
 std::optional<WebCore::MoveOnlyDerivedClass> ArgumentCoder<WebCore::MoveOnlyDerivedClass>::decode(Decoder& decoder)
@@ -864,8 +866,8 @@ std::optional<WebCore::MoveOnlyDerivedClass> ArgumentCoder<WebCore::MoveOnlyDeri
         return std::nullopt;
     return {
         WebCore::MoveOnlyDerivedClass {
-            WTFMove(*firstMember),
-            WTFMove(*secondMember)
+            WTF::move(*firstMember),
+            WTF::move(*secondMember)
         }
     };
 }
@@ -877,7 +879,7 @@ std::optional<WebKit::CustomEncoded> ArgumentCoder<WebKit::CustomEncoded>::decod
         return std::nullopt;
     return {
         WebKit::CustomEncoded {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -938,27 +940,27 @@ std::optional<WebKit::LayerProperties> ArgumentCoder<WebKit::LayerProperties>::d
     result.changedProperties = *changedProperties;
     if (*changedProperties & WebKit::LayerChange::NameChanged) {
         if (auto deserialized = decoder.decode<String>())
-            result.name = WTFMove(*deserialized);
+            result.name = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
 #if ENABLE(FEATURE)
     if (*changedProperties & WebKit::LayerChange::TransformChanged) {
         if (auto deserialized = decoder.decode<std::unique_ptr<WebCore::TransformationMatrix>>())
-            result.featureEnabledMember = WTFMove(*deserialized);
+            result.featureEnabledMember = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
 #endif
     if (*changedProperties & WebKit::LayerChange::FeatureEnabledMember) {
         if (auto deserialized = decoder.decode<bool>())
-            result.bitFieldMember = WTFMove(*deserialized);
+            result.bitFieldMember = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
-    return { WTFMove(result) };
+    return { WTF::move(result) };
 }
 
 void ArgumentCoder<WebKit::TemplateTest<WebKit::Fabulous>>::encode(Encoder& encoder, const WebKit::TemplateTest<WebKit::Fabulous>& instance)
@@ -982,7 +984,7 @@ std::optional<WebKit::TemplateTest<WebKit::Fabulous>> ArgumentCoder<WebKit::Temp
         return std::nullopt;
     return {
         WebKit::TemplateTest<WebKit::Fabulous> {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -1008,7 +1010,7 @@ std::optional<WebKit::TemplateTest<WebCore::Amazing>> ArgumentCoder<WebKit::Temp
         return std::nullopt;
     return {
         WebKit::TemplateTest<WebCore::Amazing> {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -1034,7 +1036,7 @@ std::optional<WebKit::TemplateTest<JSC::Incredible>> ArgumentCoder<WebKit::Templ
         return std::nullopt;
     return {
         WebKit::TemplateTest<JSC::Incredible> {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -1060,7 +1062,7 @@ std::optional<WebKit::TemplateTest<Testing::StorageSize>> ArgumentCoder<WebKit::
         return std::nullopt;
     return {
         WebKit::TemplateTest<Testing::StorageSize> {
-            WTFMove(*value)
+            WTF::move(*value)
         }
     };
 }
@@ -1094,7 +1096,7 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNode>> ArgumentCoder<WebCor
     std::optional<WebCore::PlatformLayerIdentifier> layerlayerIDForEncoding { };
     if (*changedProperties & WebCore::ScrollingStateNode::Property::Layer) {
         if (auto deserialized = decoder.decode<std::optional<WebCore::PlatformLayerIdentifier>>())
-            layerlayerIDForEncoding = WTFMove(*deserialized);
+            layerlayerIDForEncoding = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
@@ -1102,10 +1104,10 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNode>> ArgumentCoder<WebCor
         return std::nullopt;
     return {
         WebCore::ScrollingStateFrameHostingNode::create(
-            WTFMove(*scrollingNodeID),
-            WTFMove(*children),
-            WTFMove(*changedProperties),
-            WTFMove(layerlayerIDForEncoding)
+            WTF::move(*scrollingNodeID),
+            WTF::move(*children),
+            WTF::move(*changedProperties),
+            WTF::move(layerlayerIDForEncoding)
         )
     };
 }
@@ -1145,7 +1147,7 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple>> A
     std::optional<WebCore::PlatformLayerIdentifier> layerlayerIDForEncoding { };
     if (*changedProperties & WebCore::ScrollingStateNode::Property::Layer) {
         if (auto deserialized = decoder.decode<std::optional<WebCore::PlatformLayerIdentifier>>())
-            layerlayerIDForEncoding = WTFMove(*deserialized);
+            layerlayerIDForEncoding = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
@@ -1153,7 +1155,7 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple>> A
     bool otherMember { };
     if (*changedProperties & WebCore::ScrollingStateNode::Property::Other) {
         if (auto deserialized = decoder.decode<bool>())
-            otherMember = WTFMove(*deserialized);
+            otherMember = WTF::move(*deserialized);
         else
             return std::nullopt;
     }
@@ -1162,12 +1164,12 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple>> A
         return std::nullopt;
     return {
         WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple::create(
-            WTFMove(*scrollingNodeID),
-            WTFMove(*children),
-            WTFMove(*changedProperties),
-            WTFMove(layerlayerIDForEncoding),
-            WTFMove(otherMember),
-            WTFMove(*memberAfterTuple)
+            WTF::move(*scrollingNodeID),
+            WTF::move(*children),
+            WTF::move(*changedProperties),
+            WTF::move(layerlayerIDForEncoding),
+            WTF::move(otherMember),
+            WTF::move(*memberAfterTuple)
         )
     };
 }
@@ -1198,7 +1200,7 @@ std::optional<RequestEncodedWithBody> ArgumentCoder<RequestEncodedWithBody>::dec
         return std::nullopt;
     return {
         RequestEncodedWithBody {
-            WTFMove(*request)
+            WTF::move(*request)
         }
     };
 }
@@ -1215,8 +1217,8 @@ void ArgumentCoder<RequestEncodedWithBodyRValue>::encode(Encoder& encoder, Reque
     >::value);
 
     RefPtr requestBody = instance.request.httpBody();
-    encoder << WTFMove(instance.request);
-    encoder << IPC::FormDataReference { WTFMove(requestBody) };
+    encoder << WTF::move(instance.request);
+    encoder << IPC::FormDataReference { WTF::move(requestBody) };
 }
 
 std::optional<RequestEncodedWithBodyRValue> ArgumentCoder<RequestEncodedWithBodyRValue>::decode(Decoder& decoder)
@@ -1230,7 +1232,7 @@ std::optional<RequestEncodedWithBodyRValue> ArgumentCoder<RequestEncodedWithBody
         return std::nullopt;
     return {
         RequestEncodedWithBodyRValue {
-            WTFMove(*request)
+            WTF::move(*request)
         }
     };
 }
@@ -1240,8 +1242,23 @@ void ArgumentCoder<CFFooRef>::encode(Encoder& encoder, CFFooRef instance)
     encoder << WebKit::FooWrapper { instance };
 }
 
+void ArgumentCoder<RetainPtr<CFFooRef>>::encode(Encoder& encoder, const RetainPtr<CFFooRef>& retainPtr)
+{
+    if (!retainPtr) {
+        encoder << false;
+        return;
+    }
+    encoder << true;
+    ArgumentCoder<CFFooRef>::encode(encoder, retainPtr.get());
+}
+
 std::optional<RetainPtr<CFFooRef>> ArgumentCoder<RetainPtr<CFFooRef>>::decode(Decoder& decoder)
 {
+    auto isEngaged = decoder.template decode<bool>();
+    if (!isEngaged)
+        return std::nullopt;
+    if (!*isEngaged)
+        return { nullptr };
     auto result = decoder.decode<WebKit::FooWrapper>();
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
@@ -1259,8 +1276,33 @@ void ArgumentCoder<CFBarRef>::encode(StreamConnectionEncoder& encoder, CFBarRef 
     encoder << WebKit::BarWrapper::createFromCF(instance);
 }
 
+void ArgumentCoder<RetainPtr<CFBarRef>>::encode(Encoder& encoder, const RetainPtr<CFBarRef>& retainPtr)
+{
+    if (!retainPtr) {
+        encoder << false;
+        return;
+    }
+    encoder << true;
+    ArgumentCoder<CFBarRef>::encode(encoder, retainPtr.get());
+}
+
+void ArgumentCoder<RetainPtr<CFBarRef>>::encode(StreamConnectionEncoder& encoder, const RetainPtr<CFBarRef>& retainPtr)
+{
+    if (!retainPtr) {
+        encoder << false;
+        return;
+    }
+    encoder << true;
+    ArgumentCoder<CFBarRef>::encode(encoder, retainPtr.get());
+}
+
 std::optional<RetainPtr<CFBarRef>> ArgumentCoder<RetainPtr<CFBarRef>>::decode(Decoder& decoder)
 {
+    auto isEngaged = decoder.template decode<bool>();
+    if (!isEngaged)
+        return std::nullopt;
+    if (!*isEngaged)
+        return { nullptr };
     auto result = decoder.decode<WebKit::BarWrapper>();
     if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
@@ -1298,8 +1340,8 @@ std::optional<SkFooBar> ArgumentCoder<SkFooBar>::decode(Decoder& decoder)
         return std::nullopt;
     return {
         CoreIPCSkFooBar {
-            WTFMove(*foo),
-            WTFMove(*bar)
+            WTF::move(*foo),
+            WTF::move(*bar)
         }
     };
 }
@@ -1320,7 +1362,7 @@ std::optional<WebKit::RValueWithFunctionCalls> ArgumentCoder<WebKit::RValueWithF
         return std::nullopt;
     return {
         WebKit::RValueWithFunctionCalls {
-            WTFMove(*callFunction)
+            WTF::move(*callFunction)
         }
     };
 }
@@ -1351,8 +1393,8 @@ std::optional<WebKit::RemoteVideoFrameReference> ArgumentCoder<WebKit::RemoteVid
         return std::nullopt;
     return {
         WebKit::RemoteVideoFrameReference {
-            WTFMove(*identifier),
-            WTFMove(*version)
+            WTF::move(*identifier),
+            WTF::move(*version)
         }
     };
 }
@@ -1383,8 +1425,8 @@ std::optional<WebKit::RemoteVideoFrameWriteReference> ArgumentCoder<WebKit::Remo
         return std::nullopt;
     return {
         WebKit::RemoteVideoFrameWriteReference {
-            WTFMove(*reference),
-            WTFMove(*pendingReads)
+            WTF::move(*reference),
+            WTF::move(*pendingReads)
         }
     };
 }
@@ -1411,7 +1453,7 @@ std::optional<Namespace::OuterClass> ArgumentCoder<Namespace::OuterClass>::decod
         return std::nullopt;
     return {
         Namespace::OuterClass {
-            WTFMove(*outerValue)
+            WTF::move(*outerValue)
         }
     };
 }
@@ -1440,7 +1482,7 @@ std::optional<Namespace::OtherOuterClass> ArgumentCoder<Namespace::OtherOuterCla
         return std::nullopt;
     return {
         Namespace::OtherOuterClass {
-            WTFMove(*outerValue)
+            WTF::move(*outerValue)
         }
     };
 }
@@ -1498,8 +1540,8 @@ std::optional<Ref<WebCore::AppKitControlSystemImage>> ArgumentCoder<WebCore::App
         return std::nullopt;
     return {
         WebCore::ScrollbarTrackCornerSystemImageMac::create(
-            WTFMove(*m_tintColor),
-            WTFMove(*m_useDarkAppearance)
+            WTF::move(*m_tintColor),
+            WTF::move(*m_useDarkAppearance)
         )
     };
 }
@@ -1529,10 +1571,37 @@ std::optional<WebCore::RectEdges<bool>> ArgumentCoder<WebCore::RectEdges<bool>>:
         return std::nullopt;
     return {
         WebCore::RectEdges<bool> {
-            WTFMove(*top),
-            WTFMove(*right),
-            WTFMove(*bottom),
-            WTFMove(*left)
+            WTF::move(*top),
+            WTF::move(*right),
+            WTF::move(*bottom),
+            WTF::move(*left)
+        }
+    };
+}
+
+void ArgumentCoder<WebCore::OpaqueTypeObject>::encode(Encoder& encoder, const WebCore::OpaqueTypeObject& instance)
+{
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.member)>, NotDispatchableFromWebContent>);
+    struct ShouldBeSameSizeAsOpaqueTypeObject : public VirtualTableAndRefCountOverhead<std::is_polymorphic_v<WebCore::OpaqueTypeObject>, false> {
+        NotDispatchableFromWebContent member;
+    };
+    static_assert(sizeof(ShouldBeSameSizeAsOpaqueTypeObject) == sizeof(WebCore::OpaqueTypeObject));
+    static_assert(MembersInCorrectOrder < 0
+        , offsetof(WebCore::OpaqueTypeObject, member)
+    >::value);
+
+    ASSERT(!isInWebProcess());
+    encoder << instance.member;
+}
+
+std::optional<WebCore::OpaqueTypeObject> ArgumentCoder<WebCore::OpaqueTypeObject>::decode(Decoder& decoder)
+{
+    auto member = decoder.decode<NotDispatchableFromWebContent>();
+    if (!decoder.isValid()) [[unlikely]]
+        return std::nullopt;
+    return {
+        WebCore::OpaqueTypeObject {
+            WTF::move(*member)
         }
     };
 }

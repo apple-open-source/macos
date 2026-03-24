@@ -42,7 +42,7 @@ public:
     LineLayoutResult layoutInlineContent(const LineInput&, const std::optional<PreviousLine>&, bool isFirstFormattedLine) final;
 
     static bool isEligibleForSimplifiedTextOnlyInlineLayoutByContent(const InlineContentCache::InlineItems&, const PlacedFloats&);
-    static bool isEligibleForSimplifiedInlineLayoutByStyle(const RenderStyle&);
+    static bool isEligibleForSimplifiedInlineLayoutByStyle(const Box&);
 
 private:
     InlineItemPosition placeInlineTextContent(const RenderStyle&, const InlineItemRange&);

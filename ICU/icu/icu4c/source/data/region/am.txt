@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 am{
     Countries{
         001{"ዓለም"}
@@ -85,6 +85,7 @@ am{
         CN{"ቻይና"}
         CO{"ኮሎምቢያ"}
         CP{"ክሊፐርቶን ደሴት"}
+        CQ{"ሳርክ"}
         CR{"ኮስታሪካ"}
         CU{"ኩባ"}
         CV{"ኬፕቨርዴ"}

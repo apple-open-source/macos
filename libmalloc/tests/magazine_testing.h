@@ -24,31 +24,20 @@
 #ifndef __MAGAZINE_TESTING
 #define __MAGAZINE_TESTING
 
-// Import the mvm_* functions for magazines to use
-#import "../src/vm.c"
+#include "mvm_testing.h"
 
 #import "../src/magazine_rack.c"
 
-bool
-malloc_tracing_enabled = false;
-
 unsigned int
 ncpuclusters = 1;
+
+unsigned int
+_os_cpu_number_override = -1;
 
 int
 recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
 
 // Stub out cross-file dependencies so that they just assert.
-void malloc_report(uint32_t flags, const char *fmt, ...)
-{
-	__builtin_trap();
-}
-
-void
-malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
-{
-	__builtin_trap();
-}
 void
 malloc_zone_check_fail(const char *msg, const char *fmt, ...)
 {

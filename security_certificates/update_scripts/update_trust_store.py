@@ -139,6 +139,7 @@ def add(srcroot, dry_run, update, cert):
     roots_dir_path = srcroot + "/certificates/roots/"
     test_roots_dir_path = srcroot + "/certificates/test-roots/"
     test_platform_dir_path = srcroot + "/certificates/test-platform/"
+    test_custom_dir_path = srcroot + "/certificates/test-custom/"
 
     if not dry_run:
         update_human_map(srcroot, cert)
@@ -152,6 +153,8 @@ def add(srcroot, dry_run, update, cert):
             writeCert(cert, test_roots_dir_path)
         elif anchorType == "Test-Platform":
             writeCert(cert, test_platform_dir_path)
+        elif anchorType == "Test-Custom":
+            writeCert(cert, test_custom_dir_path)
 
     if "policy_constraints" in update:
         updateConstraints(srcroot, dry_run, certHash(cert), anchorType, update["policy_constraints"])
@@ -171,6 +174,7 @@ def remove(srcroot, dry_run, update, cert):
     roots_dir_path = srcroot + "/certificates/roots/"
     test_roots_dir_path = srcroot + "/certificates/test-roots/"
     test_platform_dir_path = srcroot + "/certificates/test-platform/"
+    test_custom_dir_path = srcroot + "/certificates/test-custom/"
 
     filename = certHash(cert) + ".cer"
     if os.path.isfile(platform_dir_path + filename):
@@ -198,6 +202,11 @@ def remove(srcroot, dry_run, update, cert):
         if not dry_run:
             os.rename(test_roots_dir_path + filename, destDir)
         updateConstraints(srcroot, dry_run, certHash(cert), "Test-System", None)
+    if os.path.isfile(test_custom_dir_path + filename):
+        print("Removing from test custom anchors")
+        if not dry_run:
+            os.rename(test_custom_dir_path + filename, destDir)
+        updateConstraints(srcroot, dry_run, certHash(cert), "Test-Custom", None)
 
     updateEVRoots(srcroot, dry_run, cert, None)
 

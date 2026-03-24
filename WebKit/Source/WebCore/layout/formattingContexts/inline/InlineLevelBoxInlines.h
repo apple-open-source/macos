@@ -28,7 +28,8 @@
 
 #include "CSSPrimitiveKeywordList.h"
 #include "InlineLevelBox.h"
-#include "RenderStyleInlines.h"
+#include "LayoutBoxInlines.h"
+#include "RenderStyle+GettersInlines.h"
 
 namespace WebCore {
 namespace Layout {
@@ -45,7 +46,7 @@ template<typename PreferredLineHeightFunctor> InlineLevelBox::VerticalAlignment 
     );
 }
 
-inline InlineLevelBox::InlineLevelBox(const Box& layoutBox, const RenderStyle& style, InlineLayoutUnit logicalLeft, InlineLayoutSize logicalSize, Type type, OptionSet<PositionWithinLayoutBox> positionWithinLayoutBox)
+inline InlineLevelBox::InlineLevelBox(const Box& layoutBox, const RenderStyle& style, InlineLayoutUnit logicalLeft, InlineLayoutSize logicalSize, Type type, EnumSet<PositionWithinLayoutBox> positionWithinLayoutBox)
     : m_layoutBox(layoutBox)
     , m_logicalRect({ }, logicalLeft, logicalSize.width(), logicalSize.height())
     , m_hasContent(layoutBox.isRubyBase() && layoutBox.associatedRubyAnnotationBox()) // Normally we set inline box's has-content state as we come across child content, but ruby annotations are not visible to inline layout.
@@ -84,18 +85,18 @@ inline InlineLevelBox InlineLevelBox::createRootInlineBox(const Box& layoutBox, 
 inline bool InlineLevelBox::mayStretchLineBox() const
 {
     if (isRootInlineBox())
-        return m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::Block, WebCore::Style::LineBoxContain::Inline }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::InitialLetter, WebCore::Style::LineBoxContain::Font, WebCore::Style::LineBoxContain::Glyphs }));
+        return m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::Block, WebCore::Style::WebkitLineBoxContainValue::Inline }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::InitialLetter, WebCore::Style::WebkitLineBoxContainValue::Font, WebCore::Style::WebkitLineBoxContainValue::Glyphs }));
 
     if (isAtomicInlineBox())
-        return m_style.lineBoxContain.contains(WebCore::Style::LineBoxContain::Replaced);
+        return m_style.lineBoxContain.contains(WebCore::Style::WebkitLineBoxContainValue::Replaced);
 
     if (isInlineBox()) {
         // Either the inline box itself is included or its text content through Glyph and Font.
-        return m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::Inline, WebCore::Style::LineBoxContain::InlineBox }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::Font, WebCore::Style::LineBoxContain::Glyphs }));
+        return m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::Inline, WebCore::Style::WebkitLineBoxContainValue::InlineBox }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::Font, WebCore::Style::WebkitLineBoxContainValue::Glyphs }));
     }
 
     if (isLineBreakBox())
-        return m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::Inline, WebCore::Style::LineBoxContain::InlineBox }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::LineBoxContain::Font, WebCore::Style::LineBoxContain::Glyphs }));
+        return m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::Inline, WebCore::Style::WebkitLineBoxContainValue::InlineBox }) || (hasContent() && m_style.lineBoxContain.containsAny({ WebCore::Style::WebkitLineBoxContainValue::Font, WebCore::Style::WebkitLineBoxContainValue::Glyphs }));
 
     return true;
 }

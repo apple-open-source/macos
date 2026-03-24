@@ -82,7 +82,7 @@ WebKitFormSubmissionRequest* webkitFormSubmissionRequestCreate(const Vector<std:
             g_ptr_array_add(request->priv->textFieldValues.get(), g_strdup(values[i].second.utf8().data()));
         }
     }
-    request->priv->listener = WTFMove(listener);
+    request->priv->listener = WTF::move(listener);
     return request;
 }
 

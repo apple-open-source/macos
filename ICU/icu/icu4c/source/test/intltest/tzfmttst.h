@@ -34,6 +34,9 @@ class TimeZoneFormatTest : public IntlTest {
     void TestBogusLocale();
     void Test22614GetMetaZoneNamesNotCrash();
     void Test22615NonASCIIID();
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    void checkForUninitializedMemory(); // rdar://162810290
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
     void RunTimeRoundTripTests(int32_t threadNumber);
     void RunAdoptDefaultThreadSafeTests(int32_t threadNumber);

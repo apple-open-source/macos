@@ -1549,6 +1549,12 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     }];
 }
 
+- (void)failNextZoneCreation:(CKRecordZoneID*)zoneID withError:(NSError*)error {
+    XCTAssertNil(self.zones[zoneID], "Zone does not exist yet");
+    self.zones[zoneID] = [[FakeCKZone alloc] initZone: zoneID];
+    self.zones[zoneID].creationError = error;
+}
+
 // Report success, but don't actually create the zone.
 // This way, you can find ZoneNotFound errors later on
 - (void)failNextZoneCreationSilently:(CKRecordZoneID*)zoneID {

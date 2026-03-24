@@ -34,8 +34,6 @@
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
 #include "ScrollbarTheme.h"
-#include "StyleInheritedData.h"
-#include "StyleProperties.h"
 #include "TextControlInnerElements.h"
 #include "VisiblePosition.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -43,11 +41,11 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTextControl);
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTextControlInnerContainer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTextControl);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTextControlInnerContainer);
 
 RenderTextControl::RenderTextControl(Type type, HTMLTextFormControlElement& element, RenderStyle&& style)
-    : RenderBlockFlow(type, element, WTFMove(style), BlockFlowFlag::IsTextControl)
+    : RenderBlockFlow(type, element, WTF::move(style), BlockFlowFlag::IsTextControl)
 {
     ASSERT(isRenderTextControl());
 }
@@ -69,7 +67,7 @@ RefPtr<TextControlInnerTextElement> RenderTextControl::innerTextElement() const
     return textFormControlElement().innerTextElement();
 }
 
-void RenderTextControl::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+void RenderTextControl::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     RenderBlockFlow::styleDidChange(diff, oldStyle);
     auto innerText = innerTextElement();
@@ -82,8 +80,8 @@ void RenderTextControl::styleDidChange(StyleDifference diff, const RenderStyle* 
         auto newInnerTextStyle = textFormControlElement().createInnerTextStyle(style());
         auto oldInnerTextStyle = textFormControlElement().createInnerTextStyle(*oldStyle);
         if (newInnerTextStyle != oldInnerTextStyle)
-            innerTextRenderer->setStyle(WTFMove(newInnerTextStyle));
-        else if (diff == StyleDifference::RepaintIfText || diff == StyleDifference::Repaint) {
+            innerTextRenderer->setStyle(WTF::move(newInnerTextStyle));
+        else if (diff == Style::DifferenceResult::RepaintIfText || diff == Style::DifferenceResult::Repaint) {
             // Repaint is expected to be propagated down to the shadow tree when non-inherited style property changes
             // (e.g. text-decoration-color) since that's where the value actually takes effect.
             innerTextRenderer->repaint();
@@ -95,7 +93,7 @@ void RenderTextControl::styleDidChange(StyleDifference diff, const RenderStyle* 
 int RenderTextControl::scrollbarThickness() const
 {
     // FIXME: We should get the size of the scrollbar from the RenderTheme instead.
-    return ScrollbarTheme::theme().scrollbarThickness(this->style().scrollbarWidth(), ScrollbarExpansionState::Expanded, OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize);
+    return ScrollbarTheme::theme().scrollbarThickness(Style::toPlatform(this->style().scrollbarWidth()), OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize);
 }
 
 RenderBox::LogicalExtentComputedValues RenderTextControl::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const
@@ -116,9 +114,9 @@ RenderBox::LogicalExtentComputedValues RenderTextControl::computeLogicalHeight(L
             CheckedPtr placeholderBox = placeholder->renderBox();
             if (!placeholderBox)
                 return { };
-            return placeholderBox->computeLogicalHeight(placeholderBox->logicalHeight(), placeholderBox->logicalTop()).m_extent;
+            return placeholderBox->computeLogicalHeight(placeholderBox->logicalHeight(), placeholderBox->logicalTop()).extent;
         };
-        logicalHeightExtent.m_extent = std::max(logicalHeightExtent.m_extent, placeholderLogicalHeight());
+        logicalHeightExtent.extent = std::max(logicalHeightExtent.extent, placeholderLogicalHeight());
         return logicalHeightExtent;
     }
 
@@ -196,7 +194,7 @@ void RenderTextControl::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
 
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, Style::ZoomNeeded { }));
+        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, style().usedZoomForLength()));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
@@ -220,12 +218,6 @@ void RenderTextControl::computePreferredLogicalWidths()
     RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), borderAndPaddingLogicalWidth());
 
     clearNeedsPreferredWidthsUpdate();
-}
-
-void RenderTextControl::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*) const
-{
-    if (!size().isEmpty())
-        rects.append(LayoutRect(additionalOffset, size()));
 }
 
 void RenderTextControl::layoutExcludedChildren(RelayoutChildren relayoutChildren)
@@ -273,7 +265,7 @@ int RenderTextControl::innerLineHeight() const
 #endif
 
 RenderTextControlInnerContainer::RenderTextControlInnerContainer(Element& element, RenderStyle&& style)
-    : RenderFlexibleBox(Type::TextControlInnerContainer, element, WTFMove(style))
+    : RenderFlexibleBox(Type::TextControlInnerContainer, element, WTF::move(style))
 {
 
 }

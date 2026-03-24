@@ -159,20 +159,20 @@ SecRKCopyAccountRecoveryPassword(SecRecoveryKey *rk)
     derived = SecRKCreateDerivedSecret((__bridge CFSecRecoveryKeyRef)rk,
                                        RK_PASSWORD_HKDF_SIZE,
                                        passwordInfoKey, sizeof(passwordInfoKey));
-    require(derived, fail);
+    __Require(derived, fail);
 
     base64Len = SecBase64Encode(CFDataGetBytePtr(derived), CFDataGetLength(derived), NULL, 0);
     assert(base64Len < 1024);
 
     b64string = malloc(base64Len);
-    require(b64string, fail);
+    __Require(b64string, fail);
 
     SecBase64Encode(CFDataGetBytePtr(derived), CFDataGetLength(derived), b64string, base64Len);
 
     base64Data = CFStringCreateWithBytes(SecCFAllocatorZeroize(),
                                          (const UInt8 *)b64string, base64Len,
                                          kCFStringEncodingUTF8, false);
-    require(base64Data, fail);
+    __Require(base64Data, fail);
 
 fail:
     if (b64string) {
@@ -297,18 +297,18 @@ RKBackupCreateECKey(SecRecoveryKey *rk, bool returnFullkey)
 
     derivedSecret = SecRKCreateDerivedSecret((__bridge CFSecRecoveryKeyRef)rk, RK_BACKUP_HKDF_SIZE,
                                              backupPublicKey, sizeof(backupPublicKey));
-    require(derivedSecret, fail);
+    __Require(derivedSecret, fail);
 
     status = ccec_generate_key_deterministic(cp,
                                              CFDataGetLength(derivedSecret), CFDataGetBytePtr(derivedSecret),
                                              ccrng(NULL),
                                              CCEC_GENKEY_DETERMINISTIC_COMPACT,
                                              fullKey);
-    require_noerr(status, fail);
+    __Require_noErr(status, fail);
 
     size_t space = ccec_compact_export_size(returnFullkey, ccec_ctx_pub(fullKey));
     keyData = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), space);
-    require_quiet(keyData, fail);
+    __Require_Quiet(keyData, fail);
 
     ccec_compact_export(returnFullkey, CFDataGetMutableBytePtr(keyData), fullKey);
 
@@ -339,7 +339,7 @@ SecRKRegisterBackupPublicKey(SecRecoveryKey *rk, CFErrorRef *error)
     CFDataRef backupKey = (__bridge CFDataRef)SecRKCopyBackupPublicKey(rk);
     bool res = false;
 
-    require_action_quiet(backupKey, fail, SOSCreateError(kSOSErrorBadKey, CFSTR("Failed to create key from rk"), NULL, error));
+    __Require_Action_Quiet(backupKey, fail, SOSCreateError(kSOSErrorBadKey, CFSTR("Failed to create key from rk"), NULL, error));
 
     res = SOSCCRegisterRecoveryPublicKey(backupKey, error);
 

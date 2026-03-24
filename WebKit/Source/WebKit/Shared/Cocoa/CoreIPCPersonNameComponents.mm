@@ -49,11 +49,11 @@ CoreIPCPersonNameComponents::CoreIPCPersonNameComponents(NSPersonNameComponents 
 RetainPtr<id> CoreIPCPersonNameComponents::toID() const
 {
     auto components = adoptNS([NSPersonNameComponents new]);
-    components.get().namePrefix = nsStringNilIfNull(m_namePrefix);
-    components.get().givenName = nsStringNilIfNull(m_givenName);
-    components.get().middleName = nsStringNilIfNull(m_middleName);
-    components.get().familyName = nsStringNilIfNull(m_familyName);
-    components.get().nickname = nsStringNilIfNull(m_nickname);
+    components.get().namePrefix = nsStringNilIfNull(m_namePrefix).get();
+    components.get().givenName = nsStringNilIfNull(m_givenName).get();
+    components.get().middleName = nsStringNilIfNull(m_middleName).get();
+    components.get().familyName = nsStringNilIfNull(m_familyName).get();
+    components.get().nickname = nsStringNilIfNull(m_nickname).get();
     if (m_phoneticRepresentation)
         components.get().phoneticRepresentation = m_phoneticRepresentation->toID().get();
 

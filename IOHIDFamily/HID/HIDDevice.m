@@ -5,7 +5,9 @@
  * Copyright © 2022 Apple Inc. All rights reserved.
  */
 
+#include <AssertMacros.h>
 #import <Foundation/Foundation.h>
+#include <IOKit/IOTypes.h>
 #import <IOKit/hid/IOHIDDevice.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
 #import <HID/HIDDevice.h>
@@ -14,6 +16,12 @@
 #import <HID/HIDTransaction.h>
 #import <os/assumes.h>
 #import <stdatomic.h>
+
+
+__attribute__((visibility("hidden")))
+void HIDDevicePropertyChangeCallback(void *refcon, io_service_t service, uint32_t messageType, void *arg);
+
+static const char * const kAllowedPropertyKeys[] = {kIOHIDDeviceMessagePropertyUpdateKeys};
 
 @implementation HIDDevice (HIDFramework)
 
@@ -374,7 +382,7 @@ static void inputReportCallback(void *context,
     if (_device.batchElements) {
         NSArray *oldMatch = (__bridge NSArray *)_device.inputMatchingMultiple;
         NSMutableArray *newMatch = nil;
-        
+
         if (oldMatch) {
             newMatch = [NSMutableArray arrayWithArray:oldMatch];
         } else {
@@ -385,7 +393,7 @@ static void inputReportCallback(void *context,
                         @{@kIOHIDElementTypeKey: @(kIOHIDElementTypeInput_ScanCodes)},
                         nil];
         }
-        
+
         [newMatch addObject:@{@kIOHIDElementTypeKey:
                                   @(kIOHIDElementTypeInput_NULL)}];
 
@@ -394,12 +402,32 @@ static void inputReportCallback(void *context,
     } else {
         os_unfair_recursive_lock_unlock(&_device.callbackLock);
     }
-    
+
+    if (_device.propertyNotificationHandler) {
+        [self setupPropertyNotifications];
+    }
+
     IOHIDDeviceActivate((__bridge IOHIDDeviceRef)self);
+
+    if (_device.propertyNotificationHandler) {
+        dispatch_async(_device.dispatchQueue, ^{
+            [self handlePropertyChange];
+        });
+    }
 }
 
 - (void)cancel
 {
+    if (_device.propertyNotify) {
+        IOObjectRelease(_device.propertyNotify);
+        _device.propertyNotify = IO_OBJECT_NULL;
+    }
+
+    if (_device.propertyPort) {
+        IONotificationPortDestroy(_device.propertyPort);
+        _device.propertyPort = NULL;
+    }
+
     IOHIDDeviceCancel((__bridge IOHIDDeviceRef)self);
 }
 
@@ -408,4 +436,127 @@ static void inputReportCallback(void *context,
     return IOHIDDeviceGetService((__bridge IOHIDDeviceRef)self);
 }
 
+- (BOOL)setPropertyChangeHandler:(HIDDevicePropertyChangeHandler)handler
+                          forKey:(NSArray<NSString *> *)keys
+                          error:(out NSError * _Nullable * _Nullable)outError
+{
+    BOOL ret = NO;
+
+    os_assert(_device.dispatchQueue != NULL, "Failed to setPropertyChangeHandler, dispatch queue not set");
+    os_assert(_device.dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+
+    for (NSString *key in keys) {
+        BOOL isValid = NO;
+        for (size_t i = 0; i < sizeof(kAllowedPropertyKeys) / sizeof(kAllowedPropertyKeys[0]); i++) {
+            if ([key isEqualToString:@(kAllowedPropertyKeys[i])]) {
+                isValid = YES;
+                break;
+            }
+        }
+        if (!isValid) {
+            if (outError) {
+                *outError = [NSError errorWithIOReturn:kIOReturnUnsupported];
+            }
+            return NO;
+        }
+    }
+
+    os_assert(atomic_exchange(&_device.propertyNotificationHandler,
+                              (void*)Block_copy((__bridge const void *)handler)) == NULL,
+              "property change handler already set");
+
+    _device.propertyNotificationKeys = (__bridge_retained CFArrayRef)[keys copy];
+    _device.previousPropertyValues = (__bridge_retained CFMutableDictionaryRef)[NSMutableDictionary dictionary];
+
+    return YES;
+}
+
+- (void)setupPropertyNotifications
+{
+    kern_return_t kr;
+
+    _device.propertyPort = IONotificationPortCreate(kIOMainPortDefault);
+    if (!_device.propertyPort) {
+        return;
+    }
+
+    IONotificationPortSetDispatchQueue(_device.propertyPort, _device.dispatchQueue);
+
+    kr = IOServiceAddInterestNotification(_device.propertyPort,
+                                          _device.service,
+                                          kIOGeneralInterest,
+                                          HIDDevicePropertyChangeCallback,
+                                          (__bridge void *)self,
+                                          &_device.propertyNotify);
+
+    if (kr != KERN_SUCCESS) {
+        os_log_error(_IOHIDLog(), "Failed to set up property notifications: 0x%x", kr);
+        IONotificationPortDestroy(_device.propertyPort);
+        _device.propertyPort = NULL;
+    } 
+}
+
+- (void)handlePropertyChange
+{
+    os_unfair_recursive_lock_lock(&_device.callbackLock);
+    NSArray<NSString *> *keys = (__bridge NSArray *)_device.propertyNotificationKeys;
+    NSDictionary *previousValues = (__bridge NSDictionary *)_device.previousPropertyValues ? [(__bridge NSDictionary *)_device.previousPropertyValues copy] : nil;
+    os_unfair_recursive_lock_unlock(&_device.callbackLock);
+
+    if (!keys) {
+        return;
+    }
+
+    NSMutableDictionary *updatedValues = [NSMutableDictionary dictionary];
+    BOOL isInitialRun = !previousValues || previousValues.count == 0;
+
+    for (NSString *key in keys) {
+        id currentValue = [self propertyForKey:key];
+        id previousValue = previousValues[key];
+
+        BOOL valueChanged = NO;
+        if (isInitialRun) {
+            valueChanged = YES;
+        } else if (currentValue && previousValue) {
+            valueChanged = ![currentValue isEqual:previousValue];
+        } else if (currentValue || previousValue) {
+            valueChanged = YES;
+        }
+
+        if (valueChanged) {
+            ((__bridge HIDDevicePropertyChangeHandler)_device.propertyNotificationHandler)(key, currentValue);
+            updatedValues[key] = currentValue ?: [NSNull null];
+        }
+    }
+
+    if (updatedValues.count > 0) {
+        os_unfair_recursive_lock_lock(&_device.callbackLock);
+        if (_device.previousPropertyValues) {
+            NSMutableDictionary *previousDict = (__bridge NSMutableDictionary *)_device.previousPropertyValues;
+            for (NSString *key in updatedValues) {
+                id value = updatedValues[key];
+                if ([value isKindOfClass:[NSNull class]]) {
+                    [previousDict removeObjectForKey:key];
+                } else {
+                    previousDict[key] = value;
+                }
+            }
+        }
+        os_unfair_recursive_lock_unlock(&_device.callbackLock);
+    }
+}
+
 @end
+
+void HIDDevicePropertyChangeCallback(void *refcon,
+                                         __unused io_service_t service,
+                                         uint32_t messageType,
+                                         __unused void *arg)
+{
+    if (messageType != kIOMessageServicePropertyChange) {
+        return;
+    }
+
+    HIDDevice *device = (__bridge HIDDevice *)refcon;
+    [device handlePropertyChange];
+}

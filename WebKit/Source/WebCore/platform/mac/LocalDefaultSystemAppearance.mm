@@ -40,12 +40,12 @@ LocalDefaultSystemAppearance::LocalDefaultSystemAppearance(bool useDarkAppearanc
     m_usingDarkAppearance = useDarkAppearance;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSAppearance *appearance = [NSAppearance appearanceNamed:m_usingDarkAppearance ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
+    RetainPtr appearance = [NSAppearance appearanceNamed:m_usingDarkAppearance ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
 
     if (tintColor.isValid())
         appearance = [appearance appearanceByApplyingTintColor:cocoaColor(tintColor).get()];
 
-    [NSAppearance setCurrentAppearance:appearance];
+    [NSAppearance setCurrentAppearance:appearance.get()];
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 

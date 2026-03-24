@@ -53,13 +53,7 @@ RemoteLayerTreeTransaction::RemoteLayerTreeTransaction(RemoteLayerTreeTransactio
 
 RemoteLayerTreeTransaction& RemoteLayerTreeTransaction::operator=(RemoteLayerTreeTransaction&&) = default;
 
-RemoteLayerTreeTransaction::RemoteLayerTreeTransaction(TransactionID transactionID)
-    : m_transactionID(transactionID)
-{ }
-
-RemoteLayerTreeTransaction::RemoteLayerTreeTransaction()
-    : m_transactionID(TransactionIdentifier(), WebCore::Process::identifier())
-{ }
+RemoteLayerTreeTransaction::RemoteLayerTreeTransaction() = default;
 
 RemoteLayerTreeTransaction::~RemoteLayerTreeTransaction() = default;
 
@@ -76,17 +70,17 @@ void RemoteLayerTreeTransaction::layerPropertiesChanged(PlatformCALayerRemote& r
 
 void RemoteLayerTreeTransaction::setCreatedLayers(Vector<LayerCreationProperties> createdLayers)
 {
-    m_createdLayers = WTFMove(createdLayers);
+    m_createdLayers = WTF::move(createdLayers);
 }
 
 void RemoteLayerTreeTransaction::setDestroyedLayerIDs(Vector<WebCore::PlatformLayerIdentifier> destroyedLayerIDs)
 {
-    m_destroyedLayerIDs = WTFMove(destroyedLayerIDs);
+    m_destroyedLayerIDs = WTF::move(destroyedLayerIDs);
 }
 
 void RemoteLayerTreeTransaction::setLayerIDsWithNewlyUnreachableBackingStore(Vector<WebCore::PlatformLayerIdentifier> layerIDsWithNewlyUnreachableBackingStore)
 {
-    m_layerIDsWithNewlyUnreachableBackingStore = WTFMove(layerIDsWithNewlyUnreachableBackingStore);
+    m_layerIDsWithNewlyUnreachableBackingStore = WTF::move(layerIDsWithNewlyUnreachableBackingStore);
 }
 
 #if !defined(NDEBUG) || !LOG_DISABLED
@@ -252,6 +246,9 @@ static void dumpChangedLayers(TextStream& ts, const LayerPropertiesMap& changedL
         if (layerProperties.changedProperties & LayerChange::AppleVisualEffectChanged)
             ts.dumpProperty("appleVisualEffectData"_s, layerProperties.appleVisualEffectData);
 #endif
+
+        if (layerProperties.changedProperties & LayerChange::ShadowPathChanged)
+            ts.dumpProperty("shadowPath"_s, layerProperties.shadowPath.isEmpty() ? "empty" : "set");
     }
 }
 
@@ -267,37 +264,11 @@ String RemoteLayerTreeTransaction::description() const
     ts.startGroup();
     ts << "layer tree"_s;
 
-    ts.dumpProperty("transactionID"_s, m_transactionID);
     ts.dumpProperty("contentsSize"_s, m_contentsSize);
     ts.dumpProperty("scrollGeometryContentSize"_s, m_scrollGeometryContentSize);
     if (m_scrollOrigin != WebCore::IntPoint::zero())
         ts.dumpProperty("scrollOrigin"_s, m_scrollOrigin);
 
-    ts.dumpProperty("baseLayoutViewportSize"_s, WebCore::FloatSize(m_baseLayoutViewportSize));
-
-    if (m_minStableLayoutViewportOrigin != WebCore::LayoutPoint::zero())
-        ts.dumpProperty("minStableLayoutViewportOrigin"_s, WebCore::FloatPoint(m_minStableLayoutViewportOrigin));
-    ts.dumpProperty("maxStableLayoutViewportOrigin"_s, WebCore::FloatPoint(m_maxStableLayoutViewportOrigin));
-
-    if (m_pageScaleFactor != 1)
-        ts.dumpProperty("pageScaleFactor"_s, m_pageScaleFactor);
-
-#if PLATFORM(MAC)
-    ts.dumpProperty("pageScalingLayer"_s, m_pageScalingLayerID);
-    ts.dumpProperty("scrolledContentsLayerID"_s, m_scrolledContentsLayerID);
-    ts.dumpProperty("mainFrameClipLayerID"_s, m_mainFrameClipLayerID);
-#endif
-
-    ts.dumpProperty("minimumScaleFactor"_s, m_minimumScaleFactor);
-    ts.dumpProperty("maximumScaleFactor"_s, m_maximumScaleFactor);
-    ts.dumpProperty("initialScaleFactor"_s, m_initialScaleFactor);
-    ts.dumpProperty("viewportMetaTagWidth"_s, m_viewportMetaTagWidth);
-    ts.dumpProperty("viewportMetaTagWidthWasExplicit"_s, m_viewportMetaTagWidthWasExplicit);
-    ts.dumpProperty("viewportMetaTagCameFromImageDocument"_s, m_viewportMetaTagCameFromImageDocument);
-    ts.dumpProperty("allowsUserScaling"_s, m_allowsUserScaling);
-    ts.dumpProperty("avoidsUnsafeArea"_s, m_avoidsUnsafeArea);
-    ts.dumpProperty("isInStableState"_s, m_isInStableState);
-    ts.dumpProperty("renderTreeSize"_s, m_renderTreeSize);
     ts.dumpProperty("root-layer"_s, m_rootLayerID);
 
     if (!m_createdLayers.isEmpty()) {
@@ -334,12 +305,6 @@ String RemoteLayerTreeTransaction::description() const
 
     if (!m_destroyedLayerIDs.isEmpty())
         ts.dumpProperty<Vector<WebCore::PlatformLayerIdentifier>>("destroyed-layers", m_destroyedLayerIDs);
-
-    if (m_editorState) {
-        TextStream::GroupScope scope(ts);
-        ts << "EditorState"_s;
-        ts << *m_editorState;
-    }
 
     ts.endGroup();
 
@@ -384,7 +349,7 @@ ChangedLayers::ChangedLayers(ChangedLayers&&) = default;
 ChangedLayers& ChangedLayers::operator=(ChangedLayers&&) = default;
 
 ChangedLayers::ChangedLayers(LayerPropertiesMap&& changedLayerProperties)
-    : changedLayerProperties(WTFMove(changedLayerProperties)) { }
+    : changedLayerProperties(WTF::move(changedLayerProperties)) { }
 
 RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties() = default;
 
@@ -397,8 +362,8 @@ RemoteLayerBackingStoreOrProperties::~RemoteLayerBackingStoreOrProperties() = de
 RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties(Markable<WebCore::PlatformLayerIdentifier> layerID, WebCore::PlatformCALayer::LayerType type, std::optional<RemoteLayerTreeTransaction::LayerCreationProperties::VideoElementData>&& videoElementData, RemoteLayerTreeTransaction::LayerCreationProperties::AdditionalData&& additionalData)
     : layerID(layerID)
     , type(type)
-    , videoElementData(WTFMove(videoElementData))
-    , additionalData(WTFMove(additionalData)) { }
+    , videoElementData(WTF::move(videoElementData))
+    , additionalData(WTF::move(additionalData)) { }
 
 std::optional<WebCore::LayerHostingContextIdentifier> RemoteLayerTreeTransaction::LayerCreationProperties::hostIdentifier() const
 {

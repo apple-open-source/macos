@@ -176,7 +176,7 @@ void JSTestCallTracerPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestCallTracer::s_info = { "TestCallTracer"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestCallTracer) };
 
 JSTestCallTracer::JSTestCallTracer(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestCallTracer>&& impl)
-    : JSDOMWrapper<TestCallTracer>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestCallTracer>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -584,7 +584,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestCallTracer>(impl.ptr());
 #endif
-    return createWrapper<TestCallTracer>(globalObject, WTFMove(impl));
+    return createWrapper<TestCallTracer>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestCallTracer& impl)

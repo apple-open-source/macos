@@ -38,7 +38,7 @@ class Document;
 template<typename> class ExceptionOr;
 
 class CSSTransformValue final : public CSSStyleValue {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSTransformValue);
+    WTF_MAKE_TZONE_ALLOCATED(CSSTransformValue);
 public:
     static ExceptionOr<Ref<CSSTransformValue>> create(Ref<const CSSTransformListValue>, Document&);
     static ExceptionOr<Ref<CSSTransformValue>> create(Vector<Ref<CSSTransformComponent>>&&);

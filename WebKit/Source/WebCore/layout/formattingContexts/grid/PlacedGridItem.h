@@ -51,7 +51,7 @@ public:
     };
 
     PlacedGridItem(const UnplacedGridItem&, GridAreaLines, const ComputedSizes& inlineAxisSizes, const ComputedSizes& blockAxisSizes,
-    const StyleSelfAlignmentData& inlineAxisAlignment, const StyleSelfAlignmentData& blockAxisAlignment);
+    const StyleSelfAlignmentData& inlineAxisAlignment, const StyleSelfAlignmentData& blockAxisAlignment, const Style::ZoomFactor& usedZoom);
 
     const ComputedSizes& inlineAxisSizes() const { return m_inlineAxisSizes; }
     const ComputedSizes& blockAxisSizes() const { return m_blockAxisSizes; }
@@ -65,7 +65,13 @@ public:
     const StyleSelfAlignmentData& inlineAxisAlignment() const { return m_inlineAxisAlignment; }
     const StyleSelfAlignmentData& blockAxisAlignment() const { return m_blockAxisAlignment; }
 
+    // FIXME: Add support for grid item's with preferred aspect ratios.
+    bool hasPreferredAspectRatio() const { return false; }
+    bool isReplacedElement() const { return m_layoutBox->isReplacedBox(); }
+
     const GridAreaLines& gridAreaLines() const { return m_gridAreaLines; }
+
+    const Style::ZoomFactor& usedZoom() const { return m_usedZoom; }
 
 private:
     const CheckedRef<const ElementBox> m_layoutBox;
@@ -75,6 +81,8 @@ private:
 
     const StyleSelfAlignmentData m_inlineAxisAlignment;
     const StyleSelfAlignmentData m_blockAxisAlignment;
+
+    const Style::ZoomFactor m_usedZoom { 1.0f };
 
     GridAreaLines m_gridAreaLines;
 };

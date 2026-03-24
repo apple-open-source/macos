@@ -140,7 +140,7 @@ ReprobeDomainTarget ( UInt64				domainID,
 											IOServiceMatching ( kIOSCSIParallelInterfaceControllerClassString ),
 											&iterator );
 	
-	require ( ( result == kIOReturnSuccess ), ErrorExit );
+	__Require(( result == kIOReturnSuccess ), ErrorExit);
 	
 	service = IOIteratorNext ( iterator );
 	while ( service != MACH_PORT_NULL )
@@ -236,7 +236,7 @@ ReprobeTargetDevice ( io_service_t controller, SCSITargetIdentifier targetID )
 	// We find the children for the controller and iterate over them looking for the
 	// one which has a targetID which matches.
 	result = IORegistryEntryGetChildIterator ( controller, kIOServicePlane, &childIter );
-	require ( ( result == kIOReturnSuccess ), ErrorExit );
+	__Require(( result == kIOReturnSuccess ), ErrorExit);
 	
 	service = IOIteratorNext ( childIter );	
 	while ( service != MACH_PORT_NULL )

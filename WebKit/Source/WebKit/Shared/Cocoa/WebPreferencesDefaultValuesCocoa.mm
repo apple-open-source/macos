@@ -40,12 +40,30 @@
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPreferencesDefaultValuesCocoaAdditions.mm>)
 #import <WebKitAdditions/WebPreferencesDefaultValuesCocoaAdditions.mm>
 #else
+
 #if HAVE(LIQUID_GLASS)
 static bool platformIsLiquidGlassEnabled()
 {
     return true;
 }
 #endif
+
+namespace WebKit {
+#if ENABLE(VIDEO)
+bool defaultCaptionDisplaySettingsEnabled()
+{
+    return false;
+}
+#endif
+
+#if PLATFORM(MAC)
+bool defaultUseAppKitGestures()
+{
+    return false;
+}
+#endif
+}
+
 #endif
 
 namespace WebKit {
@@ -78,40 +96,39 @@ bool defaultScrollAnimatorEnabled()
 }
 #endif
 
+bool defaultExtendedProofreadingEnabled()
+{
+    return os_feature_enabled(TextComposer, PostEditingProofreadingReview);
+}
+
 #if ENABLE(IMAGE_ANALYSIS)
 
 bool defaultTextRecognitionInVideosEnabled()
 {
-    static bool enabled = false;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    static std::once_flag flag;
-    std::call_once(flag, [] {
-        enabled = os_feature_enabled(VisualIntelligence, LiveText);
-    });
+    static bool enabled = os_feature_enabled(VisualIntelligence, LiveText);
+#else
+    static bool enabled = false;
 #endif
     return enabled;
 }
 
 bool defaultVisualTranslationEnabled()
 {
-    static bool enabled = false;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    static std::once_flag flag;
-    std::call_once(flag, [] {
-        enabled = os_feature_enabled(Translate, EnableVisualIntelligenceUI);
-    });
+    static bool enabled = os_feature_enabled(Translate, EnableVisualIntelligenceUI);
+#else
+    static bool enabled = false;
 #endif
     return enabled;
 }
 
 bool defaultRemoveBackgroundEnabled()
 {
-    static bool enabled = false;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    static std::once_flag flag;
-    std::call_once(flag, [] {
-        enabled = os_feature_enabled(VisualIntelligence, RemoveBackground);
-    });
+    static bool enabled = os_feature_enabled(VisualIntelligence, RemoveBackground);
+#else
+    static bool enabled = false;
 #endif
     return enabled;
 }

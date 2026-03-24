@@ -410,7 +410,7 @@ public:
     static constexpr char name[] = "clip-out-to-path";
 
     ClipOutToPath(Path&& path)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
     {
     }
 
@@ -433,7 +433,7 @@ public:
     static constexpr char name[] = "clip-path";
 
     ClipPath(Path&& path, WindRule windRule)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
         , m_windRule(windRule)
     {
     }
@@ -472,7 +472,7 @@ public:
     static constexpr char name[] = "draw-filtered-image-buffer";
 
     DrawFilteredImageBuffer(RefPtr<ImageBuffer>&& sourceImage, const FloatRect& sourceImageRect, Filter& filter)
-        : m_sourceImage(WTFMove(sourceImage))
+        : m_sourceImage(WTF::move(sourceImage))
         , m_sourceImageRect(sourceImageRect)
         , m_filter(filter)
     {
@@ -496,9 +496,9 @@ public:
     static constexpr char name[] = "draw-glyphs";
 
     DrawGlyphs(Ref<const Font>&& font, Vector<GlyphBufferGlyph>&& glyphs, Vector<GlyphBufferAdvance>&& advances, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
-        : m_font(WTFMove(font))
-        , m_glyphs(WTFMove(glyphs))
-        , m_advances(WTFMove(advances))
+        : m_font(WTF::move(font))
+        , m_glyphs(WTF::move(glyphs))
+        , m_advances(WTF::move(advances))
         , m_localAnchor(localAnchor)
         , m_fontSmoothingMode(smoothingMode)
     {
@@ -901,7 +901,7 @@ public:
     }
 
     DrawPath(Path&& path)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
     {
     }
 
@@ -926,7 +926,7 @@ public:
     }
 
     DrawFocusRingPath(Path&& path, float outlineWidth, const Color& color)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
         , m_outlineWidth(outlineWidth)
         , m_color(color)
     {
@@ -958,7 +958,7 @@ public:
     }
 
     DrawFocusRingRects(Vector<FloatRect>&& rects, float outlineOffset, float outlineWidth, Color color)
-        : m_rects(WTFMove(rects))
+        : m_rects(WTF::move(rects))
         , m_outlineOffset(outlineOffset)
         , m_outlineWidth(outlineWidth)
         , m_color(color)
@@ -1142,7 +1142,7 @@ public:
     static constexpr char name[] = "fill-path";
 
     FillPath(Path&& path)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
     {
     }
 
@@ -1204,7 +1204,7 @@ public:
     static constexpr char name[] = "stroke-path";
 
     StrokePath(Path&& path)
-        : m_path(WTFMove(path))
+        : m_path(WTF::move(path))
     {
     }
 

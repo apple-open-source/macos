@@ -1,3 +1,4 @@
+
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift.org open source project
@@ -10,25 +11,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-// dispatch/time.h
-// DISPATCH_TIME_NOW: ok
-// DISPATCH_TIME_FOREVER: ok
+@_implementationOnly import _DispatchOverlayShims
 
-import CDispatch
-
-public struct DispatchTime : Comparable {
-#if HAVE_MACH
+public struct DispatchTime : Comparable, Sendable {
 	private static let timebaseInfo: mach_timebase_info_data_t = {
 		var info = mach_timebase_info_data_t(numer: 1, denom: 1)
 		mach_timebase_info(&info)
 		return info
 	}()
-#endif
- 
+
 	public let rawValue: dispatch_time_t
 
 	public static func now() -> DispatchTime {
-		let t = CDispatch.dispatch_time(0, 0)
+		let t = __dispatch_time(0, 0)
 		return DispatchTime(rawValue: t)
 	}
 
@@ -58,7 +53,7 @@ public struct DispatchTime : Comparable {
 	///               system sleep time), not zero nanoseconds since boot.
 	public init(uptimeNanoseconds: UInt64) {
 		var rawValue = uptimeNanoseconds
-#if HAVE_MACH
+
 		// UInt64.max means distantFuture. Do not try to scale it.
 		if rawValue != UInt64.max && DispatchTime.timebaseInfo.numer != DispatchTime.timebaseInfo.denom {
 			var (result, overflow) = rawValue.multipliedReportingOverflow(by: UInt64(DispatchTime.timebaseInfo.denom))
@@ -67,13 +62,11 @@ public struct DispatchTime : Comparable {
 			}
 			rawValue = overflow ? UInt64.max : result / UInt64(DispatchTime.timebaseInfo.numer)
 		}
-#endif
 		self.rawValue = dispatch_time_t(rawValue)
 	}
 
 	public var uptimeNanoseconds: UInt64 {
 		var result = self.rawValue
-#if HAVE_MACH
 		var overflow: Bool
 
 		// UInt64.max means distantFuture. Do not try to scale it.
@@ -81,26 +74,25 @@ public struct DispatchTime : Comparable {
 			(result, overflow) = result.multipliedReportingOverflow(by: UInt64(DispatchTime.timebaseInfo.numer))
 			result = overflow ? UInt64.max : result / UInt64(DispatchTime.timebaseInfo.denom)
 		}
-#endif
 		return result
 	}
 }
 
 extension DispatchTime {
-	public static func < (a: DispatchTime, b: DispatchTime) -> Bool {
-		return a.rawValue < b.rawValue
-	}
+  public static func < (a: DispatchTime, b: DispatchTime) -> Bool {
+    return a.rawValue < b.rawValue
+  }
 
-	public static func ==(a: DispatchTime, b: DispatchTime) -> Bool {
-		return a.rawValue == b.rawValue
-	}
+  public static func ==(a: DispatchTime, b: DispatchTime) -> Bool {
+    return a.rawValue == b.rawValue
+  }
 }
 
-public struct DispatchWallTime : Comparable {
+public struct DispatchWallTime : Comparable, Sendable {
 	public let rawValue: dispatch_time_t
 
 	public static func now() -> DispatchWallTime {
-		return DispatchWallTime(rawValue: CDispatch.dispatch_walltime(nil, 0))
+		return DispatchWallTime(rawValue: __dispatch_walltime(nil, 0))
 	}
 
 	public static let distantFuture = DispatchWallTime(rawValue: ~0)
@@ -111,30 +103,31 @@ public struct DispatchWallTime : Comparable {
 
 	public init(timespec: timespec) {
 		var t = timespec
-		self.rawValue = CDispatch.dispatch_walltime(&t, 0)
+		self.rawValue = __dispatch_walltime(&t, 0)
 	}
 }
 
 extension DispatchWallTime {
-	public static func <(a: DispatchWallTime, b: DispatchWallTime) -> Bool {
-		let negativeOne: dispatch_time_t = ~0
-		if b.rawValue == negativeOne {
-			return a.rawValue != negativeOne
-		} else if a.rawValue == negativeOne {
-			return false
-		}
-		return -Int64(bitPattern: a.rawValue) < -Int64(bitPattern: b.rawValue)
-	}
+  public static func <(a: DispatchWallTime, b: DispatchWallTime) -> Bool {
+    let negativeOne: dispatch_time_t = ~0
+    if b.rawValue == negativeOne {
+      return a.rawValue != negativeOne
+    } else if a.rawValue == negativeOne {
+      return false
+    }
+    return -Int64(bitPattern: a.rawValue) < -Int64(bitPattern: b.rawValue)
+  }
 
-	public static func ==(a: DispatchWallTime, b: DispatchWallTime) -> Bool {
-		return a.rawValue == b.rawValue
-	}
+  public static func ==(a: DispatchWallTime, b: DispatchWallTime) -> Bool {
+    return a.rawValue == b.rawValue
+  }
 }
+
 
 // Returns m1 * m2, clamped to the range [Int64.min, Int64.max].
 // Because of the way this function is used, we can always assume
 // that m2 > 0.
-private func clampedInt64Product(_ m1: Int64, _ m2: Int64) -> Int64 {
+internal func clampedInt64Product(_ m1: Int64, _ m2: Int64) -> Int64 {
 	assert(m2 > 0, "multiplier must be positive")
 	let (result, overflow) = m1.multipliedReportingOverflow(by: m2)
 	if overflow {
@@ -155,24 +148,24 @@ private func toInt64Clamped(_ value: Double) -> Int64 {
 /// or `DispatchWallTime`.
 ///
 /// For example:
-/// 	let inOneSecond = DispatchTime.now() + DispatchTimeInterval.seconds(1)
+///		let inOneSecond = DispatchTime.now() + DispatchTimeInterval.seconds(1)
 ///
-/// If the requested time interval is larger then the internal representation
+///	If the requested time interval is larger then the internal representation
 /// permits, the result of adding it to a `DispatchTime` or `DispatchWallTime`
 /// is `DispatchTime.distantFuture` and `DispatchWallTime.distantFuture`
 /// respectively. Such time intervals compare as equal:
 ///
-/// 	let t1 = DispatchTimeInterval.seconds(Int.max)
+///		let t1 = DispatchTimeInterval.seconds(Int.max)
 ///		let t2 = DispatchTimeInterval.milliseconds(Int.max)
 ///		let result = t1 == t2   // true
-public enum DispatchTimeInterval {
+public enum DispatchTimeInterval : Equatable, Sendable {
 	case seconds(Int)
 	case milliseconds(Int)
 	case microseconds(Int)
 	case nanoseconds(Int)
 	case never
 
-	internal var rawValue: Int64 {
+	internal var rawValue: Int64 { // nanoseconds
 		switch self {
 		case .seconds(let s): return clampedInt64Product(Int64(s), Int64(NSEC_PER_SEC))
 		case .milliseconds(let ms): return clampedInt64Product(Int64(ms), Int64(NSEC_PER_MSEC))
@@ -192,42 +185,61 @@ public enum DispatchTimeInterval {
 	}
 }
 
+extension DispatchTimeInterval {
+	/// Initialize a time interval corresponding to the specified number of nanoseconds,
+	/// given as a 64-bit integer value. On platforms where `Int` is narrower than
+	/// `Int64`, the resulting time interval may be an approximation.
+	internal init(_nanoseconds: Int64) {
+		if let ns = Int(exactly: _nanoseconds) {
+			self = .nanoseconds(ns)
+		} else if let us = Int(exactly: _nanoseconds / Int64(NSEC_PER_USEC)) {
+			self = .microseconds(us)
+		} else if let ms = Int(exactly: _nanoseconds / Int64(NSEC_PER_MSEC)) {
+			self = .milliseconds(ms)
+		} else if let s = Int(exactly: _nanoseconds / Int64(NSEC_PER_SEC)) {
+			self = .seconds(s)
+		} else {
+			self = .never
+		}
+	}
+}
+
 public func +(time: DispatchTime, interval: DispatchTimeInterval) -> DispatchTime {
-	let t = CDispatch.dispatch_time(time.rawValue, interval.rawValue)
+	let t = __dispatch_time(time.rawValue, interval.rawValue)
 	return DispatchTime(rawValue: t)
 }
 
 public func -(time: DispatchTime, interval: DispatchTimeInterval) -> DispatchTime {
-	let t = CDispatch.dispatch_time(time.rawValue, -interval.rawValue)
+	let t = __dispatch_time(time.rawValue, -interval.rawValue)
 	return DispatchTime(rawValue: t)
 }
 
 public func +(time: DispatchTime, seconds: Double) -> DispatchTime {
-	let t = CDispatch.dispatch_time(time.rawValue, toInt64Clamped(seconds * Double(NSEC_PER_SEC)));
+	let t = __dispatch_time(time.rawValue, toInt64Clamped(seconds * Double(NSEC_PER_SEC)));
 	return DispatchTime(rawValue: t)
 }
 
 public func -(time: DispatchTime, seconds: Double) -> DispatchTime {
-	let t = CDispatch.dispatch_time(time.rawValue, toInt64Clamped(-seconds * Double(NSEC_PER_SEC)));
+	let t = __dispatch_time(time.rawValue, toInt64Clamped(-seconds * Double(NSEC_PER_SEC)));
 	return DispatchTime(rawValue: t)
 }
 
 public func +(time: DispatchWallTime, interval: DispatchTimeInterval) -> DispatchWallTime {
-	let t = CDispatch.dispatch_time(time.rawValue, interval.rawValue)
+	let t = __dispatch_time(time.rawValue, interval.rawValue)
 	return DispatchWallTime(rawValue: t)
 }
 
 public func -(time: DispatchWallTime, interval: DispatchTimeInterval) -> DispatchWallTime {
-	let t = CDispatch.dispatch_time(time.rawValue, -interval.rawValue)
+	let t = __dispatch_time(time.rawValue, -interval.rawValue)
 	return DispatchWallTime(rawValue: t)
 }
 
 public func +(time: DispatchWallTime, seconds: Double) -> DispatchWallTime {
-	let t = CDispatch.dispatch_time(time.rawValue, toInt64Clamped(seconds * Double(NSEC_PER_SEC)));
+	let t = __dispatch_time(time.rawValue, toInt64Clamped(seconds * Double(NSEC_PER_SEC)));
 	return DispatchWallTime(rawValue: t)
 }
 
 public func -(time: DispatchWallTime, seconds: Double) -> DispatchWallTime {
-	let t = CDispatch.dispatch_time(time.rawValue, toInt64Clamped(-seconds * Double(NSEC_PER_SEC)));
+	let t = __dispatch_time(time.rawValue, toInt64Clamped(-seconds * Double(NSEC_PER_SEC)));
 	return DispatchWallTime(rawValue: t)
 }

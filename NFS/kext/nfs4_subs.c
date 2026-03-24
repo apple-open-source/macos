@@ -3475,7 +3475,7 @@ nfs41_sequence_set(struct nfsreq *req)
 	struct timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
 	struct nfsmount *nmp = req ? req->r_nmp : NULL;
 	nfs_session *sp = nmp ? &nmp->nm_session : NULL;
-#define NFS41_ACQUIRE_SLOT_ATTEMPTS 10
+#define NFS41_ACQUIRE_SLOT_ATTEMPTS 100
 
 	NFS_KDBG_ENTRY(NFSDBG_V41_OP_SEQUENCE_SET, nmp ? nmp->nm_clientid : 0, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1));
 
@@ -3497,7 +3497,7 @@ nfs41_sequence_set(struct nfsreq *req)
 
 	/* Find free slot */
 get_slot:
-	for (i = 0, bitval = 1; i < sp->ns_foreslots; i++, bitval <<= 1) {
+	for (i = 0, bitval = 1, highest_slot = 0; i < sp->ns_foreslots; i++, bitval <<= 1) {
 		if ((bitval & sp->ns_slots)) {
 			highest_slot = i; /* update highest_slot */
 		} else if (slot == NFS4_SEQ_SLOT_INIT) {

@@ -72,7 +72,7 @@ struct WebMemoryStatistics {
     
 class WebMemorySampler final : public CanMakeCheckedPtr<WebMemorySampler> {
     WTF_MAKE_NONCOPYABLE(WebMemorySampler);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebMemorySampler);
+    WTF_MAKE_TZONE_ALLOCATED(WebMemorySampler);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebMemorySampler);
 public:
     static WebMemorySampler* singleton();

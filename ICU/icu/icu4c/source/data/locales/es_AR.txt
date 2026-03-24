@@ -1,12 +1,14 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_AR{
     %%Parent{"es_419"}
     NumberElements{
         latn{
             patterns{
                 accountingFormat{"¤ #,##0.00;(¤ #,##0.00)"}
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;(¤ #,##0.00)"}
+                accountingFormat%noCurrency{"#,##0.00;(#,##0.00)"}
                 currencyFormat{"¤ #,##0.00"}
             }
             symbols{
@@ -63,9 +65,7 @@ es_AR{
                         pm{"p. m."}
                     }
                     narrow{
-                        am{"a. m."}
                         noon{"m."}
-                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}
@@ -105,12 +105,6 @@ es_AR{
                     d{"dd/MM – dd/MM"}
                 }
                 fallback{"{0} a el {1}"}
-                h{
-                    a{"h a – h a"}
-                }
-                hmv{
-                    a{"h:mm a – h:mm a v"}
-                }
                 hv{
                     a{"h a – h a v"}
                 }

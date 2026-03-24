@@ -41,7 +41,7 @@ class TextureViewImpl final : public TextureView {
 public:
     static Ref<TextureViewImpl> create(WebGPUPtr<WGPUTextureView>&& textureView, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new TextureViewImpl(WTFMove(textureView), convertToBackingContext));
+        return adoptRef(*new TextureViewImpl(WTF::move(textureView), convertToBackingContext));
     }
 
     virtual ~TextureViewImpl();

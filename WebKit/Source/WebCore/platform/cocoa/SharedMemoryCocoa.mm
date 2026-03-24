@@ -119,7 +119,7 @@ RefPtr<SharedMemory> SharedMemory::allocate(size_t size)
     sharedMemory->m_size = size;
     sharedMemory->m_data = toPointer(address);
     sharedMemory->m_protection = Protection::ReadWrite;
-    return WTFMove(sharedMemory);
+    return WTF::move(sharedMemory);
 }
 
 static inline vm_prot_t machProtection(SharedMemory::Protection protection)
@@ -155,17 +155,17 @@ RefPtr<SharedMemory> SharedMemory::wrapMap(std::span<const uint8_t> data, Protec
 {
     ASSERT(!data.empty());
 
-    auto sendRight = makeMemoryEntry(data.size(), toVMAddress(const_cast<uint8_t*>(data.data())), protection, MACH_PORT_NULL);
-    if (!sendRight)
+    auto handle = Handle::createVMShare(data, protection);
+    if (!handle)
         return nullptr;
 
     Ref sharedMemory = adoptRef(*new SharedMemory);
     sharedMemory->m_size = data.size();
     sharedMemory->m_data = nullptr;
-    sharedMemory->m_sendRight = WTFMove(sendRight);
+    sharedMemory->m_sendRight = WTF::move(handle->m_handle);
     sharedMemory->m_protection = protection;
 
-    return WTFMove(sharedMemory);
+    return sharedMemory;
 }
 
 RefPtr<SharedMemory> SharedMemory::map(Handle&& handle, Protection protection)
@@ -184,7 +184,45 @@ RefPtr<SharedMemory> SharedMemory::map(Handle&& handle, Protection protection)
     sharedMemory->m_data = toPointer(mappedAddress);
     sharedMemory->m_protection = protection;
 
-    return WTFMove(sharedMemory);
+    return WTF::move(sharedMemory);
+}
+
+std::optional<SharedMemoryHandle> SharedMemoryHandle::createVMShare(std::span<const uint8_t> data, SharedMemoryProtection protection)
+{
+    // Creating a handle to an existing memory range implies that the ownership is never transferred.
+    memory_object_size_t memoryObjectSize = data.size();
+    mach_port_t port = MACH_PORT_NULL;
+    const memory_object_offset_t offset = reinterpret_cast<uintptr_t>(data.data());
+    kern_return_t kr = mach_make_memory_entry_64(mach_task_self(), &memoryObjectSize, offset, machProtection(protection) | VM_PROT_IS_MASK | MAP_MEM_VM_SHARE | MAP_MEM_USE_DATA_ADDR, &port, MACH_PORT_NULL);
+    if (kr != KERN_SUCCESS) {
+        RELEASE_LOG_ERROR(VirtualMemory, "Failed to create memory entry for shared memory. Error: %" PUBLIC_LOG_STRING " (%x)", mach_error_string(kr), kr);
+        return std::nullopt;
+    }
+    auto result = WTF::MachSendRight::adopt(port);
+    if (memoryObjectSize < data.size()) {
+        RELEASE_LOG_ERROR(VirtualMemory, "Failed to create memory entry for shared memory. Unexpected memory object size with MAP_MEM_VM_SHARE: %lld < %zu at %llx", memoryObjectSize, data.size(), offset);
+        ASSERT_WITH_MESSAGE(memoryObjectSize >= data.size(), "Unexpected memory object size with MAP_MEM_VM_SHARE: %lld < %zu at %llx", memoryObjectSize, data.size(), offset);
+        return std::nullopt;
+    }
+    return std::optional<SharedMemoryHandle> { std::in_place, WTF::move(result), data.size() };
+}
+
+std::optional<SharedMemoryHandle> SharedMemoryHandle::createVMCopy(std::span<const uint8_t> data, SharedMemoryProtection protection)
+{
+    memory_object_size_t memoryObjectSize = data.size();
+    mach_port_t port = MACH_PORT_NULL;
+    const memory_object_offset_t offset = reinterpret_cast<uintptr_t>(data.data());
+    kern_return_t kr = mach_make_memory_entry_64(mach_task_self(), &memoryObjectSize, offset, machProtection(protection) | VM_PROT_IS_MASK | MAP_MEM_VM_COPY | MAP_MEM_USE_DATA_ADDR, &port, MACH_PORT_NULL);
+    if (kr != KERN_SUCCESS)
+        return std::nullopt; // No redundant logging -- failing VM copy is expected for some WebKit use-cases.
+
+    auto result = WTF::MachSendRight::adopt(port);
+    if (memoryObjectSize < data.size()) {
+        RELEASE_LOG_ERROR(VirtualMemory, "Failed to create memory entry for copy.");
+        ASSERT_WITH_MESSAGE(memoryObjectSize >= data.size(), "Unexpected memory object size with copy: %lld < %zu at %llx", memoryObjectSize, data.size(), offset);
+        return std::nullopt;
+    }
+    return std::optional<SharedMemoryHandle> { std::in_place, WTF::move(result), data.size() };
 }
 
 SharedMemory::~SharedMemory()
@@ -203,7 +241,7 @@ auto SharedMemory::createHandle(Protection protection) -> std::optional<Handle>
     auto sendRight = createSendRight(protection);
     if (!sendRight)
         return std::nullopt;
-    return { Handle(WTFMove(sendRight), m_size) };
+    return { Handle(WTF::move(sendRight), m_size) };
 }
 
 WTF::MachSendRight SharedMemory::createSendRight(Protection protection) const

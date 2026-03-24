@@ -25,6 +25,7 @@
 	  <string>lib/http_aws_sigv4.c: Backport patch to address potential undefined behavior of qsort() (#140715883)</string>
 	  <string>lib/vtls/x509asn1.c: Backport patch for CVE-2024-7264 (#156175582)</string>
 	  <string>lib/cookie.c: Backport patch for CVE-2025-9086 (#160642624)</string>
+	  <string>lib/curl_sasl.c: Backport patch for CVE-2025-14524 (#168552685)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

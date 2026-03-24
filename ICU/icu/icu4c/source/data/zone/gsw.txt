@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 gsw{
     zoneStrings{
         "Africa:Accra"{
@@ -249,9 +249,7 @@ gsw{
             ls{"Süüdafrikanischi ziit"}
         }
         "meta:Africa_Western"{
-            ld{"Weschtafrikanischi Summerziit"}
-            lg{"Weschtafrikanischi Ziit"}
-            ls{"Weschtafrikanischi Schtandardziit"}
+            ls{"Weschtafrikanischi Ziit"}
         }
         "meta:Alaska"{
             ld{"Alaska-Summerziit"}

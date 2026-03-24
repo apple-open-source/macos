@@ -100,6 +100,7 @@ extern const CFStringRef kDAPreferenceDisableEjectNotificationKey;   /* ( CFBool
 extern const CFStringRef kDAPreferenceDisableUnreadableNotificationKey; /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey; /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceMountAlwaysRepairKey;               /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceHibernateUnmountKey;           /* ( CFBoolean ) */
 
 extern void DAPreferenceListRefresh( void );
 
@@ -127,6 +128,13 @@ Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole);
 Boolean DAAPFSNoVolumeRole(DADiskRef disk);
 
 extern CFStringRef DAGetFSTypeWithUUID( DAFileSystemRef filesystem , CFUUIDRef volumeUUID );
+
+#if TARGET_OS_OSX
+extern uint64_t __DAGetSleepSubclass( void );
+extern Boolean __DAIsSleepReasonHibernate( void );
+extern Boolean __DAIsScreenUnlocked( void );
+extern Boolean __DADiskIsInternalSDMedia( DADiskRef disk );
+#endif
 
 #ifdef __cplusplus
 }

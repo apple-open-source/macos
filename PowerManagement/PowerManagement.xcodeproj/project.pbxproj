@@ -514,6 +514,8 @@
 		731307F52AE2FBF600BE3E96 /* chargeControl.m in Sources */ = {isa = PBXBuildFile; fileRef = 197BB2AA2937D7E600ED13B8 /* chargeControl.m */; };
 		73406F832AD70F6800B60F10 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		73406F842AD70F6900B60F10 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		73AB748E2F49889500291812 /* BatteryChargingStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D0C5C22CDAE290004D7565 /* BatteryChargingStateManager.m */; };
+		73AB748F2F49889500291812 /* BatteryChargingStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D0C5C22CDAE290004D7565 /* BatteryChargingStateManager.m */; };
 		7410B31E281B48A800445416 /* AppleCallbackPowerSourceProvider.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7410B31C281B48A800445416 /* AppleCallbackPowerSourceProvider.cpp */; };
 		7410B31F281B48A800445416 /* AppleCallbackPowerSourceProvider.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 7410B31D281B48A800445416 /* AppleCallbackPowerSourceProvider.hpp */; settings = {ATTRIBUTES = (Private, ); }; };
 		8007E1692458B7ED0059706F /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
@@ -4124,6 +4126,7 @@
 			files = (
 				1E1E059E28496F570002A043 /* BatteryCapacityCalibration.m in Sources */,
 				954B6A9B26F2CDBA008FD6A7 /* iOSBatteryHealthUnitTests.m in Sources */,
+				73AB748E2F49889500291812 /* BatteryChargingStateManager.m in Sources */,
 				1E0F2DF62B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				1EB4D3972B4F64E500F4F270 /* MGWrapper.m in Sources */,
 				730DB1E72ADAF5DE008903F8 /* BatteryGaugingAccuracyManager.m in Sources */,
@@ -4423,6 +4426,7 @@
 				95E33A662565E5FD00DF678F /* BatteryTimeRemaining.m in Sources */,
 				95E33A1D2565E33500DF678F /* macOSBatteryHealthUnitTests.m in Sources */,
 				02AB501A2BDDEE3800AC4A24 /* BatteryTrustedData.m in Sources */,
+				73AB748F2F49889500291812 /* BatteryChargingStateManager.m in Sources */,
 				956BC9DF2704E2920083F359 /* BatteryHealthUnitTestsStubs.m in Sources */,
 				1E0F2DF72B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				19E8117B2989A533006692DC /* CommonLib.c in Sources */,

@@ -180,7 +180,7 @@ private:
             return;
 
         GRefPtr<WebKitURISchemeRequest> request = adoptGRef(webkitURISchemeRequestCreate(m_context, page, task));
-        auto addResult = m_requests.add({ task.resourceLoaderID(), *task.pageProxyID() }, WTFMove(request));
+        auto addResult = m_requests.add({ task.resourceLoaderID(), *task.pageProxyID() }, WTF::move(request));
         ASSERT(addResult.isNewEntry);
         m_callback(addResult.iterator->value.get(), m_userData);
     }
@@ -439,23 +439,23 @@ static void webkitWebContextConstructed(GObject* object)
     WebKitWebContext* webContext = WEBKIT_WEB_CONTEXT(object);
     WebKitWebContextPrivate* priv = webContext->priv;
 
-    API::ProcessPoolConfiguration configuration;
-    configuration.setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
-    configuration.setUsesWebProcessCache(true);
+    Ref configuration = API::ProcessPoolConfiguration::create();
+    configuration->setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
+    configuration->setUsesWebProcessCache(true);
 #if PLATFORM(GTK) && !USE(GTK4)
-    configuration.setProcessSwapsOnNavigation(priv->psonEnabled);
+    configuration->setProcessSwapsOnNavigation(priv->psonEnabled);
 #if USE(CAIRO)
-    configuration.setUseSystemAppearanceForScrollbars(priv->useSystemAppearanceForScrollbars);
+    configuration->setUseSystemAppearanceForScrollbars(priv->useSystemAppearanceForScrollbars);
 #endif
 #else
-    configuration.setProcessSwapsOnNavigation(true);
+    configuration->setProcessSwapsOnNavigation(true);
 #endif
     if (priv->memoryPressureSettings) {
-        configuration.setMemoryPressureHandlerConfiguration(webkitMemoryPressureSettingsGetMemoryPressureHandlerConfiguration(priv->memoryPressureSettings));
+        configuration->setMemoryPressureHandlerConfiguration(webkitMemoryPressureSettingsGetMemoryPressureHandlerConfiguration(priv->memoryPressureSettings));
         // Once the settings have been passed to the ProcessPoolConfiguration, we don't need them anymore so we can free them.
         g_clear_pointer(&priv->memoryPressureSettings, webkit_memory_pressure_settings_free);
     }
-    configuration.setTimeZoneOverride(String::fromUTF8(priv->timeZoneOverride.span()));
+    configuration->setTimeZoneOverride(String::fromUTF8(priv->timeZoneOverride.span()));
 
 #if !ENABLE(2022_GLIB_API)
     if (!priv->websiteDataManager)
@@ -465,7 +465,7 @@ static void webkitWebContextConstructed(GObject* object)
     priv->processPool = WebProcessPool::create(configuration);
     priv->processPool->setUserMessageHandler([webContext](UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler) {
         // Sink the floating ref.
-        GRefPtr<WebKitUserMessage> userMessage = webkitUserMessageCreate(WTFMove(message), WTFMove(completionHandler));
+        GRefPtr<WebKitUserMessage> userMessage = webkitUserMessageCreate(WTF::move(message), WTF::move(completionHandler));
         gboolean returnValue;
         g_signal_emit(webContext, signals[USER_MESSAGE_RECEIVED], 0, userMessage.get(), &returnValue);
     });
@@ -1393,7 +1393,7 @@ void webkit_web_context_register_uri_scheme(WebKitWebContext* context, const cha
     }
 
     auto handler = WebKitURISchemeHandler::create(context, callback, userData, destroyNotify);
-    auto addResult = context->priv->uriSchemeHandlers.add(String::fromUTF8(scheme), WTFMove(handler));
+    auto addResult = context->priv->uriSchemeHandlers.add(String::fromUTF8(scheme), WTF::move(handler));
     if (addResult.isNewEntry) {
         for (auto* webView : context->priv->webViews.values())
             webkitWebViewGetPage(webView).setURLSchemeHandlerForScheme(*addResult.iterator->value, String::fromUTF8(scheme));
@@ -1661,7 +1661,7 @@ void webkit_web_context_set_preferred_languages(WebKitWebContext* context, const
         else
             languages.append(makeStringByReplacingAll(String::fromUTF8(language), '_', '-'));
     }
-    context->priv->processPool->setOverrideLanguages(WTFMove(languages));
+    context->priv->processPool->setOverrideLanguages(WTF::move(languages));
 }
 
 #if !ENABLE(2022_GLIB_API)
@@ -1926,7 +1926,7 @@ void webkit_web_context_initialize_notification_permissions(WebKitWebContext* co
     g_list_foreach(disallowedOrigins, [](gpointer data, gpointer userData) {
         addOriginToMap(static_cast<WebKitSecurityOrigin*>(data), static_cast<HashMap<String, bool>*>(userData), false);
     }, &map);
-    context->priv->notificationProvider->setNotificationPermissions(WTFMove(map));
+    context->priv->notificationProvider->setNotificationPermissions(WTF::move(map));
 }
 
 /**
@@ -2058,7 +2058,7 @@ void webkitWebContextWebViewCreated(WebKitWebContext* context, WebKitWebView* we
     Ref page = webkitWebViewGetPage(webView);
     for (auto& it : context->priv->uriSchemeHandlers) {
         Ref<WebURLSchemeHandler> handler(*it.value);
-        page->setURLSchemeHandlerForScheme(WTFMove(handler), it.key);
+        page->setURLSchemeHandlerForScheme(WTF::move(handler), it.key);
     }
 
     context->priv->webViews.set(page->identifier(), webView);

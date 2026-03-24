@@ -31,6 +31,12 @@
 #include "MacroAssemblerCodeRef.h"
 #include "Opcode.h"
 
+#if defined(__has_include)
+#if __has_include(<os/script_config_private.h>)
+#include <os/script_config_private.h>
+#endif // __has_include(<libproc.h>)
+#endif // defined(__has_include)
+
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
@@ -45,9 +51,6 @@ typedef void (SYSV_ABI *LLIntCode)();
 
 namespace LLInt {
 
-constexpr size_t OpcodeConfigAlignment = CeilingOnPageSize;
-constexpr size_t OpcodeConfigSizeToProtect = std::max(CeilingOnPageSize, 16 * KB);
-
 struct OpcodeConfig {
     JSC::Opcode opcodeMap[numOpcodeIDs];
     JSC::Opcode opcodeMapWide16[numOpcodeIDs];
@@ -60,11 +63,24 @@ struct OpcodeConfig {
     void* ipint_atomic_dispatch_base;
 };
 
-extern "C" WTF_EXPORT_PRIVATE JSC::Opcode g_opcodeConfigStorage[];
+constexpr size_t OpcodeConfigSizeToProtect = std::max(CeilingOnPageSize, 16 * KB);
+
+#if HAVE(OS_SCRIPT_CONFIG_SPI)
+static_assert(OS_SCRIPT_CONFIG_STORAGE_SIZE == OpcodeConfigSizeToProtect);
+#elif PLATFORM(COCOA)
+// When targeting older versions of macOS that do not have
+// os_script_config_storage runtime support, this redeclaration clashes with
+// the declaration in the SDK that is marked as unavailable. Use a different
+// name to work around the availability diagnostic.
+extern "C" uint8_t os_script_config_storage_stub[] __asm__("_os_script_config_storage");
+#define os_script_config_storage os_script_config_storage_stub
+#else
+extern "C" uint8_t os_script_config_storage[];
+#endif
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-inline OpcodeConfig* addressOfOpcodeConfig() { return std::bit_cast<OpcodeConfig*>(&g_opcodeConfigStorage); }
+inline OpcodeConfig* addressOfOpcodeConfig() { return std::bit_cast<OpcodeConfig*>(&os_script_config_storage); }
 
 #define g_opcodeConfig (*JSC::LLInt::addressOfOpcodeConfig())
 

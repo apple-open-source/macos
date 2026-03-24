@@ -48,6 +48,8 @@ class DisplayList;
 }
 
 class FloatRoundedRect;
+class GraphicsLayerAnimationValue;
+class GraphicsLayerKeyframeValueList;
 class HTMLVideoElement;
 class Image;
 class NativeImage;
@@ -162,7 +164,7 @@ public:
     WEBCORE_EXPORT void suspendAnimations(MonotonicTime) override;
     WEBCORE_EXPORT void resumeAnimations() override;
 
-    WEBCORE_EXPORT bool addAnimation(const KeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, double timeOffset) override;
+    WEBCORE_EXPORT bool addAnimation(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void pauseAnimation(const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void removeAnimation(const String& animationName, std::optional<AnimatedProperty>) override;
     WEBCORE_EXPORT void transformRelatedPropertyDidChange() override;
@@ -175,6 +177,9 @@ public:
     WEBCORE_EXPORT void setContentsToPlatformLayerHost(LayerHostingContextIdentifier) override;
 #if ENABLE(MODEL_CONTEXT) && !ENABLE(GPU_PROCESS_MODEL)
     WEBCORE_EXPORT void setContentsToModelContext(Ref<ModelContext>, ContentsLayerPurpose) override;
+#endif
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    WEBCORE_EXPORT void removeModelContents() override;
 #endif
     WEBCORE_EXPORT void setContentsToVideoElement(HTMLVideoElement&, ContentsLayerPurpose) override;
     WEBCORE_EXPORT void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose) override;
@@ -226,19 +231,21 @@ public:
 
     WEBCORE_EXPORT TiledBacking* tiledBacking() const override;
 
-    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForTesting(const Settings&) const final;
+    WEBCORE_EXPORT Vector<GraphicsLayer::AcceleratedAnimationForTesting> acceleratedAnimationsForTesting() const final;
 
     constexpr static CompositingCoordinatesOrientation defaultContentsOrientation = CompositingCoordinatesOrientation::TopDown;
 
     WEBCORE_EXPORT RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate*) override;
 
     WEBCORE_EXPORT void markFrontBufferVolatileForTesting() override;
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     WEBCORE_EXPORT void setAcceleratedEffectsAndBaseValues(AcceleratedEffects&&, AcceleratedEffectValues&&) override;
 #endif
 
     WEBCORE_EXPORT void purgeFrontBufferForTesting() override;
     WEBCORE_EXPORT void purgeBackBufferForTesting() override;
+
+    WEBCORE_EXPORT void setShadowPath(const Path&) override;
 
 private:
     bool isGraphicsLayerCA() const override { return true; }
@@ -343,9 +350,9 @@ private:
     LayerMap* animatedLayerClones(AnimatedProperty) const;
     static void clearClones(LayerMap&);
 
-    bool createAnimationFromKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
-    bool createTransformAnimationsFromKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
-    bool createFilterAnimationsFromKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool createAnimationFromKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool createTransformAnimationsFromKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool createFilterAnimationsFromKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String& animationName, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
 
     // Return autoreleased animation (use RetainPtr?)
     Ref<PlatformCAAnimation> createBasicAnimation(const GraphicsLayerAnimation*, const String& keyPath, bool additive, bool keyframesShouldUseAnimationWideTimingFunction);
@@ -353,16 +360,16 @@ private:
     Ref<PlatformCAAnimation> createSpringAnimation(const GraphicsLayerAnimation*, const String&, bool additive, bool keyframesShouldUseAnimationWideTimingFunction);
     void setupAnimation(PlatformCAAnimation*, const GraphicsLayerAnimation*, bool additive, bool keyframesShouldUseAnimationWideTimingFunction);
     
-    const TimingFunction& timingFunctionForAnimationValue(const AnimationValue&, const GraphicsLayerAnimation&, bool keyframesShouldUseAnimationWideTimingFunction);
+    const TimingFunction& timingFunctionForAnimationValue(const GraphicsLayerAnimationValue&, const GraphicsLayerAnimation&, bool keyframesShouldUseAnimationWideTimingFunction);
     
-    bool setAnimationEndpoints(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*);
-    bool setAnimationKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool setAnimationEndpoints(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*);
+    bool setAnimationKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, bool keyframesShouldUseAnimationWideTimingFunction);
 
-    bool setTransformAnimationEndpoints(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, TransformOperation::Type, bool isMatrixAnimation);
-    bool setTransformAnimationKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, TransformOperation::Type, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool setTransformAnimationEndpoints(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, TransformOperation::Type, bool isMatrixAnimation);
+    bool setTransformAnimationKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, TransformOperation::Type, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
     
-    bool setFilterAnimationEndpoints(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex);
-    bool setFilterAnimationKeyframes(const KeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, FilterOperation::Type, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool setFilterAnimationEndpoints(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex);
+    bool setFilterAnimationKeyframes(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, PlatformCAAnimation*, int functionIndex, FilterOperation::Type, bool keyframesShouldUseAnimationWideTimingFunction);
 
     bool isRunningTransformAnimation() const;
 
@@ -534,6 +541,7 @@ private:
     void updateBackdropFilters(CommitState&);
     void updateBackdropFiltersRect();
     void updateBackdropRoot();
+    void updateShadowPath();
 
     void updateBlendMode();
 
@@ -571,7 +579,7 @@ private:
     enum class PlayState { Playing, PlayPending, Paused, PausePending };
     struct LayerPropertyAnimation {
         LayerPropertyAnimation(Ref<PlatformCAAnimation>&& caAnimation, const String& animationName, AnimatedProperty property, int index, Seconds timeOffset)
-            : m_animation(WTFMove(caAnimation))
+            : m_animation(WTF::move(caAnimation))
             , m_name(animationName)
             , m_property(property)
             , m_index(index)
@@ -615,8 +623,8 @@ private:
         moveOrCopyAnimations(Copy, fromLayer, toLayer);
     }
 
-    bool appendToUncommittedAnimations(const KeyframeValueList&, const TransformOperation::Type, const GraphicsLayerAnimation*, const String& animationName, unsigned animationIndex, Seconds timeOffset, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
-    bool appendToUncommittedAnimations(const KeyframeValueList&, const FilterOperation&, const GraphicsLayerAnimation*, const String& animationName, int animationIndex, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool appendToUncommittedAnimations(const GraphicsLayerKeyframeValueList&, const TransformOperation::Type, const GraphicsLayerAnimation*, const String& animationName, unsigned animationIndex, Seconds timeOffset, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool appendToUncommittedAnimations(const GraphicsLayerKeyframeValueList&, const FilterOperation&, const GraphicsLayerAnimation*, const String& animationName, int animationIndex, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
 
     enum LayerChange : uint64_t {
         NoChange                                = 0,
@@ -677,6 +685,7 @@ private:
         DrawsHDRContentChanged                  = 1LLU << 47,
         TonemappingEnabledChanged               = 1LLU << 48,
 #endif
+        ShadowPathChanged                       = 1LLU << 49,
     };
     typedef uint64_t LayerChangeFlags;
     static ASCIILiteral layerChangeAsString(LayerChange);

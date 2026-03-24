@@ -52,9 +52,9 @@ WEAK_IMPORT_OBJC_CLASS(TSUserFilteredClock);
 
     os_assert(self.state == HIDTimeSyncStateActivate);
 
-    require_action(_active, bail, status = kIOReturnOffline);
-    require_action(timeData.length == sizeof(inTimestamp), bail, status = kIOReturnBadArgument);
-    require_action_quiet(_tsClock && _tsClock.lockState == TSClockLocked, bail, {
+    __Require_Action(_active, bail, status = kIOReturnOffline);
+    __Require_Action(timeData.length == sizeof(inTimestamp), bail, status = kIOReturnBadArgument);
+    __Require_Action_Quiet(_tsClock && _tsClock.lockState == TSClockLocked, bail, {
         os_log_error(_IOHIDLog(), "TimeSync: not locked, clockID: 0x%llx state: %d",
             (unsigned long long)_tsClock.clockIdentifier, (int)_tsClock.lockState);
         status = kIOReturnNotReady;
@@ -85,7 +85,7 @@ bail:
 
     os_assert(self.state == HIDTimeSyncStateActivate);
 
-    require_action(_active, bail, status = kIOReturnOffline);
+    __Require_Action(_active, bail, status = kIOReturnOffline);
 
     // Not yet supported.
     status = kIOReturnUnsupported;

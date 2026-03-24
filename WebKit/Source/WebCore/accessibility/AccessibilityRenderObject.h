@@ -29,7 +29,6 @@
 #pragma once
 
 #include "AccessibilityNodeObject.h"
-#include "HTMLMediaElement.h"
 #include "LayoutRect.h"
 #include "PluginViewBase.h"
 #include "RenderObject.h"
@@ -111,6 +110,7 @@ public:
     LayoutRect boundingBoxRect() const final;
 
     RenderObject* renderer() const final { return m_renderer.get(); }
+    CheckedPtr<RenderObject> checkedRenderer() const { return renderer(); }
     Document* document() const final;
 
     URL url() const final;
@@ -140,7 +140,7 @@ public:
     bool isPlaying() const;
     bool isAutoplayEnabled() const;
     bool isMuted() const;
-    bool isMediaObject() const override { return is<HTMLMediaElement>(node()); }
+    bool isMediaObject() const override;
 #endif
 
     void setSelectedTextRange(CharacterRange&&) final;

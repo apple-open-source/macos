@@ -36,7 +36,7 @@ namespace WebCore {
 
 CSSAtRuleID cssAtRuleID(StringView name)
 {
-    static constexpr std::pair<ComparableLettersLiteral, CSSAtRuleID> mappings[] = {
+    static constexpr SortedArrayMap cssAtRules { std::to_array<std::pair<ComparableLettersLiteral, CSSAtRuleID>>({
         { "-internal-base-appearance"_s, CSSAtRuleInternalBaseAppearance },
         { "-webkit-keyframes"_s,     CSSAtRuleWebkitKeyframes },
         { "annotation"_s,            CSSAtRuleAnnotation },
@@ -64,8 +64,7 @@ CSSAtRuleID cssAtRuleID(StringView name)
         { "supports"_s,              CSSAtRuleSupports },
         { "swash"_s,                 CSSAtRuleSwash },
         { "view-transition"_s,       CSSAtRuleViewTransition },
-    };
-    static constexpr SortedArrayMap cssAtRules { mappings };
+    }) };
     return cssAtRules.get(name, CSSAtRuleInvalid);
 }
 

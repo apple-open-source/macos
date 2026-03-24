@@ -200,7 +200,7 @@ auto Blending<AppleColorFilter>::blend(const AppleColorFilter& from, const Apple
     if (blendedFilterList.isEmpty())
         return CSS::Keyword::None { };
 
-    return AppleColorFilter { WTFMove(blendedFilterList) };
+    return AppleColorFilter { WTF::move(blendedFilterList) };
 }
 
 // MARK: - Platform

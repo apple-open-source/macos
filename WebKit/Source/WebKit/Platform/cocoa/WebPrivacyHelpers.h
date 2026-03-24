@@ -69,14 +69,14 @@ class ListDataObserver : public RefCountedAndCanMakeWeakPtr<ListDataObserver> {
 public:
     static Ref<ListDataObserver> create(Function<void()>&& callback)
     {
-        return adoptRef(*new ListDataObserver(WTFMove(callback)));
+        return adoptRef(*new ListDataObserver(WTF::move(callback)));
     }
 
     void invokeCallback() { m_callback(); }
 
 private:
     explicit ListDataObserver(Function<void()>&& callback)
-        : m_callback { WTFMove(callback) }
+        : m_callback { WTF::move(callback) }
     {
     }
 
@@ -113,7 +113,7 @@ public:
     void setCachedListDataForTesting(BackingDataType&& data)
     {
         m_wasInitialized = true;
-        setCachedListData(WTFMove(data));
+        setCachedListData(WTF::move(data));
         // FIXME: This is a safer cpp false positive (rdar://161384112).
         SUPPRESS_FORWARD_DECL_ARG m_observers.forEach([](ListDataObserver& observer) {
             observer.invokeCallback();
@@ -127,7 +127,7 @@ protected:
 
     void setCachedListData(BackingDataType&& data)
     {
-        m_cachedListData = WTFMove(data);
+        m_cachedListData = WTF::move(data);
         didUpdateCachedListData();
     }
 

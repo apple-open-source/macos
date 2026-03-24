@@ -317,12 +317,12 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
         completionHandler(WebKit::ContinueUnsafeLoad::Yes);
         return nil;
     }
-    _completionHandler = [weakSelf = WeakObjCPtr<_WKWarningView>(self), completionHandler = WTFMove(completionHandler)] (Variant<WebKit::ContinueUnsafeLoad, URL>&& result) mutable {
+    _completionHandler = [weakSelf = WeakObjCPtr<_WKWarningView>(self), completionHandler = WTF::move(completionHandler)] (Variant<WebKit::ContinueUnsafeLoad, URL>&& result) mutable {
 #if PLATFORM(WATCHOS)
         if (auto strongSelf = weakSelf.get())
             [strongSelf.get()->_previousFirstResponder becomeFirstResponder];
 #endif
-        completionHandler(WTFMove(result));
+        completionHandler(WTF::move(result));
     };
     _warning = &warning;
 #if PLATFORM(MAC)
@@ -377,49 +377,49 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     [NSLayoutConstraint activateConstraints:@[
 #if HAVE(SAFE_BROWSING)
 #if PLATFORM(WATCHOS)
-        [[[box leadingAnchor] anchorWithOffsetToAnchor:[warningViewIcon leadingAnchor]] constraintEqualToAnchor:[[warningViewIcon trailingAnchor] anchorWithOffsetToAnchor:[box trailingAnchor]]],
-        [[[box leadingAnchor] anchorWithOffsetToAnchor:[title leadingAnchor]] constraintEqualToConstant:marginSize],
-        [[[warningViewIcon bottomAnchor] anchorWithOffsetToAnchor:[title topAnchor]] constraintEqualToConstant:marginSize],
-        [[[box topAnchor] anchorWithOffsetToAnchor:[warningViewIcon topAnchor]] constraintEqualToConstant:marginSize + self.frame.size.height / 2],
+        [retainPtr([retainPtr([box leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([warningViewIcon leadingAnchor]).get()]) constraintEqualToAnchor:retainPtr([retainPtr([warningViewIcon trailingAnchor]) anchorWithOffsetToAnchor:retainPtr([box trailingAnchor]).get()]).get()],
+        [retainPtr([retainPtr([box leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([title leadingAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([warningViewIcon bottomAnchor]) anchorWithOffsetToAnchor:retainPtr([title topAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([box topAnchor]) anchorWithOffsetToAnchor:retainPtr([warningViewIcon topAnchor]).get()]) constraintEqualToConstant:marginSize + self.frame.size.height / 2],
 #else
-        [[[box leadingAnchor] anchorWithOffsetToAnchor:[warningViewIcon leadingAnchor]] constraintEqualToConstant:marginSize],
-        [[[box leadingAnchor] anchorWithOffsetToAnchor:[title leadingAnchor]] constraintEqualToConstant:marginSize * 1.5 + warningSymbolPointSize],
-        [[[title topAnchor] anchorWithOffsetToAnchor:[warningViewIcon topAnchor]] constraintEqualToAnchor:[[warningViewIcon bottomAnchor] anchorWithOffsetToAnchor:[title bottomAnchor]]],
-        [[[box topAnchor] anchorWithOffsetToAnchor:[title topAnchor]] constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([box leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([warningViewIcon leadingAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([box leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([title leadingAnchor]).get()]) constraintEqualToConstant:marginSize * 1.5 + warningSymbolPointSize],
+        [retainPtr([retainPtr([title topAnchor]) anchorWithOffsetToAnchor:retainPtr([warningViewIcon topAnchor]).get()]) constraintEqualToAnchor:retainPtr([retainPtr([warningViewIcon bottomAnchor]) anchorWithOffsetToAnchor:retainPtr([title bottomAnchor]).get()]).get()],
+        [retainPtr([retainPtr([box topAnchor]) anchorWithOffsetToAnchor:retainPtr([title topAnchor]).get()]) constraintEqualToConstant:marginSize],
 #endif
-        [[[title bottomAnchor] anchorWithOffsetToAnchor:[warning topAnchor]] constraintEqualToConstant:marginSize],
-        [[self.topAnchor anchorWithOffsetToAnchor:[box topAnchor]] constraintEqualToAnchor:[[box bottomAnchor] anchorWithOffsetToAnchor:self.bottomAnchor] multiplier:topToBottomMarginMultiplier],
+        [retainPtr([retainPtr([title bottomAnchor]) anchorWithOffsetToAnchor:retainPtr([warning topAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr(self.topAnchor) anchorWithOffsetToAnchor:retainPtr([box topAnchor]).get()]) constraintEqualToAnchor:retainPtr([retainPtr([box bottomAnchor]) anchorWithOffsetToAnchor:retainPtr(self.bottomAnchor).get()]).get() multiplier:topToBottomMarginMultiplier],
 #endif // HAVE(SAFE_BROWSING)
     ]];
 
 #if HAVE(SAFE_BROWSING)
     [NSLayoutConstraint activateConstraints:@[
-        [[self.leftAnchor anchorWithOffsetToAnchor:[box leftAnchor]] constraintEqualToAnchor:[[box rightAnchor] anchorWithOffsetToAnchor:self.rightAnchor]],
+        [retainPtr([retainPtr(self.leftAnchor) anchorWithOffsetToAnchor:retainPtr([box leftAnchor]).get()]) constraintEqualToAnchor:retainPtr([retainPtr([box rightAnchor]) anchorWithOffsetToAnchor:retainPtr(self.rightAnchor).get()]).get()],
 
-        [[box widthAnchor] constraintLessThanOrEqualToConstant:maxWidth],
-        [[box widthAnchor] constraintLessThanOrEqualToAnchor:self.widthAnchor],
+        [retainPtr([box widthAnchor]) constraintLessThanOrEqualToConstant:maxWidth],
+        [retainPtr([box widthAnchor]) constraintLessThanOrEqualToAnchor:retainPtr(self.widthAnchor).get()],
 
-        [[[box leadingAnchor] anchorWithOffsetToAnchor:[warning leadingAnchor]] constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([box leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([warning leadingAnchor]).get()]) constraintEqualToConstant:marginSize],
 
-        [[[title trailingAnchor] anchorWithOffsetToAnchor:[box trailingAnchor]] constraintGreaterThanOrEqualToConstant:marginSize],
-        [[[warning trailingAnchor] anchorWithOffsetToAnchor:[box trailingAnchor]] constraintGreaterThanOrEqualToConstant:marginSize],
-        [[goBack.get().trailingAnchor anchorWithOffsetToAnchor:[box trailingAnchor]] constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([title trailingAnchor]) anchorWithOffsetToAnchor:retainPtr([box trailingAnchor]).get()]) constraintGreaterThanOrEqualToConstant:marginSize],
+        [retainPtr([retainPtr([warning trailingAnchor]) anchorWithOffsetToAnchor:retainPtr([box trailingAnchor]).get()]) constraintGreaterThanOrEqualToConstant:marginSize],
+        [retainPtr([retainPtr(goBack.get().trailingAnchor) anchorWithOffsetToAnchor:retainPtr([box trailingAnchor]).get()]) constraintEqualToConstant:marginSize],
 
-        [[[warning bottomAnchor] anchorWithOffsetToAnchor:goBack.get().topAnchor] constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([warning bottomAnchor]) anchorWithOffsetToAnchor:retainPtr(goBack.get().topAnchor).get()]) constraintEqualToConstant:marginSize],
     ]];
 
     bool needsVerticalButtonLayout = buttonSize(primaryButton.get()).width + buttonSize(goBack.get()).width + 3 * marginSize > self.frame.size.width;
     if (needsVerticalButtonLayout) {
         [NSLayoutConstraint activateConstraints:@[
-            [[primaryButton.get().trailingAnchor anchorWithOffsetToAnchor:[box trailingAnchor]] constraintEqualToConstant:marginSize],
-            [[goBack.get().bottomAnchor anchorWithOffsetToAnchor:primaryButton.get().topAnchor] constraintEqualToConstant:marginSize],
-            [[goBack.get().bottomAnchor anchorWithOffsetToAnchor:[box bottomAnchor]] constraintEqualToConstant:marginSize * 2 + buttonSize(primaryButton.get()).height],
+            [retainPtr([retainPtr(primaryButton.get().trailingAnchor) anchorWithOffsetToAnchor:retainPtr([box trailingAnchor]).get()]) constraintEqualToConstant:marginSize],
+            [retainPtr([retainPtr(goBack.get().bottomAnchor) anchorWithOffsetToAnchor:retainPtr(primaryButton.get().topAnchor).get()]) constraintEqualToConstant:marginSize],
+            [retainPtr([retainPtr(goBack.get().bottomAnchor) anchorWithOffsetToAnchor:retainPtr([box bottomAnchor]).get()]) constraintEqualToConstant:marginSize * 2 + buttonSize(primaryButton.get()).height],
         ]];
     } else {
         [NSLayoutConstraint activateConstraints:@[
-            [[primaryButton.get().trailingAnchor anchorWithOffsetToAnchor:goBack.get().leadingAnchor] constraintEqualToConstant:marginSize],
-            [goBack.get().topAnchor constraintEqualToAnchor:primaryButton.get().topAnchor],
-            [[goBack.get().bottomAnchor anchorWithOffsetToAnchor:[box bottomAnchor]] constraintEqualToConstant:marginSize],
+            [retainPtr([retainPtr(primaryButton.get().trailingAnchor) anchorWithOffsetToAnchor:retainPtr(goBack.get().leadingAnchor).get()]) constraintEqualToConstant:marginSize],
+            [retainPtr(goBack.get().topAnchor) constraintEqualToAnchor:retainPtr(primaryButton.get().topAnchor).get()],
+            [retainPtr([retainPtr(goBack.get().bottomAnchor) anchorWithOffsetToAnchor:retainPtr([box bottomAnchor]).get()]) constraintEqualToConstant:marginSize],
         ]];
     }
 #if !PLATFORM(MAC)
@@ -469,17 +469,17 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     [bottom addSubview:details.get()];
 #if HAVE(SAFE_BROWSING)
     [NSLayoutConstraint activateConstraints:@[
-        [box.get().widthAnchor constraintEqualToAnchor:[bottom widthAnchor]],
-        [box.get().bottomAnchor constraintEqualToAnchor:[bottom topAnchor]],
-        [box.get().leadingAnchor constraintEqualToAnchor:[bottom leadingAnchor]],
-        [[line widthAnchor] constraintEqualToAnchor:[bottom widthAnchor]],
-        [[line leadingAnchor] constraintEqualToAnchor:[bottom leadingAnchor]],
-        [[line topAnchor] constraintEqualToAnchor:[bottom topAnchor]],
-        [[line heightAnchor] constraintEqualToConstant:1],
-        [[[bottom topAnchor] anchorWithOffsetToAnchor:[details topAnchor]] constraintEqualToConstant:marginSize],
-        [[[details bottomAnchor] anchorWithOffsetToAnchor:[bottom bottomAnchor]] constraintEqualToConstant:marginSize],
-        [[[bottom leadingAnchor] anchorWithOffsetToAnchor:[details leadingAnchor]] constraintEqualToConstant:marginSize],
-        [[[details trailingAnchor] anchorWithOffsetToAnchor:[bottom trailingAnchor]] constraintEqualToConstant:marginSize],
+        [retainPtr(box.get().widthAnchor) constraintEqualToAnchor:retainPtr([bottom widthAnchor]).get()],
+        [retainPtr(box.get().bottomAnchor) constraintEqualToAnchor:retainPtr([bottom topAnchor]).get()],
+        [retainPtr(box.get().leadingAnchor) constraintEqualToAnchor:retainPtr([bottom leadingAnchor]).get()],
+        [retainPtr([line widthAnchor]) constraintEqualToAnchor:retainPtr([bottom widthAnchor]).get()],
+        [retainPtr([line leadingAnchor]) constraintEqualToAnchor:retainPtr([bottom leadingAnchor]).get()],
+        [retainPtr([line topAnchor]) constraintEqualToAnchor:retainPtr([bottom topAnchor]).get()],
+        [retainPtr([line heightAnchor]) constraintEqualToConstant:1],
+        [retainPtr([retainPtr([bottom topAnchor]) anchorWithOffsetToAnchor:retainPtr([details topAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([details bottomAnchor]) anchorWithOffsetToAnchor:retainPtr([bottom bottomAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([bottom leadingAnchor]) anchorWithOffsetToAnchor:retainPtr([details leadingAnchor]).get()]) constraintEqualToConstant:marginSize],
+        [retainPtr([retainPtr([details trailingAnchor]) anchorWithOffsetToAnchor:retainPtr([bottom trailingAnchor]).get()]) constraintEqualToConstant:marginSize],
     ]];
 #endif
     [self layoutText];
@@ -547,7 +547,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
 
 - (void)dealloc
 {
-    ensureOnMainRunLoop([completionHandler = WTFMove(_completionHandler), warning = WTFMove(_warning)] () mutable {
+    ensureOnMainRunLoop([completionHandler = WTF::move(_completionHandler), warning = WTF::move(_warning)] () mutable {
         if (completionHandler)
             completionHandler(WebKit::ContinueUnsafeLoad::No);
     });
@@ -581,7 +581,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
         [alert setInformativeText:RetainPtr { WEB_UI_NSSTRING(@"Merely visiting a site is sufficient for malware to install itself and harm your computer.", "Malware confirmation dialog") }.get()];
         [alert addButtonWithTitle:RetainPtr { WEB_UI_NSSTRING(@"Cancel", "Cancel") }.get()];
         [alert addButtonWithTitle:RetainPtr { WEB_UI_NSSTRING(@"Continue", "Continue") }.get()];
-        [alert beginSheetModalForWindow:self.window completionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<_WKWarningView>(self), alert](NSModalResponse returnCode) {
+        [alert beginSheetModalForWindow:retainPtr(self.window).get() completionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<_WKWarningView>(self), alert](NSModalResponse returnCode) {
             if (auto strongSelf = weakSelf.get()) {
                 if (returnCode == NSAlertSecondButtonReturn && strongSelf->_completionHandler)
                     strongSelf->_completionHandler(WebKit::ContinueUnsafeLoad::Yes);
@@ -623,7 +623,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     [string addAttributes:@{ NSForegroundColorAttributeName : foregroundColor.get() } range:NSMakeRange(0, [string length])];
     [self setBackgroundColor:colorForItem(WarningItem::BoxBackground, warning).get()];
     [self setLinkTextAttributes:@{ NSForegroundColorAttributeName : foregroundColor.get() }];
-    [self.textStorage appendAttributedString:string.get()];
+    [retainPtr(self.textStorage) appendAttributedString:string.get()];
     self.editable = NO;
 #if !PLATFORM(MAC)
     self.scrollEnabled = NO;
@@ -635,8 +635,8 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
 - (SizeType)intrinsicContentSize
 {
 #if PLATFORM(MAC)
-    [self.layoutManager ensureLayoutForTextContainer:self.textContainer];
-    return { NSViewNoIntrinsicMetric, [self.layoutManager usedRectForTextContainer:self.textContainer].size.height };
+    [retainPtr(self.layoutManager) ensureLayoutForTextContainer:retainPtr(self.textContainer).get()];
+    return { NSViewNoIntrinsicMetric, [retainPtr(self.layoutManager) usedRectForTextContainer:retainPtr(self.textContainer).get()].size.height };
 #elif HAVE(SAFE_BROWSING)
     auto width = std::min<CGFloat>(maxWidth, [_warning frame].size.width) - 2 * marginSize;
     constexpr auto noHeightConstraint = CGFLOAT_MAX;

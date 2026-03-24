@@ -255,13 +255,8 @@ int main(int argc, const char* const argv[])
         (diffTime % U_MILLIS_PER_HOUR) / U_MILLIS_PER_MINUTE,
         (diffTime % U_MILLIS_PER_MINUTE) / U_MILLIS_PER_SECOND,
         (diffTime % U_MILLIS_PER_SECOND));
-#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
-// rdar://
-    // When running from XCtest, this sleep would get hit about 16 times,
-    // adding a couple of minutes to the overall run time, so let's not
-    // do that. However, it can still be useful for leak checking when
-    // running the original intltest.
-    if (!uaprv_isRunningXCTest()) { // rdar://137994165
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED // rdar://137994165 and rdar://168155160
+    if (getTestOption(SLEEP_OPTION) && !uaprv_isRunningXCTest()) {
         printf("Sleeping 8 sec to check leaks\n");
         sleep(8);
     }

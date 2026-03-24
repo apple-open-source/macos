@@ -70,7 +70,10 @@ void prepareForGeneration(Code& code)
     
     // We don't expect the incoming code to have predecessors computed.
     code.resetReachability();
-    
+
+    if (Options::dumpIonGraph()) [[unlikely]]
+        code.appendIonGraphPass("InitialCFG"_s);
+
     if (shouldValidateIR())
         validate(code);
 
@@ -333,7 +336,7 @@ static void generateWithAlreadyAllocatedRegisters(Code& code, CCallHelpers& jit)
     Vector<CCallHelpers::Label> entrypointLabels(code.numEntrypoints());
     for (unsigned i = code.numEntrypoints(); i--;)
         entrypointLabels[i] = *context.blockLabels[code.entrypoint(i).block()];
-    code.setEntrypointLabels(WTFMove(entrypointLabels));
+    code.setEntrypointLabels(WTF::move(entrypointLabels));
 
     pcToOriginMap.appendItem(jit.label(), Origin());
     // FIXME: Make late paths have Origins: https://bugs.webkit.org/show_bug.cgi?id=153689

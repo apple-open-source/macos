@@ -30,19 +30,12 @@
 #include <wtf/text/CStringView.h>
 
 #include <wtf/PrintStream.h>
-#include <wtf/text/MakeString.h>
-#include <wtf/text/WTFString.h>
 
 namespace WTF {
 
-String CStringView::toString() const
-{
-    return String::fromUTF8(span8());
-}
-
 void CStringView::dump(PrintStream& out) const
 {
-    out.print(span8());
+    out.print(span());
 }
 
 } // namespace WTF

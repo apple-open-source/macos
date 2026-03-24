@@ -101,7 +101,7 @@ bool shouldAllowAutoFillForCellularIdentifiers(const URL& topURL)
     if (!std::exchange(hasLogged, true))
         RELEASE_LOG(Telephony, "Is cellular AutoFill allowed for current host? %{public}@", result ? @"YES" : @"NO");
 
-    lastQueriedHost.get() = WTFMove(host);
+    lastQueriedHost.get() = WTF::move(host);
     lastQueriedHostResult = !!result;
     return lastQueriedHostResult;
 }

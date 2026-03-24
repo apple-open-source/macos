@@ -1393,7 +1393,7 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
     NSUUID* musrUUID = [NSUUID UUID];
-    SecSecuritySetPersonaMusr((__bridge CFStringRef)musrUUID.UUIDString);
+    SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)musrUUID.UUIDString);
 
     [self addGenericPassword:@"data" account:@"account-delete-me"];
 
@@ -1410,7 +1410,7 @@
     }];
 
 
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 
     // And resyncing doesn't upload it, right?
     CKKSResultOperation* resync = [self.defaultCKKS resyncWithCloud];
@@ -1449,13 +1449,13 @@
 
     // On platforms that don't support musr, we cannot fully finish this test
 #if TARGET_OS_IOS || TARGET_OS_TV
-    SecSecuritySetPersonaMusr((__bridge CFStringRef)musrUUID.UUIDString);
+    SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)musrUUID.UUIDString);
 #endif // TARGET_OS_IOS || TARGET_OS_TV
 
     [self findGenericPassword:account expecting:errSecItemNotFound];
 
 #if TARGET_OS_IOS || TARGET_OS_TV
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 #endif // TARGET_OS_IOS || TARGET_OS_TV
 }
 
@@ -2014,6 +2014,49 @@
     [self findGenericPassword:@"classAItem-1" expecting:errSecSuccess];
     [self findGenericPassword:@"classAItem-2" expecting:errSecSuccess];
 
+}
+
+- (void)testOutgoingQueueFailWithNotAuthenticatedError {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+    NSString* account = @"account-delete-me";
+
+    [self startCKKSSubsystem];
+    // wait for CKKS to get into ready
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    // Set up error hierarchy to reflect CK Not Authenticated Error
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorAuthTokenError userInfo:@{
+        NSLocalizedDescriptionKey: @"User rejected a prompt to enter their iCloud account password"}];
+    NSError* authTokenError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+    // Patch next outgoing queue operation to fail with this error.
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:authTokenError];
+
+    // Make sure CKKS gets to the recheck CK account state.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateRecheckAccountStatus];
+
+    [self addGenericPassword: @"data" account: account];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateRecheckAccountStatus] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of rechecking CK account status");
+
+    // Hold on re-try.
+    [self holdCloudKitModifications];
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateRecheckAccountStatus];
+
+    // Verify that no records have been uploaded.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Let's assume that the device has re-authenticated itself. CKKS should try uploading again after a delay.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self releaseCloudKitModificationHold];
+
+    // Item should have been successfully uploaded.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
+    [self waitForCKModifications];
 }
 
 @end

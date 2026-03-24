@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 luo{
     AuxExemplarCharacters{"[q x z]"}
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p r s t u v w y]"}
@@ -114,12 +114,12 @@ luo{
             }
             eras{
                 abbreviated{
-                    "BC",
-                    "AD",
+                    0{"BC"}
+                    1{"AD"}
                 }
                 wide{
-                    "Kapok Kristo obiro",
-                    "Ka Kristo osebiro",
+                    0{"Kapok Kristo obiro"}
+                    1{"Ka Kristo osebiro"}
                 }
             }
             monthNames{

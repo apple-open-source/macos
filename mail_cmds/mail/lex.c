@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)lex.c	8.2 (Berkeley) 4/20/95";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -47,6 +39,10 @@ __FBSDID("$FreeBSD$");
  *
  * Lexical processing of commands.
  */
+
+#ifndef __APPLE__
+static const char	*prompt = "& ";
+#endif
 
 extern const struct cmd cmdtab[];
 extern const char *version;	
@@ -200,7 +196,11 @@ void
 commands(void)
 {
 	int n, eofloop = 0;
+#ifdef __APPLE__
 	char linebuf[PATHSIZE+LINESIZE]; /* make very large to handle maximum pathname in commands */
+#else
+	char linebuf[LINESIZE];
+#endif
 
 	if (!sourcing) {
 		if (signal(SIGINT, SIG_IGN) != SIG_IGN)
@@ -222,13 +222,19 @@ commands(void)
 		 * string space, and flush the output.
 		 */
 		if (!sourcing && value("interactive") != NULL) {
+#ifdef __APPLE__
 			char * current_prompt;
+#endif
 			if ((value("autoinc") != NULL) && (incfile() > 0))
 				printf("New mail has arrived.\n");
 			reset_on_stop = 1;
+#ifdef __APPLE__
 			if ((current_prompt = value("prompt")) != NULL) {
 				printf("%s", current_prompt);
 			}
+#else
+			printf("%s", prompt);
+#endif
 		}
 		(void)fflush(stdout);
 		sreset();
@@ -238,7 +244,8 @@ commands(void)
 		 */
 		n = 0;
 		for (;;) {
-			if (readline(input, &linebuf[n], sizeof(linebuf) - n) < 0) {
+			if (readline(input, &linebuf[n],
+			    sizeof(linebuf) - n) < 0) {
 				if (n == 0)
 					n = -1;
 				break;
@@ -330,6 +337,7 @@ execute(char linebuf[], int contxt)
 		goto out;
 	}
 
+#ifdef __APPLE__
 	if (debug != 1) {
 		if (value("debug") == NULL) {
 			debug = 0;
@@ -339,6 +347,7 @@ execute(char linebuf[], int contxt)
 	} /* else  ignore debug env var */
 	if (debug)
 		fprintf(stderr, "debug mode: cmd is %s\n", com->c_name);
+#endif
 
 	/*
 	 * See if we should execute the command -- if a conditional
@@ -603,7 +612,11 @@ announce(void)
 	vec[0] = mdot;
 	vec[1] = 0;
 	dot = &message[mdot - 1];
+#ifdef __APPLE__
 	if (msgCount > 0 && value("header") != NULL) {
+#else
+	if (msgCount > 0 && value("noheader") == NULL) {
+#endif
 		inithdr++;
 		headers(vec);
 		inithdr = 0;
@@ -632,9 +645,11 @@ newfileinfo(int omsgCount)
 		mdot = mp - &message[0] + 1;
 	else
 		mdot = omsgCount + 1;
+#ifdef __APPLE__
 	if (value("header") == NULL) {
 		return (mdot);
 	}
+#endif
 	s = d = 0;
 	for (mp = &message[0], n = 0, u = 0; mp < &message[msgCount]; mp++) {
 		if (mp->m_flag & MNEW)
@@ -679,7 +694,7 @@ newfileinfo(int omsgCount)
  */
 
 int
-pversion(int e __unused)
+pversion(void *arg __unused)
 {
 
 	printf("Version %s\n", version);

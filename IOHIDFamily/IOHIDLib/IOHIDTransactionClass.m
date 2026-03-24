@@ -31,6 +31,23 @@
 #import <os/assumes.h>
 
 @implementation IOHIDTransactionClass
+/**
+ *  IOHIDDeviceTransactionInterface         *_interface;
+ *  Lifetime: Object, created in initWithDevice, released in dealloc
+ *  IOHIDOutputTransactionInterface         *_outputInterface;  
+ *  Lifetime: Object, created in initWithDevice (IOHIDOutputTransactionClass only), released in dealloc
+ *  IOHIDDeviceClass                        *_device;
+ *  Lifetime: Object, set during initWithDevice, doesn't change
+ *  NSMutableArray                          *_elements;
+ *  Lifetime: Object, created in initWithDevice, released in dealloc.
+ *  IOHIDTransactionDirectionType           _direction;
+ *  Lifetime: Object, set during initWithDevice, can change via setDirection 
+ *  
+ *  os_unfair_recursive_lock                _callbackLock;
+ *  Lifetime: Object, created in initWithDevice, released in dealloc. This lock protects transaction state and callback members.
+ *  NSMutableSet                            *_pendingCallbacks;
+ *  Lifetime: First commit with callback call, released in dealloc
+ */
 
 - (HRESULT)queryInterface:(REFIID)uuidBytes
              outInterface:(LPVOID *)outInterface
@@ -120,15 +137,15 @@ static IOReturn _addElement(void *iunknown,
     IOReturn ret = kIOReturnError;
     HIDLibElement *element = nil;
     
-    require_action(elementRef, exit, ret = kIOReturnBadArgument);
+    __Require_Action(elementRef, exit, ret = kIOReturnBadArgument);
     
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
-    require(element, exit);
+    __Require(element, exit);
     
-    require(![_elements containsObject:element], exit);
+    __Require(![_elements containsObject:element], exit);
     
     if (_direction == kIOHIDTransactionDirectionTypeOutput) {
-        require(element.type == kIOHIDElementTypeOutput ||
+        __Require(element.type == kIOHIDElementTypeOutput ||
                 element.type == kIOHIDElementTypeFeature, exit);
     }
     
@@ -154,10 +171,10 @@ static IOReturn _removeElement(void *iunknown,
     IOReturn ret = kIOReturnError;
     HIDLibElement *element = nil;
     
-    require_action(elementRef, exit, ret = kIOReturnBadArgument);
+    __Require_Action(elementRef, exit, ret = kIOReturnBadArgument);
     
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
-    require(element && [_elements containsObject:element], exit);
+    __Require(element && [_elements containsObject:element], exit);
     
     [_elements removeObject:element];
     ret = kIOReturnSuccess;
@@ -183,10 +200,10 @@ static IOReturn _containsElement(void *iunknown,
     IOReturn ret = kIOReturnError;
     HIDLibElement *element = nil;
     
-    require_action(elementRef && pValue, exit, ret = kIOReturnBadArgument);
+    __Require_Action(elementRef && pValue, exit, ret = kIOReturnBadArgument);
     
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
-    require(element, exit);
+    __Require(element, exit);
     
     *pValue = [_elements containsObject:element];
     ret = kIOReturnSuccess;
@@ -213,11 +230,11 @@ static IOReturn _setValue(void *iunknown,
     IOReturn ret = kIOReturnError;
     HIDLibElement *element = nil;
     
-    require_action(elementRef && valueRef, exit, ret = kIOReturnBadArgument);
-    require(_direction == kIOHIDTransactionDirectionTypeOutput, exit);
+    __Require_Action(elementRef && valueRef, exit, ret = kIOReturnBadArgument);
+    __Require(_direction == kIOHIDTransactionDirectionTypeOutput, exit);
     
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
-    require(element && [_elements containsObject:element], exit);
+    __Require(element && [_elements containsObject:element], exit);
     
     if (options & kIOHIDTransactionOptionDefaultOutputValue) {
         [element setDefaultValueRef:valueRef];
@@ -253,10 +270,10 @@ static IOReturn _getValue(void *iunknown,
     HIDLibElement *element = nil;
     HIDLibElement *tmp = nil;
     
-    require_action(elementRef && pValueRef, exit, ret = kIOReturnBadArgument);
+    __Require_Action(elementRef && pValueRef, exit, ret = kIOReturnBadArgument);
     
     tmp = [[HIDLibElement alloc] initWithElementRef:elementRef];
-    require(tmp && [_elements containsObject:tmp], exit);
+    __Require(tmp && [_elements containsObject:tmp], exit);
     
     element = [_elements objectAtIndex:[_elements indexOfObject:tmp]];
     
@@ -272,11 +289,16 @@ exit:
     return ret;
 }
 
+/*
+ * Lifetime: malloc'd in commit when callback != NULL, lives until callback completion or dealloc.
+ * Memory freed on normal completion in _asyncCallback() or on dealloc for aborted/pending callbacks.
+ */
 typedef struct {
     IOHIDCallback    callback;
     void           * context;
     void           * device;
     void           * transaction;
+    void           * sender;
     NSArray        * elements;
 } AsyncCommitContext;
 
@@ -314,9 +336,17 @@ static void _asyncCallback(void * context, IOReturn result, uint32_t bufferSize,
         [(__bridge IOHIDDeviceClass *)asyncContext->device releaseReport:addr];
     }
 
+    if (asyncContext->sender) {
+        IOHIDTransactionClass *transactionClass = (__bridge IOHIDTransactionClass *)asyncContext->sender;
+        os_unfair_recursive_lock_lock(&transactionClass->_callbackLock);
+        [transactionClass->_pendingCallbacks removeObject:[NSValue valueWithPointer:asyncContext]];
+        os_unfair_recursive_lock_unlock(&transactionClass->_callbackLock);
+    }
+
     ((IOHIDCallback)asyncContext->callback)(asyncContext->context, result, asyncContext->transaction);
 
     asyncContext->elements = NULL;
+
     free(asyncContext);
 }
 
@@ -354,7 +384,7 @@ static IOReturn _commit(void *iunknown,
     IOHIDElementValueHeader * elementValHeader;
     io_async_ref64_t          asyncRef;
 
-    require(count, exit);
+    __Require(count, exit);
 
     IORegistryEntryGetRegistryEntryID(_device.service, &regID);
 
@@ -362,16 +392,24 @@ static IOReturn _commit(void *iunknown,
 
     if (callback) {
         input[0] = timeout;
-        require((asyncContext = (AsyncCommitContext *)calloc(1, sizeof(AsyncCommitContext))), exit);
+        __Require((asyncContext = (AsyncCommitContext *)calloc(1, sizeof(AsyncCommitContext))), exit);
 
         asyncContext->callback    = callback;
         asyncContext->context     = context;
         asyncContext->device      = (__bridge void *)_device;
         asyncContext->transaction = &_interface;
+        asyncContext->sender      = (__bridge void *) self;
         asyncContext->elements    = NULL;
 
         asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)_asyncCallback;
         asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)asyncContext;
+
+        os_unfair_recursive_lock_lock(&_callbackLock);
+        if (!_pendingCallbacks) {
+            _pendingCallbacks = [[NSMutableSet alloc] init];
+        }
+        [_pendingCallbacks addObject:[NSValue valueWithPointer:asyncContext]];
+        os_unfair_recursive_lock_unlock(&_callbackLock);
     }
 
     if (_direction == kIOHIDTransactionDirectionTypeOutput) {
@@ -379,13 +417,13 @@ static IOReturn _commit(void *iunknown,
             element = [_elements objectAtIndex:i];
 
             ret = [_device setValue:element.elementRef value:element.valueRef timeout:0 callback:nil context:nil options:kHIDSetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("setValue(%#llx):%#x", regID, ret));
+            __Require_noErr_Action(ret, exit, HIDLogError("setValue(%#llx):%#x", regID, ret));
             
             elementSize = sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(element.valueRef);
             dataSize += elementSize;
         }
 
-        require_action((elementData = malloc(dataSize)), exit, ret = kIOReturnNoMemory);
+        __Require_Action((elementData = malloc(dataSize)), exit, ret = kIOReturnNoMemory);
 
         for (uint32_t i = 0; i < count; i++) {
             element = [_elements objectAtIndex:i];
@@ -399,7 +437,7 @@ static IOReturn _commit(void *iunknown,
         } else {
             ret = IOConnectCallMethod(_device.connect, kIOHIDLibUserClientPostElementValues, input, 1, elementData, dataSize, NULL, NULL, NULL, NULL);
         }
-        require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientPostElementValues(%#llx):%#x", regID, ret));
+        __Require_noErr_Action(ret, exit, HIDLogError("kIOHIDLibUserClientPostElementValues(%#llx):%#x", regID, ret));
 
     } else {
         for (uint32_t i = 0; i < count; i++) {
@@ -409,10 +447,10 @@ static IOReturn _commit(void *iunknown,
             dataSize += elementSize;
 
             ret = [_device getValue:element.elementRef value:&value timeout:0 callback:nil context:nil options:kHIDGetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("getValue(%#llx):%#x", regID, ret));
+            __Require_noErr_Action(ret, exit, HIDLogError("getValue(%#llx):%#x", regID, ret));
         }
 
-        require_action((cookies = malloc(cookiesSize)), exit, ret = kIOReturnNoMemory);
+        __Require_Action((cookies = malloc(cookiesSize)), exit, ret = kIOReturnNoMemory);
 
         for (uint32_t i = 0; i < count; i++) {
             element = [_elements objectAtIndex:i];
@@ -421,13 +459,13 @@ static IOReturn _commit(void *iunknown,
 
         if (callback) {
             input[1] = dataSize;
-            require_action((asyncContext->elements = [NSArray arrayWithArray:_elements]), exit, ret = kIOReturnNoMemory);
+            __Require_Action((asyncContext->elements = [NSArray arrayWithArray:_elements]), exit, ret = kIOReturnNoMemory);
             ret = IOConnectCallAsyncMethod(_device.connect, kIOHIDLibUserClientUpdateElementValues, [_device getPort], asyncRef, kIOAsyncCalloutCount, input, 3, cookies, cookiesSize, NULL, NULL, NULL, NULL);
-            require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
+            __Require_noErr_Action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
         } else {
-            require_action((elementData = calloc(1, dataSize)), exit, ret = kIOReturnNoMemory);
+            __Require_Action((elementData = calloc(1, dataSize)), exit, ret = kIOReturnNoMemory);
             ret = IOConnectCallMethod(_device.connect, kIOHIDLibUserClientUpdateElementValues, input, 3, cookies, cookiesSize, NULL, NULL, elementData, &dataSize);
-            require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
+            __Require_noErr_Action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
 
             for (element in _elements) {
                 elementVal = (IOHIDElementValue *)((uint8_t *)elementData + dataOffset);
@@ -459,6 +497,9 @@ exit:
     }
     if (asyncContext && ret) {
         asyncContext->elements = NULL;
+        os_unfair_recursive_lock_lock(&_callbackLock);
+        [_pendingCallbacks removeObject:[NSValue valueWithPointer:asyncContext]];
+        os_unfair_recursive_lock_unlock(&_callbackLock);
         free(asyncContext);
     }
 
@@ -512,7 +553,8 @@ static IOReturn _clear(void *iunknown, IOOptionBits options __unused)
     };
     
     _elements = [[NSMutableArray alloc] init];
-    
+    _callbackLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
+
     return self;
 }
 
@@ -528,6 +570,13 @@ static IOReturn _clear(void *iunknown, IOOptionBits options __unused)
 
 - (void)dealloc
 {
+    for (NSValue *contextValue in [_pendingCallbacks copy]) {
+        AsyncCommitContext *context = [contextValue pointerValue];
+        context->elements = NULL;
+        free(context);
+    }
+    [_pendingCallbacks removeAllObjects];
+
     free(_interface);
 }
 
@@ -684,7 +733,7 @@ static IOReturn _setElementValue(void *iunknown,
                                                       elementRef,
                                                       eventStruct);
     
-    require(elementRef && value, exit);
+    __Require(elementRef && value, exit);
     
     ret = [self setValue:elementRef value:value options:options];
     
@@ -721,7 +770,7 @@ static IOReturn _getElementValue(void *iunknown,
     uint32_t length;
     
     ret = [self getValue:elementRef value:&value options:options];
-    require_noerr(ret, exit);
+    __Require_noErr(ret, exit);
     
     elementRef = IOHIDValueGetElement(value);
     element = [[HIDLibElement alloc] initWithElementRef:elementRef];
@@ -808,6 +857,13 @@ static IOReturn _clearOutput(void *iunknown)
 
 - (void)dealloc
 {
+    for (NSValue *contextValue in [_pendingCallbacks copy]) {
+        AsyncCommitContext *context = [contextValue pointerValue];
+        context->elements = NULL;
+        free(context);
+    }
+    [_pendingCallbacks removeAllObjects];
+
     free(_outputInterface);
 }
 

@@ -229,6 +229,44 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func enableWalrus(with user: TPSpecificUser?,
+                      preRecords: [OTSerializedPlistEscrowRecord],
+                      extraArgs: TPWalrusExtraArguments,
+                      flowID: String?,
+                      deviceSessionID: String?,
+                      reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("enableWalrus for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.enableWalrus(preRecords: preRecords, extraArgs: extraArgs, flowID: flowID, deviceSessionID: deviceSessionID) { error in
+                self.logComplete(function: "EnableWalrus", container: container.name, error: error)
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("enableWalrus failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+
+    func disableWalrus(with user: TPSpecificUser?,
+                       preRecords: [OTSerializedPlistEscrowRecord],
+                       extraArgs: TPWalrusExtraArguments,
+                       flowID: String?,
+                       deviceSessionID: String?,
+                       reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("disableWalrus for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.disableWalrus(preRecords: preRecords, extraArgs: extraArgs, flowID: flowID, deviceSessionID: deviceSessionID) { error in
+                self.logComplete(function: "DisableWalrus", container: container.name, error: error)
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("disableWalrus failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+
     func localReset(with user: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("Performing local reset for \(String(describing: user), privacy: .public)")
@@ -1209,6 +1247,19 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             logger.error("fetchPCSIdentityByPublicKey failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply([], [], error.sanitizeForClientXPC())
+        }
+    }
+
+    func performPeerSecretsFixUps(with specificUser: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("performPeerSecretsFixUps for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.performPeerSecretsFixUps { error in
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("performPeerSecretsFixUps failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
         }
     }
 }

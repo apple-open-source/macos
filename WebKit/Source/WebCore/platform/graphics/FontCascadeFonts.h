@@ -159,7 +159,7 @@ inline const Font& FontCascadeFonts::primaryFont(const FontCascadeDescription& d
                     break;
                 WeakPtr font = localRanges.glyphDataForCharacter(' ', ExternalResourceDownloadPolicy::Forbid).font.get();
                 if (font && !font->isInterstitial()) {
-                    m_cachedPrimaryFont = WTFMove(font);
+                    m_cachedPrimaryFont = WTF::move(font);
                     break;
                 }
             }

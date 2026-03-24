@@ -74,11 +74,11 @@ NSString * const testDirectory = @"ssl-policy-certs";
 
         /* get filename in test dictionary */
         file = CFDictionaryGetValue(test_info, CFSTR("Filename"));
-        require_action_quiet(file, cleanup, fail("%@: Unable to load filename from plist", test_name));
+        __Require_Action_Quiet(file, cleanup, fail("%@: Unable to load filename from plist", test_name));
 
         /* get leaf certificate from file */
         cert_file_url = [[NSBundle bundleForClass:[self class]] URLForResource:(__bridge NSString *)file withExtension:@"cer" subdirectory:testDirectory];
-        require_action_quiet(cert_file_url, cleanup, fail("%@: Unable to get url for cert file %@",
+        __Require_Action_Quiet(cert_file_url, cleanup, fail("%@: Unable to get url for cert file %@",
                                                           test_name, file));
 
         cert_data = [NSData dataWithContentsOfURL:cert_file_url];
@@ -86,33 +86,33 @@ NSString * const testDirectory = @"ssl-policy-certs";
         /* create certificates */
         leaf = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)cert_data);
         root = SecCertificateCreateWithBytes(NULL, _SSLTrustPolicyTestRootCA, sizeof(_SSLTrustPolicyTestRootCA));
-        require_action_quiet(leaf && root, cleanup, fail("%@: Unable to create certificates", test_name));
+        __Require_Action_Quiet(leaf && root, cleanup, fail("%@: Unable to create certificates", test_name));
 
         /* create policy */
         hostname = CFDictionaryGetValue(test_info, CFSTR("Hostname"));
-        require_action_quiet(hostname, cleanup, fail("%@: Unable to load hostname from plist", test_name));
+        __Require_Action_Quiet(hostname, cleanup, fail("%@: Unable to load hostname from plist", test_name));
 
         policy = SecPolicyCreateSSL(true, hostname);
-        require_action_quiet(policy, cleanup, fail("%@: Unable to create SSL policy with hostname %@",
+        __Require_Action_Quiet(policy, cleanup, fail("%@: Unable to create SSL policy with hostname %@",
                                                    test_name, hostname));
 
         /* create trust ref */
         OSStatus err = SecTrustCreateWithCertificates(leaf, policy, &trust);
         CFRelease(policy);
-        require_noerr_action(err, cleanup, ok_status(err, "SecTrustCreateWithCertificates"));
+        __Require_noErr_Action(err, cleanup, ok_status(err, "SecTrustCreateWithCertificates"));
 
         /* set anchor in trust ref */
         anchor_array = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks);
-        require_action_quiet(anchor_array, cleanup, fail("%@: Unable to create anchor array", test_name));
+        __Require_Action_Quiet(anchor_array, cleanup, fail("%@: Unable to create anchor array", test_name));
         err = SecTrustSetAnchorCertificates(trust, anchor_array);
-        require_noerr_action(err, cleanup, ok_status(err, "SecTrustSetAnchorCertificates"));
+        __Require_noErr_Action(err, cleanup, ok_status(err, "SecTrustSetAnchorCertificates"));
 
         /* set date in trust ref to 4 Sep 2015 */
         date = CFDateCreate(NULL, 463079909.0);
-        require_action_quiet(date, cleanup, fail("%@: Unable to create verify date", test_name));
+        __Require_Action_Quiet(date, cleanup, fail("%@: Unable to create verify date", test_name));
         err = SecTrustSetVerifyDate(trust, date);
         CFRelease(date);
-        require_noerr_action(err, cleanup, ok_status(err, "SecTrustSetVerifyDate"));
+        __Require_noErr_Action(err, cleanup, ok_status(err, "SecTrustSetVerifyDate"));
 
         /* evaluate */
         bool is_valid = SecTrustEvaluateWithError(trust, &trustError);
@@ -122,7 +122,7 @@ NSString * const testDirectory = @"ssl-policy-certs";
 
         /* get expected result for test */
         expectedResult = CFDictionaryGetValue(test_info, CFSTR("Result"));
-        require_action_quiet(expectedResult, cleanup, fail("%@: Unable to get expected result",test_name));
+        __Require_Action_Quiet(expectedResult, cleanup, fail("%@: Unable to get expected result",test_name));
         if (!CFStringCompare(expectedResult, CFSTR("kSecTrustResultUnspecified"), 0) ||
             !CFStringCompare(expectedResult, CFSTR("kSecTrustResultProceed"), 0)) {
             expectTrustSuccess = true;
@@ -167,11 +167,11 @@ NSString * const testDirectory = @"ssl-policy-certs";
     BOOL result = NO;
     CFErrorRef cferror = NULL;
 
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trustRef), errOut);
-    require_noerr(SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trustRef), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date), errOut);
 
     if (anchors) {
-        require_noerr(SecTrustSetAnchorCertificates(trustRef, (__bridge CFArrayRef)anchors), errOut);
+        __Require_noErr(SecTrustSetAnchorCertificates(trustRef, (__bridge CFArrayRef)anchors), errOut);
     }
 
     result = SecTrustEvaluateWithError(trustRef, &cferror);

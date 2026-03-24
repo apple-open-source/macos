@@ -158,14 +158,14 @@ template<typename Functor> inline void Heap::forEachProtectedCell(const Functor&
 template <typename T>
 inline void Heap::releaseSoon(RetainPtr<T>&& object)
 {
-    m_delayedReleaseObjects.append(WTFMove(object));
+    m_delayedReleaseObjects.append(WTF::move(object));
 }
 #endif
 
 #ifdef JSC_GLIB_API_ENABLED
 inline void Heap::releaseSoon(std::unique_ptr<JSCGLibWrapperObject>&& object)
 {
-    m_delayedReleaseObjects.append(WTFMove(object));
+    m_delayedReleaseObjects.append(WTF::move(object));
 }
 #endif
 

@@ -36,7 +36,6 @@
 #include "MediaPlayerPrivate.h"
 #include "SharedBuffer.h"
 #include <wtf/Condition.h>
-#include <wtf/VectorHash.h>
 
 namespace WebCore {
 

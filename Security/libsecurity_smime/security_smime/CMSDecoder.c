@@ -774,8 +774,8 @@ OSStatus CMSDecoderCopySignerSigningTime(CMSDecoderRef cmsDecoder,
     SecCmsSignedDataRef signedData = NULL;
     int numContentInfos = 0;
 
-    require(cmsDecoder && signingTime, xit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    __Require(cmsDecoder && signingTime, xit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
@@ -823,8 +823,8 @@ OSStatus CMSDecoderCopySignerTimestampWithPolicy(CMSDecoderRef cmsDecoder,
     SecCmsSignedDataRef signedData = NULL;
     int numContentInfos = 0;
 
-    require(cmsDecoder && timestamp, xit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    __Require(cmsDecoder && timestamp, xit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
@@ -868,8 +868,8 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(CMSDecoderRef cmsDecoder,
     CFIndex tsn = 0;
     bool good = false;
 
-    require(cmsDecoder && certificateRefs, xit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    __Require(cmsDecoder && certificateRefs, xit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
@@ -880,7 +880,7 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(CMSDecoderRef cmsDecoder,
                     SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
                 if (signerInfo) {
                     CFArrayRef certList = SecCmsSignerInfoGetTimestampCertList(signerInfo);
-                    require_action(certList, xit, status = errSecItemNotFound);
+                    __Require_Action(certList, xit, status = errSecItemNotFound);
                     CFMutableArrayRef certs = CFArrayCreateMutableCopy(
                         kCFAllocatorDefault, CFArrayGetCount(certList), certList);
 
@@ -938,8 +938,8 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(CMSDecoderRef cmsDecode
     int numContentInfos = 0;
     CFDataRef returnedValue = NULL;
 
-    require(cmsDecoder && hashAgilityAttrValue, exit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
+    __Require(cmsDecoder && hashAgilityAttrValue, exit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
@@ -982,8 +982,8 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(CMSDecoderRef cmsDeco
     int numContentInfos = 0;
     CFDictionaryRef returnedValue = NULL;
 
-    require(cmsDecoder && hashAgilityV2AttrValues, exit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
+    __Require(cmsDecoder && hashAgilityV2AttrValues, exit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
@@ -1025,8 +1025,8 @@ OSStatus CMSDecoderCopySignerAppleExpirationTime(CMSDecoderRef cmsDecoder,
     int numContentInfos = 0;
     SecCmsSignedDataRef signedData = NULL;
 
-    require(cmsDecoder && expirationTime, xit);
-    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    __Require(cmsDecoder && expirationTime, xit);
+    __Require_noErr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
     for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);

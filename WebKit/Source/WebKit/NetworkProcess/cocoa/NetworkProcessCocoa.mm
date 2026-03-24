@@ -213,8 +213,8 @@ void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<vo
         m_clearCacheDispatchGroup = adoptOSObject(dispatch_group_create());
 
     RetainPtr group = m_clearCacheDispatchGroup.get();
-    dispatch_group_async(group.get(), RetainPtr { mainDispatchQueueSingleton() }.get(), makeBlockPtr([this, protectedThis = Ref { *this }, modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
-        auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    dispatch_group_async(group.get(), mainDispatchQueueSingleton(), makeBlockPtr([this, protectedThis = Ref { *this }, modifiedSince, completionHandler = WTF::move(completionHandler)] () mutable {
+        auto aggregator = CallbackAggregator::create(WTF::move(completionHandler));
         forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
             if (RefPtr cache = session.cache())
                 cache->clear(modifiedSince, [aggregator] () { });
@@ -232,16 +232,16 @@ void NetworkProcess::setSharedHTTPCookieStorage(const Vector<uint8_t>& identifie
 
 void NetworkProcess::flushCookies(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
-    platformFlushCookies(sessionID, WTFMove(completionHandler));
+    platformFlushCookies(sessionID, WTF::move(completionHandler));
 }
 
 void saveCookies(NSHTTPCookieStorage *cookieStorage, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     ASSERT(cookieStorage);
-    [cookieStorage _saveCookies:makeBlockPtr([completionHandler = WTFMove(completionHandler)]() mutable {
+    [cookieStorage _saveCookies:makeBlockPtr([completionHandler = WTF::move(completionHandler)]() mutable {
         // CFNetwork may call the completion block on a background queue, so we need to redispatch to the main thread.
-        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTF::move(completionHandler));
     }).get()];
 }
 
@@ -253,7 +253,7 @@ void NetworkProcess::platformFlushCookies(PAL::SessionID sessionID, CompletionHa
         return completionHandler();
 
     RetainPtr cookieStorage = networkStorageSession->nsCookieStorage();
-    saveCookies(cookieStorage.get(), WTFMove(completionHandler));
+    saveCookies(cookieStorage.get(), WTF::move(completionHandler));
 }
 
 const String& NetworkProcess::uiProcessBundleIdentifier() const
@@ -267,7 +267,7 @@ const String& NetworkProcess::uiProcessBundleIdentifier() const
 #if PLATFORM(IOS_FAMILY)
 void NetworkProcess::setBackupExclusionPeriodForTesting(PAL::SessionID sessionID, Seconds period, CompletionHandler<void()>&& completionHandler)
 {
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    auto callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
     if (CheckedPtr session = networkSession(sessionID))
         session->storageManager().setBackupExclusionPeriodForTesting(period, [callbackAggregator] { });
 }
@@ -289,7 +289,7 @@ void NetworkProcess::setProxyConfigData(PAL::SessionID sessionID, Vector<std::pa
     if (!session)
         return;
 
-    session->setProxyConfigData(WTFMove(proxyConfigurations));
+    session->setProxyConfigData(WTF::move(proxyConfigurations));
 }
 #endif // HAVE(NW_PROXY_CONFIG)
 

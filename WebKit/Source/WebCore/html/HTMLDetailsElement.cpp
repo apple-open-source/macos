@@ -49,7 +49,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLDetailsElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLDetailsElement);
 
 using namespace HTMLNames;
 
@@ -119,7 +119,7 @@ void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 
     summarySlot->appendChild(defaultSummary);
     root.appendChild(summarySlot);
-    m_summarySlot = WTFMove(summarySlot);
+    m_summarySlot = WTF::move(summarySlot);
 
     Ref defaultSlot = HTMLSlotElement::create(slotTag, document);
     defaultSlot->setUserAgentPart(UserAgentParts::detailsContent());
@@ -127,12 +127,12 @@ void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     defaultSlot->setInlineStyleProperty(CSSPropertyContentVisibility, CSSValueHidden);
     defaultSlot->setInlineStyleProperty(CSSPropertyDisplay, CSSValueBlock);
     root.appendChild(defaultSlot);
-    m_defaultSlot = WTFMove(defaultSlot);
+    m_defaultSlot = WTF::move(defaultSlot);
 
     static MainThreadNeverDestroyed<const String> stylesheet(StringImpl::createWithoutCopying(detailsElementShadowUserAgentStyleSheet));
     Ref style = HTMLStyleElement::create(HTMLNames::styleTag, document, false);
     style->setTextContent(String { stylesheet });
-    root.appendChild(WTFMove(style));
+    root.appendChild(WTF::move(style));
 }
 
 bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) const
@@ -194,13 +194,13 @@ void HTMLDetailsElement::didFinishInsertingNode()
     ensureDetailsExclusivityAfterMutation();
 }
 
-Vector<RefPtr<HTMLDetailsElement>> HTMLDetailsElement::otherElementsInNameGroup()
+Vector<Ref<HTMLDetailsElement>> HTMLDetailsElement::otherElementsInNameGroup()
 {
-    Vector<RefPtr<HTMLDetailsElement>> otherElementsInNameGroup;
+    Vector<Ref<HTMLDetailsElement>> otherElementsInNameGroup;
     const auto& detailElementName = attributeWithoutSynchronization(nameAttr);
     for (Ref element : descendantsOfType<HTMLDetailsElement>(rootNode())) {
         if (element.ptr() != this && element->attributeWithoutSynchronization(nameAttr) == detailElementName)
-            otherElementsInNameGroup.append(WTFMove(element));
+            otherElementsInNameGroup.append(WTF::move(element));
     }
     return otherElementsInNameGroup;
 }

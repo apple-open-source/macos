@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,34 +29,33 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)readdir.c	8.3 (Berkeley) 9/29/94";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "namespace.h"
 #include <sys/param.h>
 #include <dirent.h>
 #include <errno.h>
+#ifdef __APPLE__
 #include <stdlib.h>
+#endif /* __APPLE__ */
 #include <string.h>
-#include <unistd.h>
 #include <pthread.h>
 #include "un-namespace.h"
 
 #include "libc_private.h"
+#ifndef __APPLE__
+#include "gen-private.h"
+#endif /* !__APPLE__ */
 #include "telldir.h"
 
 /*
  * get next entry in a directory.
  */
 struct dirent *
-_readdir_unlocked(DIR *dirp, int skip)
+_readdir_unlocked(DIR *dirp, int flags)
 {
 	struct dirent *dp;
-	long initial_seek;
-	long initial_loc = 0;
+	off_t initial_seek;
+	size_t initial_loc = 0;
+	ssize_t ret;
 
 	for (;;) {
 		if (dirp->dd_loc >= dirp->dd_size) {
@@ -66,6 +67,7 @@ _readdir_unlocked(DIR *dirp, int skip)
 		}
 		if (dirp->dd_loc == 0 &&
 		    !(dirp->dd_flags & (__DTF_READALL | __DTF_ATEND | __DTF_SKIPREAD))) {
+			dirp->dd_size = 0;
 			if (dirp->dd_len == READDIR_INITIAL_SIZE) {
 				/*
 				 * If we need to read more, and we still have the original size,
@@ -94,21 +96,23 @@ _readdir_unlocked(DIR *dirp, int skip)
 			    sizeof(getdirentries64_flags_t));
 			*gdeflags = 0;
 			initial_seek = dirp->dd_td->seekoff;
-			dirp->dd_size = (long)__getdirentries64(dirp->dd_fd,
+			ret = __getdirentries64(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
-			if (dirp->dd_size >= 0 &&
-			    dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
+#else /* !__DARWIN_64_BIT_INO_T */
+			initial_seek = dirp->dd_seek;
+			ret = _getdirentries(dirp->dd_fd,
+			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
+#endif /* __DARWIN_64_BIT_INO_T */
+			if (ret <= 0)
+				return (NULL);
+			dirp->dd_size = (size_t)ret;
+#if __DARWIN_64_BIT_INO_T
+			if (dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
 				if (*gdeflags & GETDIRENTRIES64_EOF) {
 					dirp->dd_flags |= __DTF_ATEND;
 				}
 			}
-#else /* !__DARWIN_64_BIT_INO_T */
-			initial_seek = dirp->dd_seek;
-			dirp->dd_size = _getdirentries(dirp->dd_fd,
-			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
 #endif /* __DARWIN_64_BIT_INO_T */
-			if (dirp->dd_size <= 0)
-				return (NULL);
 			_fixtelldir(dirp, initial_seek, initial_loc);
 		}
 		dirp->dd_flags &= ~__DTF_SKIPREAD;
@@ -119,10 +123,15 @@ _readdir_unlocked(DIR *dirp, int skip)
 		    dp->d_reclen > dirp->dd_len + 1 - dirp->dd_loc)
 			return (NULL);
 		dirp->dd_loc += dp->d_reclen;
-		if (dp->d_ino == 0 && skip)
+		if (dp->d_ino == 0 && (flags & RDU_SKIP) != 0)
 			continue;
 		if (dp->d_type == DT_WHT && (dirp->dd_flags & DTF_HIDEW))
 			continue;
+#if __DARWIN_64_BIT_INO_T
+		if (dp->d_namlen >= sizeof(dp->d_name) &&
+		    (flags & RDU_SHORT) != 0)
+			continue;
+#endif /* __DARWIN_64_BIT_INO_T */
 		return (dp);
 	}
 }
@@ -130,34 +139,34 @@ _readdir_unlocked(DIR *dirp, int skip)
 struct dirent *
 readdir(DIR *dirp)
 {
-	struct dirent	*dp;
+	struct dirent *dp;
 
-	if (__isthreaded) {
+	if (__isthreaded)
 		_pthread_mutex_lock(&dirp->dd_lock);
-		dp = _readdir_unlocked(dirp, 1);
+	dp = _readdir_unlocked(dirp, RDU_SKIP);
+	if (__isthreaded)
 		_pthread_mutex_unlock(&dirp->dd_lock);
-	}
-	else
-		dp = _readdir_unlocked(dirp, 1);
 	return (dp);
 }
 
+#ifdef __APPLE__
+#define __readdir_r(...) readdir_r(__VA_ARGS__)
+#endif
 int
-readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result)
+__readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result)
 {
 	struct dirent *dp;
 	int saved_errno;
 
 	saved_errno = errno;
 	errno = 0;
-	if (__isthreaded) {
+	if (__isthreaded)
 		_pthread_mutex_lock(&dirp->dd_lock);
-		if ((dp = _readdir_unlocked(dirp, 1)) != NULL)
-			memcpy(entry, dp, _GENERIC_DIRSIZ(dp));
-		_pthread_mutex_unlock(&dirp->dd_lock);
-	}
-	else if ((dp = _readdir_unlocked(dirp, 1)) != NULL)
+	dp = _readdir_unlocked(dirp, RDU_SKIP | RDU_SHORT);
+	if (dp != NULL)
 		memcpy(entry, dp, _GENERIC_DIRSIZ(dp));
+	if (__isthreaded)
+		_pthread_mutex_unlock(&dirp->dd_lock);
 
 	if (errno != 0) {
 		if (dp == NULL)
@@ -172,3 +181,7 @@ readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result)
 
 	return (0);
 }
+
+#ifndef __APPLE__
+__strong_reference(__readdir_r, readdir_r);
+#endif /* __APPLE__ */

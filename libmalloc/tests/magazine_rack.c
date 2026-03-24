@@ -34,8 +34,6 @@ static_assert((MAX_ALLOCATIONS_PER_THREAD * MEDIUM_ALLOCATION_SZ) > (2 * MEDIUM_
 #endif
 
 // Stubs
-malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
-
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(false), T_META_TIMEOUT(1200));
 
 T_DECL(basic_magazine_init, "allocate magazine counts", T_META_TAG_VM_PREFERRED,

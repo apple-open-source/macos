@@ -31,7 +31,7 @@
 namespace WebKit {
 
 class WebMediaStrategy final : public WebCore::MediaStrategy {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebMediaStrategy);
+    WTF_MAKE_TZONE_ALLOCATED(WebMediaStrategy);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebMediaStrategy);
 public:
     virtual ~WebMediaStrategy();

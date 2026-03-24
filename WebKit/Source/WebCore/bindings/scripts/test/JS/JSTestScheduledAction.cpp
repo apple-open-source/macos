@@ -129,7 +129,7 @@ void JSTestScheduledActionPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestScheduledAction::s_info = { "TestScheduledActionReal"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestScheduledAction) };
 
 JSTestScheduledAction::JSTestScheduledAction(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestScheduledAction>&& impl)
-    : JSDOMWrapper<TestScheduledAction>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestScheduledAction>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -258,7 +258,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestScheduledAction>(impl.ptr());
 #endif
-    return createWrapper<TestScheduledAction>(globalObject, WTFMove(impl));
+    return createWrapper<TestScheduledAction>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestScheduledAction& impl)

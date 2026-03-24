@@ -128,8 +128,8 @@ void BlobRegistryImpl::registerInternalFileBlobURL(const URL& url, Ref<BlobDataF
     registerBlobResourceHandleConstructor();
 
     auto blobData = BlobData::create(contentType);
-    blobData->appendFile(WTFMove(file));
-    addBlobData(url.string(), WTFMove(blobData));
+    blobData->appendFile(WTF::move(file));
+    addBlobData(url.string(), WTF::move(blobData));
 }
 
 static FileSystem::MappedFileData storeInMappedFileData(const String& path, std::span<const uint8_t> data)
@@ -155,20 +155,20 @@ Ref<DataSegment> BlobRegistryImpl::createDataSegment(Vector<uint8_t>&& movedData
 {
     ASSERT(isMainThread());
 
-    auto data = DataSegment::create(WTFMove(movedData));
+    auto data = DataSegment::create(WTF::move(movedData));
     if (m_fileDirectory.isEmpty())
         return data;
 
     static uint64_t blobMappingFileCounter;
 
     auto filePath = FileSystem::pathByAppendingComponent(m_fileDirectory, makeString("mapping-file-"_s, ++blobMappingFileCounter, ".blob"_s));
-    registryQueueSingleton().dispatch([blobData = Ref { blobData }, data, filePath = WTFMove(filePath).isolatedCopy()]() mutable {
+    registryQueueSingleton().dispatch([blobData = Ref { blobData }, data, filePath = WTF::move(filePath).isolatedCopy()]() mutable {
         auto mappedFileData = storeInMappedFileData(filePath, data->span());
         if (!mappedFileData)
             return;
         ASSERT(mappedFileData.size() == data->size());
-        callOnMainThread([blobData = WTFMove(blobData), data = WTFMove(data), newData = DataSegment::create(WTFMove(mappedFileData))]() mutable {
-            blobData->replaceData(data.get(), WTFMove(newData));
+        callOnMainThread([blobData = WTF::move(blobData), data = WTF::move(data), newData = DataSegment::create(WTF::move(mappedFileData))]() mutable {
+            blobData->replaceData(data.get(), WTF::move(newData));
         });
     });
     return data;
@@ -201,7 +201,7 @@ void BlobRegistryImpl::registerInternalBlobURL(const URL& url, Vector<BlobPart>&
         }
     }
 
-    addBlobData(url.string(), WTFMove(blobData));
+    addBlobData(url.string(), WTF::move(blobData));
 }
 
 void BlobRegistryImpl::registerBlobURL(const URL& url, const URL& srcURL, const PolicyContainer& policyContainer, const std::optional<SecurityOriginData>& topOrigin)
@@ -211,7 +211,7 @@ void BlobRegistryImpl::registerBlobURL(const URL& url, const URL& srcURL, const 
 
 void BlobRegistryImpl::registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& file, const String& contentType, const PolicyContainer& policyContainer)
 {
-    registerBlobURLOptionallyFileBacked(url, srcURL, WTFMove(file), contentType, policyContainer);
+    registerBlobURLOptionallyFileBacked(url, srcURL, WTF::move(file), contentType, policyContainer);
 }
 
 void BlobRegistryImpl::registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& file, const String& contentType, const PolicyContainer& policyContainer, const std::optional<SecurityOriginData>& topOrigin)
@@ -226,7 +226,7 @@ void BlobRegistryImpl::registerBlobURLOptionallyFileBacked(const URL& url, const
         else {
             Ref clone = src->clone();
             clone->setPolicyContainer(policyContainer);
-            addBlobData(url.string(), WTFMove(clone), topOrigin);
+            addBlobData(url.string(), WTF::move(clone), topOrigin);
         }
         return;
     }
@@ -238,7 +238,7 @@ void BlobRegistryImpl::registerBlobURLOptionallyFileBacked(const URL& url, const
     backingFile->appendFile(file.releaseNonNull());
     backingFile->setPolicyContainer(policyContainer);
 
-    addBlobData(url.string(), WTFMove(backingFile), topOrigin);
+    addBlobData(url.string(), WTF::move(backingFile), topOrigin);
 }
 
 void BlobRegistryImpl::registerInternalBlobURLForSlice(const URL& url, const URL& srcURL, long long start, long long end, const String& contentType)
@@ -274,7 +274,7 @@ void BlobRegistryImpl::registerInternalBlobURLForSlice(const URL& url, const URL
 
     appendStorageItems(newData.ptr(), originalData->items(), start, newLength);
 
-    addBlobData(url.string(), WTFMove(newData));
+    addBlobData(url.string(), WTF::move(newData));
 }
 
 void BlobRegistryImpl::unregisterBlobURL(const URL& url, const std::optional<WebCore::SecurityOriginData>& topOrigin)
@@ -395,7 +395,7 @@ void BlobRegistryImpl::writeBlobsToTemporaryFilesForIndexedDB(const Vector<Strin
         return;
     }
 
-    blobUtilityQueueSingleton().dispatch([blobsForWriting = WTFMove(blobsForWriting), completionHandler = WTFMove(completionHandler)]() mutable {
+    blobUtilityQueueSingleton().dispatch([blobsForWriting = WTF::move(blobsForWriting), completionHandler = WTF::move(completionHandler)]() mutable {
         Vector<String> filePaths;
         for (auto& blob : blobsForWriting) {
             auto [tempFilePath, file] = FileSystem::openTemporaryFile("Blob"_s);
@@ -403,11 +403,11 @@ void BlobRegistryImpl::writeBlobsToTemporaryFilesForIndexedDB(const Vector<Strin
                 filePaths.clear();
                 break;
             }
-            filePaths.append(WTFMove(tempFilePath).isolatedCopy());
+            filePaths.append(WTF::move(tempFilePath).isolatedCopy());
         }
 
-        callOnMainThread([completionHandler = WTFMove(completionHandler), filePaths = WTFMove(filePaths)] () mutable {
-            completionHandler(WTFMove(filePaths));
+        callOnMainThread([completionHandler = WTF::move(completionHandler), filePaths = WTF::move(filePaths)] () mutable {
+            completionHandler(WTF::move(filePaths));
         });
     });
 }
@@ -430,7 +430,7 @@ Vector<RefPtr<BlobDataFileReference>> BlobRegistryImpl::filesInBlob(const URL& u
 void BlobRegistryImpl::addBlobData(const String& url, RefPtr<BlobData>&& blobData, const std::optional<WebCore::SecurityOriginData>& topOrigin)
 {
     ASSERT(BlobURL::isInternalURL(URL { { }, url }) || topOrigin);
-    auto addResult = m_blobs.set(url, WTFMove(blobData));
+    auto addResult = m_blobs.set(url, WTF::move(blobData));
     if (!addResult.isNewEntry)
         return;
     m_blobReferences.add(url);

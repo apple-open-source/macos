@@ -44,7 +44,7 @@
 
 - (WKWebProcessPlugInNodeHandle *)nodeHandle
 {
-    return WebKit::wrapper(_hitTestResult->nodeHandle()).autorelease();
+    return WebKit::wrapper(Ref { *_hitTestResult }->nodeHandle()).autorelease();
 }
 
 #pragma mark WKObject protocol implementation

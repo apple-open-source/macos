@@ -81,6 +81,17 @@ SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionApp
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceCopyActiveProfileID, CFStringRef, (), ())
 #define MACaptionAppearanceCopyActiveProfileID softLink_MediaAccessibility_MACaptionAppearanceCopyActiveProfileID
 
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceCopyProfileIDs, CFArrayRef, (), ())
+#define MACaptionAppearanceCopyProfileIDs softLink_MediaAccessibility_MACaptionAppearanceCopyProfileIDs
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceSetActiveProfileID, void, (CFStringRef profileID), (profileID))
+#define MACaptionAppearanceSetActiveProfileID softLink_MediaAccessibility_MACaptionAppearanceSetActiveProfileID
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceCopyActiveProfileID, CFStringRef, (), ())
+#define MACaptionAppearanceCopyActiveProfileID softLink_MediaAccessibility_MACaptionAppearanceCopyActiveProfileID
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceCopyProfileName, CFStringRef, (CFStringRef profileID), (profileID))
+#define MACaptionAppearanceCopyProfileName softLink_MediaAccessibility_MACaptionAppearanceCopyProfileName
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, MediaAccessibility, MACaptionAppearanceCopyPreviewText, CFStringRef, (CFStringRef profileID, CFStringRef trackLanguage), (profileID, trackLanguage));
+#define MACaptionAppearanceCopyPreviewText softLink_MediaAccessibility_MACaptionAppearanceCopyPreviewText
+
 #endif // HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 
 #endif // MediaAccessibilitySoftLink_h

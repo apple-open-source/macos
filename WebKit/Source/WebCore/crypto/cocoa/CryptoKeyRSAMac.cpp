@@ -41,7 +41,7 @@
 namespace WebCore {
 
 // OID rsaEncryption: 1.2.840.113549.1.1.1. Per https://tools.ietf.org/html/rfc3279#section-2.3.1
-static const unsigned char RSAOIDHeader[] = {0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00};
+static constexpr auto RSAOIDHeader = std::to_array<uint8_t>({ 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00 });
 
 // FIXME: We should get rid of magic number 16384. It assumes that the length of provided key will not exceed 16KB.
 // https://bugs.webkit.org/show_bug.cgi?id=164942
@@ -99,16 +99,16 @@ static CCCryptorStatus getPrivateKeyComponents(const PlatformRSAKeyContainer& rs
     if (auto status = CCRSAGetCRTComponents(rsaKey.get(), dp.mutableSpan().data(), dpSize, dq.mutableSpan().data(), dqSize, qinv.mutableSpan().data(), qinvSize))
         return status;
 
-    firstPrimeInfo.factorCRTExponent = WTFMove(dp);
-    secondPrimeInfo.factorCRTExponent = WTFMove(dq);
-    secondPrimeInfo.factorCRTCoefficient = WTFMove(qinv);
+    firstPrimeInfo.factorCRTExponent = WTF::move(dp);
+    secondPrimeInfo.factorCRTExponent = WTF::move(dq);
+    secondPrimeInfo.factorCRTCoefficient = WTF::move(qinv);
 
     return status;
 }
 
 CryptoKeyRSA::CryptoKeyRSA(CryptoAlgorithmIdentifier identifier, CryptoAlgorithmIdentifier hash, bool hasHash, CryptoKeyType type, PlatformRSAKeyContainer&& platformKey, bool extractable, CryptoKeyUsageBitmap usage)
     : CryptoKey(identifier, type, extractable, usage)
-    , m_platformKey(WTFMove(platformKey))
+    , m_platformKey(WTF::move(platformKey))
     , m_restrictedToSpecificHash(hasHash)
     , m_hash(hash)
 {
@@ -281,8 +281,8 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, CryptoAlgor
         return;
     }
 
-    __block auto blockCallback(WTFMove(callback));
-    __block auto blockFailureCallback(WTFMove(failureCallback));
+    __block auto blockCallback(WTF::move(callback));
+    __block auto blockFailureCallback(WTF::move(failureCallback));
     auto contextIdentifier = context->identifier();
     dispatch_async(globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         CCRSACryptorRef ccPublicKey = nullptr;
@@ -290,16 +290,16 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, CryptoAlgor
         CCCryptorStatus status = CCRSACryptorGeneratePair(modulusLength, e, &ccPublicKey, &ccPrivateKey);
         if (status) {
             WTFLogAlways("Could not generate a key pair, status %d", status);
-            ScriptExecutionContext::postTaskTo(contextIdentifier, [callback = WTFMove(blockCallback), failureCallback = WTFMove(blockFailureCallback)](auto&) {
+            ScriptExecutionContext::postTaskTo(contextIdentifier, [callback = WTF::move(blockCallback), failureCallback = WTF::move(blockFailureCallback)](auto&) {
                 failureCallback();
             });
             return;
         }
-        ScriptExecutionContext::postTaskTo(contextIdentifier, [algorithm, hash, hasHash, extractable, usage, callback = WTFMove(blockCallback), failureCallback = WTFMove(blockFailureCallback), ccPublicKey = PlatformRSAKeyContainer(ccPublicKey), ccPrivateKey = PlatformRSAKeyContainer(ccPrivateKey)](auto&) mutable {
-            auto publicKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Public, WTFMove(ccPublicKey), true, usage);
-            auto privateKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Private, WTFMove(ccPrivateKey), extractable, usage);
+        ScriptExecutionContext::postTaskTo(contextIdentifier, [algorithm, hash, hasHash, extractable, usage, callback = WTF::move(blockCallback), failureCallback = WTF::move(blockFailureCallback), ccPublicKey = PlatformRSAKeyContainer(ccPublicKey), ccPrivateKey = PlatformRSAKeyContainer(ccPrivateKey)](auto&) mutable {
+            auto publicKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Public, WTF::move(ccPublicKey), true, usage);
+            auto privateKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Private, WTF::move(ccPrivateKey), extractable, usage);
 
-            callback(CryptoKeyPair { WTFMove(publicKey), WTFMove(privateKey) });
+            callback(CryptoKeyPair { WTF::move(publicKey), WTF::move(privateKey) });
         });
     });
 }
@@ -360,7 +360,7 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportSpki() const
     result.append(InitialOctet);
     result.append(keyBytes.span());
 
-    return WTFMove(result);
+    return WTF::move(result);
 }
 
 RefPtr<CryptoKeyRSA> CryptoKeyRSA::importPkcs8(CryptoAlgorithmIdentifier identifier, std::optional<CryptoAlgorithmIdentifier> hash, Vector<uint8_t>&& keyData, bool extractable, CryptoKeyUsageBitmap usages)
@@ -422,7 +422,7 @@ ExceptionOr<Vector<uint8_t>> CryptoKeyRSA::exportPkcs8() const
     addEncodedASN1Length(result, keySize);
     result.append(keyBytes.span());
 
-    return WTFMove(result);
+    return WTF::move(result);
 }
 
 } // namespace WebCore

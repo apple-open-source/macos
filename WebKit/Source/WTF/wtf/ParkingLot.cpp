@@ -31,6 +31,7 @@
 #include <wtf/DataLog.h>
 #include <wtf/FixedVector.h>
 #include <wtf/HashFunctions.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/Threading.h>
@@ -60,8 +61,6 @@ public:
     ThreadData();
     ~ThreadData();
 
-    Ref<Thread> thread;
-    
     Mutex parkingLock;
     ThreadCondition parkingCondition;
 
@@ -312,26 +311,32 @@ Vector<Bucket*> lockHashtable()
             }
         }
 
+IGNORE_CLANG_WARNINGS_BEGIN("thread-safety")
         // Now lock the buckets in the right order.
         std::ranges::sort(buckets);
         for (Bucket* bucket : buckets)
             bucket->lock.lock();
+IGNORE_CLANG_WARNINGS_END
 
         // If the hashtable didn't change (wasn't rehashed) while we were locking it, then we own it
         // now.
         if (hashtable.load() == currentHashtable)
             return buckets;
 
+IGNORE_CLANG_WARNINGS_BEGIN("thread-safety")
         // The hashtable rehashed. Unlock everything and try again.
         for (Bucket* bucket : buckets)
             bucket->lock.unlock();
+IGNORE_CLANG_WARNINGS_END
     }
 }
 
 void unlockHashtable(const Vector<Bucket*>& buckets)
 {
+IGNORE_CLANG_WARNINGS_BEGIN("thread-safety")
     for (Bucket* bucket : buckets)
         bucket->lock.unlock();
+IGNORE_CLANG_WARNINGS_END
 }
 
 // Rehash the hashtable to handle numThreads threads.
@@ -371,7 +376,7 @@ void ensureHashtableSize(unsigned numThreads)
     Vector<RefPtr<ThreadData>> threadDatas;
     for (Bucket* bucket : reusableBuckets) {
         while (RefPtr threadData = bucket->dequeue())
-            threadDatas.append(WTFMove(threadData));
+            threadDatas.append(WTF::move(threadData));
     }
 
     unsigned newSize = numThreads * growthFactor * maxLoadFactor;
@@ -424,7 +429,6 @@ void ensureHashtableSize(unsigned numThreads)
 }
 
 ThreadData::ThreadData()
-    : thread(Thread::currentSingleton())
 {
     unsigned currentNumThreads;
     for (;;) {
@@ -448,16 +452,9 @@ ThreadData::~ThreadData()
 
 ThreadData* myThreadData()
 {
-    static ThreadSpecific<RefPtr<ThreadData>, CanBeGCThread::True>* threadData;
-    static std::once_flag initializeOnce;
-    std::call_once(
-        initializeOnce,
-        [] {
-            threadData = new ThreadSpecific<RefPtr<ThreadData>, CanBeGCThread::True>();
-        });
+    static NeverDestroyed<ThreadSpecific<RefPtr<ThreadData>, CanBeGCThread::True>> threadData;
     
-    RefPtr<ThreadData>& result = **threadData;
-    
+    RefPtr<ThreadData>& result = *threadData.get();
     if (!result)
         result = adoptRef(new ThreadData());
     
@@ -793,7 +790,7 @@ NEVER_INLINE void ParkingLot::unparkAll(const void* address)
     unparkCount(address, UINT_MAX);
 }
 
-NEVER_INLINE void ParkingLot::forEachImpl(const ScopedLambda<void(Thread&, const void*)>& callback)
+NEVER_INLINE void ParkingLot::forEachImpl(const ScopedLambda<void(uintptr_t, const void*)>& callback)
 {
     Vector<Bucket*> bucketsToUnlock = lockHashtable();
 
@@ -803,10 +800,15 @@ NEVER_INLINE void ParkingLot::forEachImpl(const ScopedLambda<void(Thread&, const
         if (!bucket)
             continue;
         for (RefPtr currentThreadData = bucket->queueHead; currentThreadData; currentThreadData = currentThreadData->nextInQueue)
-            callback(currentThreadData->thread.get(), currentThreadData->address);
+            callback(reinterpret_cast<uintptr_t>(currentThreadData.get()), currentThreadData->address);
     }
     
     unlockHashtable(bucketsToUnlock);
+}
+
+uintptr_t ParkingLot::currentThreadID()
+{
+    return reinterpret_cast<uintptr_t>(myThreadData());
 }
 
 } // namespace WTF

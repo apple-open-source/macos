@@ -81,9 +81,9 @@ using WebCore::VisiblePosition;
 {
     auto& range = *core(self);
 
-    WebCore::FrameSelection frameSelection;
-    frameSelection.setSelection(makeSimpleRange(range));
-    
+    auto frameSelection = makeUniqueRef<WebCore::FrameSelection>();
+    frameSelection->setSelection(makeSimpleRange(range));
+
     WebCore::TextGranularity granularity = WebCore::TextGranularity::CharacterGranularity;
     // Until WebKit supports vertical layout, "down" is equivalent to "forward by a line" and
     // "up" is equivalent to "backward by a line".
@@ -96,10 +96,10 @@ using WebCore::VisiblePosition;
     }
 
     for (UInt32 i = 0; i < amount; i++)
-        frameSelection.modify(WebCore::FrameSelection::Alteration::Move, (WebCore::SelectionDirection)direction, granularity);
+        frameSelection->modify(WebCore::FrameSelection::Alteration::Move, (WebCore::SelectionDirection)direction, granularity);
 
-    Position start = frameSelection.selection().start().parentAnchoredEquivalent();
-    Position end = frameSelection.selection().end().parentAnchoredEquivalent();
+    Position start = frameSelection->selection().start().parentAnchoredEquivalent();
+    Position end = frameSelection->selection().end().parentAnchoredEquivalent();
     if (start.containerNode())
         range.setStart(*start.containerNode(), start.offsetInContainerNode());
     if (end.containerNode())
@@ -110,14 +110,14 @@ using WebCore::VisiblePosition;
 {
     auto& range = *core(self);
 
-    WebCore::FrameSelection frameSelection;
-    frameSelection.setSelection(makeSimpleRange(range));
+    auto frameSelection = makeUniqueRef<WebCore::FrameSelection>();
+    frameSelection->setSelection(makeSimpleRange(range));
 
     for (UInt32 i = 0; i < amount; i++)
-        frameSelection.modify(WebCore::FrameSelection::Alteration::Extend, (WebCore::SelectionDirection)direction, WebCore::TextGranularity::CharacterGranularity);
+        frameSelection->modify(WebCore::FrameSelection::Alteration::Extend, (WebCore::SelectionDirection)direction, WebCore::TextGranularity::CharacterGranularity);
 
-    Position start = frameSelection.selection().start().parentAnchoredEquivalent();
-    Position end = frameSelection.selection().end().parentAnchoredEquivalent();
+    Position start = frameSelection->selection().start().parentAnchoredEquivalent();
+    Position end = frameSelection->selection().end().parentAnchoredEquivalent();
     if (start.containerNode())
         range.setStart(*start.containerNode(), start.offsetInContainerNode());
     if (end.containerNode())

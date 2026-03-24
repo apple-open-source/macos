@@ -55,7 +55,7 @@ bool SecOTRCreateError(enum SecOTRError family, CFIndex errorCode, CFStringRef d
 
 OSStatus insertSize(CFIndex size, uint8_t* here)
 {
-    require(size < 0xFFFF, fail);
+    __Require(size < 0xFFFF, fail);
     
     uint8_t bytes[] = { (size >> 8) & 0xFF, size & 0xFF };
     memcpy(here, bytes, sizeof(bytes));
@@ -68,7 +68,7 @@ fail:
 
 OSStatus appendSize(CFIndex size, CFMutableDataRef into)
 {
-    require(size < 0xFFFF, fail);
+    __Require(size < 0xFFFF, fail);
     
     uint8_t bytes[] = { (size >> 8) & 0xFF, size & 0xFF };
     CFDataAppendBytes(into, bytes, sizeof(bytes));
@@ -81,10 +81,10 @@ fail:
 
 OSStatus readSize(const uint8_t** data, size_t* limit, uint16_t* size)
 {
-    require(limit != NULL, fail);
-    require(data != NULL, fail);
-    require(size != NULL, fail);
-    require(*limit > 1, fail);
+    __Require(limit != NULL, fail);
+    __Require(data != NULL, fail);
+    __Require(size != NULL, fail);
+    __Require(*limit > 1, fail);
     
     *size = ((uint16_t)(*data)[0]) << 8 | ((uint16_t) (*data)[1]) << 0;
     
@@ -100,7 +100,7 @@ OSStatus appendSizeAndData(CFDataRef data, CFMutableDataRef appendTo)
 {
     OSStatus status = errSecNotAvailable;
     
-    require_noerr(appendSize(CFDataGetLength(data), appendTo), exit);
+    __Require_noErr(appendSize(CFDataGetLength(data), appendTo), exit);
     CFDataAppend(appendTo, data);
     
     status = errSecSuccess;
@@ -114,8 +114,8 @@ OSStatus appendPublicOctetsAndSize(SecKeyRef fromKey, CFMutableDataRef appendTo)
     OSStatus status = errSecDecode;
     CFDataRef serializedKey = NULL;
     
-    require_noerr(SecKeyCopyPublicBytes(fromKey, &serializedKey), exit);
-    require(serializedKey, exit);
+    __Require_noErr(SecKeyCopyPublicBytes(fromKey, &serializedKey), exit);
+    __Require(serializedKey, exit);
     
     status = appendSizeAndData(serializedKey, appendTo);
     
@@ -129,8 +129,8 @@ OSStatus appendPublicOctets(SecKeyRef fromKey, CFMutableDataRef appendTo)
     OSStatus status = errSecDecode;
     CFDataRef serializedKey = NULL;
     
-    require_noerr(SecKeyCopyPublicBytes(fromKey, &serializedKey), exit);
-    require(serializedKey, exit);
+    __Require_noErr(SecKeyCopyPublicBytes(fromKey, &serializedKey), exit);
+    __Require(serializedKey, exit);
     
     CFDataAppend(appendTo, serializedKey);
     
@@ -161,11 +161,11 @@ static SecKeyRef CallCreateFunctionFrom(CFAllocatorRef allocator, const uint8_t*
     uint16_t foundLength = 0;
     const uint8_t* foundData = NULL;
     
-    require(limit != NULL, fail);
-    require(data != NULL, fail);
+    __Require(limit != NULL, fail);
+    __Require(data != NULL, fail);
     
-    require_noerr(readSize(data, limit, &foundLength), fail);
-    require(foundLength <= *limit, fail);
+    __Require_noErr(readSize(data, limit, &foundLength), fail);
+    __Require(foundLength <= *limit, fail);
     
     foundData = *data;
     

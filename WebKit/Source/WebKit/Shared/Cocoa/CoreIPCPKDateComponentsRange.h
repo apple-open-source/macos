@@ -48,7 +48,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCPKDateComponentsRange, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCPKDateComponentsRange>;
     CoreIPCPKDateComponentsRange(std::optional<CoreIPCPKDateComponentsRangeData>&&);
 
     std::optional<CoreIPCPKDateComponentsRangeData> m_data;

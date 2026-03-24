@@ -39,12 +39,12 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ReadableStreamBYOBReader);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ReadableStreamBYOBReader);
 
 ExceptionOr<Ref<ReadableStreamBYOBReader>> ReadableStreamBYOBReader::create(JSDOMGlobalObject& globalObject, ReadableStream& stream)
 {
     auto [promise, deferred] = createPromiseAndWrapper(globalObject);
-    Ref reader = adoptRef(*new ReadableStreamBYOBReader(WTFMove(promise), WTFMove(deferred)));
+    Ref reader = adoptRef(*new ReadableStreamBYOBReader(WTF::move(promise), WTF::move(deferred)));
     auto result = reader->setupBYOBReader(globalObject, stream);
     if (result.hasException())
         return result.releaseException();
@@ -52,12 +52,17 @@ ExceptionOr<Ref<ReadableStreamBYOBReader>> ReadableStreamBYOBReader::create(JSDO
 }
 
 ReadableStreamBYOBReader::ReadableStreamBYOBReader(Ref<DOMPromise>&& promise, Ref<DeferredPromise>&& deferred)
-    : m_closedPromise(WTFMove(promise))
-    , m_closedDeferred(WTFMove(deferred))
+    : m_closedPromise(WTF::move(promise))
+    , m_closedDeferred(WTF::move(deferred))
 {
 }
 
-ReadableStreamBYOBReader::~ReadableStreamBYOBReader() = default;
+ReadableStreamBYOBReader::~ReadableStreamBYOBReader()
+{
+    RefPtr stream = m_stream;
+    if (stream && stream->byobReader() == this)
+        stream->setByobReader(nullptr);
+}
 
 DOMPromise& ReadableStreamBYOBReader::closedPromise()
 {
@@ -92,7 +97,7 @@ void ReadableStreamBYOBReader::readForBindings(JSDOMGlobalObject& globalObject, 
     if (!m_stream)
         return promise->reject(Exception { ExceptionCode::TypeError, "reader has no stream"_s });
 
-    read(globalObject, view, options.min, ReadableStreamReadIntoRequest::create(WTFMove(promise)));
+    read(globalObject, view, options.min, ReadableStreamReadIntoRequest::create(WTF::move(promise)));
 }
 
 // https://streams.spec.whatwg.org/#byob-reader-release-lock
@@ -163,7 +168,7 @@ void ReadableStreamBYOBReader::read(JSDOMGlobalObject& globalObject, JSC::ArrayB
     }
 
     RefPtr controller = stream->controller();
-    controller->pullInto(globalObject, view, optionMin, WTFMove(readRequest));
+    controller->pullInto(globalObject, view, optionMin, WTF::move(readRequest));
 }
 
 // https://streams.spec.whatwg.org/#readable-stream-reader-generic-release
@@ -179,8 +184,8 @@ void ReadableStreamBYOBReader::genericRelease(JSDOMGlobalObject& globalObject)
     else {
         auto [promise, deferred] = createPromiseAndWrapper(globalObject);
         deferred->reject(Exception { ExceptionCode::TypeError, "releasing stream"_s }, RejectAsHandled::Yes);
-        m_closedDeferred = WTFMove(deferred);
-        m_closedPromise = WTFMove(promise);
+        m_closedDeferred = WTF::move(deferred);
+        m_closedPromise = WTF::move(promise);
     }
 
     if (RefPtr controller = stream->controller())
@@ -233,21 +238,21 @@ Ref<ReadableStreamReadIntoRequest> ReadableStreamBYOBReader::takeFirstReadIntoRe
 
 void ReadableStreamBYOBReader::addReadIntoRequest(Ref<ReadableStreamReadIntoRequest>&& readIntoRequest)
 {
-    m_readIntoRequests.append(WTFMove(readIntoRequest));
+    m_readIntoRequests.append(WTF::move(readIntoRequest));
 }
 
 void ReadableStreamBYOBReader::onClosedPromiseRejection(ClosedCallback&& callback)
 {
     if (m_closedCallback) {
         auto oldCallback = std::exchange(m_closedCallback, { });
-        m_closedCallback = [oldCallback = WTFMove(oldCallback), callback = WTFMove(callback)](auto& globalObject, auto value) mutable {
+        m_closedCallback = [oldCallback = WTF::move(oldCallback), callback = WTF::move(callback)](auto& globalObject, auto value) mutable {
             oldCallback(globalObject, value);
             callback(globalObject, value);
         };
         return;
     }
 
-    m_closedCallback = WTFMove(callback);
+    m_closedCallback = WTF::move(callback);
     Ref { m_closedPromise }->whenSettled([weakThis = WeakPtr { *this }]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
@@ -260,9 +265,27 @@ void ReadableStreamBYOBReader::onClosedPromiseRejection(ClosedCallback&& callbac
     });
 }
 
+bool ReadableStreamBYOBReader::isReachableFromOpaqueRoots() const
+{
+    return readIntoRequestsSize() && m_stream && m_stream->isReachableFromOpaqueRoots();
+}
+
 WebCoreOpaqueRoot root(ReadableStreamBYOBReader* reader)
 {
     return WebCoreOpaqueRoot { reader };
+}
+
+bool JSReadableStreamBYOBReaderOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, AbstractSlotVisitor& visitor, ASCIILiteral* reason)
+{
+    auto* jsReader = jsCast<JSReadableStreamBYOBReader*>(handle.slot()->asCell());
+    SUPPRESS_UNCOUNTED_LOCAL auto& reader = jsReader->wrapped();
+    SUPPRESS_UNCOUNTED_LOCAL if (reader.isReachableFromOpaqueRoots()) {
+        if (reason) [[unlikely]]
+            *reason = "ReadableStreamBYOBReader is reachable from opaque root"_s;
+        return true;
+    }
+
+    return containsWebCoreOpaqueRoot(visitor, reader);
 }
 
 template<typename Visitor>

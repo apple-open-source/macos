@@ -123,9 +123,9 @@ static bool encrypted_data_from_blob(keybag_handle_t keybag, const void *blob_da
         ed = CFDataCreate(kCFAllocatorDefault, blob_data, blob_data_len);
         key_data = CFRetain(ed);
     }
-    require_action_quiet(ed, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'encrypted data'")));
-    require_action_quiet(key_data, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'key data'")));
-    require_noerr_action_quiet(aks_return = aks_ref_key_create_with_blob(keybag, CFDataGetBytePtr(key_data), CFDataGetLength(key_data), ref_key), out, SecError(errSecDecode, error, CFSTR("aks_ref_key: failed to create ref key with blob: %x (bag: %"PRId32")"), aks_return, keybag));
+    __Require_Action_Quiet(ed, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'encrypted data'")));
+    __Require_Action_Quiet(key_data, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'key data'")));
+    __Require_noErr_Action_Quiet(aks_return = aks_ref_key_create_with_blob(keybag, CFDataGetBytePtr(key_data), CFDataGetLength(key_data), ref_key), out, SecError(errSecDecode, error, CFSTR("aks_ref_key: failed to create ref key with blob: %x (bag: %"PRId32")"), aks_return, keybag));
 
     if (encrypted_data)
         *encrypted_data = CFRetain(ed);
@@ -161,12 +161,12 @@ bool ks_crypt_diversify(CFTypeRef operation, keybag_handle_t keybag,
     void *outDer = NULL;
 
     if (CFEqual(operation, kAKSKeyOpEncrypt)) {
-        require_noerr_quiet(aksResult = aks_ref_key_create(keybag, keyclass, key_type_sym, der_params, der_params_len, &refKey), out);
-        require_noerr_quiet(aksResult = aks_ref_key_wrap(refKey, der_params, der_params_len, source, textLength, &outDer, &outDerLen), out);
+        __Require_noErr_Quiet(aksResult = aks_ref_key_create(keybag, keyclass, key_type_sym, der_params, der_params_len, &refKey), out);
+        __Require_noErr_Quiet(aksResult = aks_ref_key_wrap(refKey, der_params, der_params_len, source, textLength, &outDer, &outDerLen), out);
 
         size_t key_blob_len;
         const void *key_blob = aks_ref_key_get_blob(refKey, &key_blob_len);
-        require_quiet(key_blob, out);
+        __Require_Quiet(key_blob, out);
 
         result = merge_der_in_to_data(outDer, outDerLen, key_blob, key_blob_len, dest);
         if (!result) {
@@ -184,7 +184,7 @@ bool ks_crypt_diversify(CFTypeRef operation, keybag_handle_t keybag,
             aks_params_free(&aks_params);
             return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: failed to create ref key with blob because bad data (bag: %"PRId32")"), keybag);
         }
-        require_noerr_quiet(aksResult = aks_ref_key_unwrap(refKey, der_params, der_params_len, CFDataGetBytePtr(ed_data), CFDataGetLength(ed_data), &outDer, &outDerLen), out);
+        __Require_noErr_Quiet(aksResult = aks_ref_key_unwrap(refKey, der_params, der_params_len, CFDataGetBytePtr(ed_data), CFDataGetLength(ed_data), &outDer, &outDerLen), out);
         CFPropertyListRef unwrappedKeyData = NULL;
         der_decode_plist(NULL, &unwrappedKeyData, error, outDer, outDer + outDerLen);
         if (CFGetTypeID(unwrappedKeyData) == CFDataGetTypeID()) {
@@ -485,20 +485,20 @@ bool ks_encrypt_acl(keybag_handle_t keybag, keyclass_t keyclass, uint32_t textLe
     /* Verify that we have credential handle, otherwise generate proper error containing ACL and operation requested. */
     bool ok = false;
     if (!acm_context || !SecAccessControlIsBound(access_control)) {
-        require_quiet(ok = ks_access_control_needed_error(error, access_control_data, SecAccessControlIsBound(access_control) ? kAKSKeyOpEncrypt : CFSTR("")), out);
+        __Require_Quiet(ok = ks_access_control_needed_error(error, access_control_data, SecAccessControlIsBound(access_control) ? kAKSKeyOpEncrypt : CFSTR("")), out);
     }
 
     aks_operation_optional_params(0, 0, CFDataGetBytePtr(auth_data), CFDataGetLength(auth_data), CFDataGetBytePtr(acm_context), (int)CFDataGetLength(acm_context), &params, &params_len);
-    require_noerr_action_quiet(aks_return = aks_ref_key_create(keybag, keyclass, key_type_sym, params, params_len, &key_handle), out,
+    __Require_noErr_Action_Quiet(aks_return = aks_ref_key_create(keybag, keyclass, key_type_sym, params, params_len, &key_handle), out,
                                create_cferror_from_aks(aks_return, kAKSKeyOpEncrypt, keybag, keyclass, access_control_data, acm_context, error));
-    require_noerr_action_quiet(aks_return = aks_ref_key_encrypt(key_handle, params, params_len, source, textLength, &der, &der_len), out,
+    __Require_noErr_Action_Quiet(aks_return = aks_ref_key_encrypt(key_handle, params, params_len, source, textLength, &der, &der_len), out,
                                create_cferror_from_aks(aks_return, kAKSKeyOpEncrypt, keybag, keyclass, access_control_data, acm_context, error));
     size_t key_blob_len;
     const void *key_blob = aks_ref_key_get_blob(key_handle, &key_blob_len);
-    require_action_quiet(key_blob, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be encrypted due to invalid key data, so drop the item."),
+    __Require_Action_Quiet(key_blob, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be encrypted due to invalid key data, so drop the item."),
                                            aks_return, "encrypt", keyclass, keybag));
 
-    require_action_quiet(merge_der_in_to_data(der, der_len, key_blob, key_blob_len, dest), out,
+    __Require_Action_Quiet(merge_der_in_to_data(der, der_len, key_blob, key_blob_len, dest), out,
                    SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be encrypted due to merge failed, so drop the item."),
                             aks_return, "encrypt", keyclass, keybag));
 
@@ -527,18 +527,18 @@ bool ks_decrypt_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data, CFMutableDa
     /* Verify that we have credential handle, otherwise generate proper error containing ACL and operation requested. */
     bool ok = false;
     if (!acm_context) {
-        require_quiet(ok = ks_access_control_needed_error(error, NULL, NULL), out);
+        __Require_Quiet(ok = ks_access_control_needed_error(error, NULL, NULL), out);
     }
 
     aks_operation_optional_params(access_groups, access_groups_len, 0, 0, CFDataGetBytePtr(acm_context), (int)CFDataGetLength(acm_context), &params, &params_len);
-    require_noerr_action_quiet(aks_return = aks_ref_key_decrypt(ref_key, params, params_len, CFDataGetBytePtr(encrypted_data), CFDataGetLength(encrypted_data), &der, &der_len), out,
+    __Require_noErr_Action_Quiet(aks_return = aks_ref_key_decrypt(ref_key, params, params_len, CFDataGetBytePtr(encrypted_data), CFDataGetLength(encrypted_data), &der, &der_len), out,
                                create_cferror_from_aks(aks_return, kAKSKeyOpDecrypt, 0, 0, access_control_data, acm_context, error));
-    require_action_quiet(der, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to invalid der data, so drop the item."),
+    __Require_Action_Quiet(der, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to invalid der data, so drop the item."),
                                                   aks_return, "decrypt"));
 
     CFPropertyListRef decoded_data = NULL;
     der_decode_plist(kCFAllocatorDefault, &decoded_data, NULL, der, der + der_len);
-    require_action_quiet(decoded_data, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to failed decode der, so drop the item."),
+    __Require_Action_Quiet(decoded_data, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to failed decode der, so drop the item."),
                                                            aks_return, "decrypt"));
     if (CFGetTypeID(decoded_data) == CFDataGetTypeID()) {
         CFDataSetLength(dest, 0);
@@ -547,7 +547,7 @@ bool ks_decrypt_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data, CFMutableDa
     }
     else {
         CFRelease(decoded_data);
-        require_action_quiet(false, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to wrong data, so drop the item."),
+        __Require_Action_Quiet(false, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to wrong data, so drop the item."),
                                                         aks_return, "decrypt"));
     }
 
@@ -570,18 +570,18 @@ bool ks_delete_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data,
     int aks_return = kAKSReturnSuccess;
     bool ok = false;
 
-    nrequire_action_quiet(CFEqualSafe(SecAccessControlGetConstraint(access_control, kAKSKeyOpDelete), kCFBooleanTrue), out, ok = true);
+    __nRequire_Action_Quiet(CFEqualSafe(SecAccessControlGetConstraint(access_control, kAKSKeyOpDelete), kCFBooleanTrue), out, ok = true);
 
     /* Verify that we have credential handle, otherwise generate proper error containing ACL and operation requested. */
     if (!acm_context) {
-        require_quiet(ok = ks_access_control_needed_error(error, NULL, NULL), out);
+        __Require_Quiet(ok = ks_access_control_needed_error(error, NULL, NULL), out);
     }
 
     access_control_data = SecAccessControlCopyData(access_control);
     const uint8_t *access_groups = caller_access_groups?CFDataGetBytePtr(caller_access_groups):NULL;
     size_t params_len = 0, access_groups_len = caller_access_groups?CFDataGetLength(caller_access_groups):0;
     aks_operation_optional_params(access_groups, access_groups_len, 0, 0, CFDataGetBytePtr(acm_context), (int)CFDataGetLength(acm_context), &params, &params_len);
-    require_noerr_action_quiet(aks_return = aks_ref_key_delete(ref_key, params, params_len), out,
+    __Require_noErr_Action_Quiet(aks_return = aks_ref_key_delete(ref_key, params, params_len), out,
                                create_cferror_from_aks(aks_return, kAKSKeyOpDelete, 0, 0, access_control_data, acm_context, error));
 
     ok = true;

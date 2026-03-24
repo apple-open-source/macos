@@ -91,11 +91,11 @@ CFDataRef SecKeyCopyPublicKeyHash(SecKeyRef key)
 	CFDataRef pubKeyDigest = NULL, pubKeyBlob = NULL;
 
 	/* encode the public key. */
-    require_noerr_quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
-    require_quiet(pubKeyBlob, errOut);
+    __Require_noErr_Quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
+    __Require_Quiet(pubKeyBlob, errOut);
 
 	/* Calculate the digest of the public key. */
-	require_quiet(pubKeyDigest = SecSHA1DigestCreate(CFGetAllocator(key),
+	__Require_Quiet(pubKeyDigest = SecSHA1DigestCreate(CFGetAllocator(key),
                                                      CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
 			errOut);
 errOut:
@@ -119,11 +119,11 @@ static CFDictionaryRef SecKeyCopyAttributeDictionaryWithLocalKey(SecKeyRef key,
     CFNumberRef sizeInBits = CFNumberCreate(allocator, kCFNumberLongType, &sizeValue);
 
 	/* encode the public key. */
-    require_noerr_quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
-    require_quiet(pubKeyBlob, errOut);
+    __Require_noErr_Quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
+    __Require_Quiet(pubKeyBlob, errOut);
 
 	/* Calculate the digest of the public key. */
-	require_quiet(pubKeyDigest = SecSHA1DigestCreate(allocator,
+	__Require_Quiet(pubKeyDigest = SecSHA1DigestCreate(allocator,
                                                      CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
                   errOut);
 
@@ -400,7 +400,7 @@ CFDataRef SecKeyCreatePersistentRefToMatchingPrivateKey(SecKeyRef publicKey, CFE
     CFTypeRef persistentRef = NULL;
     CFDictionaryRef query = CreatePrivateKeyMatchingQuery(publicKey, true);
 
-    require_quiet(SecError(SecItemCopyMatching(query, &persistentRef),error ,
+    __Require_Quiet(SecError(SecItemCopyMatching(query, &persistentRef),error ,
                            CFSTR("Error finding persistent ref to key from public: %@"), publicKey), fail);
 fail:
     CFReleaseNull(query);
@@ -412,11 +412,11 @@ SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error) {
     CFTypeRef queryResult = NULL;
     CFDictionaryRef query = NULL;
 
-    require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, CFSTR("Null Public Key")));
+    __Require_Action_Quiet(publicKey != NULL, errOut, SecError(errSecParam, error, CFSTR("Null Public Key")));
 
     query = CreatePrivateKeyMatchingQuery(publicKey, false);
 
-    require_quiet(SecError(SecItemCopyMatching(query, &queryResult), error,
+    __Require_Quiet(SecError(SecItemCopyMatching(query, &queryResult), error,
                            CFSTR("Error finding private key from public: %@"), publicKey), errOut);
 
     if (CFGetTypeID(queryResult) == SecKeyGetTypeID()) {
@@ -435,7 +435,7 @@ OSStatus SecKeyGetMatchingPrivateKeyStatus(SecKeyRef publicKey, CFErrorRef *erro
     CFTypeRef private_key = NULL;
     CFDictionaryRef query = NULL;
 
-    require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, NULL, CFSTR("Null Public Key")));
+    __Require_Action_Quiet(publicKey != NULL, errOut, SecError(errSecParam, error, NULL, CFSTR("Null Public Key")));
 
     query = CreatePrivateKeyMatchingQuery(publicKey, false);
 
@@ -528,16 +528,16 @@ SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator, CFD
                             DERNumSubjPubKeyInfoItemSpecs, DERSubjPubKeyInfoItemSpecs,
                             &subjectPublicKeyInfo, sizeof(subjectPublicKeyInfo));
 
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     drtn = DERParseSequenceContent(&subjectPublicKeyInfo.algId,
                                    DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
                                    &algorithmId, sizeof(algorithmId));
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     DERByte unusedBits;
     drtn = DERParseBitString(&subjectPublicKeyInfo.pubKey, &pubKeyBytes, &unusedBits);
-    require_noerr_quiet(drtn, out);
+    __Require_noErr_Quiet(drtn, out);
 
     return SecKeyCreatePublicFromDERItem(allocator, &algorithmId, &pubKeyBytes);
 
@@ -577,10 +577,10 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
     memset(&spki, 0, sizeof(spki));
 
     /* encode the public key. */
-    require_noerr_quiet(SecKeyCopyPublicBytes(key, &publicKey), errOut);
-    require_quiet(publicKey, errOut);
+    __Require_noErr_Quiet(SecKeyCopyPublicBytes(key, &publicKey), errOut);
+    __Require_Quiet(publicKey, errOut);
 
-    require_quiet(CFDataGetLength(publicKey) != 0, errOut);
+    __Require_Quiet(CFDataGetLength(publicKey) != 0, errOut);
 
     CFMutableDataRef paddedKey = CFDataCreateMutable(NULL, 0);
     /* the bit strings bits used field first */
@@ -633,7 +633,7 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
                              DERNumSubjPubKeyInfoItemSpecs,
                              DERSubjPubKeyInfoItemSpecs,
                              CFDataGetMutableBytePtr(data), &size);
-    require_quiet(drtn == DR_Success, errOut);
+    __Require_Quiet(drtn == DR_Success, errOut);
     CFDataSetLength(data, size);
 
     dataret = CFRetain(data);
@@ -688,12 +688,12 @@ static OSStatus SecKeyPerformLegacyOperation(SecKeyRef key,
     CFDataRef in2 = CFDataCreateWithBytesNoCopy(NULL, in2Ptr, in2Len, kCFAllocatorNull);
     CFRange range = { 0, -1 };
     CFTypeRef output = operation(in1, in2, &range, &error);
-    require_quiet(output, out);
+    __Require_Quiet(output, out);
     if (CFGetTypeID(output) == CFDataGetTypeID() && outLen != NULL) {
         if (range.length == -1) {
             range.length = CFDataGetLength(output);
         }
-        require_action_quiet((size_t)range.length <= *outLen, out,
+        __Require_Action_Quiet((size_t)range.length <= *outLen, out,
                              SecError(errSecParam, &error, CFSTR("buffer too small (required %d, provided %d)"), (int)range.length, (int)*outLen));
         *outLen = range.length;
         CFDataGetBytes(output, range, outPtr);
@@ -1398,9 +1398,9 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
         /* First figure out the key type (algorithm). */
         int64_t algorithm = 0, class = 0;
         CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
-        require_quiet((algorithm = SecKeyParamsAsInt64(ktype, CFSTR("key type"), error)) >= 0, out);
+        __Require_Quiet((algorithm = SecKeyParamsAsInt64(ktype, CFSTR("key type"), error)) >= 0, out);
         CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
-        require_quiet((class = SecKeyParamsAsInt64(kclass, CFSTR("key class"), error)) >= 0, out);
+        __Require_Quiet((class = SecKeyParamsAsInt64(kclass, CFSTR("key class"), error)) >= 0, out);
 
         switch (class) {
             case 0: // kSecAttrKeyClassPublic
@@ -1683,8 +1683,8 @@ SecKeyRef SecKeyCopyPublicKey(SecKeyRef key) {
 
         CFDataRef serializedPublic = NULL;
 
-        require_noerr_quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
-        require_quiet(serializedPublic, fail);
+        __Require_noErr_Quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
+        __Require_Quiet(serializedPublic, fail);
 
         result = SecKeyCreateFromPublicData(SecCFAllocatorZeroize(), SecKeyGetAlgorithmId(key), serializedPublic);
 
@@ -1739,7 +1739,7 @@ SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
             }
         }
 
-        require_quiet(privKey != NULL, err);
+        __Require_Quiet(privKey != NULL, err);
 
         // Store the keys in the keychain if they are marked as permanent. Governed by kSecAttrIsPermanent attribute, with default
         // to 'false' (ephemeral keys), except private token-based keys, in which case the default is 'true' (permanent keys).
@@ -1748,10 +1748,10 @@ SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
             if (pubKey == NULL) {
                 pubKey = SecKeyCopyPublicKey(privKey);
             }
-            require_action_quiet(add_key(pubKey, pubParams, &localError), err, CFReleaseNull(privKey));
+            __Require_Action_Quiet(add_key(pubKey, pubParams, &localError), err, CFReleaseNull(privKey));
         }
         if (getBoolForKey(privParams, kSecAttrIsPermanent, CFDictionaryContainsKey(privParams, kSecAttrTokenID))) {
-            require_action_quiet(add_key(privKey, privParams, &localError), err, CFReleaseNull(privKey));
+            __Require_Action_Quiet(add_key(privKey, privParams, &localError), err, CFReleaseNull(privKey));
         }
 
     err:
@@ -1833,7 +1833,7 @@ static CFTypeRef SecKeyCopyBackendOperationResult(SecKeyOperationContext *contex
             break;
         }
     }
-    require_quiet(padding != (SecPadding)-1, out);
+    __Require_Quiet(padding != (SecPadding)-1, out);
 
     // Check legacy virtual table entries.
     size_t size = 0;
@@ -1909,7 +1909,7 @@ CFTypeRef SecKeyRunAlgorithmAndCopyResult(SecKeyOperationContext *context, CFTyp
         for (CFIndex index = 0; index < algorithmCount - 1; index++) {
             SecKeyAlgorithm indexAlgorithm = CFArrayGetValueAtIndex(context->algorithm, index);
             for (CFIndex tested = index + 1; tested < algorithmCount; tested++) {
-                require_quiet(!CFEqual(indexAlgorithm, CFArrayGetValueAtIndex(context->algorithm, tested)), fail);
+                __Require_Quiet(!CFEqual(indexAlgorithm, CFArrayGetValueAtIndex(context->algorithm, tested)), fail);
             }
         }
 
@@ -1925,11 +1925,11 @@ CFTypeRef SecKeyRunAlgorithmAndCopyResult(SecKeyOperationContext *context, CFTyp
 
         // Get adaptor which is able to handle requested algorithm.
         SecKeyAlgorithmAdaptor adaptor = SecKeyGetAlgorithmAdaptor(context->operation, algorithm);
-        require_quiet(adaptor != NULL, fail);
+        __Require_Quiet(adaptor != NULL, fail);
 
         // Invoke the adaptor and return result.
         CFTypeRef result = adaptor(context, in1, in2, error);
-        require_quiet(result != kCFNull, fail);
+        __Require_Quiet(result != kCFNull, fail);
         return result;
 
     fail:
@@ -2055,7 +2055,7 @@ CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, 
         CFErrorRef localError = NULL;
         CFDataRef publicKeyData = NULL, result = NULL;
         SecKeyOperationContext context = { key, kSecKeyOperationTypeKeyExchange, SecKeyCreateAlgorithmArray(algorithm) };
-        require_quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
+        __Require_Quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
         result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, &localError);
         SecKeyErrorPropagate(result != NULL, localError, error);
 

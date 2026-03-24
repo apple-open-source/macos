@@ -196,7 +196,7 @@ class EscrowKeys: NSObject {
     class func storeEscrowedEncryptionKeyPair(keyData: Data, label: String) throws -> (Bool) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
             kSecAttrSynchronizable: false,
@@ -210,7 +210,7 @@ class EscrowKeys: NSObject {
     class func storeEscrowedSigningKeyPair(keyData: Data, label: String) throws -> (Bool) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
             kSecAttrSynchronizable: false,
@@ -224,7 +224,7 @@ class EscrowKeys: NSObject {
     class func storeEscrowedSymmetricKey(keyData: Data, label: String) throws -> (Bool) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
             kSecAttrSynchronizable: false,

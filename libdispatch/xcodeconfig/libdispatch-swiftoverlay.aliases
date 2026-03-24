@@ -1,0 +1,13 @@
+#
+#  libdispatch-swiftoverlay.aliases
+#  libdispatch_swiftoverlay
+#
+#  Copyright © 2025 Apple. All rights reserved.
+#
+
+# rdar://122710420 - Adding a TaskExecutor conformance onto DispatchQueue (__C.OS_dispatch_queue)
+# hoists the Swift.Executor protocol conformance descriptor off of _DispatchSerialExecutorQueue
+# (__C.OS_dispatch_queue_serial_executor). We believe that these types are simple enough that a
+# linker alias to the protocol conformance descriptor for __C.OS_dispatch_queue is sufficient to
+# interoperate with old clients
+_$sSo17OS_dispatch_queueCScF8DispatchMc _$sSo33OS_dispatch_queue_serial_executorCScF8DispatchMc

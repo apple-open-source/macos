@@ -2,16 +2,15 @@
 		<key>OpenSourceProject</key>
 		<string>lam</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-07-27</string>
+		<string>2025-11-14</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/lam?id=07372194c3016882494a28a8a1ae00472ce31e69</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/lam?id=6a9452c8378a1aa767708ad2d235f847c880a21c</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-08-19</string>
+		<string>2026-01-05</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>lam.c: use __COPYRIGHT (81852355)</string>
 			<string>lam.c: ifndef capsicum support (81852355)</string>
-			<string>lam.c: fail on invalid input or i/o errors (6555390)</string>
+			<string>lam.c: use fmtcheck to validate frmat strings (84571873)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

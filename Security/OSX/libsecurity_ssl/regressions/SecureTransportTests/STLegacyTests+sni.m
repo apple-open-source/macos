@@ -137,30 +137,30 @@ static void *securetransport_server_thread(void *arg)
         }
 
         SSLProtocol version = 0;
-        require_noerr(SSLGetProtocolVersionMax(ctx, &version), out);
+        __Require_noErr(SSLGetProtocolVersionMax(ctx, &version), out);
         if (version == kSSLProtocol3) {
-            require_string(sni == NULL, out, "Unexpected SNI");
+            __Require_String(sni == NULL, out, "Unexpected SNI");
         } else {
-            require_string(sni != NULL &&
+            __Require_String(sni != NULL &&
                length == sizeof(peername) &&
                (memcmp(sni, peername, sizeof(peername))==0), out,
                "SNI does not match");
         }
-        require_noerr(SSLSetCertificate(ctx, server_certs), out);
+        __Require_noErr(SSLSetCertificate(ctx, server_certs), out);
         free(sni);
 
         tls_buffer alpnData;
         alpnData.length = strlen(serverSelectedProtocol);
         alpnData.data = malloc(alpnData.length);
         memcpy(alpnData.data, serverSelectedProtocol, alpnData.length);
-        require_noerr_string(SSLSetALPNData(ctx, alpnData.data, alpnData.length), out, "Error setting alpn data");
+        __Require_noErr_String(SSLSetALPNData(ctx, alpnData.data, alpnData.length), out, "Error setting alpn data");
         free(alpnData.data);
 
         tls_buffer npnData;
         npnData.length = strlen(serverAdvertisedProtocols);
         npnData.data = malloc(npnData.length);
         memcpy(npnData.data, serverAdvertisedProtocols, npnData.length);
-        require_noerr_string(SSLSetNPNData(ctx, npnData.data, npnData.length), out, "Error setting npn data");
+        __Require_noErr_String(SSLSetNPNData(ctx, npnData.data, npnData.length), out, "Error setting npn data");
         free(npnData.data);
 
     }
@@ -189,14 +189,14 @@ static void *securetransport_client_thread(void *arg)
     uint8_t *alpnData = NULL;
     alpnData = (uint8_t*)SSLGetALPNData(ctx, &length);
     if (alpnData != NULL) {
-        require_noerr(memcmp(alpnData, serverSelectedProtocol, strlen(serverSelectedProtocol)), out);
+        __Require_noErr(memcmp(alpnData, serverSelectedProtocol, strlen(serverSelectedProtocol)), out);
     }
 
     length = 0;
     uint8_t *npnData = NULL;
     npnData = (uint8_t*)SSLGetNPNData(ctx, &length);
     if (npnData != NULL) {
-        require_noerr_string(memcmp(npnData, serverAdvertisedProtocols, strlen(serverAdvertisedProtocols)),
+        __Require_noErr_String(memcmp(npnData, serverAdvertisedProtocols, strlen(serverAdvertisedProtocols)),
                              out, "npn Data received does not match");
     }
 out:
@@ -218,18 +218,18 @@ ssl_test_handle_create(uint32_t session_id, bool server, int comm)
     ssl_test_handle *handle = calloc(1, sizeof(ssl_test_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
 
     if (server)
-        require_noerr(SSLSetSessionOption(ctx,
+        __Require_noErr(SSLSetSessionOption(ctx,
                                           kSSLSessionOptionBreakOnClientHello, true), out);
     else
-        require_noerr(SSLSetSessionOption(ctx,
+        __Require_noErr(SSLSetSessionOption(ctx,
                                           kSSLSessionOptionBreakOnServerAuth, true), out);
 
     handle->handle = ctx;

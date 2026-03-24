@@ -70,7 +70,7 @@ public:
 
     static Ref<NetworkCORSPreflightChecker> create(NetworkProcess& networkProcess, NetworkResourceLoader* networkResourceLoader, Parameters&& parameters, bool shouldCaptureExtraNetworkLoadMetrics, CompletionCallback&& completionCallback)
     {
-        return adoptRef(*new NetworkCORSPreflightChecker(networkProcess, networkResourceLoader, WTFMove(parameters), shouldCaptureExtraNetworkLoadMetrics, WTFMove(completionCallback)));
+        return adoptRef(*new NetworkCORSPreflightChecker(networkProcess, networkResourceLoader, WTF::move(parameters), shouldCaptureExtraNetworkLoadMetrics, WTF::move(completionCallback)));
     }
     ~NetworkCORSPreflightChecker();
     const WebCore::ResourceRequest& originalRequest() const { return m_parameters.originalRequest; }

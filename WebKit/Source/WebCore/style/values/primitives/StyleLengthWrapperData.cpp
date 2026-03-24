@@ -32,20 +32,20 @@
 namespace WebCore {
 namespace Style {
 
-LengthWrapperData::LengthWrapperData(uint8_t opaqueType, Ref<CalculationValue>&& value)
+LengthWrapperData::LengthWrapperData(uint8_t opaqueType, Ref<Calculation::Value>&& value)
     : m_opaqueType { opaqueType }
     , m_kind { LengthWrapperDataKind::Calculation }
 {
-    m_calculationValueHandle = CalculationValueMap::calculationValues().insert(WTFMove(value));
+    m_calculationValueHandle = Calculation::ValueMap::calculationValues().insert(WTF::move(value));
 }
 
-CalculationValue& LengthWrapperData::calculationValue() const
+Calculation::Value& LengthWrapperData::calculationValue() const
 {
     ASSERT(m_kind == LengthWrapperDataKind::Calculation);
-    return CalculationValueMap::calculationValues().get(m_calculationValueHandle);
+    return Calculation::ValueMap::calculationValues().get(m_calculationValueHandle);
 }
 
-Ref<CalculationValue> LengthWrapperData::protectedCalculationValue() const
+Ref<Calculation::Value> LengthWrapperData::protectedCalculationValue() const
 {
     return calculationValue();
 }
@@ -53,13 +53,13 @@ Ref<CalculationValue> LengthWrapperData::protectedCalculationValue() const
 void LengthWrapperData::ref() const
 {
     ASSERT(m_kind == LengthWrapperDataKind::Calculation);
-    CalculationValueMap::calculationValues().ref(m_calculationValueHandle);
+    Calculation::ValueMap::calculationValues().ref(m_calculationValueHandle);
 }
 
 void LengthWrapperData::deref() const
 {
     ASSERT(m_kind == LengthWrapperDataKind::Calculation);
-    CalculationValueMap::calculationValues().deref(m_calculationValueHandle);
+    Calculation::ValueMap::calculationValues().deref(m_calculationValueHandle);
 }
 
 LengthWrapperData::LengthWrapperData(IPCData&& data)
@@ -81,10 +81,19 @@ auto LengthWrapperData::ipcData() const -> IPCData
     };
 }
 
-float LengthWrapperData::nonNanCalculatedValue(float maxValue) const
+float LengthWrapperData::nonNanCalculatedValue(float maxValue, const ZoomFactor& usedZoom) const
 {
     ASSERT(m_kind == LengthWrapperDataKind::Calculation);
-    float result = protectedCalculationValue()->evaluate(maxValue);
+    float result = protectedCalculationValue()->evaluate(maxValue, usedZoom);
+    if (std::isnan(result))
+        return 0;
+    return result;
+}
+
+float LengthWrapperData::nonNanCalculatedValue(float maxValue, const ZoomNeeded& token) const
+{
+    ASSERT(m_kind == LengthWrapperDataKind::Calculation);
+    float result = protectedCalculationValue()->evaluate(maxValue, token);
     if (std::isnan(result))
         return 0;
     return result;

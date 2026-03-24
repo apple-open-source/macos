@@ -215,17 +215,17 @@ template<CSS::DimensionPercentageNumeric CSSType> struct PrimitiveNumeric<CSSTyp
     using Representation = CompactVariant<Dimension, Percentage, Calc>;
 
     PrimitiveNumeric(Dimension dimension)
-        : m_value { WTFMove(dimension) }
+        : m_value { WTF::move(dimension) }
     {
     }
 
     PrimitiveNumeric(Percentage percentage)
-        : m_value { WTFMove(percentage) }
+        : m_value { WTF::move(percentage) }
     {
     }
 
     PrimitiveNumeric(Calc calc)
-        : m_value { WTFMove(calc) }
+        : m_value { WTF::move(calc) }
     {
     }
 
@@ -242,7 +242,7 @@ template<CSS::DimensionPercentageNumeric CSSType> struct PrimitiveNumeric<CSSTyp
     // NOTE: CalculatedValue is intentionally not part of IPCData.
     using IPCData = Variant<Dimension, Percentage>;
     PrimitiveNumeric(IPCData&& data)
-        : m_value { WTF::switchOn(WTFMove(data), [&](auto&& data) -> Representation { return { WTFMove(data) }; }) }
+        : m_value { WTF::switchOn(WTF::move(data), [&](auto&& data) -> Representation { return { WTF::move(data) }; }) }
     {
     }
 
@@ -292,6 +292,12 @@ private:
 template<CSS::Range R, typename V> struct Integer : PrimitiveNumeric<CSS::Integer<R, V>> {
     using Base = PrimitiveNumeric<CSS::Integer<R, V>>;
     using Base::Base;
+
+    // Allow <integer> values to be initialized with number literals as well as integer literals.
+    constexpr Integer(WebCore::CSS::ValueLiteral<WebCore::CSS::NumberUnit::Number> value)
+        : Integer { clampTo<typename Base::ResolvedValueType>(value.value) }
+    {
+    }
 };
 
 // MARK: Number Primitive
@@ -299,6 +305,12 @@ template<CSS::Range R, typename V> struct Integer : PrimitiveNumeric<CSS::Intege
 template<CSS::Range R, typename V> struct Number : PrimitiveNumeric<CSS::Number<R, V>> {
     using Base = PrimitiveNumeric<CSS::Number<R, V>>;
     using Base::Base;
+
+    // Allow <number> values to be initialized with integer literals as well as number literals.
+    constexpr Number(WebCore::CSS::ValueLiteral<WebCore::CSS::IntegerUnit::Integer> value)
+        : Number { clampTo<typename Base::ResolvedValueType>(value.value) }
+    {
+    }
 };
 
 // MARK: Percentage Primitive
@@ -382,9 +394,10 @@ template<Numeric T> struct ToCSSMapping<T> {
 
 // MARK: Utility Concepts
 
-template<typename T> concept IsPercentageOrCalc =
-       std::same_as<T, Percentage<T::range, typename T::ResolvedValueType>>
-    || std::same_as<T, UnevaluatedCalculation<typename T::CSS>>;
+template<typename T> concept IsPercentage = std::same_as<T, Percentage<T::range, typename T::ResolvedValueType>>;
+template<typename T> concept IsCalc = std::same_as<T, UnevaluatedCalculation<typename T::CSS>>;
+
+template<typename T> concept IsPercentageOrCalc = IsPercentage<T> || IsCalc<T>;
 
 } // namespace Style
 } // namespace WebCore

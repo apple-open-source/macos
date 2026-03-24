@@ -56,7 +56,7 @@ struct TextUpdate {
     std::optional<std::unique_ptr<RenderStyle>> inheritedDisplayContentsStyle;
 };
 
-class Update final : public CanMakeCheckedPtr<Update> {
+class Update final : public CanMakeCheckedPtr<Update, WTF::DefaultedOperatorEqual::No, WTF::CheckedPtrDeleteCheckException::Yes> {
     WTF_MAKE_TZONE_ALLOCATED(Update);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Update);
 public:
@@ -64,7 +64,7 @@ public:
     ~Update();
 
     const ListHashSet<RefPtr<ContainerNode>>& roots() const { return m_roots; }
-    ListHashSet<RefPtr<Element>> takeRebuildRoots() { return WTFMove(m_rebuildRoots); }
+    ListHashSet<RefPtr<Element>> takeRebuildRoots() { return WTF::move(m_rebuildRoots); }
 
     const ElementUpdate* elementUpdate(const Element&) const;
     ElementUpdate* elementUpdate(const Element&);

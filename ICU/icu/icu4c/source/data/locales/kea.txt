@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 kea{
     AuxExemplarCharacters{"[ªáàăâåäãā æ cç éèĕêëẽē íìĭîïĩī {n̈} ºóòŏôöõøō œ q {rr} ᵘúùŭûüũū w ÿ]"}
     ExemplarCharacters{"[a b d {dj} e f g h i j k l {lh} m nñ {nh} o p r s t {tx} u v x y z]"}
@@ -15,7 +15,9 @@ kea{
             }
             patterns{
                 accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤;(#,##0.00 ¤)"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
             }
             patternsLong{
                 decimalFormat{
@@ -146,7 +148,6 @@ kea{
                 MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"dd/MM"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 mmss{"mm:ss"}
@@ -336,7 +337,6 @@ kea{
                 MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"dd/MM"}
-                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a (v)"}
@@ -400,20 +400,20 @@ kea{
             }
             eras{
                 abbreviated{
-                    "AK",
-                    "DK",
+                    0{"AK"}
+                    1{"DK"}
                 }
                 abbreviated%variant{
-                    "AEK",
-                    "EK",
+                    0{"AEK"}
+                    1{"EK"}
                 }
                 wide{
-                    "antis di Kristu",
-                    "dispos di Kristu",
+                    0{"antis di Kristu"}
+                    1{"dispos di Kristu"}
                 }
                 wide%variant{
-                    "antis di Era Kumun",
-                    "Era Kumun",
+                    0{"antis di Era Kumun"}
+                    1{"Era Kumun"}
                 }
             }
             intervalFormats{
@@ -502,7 +502,6 @@ kea{
                     d{"d – d"}
                 }
                 h{
-                    a{"h a – h a"}
                     h{"h – h a"}
                 }
                 hm{
@@ -516,7 +515,6 @@ kea{
                     m{"h:mm – h:mm a v"}
                 }
                 hv{
-                    a{"h a – h a v"}
                     h{"h – h a v"}
                 }
                 y{

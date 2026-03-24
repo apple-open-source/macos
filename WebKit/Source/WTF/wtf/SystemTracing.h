@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include <wtf/FastMalloc.h>
+#include <wtf/Platform.h>
+
 #if USE(APPLE_INTERNAL_SDK)
 #include <sys/kdebug_private.h>
 #define HAVE_KDEBUG_H 1
@@ -122,6 +125,8 @@ enum TracePointCode {
     ThreadTimersEnd,
     TimerFiredStart,
     TimerFiredEnd,
+    CoreImageRenderStart,
+    CoreImageRenderEnd,
 
     WebKitRange = 10000,
     WebHTMLViewPaintStart,
@@ -171,6 +176,8 @@ enum TracePointCode {
     WebXRCPFrameStartSubmissionEnd,
     WebXRCPFrameEndSubmissionStart,
     WebXRCPFrameEndSubmissionEnd,
+    TextExtractionStart,
+    TextExtractionEnd,
 
     GPUProcessRange = 16000,
     WakeUpAndApplyDisplayListStart,
@@ -179,14 +186,12 @@ enum TracePointCode {
 #if PLATFORM(GTK) || PLATFORM(WPE)
     GTKWPEPortRange = 20000,
 
-    FlushPendingLayerChangesStart,
-    FlushPendingLayerChangesEnd,
+    LayerTreeHostRenderingUpdateStart,
+    LayerTreeHostRenderingUpdateEnd,
     WaitForCompositionCompletionStart,
     WaitForCompositionCompletionEnd,
     RenderLayerTreeStart,
     RenderLayerTreeEnd,
-    LayerFlushStart,
-    LayerFlushEnd,
     UpdateLayerContentBuffersStart,
     UpdateLayerContentBuffersEnd,
 #endif
@@ -287,6 +292,8 @@ WTF_EXTERN_C_END
     M(JSScriptRef) \
     M(NetworkCacheHit) \
     M(NetworkCacheMiss) \
+    M(PLTSubresourceLoading) \
+    M(EvaluateJavaScript) \
 
 #define DECLARE_WTF_SIGNPOST_NAME_ENUM(name) WTFOSSignpostName ## name,
 

@@ -25,13 +25,43 @@
 
 #import "config.h"
 
-#if HAVE(WEB_TRANSPORT)
+#if HAVE(WEB_TRANSPORT) || HAVE(NWSETTINGS_UNIFIED_HTTP_WEBKIT)
 
 #import <pal/spi/cocoa/NetworkSPI.h>
 #import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK_FOR_SOURCE(WebKit, Network)
 
+#endif // HAVE(WEB_TRANSPORT) || HAVE(NWSETTINGS_UNIFIED_HTTP_WEBKIT)
+
+#if HAVE(WEB_TRANSPORT)
+
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_options_set_allow_joining_before_ready, void, (nw_protocol_options_t options, bool allow), (options, allow))
 
-#endif // HAVE(AVAUDIOAPPLICATION)
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_options_set_initial_max_streams_uni, void, (nw_protocol_options_t options, uint64_t initial_max_streams_uni), (options, initial_max_streams_uni))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_options_set_initial_max_streams_bidi, void, (nw_protocol_options_t options, uint64_t initial_max_streams_bidi), (options, initial_max_streams_bidi))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_get_session_closed, bool, (nw_protocol_metadata_t metadata), (metadata))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_set_remote_drain_handler, void, (nw_protocol_metadata_t metadata, nw_webtransport_drain_handler_t handler, dispatch_queue_t queue), (metadata, handler, queue))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_copy_connect_response, nw_http_response_t, (nw_protocol_metadata_t metadata), (metadata))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_get_transport_mode, nw_webtransport_transport_mode_t, (nw_protocol_metadata_t metadata), (metadata))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_set_remote_receive_error_handler, void, (nw_protocol_metadata_t metadata, nw_webtransport_receive_error_handler_t handler, dispatch_queue_t queue), (metadata, handler, queue))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_webtransport_metadata_set_remote_send_error_handler, void, (nw_protocol_metadata_t metadata, nw_webtransport_send_error_handler_t handler, dispatch_queue_t queue), (metadata, handler, queue))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_connection_abort_reads, void, (nw_connection_t connection, uint64_t error_code), (connection, error_code))
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_connection_abort_writes, void, (nw_connection_t connection, uint64_t error_code), (connection, error_code))
+
+#endif // HAVE(WEB_TRANSPORT)
+
+#if HAVE(NWSETTINGS_UNIFIED_HTTP_WEBKIT)
+
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, Network, nw_settings_get_unified_http_enabled_webkit, bool, (), ())
+
+#endif

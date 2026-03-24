@@ -94,4 +94,5 @@ struct WebKit::WebsitePoliciesData {
     WebKit::WebsiteInlineMediaPlaybackPolicy inlineMediaPlaybackPolicy;
     WebCore::ResourceRequest alternateRequest;
     std::optional<WebKit::UserContentControllerParameters> userContentControllerParameters;
+    String overrideReferrerForAllRequests;
 };

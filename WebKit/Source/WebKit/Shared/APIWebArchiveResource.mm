@@ -45,7 +45,7 @@ Ref<WebArchiveResource> WebArchiveResource::create(API::Data* data, const WTF::S
 
 Ref<WebArchiveResource> WebArchiveResource::create(RefPtr<ArchiveResource>&& archiveResource)
 {
-    return adoptRef(*new WebArchiveResource(WTFMove(archiveResource)));
+    return adoptRef(*new WebArchiveResource(WTF::move(archiveResource)));
 }
 
 WebArchiveResource::WebArchiveResource(API::Data* data, const WTF::String& url, const WTF::String& mimeType, const WTF::String& textEncoding)
@@ -54,7 +54,7 @@ WebArchiveResource::WebArchiveResource(API::Data* data, const WTF::String& url, 
 }
 
 WebArchiveResource::WebArchiveResource(RefPtr<ArchiveResource>&& archiveResource)
-    : m_archiveResource(WTFMove(archiveResource))
+    : m_archiveResource(WTF::move(archiveResource))
 {
 }
 
@@ -64,7 +64,7 @@ Ref<API::Data> WebArchiveResource::data()
 {
     RetainPtr cfData = m_archiveResource->protectedData()->makeContiguous()->createCFData();
     auto cfDataSpan = span(cfData.get());
-    return API::Data::createWithoutCopying(cfDataSpan, [cfData = WTFMove(cfData)] { });
+    return API::Data::createWithoutCopying(cfDataSpan, [cfData = WTF::move(cfData)] { });
 }
 
 WTF::String WebArchiveResource::url()

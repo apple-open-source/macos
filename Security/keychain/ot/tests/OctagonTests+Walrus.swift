@@ -1,6 +1,7 @@
 #if OCTAGON
 
 import Foundation
+import InternalSwiftProtobuf
 
 class OctagonWalrusTests: OctagonTestsBase {
     override func setUp() {
@@ -70,6 +71,21 @@ class OctagonWalrusTests: OctagonTestsBase {
         return ret
     }
 
+    func makeAndSetAccountSettingsWithUpdateListener(walrus: Bool) throws {
+        let setting = makeAccountSettings(walrus: walrus)
+        let setExpectation = self.expectation(description: "walrus set expectation")
+        self.fakeCuttlefishServer.updateListener = { request in
+            let newStableInfo = request.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            setExpectation.fulfill()
+            return nil
+        }
+
+        try self.setAccountSettings(context: self.cuttlefishContext, settings: setting)
+        self.wait(for: [setExpectation], timeout: 10)
+        self.fakeCuttlefishServer.updateListener = nil
+    }
+
     func XCTAssertEqualAccountSettings(_ a: OTAccountSettings,
                                        _ b: OTAccountSettings,
                                        _ message: String,
@@ -84,6 +100,69 @@ class OctagonWalrusTests: OctagonTestsBase {
 
     func isEqualAccountSettings(_ a: OTAccountSettings, _ b: OTAccountSettings) -> Bool {
         a.walrus?.enabled == b.walrus?.enabled && a.webAccess?.enabled == b.webAccess?.enabled
+    }
+
+    func setupEscrowRecordsForAccountConfiguration(walrus: Bool, dbrv2: Bool) -> [CKRecord.ID] {
+        var recordsToBeSaved: [EscrowRecordFormatQuery] = []
+        if !walrus {    // Walrus off
+            if dbrv2 {  // DBR, no ADP
+                let lrcFedRecord = EscrowRecordFormatQuery.with {
+                    $0.label = lrcfedLabel
+                    $0.blob = Data("lrc-fed-blob".utf8)
+                    $0.metadata = Data("lrc-fed-metadata".utf8)
+                }
+
+                let fallbackStingrayRecord = EscrowRecordFormatQuery.with {
+                    $0.label = fallbackStingrayLabel
+                    $0.blob = Data("fb-sr-blob".utf8)
+                    $0.metadata = Data("fb-sr-metadata".utf8)
+                }
+
+                let dbrRecord = EscrowRecordFormatQuery.with {
+                    $0.label = dbrLabel
+                    $0.blob = Data("dbr-blob".utf8)
+                    $0.metadata = Data("dbr-metadata".utf8)
+                }
+                recordsToBeSaved = [dbrRecord, fallbackStingrayRecord, lrcFedRecord]
+            } else {    // Stingray, no ADP
+                recordsToBeSaved = [
+                    EscrowRecordFormatQuery.with {
+                        $0.label = stingrayLabel
+                        $0.blob = Data("sr-blob".utf8)
+                        $0.metadata = Data("sr-metadata".utf8)
+                    },
+                ]
+            }
+
+            // Store all records in CK and enroll in the club.
+            let escrowRecords = self.fakeCuttlefishServer.store(escrowRecords: recordsToBeSaved)
+            escrowRecords.forEach { record in
+                let label: String = record[SecCKRecordEscrowProxyClubhLabelKey] as! String
+                self.fakeCuttlefishServer.state.EscrowProxyClub[label] = record
+            }
+            return escrowRecords.map { $0.recordID }
+        } else {    // Walrus on
+            if dbrv2 {  // DBR + ADP
+                let adpDBRRecord = EscrowRecordFormatQuery.with {
+                    $0.label = dbrLabel
+                    $0.blob = Data("dbr-adp-blob".utf8) // nil in practice
+                    $0.metadata = Data("dbr-adp-metadata".utf8)
+                }
+                // Store DBR+ADP record in CK only.
+                return self.fakeCuttlefishServer.store(escrowRecords: [adpDBRRecord]).map { $0.recordID }
+            } else {    // Non-DBR + ADP
+                // Store ADP record in CK and Club.
+                let adpRecord = self.fakeCuttlefishServer.store(escrowRecords: [
+                    EscrowRecordFormatQuery.with {
+                        $0.label = stingrayLabel
+                        $0.blob = Data("sr-adp-fde-blob".utf8)
+                        $0.metadata = Data("sr-adp-fde-metadata".utf8)
+                    },
+                ])
+                self.fakeCuttlefishServer.state.EscrowProxyClub[stingrayLabel] = adpRecord.first
+                return adpRecord.map { $0.recordID }
+            }
+        }
     }
 
     func testWalrusAPIRequiresEntitlement() throws {
@@ -2254,6 +2333,469 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.wait(for: [setAccountSettingExpectation], timeout: 10)
 
         self.wait(for: [serverSideExpectation], timeout: 2)
+    }
+
+    func testDisableWalrusOnDBRAcct() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in the walrus=true mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: true)
+
+        // Also set up the EscrowProxy FakeCKZone for FakeCuttlefish to use.
+        let escrowProxyZoneID = CKRecordZone.ID(zoneName: escrowProxyZoneName)
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZoneID] = FakeCKZone(zone: escrowProxyZoneID)
+
+        // Existing DBR+ADP record lives in CK only.
+        _ = setupEscrowRecordsForAccountConfiguration(walrus: true, dbrv2: true)
+
+        // PCS/CloudServices will pass us the info of the records we need to upload as part of disablement.
+        // In a DBR w/o LRC clubs environment: LRC Fed record, Fallback stingray, DBR record
+        let lrcFedRecord = OTSerializedPlistEscrowRecord(lrcfedLabel, blob: Data("lrc-fed-blob".utf8), metadata: Data("lrc-fed-metadata".utf8))
+        let fallbackStingrayRecord = OTSerializedPlistEscrowRecord(fallbackStingrayLabel, blob: Data("fb-sr-blob".utf8), metadata: Data("fb-sr-metadata".utf8))
+        let dbrRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-blob".utf8), metadata: Data("dbr-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+#if APPLE_FEATURE_DBR
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true) { error in
+            XCTAssertNil(error, "should not have errored when disabling walrus")
+
+            // Assert that the newly uploaded records are in the club
+            XCTAssertNotNil(self.fakeCuttlefishServer.state.EscrowProxyClub[lrcfedLabel], "lrcFedLabel blob should be enrolled")
+            XCTAssertNotNil(self.fakeCuttlefishServer.state.EscrowProxyClub[fallbackStingrayLabel], "fallbackStingrayLabel blob should be enrolled")
+            XCTAssertNotNil(self.fakeCuttlefishServer.state.EscrowProxyClub[dbrLabel], "dbrRecordLabel blob should be enrolled")
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord]) { error in
+            XCTAssertNil(error, "should not have errored when disabling walrus")
+
+            // The records uploaded to CK and the club will differ when an account hasn't been migrated to DBR. We'll confirm that in another test.
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Assert that current stable info says walrus is off.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 1, "walrus clock should be 1")
+            XCTAssertEqual(walrus["value"] as! Int, 0, "walrus value should be 0")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testEnableWalrusOnDBRAcct() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in the walrus=false mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: false)
+
+        // Set up the EscrowProxy FakeCKZone for FakeCuttlefish to use, and populate it with the records we'd have before enabling ADP.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+        let recordIDsToBeDeleted: [CKRecord.ID] = setupEscrowRecordsForAccountConfiguration(walrus: false, dbrv2: true)
+
+        // PCS/CloudServices will pass us the record info we need to upload as part of enablement.
+        // In DBR-land, we'll only upload the ADP+DBR record.
+        let dbrADPRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-adp-blob".utf8), metadata: Data("dbr-adp-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+
+#if APPLE_FEATURE_DBR
+        self.manager.enableWalrus(args, preRecords: [dbrADPRecord], isDBRv2: true) { error in
+            XCTAssertNil(error, "should not have errored when enabling walrus")
+
+            // Assert that none of the deleted record IDs are in the club
+            recordIDsToBeDeleted.forEach { recordID in
+                XCTAssertNil(self.fakeCuttlefishServer.state.EscrowProxyClub[recordID.recordName], "\(recordID.recordName) should not be enrolled in club when walrus is enabled")
+
+                // And make sure that the LRC Fed record + Fallback SR record are deleted from CK, and we only contain the DBR+ADP record.
+                if recordID.recordName == dbrLabel {
+                    XCTAssertNotNil(escrowProxyZone.currentDatabase[recordID], "\(recordID.recordName) should be in CK when walrus is enabled")
+                } else {
+                    XCTAssertNil(escrowProxyZone.currentDatabase[recordID], "\(recordID.recordName) should not be in CK when walrus is enabled")
+                }
+            }
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.enableWalrus(args, preRecords: [dbrADPRecord]) { error in
+            XCTAssertNil(error, "should not have errored when enabling walrus")
+
+            // The records deleted from CK and the club will differ when an account hasn't been migrated to DBR. We'll confirm that in another test.
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Assert that current stable info says walrus is on.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 1, "walrus clock should be 1")
+            XCTAssertEqual(walrus["value"] as! Int, 1, "walrus value should be 1")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testEnableWalrusOnStingrayAcct() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in the walrus=false mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: false)
+
+        // Set up the EscrowProxy FakeCKZone for FakeCuttlefish to use, and populate it with the records we'd have before enabling ADP.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+
+        // Existing Stingray record in CloudKit and club
+        guard let stingrayLabelRecordID: CKRecord.ID = setupEscrowRecordsForAccountConfiguration(walrus: false, dbrv2: false).first else {
+            XCTFail("should have been able to store the original stingray record")
+            return
+        }
+
+        let adpRecord = OTSerializedPlistEscrowRecord(stingrayLabel, blob: Data("sr-adp-fde-blob".utf8), metadata: Data("sr-adp-fde-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+
+#if APPLE_FEATURE_DBR
+        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false) { error in
+            XCTAssertNil(error, "should not have errored when enabling walrus")
+
+            // Assert that we have the FDE blob enrolled in the club.
+            guard let adpRecord = self.fakeCuttlefishServer.state.EscrowProxyClub[adpRecord.label] else {
+                XCTFail("couldn't find ADP record in club")
+                return
+            }
+            XCTAssertEqual(adpRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-adp-fde-blob".utf8), "Should have FDE blob enrolled in club")
+
+            // Assert that we have the new CKRecord uploaded.
+            XCTAssertNotNil(escrowProxyZone.currentDatabase[stingrayLabelRecordID], "\(stingrayLabelRecordID.recordName) should be in CK when walrus is enabled")
+            let adpCKRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayLabelRecordID] as! CKRecord
+            XCTAssertEqual(adpCKRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-adp-fde-blob".utf8), "Should have FDE blob in CK")
+
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.enableWalrus(args, preRecords: [adpRecord]) { error in
+            XCTAssertNil(error, "should not have errored when enabling walrus")
+
+            // Assert that we have the FDE blob enrolled in the club.
+            guard let adpRecord = self.fakeCuttlefishServer.state.EscrowProxyClub[adpRecord.label] else {
+                XCTFail("couldn't find ADP record in club")
+                return
+            }
+            XCTAssertEqual(adpRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-adp-fde-blob".utf8), "Should have FDE blob enrolled in club")
+
+            // Assert that we have the new CKRecord uploaded.
+            XCTAssertNotNil(escrowProxyZone.currentDatabase[stingrayLabelRecordID], "\(stingrayLabelRecordID.recordName) should be in CK when walrus is enabled")
+            let adpCKRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayLabelRecordID] as! CKRecord
+            XCTAssertEqual(adpCKRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-adp-fde-blob".utf8), "Should have FDE blob in CK")
+
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Assert that current stable info says walrus is on.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 1, "walrus clock should be 1")
+            XCTAssertEqual(walrus["value"] as! Int, 1, "walrus value should be 1")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testDisableWalrusOnStingrayAcct() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in a non-DBR account and walrus=true mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: true)
+
+        // Set up the EscrowProxy FakeCKZone for FakeCuttlefish to use, and populate it with the records we'd have before enabling ADP.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+
+        // Existing ADP record in CloudKit and club
+        guard let stingrayLabelRecordID: CKRecord.ID = setupEscrowRecordsForAccountConfiguration(walrus: true, dbrv2: false).first else {
+            XCTFail("should have been able to store the ADP record")
+            return
+        }
+
+        let stingrayRecord = OTSerializedPlistEscrowRecord(stingrayLabel, blob: Data("sr-blob".utf8), metadata: Data("sr-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+
+#if APPLE_FEATURE_DBR
+        self.manager.disableWalrus(args, preRecords: [stingrayRecord], isDBRv2: false) { error in
+            XCTAssertNil(error, "should not have errored when disabling walrus")
+
+            // Assert that we have the full stingray blob enrolled in the club.
+            guard let stingrayRecord: CKRecord = self.fakeCuttlefishServer.state.EscrowProxyClub[stingrayLabel] else {
+                XCTFail("could not find stingray record in fake Club")
+                return
+            }
+            XCTAssertEqual(stingrayRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "Should have full stingray blob enrolled in club")
+
+            // Assert that we have the new CKRecord uploaded.
+            XCTAssertNotNil(escrowProxyZone.currentDatabase[stingrayLabelRecordID], "\(stingrayLabelRecordID.recordName) should be in CK when walrus is enabled")
+            let stingrayCKRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayLabelRecordID] as! CKRecord
+            XCTAssertEqual(stingrayCKRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "Should have full SR blob in CK")
+
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.disableWalrus(args, preRecords: [adpRecord]) { error in
+            XCTAssertNil(error, "should not have errored when enabling walrus")
+
+            guard let stingrayRecord: CKRecord = self.fakeCuttlefishServer.state.EscrowProxyClub[stingrayLabel] else {
+                XCTFail("could not find stingray record in fake Club")
+                return
+            }
+            XCTAssertEqual(stingrayRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "Should have full stingray blob enrolled in club")
+
+            // Assert that we have the new CKRecord uploaded.
+            XCTAssertNotNil(escrowProxyZone.currentDatabase[stingrayLabelRecordID], "\(stingrayLabelRecordID.recordName) should be in CK when walrus is enabled")
+            let stingrayCKRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayLabelRecordID] as! CKRecord
+            XCTAssertEqual(stingrayCKRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "Should have full SR blob in CK")
+
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Assert that current stable info says walrus is off.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 1, "walrus clock should be 1")
+            XCTAssertEqual(walrus["value"] as! Int, 0, "walrus value should be 0")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+
+    func testEnableWalrusDeviceAlreadyWalrusEnabled() throws {
+        // If Octagon thinks that we already have walrus=on and we attempt to enable walrus, we might be in a situation where there's a walrus value mismatch and cdpd/PCS is attempting to fix the account. Make sure we still hit Cuttlefish.
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in a DBR account and walrus=true mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: true)
+
+        // Also set up the EscrowProxy FakeCKZone for FakeCuttlefish to use.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+        // DBR+ADP record should be in CK only
+        guard let existingADPRecordID: CKRecord.ID = setupEscrowRecordsForAccountConfiguration(walrus: true, dbrv2: true).first else {
+            XCTFail("should have been able to store the dbr-adp record as part of setup")
+            return
+        }
+
+        // We expect to hit Cuttlefish when going from walrus=true -> walrus=true.
+        let cuttlefishWalrusEnableExpectation = self.expectation(description: "cuttlefish walrus expectation")
+        self.fakeCuttlefishServer.enableWalrusListener = { _ in
+            cuttlefishWalrusEnableExpectation.fulfill()
+            return nil
+        }
+
+        let walrusCallbackOccurs = self.expectation(description: "enable walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+        let secondADPRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-adp-blob".utf8), metadata: Data("dbr-adp-metadata".utf8))
+#if APPLE_FEATURE_DBR
+        self.manager.enableWalrus(args, preRecords: [secondADPRecord], isDBRv2: true) { error in
+            // No error thrown
+            XCTAssertNil(error, "should not have errored when attempting to enable walrus when walrus is already on")
+
+            // The CKRecord should indicate we're still in walrus=true.
+            XCTAssertNotNil(escrowProxyZone.currentDatabase[existingADPRecordID], "\(existingADPRecordID.recordName) should be in CK when walrus is enabled")
+            let adpCKRecord: CKRecord = escrowProxyZone.currentDatabase[existingADPRecordID] as! CKRecord
+            XCTAssertEqual(adpCKRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("dbr-adp-blob".utf8), "Should have DBR+ADP blob in CK")
+
+            // Ensure FakeCuttlefish enableWalrus is called.
+            self.wait(for: [cuttlefishWalrusEnableExpectation], timeout: 5)
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.enableWalrus(args, preRecords: [secondADPRecord]) { error in
+            // No error thrown
+            XCTAssertNil(error, "should not have errored when attempting to enable walrus when walrus is already on")
+
+            // Ensure FakeCuttlefish enableWalrus is called.
+            self.wait(for: [cuttlefishWalrusEnableExpectation], timeout: 5)
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+    }
+
+    func testEnableWalrusFails() throws {
+        // When walrus enablement fails, ensure that the client state stays as is.
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in a Stingray account and the walrus=false mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: false)
+
+        // Set up the EscrowProxy FakeCKZone for FakeCuttlefish to use, and populate it with the records we'd have before enabling ADP.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+
+        // Existing Stingray record in CloudKit and club
+        guard let stingrayRecordID: CKRecord.ID = setupEscrowRecordsForAccountConfiguration(walrus: false, dbrv2: false).first else {
+            XCTFail("should have been able to store the original stingray record")
+            return
+        }
+
+        // Patch Cuttlefish to fail enabling walrus.
+        self.fakeCuttlefishServer.enableWalrusListener = { _ in
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
+        }
+
+        let adpRecord = OTSerializedPlistEscrowRecord(stingrayLabel, blob: Data("sr-adp-fde-blob".utf8), metadata: Data("sr-adp-fde-metadata".utf8))
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+#if APPLE_FEATURE_DBR
+        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false) { error in
+            XCTAssertNotNil(error, "enabling walrus should have failed")
+            let existingStingrayRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayRecordID] as! CKRecord
+            XCTAssertEqual(existingStingrayRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "stingray record blob should still exist in CK")
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.enableWalrus(args, preRecords: [adpRecord]) { error in
+            XCTAssertNotNil(error, "enabling walrus should have failed")
+            let existingStingrayRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayRecordID] as! CKRecord
+            XCTAssertEqual(existingStingrayRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "stingray record blob should still exist in CK")
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Check that our stableInfo indicates we're still on walrus=false.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 0, "walrus clock should be 0 since there are no changes")
+            XCTAssertEqual(walrus["value"] as! Int, 0, "walrus value should be 0")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testDisableWalrusFails() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in a DBR account and walrus=true mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: true)
+
+        // Also set up the EscrowProxy FakeCKZone for FakeCuttlefish to use.
+        let escrowProxyZone = FakeCKZone(zone: CKRecordZone.ID(zoneName: escrowProxyZoneName))
+        self.fakeCuttlefishServer.fakeCKZones[escrowProxyZone.zoneID] = escrowProxyZone
+        // DBR+ADP record should live in CK only
+        guard let existingADPRecordID: CKRecord.ID = setupEscrowRecordsForAccountConfiguration(walrus: true, dbrv2: true).first else {
+            XCTFail("should have been able to store the dbr-adp record as part of setup")
+            return
+        }
+
+        // Patch Cuttlefish to fail disabling walrus.
+        self.fakeCuttlefishServer.disableWalrusListener = { _ in
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
+        }
+
+        let lrcFedRecord = OTSerializedPlistEscrowRecord(lrcfedLabel, blob: Data("lrc-fed-blob".utf8), metadata: Data("lrc-fed-metadata".utf8))
+        let fallbackStingrayRecord = OTSerializedPlistEscrowRecord(fallbackStingrayLabel, blob: Data("fb-sr-blob".utf8), metadata: Data("fb-sr-metadata".utf8))
+        let dbrRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-blob".utf8), metadata: Data("dbr-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+#if APPLE_FEATURE_DBR
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true) { error in
+            XCTAssertNotNil(error, "disabling walrus should have failed")
+            let existingADPRecord: CKRecord = escrowProxyZone.currentDatabase[existingADPRecordID] as! CKRecord
+            XCTAssertEqual(existingADPRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("dbr-adp-blob".utf8), "DBR+ADP record blob should still exist in CK")
+            walrusCallbackOccurs.fulfill()
+        }
+#else
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord]) { error in
+            XCTAssertNotNil(error, "disabling walrus should have failed")
+            walrusCallbackOccurs.fulfill()
+        }
+#endif
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+
+        // Check that our stableInfo indicates we're still on walrus=true.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+
+            let walrus = stableInfo!["walrus"] as! NSDictionary
+            XCTAssertNotNil(walrus, "walrus should not be nil")
+            XCTAssertEqual(walrus["clock"] as! Int, 0, "walrus clock should be 0 since there are no changes")
+            XCTAssertEqual(walrus["value"] as! Int, 1, "walrus value should be 1")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
     }
 }
 

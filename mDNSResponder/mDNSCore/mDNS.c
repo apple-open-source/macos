@@ -2849,7 +2849,7 @@ mDNSlocal void SendNDP(mDNS *const m, const mDNSu8 op, const mDNSu8 flags, const
 
     // 0x4E or 0x56 Total NDP Packet length 78 or 86 bytes
     m->omsg.data[0x13] = (mDNSu8)(ptr - &m->omsg.data[0x36]);     // Compute actual length
-    checksum.NotAnInteger = ~IPv6CheckSum(spa, v6dst, 0x3A, &m->omsg.data[0x36], m->omsg.data[0x13]);
+    checksum.NotAnInteger = (mDNSu16)~IPv6CheckSum(spa, v6dst, 0x3A, &m->omsg.data[0x36], m->omsg.data[0x13]);
     m->omsg.data[0x38] = checksum.b[0];
     m->omsg.data[0x39] = checksum.b[1];
 

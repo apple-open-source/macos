@@ -193,7 +193,7 @@ void AXRemoteFrame::initializePlatformElementWithRemoteToken(AccessibilityRemote
     RefPtr parent = parentObjectUnignored();
     remoteElement.get().accessibilityContainer = parent ?  parent->wrapper() : nil;
 
-    m_remoteFramePlatformElement = WTFMove(remoteElement);
+    m_remoteFramePlatformElement = WTF::move(remoteElement);
 
     if (CheckedPtr cache = axObjectCache())
         cache->onRemoteFrameInitialized(*this);
@@ -261,7 +261,7 @@ static void attributeStringSetStyle(NSMutableAttributedString *attrString, Rende
         return axObject.isCode();
     };
 
-    if (Accessibility::findAncestor<AccessibilityObject>(*object, true, WTFMove(matchFunc)))
+    if (Accessibility::findAncestor<AccessibilityObject>(*object, true, WTF::move(matchFunc)))
         [attrString addAttribute:UIAccessibilityTextAttributeContext value:UIAccessibilityTextualContextSourceCode range:range];
 }
 

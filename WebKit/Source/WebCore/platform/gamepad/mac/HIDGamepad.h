@@ -33,10 +33,13 @@
 #include <WebCore/HIDGamepadElement.h>
 #include <WebCore/PlatformGamepad.h>
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class HIDGamepad : public PlatformGamepad {
+    WTF_MAKE_TZONE_ALLOCATED(HIDGamepad);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HIDGamepad);
 public:
     static std::unique_ptr<HIDGamepad> create(IOHIDDeviceRef, unsigned index);
 

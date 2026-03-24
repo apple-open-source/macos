@@ -89,4 +89,6 @@ bool isValid(std::optional<WebExtensionWindowIdentifier>, NSString **outExceptio
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPIWindows, windows);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

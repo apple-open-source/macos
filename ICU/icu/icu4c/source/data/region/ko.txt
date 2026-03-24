@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ko{
     Countries{
         001{"세계"}
@@ -85,6 +85,7 @@ ko{
         CN{"중국 본토"}
         CO{"콜롬비아"}
         CP{"클리퍼턴섬"}
+        CQ{"사크"}
         CR{"코스타리카"}
         CU{"쿠바"}
         CV{"카보베르데"}
@@ -299,6 +300,7 @@ ko{
         ZZ{"알려지지 않은 지역"}
     }
     Countries%short{
+        KR{"한국"}
         PS{"팔레스타인"}
         UN{"유엔"}
     }

@@ -10,8 +10,23 @@ ToolType    = Library
 
 Configure = "$(BuildDirectory)/$(Project)/configure" --disable-shared
 
+# Cross-compile for embedded
+ifeq ($(RC_PURPLE),YES)
+	# CPPFLAGS needs to specify the first arch found from RC_ARCHS
+	ifneq ($(strip $(RC_ARCHS)),)
+		CPPFLAGS_ARCH = -arch $(firstword $(RC_ARCHS))
+	endif
+
+	Configure += --host=arm-apple-darwin --disable-openssl CPPFLAGS="$(CPPFLAGS_ARCH)"
+endif
+
 # This is private API only; do not include in standard OS install
 Install_Prefix = $(USRDIR)/local/libevent2
+
+# Override prefix for generating SDKContentRoot on embedded
+ifeq ($(RC_PURPLE),YES)
+	Install_Prefix = $(USRDIR)/local/lib/libevent2
+endif
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

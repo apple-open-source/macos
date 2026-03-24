@@ -152,6 +152,15 @@ __private_extern__ char * _DAVolumeGetID( const struct statfs * fs );
 __private_extern__ int __DAVolumeGetDeviceIDForLifsMount( char *mntpoint, char *devname, int len );
 __private_extern__ int _DAVolumeGetDevicePathForLifsMount( const struct statfs * fs, char *devicePath, int size );
 
+#if TARGET_OS_OSX
+enum
+{
+    kDADiskUnmountOptionHibernate   = 0x00100000 // best-effort unmount during hibernate - skip approval failures
+};
+
+__private_extern__ void __DACompleteOutstandingUnmount( Boolean timedOut );
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

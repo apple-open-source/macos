@@ -32,6 +32,7 @@
 #import "DrawingArea.h"
 #import "DrawingAreaMessages.h"
 #import "MessageSenderInlines.h"
+#import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeScrollingPerformanceData.h"
 #import "RemoteScrollingCoordinatorProxyMac.h"
 #import "WebPageProxy.h"
@@ -83,7 +84,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeDisplayLinkClient);
 void RemoteLayerTreeDisplayLinkClient::displayLinkFired(WebCore::PlatformDisplayID /* displayID */, WebCore::DisplayUpdate /* displayUpdate */, bool /* wantsFullSpeedUpdates */, bool /* anyObserverWantsCallback */)
 {
     RunLoop::mainSingleton().dispatch([pageIdentifier = m_pageIdentifier]() {
-        auto page = WebProcessProxy::webPage(pageIdentifier);
+        RefPtr page = WebProcessProxy::webPage(pageIdentifier);
         if (!page)
             return;
 
@@ -196,21 +197,22 @@ void RemoteLayerTreeDrawingAreaProxyMac::layoutBannerLayers(const RemoteLayerTre
     }
 }
 
-void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction& transaction, const RemoteScrollingCoordinatorTransaction&)
+void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction& transaction, const RemoteScrollingCoordinatorTransaction&, const std::optional<MainFrameData>& mainFrameData, const TransactionID& transactionID)
 {
-    if (!transaction.isMainFrameProcessTransaction())
+    if (!mainFrameData)
         return;
 
     RefPtr page = this->page();
+    const auto& mainFrameCommitData = *mainFrameData;
 
-    m_pageScalingLayerID = transaction.pageScalingLayerID();
-    m_pageScrollingLayerID = transaction.scrolledContentsLayerID();
-    m_scrolledContentsLayerID = transaction.scrolledContentsLayerID();
-    m_mainFrameClipLayerID = transaction.mainFrameClipLayerID();
+    m_pageScalingLayerID = mainFrameCommitData.pageScalingLayerID;
+    m_pageScrollingLayerID = mainFrameCommitData.scrolledContentsLayerID;
+    m_scrolledContentsLayerID = mainFrameCommitData.scrolledContentsLayerID;
+    m_mainFrameClipLayerID = mainFrameCommitData.mainFrameClipLayerID;
 
     if (m_transientZoomScale)
         applyTransientZoomToLayer();
-    else if (m_transactionIDAfterEndingTransientZoom && transaction.transactionID().greaterThanOrEqualSameProcess(*m_transactionIDAfterEndingTransientZoom)) {
+    else if (m_transactionIDAfterEndingTransientZoom && transactionID.greaterThanOrEqualSameProcess(*m_transactionIDAfterEndingTransientZoom)) {
         removeTransientZoomFromLayer();
         m_transactionIDAfterEndingTransientZoom = { };
     }
@@ -228,10 +230,10 @@ void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, co
     }
 
     page->setScrollPerformanceDataCollectionEnabled(scrollingCoordinatorProxy->scrollingPerformanceTestingEnabled());
-    
+
     if (transaction.createdLayers().size() > 0) {
         if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = page->scrollingPerformanceData())
-            scrollPerfData->didCommitLayerTree(LayoutRect(transaction.scrollPosition(),  transaction.baseLayoutViewportSize()));
+            scrollPerfData->didCommitLayerTree(LayoutRect(transaction.scrollPosition(), mainFrameCommitData.baseLayoutViewportSize));
     }
 
     layoutBannerLayers(transaction);
@@ -638,7 +640,7 @@ MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
     uint64_t callbackID = connection->installIncomingSyncMessageCallback([rootLayerContext] {
         [rootLayerContext invalidateFences];
     });
-    [CATransaction addCommitHandler:[callbackID, connection = WTFMove(connection)] () mutable {
+    [CATransaction addCommitHandler:[callbackID, connection = WTF::move(connection)] () mutable {
         connection->uninstallIncomingSyncMessageCallback(callbackID);
     } forPhase:kCATransactionPhasePostCommit];
 

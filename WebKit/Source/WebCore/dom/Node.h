@@ -109,13 +109,15 @@ enum class TaskSource : uint8_t;
 using MutationObserverOptions = OptionSet<MutationObserverOptionType>;
 using MutationRecordDeliveryOptions = OptionSet<MutationObserverOptionType>;
 
+enum class IsMutationBySetInnerHTML : uint8_t { No, Yes };
+
 using NodeOrString = Variant<RefPtr<Node>, String>;
 
 const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
 typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
 
 class Node : public EventTarget, public CanMakeCheckedPtr<Node> {
-    WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED(Node);
+    WTF_MAKE_PREFERABLY_COMPACT_TZONE_ALLOCATED(Node);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Node);
 
     friend class Document;
@@ -393,6 +395,15 @@ public:
     void setHasHeldBackChildrenChanged() { setStateFlag(StateFlag::HasHeldBackChildrenChanged); }
     void clearHasHeldBackChildrenChanged() { clearStateFlag(StateFlag::HasHeldBackChildrenChanged); }
 
+    bool hasDidMutateSubtreeAfterSetInnerHTML() const { return hasStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
+    void setDidMutateSubtreeAfterSetInnerHTML() { setStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
+    void clearDidMutateSubtreeAfterSetInnerHTML() { clearStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
+    void setDidMutateSubtreeAfterSetInnerHTMLOnAncestors();
+
+    bool hasWasParsedWithFastPath() const { return hasStateFlag(StateFlag::WasParsedWithFastPath); }
+    void setWasParsedWithFastPath() { setStateFlag(StateFlag::WasParsedWithFastPath); }
+    void clearWasParsedWithFastPath() { clearStateFlag(StateFlag::WasParsedWithFastPath); }
+
     void setChildNeedsStyleRecalc() { setStyleFlag(NodeStyleFlag::DescendantNeedsStyleResolution); }
     inline void clearChildNeedsStyleRecalc();
 
@@ -503,6 +514,7 @@ public:
 
     // Use these two methods with caution.
     inline RenderBox* renderBox() const; // Defined in NodeInlines.h
+    inline CheckedPtr<RenderBox> checkedRenderBox() const; // Defined in NodeInlines.h
     inline RenderBoxModelObject* renderBoxModelObject() const; // Defined in NodeInlines.h
 
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
@@ -542,7 +554,7 @@ public:
 #endif // ENABLE(TREE_DEBUGGING)
 
     void invalidateNodeListAndCollectionCachesInAncestors();
-    void invalidateNodeListAndCollectionCachesInAncestorsForAttribute(const QualifiedName&);
+    void invalidateNodeListCollectionAndInnerHTMLPrefixCachesInAncestorsForAttribute(const QualifiedName&, const IsMutationBySetInnerHTML = IsMutationBySetInnerHTML::No);
     NodeListsNodeData* nodeLists();
     void clearNodeLists();
 
@@ -569,6 +581,8 @@ public:
 
     void dispatchSubtreeModifiedEvent();
     void dispatchDOMActivateEvent(Event& underlyingClickEvent);
+
+    void dispatchWebKitSubmitEvent(Event& underlyingSubmitEvent);
 
 #if ENABLE(TOUCH_EVENTS)
     virtual bool allowsDoubleTapGesture() const { return true; }
@@ -674,7 +688,9 @@ protected:
 #endif
         IsShadowRootAttachedEventPending = 1 << 20,
         InLargestContentfulPaintTextContentSet = 1 << 21,
-        // 11 bits free.
+        DidMutateSubtreeAfterSetInnerHTML = 1 << 22,
+        WasParsedWithFastPath = 1 << 23
+        // 8 bits free.
     };
 
     enum class TabIndexState : uint8_t {
@@ -795,7 +811,7 @@ private:
     void trackForDebugging();
     void materializeRareData();
 
-    Vector<std::unique_ptr<MutationObserverRegistration>>* mutationObserverRegistry();
+    Vector<Ref<MutationObserverRegistration>>* mutationObserverRegistry();
     WeakHashSet<MutationObserverRegistration>* transientMutationObserverRegistry();
 
     void adjustStyleValidity(Style::Validity, Style::InvalidationMode);
@@ -864,7 +880,7 @@ inline void Node::applyRefDuringDestructionCheck() const
 #if ASSERT_ENABLED
     if (!deletionHasBegun())
         return;
-    WTF::RefCountedBase::logRefDuringDestruction(this);
+    WTF::RefCountDebugger::logRefDuringDestruction(this);
 #endif
 }
 

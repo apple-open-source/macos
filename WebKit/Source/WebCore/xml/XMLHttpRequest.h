@@ -56,16 +56,16 @@ struct OwnedString;
 template<typename> class ExceptionOr;
 
 class XMLHttpRequest final : public ActiveDOMObject, public RefCounted<XMLHttpRequest>, private ThreadableLoaderClient, public XMLHttpRequestEventTarget {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(XMLHttpRequest, WEBCORE_EXPORT);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(XMLHttpRequest);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(XMLHttpRequest, WEBCORE_EXPORT);
 public:
+    static Ref<XMLHttpRequest> create(ScriptExecutionContext&);
+    WEBCORE_EXPORT ~XMLHttpRequest();
+
+    // ActiveDOMObject, ThreadableLoaderClient.
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
     USING_CAN_MAKE_WEAKPTR(EventTarget);
-
-    static Ref<XMLHttpRequest> create(ScriptExecutionContext&);
-    WEBCORE_EXPORT ~XMLHttpRequest();
 
     // Keep it in 3bits.
     enum State : uint8_t {
@@ -233,6 +233,7 @@ private:
     struct LoadingActivity {
         Ref<XMLHttpRequest> protectedThis; // Keep object alive while loading even if there is no longer a JS wrapper.
         Ref<ThreadableLoader> loader;
+        Ref<ThreadableLoader> protectedLoader() const;
     };
     std::optional<LoadingActivity> m_loadingActivity;
 
@@ -267,3 +268,5 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(XMLHttpRequest)

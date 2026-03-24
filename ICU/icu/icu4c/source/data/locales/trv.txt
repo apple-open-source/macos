@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 trv{
     AuxExemplarCharacters{"[ḏ f ɨ ḻ ṟ ṯ ʉ v z ʼ]"}
     ExemplarCharacters{"[a b c d e g h i j k l m n {ng} o p q r s t u w x y]"}
@@ -158,12 +158,12 @@ trv{
             }
             eras{
                 abbreviated{
-                    "BRY",
-                    "BUY",
+                    0{"BRY"}
+                    1{"BUY"}
                 }
                 wide{
-                    "Brah jikan Yisu Thulang",
-                    "Bukuy jikan Yisu Thulang",
+                    0{"Brah jikan Yisu Thulang"}
+                    1{"Bukuy jikan Yisu Thulang"}
                 }
             }
             monthNames{

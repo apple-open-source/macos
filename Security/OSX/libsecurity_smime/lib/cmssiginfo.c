@@ -656,7 +656,7 @@ OSStatus SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(SecCmsSignerInfoRef signeri
     SecCmsAttribute* attr = NULL;
     OSStatus status = SECFailure;
 
-    require(signerinfo, xit);
+    __Require(signerinfo, xit);
     attr = SecCmsAttributeArrayFindAttrByOidTag(
                                                 signerinfo->unAuthAttr, SEC_OID_PKCS9_TIMESTAMP_TOKEN, PR_TRUE);
     if (attr == NULL) {
@@ -778,7 +778,7 @@ OSStatus SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo,
 {
     OSStatus status = paramErr;
 
-    require(sinfo && stime, xit);
+    __Require(sinfo && stime, xit);
 
     if (sinfo->timestampTime != 0) {
         *stime = sinfo->timestampTime; /* cached copy */

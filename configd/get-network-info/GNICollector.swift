@@ -129,13 +129,14 @@ final class GNICollector {
 			gnisr.errorlog("couldn't get interface list from ipconfig")
 		}
 
-		// ("pfctl -s all -a %@",					"pf.txt",				true)
+
+		// ("pfctl -l -s all -a %@",					"pf.txt",				true)
 		let (_, pfAnchorsListStr) = gnisr.run(command: "/sbin/pfctl -s Anchors -v", stderr: "/dev/null")
 		if pfAnchorsListStr != nil && pfAnchorsListStr!.isEmpty == false {
 			let pfAnchorsList: [String] = pfAnchorsListStr!.components(separatedBy: .whitespacesAndNewlines).filter {
 				!$0.isEmpty
 			}
-			collectInformation([("/sbin/pfctl -s all -a", "pf.txt", true),], pfAnchorsList)
+			collectInformation([("/sbin/pfctl -l -s all -a", "pf.txt", true),], pfAnchorsList)
 		} else {
 			gnisr.errorlog("couldn't get packet filter anchor list")
 		}

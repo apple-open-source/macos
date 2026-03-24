@@ -69,7 +69,7 @@ private:
     CSSCustomPropertyValue(const AtomString& name, VariantValue&& value)
         : CSSValue(ClassType::CustomProperty)
         , m_name(name)
-        , m_value(WTFMove(value))
+        , m_value(WTF::move(value))
     {
     }
 

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 supplementalData:table(nofallback){
     CurrencyMap{
         AC{
@@ -544,10 +544,21 @@ supplementalData:table(nofallback){
         BG{
             {
                 from:intvector{
+                    411,
+                    1994041344,
+                }
+                id{"EUR"}
+            }
+            {
+                from:intvector{
                     216,
                     -875103232,
                 }
                 id{"BGN"}
+                to:intvector{
+                    412,
+                    377474047,
+                }
             }
             {
                 from:intvector{
@@ -1160,8 +1171,8 @@ supplementalData:table(nofallback){
                 }
                 id{"CUC"}
                 to:intvector{
-                    374,
-                    -1067136001,
+                    377,
+                    -905637889,
                 }
             }
             {
@@ -4789,6 +4800,14 @@ supplementalData:table(nofallback){
         }
         ZZ{
             {
+                from:intvector{
+                    406,
+                    -1043689472,
+                }
+                id{"XAD"}
+                tender{"false"}
+            }
+            {
                 id{"XAG"}
                 tender{"false"}
             }
@@ -4998,10 +5017,10 @@ supplementalData:table(nofallback){
             0,
         }
         HUF:intvector{
-            2,
             0,
             0,
             0,
+            5,
         }
         IDR:intvector{
             0,
@@ -5273,10 +5292,22 @@ supplementalData:table(nofallback){
             0,
             0,
         }
+        XAD:intvector{
+            2,
+            0,
+            2,
+            0,
+        }
         XAF:intvector{
             0,
             0,
             0,
+            0,
+        }
+        XAU:intvector{
+            2,
+            0,
+            2,
             0,
         }
         XOF:intvector{

@@ -67,12 +67,11 @@ static struct securityd securityd_spi = {
     .sec_delete_items_with_access_groups    = SecServerItemDeleteAllWithAccessGroups,
     .sec_item_share_with_group              = SecServerItemShareWithGroup,
     .sec_delete_items_on_sign_out           = SecServerDeleteItemsOnSignOut,
+    .sec_delete_internal_items_on_sign_out  = SecServerDeleteInternalItemsOnSignOut,
 #if SHAREDWEBCREDENTIALS
     .sec_add_shared_web_credential          = SecServerAddSharedWebCredential,
 #endif
 #if SECUREOBJECTSYNC
-    .sec_keychain_backup_syncable           = SecServerBackupSyncable,
-    .sec_keychain_restore_syncable          = SecServerRestoreSyncable,
     .sec_item_backup_copy_names             = SecServerItemBackupCopyNames,
     .sec_item_backup_ensure_copy_view       = SecServerItemBackupEnsureCopyView,
     .sec_item_backup_handoff_fd             = SecServerItemBackupHandoffFD,

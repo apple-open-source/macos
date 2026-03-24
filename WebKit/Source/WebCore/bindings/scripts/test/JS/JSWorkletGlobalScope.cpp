@@ -109,7 +109,7 @@ void JSWorkletGlobalScopePrototype::finishCreation(VM& vm)
 const ClassInfo JSWorkletGlobalScope::s_info = { "WorkletGlobalScope"_s, &Base::s_info, &JSWorkletGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSWorkletGlobalScope) };
 
 JSWorkletGlobalScope::JSWorkletGlobalScope(VM& vm, Structure* structure, Ref<WorkletGlobalScope>&& impl)
-    : JSEventTarget(vm, structure, WTFMove(impl))
+    : JSEventTarget(vm, structure, WTF::move(impl))
 {
 }
 

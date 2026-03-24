@@ -156,7 +156,7 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
 #endif
     
     auth_token_t auth = (auth_token_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, auth_token_get_type_id(), AUTH_CLASS_SIZE(auth_token), NULL);
-    require(auth != NULL, done);
+    __Require(auth != NULL, done);
     
     if (CCRandomCopyBytes(kCCRandomDefault, auth->blob.data, sizeof(auth->blob.data)) != kCCSuccess) {
         os_log_error(AUTHD_LOG, "authtoken: failed to generate blob (PID %d)", auditInfo->pid);
@@ -170,7 +170,7 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
     auth->least_privileged = operateAsLeastPrivileged;
 
     auth->dispatch_queue = dispatch_queue_create("AuthorizationRef queue", DISPATCH_QUEUE_SERIAL);
-    check(auth->dispatch_queue != NULL);
+    __Check(auth->dispatch_queue != NULL);
     
     auth->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     auth->authorized_rights = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
@@ -209,10 +209,10 @@ auth_token_t
 auth_token_create(process_t proc, bool operateAsLeastPrivileged)
 {
     auth_token_t auth = NULL;
-    require(proc != NULL, done);
+    __Require(proc != NULL, done);
     
     auth = _auth_token_create(process_get_audit_info(proc), operateAsLeastPrivileged);
-    require(auth != NULL, done);
+    __Require(auth != NULL, done);
     
     auth->creator = proc;
     auth->session = (session_t)CFRetain(process_get_session(proc));

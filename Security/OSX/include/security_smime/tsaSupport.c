@@ -446,7 +446,7 @@ static OSStatus checkForNonDERResponse(const unsigned char* resp, size_t respLen
 
     const char* badResponses[] = {"<!DOCTYPE html>", "Http/1.1 Service Unavailable", "blank"};
 
-    require_action(resp && respLen, xit, status = errSecTimestampServiceNotAvailable);
+    __Require_Action(resp && respLen, xit, status = errSecTimestampServiceNotAvailable);
 
     // This is usual case
     if ((respLen > 1) && (memcmp(resp, ader, 2) == 0)) {  // might be good; pass on to DER decoder
@@ -644,23 +644,23 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef* error)
     CFPropertyListFormat format = 0;
     OSStatus status = noErr;
 
-    require_action(secFWbundle = SecFrameworkGetBundle(),
+    __Require_Action(secFWbundle = SecFrameworkGetBundle(),
                    xit,
                    status = errSecInternalError);
     CFRetain(secFWbundle);
 
-    require_action(resourceURL = CFBundleCopyResourceURL(
+    __Require_Action(resourceURL = CFBundleCopyResourceURL(
                        secFWbundle, CFSTR("TimeStampingPrefs"), CFSTR("plist"), NULL),
                    xit,
                    status = errSecInvalidPrefsDomain);
 
-    require(CFURLCreateDataAndPropertiesFromResource(
+    __Require(CFURLCreateDataAndPropertiesFromResource(
                 kCFAllocatorDefault, resourceURL, &resourceData, NULL, NULL, &errorCode),
             xit);
-    require_action(resourceData, xit, status = errSecDataNotAvailable);
+    __Require_Action(resourceData, xit, status = errSecDataNotAvailable);
 
     prefs = CFPropertyListCreateWithData(kCFAllocatorDefault, resourceData, options, &format, error);
-    require_action(prefs && (CFGetTypeID(prefs) == CFDictionaryGetTypeID()), xit, status = errSecInvalidPrefsDomain);
+    __Require_Action(prefs && (CFGetTypeID(prefs) == CFDictionaryGetTypeID()), xit, status = errSecInvalidPrefsDomain);
 
     contextDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, prefs);
 
@@ -714,11 +714,11 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint* message
     tsreq.nonce = nonceItem;
 
     // Encode the request
-    require_noerr(SecAsn1CoderCreate(&coder), errOut);
+    __Require_noErr(SecAsn1CoderCreate(&coder), errOut);
 
     SecAsn1Item encoded;
-    require_noerr(SecAsn1EncodeItem(coder, &tsreq, &kSecAsn1TSATimeStampReqTemplate, &encoded), errOut);
-    require(encoded.Length < LONG_MAX, errOut);
+    __Require_noErr(SecAsn1EncodeItem(coder, &tsreq, &kSecAsn1TSATimeStampReqTemplate, &encoded), errOut);
+    __Require(encoded.Length < LONG_MAX, errOut);
     der = CFDataCreate(kCFAllocatorDefault, encoded.Data, (CFIndex)encoded.Length);
 
 errOut:
@@ -736,8 +736,8 @@ OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder,
     // Partially decode the response
     OSStatus status = paramErr;
 
-    require(tsaResponse && respDER, errOut);
-    require_noerr(SecAsn1DecodeData(coder, tsaResponse, &kSecAsn1TSATimeStampRespTemplateDER, respDER),
+    __Require(tsaResponse && respDER, errOut);
+    __Require_noErr(SecAsn1DecodeData(coder, tsaResponse, &kSecAsn1TSATimeStampRespTemplateDER, respDER),
                   errOut);
     status = noErr;
 
@@ -804,10 +804,10 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void* messageImprintV, uint
     if (CFURLGetTypeID() == CFGetTypeID(url)) {
         urlStr = CFURLGetString(url);
     } else {
-        require_quiet(CFStringGetTypeID() == CFGetTypeID(url), xit);
+        __Require_Quiet(CFStringGetTypeID() == CFGetTypeID(url), xit);
         urlStr = url;
     }
-    require_quiet(urlStr, xit);
+    __Require_Quiet(urlStr, xit);
 
     /*
         If debugging, look at special values in the context to mess things up
@@ -836,7 +836,7 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void* messageImprintV, uint
     size_t tsaRespLength = 0;
     tsaDebug("calling sendTSARequestWithXPC with %ld bytes of request\n", tsaReqLength);
 
-    require_noerr(result = sendTSARequestWithXPC(tsaReq, tsaReqLength, tsaURL, &tsaResp, &tsaRespLength),
+    __Require_noErr(result = sendTSARequestWithXPC(tsaReq, tsaReqLength, tsaURL, &tsaResp, &tsaRespLength),
                   xit);
 
     tsaDebug("sendTSARequestWithXPC copied: %ld bytes of response\n", tsaRespLength);
@@ -870,8 +870,8 @@ static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char* timeStr, CFAb
     CFLocaleRef locale = NULL;
     CFRange* rangep = NULL;
 
-    require(timeStr && timeStr[0] && ptime, xit);
-    require(formatter = CFDateFormatterCreate(
+    __Require(timeStr && timeStr[0] && ptime, xit);
+    __Require(formatter = CFDateFormatterCreate(
                 kCFAllocatorDefault, locale, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle),
             xit);
     //    CFRetain(formatter);
@@ -905,12 +905,12 @@ static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo* tstInfo,
         0,
     };
 
-    require(tstInfo && signerCert && (tstInfo->genTime.Length < 16), xit);
+    __Require(tstInfo && signerCert && (tstInfo->genTime.Length < 16), xit);
     ;
 
     memcpy(timeStr, tstInfo->genTime.Data, tstInfo->genTime.Length);
     timeStr[tstInfo->genTime.Length] = 0;
-    require_noerr(convertGeneralizedTimeToCFAbsoluteTime(timeStr, &genTime), xit);
+    __Require_noErr(convertGeneralizedTimeToCFAbsoluteTime(timeStr, &genTime), xit);
     if (SecCertificateIsValidX(signerCert, genTime)) {  // iOS?
         result = noErr;
     } else {
@@ -939,8 +939,8 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content,
     SecCertificateRef signerCert = SecCmsSignerInfoGetTimestampSigningCert(signerinfo);
     SecAsn1TSAMessageImprint expectedMessageImprint;
 
-    require_noerr(SecAsn1CoderCreate(&coder), xit);
-    require_noerr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1TSATSTInfoTemplate, tstInfo),
+    __Require_noErr(SecAsn1CoderCreate(&coder), xit);
+    __Require_noErr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1TSATSTInfoTemplate, tstInfo),
                   xit);
     displayTSTInfo(tstInfo);
 
@@ -949,20 +949,20 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content,
         uint64_t nonce = tsaDER_ToInt(&tstInfo->nonce);
         //   if (expectedNonce!=nonce)
         dtprintf("verifyTSTInfo nonce: actual: %lld, expected: %lld\n", nonce, expectedNonce);
-        require_action(expectedNonce == nonce, xit, status = errSecTimestampRejection);
+        __Require_Action(expectedNonce == nonce, xit, status = errSecTimestampRejection);
     }
 
     // Check the times in the timestamp
-    require_noerr(status = SecTSAValidateTimestamp(tstInfo, signerCert, timestampTime), xit);
+    __Require_noErr(status = SecTSAValidateTimestamp(tstInfo, signerCert, timestampTime), xit);
     dtprintf("SecTSAValidateTimestamp result: %ld\n", (long)status);
 
     // Check the message imprint against the encDigest from the signerInfo containing this timestamp
     SECOidTag hashAlg = SECOID_GetAlgorithmTag(&tstInfo->messageImprint.hashAlgorithm);
-    require_action(hashAlg == SEC_OID_SHA256 || hashAlg == SEC_OID_SHA1, xit, status = errSecInvalidDigestAlgorithm);
-    require_noerr(status = createTSAMessageImprint(
+    __Require_Action(hashAlg == SEC_OID_SHA256 || hashAlg == SEC_OID_SHA1, xit, status = errSecInvalidDigestAlgorithm);
+    __Require_noErr(status = createTSAMessageImprint(
                       signerinfo, &tstInfo->messageImprint.hashAlgorithm, encDigest, &expectedMessageImprint),
                   xit);
-    require_action(CERT_CompareCssmData(&expectedMessageImprint.hashedMessage,
+    __Require_Action(CERT_CompareCssmData(&expectedMessageImprint.hashedMessage,
                                         &tstInfo->messageImprint.hashedMessage),
                    xit,
                    status = errSecTimestampInvalid;
@@ -1073,7 +1073,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
     int rx;
 
     if (!policy) {
-        require(policy = SecPolicyCreateWithOID(kSecPolicyAppleTimeStamping), xit);
+        __Require(policy = SecPolicyCreateWithOID(kSecPolicyAppleTimeStamping), xit);
     }
 
     int jx;
@@ -1089,7 +1089,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
         // usually (always?) if result is noErr, the SecTrust*Result calls will return errSecTrustNotAvailable
         result = SecCmsSignedDataVerifySigner(signedData, jx, policy, &trustRef);
         dtprintf("[%s] SecCmsSignedDataVerifySigner: result: %d, signer: %d\n", __FUNCTION__, result, jx);
-        require_noerr(result, xit);
+        __Require_noErr(result, xit);
 
         result = SecTrustEvaluate(trustRef, &trustResultType);
         dtprintf("[%s] SecTrustEvaluate: result: %d, trustResult: %s (%d)\n",
@@ -1124,7 +1124,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
                     return noErr and let codesign or whover decide.
                 */
                 OSStatus resultCode;
-                require_action(SecTrustGetCssmResultCode(trustRef, &resultCode) == noErr,
+                __Require_Action(SecTrustGetCssmResultCode(trustRef, &resultCode) == noErr,
                                xit,
                                result = errSecTimestampNotTrusted);
                 result = (resultCode == CSSMERR_TP_CERT_EXPIRED || resultCode == CSSMERR_TP_CERT_NOT_VALID_YET)
@@ -1164,12 +1164,12 @@ static OSStatus impExpImportCertUnCommon(const CSSM_DATA* cdata,
     OSStatus status = noErr;
     SecCertificateRef certRef = NULL;
 
-    require_action(cdata, xit, status = errSecUnsupportedFormat);
+    __Require_Action(cdata, xit, status = errSecUnsupportedFormat);
 
     /* Pass kCFAllocatorNull as bytesDeallocator to assure the bytes aren't freed */
     CFDataRef data = CFDataCreateWithBytesNoCopy(
         kCFAllocatorDefault, (const UInt8*)cdata->Data, (CFIndex)cdata->Length, kCFAllocatorNull);
-    require_action(data, xit, status = errSecUnsupportedFormat);
+    __Require_Action(data, xit, status = errSecUnsupportedFormat);
 
     certRef = SecCertificateCreateWithData(kCFAllocatorDefault, data);
     CFReleaseNull(data); /* certRef has its own copy of the data now */
@@ -1322,9 +1322,9 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
     PORT_SetError(0);
 
     /* decode the message */
-    require_noerr(result = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext),
+    __Require_noErr(result = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext),
                   xit);
-    require(inData->Length < LONG_MAX, xit);
+    __Require(inData->Length < LONG_MAX, xit);
     result = SecCmsDecoderUpdate(decoderContext, inData->Data, (CFIndex)inData->Length);
     if (result) {
         result = errSecTimestampInvalid;
@@ -1332,7 +1332,7 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
         goto xit;
     }
 
-    require_noerr(result = SecCmsDecoderFinish(decoderContext, &cmsMessage), xit);
+    __Require_noErr(result = SecCmsDecoderFinish(decoderContext, &cmsMessage), xit);
 
     // process the results
     contentLevelCount = SecCmsMessageContentLevelCount(cmsMessage);
@@ -1353,7 +1353,7 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
 
         switch (contentTypeTag) {
             case SEC_OID_PKCS7_SIGNED_DATA: {
-                require((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(contentInfo)) != NULL,
+                __Require((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(contentInfo)) != NULL,
                         xit);
 
                 debugShowSignerInfo(signedData);
@@ -1380,16 +1380,14 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
                             SecCmsSignedDataGetSignerInfo(signedData, 0);
                         OSStatus status = createTSAMessageImprint(
                             tsaSigner, &tsaSigner->digestAlg, innerContent, &fakeMessageImprint);
-                        require_noerr_action(
-                            status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
+                        __Require_noErr_Action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
                             result = status);
                         printDataAsHex("inner content hash", &fakeMessageImprint.hashedMessage, 0);
                         CSSM_DATA_PTR digestdata = &fakeMessageImprint.hashedMessage;
                         CSSM_DATA_PTR digests[2] = {digestdata, NULL};
                         status = SecCmsSignedDataSetDigests(
                             signedData, digestAlgorithms, (CSSM_DATA_PTR*)&digests);
-                        require_noerr_action(
-                            status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
+                        __Require_noErr_Action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
                             result = status);
                     } else {
                         dtprintf("no inner content\n");
@@ -1409,7 +1407,7 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
                             CFArrayCreateMutable(kCFAllocatorDefault, 10, &kCFTypeArrayCallBacks);
                     }
                     saveTSACertificates(signingCerts, signerinfo->timestampCertList);
-                    require_noerr(result = setTSALeafValidityDates(signerinfo), xit);
+                    __Require_noErr(result = setTSALeafValidityDates(signerinfo), xit);
                     debugSaveCertificates(signingCerts);
                 }
 

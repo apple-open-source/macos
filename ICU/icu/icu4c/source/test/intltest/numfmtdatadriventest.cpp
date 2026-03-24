@@ -462,12 +462,23 @@ void NumberFormatDataDrivenTest::TestNumberFormatTestTuple() {
     NumberFormatTestTuple tuple;
     UErrorCode status = U_ZERO_ERROR;
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    tuple.setField(
+            fTuple.getFieldByName("locale"), "en", status);
+    tuple.setField(
+            fTuple.getFieldByName("pattern"), "#,##0.00", status);
+    tuple.setField(
+            fTuple.getFieldByName("minIntegerDigits"), "-10", status);
+#else
     tuple.setField(
             NumberFormatTestTuple::getFieldByName("locale"), "en", status);
     tuple.setField(
             NumberFormatTestTuple::getFieldByName("pattern"), "#,##0.00", status);
     tuple.setField(
             NumberFormatTestTuple::getFieldByName("minIntegerDigits"), "-10", status);
+#endif // APPLE_ICU_CHANGES
     if (!assertSuccess("", status)) {
         return;
     }
@@ -490,13 +501,25 @@ void NumberFormatDataDrivenTest::TestNumberFormatTestTuple() {
     assertEquals(
             "", "{}", tuple.toString(appendTo));
     tuple.setField(
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+            fTuple.getFieldByName("aBadFieldName"), "someValue", status);
+#else
             NumberFormatTestTuple::getFieldByName("aBadFieldName"), "someValue", status);
+#endif // APPLE_ICU_CHANGES
     if (status != U_ILLEGAL_ARGUMENT_ERROR) {
         errln("Expected U_ILLEGAL_ARGUMENT_ERROR");
     }
     status = U_ZERO_ERROR;
     tuple.setField(
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+            fTuple.getFieldByName("minIntegerDigits"), "someBadValue", status);
+#else
             NumberFormatTestTuple::getFieldByName("minIntegerDigits"), "someBadValue", status);
+#endif // APPLE_ICU_CHANGES
     if (status != U_ILLEGAL_ARGUMENT_ERROR) {
         errln("Expected U_ILLEGAL_ARGUMENT_ERROR");
     }

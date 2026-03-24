@@ -47,7 +47,7 @@ std::optional<AtomString> Coder<AtomString>::decodeForPersistence(Decoder& decod
     if (!string)
         return std::nullopt;
 
-    return { AtomString { WTFMove(*string) } };
+    return { AtomString { WTF::move(*string) } };
 }
 
 void Coder<CString>::encodeForPersistence(Encoder& encoder, const CString& string)
@@ -153,7 +153,7 @@ std::optional<URL> Coder<URL>::decodeForPersistence(Decoder& decoder)
     decoder >> string;
     if (!string)
         return std::nullopt;
-    return URL(WTFMove(*string));
+    return URL(WTF::move(*string));
 }
 
 void Coder<SHA1::Digest>::encodeForPersistence(Encoder& encoder, const SHA1::Digest& digest)

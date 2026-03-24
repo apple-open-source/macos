@@ -618,6 +618,21 @@ static Boolean __DARequestMount( DARequestRef request )
         {
             status = kDAReturnUnsupported;
         }
+        
+#if TARGET_OS_OSX
+        /* If this volume is known to have been a hibernating volume, delay the mount */
+        if ( gDAUnlockedState == FALSE )
+        {
+            CFUUIDRef uuid = DADiskGetDescription( disk ,
+                                                  kDADiskDescriptionVolumeUUIDKey );
+            
+            if ( uuid && CFSetContainsValue( gDAHibernateVolumes , uuid ) )
+            {
+                DALogError( " Device is not unlocked - delaying mount of known volume %@ " , uuid );
+                status = kDAReturnNotReady;
+            }
+        }
+#endif
 
         if ( status )
         {
@@ -1591,6 +1606,13 @@ handleumount:
 
     DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
 
+#if TARGET_OS_OSX
+    if ( DADiskGetState( disk , _kDADiskStateHibernateUnmount ) )
+    {
+        __DACompleteOutstandingUnmount( FALSE );
+    }
+#endif
+    
     DAStageSignal( );
 
     CFRelease( request );
@@ -1607,7 +1629,12 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 
         options = DARequestGetArgument1( request );
 
-        if ( ( options & kDADiskUnmountOptionForce ) == 0 )
+        if ( ( options & kDADiskUnmountOptionForce ) == 0
+#if TARGET_OS_OSX
+              /* Ignore unmount dissent during hibernate and perform best-effort unmount. */
+              && ( options & kDADiskUnmountOptionHibernate ) == 0
+#endif
+            )
         {
             DARequestSetDissenter( request, response );
         }

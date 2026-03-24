@@ -57,7 +57,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(History);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(History);
 
 History::History(LocalDOMWindow& window)
     : LocalDOMWindowProperty(&window)
@@ -311,7 +311,7 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
             return { };
     }
 
-    frame->loader().updateURLAndHistory(fullURL, WTFMove(data), historyBehavior);
+    frame->loader().updateURLAndHistory(fullURL, WTF::move(data), historyBehavior);
     return { };
 }
 

@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include "Compiler.h"
-#include "DataLog.h"
-#include "HashMap.h"
-#include "Lock.h"
-#include "StackShot.h"
-#include "StackTrace.h"
+#include <wtf/Compiler.h>
+#include <wtf/DataLog.h>
+#include <wtf/HashMap.h>
+#include <wtf/Lock.h>
+#include <wtf/StackShot.h>
+#include <wtf/StackTrace.h>
 
 #include <atomic>
 

@@ -46,7 +46,6 @@ namespace WebCore {
 struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct ExceptionData;
-struct OpenID4VPRequest;
 }
 
 @protocol WKDigitalCredentialsPickerDelegate <NSObject>

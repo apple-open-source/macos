@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 kcg{
     ExemplarCharacters{
         "[a {a\u0331} b {ch} {chy} d e f g {gb} {gh} {ghw} {ghy} i {i\u0331} j {jhy} "
@@ -85,12 +85,12 @@ kcg{
             }
             eras{
                 abbreviated{
-                    "GM",
-                    "M",
+                    0{"GM"}
+                    1{"M"}
                 }
                 wide{
-                    "Gabanin Miladi",
-                    "Miladi",
+                    0{"Gabanin Miladi"}
+                    1{"Miladi"}
                 }
             }
             monthNames{

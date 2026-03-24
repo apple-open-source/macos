@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 en_AU{
     %%Parent{"en_001"}
     units{
@@ -158,13 +158,6 @@ en_AU{
         angle{
             arc-minute{
                 dnam{"arcmin."}
-                one{"{0} arcmin."}
-                other{"{0} arcmin."}
-            }
-            arc-second{
-                dnam{"arcsec."}
-                one{"{0} arcsec."}
-                other{"{0} arcsec."}
             }
         }
         concentr{
@@ -190,16 +183,6 @@ en_AU{
             liter-per-kilometer{
                 one{"{0} L/km"}
                 other{"{0} L/km"}
-            }
-            mile-per-gallon{
-                dnam{"miles/gal. US"}
-                one{"{0} m.p.g. US"}
-                other{"{0} m.p.g. US"}
-            }
-            mile-per-gallon-imperial{
-                dnam{"miles/gal."}
-                one{"{0} m.p.g."}
-                other{"{0} m.p.g."}
             }
         }
         duration{
@@ -246,7 +229,6 @@ en_AU{
         }
         pressure{
             millibar{
-                dnam{"mb"}
                 one{"{0} mb"}
                 other{"{0} mb"}
             }

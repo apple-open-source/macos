@@ -42,10 +42,13 @@
 namespace WebCore {
 class Exception;
 struct ClientOrigin;
+struct WebTransportConnectionInfo;
 struct WebTransportConnectionStats;
 struct WebTransportReceiveStreamStats;
+struct WebTransportSendGroupIdentifierType;
 struct WebTransportSendStreamStats;
 struct WebTransportStreamIdentifierType;
+using WebTransportSendGroupIdentifier = ObjectIdentifier<WebTransportSendGroupIdentifierType>;
 using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifierType>;
 using WebTransportSessionErrorCode = uint32_t;
 using WebTransportStreamErrorCode = uint64_t;
@@ -72,21 +75,28 @@ public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
-    void initialize(CompletionHandler<void(bool)>&&);
+    void initialize(CompletionHandler<void(std::optional<WebCore::WebTransportConnectionInfo>&&)>&&);
 
-    void sendDatagram(std::span<const uint8_t>, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&&);
+    void sendDatagram(std::optional<WebCore::WebTransportSendGroupIdentifier>, std::span<const uint8_t>, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&&);
     void createOutgoingUnidirectionalStream(CompletionHandler<void(std::optional<WebCore::WebTransportStreamIdentifier>)>&&);
     void createBidirectionalStream(CompletionHandler<void(std::optional<WebCore::WebTransportStreamIdentifier>)>&&);
     void getStats(CompletionHandler<void(WebCore::WebTransportConnectionStats&&)>&&);
     void getSendStreamStats(WebCore::WebTransportStreamIdentifier, CompletionHandler<void(std::optional<WebCore::WebTransportSendStreamStats>&&)>&&);
     void getReceiveStreamStats(WebCore::WebTransportStreamIdentifier, CompletionHandler<void(std::optional<WebCore::WebTransportReceiveStreamStats>&&)>&&);
+    void getSendGroupStats(WebCore::WebTransportSendGroupIdentifier, CompletionHandler<void(std::optional<WebCore::WebTransportSendStreamStats>&&)>&&);
     void destroyOutgoingUnidirectionalStream(WebCore::WebTransportStreamIdentifier);
     void destroyBidirectionalStream(WebCore::WebTransportStreamIdentifier);
     void streamSendBytes(WebCore::WebTransportStreamIdentifier, std::span<const uint8_t>, bool withFin, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&&);
     void terminate(WebCore::WebTransportSessionErrorCode, CString&&);
+    void datagramIncomingMaxAgeUpdated(std::optional<double>);
+    void datagramOutgoingMaxAgeUpdated(std::optional<double>);
+    void datagramIncomingHighWaterMarkUpdated(double);
+    void datagramOutgoingHighWaterMarkUpdated(double);
 
     void receiveDatagram(std::span<const uint8_t>, bool, std::optional<WebCore::Exception>&&);
     void streamReceiveBytes(WebCore::WebTransportStreamIdentifier, std::span<const uint8_t>, bool, std::optional<WebCore::Exception>&&);
+    void streamReceiveError(WebCore::WebTransportStreamIdentifier, uint64_t);
+    void streamSendError(WebCore::WebTransportStreamIdentifier, uint64_t);
     void receiveIncomingUnidirectionalStream(WebCore::WebTransportStreamIdentifier);
     void receiveBidirectionalStream(WebCore::WebTransportStreamIdentifier);
 
@@ -96,6 +106,7 @@ public:
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+    bool isSessionClosed() const;
 private:
 #if PLATFORM(COCOA)
     static Ref<NetworkTransportSession> create(NetworkConnectionToWebProcess&, WebTransportSessionIdentifier, WebCore::WebTransportOptions&&, nw_connection_group_t, nw_endpoint_t);
@@ -107,7 +118,7 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final;
     void setupConnectionHandler();
-    void setupDatagramConnection(CompletionHandler<void(bool)>&&);
+    void setupDatagramConnection(CompletionHandler<void(std::optional<WebCore::WebTransportConnectionInfo>&&)>&&);
     void receiveDatagramLoop();
     void createStream(NetworkTransportStreamType, CompletionHandler<void(std::optional<WebCore::WebTransportStreamIdentifier>)>&&);
 
@@ -115,11 +126,13 @@ private:
     WeakPtr<NetworkConnectionToWebProcess> m_connectionToWebProcess;
     const WebTransportSessionIdentifier m_identifier;
     const WebCore::WebTransportOptions m_options;
+    HashMap<WebCore::WebTransportSendGroupIdentifier, uint64_t> m_datagramStats;
 
 #if PLATFORM(COCOA)
     const RetainPtr<nw_connection_group_t> m_connectionGroup;
     const RetainPtr<nw_endpoint_t> m_endpoint;
     RetainPtr<nw_connection_t> m_datagramConnection;
+    RetainPtr<nw_protocol_metadata_t> m_sessionMetadata;
 #endif
 };
 

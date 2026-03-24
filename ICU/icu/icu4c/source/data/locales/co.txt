@@ -1,8 +1,22 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 co{
     AuxExemplarCharacters{"[â æ ç éêë î k ñ ô œ úû w x yÿ]"}
     ExemplarCharacters{"[aà b c {chj} d eè f g {ghj} h iìï j l m n oò p q r s {sc} {sg} t uùü v z]"}
     ExemplarCharactersIndex{"[A B C {CHJ} D E F G {GHJ} H I J L M N O P Q R S {SC} {SG} T U V Z]"}
+    NumberElements{
+        adlm{
+            patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤;(#,##0.00) ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
+            }
+        }
+        latn{
+            patterns{
+                accountingFormat%alphaNextToNumber{"#,##0.00 ¤;(#,##0.00) ¤"}
+                currencyFormat%alphaNextToNumber{"#,##0.00 ¤"}
+            }
+        }
+    }
 }

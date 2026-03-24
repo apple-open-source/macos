@@ -134,6 +134,10 @@ CachedResource::~CachedResource()
 #if ASSERT_ENABLED
     m_deleted = true;
 #endif
+
+    auto callbacks = std::exchange(m_loadedCallbacks, { });
+    for (auto& callback : callbacks)
+        callback();
 }
 
 void CachedResource::failBeforeStarting()
@@ -230,7 +234,7 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
     if (!m_fragmentIdentifierForRequest.isNull()) {
         URL url = request.url();
         url.setFragmentIdentifier(m_fragmentIdentifierForRequest);
-        request.setURL(WTFMove(url));
+        request.setURL(WTF::move(url));
         m_fragmentIdentifierForRequest = String();
     }
 
@@ -248,7 +252,7 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         auto identifier = ResourceLoaderIdentifier::generate();
         InspectorInstrumentation::willSendRequestOfType(frame.ptr(), identifier, frameLoader->protectedActiveDocumentLoader().get(), request, InspectorInstrumentation::LoadType::Beacon);
 
-        platformStrategies()->loaderStrategy()->startPingLoad(frame, request, m_originalRequest->httpHeaderFields(), m_options, m_options.contentSecurityPolicyImposition, [this, protectedThis = WTFMove(protectedThis), frame = Ref { frame }, identifier] (const ResourceError& error, const ResourceResponse& response) {
+        platformStrategies()->loaderStrategy()->startPingLoad(frame, request, m_originalRequest->httpHeaderFields(), m_options, m_options.contentSecurityPolicyImposition, [this, protectedThis = WTF::move(protectedThis), frame = Ref { frame }, identifier] (const ResourceError& error, const ResourceResponse& response) {
             if (!response.isNull())
                 InspectorInstrumentation::didReceiveResourceResponse(frame, identifier, frame->loader().protectedActiveDocumentLoader().get(), response, nullptr);
             if (!error.isNull()) {
@@ -264,8 +268,8 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         return;
     }
 
-    platformStrategies()->loaderStrategy()->loadResource(frame, *this, WTFMove(request), m_options, [this, protectedThis = CachedResourceHandle { *this }, frameRef = Ref { frame }] (RefPtr<SubresourceLoader>&& loader) {
-        m_loader = WTFMove(loader);
+    platformStrategies()->loaderStrategy()->loadResource(frame, *this, WTF::move(request), m_options, [this, protectedThis = CachedResourceHandle { *this }, frameRef = Ref { frame }] (RefPtr<SubresourceLoader>&& loader) {
+        m_loader = WTF::move(loader);
         if (!m_loader) {
             RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 "] CachedResource::load: Unable to create SubresourceLoader", this, PAGE_ID(frameRef.get()), FRAME_ID(frameRef.get()));
             failBeforeStarting();
@@ -316,7 +320,7 @@ void CachedResource::checkNotify(const NetworkLoadMetrics& metrics, LoadWillCont
         return;
 
     CachedResourceClientWalker<CachedResourceClient> walker(*this);
-    while (CachedResourceClient* client = walker.next())
+    while (RefPtr client = walker.next())
         client->notifyFinished(*this, metrics, loadWillContinueInAnotherProcess);
 }
 
@@ -374,6 +378,22 @@ void CachedResource::finish()
 {
     if (!errorOccurred())
         setStatus(Cached);
+}
+
+void CachedResource::setLoading(bool b)
+{
+    m_loading = b;
+    if (m_loading)
+        return;
+    auto callbacks = std::exchange(m_loadedCallbacks, { });
+    for (auto& callback : callbacks)
+        callback();
+}
+
+void CachedResource::whenLoaded(CompletionHandler<void()>&& callback)
+{
+    ASSERT(m_loading);
+    m_loadedCallbacks.append(WTF::move(callback));
 }
 
 void CachedResource::setCrossOrigin()
@@ -459,7 +479,7 @@ void CachedResource::redirectReceived(ResourceRequest&& request, const ResourceR
     if (!response.isNull())
         updateRedirectChainStatus(m_redirectChainCacheStatus, response, m_options);
 
-    completionHandler(WTFMove(request));
+    completionHandler(WTF::move(request));
 }
 
 #if ASSERT_ENABLED
@@ -472,7 +492,7 @@ static bool isOpaqueRedirectResponseWithoutLocationHeader(const ResourceResponse
 void CachedResource::setResponse(ResourceResponse&& newResponse)
 {
     ASSERT(response().type() == ResourceResponse::Type::Default || isOpaqueRedirectResponseWithoutLocationHeader(response()));
-    mutableResponseData().m_response = WTFMove(newResponse);
+    mutableResponseData().m_response = WTF::move(newResponse);
     m_varyingHeaderValues = collectVaryingRequestHeaders(protectedCookieJar().get(), m_resourceRequest, response());
 
     if (response().source() == ResourceResponse::Source::ServiceWorker) {
@@ -487,7 +507,7 @@ void CachedResource::setResponse(ResourceResponse&& newResponse)
 void CachedResource::responseReceived(ResourceResponse&& response)
 {
     String encoding = response.textEncodingName();
-    setResponse(WTFMove(response));
+    setResponse(WTF::move(response));
     m_responseTimestamp = WallTime::now();
     if (!encoding.isNull())
         setEncoding(encoding);
@@ -782,10 +802,10 @@ void CachedResource::switchClientsToRevalidatedResource()
 
     Vector<SingleThreadWeakPtr<CachedResourceClient>> clientsToMove;
     for (auto entry : m_clients) {
-        auto& client = entry.key;
+        Ref client = entry.key;
         unsigned count = entry.value;
         while (count) {
-            clientsToMove.append(client);
+            clientsToMove.append(client.get());
             --count;
         }
     }
@@ -940,11 +960,7 @@ ResourceResponse& CachedResource::mutableResponse()
 const ResourceResponse& CachedResource::response() const
 {
     if (!m_response) {
-        static LazyNeverDestroyed<ResourceResponse> staticEmptyResponse;
-        static std::once_flag onceFlag;
-        std::call_once(onceFlag, [&] {
-            staticEmptyResponse.construct();
-        });
+        static NeverDestroyed<ResourceResponse> staticEmptyResponse;
         return staticEmptyResponse;
     }
     return m_response->m_response;
@@ -965,11 +981,7 @@ void CachedResource::restartDecodedDataDeletionTimer()
 const ResourceError& CachedResource::resourceError() const
 {
     if (!m_response) {
-        static LazyNeverDestroyed<ResourceError> emptyError;
-        static std::once_flag onceFlag;
-        std::call_once(onceFlag, [&] {
-            emptyError.construct();
-        });
+        static NeverDestroyed<ResourceError> emptyError;
         return emptyError;
     }
     return m_response->m_error;
@@ -1047,7 +1059,7 @@ void CachedResource::tryReplaceEncodedData(SharedBuffer& newBuffer)
 void CachedResource::previewResponseReceived(ResourceResponse&& response)
 {
     ASSERT(response.url().protocolIs(QLPreviewProtocol));
-    CachedResource::responseReceived(WTFMove(response));
+    CachedResource::responseReceived(WTF::move(response));
 }
 
 #endif

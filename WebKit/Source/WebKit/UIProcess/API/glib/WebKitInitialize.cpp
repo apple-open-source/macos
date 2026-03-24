@@ -95,11 +95,11 @@ static void initializeRemoteInspectorServer()
         return;
     }
 
-    if (!Inspector::RemoteInspectorServer::singleton().start(WTFMove(inspectorAddress)))
+    if (!Inspector::RemoteInspectorServer::singleton().start(WTF::move(inspectorAddress)))
         return;
 
     if (inspectorHTTPAddress) {
-        if (RemoteInspectorHTTPServer::singleton().start(WTFMove(inspectorHTTPAddress), Inspector::RemoteInspectorServer::singleton().port()))
+        if (RemoteInspectorHTTPServer::singleton().start(WTF::move(inspectorHTTPAddress), Inspector::RemoteInspectorServer::singleton().port()))
             Inspector::RemoteInspector::setInspectorServerAddress(RemoteInspectorHTTPServer::singleton().inspectorServerAddress().utf8());
     } else
         Inspector::RemoteInspector::setInspectorServerAddress(address);

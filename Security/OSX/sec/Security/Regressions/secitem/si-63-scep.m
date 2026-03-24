@@ -284,9 +284,9 @@ static bool test_scep_with_keys_algorithms(SecKeyRef ca_key, SecKeyRef leaf_key,
     ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
                                                (__bridge CFDictionaryRef)ca_parameters,
                                                NULL, ca_key);
-    require(ca_cert, out);
+    __Require(ca_cert, out);
     ca_identity = SecIdentityCreate(NULL, ca_cert, ca_key);
-    require(ca_identity, out);
+    __Require(ca_identity, out);
 
     /* Generate leaf request - SHA-256 csr, SHA-256 CMS */
     leaf_rdns = @[
@@ -306,14 +306,14 @@ static bool test_scep_with_keys_algorithms(SecKeyRef ca_key, SecKeyRef leaf_key,
     scep_request = CFBridgingRelease(SecSCEPGenerateCertificateRequest((__bridge CFArrayRef)leaf_rdns,
                                                                        (__bridge CFDictionaryRef)leaf_parameters,
                                                                        NULL, leaf_key, NULL, ca_cert));
-    require(scep_request, out);
+    __Require(scep_request, out);
 
     /* Add CA identity to keychain so CMS can decrypt */
     ca_item_dict = @{
                      (__bridge NSString*)kSecValueRef : (__bridge id)ca_identity,
                      (__bridge NSString*)kSecAttrLabel : @"SCEP CA Identity"
                      };
-    require_noerr(SecItemAdd((__bridge CFDictionaryRef)ca_item_dict, NULL), out);
+    __Require_noErr(SecItemAdd((__bridge CFDictionaryRef)ca_item_dict, NULL), out);
 
     /* Certify the request with SHA256, AES */
     uint8_t serial_no_bytes[] = { 0x12, 0x34 };
@@ -322,7 +322,7 @@ static bool test_scep_with_keys_algorithms(SecKeyRef ca_key, SecKeyRef leaf_key,
                                                                        (__bridge CFDataRef)serial_no, false,
                                                                        hash_alg,
                                                                        kSecCMSEncryptionAlgorithmAESCBC));
-    require(scep_reply, out);
+    __Require(scep_reply, out);
 
     /* Add leaf private key to keychain so CMS can decrypt */
     leaf_item_dict = @{
@@ -334,12 +334,12 @@ static bool test_scep_with_keys_algorithms(SecKeyRef ca_key, SecKeyRef leaf_key,
     if (addStatus == errSecDuplicateItem) {
         leaf_item_dict = nil; // Don't delete the key if we didn't add it
     }
-    require(addStatus == errSecSuccess || addStatus == errSecDuplicateItem, out);
+    __Require(addStatus == errSecSuccess || addStatus == errSecDuplicateItem, out);
 
     /* Verify the reply */
     issued_certs = CFBridgingRelease(SecSCEPVerifyReply((__bridge CFDataRef)scep_request, (__bridge CFDataRef)scep_reply, ca_cert, nil));
-    require(issued_certs, out);
-    require([issued_certs count] == 1, out);
+    __Require(issued_certs, out);
+    __Require([issued_certs count] == 1, out);
 
     status = true;
 

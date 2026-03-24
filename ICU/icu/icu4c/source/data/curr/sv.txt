@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sv{
     Currencies{
         ADP{
@@ -1107,6 +1107,10 @@ sv{
             "EC$",
             "östkaribisk dollar",
         }
+        XCG{
+            "XCG",
+            "karibisk gulden",
+        }
         XDR{
             "XDR",
             "IMF särskild dragningsrätt",
@@ -1210,6 +1214,10 @@ sv{
         ZWD{
             "ZWD",
             "Zimbabwe-dollar",
+        }
+        ZWG{
+            "ZWG",
+            "zimbabwiskt guld",
         }
         ZWL{
             "ZWL",
@@ -2272,6 +2280,10 @@ sv{
             one{"östkaribisk dollar"}
             other{"östkaribiska dollar"}
         }
+        XCG{
+            one{"karibisk gulden"}
+            other{"karibisk gulden"}
+        }
         XDR{
             one{"IMF särskild dragningsrätt"}
             other{"IMF särskilda dragningsrätter"}
@@ -2359,6 +2371,10 @@ sv{
         ZRZ{
             one{"zaïrisk zaïre"}
             other{"zaïriska zaïre"}
+        }
+        ZWG{
+            one{"zimbabwiskt guld"}
+            other{"zimbabwiskt guld"}
         }
     }
 }

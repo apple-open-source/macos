@@ -26,8 +26,6 @@
 #include "config.h"
 #include "DiagnosticLoggingKeys.h"
 
-#include "HTMLMediaElement.h"
-
 namespace WebCore {
 
 String DiagnosticLoggingKeys::mediaLoadedKey()

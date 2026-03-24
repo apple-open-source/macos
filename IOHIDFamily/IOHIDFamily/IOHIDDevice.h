@@ -34,6 +34,7 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOEventSource.h>
 #include <IOKit/hid/IOHIDDeviceTypes.h>
+#include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <HIDDriverKit/IOHIDDevice.h>
 #include <sys/queue.h>
 
@@ -83,6 +84,7 @@ class IOHIDDevice : public IOService
     friend class IOHIDLibUserClient;
     friend class IOHIDDeviceShim;
     friend class IOHIDInterface;
+    friend class IOHIDEventService;
 
 private:
     STAILQ_HEAD(AsyncReportCallList, AsyncReportCall);

@@ -25,9 +25,10 @@
 
 #pragma once
 
+#import "CommandEncoder.h"
 #import "CommandsMixin.h"
-#import "WebGPU.h"
-#import "WebGPUExt.h"
+#import <WebGPU/WebGPU.h>
+#import <WebGPU/WebGPUExt.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/HashMap.h>
 #import <wtf/Ref.h>
@@ -44,7 +45,6 @@ namespace WebGPU {
 
 class BindGroup;
 class Buffer;
-class CommandEncoder;
 class ComputePipeline;
 class Device;
 class QuerySet;
@@ -118,10 +118,10 @@ private:
 
 inline void refComputePassEncoder(WebGPU::ComputePassEncoder* obj)
 {
-    ref(obj);
+    WTF::ref(obj);
 }
 
 inline void derefComputePassEncoder(WebGPU::ComputePassEncoder* obj)
 {
-    deref(obj);
+    WTF::deref(obj);
 }

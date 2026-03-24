@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 hmn{
     ExemplarCharacters{
         "[\U00016B36\U00016b31\U00016b32\U00016b33\U00016b34\U00016b35 𖬀 𖬁 𖬂 𖬃 "

@@ -49,8 +49,8 @@ public:
 
     Kind kind() const override { return m_kind; }
     TrackID id() const override { return m_id; }
-    AtomString inBandMetadataTrackDispatchType() const override { return m_inBandMetadataTrackDispatchType; }
-    void setInBandMetadataTrackDispatchType(const AtomString& value) { m_inBandMetadataTrackDispatchType = value; }
+    String inBandMetadataTrackDispatchType() const override { return m_inBandMetadataTrackDispatchType; }
+    void setInBandMetadataTrackDispatchType(const String& value) { m_inBandMetadataTrackDispatchType = value; }
 
 #if ENABLE(DATACUE_VALUE)
     void addDataCue(const MediaTime& start, const MediaTime& end, Ref<SerializedPlatformDataCue>&&, const String&);
@@ -68,7 +68,7 @@ private:
 
     Kind m_kind;
     TrackID m_id;
-    AtomString m_inBandMetadataTrackDispatchType;
+    String m_inBandMetadataTrackDispatchType;
     MediaTime m_currentCueStartTime;
 #if ENABLE(DATACUE_VALUE)
     Vector<IncompleteMetaDataCue> m_incompleteCues;

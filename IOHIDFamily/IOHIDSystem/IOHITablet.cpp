@@ -120,10 +120,10 @@ void IOHITablet::dispatchProximityEvent(NXEventData *proximityEvent,
 
 bool IOHITablet::startTabletPointer(IOHITabletPointer *pointer, OSDictionary *properties)
 {
-    require(pointer, no_attach);
-    require(pointer->init(properties), no_attach);
-    require(pointer->attach(this), no_attach);
-    require(pointer->start(this), no_start);
+    __Require(pointer, no_attach);
+    __Require(pointer->init(properties), no_attach);
+    __Require(pointer->attach(this), no_attach);
+    __Require(pointer->start(this), no_start);
     
 no_start:
     pointer->detach(this);

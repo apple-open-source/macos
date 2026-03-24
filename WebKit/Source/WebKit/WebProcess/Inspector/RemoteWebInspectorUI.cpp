@@ -35,8 +35,8 @@
 #include <WebCore/Chrome.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/FloatRect.h>
-#include <WebCore/InspectorController.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageInspectorController.h>
 #include <WebCore/Settings.h>
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
@@ -69,7 +69,7 @@ void RemoteWebInspectorUI::initialize(DebuggableInfoData&& debuggableInfo, const
     m_extensionController = WebInspectorUIExtensionController::create(*this, m_page->identifier());
 #endif
 
-    m_debuggableInfo = WTFMove(debuggableInfo);
+    m_debuggableInfo = WTF::move(debuggableInfo);
     m_backendCommandsURL = backendCommandsURL;
 
     protectedWebPage()->protectedCorePage()->inspectorController().setInspectorFrontendClient(this);
@@ -214,17 +214,17 @@ void RemoteWebInspectorUI::revealFileExternally(const String& path)
 
 void RemoteWebInspectorUI::save(Vector<WebCore::InspectorFrontendClient::SaveData>&& saveDatas, bool forceSaveAs)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::RemoteWebInspectorUIProxy::Save(WTFMove(saveDatas), forceSaveAs), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::RemoteWebInspectorUIProxy::Save(WTF::move(saveDatas), forceSaveAs), m_page->identifier());
 }
 
 void RemoteWebInspectorUI::load(const String& path, CompletionHandler<void(const String&)>&& completionHandler)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::RemoteWebInspectorUIProxy::Load(path), WTFMove(completionHandler), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::RemoteWebInspectorUIProxy::Load(path), WTF::move(completionHandler), m_page->identifier());
 }
 
 void RemoteWebInspectorUI::pickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::RemoteWebInspectorUIProxy::PickColorFromScreen(), WTFMove(completionHandler), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::RemoteWebInspectorUIProxy::PickColorFromScreen(), WTF::move(completionHandler), m_page->identifier());
 }
 
 void RemoteWebInspectorUI::inspectedURLChanged(const String& urlString)

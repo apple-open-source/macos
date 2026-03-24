@@ -66,6 +66,7 @@ bool compareAnimationEventsByCompositeOrder(const AnimationEventBase&, const Ani
 String pseudoElementIdentifierAsString(const std::optional<Style::PseudoElementIdentifier>&);
 std::pair<bool, std::optional<Style::PseudoElementIdentifier>> pseudoElementIdentifierFromString(const String&, Document*);
 AtomString animatablePropertyAsString(AnimatableCSSProperty);
+bool animatablePropertiesContainTransformRelatedProperty(const HashSet<AnimatableCSSProperty>&);
 
 // Determines whether a RenderStyle specifies a transition on `display` property.
 bool styleHasDisplayTransition(const RenderStyle&);

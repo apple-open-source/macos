@@ -61,17 +61,17 @@ static ImageWrapper crossfadeBlend(Ref<StyleCachedImage>&& fromStyleImage, Ref<S
     // not a completed cross-fade, so we hand back one of the existing images.
 
     if (!context.progress)
-        return ImageWrapper { WTFMove(fromStyleImage) };
+        return ImageWrapper { WTF::move(fromStyleImage) };
     if (context.progress == 1)
-        return ImageWrapper { WTFMove(toStyleImage) };
+        return ImageWrapper { WTF::move(toStyleImage) };
     if (!fromStyleImage->cachedImage() || !toStyleImage->cachedImage())
-        return ImageWrapper { WTFMove(toStyleImage) };
-    return ImageWrapper { StyleCrossfadeImage::create(WTFMove(fromStyleImage), WTFMove(toStyleImage), context.progress, false) };
+        return ImageWrapper { WTF::move(toStyleImage) };
+    return ImageWrapper { StyleCrossfadeImage::create(WTF::move(fromStyleImage), WTF::move(toStyleImage), context.progress, false) };
 }
 
 static ImageWrapper filterBlend(RefPtr<StyleImage> inputImage, const Style::Filter& from, const Style::Filter& to, const BlendingContext& context)
 {
-    return ImageWrapper { StyleFilterImage::create(WTFMove(inputImage), Style::blend(from, to, context)) };
+    return ImageWrapper { StyleFilterImage::create(WTF::move(inputImage), Style::blend(from, to, context)) };
 }
 
 auto Blending<ImageWrapper>::blend(const ImageWrapper& a, const ImageWrapper& b, const BlendingContext& context) -> ImageWrapper
@@ -113,12 +113,12 @@ auto Blending<ImageWrapper>::blend(const ImageWrapper& a, const ImageWrapper& b,
         RefPtr aFilterInputImage = dynamicDowncast<StyleCachedImage>(aFilter->inputImage());
 
         if (aFilterInputImage && bCachedImage->equals(*aFilterInputImage))
-            return filterBlend(WTFMove(aFilterInputImage), aFilter->filter(), Style::Filter { CSS::Keyword::None { } }, context);
+            return filterBlend(WTF::move(aFilterInputImage), aFilter->filter(), Style::Filter { CSS::Keyword::None { } }, context);
     } else if (auto [aCachedImage, bFilter] = std::tuple { dynamicDowncast<StyleCachedImage>(aSelected), dynamicDowncast<StyleFilterImage>(bSelected) }; aCachedImage && bFilter) {
         RefPtr bFilterInputImage = dynamicDowncast<StyleCachedImage>(bFilter->inputImage());
 
         if (bFilterInputImage && aCachedImage->equals(*bFilterInputImage))
-            return filterBlend(WTFMove(bFilterInputImage), Style::Filter { CSS::Keyword::None { } }, bFilter->filter(), context);
+            return filterBlend(WTF::move(bFilterInputImage), Style::Filter { CSS::Keyword::None { } }, bFilter->filter(), context);
     }
 
     RefPtr aCachedImage = dynamicDowncast<StyleCachedImage>(aSelected);
@@ -132,7 +132,7 @@ auto Blending<ImageWrapper>::blend(const ImageWrapper& a, const ImageWrapper& b,
     // FIXME: Add support cross fade between cached and generated images.
     // https://bugs.webkit.org/show_bug.cgi?id=78293
 
-    return ImageWrapper { WTFMove(bSelected) };
+    return ImageWrapper { WTF::move(bSelected) };
 }
 
 // MARK: - Logging

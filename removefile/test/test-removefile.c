@@ -1,10 +1,10 @@
 #include "removefile.h"
-
 #include <assert.h>
 #include <stdatomic.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <libgen.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -20,6 +20,7 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_SIMULATOR
 #include <apfs/apfs_fsctl.h>
+#include <spawn.h>
 #endif // !TARGET_OS_SIMULATOR
 #endif // __APPLE__
 
@@ -30,7 +31,50 @@
 #include <MobileCoreServices/FSEvents.h>
 #endif
 
+#if __APPLE__ && TARGET_OS_IOS && !TARGET_OS_VISION
+
 #define FSEVENT_ARRAY_SIZE            10
+
+#define ignore_eintr(x, error_val)								\
+	({															\
+		typeof(x) eintr_ret_;									\
+		do {													\
+			eintr_ret_ = (x);									\
+		} while (eintr_ret_ == (error_val) && errno == EINTR);	\
+		eintr_ret_;												\
+	})
+
+
+static int
+systemx(const char *prog, ...)
+{
+	const char *args[64];
+	const char **parg = args;
+	posix_spawn_file_actions_t *pfacts = NULL;
+	pid_t pid;
+	int status;
+
+	va_list ap;
+
+	*parg++ = basename((char *)prog);
+
+	va_start(ap, prog);
+	while ((*parg = va_arg(ap, char *))) {
+		++parg;
+	}
+	va_end(ap);
+
+	assert((errno = posix_spawn(&pid, prog, pfacts, NULL,
+									  (char * const *)args, NULL)) == 0);
+
+	assert(ignore_eintr(waitpid(pid, &status, 0), -1) == pid);
+
+	if (WIFEXITED(status))
+		return WEXITSTATUS(status);
+	else
+		return -1;
+}
+
 
 /*
  * FSEvents globals, prototypes and methods
@@ -57,6 +101,10 @@ static CFArrayRef fsevents_paths = NULL;
 void
 fsevents_callback(ConstFSEventStreamRef stream, void *info, size_t num_events, void *paths, const FSEventStreamEventFlags *flags, const FSEventStreamEventId *ids);
 
+#ifndef APFS_SPEC_TELEM_EVENT_DIR
+#define APFS_SPEC_TELEM_EVENT_DIR          0x01000000
+#endif
+
 void
 initiate_fsevent(
 	fsevent_t *event,
@@ -77,6 +125,9 @@ initiate_fsevent(
 	event->age = 0;
 	event->flags = use_state & APFS_USE_STATE_EVENT_MASK;
 	event->flags |= (((uint32_t) residency_reason << APFS_RESIDENCY_REASON_EVENT_SHIFT) & APFS_RESIDENCY_REASON_EVENT_MASK);
+	if (S_ISDIR(st.st_mode)) {
+		event->flags |= APFS_SPEC_TELEM_EVENT_DIR;
+	}
 	event->urgency = urgency;
 	event->size = size;
 }
@@ -199,19 +250,47 @@ fsevents_callback(ConstFSEventStreamRef stream, void *info, size_t num_events, v
 	free(expected_path);
 }
 
+
+#define APFS_SPEC_STATE_FLAGS_PRISTINE                       0x00000001
+#define APFS_SPEC_STATE_FLAGS_MARK_DATALESS                  0x00000002
+#define APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_SHIFT         2
+#define APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_MASK          0x0000003c
+#define APFS_SPEC_STATE_FLAGS_MASK                           0x0000003f
+
+
 static void
 verify_telemetry_xattr(char *file,
-					   bool is_xattr_removed)
+					   bool is_xattr_removed,
+					   bool is_pristine,
+					   bool is_dataless,
+					   residency_reason_t residency_reason)
 {
+	int error = 0;
 	spec_telem_state_req_t spec_req_in = {};
 	uint16_t flags = 0;
 
 	assert(file);
 
+	flags = is_pristine ? (flags | APFS_SPEC_STATE_FLAGS_PRISTINE) : flags;
+	flags = is_dataless ? (flags | APFS_SPEC_STATE_FLAGS_MARK_DATALESS) : flags;
+	flags |= (residency_reason << APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_SHIFT) & APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_MASK;
+
 	if (is_xattr_removed) {
-		assert(fsctl(file, APFSIOC_GET_SPEC_TELEM, &spec_req_in, 0) != 0);
+		assert(fsctl(file, APFSIOC_GET_SPEC_TELEM, &spec_req_in, 0) == ENOENT);
 	} else {
-		assert(fsctl(file, APFSIOC_GET_SPEC_TELEM, &spec_req_in, 0) == 0);
+		error = fsctl(file, APFSIOC_GET_SPEC_TELEM, &spec_req_in, 0);
+		if (error) {
+			printf("Failed to extract speculative download xatrr data %d\n", errno);
+		}
+
+		if (spec_req_in.spec_state_flags != flags) {
+			residency_reason_t actual_residency_reason = (spec_req_in.spec_state_flags & APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_MASK) >> APFS_SPEC_STATE_FLAGS_RESIDENCY_REASON_SHIFT;
+			printf("%s actual vs. expected flags: is_pristine=%d/%d is_dataless=%d/%d residency_reason=%d/%d\n", file,
+						!!(spec_req_in.spec_state_flags & APFS_SPEC_STATE_FLAGS_PRISTINE), is_pristine,
+						!!(spec_req_in.spec_state_flags & APFS_SPEC_STATE_FLAGS_MARK_DATALESS), is_dataless,
+						actual_residency_reason, residency_reason);
+		}
+		assert(spec_req_in.spec_state_flags == flags);
 	}
 }
 
@@ -255,6 +334,42 @@ speculative_download_hierarchy_set(char *path)
 	speculative_download_hierarchy_get(path, true);
 }
 
+
+static int
+mark_inode_purgeable(char *ino_path, ino_t sync_root_id, uint64_t urgency, residency_reason_t residency_reason, bool is_purge_fault)
+{
+	int error = 0;
+	apfs_purgeable_file_info_t pfinfo = {0};
+
+	apfs_mark_purgeable_ext_t mpe = {
+		.flags =  urgency | APFS_MARK_PURGEABLE,
+		.sync_root_id = sync_root_id,
+	};
+
+	mpe.flags |= (((uint64_t)residency_reason << APFS_PURGEABLE_RESIDENCY_REASON_SHIFT) & APFS_PURGEABLE_RESIDENCY_REASON_MASK);
+
+	error = fsctl(ino_path, APFSIOC_MARK_PURGEABLE_EXT, &mpe, 0);
+	if (error ) {
+		error = errno;
+		printf("Failed to mark purgeable ino_path = %s %d\n", ino_path, error);
+		return error;
+	}
+
+	error = fsctl(ino_path, APFSIOC_PURGEABLE_GET_FILE_INFO, &pfinfo, 0);
+	if (error ) {
+		error = errno;
+		printf("Failed to extract purgeable data for ino_path = %s %d\n", ino_path, error);
+		return error;
+	}
+
+	assert((pfinfo.pfi_file_flags & urgency) != 0);
+
+	verify_telemetry_xattr(ino_path, false, true, false, residency_reason);
+	return 0;
+
+}
+
+#endif
 
 static struct timeval tv;
 static void start_timer(const char* str) {
@@ -379,6 +494,8 @@ static void remove_long_canonical_path(void) {
 	free(cwd);
 }
 
+#define NUMBER_OF_FILES_IN_PURGEABLE_DIR 10
+
 static void mkdirs(bool mark_purgeable) {
 	start_timer("Creating directory structure");
 	assert(mkdir("/tmp/removefile-test", 0755) == 0);
@@ -396,6 +513,11 @@ static void mkdirs(bool mark_purgeable) {
 	close(fd);
 
 #if __APPLE__ && TARGET_OS_IOS && !TARGET_OS_VISION
+	struct stat st;
+	int error = 0;
+	char *dir_telem = NULL;
+	char *file_telem = NULL;
+
 	if (mark_purgeable) {
 		uint64_t purgeable_flags = APFS_MARK_PURGEABLE | APFS_PURGEABLE_DATA_TYPE | APFS_PURGEABLE_LOW_URGENCY;
 		assert(fsctl("/tmp/removefile-test/foo/baz", APFSIOC_MARK_PURGEABLE, &purgeable_flags, 0) == 0);
@@ -409,11 +531,56 @@ static void mkdirs(bool mark_purgeable) {
 	assert(mkdir("/tmp/removefile-test/system-discarded", 0755) == 0);
 
 	speculative_download_hierarchy_set("/tmp/removefile-test/system-discarded");
-	assert((fd = open("/tmp/removefile-test/system-discarded/file_telem",  O_RDWR | O_CREAT, 0666)) != -1);
+	asprintf(&file_telem, "/tmp/removefile-test/system-discarded/file_telem");
+	assert((fd = open(file_telem, O_RDWR | O_CREAT, 0666)) != -1);
 	write(fd, "Hello World\n", 12);
 	close(fd);
-	speculative_download_mark_file_pristine("/tmp/removefile-test/system-discarded/file_telem", APFS_SPEC_TELEM_RESIDENCY_REASON_TYPE_1, false);
-	verify_telemetry_xattr("/tmp/removefile-test/system-discarded/file_telem", false);
+	speculative_download_mark_file_pristine(file_telem, APFS_SPEC_TELEM_RESIDENCY_REASON_TYPE_1, false);
+	verify_telemetry_xattr(file_telem, false, true, false, APFS_SPEC_TELEM_RESIDENCY_REASON_TYPE_1);
+	free(file_telem);
+
+
+	// Create directory with several files and mark it as a purgeable package
+	// 1) Under spec telemetry hierarchy create subfolder `dir_telem`
+	// 2) create several files under `dir_telem`
+	// 3) mark `dir_telem` as SAF dir-stat origin
+	// 4) mark `dir_telem` as purgeable
+	// 5) Verify the directory marked as pristine and xattr exists
+	// 6) Remove 'dir_telem' with REMOVEFILE_SYSTEM_DISCARDED will create speculative download fsevent with system discarded flag
+
+	// The reason for using external tool and not fsctl is that sync root marking requires the materialization IOPOLICY
+	// But the same iopolicy will prevent from sending telemetry event. 
+	assert(!systemx("/usr/local/bin/apfsctl", "dataless", "-r", "/tmp/removefile-test/system-discarded", NULL));
+	asprintf(&dir_telem, "/tmp/removefile-test/system-discarded/dir_telem");
+	assert(mkdir(dir_telem, 0755) == 0);
+
+	for(int i = 0; i < NUMBER_OF_FILES_IN_PURGEABLE_DIR; i++) {
+		char *file_path = NULL;
+		asprintf(&file_path, "%s/file_%d", dir_telem, i);
+		assert((fd = open(file_path,  O_RDWR | O_CREAT, 0666)) != -1);
+		write(fd, "Hello World\n", 12);
+		close(fd);
+		free(file_path);
+	}
+	apfs_exp_dir_stats_t args = {
+		.version = APFS_EXP_DIR_STATS_V1,
+		.op = DIR_STATS_OP_SET,
+		.flags = DIR_STATS_SET_FOR_SAF,
+	};
+
+	error = fsctl(dir_telem, APFSIOC_DIR_STATS_OP, &args, 0);
+	if (error) {
+		printf("Failed to set SAF dir stat for %s error %d\n",dir_telem, errno);
+		goto out;
+	}
+
+	assert(stat("/tmp/removefile-test/system-discarded", &st) == 0);
+	error = mark_inode_purgeable(dir_telem, st.st_ino, APFS_PURGEABLE_HIGH_URGENCY, APFS_SPEC_TELEM_RESIDENCY_REASON_TYPE_1,  false);
+	
+out:
+	free(dir_telem);
+	assert(error == 0);
+
 #endif
 	stop_timer();
 }
@@ -435,8 +602,9 @@ int main(int argc, char *argv[]) {
 	int err = 0;
 	struct stat st;
 
+#if __APPLE__ && TARGET_OS_IOS && !TARGET_OS_VISION
 	fsevents_queue = dispatch_queue_create("com.apple.test_apfs.fsevents", NULL);
-
+#endif
     if (argc == 2) {
         /* pass in a directory with a mountpoint under it to test REMOVEFILE_CROSS_MOUNT */
 		state = removefile_state_alloc();
@@ -540,6 +708,25 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test/system-discarded/file_telem", NULL, REMOVEFILE_SYSTEM_DISCARDED) == 0);
 	assert(wait_for_event() == 0);
 
+	// fill in the expected event for the purgeable directory and reset the fields except origin_id and urgency
+	initiate_fsevent(&event,
+					 "/tmp/removefile-test/system-discarded/dir_telem",
+					 st.st_ino,
+					 USE_STATE_SYSTEM_DISCARDED,
+					 APFS_SPEC_TELEM_RESIDENCY_REASON_TYPE_1,
+					 APFS_PURGEABLE_HIGH_URGENCY,
+					 0);
+	listen_for_event(&event);
+
+	// test the regular and the slim implementation, by choosing one of them randomly each time
+	removefile_flags_t flags = REMOVEFILE_SYSTEM_DISCARDED|REMOVEFILE_RECURSIVE;
+	if ((arc4random() % 2) == 0) {
+		flags = REMOVEFILE_SYSTEM_DISCARDED|REMOVEFILE_RECURSIVE_SLIM;
+	}
+
+	assert(removefile("/tmp/removefile-test/system-discarded/dir_telem", NULL, flags) == 0);
+	assert(wait_for_event() == 0);
+
 	//clean up
 	assert(rmdir("/tmp/removefile-test/system-discarded") == 0);
 #endif
@@ -584,7 +771,7 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_RECURSIVE_SLIM | REMOVEFILE_CLEAR_PURGEABLE) == 0);
 
 	printf("Success!\n");
-
+#if __APPLE__ && TARGET_OS_IOS && !TARGET_OS_VISION
 	if (fsevents_paths) {
 		CFRelease(fsevents_paths);
 		fsevents_paths = NULL;
@@ -593,6 +780,6 @@ int main(int argc, char *argv[]) {
 		dispatch_release(fsevents_queue);
 		fsevents_queue = NULL;
 	}
-
+#endif
 	return 0;
 }

@@ -187,6 +187,9 @@ __BEGIN_DECLS
 /* Entitlement to allow calling the `SecDeleteItemsOnSignOut` SPI. */
 #define kSecEntitlementPrivateDeleteItemsOnSignOut CFSTR("com.apple.private.keychain.allow-delete-on-sign-out")
 
+/* Entitlement to allow calling the `SecDeleteInternalItemsOnSignOut` SPI. */
+#define kSecEntitlementPrivateDeleteInternalItemsOnSignOut CFSTR("com.apple.private.keychain.allow-delete-internal-on-sign-out")
+
 #if __OBJC__
 /* Entitlement to control use of OT */
 #define kSecEntitlementPrivateOctagon @"com.apple.private.octagon"

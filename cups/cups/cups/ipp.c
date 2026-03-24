@@ -5047,7 +5047,7 @@ ippValidateAttribute(
 	      break;
 	  }
 
-	  if (*ptr || ptr == attr->values[i].string.text)
+	  if (*ptr)
 	  {
 	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad keyword value \"%s\" - invalid character (RFC 8011 section 5.1.4)."), attr->name, attr->values[i].string.text);
 	    return (0);

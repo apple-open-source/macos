@@ -49,7 +49,7 @@ public:
     Vector<SandboxExtension::Handle> takeHandles() { return std::exchange(m_handles, { }); }
     SandboxExtensionHandle takeMachBootstrapHandle() { return std::exchange(m_machBootstrapHandle, { }); }
 
-    RefPtr<SandboxExtension> machBootstrapExtension() { return SandboxExtension::create(WTFMove(m_machBootstrapHandle)); }
+    RefPtr<SandboxExtension> machBootstrapExtension() { return SandboxExtension::create(WTF::move(m_machBootstrapHandle)); }
 
 private:
     Vector<String> m_ids;

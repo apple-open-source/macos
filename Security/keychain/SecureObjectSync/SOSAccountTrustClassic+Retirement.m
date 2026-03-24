@@ -71,8 +71,8 @@ static inline CFMutableArrayRef CFDictionaryEnsureCFArrayAndGetCurrentValue(CFMu
     bool success = true;
     
     SOSPeerInfoRef myPeerInfo = self.peerInfo;
-    require_action_quiet(self.fullPeerInfo && myPeerInfo, xit, SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("I have no peer")));
-    require_quiet(SOSCircleHasActivePeer(circle, self.peerInfo, error), xit);
+    __Require_Action_Quiet(self.fullPeerInfo && myPeerInfo, xit, SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("I have no peer")));
+    __Require_Quiet(SOSCircleHasActivePeer(circle, self.peerInfo, error), xit);
     
     CFStringRef cleanupPeerID = SOSPeerInfoGetPeerID(cleanupPeer);
 

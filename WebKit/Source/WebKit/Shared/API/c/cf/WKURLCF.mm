@@ -30,25 +30,15 @@
 #import "WKNSURL.h"
 #import <objc/runtime.h>
 #import <wtf/cf/CFURLExtras.h>
-
-static inline Class wkNSURLClassSingleton()
-{
-    static dispatch_once_t once;
-    static Class wkNSURLClass;
-    dispatch_once(&once, ^{
-        wkNSURLClass = [WKNSURL class];
-    });
-    return wkNSURLClass;
-}
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 WKURLRef WKURLCreateWithCFURL(CFURLRef cfURL)
 {
     if (!cfURL)
         return nullptr;
 
-    // Since WKNSURL is an internal class with no subclasses, we can do a simple equality check.
-    if (object_getClass((__bridge NSURL *)cfURL) == wkNSURLClassSingleton())
-        return WebKit::toAPI(RefPtr { downcast<API::URL>(&[(WKNSURL *)(__bridge NSURL *)CFRetain(cfURL) _apiObject]) }.get());
+    if (RetainPtr wkNSURL = dynamic_objc_cast<WKNSURL>(bridge_cast(cfURL)))
+        return WebKit::toAPI(RefPtr { downcast<API::URL>(&[wkNSURL.leakRef() _apiObject]) }.get());
 
     // FIXME: Why is it OK to ignore the base URL in the CFURL here?
     return WebKit::toCopiedURLAPI(bytesAsString(cfURL));

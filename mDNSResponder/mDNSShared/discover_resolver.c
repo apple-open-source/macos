@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -464,6 +464,10 @@ discover_resolver_name_remove(const domainname * const resolver_name, const mDNS
 	bool succeeded;
 	discover_resolver_name_t * prev = NULL;
 	discover_resolver_name_t * current, * next;
+
+	if (resolver_name == NULL) {
+		return false;
+	}
 
 	for (current = *out_resolver_names; current != NULL; current = next) {
 		next = current->next;
@@ -964,6 +968,7 @@ discover_resolver_ns_query_callback(mDNS * const NONNULL UNUSED m, DNSQuestion *
 {
 	bool succeeded;
 	bool new_resolver_name_created = false;
+	const domainname *name = NULL;
 	discover_resolver_context_t * context = q->QuestionContext;
 	const mDNSInterfaceID if_id = answer->InterfaceID;
 	const char * const if_name = InterfaceNameForID(&mDNSStorage, if_id);
@@ -976,7 +981,7 @@ discover_resolver_ns_query_callback(mDNS * const NONNULL UNUSED m, DNSQuestion *
 	}
 
 	// Find out the corresponding discover_resolver_name_t for resolver name, if exists.
-	const domainname * const name = &answer->rdata->u.name;
+	name = &answer->rdata->u.name;
 	discover_resolver_name_t * resolver_name = discover_resolver_name_find(name, if_id, context->resolver_names);
 
 	if (change_event == QC_add) {

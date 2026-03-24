@@ -839,6 +839,71 @@ pqtls_mode_t
 sec_protocol_options_get_pqtls_mode(sec_protocol_options_t options);
 
 
+#define SEC_PROTOCOL_HAS_LEGACY_ATS_APPLICABLE 1
+/*!
+ * @function sec_protocol_options_set_legacy_ats_applicable
+ *
+ * @abstract
+ *      MUST only be called by CFNetwork to indicate that the connection when through the old HTTP stack and
+ *      is an ATS applicable connection (e.g. it would default to having ATS enforced unless arbitrary loads are allowed).
+ *      Should be set regardless of the app's ATS configuration or if ATS is actually enforced on the connection.
+ *      This allows TLS metrics to differentiate between connections that are outside the scope of ATS and those that just
+ *      have ATS disabled. Has no functional affect on the TLS connection.
+ *
+ * @param legacy_ats_applicable
+ *      Set to true to indicate that the connection is ATS applicable.
+ */
+SPI_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4))
+void
+sec_protocol_options_set_legacy_ats_applicable(sec_protocol_options_t options, bool legacy_ats_applicable);
+
+#define SEC_PROTOCOL_HAS_COMPLIANCE_POLICY 1
+typedef CF_ENUM(uint8_t, sec_protocol_options_compliance_policy_t) {
+    sec_protocol_options_compliance_policy_none = 0, // None
+    sec_protocol_options_compliance_policy_fcs_v2 = 1, // see rdar://167870709 (☂️TLS Certification Changes (FCS TLS v2))
+    // Additional values may be added in the future.
+};
+
+#if __OBJC__
+#define SEC_PROTOCOL_HAS_NIAP_PACKAGE_HELPER 1
+/*!
+ * @function sec_protocol_configuration_niap_tls_package_key_to_policy
+ *
+ * @abstract
+ *      Helper function for translating between strings found in ATS dictionary for NSRequiresNIAPTLSPackageVersion
+ *      and NSExceptionRequiresNIAPTLSPackageVersion.
+ *      Possible values of `package_version` are:
+ *          - nil - not set, defaults to `sec_protocol_options_compliance_policy_none`
+ *          - "none" - `sec_protocol_options_compliance_policy_none`
+ *          - "FCP_v2.1" - `sec_protocol_options_compliance_policy_fcs_v2`
+ *          - "recommended" - currently recommended policy.
+ *          - deprecated keys result in same behavior as "none"
+ *          - any unknown value is treated the same as "recommended"
+ *
+ * @param package_version
+ *      String found in ATS dictionary for NSRequiresNIAPTLSPackageVersion or NSExceptionRequiresNIAPTLSPackageVersion.
+ *
+ *@returns
+ *      Returns the corresponding `sec_protocol_options_compliance_policy_t`.
+ */
+SPI_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4))
+sec_protocol_options_compliance_policy_t
+sec_protocol_configuration_niap_tls_package_key_to_policy(NSString *package_version);
+#endif
+
+/*!
+ * @function sec_protocol_options_set_tls_compliance_policy
+ *
+ * @abstract
+ *      This MUST only be called by ATS configuration code or test code in boringssl. If you think you need to call directly reach out to Secure Transports.
+ *      Configure clients to observe specific TLS behavior in line with certification requirements. It guarantees that the default TLS configuration will be
+ *      modified if this is set such that the client will behave in a compliant manner. If combined with other sec protocl options
+ *      APIs/SPIs then compliance is not guaranteed. rdar://167870709 (☂️TLS Certification Changes (FCS TLS v2)).
+*/
+SPI_AVAILABLE(macos(26.4), ios(26.4), watchos(26.4), tvos(26.4), visionos(26.4))
+void
+sec_protocol_options_set_tls_compliance_policy(sec_protocol_options_t options, sec_protocol_options_compliance_policy_t policy);
+
 /*!
  * @function sec_protocol_options_set_allow_unknown_alpn_protos
  *
@@ -2090,6 +2155,7 @@ struct sec_protocol_options_content {
     size_t minimum_rsa_key_size;
     size_t minimum_ecdsa_key_size;
     SecSignatureHashAlgorithm minimum_signature_algorithm;
+    sec_protocol_options_compliance_policy_t tls_compliance_policy;
 
     // Non-boolean options
     uint8_t tls_ticket_request_count;
@@ -2109,6 +2175,7 @@ struct sec_protocol_options_content {
     unsigned ats_required : 1;
     unsigned ats_minimum_tls_version_allowed : 1;
     unsigned ats_non_pfs_ciphersuite_allowed : 1;
+    unsigned legacy_ats_applicable : 1;
     unsigned trusted_peer_certificate : 1;
     unsigned trusted_peer_certificate_override : 1;
     unsigned disable_sni : 1;

@@ -55,7 +55,22 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
-using namespace Wasm;
+using Wasm::CalleeGroup;
+using Wasm::CompilationMode;
+using Wasm::CreationMode;
+using Wasm::Element;
+using Wasm::Global;
+using Wasm::GlobalInformation;
+using Wasm::Memory;
+using Wasm::ModuleInformation;
+using Wasm::RTTKind;
+using Wasm::Table;
+using Wasm::Tag;
+using Wasm::Type;
+using Wasm::TypeIndex;
+using Wasm::TypeInformation;
+using Wasm::FunctionSpaceIndex;
+using Wasm::isRefType;
 
 const ClassInfo JSWebAssemblyInstance::s_info = { "WebAssembly.Instance"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyInstance) };
 
@@ -134,9 +149,9 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
     for (unsigned i = 0; i < m_moduleInformation->typeCount(); ++i) {
         Ref rtt = m_moduleInformation->rtts[i];
         if (rtt->kind() == RTTKind::Array)
-            gcObjectStructureID(i).set(vm, this, JSWebAssemblyArray::createStructure(vm, globalObject, m_moduleInformation->typeSignatures[i], WTFMove(rtt)));
+            gcObjectStructureID(i).set(vm, this, JSWebAssemblyArray::createStructure(vm, globalObject, m_moduleInformation->typeSignatures[i], WTF::move(rtt)));
         else if (rtt->kind() == RTTKind::Struct)
-            gcObjectStructureID(i).set(vm, this, JSWebAssemblyStruct::createStructure(vm, globalObject, m_moduleInformation->typeSignatures[i], WTFMove(rtt)));
+            gcObjectStructureID(i).set(vm, this, JSWebAssemblyStruct::createStructure(vm, globalObject, m_moduleInformation->typeSignatures[i], WTF::move(rtt)));
     }
 
     m_vm->traps().registerMirror(m_stackMirror);
@@ -166,6 +181,9 @@ JSWebAssemblyInstance::~JSWebAssemblyInstance()
         m_anchor->tearDown();
         m_anchor = nullptr;
     }
+
+    if (Options::enableWasmDebugger()) [[unlikely]]
+        Wasm::DebugServer::singleton().untrackInstance(this);
 }
 
 void JSWebAssemblyInstance::destroy(JSCell* cell)
@@ -251,7 +269,7 @@ void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObjec
             auto callLinkInfo = makeUnique<DataOnlyCallLinkInfo>();
             callLinkInfo->initialize(vm, nullptr, CallLinkInfo::CallType::Call, CodeOrigin { });
             WTF::storeStoreFence(); // CallLinkInfo is visited by concurrent GC already, thus, when we add it, we must ensure that it is fully initialized.
-            info->callLinkInfo = WTFMove(callLinkInfo);
+            info->callLinkInfo = WTF::move(callLinkInfo);
             vm.writeBarrier(this); // Materialized CallLinkInfo and we need rescan of JSWebAssemblyInstance.
         } else {
             // the import is a Wasm function or a builtin
@@ -313,7 +331,7 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, Structure* insta
         return nullptr;
     }
 
-    auto* jsInstance = new (NotNull, cell) JSWebAssemblyInstance(vm, instanceStructure, jsModule, moduleRecord, WTFMove(provider));
+    auto* jsInstance = new (NotNull, cell) JSWebAssemblyInstance(vm, instanceStructure, jsModule, moduleRecord, WTF::move(provider));
     jsInstance->finishCreation(vm);
     RETURN_IF_EXCEPTION(throwScope, nullptr);
 
@@ -459,7 +477,7 @@ void JSWebAssemblyInstance::elemDrop(uint32_t elementIndex)
     m_passiveElements.quickClear(elementIndex);
 }
 
-bool JSWebAssemblyInstance::memoryInit(uint32_t dstAddress, uint32_t srcAddress, uint32_t length, uint32_t dataSegmentIndex)
+bool JSWebAssemblyInstance::memoryInit(uint64_t dstAddress, uint32_t srcAddress, uint32_t length, uint32_t dataSegmentIndex)
 {
     RELEASE_ASSERT(dataSegmentIndex < module().moduleInformation().dataSegmentsCount());
 
@@ -518,7 +536,7 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
             auto functionIndex = Wasm::FunctionSpaceIndex(initialBitsOrIndex);
             TypeIndex typeIndex = m_module->typeIndexFromFunctionIndexSpace(functionIndex);
             if (isImportFunction(functionIndex)) {
-                JSObject* functionImport = importFunction(functionIndex).get();
+                JSObject* functionImport = getImportFunctionObject(functionIndex, globalObject);
                 if (isWebAssemblyHostFunction(functionImport)) {
                     // If we ever import a WebAssemblyWrapperFunction, we set the import as the unwrapped value.
                     // Because a WebAssemblyWrapperFunction can never wrap another WebAssemblyWrapperFunction,
@@ -705,7 +723,7 @@ void JSWebAssemblyInstance::setTable(unsigned i, Ref<Table>&& table)
             update = true;
         }
     }
-    tables()[i] = WTFMove(table);
+    tables()[i] = WTF::move(table);
     if (update)
         updateCachedTable0();
 }
@@ -723,12 +741,12 @@ void JSWebAssemblyInstance::updateCachedTable0()
 void JSWebAssemblyInstance::linkGlobal(unsigned i, Ref<Global>&& global)
 {
     m_globals[i].m_pointer = global->valuePointer();
-    m_linkedGlobals.set(i, WTFMove(global));
+    m_linkedGlobals.set(i, WTF::move(global));
 }
 
 void JSWebAssemblyInstance::setTag(unsigned index, Ref<const Tag>&& tag)
 {
-    m_tags[index] = WTFMove(tag);
+    m_tags[index] = WTF::move(tag);
 }
 
 Wasm::BaselineData& JSWebAssemblyInstance::ensureBaselineData(Wasm::FunctionCodeIndex index)
@@ -737,9 +755,24 @@ Wasm::BaselineData& JSWebAssemblyInstance::ensureBaselineData(Wasm::FunctionCode
     if (!slot) [[unlikely]] {
         auto result = Wasm::BaselineData::create(m_module->ipintCallees().at(index.rawIndex()));
         WTF::storeStoreFence(); // Fully initialize BaselineData before exposing it to the concurrent compiler.
-        slot = WTFMove(result);
+        slot = WTF::move(result);
     }
     return *slot;
+}
+
+JSObject* JSWebAssemblyInstance::getImportFunctionObject(unsigned importFunctionIndex, JSGlobalObject* globalObject)
+{
+    JSObject* fun = importFunction(importFunctionIndex).get();
+    if (!fun) [[unlikely]] {
+        // No fun means the import is a Wasm builtin, and we should use its jsWrapper().
+        // The boxed callee in callLinkInfo is a WasmBuiltinCallee with a pointer to the builtin.
+        auto* callLinkInfo = importFunctionInfo(importFunctionIndex);
+        auto* callee = uncheckedDowncast<Wasm::WasmBuiltinCallee>(uncheckedDowncast<Wasm::Callee>(callLinkInfo->boxedCallee.asNativeCallee()));
+        ASSERT(callee->compilationMode() == Wasm::CompilationMode::WasmBuiltinMode);
+        const WebAssemblyBuiltin* builtin = callee->builtin();
+        fun = builtin->jsWrapper(globalObject);
+    }
+    return fun;
 }
 
 } // namespace JSC

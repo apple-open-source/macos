@@ -45,6 +45,9 @@ public:
 
     WEBCORE_EXPORT ~DOMWindowExtension();
 
+    // LocalDOMWindowObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
     void suspendForBackForwardCache() final;
     void resumeFromBackForwardCache() final;
     void willDestroyGlobalObjectInCachedFrame() final;

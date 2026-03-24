@@ -130,9 +130,9 @@ JSValue WaiterListManager::waitAsyncImpl(JSGlobalObject* globalObject, VM& vm, V
 
             if (timeout != Seconds::infinity()) {
                 Ref<RunLoop::DispatchTimer> timer = RunLoop::currentSingleton().dispatchAfter(timeout, [this, ptr, waiter = waiter.copyRef()]() mutable {
-                    timeoutAsyncWaiter(ptr, WTFMove(waiter));
+                    timeoutAsyncWaiter(ptr, WTF::move(waiter));
                 });
-                waiter->setTimer(listLocker, WTFMove(timer));
+                waiter->setTimer(listLocker, WTF::move(timer));
             }
 
             dataLogLnIf(WaiterListsManagerInternal::verbose, "<WaiterListManager> <Thread:", Thread::currentSingleton(), "> added a new AsyncWaiter=", *waiter.ptr(), " to a waiterList for ptr ", RawPointer(ptr));
@@ -174,12 +174,12 @@ void WaiterListManager::timeoutAsyncWaiter(void* ptr, Ref<Waiter>&& waiter)
             bool didGetDequeued = list->findAndRemove(listLocker, waiter);
             ASSERT_UNUSED(didGetDequeued, didGetDequeued);
         }
-        notifyWaiterImpl(listLocker,  WTFMove(waiter), ResolveResult::Timeout);
+        notifyWaiterImpl(listLocker,  WTF::move(waiter), ResolveResult::Timeout);
         return;
     }
 
     ASSERT(!waiter->isOnList());
-    notifyWaiterImpl(NoLockingNecessary, WTFMove(waiter), ResolveResult::Timeout);
+    notifyWaiterImpl(NoLockingNecessary, WTF::move(waiter), ResolveResult::Timeout);
 }
 
 unsigned WaiterListManager::notifyWaiter(void* ptr, unsigned count)
@@ -244,7 +244,7 @@ void Waiter::scheduleWorkAndClear(const AbstractLocker& listLocker, DeferredWork
 {
     ASSERT(m_isAsync && m_vm && !isOnList());
     if (auto ticket = this->ticket(listLocker)) {
-        m_vm->deferredWorkTimer->scheduleWorkSoon(ticket.get(), WTFMove(task));
+        m_vm->deferredWorkTimer->scheduleWorkSoon(ticket.get(), WTF::move(task));
         clearTicket(listLocker);
     }
     clearTimer(listLocker);

@@ -57,7 +57,7 @@ private:
 };
 
 class RenderWidget : public RenderReplaced, private OverlapTestRequestClient, public RefCounted<RenderWidget> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderWidget);
+    WTF_MAKE_TZONE_ALLOCATED(RenderWidget);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderWidget);
 public:
     virtual ~RenderWidget();
@@ -72,7 +72,7 @@ public:
     static RenderWidget* find(const Widget&);
 
     enum class ChildWidgetState { Valid, Destroyed };
-    ChildWidgetState updateWidgetPosition() WARN_UNUSED_RETURN;
+    WARN_UNUSED_RETURN ChildWidgetState updateWidgetPosition();
     WEBCORE_EXPORT IntRect windowClipRect() const;
 
     virtual bool requiresAcceleratedCompositing() const;
@@ -83,7 +83,7 @@ protected:
     RenderWidget(Type, HTMLFrameOwnerElement&, RenderStyle&&);
 
     void willBeDestroyed() override;
-    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
+    void styleDidChange(Style::Difference, const RenderStyle* oldStyle) final;
     void layout() override;
     void paint(PaintInfo&, const LayoutPoint&) override;
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;

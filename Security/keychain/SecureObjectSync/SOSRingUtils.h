@@ -29,11 +29,11 @@ struct __OpaqueSOSRing {
 static inline
 bool SOSRingAssertStable(SOSRingRef ring) {
     bool retval = false;
-    require_action_quiet(ring != NULL, errOut, secerror("no ring passed in"));
-    require_action_quiet(ring->unSignedInformation != NULL, errOut, secerror("ring has no unSignedInformation"));
-    require_action_quiet(ring->signedInformation != NULL, errOut, secerror("ring has no signedInformation"));
-    require_action_quiet(ring->signatures != NULL, errOut, secerror("ring has no signatures"));
-    require_action_quiet(ring->data != NULL, errOut, secerror("ring has no data"));
+    __Require_Action_Quiet(ring != NULL, errOut, secerror("no ring passed in"));
+    __Require_Action_Quiet(ring->unSignedInformation != NULL, errOut, secerror("ring has no unSignedInformation"));
+    __Require_Action_Quiet(ring->signedInformation != NULL, errOut, secerror("ring has no signedInformation"));
+    __Require_Action_Quiet(ring->signatures != NULL, errOut, secerror("ring has no signatures"));
+    __Require_Action_Quiet(ring->data != NULL, errOut, secerror("ring has no data"));
     retval = true;
 errOut:
     return retval;

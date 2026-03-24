@@ -32,6 +32,7 @@
 #if USE(OPENXR)
 #include "XRDeviceLayer.h"
 #endif
+#include <WebCore/ExceptionOr.h>
 #include <WebCore/PlatformXR.h>
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Function.h>
@@ -68,7 +69,7 @@ public:
     virtual void requestPermissionOnSessionFeatures(WebPageProxy&, const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, const PlatformXR::Device::FeatureList& /* requiredFeaturesRequested */, const PlatformXR::Device::FeatureList& /* optionalFeaturesRequested */, FeatureListCallback&& completionHandler) { completionHandler(granted); }
 
 #if USE(OPENXR)
-    virtual void createLayerProjection(uint32_t width, uint32_t height, bool alpha) = 0;
+    virtual void createLayerProjection(uint32_t width, uint32_t height, bool alpha, CompletionHandler<void(std::optional<PlatformXR::LayerHandle>)>&&) = 0;
 #endif
 
     // Session creation/termination.
@@ -81,6 +82,13 @@ public:
     virtual void submitFrame(WebPageProxy&, Vector<XRDeviceLayer>&&) = 0;
 #else
     virtual void submitFrame(WebPageProxy&) { }
+#endif
+
+#if ENABLE(WEBXR_HIT_TEST)
+    virtual void requestHitTestSource(WebPageProxy&, const PlatformXR::HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::HitTestSource>)>&& completionHandler) { completionHandler(WebCore::Exception { WebCore::ExceptionCode::InvalidStateError }); }
+    virtual void deleteHitTestSource(WebPageProxy&, PlatformXR::HitTestSource) { }
+    virtual void requestTransientInputHitTestSource(WebPageProxy&, const PlatformXR::TransientInputHitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::TransientInputHitTestSource>)>&& completionHandler) { completionHandler(WebCore::Exception { WebCore::ExceptionCode::InvalidStateError }); }
+    virtual void deleteTransientInputHitTestSource(WebPageProxy&, PlatformXR::TransientInputHitTestSource) { }
 #endif
 };
 

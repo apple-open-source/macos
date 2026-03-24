@@ -42,6 +42,7 @@ public:
     enum class Field : uint8_t {
         RegExp = 0,
         String,
+        // FIXME: Global and FullUnicode should be one bitset field
         Global,
         FullUnicode,
         Done,

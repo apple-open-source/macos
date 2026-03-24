@@ -110,7 +110,7 @@ public:
                 ASSERT(options.surface);
                 surface = options.surface;
             }
-            m_textures.append(WTFMove(surface));
+            m_textures.append(WTF::move(surface));
         });
 
         options.textureMapper.bindSurface(options.surface.get());
@@ -387,7 +387,7 @@ void TextureMapperLayer::setDamage(Damage&& damage)
     if (m_damageInLayerCoordinateSpace)
         m_damageInLayerCoordinateSpace->add(damage);
     else
-        m_damageInLayerCoordinateSpace = WTFMove(damage);
+        m_damageInLayerCoordinateSpace = WTF::move(damage);
 }
 
 void TextureMapperLayer::collectDamage(TextureMapper& textureMapper, Damage& damage)
@@ -1293,7 +1293,7 @@ void TextureMapperLayer::removeFromParent()
 
 void TextureMapperLayer::removeAllChildren()
 {
-    auto oldChildren = WTFMove(m_children);
+    auto oldChildren = WTF::move(m_children);
     for (auto* child : oldChildren)
         child->m_parent = nullptr;
 }
@@ -1479,7 +1479,7 @@ bool TextureMapperLayer::descendantsOrSelfHaveRunningAnimations() const
     if (m_animations.hasRunningAnimations())
         return true;
 
-    return std::any_of(m_children.begin(), m_children.end(),
+    return std::ranges::any_of(m_children,
         [](TextureMapperLayer* child) {
             return child->descendantsOrSelfHaveRunningAnimations();
         });

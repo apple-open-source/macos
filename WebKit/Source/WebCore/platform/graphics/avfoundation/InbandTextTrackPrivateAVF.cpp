@@ -36,6 +36,7 @@
 #include <JavaScriptCore/DataView.h>
 #include <JavaScriptCore/Int8Array.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/MediaTime.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -55,7 +56,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(InbandTextTrackPrivateAVF);
 
 InbandTextTrackPrivateAVF::InbandTextTrackPrivateAVF(TrackID trackID, CueFormat format, ModeChangedCallback&& callback)
     : InbandTextTrackPrivate(format)
-    , m_modeChangedCallback(WTFMove(callback))
+    , m_modeChangedCallback(WTF::move(callback))
     , m_pendingCueStatus(None)
     , m_index(0)
     , m_trackID(trackID)
@@ -370,7 +371,7 @@ void InbandTextTrackPrivateAVF::processAttributedStrings(CFArrayRef attributedSt
             cueData->setEndTime(MediaTime::positiveInfiniteTime());
             cueData->setStatus(GenericCueData::Status::Partial);
 
-            arrivingCues.append(WTFMove(cueData));
+            arrivingCues.append(WTF::move(cueData));
         }
     }
 
@@ -384,14 +385,14 @@ void InbandTextTrackPrivateAVF::processAttributedStrings(CFArrayRef attributedSt
                 Vector<Ref<InbandGenericCue>> nonExtensionCues;
                 for (auto& arrivingCue : arrivingCues) {
                     if (!arrivingCue->doesExtendCueData(cueData))
-                        nonExtensionCues.append(WTFMove(arrivingCue));
+                        nonExtensionCues.append(WTF::move(arrivingCue));
                     else
                         INFO_LOG(LOGIDENTIFIER, "found an extension cue ", cueData.get());
                 }
 
                 bool currentCueIsExtended = (arrivingCues.size() != nonExtensionCues.size());
 
-                arrivingCues = WTFMove(nonExtensionCues);
+                arrivingCues = WTF::move(nonExtensionCues);
                 
                 if (currentCueIsExtended)
                     continue;
@@ -472,7 +473,7 @@ void InbandTextTrackPrivateAVF::resetCueValues()
         INFO_LOG(LOGIDENTIFIER, "flushing data for cues: start = ", m_currentCueStartTime);
 
     auto cues = std::exchange(m_cues, Vector<Ref<InbandGenericCue>> { });
-    notifyMainThreadClient([cues = WTFMove(cues)](auto& client) {
+    notifyMainThreadClient([cues = WTF::move(cues)](auto& client) {
         for (auto& cue : cues)
             downcast<InbandTextTrackPrivateClient>(client).removeGenericCue(cue);
     });
@@ -515,13 +516,13 @@ bool InbandTextTrackPrivateAVF::processVTTFileHeader(CMFormatDescriptionRef form
         return false;
 
     auto identifier = LOGIDENTIFIER;
-    notifyMainThreadClient([headerData = WTFMove(headerData), identifier, this](auto& client) {
+    notifyMainThreadClient([headerData = WTF::move(headerData), identifier, this](auto& client) {
         // A WebVTT header is terminated by "One or more WebVTT line terminators" so append two line feeds to make sure the parser
         // reccognizes this string as a full header.
         auto header = makeString(headerData, "\n\n"_s);
 
         INFO_LOG(identifier, "VTT header ", header);
-        downcast<InbandTextTrackPrivateClient>(client).parseWebVTTFileHeader(WTFMove(header));
+        downcast<InbandTextTrackPrivateClient>(client).parseWebVTTFileHeader(WTF::move(header));
     });
 
     return true;
@@ -542,7 +543,7 @@ void InbandTextTrackPrivateAVF::processVTTSample(CMSampleBufferRef sampleBuffer,
 
     while (true) {
         RefPtr buffer = ArrayBuffer::create(m_sampleInputBuffer);
-        Ref view = JSC::DataView::create(WTFMove(buffer), 0, buffer->byteLength());
+        Ref view = JSC::DataView::create(WTF::move(buffer), 0, buffer->byteLength());
 
         auto peekResult = ISOBox::peekBox(view, 0);
         if (!peekResult)
@@ -564,8 +565,8 @@ void InbandTextTrackPrivateAVF::processVTTSample(CMSampleBufferRef sampleBuffer,
             ISOWebVTTCue cueData = ISOWebVTTCue(presentationTime, PAL::toMediaTime(timingInfo.duration));
             cueData.read(view);
 
-            notifyMainThreadClient([cueData = WTFMove(cueData)](auto& client) mutable {
-                downcast<InbandTextTrackPrivateClient>(client).parseWebVTTCueData(WTFMove(cueData));
+            notifyMainThreadClient([cueData = crossThreadCopy(WTF::move(cueData))](auto& client) mutable {
+                downcast<InbandTextTrackPrivateClient>(client).parseWebVTTCueData(WTF::move(cueData));
             });
         }
 

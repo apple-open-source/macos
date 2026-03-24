@@ -90,7 +90,7 @@ void RemoteVideoFrameObjectHeapProxyProcessor::clearCallbacks()
         callbacks = std::exchange(m_callbacks, { });
     }
 
-    m_queue->dispatch([callbacks = WTFMove(callbacks)]() mutable {
+    m_queue->dispatch([callbacks = WTF::move(callbacks)]() mutable {
         for (auto& callback : callbacks.values())
             callback({ });
     });
@@ -98,12 +98,12 @@ void RemoteVideoFrameObjectHeapProxyProcessor::clearCallbacks()
 
 void RemoteVideoFrameObjectHeapProxyProcessor::setSharedVideoFrameSemaphore(IPC::Semaphore&& semaphore)
 {
-    m_sharedVideoFrameReader.setSemaphore(WTFMove(semaphore));
+    m_sharedVideoFrameReader.setSemaphore(WTF::move(semaphore));
 }
 
 void RemoteVideoFrameObjectHeapProxyProcessor::setSharedVideoFrameMemory(SharedMemory::Handle&& handle)
 {
-    m_sharedVideoFrameReader.setSharedMemory(WTFMove(handle));
+    m_sharedVideoFrameReader.setSharedMemory(WTF::move(handle));
 }
 
 RemoteVideoFrameObjectHeapProxyProcessor::Callback RemoteVideoFrameObjectHeapProxyProcessor::takeCallback(RemoteVideoFrameIdentifier identifier)
@@ -116,9 +116,9 @@ void RemoteVideoFrameObjectHeapProxyProcessor::newVideoFrameBuffer(RemoteVideoFr
 {
     RetainPtr<CVPixelBufferRef> pixelBuffer;
     if (sharedVideoFrameBuffer)
-        pixelBuffer = m_sharedVideoFrameReader.readBuffer(WTFMove(*sharedVideoFrameBuffer));
+        pixelBuffer = m_sharedVideoFrameReader.readBuffer(WTF::move(*sharedVideoFrameBuffer));
     if (auto callback = takeCallback(identifier))
-        callback(WTFMove(pixelBuffer));
+        callback(WTF::move(pixelBuffer));
 }
 
 void RemoteVideoFrameObjectHeapProxyProcessor::getVideoFrameBuffer(const RemoteVideoFrameProxy& frame, bool canUseIOSurface, Callback&& callback)
@@ -126,7 +126,7 @@ void RemoteVideoFrameObjectHeapProxyProcessor::getVideoFrameBuffer(const RemoteV
     {
         Locker lock(m_callbacksLock);
         ASSERT(!m_callbacks.contains(frame.identifier()));
-        m_callbacks.add(frame.identifier(), WTFMove(callback));
+        m_callbacks.add(frame.identifier(), WTF::move(callback));
     }
     RefPtr<IPC::Connection> connection;
     {
@@ -144,7 +144,7 @@ void RemoteVideoFrameObjectHeapProxyProcessor::newConvertedVideoFrameBuffer(std:
 {
     ASSERT(!m_convertedBuffer);
     if (buffer)
-        m_convertedBuffer = m_sharedVideoFrameReader.readBuffer(WTFMove(*buffer));
+        m_convertedBuffer = m_sharedVideoFrameReader.readBuffer(WTF::move(*buffer));
     m_conversionSemaphore.signal();
 }
 
@@ -157,11 +157,11 @@ RefPtr<NativeImage> RemoteVideoFrameObjectHeapProxyProcessor::getNativeImage(con
 
     auto frame = m_sharedVideoFrameWriter.write(videoFrame,
         [&](auto& semaphore) { connection->send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameSemaphore { semaphore }, 0); },
-        [&](auto&& handle) { connection->send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameMemory { WTFMove(handle) }, 0); });
+        [&](auto&& handle) { connection->send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameMemory { WTF::move(handle) }, 0); });
     if (!frame)
         return nullptr;
 
-    auto sendResult = connection->sendSync(Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer { WTFMove(*frame) }, 0, GPUProcessConnection::defaultTimeout);
+    auto sendResult = connection->sendSync(Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer { WTF::move(*frame) }, 0, GPUProcessConnection::defaultTimeout);
     if (!sendResult.succeeded()) {
         m_sharedVideoFrameWriter.disable();
         return nullptr;
@@ -171,8 +171,8 @@ RefPtr<NativeImage> RemoteVideoFrameObjectHeapProxyProcessor::getNativeImage(con
 
     m_conversionSemaphore.wait();
 
-    auto pixelBuffer = WTFMove(m_convertedBuffer);
-    return pixelBuffer ? NativeImage::create(PixelBufferConformerCV::imageFrom32BGRAPixelBuffer(WTFMove(pixelBuffer), destinationColorSpace.protectedPlatformColorSpace().get())) : nullptr;
+    auto pixelBuffer = WTF::move(m_convertedBuffer);
+    return pixelBuffer ? NativeImage::create(PixelBufferConformerCV::imageFrom32BGRAPixelBuffer(WTF::move(pixelBuffer), destinationColorSpace.protectedPlatformColorSpace().get())) : nullptr;
 }
 
 }

@@ -140,7 +140,7 @@ IOHIDOOBReportDescriptor * IOHIDOOBReportDescriptor::inTaskWithBytes(
     IOHIDOOBReportDescriptor * me = new IOHIDOOBReportDescriptor;
     IOOptionBits options = inDirection | (inContiguous ? kIOMemoryPhysicallyContiguous : 0) | (inTask == kernel_task ? kIOMemoryKernelUserShared : kIOMemoryPageable | kIOMemoryPurgeable) | kIOMemoryThreadSafe;
 
-    require_action(me && me->initWithPhysicalMask(inTask, options, inLength, PAGE_SIZE, 0), exit, OSSafeReleaseNULL(me));
+    __Require_Action(me && me->initWithPhysicalMask(inTask, options, inLength, PAGE_SIZE, 0), exit, OSSafeReleaseNULL(me));
     me->setLength(inLength);
     me->mapping = NULL;
 
@@ -460,15 +460,15 @@ bool IOHIDLibUserClient::start(IOService *provider)
     }
     
 
-    require(super::start(provider), error);
+    __Require(super::start(provider), error);
 
     fNub = OSDynamicCast(IOHIDDevice, provider);
-    require(fNub, error);
+    __Require(fNub, error);
 
     fNub->retain();
 
     fWL = getWorkLoop();
-    require(fWL, error);
+    __Require(fWL, error);
 
     fWL->retain();
 
@@ -491,14 +491,14 @@ bool IOHIDLibUserClient::start(IOService *provider)
     OSSafeReleaseNULL(obj2);
 
     cmdGate = IOCommandGate::commandGate(this);
-    require(cmdGate, error);
+    __Require(cmdGate, error);
 
     fWL->addEventSource(cmdGate);
 
     fGate = cmdGate;
 
     fResourceES = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &IOHIDLibUserClient::resourceNotificationGated));
-    require(fResourceES, error);
+    __Require(fResourceES, error);
 
     fWL->addEventSource(fResourceES);
 
@@ -507,7 +507,7 @@ bool IOHIDLibUserClient::start(IOService *provider)
     fResourceNotification = addMatchingNotification(gIOPublishNotification, matching, OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &IOHIDLibUserClient::resourceNotification), this);
     OSSafeReleaseNULL(matching);
 
-    require(fResourceNotification, error);
+    __Require(fResourceNotification, error);
 
     debugStateSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDLibUserClient::serializeDebugState));
     if (debugStateSerializer) {
@@ -704,19 +704,19 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
 
     HIDLibUserClientLogInfo("open");
 
-    require_action_quiet(fNub, exit, ret = kIOReturnOffline);
+    __Require_Action_Quiet(fNub, exit, ret = kIOReturnOffline);
 
     if (!_privilegedClient) {
         HIDLibUserClientLogInfo("open client not privileged");
 
         // If this is a keyboard and the client is attempting to seize, the client needs to be admin
-        require_action(!fNubIsKeyboard || ((options & kIOHIDOptionsTypeSeizeDevice) == 0), exit, ret = kIOReturnNotPrivileged);
-        require_noerr((ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser)), exit);
+        __Require_Action(!fNubIsKeyboard || ((options & kIOHIDOptionsTypeSeizeDevice) == 0), exit, ret = kIOReturnNotPrivileged);
+        __Require_noErr((ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser)), exit);
     }
 
     if (!fNub->open(this, options)) {
         // If open failed, but we made it into the client set, the device is seized.
-        require_action(fNub->isOpen(this), exit, ret = kIOReturnError);
+        __Require_Action(fNub->isOpen(this), exit, ret = kIOReturnError);
         ret = kIOReturnExclusiveAccess;
     }
 
@@ -740,7 +740,7 @@ IOReturn IOHIDLibUserClient::close()
 
     HIDLibUserClientLogInfo("close (set reports:%d(err:%d), get reports:%d(err:%d))", fSetReportCnt, fSetReportErrCnt, fGetReportCnt, fGetReportErrCnt);
 
-    require_quiet(fNub && fClientOpened, exit);
+    __Require_Quiet(fNub && fClientOpened, exit);
 
     fNub->close(this, fCachedOptionBits);
     setValid(false);
@@ -889,14 +889,14 @@ IOReturn IOHIDLibUserClient::setProperties(OSObject *properties)
     OSDictionary * props = OSDynamicCast(OSDictionary, properties);
     OSNumber     * num;
 
-    require_action_quiet(fNub, exit, ret = kIOReturnOffline);
+    __Require_Action_Quiet(fNub, exit, ret = kIOReturnOffline);
 
     if (props && props->getObject(kIOHIDDeviceGameControllerSupportKey)) {
         if (_interfaceRematchEntitlement) {
             ret = fNub->setProperty(kIOHIDDeviceGameControllerSupportKey, props->getObject(kIOHIDDeviceGameControllerSupportKey)) ? kIOReturnSuccess : kIOReturnError;
         }
         props->removeObject(kIOHIDDeviceGameControllerSupportKey);
-        require_quiet(props->getCount(), exit);
+        __Require_Quiet(props->getCount(), exit);
     }
 
     if (props && props->getObject(kIOHIDDeviceForceInterfaceRematchKey)) {
@@ -904,14 +904,14 @@ IOReturn IOHIDLibUserClient::setProperties(OSObject *properties)
             ret = fNub->setProperty(kIOHIDDeviceForceInterfaceRematchKey, props->getObject(kIOHIDDeviceForceInterfaceRematchKey)) ? kIOReturnSuccess : kIOReturnError;
         }
         props->removeObject(kIOHIDDeviceForceInterfaceRematchKey);
-        require_quiet(props->getCount(), exit);
+        __Require_Quiet(props->getCount(), exit);
     }
 
     if (props && props->getObject(kIOHIDTimeSyncEnabledKey)) {
         ret = fNub->setProperty(kIOHIDTimeSyncEnabledKey,
             props->getObject(kIOHIDTimeSyncEnabledKey)) ? kIOReturnSuccess : kIOReturnError;
         props->removeObject(kIOHIDTimeSyncEnabledKey);
-        require_quiet(props->getCount(), exit);
+        __Require_Quiet(props->getCount(), exit);
     }
 
     ret = fNub->setProperties(properties);
@@ -1042,7 +1042,7 @@ bool IOHIDLibUserClient::serializeDebugState(void *ref __unused, OSSerialize *se
     OSDictionary  *debugDict = OSDictionary::withCapacity(1);
     OSNumber *num;
 
-    require(debugDict, exit);
+    __Require(debugDict, exit);
     
     debugDict->setObject(kIOHIDDevicePrivilegedKey, _privilegedClient ? kOSBooleanTrue : kOSBooleanFalse);
 
@@ -1150,7 +1150,7 @@ IOReturn IOHIDLibUserClient::clientMemoryForTypeGated(UInt32 token,
     
 
     IOHIDEventQueue *queue = getQueueForToken(token);
-    require_action(queue, exit, ret = kIOReturnBadArgument);
+    __Require_Action(queue, exit, ret = kIOReturnBadArgument);
 
     *memory = queue->getMemoryDescriptor();
     
@@ -1414,7 +1414,7 @@ IOReturn IOHIDLibUserClient::createQueue(uint32_t flags, uint32_t depth, uint64_
         eventQueue = IOHIDReportElementQueue::withCapacity(queueSize, this);
     }
     
-    require_action(eventQueue, exit, ret = kIOReturnNoMemory);
+    __Require_Action(eventQueue, exit, ret = kIOReturnNoMemory);
     
     eventQueue->setOptions(flags);
     
@@ -1475,7 +1475,7 @@ IOReturn IOHIDLibUserClient::addElementToQueue(IOHIDEventQueue * queue, IOHIDEle
 {
     IOReturn ret = kIOReturnError;
     
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnOffline);
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnOffline);
     
     // add the queue to the element's queues
     ret = fNub->startEventDelivery(queue, elementCookie);
@@ -1497,7 +1497,7 @@ IOReturn IOHIDLibUserClient::removeElementFromQueue (IOHIDEventQueue * queue, IO
 {
     IOReturn ret = kIOReturnError;
     
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnOffline);
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnOffline);
     
     // remove the queue from the element's queues
     ret = fNub->stopEventDelivery(queue, elementCookie);
@@ -1578,18 +1578,18 @@ IOReturn IOHIDLibUserClient::_updateElementValues(IOHIDLibUserClient * target, v
     IOHIDOOBReportDescriptor * buff = NULL;
     AsyncCommitParam  pb;
 
-    require_quiet(inputSize < HID_MAX_ELEMENT_SIZE, no_mem);
+    __Require_Quiet(inputSize < HID_MAX_ELEMENT_SIZE, no_mem);
 
     if (arguments->asyncWakePort) {
         target->retain();
 
-        require_action((buff = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, inputSize, kIODirectionOutIn)), exit, ret = kIOReturnNoMemory);
+        __Require_Action((buff = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, inputSize, kIODirectionOutIn)), exit, ret = kIOReturnNoMemory);
         bcopy(arguments->asyncReference, pb.fAsyncRef, sizeof(OSAsyncReference64));
         pb.fCompletion.target = target;
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::CommitComplete);
         pb.elementData        = buff;
 
-        require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
+        __Require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
         ((AsyncCommitParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1622,15 +1622,15 @@ IOReturn IOHIDLibUserClient::updateElementValues(const IOHIDElementCookie * lCoo
     uint8_t     * addr;
     uint32_t      elementLength;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
-    require_action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not Permitted"));
-    require((elementLength = (uint32_t)outputElementsDesc->getLength()), exit);
-    require_action((mapping = outputElementsDesc->map()), exit, ret = kIOReturnNoMemory);
-    require_action((addr = (uint8_t *)(mapping->getVirtualAddress())), exit, ret = kIOReturnNoMemory);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not Permitted"));
+    __Require((elementLength = (uint32_t)outputElementsDesc->getLength()), exit);
+    __Require_Action((mapping = outputElementsDesc->map()), exit, ret = kIOReturnNoMemory);
+    __Require_Action((addr = (uint8_t *)(mapping->getVirtualAddress())), exit, ret = kIOReturnNoMemory);
 
     ret = updateElementValues(lCookies, cookieSize, addr, elementLength, options, timeout, completion, elementData);
-    require_noerr_action(ret, exit, HIDLibUserClientLogError("updateElementValues failed: 0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDLibUserClientLogError("updateElementValues failed: 0x%x", ret));
 
 exit:
     OSSafeReleaseNULL(mapping);
@@ -1649,21 +1649,21 @@ IOReturn IOHIDLibUserClient::updateElementValues(const IOHIDElementCookie * lCoo
     IOHIDElementValue   * elementVal;
     OSBoundedArrayRef<const uint32_t> cookiesRef;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess);
-    require_action(fValid, exit, ret = kIOReturnNotPermitted);
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
-    require_action(lCookies && cookieSize && (cookieSize % sizeof(uint32_t)) == 0, exit, ret = kIOReturnBadArgument);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess);
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted);
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
+    __Require_Action(lCookies && cookieSize && (cookieSize % sizeof(uint32_t)) == 0, exit, ret = kIOReturnBadArgument);
 
     if (!(options & kIOHIDElementPreventPoll)) {
         ret = fNub->updateElementValues((IOHIDElementCookie *)lCookies, cookieCount, options, timeout, completion, elementData);
-        require_noerr_action(ret, exit, HIDLibUserClientLogError("updateElementValues failed: 0x%x", ret));
+        __Require_noErr_Action(ret, exit, HIDLibUserClientLogError("updateElementValues failed: 0x%x", ret));
     } else if (completion) {
         // This option is not compatible with async calls
         ret = kIOReturnUnsupported;
     }
 
-    require_quiet(!completion, exit);
+    __Require_Quiet(!completion, exit);
     cookiesRef = OSBoundedArrayRef<const uint32_t>(&cookies[0], cookieCount);
     for (const uint32_t cookie : cookiesRef) {
         if (!(element = (IOHIDElementPrivate *)elements->getObject(cookie)) || !(elementVal = element->_elementValue)) {
@@ -1671,8 +1671,8 @@ IOReturn IOHIDLibUserClient::updateElementValues(const IOHIDElementCookie * lCoo
             continue;
         }
 
-        require_action(!os_add_overflow(dataOffset, elementVal->totalSize, &neededSize), exit, ret = kIOReturnNoMemory; HIDLibUserClientLogError("Element value overflow"));
-        require_action(neededSize <= outputElementsSize, exit, ret = kIOReturnBadArgument; HIDLibUserClientLogError("No space for element values. Need: %d Available: %d", neededSize, outputElementsSize));
+        __Require_Action(!os_add_overflow(dataOffset, elementVal->totalSize, &neededSize), exit, ret = kIOReturnNoMemory; HIDLibUserClientLogError("Element value overflow"));
+        __Require_Action(neededSize <= outputElementsSize, exit, ret = kIOReturnBadArgument; HIDLibUserClientLogError("No space for element values. Need: %d Available: %d", neededSize, outputElementsSize));
 
         memcpy((uint8_t *)outputElements + dataOffset, elementVal, elementVal->totalSize);
         dataOffset += elementVal->totalSize;
@@ -1698,7 +1698,7 @@ IOReturn IOHIDLibUserClient::_postElementValues(IOHIDLibUserClient * target, voi
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::CommitComplete);
         pb.elementData        = NULL;
 
-        require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
+        __Require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
         ((AsyncCommitParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1728,15 +1728,15 @@ IOReturn IOHIDLibUserClient::postElementValues(IOMemoryDescriptor * desc, uint32
     uint8_t     * elementData;
     uint32_t      elementLength;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
-    require_action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
-    require((elementLength = (uint32_t)desc->getLength()), exit);
-    require_action((mapping = desc->map()), exit, ret = kIOReturnNoMemory);
-    require_action(elementData = reinterpret_cast<uint8_t*>(mapping->getVirtualAddress()), exit, ret = kIOReturnNoMemory);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
+    __Require((elementLength = (uint32_t)desc->getLength()), exit);
+    __Require_Action((mapping = desc->map()), exit, ret = kIOReturnNoMemory);
+    __Require_Action(elementData = reinterpret_cast<uint8_t*>(mapping->getVirtualAddress()), exit, ret = kIOReturnNoMemory);
 
     ret = postElementValues(elementData, elementLength, timeout, completion);
-    require_noerr_action(ret, exit, HIDLibUserClientLogError("postElementValues failed: 0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDLibUserClientLogError("postElementValues failed: 0x%x", ret));
 
 exit:
     OSSafeReleaseNULL(mapping);
@@ -1747,14 +1747,14 @@ IOReturn IOHIDLibUserClient::postElementValues(const uint8_t * data, uint32_t da
 {
     IOReturn ret = kIOReturnError;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess);
-    require_action(fValid, exit, ret = kIOReturnNotPermitted);
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
-    require_action(data && dataSize, exit, ret = kIOReturnBadArgument);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen);
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess);
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted);
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
+    __Require_Action(data && dataSize, exit, ret = kIOReturnBadArgument);
 
     ret = fNub->postElementTransaction(data, dataSize, timeout, completion);
-    require_noerr_action(ret, exit, HIDLibUserClientLogError("postElementValues failed: 0x%x", ret));
+    __Require_noErr_Action(ret, exit, HIDLibUserClientLogError("postElementValues failed: 0x%x", ret));
 
 exit:
     return ret;
@@ -1773,7 +1773,7 @@ IOReturn IOHIDLibUserClient::CommitCompleteGated(void * param, IOReturn res, UIn
     AsyncCommitParam         * pb        = NULL;
     IOHIDOOBReportDescriptor * buff;
 
-    require(asyncData, exit);
+    __Require(asyncData, exit);
 
     pb = (AsyncCommitParam *)asyncData->getBytesNoCopy();
 
@@ -1828,7 +1828,7 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
         pb.fCompletion.target = target;
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::ReqComplete);
 
-        require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
+        __Require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
         ((AsyncReportParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1837,12 +1837,12 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
     }
 
     if (arguments->structureOutputDescriptor) {
-        require((mem = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, arguments->structureOutputDescriptorSize, kIODirectionOutIn)), exit);
+        __Require((mem = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, arguments->structureOutputDescriptorSize, kIODirectionOutIn)), exit);
 
-        require_noerr((ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], timeout, completion)), exit);
+        __Require_noErr((ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], timeout, completion)), exit);
 
         if (!completion) {
-            require_noerr((ret = arguments->structureOutputDescriptor->prepare()), exit);
+            __Require_noErr((ret = arguments->structureOutputDescriptor->prepare()), exit);
             arguments->structureOutputDescriptor->writeBytes(0, mem->getBytesNoCopy(), arguments->structureOutputDescriptorSize);
             arguments->structureOutputDescriptor->complete();
         }
@@ -1866,10 +1866,10 @@ IOReturn IOHIDLibUserClient::getReport(void * reportBuffer, uint32_t * pOutsize,
     IOReturn             ret = kIOReturnBadArgument;
     IOMemoryDescriptor * mem = NULL;
 
-    require_action(*pOutsize <= 0x10000, exit, HIDLibUserClientLogError("called with an irrationally large output size: %u", *pOutsize));
-    require_action((mem = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, *pOutsize, kIODirectionOutIn)), exit, ret = kIOReturnNoMemory);
+    __Require_Action(*pOutsize <= 0x10000, exit, HIDLibUserClientLogError("called with an irrationally large output size: %u", *pOutsize));
+    __Require_Action((mem = IOHIDOOBReportDescriptor::inTaskWithBytes(kernel_task, NULL, *pOutsize, kIODirectionOutIn)), exit, ret = kIOReturnNoMemory);
 
-    require_noerr_action((ret = getReport(mem, pOutsize, reportType, reportID, timeout, completion)), exit, HIDLibUserClientLogError("getReport failed: 0x%x", ret));
+    __Require_noErr_Action((ret = getReport(mem, pOutsize, reportType, reportID, timeout, completion)), exit, HIDLibUserClientLogError("getReport failed: 0x%x", ret));
     if (!completion) {
         mem->readBytes(0, reportBuffer, *pOutsize);
     }
@@ -1884,12 +1884,12 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
     IOReturn           ret = kIOReturnBadArgument;
     AsyncReportParam * pb;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
-    require_action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
-    require_action(*pOutsize <= 0x10000, exit, HIDLibUserClientLogError("called with an irrationally large output size: %u", *pOutsize));
-    require_noerr((ret = mem->prepare(kIODirectionInOut)), exit);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
+    __Require_Action(*pOutsize <= 0x10000, exit, HIDLibUserClientLogError("called with an irrationally large output size: %u", *pOutsize));
+    __Require_noErr((ret = mem->prepare(kIODirectionInOut)), exit);
 
     if (completion) {
         pb              = (AsyncReportParam*)((OSValueObject<AsyncReportParam>*)completion->parameter)->getBytesNoCopy();
@@ -1941,7 +1941,7 @@ IOReturn IOHIDLibUserClient::_setReport(IOHIDLibUserClient * target, void * refe
         pb.fCompletion.target = target;
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::ReqComplete);
         
-        require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
+        __Require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
         ((AsyncReportParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1970,9 +1970,9 @@ IOReturn IOHIDLibUserClient::setReport(const void * reportBuffer, uint32_t repor
     IOReturn             ret = kIOReturnNoMemory;
     IOMemoryDescriptor * mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared | kIOMemoryThreadSafe, reportBufferSize);
 
-    require(mem, exit);
+    __Require(mem, exit);
     mem->writeBytes(0, reportBuffer, reportBufferSize);
-    require_noerr_action((ret = setReport(mem, reportType, reportID, timeout, completion)), exit, HIDLibUserClientLogError("setReport failed: 0x%x", (unsigned int)ret));
+    __Require_noErr_Action((ret = setReport(mem, reportType, reportID, timeout, completion)), exit, HIDLibUserClientLogError("setReport failed: 0x%x", (unsigned int)ret));
 
 exit:
     OSSafeReleaseNULL(mem);
@@ -1991,11 +1991,11 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
     uint8_t                excludedReportID;
     uint8_t                excludedReportType;
 
-    require_action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
-    require_action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
-    require_action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
-    require_action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
-    require_noerr((ret = mem->prepare(kIODirectionInOut)), exit);
+    __Require_Action(fClientOpened, exit, ret = kIOReturnNotOpen; HIDLibUserClientLogError("Client not opened"));
+    __Require_Action(!fClientSeized, exit, ret = kIOReturnExclusiveAccess; HIDLibUserClientLogError("Client is seized"));
+    __Require_Action(fValid, exit, ret = kIOReturnNotPermitted; HIDLibUserClientLogError("Client not permitted"));
+    __Require_Action(fNub && !isInactive(), exit, ret = kIOReturnNotAttached);
+    __Require_noErr((ret = mem->prepare(kIODirectionInOut)), exit);
 
     obj = copyProperty(kIOHIDExtendedDataKey);
     extended = OSDynamicCast(OSArray, obj);
@@ -2006,7 +2006,7 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
                 if ((num = OSDynamicCast(OSNumber, objItr))) {
                     excludedReportID   = (num->unsigned64BitValue() >> 16) & 0xff;
                     excludedReportType = (num->unsigned64BitValue() >> 24) & 0xff;
-                    require_action(excludedReportID != reportID || excludedReportType != (reportType + 1), exit, ret = kIOReturnNotPrivileged; HIDLibUserClientLogError("%02x/%02x blocked due to lack of privileges", reportID, reportType));
+                    __Require_Action(excludedReportID != reportID || excludedReportType != (reportType + 1), exit, ret = kIOReturnNotPrivileged; HIDLibUserClientLogError("%02x/%02x blocked due to lack of privileges", reportID, reportType));
                 }
             }
             // Check if the list changed during iteration
@@ -2063,7 +2063,7 @@ IOReturn IOHIDLibUserClient::ReqCompleteGated(void * param, IOReturn res, UInt32
     AsyncReportParam         * pb        = NULL;
     IOHIDOOBReportDescriptor * buff;
 
-    require(asyncData, exit);
+    __Require(asyncData, exit);
 
     pb = (AsyncReportParam *)asyncData->getBytesNoCopy();
 
@@ -2227,10 +2227,10 @@ IOHIDLibUserClient::processElement(IOHIDElementValue *element, IOHIDReportElemen
     }
 
     IOHIDOOBReportDescriptor * md = IOHIDOOBReportDescriptor::inTaskWithBytes(fClient, element->value, reportSize, kIODirectionInOut);
-    require_action(md, exit, HIDLibUserClientLogError("Unable to create large report descriptor. Dropping large report."));
+    __Require_Action(md, exit, HIDLibUserClientLogError("Unable to create large report descriptor. Dropping large report."));
 
     reportAddress = (mach_vm_address_t)md->getBytesNoCopy();
-    require_action(reportAddress, exit, HIDLibUserClientLogError("Unable to create large report map in user task. Dropping large report."));
+    __Require_Action(reportAddress, exit, HIDLibUserClientLogError("Unable to create large report map in user task. Dropping large report."));
 
     queue_enter(&fReportList, md, IOHIDOOBReportDescriptor *, qc);
     md->retain();
@@ -2239,7 +2239,7 @@ IOHIDLibUserClient::processElement(IOHIDElementValue *element, IOHIDReportElemen
     memcpy(&oobElement.address, &reportAddress, sizeof(reportAddress));
     oobElement.flags |= kIOHIDElementValueOOBReport;
     ret = handleEnqueue((void*)&oobElement, sizeof(oobElement), queue);
-    require_action(ret, exit, releaseReport(reportAddress); HIDLibUserClientLogError("Failed to enqueue oversized report."));
+    __Require_Action(ret, exit, releaseReport(reportAddress); HIDLibUserClientLogError("Failed to enqueue oversized report."));
 
     status = kIOReturnSuccess;
 exit:
@@ -2324,7 +2324,7 @@ IOHIDLibUserClient::releaseReport(mach_vm_address_t reportToken)
         }
     }
 
-    require_action(md, exit, HIDLibUserClientLogError("Unable to find report descriptor for address %#llx", reportToken));
+    __Require_Action(md, exit, HIDLibUserClientLogError("Unable to find report descriptor for address %#llx", reportToken));
     queue_remove(&fReportList, md, IOHIDOOBReportDescriptor *, qc);
 
     OSSafeReleaseNULL(md->mapping);

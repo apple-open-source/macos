@@ -32,7 +32,7 @@ public:
     static JSTestCEReactions* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestCEReactions>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestCEReactions* ptr = new (NotNull, JSC::allocateCell<JSTestCEReactions>(vm)) JSTestCEReactions(structure, *globalObject, WTFMove(impl));
+        JSTestCEReactions* ptr = new (NotNull, JSC::allocateCell<JSTestCEReactions>(vm)) JSTestCEReactions(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

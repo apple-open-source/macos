@@ -279,7 +279,7 @@ LocalFrame* FrameLoader::SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerEl
         if (upgradedRequestURL.protocolIsJavaScript()) {
             Ref ownerDocument = ownerElement.document();
             ownerDocument->incrementLoadEventDelayCount();
-            stopDelayingLoadEvent = [ownerDocument = WTFMove(ownerDocument)] (ScheduleLocationChangeResult) {
+            stopDelayingLoadEvent = [ownerDocument = WTF::move(ownerDocument)] (ScheduleLocationChangeResult) {
                 ownerDocument->decrementLoadEventDelayCount();
             };
         }
@@ -289,7 +289,7 @@ LocalFrame* FrameLoader::SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerEl
                 page->willChangeLocationInCompletelyLoadedSubframe();
         }
 
-        frame->protectedNavigationScheduler()->scheduleLocationChange(initiatingDocument, initiatingDocument->protectedSecurityOrigin(), upgradedRequestURL, m_frame->loader().outgoingReferrer(), lockHistory, lockBackForwardList, NavigationHistoryBehavior::Auto, WTFMove(stopDelayingLoadEvent));
+        frame->protectedNavigationScheduler()->scheduleLocationChange(initiatingDocument, initiatingDocument->protectedSecurityOrigin(), upgradedRequestURL, m_frame->loader().outgoingReferrer(), lockHistory, lockBackForwardList, NavigationHistoryBehavior::Auto, WTF::move(stopDelayingLoadEvent));
     } else
         frame = loadSubframe(ownerElement, upgradedRequestURL, frameName, m_frame->loader().outgoingReferrerURL());
 
@@ -382,7 +382,7 @@ RefPtr<LocalFrame> FrameLoader::SubframeLoader::loadSubframe(HTMLFrameOwnerEleme
         CheckedPtr renderWidget = dynamicDowncast<RenderWidget>(ownerElement.renderer());
         RefPtr view = subFrame->view();
         if (renderWidget && view)
-            renderWidget->setWidget(WTFMove(view));
+            renderWidget->setWidget(WTF::move(view));
     }
 
     frame->loader().checkCallImplicitClose();
@@ -447,7 +447,7 @@ bool FrameLoader::SubframeLoader::loadPlugin(HTMLPlugInElement& pluginElement, c
         return false;
     }
 
-    CheckedRef { *renderer }->setWidget(WTFMove(widget));
+    CheckedRef { *renderer }->setWidget(WTF::move(widget));
     m_containsPlugins = true;
     return true;
 }

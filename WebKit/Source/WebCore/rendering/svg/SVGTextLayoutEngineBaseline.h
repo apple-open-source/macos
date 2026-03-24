@@ -20,7 +20,6 @@
 #pragma once
 
 #include "FontCascade.h"
-#include "SVGRenderStyleDefs.h"
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -29,6 +28,8 @@ class RenderElement;
 class RenderSVGInlineText;
 class RenderStyle;
 class SVGTextMetrics;
+
+enum class AlignmentBaseline : uint8_t;
 
 // Helper class used by SVGTextLayoutEngine to handle 'alignment-baseline' / 'dominant-baseline' and 'baseline-shift'.
 class SVGTextLayoutEngineBaseline {

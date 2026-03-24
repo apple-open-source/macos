@@ -78,7 +78,7 @@ static int token(int argc, char * const *argv)
 
 int smartcards(int argc, char * const *argv) {
     int result = 2;
-    require_quiet(argc > 2, out);
+    __Require_Quiet(argc > 2, out);
     @autoreleasepool {
         if (!strcmp("token", argv[1])) {
             result = token(argc - 1, argv + 1);

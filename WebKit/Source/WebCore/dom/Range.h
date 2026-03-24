@@ -42,17 +42,17 @@ class TrustedHTML;
 struct SimpleRange;
 
 class Range final : public AbstractRange, public CanMakeSingleThreadWeakPtr<Range> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(Range, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Range, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(Range);
 public:
     WEBCORE_EXPORT static Ref<Range> create(Document&);
     WEBCORE_EXPORT ~Range();
 
     Node& startContainer() const final { return m_start.container(); }
-    Ref<Node> protectedStartContainer() const;
+    WEBCORE_EXPORT Ref<Node> protectedStartContainer() const;
     unsigned startOffset() const final { return m_start.offset(); }
     Node& endContainer() const final { return m_end.container(); }
-    Ref<Node> protectedEndContainer() const;
+    WEBCORE_EXPORT Ref<Node> protectedEndContainer() const;
     unsigned endOffset() const final { return m_end.offset(); }
     bool collapsed() const final { return m_start == m_end; }
     WEBCORE_EXPORT Node* commonAncestorContainer() const;

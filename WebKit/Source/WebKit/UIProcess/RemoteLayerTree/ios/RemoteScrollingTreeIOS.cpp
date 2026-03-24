@@ -57,6 +57,12 @@ void RemoteScrollingTreeIOS::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNo
 {
     ASSERT(isMainRunLoop());
 
+#if ENABLE(THREADED_ANIMATIONS)
+    updateProgressBasedTimelinesForNode(node);
+    if (CheckedPtr scrollingCoordinatorProxy = m_scrollingCoordinatorProxy.get())
+        scrollingCoordinatorProxy->progressBasedTimelinesWereUpdatedForNode(node);
+#endif
+
     // Scroll updates for the main frame on iOS are sent via WebPageProxy::updateVisibleContentRects()
     if (node.isRootNode()) {
         ScrollingTree::scrollingTreeNodeDidScroll(node, scrollingLayerPositionAction);

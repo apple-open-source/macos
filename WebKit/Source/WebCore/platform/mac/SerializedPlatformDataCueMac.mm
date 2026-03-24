@@ -54,12 +54,12 @@ static JSValue *jsValueWithValueInContext(id, JSContext *);
 
 Ref<SerializedPlatformDataCue> SerializedPlatformDataCue::create(SerializedPlatformDataCueValue&& value)
 {
-    return adoptRef(*new SerializedPlatformDataCueMac(WTFMove(value)));
+    return adoptRef(*new SerializedPlatformDataCueMac(WTF::move(value)));
 }
 
 SerializedPlatformDataCueMac::SerializedPlatformDataCueMac(SerializedPlatformDataCueValue&& value)
     : SerializedPlatformDataCue()
-    , m_value(WTFMove(value))
+    , m_value(WTF::move(value))
 {
 }
 
@@ -109,7 +109,7 @@ static JSValue *jsValueWithValueInContext(id value, JSContext *context)
         return [JSValue valueWithObject:value inContext:context];
 
     if ([value isKindOfClass:[NSLocale class]])
-        return [JSValue valueWithObject:[value localeIdentifier] inContext:context];
+        return [JSValue valueWithObject:retainPtr([value localeIdentifier]).get() inContext:context];
 
     if ([value isKindOfClass:[NSDictionary class]])
         return jsValueWithDictionaryInContext(value, context);
@@ -146,7 +146,7 @@ static JSValue *jsValueWithArrayInContext(NSArray *array, JSContext *context)
 
     NSUInteger count = [array count];
     for (NSUInteger i = 0; i < count; ++i) {
-        RetainPtr value = jsValueWithValueInContext([array objectAtIndex:i], context);
+        RetainPtr value = jsValueWithValueInContext(retainPtr([array objectAtIndex:i]).get(), context);
         if (!value)
             continue;
 
@@ -170,7 +170,7 @@ static JSValue *jsValueWithDictionaryInContext(NSDictionary *dictionary, JSConte
         if (![key isKindOfClass:[NSString class]])
             continue;
 
-        RetainPtr value = jsValueWithValueInContext([dictionary objectForKey:key], context);
+        RetainPtr value = jsValueWithValueInContext(retainPtr([dictionary objectForKey:key]).get(), context);
         if (!value)
             continue;
 

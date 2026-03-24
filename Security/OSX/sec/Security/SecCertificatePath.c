@@ -124,12 +124,12 @@ static CFStringRef SecCertificatePathCopyFormatDescription(CFTypeRef cf, CFDicti
 /* Create a new certificate path from an xpc_array of data. */
 SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error) {
     SecCertificatePathRef result = NULL;
-    require_action_quiet(xpc_path, exit, SecError(errSecParam, error, CFSTR("xpc_path is NULL")));
-    require_action_quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
+    __Require_Action_Quiet(xpc_path, exit, SecError(errSecParam, error, CFSTR("xpc_path is NULL")));
+    __Require_Action_Quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
     size_t count;
-    require_action_quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
+    __Require_Action_Quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
     size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
-    require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit, SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
+    __Require_Action_Quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit, SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
 
     result->count = count;
 
@@ -151,13 +151,13 @@ exit:
 
 SecCertificatePathRef SecCertificatePathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error) {
     SecCertificatePathRef result = NULL;
-    require_action_quiet(isArray(certificates), exit,
+    __Require_Action_Quiet(isArray(certificates), exit,
                          SecError(errSecParam, error, CFSTR("certificates is not an array")));
     size_t count = 0;
-    require_action_quiet(count = CFArrayGetCount(certificates), exit,
+    __Require_Action_Quiet(count = CFArrayGetCount(certificates), exit,
                          SecError(errSecDecode, error, CFSTR("certificates array count == 0")));
     size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
-    require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit,
+    __Require_Action_Quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit,
                          SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
 
     result->count = count;
@@ -182,7 +182,7 @@ exit:
 xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorRef *error) {
     xpc_object_t xpc_chain = NULL;
     size_t ix, count = path->count;
-    require_action_quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
+    __Require_Action_Quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
 	for (ix = 0; ix < count; ++ix) {
         SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
         if (!SecCertificateAppendToXPCArray(cert, xpc_chain, error)) {
@@ -199,7 +199,7 @@ exit:
 CFArrayRef SecCertificatePathCopyCertificates(SecCertificatePathRef path, CFErrorRef *error) {
     CFMutableArrayRef outCerts = NULL;
     size_t ix, count = path->count;
-    require_action_quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
+    __Require_Action_Quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecParam, error, CFSTR("CFArray failed to create")));
     for (ix = 0; ix < count; ++ix) {
         SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
@@ -213,13 +213,13 @@ exit:
 
 SecCertificatePathRef SecCertificatePathCreateWithCertificates(CFArrayRef certificates, CFErrorRef *error) {
     SecCertificatePathRef result = NULL;
-    require_action_quiet(isArray(certificates), exit,
+    __Require_Action_Quiet(isArray(certificates), exit,
                          SecError(errSecParam, error, CFSTR("certificates is not an array")));
     size_t count = 0;
-    require_action_quiet(count = CFArrayGetCount(certificates), exit,
+    __Require_Action_Quiet(count = CFArrayGetCount(certificates), exit,
                          SecError(errSecDecode, error, CFSTR("certificates array count == 0")));
     size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
-    require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit,
+    __Require_Action_Quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit,
                          SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
 
     result->count = count;
@@ -242,9 +242,9 @@ exit:
 
 CFArrayRef SecCertificatePathCreateSerialized(SecCertificatePathRef path, CFErrorRef *error) {
     CFMutableArrayRef serializedCerts = NULL;
-    require_quiet(path, exit);
+    __Require_Quiet(path, exit);
     size_t ix, count = path->count;
-    require_action_quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
+    __Require_Action_Quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecParam, error, CFSTR("CFArray failed to create")));
     for (ix = 0; ix < count; ++ix) {
         SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
@@ -260,13 +260,13 @@ exit:
 
 CFIndex SecCertificatePathGetCount(
 	SecCertificatePathRef certificatePath) {
-	check(certificatePath);
+	__Check(certificatePath);
 	return certificatePath ? certificatePath->count : 0;
 }
 
 SecCertificateRef SecCertificatePathGetCertificateAtIndex(
 	SecCertificatePathRef certificatePath, CFIndex ix) {
-	check(certificatePath && ix >= 0 && ix < certificatePath->count);
+	__Check(certificatePath && ix >= 0 && ix < certificatePath->count);
 	return certificatePath->certificates[ix];
 }
 

@@ -30,22 +30,22 @@
 namespace WebCore {
 namespace Style {
 
-UnevaluatedCalculationBase::UnevaluatedCalculationBase(CalculationValue& value)
+UnevaluatedCalculationBase::UnevaluatedCalculationBase(Calculation::Value& value)
     : calc { value }
 {
 }
 
-UnevaluatedCalculationBase::UnevaluatedCalculationBase(Ref<CalculationValue>&& value)
-    : calc { WTFMove(value) }
+UnevaluatedCalculationBase::UnevaluatedCalculationBase(Ref<Calculation::Value>&& value)
+    : calc { WTF::move(value) }
 {
 }
 
 UnevaluatedCalculationBase::UnevaluatedCalculationBase(Calculation::Child&& root, CSS::Category category, CSS::Range range)
     : calc {
-        CalculationValue::create(
+        Calculation::Value::create(
             category,
             CSS::Range { range.min, range.max },
-            Calculation::Tree { WTFMove(root) }
+            Calculation::Tree { WTF::move(root) }
         )
     }
 {
@@ -58,7 +58,7 @@ UnevaluatedCalculationBase& UnevaluatedCalculationBase::operator=(UnevaluatedCal
 
 UnevaluatedCalculationBase::~UnevaluatedCalculationBase() = default;
 
-Ref<CalculationValue> UnevaluatedCalculationBase::protectedCalculation() const
+Ref<Calculation::Value> UnevaluatedCalculationBase::protectedCalculation() const
 {
     return calc;
 }

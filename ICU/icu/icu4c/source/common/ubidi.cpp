@@ -196,7 +196,11 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
  * is this the best way to do this??
  */
 U_CFUNC UBool
+#if APPLE_ICU_CHANGES // rdar://167443712
+ubidi_getMemory(BidiMemoryForAllocation *bidiMem, int64_t *pSize, UBool mayAllocate, int64_t sizeNeeded) {
+#else
 ubidi_getMemory(BidiMemoryForAllocation *bidiMem, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded) {
+#endif
     void **pMemory = (void **)bidiMem;
     /* check for existing memory */
     if(*pMemory==nullptr) {

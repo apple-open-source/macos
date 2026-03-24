@@ -234,4 +234,18 @@
  */
 #define kIOHIDDeviceAccessEntitlementKey "HIDDeviceAccessEntitlement"
 
+/*!
+ * @defined    kIOHIDDeviceCarPlayDeviceKey
+ * @abstract
+ * Indicates the device originates from a CarPlay device
+ */
+#define kIOHIDDeviceCarPlayDeviceKey "isCarPlayDevice"
+
+/*!
+ * @defined    kIOHIDDeviceApprovedCarPlayDeviceKey
+ * @abstract
+ * Indicates the device originates from a CarPlay device and has been approved through the CarPlay approval flow
+ */
+#define kIOHIDDeviceApprovedCarPlayDeviceKey "isApprovedCarPlayDevice"
+
 #endif /* IOHIDDeviceKeys_h */

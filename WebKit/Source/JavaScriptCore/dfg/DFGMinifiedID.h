@@ -56,7 +56,8 @@ public:
     void dump(PrintStream& out) const { out.print(m_index.get()); }
     
     bool isHashTableDeletedValue() const { return m_index.get() == otherInvalidIndex(); }
-    
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
+
     static MinifiedID fromBits(unsigned value)
     {
         MinifiedID result;
@@ -75,18 +76,9 @@ private:
     Packed<unsigned> m_index { invalidIndex() };
 };
 
-struct MinifiedIDHash {
-    static unsigned hash(const MinifiedID& key) { return key.hash(); }
-    static bool equal(const MinifiedID& a, const MinifiedID& b) { return a == b; }
-    static constexpr bool safeToCompareToEmptyOrDeleted = true;
-};
-
 } } // namespace JSC::DFG
 
 namespace WTF {
-
-template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::DFG::MinifiedID> : JSC::DFG::MinifiedIDHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::DFG::MinifiedID> : SimpleClassHashTraits<JSC::DFG::MinifiedID> {

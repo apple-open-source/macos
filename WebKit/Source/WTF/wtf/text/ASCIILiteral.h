@@ -172,6 +172,11 @@ constexpr std::span<const Latin1Character> operator""_span8(const char* characte
     return span;
 }
 
+constexpr std::span<const char8_t> operator""_span(const char8_t* characters, size_t n)
+{
+    return unsafeMakeSpan(characters, n);
+}
+
 } // inline StringLiterals
 
 // ASCIILiteral is null terminated

@@ -61,7 +61,7 @@ bool SOSRingApply_Basic(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoR
     bool retval = false;
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    require_action_quiet(SOSRingDeviceIsInRing_Basic(ring, myPeerID) == kSOSRingNotInRing, errOut, secnotice("ring", "Already associated with ring"));
+    __Require_Action_Quiet(SOSRingDeviceIsInRing_Basic(ring, myPeerID) == kSOSRingNotInRing, errOut, secnotice("ring", "Already associated with ring"));
     retval = priv && myPeerID &&
         SOSRingAddPeerID(ring, myPeerID) &&
         SOSRingSetLastModifier(ring, myPeerID) &&

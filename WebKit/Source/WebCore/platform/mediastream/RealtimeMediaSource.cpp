@@ -105,7 +105,7 @@ RealtimeMediaSourceObserver::~RealtimeMediaSourceObserver() = default;
 
 RealtimeMediaSource::RealtimeMediaSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : m_pageIdentifier(pageIdentifier)
-    , m_idHashSalts(WTFMove(hashSalts))
+    , m_idHashSalts(WTF::move(hashSalts))
     , m_type(toSourceType(device.type()))
     , m_name({ device.label() })
     , m_device(device)
@@ -471,7 +471,7 @@ void RealtimeMediaSource::registerOwnerCallback(OwnerCallback&& callback)
 {
     ASSERT(isMainThread());
     ASSERT(!m_registerOwnerCallback);
-    m_registerOwnerCallback = WTFMove(callback);
+    m_registerOwnerCallback = WTF::move(callback);
 }
 
 void RealtimeMediaSource::captureFailed()
@@ -918,7 +918,7 @@ void RealtimeMediaSource::applyConstraint(MediaConstraintType constraintType, co
             return false;
         };
 
-        auto modeString = downcast<StringConstraint>(constraint).find(WTFMove(filter));
+        auto modeString = downcast<StringConstraint>(constraint).find(WTF::move(filter));
         if (!modeString.isEmpty())
             setFacingMode(RealtimeMediaSourceSettings::videoFacingModeEnum(modeString));
         break;
@@ -1473,7 +1473,7 @@ void RealtimeMediaSource::setEchoCancellation(bool echoCancellation)
 void RealtimeMediaSource::scheduleDeferredTask(Function<void()>&& function)
 {
     ASSERT(function);
-    callOnMainThread([protectedThis = Ref { *this }, function = WTFMove(function)] {
+    callOnMainThread([protectedThis = Ref { *this }, function = WTF::move(function)] {
         function();
     });
 }

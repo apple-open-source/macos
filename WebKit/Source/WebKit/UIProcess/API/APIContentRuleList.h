@@ -41,7 +41,7 @@ public:
 #if ENABLE(CONTENT_EXTENSIONS)
     static Ref<ContentRuleList> create(Ref<WebKit::WebCompiledContentRuleList>&& contentRuleList, WebKit::NetworkCache::Data&& mappedFile)
     {
-        return adoptRef(*new ContentRuleList(WTFMove(contentRuleList), WTFMove(mappedFile)));
+        return adoptRef(*new ContentRuleList(WTF::move(contentRuleList), WTF::move(mappedFile)));
     }
 
     ContentRuleList(Ref<WebKit::WebCompiledContentRuleList>&&, WebKit::NetworkCache::Data&&);

@@ -42,7 +42,7 @@ class MediaSourceTrackGStreamer;
 class MediaPlayerPrivateGStreamerMSE : public MediaPlayerPrivateGStreamer {
 
 public:
-    Ref<MediaPlayerPrivateGStreamerMSE> create(MediaPlayer* player) { return adoptRef(*new MediaPlayerPrivateGStreamerMSE(player)); }
+    Ref<MediaPlayerPrivateGStreamerMSE> create(MediaPlayer& player) { return adoptRef(*new MediaPlayerPrivateGStreamerMSE(player)); }
     virtual ~MediaPlayerPrivateGStreamerMSE();
 
     static void registerMediaEngine(MediaEngineRegistrar);
@@ -56,8 +56,9 @@ public:
 
     void play() override;
     void pause() override;
+    void willSeekToTarget(const MediaTime&) override;
     void seekToTarget(const SeekTarget&) override;
-    bool doSeek(const SeekTarget&, float rate, bool isAsync = false) override;
+    bool doSeek(const SeekTarget&, float rate, bool isAsync = false, bool isSegment = false) override;
 
     void updatePipelineState(GstState);
 
@@ -77,7 +78,9 @@ public:
     bool supportsProgressMonitoring() const override { return false; }
 
     void setNetworkState(MediaPlayer::NetworkState);
-    void setReadyState(MediaPlayer::ReadyState);
+    void readyStateFromMediaSourceChanged() final;
+    void mediaSourceHasRetrievedAllData() final;
+    void characteristicsFromMediaSourceChanged() final;
 
     void setInitialVideoSize(const FloatSize&);
 
@@ -103,7 +106,7 @@ public:
     void mirrorEnabledVideoTrackIfNeeded(const VideoTrackPrivateGStreamer& originalVideoTrackPrivate) final;
 
 private:
-    explicit MediaPlayerPrivateGStreamerMSE(MediaPlayer*);
+    explicit MediaPlayerPrivateGStreamerMSE(MediaPlayer&);
 
     friend class MediaPlayerFactoryGStreamerMSE;
     static void getSupportedTypes(HashSet<String>&);

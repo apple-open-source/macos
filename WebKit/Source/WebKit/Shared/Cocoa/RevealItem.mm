@@ -47,7 +47,7 @@ RevealItem::RevealItem(const String& text, RevealItemRange selectedRange)
 
 NSRange RevealItem::highlightRange() const
 {
-    return item().highlightRange;
+    return protectedItem().get().highlightRange;
 }
 
 RVItem *RevealItem::item() const
@@ -55,6 +55,11 @@ RVItem *RevealItem::item() const
     if (!m_item)
         m_item = adoptNS([PAL::allocRVItemInstance() initWithText:m_text.createNSString().get() selectedRange:NSMakeRange(m_selectedRange.location, m_selectedRange.length)]);
     return m_item.get();
+}
+
+RetainPtr<RVItem> RevealItem::protectedItem() const
+{
+    return item();
 }
 
 #endif // ENABLE(REVEAL)

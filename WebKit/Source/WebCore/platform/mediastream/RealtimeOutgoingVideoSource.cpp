@@ -45,7 +45,7 @@ ALLOW_UNUSED_PARAMETERS_END
 namespace WebCore {
 
 RealtimeOutgoingVideoSource::RealtimeOutgoingVideoSource(Ref<MediaStreamTrackPrivate>&& videoSource)
-    : m_videoSource(WTFMove(videoSource))
+    : m_videoSource(WTF::move(videoSource))
     , m_blackFrameTimer(*this, &RealtimeOutgoingVideoSource::sendOneBlackFrame)
 #if !RELEASE_LOG_DISABLED
     , m_logger(m_videoSource->logger())
@@ -91,7 +91,7 @@ void RealtimeOutgoingVideoSource::setSource(Ref<MediaStreamTrackPrivate>&& newSo
 {
     ASSERT(isMainThread());
     ASSERT(!m_videoSource->hasObserver(*this));
-    m_videoSource = WTFMove(newSource);
+    m_videoSource = WTF::move(newSource);
 
     ALWAYS_LOG(LOGIDENTIFIER, "track ", m_videoSource->logIdentifier());
 

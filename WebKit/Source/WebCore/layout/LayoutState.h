@@ -47,11 +47,12 @@ class BoxGeometry;
 class FormattingContext;
 class FormattingState;
 class InlineContentCache;
+class InlineLayoutState;
 class TableFormattingState;
 
 class LayoutState : public CanMakeWeakPtr<LayoutState>, public CanMakeThreadSafeCheckedPtr<LayoutState> {
     WTF_MAKE_NONCOPYABLE(LayoutState);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(LayoutState);
+    WTF_MAKE_TZONE_ALLOCATED(LayoutState);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LayoutState);
 public:
     // Primary layout state has a direct geometry cache in layout boxes.
@@ -60,8 +61,9 @@ public:
     using FormattingContextLayoutFunction = Function<void(const ElementBox&, std::optional<LayoutUnit>, std::optional<LayoutUnit>, LayoutState&)>;
     using FormattingContextLogicalWidthFunction = Function<LayoutUnit(const ElementBox&, LayoutIntegration::LogicalWidthType)>;
     using FormattingContextLogicalHeightFunction = Function<LayoutUnit(const ElementBox&, LayoutIntegration::LogicalHeightType)>;
+    using FormattingContextLayoutForBlockInInlineFunction = Function<void(const ElementBox&, LayoutPoint, InlineLayoutState&, LayoutState&)>;
 
-    LayoutState(const Document&, const ElementBox& rootContainer, Type, FormattingContextLayoutFunction&&, FormattingContextLogicalWidthFunction&&, FormattingContextLogicalHeightFunction&&);
+    LayoutState(const Document&, const ElementBox& rootContainer, Type, FormattingContextLayoutFunction&&, FormattingContextLogicalWidthFunction&&, FormattingContextLogicalHeightFunction&&, FormattingContextLayoutForBlockInInlineFunction&&);
     ~LayoutState();
 
     Type type() const { return m_type; }
@@ -108,6 +110,7 @@ public:
     void layoutWithFormattingContextForBox(const ElementBox&, std::optional<LayoutUnit> widthConstraint, std::optional<LayoutUnit> heightConstraint) const;
     LayoutUnit logicalWidthWithFormattingContextForBox(const ElementBox&, LayoutIntegration::LogicalWidthType) const;
     LayoutUnit logicalHeightWithFormattingContextForBox(const ElementBox&, LayoutIntegration::LogicalHeightType) const;
+    void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block, LayoutPoint blockLineLogicalTopLeft, const InlineLayoutState&) const;
 
 private:
     void setQuirksMode(QuirksMode quirksMode) { m_quirksMode = quirksMode; }
@@ -115,10 +118,10 @@ private:
 
     const Type m_type;
 
-    HashMap<const ElementBox*, std::unique_ptr<InlineContentCache>> m_inlineContentCaches;
+    HashMap<CheckedRef<const ElementBox>, std::unique_ptr<InlineContentCache>> m_inlineContentCaches;
 
-    HashMap<const ElementBox*, std::unique_ptr<BlockFormattingState>> m_blockFormattingStates;
-    HashMap<const ElementBox*, std::unique_ptr<TableFormattingState>> m_tableFormattingStates;
+    HashMap<CheckedRef<const ElementBox>, std::unique_ptr<BlockFormattingState>> m_blockFormattingStates;
+    HashMap<CheckedRef<const ElementBox>, std::unique_ptr<TableFormattingState>> m_tableFormattingStates;
 
 #ifndef NDEBUG
     HashSet<const FormattingContext*> m_formattingContextList;
@@ -133,6 +136,7 @@ private:
     FormattingContextLayoutFunction m_formattingContextLayoutFunction;
     FormattingContextLogicalWidthFunction m_formattingContextLogicalWidthFunction;
     FormattingContextLogicalHeightFunction m_formattingContextLogicalHeightFunction;
+    FormattingContextLayoutForBlockInInlineFunction m_formattingContextLayoutForBlockInInlineFunction;
 };
 
 inline bool LayoutState::hasBoxGeometry(const Box& layoutBox) const

@@ -57,6 +57,10 @@
         return CKKSStateFixupDeleteAllCKKSTombstones;
     }
 
+    if(lastfixup < CKKSFixupUpgradeZoneStateEntries) {
+        return CKKSStateFixupZoneStateEntries;
+    }
+
     return nil;
 }
 @end
@@ -439,4 +443,56 @@
 
 @end
 
+#pragma mark - CKKSFixupUpgradeZoneStateEntriesOperation
+@implementation CKKSFixupUpgradeZoneStateEntriesOperation
+
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
+
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+{
+    if((self = [super init])) {
+        _deps = operationDependencies;
+
+        _intendedState = CKKSStateInitialized;
+        _nextState = CKKSStateError;
+    }
+    return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSFixup:UpgradeCKSE (%@)>", self.deps.views];
+}
+
+- (void)groupStart {
+    // This operation fills the altDSIDs in CKKSZoneStateEntries.
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
+    id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
+    
+    [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        NSError* localerror = nil;
+        NSArray<CKKSZoneStateEntry*>* ckses = [CKKSZoneStateEntry allWithContextID:self.deps.contextID error:&localerror];
+        for (CKKSZoneStateEntry* ckse in ckses) {
+            if (self.deps.activeAccount.altDSID) {
+                ckse.altDSID = self.deps.activeAccount.altDSID;
+            }
+            ckse.lastFixup = CKKSFixupUpgradeZoneStateEntries;
+            [ckse saveToDatabase:&localerror];
+            if(localerror) {
+                ckkserror_global("ckksfixup", "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+                self.error = localerror;
+                return CKKSDatabaseTransactionRollback;
+            } else {
+                ckksnotice_global("ckksfixup", "Successfully upgraded CKKSZoneStateEntry(%@)", ckse);
+            }
+        }
+
+        self.nextState = self.intendedState;
+        return CKKSDatabaseTransactionCommit;
+    }];
+}
+
+@end
 #endif // OCTAGON

@@ -60,6 +60,9 @@ public:
     bool addSerializedImageBuffer(RemoteSerializedImageBufferIdentifier, Ref<WebCore::ImageBuffer>);
     RefPtr<WebCore::ImageBuffer> takeSerializedImageBuffer(RemoteSerializedImageBufferIdentifier);
 
+    bool addNativeImage(WebCore::RenderingResourceIdentifier, Ref<WebCore::NativeImage>);
+    RefPtr<WebCore::NativeImage> takeNativeImage(WebCore::RenderingResourceIdentifier);
+
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
@@ -83,6 +86,8 @@ private:
     void releaseSerializedImageBuffer(RemoteSerializedImageBufferIdentifier);
 
     IPC::ThreadSafeObjectHeap<RemoteSerializedImageBufferIdentifier, RefPtr<WebCore::ImageBuffer>> m_serializedImageBuffers;
+    IPC::ThreadSafeObjectHeap<WebCore::RenderingResourceIdentifier, RefPtr<WebCore::NativeImage>> m_nativeImages;
+
     WebCore::ProcessIdentity m_resourceOwner;
 #if HAVE(IOSURFACE)
     Ref<WebCore::IOSurfacePool> m_ioSurfacePool;

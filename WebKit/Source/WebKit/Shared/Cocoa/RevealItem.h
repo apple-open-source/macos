@@ -60,6 +60,7 @@ public:
     NSRange highlightRange() const;
 
     RVItem *item() const;
+    RetainPtr<RVItem> protectedItem() const;
 
 private:
     String m_text;

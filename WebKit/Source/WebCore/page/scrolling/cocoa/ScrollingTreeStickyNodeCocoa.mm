@@ -26,8 +26,6 @@
 #import "config.h"
 #import "ScrollingTreeStickyNodeCocoa.h"
 
-#if ENABLE(ASYNC_SCROLLING)
-
 #import "Logging.h"
 #import "ScrollingStateStickyNode.h"
 #import "ScrollingThread.h"
@@ -103,7 +101,7 @@ void ScrollingTreeStickyNodeCocoa::setIsSticking(bool isSticking)
     if (!scrollingTree)
         return;
 
-    ensureOnMainRunLoop([scrollingTree = WTFMove(scrollingTree), nodeID = scrollingNodeID()] {
+    ensureOnMainRunLoop([scrollingTree = WTF::move(scrollingTree), nodeID = scrollingNodeID()] {
         scrollingTree->stickyScrollingTreeNodeBeganSticking(nodeID);
     });
 }
@@ -122,5 +120,3 @@ FloatPoint ScrollingTreeStickyNodeCocoa::layerTopLeft() const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(ASYNC_SCROLLING)

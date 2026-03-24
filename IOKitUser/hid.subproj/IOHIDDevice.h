@@ -486,13 +486,14 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 IOReturn IOHIDDeviceSetValueWithCallback(
-                                IOHIDDeviceRef                  device, 
-                                IOHIDElementRef                 element, 
-                                IOHIDValueRef                   value, 
+                                IOHIDDeviceRef                  device,
+                                IOHIDElementRef                 element,
+                                IOHIDValueRef                   value,
                                 CFTimeInterval                  timeout,
                                 IOHIDValueCallback _Nullable    callback,
                                 void * _Nullable                context)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER
+API_DEPRECATED_WITH_REPLACEMENT("IOHIDDeviceSetValue", macos(10.5, API_TO_BE_DEPRECATED));
 
 /*! @function   IOHIDDeviceSetValueMultipleWithCallback
     @abstract   Sets multiple values for multiple elements and returns status 
@@ -601,13 +602,14 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 IOReturn IOHIDDeviceGetValueWithCallback(
-                                IOHIDDeviceRef                  device, 
-                                IOHIDElementRef                 element, 
+                                IOHIDDeviceRef                  device,
+                                IOHIDElementRef                 element,
                                 IOHIDValueRef _Nonnull * _Nonnull    pValue,
                                 CFTimeInterval                  timeout,
                                 IOHIDValueCallback _Nullable    callback,
                                 void * _Nullable                context)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER
+API_DEPRECATED_WITH_REPLACEMENT("IOHIDDeviceGetValue", macos(10.5, API_TO_BE_DEPRECATED));
 
 
 /*! @function   IOHIDDeviceCopyValueMultipleWithCallback

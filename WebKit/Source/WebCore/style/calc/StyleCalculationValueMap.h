@@ -30,42 +30,43 @@
 
 namespace WebCore {
 namespace Style {
+namespace Calculation {
 
-class CalculationValueMap {
+class ValueMap {
 public:
-    static CalculationValueMap& calculationValues();
+    static ValueMap& calculationValues();
 
-    unsigned insert(Ref<CalculationValue>&&);
+    unsigned insert(Ref<Value>&&);
     void ref(unsigned handle);
     void deref(unsigned handle);
 
-    CalculationValue& get(unsigned handle) const;
+    Value& get(unsigned handle) const;
 
 private:
-    friend NeverDestroyed<CalculationValueMap>;
-    CalculationValueMap();
+    friend NeverDestroyed<ValueMap>;
+    ValueMap();
 
     struct Entry {
         uint64_t referenceCountMinusOne { 0 };
-        RefPtr<CalculationValue> value;
+        RefPtr<Value> value;
         Entry() = default;
-        Entry(Ref<CalculationValue>&&);
+        Entry(Ref<Value>&&);
     };
 
     unsigned m_nextAvailableHandle { 1 };
     HashMap<unsigned, Entry> m_map;
 };
 
-inline CalculationValueMap::Entry::Entry(Ref<CalculationValue>&& value)
-    : value(WTFMove(value))
+inline ValueMap::Entry::Entry(Ref<Value>&& value)
+    : value(WTF::move(value))
 {
 }
 
-inline unsigned CalculationValueMap::insert(Ref<CalculationValue>&& value)
+inline unsigned ValueMap::insert(Ref<Value>&& value)
 {
     ASSERT(m_nextAvailableHandle);
 
-    Entry entry(WTFMove(value));
+    Entry entry(WTF::move(value));
 
     // FIXME: This monotonically increasing handle generation scheme is potentially wasteful
     // of the handle space. Consider reusing empty handles. https://bugs.webkit.org/show_bug.cgi?id=80489
@@ -75,21 +76,21 @@ inline unsigned CalculationValueMap::insert(Ref<CalculationValue>&& value)
     return m_nextAvailableHandle++;
 }
 
-inline CalculationValue& CalculationValueMap::get(unsigned handle) const
+inline Value& ValueMap::get(unsigned handle) const
 {
     ASSERT(m_map.contains(handle));
 
     return *m_map.find(handle)->value.value;
 }
 
-inline void CalculationValueMap::ref(unsigned handle)
+inline void ValueMap::ref(unsigned handle)
 {
     ASSERT(m_map.contains(handle));
 
     ++m_map.find(handle)->value.referenceCountMinusOne;
 }
 
-inline void CalculationValueMap::deref(unsigned handle)
+inline void ValueMap::deref(unsigned handle)
 {
     ASSERT(m_map.contains(handle));
 
@@ -102,5 +103,6 @@ inline void CalculationValueMap::deref(unsigned handle)
     m_map.remove(it);
 }
 
+} // namespace Calculation
 } // namespace Style
 } // namespace WebCore

@@ -56,7 +56,7 @@ public:
     virtual void flush(DocumentWriter&) = 0;
 
     virtual void append(RefPtr<StringImpl>&&) = 0;
-    virtual void appendSynchronously(RefPtr<StringImpl>&& inputSource) { append(WTFMove(inputSource)); }
+    virtual void appendSynchronously(RefPtr<StringImpl>&& inputSource) { append(WTF::move(inputSource)); }
 
     virtual void finish() = 0;
 

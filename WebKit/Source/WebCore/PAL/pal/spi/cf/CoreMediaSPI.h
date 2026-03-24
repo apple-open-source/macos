@@ -25,12 +25,18 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #include <CoreMedia/CoreMedia.h>
 
 #if PLATFORM(MAC)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
 #include <webrtc/webkit_sdk/WebKit/CMBaseObjectSPI.h>
+#pragma clang diagnostic pop
 #endif
 
 #if PLATFORM(COCOA)

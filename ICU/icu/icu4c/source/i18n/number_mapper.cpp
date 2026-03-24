@@ -31,9 +31,39 @@ UnlocalizedNumberFormatter NumberPropertyMapper::create(const DecimalFormatPrope
                                                         DecimalFormatWarehouse& warehouse,
                                                         DecimalFormatProperties& exportedProperties,
                                                         UErrorCode& status) {
+#if APPLE_ICU_CHANGES
+// rdar://166009690 (LuckD: [Rotten Tomatoes] Rotten Tomatoes sometimes crashes on launch)
+// rtg(1/13/26): The big difference between this code and the original OSICU version below
+// is the use of an unnamed temporary for the `MacroProps` object and the fact that this
+// causes us to go through the "move" assignment for `MacroProps` rather than the "copy"
+// assignment.  The problem seems to be that `MacroProps` contains two members which are
+// bare pointers that point into the interior of the `warehouse` object specified above.
+// (These are `fAffixProvider` and `fPluralRules`.)  As far as I can tell, we're using the
+// default copy and move operators, which should just copy the poiner value, and the `warehouse`'
+// object has a longer lifetime than all the `MacroProps` objects in this function, so this
+// should be okay (but looks really sketchy).  And it does seem to work under normal conditions.
+// The best I can come up with is that Xamarin is doing something funny here.  Maybe it's adding
+// logic to the move and copy operators that doesn't play nice with the internal pointers.
+// One possibility is that the objects are reference counted and the lifetimes are rearranged
+// in such a way that the reference count of the `fAffixProvider` object goes to zero and
+// gets deleted when it shouldn't, leading to a dangling pointer in one of the other
+// objects (maybe it incorrectly sees the bare pointers as having owning semantics?).
+// Something like this seems consistent with the stack trace in the crash logs,
+// which shows this function calling back into `RT.iOS` (probably actually the Xamarin
+// framework) and then reporting a double delete.  I think the rewritten version does away
+// with the unnamed temporary and stretches the lifetimes so that we avoid the double
+// delete.
+// A better solution would be to redesign this framework not to use bare pointers into the
+// interiors of other objects, but that seems like a really big change with performance
+// and memory usage implications.
+    UnlocalizedNumberFormatter result = NumberFormatter::with();
+    MacroProps macros = oldToNew(properties, symbols, warehouse, &exportedProperties, status);
+    return result.macros(macros);
+#else
     return NumberFormatter::with().macros(
             oldToNew(
                     properties, symbols, warehouse, &exportedProperties, status));
+#endif // APPLE_ICU_CHANGES
 }
 
 MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& properties,
@@ -80,9 +110,11 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
             !properties.currencyPluralInfo.fPtr.isNull() ||
             !properties.currencyUsage.isNull() ||
             warehouse.affixProvider.get().hasCurrencySign());
-    CurrencyUnit currency = resolveCurrency(properties, locale, status);
-    UCurrencyUsage currencyUsage = properties.currencyUsage.getOrDefault(UCURR_USAGE_STANDARD);
+    CurrencyUnit currency;
+    UCurrencyUsage currencyUsage;
     if (useCurrency) {
+        currency = resolveCurrency(properties, locale, status);
+        currencyUsage = properties.currencyUsage.getOrDefault(UCURR_USAGE_STANDARD);
         // NOTE: Slicing is OK.
         macros.unit = currency; // NOLINT
     }
@@ -139,6 +171,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     }
     Precision precision;
     if (!properties.currencyUsage.isNull()) {
+        U_ASSERT(useCurrency);
         precision = Precision::constructCurrency(currencyUsage).withCurrency(currency);
     } else if (roundingIncrement != 0.0) {
 #if APPLE_ICU_CHANGES
@@ -315,7 +348,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         exportedProperties->maximumIntegerDigits = maxInt == -1 ? INT32_MAX : maxInt;
 
         Precision rounding_;
-        if (precision.fType == Precision::PrecisionType::RND_CURRENCY) {
+        if (useCurrency && precision.fType == Precision::PrecisionType::RND_CURRENCY) {
             rounding_ = precision.withCurrency(currency, status);
         } else {
             rounding_ = precision;

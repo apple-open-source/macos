@@ -115,7 +115,7 @@ void XMLDocumentParser::insert(SegmentedString&&)
 
 void XMLDocumentParser::append(RefPtr<StringImpl>&& inputSource)
 {
-    String source { WTFMove(inputSource) };
+    String source { WTF::move(inputSource) };
 
     if (m_sawXSLTransform || !m_sawFirstElement)
         m_originalSourceForTransform.append(source);
@@ -302,7 +302,7 @@ bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragm
     }
 
     auto namespaces = findXMLParsingNamespaces(contextElement);
-    auto parser = XMLDocumentParser::create(fragment, WTFMove(namespaces.prefixNamespaces), namespaces.defaultNamespace, parserContentPolicy);
+    auto parser = XMLDocumentParser::create(fragment, WTF::move(namespaces.prefixNamespaces), namespaces.defaultNamespace, parserContentPolicy);
     bool wellFormed = parser->appendFragmentSource(chunk);
     // Do not call finish(). The finish() and doEnd() implementations touch the main document and loader and can cause crashes in the fragment case.
     parser->detach(); // Allows ~DocumentParser to assert it was detached before destruction.

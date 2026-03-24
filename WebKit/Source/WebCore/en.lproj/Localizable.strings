@@ -805,6 +805,9 @@
 /* Undo action name */
 "Italics (Undo action name)" = "Italics";
 
+/* Inspector Grid/Flex Item DOM order label */
+"Item %lu" = "Item %lu";
+
 /* WebKitErrorJavaUnavailable description */
 "Java is unavailable" = "Java is unavailable";
 
@@ -994,6 +997,9 @@
 /* Media Element Source Type */
 "ManagedMediaSource (Media Element Source Type)" = "Managed Media Source";
 
+/* Subtitle Styles Submenu Link to System Preferences */
+"Manage Styles (Caption Style Menu Title)" = "Manage Styles";
+
 /* WKWebExtensionErrorInvalidBackgroundContent description for empty or invalid preferred environment key */
 "Manifest `background` entry has an empty or invalid `preferred_environment` key." = "Manifest `background` entry has an empty or invalid `preferred_environment` key.";
 
@@ -1114,6 +1120,9 @@
 /* Menu item label for the track that represents disabling closed captions. */
 "Off (text track)" = "Off";
 
+/* Menu item label for the track that represents enabling closed captions. */
+"On (text track)" = "On";
+
 /* Title for Open Link action button */
 "Open" = "Open";
 
@@ -1149,6 +1158,9 @@
 
 /* Codec Strings */
 "Opus Codec String" = "Opus";
+
+/* Inspector Grid/Flex Item CSS order property label */
+"order: %d" = "order: %d";
 
 /* Label for the order with Apple Pay button. */
 "Order with Apple Pay" = "Order with Apple Pay";
@@ -1450,6 +1462,9 @@
 /* Styles context menu item */
 "Styles…" = "Styles…";
 
+/* Subtitles media controls menu title */
+"Styles (Media Controls Menu)" = "Styles";
+
 /* default label for Submit buttons in forms on web pages */
 "Submit" = "Submit";
 
@@ -1557,6 +1572,12 @@
 
 /* text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index' */
 "This is a searchable index. Enter search keywords: " = "This is a searchable index. Enter search keywords: ";
+
+/* This is the %s subtitle style (Caption User Preferences) */
+"This is the %s subtitle style" = "This is the %s subtitle style";
+
+/* Caption Style Preview String */
+"This is a preview style" = "This is a preview style";
 
 /* Not Secure Connection warning text */
 "This website does not support connecting securely over HTTPS. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people." = "This website does not support connecting securely over HTTPS. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people.";
@@ -2067,6 +2088,9 @@
 
 /* accessibility label for time remaining display */
 "remaining time" = "remaining time";
+
+/* prefix for announcing removed content in ARIA live regions */
+"removed" = "removed";
 
 /* Action from safe browsing warning */
 "report an error" = "report an error";

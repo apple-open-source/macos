@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ne{
     Countries{
         001{"विश्व"}
@@ -85,6 +85,7 @@ ne{
         CN{"चीन"}
         CO{"कोलोम्बिया"}
         CP{"क्लिप्पेर्टन टापु"}
+        CQ{"सार्क"}
         CR{"कोष्टारिका"}
         CU{"क्युबा"}
         CV{"केप भर्डे"}

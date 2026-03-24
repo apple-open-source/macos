@@ -14,7 +14,7 @@
 <script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
-<link href="../images/favicon.ico" rel="shortcut icon" /></head>
+<link href="../images/favicon.png" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
@@ -130,6 +130,7 @@ for HTTP Basic authentication.</td></tr>
           <li><a href="#reqdn">Require ldap-dn</a></li>
           <li><a href="#reqattribute">Require ldap-attribute</a></li>
           <li><a href="#reqfilter">Require ldap-filter</a></li>
+          <li><a href="#reqsearch">Require ldap-search</a></li>
         </ul>
       </li>
 
@@ -270,6 +271,11 @@ in <code class="module"><a href="../mod/mod_ldap.html">mod_ldap</a></code> for d
       <code>Require ldap-filter</code></a>
       directive, and the search filter successfully finds a single user
       object that matches the dn of the authenticated user.</li>
+
+      <li>Grant access if there is a <a href="#reqsearch">
+      <code>Require ldap-search</code></a>
+      directive, and the search filter successfully returns a single
+      matching object with any distinguished name.</li>
 
       <li>otherwise, deny or decline access</li>
     </ul>
@@ -538,6 +544,27 @@ AuthLDAPMaxSubGroupDepth 1</pre>
   Require ldap-filter (memberOf=cn=%{ldap:%{unescape:%{env:MATCH_SITENAME}},ou=Websites,o=Example)
 &lt;/LocationMatch&gt;</pre>
 
+
+
+
+<h3><a name="reqsearch" id="reqsearch">Require ldap-search</a></h3>
+
+    <p>The <code>Require ldap-search</code> directive allows the
+    administrator to grant access based on a generic LDAP search filter using an
+    <a href="../expr.html">expression</a>. If there is exactly one match to the search filter,
+    regardless of the distinguished name, access is granted.</p>
+
+    <p>The following directive would grant access to URLs that match the given objects in the
+    LDAP server:</p>
+
+<pre class="prettyprint lang-config">&lt;LocationMatch ^/dav/(?&lt;SITENAME&gt;[^/]+)/&gt;
+Require ldap-search (cn=%{ldap:%{unescape:%{env:MATCH_SITENAME}} Website)
+&lt;/LocationMatch&gt;</pre>
+
+
+    <p>Note: care must be taken to ensure that any expressions are properly escaped to guard
+    against LDAP injection. The <strong>ldap</strong> function can be used as per the example
+    above.</p>
 
 
 
@@ -1426,7 +1453,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_ldap.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2024 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2025 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

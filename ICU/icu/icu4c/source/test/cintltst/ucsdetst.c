@@ -32,7 +32,7 @@ static void TestChaining(void);
 static void TestBufferOverflow(void);
 static void TestIBM424(void);
 static void TestIBM420(void);
-#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
 static void TestMailFilterCSS(void);
 #endif  // APPLE_ICU_CHANGES
@@ -52,10 +52,10 @@ void addUCsdetTest(TestNode** root)
     addTest(root, &TestIBM424, "ucsdetst/TestIBM424");
     addTest(root, &TestIBM420, "ucsdetst/TestIBM420");
 #endif
-#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
     addTest(root, &TestMailFilterCSS, "ucsdetst/TestMailFilterCSS");
-#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 }
 
 static int32_t preflight(const UChar *src, int32_t length, UConverter *cnv)
@@ -600,7 +600,7 @@ bail:
     ucsdet_close(csd);
 }
 
-#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
 #include <stdio.h>
 // read data from file into a malloc'ed buf, which must be freed by caller.
@@ -728,4 +728,4 @@ static void TestMailFilterCSS(void) {
         ucsdet_close(detector);
     }
 }
-#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED

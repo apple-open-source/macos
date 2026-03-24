@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 cho{
     AuxExemplarCharacters{"[cč d g j q r š x z]"}
     ExemplarCharacters{"[a{a̱} b {ch} e f h {hl} i{i̱} k l m n o{o̱} p s {sh} t u v ʋ w y]"}

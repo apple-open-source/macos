@@ -49,7 +49,7 @@ class LineLayout;
 }
 
 class RenderText : public RenderObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderText);
+    WTF_MAKE_TZONE_ALLOCATED(RenderText);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderText);
 public:
     RenderText(Type, Text&, const String&);
@@ -166,7 +166,7 @@ public:
     bool canUseSimpleFontCodePath() const { return fontCodePath() == FontCascade::CodePath::Simple; }
     bool shouldUseSimpleGlyphOverflowCodePath() const { return fontCodePath() == FontCascade::CodePath::SimpleWithGlyphOverflow; }
 
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void styleDidChange(Style::Difference, const RenderStyle* oldStyle);
 
 #if ENABLE(TEXT_AUTOSIZING)
     float candidateComputedTextSize() const { return m_candidateComputedTextSize; }

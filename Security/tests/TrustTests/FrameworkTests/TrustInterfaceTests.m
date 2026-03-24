@@ -242,10 +242,10 @@ errOut:
     SecTrustRef trust = NULL;
     CFArrayRef certificates = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
-    require(policy = SecPolicyCreateBasicX509(), errOut);
-    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    __Require(policy = SecPolicyCreateBasicX509(), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
 
     ok_status(SecTrustCopyInputCertificates(trust, &certificates), "SecTrustCopyInputCertificates failed");
     is(CFArrayGetCount(certificates), 1, "got too many input certs back");
@@ -292,10 +292,10 @@ errOut:
     CFDateRef date = NULL;
     CFArrayRef anchors = NULL, policies = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
-    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
 
     isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
          NULL, "create verify date");
@@ -306,13 +306,13 @@ errOut:
     XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 
     /* replace with one policy */
-    require(replacementPolicy = SecPolicyCreateSSL(true, CFSTR("store.apple.com")), errOut);
+    __Require(replacementPolicy = SecPolicyCreateSSL(true, CFSTR("store.apple.com")), errOut);
     ok_status(SecTrustSetPolicies(trust, replacementPolicy));
     XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust");
 
     /* replace with policy array */
     CFReleaseNull(trust);
-    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
     isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
          NULL, "create verify date");
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
@@ -353,8 +353,8 @@ errOut:
 
     XCTestExpectation *blockExpectation = [self expectationWithDescription:@"callback occurs"];
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
     const void *v_certs[] = {
         cert0,
         cert1
@@ -363,12 +363,12 @@ errOut:
                                  array_size(v_certs),
                                  &kCFTypeArrayCallBacks);
 
-    require(policy = SecPolicyCreateBasicX509(), errOut);
-    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+    __Require(policy = SecPolicyCreateBasicX509(), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
 
     /* Jul 30 2014. */
-    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 30, 12, 0, 0), errOut);
-    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+    __Require(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 30, 12, 0, 0), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), errOut);
 
     /* This shouldn't crash. */
 #pragma clang diagnostic push
@@ -406,9 +406,9 @@ errOut:
     CFArrayRef certificates = NULL, roots = NULL;
     CFDateRef date = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
-    require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
+    __Require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
 
     const void *v_certs[] = {cert0, cert1 };
     certificates = CFArrayCreate(NULL, v_certs,
@@ -420,20 +420,20 @@ errOut:
                           array_size(v_roots),
                           &kCFTypeArrayCallBacks);
 
-    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
-    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
-    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, roots), errOut);
 
     /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
-    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
-    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+    __Require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), errOut);
 
     /* SecTrustIsExpiredOnly implicitly evaluates the trust */
     ok(SecTrustIsExpiredOnly(trust), "REGRESSION: has new error as well as expiration");
 
     CFReleaseNull(policy);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
-    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), errOut);
     /* expect a hostname mismatch as well as expiration */
     ok(!SecTrustIsExpiredOnly(trust), "REGRESSION: should have found multiple errors");
 
@@ -456,9 +456,9 @@ errOut:
     CFDateRef date = NULL, validDate = NULL;
     CFErrorRef error = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
-    require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
+    __Require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
 
     const void *v_certs[] = {
         cert0,
@@ -476,21 +476,21 @@ errOut:
                           array_size(v_roots),
                           &kCFTypeArrayCallBacks);
 
-    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
-    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
-    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, roots), errOut);
 
     /* April 10 2015 (cert expired in 2015) */
-    require(validDate = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut);
-    require_noerr(SecTrustSetVerifyDate(trust, validDate), errOut);
+    __Require(validDate = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trust, validDate), errOut);
 
     is(SecTrustEvaluateWithError(trust, &error), true, "wrong result for valid cert");
     is(error, NULL, "set error for passing trust evaluation");
     CFReleaseNull(error);
 
     /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
-    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
-    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+    __Require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trust, date), errOut);
 
     /* expect expiration error */
     is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert");
@@ -499,8 +499,8 @@ errOut:
     CFReleaseNull(error);
 
     CFReleaseNull(policy);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
-    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), errOut);
 
     /* expect a hostname mismatch as well as expiration; hostname mismatch must be a higher priority */
     is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert with hostname mismatch");
@@ -509,7 +509,7 @@ errOut:
     CFReleaseNull(error);
 
     /* expect only a hostname mismatch*/
-    require_noerr(SecTrustSetVerifyDate(trust, validDate), errOut);
+    __Require_noErr(SecTrustSetVerifyDate(trust, validDate), errOut);
     is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for valid cert with hostname mismatch");
     isnt(error, NULL, "failed to set error for failing trust evaluation");
     is(CFErrorGetCode(error), errSecHostNameMismatch, "Got wrong error code for evaluation");
@@ -517,9 +517,9 @@ errOut:
 
     /* pinning failure */
     CFReleaseNull(policy);
-    require(policy = SecPolicyCreateAppleSSLPinned(CFSTR("test"), CFSTR("expired.badssl.com"),
+    __Require(policy = SecPolicyCreateAppleSSLPinned(CFSTR("test"), CFSTR("expired.badssl.com"),
                                                    NULL, CFSTR("1.2.840.113635.100.6.27.1")), errOut);
-    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), errOut);
 
     is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for valid cert with pinning failure");
     isnt(error, NULL, "failed to set error for failing trust evaluation");
@@ -530,12 +530,12 @@ errOut:
 
     /* trust nothing, trust errors higher priority than hostname mismatch */
     CFReleaseNull(policy);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
-    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    __Require_noErr(SecTrustSetPolicies(trust, policy), errOut);
 
     CFReleaseNull(roots);
     roots = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
-    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, roots), errOut);
     is(SecTrustEvaluateWithError(trust, &error), false, "wrong result for expired cert with hostname mismatch");
     isnt(error, NULL, "failed to set error for failing trust evaluation");
     is(CFErrorGetCode(error), errSecNotTrusted, "Got wrong error code for evaluation");
@@ -563,37 +563,37 @@ errOut:
     CFPropertyListRef trustPlist = NULL;
     CFErrorRef error = NULL;
 
-    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut,
+    __Require_Action(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut,
                    fail("unable to create cert"));
-    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut,
+    __Require_Action(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut,
                    fail("unable to create cert"));
-    require_action(root = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut,
                    fail("unable to create cert"));
 
     const void *v_certs[] = { cert0, cert1 };
-    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create array"));
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create anchors array"));
-    require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
+    __Require_Action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
     
-    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
 
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("unable to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
     
     ok(trustPlist = SecTrustCopyPropertyListRepresentation(trust, NULL), "failed to copy property list from trust");
     ok(deserializedTrust = SecTrustCreateFromPropertyListRepresentation(trustPlist, NULL), "Failed to create trust from property list");
     CFReleaseNull(trustPlist);
 
-    require_noerr_action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
+    __Require_noErr_Action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
                          fail("unable to get anchors from deserialized trust"));
     ok(CFEqual(anchors, deserializedCerts), "Failed to get the same anchors after serialization/deserialization");
     CFReleaseNull(deserializedCerts);
     
-    require_noerr_action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
+    __Require_noErr_Action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
                          fail("unable to get input certificates from deserialized trust"));
     ok(CFEqual(certs, deserializedCerts), "Failed to get same input certificates after serialization/deserialization");
     CFReleaseNull(deserializedCerts);
@@ -631,37 +631,37 @@ errOut:
     CFDataRef serializedTrust = NULL;
     CFErrorRef error = NULL;
 
-    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut,
+    __Require_Action(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut,
                    fail("unable to create cert"));
-    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut,
+    __Require_Action(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut,
                    fail("unable to create cert"));
-    require_action(root = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut,
+    __Require_Action(root = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut,
                    fail("unable to create cert"));
 
     const void *v_certs[] = { cert0, cert1 };
-    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create array"));
-    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+    __Require_Action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
                    fail("unable to create anchors array"));
-    require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
+    __Require_Action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
     
-    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+    __Require_Action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
 
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+    __Require_noErr_Action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
                          fail("unable to set anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+    __Require_noErr_Action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
     
     ok(serializedTrust = SecTrustSerialize(trust, NULL), "failed to serialize trust");
     ok(deserializedTrust = SecTrustDeserialize(serializedTrust, NULL), "Failed to deserialize trust");
     CFReleaseNull(serializedTrust);
 
-    require_noerr_action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
+    __Require_noErr_Action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
                          fail("unable to get anchors from deserialized trust"));
     ok(CFEqual(anchors, deserializedCerts), "Failed to get the same anchors after serialization/deserialization");
     CFReleaseNull(deserializedCerts);
     
-    require_noerr_action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
+    __Require_noErr_Action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
                          fail("unable to get input certificates from deserialized trust"));
     ok(CFEqual(certs, deserializedCerts), "Failed to get same input certificates after serialization/deserialization");
     CFReleaseNull(deserializedCerts);
@@ -1090,10 +1090,10 @@ errOut:
     SecPolicyRef policy = NULL;
     SecTrustRef trust = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
-    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
 
     Boolean curAllow, allow;
     ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
@@ -1138,10 +1138,10 @@ errOut:
     SecPolicyRef policy = NULL;
     SecTrustRef trust = NULL;
 
-    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
-    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
-    require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
-    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+    __Require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    __Require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    __Require(policy = SecPolicyCreateSSL(true, CFSTR("example.com")), errOut);
+    __Require_noErr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
 
     CFDataRef resp = (CFDataRef) CFDataCreateMutable(NULL, 0);
     CFDataIncreaseLength((CFMutableDataRef)resp, 64); /* arbitrary length, zero-filled data */

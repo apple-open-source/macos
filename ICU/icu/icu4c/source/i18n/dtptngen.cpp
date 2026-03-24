@@ -351,11 +351,19 @@ DateTimePatternGenerator::createEmptyInstance(UErrorCode& status) {
 }
 
 DateTimePatternGenerator::DateTimePatternGenerator(UErrorCode &status) :
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    UObject()
+{
+    emptyString.getTerminatedBuffer();
+#else
     skipMatcher(nullptr),
     fAvailableFormatKeyHash(nullptr),
     fDefaultHourFormatChar(0),
     internalErrorCode(U_ZERO_ERROR)
 {
+#endif // APPLE_ICU_CHANGES
     fp = new FormatParser();
     dtMatcher = new DateTimeMatcher();
     distanceInfo = new DistanceInfo();
@@ -365,17 +373,21 @@ DateTimePatternGenerator::DateTimePatternGenerator(UErrorCode &status) :
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+DateTimePatternGenerator::DateTimePatternGenerator(const Locale& locale, UErrorCode &status, UBool skipStdPatterns) :
+    DateTimePatternGenerator(status)
+{
+    pLocale = locale;
+    initData(locale, status, skipStdPatterns);
+}
+#else
 DateTimePatternGenerator::DateTimePatternGenerator(const Locale& locale, UErrorCode &status, UBool skipStdPatterns) :
     skipMatcher(nullptr),
     fAvailableFormatKeyHash(nullptr),
     fDefaultHourFormatChar(0),
-#if APPLE_ICU_CHANGES
-// rdar:/
-    internalErrorCode(U_ZERO_ERROR),
-    pLocale(locale)
-#else
     internalErrorCode(U_ZERO_ERROR)
-#endif  // APPLE_ICU_CHANGES
 {
     fp = new FormatParser();
     dtMatcher = new DateTimeMatcher();
@@ -388,7 +400,16 @@ DateTimePatternGenerator::DateTimePatternGenerator(const Locale& locale, UErrorC
         initData(locale, status, skipStdPatterns);
     }
 }
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+DateTimePatternGenerator::DateTimePatternGenerator(const DateTimePatternGenerator& other) :
+    UObject()
+{
+    emptyString.getTerminatedBuffer();
+#else
 DateTimePatternGenerator::DateTimePatternGenerator(const DateTimePatternGenerator& other) :
     UObject(),
     skipMatcher(nullptr),
@@ -396,6 +417,7 @@ DateTimePatternGenerator::DateTimePatternGenerator(const DateTimePatternGenerato
     fDefaultHourFormatChar(0),
     internalErrorCode(U_ZERO_ERROR)
 {
+#endif // APPLE_ICU_CHANGES
     fp = new FormatParser();
     dtMatcher = new DateTimeMatcher();
     distanceInfo = new DistanceInfo();
@@ -919,7 +941,7 @@ DateTimePatternGenerator::addICUPatterns(const Locale& locale, UErrorCode& statu
         
         if (U_SUCCESS(status)) {
             UnicodeString conflictingPattern;
-            addPatternWithSkeleton(pattern, nullptr, false, conflictingPattern, status);
+            addPatternWithOptionalSkeleton(pattern, nullptr, false, conflictingPattern, status);
         }
     }
 }
@@ -1163,7 +1185,7 @@ struct DateTimePatternGenerator::AvailableFormatsSink : public ResourceSink {
             const UnicodeString& formatValue = value.getUnicodeString(errorCode);
 #endif  // APPLE_ICU_CHANGES
             conflictingPattern.remove();
-            dtpg.addPatternWithSkeleton(formatValue, &formatKey, true, conflictingPattern, errorCode);
+            dtpg.addPatternWithSkeleton(formatValue, formatKey, true, conflictingPattern, errorCode);
         }
     }
 };
@@ -1641,7 +1663,11 @@ DateTimePatternGenerator::setDateTimeFormat(UDateFormatStyle style, const Unicod
 
 const UnicodeString&
 DateTimePatternGenerator::getDateTimeFormat(UDateFormatStyle style, UErrorCode& status) const {
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
     static const UnicodeString emptyString = UNICODE_STRING_SIMPLE("");
+#endif // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         return emptyString;
     }
@@ -1748,7 +1774,18 @@ DateTimePatternGenerator::addPattern(
         return UDATPG_NO_CONFLICT;
     }
 
-    return addPatternWithSkeleton(pattern, nullptr, override, conflictingPattern, status);
+    return addPatternWithOptionalSkeleton(pattern, nullptr, override, conflictingPattern, status);
+}
+
+UDateTimePatternConflict
+DateTimePatternGenerator::addPatternWithSkeleton(
+    const UnicodeString& pattern,
+    const UnicodeString& skeletonToUse,
+    UBool override,
+    UnicodeString& conflictingPattern,
+    UErrorCode& status)
+{
+    return addPatternWithOptionalSkeleton(pattern, &skeletonToUse, override, conflictingPattern, status);
 }
 
 // For DateTimePatternGenerator::addPatternWithSkeleton -
@@ -1762,7 +1799,7 @@ DateTimePatternGenerator::addPattern(
 // 3. When adding the pattern (patternMap->add), we set a new boolean to indicate that the added entry had a
 // specified skeleton (which sets a new field in the PtnElem in the PatternMap).
 UDateTimePatternConflict
-DateTimePatternGenerator::addPatternWithSkeleton(
+DateTimePatternGenerator::addPatternWithOptionalSkeleton(
     const UnicodeString& pattern,
     const UnicodeString* skeletonToUse,
     UBool override,
@@ -1961,7 +1998,7 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                     //    field length, but options bits can be used to override this.
                     // 2. There is a specified skeleton for the found pattern and one of the following is true:
                     //    a) The length of the field in the skeleton (skelFieldLen) is equal to reqFieldLen.
-                    //    b) The pattern field is numeric and the skeleton field is not, or vice versa.
+                    //    b) The pattern field is numeric and the requested field is not, or vice versa.
 
                     char16_t reqFieldChar = dtMatcher->skeleton.original.getFieldChar(typeValue);
                     int32_t reqFieldLen = dtMatcher->skeleton.original.getFieldLength(typeValue);
@@ -1979,8 +2016,8 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                         // https://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table for more info)
                         int32_t skelFieldLen = specifiedSkeleton->original.getFieldLength(typeValue);
                         UBool patFieldIsNumeric = (row->type > 0);
-                        UBool skelFieldIsNumeric = (specifiedSkeleton->type[typeValue] > 0);
-                        if (skelFieldLen == reqFieldLen || (patFieldIsNumeric && !skelFieldIsNumeric) || (skelFieldIsNumeric && !patFieldIsNumeric)) {
+                        UBool reqFieldIsNumeric = (dtMatcher->skeleton.type[typeValue] > 0);
+                        if (skelFieldLen == reqFieldLen || (patFieldIsNumeric && !reqFieldIsNumeric) || (reqFieldIsNumeric && !patFieldIsNumeric)) {
                             // don't adjust the field length in the found pattern
                             adjFieldLen = field.length();
                         }
@@ -2679,7 +2716,9 @@ DateTimeMatcher::DateTimeMatcher(const DateTimeMatcher& other) {
 }
 
 DateTimeMatcher& DateTimeMatcher::operator=(const DateTimeMatcher& other) {
-    copyFrom(other.skeleton);
+    if (this != &other) {
+        copyFrom(other.skeleton);
+    }
     return *this;
 }
 

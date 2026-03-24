@@ -79,14 +79,20 @@ void WebDeviceOrientationUpdateProviderProxy::stopUpdatingDeviceMotion()
 
 void WebDeviceOrientationUpdateProviderProxy::orientationChanged(double alpha, double beta, double gamma, double compassHeading, double compassAccuracy)
 {
-    if (RefPtr page = m_page.get())
-        page->protectedLegacyMainFrameProcess()->send(Messages::WebDeviceOrientationUpdateProvider::DeviceOrientationChanged(alpha, beta, gamma, compassHeading, compassAccuracy), m_page->webPageIDInMainFrameProcess());
+    if (RefPtr page = m_page.get()) {
+        page->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+            webProcess.send(Messages::WebDeviceOrientationUpdateProvider::DeviceOrientationChanged(alpha, beta, gamma, compassHeading, compassAccuracy), pageID);
+        });
+    }
 }
 
 void WebDeviceOrientationUpdateProviderProxy::motionChanged(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, std::optional<double> xRotationRate, std::optional<double> yRotationRate, std::optional<double> zRotationRate)
 {
-    if (RefPtr page = m_page.get())
-        page->protectedLegacyMainFrameProcess()->send(Messages::WebDeviceOrientationUpdateProvider::DeviceMotionChanged(xAcceleration, yAcceleration, zAcceleration, xAccelerationIncludingGravity, yAccelerationIncludingGravity, zAccelerationIncludingGravity, xRotationRate, yRotationRate, zRotationRate), m_page->webPageIDInMainFrameProcess());
+    if (RefPtr page = m_page.get()) {
+        page->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+            webProcess.send(Messages::WebDeviceOrientationUpdateProvider::DeviceMotionChanged(xAcceleration, yAcceleration, zAcceleration, xAccelerationIncludingGravity, yAccelerationIncludingGravity, zAccelerationIncludingGravity, xRotationRate, yRotationRate, zRotationRate), pageID);
+        });
+    }
 }
 
 std::optional<SharedPreferencesForWebProcess> WebDeviceOrientationUpdateProviderProxy::sharedPreferencesForWebProcess(IPC::Connection& connection) const

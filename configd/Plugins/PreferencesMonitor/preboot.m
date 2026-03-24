@@ -176,7 +176,7 @@ syncComplete(void)
 
 	SC_log(LOG_NOTICE, "%s: sync complete", _LOG_PREFIX);
 	res = pthread_join(G_sync_thread, NULL);
-	require_noerr_quiet(res, done);
+	__Require_noErr_Quiet(res, done);
 	G_sync_thread = NULL;
 	if (!sync_needed) {
 		update_in_progress = false;
@@ -188,7 +188,7 @@ syncComplete(void)
 		sync_started = true;
 #endif
 		res = syncThreadCreate();
-		require_noerr_quiet(res, done);
+		__Require_noErr_Quiet(res, done);
 	}
 #if defined(TEST_PREBOOT)
 	if (!sync_started && S_exit_on_completion) {
@@ -336,13 +336,13 @@ syncThreadCreate(void)
 	pthread_attr_t threadAttrs = {0};
 
 	ret = pthread_attr_init(&threadAttrs);
-	require_noerr_quiet(ret, done);
+	__Require_noErr_Quiet(ret, done);
 	ret = pthread_attr_setdetachstate(&threadAttrs, PTHREAD_CREATE_JOINABLE);
-	require_noerr_quiet(ret, done);
+	__Require_noErr_Quiet(ret, done);
 	ret = pthread_create(&G_sync_thread, &threadAttrs, syncToPreboot, NULL);
-	require_noerr_quiet(ret, done);
+	__Require_noErr_Quiet(ret, done);
 	ret = pthread_attr_destroy(&threadAttrs);
-	require_noerr_quiet(ret, done);
+	__Require_noErr_Quiet(ret, done);
 	return ret;
 done:
 	SC_log(LOG_NOTICE, "%s: Failed to bring up sync thread with err %d", __func__, ret);
@@ -369,7 +369,7 @@ syncNetworkConfigurationToPrebootVolume(void)
 		sync_needed = true;
 	} else {
 		update_in_progress = true;
-		require_noerr_quiet(syncThreadCreate(), done);
+		__Require_noErr_Quiet(syncThreadCreate(), done);
 	}
 	success = true;
  done:

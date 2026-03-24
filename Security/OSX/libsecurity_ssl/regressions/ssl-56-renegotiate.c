@@ -107,19 +107,19 @@ ssl_client_handle_create(int comm, bool renegotiate)
     ssl_client_handle *handle = calloc(1, sizeof(ssl_client_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
         (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
     static const char *peer_domain_name = "localhost";
-    require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
+    __Require_noErr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
-    require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, TRUE), out);
+    __Require_noErr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, TRUE), out);
 
-    require_noerr(SSLSetAllowsAnyRoot(ctx, TRUE), out);
+    __Require_noErr(SSLSetAllowsAnyRoot(ctx, TRUE), out);
 
 
     handle->comm = comm;
@@ -157,47 +157,47 @@ static void *securetransport_ssl_client_thread(void *arg)
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLPeerAuthCompleted) {
-            require_action(!peer_auth_received, out, ortn = -1);
+            __Require_Action(!peer_auth_received, out, ortn = -1);
             peer_auth_received = true;
         }
         if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            __Require_String(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock || ortn == errSSLPeerAuthCompleted);
 
-    require_noerr(ortn, out);
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
-    require_action(peer_auth_received, out, ortn = -1);
+    __Require_noErr(ortn, out);
+    __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+    __Require_Action(peer_auth_received, out, ortn = -1);
 
     if(ssl->renegotiate) {
         // Renegotiate then write
-        require_noerr(SSLReHandshake(ctx), out);
+        __Require_noErr(SSLReHandshake(ctx), out);
 
         peer_auth_received = false;
 
         do {
             ortn = SSLHandshake(ctx);
-            require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+            __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
             if (ortn == errSSLPeerAuthCompleted) {
-                require_action(!peer_auth_received, out, ortn = -1);
+                __Require_Action(!peer_auth_received, out, ortn = -1);
                 peer_auth_received = true;
             }
             if (ortn == errSSLWouldBlock) {
-                require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+                __Require_Action(ssl_state==kSSLHandshake, out, ortn = -1);
             }
         } while (ortn == errSSLWouldBlock || ortn == errSSLPeerAuthCompleted);
 
-        require_noerr(ortn, out);
-        require_action(ssl_state==kSSLConnected, out, ortn = -1);
-        require_action(peer_auth_received, out, ortn = -1);
+        __Require_noErr(ortn, out);
+        __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+        __Require_Action(peer_auth_received, out, ortn = -1);
 
         unsigned char obuf[100];
 
@@ -205,10 +205,10 @@ static void *securetransport_ssl_client_thread(void *arg)
         size_t olen;
         unsigned char *p = obuf;
 
-        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, len, p), out, ortn = -1);
+        __Require_Action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, len, p), out, ortn = -1);
 
         while (len) {
-            require_noerr(ortn = SSLWrite(ctx, p, len, &olen), out);
+            __Require_noErr(ortn = SSLWrite(ctx, p, len, &olen), out);
             len -= olen;
             p += olen;
         }
@@ -224,20 +224,20 @@ static void *securetransport_ssl_client_thread(void *arg)
         while (len) {
             ortn = SSLRead(ctx, p, len, &olen);
 
-            require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+            __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
             if (ortn == errSSLPeerAuthCompleted) {
-                require_action(!peer_auth_received, out, ortn = -1);
+                __Require_Action(!peer_auth_received, out, ortn = -1);
                 peer_auth_received = true;
             } else {
-                require_noerr(ortn, out);
+                __Require_noErr(ortn, out);
             }
 
             /* If we get data, we should have renegotiated */
             if(olen) {
-                require_noerr(ortn, out);
-                require_action(ssl_state==kSSLConnected, out, ortn = -1);
-                require_action(peer_auth_received, out, ortn = -1);
+                __Require_noErr(ortn, out);
+                __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+                __Require_Action(peer_auth_received, out, ortn = -1);
             }
 
             len -= olen;
@@ -267,19 +267,19 @@ ssl_server_handle_create(int comm, CFArrayRef certs, bool renegotiate)
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLServerSide, kSSLStreamType);
     SSLCipherSuite cipher = TLS_RSA_WITH_AES_256_CBC_SHA256;
 
-    require(handle, out);
-    require(ctx, out);
+    __Require(handle, out);
+    __Require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
 
-    require_noerr(SSLSetCertificate(ctx, certs), out);
+    __Require_noErr(SSLSetCertificate(ctx, certs), out);
 
-    require_noerr(SSLSetEnabledCiphers(ctx, &cipher, 1), out);
+    __Require_noErr(SSLSetEnabledCiphers(ctx, &cipher, 1), out);
 
-    require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnClientHello, TRUE), out);
-    require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionAllowRenegotiation, TRUE), out);
+    __Require_noErr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnClientHello, TRUE), out);
+    __Require_noErr(SSLSetSessionOption(ctx, kSSLSessionOptionAllowRenegotiation, TRUE), out);
 
     handle->comm = comm;
     handle->certs = certs;
@@ -317,46 +317,46 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    __Require_noErr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
+    __Require_Action(ssl_state==kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
         if (ortn == errSSLClientHelloReceived) {
-            require_action(!client_hello_received, out, ortn = -1);
+            __Require_Action(!client_hello_received, out, ortn = -1);
             client_hello_received = true;
         }
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            __Require_Action(ssl_state==kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock || ortn == errSSLClientHelloReceived);
 
-    require_noerr(ortn, out);
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
-    require_action(client_hello_received, out, ortn = -1);
+    __Require_noErr(ortn, out);
+    __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+    __Require_Action(client_hello_received, out, ortn = -1);
 
     if(ssl->renegotiate) {
         // Renegotiate then write
-        require_noerr(SSLReHandshake(ctx), out);
+        __Require_noErr(SSLReHandshake(ctx), out);
 
         client_hello_received = false;
 
         do {
             ortn = SSLHandshake(ctx);
-            require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+            __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
             if (ortn == errSSLClientHelloReceived) {
-                require_action(!client_hello_received, out, ortn = -1);
+                __Require_Action(!client_hello_received, out, ortn = -1);
                 client_hello_received = true;
             }
             if (ortn == errSSLWouldBlock) {
-                require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+                __Require_Action(ssl_state==kSSLHandshake, out, ortn = -1);
             }
         } while (ortn == errSSLWouldBlock || ortn == errSSLClientHelloReceived);
 
-        require_noerr(ortn, out);
-        require_action(ssl_state==kSSLConnected, out, ortn = -1);
-        require_action(client_hello_received, out, ortn = -1);
+        __Require_noErr(ortn, out);
+        __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+        __Require_Action(client_hello_received, out, ortn = -1);
 
         unsigned char obuf[100];
 
@@ -364,10 +364,10 @@ static void *securetransport_ssl_server_thread(void *arg)
         size_t olen;
         unsigned char *p = obuf;
 
-        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, len, p), out, ortn = -1);
+        __Require_Action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, len, p), out, ortn = -1);
 
         while (len) {
-            require_noerr(ortn = SSLWrite(ctx, p, len, &olen), out);
+            __Require_noErr(ortn = SSLWrite(ctx, p, len, &olen), out);
             len -= olen;
             p += olen;
         }
@@ -383,20 +383,20 @@ static void *securetransport_ssl_server_thread(void *arg)
         while (len) {
             ortn = SSLRead(ctx, p, len, &olen);
 
-            require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+            __Require_noErr(SSLGetSessionState(ctx,&ssl_state), out);
 
             if (ortn == errSSLClientHelloReceived) {
-                require_action(!client_hello_received, out, ortn = -1);
+                __Require_Action(!client_hello_received, out, ortn = -1);
                 client_hello_received = true;
             } else {
-                require_noerr(ortn, out);
+                __Require_noErr(ortn, out);
             }
 
             /* If we get data, we should have renegotiated */
             if(olen) {
-                require_noerr(ortn, out);
-                require_action(ssl_state==kSSLConnected, out, ortn = -1);
-                require_action(client_hello_received, out, ortn = -1);
+                __Require_noErr(ortn, out);
+                __Require_Action(ssl_state==kSSLConnected, out, ortn = -1);
+                __Require_Action(client_hello_received, out, ortn = -1);
             }
 
             len -= olen;

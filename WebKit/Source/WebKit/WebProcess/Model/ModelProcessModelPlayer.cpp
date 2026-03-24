@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,10 +36,13 @@
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/FloatPoint3D.h>
+#include <WebCore/GraphicsLayer.h>
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/Model.h>
+#include <WebCore/ModelContext.h>
 #include <WebCore/ModelPlayerAnimationState.h>
+#include <WebCore/ModelPlayerGraphicsLayerConfiguration.h>
 #include <WebCore/Page.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/Settings.h>
@@ -91,7 +95,7 @@ void ModelProcessModelPlayer::didCreateLayer(WebCore::LayerHostingContextIdentif
     RELEASE_ASSERT(modelProcessEnabled());
 
     m_layerHostingContextIdentifier = identifier;
-    protectedClient()->didUpdateLayerHostingContextIdentifier(*this, identifier);
+    protectedClient()->didUpdate(*this);
 }
 
 void ModelProcessModelPlayer::didFinishLoading(const WebCore::FloatPoint3D& boundingBoxCenter, const WebCore::FloatPoint3D& boundingBoxExtents)
@@ -195,7 +199,7 @@ void ModelProcessModelPlayer::reload(WebCore::Model& model, WebCore::LayoutSize 
 {
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer reload model id=%" PRIu64, this, m_id.toUInt64());
 
-    auto transformStateToRestore = WTFMove(transformState);
+    auto transformStateToRestore = WTF::move(transformState);
     ASSERT(transformStateToRestore);
     m_entityTransform = transformStateToRestore->entityTransform();
     m_boundingBoxCenter = transformStateToRestore->boundingBoxCenter();
@@ -218,9 +222,31 @@ void ModelProcessModelPlayer::sizeDidChange(WebCore::LayoutSize size)
     send(Messages::ModelProcessModelPlayerProxy::SizeDidChange(size));
 }
 
-PlatformLayer* ModelProcessModelPlayer::layer()
+void ModelProcessModelPlayer::configureGraphicsLayer(WebCore::GraphicsLayer& graphicsLayer, WebCore::ModelPlayerGraphicsLayerConfiguration&& configuration)
 {
-    return nullptr;
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    if (configuration.detachedForImmersive)
+        return graphicsLayer.removeModelContents();
+#endif
+
+    auto modelLayerIdentifier = graphicsLayer.primaryLayerID();
+    if (!modelLayerIdentifier)
+        return;
+
+    auto layerHostingContextIdentifier = m_layerHostingContextIdentifier;
+    if (!layerHostingContextIdentifier)
+        return;
+
+    graphicsLayer.setContentsToModelContext(
+        WebCore::ModelContext::create(
+            *modelLayerIdentifier,
+            *layerHostingContextIdentifier,
+            configuration.contentSize,
+            configuration.hasPortal ? WebCore::ModelContextDisablePortal::No : WebCore::ModelContextDisablePortal::Yes,
+            configuration.backgroundColor
+        ),
+        WebCore::GraphicsLayer::ContentsLayerPurpose::HostedModel
+    );
 }
 
 void ModelProcessModelPlayer::handleMouseDown(const WebCore::LayoutPoint&, MonotonicTime)
@@ -353,7 +379,7 @@ void ModelProcessModelPlayer::setPlaybackRate(double playbackRate, CompletionHan
 {
     // FIXME (280081): Support negative playback rate
     m_requestedPlaybackRate = fmax(playbackRate, 0);
-    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetPlaybackRate(m_requestedPlaybackRate), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetPlaybackRate(m_requestedPlaybackRate), WTF::move(completionHandler));
 }
 
 double ModelProcessModelPlayer::duration() const
@@ -368,7 +394,7 @@ bool ModelProcessModelPlayer::paused() const
 
 void ModelProcessModelPlayer::setPaused(bool paused, CompletionHandler<void(bool succeeded)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetPaused(paused), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetPaused(paused), WTF::move(completionHandler));
 }
 
 Seconds ModelProcessModelPlayer::currentTime() const
@@ -392,7 +418,7 @@ void ModelProcessModelPlayer::setCurrentTime(Seconds currentTime, CompletionHand
     MonotonicTime timestamp = MonotonicTime::now();
     m_clockTimestampOfLastCurrentTimeSet = timestamp;
 
-    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetCurrentTime(*m_pendingCurrentTime), [weakThis = WeakPtr { *this }, timestamp, completionHandler = WTFMove(completionHandler)]() mutable {
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::SetCurrentTime(*m_pendingCurrentTime), [weakThis = WeakPtr { *this }, timestamp, completionHandler = WTF::move(completionHandler)]() mutable {
         ASSERT(RunLoop::isMain());
         if (RefPtr protectedThis = weakThis.get()) {
             if (protectedThis->m_clockTimestampOfLastCurrentTimeSet && *(protectedThis->m_clockTimestampOfLastCurrentTimeSet) <= timestamp) {
@@ -406,7 +432,7 @@ void ModelProcessModelPlayer::setCurrentTime(Seconds currentTime, CompletionHand
 
 void ModelProcessModelPlayer::setEnvironmentMap(Ref<WebCore::SharedBuffer>&& data)
 {
-    send(Messages::ModelProcessModelPlayerProxy::SetEnvironmentMap(WTFMove(data)));
+    send(Messages::ModelProcessModelPlayerProxy::SetEnvironmentMap(WTF::move(data)));
 }
 
 void ModelProcessModelPlayer::setHasPortal(bool hasPortal)
@@ -444,7 +470,7 @@ void ModelProcessModelPlayer::endStageModeInteraction()
 
 void ModelProcessModelPlayer::animateModelToFitPortal(CompletionHandler<void(bool)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::AnimateModelToFitPortal(), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::AnimateModelToFitPortal(), WTF::move(completionHandler));
 }
 
 void ModelProcessModelPlayer::resetModelTransformAfterDrag()
@@ -456,6 +482,20 @@ void ModelProcessModelPlayer::disableUnloadDelayForTesting()
 {
     send(Messages::ModelProcessModelPlayerProxy::DisableUnloadDelayForTesting());
 }
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+
+void ModelProcessModelPlayer::ensureImmersivePresentation(CompletionHandler<void(std::optional<WebCore::LayerHostingContextIdentifier>)>&& completion)
+{
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::EnsureImmersivePresentation(), WTF::move(completion));
+}
+
+void ModelProcessModelPlayer::exitImmersivePresentation(CompletionHandler<void()>&& completion)
+{
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::ExitImmersivePresentation(), WTF::move(completion));
+}
+
+#endif
 
 }
 

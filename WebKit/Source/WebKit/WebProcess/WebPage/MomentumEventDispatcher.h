@@ -77,7 +77,7 @@ public:
 
     bool handleWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
 
-    void setScrollingAccelerationCurve(WebCore::PageIdentifier, std::optional<ScrollingAccelerationCurve>);
+    void setScrollingAccelerationCurve(WebCore::PageIdentifier, std::optional<ScrollingAccelerationCurve>&&);
 
     void displayDidRefresh(WebCore::PlatformDisplayID);
 
@@ -119,8 +119,6 @@ private:
     void didReceiveScrollEvent(const WebWheelEvent&);
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
-    void pushLogEntry(uint32_t generatedPhase, uint32_t eventPhase);
-
     WebCore::FloatSize m_lastActivePhaseDelta;
 
     struct LogEntry {
@@ -129,11 +127,17 @@ private:
         float totalGeneratedOffset { 0 };
         float totalEventOffset { 0 };
 
-        uint32_t generatedPhase { 0 };
-        uint32_t eventPhase { 0 };
+        struct Phases {
+            WebWheelEvent::Phase event { WebWheelEvent::Phase::None };
+            WebWheelEvent::Phase momentum { WebWheelEvent::Phase::None };
+        };
+        Phases generatedPhases;
+        Phases eventPhases;
     };
     LogEntry m_currentLogState;
     Vector<LogEntry> m_log;
+
+    void pushLogEntry(LogEntry::Phases /*generatedPhases*/, LogEntry::Phases /*eventPhases*/);
 #endif
 
     struct Delta {

@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 doi{
     AuxExemplarCharacters{"[\u200C\u200D ऍ ऑ ॅ]"}
     ExemplarCharacters{
@@ -169,16 +169,14 @@ doi{
             }
             eras{
                 abbreviated{
-                    "ई.पू.",
-                    "ईसवी",
+                    0{"ई.पू."}
+                    1{"ईसवी"}
                 }
                 abbreviated%variant{
-                    "ई.पू.",
-                    "सन्",
+                    1{"सन्"}
                 }
                 wide{
-                    "ई.पू.",
-                    "ई. सन्",
+                    1{"ई. सन्"}
                 }
             }
             intervalFormats{

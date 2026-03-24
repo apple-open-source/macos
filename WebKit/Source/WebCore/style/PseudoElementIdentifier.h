@@ -86,13 +86,6 @@ struct HashTraits<WebCore::Style::PseudoElementIdentifier> : GenericHashTraits<W
 };
 
 template<>
-struct DefaultHash<WebCore::Style::PseudoElementIdentifier> {
-    static unsigned hash(const WebCore::Style::PseudoElementIdentifier& data) { return computeHash(data); }
-    static bool equal(const WebCore::Style::PseudoElementIdentifier& a, const WebCore::Style::PseudoElementIdentifier& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
-
-template<>
 struct HashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> : GenericHashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> {
     typedef std::optional<WebCore::Style::PseudoElementIdentifier> EmptyValueType;
 
@@ -107,14 +100,6 @@ struct HashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> : Gene
     {
         return identifer && HashTraits<WebCore::Style::PseudoElementIdentifier>::isDeletedValue(*identifer);
     }
-};
-
-template<>
-struct DefaultHash<std::optional<WebCore::Style::PseudoElementIdentifier>> {
-    static unsigned hash(const std::optional<WebCore::Style::PseudoElementIdentifier>& data) { return computeHash(data); }
-    static bool equal(const std::optional<WebCore::Style::PseudoElementIdentifier>& a, const std::optional<WebCore::Style::PseudoElementIdentifier>& b) { return a == b; }
-
-    static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
 } // namespace WTF

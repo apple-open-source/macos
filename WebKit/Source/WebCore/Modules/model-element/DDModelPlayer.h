@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,11 +31,12 @@
 #include <WebCore/Model.h>
 #include <WebCore/ModelPlayer.h>
 #include <WebCore/ModelPlayerClient.h>
+#include <WebCore/StageModeOperations.h>
 #include <wtf/Forward.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/URL.h>
 
-OBJC_CLASS WebUSDModelLoader;
+OBJC_CLASS DDBridgeModelLoader;
 
 namespace WebCore::DDModel {
 class DDMesh;
@@ -42,6 +44,7 @@ class DDMesh;
 
 namespace WebCore {
 
+class GraphicsLayerContentsDisplayDelegate;
 class ModelDisplayBufferDisplayDelegate;
 class ModelPlayerClient;
 class Page;
@@ -62,8 +65,7 @@ private:
     // ModelPlayer overrides.
     void load(Model&, LayoutSize) override;
     void sizeDidChange(LayoutSize) override;
-    CALayer *layer() override;
-    std::optional<LayerHostingContextIdentifier> layerHostingContextIdentifier() override;
+    void configureGraphicsLayer(GraphicsLayer&, ModelPlayerGraphicsLayerConfiguration&&) override;
     void enterFullscreen() override;
     void handleMouseDown(const LayoutPoint&, MonotonicTime) override;
     void handleMouseMove(const LayoutPoint&, MonotonicTime) override;
@@ -81,20 +83,47 @@ private:
     void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) override;
     void setIsMuted(bool, CompletionHandler<void(bool success)>&&) override;
     ModelPlayerAccessibilityChildren accessibilityChildren() override;
+    std::optional<TransformationMatrix> entityTransform() const final;
+    void setEntityTransform(TransformationMatrix) final;
+    bool supportsTransform(TransformationMatrix) override;
+    bool supportsMouseInteraction() override;
 
-    const MachSendRight* displayBuffer() const override;
-    GraphicsLayerContentsDisplayDelegate* contentsDisplayDelegate() override;
+    const MachSendRight* displayBuffer() const;
+    GraphicsLayerContentsDisplayDelegate* contentsDisplayDelegate();
+
+    void setAutoplay(bool) override;
+    void setPaused(bool, CompletionHandler<void(bool succeeded)>&&) override;
+    bool paused() const override;
+    void play(bool);
+    void simulate(float elapsedTime);
+
     void ensureOnMainThreadWithProtectedThis(Function<void(Ref<DDModelPlayer>)>&& task);
+    void setStageMode(WebCore::StageModeOperation) final;
+    void notifyEntityTransformUpdated();
 
-    ThreadSafeWeakPtr<ModelPlayerClient> m_client;
+    WeakPtr<ModelPlayerClient> m_client;
 
     WebCore::ModelPlayerIdentifier m_id;
-    RetainPtr<WebUSDModelLoader> m_modelLoader;
+    RetainPtr<DDBridgeModelLoader> m_modelLoader;
     Vector<MachSendRight> m_displayBuffers;
     RefPtr<WebCore::DDModel::DDMesh> m_currentModel;
     WeakRef<Page> m_page;
     mutable RefPtr<ModelDisplayBufferDisplayDelegate> m_contentsDisplayDelegate;
     uint32_t m_currentTexture { 0 };
+    StageModeOperation m_stageMode { StageModeOperation::None };
+    float m_currentScale { 1.f };
+    bool m_didFinishLoading { false };
+    enum class PauseState {
+        None,
+        Playing,
+        Paused
+    };
+    PauseState m_pauseState { PauseState::None };
+    std::optional<LayoutPoint> m_currentPoint;
+    float m_yawAcceleration { 0.f };
+    float m_pitchAcceleration { 0.f };
+    float m_yaw { 0.f };
+    float m_pitch { 0.f };
 };
 
 }

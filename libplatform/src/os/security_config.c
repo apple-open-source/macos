@@ -19,9 +19,12 @@
  */
 
 #include <AppleFeatures/AppleFeatures.h>
+#include <os/script_config_private.h>
 #include <os/security_config_private.h>
 #include <os/overflow.h>
 #include <mach/mach.h>
+#include <mach/mach_vm.h>
+#include <mach/vm_param.h>
 #include <libproc.h>
 #include <sys/proc_info_private.h>
 #include <_simple.h>
@@ -31,6 +34,23 @@ OS_NOEXPORT os_security_config_t __security_config;
 
 __attribute__((section("__TPRO_CONST,__data")))
 os_security_config_t __security_config = OS_SECURITY_CONFIG_NONE;
+
+/*
+ * This region may need to be unmapped and a new, permanent, region mapped
+ * in it's place. We will therefore ensure it is both page aligned, and at
+ * least a full page size, to ensure no impact on any other region.
+ */
+
+typedef union {
+	os_security_config_t value;
+	char padding[PAGE_MAX_SIZE];
+} page_sized_config_t;
+
+__attribute__((section("__DATA,__script_config")))
+__attribute__((aligned(PAGE_MAX_SIZE)))
+page_sized_config_t __restrictions_config = {
+	.value = OS_SECURITY_CONFIG_NONE
+};
 
 #define SECURITY_CONFIG_KEY "security_config"
 
@@ -77,6 +97,62 @@ _parse_security_config_string(const char *str)
 	__builtin_trap();
 }
 
+
+static inline void
+_freeze_script_config_storage_as_unusable(void) {
+	mach_vm_address_t target_address =
+			(mach_vm_address_t) &os_script_config_storage;
+
+	kern_return_t kr;
+	kr = mach_vm_map(mach_task_self(), &target_address,
+			sizeof(os_script_config_storage), 0,
+			VM_FLAGS_PERMANENT | VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+			MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_NONE, VM_PROT_NONE,
+			VM_INHERIT_DEFAULT);
+	if (unlikely(kr)) {
+		__LIBPLATFORM_INTERNAL_CRASH__(kr,
+				"Failed to freeze script config storage.");
+	}
+}
+
+
+static inline void
+_freeze_restrictions_config(os_security_config_t config_value) {
+	mach_vm_address_t target_address =
+			(mach_vm_address_t) &__restrictions_config;
+
+	kern_return_t kr;
+	kr = mach_vm_map(mach_task_self(), &target_address,
+			sizeof(__restrictions_config), 0,
+			VM_FLAGS_PERMANENT | VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+			MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
+			VM_INHERIT_DEFAULT);
+	if (unlikely(kr)) {
+		__LIBPLATFORM_INTERNAL_CRASH__(kr, "Failed to freeze config.");
+	}
+
+	__restrictions_config.value = config_value;
+
+	kr = mach_vm_protect(mach_task_self(), target_address, sizeof(__restrictions_config), TRUE, VM_PROT_READ);
+	if (unlikely(kr)) {
+		__LIBPLATFORM_INTERNAL_CRASH__(kr, "Failed to reprotect config.");
+	}
+}
+
+static inline os_security_config_t
+_os_security_config_masked(void) {
+	os_security_config_t mask = OS_SECURITY_CONFIG_HARDENED_HEAP |
+			OS_SECURITY_CONFIG_TPRO | OS_SECURITY_CONFIG_GUARD_OBJECTS;
+	return __security_config & mask;
+}
+
+static inline os_security_config_t
+_os_security_config_restrictions_masked(void) {
+	os_security_config_t mask = OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS;
+	return __restrictions_config.value & mask;
+}
+
+
 __attribute__ ((visibility ("hidden")))
 void __os_security_config_init(const char *apple[]);
 
@@ -98,14 +174,28 @@ __os_security_config_init(const char *apple[])
 	if (value & OS_SECURITY_CONFIG_TPRO) {
 		__security_config |= OS_SECURITY_CONFIG_TPRO;
 	}
+
 	if (value & OS_SECURITY_CONFIG_GUARD_OBJECTS) {
 		__security_config |= OS_SECURITY_CONFIG_GUARD_OBJECTS;
+	}
+
+	os_security_config_t restrictions_value = OS_SECURITY_CONFIG_NONE;
+
+	if (value & OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS) {
+		restrictions_value |= OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS;
+
+		_freeze_script_config_storage_as_unusable();
+	}
+
+	if (restrictions_value != OS_SECURITY_CONFIG_NONE) {
+		_freeze_restrictions_config(restrictions_value);
 	}
 }
 
 os_security_config_t
 os_security_config_get(void) {
-	return __security_config;
+	return _os_security_config_masked() |
+			_os_security_config_restrictions_masked();
 }
 
 static inline os_security_config_t
@@ -121,6 +211,9 @@ _pbi_flags_to_security_config(uint32_t pbi_flags) {
 	if (pbi_flags & PROC_FLAG_GUARD_OBJECTS_ENABLED) {
 		config |= OS_SECURITY_CONFIG_GUARD_OBJECTS;
 	}
+	if (pbi_flags & PROC_FLAG_SCRIPT_RESTRICTIONS_ENABLED) {
+		config |= OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS;
+	}
 
 	return config;
 }
@@ -129,7 +222,8 @@ static inline os_security_config_t
 _task_security_config_info_to_security_config(uint32_t task_config) {
 	os_security_config_t mask = OS_SECURITY_CONFIG_HARDENED_HEAP |
 								OS_SECURITY_CONFIG_TPRO |
-								OS_SECURITY_CONFIG_GUARD_OBJECTS;
+								OS_SECURITY_CONFIG_GUARD_OBJECTS |
+								OS_SECURITY_CONFIG_SCRIPT_RESTRICTIONS;
 
 	return (os_security_config_t)task_config & mask;
 }

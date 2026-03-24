@@ -194,13 +194,13 @@ bool SecDNSIsTLD(CFStringRef reference) {
         }
     });
 
-    require_quiet(CFNIsDomainTopLevelFunctionPtr, out);
+    __Require_Quiet(CFNIsDomainTopLevelFunctionPtr, out);
     CFIndex referenceLen = CFStringGetLength(reference);
 
     /* reference identifier is too short, we should fail it */
-    require_action_quiet(referenceLen > 2, out, result = true);
+    __Require_Action_Quiet(referenceLen > 2, out, result = true);
 
-    require_quiet(presentedDomain = CFStringCreateWithSubstring(NULL, reference,
+    __Require_Quiet(presentedDomain = CFStringCreateWithSubstring(NULL, reference,
                                                                 CFRangeMake(2, referenceLen - 2)),
                   out);
     result = CFNIsDomainTopLevelFunctionPtr(presentedDomain);
@@ -240,48 +240,48 @@ static bool SecDNSMatch(CFStringRef reference, CFStringRef presented) {
     /* A trailing '.' in the reference identifier is allowed as a mechanism
      to force TLS renegotiation. Strip it before parsing labels. */
     CFIndex referenceLen = CFStringGetLength(reference);
-    require_quiet(referenceLen > 0, noMatch);
+    __Require_Quiet(referenceLen > 0, noMatch);
     if ('.' == CFStringGetCharacterAtIndex(reference, referenceLen - 1)) {
         CFStringRef truncatedReference = CFStringCreateWithSubstring(NULL, reference,
                                                                      CFRangeMake(0, referenceLen - 1));
         referenceLabels = CFStringCreateArrayBySeparatingStrings(NULL, truncatedReference, CFSTR("."));
         CFReleaseNull(truncatedReference);
-        require_quiet(referenceLabels, noMatch);
+        __Require_Quiet(referenceLabels, noMatch);
     } else {
-    require_quiet(referenceLabels = CFStringCreateArrayBySeparatingStrings(NULL, reference, CFSTR(".")),
+    __Require_Quiet(referenceLabels = CFStringCreateArrayBySeparatingStrings(NULL, reference, CFSTR(".")),
                   noMatch);
     }
 
-    require_quiet(presentedLabels = CFStringCreateArrayBySeparatingStrings(NULL, presented, CFSTR(".")),
+    __Require_Quiet(presentedLabels = CFStringCreateArrayBySeparatingStrings(NULL, presented, CFSTR(".")),
                   noMatch);
 
     /* Reference Identifier and Presented Identifier must have the same number of labels
        because a wildcard in the presented identifier can only match a single label in the
        reference identifier. */
-    require_quiet(CFArrayGetCount(referenceLabels) == CFArrayGetCount(presentedLabels), noMatch);
+    __Require_Quiet(CFArrayGetCount(referenceLabels) == CFArrayGetCount(presentedLabels), noMatch);
 
     CFIndex ix, count = CFArrayGetCount(referenceLabels);
     for (ix = count - 1; ix >= 0; ix--) {
         CFStringRef rlabel = NULL, plabel = NULL;
-        require_quiet(rlabel = CFArrayGetValueAtIndex(referenceLabels, ix), noMatch);
-        require_quiet(plabel = CFArrayGetValueAtIndex(presentedLabels, ix), noMatch);
+        __Require_Quiet(rlabel = CFArrayGetValueAtIndex(referenceLabels, ix), noMatch);
+        __Require_Quiet(plabel = CFArrayGetValueAtIndex(presentedLabels, ix), noMatch);
         if (CFEqual(plabel, CFSTR("*"))) {
             /* must only occur in left-most label */
-            require_quiet(ix == 0, noMatch);
+            __Require_Quiet(ix == 0, noMatch);
 
             /* must not occur before single-label TLD */
-            require_quiet(count > 2 && ix != count - 2, noMatch);
+            __Require_Quiet(count > 2 && ix != count - 2, noMatch);
 
             /* must not occur before a multi-label gTLD */
-            require_quiet(!SecDNSIsTLD(presented), noMatch);
+            __Require_Quiet(!SecDNSIsTLD(presented), noMatch);
         } else {
             /* partial-label wildcards are disallowed */
             CFRange partialRange = CFStringFind(plabel, CFSTR("*"), 0);
-            require_quiet(partialRange.location == kCFNotFound && partialRange.length == 0 ,
+            __Require_Quiet(partialRange.location == kCFNotFound && partialRange.length == 0 ,
                           noMatch);
 
             /* not a wildcard, so labels must match exactly */
-            require_quiet(CFStringCompare(rlabel, plabel, kCFCompareCaseInsensitive) == kCFCompareEqualTo, noMatch);
+            __Require_Quiet(CFStringCompare(rlabel, plabel, kCFCompareCaseInsensitive) == kCFCompareEqualTo, noMatch);
         }
     }
 

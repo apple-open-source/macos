@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 ccp{
     ExemplarCharacters{
         "[𑄀 𑄁 𑄂 𑄃 𑄄 𑄅 𑄆 𑄇 𑄈 𑄉 𑄊 𑄋 𑄌 𑄍 𑄎 𑄏 𑄐 𑄑 𑄒 𑄓 𑄔 𑄕 𑄖 𑄗 𑄘 "
@@ -31,6 +31,48 @@ ccp{
                 currencyFormat{"#,##,##0.00¤"}
                 decimalFormat{"#,##,##0.###"}
                 percentFormat{"#,##,##0%"}
+            }
+            patternsShort{
+                currencyFormat{
+                    1000000000{
+                        other{"0G¤"}
+                    }
+                    10000000000{
+                        other{"00G¤"}
+                    }
+                    100000000000{
+                        other{"000G¤"}
+                    }
+                    1000000000000{
+                        other{"0T¤"}
+                    }
+                    10000000000000{
+                        other{"00T¤"}
+                    }
+                    100000000000000{
+                        other{"000T¤"}
+                    }
+                }
+                currencyFormat%alphaNextToNumber{
+                    1000000000{
+                        other{"0G ¤"}
+                    }
+                    10000000000{
+                        other{"00G ¤"}
+                    }
+                    100000000000{
+                        other{"000G ¤"}
+                    }
+                    1000000000000{
+                        other{"0T ¤"}
+                    }
+                    10000000000000{
+                        other{"00T ¤"}
+                    }
+                    100000000000000{
+                        other{"000T ¤"}
+                    }
+                }
             }
         }
         minimalPairs{
@@ -258,16 +300,14 @@ ccp{
             }
             eras{
                 abbreviated{
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄴𑄛𑄫𑄢𑄴𑄝𑄧",
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄛𑄴𑄘𑄧",
+                    0{"𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄴𑄛𑄫𑄢𑄴𑄝𑄧"}
+                    1{"𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄛𑄴𑄘𑄧"}
                 }
                 abbreviated%variant{
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄧𑄛𑄫𑄢𑄴𑄝𑄛𑄴𑄘𑄧",
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄛𑄴𑄘𑄧",
+                    0{"𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄧𑄛𑄫𑄢𑄴𑄝𑄛𑄴𑄘𑄧"}
                 }
                 wide%variant{
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄴𑄛𑄫𑄢𑄴𑄝𑄛𑄴𑄘𑄧",
-                    "𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄛𑄴𑄘𑄧",
+                    0{"𑄈𑄳𑄢𑄨𑄌𑄴𑄑𑄴𑄛𑄫𑄢𑄴𑄝𑄛𑄴𑄘𑄧"}
                 }
             }
             intervalFormats{
@@ -431,7 +471,7 @@ ccp{
         indian{
             eras{
                 abbreviated{
-                    "𑄥𑄣𑄴",
+                    0{"𑄥𑄣𑄴"}
                 }
             }
             monthNames{
@@ -472,7 +512,7 @@ ccp{
         islamic{
             eras{
                 abbreviated{
-                    "𑄡𑄪𑄇𑄴",
+                    0{"𑄡𑄪𑄇𑄴"}
                 }
             }
             monthNames{

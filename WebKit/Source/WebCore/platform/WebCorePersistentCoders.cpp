@@ -83,7 +83,7 @@ template<> struct Coder<WebCore::AppHighlightRangeData::NodePathComponent> {
         if (!pathIndex)
             return std::nullopt;
 
-        return { { WTFMove(*identifier), WTFMove(*nodeName), WTFMove(*textData), *pathIndex } };
+        return { { WTF::move(*identifier), WTF::move(*nodeName), WTF::move(*textData), *pathIndex } };
     }
 };
 
@@ -155,7 +155,7 @@ std::optional<WebCore::AppHighlightRangeData> Coder<WebCore::AppHighlightRangeDa
     if (!endOffset)
         return std::nullopt;
 
-    return { { WTFMove(*identifier), WTFMove(*text), WTFMove(*startContainer), *startOffset, WTFMove(*endContainer), *endOffset } };
+    return { { WTF::move(*identifier), WTF::move(*text), WTF::move(*startContainer), *startOffset, WTF::move(*endContainer), *endOffset } };
 }
 #endif // ENABLE(APP_HIGHLIGHTS)
 
@@ -177,8 +177,8 @@ std::optional<WebCore::ImportedScriptAttributes> Coder<WebCore::ImportedScriptAt
         return std::nullopt;
 
     return { {
-        WTFMove(*responseURL),
-        WTFMove(*mimeType)
+        WTF::move(*responseURL),
+        WTF::move(*mimeType)
     } };
 }
 
@@ -210,10 +210,10 @@ std::optional<WebCore::ImageResource> Coder<WebCore::ImageResource>::decodeForPe
         return std::nullopt;
 
     return { {
-        WTFMove(*src),
-        WTFMove(*sizes),
-        WTFMove(*type),
-        WTFMove(*label)
+        WTF::move(*src),
+        WTF::move(*sizes),
+        WTF::move(*type),
+        WTF::move(*label)
     } };
 }
 
@@ -304,12 +304,12 @@ std::optional<WebCore::ResourceRequest> Coder<WebCore::ResourceRequest>::decodeF
         return std::nullopt;
 
     WebCore::ResourceRequest request;
-    request.setURL(WTFMove(*url));
-    request.setTimeoutInterval(WTFMove(*timeoutInterval));
+    request.setURL(WTF::move(*url));
+    request.setTimeoutInterval(WTF::move(*timeoutInterval));
     request.setFirstPartyForCookies(URL({ }, *firstPartyForCookies));
-    request.setHTTPMethod(WTFMove(*httpMethod));
-    request.setHTTPHeaderFields(WTFMove(*fields));
-    request.setResponseContentDispositionEncodingFallbackArray(WTFMove(*array));
+    request.setHTTPMethod(WTF::move(*httpMethod));
+    request.setHTTPHeaderFields(WTF::move(*fields));
+    request.setResponseContentDispositionEncodingFallbackArray(WTF::move(*array));
     request.setCachePolicy(*cachePolicy);
     request.setAllowCookies(*allowCookies);
     request.setSameSiteDisposition(*sameSiteDisposition);
@@ -392,7 +392,7 @@ std::optional<WebCore::CertificateInfo> Coder<WebCore::CertificateInfo>::decodeF
     if (!trust)
         return std::nullopt;
 
-    return WebCore::CertificateInfo(WTFMove(*trust));
+    return WebCore::CertificateInfo(WTF::move(*trust));
 }
 
 #elif USE(CURL)
@@ -426,10 +426,10 @@ std::optional<WebCore::CertificateInfo> Coder<WebCore::CertificateInfo>::decodeF
         if (!certificate)
             return std::nullopt;
 
-        certificateChain.append(WTFMove(certificate.value()));
+        certificateChain.append(WTF::move(certificate.value()));
     }
 
-    return WebCore::CertificateInfo(verificationError.value(), WTFMove(certificateChain));
+    return WebCore::CertificateInfo(verificationError.value(), WTF::move(certificateChain));
 }
 
 #elif USE(SOUP)
@@ -563,7 +563,7 @@ std::optional<WebCore::NavigationPreloadState> Coder<WebCore::NavigationPreloadS
     decoder >> headerValue;
     if (!headerValue)
         return { };
-    return { { *enabled, WTFMove(*headerValue) } };
+    return { { *enabled, WTF::move(*headerValue) } };
 }
 
 void Coder<WebCore::CrossOriginEmbedderPolicy>::encodeForPersistence(Encoder& encoder, const WebCore::CrossOriginEmbedderPolicy& instance)
@@ -605,10 +605,10 @@ std::optional<WebCore::ContentSecurityPolicyResponseHeaders> Coder<WebCore::Cont
         decoder >> headerType;
         if (!headerType)
             return std::nullopt;
-        headersVector.append(std::make_pair(WTFMove(*header), WTFMove(*headerType)));
+        headersVector.append(std::make_pair(WTF::move(*header), WTF::move(*headerType)));
     }
     headersVector.shrinkToFit();
-    headers.setHeaders(WTFMove(headersVector));
+    headers.setHeaders(WTF::move(headersVector));
 
     std::optional<int> httpStatusCode;
     decoder >> httpStatusCode;
@@ -636,7 +636,7 @@ std::optional<WebCore::ClientOrigin> Coder<WebCore::ClientOrigin>::decodeForPers
     if (!clientOrigin || clientOrigin->isNull())
         return std::nullopt;
 
-    return WebCore::ClientOrigin { WTFMove(*topOrigin), WTFMove(*clientOrigin) };
+    return WebCore::ClientOrigin { WTF::move(*topOrigin), WTF::move(*clientOrigin) };
 }
 
 void Coder<WebCore::SecurityOriginData>::encodeForPersistence(Encoder& encoder, const WebCore::SecurityOriginData& instance)
@@ -663,7 +663,7 @@ std::optional<WebCore::SecurityOriginData> Coder<WebCore::SecurityOriginData>::d
     if (!port)
         return std::nullopt;
 
-    WebCore::SecurityOriginData data { WTFMove(*protocol), WTFMove(*host), WTFMove(*port) };
+    WebCore::SecurityOriginData data { WTF::move(*protocol), WTF::move(*host), WTF::move(*port) };
     if (data.isHashTableDeletedValue())
         return std::nullopt;
 
@@ -707,7 +707,7 @@ std::optional<WebCore::ResourceResponse> Coder<WebCore::ResourceResponse>::decod
     if (!responseIsNull)
         return std::nullopt;
     if (*responseIsNull)
-        return { WTFMove(response) };
+        return { WTF::move(response) };
 
     response.m_isNull = false;
 
@@ -715,13 +715,13 @@ std::optional<WebCore::ResourceResponse> Coder<WebCore::ResourceResponse>::decod
     decoder >> url;
     if (!url)
         return std::nullopt;
-    response.m_url = WTFMove(*url);
+    response.m_url = WTF::move(*url);
 
     std::optional<AtomString> mimeType;
     decoder >> mimeType;
     if (!mimeType)
         return std::nullopt;
-    response.m_mimeType = WTFMove(*mimeType);
+    response.m_mimeType = WTF::move(*mimeType);
 
     std::optional<int64_t> expectedContentLength;
     decoder >> expectedContentLength;
@@ -733,81 +733,81 @@ std::optional<WebCore::ResourceResponse> Coder<WebCore::ResourceResponse>::decod
     decoder >> textEncodingName;
     if (!textEncodingName)
         return std::nullopt;
-    response.m_textEncodingName = WTFMove(*textEncodingName);
+    response.m_textEncodingName = WTF::move(*textEncodingName);
 
     std::optional<AtomString> httpStatusText;
     decoder >> httpStatusText;
     if (!httpStatusText)
         return std::nullopt;
-    response.m_httpStatusText = WTFMove(*httpStatusText);
+    response.m_httpStatusText = WTF::move(*httpStatusText);
 
     std::optional<AtomString> httpVersion;
     decoder >> httpVersion;
     if (!httpVersion)
         return std::nullopt;
-    response.m_httpVersion = WTFMove(*httpVersion);
+    response.m_httpVersion = WTF::move(*httpVersion);
 
     std::optional<WebCore::HTTPHeaderMap> httpHeaderFields;
     decoder >> httpHeaderFields;
     if (!httpHeaderFields)
         return std::nullopt;
-    response.m_httpHeaderFields = WTFMove(*httpHeaderFields);
+    response.m_httpHeaderFields = WTF::move(*httpHeaderFields);
 
     std::optional<short> httpStatusCode;
     decoder >> httpStatusCode;
     if (!httpStatusCode)
         return std::nullopt;
-    response.m_httpStatusCode = WTFMove(*httpStatusCode);
+    response.m_httpStatusCode = WTF::move(*httpStatusCode);
 
     std::optional<std::optional<WebCore::CertificateInfo>> certificateInfo;
     decoder >> certificateInfo;
     if (!certificateInfo)
         return std::nullopt;
-    response.m_certificateInfo = WTFMove(*certificateInfo);
+    response.m_certificateInfo = WTF::move(*certificateInfo);
 
     std::optional<WebCore::ResourceResponseBase::Source> source;
     decoder >> source;
     if (!source)
         return std::nullopt;
-    response.m_source = WTFMove(*source);
+    response.m_source = WTF::move(*source);
 
     std::optional<WebCore::ResourceResponseBase::Type> type;
     decoder >> type;
     if (!type)
         return std::nullopt;
-    response.m_type = WTFMove(*type);
+    response.m_type = WTF::move(*type);
 
     std::optional<WebCore::ResourceResponseBase::Tainting> tainting;
     decoder >> tainting;
     if (!tainting)
         return std::nullopt;
-    response.m_tainting = WTFMove(*tainting);
+    response.m_tainting = WTF::move(*tainting);
 
     std::optional<bool> isRedirected;
     decoder >> isRedirected;
     if (!isRedirected)
         return std::nullopt;
-    response.m_isRedirected = WTFMove(*isRedirected);
+    response.m_isRedirected = WTF::move(*isRedirected);
 
     std::optional<WebCore::UsedLegacyTLS> usedLegacyTLS;
     decoder >> usedLegacyTLS;
     if (!usedLegacyTLS)
         return std::nullopt;
-    response.m_usedLegacyTLS = WTFMove(*usedLegacyTLS);
+    response.m_usedLegacyTLS = WTF::move(*usedLegacyTLS);
 
     std::optional<WebCore::WasPrivateRelayed> wasPrivateRelayed;
     decoder >> wasPrivateRelayed;
     if (!wasPrivateRelayed)
         return std::nullopt;
-    response.m_wasPrivateRelayed = WTFMove(*wasPrivateRelayed);
+    response.m_wasPrivateRelayed = WTF::move(*wasPrivateRelayed);
 
     std::optional<bool> isRangeRequested;
     decoder >> isRangeRequested;
     if (!isRangeRequested)
         return std::nullopt;
-    response.m_isRangeRequested = WTFMove(*isRangeRequested);
+    response.m_isRangeRequested = WTF::move(*isRangeRequested);
 
-    return { WTFMove(response) };
+    return { WTF::move(response) };
 }
 
 void Coder<WebCore::FetchOptions>::encodeForPersistence(Encoder& encoder, const WebCore::FetchOptions& instance)
@@ -851,7 +851,7 @@ std::optional<WebCore::HTTPHeaderMap> Coder<WebCore::HTTPHeaderMap>::decodeForPe
         decoder >> value;
         if (!value)
             return std::nullopt;
-        headers.append(WTFMove(*name), WTFMove(*value));
+        headers.append(WTF::move(*name), WTF::move(*value));
     }
     return headers;
 }

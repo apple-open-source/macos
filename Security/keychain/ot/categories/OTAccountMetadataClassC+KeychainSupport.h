@@ -5,7 +5,7 @@
 #import "keychain/ot/OTPersonaAdapter.h"
 
 // For the escrowRepairAttemptVersion field.
-#define ESCROW_REPAIR_CURRENT_VERSION 3
+#define ESCROW_REPAIR_CURRENT_VERSION 4
 
 NS_ASSUME_NONNULL_BEGIN
 

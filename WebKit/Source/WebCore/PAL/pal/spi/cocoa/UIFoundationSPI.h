@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 DECLARE_SYSTEM_HEADER
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -54,3 +57,27 @@ DECLARE_SYSTEM_HEADER
 #endif // ENABLE(MULTI_REPRESENTATION_HEIC)
 
 #endif // USE(APPLE_INTERNAL_SDK)
+
+#if PLATFORM(MAC) && !__has_include(<UIFoundation/NSTextTable.h>)
+
+// Map new names to deprecated names so that we can build against older SDKs,
+// while referencing only the new enum value names.
+#define NSTextBlockValueTypeAbsolute                    NSTextBlockAbsoluteValueType
+#define NSTextBlockValueTypePercentage                  NSTextBlockPercentageValueType
+#define NSTextBlockDimensionWidth                       NSTextBlockWidth
+#define NSTextBlockDimensionMinimumWidth                NSTextBlockMinimumWidth
+#define NSTextBlockDimensionMaximumWidth                NSTextBlockMaximumWidth
+#define NSTextBlockDimensionHeight                      NSTextBlockHeight
+#define NSTextBlockDimensionMinimumHeight               NSTextBlockMinimumHeight
+#define NSTextBlockDimensionMaximumHeight               NSTextBlockMaximumHeight
+#define NSTextBlockLayerPadding                         NSTextBlockPadding
+#define NSTextBlockLayerBorder                          NSTextBlockBorder
+#define NSTextBlockLayerMargin                          NSTextBlockMargin
+#define NSTextBlockVerticalAlignmentTop                 NSTextBlockTopAlignment
+#define NSTextBlockVerticalAlignmentMiddle              NSTextBlockMiddleAlignment
+#define NSTextBlockVerticalAlignmentBottom              NSTextBlockBottomAlignment
+#define NSTextBlockVerticalAlignmentBaseline            NSTextBlockBaselineAlignment
+#define NSTextTableLayoutAlgorithmAutomatic             NSTextTableAutomaticLayoutAlgorithm
+#define NSTextTableLayoutAlgorithmFixed                 NSTextTableFixedLayoutAlgorithm
+
+#endif // PLATFORM(MAC) && !__has_include(<UIFoundation/NSTextTable.h>)

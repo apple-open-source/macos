@@ -34,7 +34,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKSerializedNode.class, self))
         return;
-    _node->API::SerializedNode::~SerializedNode();
+    SUPPRESS_UNRETAINED_ARG _node->API::SerializedNode::~SerializedNode();
     [super dealloc];
 }
 

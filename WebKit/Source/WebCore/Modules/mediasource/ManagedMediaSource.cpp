@@ -40,17 +40,17 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ManagedMediaSource);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ManagedMediaSource);
 
 Ref<ManagedMediaSource> ManagedMediaSource::create(ScriptExecutionContext& context, MediaSourceInit&& options)
 {
-    auto mediaSource = adoptRef(*new ManagedMediaSource(context, WTFMove(options)));
+    auto mediaSource = adoptRef(*new ManagedMediaSource(context, WTF::move(options)));
     mediaSource->suspendIfNeeded();
     return mediaSource;
 }
 
 ManagedMediaSource::ManagedMediaSource(ScriptExecutionContext& context, MediaSourceInit&& options)
-    : MediaSource(context, WTFMove(options))
+    : MediaSource(context, WTF::move(options))
     , m_streamingTimer(*this, &ManagedMediaSource::streamingTimerFired)
 {
 }

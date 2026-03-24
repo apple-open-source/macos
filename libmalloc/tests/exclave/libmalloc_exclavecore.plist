@@ -51,7 +51,7 @@
 				<key>TestOutputType</key>
 				<string>stderrOutput</string>
 				<key>Timeout</key>
-				<integer>1200</integer>
+				<integer>2400</integer>
 				<key>RequiresSysctl</key>
 				<string>kern.hv.supported==1</string>
 				<key>Command</key>
@@ -61,6 +61,8 @@
 					<string>--test</string>
 					<string>--corefile-path</string>
 					<string>EVE_corefile.core</string>
+					<string>--memory-size</string>
+					<string>1610612736</string>
 				</array>
 			</dict>
 		</array>

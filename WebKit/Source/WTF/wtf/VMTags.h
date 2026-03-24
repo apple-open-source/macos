@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if USE(SYSTEM_MALLOC)
 
 #define VM_TAG_FOR_TCMALLOC_MEMORY -1

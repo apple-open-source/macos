@@ -50,7 +50,7 @@ inline LineClampUpdater::LineClampUpdater(const RenderBlockFlow& blockContainer)
         return;
 
     m_previousLineClamp = layoutState->lineClamp();
-    if (blockContainer.isFieldset()) {
+    if (blockContainer.isFieldset() || blockContainer.style().display() == DisplayType::InlineBlock) {
         layoutState->setLineClamp({ });
 
         m_skippedLegacyLineClampToRestore = layoutState->legacyLineClamp();

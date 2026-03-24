@@ -93,6 +93,9 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
 
     // Non standard: It has been dropped from Blink already.
     RenderingContext? getCSSCanvasContext(DOMString contextId, DOMString name, long width, long height);
+
+    [EnabledBySetting=IsARIANotifyEnabled] undefined ariaNotify(DOMString announcement);
+    [EnabledBySetting=IsARIANotifyEnabled] undefined ariaNotify(DOMString announcement, AriaNotifyOptions options);
 };
 
 enum DocumentReadyState { "loading", "interactive", "complete" };

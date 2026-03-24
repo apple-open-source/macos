@@ -25,8 +25,11 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if PLATFORM(COCOA)
 
+#include <mach/message.h>
 #include <optional>
 #include <wtf/BitSet.h>
 #include <wtf/Forward.h>
@@ -74,7 +77,6 @@ enum class SDKAlignedBehavior {
     ModernCompabilityModeByDefault,
     MutationEventsDisabledByDefault,
     NavigationActionSourceFrameNonNull,
-    AllowBackgroundAudioPlayback,
     NoClientCertificateLookup,
     NoExpandoIndexedPropertiesOnWindow,
     NoPokerBrosBuiltInTagQuirk,
@@ -129,6 +131,9 @@ enum class SDKAlignedBehavior {
     DidFailProvisionalNavigationWithErrorForFileURLNavigation,
     CrashWhenPreconnectingFromBackgroundThread,
     ExecutionTimingChangeOfModuleScripts,
+    GetBoundingClientRectZoomed,
+    CrashWhenMutatingProcessAssertionsFromBackgroundThread,
+    NoFontFaceSetConstructor,
 
     NumberOfBehaviors
 };
@@ -151,6 +156,11 @@ WTF_EXPORT_PRIVATE void setApplicationBundleIdentifierOverride(const String&);
 WTF_EXPORT_PRIVATE String applicationBundleIdentifier();
 WTF_EXPORT_PRIVATE void clearApplicationBundleIdentifierTestingOverride();
 
+#if USE(SOURCE_APPLICATION_AUDIT_DATA)
+WTF_EXPORT_PRIVATE void setApplicationAuditToken(audit_token_t);
+WTF_EXPORT_PRIVATE std::optional<audit_token_t> applicationAuditToken();
+#endif
+
 namespace CocoaApplication {
 
 WTF_EXPORT_PRIVATE bool isAppleApplication();
@@ -170,6 +180,7 @@ WTF_EXPORT_PRIVATE bool isAppleMail();
 WTF_EXPORT_PRIVATE bool isMiniBrowser();
 WTF_EXPORT_PRIVATE bool isQuickenEssentials();
 WTF_EXPORT_PRIVATE bool isSafari();
+WTF_EXPORT_PRIVATE bool isSafariTechnologyPreview();
 WTF_EXPORT_PRIVATE bool isVersions();
 WTF_EXPORT_PRIVATE bool isHRBlock();
 WTF_EXPORT_PRIVATE bool isTurboTax();
@@ -204,8 +215,6 @@ WTF_EXPORT_PRIVATE bool isMobileStore();
 WTF_EXPORT_PRIVATE bool isUNIQLOApp();
 WTF_EXPORT_PRIVATE bool isDOFUSTouch();
 WTF_EXPORT_PRIVATE bool isMyRideK12();
-WTF_EXPORT_PRIVATE bool isFirefox();
-WTF_EXPORT_PRIVATE bool isFirefoxFocus();
 
 } // IOSApplication
 
@@ -226,5 +235,10 @@ using WTF::setApplicationBundleIdentifier;
 using WTF::setApplicationBundleIdentifierOverride;
 using WTF::setProcessIsExtension;
 using WTF::setSDKAlignedBehaviors;
+
+#if USE(SOURCE_APPLICATION_AUDIT_DATA)
+using WTF::applicationAuditToken;
+using WTF::setApplicationAuditToken;
+#endif
 
 #endif // PLATFORM(COCOA)

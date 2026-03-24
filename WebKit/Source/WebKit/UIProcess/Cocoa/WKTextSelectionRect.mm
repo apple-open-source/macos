@@ -87,7 +87,7 @@
 {
     WebCore::SelectionGeometry selectionGeometry;
     selectionGeometry.setRect(WebCore::enclosingIntRect(rect));
-    return [self initWithSelectionGeometry:WTFMove(selectionGeometry) delegate:nil];
+    return [self initWithSelectionGeometry:WTF::move(selectionGeometry) delegate:nil];
 }
 
 - (instancetype)initWithSelectionGeometry:(const WebCore::SelectionGeometry&)selectionGeometry delegate:(id<WKTextSelectionRectDelegate>)delegate

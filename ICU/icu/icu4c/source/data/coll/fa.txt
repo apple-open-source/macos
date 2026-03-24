@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 fa{
     collations{
         search{
@@ -8,7 +8,7 @@ fa{
                 "[import und-u-co-search]"
                 "[import fa-u-co-standard]"
             }
-            Version{"46"}
+            Version{"48"}
         }
         standard{
             Sequence{
@@ -23,7 +23,7 @@ fa{
                 "&ۏ<ه<<ە<<ہ<<ة<<ۃ<<ۀ<<ھ"
                 "&ی<<*ىےيېۑۍێ"
             }
-            Version{"46"}
+            Version{"48"}
         }
     }
 }

@@ -92,9 +92,7 @@ public:
     void TestUnicodeStringImplementsAppendable();
     void TestSizeofUnicodeString();
     void TestMoveSwap();
-#if APPLE_ICU_CHANGES // rdar://156096279
     void TestLargeMemory();
-#endif
 
     void TestUInt16Pointers();
     void TestWCharPointers();
@@ -103,6 +101,7 @@ public:
     void TestLargeAppend();
     void TestU16StringView();
     void TestWStringView();
+    void TestRange();
 };
 
 #endif

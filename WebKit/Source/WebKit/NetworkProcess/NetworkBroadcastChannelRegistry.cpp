@@ -99,7 +99,7 @@ void NetworkBroadcastChannelRegistry::postMessage(IPC::Connection& connection, c
     if (connectionIdentifiersForNameIterator == channelsForOriginIterator->value.end())
         return completionHandler();
 
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    auto callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
     for (auto& connectionID : connectionIdentifiersForNameIterator->value) {
         // Only dispatch the post the messages to BroadcastChannels outside the source process.
         if (connectionID == connection.uniqueID())

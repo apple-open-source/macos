@@ -47,12 +47,17 @@ public:
 #endif // PLATFORM(IOS_FAMILY)
 
 private:
-    static ASCIILiteral supplementName();
+    static ASCIILiteral supplementName() { return "NavigatorGeolocation"_s; }
+    bool isNavigatorGeolocation() const final { return true; }
 
     const RefPtr<Geolocation> m_geolocation;
     const CheckedRef<Navigator> m_navigator;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::NavigatorGeolocation)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isNavigatorGeolocation(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GEOLOCATION)

@@ -108,6 +108,13 @@ T_DECL(nano_active_test, "Test that Nano is activated",
 
 T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
 		T_META_ENVVAR("MallocNanoZone=V2"), T_META_ENVVAR("MallocProbGuard=0"),
+		// This test only happens to work with thread caching enabled and a bin
+		// step of 2 because it's highly improbable that any single size class
+		// gets enough allocations to trigger thread caching.  With a bin step
+		// of 1, the 192 and 256 bins are almost guaranteed to serve enough
+		// allocations to reach the threshold and activate, and then the stats
+		// differ by the amount in the cache.
+		T_META_ENVVAR("MallocXzoneBinStep=2"),
 		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 #if CONFIG_NANOZONE

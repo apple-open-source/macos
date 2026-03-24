@@ -55,6 +55,7 @@ public:
 
     static void adjustVisibilityForPseudoElement(RenderStyle&, const Element& host);
     static void adjustFirstLetterStyle(RenderStyle&);
+    static void adjustFirstLineStyle(RenderStyle&);
     static void adjustSVGElementStyle(RenderStyle&, const SVGElement&);
     static bool adjustEventListenerRegionTypesForRootStyle(RenderStyle&, const Document&);
     static void propagateToDocumentElementAndInitialContainingBlock(Update&, const Document&);

@@ -160,7 +160,7 @@ static bool string_cert_to_bool_bool_error(enum SecXPCOperation op, SecTrustStor
 Boolean SecTrustStoreContains(SecTrustStoreRef ts, SecCertificateRef certificate) {
     bool ok = false;
 	__block bool contains = false;
-    require(ts, errOut);
+    __Require(ts, errOut);
     ok = (SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_contains, string_cert_to_bool_bool_error, ts, certificate, &contains, error);
     }) == errSecSuccess);
@@ -237,13 +237,13 @@ static OSStatus validateTrustSettings(Boolean isSelfSigned,
         result = CFDictionaryCreateMutableCopy(NULL, 0, trustSettingsDictOrArray);
         status = validateConstraint(isSelfSigned, (CFMutableDictionaryRef)result);
     } else if (CFArrayGetTypeID() == CFGetTypeID(trustSettingsDictOrArray)) {
-        require_action_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks),
+        __Require_Action_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks),
                              out, status = errSecAllocate);
         CFIndex ix, count = CFArrayGetCount(trustSettingsDictOrArray);
         for (ix = 0; ix < count; ix++) {
             CFDictionaryRef constraint = CFArrayGetValueAtIndex(trustSettingsDictOrArray, ix);
             CFDictionaryRef modifiedConstraint = NULL;
-            require_noerr_quiet(status = validateTrustSettings(isSelfSigned, constraint, (CFTypeRef *)&modifiedConstraint), out);
+            __Require_noErr_Quiet(status = validateTrustSettings(isSelfSigned, constraint, (CFTypeRef *)&modifiedConstraint), out);
             CFArrayAppendValue((CFMutableArrayRef)result, modifiedConstraint);
             CFReleaseNull(modifiedConstraint); /* constraint now owned by array */
         }
@@ -264,8 +264,8 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     __block CFTypeRef validatedTrustSettings = NULL;
 
     Boolean isSelfSigned = false;
-    require_noerr_quiet(result = SecCertificateIsSelfSigned(certificate, &isSelfSigned), out);
-    require_noerr_quiet(result = validateTrustSettings(isSelfSigned, trustSettingsDictOrArray, &validatedTrustSettings), out);
+    __Require_noErr_Quiet(result = SecCertificateIsSelfSigned(certificate, &isSelfSigned), out);
+    __Require_noErr_Quiet(result = validateTrustSettings(isSelfSigned, trustSettingsDictOrArray, &validatedTrustSettings), out);
 
     os_activity_initiate("SecTrustStoreSetTrustSettings", OS_ACTIVITY_FLAG_DEFAULT, ^{
         result = SecOSStatusWith(^bool (CFErrorRef *error) {
@@ -290,7 +290,7 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 
     os_activity_t activity = os_activity_create("SecTrustStoreRemoveCertificate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(ts, errOut);
+    __Require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_remove_certificate, string_cert_to_bool_error, ts, certificate, error);
@@ -365,7 +365,7 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
 
     os_activity_t activity = os_activity_create("SecTrustStoreCopyAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(ts, errOut);
+    __Require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_copy_all, string_string_to_array_error, ts, NULL, &results, error);
@@ -384,7 +384,7 @@ CFArrayRef SecTrustStoreCopyAnchors(SecTrustStoreRef ts, CFStringRef policyId) {
 
     os_activity_t activity = os_activity_create("SecTrustStoreCopyAnchors", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(ts, errOut);
+    __Require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_copy_all, string_string_to_array_error, ts, policyId, &results, error);
@@ -415,9 +415,9 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
 
     os_activity_t activity = os_activity_create("SecTrustStoreCopyUsageConstraints", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(ts, errOut);
-    require(certificate, errOut);
-    require(usageConstraints, errOut);
+    __Require(ts, errOut);
+    __Require(certificate, errOut);
+    __Require(usageConstraints, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_copy_usage_constraints, string_cert_to_array_error, ts, certificate, &results, error);
@@ -456,7 +456,7 @@ OSStatus SecTrustStoreRemoveAll(SecTrustStoreRef ts)
 
     os_activity_t activity = os_activity_create("SecTrustStoreRemoveAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(ts, errOut);
+    __Require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_truststore_remove_all, string_to_error, ts, error);
@@ -705,7 +705,7 @@ OSStatus SecTrustSettingsXPCRead(CFStringRef domain, CFDataRef *trustSettings) {
 
     os_activity_t activity = os_activity_create("SecTrustSettingsXPCRead", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    require(domain, errOut);
+    __Require(domain, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_settings_copy_data,

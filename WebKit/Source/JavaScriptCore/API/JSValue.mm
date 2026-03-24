@@ -882,7 +882,7 @@ static void reportExceptionToInspector(JSGlobalContextRef context, JSC::JSValue 
     JSC::JSGlobalObject* globalObject = toJS(context);
     JSC::VM& vm = globalObject->vm();
     JSC::Exception* exception = JSC::Exception::create(vm, exceptionValue);
-    globalObject->inspectorController().reportAPIException(globalObject, exception);
+    globalObject->checkedInspectorController()->reportAPIException(globalObject, exception);
 }
 #endif
 
@@ -1285,7 +1285,7 @@ static StructHandlers* createStructHandlerMap()
             return;
         {
             auto type = adoptSystemMalloc(method_copyArgumentType(method, 2));
-            structHandlers->add(StringImpl::createFromCString(type.get()), (StructTagHandler) { selector, 0 });
+            structHandlers->add(byteCast<Latin1Character>(unsafeSpan(type.get())), StructTagHandler { selector, nullptr });
         }
     });
 

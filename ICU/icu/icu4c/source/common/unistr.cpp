@@ -1945,7 +1945,6 @@ UnicodeString::cloneArrayIfNeeded(int32_t newCapacity,
       growCapacity = newCapacity;
     } else if(newCapacity <= US_STACKBUF_SIZE && growCapacity > US_STACKBUF_SIZE) {
       growCapacity = US_STACKBUF_SIZE;
-#if APPLE_ICU_CHANGES // rdar://156096279
     } else if(newCapacity > growCapacity) {
       setToBogus();
       return false;  // bad inputs
@@ -1953,7 +1952,6 @@ UnicodeString::cloneArrayIfNeeded(int32_t newCapacity,
     if(growCapacity > kMaxCapacity) {
       setToBogus();
       return false;
-#endif
     }
 
     // save old values

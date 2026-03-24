@@ -398,8 +398,8 @@ fprint_quick_status(FILE *f)
 	write_status(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	write_status(f, "\n");
 
-	write_status(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
-	write_status(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
+	write_status(f, "port count   %zu\n", os_set_count(&global.notify_state.port_table.set));
+	write_status(f, "proc count   %zu\n", os_set_count(&global.notify_state.proc_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- NAME TABLE ---\n");
@@ -412,7 +412,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "--- NAME COUNT %zu ---\n", os_set_count(&global.notify_state.name_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- CONTROLLED NAME ---\n");
@@ -451,7 +451,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "--- PUBLIC SERVICE COUNT %zu ---\n", os_set_count(&global.notify_state.name_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- PRIVATE SERVICE ---\n");
@@ -478,7 +478,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "--- PRIVATE SERVICE COUNT %zu ---\n", os_set_count(&global.notify_state.client_table.set));
 	write_status(f, "\n");
 	write_status(f, "-- END --\n");
 }
@@ -553,8 +553,8 @@ fprint_status(FILE *f)
 	write_status(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	write_status(f, "\n");
 
-	write_status(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
-	write_status(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
+	write_status(f, "port count   %zu\n", os_set_count(&global.notify_state.port_table.set));
+	write_status(f, "proc count   %zu\n", os_set_count(&global.notify_state.proc_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- NAME TABLE ---\n");
@@ -566,7 +566,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "--- NAME COUNT %zu ---\n", os_set_count(&global.notify_state.name_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- SUBSCRIPTION TABLE ---\n");
@@ -577,7 +577,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- SUBSCRIPTION COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "--- SUBSCRIPTION COUNT %zu ---\n", os_set_count(&global.notify_state.client_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- CONTROLLED NAME ---\n");
@@ -616,7 +616,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "--- PUBLIC SERVICE COUNT %zu ---\n", os_set_count(&global.notify_state.name_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- PRIVATE SERVICE ---\n");
@@ -644,7 +644,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	write_status(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "--- PRIVATE SERVICE COUNT %zu ---\n", os_set_count(&global.notify_state.client_table.set));
 	write_status(f, "\n");
 
 	write_status(f, "--- PROCESSES ---\n");
@@ -1327,6 +1327,7 @@ main(int argc, const char *argv[])
 
 	memset(&call_statistics, 0, sizeof(struct call_statistics_s));
 
+	global.call_stats = &call_statistics;
 	global.nslots = getpagesize() / sizeof(uint32_t);
 	_notify_lib_notify_state_init(&global.notify_state, NOTIFY_STATE_ENABLE_RESEND);
 	global.next_no_client_token = 1;

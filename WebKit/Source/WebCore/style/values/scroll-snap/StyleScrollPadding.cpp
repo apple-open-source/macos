@@ -43,7 +43,7 @@ auto Evaluation<ScrollPaddingEdge, LayoutUnit>::operator()(const ScrollPaddingEd
             return evaluate<LayoutUnit>(percentage, referenceLength);
         },
         [&](const ScrollPaddingEdge::Calc& calculated) {
-            return evaluate<LayoutUnit>(calculated, referenceLength);
+            return evaluate<LayoutUnit>(calculated, referenceLength, token);
         },
         [&](const CSS::Keyword::Auto&) {
             return 0_lu;
@@ -61,7 +61,7 @@ auto Evaluation<ScrollPaddingEdge, float>::operator()(const ScrollPaddingEdge& e
             return evaluate<float>(percentage, referenceLength);
         },
         [&](const ScrollPaddingEdge::Calc& calculated) {
-            return evaluate<float>(calculated, referenceLength);
+            return evaluate<float>(calculated, referenceLength, token);
         },
         [&](const CSS::Keyword::Auto&) {
             return 0.0f;

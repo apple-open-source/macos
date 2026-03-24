@@ -210,9 +210,9 @@ CFGiblisWithHashFor(SecPolicy);
 SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options) {
 	SecPolicyRef result = NULL;
 
-	require(oid, errOut);
-	require(options, errOut);
-    require(result =
+	__Require(oid, errOut);
+	__Require(options, errOut);
+    __Require(result =
 		(SecPolicyRef)_CFRuntimeCreateInstance(kCFAllocatorDefault,
 		SecPolicyGetTypeID(),
 		sizeof(struct __SecPolicy) - sizeof(CFRuntimeBase), 0), errOut);
@@ -291,7 +291,7 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     CFTypeRef intermediateMarkerOid = NULL;
     CFStringRef leafMarkerOid = NULL;
 	CFDataRef rootDigest = NULL;
-	require(policyIdentifier && (CFStringGetTypeID() == CFGetTypeID(policyIdentifier)), errOut);
+	__Require(policyIdentifier && (CFStringGetTypeID() == CFGetTypeID(policyIdentifier)), errOut);
 
 	if (properties) {
 		name = CFDictionaryGetValue(properties, kSecPolicyName);
@@ -474,6 +474,8 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
             secerror("policy \"%@\" requires kSecPolicyName input", policyIdentifier);
         }
         CFReleaseSafe(array);
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleIdentityWebPresentment)) {
+        policy = SecPolicyCreateIdentityWebPresentment(name);
     }
     /* For a couple of common patterns we use the macro, but some of the
      * policies are deprecated (or not yet available), so we need to ignore the warning. */
@@ -848,16 +850,16 @@ static xpc_object_t SecPolicyCopyXPCObject(SecPolicyRef policy, CFErrorRef *erro
             CFStringAppend(oidAndName, policy->_name);
         }
 
-        require_action_quiet(data[0] = _CFXPCCreateXPCObjectFromCFObject(oidAndName), exit,
+        __Require_Action_Quiet(data[0] = _CFXPCCreateXPCObjectFromCFObject(oidAndName), exit,
                              SecError(errSecParam, error,
                                       CFSTR("failed to create xpc_object from policy oid and name")));
     } else {
-        require_action_quiet(data[0] = _CFXPCCreateXPCObjectFromCFObject(policy->_oid), exit,
+        __Require_Action_Quiet(data[0] = _CFXPCCreateXPCObjectFromCFObject(policy->_oid), exit,
                              SecError(errSecParam, error, CFSTR("failed to create xpc_object from policy oid")));
     }
-    require_action_quiet(data[1] = _CFXPCCreateXPCObjectFromCFObject(policy->_options), exit,
+    __Require_Action_Quiet(data[1] = _CFXPCCreateXPCObjectFromCFObject(policy->_options), exit,
                          SecError(errSecParam, error, CFSTR("failed to create xpc_object from policy options")));
-    require_action_quiet(xpc_policy = xpc_array_create(data, array_size(data)), exit,
+    __Require_Action_Quiet(xpc_policy = xpc_array_create(data, array_size(data)), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create xpc_array for policy")));
 
 exit:
@@ -882,7 +884,7 @@ static bool SecPolicyAppendToXPCArray(SecPolicyRef policy, xpc_object_t policies
 
 xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error) {
     xpc_object_t xpc_policies;
-    require_action_quiet(xpc_policies = xpc_array_create(NULL, 0), exit,
+    __Require_Action_Quiet(xpc_policies = xpc_array_create(NULL, 0), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create xpc_array")));
     CFIndex ix, count = CFArrayGetCount(policies);
     for (ix = 0; ix < count; ++ix) {
@@ -928,18 +930,18 @@ static SecPolicyRef SecPolicyCreateWithXPCObject(xpc_object_t xpc_policy, CFErro
     CFStringRef name = NULL;
     CFTypeRef options = NULL;
 
-    require_action_quiet(xpc_policy, exit, SecError(errSecParam, error, CFSTR("policy xpc value is NULL")));
-    require_action_quiet(xpc_get_type(xpc_policy) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("policy xpc value is not an array")));
-    require_action_quiet(xpc_array_get_count(xpc_policy) >= 2, exit, SecError(errSecDecode, error, CFSTR("policy xpc array count < 2")));
+    __Require_Action_Quiet(xpc_policy, exit, SecError(errSecParam, error, CFSTR("policy xpc value is NULL")));
+    __Require_Action_Quiet(xpc_get_type(xpc_policy) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("policy xpc value is not an array")));
+    __Require_Action_Quiet(xpc_array_get_count(xpc_policy) >= 2, exit, SecError(errSecDecode, error, CFSTR("policy xpc array count < 2")));
     oidAndName = _CFXPCCreateCFObjectFromXPCObject(xpc_array_get_value(xpc_policy, 0));
-    require_action_quiet(isString(oidAndName), exit,
+    __Require_Action_Quiet(isString(oidAndName), exit,
                          SecError(errSecParam, error, CFSTR("failed to convert xpc policy[0]=%@ to CFString"), oidAndName));
     options = _CFXPCCreateCFObjectFromXPCObject(xpc_array_get_value(xpc_policy, 1));
-    require_action_quiet(isDictionary(options), exit,
+    __Require_Action_Quiet(isDictionary(options), exit,
                          SecError(errSecParam, error, CFSTR("failed to convert xpc policy[1]=%@ to CFDictionary"), options));
-    require_noerr_action_quiet(parseOidAndName(oidAndName, &oid, &name), exit,
+    __Require_noErr_Action_Quiet(parseOidAndName(oidAndName, &oid, &name), exit,
                                SecError(errSecParam, error, CFSTR("failed to convert combined %@ to name and oid"), oidAndName));
-    require_action_quiet(policy = SecPolicyCreate(oid, name, options), exit,
+    __Require_Action_Quiet(policy = SecPolicyCreate(oid, name, options), exit,
                          SecError(errSecDecode, error, CFSTR("Failed to create policy")));
 
 exit:
@@ -952,12 +954,12 @@ exit:
 
 CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error) {
     CFMutableArrayRef policies = NULL;
-    require_action_quiet(xpc_get_type(xpc_policies) == XPC_TYPE_ARRAY, exit,
+    __Require_Action_Quiet(xpc_get_type(xpc_policies) == XPC_TYPE_ARRAY, exit,
                          SecError(errSecParam, error, CFSTR("policies xpc value is not an array")));
     size_t count = xpc_array_get_count(xpc_policies);
-    require_action_quiet(count < LONG_MAX,  exit,
+    __Require_Action_Quiet(count < LONG_MAX,  exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
-    require_action_quiet(policies = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
+    __Require_Action_Quiet(policies = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
 
     size_t ix;
@@ -981,9 +983,9 @@ static SEC_CONST_DECL (kSecPolicyOptions, "policyOptions");
 static SecPolicyRef SecPolicyCreateWithDictionary(CFDictionaryRef dict) {
     SecPolicyRef policy = NULL;
     CFStringRef oid = (CFStringRef)CFDictionaryGetValue(dict, kSecPolicyOid);
-    require_quiet(isString(oid), errOut);
+    __Require_Quiet(isString(oid), errOut);
     CFDictionaryRef options = (CFDictionaryRef)CFDictionaryGetValue(dict, kSecPolicyOptions);
-    require_quiet(isDictionary(options), errOut);
+    __Require_Quiet(isDictionary(options), errOut);
     CFStringRef name = (CFStringRef)CFDictionaryGetValue(dict, kSecPolicyPolicyName);
     policy = SecPolicyCreate(oid, name, options);
 errOut:
@@ -1003,7 +1005,7 @@ static void deserializePolicy(const void *value, void *context) {
 
 CFArrayRef SecPolicyArrayCreateDeserialized(CFArrayRef serializedPolicies) {
     CFMutableArrayRef result = NULL;
-    require_quiet(isArray(serializedPolicies), errOut);
+    __Require_Quiet(isArray(serializedPolicies), errOut);
     CFIndex count = CFArrayGetCount(serializedPolicies);
     result = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
     CFRange all_policies = { 0, count };
@@ -1037,7 +1039,7 @@ static void serializePolicy(const void *value, void *context) {
 
 CFArrayRef SecPolicyArrayCreateSerialized(CFArrayRef policies) {
     CFMutableArrayRef result = NULL;
-    require_quiet(isArray(policies), errOut);
+    __Require_Quiet(isArray(policies), errOut);
     CFIndex count = CFArrayGetCount(policies);
     result = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
     CFRange all_policies = { 0, count};
@@ -1370,7 +1372,7 @@ static bool SecPolicyAddChainLengthOptions(CFMutableDictionaryRef options, CFInd
     bool result = false;
     CFNumberRef lengthAsCF = NULL;
 
-    require(lengthAsCF = CFNumberCreate(kCFAllocatorDefault,
+    __Require(lengthAsCF = CFNumberCreate(kCFAllocatorDefault,
                                          kCFNumberCFIndexType, &length), errOut);
     CFDictionaryAddValue(options, kSecPolicyCheckChainLength, lengthAsCF);
 
@@ -1387,7 +1389,7 @@ static bool SecPolicyAddAnchorSHA256Options(CFMutableDictionaryRef options,
     bool success = false;
     CFDataRef anchorData = NULL;
 
-    require(anchorData = CFDataCreate(kCFAllocatorDefault, anchorSha256, kSecPolicySHA256Size), errOut);
+    __Require(anchorData = CFDataCreate(kCFAllocatorDefault, anchorSha256, kSecPolicySHA256Size), errOut);
     add_element(options, kSecPolicyCheckAnchorSHA256, anchorData);
 
     success = true;
@@ -1403,11 +1405,11 @@ static bool SecPolicyAddStrongKeySizeOptions(CFMutableDictionaryRef options) {
     CFNumberRef rsaSize = NULL, ecSize = NULL;
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    __Require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
+    __Require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
     const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
     const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
+    __Require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
                                           &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
     add_element(options, kSecPolicyCheckKeySize, keySizes);
 
@@ -1467,22 +1469,22 @@ CFDataRef CreateCFDataFromBase64CFString(CFStringRef base64string)
 {
     __block CFDataRef cfData = NULL;
 
-    require_quiet(base64string, errOut);
+    __Require_Quiet(base64string, errOut);
 
     CFStringPerformWithCStringAndLength(base64string, ^(const char *base64string_buf, size_t base64string_buf_length) {
         void *data = NULL;
 
-        require_quiet(base64string_buf != NULL, errOut);
-        require_quiet(base64string_buf_length != 0, errOut);
+        __Require_Quiet(base64string_buf != NULL, errOut);
+        __Require_Quiet(base64string_buf_length != 0, errOut);
 
         size_t expected_data_length = SecBase64Decode(base64string_buf, base64string_buf_length, NULL, 0);
-        require_quiet(expected_data_length != 0, errOut);
+        __Require_Quiet(expected_data_length != 0, errOut);
 
         data = malloc(expected_data_length);
-        require(data != NULL, errOut);
+        __Require(data != NULL, errOut);
 
         size_t actual_data_length = SecBase64Decode(base64string_buf, base64string_buf_length, data, expected_data_length);
-        require_quiet(actual_data_length != 0 && actual_data_length < LONG_MAX, errOut);
+        __Require_Quiet(actual_data_length != 0 && actual_data_length < LONG_MAX, errOut);
 
         cfData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *)data, (CFIndex)actual_data_length);
 
@@ -1499,13 +1501,13 @@ static CFStringRef CopyParentDomainNameFromHostName(CFStringRef hostName)
 {
     CFStringRef parentDomainName = NULL;
 
-    require_quiet(hostName, errOut);
+    __Require_Quiet(hostName, errOut);
 
     CFIndex hostNameLength = CFStringGetLength(hostName);
-    require_quiet(hostNameLength != 0, errOut);
+    __Require_Quiet(hostNameLength != 0, errOut);
 
     CFRange nextLabel = CFStringFind(hostName, CFSTR("."), 0);
-    require_quiet(nextLabel.location != kCFNotFound && nextLabel.location < (hostNameLength - 1), errOut);
+    __Require_Quiet(nextLabel.location != kCFNotFound && nextLabel.location < (hostNameLength - 1), errOut);
 
     CFRange parentDomainNameRange = CFRangeMake(nextLabel.location + 1, hostNameLength - nextLabel.location - 1);
     parentDomainName =  CFStringCreateWithSubstring(NULL, hostName, parentDomainNameRange);
@@ -1524,7 +1526,7 @@ CFArrayRef parseNSPinnedDomains(CFDictionaryRef nsPinnedDomainsDict, CFStringRef
     CFIndex hostNameLength = CFStringGetLength(hostName);
     if (hostNameLength > 0 && '.' == CFStringGetCharacterAtIndex(hostName, hostNameLength - 1)) {
         hostName = CFStringCreateWithSubstring(NULL, hostName, CFRangeMake(0, hostNameLength - 1));
-        require_quiet(hostName, errOut);
+        __Require_Quiet(hostName, errOut);
     } else {
         CFRetainSafe(hostName);
     }
@@ -1532,8 +1534,8 @@ CFArrayRef parseNSPinnedDomains(CFDictionaryRef nsPinnedDomainsDict, CFStringRef
     CFDictionaryForEach(nsPinnedDomainsDict, ^(const void *key, const void *value) {
         CFStringRef parentDomainName = NULL;
 
-        require_quiet(isString(key), errOutNSPinnedDomainsDict);
-        require_quiet(isDictionary(value), errOutNSPinnedDomainsDict);
+        __Require_Quiet(isString(key), errOutNSPinnedDomainsDict);
+        __Require_Quiet(isDictionary(value), errOutNSPinnedDomainsDict);
 
         // Match one of the pinned domains to the current endpoint's hostname.
         CFStringRef domainName = (CFStringRef)key;
@@ -1542,30 +1544,30 @@ CFArrayRef parseNSPinnedDomains(CFDictionaryRef nsPinnedDomainsDict, CFStringRef
         // Match one of the pinned domains to the current endpoint's parent domain if allowed.
         if (hostNameMatched == false) {
             CFTypeRef nsIncludesSubdomains = CFDictionaryGetValue(value, CFSTR("NSIncludesSubdomains"));
-            require_quiet(nsIncludesSubdomains == kCFBooleanTrue, errOutNSPinnedDomainsDict);
+            __Require_Quiet(nsIncludesSubdomains == kCFBooleanTrue, errOutNSPinnedDomainsDict);
 
             parentDomainName = CopyParentDomainNameFromHostName(hostName);
-            require_quiet(parentDomainName != NULL, errOutNSPinnedDomainsDict);
+            __Require_Quiet(parentDomainName != NULL, errOutNSPinnedDomainsDict);
 
             hostNameMatched = (CFStringCompare(domainName, parentDomainName, kCFCompareCaseInsensitive) == kCFCompareEqualTo);
         }
-        require_quiet(hostNameMatched, errOutNSPinnedDomainsDict);
+        __Require_Quiet(hostNameMatched, errOutNSPinnedDomainsDict);
 
         CFTypeRef nsPinnedIdentities = CFDictionaryGetValue(value, nsPinnedIdentityType);
-        require_quiet(nsPinnedIdentities, errOutNSPinnedDomainsDict);
+        __Require_Quiet(nsPinnedIdentities, errOutNSPinnedDomainsDict);
         hostNamePinned = true;
 
-        require_quiet(isArray(nsPinnedIdentities), errOutNSPinnedDomainsDict);
+        __Require_Quiet(isArray(nsPinnedIdentities), errOutNSPinnedDomainsDict);
         CFArrayForEach(nsPinnedIdentities, ^(const void *v) {
             CFDataRef spkiSHA256 = NULL;
 
-            require_quiet(isDictionary(v), errOutNSPinnedIdentities);
+            __Require_Quiet(isDictionary(v), errOutNSPinnedIdentities);
 
             CFTypeRef spkiSHA256base64 = CFDictionaryGetValue(v, CFSTR("SPKI-SHA256-BASE64"));
-            require_quiet(isString(spkiSHA256base64), errOutNSPinnedIdentities);
+            __Require_Quiet(isString(spkiSHA256base64), errOutNSPinnedIdentities);
 
             spkiSHA256 = CreateCFDataFromBase64CFString(spkiSHA256base64);
-            require_quiet(spkiSHA256, errOutNSPinnedIdentities);
+            __Require_Quiet(spkiSHA256, errOutNSPinnedIdentities);
 
             CFArrayAppendValue(targetSPKISHA256, spkiSHA256);
 
@@ -1594,22 +1596,22 @@ static CFArrayRef getNSPinnedIdentitiesForHostName(CFStringRef hostName, CFStrin
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         CFBundleRef bundle = CFBundleGetMainBundle();
-        require(bundle, initializationIncomplete);
+        __Require(bundle, initializationIncomplete);
 
         CFDictionaryRef info = CFBundleGetInfoDictionary(bundle);
-        require(info, initializationIncomplete);
+        __Require(info, initializationIncomplete);
         CFTypeRef nsAppTransportSecurityDict = CFDictionaryGetValue(info, CFSTR("NSAppTransportSecurity"));
-        require_quiet(isDictionary(nsAppTransportSecurityDict), initializationIncomplete);
+        __Require_Quiet(isDictionary(nsAppTransportSecurityDict), initializationIncomplete);
 
         nsPinnedDomainsDict = CFDictionaryGetValue(nsAppTransportSecurityDict, CFSTR("NSPinnedDomains"));
-        require(isDictionary(nsPinnedDomainsDict), initializationIncomplete);
+        __Require(isDictionary(nsPinnedDomainsDict), initializationIncomplete);
         return;
 
     initializationIncomplete:
         nsPinnedDomainsDict = NULL;
     });
     // To proceed, this or a previous call must have found NSPinnedDomains in the info dictionary.
-    require_quiet(nsPinnedDomainsDict, errOut);
+    __Require_Quiet(nsPinnedDomainsDict, errOut);
 
     targetSPKISHA256 = (CFMutableArrayRef)parseNSPinnedDomains(nsPinnedDomainsDict, hostName, nsPinnedIdentityType);
 
@@ -1622,7 +1624,7 @@ errOut:
 static void SecPolicyAddATSpinningIfInfoSpecified(CFMutableDictionaryRef options)
 {
     CFStringRef hostname = CFDictionaryGetValue(options, kSecPolicyCheckSSLHostname);
-    require_quiet(isString(hostname), errOut);
+    __Require_Quiet(isString(hostname), errOut);
 
     CFArrayRef leafSPKISHA256 = getNSPinnedIdentitiesForHostName(hostname, CFSTR("NSPinnedLeafIdentities"));
     if (leafSPKISHA256) {
@@ -1645,7 +1647,7 @@ void SecPolicyReconcilePinningRequiredIfInfoSpecified(CFMutableDictionaryRef opt
     CFArrayRef caSPKISHA256 = NULL;
 
     hasPinningRequiredKey = CFDictionaryContainsKey(options, kSecPolicyCheckPinningRequired);
-    require_quiet(hasPinningRequiredKey, errOut);
+    __Require_Quiet(hasPinningRequiredKey, errOut);
 
     // A non-NULL, empty, leafSPKISHA256 array allows all leaves and thus excludes this hostname from pinning.
     leafSPKISHA256 = CFDictionaryGetValue(options, kSecPolicyCheckLeafSPKISHA256);
@@ -1722,14 +1724,14 @@ SecPolicyRef SecPolicyCreateBasicX509(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 	CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess,
                          kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleX509Basic, kSecPolicyNameX509Basic, options), errOut);
+	__Require(result = SecPolicyCreate(kSecPolicyAppleX509Basic, kSecPolicyNameX509Basic, options), errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -1857,7 +1859,7 @@ static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef host
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
@@ -1870,9 +1872,9 @@ static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef host
     CFDictionaryAddValue(options, kSecPolicyCheckGrayListedLeaf,   kCFBooleanTrue);
 
     if (server) {
-        require_quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
-        require_quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
-        require_quiet(SecPolicyAddPinningRequiredIfInfoSpecified(options), errOut);
+        __Require_Quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
+        __Require_Quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
+        __Require_Quiet(SecPolicyAddPinningRequiredIfInfoSpecified(options), errOut);
         SecPolicyAddATSpinningIfInfoSpecified(options);
         SecPolicyReconcilePinningRequiredIfInfoSpecified(options);
         set_ssl_validity_periods(options);
@@ -1890,7 +1892,7 @@ static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef host
     set_ssl_ekus(options, server);
     add_ats_options_from_dict(options, hostname, nsAppTransportSecurityDict);
 
-    require(result = SecPolicyCreate(server ? kSecPolicyAppleSSLServer : kSecPolicyAppleSSLClient,
+    __Require(result = SecPolicyCreate(server ? kSecPolicyAppleSSLServer : kSecPolicyAppleSSLClient,
                                      server ? kSecPolicyNameSSLServer : kSecPolicyNameSSLClient,
                                      options),
             errOut);
@@ -1921,17 +1923,17 @@ SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName, CFStringRef inte
         goto errOut;
     }
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, policyName), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, policyName), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches input OID */
     if (!isAppleOid(intermediateMarkerOID)) {
@@ -1950,11 +1952,11 @@ SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName, CFStringRef inte
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Check for weak hashes */
     // require(SecPolicyRemoveWeakHashOptions(options), errOut); // the current WWDR CA cert is signed with SHA1
-    require(result = SecPolicyCreate(kSecPolicyAppleGenericApplePinned,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleGenericApplePinned,
                                      policyName, options), errOut);
 
 errOut:
@@ -1969,7 +1971,7 @@ requireUATPinning(CFStringRef service)
 
     if (SecIsInternalRelease()) {
         CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationNoPinning%@"), service);
-        require(setting, fail);
+        __Require(setting, fail);
         if(isCFPreferenceInSecurityDomain(setting)) {
             pinningRequired = false;
         } else {
@@ -2003,17 +2005,17 @@ SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef h
     }
 
     if (requireUATPinning(policyName)) {
-        require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+        __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                     &kCFTypeDictionaryKeyCallBacks,
                                                     &kCFTypeDictionaryValueCallBacks), errOut);
 
         SecPolicyAddBasicX509Options(options);
 
         /* Anchored to the Apple Roots */
-        require(SecPolicyAddAppleAnchorOptions(options, policyName), errOut);
+        __Require(SecPolicyAddAppleAnchorOptions(options, policyName), errOut);
 
         /* Exactly 3 certs in the chain */
-        require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+        __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
         if (intermediateMarkerOID) {
             /* Intermediate marker OID matches input OID */
@@ -2041,15 +2043,15 @@ SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef h
         add_element(options, kSecPolicyCheckSSLHostname, hostname);
 
         /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-        require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+        __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
         /* Check for weak hashes */
-        require(SecPolicyRemoveWeakHashOptions(options), errOut);
+        __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
 
         /* Check revocation using any available method */
         add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-        require(result = SecPolicyCreate(kSecPolicyAppleGenericAppleSSLPinned,
+        __Require(result = SecPolicyCreate(kSecPolicyAppleGenericAppleSSLPinned,
                                          policyName, options), errOut);
 
     } else {
@@ -2067,7 +2069,7 @@ SecPolicyRef SecPolicyCreateiPhoneActivation(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
@@ -2088,13 +2090,13 @@ SecPolicyRef SecPolicyCreateiPhoneActivation(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName,
         CFSTR("Apple iPhone Activation"));
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneActivation), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneActivation), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored,
                          kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiPhoneActivation,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneActivation,
                                      kSecPolicyNameiPhoneActivation, options),
         errOut);
 
@@ -2107,7 +2109,7 @@ SecPolicyRef SecPolicyCreateiPhoneDeviceCertificate(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
@@ -2125,13 +2127,13 @@ SecPolicyRef SecPolicyCreateiPhoneDeviceCertificate(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
         CFSTR("Apple iPhone Device CA"));
 
-    require(SecPolicyAddChainLengthOptions(options, 4), errOut);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneDeviceCertificate), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 4), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneDeviceCertificate), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored,
                          kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiPhoneDeviceCertificate,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneDeviceCertificate,
                                      kSecPolicyNameiPhoneDeviceCertificate, options),
         errOut);
 
@@ -2151,16 +2153,16 @@ SecPolicyRef SecPolicyCreateFactoryDeviceCertificate(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Basic X.509 policy with the additional requirements that the chain
        is anchored at the factory device certificate issuer. */
-    require(SecPolicyAddAnchorSHA256Options(options, kFactoryDeviceCASHA256), errOut);
+    __Require(SecPolicyAddAnchorSHA256Options(options, kFactoryDeviceCASHA256), errOut);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleFactoryDeviceCertificate,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleFactoryDeviceCertificate,
                                      kSecPolicyNameFactoryDeviceCertificate, options),
         errOut);
 
@@ -2175,7 +2177,7 @@ SecPolicyRef SecPolicyCreateiAP(void) {
 	CFTimeZoneRef tz = NULL;
 	CFDateRef date = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
@@ -2189,7 +2191,7 @@ SecPolicyRef SecPolicyCreateiAP(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored,
                          kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiAP,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiAP,
                                      kSecPolicyNameiAP, options),
         errOut);
 
@@ -2212,7 +2214,7 @@ SecPolicyRef SecPolicyCreateiTunesStoreURLBag(void) {
 	SecPolicyRef result = NULL;
 
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
@@ -2222,10 +2224,10 @@ SecPolicyRef SecPolicyCreateiTunesStoreURLBag(void) {
 	CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName,
 		CFSTR("iTunes Store URL Bag"));
 
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
-    require(SecPolicyAddAnchorSHA256Options(options, kITMS_CA_SHA256), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddAnchorSHA256Options(options, kITMS_CA_SHA256), errOut);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiTunesStoreURLBag,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiTunesStoreURLBag,
                                      kSecPolicyNameiTunesStoreURLBag, options), errOut);
 
 errOut:
@@ -2237,7 +2239,7 @@ SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef trustedServerNames) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
 	SecPolicyAddBasicX509Options(options);
@@ -2261,7 +2263,7 @@ SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef trustedServerNames) {
     /* We need to check for EKU per rdar://22206018 */
     set_ssl_ekus(options, server);
 
-    require(result = SecPolicyCreate(server ? kSecPolicyAppleEAPServer : kSecPolicyAppleEAPClient,
+    __Require(result = SecPolicyCreate(server ? kSecPolicyAppleEAPServer : kSecPolicyAppleEAPClient,
                                      server ? kSecPolicyNameEAPServer : kSecPolicyNameEAPClient,
                                      options),
             errOut);
@@ -2275,7 +2277,7 @@ SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef hostname) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
@@ -2299,7 +2301,7 @@ SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef hostname) {
     //add_eku(options, &oidAnyExtendedKeyUsage);
     //add_eku(options, &oidExtendedKeyUsageIPSec);
 
-    require(result = SecPolicyCreate(server ? kSecPolicyAppleIPSecServer: kSecPolicyAppleIPSecClient,
+    __Require(result = SecPolicyCreate(server ? kSecPolicyAppleIPSecServer: kSecPolicyAppleIPSecClient,
                                      server ? kSecPolicyNameIPSecServer : kSecPolicyNameIPSecClient,
                                      options),
             errOut);
@@ -2313,13 +2315,13 @@ SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneApplicationSigning), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneApplicationSigning), errOut);
 
     /* Leaf checks */
     if (SecIsInternalRelease()) {
@@ -2343,12 +2345,12 @@ SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void) {
                          CFSTR("Apple iPhone Certification Authority"));
 
     /* Chain length check */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiPhoneApplicationSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneApplicationSigning,
                                      kSecPolicyNameiPhoneApplicationSigning, options),
         errOut);
 
@@ -2361,13 +2363,13 @@ SecPolicyRef SecPolicyCreateiPhoneVPNApplicationSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneVPNApplicationSigning), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneVPNApplicationSigning), errOut);
 
     /* Leaf checks */
     if (SecIsInternalRelease()) {
@@ -2391,12 +2393,12 @@ SecPolicyRef SecPolicyCreateiPhoneVPNApplicationSigning(void) {
                          CFSTR("Apple iPhone Certification Authority"));
 
     /* Chain length check */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleiPhoneVPNApplicationSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneVPNApplicationSigning,
                                      kSecPolicyNameiPhoneVPNApplicationSigning, options),
             errOut);
 
@@ -2409,17 +2411,17 @@ SecPolicyRef SecPolicyCreateiPhoneProfileApplicationSigning(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options); // With expiration checking
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProfileApplicationSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProfileApplicationSigning),
                   errOut);
 
     /* Chain Len: 3 */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Leaf has CodeSigning EKU */
     add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.3"));
@@ -2442,7 +2444,7 @@ SecPolicyRef SecPolicyCreateiPhoneProfileApplicationSigning(void) {
     /* Revocation via any available method */
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiPhoneProfileApplicationSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneProfileApplicationSigning,
                                      kSecPolicyNameiPhoneProfileApplicationSigning,
                                      options), errOut);
 
@@ -2455,17 +2457,17 @@ SecPolicyRef SecPolicyCreateMacOSProfileApplicationSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options); // Without expiration checking
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProfileApplicationSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProfileApplicationSigning),
                   errOut);
 
     /* Chain Len: 3 */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Leaf has CodeSigning EKU */
     add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.3"));
@@ -2490,7 +2492,7 @@ SecPolicyRef SecPolicyCreateMacOSProfileApplicationSigning(void) {
     /* Revocation via any available method */
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMacOSProfileApplicationSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMacOSProfileApplicationSigning,
                                      kSecPolicyNameMacOSProfileApplicationSigning,
                                      options), errOut);
 
@@ -2503,7 +2505,7 @@ SecPolicyRef SecPolicyCreateiPhoneProvisioningProfileSigning(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
@@ -2523,13 +2525,13 @@ SecPolicyRef SecPolicyCreateiPhoneProvisioningProfileSigning(void) {
                              CFSTR("Apple iPhone OS Provisioning Profile Signing"));
     }
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProvisioningProfileSigning), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameiPhoneProvisioningProfileSigning), errOut);
 
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleiPhoneProvisioningProfileSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleiPhoneProvisioningProfileSigning,
                                      kSecPolicyNameiPhoneProvisioningProfileSigning, options),
         errOut);
 
@@ -2547,14 +2549,14 @@ SecPolicyRef SecPolicyCreateAppleTVOSApplicationSigning(void) {
 	CFDataRef atvTestOid = NULL;
 	CFArrayRef oids = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameTVOSApplicationSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameTVOSApplicationSigning),
                   errOut);
 
     /* Check for intermediate: Apple Worldwide Developer Relations */
@@ -2572,7 +2574,7 @@ SecPolicyRef SecPolicyCreateAppleTVOSApplicationSigning(void) {
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleTVOSApplicationSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleTVOSApplicationSigning,
                                      kSecPolicyNameTVOSApplicationSigning, options),
 			errOut);
 
@@ -2591,14 +2593,14 @@ SecPolicyRef SecPolicyCreateAppleXROSApplicationSigning(void) {
     CFDataRef xrTestOid = NULL;
     CFArrayRef oids = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameXROSApplicationSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameXROSApplicationSigning),
                   errOut);
 
     /* Check for intermediate: Apple Worldwide Developer Relations */
@@ -2619,7 +2621,7 @@ SecPolicyRef SecPolicyCreateAppleXROSApplicationSigning(void) {
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleXROSApplicationSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleXROSApplicationSigning,
                                      kSecPolicyNameXROSApplicationSigning, options),
             errOut);
 
@@ -2635,7 +2637,7 @@ SecPolicyRef SecPolicyCreateOCSPSigner(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
@@ -2647,7 +2649,7 @@ SecPolicyRef SecPolicyCreateOCSPSigner(void) {
     add_ku(options, kSecKeyUsageDigitalSignature);
     CFDictionarySetValue(options, kSecPolicyCheckNotCA, kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleOCSPSigner,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleOCSPSigner,
                                      kSecPolicyNameOCSPSigner, options), errOut);
 
 errOut:
@@ -2659,9 +2661,9 @@ SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-    require(revocationFlags != 0, errOut);
+    __Require(revocationFlags != 0, errOut);
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     if (revocationFlags & kSecRevocationCheckIfTrusted) {
@@ -2702,9 +2704,9 @@ SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags) {
     }
 
 	/* Only flag bits 0-6 are currently defined */
-	require(((revocationFlags >> 7) == 0), errOut);
+	__Require(((revocationFlags >> 7) == 0), errOut);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleRevocation,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleRevocation,
                                      kSecPolicyNameRevocation, options), errOut);
 
 errOut:
@@ -2738,7 +2740,7 @@ SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     if (smimeUsage & kSecIgnoreExpirationSMIMEUsage) {
@@ -2776,15 +2778,15 @@ SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
     CFDictionaryAddValue(options, kSecPolicyCheckEmailProtectionEKU, kCFBooleanTrue);
     set_smime_validity_periods(options);
 
-    require_quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
-    require_quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require_Quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require_Quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
 
 #if !TARGET_OS_IPHONE
     // Check revocation on OS X
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 #endif
 
-	require(result = SecPolicyCreate(kSecPolicyAppleSMIME, kSecPolicyNameSMIME, options), errOut);
+	__Require(result = SecPolicyCreate(kSecPolicyAppleSMIME, kSecPolicyNameSMIME, options), errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -2795,18 +2797,18 @@ SecPolicyRef SecPolicyCreateApplePackageSigning(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
 	SecPolicyAddBasicCertOptions(options);
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePackageSigning), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePackageSigning), errOut);
 
     add_ku(options, kSecKeyUsageDigitalSignature);
     add_eku(options, &oidExtendedKeyUsageCodeSigning);
 
-	require(result = SecPolicyCreate(kSecPolicyApplePackageSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyApplePackageSigning,
                                      kSecPolicyNamePackageSigning, options),
         errOut);
 
@@ -2816,29 +2818,33 @@ errOut:
 
 }
 
-SecPolicyRef SecPolicyCreateAppleSWUpdateSigning(void) {
-	CFMutableDictionaryRef options = NULL;
-	SecPolicyRef result = NULL;
-/*
- * OS X rules for this policy:
- * -- Must have one intermediate cert
- * -- intermediate must have basic constraints with path length 0
- * -- intermediate has CSSMOID_APPLE_EKU_CODE_SIGNING EKU
- * -- leaf cert has either CODE_SIGNING or CODE_SIGN_DEVELOPMENT EKU (the latter of
- *    which triggers a CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT error)
- */
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+static SecPolicyRef SecPolicyCreateAppleSWUpdateSigning_internal(bool checkExpiration) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+    /*
+     * OS X rules for this policy:
+     * -- Must have one intermediate cert
+     * -- intermediate must have basic constraints with path length 0
+     * -- intermediate has CSSMOID_APPLE_EKU_CODE_SIGNING EKU
+     * -- leaf cert has either CODE_SIGNING or CODE_SIGN_DEVELOPMENT EKU (the latter of
+     *    which triggers a CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT error)
+     */
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
-	SecPolicyAddBasicX509Options(options);
+    if (checkExpiration) {
+        SecPolicyAddBasicX509Options(options);
+    } else {
+        SecPolicyAddBasicCertOptions(options);
+    }
 
-	require(SecPolicyAddChainLengthOptions(options, 3), errOut);
-	require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSWUpdateSigning), errOut);
+	__Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+	__Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSWUpdateSigning), errOut);
 
 	add_eku(options, &oidAppleExtendedKeyUsageCodeSigning);
 	add_oid(options, kSecPolicyCheckIntermediateEKU, &oidAppleExtendedKeyUsageCodeSigning);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleSWUpdateSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleSWUpdateSigning,
                                      kSecPolicyNameSWUpdateSigning, options),
 			errOut);
 
@@ -2848,11 +2854,49 @@ errOut:
 
 }
 
+SecPolicyRef SecPolicyCreateAppleSWUpdateSigning(void) {
+    return SecPolicyCreateAppleSWUpdateSigning_internal(true);
+}
+
+SecPolicyRef SecPolicyCreateXcodeAEASigning(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* No expiration check */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* Anchored to the Apple Roots */
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameXcodeAEASigning), errOut);
+
+    /* Exactly 3 certs in the chain */
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Intermediate contains Marker for the Application Integration Intermediate Certificate */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.3"));
+
+    // Leaf contains XCodeAEASigning leaf marker (OID managed by Certificate Manager)
+    add_element(options, kSecPolicyCheckLeafMarkerOid, CFSTR("1.2.840.113635.100.19.1.1.1.5"));
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    __Require(result = SecPolicyCreate(kSecPolicyAppleXcodeAEASigning,
+                                     kSecPolicyNameXcodeAEASigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
 SecPolicyRef SecPolicyCreateCodeSigning(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
 	SecPolicyAddBasicX509Options(options);
@@ -2872,7 +2916,7 @@ SecPolicyRef SecPolicyCreateCodeSigning(void) {
 	add_eku(options, &oidAnyExtendedKeyUsage);
 #endif
 
-	require(result = SecPolicyCreate(kSecPolicyAppleCodeSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleCodeSigning,
                                      kSecPolicyNameCodeSigning, options),
         errOut);
 
@@ -2886,7 +2930,7 @@ SecPolicyRef SecPolicyCreateLockdownPairing(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 	//CFDictionaryAddValue(options, kSecPolicyCheckBasicCertificateProcessing,
     //    kCFBooleanTrue); // Happens automatically in SecPVCPathChecks
@@ -2903,7 +2947,7 @@ SecPolicyRef SecPolicyCreateLockdownPairing(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored,
         kCFBooleanTrue);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleLockdownPairing,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleLockdownPairing,
                                      kSecPolicyNameLockdownPairing, options), errOut);
 
 errOut:
@@ -2915,14 +2959,14 @@ SecPolicyRef SecPolicyCreateURLBag(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
 
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     add_eku(options, &oidExtendedKeyUsageCodeSigning);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleURLBag,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleURLBag,
                                      kSecPolicyNameURLBag, options), errOut);
 
 errOut:
@@ -2935,16 +2979,16 @@ SecPolicyRef SecPolicyCreateOTATasking(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Apple Anchor */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
 
     /* Chain length of 3 */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate has common name "Apple iPhone Certification Authority". */
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
@@ -2953,7 +2997,7 @@ SecPolicyRef SecPolicyCreateOTATasking(void)
     /* Leaf has common name "Asset Manifest Signing" */
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName, CFSTR("OTA Task Signing"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleOTATasking, kSecPolicyNameOTATasking, options),
+    __Require(result = SecPolicyCreate(kSecPolicyAppleOTATasking, kSecPolicyNameOTATasking, options),
             errOut);
 
 errOut:
@@ -2966,17 +3010,17 @@ SecPolicyRef SecPolicyCreateMobileAsset(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* No expiration check */
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
 
     /* Chain length of 3 */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate has common name "Apple iPhone Certification Authority". */
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
@@ -2985,7 +3029,7 @@ SecPolicyRef SecPolicyCreateMobileAsset(void)
     /* Leaf has common name "Asset Manifest Signing" */
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName, CFSTR("Asset Manifest Signing"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMobileAsset, kSecPolicyNameMobileAsset, options),
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMobileAsset, kSecPolicyNameMobileAsset, options),
             errOut);
 
 errOut:
@@ -2997,17 +3041,17 @@ SecPolicyRef SecPolicyCreateMobileAssetDevelopment(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* No expiration check */
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileAsset), errOut);
 
     /* Chain length of 3 */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate has the iPhone CA Marker extension */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.18"));
@@ -3015,7 +3059,7 @@ SecPolicyRef SecPolicyCreateMobileAssetDevelopment(void) {
     /* Leaf has ProdQA Mobile Asset Marker extension */
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.55.1"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMobileAssetDevelopment, kSecPolicyNameMobileAsset, options),
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMobileAssetDevelopment, kSecPolicyNameMobileAsset, options),
             errOut);
 
 errOut:
@@ -3027,7 +3071,7 @@ SecPolicyRef SecPolicyCreateAppleIDAuthorityPolicy(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), out);
 
@@ -3035,7 +3079,7 @@ SecPolicyRef SecPolicyCreateAppleIDAuthorityPolicy(void)
     SecPolicyAddBasicX509Options(options);
 
     // Apple CA anchored
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameIDAuthority), out);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameIDAuthority), out);
 
     // with the addition of the existence check of an extension with "Apple ID Sharing Certificate" oid (1.2.840.113635.100.4.7)
     // NOTE: this obviously intended to have gone into Extended Key Usage, but evidence of existing certs proves the contrary.
@@ -3045,7 +3089,7 @@ SecPolicyRef SecPolicyCreateAppleIDAuthorityPolicy(void)
     add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleID);
     add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleID2);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleIDAuthority,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleIDAuthority,
                                      kSecPolicyNameIDAuthority, options), out);
 
 out:
@@ -3057,17 +3101,17 @@ SecPolicyRef SecPolicyCreateMacAppStoreReceipt(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), out);
 
     SecPolicyAddBasicX509Options(options);
 
     // Apple CA anchored
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMacAppStoreReceipt), out);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMacAppStoreReceipt), out);
 
     // Chain length of 3
-    require(SecPolicyAddChainLengthOptions(options, 3), out);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), out);
 
     // MacAppStoreReceipt policy OID
     add_certificate_policy_oid_string(options, CFSTR("1.2.840.113635.100.5.6.1"));
@@ -3081,7 +3125,7 @@ SecPolicyRef SecPolicyCreateMacAppStoreReceipt(void)
     // Check revocation
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-	require(result = SecPolicyCreate(kSecPolicyMacAppStoreReceipt,
+	__Require(result = SecPolicyCreate(kSecPolicyMacAppStoreReceipt,
                                      kSecPolicyNameMacAppStoreReceipt, options), out);
 
 out:
@@ -3094,15 +3138,15 @@ static SecPolicyRef _SecPolicyCreatePassbookCardSigner(CFStringRef cardIssuer, C
 {
 	SecPolicyRef result = NULL;
 	CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 				&kCFTypeDictionaryKeyCallBacks,
 				&kCFTypeDictionaryValueCallBacks), out);
 
 	SecPolicyAddBasicX509Options(options);
-	require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePassbookSigning), out);
+	__Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePassbookSigning), out);
 
     // Chain length of 3
-    require(SecPolicyAddChainLengthOptions(options, 3), out);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), out);
 
 	if (teamIdentifier) {
 		// If supplied, teamIdentifier must match subject OU field
@@ -3110,7 +3154,7 @@ static SecPolicyRef _SecPolicyCreatePassbookCardSigner(CFStringRef cardIssuer, C
 	}
 	else {
 		// If not supplied, and it was required, fail
-		require(!requireTeamID, out);
+		__Require(!requireTeamID, out);
 	}
 
     // Must be both push and 3rd party package signing
@@ -3125,7 +3169,7 @@ static SecPolicyRef _SecPolicyCreatePassbookCardSigner(CFStringRef cardIssuer, C
 	// And Passbook signing eku
 	add_eku(options, &oidAppleExtendedKeyUsagePassbook);
 
-	require(result = SecPolicyCreate(kSecPolicyApplePassbookSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyApplePassbookSigning,
                                      kSecPolicyNamePassbookSigning, options), out);
 
 out:
@@ -3144,15 +3188,15 @@ static SecPolicyRef CreateMobileStoreSigner(Boolean forTest)
 
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     SecPolicyAddBasicX509Options(options);
-    require(SecPolicyAddAppleAnchorOptions(options,
+    __Require(SecPolicyAddAppleAnchorOptions(options,
                                    ((forTest) ? kSecPolicyNameTestMobileStore :
                                    kSecPolicyNameMobileStore)), errOut);
 
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
                          CFSTR("Apple System Integration 2 Certification Authority"));
@@ -3163,7 +3207,7 @@ static SecPolicyRef CreateMobileStoreSigner(Boolean forTest)
 
     add_certificate_policy_oid(options, pOID);
 
-    require(result = SecPolicyCreate((forTest) ? kSecPolicyAppleTestMobileStore : kSecPolicyAppleMobileStore,
+    __Require(result = SecPolicyCreate((forTest) ? kSecPolicyAppleTestMobileStore : kSecPolicyAppleMobileStore,
                                      (forTest) ? kSecPolicyNameTestMobileStore : kSecPolicyNameMobileStore,
                                      options), errOut);
 
@@ -3187,7 +3231,7 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceSigner(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -3198,9 +3242,9 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceSigner(void)
 
     /* Leaf has marker OID with value that can't be pre-determined */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.23.1"));
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleEscrowService,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleEscrowService,
                                      kSecPolicyNameEscrowService, options), errOut);
 
 errOut:
@@ -3212,7 +3256,7 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -3221,9 +3265,9 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void)
 
     /* Leaf has marker OID with value that can't be pre-determined */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.23.1"));
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowService,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowService,
                                      kSecPolicyNamePCSEscrowService, options), errOut);
 
 errOut:
@@ -3235,18 +3279,18 @@ SecPolicyRef SecPolicyCreatePrivacyConfigurationProfileSigner(bool allowProd, bo
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameProfileSigner), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameProfileSigner), errOut);
 
     //Chain length 3
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     // Require the profile signing EKU
-    require(allowProd || allowQA, errOut); // force callers to check for either prod or QA or both
+    __Require(allowProd || allowQA, errOut); // force callers to check for either prod or QA or both
     if (allowProd) {
         add_eku(options, &oidAppleExtendedKeyUsageProfileSigning);
     }
@@ -3257,7 +3301,7 @@ SecPolicyRef SecPolicyCreatePrivacyConfigurationProfileSigner(bool allowProd, bo
     // Require the Apple Application Integration CA marker OID
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.3"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleProfileSigner,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleProfileSigner,
                                      kSecPolicyNameProfileSigner,
                                      options), errOut);
 
@@ -3287,7 +3331,7 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     // Require valid chain from the Apple root
@@ -3306,7 +3350,7 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
     // Ensure that revocation is checked (OCSP)
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationOCSP);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleOSXProvisioningProfileSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleOSXProvisioningProfileSigning,
                                      kSecPolicyNameOSXProvisioningProfileSigning, options), errOut);
 
 errOut:
@@ -3326,14 +3370,14 @@ SecPolicyRef SecPolicyCreateAppleSMPEncryption(void)
 {
 	SecPolicyRef result = NULL;
 	CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 	                                              &kCFTypeDictionaryKeyCallBacks,
 	                                              &kCFTypeDictionaryValueCallBacks), errOut);
 	SecPolicyAddBasicCertOptions(options);
 
-	require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSMPEncryption),
+	__Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSMPEncryption),
             errOut);
-	require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+	__Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
 	// Check that leaf has extension with "Apple SMP Encryption" oid (1.2.840.113635.100.6.30)
 	add_leaf_marker(options, &oidAppleCertExtAppleSMPEncryption);
@@ -3346,7 +3390,7 @@ SecPolicyRef SecPolicyCreateAppleSMPEncryption(void)
 	// Ensure that revocation is checked (OCSP)
 	CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationOCSP);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleSMPEncryption,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleSMPEncryption,
                                      kSecPolicyNameSMPEncryption, options), errOut);
 
 errOut:
@@ -3372,17 +3416,17 @@ SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void)
 {
 	SecPolicyRef result = NULL;
 	CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 	                                              &kCFTypeDictionaryKeyCallBacks,
 	                                              &kCFTypeDictionaryValueCallBacks), errOut);
 	SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to Apple roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSMPEncryption),
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSMPEncryption),
             errOut);
 
     // Chain length must be 3
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate must contain ASI marker OID (1.2.840.113635.100.6.2.13) */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.13"));
@@ -3396,7 +3440,7 @@ SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void)
 	// Ensure that revocation is checked (OCSP)
 	CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationOCSP);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleTestSMPEncryption,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleTestSMPEncryption,
                                      kSecPolicyNameTestSMPEncryption, options), errOut);
 
 errOut:
@@ -3409,7 +3453,7 @@ SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void)
 {
 	SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -3417,7 +3461,7 @@ SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void)
     SecPolicyAddBasicX509Options(options);
 
     // Apple CA anchored
-    require(SecPolicyAddAppleAnchorOptions(options,
+    __Require(SecPolicyAddAppleAnchorOptions(options,
                                            kSecPolicyNameIDValidationRecordSigning),
             errOut);
 
@@ -3434,7 +3478,7 @@ SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void)
 	// Ensure that revocation is checked (OCSP)
 	CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationOCSP);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleIDValidationRecordSigning,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleIDValidationRecordSigning,
                                      kSecPolicyNameIDValidationRecordSigning, options), errOut);
 
 errOut:
@@ -3481,11 +3525,11 @@ SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
     CFDataRef oid = NULL, uatoid = NULL;
 
     options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require(options, errOut);
+    __Require(options, errOut);
 
     SecPolicyAddBasicX509Options(options);
 
-    require(hostname, errOut);
+    __Require(hostname, errOut);
     CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
 
     CFDictionaryAddValue(options, kSecPolicyCheckBlackListedLeaf,  kCFBooleanTrue);
@@ -3529,12 +3573,12 @@ SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
     }
 
     /* Check for weak hashes and keys */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
     result = SecPolicyCreate(policyOID, service, options);
-    require(result, errOut);
+    __Require(result, errOut);
 
 errOut:
     CFReleaseSafe(options);
@@ -3650,13 +3694,13 @@ static SecPolicyRef SecPolicyCreateAppleGeoTrustServerAuthCommon(CFStringRef hos
     CFDataRef spkiDigest = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
+    __Require(options = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* basic SSL */
     SecPolicyAddBasicX509Options(options);
 
-    require(hostname, errOut);
+    __Require(hostname, errOut);
     CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
 
     add_eku(options, &oidExtendedKeyUsageServerAuth);
@@ -3670,7 +3714,7 @@ static SecPolicyRef SecPolicyCreateAppleGeoTrustServerAuthCommon(CFStringRef hos
         add_element(options, kSecPolicyCheckIntermediateCountry, CFSTR("US"));
         add_element(options, kSecPolicyCheckIntermediateOrganization, CFSTR("Apple Inc."));
 
-        require_action(SecPolicyAddChainLengthOptions(options, 3), errOut, CFReleaseNull(result));
+        __Require_Action(SecPolicyAddChainLengthOptions(options, 3), errOut, CFReleaseNull(result));
 
         /* Marker OIDs in both formats */
         if (qaLeafMarkerOid) {
@@ -3685,8 +3729,8 @@ static SecPolicyRef SecPolicyCreateAppleGeoTrustServerAuthCommon(CFStringRef hos
     }
 
     /* Check for weak hashes */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* See <rdar://25344801> for more details */
 
@@ -3737,10 +3781,10 @@ SecPolicyRef SecPolicyCreateApplePushServiceLegacy(CFStringRef hostname)
     CFDataRef digest = NULL;
 
     digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, entrustSPKIL1C, sizeof(entrustSPKIL1C), kCFAllocatorNull);
-    require(digest, errOut);
+    __Require(digest, errOut);
 
     options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require(options, errOut);
+    __Require(options, errOut);
 
     SecPolicyAddBasicX509Options(options);
 
@@ -3754,14 +3798,14 @@ SecPolicyRef SecPolicyCreateApplePushServiceLegacy(CFStringRef hostname)
     add_eku(options, &oidExtendedKeyUsageServerAuth);
 
     /* Check for weak hashes and keys */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     result = SecPolicyCreate(kSecPolicyAppleLegacyPushService,
                              kSecPolicyNameLegacyPushService, options);
-    require(result, errOut);
+    __Require(result, errOut);
 
 errOut:
     CFReleaseSafe(digest);
@@ -3814,13 +3858,13 @@ SecPolicyRef SecPolicyCreateAppleSSLService(CFStringRef hostname)
 	// SSL server, pinned to an Apple intermediate
 	SecPolicyRef policy = SecPolicyCreateSSL(true, hostname);
 	CFMutableDictionaryRef options = NULL;
-	require(policy, errOut);
+	__Require(policy, errOut);
 
 	// change options for SSL policy evaluation
-	require((options=(CFMutableDictionaryRef)policy->_options) != NULL, errOut);
+	__Require((options=(CFMutableDictionaryRef)policy->_options) != NULL, errOut);
 
 	// Apple CA anchored
-	require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameServerAuthentication), errOut);
+	__Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameServerAuthentication), errOut);
 
 	// Check leaf for Apple Server Authentication marker oid (1.2.840.113635.100.6.27.1)
 	add_leaf_marker(options, &oidAppleCertExtAppleServerAuthentication);
@@ -3829,7 +3873,7 @@ SecPolicyRef SecPolicyCreateAppleSSLService(CFStringRef hostname)
     add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleServerAuthentication);
 
     /* Check for weak hashes */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
 
 	CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
@@ -3856,13 +3900,13 @@ SecPolicyRef SecPolicyCreateApplePPQSigning(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     SecPolicyAddBasicCertOptions(options);
 
     SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePPQSigning);
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
                          CFSTR("Apple System Integration 2 Certification Authority"));
@@ -3875,7 +3919,7 @@ SecPolicyRef SecPolicyCreateApplePPQSigning(void)
 
     add_ku(options, kSecKeyUsageDigitalSignature);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePPQSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePPQSigning,
                                      kSecPolicyNamePPQSigning, options), errOut);
 
 errOut:
@@ -3900,13 +3944,13 @@ SecPolicyRef SecPolicyCreateTestApplePPQSigning(void)
 
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     SecPolicyAddBasicCertOptions(options);
 
     SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameTestPPQSigning);
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
                          CFSTR("Apple System Integration 2 Certification Authority"));
@@ -3919,7 +3963,7 @@ SecPolicyRef SecPolicyCreateTestApplePPQSigning(void)
 
     add_ku(options, kSecKeyUsageDigitalSignature);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleTestPPQSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleTestPPQSigning,
                                      kSecPolicyNameTestPPQSigning, options), errOut);
 
 errOut:
@@ -3934,7 +3978,7 @@ SecPolicyRef SecPolicyCreateAppleTimeStamping(void)
 {
 	SecPolicyRef result = NULL;
 	CFMutableDictionaryRef options = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+	__Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -3943,12 +3987,54 @@ SecPolicyRef SecPolicyCreateAppleTimeStamping(void)
 	/* Require id-kp-timeStamping extendedKeyUsage to be present. */
 	add_eku(options, &oidExtendedKeyUsageTimeStamping);
 
-	require(result = SecPolicyCreate(kSecPolicyAppleTimeStamping,
+	__Require(result = SecPolicyCreate(kSecPolicyAppleTimeStamping,
                                      kSecPolicyNameTimeStamping, options), errOut);
 
 errOut:
 	CFReleaseSafe(options);
 	return result;
+}
+
+/*!
+ @function SecPolicyCreateAppleQuartzTimeStamping
+ @abstract Returns a policy object for evaluating Apple Quartz time stamping certificate chains.
+ @discussion This policy uses the Basic X.509 policy with validity check
+ and pinning options:
+    * The chain is anchored to any of the Apple Root CAs.
+    * There are exactly 3 certs in the chain.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+    * The leaf has ExtendedKeyUsage with the TimeStamping OID.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+SecPolicyRef SecPolicyCreateAppleQuartzTimeStamping(void)
+{
+    SecPolicyRef result = NULL;
+    CFMutableDictionaryRef options = NULL;
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+    /* Basic X.509 checks with validity */
+    SecPolicyAddBasicX509Options(options);
+
+    /* Anchored to the Apple Roots */
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameQuartzTimeStamping), errOut);
+
+    /* Exactly 3 certs in the chain */
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    /* Require id-kp-timeStamping extendedKeyUsage to be present. */
+    add_eku(options, &oidExtendedKeyUsageTimeStamping);
+
+    __Require(result = SecPolicyCreate(kSecPolicyAppleQuartzTimeStamping,
+                                     kSecPolicyNameQuartzTimeStamping, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
 }
 
 /*!
@@ -3962,14 +4048,14 @@ SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     SecPolicyAddBasicCertOptions(options);
 
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePayIssuerEncryption),
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePayIssuerEncryption),
             errOut);
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
                          CFSTR("Apple Worldwide Developer Relations CA - G2"));
@@ -3979,7 +4065,7 @@ SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
 
     add_ku(options, kSecKeyUsageKeyEncipherment);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePayIssuerEncryption,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePayIssuerEncryption,
                                      kSecPolicyNamePayIssuerEncryption, options), errOut);
 
 errOut:
@@ -3998,7 +4084,7 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
     CFMutableDictionaryRef appleAnchorOptions = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     
@@ -4006,7 +4092,7 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     
     // Require pinning to the Apple CAs (including test CA for internal releases)
     appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
-    require(appleAnchorOptions, errOut);
+    __Require(appleAnchorOptions, errOut);
     
     if (SecIsInternalRelease()) {
         CFDictionarySetValue(appleAnchorOptions,
@@ -4016,7 +4102,7 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
     
     // Cert chain length 3
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
     
     // Check leaf for Apple ATV VPN Profile Signing OID (1.2.840.113635.100.6.43)
     add_leaf_marker(options, &oidAppleCertExtATVVPNProfileSigning);
@@ -4027,7 +4113,7 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     // Ensure that revocation is checked (OCSP only)
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationOCSP);
     
-    require(result = SecPolicyCreate(kSecPolicyAppleATVVPNProfileSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleATVVPNProfileSigning,
                                      kSecPolicyNameATVVPNProfileSigning, options), errOut);
     
 errOut:
@@ -4042,7 +4128,7 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname) {
     CFDataRef oid = NULL;
 
     options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require(options, errOut);
+    __Require(options, errOut);
 
     SecPolicyAddBasicX509Options(options);
 
@@ -4053,7 +4139,7 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname) {
     if (requireUATPinning(kSecPolicyNameAppleHomeKitService)) {
 
         // Cert chain length 3
-        require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+        __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
         // Apple anchors, allowing test anchors for internal release
         SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAppleHomeKitService);
@@ -4064,14 +4150,14 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname) {
     }
 
     /* Check for weak hashes */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     result = SecPolicyCreate(kSecPolicyAppleHomeKitServerAuth,
                              kSecPolicyNameAppleHomeKitService, options);
-    require(result, errOut);
+    __Require(result, errOut);
 
 errOut:
     CFReleaseSafe(options);
@@ -4083,7 +4169,7 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloperOptionalExpiry(bool checkExpir
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4094,10 +4180,10 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloperOptionalExpiry(bool checkExpir
     }
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameExternalDeveloper), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameExternalDeveloper), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OIDs */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid,
@@ -4126,11 +4212,11 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloperOptionalExpiry(bool checkExpir
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Check for weak hashes */
     // require(SecPolicyRemoveWeakHashOptions(options), errOut); // the current WWDR CA cert is signed with SHA1
-    require(result = SecPolicyCreate(kSecPolicyAppleExternalDeveloper,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleExternalDeveloper,
                                      kSecPolicyNameExternalDeveloper,
                                      options), errOut);
 
@@ -4148,18 +4234,18 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
                   errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate Common Name matches */
     add_element(options, kSecPolicyCheckIssuerCommonName, CFSTR("Apple Code Signing Certification Authority"));
@@ -4177,9 +4263,9 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleSoftwareSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleSoftwareSigning,
                                      kSecPolicyNameSoftwareSigning, options), errOut);
 
 errOut:
@@ -4202,7 +4288,7 @@ SecPolicyRef SecPolicyCreateAppleUniqueDeviceCertificate(CFDataRef testRootHash)
     CFNumberRef ecSize = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4210,13 +4296,13 @@ SecPolicyRef SecPolicyCreateAppleUniqueDeviceCertificate(CFDataRef testRootHash)
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the SEP Root CA. Allow alternative root for developers */
-    require(SecPolicyAddAnchorSHA256Options(options, SEPRootCA_SHA256),errOut);
+    __Require(SecPolicyAddAnchorSHA256Options(options, SEPRootCA_SHA256),errOut);
     if (testRootHash && SecIsInternalRelease() && (kSecPolicySHA256Size == CFDataGetLength(testRootHash))) {
         add_element(options, kSecPolicyCheckAnchorSHA256, testRootHash);
     }
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate has marker OID with value */
     add_intermediate_marker_value_string(options, CFSTR("1.2.840.113635.100.6.44"), CFSTR("ucrt"));
@@ -4225,15 +4311,15 @@ SecPolicyRef SecPolicyCreateAppleUniqueDeviceCertificate(CFDataRef testRootHash)
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.10.1"));
 
     /* RSA key sizes are disallowed. EC key sizes are P-256 or larger. */
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
+    __Require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    __Require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
                                           (const void**)&ecSize, 1,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks), errOut);
     add_element(options, kSecPolicyCheckKeySize, keySizes);
 
 
-    require(result = SecPolicyCreate(kSecPolicyAppleUniqueDeviceIdentifierCertificate,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleUniqueDeviceIdentifierCertificate,
                                      kSecPolicyNameUniqueDeviceIdentifierCertificate, options), errOut);
 
 errOut:
@@ -4247,18 +4333,18 @@ SecPolicyRef SecPolicyCreateAppleWarsaw(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Anchored to the Apple Roots. */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameWarsaw),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameWarsaw),
                   errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches input OID */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.14"));
@@ -4270,9 +4356,9 @@ SecPolicyRef SecPolicyCreateAppleWarsaw(void) {
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleWarsaw,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleWarsaw,
                                      kSecPolicyNameWarsaw, options), errOut);
 
 errOut:
@@ -4287,7 +4373,7 @@ SecPolicyRef SecPolicyCreateAppleSecureIOStaticAsset(void) {
     CFMutableDictionaryRef appleAnchorOptions = NULL;
 #endif
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4297,18 +4383,18 @@ SecPolicyRef SecPolicyCreateAppleSecureIOStaticAsset(void) {
     /* Anchored to the Apple Roots. */
 #if TARGET_OS_BRIDGE
     /* On the bridge, test roots are gated in the trust and policy servers. */
-    require_quiet(appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL), errOut);
+    __Require_Quiet(appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL), errOut);
     CFDictionarySetValue(appleAnchorOptions,
                          kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
     add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
     CFReleaseSafe(appleAnchorOptions);
 #else
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSecureIOStaticAsset),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSecureIOStaticAsset),
                   errOut);
 #endif
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches ASI CA */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.10"));
@@ -4317,9 +4403,9 @@ SecPolicyRef SecPolicyCreateAppleSecureIOStaticAsset(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.50"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleSecureIOStaticAsset,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleSecureIOStaticAsset,
                                      kSecPolicyNameSecureIOStaticAsset, options), errOut);
 
 errOut:
@@ -4332,14 +4418,14 @@ SecPolicyRef SecPolicyCreateAppleAppTransportSecurity(void) {
     SecPolicyRef result = NULL;
     CFMutableArrayRef disallowedHashes = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Hash algorithm is SHA-256 or better */
-    require(disallowedHashes = CFArrayCreateMutable(NULL, 5, &kCFTypeArrayCallBacks), errOut);
+    __Require(disallowedHashes = CFArrayCreateMutable(NULL, 5, &kCFTypeArrayCallBacks), errOut);
     CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD2);
     CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD4);
     CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD5);
@@ -4348,7 +4434,7 @@ SecPolicyRef SecPolicyCreateAppleAppTransportSecurity(void) {
 
     add_element(options, kSecPolicyCheckSignatureHashAlgorithms, disallowedHashes);
 
-    require_quiet(result = SecPolicyCreate(kSecPolicyAppleAppTransportSecurity,
+    __Require_Quiet(result = SecPolicyCreate(kSecPolicyAppleAppTransportSecurity,
                                            kSecPolicyNameAppTransportSecurity,
                                            options), errOut);
 
@@ -4361,18 +4447,18 @@ SecPolicyRef SecPolicyCreateMobileSoftwareUpdate(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* No expiration check. */
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileSoftwareUpdate),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameMobileSoftwareUpdate),
                   errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID is iPhone CA OID */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.18"));
@@ -4384,9 +4470,9 @@ SecPolicyRef SecPolicyCreateMobileSoftwareUpdate(void) {
     }
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMobileSoftwareUpdate,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMobileSoftwareUpdate,
                                      kSecPolicyNameMobileSoftwareUpdate, options), errOut);
 
 errOut:
@@ -4416,7 +4502,7 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationSystem(CFDataRef testRootHash) 
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     /* BAA leafs expire but not CAs */
@@ -4430,9 +4516,9 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationSystem(CFDataRef testRootHash) 
     }
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleBasicAttestationSystem,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleBasicAttestationSystem,
                                      kSecPolicyNameBasicAttestationSystem, options), errOut);
 
 errOut:
@@ -4444,7 +4530,7 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef testRootHash) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     /* BAA leafs expire but not CAs */
@@ -4458,9 +4544,36 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef testRootHash) {
     }
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleBasicAttestationUser,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleBasicAttestationUser,
+                                     kSecPolicyNameBasicAttestationUser, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateAppleBasicAttestationUserNoExpiration(CFDataRef testRootHash) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+    /* Perform basic X.509 checks without checking expiry */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* Anchored to one of the Basic Attestation roots. Allow alternative root for developers */
+    SecPolicyAddAnchorSHA256Options(options, BAUserRootCA_SHA256);
+    if (testRootHash && SecIsInternalRelease() && (kSecPolicySHA256Size == CFDataGetLength(testRootHash))) {
+        add_element(options, kSecPolicyCheckAnchorSHA256, testRootHash);
+    }
+
+    /* Exactly 3 certs in the chain */
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    __Require(result = SecPolicyCreate(kSecPolicyAppleBasicAttestationUser,
                                      kSecPolicyNameBasicAttestationUser, options), errOut);
 
 errOut:
@@ -4472,7 +4585,7 @@ SecPolicyRef SecPolicyCreateiAPSWAuthWithExpiration(bool checkExpiration) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4484,7 +4597,7 @@ SecPolicyRef SecPolicyCreateiAPSWAuthWithExpiration(bool checkExpiration) {
     }
 
     /* Exactly 2 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
     /* iAP SW Auth General Capabilities Extension present */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.59.1"));
@@ -4492,7 +4605,7 @@ SecPolicyRef SecPolicyCreateiAPSWAuthWithExpiration(bool checkExpiration) {
     CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored,
                          kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleiAPSWAuth,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleiAPSWAuth,
                                      kSecPolicyNameiAPSWAuth, options), errOut);
 
 errOut:
@@ -4509,13 +4622,13 @@ SecPolicyRef SecPolicyCreateDemoDigitalCatalogSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
     SecPolicyAddBasicX509Options(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Demo Signing Extension present in leaf */
     add_element(options, kSecPolicyCheckLeafMarkerOid, CFSTR("1.2.840.113635.100.6.60"));
@@ -4523,7 +4636,7 @@ SecPolicyRef SecPolicyCreateDemoDigitalCatalogSigning(void) {
     /* Issuer common name is "DemoUnit CA" */
     add_element(options, kSecPolicyCheckIssuerCommonName, CFSTR("DemoUnit CA"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleDemoDigitalCatalog,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleDemoDigitalCatalog,
                                      kSecPolicyNameDemoDigitalCatalog, options), errOut);
 
 errOut:
@@ -4535,7 +4648,7 @@ SecPolicyRef SecPolicyCreateAppleAssetReceipt(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4543,10 +4656,10 @@ SecPolicyRef SecPolicyCreateAppleAssetReceipt(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAssetReceipt), errOut);
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAssetReceipt), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID is Apple System Integration 2 CA */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.10"));
@@ -4555,9 +4668,9 @@ SecPolicyRef SecPolicyCreateAppleAssetReceipt(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.61"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleAssetReceipt,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleAssetReceipt,
                                      kSecPolicyNameAssetReceipt, options), errOut);
 
 errOut:
@@ -4569,7 +4682,7 @@ SecPolicyRef SecPolicyCreateAppleDeveloperIDPlusTicket(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4577,10 +4690,10 @@ SecPolicyRef SecPolicyCreateAppleDeveloperIDPlusTicket(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameDeveloperIDPlusTicket), errOut);
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameDeveloperIDPlusTicket), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID is Apple System Integration CA 4 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
@@ -4589,9 +4702,9 @@ SecPolicyRef SecPolicyCreateAppleDeveloperIDPlusTicket(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.30"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleDeveloperIDPlusTicket,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleDeveloperIDPlusTicket,
                                      kSecPolicyNameDeveloperIDPlusTicket, options), errOut);
 
 errOut:
@@ -4603,15 +4716,47 @@ SecPolicyRef SecPolicyCreateAppleFDRProvisioning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     /* No expiration check. */
     SecPolicyAddBasicCertOptions(options);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleFDRProvisioning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleFDRProvisioning,
                                      kSecPolicyNameFDRProvisioning, options), errOut);
+errOut:
+    CFReleaseNull(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateProvoloneFDRSigning(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* No expiration check. */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* Exactly 3 certs in the chain */
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Leaf must contain Component Identity MAC algorithm identifier OID */
+    add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.11.4"));
+
+    /* Leaf must contain Chip Production Mode identifier OID */
+    add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.49"));
+
+    /* Intermediate must contain Component Identity Certificate Vendor Identifier OID */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.11.2"));
+
+    /* Anchor requirements enforced by OTA trust store constraints */
+
+    __Require(result = SecPolicyCreate(kSecPolicyAppleProvoloneFDRSigning,
+                                     kSecPolicyNameProvoloneFDRSigning, options), errOut);
 errOut:
     CFReleaseNull(options);
     return result;
@@ -4629,7 +4774,7 @@ SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef testRootHash) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4643,13 +4788,13 @@ SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef testRootHash) {
     }
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Leaf and intermediate must contain Component Type OID */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.11.1"));
     add_element(options, kSecPolicyCheckIntermediateMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.11.1"));
 
-    require(result = SecPolicyCreate(kSecPolicyAppleComponentCertificate,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleComponentCertificate,
                                      kSecPolicyNameComponentCertificate, options), errOut);
 errOut:
     CFReleaseNull(options);
@@ -4660,7 +4805,7 @@ SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4668,10 +4813,10 @@ SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameKeyTransparency), errOut);
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameKeyTransparency), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches AAI CA 5 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.3"));
@@ -4680,14 +4825,14 @@ SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId) {
     add_leaf_marker_value_string(options, CFSTR("1.2.840.113635.100.12.4"), applicationId);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Check for weak hashes */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
 
     /* Future CT requirement */
 
-    require(result = SecPolicyCreate(kSecPolicyAppleKeyTransparency,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleKeyTransparency,
                                      kSecPolicyNameKeyTransparency, options), errOut);
 errOut:
     CFReleaseNull(options);
@@ -4700,7 +4845,7 @@ SecPolicyRef SecPolicyCreateAlisha(void) {
     CFDictionaryRef keySizes = NULL;
     CFNumberRef ecSize = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4708,17 +4853,17 @@ SecPolicyRef SecPolicyCreateAlisha(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* RSA key sizes are disallowed. EC key sizes are P-256 or larger. */
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
+    __Require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    __Require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
                                           (const void**)&ecSize, 1,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks), errOut);
     add_element(options, kSecPolicyCheckKeySize, keySizes);
 
     /* Check for weak hashes */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleAlisha,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleAlisha,
                                      kSecPolicyNameAlisha, options), errOut);
 errOut:
     CFReleaseNull(options);
@@ -4731,7 +4876,7 @@ SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4739,7 +4884,7 @@ SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Corporate Signing subCA */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.24.17"));
@@ -4748,9 +4893,9 @@ SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.26.6.1"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMeasuredBootPolicySigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMeasuredBootPolicySigning,
                                      kSecPolicyNameMeasuredBootPolicySigning, options), errOut);
 
 errOut:
@@ -4778,7 +4923,7 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeEncryption(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4786,7 +4931,7 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeEncryption(void) {
     SecPolicyAddBasicX509Options(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Apple External EC CA 1 - G1 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.22"));
@@ -4795,17 +4940,17 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeEncryption(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.13.3"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(SecPolicyAddAnchorSHA256Options(options, AppleExternalECRoot_SHA256),errOut);
+    __Require(SecPolicyAddAnchorSHA256Options(options, AppleExternalECRoot_SHA256),errOut);
     if (SecIsInternalRelease()) {
-        require(SecPolicyAddAnchorSHA256Options(options, TestAppleExternalECRoot_SHA256),errOut);
+        __Require(SecPolicyAddAnchorSHA256Options(options, TestAppleExternalECRoot_SHA256),errOut);
     }
 
     /* Check revocation using any available method */
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePayQRCodeEncryption,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePayQRCodeEncryption,
                                      kSecPolicyNamePayQRCodeEncryption, options), errOut);
 
 errOut:
@@ -4817,7 +4962,7 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4825,7 +4970,7 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeSigning(void) {
     SecPolicyAddBasicX509Options(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Apple External EC CA 1 - G1 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.22"));
@@ -4834,17 +4979,17 @@ SecPolicyRef SecPolicyCreateApplePayQRCodeSigning(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.12.12"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(SecPolicyAddAnchorSHA256Options(options, AppleExternalECRoot_SHA256),errOut);
+    __Require(SecPolicyAddAnchorSHA256Options(options, AppleExternalECRoot_SHA256),errOut);
     if (SecIsInternalRelease()) {
-        require(SecPolicyAddAnchorSHA256Options(options, TestAppleExternalECRoot_SHA256),errOut);
+        __Require(SecPolicyAddAnchorSHA256Options(options, TestAppleExternalECRoot_SHA256),errOut);
     }
 
     /* Check revocation using any available method */
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePayQRCodeSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePayQRCodeSigning,
                                      kSecPolicyNamePayQRCodeSigning, options), errOut);
 
 errOut:
@@ -4856,7 +5001,7 @@ SecPolicyRef SecPolicyCreateAppleAccessoryUpdateSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4864,10 +5009,10 @@ SecPolicyRef SecPolicyCreateAppleAccessoryUpdateSigning(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAccessoryUpdateSigning), errOut);
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAccessoryUpdateSigning), errOut);
 
     /* Apple System Integration CA 4 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
@@ -4879,12 +5024,12 @@ SecPolicyRef SecPolicyCreateAppleAccessoryUpdateSigning(void) {
     }
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Check revocation using any available method */
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleAccessoryUpdateSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleAccessoryUpdateSigning,
                                      kSecPolicyNameAccessoryUpdateSigning, options), errOut);
 
 errOut:
@@ -4896,7 +5041,7 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceIdKeySigning(void)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4909,9 +5054,9 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceIdKeySigning(void)
                          CFSTR("Escrow Service ID Key"));
 
     /* Exactly 2 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleEscrowServiceIdKeySigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleEscrowServiceIdKeySigning,
                                      kSecPolicyNameEscrowServiceIdKeySigning, options), errOut);
 
 errOut:
@@ -4923,7 +5068,7 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(voi
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -4935,9 +5080,9 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(voi
                          CFSTR("Effaceable Service ID Key"));
 
     /* Exactly 2 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowServiceIdKeySigning,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowServiceIdKeySigning,
                                      kSecPolicyNamePCSEscrowServiceIdKeySigning, options), errOut);
 
 errOut:
@@ -4950,17 +5095,17 @@ SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAggregateMetricTransparency), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAggregateMetricTransparency), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches AAICA 6 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.26"));
@@ -4976,7 +5121,7 @@ SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Require CT */
     if (!SecIsInternalRelease() || !isCFPreferenceInSecurityDomain(CFSTR("disableAggregateMetricsCTCheck"))) {
@@ -4985,7 +5130,7 @@ SecPolicyRef SecPolicyCreateAggregateMetricTransparency(bool facilitator)
 
     /* Check for weak hashes */
     // require(SecPolicyRemoveWeakHashOptions(options), errOut); // the current WWDR CA cert is signed with SHA1
-    require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricTransparency,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricTransparency,
                                      kSecPolicyNameAggregateMetricTransparency, options), errOut);
 
 errOut:
@@ -4998,17 +5143,17 @@ SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAggregateMetricEncryption), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameAggregateMetricEncryption), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches AAICA 6 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.26"));
@@ -5024,14 +5169,14 @@ SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Require CT */
     if (!SecIsInternalRelease() || !isCFPreferenceInSecurityDomain(CFSTR("disableAggregateMetricsCTCheck"))) {
         add_element(options, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
     }
 
-    require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricEncryption,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleAggregateMetricEncryption,
                                      kSecPolicyNameAggregateMetricEncryption, options), errOut);
 
 errOut:
@@ -5044,18 +5189,18 @@ SecPolicyRef SecPolicyCreateDeveloperIDInstaller(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
                   errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* "Developer ID" Intermediate OID */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.6"));
@@ -5070,9 +5215,9 @@ SecPolicyRef SecPolicyCreateDeveloperIDInstaller(void)
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleDeveloperIDInstaller,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleDeveloperIDInstaller,
                                      kSecPolicyNameDeveloperIDInstaller, options), errOut);
 
 errOut:
@@ -5085,18 +5230,18 @@ SecPolicyRef SecPolicyCreateMacAppStoreInstaller(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
                   errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* WWDR Intermediate OID */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.1"));
@@ -5111,9 +5256,9 @@ SecPolicyRef SecPolicyCreateMacAppStoreInstaller(void)
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMacAppStoreInstaller,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMacAppStoreInstaller,
                                      kSecPolicyNameMacAppStoreInstaller, options), errOut);
 
 errOut:
@@ -5134,7 +5279,7 @@ SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5145,10 +5290,10 @@ SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration) {
     }
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePayModelSigning), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePayModelSigning), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID is Apple System Integration CA 4 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
@@ -5160,9 +5305,9 @@ SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration) {
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-    require(result = SecPolicyCreate(kSecPolicyApplePayModelSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePayModelSigning,
                                      kSecPolicyNamePayModelSigning, options), errOut);
 
 errOut:
@@ -5175,7 +5320,7 @@ SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA) 
     CFMutableArrayRef disallowedHashes = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5196,15 +5341,15 @@ SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA) 
     }
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Explicitly remove weak signature algorithms. */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
     /* Add SHA224 here as this is not yet disallowed by SecPolicyRemoveWeakHashOptions. */
-    require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
+    __Require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
     CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmSHA224);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleMDLTerminalAuth,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleMDLTerminalAuth,
                                      kSecPolicyNameMDLTerminalAuth, options), errOut);
 
 errOut:
@@ -5216,7 +5361,7 @@ SecPolicyRef SecPolicyCreateAppleCHIPUpdateSigning(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5224,10 +5369,10 @@ SecPolicyRef SecPolicyCreateAppleCHIPUpdateSigning(void) {
     SecPolicyAddBasicCertOptions(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Apple Anchor */
-    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameCHIPUpdateSigning), errOut);
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameCHIPUpdateSigning), errOut);
 
     /* Apple System Integration CA 4 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
@@ -5239,12 +5384,12 @@ SecPolicyRef SecPolicyCreateAppleCHIPUpdateSigning(void) {
     }
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Check revocation using any available method */
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleCHIPUpdateSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleCHIPUpdateSigning,
                                      kSecPolicyNameCHIPUpdateSigning, options), errOut);
 
 errOut:
@@ -5256,15 +5401,15 @@ SecPolicyRef SecPolicyCreateOrderBundleSigner(CFStringRef orderTypeId)
 {
     SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks,
                 &kCFTypeDictionaryValueCallBacks), out);
 
     SecPolicyAddBasicX509Options(options);
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameOrderBundleSigner), out);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameOrderBundleSigner), out);
 
     // Chain length of 3
-    require(SecPolicyAddChainLengthOptions(options, 3), out);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), out);
 
     // Order Type ID extension
     add_leaf_marker_value_string(options, CFSTR("1.2.840.113635.100.14.2"), orderTypeId);
@@ -5278,7 +5423,7 @@ SecPolicyRef SecPolicyCreateOrderBundleSigner(CFStringRef orderTypeId)
     // Check revocation using any available method
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleOrderBundleSigner,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleOrderBundleSigner,
                                      kSecPolicyNameOrderBundleSigner, options), out);
 
 out:
@@ -5291,14 +5436,14 @@ SecPolicyRef SecPolicyCreateQiSigning(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), out);
 
     /* No expiration check */
     SecPolicyAddBasicCertOptions(options);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleQiSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleQiSigning,
                                      kSecPolicyNameQiSigning, options), out);
 
 out:
@@ -5311,17 +5456,17 @@ SecPolicyRef SecPolicyCreatePPMAggregatorConfigSigning(bool isApple)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePPMAggregatorConfigSigning), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNamePPMAggregatorConfigSigning), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Intermediate marker OID matches AAICA 6 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.26"));
@@ -5337,14 +5482,14 @@ SecPolicyRef SecPolicyCreatePPMAggregatorConfigSigning(bool isApple)
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Require CT */
     if (!SecIsInternalRelease() || !isCFPreferenceInSecurityDomain(CFSTR("disableAggregateMetricsCTCheck"))) {
         add_element(options, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
     }
 
-    require(result = SecPolicyCreate(kSecPolicyApplePPMAggregatorConfigSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyApplePPMAggregatorConfigSigning,
                                      kSecPolicyNamePPMAggregatorConfigSigning, options), errOut);
 
 errOut:
@@ -5357,17 +5502,17 @@ SecPolicyRef SecPolicyCreateEDPSigning(void)
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameEDPSigning), errOut);
+    __Require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameEDPSigning), errOut);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* Apple System Integration CA 4 */
     add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
@@ -5379,12 +5524,12 @@ SecPolicyRef SecPolicyCreateEDPSigning(void)
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.12.47"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     /* Skip networked revocation checks */
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleEDPSigning,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleEDPSigning,
                                      kSecPolicyNameEDPSigning, options), errOut);
 
 errOut:
@@ -5400,9 +5545,9 @@ SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRep
     CFDataRef sha256Digest = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
-    require(digests = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(digests = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
@@ -5413,10 +5558,10 @@ SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRep
     }
 
     // VMC 6.1.5.1-6.1.5.3: allowed SHA-256, SHA-384, SHA-512
-    require_quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require_Quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
 
     // VMC 6.1.5.1-6.1.5.3: allowed RSA 2048 or ECC P-256, P-384, P-521
-    require_quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    __Require_Quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     // VMC 7.1.2.3(a): require VMC certificate policy OID
     add_certificate_policy_oid_string(options, CFSTR("1.3.6.1.4.1.53087.1.1"));
@@ -5428,10 +5573,10 @@ SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRep
     // Since we don't know yet which digest algorithm was used in the extension, we'll
     // capture both SHA-1 and SHA-256 digests of the input data.
     if (markRepresentation) {
-        require(sha1Digest = SecSHA1DigestCreate(kCFAllocatorDefault,
+        __Require(sha1Digest = SecSHA1DigestCreate(kCFAllocatorDefault,
                                                  CFDataGetBytePtr(markRepresentation),
                                                  CFDataGetLength(markRepresentation)), errOut);
-        require(sha256Digest = SecSHA256DigestCreate(kCFAllocatorDefault,
+        __Require(sha256Digest = SecSHA256DigestCreate(kCFAllocatorDefault,
                                                      CFDataGetBytePtr(markRepresentation),
                                                      CFDataGetLength(markRepresentation)), errOut);
         CFDictionaryAddValue(digests, CFSTR("sha1"), sha1Digest);
@@ -5439,7 +5584,7 @@ SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRep
         add_element(options, kSecPolicyCheckMarkRepresentation, digests);
     }
 
-    require(result = SecPolicyCreate(kSecPolicyAppleVerifiedMark,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleVerifiedMark,
                                      kSecPolicyNameVerifiedMark,
                                      options), errOut);
 
@@ -5462,7 +5607,7 @@ static SecPolicyRef SecPolicyCreateParakeetCommon(CFStringRef __nullable hostnam
     CFNumberRef ecSize = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5470,20 +5615,20 @@ static SecPolicyRef SecPolicyCreateParakeetCommon(CFStringRef __nullable hostnam
     SecPolicyAddBasicX509Options(options);
 
     /* Exactly 3 certs in the chain */
-    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    __Require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
     /* RSA key sizes are disallowed. EC key sizes must be P-256 or larger. */
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
+    __Require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    __Require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
                                           (const void**)&ecSize, 1,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks), errOut);
     add_element(options, kSecPolicyCheckKeySize, keySizes);
 
     /* Explicitly remove weak signature algorithms. */
-    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    __Require(SecPolicyRemoveWeakHashOptions(options), errOut);
     /* Add SHA224 here as this is not yet disallowed by SecPolicyRemoveWeakHashOptions. */
-    require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
+    __Require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
     CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmSHA224);
 
     /* Leaf certificate must have keyAgreement KU and CA:FALSE. */
@@ -5542,7 +5687,7 @@ SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5573,7 +5718,7 @@ SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type) {
         add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.71.1"));
     }
 
-    require(result = SecPolicyCreate(kSecPolicyAppleiAPAuthV4,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleiAPAuthV4,
                                      kSecPolicyNameiAPAuthV4, options), errOut);
 
 errOut:
@@ -5585,7 +5730,7 @@ SecPolicyRef SecPolicyCreateDCAttestation(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5597,7 +5742,7 @@ SecPolicyRef SecPolicyCreateDCAttestation(void) {
     CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess,
                          kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleDCAttestation,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleDCAttestation,
                                      kSecPolicyNameDCAttestation, options), errOut);
 
 errOut:
@@ -5611,7 +5756,7 @@ SecPolicyRef SecPolicyCreateRCSEncryption(CFStringRef _Nullable telURI,
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5635,7 +5780,7 @@ SecPolicyRef SecPolicyCreateRCSEncryption(CFStringRef _Nullable telURI,
         CFReleaseNull(rootValue);
     }
 
-    require(result = SecPolicyCreate(kSecPolicyAppleRCSEncryption,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleRCSEncryption,
                                      kSecPolicyNameRCSEncryption, options), errOut);
 
 errOut:
@@ -5647,14 +5792,14 @@ SecPolicyRef SecPolicyCreateQWAC(void) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
     SecPolicyAddBasicX509Options(options);
     add_element(options, kSecPolicyCheckQWAC, kCFBooleanTrue);
 
-    require(result = SecPolicyCreate(kSecPolicyAppleQWAC,
+    __Require(result = SecPolicyCreate(kSecPolicyAppleQWAC,
                                      kSecPolicyNameQWAC, options), errOut);
 
 errOut:
@@ -5666,7 +5811,7 @@ SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;
 
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    __Require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
@@ -5675,7 +5820,7 @@ SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations) {
     add_eku_string(options, CFSTR("1.2.840.113583.1.1.5")); // Adobe document signing EKU
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectOrganization, organizations);
 
-    require(result = SecPolicyCreate(kSecPolicyApple3PMobileAsset,
+    __Require(result = SecPolicyCreate(kSecPolicyApple3PMobileAsset,
                                      kSecPolicyName3PMobileAsset, options), errOut);
 
 errOut:
@@ -5692,7 +5837,7 @@ SecPolicyRef SecPolicyCreateJibeTLS(CFStringRef hostname) {
     return policy;
 }
 
-SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef hostname) {
+SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef _Nullable hostname) {
     SecPolicyRef policy = SecPolicyCreateApplePinned(kSecPolicyNameIdentityWebPresentment,
                                                      CFSTR("1.2.840.113635.100.6.2.31"),
                                                      CFSTR("1.2.840.113635.100.6.92"));
@@ -5700,6 +5845,8 @@ SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef hostname) {
     SecPolicySetOid(policy, kSecPolicyAppleIdentityWebPresentment);
 
     /* Add a SSL hostname check -- but this is not a SSL Server Auth cert */
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckSSLHostname, hostname);
+    if (hostname) {
+        SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckSSLHostname, hostname);
+    }
     return policy;
 }

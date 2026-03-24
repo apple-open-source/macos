@@ -21,9 +21,9 @@
 #if USE(GSTREAMER) && USE(LIBWEBRTC)
 #include "GStreamerVideoFrameLibWebRTC.h"
 
+#include "GStreamerVideoFrameConverter.h"
 #include <gst/video/video-format.h>
 #include <gst/video/video-info.h>
-#include <thread>
 #include <wtf/MediaTime.h>
 #include <wtf/glib/GUniquePtr.h>
 
@@ -42,7 +42,9 @@ static void ensureDebugCategoryIsRegistered()
 
 GRefPtr<GstSample> convertLibWebRTCVideoFrameToGStreamerSample(const webrtc::VideoFrame& frame)
 {
-    RELEASE_ASSERT(frame.video_frame_buffer()->type() != webrtc::VideoFrameBuffer::Type::kNative);
+    if (frame.video_frame_buffer()->type() == webrtc::VideoFrameBuffer::Type::kNative)
+        return static_cast<GStreamerVideoFrameLibWebRTC&>(*frame.video_frame_buffer().get()).sample();
+
     auto* i420Buffer = frame.video_frame_buffer()->ToI420().release();
     int height = i420Buffer->height();
     int strides[3] = {
@@ -63,11 +65,7 @@ GRefPtr<GstSample> convertLibWebRTCVideoFrameToGStreamerSample(const webrtc::Vid
     }));
 
     gst_buffer_add_video_meta_full(buffer.get(), GST_VIDEO_FRAME_FLAG_NONE, GST_VIDEO_FORMAT_I420, frame.width(), frame.height(), 3, offsets, strides);
-    if (auto pts = frame.presentation_timestamp())
-        GST_BUFFER_PTS(buffer.get()) = toGstClockTime(WTF::MediaTime(pts->us(), G_USEC_PER_SEC));
-    else
-        GST_BUFFER_PTS(buffer.get()) = toGstClockTime(WTF::MediaTime(frame.timestamp_us(), G_USEC_PER_SEC));
-
+    GST_BUFFER_PTS(buffer.get()) = toGstClockTime(WTF::MediaTime(frame.render_time_ms(), G_USEC_PER_SEC * 1000));
     auto caps = adoptGRef(gst_video_info_to_caps(&info));
     auto sample = adoptGRef(gst_sample_new(buffer.get(), caps.get(), nullptr, nullptr));
     return sample;
@@ -78,9 +76,9 @@ webrtc::VideoFrame convertGStreamerSampleToLibWebRTCVideoFrame(GRefPtr<GstSample
     webrtc::VideoFrame::Builder builder;
     auto buffer = gst_sample_get_buffer(sample.get());
     auto pts = GST_BUFFER_PTS(buffer);
-    return builder.set_video_frame_buffer(GStreamerVideoFrameLibWebRTC::create(WTFMove(sample)))
+    return builder.set_video_frame_buffer(GStreamerVideoFrameLibWebRTC::create(WTF::move(sample)))
         .set_timestamp_rtp(rtpTimestamp)
-        .set_timestamp_us(pts)
+        .set_timestamp_us(pts * GST_USECOND)
         .build();
 }
 
@@ -91,7 +89,7 @@ webrtc::scoped_refptr<webrtc::VideoFrameBuffer> GStreamerVideoFrameLibWebRTC::cr
     if (!gst_video_info_from_caps(&info, gst_sample_get_caps(sample.get())))
         ASSERT_NOT_REACHED();
 
-    return webrtc::scoped_refptr<webrtc::VideoFrameBuffer>(new GStreamerVideoFrameLibWebRTC(WTFMove(sample), info));
+    return webrtc::scoped_refptr<webrtc::VideoFrameBuffer>(new GStreamerVideoFrameLibWebRTC(WTF::move(sample), info));
 }
 
 webrtc::scoped_refptr<webrtc::I420BufferInterface> GStreamerVideoFrameLibWebRTC::ToI420()
@@ -111,25 +109,20 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> GStreamerVideoFrameLibWebRTC:
         auto info = inFrame.info();
         outInfo.fps_n = info->fps_n;
         outInfo.fps_d = info->fps_d;
+        auto caps = adoptGRef(gst_video_info_to_caps(&outInfo));
 
-        auto buffer = adoptGRef(gst_buffer_new_allocate(nullptr, GST_VIDEO_INFO_SIZE(&outInfo), nullptr));
-        GstMappedFrame outFrame(buffer.get(), &outInfo, GST_MAP_WRITE);
-        if (!outFrame) {
-            GST_WARNING("Could not map output frame");
-            ASSERT_NOT_REACHED_WITH_MESSAGE("Could not map output frame");
+        auto& converter = GStreamerVideoFrameConverter::singleton();
+        auto sample = converter.convert(m_sample, caps);
+        if (!sample) [[unlikely]]
             return nullptr;
-        }
-        GUniquePtr<GstVideoConverter> videoConverter(gst_video_converter_new(inFrame.info(), &outInfo, gst_structure_new("GstVideoConvertConfig",
-            GST_VIDEO_CONVERTER_OPT_THREADS, G_TYPE_UINT, std::max(std::thread::hardware_concurrency(), 1u), nullptr)));
 
-        ASSERT(videoConverter);
-        gst_video_converter_frame(videoConverter.get(), inFrame.get(), outFrame.get());
-        return webrtc::I420Buffer::Copy(outFrame.width(), outFrame.height(), outFrame.componentData(0), outFrame.componentStride(0),
-            outFrame.componentData(1), outFrame.componentStride(1), outFrame.componentData(2), outFrame.componentStride(2));
+        GstMappedFrame frame(sample, GST_MAP_READ);
+        return webrtc::I420Buffer::Copy(frame.width(), frame.height(), frame.componentData(0).data(), frame.componentStride(0),
+            frame.componentData(1).data(), frame.componentStride(1), frame.componentData(2).data(), frame.componentStride(2));
     }
 
-    return webrtc::I420Buffer::Copy(inFrame.width(), inFrame.height(), inFrame.componentData(0), inFrame.componentStride(0),
-        inFrame.componentData(1), inFrame.componentStride(1), inFrame.componentData(2), inFrame.componentStride(2));
+    return webrtc::I420Buffer::Copy(inFrame.width(), inFrame.height(), inFrame.componentData(0).data(), inFrame.componentStride(0),
+        inFrame.componentData(1).data(), inFrame.componentStride(1), inFrame.componentData(2).data(), inFrame.componentStride(2));
 }
 
 }

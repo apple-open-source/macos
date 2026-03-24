@@ -111,7 +111,7 @@
     // Set any feature flags that must be true for the tests, regardless of the base OS.
 
 #if TARGET_OS_IOS || TARGET_OS_TV
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 #endif
 
     // Use our superclass to create a fake keychain
@@ -189,7 +189,7 @@
     self.remoteSOSOnlyPeer = nil;
 
 #if TARGET_OS_IOS || TARGET_OS_TV
-    SecSecuritySetPersonaMusr(NULL);
+    SecSecuritySetPersonaMusrForTests(NULL);
 #endif
 }
 
@@ -226,7 +226,7 @@
     if(self.automaticallyBeginCKKSViewCloudKitOperation) {
         [ckks beginCloudKitOperation];
     }
-    [ckks endTrustedOperation];
+    [ckks endTrustedOperation:NO];
 }
 
 - (void)verifyDatabaseMocks {

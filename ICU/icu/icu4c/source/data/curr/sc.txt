@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sc{
     Currencies{
         ADP{
@@ -1111,6 +1111,10 @@ sc{
             "EC$",
             "dòllaru de sos Caràibes orientales",
         }
+        XCG{
+            "Cg.",
+            "fiorinu caraìbicu",
+        }
         XDR{
             "DIP",
             "diritos ispetziales de prelievu",
@@ -1742,8 +1746,8 @@ sc{
             other{"coronas islandesas"}
         }
         ITL{
-            one{"lira italiana"}
-            other{"liras italianas"}
+            one{"francu italianu"}
+            other{"francos italianos"}
         }
         JMD{
             one{"dòllaru giamaicanu"}
@@ -2332,6 +2336,10 @@ sc{
         XCD{
             one{"dòllaru de sos Caràibes orientales"}
             other{"dòllaros de sos Caràibes orientales"}
+        }
+        XCG{
+            one{"fiorinu caraìbicu"}
+            other{"fiorinos caraìbicos"}
         }
         XDR{
             one{"diritu ispetziale de prelievu"}

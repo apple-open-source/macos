@@ -34,6 +34,7 @@
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/BackForwardController.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/FocusController.h>
@@ -82,7 +83,7 @@ void WebPage::showEmojiPicker(LocalFrame& frame)
         if (!result.isEmpty())
             frame->editor().insertText(result, nullptr);
     };
-    sendWithAsyncReply(Messages::WebPageProxy::ShowEmojiPicker(frame.view()->contentsToRootView(frame.selection().absoluteCaretBounds())), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPageProxy::ShowEmojiPicker(frame.view()->contentsToRootView(frame.selection().absoluteCaretBounds())), WTF::move(completionHandler));
 }
 
 void WebPage::setAccentColor(WebCore::Color color)

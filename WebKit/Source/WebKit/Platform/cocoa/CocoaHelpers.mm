@@ -280,10 +280,10 @@ NSString *encodeJSONString(id object, JSONOptionSet options, NSError **error)
 {
 #if JSC_OBJC_API_ENABLED
     if (JSValue *value = dynamic_objc_cast<JSValue>(object)) {
-        if (!options.contains(JSONOptions::FragmentsAllowed) && !value._isDictionary)
+        if (!options.contains(JSONOptions::FragmentsAllowed) && !isDictionary(value.context.JSGlobalContextRef, value.JSValueRef))
             return nil;
 
-        return value._toJSONString;
+        return nsStringNilIfEmpty(toJSONString(value.context.JSGlobalContextRef, value.JSValueRef)).autorelease();
     }
 #endif
 
@@ -300,10 +300,10 @@ NSData *encodeJSONData(id object, JSONOptionSet options, NSError **error)
 
 #if JSC_OBJC_API_ENABLED
     if (JSValue *value = dynamic_objc_cast<JSValue>(object)) {
-        if (!options.contains(JSONOptions::FragmentsAllowed) && !value._isDictionary)
+        if (!options.contains(JSONOptions::FragmentsAllowed) && !isDictionary(value.context.JSGlobalContextRef, value.JSValueRef))
             return nil;
 
-        return [value._toJSONString dataUsingEncoding:NSUTF8StringEncoding];
+        return [nsStringNilIfEmpty(toJSONString(value.context.JSGlobalContextRef, value.JSValueRef)).autorelease() dataUsingEncoding:NSUTF8StringEncoding];
     }
 #endif
 
@@ -444,7 +444,7 @@ void callAfterRandomDelay(Function<void()>&& completionHandler)
 {
     // Random delay between 100 and 500 milliseconds.
     auto delay = Seconds::fromMilliseconds(100) + Seconds::fromMilliseconds((static_cast<double>(arc4random()) / static_cast<double>(UINT32_MAX)) * 400);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay.nanosecondsAs<int64_t>()), mainDispatchQueueSingleton(), makeBlockPtr(WTFMove(completionHandler)).get());
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay.nanosecondsAs<int64_t>()), mainDispatchQueueSingleton(), makeBlockPtr(WTF::move(completionHandler)).get());
 }
 
 NSDate *toAPI(const WallTime& time)

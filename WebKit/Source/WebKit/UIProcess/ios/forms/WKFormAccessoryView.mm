@@ -28,6 +28,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "WebPreferencesDefaultValues.h"
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -96,23 +97,10 @@ inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonIte
     BOOL _usesUniversalControlBar;
 }
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKFormAccessoryViewAdditions.mm>)
-#import <WebKitAdditions/WKFormAccessoryViewAdditions.mm>
-#else
 - (CGFloat)_toolbarMargin
 {
-    return 0;
+    return WebKit::isLiquidGlassEnabled() ? 10 : 0;
 }
-
-- (BOOL)_useCheckmarkForDone
-{
-    return NO;
-}
-
-- (void)_adjustFlexibleSpaceItem:(UIBarButtonItem *)item
-{
-}
-#endif
 
 - (instancetype)_initForUniversalControlBar:(UITextInputAssistantItem *)inputAssistant
 {
@@ -192,16 +180,16 @@ inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonIte
     _autoFillButtonItemSpacer = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFixedSpace target:nil action:nil]);
     [_autoFillButtonItemSpacer setWidth:WebKit::fixedSpaceBetweenButtonItems];
 
-    if (self._useCheckmarkForDone) {
-        [self _adjustFlexibleSpaceItem:_flexibleSpaceItem.get()];
-        [self _adjustFlexibleSpaceItem:_autoFillButtonItemSpacer.get()];
-    }
-
     // iPad doesn't show the "Done" button since the keyboard has its own dismiss key.
-    if (self._useCheckmarkForDone)
+    if (WebKit::isLiquidGlassEnabled()) {
         _doneButton = adoptNS([[UIBarButtonItem alloc] initWithImage:WebKit::checkmark() style:UIBarButtonItemStylePlain target:self action:@selector(_done)]);
-    else
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+        [_flexibleSpaceItem setHidesSharedBackground:NO];
+        [_autoFillButtonItemSpacer setHidesSharedBackground:NO];
+#endif
+    } else
         _doneButton = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(_done)]);
+
     [items addObject:_flexibleSpaceItem.get()];
     [items addObject:_doneButton.get()];
 

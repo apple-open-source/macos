@@ -31,7 +31,7 @@
 
 namespace IPC {
 
-template<typename, typename> struct ArgumentCoder;
+template<typename> struct ArgumentCoder;
 
 // IPC encoder which:
 //  - Encodes to a caller buffer with fixed size, does not resize, stops when size runs out
@@ -81,7 +81,7 @@ public:
     template<typename T>
     StreamConnectionEncoder& operator<<(T&& t)
     {
-        ArgumentCoder<std::remove_cvref_t<T>, void>::encode(*this, std::forward<T>(t));
+        ArgumentCoder<std::remove_cvref_t<T>>::encode(*this, std::forward<T>(t));
         return *this;
     }
 

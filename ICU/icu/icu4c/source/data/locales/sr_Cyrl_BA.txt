@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 sr_Cyrl_BA{
     calendar{
         gregorian{
@@ -58,12 +58,10 @@ sr_Cyrl_BA{
             }
             eras{
                 wide{
-                    "прије нове ере",
-                    "нове ере",
+                    0{"прије нове ере"}
                 }
                 wide%variant{
-                    "пре наше ере",
-                    "нове ере",
+                    1{"нове ере"}
                 }
             }
         }

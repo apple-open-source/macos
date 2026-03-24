@@ -85,7 +85,7 @@ String WebCookieCache::cookiesForDOM(const URL& firstParty, const SameSiteInfo& 
             return cookiesToString(cookies);
 
         pruneCacheIfNecessary();
-        m_hostsWithInMemoryStorage.add(WTFMove(host));
+        m_hostsWithInMemoryStorage.add(WTF::move(host));
 
         CheckedRef inMemoryStorageSession = this->inMemoryStorageSession();
         for (auto& cookie : cookies)

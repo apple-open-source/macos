@@ -26,9 +26,8 @@
 #import "config.h"
 #import "MediaSampleAVFObjC.h"
 
-#import "CDMFairPlayStreaming.h"
+#import "CMUtilities.h"
 #import "CVUtilities.h"
-#import "ISOTrackEncryptionBox.h"
 #import "PixelBuffer.h"
 #import "PixelBufferConformerCV.h"
 #import "ProcessIdentity.h"
@@ -51,7 +50,7 @@ struct WTF::CFTypeTrait<CMSampleBufferRef> {
 namespace WebCore {
 
 MediaSampleAVFObjC::MediaSampleAVFObjC(RetainPtr<CMSampleBufferRef>&& sample)
-    : m_sample(WTFMove(sample))
+    : m_sample(WTF::move(sample))
 {
     commonInit();
 }
@@ -87,37 +86,6 @@ void MediaSampleAVFObjC::commonInit()
     m_duration = PAL::toMediaTime(duration);
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    auto getKeyIDs = [](CMFormatDescriptionRef description) -> Vector<Ref<SharedBuffer>> {
-        if (!description)
-            return { };
-        if (RetainPtr trackEncryptionData = static_cast<CFDataRef>(PAL::CMFormatDescriptionGetExtension(description, CFSTR("CommonEncryptionTrackEncryptionBox")))) {
-            // AVStreamDataParser will attach the 'tenc' box to each sample, not including the leading
-            // size and boxType data. Extract the 'tenc' box and use that box to derive the sample's
-            // keyID.
-            auto length = CFDataGetLength(trackEncryptionData.get());
-            auto ptr = (void*)(CFDataGetBytePtr(trackEncryptionData.get()));
-            auto destructorFunction = createSharedTask<void(void*)>([data = WTFMove(trackEncryptionData)] (void*) { UNUSED_PARAM(data); });
-            auto trackEncryptionDataBuffer = ArrayBuffer::create(JSC::ArrayBufferContents(ptr, length, std::nullopt, WTFMove(destructorFunction)));
-
-            ISOTrackEncryptionBox trackEncryptionBox;
-            auto trackEncryptionView = JSC::DataView::create(WTFMove(trackEncryptionDataBuffer), 0, length);
-            if (!trackEncryptionBox.parseWithoutTypeAndSize(trackEncryptionView))
-                return { };
-            return { SharedBuffer::create(trackEncryptionBox.defaultKID()) };
-        }
-
-#if HAVE(FAIRPLAYSTREAMING_MTPS_INITDATA)
-        if (static_cast<CFDataRef>(PAL::CMFormatDescriptionGetExtension(description, CFSTR("TransportStreamEncryptionInitData")))) {
-            // AVStreamDataParser will attach a JSON transport stream encryption
-            // description object to each sample. Use a static keyID in this case
-            // as MPEG2-TS encryption dose not specify a particular keyID in the
-            // stream.
-            return CDMPrivateFairPlayStreaming::mptsKeyIDs();
-        }
-#endif
-
-        return { };
-    };
     RetainPtr formatDescription = PAL::CMSampleBufferGetFormatDescription(m_sample.get());
     m_keyIDs = getKeyIDs(formatDescription.get());
 #endif

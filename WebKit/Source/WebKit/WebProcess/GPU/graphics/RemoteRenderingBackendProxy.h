@@ -65,6 +65,9 @@ class PixelBuffer;
 enum class AlphaPremultiplication : uint8_t;
 enum class RenderingMode : uint8_t;
 
+namespace ShapeDetection {
+enum class BarcodeFormat : uint8_t;
+}
 }
 
 namespace WebKit {
@@ -76,9 +79,14 @@ class RemoteImageBufferProxy;
 class RemoteSerializedImageBufferProxy;
 class RemoteSharedResourceCacheProxy;
 class RemoteLayerBackingStore;
-
 class RemoteImageBufferProxyFlushState;
 class RemoteImageBufferSetProxy;
+
+namespace ShapeDetection {
+class RemoteBarcodeDetectorProxy;
+class RemoteTextDetectorProxy;
+class RemoteFaceDetectorProxy;
+}
 
 class RemoteRenderingBackendProxy
     : public IPC::Connection::Client, public RefCounted<RemoteRenderingBackendProxy>, SerialFunctionDispatcher {
@@ -109,6 +117,7 @@ public:
     // Returns backing store bitmap for the RemoteNativeImageProxy.
     RefPtr<WebCore::ShareableBitmap> nativeImageBitmap(const RemoteNativeImageProxy&);
     void cacheNativeImage(WebCore::ShareableBitmap::Handle&&, WebCore::RenderingResourceIdentifier);
+    void cacheNativeImageFromSharedNativeImage(const RemoteNativeImageProxy&);
     void releaseNativeImage(WebCore::RenderingResourceIdentifier);
     void cacheFont(const WebCore::Font::Attributes&, const WebCore::FontPlatformDataAttributes&, std::optional<WebCore::RenderingResourceIdentifier>);
     void releaseFont(WebCore::RenderingResourceIdentifier);
@@ -128,6 +137,14 @@ public:
 
     UniqueRef<RemoteSnapshotRecorderProxy> createSnapshotRecorder(RemoteSnapshotIdentifier);
     void sinkSnapshotRecorderIntoSnapshotFrame(UniqueRef<RemoteSnapshotRecorderProxy>&&, WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
+
+    Ref<ShapeDetection::RemoteBarcodeDetectorProxy> createBarcodeDetector(const WebCore::ShapeDetection::BarcodeDetectorOptions&);
+    void releaseBarcodeDetector(ShapeDetection::RemoteBarcodeDetectorProxy&);
+    void supportedBarcodeDetectorBarcodeFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>);
+    Ref<ShapeDetection::RemoteFaceDetectorProxy> createFaceDetector(const WebCore::ShapeDetection::FaceDetectorOptions&);
+    void releaseFaceDetector(ShapeDetection::RemoteFaceDetectorProxy&);
+    Ref<ShapeDetection::RemoteTextDetectorProxy> createTextDetector();
+    void releaseTextDetector(ShapeDetection::RemoteTextDetectorProxy&);
 
 #if USE(GRAPHICS_LAYER_WC)
     Function<bool()> flushImageBuffers();

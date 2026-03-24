@@ -147,6 +147,11 @@ ScrollingStateTree& AsyncScrollingCoordinator::ensureScrollingStateTreeForRootFr
     });
 }
 
+CheckedRef<ScrollingStateTree> AsyncScrollingCoordinator::ensureCheckedScrollingStateTreeForRootFrameID(FrameIdentifier rootFrameID)
+{
+    return ensureScrollingStateTreeForRootFrameID(rootFrameID);
+}
+
 const ScrollingStateTree* AsyncScrollingCoordinator::existingScrollingStateTreeForRootFrameID(std::optional<FrameIdentifier> rootFrameID) const
 {
     auto* result = rootFrameID ? m_scrollingStateTrees.get(*rootFrameID) : nullptr;
@@ -399,7 +404,7 @@ bool AsyncScrollingCoordinator::requestScrollToPosition(ScrollableArea& scrollab
 
     if ((inProgrammaticScroll && options.animated == ScrollIsAnimated::No) || inBackForwardCache) {
         auto scrollUpdate = ScrollUpdate { *scrollingNodeID, scrollPosition, { }, ScrollUpdateType::PositionUpdate, ScrollingLayerPositionAction::Set };
-        applyScrollUpdate(WTFMove(scrollUpdate), ScrollType::Programmatic);
+        applyScrollUpdate(WTF::move(scrollUpdate), ScrollType::Programmatic);
     }
 
     ASSERT(inProgrammaticScroll == (options.type == ScrollType::Programmatic));
@@ -564,7 +569,7 @@ void AsyncScrollingCoordinator::applyPendingScrollUpdates()
     auto scrollUpdates = m_scrollingTree->takePendingScrollUpdates();
     for (auto& update : scrollUpdates) {
         LOG_WITH_STREAM(Scrolling, stream << "AsyncScrollingCoordinator::applyPendingScrollUpdates - node " << update.nodeID << " scroll position " << update.scrollPosition);
-        applyScrollPositionUpdate(WTFMove(update), ScrollType::User);
+        applyScrollPositionUpdate(WTF::move(update), ScrollType::User);
     }
 }
 
@@ -617,8 +622,8 @@ LocalFrameView* AsyncScrollingCoordinator::frameViewForScrollingNode(std::option
     if (!page())
         return nullptr;
     for (const auto& rootFrame : page()->rootFrames()) {
-        if (RefPtr frameView = frameViewForScrollingNode(rootFrame.get(), scrollingNodeID))
-            return frameView.unsafeGet();
+        if (auto* frameView = frameViewForScrollingNode(rootFrame.get(), scrollingNodeID))
+            return frameView;
     }
     return nullptr;
 }
@@ -626,7 +631,7 @@ LocalFrameView* AsyncScrollingCoordinator::frameViewForScrollingNode(std::option
 void AsyncScrollingCoordinator::applyScrollUpdate(ScrollUpdate&& update, ScrollType scrollType)
 {
     applyPendingScrollUpdates();
-    applyScrollPositionUpdate(WTFMove(update), scrollType);
+    applyScrollPositionUpdate(WTF::move(update), scrollType);
 }
 
 void AsyncScrollingCoordinator::applyScrollPositionUpdate(ScrollUpdate&& update, ScrollType scrollType)
@@ -834,10 +839,11 @@ void AsyncScrollingCoordinator::reconcileScrollingState(LocalFrameView& frameVie
     LayoutPoint scrollPositionForFixed = frameView.scrollPositionForFixedPosition();
     auto obscuredContentInsets = frameView.obscuredContentInsets();
 
-    FloatPoint positionForInsetClipLayer;
+    FloatRect insetClipLayerRect;
     if (insetClipLayer) {
-        positionForInsetClipLayer = LocalFrameView::positionForInsetClipLayer(scrollPosition, obscuredContentInsets);
-        positionForInsetClipLayer.move(frameView.insetForLeftScrollbarSpace(), 0);
+        insetClipLayerRect = LocalFrameView::insetClipLayerRect(scrollPosition, obscuredContentInsets, frameView.sizeForVisibleContent());
+        insetClipLayerRect.move(frameView.insetForLeftScrollbarSpace(), 0);
+        insetClipLayer->setSize(insetClipLayerRect.size());
     }
     FloatPoint positionForContentsLayer = frameView.positionForRootContentLayer();
     
@@ -851,7 +857,7 @@ void AsyncScrollingCoordinator::reconcileScrollingState(LocalFrameView& frameVie
         if (counterScrollingLayer)
             counterScrollingLayer->setPosition(scrollPositionForFixed);
         if (insetClipLayer)
-            insetClipLayer->setPosition(positionForInsetClipLayer);
+            insetClipLayer->setPosition(insetClipLayerRect.location());
         if (contentShadowLayer)
             contentShadowLayer->setPosition(positionForContentsLayer);
         if (rootContentsLayer)
@@ -866,7 +872,7 @@ void AsyncScrollingCoordinator::reconcileScrollingState(LocalFrameView& frameVie
         if (counterScrollingLayer)
             counterScrollingLayer->syncPosition(scrollPositionForFixed);
         if (insetClipLayer)
-            insetClipLayer->syncPosition(positionForInsetClipLayer);
+            insetClipLayer->syncPosition(insetClipLayerRect.location());
         if (contentShadowLayer)
             contentShadowLayer->syncPosition(positionForContentsLayer);
         if (rootContentsLayer)
@@ -1011,27 +1017,27 @@ void AsyncScrollingCoordinator::setNodeLayers(ScrollingNodeID nodeID, const Node
     if (!node)
         return;
 
-    node->setLayer(nodeLayers.layer);
+    node->setLayer(nodeLayers.layer.get());
 
     if (auto* scrollingNode = dynamicDowncast<ScrollingStateScrollingNode>(*node)) {
-        scrollingNode->setScrollContainerLayer(nodeLayers.scrollContainerLayer);
-        scrollingNode->setScrolledContentsLayer(nodeLayers.scrolledContentsLayer);
-        scrollingNode->setHorizontalScrollbarLayer(nodeLayers.horizontalScrollbarLayer);
-        scrollingNode->setVerticalScrollbarLayer(nodeLayers.verticalScrollbarLayer);
+        scrollingNode->setScrollContainerLayer(nodeLayers.scrollContainerLayer.get());
+        scrollingNode->setScrolledContentsLayer(nodeLayers.scrolledContentsLayer.get());
+        scrollingNode->setHorizontalScrollbarLayer(nodeLayers.horizontalScrollbarLayer.get());
+        scrollingNode->setVerticalScrollbarLayer(nodeLayers.verticalScrollbarLayer.get());
         if (RefPtr frameView = frameViewForScrollingNode(nodeID)) {
             if (CheckedPtr scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
                 scrollingNode->setScrollbarLayoutDirection(scrollableArea->shouldPlaceVerticalScrollbarOnLeft() ? UserInterfaceLayoutDirection::RTL : UserInterfaceLayoutDirection::LTR);
         }
 
         if (auto* frameScrollingNode = dynamicDowncast<ScrollingStateFrameScrollingNode>(*scrollingNode)) {
-            frameScrollingNode->setInsetClipLayer(nodeLayers.insetClipLayer);
-            frameScrollingNode->setCounterScrollingLayer(nodeLayers.counterScrollingLayer);
-            frameScrollingNode->setRootContentsLayer(nodeLayers.rootContentsLayer);
+            frameScrollingNode->setInsetClipLayer(nodeLayers.insetClipLayer.get());
+            frameScrollingNode->setCounterScrollingLayer(nodeLayers.counterScrollingLayer.get());
+            frameScrollingNode->setRootContentsLayer(nodeLayers.rootContentsLayer.get());
         }
     }
 
     if (RefPtr stickyNode = dynamicDowncast<ScrollingStateStickyNode>(*node))
-        stickyNode->setViewportAnchorLayer(nodeLayers.viewportAnchorLayer);
+        stickyNode->setViewportAnchorLayer(nodeLayers.viewportAnchorLayer.get());
 }
 
 void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeID, const LocalFrameView& frameView)
@@ -1056,6 +1062,7 @@ void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeI
     frameScrollingNode->setScrollbarColor(frameView.scrollbarColorStyle());
     frameScrollingNode->setWheelEventGesturesBecomeNonBlocking(settings.wheelEventGesturesBecomeNonBlocking());
 
+    frameScrollingNode->setSizeForVisibleContent(frameView.sizeForVisibleContent());
     frameScrollingNode->setMinLayoutViewportOrigin(frameView.minStableLayoutViewportOrigin());
     frameScrollingNode->setMaxLayoutViewportOrigin(frameView.maxStableLayoutViewportOrigin());
 
@@ -1158,7 +1165,7 @@ void AsyncScrollingCoordinator::setRelatedOverflowScrollingNodes(ScrollingNodeID
         return;
 
     if (auto* positionedNode = dynamicDowncast<ScrollingStatePositionedNode>(*node))
-        positionedNode->setRelatedOverflowScrollingNodes(WTFMove(relatedNodes));
+        positionedNode->setRelatedOverflowScrollingNodes(WTF::move(relatedNodes));
     else if (auto* overflowScrollProxyNode = dynamicDowncast<ScrollingStateOverflowScrollProxyNode>(*node)) {
         if (!relatedNodes.isEmpty())
             overflowScrollProxyNode->setOverflowScrollingNode(relatedNodes[0]);

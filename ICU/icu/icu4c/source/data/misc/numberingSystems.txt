@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 numberingSystems:table(nofallback){
     numberingSystems{
         adlm{
@@ -463,9 +463,19 @@ numberingSystems:table(nofallback){
             desc{"𑓐𑓑𑓒𑓓𑓔𑓕𑓖𑓗𑓘𑓙"}
             radix:int{10}
         }
-        tithibna{
+        tithibng{
             algorithmic:int{1}
-            desc{"bn/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"bn/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithibnk{
+            algorithmic:int{1}
+            desc{"bn/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithibnm{
+            algorithmic:int{1}
+            desc{"bn/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithibnp{
@@ -473,9 +483,9 @@ numberingSystems:table(nofallback){
             desc{"bn/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithiena{
+        tithibnt{
             algorithmic:int{1}
-            desc{"en/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"bn/SpelloutRules/%spellout-tithi-telugu"}
             radix:int{10}
         }
         tithieng{
@@ -503,9 +513,19 @@ numberingSystems:table(nofallback){
             desc{"en/SpelloutRules/%spellout-tithi-telugu"}
             radix:int{10}
         }
-        tithigua{
+        tithigug{
             algorithmic:int{1}
-            desc{"gu/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"gu/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithiguk{
+            algorithmic:int{1}
+            desc{"gu/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithigum{
+            algorithmic:int{1}
+            desc{"gu/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithigup{
@@ -513,9 +533,24 @@ numberingSystems:table(nofallback){
             desc{"gu/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithihia{
+        tithigut{
             algorithmic:int{1}
-            desc{"hi/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"gu/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithihig{
+            algorithmic:int{1}
+            desc{"hi/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithihik{
+            algorithmic:int{1}
+            desc{"hi/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithihim{
+            algorithmic:int{1}
+            desc{"hi/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithihip{
@@ -523,9 +558,24 @@ numberingSystems:table(nofallback){
             desc{"hi/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithikna{
+        tithihit{
             algorithmic:int{1}
-            desc{"kn/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"hi/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithikng{
+            algorithmic:int{1}
+            desc{"kn/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithiknk{
+            algorithmic:int{1}
+            desc{"kn/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithiknm{
+            algorithmic:int{1}
+            desc{"kn/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithiknp{
@@ -533,9 +583,24 @@ numberingSystems:table(nofallback){
             desc{"kn/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithimla{
+        tithiknt{
             algorithmic:int{1}
-            desc{"ml/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"kn/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithimlg{
+            algorithmic:int{1}
+            desc{"ml/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithimlk{
+            algorithmic:int{1}
+            desc{"ml/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithimlm{
+            algorithmic:int{1}
+            desc{"ml/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithimlp{
@@ -543,9 +608,24 @@ numberingSystems:table(nofallback){
             desc{"ml/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithimra{
+        tithimlt{
             algorithmic:int{1}
-            desc{"mr/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"ml/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithimrg{
+            algorithmic:int{1}
+            desc{"mr/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithimrk{
+            algorithmic:int{1}
+            desc{"mr/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithimrm{
+            algorithmic:int{1}
+            desc{"mr/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithimrp{
@@ -553,9 +633,24 @@ numberingSystems:table(nofallback){
             desc{"mr/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithiora{
+        tithimrt{
             algorithmic:int{1}
-            desc{"or/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"mr/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithiorg{
+            algorithmic:int{1}
+            desc{"or/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithiork{
+            algorithmic:int{1}
+            desc{"or/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithiorm{
+            algorithmic:int{1}
+            desc{"or/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithiorp{
@@ -563,9 +658,24 @@ numberingSystems:table(nofallback){
             desc{"or/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithipaa{
+        tithiort{
             algorithmic:int{1}
-            desc{"pa/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"or/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithipag{
+            algorithmic:int{1}
+            desc{"pa/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithipak{
+            algorithmic:int{1}
+            desc{"pa/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithipam{
+            algorithmic:int{1}
+            desc{"pa/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithipap{
@@ -573,9 +683,24 @@ numberingSystems:table(nofallback){
             desc{"pa/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithitaa{
+        tithipat{
             algorithmic:int{1}
-            desc{"ta/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"pa/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithitag{
+            algorithmic:int{1}
+            desc{"ta/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithitak{
+            algorithmic:int{1}
+            desc{"ta/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithitam{
+            algorithmic:int{1}
+            desc{"ta/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithitap{
@@ -583,9 +708,24 @@ numberingSystems:table(nofallback){
             desc{"ta/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithitea{
+        tithitat{
             algorithmic:int{1}
-            desc{"te/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"ta/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithiteg{
+            algorithmic:int{1}
+            desc{"te/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithitek{
+            algorithmic:int{1}
+            desc{"te/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithitem{
+            algorithmic:int{1}
+            desc{"te/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithitep{
@@ -593,9 +733,24 @@ numberingSystems:table(nofallback){
             desc{"te/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
-        tithiura{
+        tithitet{
             algorithmic:int{1}
-            desc{"ur/SpelloutRules/%spellout-tithi-amanta"}
+            desc{"te/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
+        tithiurg{
+            algorithmic:int{1}
+            desc{"ur/SpelloutRules/%spellout-tithi-gujarati"}
+            radix:int{10}
+        }
+        tithiurk{
+            algorithmic:int{1}
+            desc{"ur/SpelloutRules/%spellout-tithi-kannada"}
+            radix:int{10}
+        }
+        tithiurm{
+            algorithmic:int{1}
+            desc{"ur/SpelloutRules/%spellout-tithi-marathi"}
             radix:int{10}
         }
         tithiurp{
@@ -603,9 +758,19 @@ numberingSystems:table(nofallback){
             desc{"ur/SpelloutRules/%spellout-tithi"}
             radix:int{10}
         }
+        tithiurt{
+            algorithmic:int{1}
+            desc{"ur/SpelloutRules/%spellout-tithi-telugu"}
+            radix:int{10}
+        }
         tnsa{
             algorithmic:int{0}
             desc{"𖫀𖫁𖫂𖫃𖫄𖫅𖫆𖫇𖫈𖫉"}
+            radix:int{10}
+        }
+        tols{
+            algorithmic:int{0}
+            desc{"𑷠𑷡𑷢𑷣𑷤𑷥𑷦𑷧𑷨𑷩"}
             radix:int{10}
         }
         vaii{

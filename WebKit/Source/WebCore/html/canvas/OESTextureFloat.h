@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class OESTextureFloat final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(OESTextureFloat);
+    WTF_MAKE_TZONE_ALLOCATED(OESTextureFloat);
 public:
     explicit OESTextureFloat(WebGLRenderingContextBase&);
     ~OESTextureFloat();

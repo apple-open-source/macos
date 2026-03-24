@@ -46,7 +46,7 @@ enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef
     CFMutableDataRef localDecodedMessage = NULL;
     
     SOSCoderStatus coderStatus = kSOSCoderDataReturned;
-    require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
+    __Require_Action_Quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
     CFErrorRef localError = NULL;
     if (coder) { 
         coderStatus = SOSCoderUnwrap(coder, codedMessage, &localDecodedMessage, peer_id, error);
@@ -114,7 +114,7 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, S
     if(!coder) {
         account.engine_peer_state_needs_repair = true;
     }
-    require_action_quiet(coder, xit, secnotice("transport", "%@ getCoder: %@", peer_id, error ? *error : NULL));
+    __Require_Action_Quiet(coder, xit, secnotice("transport", "%@ getCoder: %@", peer_id, error ? *error : NULL));
     secnotice("transport", "coder state: %@", coder);
 
     if (SOSCoderCanWrap(coder)) {

@@ -2800,47 +2800,47 @@ static void testEncKeyPrefs(uint8_t *content, size_t content_length, uint8_t *si
 
     /* Decode the message */
 #if TARGET_OS_IPHONE
-    require_noerr_action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL,
+    __Require_noErr_Action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL,
                                              NULL, NULL, &decoder), out,
                          fail("Failed to create decoder"));
 #else
-    require_noerr_action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+    __Require_noErr_Action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
                                              NULL, NULL, &decoder), out,
                          fail("Failed to create decoder"));
 #endif
-    require_noerr_action(SecCmsDecoderUpdate(decoder, signature, sig_length), out,
+    __Require_noErr_Action(SecCmsDecoderUpdate(decoder, signature, sig_length), out,
                          fail("Failed to add data "));
     OSStatus status = SecCmsDecoderFinish(decoder, &cmsg);
     decoder = NULL; // SecCmsDecoderFinish always frees the decoder
-    require_noerr_action(status, out, fail("Failed to finish decoder"));
+    __Require_noErr_Action(status, out, fail("Failed to finish decoder"));
 
     /* Get the signed data */
-    require_action(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
+    __Require_Action(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
                    fail("Failed to get content info"));
-    require_action(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
+    __Require_Action(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
                    fail("Content type was pkcs7 signed data"));
-    require_action(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
+    __Require_Action(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
                    fail("Failed to get signed data"));
 
     /* Set the detached message content */
-    require_action(!SecCmsSignedDataHasDigests(sigd), out,
+    __Require_Action(!SecCmsSignedDataHasDigests(sigd), out,
                    fail("Signed data has content already"));
-    require_action(digestalgs = SecCmsSignedDataGetDigestAlgs(sigd), out,
+    __Require_Action(digestalgs = SecCmsSignedDataGetDigestAlgs(sigd), out,
                    fail("Failed to get digest algorithms"));
-    require_action(digcx = SecCmsDigestContextStartMultiple(digestalgs), out,
+    __Require_Action(digcx = SecCmsDigestContextStartMultiple(digestalgs), out,
                    fail("Failed to create digest context"));
     SecCmsDigestContextUpdate(digcx, content, content_length);
-    require_noerr_action(SecCmsSignedDataSetDigestContext(sigd, digcx), out,
+    __Require_noErr_Action(SecCmsSignedDataSetDigestContext(sigd, digcx), out,
                          fail("Failed to set digest context"));
 
     /* Verify the signature */
-    require_action(policy = SecPolicyCreateBasicX509(), out,
+    __Require_Action(policy = SecPolicyCreateBasicX509(), out,
                   fail("Failed to create basic policy"));
-    require_noerr_action(SecCmsSignedDataVerifySigner(sigd, 0, policy, &trust), out,
+    __Require_noErr_Action(SecCmsSignedDataVerifySigner(sigd, 0, policy, &trust), out,
                          fail("Failed to verify signature"));
 
     /* Get the Encryption Key Preference certificate */
-    require_action(signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
+    __Require_Action(signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
                    fail("Failed to get signer info"));
     ok(cert = SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(signerinfo),
        "Failed to get encryption key preference cert");
@@ -2902,7 +2902,7 @@ static void test_sign_no_priv(void) {
 #else
     ok(cmsg = SecCmsMessageCreate(NULL), "create message");
 #endif
-    require(cmsg, out);
+    __Require(cmsg, out);
     ok(sigd = SecCmsSignedDataCreate(cmsg), "create signed message");
     ok(cinfo = SecCmsMessageGetContentInfo(cmsg), "get content info");
 #if TARGET_OS_IPHONE

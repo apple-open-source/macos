@@ -566,6 +566,31 @@ TEST_P(MipmapTestES3, GenerateMipmap1x1Texture)
     verifyAllMips(kTextureSize, kTextureSize, kInitialColor[0]);
 }
 
+// This test generates mipmaps twice in a row.
+TEST_P(MipmapTestES3, GenerateMipmapTwice)
+{
+    constexpr uint32_t kTextureSize = 1024;
+
+    const std::vector<GLColor> kInitialColor(kTextureSize * kTextureSize,
+                                             GLColor(35, 81, 184, 211));
+
+    // Create the texture.
+    glBindTexture(GL_TEXTURE_2D, mTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kTextureSize, kTextureSize, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, kInitialColor.data());
+
+    // Then generate the mips twice.
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    // Enable mipmaps.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+
+    // Verify that every mip is correct.
+    verifyAllMips(kTextureSize, kTextureSize, kInitialColor[0]);
+}
+
 // This test generates mipmaps for a large texture and ensures all mips are generated.
 TEST_P(MipmapTestES3, GenerateMipmapLargeTexture)
 {
@@ -2443,6 +2468,81 @@ TEST_P(MipmapTestES31, GenerateLowerMipsWithDraw)
         const GLColor expect = upscale(i, 4);
         EXPECT_PIXEL_COLOR_NEAR(i % 4, i / 4, expect, 1);
     }
+}
+
+// Verifies texture uploads work correctly after size transitions that change mipmap dimensions.
+TEST_P(MipmapTest, UploadAfterSizeTransition)
+{
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    std::vector<GLColor> redData(128 * 128, GLColor::red);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 redData.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    std::vector<GLColor> greenData(256 * 256, GLColor::green);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 greenData.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    std::vector<GLColor> blueData(128 * 128, GLColor::blue);
+    glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 blueData.data());
+    ASSERT_GL_NO_ERROR();
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(128, 128, GLColor::green);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 1);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(64, 64, GLColor::blue);
+}
+
+// Verifies old generated mipmap data doesn't persist after base level size changes.
+TEST_P(MipmapTest, GeneratedMipmapsInvalidatedAfterSizeChange)
+{
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    std::vector<GLColor> redData(128 * 128, GLColor::red);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 redData.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(64, 64, GLColor::red);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 1);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(32, 32, GLColor::red);
+
+    std::vector<GLColor> greenData(256 * 256, GLColor::green);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 greenData.data());
+    ASSERT_GL_NO_ERROR();
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(128, 128, GLColor::green);
+
+    glGenerateMipmap(GL_TEXTURE_2D);
+    ASSERT_GL_NO_ERROR();
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 1);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(64, 64, GLColor::green);
 }
 
 // Use this to select which configurations (e.g. which renderer, which GLES major version) these

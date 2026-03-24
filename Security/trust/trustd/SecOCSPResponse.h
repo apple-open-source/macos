@@ -148,7 +148,10 @@ int64_t SecOCSPResponseGetID(SecOCSPResponseRef ocspResponse);
 
 /* Return true if response is still valid for the given age. */
 bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
-    CFTimeInterval maxAge, CFTimeInterval defaultTTL, CFAbsoluteTime verifyTime);
+                                      CFTimeInterval maxAge,
+                                      CFTimeInterval defaultTTL,
+                                      CFAbsoluteTime verifyTime,
+                                      CFAbsoluteTime *thisThisUpdate);
 
 CFDataRef SecOCSPResponseGetData(SecOCSPResponseRef this);
 

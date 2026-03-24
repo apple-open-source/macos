@@ -63,7 +63,7 @@ ExceptionOr<Ref<BarcodeDetector>> BarcodeDetector::create(ScriptExecutionContext
 
 
 BarcodeDetector::BarcodeDetector(Ref<ShapeDetection::BarcodeDetector>&& backing)
-    : m_backing(WTFMove(backing))
+    : m_backing(WTF::move(backing))
 {
 }
 
@@ -75,7 +75,7 @@ ExceptionOr<void> BarcodeDetector::getSupportedFormats(ScriptExecutionContext& s
         RefPtr page = document->page();
         if (!page)
             return Exception { ExceptionCode::AbortError };
-        page->chrome().getBarcodeDetectorSupportedFormats(([promise = WTFMove(promise)](Vector<ShapeDetection::BarcodeFormat>&& barcodeFormats) mutable {
+        page->chrome().getBarcodeDetectorSupportedFormats(([promise = WTF::move(promise)](Vector<ShapeDetection::BarcodeFormat>&& barcodeFormats) mutable {
             promise.resolve(barcodeFormats.map([](auto format) {
                 return convertFromBacking(format);
             }));
@@ -93,20 +93,25 @@ ExceptionOr<void> BarcodeDetector::getSupportedFormats(ScriptExecutionContext& s
 
 void BarcodeDetector::detect(ScriptExecutionContext& scriptExecutionContext, ImageBitmap::Source&& source, DetectPromise&& promise)
 {
-    ImageBitmap::createCompletionHandler(scriptExecutionContext, WTFMove(source), { }, [backing = m_backing.copyRef(), promise = WTFMove(promise)](ExceptionOr<Ref<ImageBitmap>>&& imageBitmap) mutable {
+    ImageBitmap::createCompletionHandler(scriptExecutionContext, WTF::move(source), { }, [backing = m_backing.copyRef(), promise = WTF::move(promise)](ExceptionOr<Ref<ImageBitmap>>&& imageBitmap) mutable {
         if (imageBitmap.hasException()) {
             promise.resolve({ });
             return;
         }
 
         // FIXME: This is a safer cpp false positive (rdar://160082559).
-        SUPPRESS_UNCOUNTED_ARG auto imageBuffer = imageBitmap.releaseReturnValue()->takeImageBuffer();
+        SUPPRESS_UNCOUNTED_ARG RefPtr imageBuffer = imageBitmap.releaseReturnValue()->takeImageBuffer();
         if (!imageBuffer) {
             promise.resolve({ });
             return;
         }
+        RefPtr image = imageBuffer->copyNativeImage();
+        if (!image) {
+            promise.resolve({ });
+            return;
+        }
 
-        backing->detect(imageBuffer.releaseNonNull(), [promise = WTFMove(promise)](Vector<ShapeDetection::DetectedBarcode>&& detectedBarcodes) mutable {
+        backing->detect(image.releaseNonNull(), [promise = WTF::move(promise)](Vector<ShapeDetection::DetectedBarcode>&& detectedBarcodes) mutable {
             promise.resolve(detectedBarcodes.map([](const auto& detectedBarcode) {
                 return convertFromBacking(detectedBarcode);
             }));

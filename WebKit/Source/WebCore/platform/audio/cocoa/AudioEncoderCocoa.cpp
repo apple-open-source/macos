@@ -72,7 +72,7 @@ public:
 
     static Ref<InternalAudioEncoderCocoa> create(const Config& config, InternalConfig&& internalConfig, AudioEncoder::DescriptionCallback&& descriptionCallback, AudioEncoder::OutputCallback&& outputCallback)
     {
-        return adoptRef(*new InternalAudioEncoderCocoa(config, WTFMove(internalConfig), WTFMove(descriptionCallback), WTFMove(outputCallback)));
+        return adoptRef(*new InternalAudioEncoderCocoa(config, WTF::move(internalConfig), WTF::move(descriptionCallback), WTF::move(outputCallback)));
     }
     ~InternalAudioEncoderCocoa() = default;
 
@@ -157,13 +157,13 @@ Ref<AudioEncoder::CreatePromise> AudioEncoderCocoa::create(const String& codecNa
     auto result = InternalAudioEncoderCocoa::checkConfiguration(codecName, config);
     if (!result)
         return CreatePromise::createAndReject(makeString("AudioEncoder initialization failed with error: "_s, result.error()));
-    Ref internalEncoder = InternalAudioEncoderCocoa::create(config, WTFMove(*result), WTFMove(descriptionCallback), WTFMove(outputCallback));
-    Ref encoder = adoptRef(*new AudioEncoderCocoa(WTFMove(internalEncoder)));
-    return CreatePromise::createAndResolve(WTFMove(encoder));
+    Ref internalEncoder = InternalAudioEncoderCocoa::create(config, WTF::move(*result), WTF::move(descriptionCallback), WTF::move(outputCallback));
+    Ref encoder = adoptRef(*new AudioEncoderCocoa(WTF::move(internalEncoder)));
+    return CreatePromise::createAndResolve(WTF::move(encoder));
 }
 
 AudioEncoderCocoa::AudioEncoderCocoa(Ref<InternalAudioEncoderCocoa>&& internalEncoder)
-    : m_internalEncoder(WTFMove(internalEncoder))
+    : m_internalEncoder(WTF::move(internalEncoder))
 {
 }
 
@@ -177,8 +177,8 @@ AudioEncoderCocoa::~AudioEncoderCocoa()
 
 Ref<AudioEncoder::EncodePromise> AudioEncoderCocoa::encode(RawFrame&& frame)
 {
-    return invokeAsync(InternalAudioEncoderCocoa::queueSingleton(), [frame = WTFMove(frame), encoder = m_internalEncoder]() mutable {
-        return encoder->encode(WTFMove(frame));
+    return invokeAsync(InternalAudioEncoderCocoa::queueSingleton(), [frame = WTF::move(frame), encoder = m_internalEncoder]() mutable {
+        return encoder->encode(WTF::move(frame));
     });
 }
 
@@ -204,10 +204,10 @@ void AudioEncoderCocoa::close()
 }
 
 InternalAudioEncoderCocoa::InternalAudioEncoderCocoa(const Config& config, InternalConfig&& internalConfig, AudioEncoder::DescriptionCallback&& descriptionCallback, AudioEncoder::OutputCallback&& outputCallback)
-    : m_descriptionCallback(WTFMove(descriptionCallback))
-    , m_outputCallback(WTFMove(outputCallback))
+    : m_descriptionCallback(WTF::move(descriptionCallback))
+    , m_outputCallback(WTF::move(outputCallback))
     , m_config(config)
-    , m_internalConfig(WTFMove(internalConfig))
+    , m_internalConfig(WTF::move(internalConfig))
 {
 }
 
@@ -304,7 +304,7 @@ void InternalAudioEncoderCocoa::processEncodedOutputs()
             m_hasProvidedDecoderConfig = true;
             m_descriptionCallback(activeConfiguration(cmSample.get()));
         }
-        m_outputCallback({ WTFMove(encodedFrame) });
+        m_outputCallback({ WTF::move(encodedFrame) });
     }
 }
 
@@ -351,7 +351,7 @@ Ref<AudioEncoder::EncodePromise> InternalAudioEncoderCocoa::encode(AudioEncoder:
     ASSERT(m_converter);
     AudioEncoder::EncodePromise::Producer producer;
     Ref promise = producer.promise();
-    converter()->addSampleBuffer(cmSample.get())->whenSettled(queueSingleton(), [weakThis = ThreadSafeWeakPtr { *this }, producer = WTFMove(producer)](auto result) mutable {
+    converter()->addSampleBuffer(cmSample.get())->whenSettled(queueSingleton(), [weakThis = ThreadSafeWeakPtr { *this }, producer = WTF::move(producer)](auto result) mutable {
         assertIsCurrent(queueSingleton());
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !result || protectedThis->m_lastError) {

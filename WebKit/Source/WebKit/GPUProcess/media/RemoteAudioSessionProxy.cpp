@@ -47,7 +47,7 @@ using namespace WebCore;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAudioSessionProxy);
 
 RemoteAudioSessionProxy::RemoteAudioSessionProxy(GPUConnectionToWebProcess& gpuConnection)
-: m_gpuConnection(gpuConnection)
+    : m_gpuConnection(gpuConnection)
 {
 }
 
@@ -78,6 +78,7 @@ RemoteAudioSessionConfiguration RemoteAudioSessionProxy::configuration()
         m_active,
         m_sceneIdentifier,
         m_soundStageSize,
+        session->categoryOverride(),
     };
 }
 
@@ -127,7 +128,7 @@ void RemoteAudioSessionProxy::tryToSetActive(bool active, SetActiveCompletion&& 
 void RemoteAudioSessionProxy::setIsPlayingToBluetoothOverride(std::optional<bool>&& value)
 {
     m_isPlayingToBluetoothOverrideChanged = true;
-    protectedAudioSessionManager()->protectedSession()->setIsPlayingToBluetoothOverride(WTFMove(value));
+    protectedAudioSessionManager()->protectedSession()->setIsPlayingToBluetoothOverride(WTF::move(value));
 }
 
 void RemoteAudioSessionProxy::configurationChanged()

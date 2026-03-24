@@ -68,7 +68,7 @@ static void inspectorViewDestroyed(GtkWidget*, gpointer userData)
 
 void WebInspectorUIProxy::setClient(std::unique_ptr<WebInspectorUIProxyClient>&& client)
 {
-    m_client = WTFMove(client);
+    m_client = WTF::move(client);
 }
 
 void WebInspectorUIProxy::updateInspectorWindowTitle() const
@@ -139,7 +139,7 @@ static void decidePolicyForNavigationAction(WKPageRef pageRef, WKNavigationActio
     toImpl(listenerRef)->ignore();
 
     // And instead load it in the inspected page.
-    inspector->protectedInspectedPage()->loadRequest(WTFMove(request));
+    inspector->protectedInspectedPage()->loadRequest(WTF::move(request));
 }
 
 static void getContextMenuFromProposedMenu(WKPageRef pageRef, WKArrayRef proposedMenuRef, WKArrayRef* newMenuRef, WKHitTestResultRef, WKTypeRef, const void*)
@@ -173,7 +173,7 @@ static Ref<WebsiteDataStore> inspectorWebsiteDataStore()
     String baseDataDirectory = FileSystem::pathByAppendingComponent(FileSystem::userDataDirectory(), versionedDirectory);
 
     auto configuration = WebsiteDataStoreConfiguration::createWithBaseDirectories(baseCacheDirectory, baseDataDirectory);
-    return WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::generatePersistentSessionID());
+    return WebsiteDataStore::create(WTF::move(configuration), PAL::SessionID::generatePersistentSessionID());
 }
 
 RefPtr<WebPageProxy> WebInspectorUIProxy::platformCreateFrontendPage()
@@ -569,7 +569,7 @@ void WebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::
         if (!decodedData)
             return;
         decodedData->shrinkToFit();
-        dataVector = WTFMove(*decodedData);
+        dataVector = WTF::move(*decodedData);
     } else
         dataString = saveDatas[0].content.utf8();
 

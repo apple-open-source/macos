@@ -31,7 +31,7 @@
 #include "PlatformPath.h"
 #include "WindRule.h"
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-#include <skia/core/SkPath.h>
+#include <skia/core/SkPathBuilder.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/Function.h>
 
@@ -43,9 +43,10 @@ class PathStream;
 class PathSkia final : public PathImpl {
 public:
     static Ref<PathSkia> create(std::span<const PathSegment> = { });
+    static Ref<PathSkia> create(SkPath&&);
     static PlatformPathPtr emptyPlatformPath();
 
-    PlatformPathPtr platformPath() const;
+    PlatformPathPtr platformPath() const LIFETIME_BOUND;
 
     void addPath(const PathSkia&, const AffineTransform&);
 
@@ -76,7 +77,18 @@ public:
 
 private:
     PathSkia() = default;
-    explicit PathSkia(const SkPath&);
+    explicit PathSkia(const SkPathBuilder&);
+    explicit PathSkia(SkPath&&);
+
+    void ensurePlatformPath() const
+    {
+        if (!m_platformPath)
+            m_platformPath = m_builder.snapshot();
+    }
+    void resetPlatformPath()
+    {
+        m_platformPath = std::nullopt;
+    }
 
     FloatPoint currentPoint() const final;
 
@@ -85,7 +97,8 @@ private:
 
     void addEllipse(const FloatPoint&, float radiusX, float radiusY, float startAngle, float endAngle, RotationDirection);
 
-    SkPath m_platformPath;
+    SkPathBuilder m_builder;
+    mutable std::optional<SkPath> m_platformPath;
 };
 
 } // namespace WebCore

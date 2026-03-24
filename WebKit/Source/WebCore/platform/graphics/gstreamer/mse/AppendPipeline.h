@@ -42,7 +42,7 @@ typedef MediaSourcePrivateGStreamer::RegisteredTrack RegisteredTrack;
 #if !LOG_DISABLED || ENABLE(ENCRYPTED_MEDIA)
 struct PadProbeInformation {
     AppendPipeline* appendPipeline;
-    const char* description;
+    ASCIILiteral description;
     gulong probeId;
 };
 #endif
@@ -60,11 +60,6 @@ public:
     MediaPlayerPrivateGStreamerMSE* playerPrivate() { return m_playerPrivate; }
 
 private:
-#ifndef GST_DISABLE_GST_DEBUG
-    static const char * streamTypeToString(StreamType);
-#endif
-    static const char * streamTypeToStringLower(StreamType);
-
     struct Track {
         // Track objects are created on pad-added for the first initialization segment, and destroyed after
         // the pipeline state has been set to GST_STATE_NULL.

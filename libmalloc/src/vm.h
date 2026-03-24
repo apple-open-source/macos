@@ -115,6 +115,14 @@ MALLOC_NOEXPORT
 void
 mvm_protect_plat(void * __sized_by(size) address, size_t size, unsigned protection, unsigned debug_flags, plat_map_t *map);
 
+MALLOC_NOEXPORT
+void
+mvm_guard(void * __sized_by(size) address, size_t size, unsigned protection, unsigned debug_flags);
+
+MALLOC_NOEXPORT
+void
+mvm_guard_plat(void * __sized_by(size) address, size_t size, unsigned protection, unsigned debug_flags, plat_map_t *map);
+
 #if CONFIG_MAGAZINE_DEFERRED_RECLAIM
 MALLOC_NOEXPORT
 kern_return_t

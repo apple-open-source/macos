@@ -217,7 +217,10 @@ ArrayMode ArrayMode::refine(
     // If we had exited because of an exotic object behavior, then don't try to specialize.
     if (graph.hasExitSite(node->origin.semantic, ExoticObjectMode))
         return ArrayMode(Array::Generic, action());
-    
+
+    if (isInBounds() && graph.hasExitSite(node->origin.semantic, LoadFromHole))
+        return withSpeculation(Array::OutOfBounds).refine(graph, node, base, index, value);
+
     // Note: our profiling currently doesn't give us good information in case we have
     // an unlikely control flow path that sets the base to a non-cell value. Value
     // profiling and prediction propagation will probably tell us that the value is
@@ -852,4 +855,3 @@ void printInternal(PrintStream& out, JSC::DFG::Array::Conversion conversion)
 } // namespace WTF
 
 #endif // ENABLE(DFG_JIT)
-

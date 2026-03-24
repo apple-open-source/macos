@@ -34,6 +34,7 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
+#include <os/availability.h>
 #include <xpc/xpc.h>
 
 __BEGIN_DECLS
@@ -70,6 +71,7 @@ extern const CFStringRef kSecTrustInfoQCStatementsKey;
 extern const CFStringRef kSecTrustInfoQWACValidationKey;
 extern const CFStringRef kSecTrustInfoResultNotBefore;
 extern const CFStringRef kSecTrustInfoResultNotAfter;
+extern const CFStringRef kSecTrustInfoRevocationInfoKey;
 
 /* Constants used as keys in the certificate details dictionary.
  An array of per-certificate details is returned by SecTrustCopyResult
@@ -217,6 +219,9 @@ CFArrayRef SecTrustCopyDetailedPropertiesAtIndex(SecTrustRef trust, CFIndex ix);
             The value will be a CFDateRef representing the earliest date at
             which the revocation info for one of the certificates in this chain
             might change.
+        kSecTrustInfoRevocationInfoKey key contains an array of dictionaries
+            with each of the revocation methods (OCSP, CRL, etc) and their
+            specific revocation status.
 
      @result A dictionary with various fields that can be displayed to the user,
      or NULL if no additional info is available or the trust has not yet been
@@ -326,7 +331,21 @@ CFDictionaryRef SecTrustOTASecExperimentCopyAsset(CFErrorRef _Nullable * _Nullab
  @param error A returned error if trustd failed to trigger the update.
  @result True if the update was triggered, false if not.
  */
+API_DEPRECATED_WITH_REPLACEMENT("SecTrustTriggerValidUpdateToVersion", tvos(10.0, 26.3), ios(11.0.0, 26.3), macos(11.0, 26.3), watchos(4.0, 26.3))
 bool SecTrustTriggerValidUpdate(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+
+/*
+ @function SecTrustTriggerValidUpdateToVersion
+ @abstract Trigger trustd to fetch a valid update.
+ @param error A returned error if trustd failed to trigger the update.
+ @param version valid database version to update to
+ @result True if the update was triggered, false if not.
+ */
+#define SEC_TRUST_VALID_VERSION_DATABASE_VERSION (-1)
+bool SecTrustTriggerValidUpdateToVersion(CFIndex version, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+__OSX_AVAILABLE(26.4) __IOS_AVAILABLE(26.4) __TVOS_AVAILABLE(26.4) __WATCHOS_AVAILABLE(26.4);
+;
 
 /*!
  @function SecTrustFlushResponseCache

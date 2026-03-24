@@ -34,7 +34,11 @@
 
 #if defined(__has_include)
 #if __has_include(<WebKitAdditions/pas_mte_additions.h>)
+// FIXME: Properly support using WKA in modules.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
 #include <WebKitAdditions/pas_mte_additions.h>
+#pragma clang diagnostic pop
 #endif // __has_include(<WebKitAdditions/pas_mte_additions.h>)
 #if __has_include(<libproc.h>)
 #include <libproc.h>
@@ -77,7 +81,7 @@ extern Slot g_config[];
 #define PAS_MTE_TAGGING_RATE 2
 #define PAS_MTE_MEDIUM_TAGGING_ENABLE_FLAG 3
 #define PAS_MTE_LOCKDOWN_MODE_FLAG 4
-#define PAS_MTE_IS_WCP_FLAG 5
+#define PAS_MTE_HARDENED_FLAG 5
 
 // Must be kept in sync with the offsets in WTFConfig.h:ReservedConfigByteOffset
 #define PAS_MTE_CONFIG_RESERVED_BYTE_OFFSET 2
@@ -91,7 +95,8 @@ extern Slot g_config[];
 #define PAS_MTE_CONFIG_FIELD(byte, bit) (((PAS_MTE_CONFIG_BYTE(byte)) & (1UL << (bit))) ? 1 : 0)
 #define PAS_MTE_MEDIUM_TAGGING_ENABLED (PAS_MTE_CONFIG_BYTE(PAS_MTE_MEDIUM_TAGGING_ENABLE_FLAG))
 #define PAS_MTE_IS_LOCKDOWN_MODE (PAS_MTE_CONFIG_BYTE(PAS_MTE_LOCKDOWN_MODE_FLAG))
-#define PAS_MTE_IS_IN_WCP (PAS_MTE_CONFIG_BYTE(PAS_MTE_IS_WCP_FLAG))
+#define PAS_MTE_IS_HARDENED (PAS_MTE_CONFIG_BYTE(PAS_MTE_HARDENED_FLAG))
+#define PAS_MTE_USE_LARGE_OBJECT_DELEGATION (PAS_USE_MTE && PAS_MTE_IS_HARDENED)
 
 #define PAS_VM_MTE 0x2000
 #define PAS_MTE_PROC_FLAG_SEC_ENABLED 0x4000000
@@ -113,7 +118,7 @@ extern Slot g_config[];
 #define PAS_USE_COMPACT_ONLY_TZONE_HEAP PAS_USE_MTE
 #endif
 
-#define PAS_MTE_FEATURE_RETAG_ON_FREE 0
+#define PAS_MTE_FEATURE_RETAG_ON_SCAVENGE 0
 #define PAS_MTE_FEATURE_LOG_ON_TAG 1
 #define PAS_MTE_FEATURE_LOG_ON_PURIFY 2
 #define PAS_MTE_FEATURE_LOG_PAGE_ALLOC 3
@@ -122,14 +127,12 @@ extern Slot g_config[];
 #define PAS_MTE_FEATURE_ASSERT_ADJACENT_TAGS_ARE_DISJOINT 6
 
 #define PAS_MTE_FEATURE_FORCED(feature) (0)
-#define PAS_MTE_FEATURE_PRIVILEGED_FORCED(feature) (feature == PAS_MTE_FEATURE_ADJACENT_TAG_EXCLUSION)
-#define PAS_MTE_FEATURE_WCP_FORCED(feature) (0)
+#define PAS_MTE_FEATURE_HARDENED_FORCED(feature) (feature == PAS_MTE_FEATURE_ADJACENT_TAG_EXCLUSION)
 #define PAS_MTE_FEATURE_DEBUG_FORCED(feature) (feature == PAS_MTE_FEATURE_ASSERT_ADJACENT_TAGS_ARE_DISJOINT)
 
 #define PAS_MTE_FEATURE_FORCED_IN_RELEASE_BUILD(feature) \
     (PAS_MTE_FEATURE_FORCED(feature) || \
-     (PAS_MTE_FEATURE_PRIVILEGED_FORCED(feature) && !PAS_MTE_IS_IN_WCP) || \
-     (PAS_MTE_FEATURE_WCP_FORCED(feature) && PAS_MTE_IS_IN_WCP))
+     (PAS_MTE_FEATURE_HARDENED_FORCED(feature) && PAS_MTE_IS_HARDENED))
 
 #define PAS_MTE_FEATURE_FORCED_IN_DEBUG_BUILD(feature) \
     (PAS_MTE_FEATURE_FORCED_IN_RELEASE_BUILD(feature) || \
@@ -142,16 +145,57 @@ extern Slot g_config[];
 #define PAS_MTE_FEATURE_ENABLED(feature) (PAS_USE_MTE && PAS_MTE_FEATURE_FORCED_IN_RELEASE_BUILD(feature))
 #endif
 
+/*
+ * These are defined here rather than in pas_mte.h because they are needed by
+ * pas_zero_memory.h, which is a transitive depencency of pas_mte.h
+ */
+#define PAS_MTE_CHECK_TAG_AND_SET_TCO(ptr) do { \
+        /* We're only checking one tag-granule, so it's not perfect, \
+         * but it does mean that a potential attacker would at least \
+         * need to know the tag for some of their target range. */ \
+        __asm__ volatile( \
+            ".arch_extension memtag\n\t" \
+            "ldr xzr, [%0]\n\t" \
+            "msr tco, #1" \
+            : \
+            : "r"(ptr) \
+            : "memory" \
+        ); \
+    } while (0)
+#define PAS_MTE_SET_TCO_UNCHECKED do { \
+        __asm__ volatile( \
+            ".arch_extension memtag\n\t" \
+            "msr tco, #1" \
+            : \
+            : \
+            : "memory" \
+        ); \
+    } while (0)
+#define PAS_MTE_CLEAR_TCO do { \
+        __asm__ volatile( \
+            ".arch_extension memtag\n\t" \
+            "msr tco, #0" \
+            : \
+            : \
+            : "memory" \
+        ); \
+    } while (0)
+
 #else // !PAS_ENABLE_MTE
 #define PAS_USE_MTE (0)
 #define PAS_USE_MTE_IN_WEBCONTENT (0)
 #define PAS_MTE_FEATURE_ENABLED(feature) (0)
+#define PAS_MTE_USE_LARGE_OBJECT_DELEGATION (0)
+#define PAS_MTE_CHECK_TAG_AND_SET_TCO(ptr) do { (void)ptr; } while (0)
+#define PAS_MTE_SET_TCO_UNCHECKED do { } while (0)
+#define PAS_MTE_CLEAR_TCO do { } while (0)
 #endif // PAS_ENABLE_MTE
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 void pas_mte_ensure_initialized(void);
+void pas_mte_force_nontaggable_user_allocations_into_large_heap(void);
 #ifdef __cplusplus
 }
 #endif
@@ -159,10 +203,12 @@ void pas_mte_ensure_initialized(void);
 #define PAS_MTE_INITIALIZE_IN_WTF_CONFIG \
     pas_mte_ensure_initialized()
 
-#if defined(PAS_BMALLOC) && BENABLE(LIBPAS)
+#if defined(PAS_BMALLOC)
+#if BENABLE(LIBPAS)
 #if BENABLE_MTE != PAS_ENABLE_MTE
 #error "cannot enable MTE in libpas without enabling it in bmalloc, or vice versa"
-#endif
+#endif // BENABLE(LIBPAS)
+#endif // defined(PAS_BMALLOC)
 
 #define BMALLOC_VM_MTE PAS_VM_MTE
 #define BMALLOC_USE_MTE PAS_USE_MTE

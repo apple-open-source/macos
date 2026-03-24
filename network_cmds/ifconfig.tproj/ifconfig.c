@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1123,6 +1123,7 @@ netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 	    loss_p_bl_gr = 0, loss_p_br_bl = 0;
 	uint32_t loss_recovery_ms = 0;
 	uint32_t reordering = 0;
+	uint32_t reordering_ms = 0;
 	uint32_t output_ival_ms = 0;
 
 	bzero(p, sizeof (*p));
@@ -1208,6 +1209,10 @@ netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 				err(1, "Invalid value '%s' for reordering", *argv);
 			}
 			argc--, argv++;
+			/* optional: reordering delay in ms */
+			if (argc > 0 && get_uint32(&reordering_ms, *argv)) {
+				argc--, argv++;
+			}
 		} else if (strcmp(*argv, "ival") == 0) {
 			argc--, argv++;
 			if (argc <= 0 || !get_uint32(&output_ival_ms, *argv)) {
@@ -1263,6 +1268,10 @@ netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 	        err(1, "reordering percentage > 100%%");
 	}
 
+	if (reordering_ms > 1000) {
+		err(1, "reordering delay %dms too big (> 1 sec)", reordering_ms);
+	}
+
 	p->ifnetem_bandwidth_bps = bandwitdh;
 	p->ifnetem_latency_ms = latency;
 	p->ifnetem_jitter_ms = jitter;
@@ -1275,6 +1284,7 @@ netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 	p->ifnetem_loss_p_br_bl = loss_p_br_bl;
 	p->ifnetem_loss_recovery_ms = loss_recovery_ms;
 	p->ifnetem_reordering_p = reordering;
+	p->ifnetem_reordering_ms = reordering_ms;
 	p->ifnetem_output_ival_ms = output_ival_ms;
 
 	return (argc_saved - argc);
@@ -1327,12 +1337,13 @@ print_netem_params(struct if_netem_params *p, const char *desc)
 		    "\tdelay latency                  %dms\n"
 		    "\t      jitter                   %dms\n"
 		    "\tcorruption                     %.3f%%\n"
-		    "\treordering                     %.3f%%\n\n"
+		    "\treordering                     %.3f%% %dms\n\n"
 		    "\trecovery                       %dms\n",
 		    p->ifnetem_latency_ms,
 		    p->ifnetem_jitter_ms,
 		    (double) p->ifnetem_corruption_p / pscale,
 		    (double) p->ifnetem_reordering_p / pscale,
+		    p->ifnetem_reordering_ms,
 		    p->ifnetem_loss_recovery_ms);
 
 		if (p->ifnetem_loss_p_gr_bl == 0 &&
@@ -2056,6 +2067,18 @@ done:
 	}
 }
 
+static void
+show_mtu(int s, struct ifreq * ifr)
+{
+	if (ioctl(s, SIOCGIFDEVMTU, ifr) == 0) {
+		struct ifdevmtu *	devmtu_p;
+
+		devmtu_p = &ifr->ifr_devmtu;
+		printf("\tmax mtu: %d\n", devmtu_p->ifdm_max);
+	}
+}
+
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -2072,6 +2095,7 @@ done:
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
 "\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING" \
 "\17MANAGEMENT\20ULTRA_CONSTRAINED\21IS_VPN\22DELAYWAKEPKTEVENT\23DISABLE_INPUT" \
+"\24CONGESTED_LINK\25COMPANIONLINK" \
 "\26RXFLOWSTEERING\030LINK_HEURISTICS\31LHOF\32POINTOPOINT_MDNS" \
 "\33INBAND_WAKE_PKT\34LOW_POWER_WAKE"
 
@@ -2131,11 +2155,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		if (ifindex != 0)
 			printf(" index %u", ifindex);
 	}
-    // Constrained is stored in if_xflags which isn't exposed directly
-    if (ioctl(s, SIOCGIFCONSTRAINED, (caddr_t)&ifr) == 0 &&
-        ifr.ifr_constrained != 0) {
-        printf(" constrained");
-    }
+	// Constrained is stored in if_xflags which isn't exposed directly
+	if (ioctl(s, SIOCGIFCONSTRAINED, (caddr_t)&ifr) == 0 &&
+	    ifr.ifr_constrained != 0) {
+		printf(" constrained");
+	}
 	putchar('\n');
 
 	if (verbose && ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != -1 &&
@@ -2219,6 +2243,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	if (!verbose)
 		goto done;
 
+	show_mtu(s, &ifr);
 	if (ioctl(s, SIOCGIFGENERATIONID, &ifr) != -1) {
 		printf("\tgeneration id: %llu\n", ifr.ifr_creation_generation_id);
 	}

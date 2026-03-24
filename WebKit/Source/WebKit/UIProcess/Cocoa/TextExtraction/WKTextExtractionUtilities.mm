@@ -28,6 +28,7 @@
 
 #if USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))
 
+#import "SafeBrowsingUtilities.h"
 #import "WKWebViewInternal.h"
 #import "_WKTextExtractionInternal.h"
 #import <WebCore/TextExtraction.h>
@@ -62,6 +63,12 @@ inline static WKTextExtractionContainer containerType(TextExtraction::ContainerT
         return WKTextExtractionContainerButton;
     case TextExtraction::ContainerType::Canvas:
         return WKTextExtractionContainerCanvas;
+    case TextExtraction::ContainerType::Subscript:
+        return WKTextExtractionContainerSubscript;
+    case TextExtraction::ContainerType::Superscript:
+        return WKTextExtractionContainerSuperscript;
+    case TextExtraction::ContainerType::Strikethrough:
+        return WKTextExtractionContainerStrikethrough;
     case TextExtraction::ContainerType::Generic:
         return WKTextExtractionContainerGeneric;
     }
@@ -180,6 +187,16 @@ inline static RetainPtr<WKTextExtractionItem> createItemWithChildren(const TextE
                 ariaAttributes:ariaAttributes.get()
                 accessibilityRole:accessibilityRole.get()
                 nodeIdentifier:nodeIdentifier.get()]);
+        }, [&](const TextExtraction::FormData& data) -> RetainPtr<WKTextExtractionItem> {
+            return adoptNS([[WKTextExtractionFormItem alloc]
+                initWithAutocomplete:data.autocomplete.createNSString().get()
+                name:data.name.createNSString().get()
+                rectInWebView:rectInWebView
+                children:children
+                eventListeners:eventListeners
+                ariaAttributes:ariaAttributes.get()
+                accessibilityRole:accessibilityRole.get()
+                nodeIdentifier:nodeIdentifier.get()]);
         }, [&](const TextExtraction::TextFormControlData& data) -> RetainPtr<WKTextExtractionItem> {
             return adoptNS([[WKTextExtractionTextFormControlItem alloc]
                 initWithEditable:createWKEditable(data.editable).get()
@@ -198,6 +215,15 @@ inline static RetainPtr<WKTextExtractionItem> createItemWithChildren(const TextE
             return adoptNS([[WKTextExtractionLinkItem alloc]
                 initWithTarget:data.target.createNSString().get()
                 url:data.completedURL.createNSURL().get()
+                rectInWebView:rectInWebView
+                children:children
+                eventListeners:eventListeners
+                ariaAttributes:ariaAttributes.get()
+                accessibilityRole:accessibilityRole.get()
+                nodeIdentifier:nodeIdentifier.get()]);
+        }, [&](const TextExtraction::IFrameData& data) -> RetainPtr<WKTextExtractionItem> {
+            return adoptNS([[WKTextExtractionIFrameItem alloc]
+                initWithOrigin:data.origin.createNSString().get()
                 rectInWebView:rectInWebView
                 children:children
                 eventListeners:eventListeners
@@ -236,7 +262,7 @@ RetainPtr<WKTextExtractionItem> createItem(const TextExtraction::Item& item, Roo
         return nil;
     }
 
-    return createItemRecursive(item, WTFMove(converter));
+    return createItemRecursive(item, WTF::move(converter));
 }
 
 std::optional<double> computeSimilarity(NSString *stringA, NSString *stringB, unsigned minimumLength)
@@ -279,6 +305,67 @@ std::optional<double> computeSimilarity(NSString *stringA, NSString *stringB, un
     }
 
     return 1.0 - (matrix[lengthA][lengthB] / maxLength);
+}
+
+void requestTextExtractionFilterRuleData(CompletionHandler<void(Vector<TextExtraction::FilterRuleData>&&)>&& completion)
+{
+#if HAVE(SAFE_BROWSING)
+    using namespace WebKit::SafeBrowsingUtilities;
+
+    listsForNamespace(namespacedCollectionForTextExtraction(), [completion = WTF::move(completion)](NSDictionary<NSString *, NSArray<NSString *> *> *data, NSError *error) mutable {
+        if (error) {
+            RELEASE_LOG_ERROR(TextExtraction, "Failed to request filtering rules: %@", error.localizedDescription);
+            return completion({ });
+        }
+
+        HashMap<String, TextExtraction::FilterRuleData> allData;
+        for (NSString *nsKeyIdentifier : data) {
+            auto keyIdentifier = String { nsKeyIdentifier };
+            auto keyIdentifierComponents = keyIdentifier.split('/');
+            if (keyIdentifierComponents.size() != 2)
+                continue;
+
+            auto ruleName = keyIdentifierComponents.first();
+            if (ruleName.isEmpty())
+                continue;
+
+            auto ensureRuleData = [&] -> TextExtraction::FilterRuleData& {
+                return allData.ensure(ruleName, [] {
+                    return TextExtraction::FilterRuleData { };
+                }).iterator->value;
+            };
+
+            if (keyIdentifierComponents[1] == "filter"_s) {
+                ensureRuleData().scriptSource = makeStringByJoining(makeVector<String>(data[nsKeyIdentifier]), "\n"_s);
+                continue;
+            }
+
+            if (keyIdentifierComponents[1] == "domains"_s) {
+                ensureRuleData().urlPatternString = [&] -> String {
+                    auto domainRules = makeVector<String>(data[nsKeyIdentifier]);
+                    if (domainRules.size() == 1) {
+                        if (domainRules.first() == ".*"_s)
+                            return { };
+
+                        return domainRules.first();
+                    }
+
+                    return makeStringByJoining(WTF::map(WTF::move(domainRules), [](auto&& group) {
+                        return makeString('(', WTF::move(group), ')');
+                    }), "|"_s);
+                }();
+                continue;
+            }
+        }
+
+        for (auto& [ruleName, ruleData] : allData)
+            ruleData.name = ruleName;
+
+        completion(copyToVector(allData.values()));
+    });
+#else
+    completion({ });
+#endif
 }
 
 } // namespace WebKit

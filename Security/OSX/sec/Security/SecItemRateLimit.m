@@ -27,6 +27,7 @@
 #import <utilities/debugging.h>
 #import <utilities/SecInternalReleasePriv.h>
 #import "ipc/securityd_client.h"
+#import <AssertMacros.h>
 
 #import <sys/codesign.h>
 #import <os/feature_private.h>
@@ -147,17 +148,17 @@ static SecItemRateLimit* ratelimit;
         SecTaskRef task = SecTaskCreateFromSelf(NULL);
         NSMutableArray* exempt = [NSMutableArray arrayWithArray:@[@"com.apple.pcsstatus", @"com.apple.protectedcloudstorage.protectedcloudkeysyncing", @"com.apple.cloudd", @"com.apple.pcsctl"]];
         CFStringRef identifier = NULL;
-        require_action_quiet(task, cleanup, secerror("secitemratelimit: unable to get task from self, disabling SIRL"));
+        __Require_Action_Quiet(task, cleanup, secerror("secitemratelimit: unable to get task from self, disabling SIRL"));
 
         // If not a valid or debugged platform binary, don't count
         uint32_t flags = SecTaskGetCodeSignStatus(task);
-        require_action_quiet((flags & (CS_VALID | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) == (CS_VALID | CS_PLATFORM_BINARY) ||
+        __Require_Action_Quiet((flags & (CS_VALID | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) == (CS_VALID | CS_PLATFORM_BINARY) ||
                              (flags & (CS_DEBUGGED | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) == (CS_DEBUGGED | CS_PLATFORM_BINARY),
                              cleanup, secnotice("secitemratelimit", "Not valid/debugged platform binary, disabling SIRL"));
 
         // Some processes have legitimate need to query or modify a large number of items
         identifier = SecTaskCopySigningIdentifier(task, NULL);
-        require_action_quiet(identifier, cleanup, secerror("secitemratelimit: unable to get signing identifier, disabling SIRL"));
+        __Require_Action_Quiet(identifier, cleanup, secerror("secitemratelimit: unable to get signing identifier, disabling SIRL"));
 #if TARGET_OS_OSX
         [exempt addObjectsFromArray:@[@"com.apple.keychainaccess", @"com.apple.Safari"]];
 #elif TARGET_OS_IOS

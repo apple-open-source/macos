@@ -65,7 +65,7 @@ public:
     void ref() const final { ThreadSafeRefCounted::ref(); }
     void deref() const final { ThreadSafeRefCounted::deref(); }
 
-    explicit MediaPlayerPrivateMediaStreamAVFObjC(MediaPlayer*);
+    explicit MediaPlayerPrivateMediaStreamAVFObjC(MediaPlayer&);
     virtual ~MediaPlayerPrivateMediaStreamAVFObjC();
 
     constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::AVFObjCMediaStream; }

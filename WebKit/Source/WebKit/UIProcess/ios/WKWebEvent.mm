@@ -60,7 +60,7 @@
     if (!self)
         return nil;
 
-    _uiEvent = WTFMove(uiEvent);
+    _uiEvent = WTF::move(uiEvent);
 
     return self;
 }

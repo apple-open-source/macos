@@ -57,7 +57,7 @@ Value Number::evaluate() const
 }
 
 StringExpression::StringExpression(String&& value)
-    : m_value(WTFMove(value))
+    : m_value(WTF::move(value))
 {
 }
 
@@ -68,7 +68,7 @@ Value StringExpression::evaluate() const
 
 Negative::Negative(std::unique_ptr<Expression> expression)
 {
-    addSubexpression(WTFMove(expression));
+    addSubexpression(WTF::move(expression));
 }
 
 Value Negative::evaluate() const
@@ -79,8 +79,8 @@ Value Negative::evaluate() const
 NumericOp::NumericOp(Opcode opcode, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs)
     : m_opcode(opcode)
 {
-    addSubexpression(WTFMove(lhs));
-    addSubexpression(WTFMove(rhs));
+    addSubexpression(WTF::move(lhs));
+    addSubexpression(WTF::move(rhs));
 }
 
 Value NumericOp::evaluate() const
@@ -115,8 +115,8 @@ Value NumericOp::evaluate() const
 EqTestOp::EqTestOp(Opcode opcode, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs)
     : m_opcode(opcode)
 {
-    addSubexpression(WTFMove(lhs));
-    addSubexpression(WTFMove(rhs));
+    addSubexpression(WTF::move(lhs));
+    addSubexpression(WTF::move(rhs));
 }
 
 bool EqTestOp::compare(const Value& lhs, const Value& rhs) const
@@ -230,8 +230,8 @@ Value EqTestOp::evaluate() const
 LogicalOp::LogicalOp(Opcode opcode, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs)
     : m_opcode(opcode)
 {
-    addSubexpression(WTFMove(lhs));
-    addSubexpression(WTFMove(rhs));
+    addSubexpression(WTF::move(lhs));
+    addSubexpression(WTF::move(rhs));
 }
 
 inline bool LogicalOp::shortCircuitOn() const
@@ -255,8 +255,8 @@ Value LogicalOp::evaluate() const
 
 Union::Union(std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs)
 {
-    addSubexpression(WTFMove(lhs));
-    addSubexpression(WTFMove(rhs));
+    addSubexpression(WTF::move(lhs));
+    addSubexpression(WTF::move(rhs));
 }
 
 Value Union::evaluate() const

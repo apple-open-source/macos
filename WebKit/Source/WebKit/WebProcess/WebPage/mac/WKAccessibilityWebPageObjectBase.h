@@ -68,6 +68,7 @@ class AXIsolatedTree;
 - (void)setPosition:(const WebCore::FloatPoint&)point;
 - (void)setSize:(const WebCore::IntSize&)size;
 - (void)setIsolatedTree:(Ref<WebCore::AXIsolatedTree>&&)tree;
+- (RefPtr<WebCore::AXIsolatedTree>)isolatedTree;
 - (void)setWindow:(id)window;
 - (void)_buildIsolatedTreeIfNeeded;
 #endif
@@ -80,6 +81,7 @@ class AXIsolatedTree;
 - (id)accessibilityFocusedUIElement;
 - (WebCore::IntPoint)accessibilityRemoteFrameOffset;
 - (WebCore::LocalFrame *)focusedLocalFrame;
+- (RefPtr<WebCore::LocalFrame>)protectedFocusedLocalFrame;
 - (NSUInteger)remoteTokenHash;
 
 - (BOOL)shouldFallbackToWebContentAXObjectForMainFramePlugin;

@@ -41,6 +41,7 @@
 
 namespace WebCore {
 
+class SecurityOriginData;
 class SerializedScriptValue;
 class ServiceWorkerGlobalScope;
 
@@ -57,7 +58,7 @@ public:
         virtual ~Connection() { }
 
         virtual void establishConnection(CompletionHandler<void()>&&) = 0;
-        virtual void postMessageToServiceWorkerClient(const ScriptExecutionContextIdentifier& destinationIdentifier, const MessageWithMessagePorts&, ServiceWorkerIdentifier source, const String& sourceOrigin) = 0;
+        virtual void postMessageToServiceWorkerClient(const ScriptExecutionContextIdentifier& destinationIdentifier, const MessageWithMessagePorts&, ServiceWorkerIdentifier source, const SecurityOriginData& sourceOrigin) = 0;
         virtual void serviceWorkerStarted(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, bool doesHandleFetch) = 0;
         virtual void serviceWorkerFailedToStart(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, const String& message) = 0;
         virtual void didFinishInstall(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, bool wasSuccessful) = 0;

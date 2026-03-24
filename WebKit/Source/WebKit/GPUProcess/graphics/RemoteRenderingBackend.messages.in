@@ -32,11 +32,12 @@ messages -> RemoteRenderingBackend Stream {
     ReleaseImageBuffer(WebCore::RenderingResourceIdentifier identifier)
     CreateDisplayListRecorder(WebKit::RemoteDisplayListRecorderIdentifier identifier)
     SinkDisplayListRecorderIntoDisplayList(WebKit::RemoteDisplayListRecorderIdentifier identifier, WebKit::RemoteDisplayListIdentifier displayListIdentifier)
-    ReleaseDisplayList(WebKit::RemoteDisplayListIdentifier identifier)
+    ReleaseDisplayList(WebKit::RemoteDisplayListIdentifier identifier) StreamBatched
     GetImageBufferResourceLimitsForTesting() -> (struct WebCore::ImageBufferResourceLimits limits) Async
     DestroyGetPixelBufferSharedMemory()
     NativeImageBitmap(WebCore::RenderingResourceIdentifier identifier) -> (std::optional<WebCore::ShareableBitmapHandle> handle) Synchronous NotStreamEncodableReply
     CacheNativeImage(WebCore::ShareableBitmapHandle handle, WebCore::RenderingResourceIdentifier renderingResourceIdentifier) NotStreamEncodable
+    CacheNativeImageFromSharedNativeImage(WebCore::RenderingResourceIdentifier sharedNativeImageIdentifier)
     ReleaseNativeImage(WebCore::RenderingResourceIdentifier identifier)
     CacheFont(struct WebCore::FontInternalAttributes data, struct WebCore::FontPlatformDataAttributes platformData, std::optional<WebCore::RenderingResourceIdentifier> renderingResourceIdentifier) NotStreamEncodable
     ReleaseFont(WebCore::RenderingResourceIdentifier identifier)
@@ -51,9 +52,6 @@ messages -> RemoteRenderingBackend Stream {
     ReleaseImageBufferSet(WebKit::ImageBufferSetIdentifier identifier)
 
 #if PLATFORM(COCOA)
-    // These messages also result in the 'DidPrepareForDisplay' message being
-    // returned on the RemoteImageBufferSetProxy message receiver (one for each
-    // inputData)
     PrepareImageBufferSetsForDisplay(Vector<WebKit::ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput)
     PrepareImageBufferSetsForDisplaySync(Vector<WebKit::ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput)  -> (Vector<WebKit::SwapBuffersDisplayRequirement> displayRequirements) Synchronous
 #endif
@@ -71,13 +69,13 @@ messages -> RemoteRenderingBackend Stream {
     CreateSnapshotRecorder(WebKit::RemoteSnapshotRecorderIdentifier identifier, WebKit::RemoteSnapshotIdentifier snapshotIdentifier)
     SinkSnapshotRecorderIntoSnapshotFrame(WebKit::RemoteSnapshotRecorderIdentifier identifier, WebCore::FrameIdentifier frameIdentifer) -> (bool success)
 
-    [EnabledBy=ShapeDetection] CreateRemoteBarcodeDetector(WebKit::ShapeDetectionIdentifier identifier, WebCore::ShapeDetection::BarcodeDetectorOptions barcodeDetectorOptions) AllowedWhenWaitingForSyncReply
-    [EnabledBy=ShapeDetection] ReleaseRemoteBarcodeDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
-    [EnabledBy=ShapeDetection] GetRemoteBarcodeDetectorSupportedFormats() -> (Vector<WebCore::ShapeDetection::BarcodeFormat> formats) Async
-    [EnabledBy=ShapeDetection] CreateRemoteFaceDetector(WebKit::ShapeDetectionIdentifier identifier, WebCore::ShapeDetection::FaceDetectorOptions faceDetectorOptions) AllowedWhenWaitingForSyncReply
-    [EnabledBy=ShapeDetection] ReleaseRemoteFaceDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
-    [EnabledBy=ShapeDetection] CreateRemoteTextDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
-    [EnabledBy=ShapeDetection] ReleaseRemoteTextDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] CreateBarcodeDetector(WebKit::ShapeDetectionIdentifier identifier, WebCore::ShapeDetection::BarcodeDetectorOptions barcodeDetectorOptions) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] ReleaseBarcodeDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] SupportedBarcodeDetectorBarcodeFormats() -> (Vector<WebCore::ShapeDetection::BarcodeFormat> formats) Async
+    [EnabledBy=ShapeDetection] CreateFaceDetector(WebKit::ShapeDetectionIdentifier identifier, WebCore::ShapeDetection::FaceDetectorOptions faceDetectorOptions) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] ReleaseFaceDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] CreateTextDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
+    [EnabledBy=ShapeDetection] ReleaseTextDetector(WebKit::ShapeDetectionIdentifier identifier) AllowedWhenWaitingForSyncReply
 }
 
 #endif // ENABLE(GPU_PROCESS)

@@ -94,9 +94,9 @@ static void srpl_store_dataset_id(srpl_domain_t *domain);
 static uint64_t srpl_generate_store_dataset_id(srpl_domain_t *domain);
 
 
-#define EQUI_DISTANCE64 (int64_t)0x8000000000000000
+#define EQUI_DISTANCE64 (uint64_t)0x8000000000000000
 #define MAX_ADDITIONAL_HOST_MESSAGES 32
-#define SRPL_STATE_TIMEOUT (30 * 1000) // state timeout in milliseconds
+#define SRPL_STATE_TIMEOUT (90 * 1000) // state timeout in milliseconds
 #define SECONDS_IN_MINUTE  60
 #define SECONDS_IN_HOUR    (60 * 60)
 #define SECONDS_IN_DAY     (24 * SECONDS_IN_HOUR)
@@ -995,7 +995,7 @@ srpl_instance_service_discontinue(srpl_instance_service_t *service)
         }
         // If we are not connected, there is no reason to do hysteresis on the service.
         if (instance->connection == NULL || !SRPL_CONNECTION_IS_CONNECTED(instance->connection)) {
-            srpl_instance_service_discontinue(service);
+            srpl_instance_service_discontinue_timeout(service);
             return;
         }
     }
@@ -1092,6 +1092,7 @@ srpl_shutdown(srp_server_t *server_state)
             INFO("next: %p", *dp);
             RELEASE_HERE(domain, srpl_domain);
             srp_strict_free(&server_state->current_replication_domain_name);
+            thread_device_network_state_changed(server_state);
             break;
         } else {
             dp = &(*dp)->next;
@@ -2815,7 +2816,7 @@ srpl_match_unidentified_with_instance(srpl_connection_t *connection,
     // Remove the currently associated instance from the unmatched_instances
     srpl_instance_t **sp = NULL;
 
-    INFO("matched temporary instance " PRI_S_SRP " to instance " PRI_S_SRP " with partner_id %" PRIx64,
+    INFO("matching temporary instance " PRI_S_SRP " to instance " PRI_S_SRP " with partner_id %" PRIx64,
          cur->instance_name, instance->instance_name, instance->partner_id);
     instance->version_mismatch = cur->version_mismatch;
 #define POINTER_TO_HEX_MAX_STRLEN 19 // 0x<...>
@@ -2930,7 +2931,6 @@ srpl_connected(comm_t *connection, void *context)
     }
     RETAIN_HERE(srpl_connection, srpl_connection); // dso holds reference to connection
     srpl_connection->dso = connection->dso;
-    srpl_connection->reconnect_retry = 0;
     // Generate an event indicating that we've been connected
     srpl_event_t event;
     srpl_event_initialize(&event, srpl_event_connected);
@@ -3054,8 +3054,15 @@ srpl_instance_address_callback(void *context, addr_t *address, bool added, bool 
             if (ip_addresses_equal(address, &unidentified->connected_address)) {
                 INFO("Unidentified connection " PRI_S_SRP " matches new address for instance " PRI_S_SRP,
                      unidentified->dso->remote_name, instance->instance_name);
+                RETAIN_HERE(unidentified, srpl_connection);
                 srpl_match_unidentified_with_instance(unidentified, instance);
-                matched_unidentified = true;
+                if (unidentified->instance == instance) {
+                    matched_unidentified = true;
+                } else {
+                    INFO("Unidentified connection failed to match instance " PRI_S_SRP,
+                         instance->instance_name);
+                }
+                RELEASE_HERE(unidentified, srpl_connection);
                 break;
             } else {
                 if (unidentified->connected_address.sa.sa_family == AF_INET6) {
@@ -3147,19 +3154,29 @@ static void srpl_transition_to_startup_state(srpl_domain_t *domain);
 static int
 srpl_dataset_id_compare(uint64_t id1, uint64_t id2)
 {
-    int64_t distance = id1 - id2;
-    if (distance == 0) {
+    // Equal is easy
+    if (id1 == id2) {
         return 0;
-    } else if (distance > 0) {
-        return 1;
-    } else if (distance == EQUI_DISTANCE64 && (int64_t)id1 > (int64_t)id2) {
-        // the number 2^(N−1) (where N is 64) is equidistant in both directions in sequence number terms.
-        // they are both considered to be "less than" each other. This is true for any serial number with
-        // distance of 0x8000000000000000 between them. To break the tie, higher signed number wins.
-        return 1;
-    } else {
-        return -1;
     }
+
+    // Check the sequence using two's complement math
+    uint64_t distance = id1 - id2;
+    // if the distance between the two numbers is greater than half the maximum value,
+    // id1 is less than id2
+    if (distance > EQUI_DISTANCE64) {
+         return -1;
+    }
+    // if the distance between the two numbers is less than half the maximum value,
+    // id1 is greater than id2
+    if (distance < EQUI_DISTANCE64) {
+         return 1;
+    }
+    // if the distance between the two numbers is exactly half the maximum value,
+    // we break the tie using the standard comparison
+    if (id1 < id2) {
+         return -1;
+    }
+    return 1;
 }
 
 static bool
@@ -4745,15 +4762,30 @@ srpl_send_candidates_send_action(srpl_connection_t *srpl_connection, srpl_event_
     return srpl_state_send_candidates_wait;
 }
 
-void srpl_primary_resident_updated(srp_server_t *server_state, bool is_primary)
+void srpl_primary_resident_updated(srp_server_t *server_state, bool was_primary, bool is_primary)
 {
-    if (is_primary) {
-        srpl_domain_t *domain = srpl_current_domain(server_state);
+    srpl_domain_t *domain = srpl_current_domain(server_state);
+    if (is_primary && !was_primary) {
+        server_state->priority = PRIORITY_PRIMARY_RESIDENT; // boost priority if primary resident
+        INFO("changed priority to %u for primary resident", server_state->priority);
         if (domain != NULL && domain->primary_has_waited) {
             if (srpl_can_be_routine_state(domain)) {
                 srpl_transition_to_routine_state(domain);
             }
         }
+    }
+    if (!is_primary && was_primary) {
+        server_state->priority = server_state->base_priority; // no longer primary resident; reset to the original priority
+        INFO("reset priority to %u for non primary resident", server_state->priority);
+    }
+
+    if (domain != NULL &&
+        srpl_is_in_routine_state(server_state) &&
+        domain->advertised_priority != server_state->priority)
+    {
+        INFO("re-advertising due to priority change: %u -> %u",
+           domain->advertised_priority, server_state->priority);
+        srpl_domain_advertise(domain);
     }
 }
 
@@ -4908,6 +4940,7 @@ srpl_state_transition_by_dataset_id(srpl_domain_t *domain, srpl_instance_t *inst
     if (!domain->have_dataset_id) {
         if (instance->have_dataset_id) {
             domain->dataset_id = instance->dataset_id;
+            INFO("adopting a new dataset id %" PRIx64, domain->dataset_id);
             domain->have_dataset_id = true;
             domain->dataset_id_committed = true;
             srpl_maybe_sync_or_transition(domain);
@@ -5482,6 +5515,7 @@ srpl_ready_action(srpl_connection_t *srpl_connection, srpl_event_t *event)
     REQUIRE_SRPL_INSTANCE(srpl_connection);
     STATE_ANNOUNCE(srpl_connection, event);
 
+    srpl_connection->reconnect_retry = 0;
     if (event == NULL) {
         // Whenever we newly land in this state, see if there is an unsent client update at the head of the
         // queue, and if so, send it.
@@ -6100,13 +6134,16 @@ srpl_dump_connection_states(srp_server_t *server_state)
 }
 
 void
-srpl_change_server_priority(srp_server_t *server_state, uint32_t new)
+srpl_change_server_base_priority(srp_server_t *server_state, uint32_t new)
 {
-    if (server_state != NULL && new != server_state->priority) {
-        server_state->priority = new;
-        for (srpl_domain_t *domain = server_state->srpl_domains; domain != NULL; domain = domain->next) {
-            // priority changed. re-advertise.
-            srpl_domain_advertise(domain);
+    if (server_state != NULL && new != server_state->base_priority) {
+        server_state->base_priority = new;
+        if (!server_state->is_primary_resident) {
+            server_state->priority = server_state->base_priority;
+            for (srpl_domain_t *domain = server_state->srpl_domains; domain != NULL; domain = domain->next) {
+                // priority changed. re-advertise.
+                srpl_domain_advertise(domain);
+            }
         }
     }
 }
@@ -6241,6 +6278,7 @@ srpl_domain_advertise(srpl_domain_t *domain)
     }
     sdref = NULL; // srpl_advertise_txn holds the reference.
     domain->advertised_dataset_id = domain->dataset_id;
+    domain->advertised_priority = domain->server_state->priority;
     INFO(PUB_S_SRP ": successfully advertised", domain->name);
 
 exit:

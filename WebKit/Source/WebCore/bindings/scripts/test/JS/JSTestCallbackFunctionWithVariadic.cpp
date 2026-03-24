@@ -65,8 +65,8 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunction
     auto& lexicalGlobalObject = globalObject;
     JSValue thisValue = jsUndefined();
     MarkedArgumentBuffer args;
-    for (auto&& argumentsItem : WTFMove(arguments)) {
-        args.append(toJS<IDLAny>(WTFMove(argumentsItem)));
+    for (auto&& argumentsItem : WTF::move(arguments)) {
+        args.append(toJS<IDLAny>(WTF::move(argumentsItem)));
     }
     ASSERT(!args.hasOverflowed());
 
@@ -99,8 +99,8 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunction
     auto& lexicalGlobalObject = globalObject;
     JSValue thisValue = jsUndefined();
     MarkedArgumentBuffer args;
-    for (auto&& argumentsItem : WTFMove(arguments)) {
-        args.append(toJS<IDLAny>(WTFMove(argumentsItem)));
+    for (auto&& argumentsItem : WTF::move(arguments)) {
+        args.append(toJS<IDLAny>(WTF::move(argumentsItem)));
     }
     ASSERT(!args.hasOverflowed());
 

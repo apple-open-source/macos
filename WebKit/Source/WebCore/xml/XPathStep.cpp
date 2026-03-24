@@ -47,14 +47,14 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(Step::NodeTest);
 
 Step::Step(Axis axis, NodeTest nodeTest)
     : m_axis(axis)
-    , m_nodeTest(WTFMove(nodeTest))
+    , m_nodeTest(WTF::move(nodeTest))
 {
 }
 
 Step::Step(Axis axis, NodeTest nodeTest, Vector<std::unique_ptr<Expression>> predicates)
     : m_axis(axis)
-    , m_nodeTest(WTFMove(nodeTest))
-    , m_predicates(WTFMove(predicates))
+    , m_nodeTest(WTF::move(nodeTest))
+    , m_predicates(WTF::move(predicates))
 {
 }
 
@@ -68,11 +68,11 @@ void Step::optimize()
     Vector<std::unique_ptr<Expression>> remainingPredicates;
     for (auto& predicate : m_predicates) {
         if ((!predicateIsContextPositionSensitive(*predicate) || m_nodeTest.m_mergedPredicates.isEmpty()) && !predicate->isContextSizeSensitive() && remainingPredicates.isEmpty())
-            m_nodeTest.m_mergedPredicates.append(WTFMove(predicate));
+            m_nodeTest.m_mergedPredicates.append(WTF::move(predicate));
         else
-            remainingPredicates.append(WTFMove(predicate));
+            remainingPredicates.append(WTF::move(predicate));
     }
-    m_predicates = WTFMove(remainingPredicates);
+    m_predicates = WTF::move(remainingPredicates);
 }
 
 void optimizeStepPair(Step& first, Step& second, bool& dropSecondStep)
@@ -102,8 +102,8 @@ void optimizeStepPair(Step& first, Step& second, bool& dropSecondStep)
         return;
 
     first.m_axis = Step::DescendantAxis;
-    first.m_nodeTest = WTFMove(second.m_nodeTest);
-    first.m_predicates = WTFMove(second.m_predicates);
+    first.m_nodeTest = WTF::move(second.m_nodeTest);
+    first.m_predicates = WTF::move(second.m_predicates);
     first.optimize();
     dropSecondStep = true;
 }
@@ -143,10 +143,10 @@ void Step::evaluate(Node& context, NodeSet& nodes) const
             evaluationContext.size = nodes.size();
             evaluationContext.position = j + 1;
             if (evaluatePredicate(*predicate))
-                newNodes.append(WTFMove(node));
+                newNodes.append(WTF::move(node));
         }
 
-        nodes = WTFMove(newNodes);
+        nodes = WTF::move(newNodes);
     }
 }
 
@@ -367,7 +367,7 @@ void Step::nodesInAxis(Node& context, NodeSet& nodes) const
                     attr = contextElement->getAttributeNodeNS(m_nodeTest.m_namespaceURI, m_nodeTest.m_data);
                 if (attr && attr->namespaceURI() != XMLNSNames::xmlnsNamespaceURI) { // In XPath land, namespace nodes are not accessible on the attribute axis.
                     if (nodeMatches(*attr, AttributeAxis, m_nodeTest)) // Still need to check merged predicates.
-                        nodes.append(WTFMove(attr));
+                        nodes.append(WTF::move(attr));
                 }
                 return;
             }
@@ -378,7 +378,7 @@ void Step::nodesInAxis(Node& context, NodeSet& nodes) const
             for (auto& attribute : contextElement->attributes()) {
                 auto attr = contextElement->ensureAttr(attribute.name());
                 if (nodeMatches(attr.get(), AttributeAxis, m_nodeTest))
-                    nodes.append(WTFMove(attr));
+                    nodes.append(WTF::move(attr));
             }
             return;
         }

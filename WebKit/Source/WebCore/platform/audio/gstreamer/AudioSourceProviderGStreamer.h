@@ -72,6 +72,9 @@ private:
     AudioSourceProviderGStreamer();
     ~AudioSourceProviderGStreamer();
 
+    void initialize();
+    void copyGStreamerBuffersToAudioChannel(GstAdapter*, AudioBus&, int, size_t);
+
 #if ENABLE(MEDIA_STREAM)
     WeakPtr<MediaStreamTrackPrivate> m_captureSource;
     RefPtr<MediaStreamPrivate> m_streamPrivate;
@@ -89,6 +92,7 @@ private:
     unsigned long m_deinterleaveNoMorePadsHandlerId { 0 };
     unsigned long m_deinterleavePadRemovedHandlerId { 0 };
     Lock m_adapterLock;
+    CString m_providerId;
 };
 
 }

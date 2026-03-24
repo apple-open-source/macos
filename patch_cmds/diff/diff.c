@@ -66,9 +66,9 @@ struct stat stb1, stb2;
 struct excludes *excludes_list;
 regex_t	 ignore_re, most_recent_re;
 
-bool   unix2003_compat;        /* __APPLE__ */
 #ifdef __APPLE__
-bool posix;
+bool	 unix2003_compat;
+bool	 posix;
 #endif	/* __APPLE__ */
 
 static struct algorithm {
@@ -162,8 +162,8 @@ main(int argc, char **argv)
 	long  l;
 	int   ch, dflags, lastch, gotstdin, prevoptind, newarg;
 
-	unix2003_compat = COMPAT_MODE("bin/diff", "Unix2003");
 #ifdef __APPLE__
+	unix2003_compat = COMPAT_MODE("bin/diff", "Unix2003");
 	posix = (getenv("POSIXLY_CORRECT") != NULL || getenv("POSIX_PEDANTIC") != NULL);
 #endif	/* __APPLE__ */
 	oargv = argv;
@@ -408,7 +408,6 @@ main(int argc, char **argv)
 					optarg);
 			break;
 		case OPT_NO_DEREFERENCE:
-			rflag = true;
 			noderef = true;
 			break;
 		case OPT_VERSION:
@@ -708,7 +707,7 @@ usage(void)
 	    "       diff [-aBbdilNPprsTtw] [-c | -e | -f | -n | -q | -u] [--ignore-case]\n"
 	    "            [--no-ignore-case] [--normal] [--tabsize] [-I pattern] [-L label]\n"
 	    "            [-F pattern] [-S name] [-X file] [-x pattern] dir1 dir2\n"
-	    "       diff [-aBbditwW] [--expand-tabs] [--ignore-all-blanks]\n"
+	    "       diff [-aBbditwW] [--expand-tabs] [--ignore-all-space]\n"
 	    "            [--ignore-blank-lines] [--ignore-case] [--minimal]\n"
 	    "            [--no-ignore-file-name-case] [--strip-trailing-cr]\n"
 	    "            [--suppress-common-lines] [--tabsize] [--text] [--width]\n"

@@ -183,20 +183,20 @@ static SSLContextRef make_ssl_ref(int sock, SSLProtocol maxprot, const char *pee
 {
     SSLContextRef ctx = NULL;
 
-    require_noerr(SSLNewContext(false, &ctx), out);
-    require_noerr(SSLSetIOFuncs(ctx,
+    __Require_noErr(SSLNewContext(false, &ctx), out);
+    __Require_noErr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
+    __Require_noErr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
 
-    require_noerr(SSLSetSessionOption(ctx,
+    __Require_noErr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
 
-    require_noerr(SSLSetProtocolVersionMax(ctx, maxprot), out);
+    __Require_noErr(SSLSetProtocolVersionMax(ctx, maxprot), out);
 
-    require_noerr(SSLSetPeerDomainName(ctx, peerName, strlen(peerName)), out);
+    __Require_noErr(SSLSetPeerDomainName(ctx, peerName, strlen(peerName)), out);
     /* Tell SecureTransport to not check certs itself: it will break out of the
      handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
+    __Require_noErr(SSLSetEnableCertVerify(ctx, false), out);
 
     return ctx;
 out:
@@ -218,24 +218,24 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 
         if (ortn == errSSLServerAuthCompleted)
         {
-            require_string(!got_server_auth, out, "second server auth");
-            require_string(!got_client_cert_req, out, "got client cert req before server auth");
+            __Require_String(!got_server_auth, out, "second server auth");
+            __Require_String(!got_client_cert_req, out, "got client cert req before server auth");
             got_server_auth = true;
-            require_string(!trust, out, "Got errSSLServerAuthCompleted twice?");
+            __Require_String(!trust, out, "Got errSSLServerAuthCompleted twice?");
             /* verify peer cert chain */
-            require_noerr(SSLCopyPeerTrust(ctx, &trust), out);
+            __Require_noErr(SSLCopyPeerTrust(ctx, &trust), out);
             SecTrustResultType trust_result = 0;
             /* this won't verify without setting up a trusted anchor */
-            require_noerr(SecTrustEvaluate(trust, &trust_result), out);
-            require((trust_result == kSecTrustResultUnspecified), out);
+            __Require_noErr(SecTrustEvaluate(trust, &trust_result), out);
+            __Require((trust_result == kSecTrustResultUnspecified), out);
 
         }
     } while (ortn == errSSLWouldBlock
              || ortn == errSSLServerAuthCompleted);
-    require_noerr_action_quiet(ortn, out,
+    __Require_noErr_Action_Quiet(ortn, out,
                                fprintf(stderr, "Fell out of SSLHandshake with error: %d\n", (int)ortn));
 
-    require_string(got_server_auth, out, "never got server auth");
+    __Require_String(got_server_auth, out, "never got server auth");
 
     //uint64_t elapsed = mach_absolute_time() - start;
     //fprintf(stderr, "setr elapsed: %lld\n", elapsed);
@@ -245,7 +245,7 @@ static OSStatus securetransport(ssl_test_handle * ssl)
      require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out); */
 
     SSLCipherSuite cipherSuite;
-    require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
+    __Require_noErr_Quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
     //fprintf(stderr, "st negotiated %02x\n", cipherSuite);
 
 

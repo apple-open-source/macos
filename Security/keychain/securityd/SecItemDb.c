@@ -57,6 +57,7 @@
 #include "keychain/ckks/CKKS.h"
 #include "keychain/ot/OTConstants.h"
 #include "keychain/ot/Affordance_OTConstants.h"
+#include <malloc/malloc.h>
 
 #define kSecBackupKeybagUUIDKey CFSTR("keybag-uuid")
 #define SecItemCopyMatchingFoundItemsCountAlertThreshold 20
@@ -287,7 +288,7 @@ CFTypeRef SecDbItemCopyResult(SecDbItemRef item, ReturnTypeMask return_type, CFE
  been checked.
  */
 bool
-s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *error)
+s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *error, size_t *out_size)
 {
     if (query_match_count(q) != 0)
         return errSecItemMatchUnsupported;
@@ -340,6 +341,13 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
     if (ok) {
         if (result && q->q_return_type) {
             *result = SecDbItemCopyResult(item, q->q_return_type, error);
+            // Calculate result size if requested
+            if (out_size && *result) {
+                *out_size = malloc_size((void *)*result);
+            }
+        } else if (out_size) {
+            // No result returned, set size to 0
+            *out_size = 0;
         }
     }
     if (!ok && error && *error) {
@@ -371,6 +379,7 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
 
 	return ok;
 }
+
 
 bool s3dl_item_make_new_uuid(SecDbItemRef item, bool uuid_from_primary_key, CFErrorRef* error) {
     if(!item) {
@@ -431,7 +440,7 @@ s3dl_item_from_col(sqlite3_stmt *stmt, Query *q, int col, CFArrayRef accessGroup
                    CFMutableDictionaryRef *item, SecAccessControlRef *access_control, keyclass_t* keyclass, CFErrorRef *error) {
     CFDataRef edata = NULL;
     bool ok = false;
-    require(edata = s3dl_copy_data_from_col(stmt, col, error), out);
+    __Require(edata = s3dl_copy_data_from_col(stmt, col, error), out);
     ok = s3dl_item_from_data(edata, q, accessGroups, item, access_control, keyclass, error);
 
 out:
@@ -547,9 +556,9 @@ static void s3dl_merge_into_dict(const void *key, const void *value, void *conte
 
 static bool checkTokenObjectID(CFDataRef token_object_id, CFDataRef value_data) {
     bool equalOID = false;
-    require_quiet(value_data, out);
+    __Require_Quiet(value_data, out);
     CFDictionaryRef itemValue = SecTokenItemValueCopy(value_data, NULL);
-    require_quiet(itemValue, out);
+    __Require_Quiet(itemValue, out);
     CFDataRef oID = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey);
     equalOID = CFEqualSafe(token_object_id, oID);
     CFRelease(itemValue);
@@ -1107,7 +1116,7 @@ s3dl_query(s3dl_handle_row handle_row,
 
 bool
 s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
-                   CFArrayRef accessGroups, CFErrorRef *error)
+                   CFArrayRef accessGroups, CFErrorRef *error, int *out_count, size_t *out_size)
 {
     struct s3dl_query_ctx ctx = {
         .q = q, .accessGroups = accessGroups, .dbt = dbt,
@@ -1126,6 +1135,15 @@ s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
     if (!CFDictionaryContainsKey(q->q_item, kSecAttrTombstone))
         query_add_attribute(kSecAttrTombstone, kCFBooleanFalse, q);
     bool ok = s3dl_query(s3dl_query_row, &ctx, error);
+
+    // Extract stats if requested
+    if (out_count) {
+        *out_count = ctx.found;
+    }
+    if (out_size && ctx.result) {
+        *out_size = malloc_size((void *)ctx.result);
+    }
+
     if (ok && result)
         *result = ctx.result;
     else
@@ -1315,7 +1333,7 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
     __block bool result = true;
     Query *u = query_create(q->q_class, NULL, attributesToUpdate, NULL, error);
     if (u == NULL) return false;
-    require_action_quiet(query_update_parse(u, attributesToUpdate, error), errOut, result = false);
+    __Require_Action_Quiet(query_update_parse(u, attributesToUpdate, error), errOut, result = false);
     query_pre_update(u);
     result &= SecDbTransaction(dbt, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
         // Make sure we only update real items, not tombstones, unless the client explicitly asks otherwise.
@@ -1688,16 +1706,16 @@ static bool DeleteAllFromTableForMUSRView(SecDbConnectionRef dbt,
     } else {
         sql2 = CFRetain(sql);
     }
-    require(sql2, fail);
+    __Require(sql2, fail);
 
     stmt = SecDbCopyStmt(dbt, sql2, NULL, error);
-    require(stmt, fail);
+    __Require(stmt, fail);
 
     ok = SecDbBindObject(stmt, 1, musr, error);
-    require(ok, fail);
+    __Require(ok, fail);
 
     ok = SecDbStep(dbt, stmt, error, ^(bool *stop) { });
-    require(ok, fail);
+    __Require(ok, fail);
 
 fail:
     if (stmt) {
@@ -2434,7 +2452,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
         /* Grab a copy of all the items for which SecItemIsSystemBound()
          returns true. */
         keybag_handle_t keybag_none = KEYBAG_NONE;
-        require(sys_bound = SecServerCopyKeychainPlist(dbt, client, &keybag_none, kSecSysBoundItemFilter, error), errOut);
+        __Require(sys_bound = SecServerCopyKeychainPlist(dbt, client, &keybag_none, kSecSysBoundItemFilter, error), errOut);
     }
 
     /*
@@ -2444,7 +2462,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
     if (keybaguuid) {
         CFStringRef uuid = CFDictionaryGetValue(keychain, kSecBackupKeybagUUIDKey);
         if (isString(uuid)) {
-            require_action(CFEqual(keybaguuid, uuid), errOut,
+            __Require_Action(CFEqual(keybaguuid, uuid), errOut,
                            SecError(errSecDecode, error, CFSTR("Keybag UUID (%@) mismatch with backup (%@)"),
                                     keybaguuid, uuid));
         }
@@ -2456,8 +2474,8 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
      */
     if (client->inEduMode) {
         CFDataRef musrView = SecMUSRCreateActiveUserUUID(client->uid);
-        require_action(musrView, errOut, ok = false);
-        require_action(ok = SecServerDeleteAllForUser(dbt, musrView, true, error), errOut, CFReleaseNull(musrView));
+        __Require_Action(musrView, errOut, ok = false);
+        __Require_Action(ok = SecServerDeleteAllForUser(dbt, musrView, true, error), errOut, CFReleaseNull(musrView));
         CFReleaseNull(musrView);
     } else
 #endif
@@ -2467,7 +2485,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
          * We don't want this if we're restoring backups because we probably already synced stuff over
          */
         if (removeKeychainContent) {
-            require(ok = SecServerDeleteAll(dbt, error), errOut);
+            __Require(ok = SecServerDeleteAll(dbt, error), errOut);
         } else {
             // Custom hack to support bluetooth's workflow for 11.3. Should be removed in a future release.
             __block CFErrorRef btError = NULL;
@@ -2563,7 +2581,7 @@ static void check_generation(sqlite3_stmt *stmt, void *context) {
     keyclass_t keyclass;
     uint32_t current_generation = c->current_generation;
     
-    require(blob = s3dl_copy_data_from_col(stmt, 1, &c->query_ctx.q->q_error), out);
+    __Require(blob = s3dl_copy_data_from_col(stmt, 1, &c->query_ctx.q->q_error), out);
     blobLen = CFDataGetLength(blob);
     cursor = CFDataGetBytePtr(blob);
     

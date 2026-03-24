@@ -216,8 +216,7 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const 
     // The computed "locale" equals the "lang" attribute. The latter must be a valid BCP 47 language tag,
     // according to <https://html.spec.whatwg.org/multipage/dom.html#attr-lang>.
     // This is exactly what hb_language_from_string() expects, so we can pass directly.
-    ASSERT(m_fontCascade->fontDescription().computedLocale().is8Bit());
-    auto language = hb_language_from_string(reinterpret_cast<const char*>(m_fontCascade->fontDescription().computedLocale().span8().data()), -1);
+    auto language = hb_language_from_string(m_fontCascade->fontDescription().computedLocale().string().utf8().data(), -1);
 
     auto shapeFunction = [&](const HBRun& run) {
         hb_buffer_set_language(buffer.get(), language);
@@ -236,9 +235,9 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const 
         hb_buffer_reset(buffer.get());
     };
     if (m_run->ltr())
-        forEachHBRun<LTR>(characters, WTFMove(shapeFunction));
+        forEachHBRun<LTR>(characters, WTF::move(shapeFunction));
     else
-        forEachHBRun<RTL>(characters, WTFMove(shapeFunction));
+        forEachHBRun<RTL>(characters, WTF::move(shapeFunction));
 }
 
 } // namespace WebCore

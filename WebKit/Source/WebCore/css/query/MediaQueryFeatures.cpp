@@ -53,7 +53,7 @@ struct BooleanSchema : public FeatureSchema {
 
     BooleanSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Discrete, FeatureSchema::ValueType::Integer, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -73,7 +73,7 @@ struct IntegerSchema : public FeatureSchema {
 
     IntegerSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Range, FeatureSchema::ValueType::Integer, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -93,7 +93,7 @@ struct NumberSchema : public FeatureSchema {
 
     NumberSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Range, FeatureSchema::ValueType::Number, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -113,7 +113,7 @@ struct LengthSchema : public FeatureSchema {
 
     LengthSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Range, FeatureSchema::ValueType::Length, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -133,7 +133,7 @@ struct RatioSchema : public FeatureSchema {
 
     RatioSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Range, FeatureSchema::ValueType::Ratio, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -153,7 +153,7 @@ struct ResolutionSchema : public FeatureSchema {
 
     ResolutionSchema(const AtomString& name, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
         : FeatureSchema(name, FeatureSchema::Type::Range, FeatureSchema::ValueType::Resolution, dependencies)
-        , valueFunction(WTFMove(valueFunction))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 
@@ -174,8 +174,8 @@ struct IdentifierSchema : public FeatureSchema {
     using ValueFunction = Function<MatchingIdentifiers(const FeatureEvaluationContext&)>;
 
     IdentifierSchema(const AtomString& name, FixedVector<CSSValueID>&& valueIdentifiers, OptionSet<MediaQueryDynamicDependency> dependencies, ValueFunction&& valueFunction)
-        : FeatureSchema(name, FeatureSchema::Type::Discrete, FeatureSchema::ValueType::Identifier, dependencies, WTFMove(valueIdentifiers))
-        , valueFunction(WTFMove(valueFunction))
+        : FeatureSchema(name, FeatureSchema::Type::Discrete, FeatureSchema::ValueType::Identifier, dependencies, WTF::move(valueIdentifiers))
+        , valueFunction(WTF::move(valueFunction))
     {
     }
 

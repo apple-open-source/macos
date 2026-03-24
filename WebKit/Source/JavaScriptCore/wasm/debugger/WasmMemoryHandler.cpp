@@ -97,12 +97,17 @@ bool MemoryHandler::readModuleData(VirtualAddress address, size_t length, String
     uint32_t id = address.id();
     uint32_t offset = address.offset();
 
-    RefPtr module = m_debugServer.m_instanceManager->module(id);
+    RefPtr module = m_debugServer.m_moduleManager->module(id);
     if (!module)
         return false;
 
     const auto& source = module->moduleInformation().debugInfo->source;
-    if (offset >= source.size() || offset + length > source.size()) {
+    if (!offset && source.size() < length) {
+        // FIXME: This is a workaround for tiny modules - clamp initial read at offset 0.
+        // Cannot clamp at non-zero offsets as it corrupts DWARF debug info in LLDB.
+        dataLogLnIf(Options::verboseWasmDebugger(), "[MemoryHandler] - clamping read from ", length, " to ", source.size(), " bytes (module size: ", source.size(), ")");
+        length = source.size();
+    } else if (offset >= source.size() || offset + length > source.size()) {
         dataLogLnIf(Options::verboseWasmDebugger(), "[MemoryHandler] - read beyond module boundary. Address: ", address, " offset: ", offset, " size: ", length, " module size: ", source.size());
         return false;
     }
@@ -119,7 +124,7 @@ bool MemoryHandler::readMemoryData(VirtualAddress address, size_t length, String
     uint32_t instanceId = address.id();
     uint32_t offset = address.offset();
 
-    JSWebAssemblyInstance* jsInstance = m_debugServer.m_instanceManager->jsInstance(instanceId);
+    JSWebAssemblyInstance* jsInstance = m_debugServer.m_moduleManager->jsInstance(instanceId);
     if (!jsInstance) {
         dataLogLnIf(Options::verboseWasmDebugger(), "[MemoryHandler] - instance not found for ID: ", instanceId);
         return false;
@@ -181,7 +186,7 @@ void MemoryHandler::handleMemoryRegionInfo(StringView packet)
 
 void MemoryHandler::handleWasmMemoryRegionInfo(VirtualAddress address, uint32_t instanceId, uint32_t offset)
 {
-    JSWebAssemblyInstance* instance = m_debugServer.m_instanceManager->jsInstance(instanceId);
+    JSWebAssemblyInstance* instance = m_debugServer.m_moduleManager->jsInstance(instanceId);
     if (instance) {
         size_t memorySize = instance->memory()->memory().size();
         if (offset < memorySize) {
@@ -193,7 +198,7 @@ void MemoryHandler::handleWasmMemoryRegionInfo(VirtualAddress address, uint32_t 
         }
     }
 
-    uint32_t idUpperBoundary = m_debugServer.m_instanceManager->nextInstanceId();
+    uint32_t idUpperBoundary = m_debugServer.m_moduleManager->nextInstanceId();
     uint32_t nextValidID = instanceId;
     do {
         if (++nextValidID >= idUpperBoundary) {
@@ -202,7 +207,7 @@ void MemoryHandler::handleWasmMemoryRegionInfo(VirtualAddress address, uint32_t 
             sendUnmappedRegionReply(address, unmappedSize);
             return;
         }
-    } while (!m_debugServer.m_instanceManager->jsInstance(nextValidID));
+    } while (!m_debugServer.m_moduleManager->jsInstance(nextValidID));
 
     // Address is beyond this module - return unmapped region to next module
     VirtualAddress nextMemoryAddress = VirtualAddress::createMemory(nextValidID);
@@ -212,7 +217,7 @@ void MemoryHandler::handleWasmMemoryRegionInfo(VirtualAddress address, uint32_t 
 
 void MemoryHandler::handleWasmModuleRegionInfo(VirtualAddress address, uint32_t moduleId, uint32_t offset)
 {
-    JSWebAssemblyInstance* instance = m_debugServer.m_instanceManager->jsInstance(moduleId);
+    JSWebAssemblyInstance* instance = m_debugServer.m_moduleManager->jsInstance(moduleId);
     if (instance) {
         JSWebAssemblyModule* jsModule = instance->jsModule();
         const auto& source = jsModule->moduleInformation().debugInfo->source;
@@ -224,7 +229,7 @@ void MemoryHandler::handleWasmModuleRegionInfo(VirtualAddress address, uint32_t 
         }
     }
 
-    uint32_t idUpperBoundary = m_debugServer.m_instanceManager->nextInstanceId();
+    uint32_t idUpperBoundary = m_debugServer.m_moduleManager->nextInstanceId();
     uint32_t nextValidID = moduleId;
     do {
         if (++nextValidID >= idUpperBoundary) {
@@ -233,7 +238,7 @@ void MemoryHandler::handleWasmModuleRegionInfo(VirtualAddress address, uint32_t 
             sendUnmappedRegionReply(address, unmappedSize);
             return;
         }
-    } while (!m_debugServer.m_instanceManager->jsInstance(nextValidID));
+    } while (!m_debugServer.m_moduleManager->jsInstance(nextValidID));
 
     // Address is beyond this module - return unmapped region to next module
     VirtualAddress nextModuleAddress = VirtualAddress::createModule(nextValidID);

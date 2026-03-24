@@ -113,7 +113,7 @@ bool ImageTransferSessionVT::setSize(const IntSize& size)
     auto bufferPool = createCVPixelBufferPool(size.width(), size.height(), m_pixelFormat, 6, false, m_shouldUseIOSurface);
     if (!bufferPool)
         return false;
-    m_outputBufferPool = WTFMove(*bufferPool);
+    m_outputBufferPool = WTF::move(*bufferPool);
     m_size = size;
     return true;
 }
@@ -134,7 +134,7 @@ RetainPtr<CVPixelBufferRef> ImageTransferSessionVT::convertPixelBuffer(CVPixelBu
         RELEASE_LOG(Media, "ImageTransferSessionVT::convertPixelBuffer, createCVPixelBufferFromPool failed with error %d", static_cast<int>(result.error()));
         return nullptr;
     }
-    auto outputBuffer = WTFMove(*result);
+    auto outputBuffer = WTF::move(*result);
 
     auto err = VTPixelTransferSessionTransferImage(m_transferSession.get(), sourceBuffer, outputBuffer.get());
     if (err) {
@@ -303,7 +303,7 @@ RefPtr<VideoFrame> ImageTransferSessionVT::convertVideoFrame(VideoFrame& videoFr
     if (!resizedBuffer)
         return nullptr;
 
-    return VideoFrameCV::create(videoFrame.presentationTime(), videoFrame.isMirrored(), videoFrame.rotation(), WTFMove(resizedBuffer));
+    return VideoFrameCV::create(videoFrame.presentationTime(), videoFrame.isMirrored(), videoFrame.rotation(), WTF::move(resizedBuffer));
 }
 
 RefPtr<VideoFrame> ImageTransferSessionVT::createVideoFrame(CGImageRef image, const WTF::MediaTime& time, const IntSize& size)

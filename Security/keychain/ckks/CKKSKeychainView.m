@@ -457,8 +457,10 @@
                                                   path:[OctagonStateTransitionPath pathFromDictionary:@{
                                                       CKKSStateResettingLocalData: @{
                                                               CKKSStateInitializing: @{
-                                                                      CKKSStateInitialized: [OctagonStateTransitionPathStep success],
-                                                                      CKKSStateLoggedOut: [OctagonStateTransitionPathStep success],
+                                                                  CKKSStateCreateCKZones: @{
+                                                                      CKKSStateInitialized: [OctagonStateTransitionPathStep success]
+                                                                  },
+                                                                  CKKSStateLoggedOut: [OctagonStateTransitionPathStep success],
                                                               }
                                                       }
                                                   }]
@@ -509,7 +511,9 @@
 
     NSDictionary* localResetPath = @{
         CKKSStateInitializing: @{
-            CKKSStateInitialized: [OctagonStateTransitionPathStep success],
+            CKKSStateCreateCKZones: @{
+                CKKSStateInitialized: [OctagonStateTransitionPathStep success]
+            },
             CKKSStateLoggedOut: [OctagonStateTransitionPathStep success],
         },
     };
@@ -591,6 +595,12 @@
                                              entering:CKKSStateResettingLocalData];
     }
 
+    if([flags _onqueueContains:CKKSFlagRecheckCKAccountStatus]) {
+        // We were told to go recheck the CloudKit account status.
+        [flags _onqueueRemoveFlag:CKKSFlagRecheckCKAccountStatus];
+        return [OctagonStateTransitionOperation named:@"recheck-ck-acct-status"
+                                             entering:CKKSStateRecheckAccountStatus];
+    }
     if([currentState isEqualToString:CKKSStateLoggedOut]) {
         if([flags _onqueueContains:CKKSFlagCloudKitLoggedIn] || self.accountStatus == CKKSAccountStatusAvailable) {
             [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedIn];
@@ -636,6 +646,23 @@
                                                               errorState:CKKSStateError];
         }
 
+        // Check whether the zone state entries we have match our current account.
+        WEAKIFY(self);
+        return [OctagonStateTransitionOperation named:@"ckks-check-ckzse-altDSIDs"
+                                            intending:CKKSStateCreateCKZones
+                                           errorState:CKKSStateError
+                                  withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+            STRONGIFY(self);
+            if (self.operationDependencies.activeAccount.altDSID && [self onqueueResetOnMismatchedAltDSID]) {
+                ckksnotice("ckkskey", self, "CKKS Zone State Entries don't match our current altDSID: %@, heading into local reset", self.operationDependencies.activeAccount.altDSID);
+                op.nextState = CKKSStateResettingLocalData;
+            } else {
+                op.nextState = CKKSStateCreateCKZones;
+            }
+        }];
+    }
+
+    if([currentState isEqualToString:CKKSStateCreateCKZones]) {
         // Initializing means resetting to original states.
         [self.operationDependencies operateOnAllViews];
         [self.operationDependencies setStateForAllViews:SecCKKSZoneKeyStateInitializing];
@@ -646,7 +673,6 @@
                                                                                                       errorState:CKKSStateZoneCreationFailed];
         [pendingInitializeOp addNullableDependency:self.operationDependencies.cloudkitRetryAfter.operationDependency];
         [self.operationDependencies.cloudkitRetryAfter trigger];
-
         return pendingInitializeOp;
     }
 
@@ -674,6 +700,12 @@
 
         ckkserror("ckkskey", self, "Staying in error state %@", currentState);
         return nil;
+    }
+
+    if([currentState isEqualToString:CKKSStateFixupZoneStateEntries]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupUpgradeZoneStateEntriesOperation alloc] initWithOperationDependencies:self.operationDependencies];
+        self.lastFixupOperation = op;
+        return op;
     }
 
     if([currentState isEqualToString:CKKSStateFixupRefetchCurrentItemPointers]) {
@@ -706,7 +738,7 @@
         CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupLocalReloadOperation alloc] initWithOperationDependencies:self.operationDependencies
                                                                                                                                     fixupNumber:CKKSFixupDeleteAllCKKSTombstones
                                                                                                                                ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"fixup"]
-                                                                                                                                       entering:CKKSStateInitialized];
+                                                                                                                                       entering:CKKSStateFixupZoneStateEntries];
         self.lastFixupOperation = op;
         return op;
     }
@@ -1025,6 +1057,11 @@
 
     if([currentState isEqualToString:CKKSStateFetchComplete]) {
         [self.operationDependencies.overallLaunch addEvent:@"fetch-complete"];
+        if([flags _onqueueContains:CKKSFlagRecheckCKAccountStatus]) {
+            [flags _onqueueRemoveFlag:CKKSFlagRecheckCKAccountStatus];
+            ckksnotice_global("ckksfetcher", "Rechecking CK Acct status post-fetch");
+            return [OctagonStateTransitionOperation named:@"post-fetch-acct-recheck" entering:CKKSStateRecheckAccountStatus];
+        }
         return [OctagonStateTransitionOperation named:@"post-fetch-process" entering:CKKSStateProcessReceivedKeys];
     }
 
@@ -1243,6 +1280,20 @@
 
     if([currentState isEqualToString:CKKSStateOutgoingQueueOperationFailed]) {
         return [OctagonStateTransitionOperation named:@"oqo-failure" entering:CKKSStateBecomeReady];
+    }
+
+    if([currentState isEqualToString:CKKSStateRecheckAccountStatus]) {
+        // If we received an error from CloudKit telling us that we don't have an auth token, nudge the CK Account Status tracker to double-check the state of the world.
+        // But if we have any other flags on the state machine indicating account state, remove those. CKKSAccountStateTracker should add the appropriate flags back onto the state machine.
+        if([flags _onqueueContains:CKKSFlagCloudKitLoggedIn]) {
+            [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedIn];
+        }
+        if([flags _onqueueContains:CKKSFlagCloudKitLoggedOut]) {
+            [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedOut];
+        }
+
+        [self.accountTracker recheckCKAccountStatus];
+        return [OctagonStateTransitionOperation named:@"recheck-ck-acct-status" entering:CKKSStateWaitForCloudKitAccountStatus];
     }
 
     return nil;
@@ -1997,7 +2048,7 @@
             // CKKS will use the SecItem APIs to do its work. But, in real operation, the musr set by the xpc client won't affect securityd's musr.
             NSData* musrUUIDData = [((__bridge NSData*)SecSecurityClientGet()->musr) copy];
             preexistingMusrUUID = musrUUIDData ? [[NSUUID alloc] initWithUUIDBytes:musrUUIDData.bytes] : nil;
-            SecSecuritySetPersonaMusr(NULL);
+            SecSecuritySetPersonaMusrForTests(NULL);
         }
 #endif
 
@@ -2019,7 +2070,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
             return CKKSDatabaseTransactionCommit;
@@ -2061,7 +2112,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
             return CKKSDatabaseTransactionCommit;
@@ -2092,7 +2143,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
 
@@ -2102,7 +2153,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
             return CKKSDatabaseTransactionCommit;
@@ -2123,7 +2174,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
             return CKKSDatabaseTransactionCommit;
@@ -2172,7 +2223,7 @@
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
-                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+                SecSecuritySetPersonaMusrForTests((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
             }
 #endif
         return CKKSDatabaseTransactionCommit;
@@ -3191,10 +3242,12 @@
                 CKKSStateFetchComplete: [OctagonStateTransitionPathStep success],
                 CKKSStateResettingLocalData: @{
                     CKKSStateInitializing: @{
-                        CKKSStateInitialized: @{
-                            CKKSStateBeginFetch: @{
-                                CKKSStateFetch: @{
-                                    CKKSStateFetchComplete: [OctagonStateTransitionPathStep success],
+                        CKKSStateCreateCKZones: @{
+                            CKKSStateInitialized: @{
+                                CKKSStateBeginFetch: @{
+                                    CKKSStateFetch: @{
+                                        CKKSStateFetchComplete: [OctagonStateTransitionPathStep success],
+                                    },
                                 },
                             },
                         },
@@ -3801,7 +3854,7 @@
     [eventS sendMetricWithResult:YES error:nil];
 }
 
-- (void)endTrustedOperation
+- (void)endTrustedOperation:(BOOL)resetCKKS
 {
     AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
                                                                                        altDSID:self.operationDependencies.activeAccount.altDSID
@@ -3821,7 +3874,10 @@
         [self.trustStatusKnown fulfill];
         [self.stateMachine _onqueueHandleFlag:CKKSFlagEndTrustedOperation];
 
-        [self.operationDependencies.overallLaunch addEvent:@"trust-loss"];
+        if (resetCKKS) {
+            [self.stateMachine _onqueueHandleFlag:CKKSFlagCloudKitLoggedOut];
+        }
+        [self.operationDependencies.overallLaunch addEvent:@"reset-local"];
     });
     [eventS sendMetricWithResult:YES error:nil];
 }
@@ -4465,6 +4521,11 @@ fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
         return false;
     }
 
+    if([error isCKServerAuthTokenError]) {
+        ckkserror("ckks", zoneID, "Received notice that we are not authenticated: %@", error);
+        [self.stateMachine handleFlag:CKKSFlagRecheckCKAccountStatus];
+        return false;
+    }
     return true;
 }
 
@@ -4961,6 +5022,18 @@ fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
             @"launchSequence":      CKKSNilToNSNull([viewState.launch eventsByTime]),
             @"initialSyncFinished": boolstr(ckse.initialSyncFinished),
         };
+}
+
+- (BOOL)onqueueResetOnMismatchedAltDSID {
+    NSError* localError = nil;
+    NSArray<CKKSZoneStateEntry*>* ckses = [CKKSZoneStateEntry allWithContextID:self.operationDependencies.contextID error:&localError];
+    for (CKKSZoneStateEntry* ckse in ckses) {
+        if (ckse.altDSID && ![ckse.altDSID isEqualToString:@""] && ![ckse.altDSID isEqualToString:self.operationDependencies.activeAccount.altDSID]) {
+            ckkserror_global("ckks", "Mismatch detected between current altDSID (%@) and CKSE altDSID: (%@)", self.operationDependencies.activeAccount.altDSID, ckse.altDSID);
+            return YES;
+        }
+    }
+    return NO;
 }
 
 #endif /* OCTAGON */

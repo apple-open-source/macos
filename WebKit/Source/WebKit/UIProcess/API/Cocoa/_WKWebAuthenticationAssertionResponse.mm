@@ -29,6 +29,15 @@
 #import "WKNSData.h"
 #import <WebCore/WebCoreObjCExtras.h>
 
+#if ENABLE(WEB_AUTHN)
+
+static Ref<API::WebAuthenticationAssertionResponse> protectedResponse(_WKWebAuthenticationAssertionResponse *response)
+{
+    return *response->_response;
+}
+
+#endif // ENABLE(WEB_AUTHN)
+
 @implementation _WKWebAuthenticationAssertionResponse
 
 #if ENABLE(WEB_AUTHN)
@@ -38,7 +47,7 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKWebAuthenticationAssertionResponse.class, self))
         return;
 
-    _response->~WebAuthenticationAssertionResponse();
+    SUPPRESS_UNRETAINED_ARG _response->~WebAuthenticationAssertionResponse();
 
     [super dealloc];
 }
@@ -55,7 +64,7 @@
 
 - (NSData *)userHandle
 {
-    return wrapper(_response->userHandle()).autorelease();
+    return wrapper(protectedResponse(self)->userHandle()).autorelease();
 }
 
 - (BOOL)synchronizable
@@ -70,7 +79,7 @@
 
 - (NSData *)credentialID
 {
-    return wrapper(_response->credentialID()).autorelease();
+    return wrapper(protectedResponse(self)->credentialID()).autorelease();
 }
 
 - (NSString *)accessGroup
@@ -83,7 +92,7 @@
 - (void)setLAContext:(LAContext *)context
 {
 #if ENABLE(WEB_AUTHN)
-    _response->setLAContext(context);
+    protectedResponse(self)->setLAContext(context);
 #endif
 }
 

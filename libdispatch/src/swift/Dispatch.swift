@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2016 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -11,13 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 @_exported import Dispatch
-
-import CDispatch
+@_implementationOnly import _DispatchOverlayShims
 
 /// dispatch_assert
 
 @available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
-public enum DispatchPredicate {
+public enum DispatchPredicate: Sendable {
 	case onQueue(DispatchQueue)
 	case onQueueAsBarrier(DispatchQueue)
 	case notOnQueue(DispatchQueue)
@@ -27,26 +26,26 @@ public enum DispatchPredicate {
 public func _dispatchPreconditionTest(_ condition: DispatchPredicate) -> Bool {
 	switch condition {
 	case .onQueue(let q):
-		dispatch_assert_queue(q.__wrapped)
+		__dispatch_assert_queue(q)
 	case .onQueueAsBarrier(let q):
-		dispatch_assert_queue_barrier(q.__wrapped)
+		__dispatch_assert_queue_barrier(q)
 	case .notOnQueue(let q):
-		dispatch_assert_queue_not(q.__wrapped)
+		__dispatch_assert_queue_not(q)
 	}
 	return true
 }
 
 @_transparent
 @available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
-public func dispatchPrecondition(condition: @autoclosure () -> DispatchPredicate, file: StaticString = #file, line: UInt = #line) {
+public func dispatchPrecondition(condition: @autoclosure () -> DispatchPredicate) {
 	// precondition is able to determine release-vs-debug asserts where the overlay
 	// cannot, so formulating this into a call that we can call with precondition()
-	precondition(_dispatchPreconditionTest(condition()), "dispatchPrecondition failure", file: file, line: line)
+	precondition(_dispatchPreconditionTest(condition()), "dispatchPrecondition failure")
 }
 
 /// qos_class_t
 
-public struct DispatchQoS : Equatable {
+public struct DispatchQoS : Equatable, Sendable {
 	public let qosClass: QoSClass
 	public let relativePriority: Int
 
@@ -67,7 +66,7 @@ public struct DispatchQoS : Equatable {
 
 	public static let unspecified = DispatchQoS(qosClass: .unspecified, relativePriority: 0)
 
-	public enum QoSClass {
+	public enum QoSClass: Sendable {
 		@available(macOS 10.10, iOS 8.0, *)
 		case background
 
@@ -85,30 +84,28 @@ public struct DispatchQoS : Equatable {
 
 		case unspecified
 
-		// _OSQoSClass is internal on Linux, so this initialiser has to 
-		// remain as an internal init.
 		@available(macOS 10.10, iOS 8.0, *)
-		internal init?(rawValue: _OSQoSClass) {
+		public init?(rawValue: qos_class_t) {
 			switch rawValue {
-			case .QOS_CLASS_BACKGROUND: self = .background
-			case .QOS_CLASS_UTILITY: self = .utility
-			case .QOS_CLASS_DEFAULT: self = .default
-			case .QOS_CLASS_USER_INITIATED: self = .userInitiated
-			case .QOS_CLASS_USER_INTERACTIVE: self = .userInteractive
-			case .QOS_CLASS_UNSPECIFIED: self = .unspecified
+			case QOS_CLASS_BACKGROUND: self = .background
+			case QOS_CLASS_UTILITY: self = .utility
+			case QOS_CLASS_DEFAULT: self = .default
+			case QOS_CLASS_USER_INITIATED: self = .userInitiated
+			case QOS_CLASS_USER_INTERACTIVE: self = .userInteractive
+			case QOS_CLASS_UNSPECIFIED: self = .unspecified
 			default: return nil
 			}
 		}
 
 		@available(macOS 10.10, iOS 8.0, *)
-		internal var rawValue: _OSQoSClass {
+		public var rawValue: qos_class_t {
 			switch self {
-			case .background: return .QOS_CLASS_BACKGROUND
-			case .utility: return .QOS_CLASS_UTILITY
-			case .default: return .QOS_CLASS_DEFAULT
-			case .userInitiated: return .QOS_CLASS_USER_INITIATED
-			case .userInteractive: return .QOS_CLASS_USER_INTERACTIVE
-			case .unspecified: return .QOS_CLASS_UNSPECIFIED
+			case .background: return QOS_CLASS_BACKGROUND
+			case .utility: return QOS_CLASS_UTILITY
+			case .default: return QOS_CLASS_DEFAULT
+			case .userInitiated: return QOS_CLASS_USER_INITIATED
+			case .userInteractive: return QOS_CLASS_USER_INTERACTIVE
+			case .unspecified: return QOS_CLASS_UNSPECIFIED
 			}
 		}
 	}
@@ -117,16 +114,15 @@ public struct DispatchQoS : Equatable {
 		self.qosClass = qosClass
 		self.relativePriority = relativePriority
 	}
+
+	public static func ==(a: DispatchQoS, b: DispatchQoS) -> Bool {
+		return a.qosClass == b.qosClass && a.relativePriority == b.relativePriority
+	}
 }
 
-public func ==(a: DispatchQoS, b: DispatchQoS) -> Bool {
-	return a.qosClass == b.qosClass && a.relativePriority == b.relativePriority
-}
-
-/// 
-
-public enum DispatchTimeoutResult {
-    static let KERN_OPERATION_TIMED_OUT:Int = 49
+///
+@frozen
+public enum DispatchTimeoutResult: Sendable {
 	case success
 	case timedOut
 }
@@ -134,30 +130,39 @@ public enum DispatchTimeoutResult {
 /// dispatch_group
 
 extension DispatchGroup {
-	public func notify(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], queue: DispatchQueue, execute work: @escaping @convention(block) () -> ()) {
-		if #available(macOS 10.10, iOS 8.0, *), qos != .unspecified || !flags.isEmpty {
-			let item = DispatchWorkItem(qos: qos, flags: flags, block: work)
-			dispatch_group_notify(self.__wrapped, queue.__wrapped, item._block)
-		} else {
-			dispatch_group_notify(self.__wrapped, queue.__wrapped, work)
+	public func notify(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], queue: DispatchQueue, execute work: @escaping @convention(block) () -> Void) {
+
+		var block: @convention(block) () -> Void = work
+		if #available(macOS 10.10, iOS 8.0, *)  {
+			if qos != .unspecified {
+				let workItem = DispatchWorkItem(qos: qos, flags: flags, block: work)
+				block = workItem._block
+			} else if !flags.isEmpty {
+				let workItem = DispatchWorkItem(flags: flags, block: work)
+				block = workItem._block
+			}
 		}
+		_swift_dispatch_group_notify(self, queue, block)
 	}
 
 	@available(macOS 10.10, iOS 8.0, *)
 	public func notify(queue: DispatchQueue, work: DispatchWorkItem) {
-		dispatch_group_notify(self.__wrapped, queue.__wrapped, work._block)
+		_swift_dispatch_group_notify(self, queue, work._block)
 	}
 
+	@_unavailableFromAsync(message: "Use a TaskGroup instead")
 	public func wait() {
-		_ = dispatch_group_wait(self.__wrapped, DispatchTime.distantFuture.rawValue)
+		_ = __dispatch_group_wait(self, DispatchTime.distantFuture.rawValue)
 	}
 
+	@_unavailableFromAsync(message: "Use a TaskGroup instead")
 	public func wait(timeout: DispatchTime) -> DispatchTimeoutResult {
-		return dispatch_group_wait(self.__wrapped, timeout.rawValue) == 0 ? .success : .timedOut
+		return __dispatch_group_wait(self, timeout.rawValue) == 0 ? .success : .timedOut
 	}
 
+	@_unavailableFromAsync(message: "Use a TaskGroup instead")
 	public func wait(wallTimeout timeout: DispatchWallTime) -> DispatchTimeoutResult {
-		return dispatch_group_wait(self.__wrapped, timeout.rawValue) == 0 ? .success : .timedOut
+		return __dispatch_group_wait(self, timeout.rawValue) == 0 ? .success : .timedOut
 	}
 }
 
@@ -166,18 +171,23 @@ extension DispatchGroup {
 extension DispatchSemaphore {
 	@discardableResult
 	public func signal() -> Int {
-		return Int(dispatch_semaphore_signal(self.__wrapped))
+		return __dispatch_semaphore_signal(self)
 	}
 
+	@_unavailableFromAsync(message: "Await a Task handle instead")
 	public func wait() {
-		_ = dispatch_semaphore_wait(self.__wrapped, DispatchTime.distantFuture.rawValue)
+		_ = __dispatch_semaphore_wait(self, DispatchTime.distantFuture.rawValue)
 	}
 
+	@_unavailableFromAsync(message: "Await a Task handle instead")
 	public func wait(timeout: DispatchTime) -> DispatchTimeoutResult {
-		return dispatch_semaphore_wait(self.__wrapped, timeout.rawValue) == 0 ? .success : .timedOut
+		return __dispatch_semaphore_wait(self, timeout.rawValue) == 0 ? .success : .timedOut
 	}
 
+	@_unavailableFromAsync(message: "Await a Task handle instead")
 	public func wait(wallTimeout: DispatchWallTime) -> DispatchTimeoutResult {
-		return dispatch_semaphore_wait(self.__wrapped, wallTimeout.rawValue) == 0 ? .success : .timedOut
+		return __dispatch_semaphore_wait(self, wallTimeout.rawValue) == 0 ? .success : .timedOut
 	}
+
 }
+

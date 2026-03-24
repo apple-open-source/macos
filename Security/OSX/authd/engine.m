@@ -178,11 +178,11 @@ engine_t
 engine_create(connection_t conn, auth_token_t auth)
 {
     engine_t engine = NULL;
-    require(conn != NULL, done);
-    require(auth != NULL, done);
+    __Require(conn != NULL, done);
+    __Require(auth != NULL, done);
 
     engine = (engine_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, engine_get_type_id(), AUTH_CLASS_SIZE(engine), NULL);
-    require(engine != NULL, done);
+    __Require(engine != NULL, done);
     
     engine->engine_index = global_engine_count++;
 
@@ -665,7 +665,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 
 			if (shoud_run_agent) {
 				agent_t agent = _get_agent(engine, mech, true, i == 0);
-				require_action(agent != NULL, done, result = kAuthorizationResultUndefined; os_log_error(AUTHD_LOG, "Error creating mechanism agent (engine %llu)", engine->engine_index));
+				__Require_Action(agent != NULL, done, result = kAuthorizationResultUndefined; os_log_error(AUTHD_LOG, "Error creating mechanism agent (engine %llu)", engine->engine_index));
 
 				// check if any agent has been interrupted (it necessary if interrupt will come during creation)
 				CFIndex j;
@@ -816,7 +816,7 @@ _evaluate_authentication(engine_t engine, rule_t rule)
     if (!(CFArrayGetCount(mechanisms) > 0)) {
         mechanisms = rule_get_mechanisms(engine->authenticateRule);
     }
-    require_action(CFArrayGetCount(mechanisms) > 0, done, os_log_debug(AUTHD_LOG, "engine %llu: error - no mechanisms found", engine->engine_index));
+    __Require_Action(CFArrayGetCount(mechanisms) > 0, done, os_log_debug(AUTHD_LOG, "engine %llu: error - no mechanisms found", engine->engine_index));
     
     int64_t ruleTries = rule_get_tries(rule);
 
@@ -1117,7 +1117,7 @@ _evaluate_class_mechanism(engine_t engine, rule_t rule)
     OSStatus status = errAuthorizationDenied;
     CFArrayRef mechanisms = NULL;
     
-    require_action(rule_get_mechanisms_count(rule) > 0, done, status = errAuthorizationSuccess; os_log_error(AUTHD_LOG, "Fatal: no mechanisms specified (engine %llu)", engine->engine_index));
+    __Require_Action(rule_get_mechanisms_count(rule) > 0, done, status = errAuthorizationSuccess; os_log_error(AUTHD_LOG, "Fatal: no mechanisms specified (engine %llu)", engine->engine_index));
     
     mechanisms = rule_get_mechanisms(rule);
     
@@ -1318,7 +1318,7 @@ done:
 
 static void _parse_environment(engine_t engine, auth_items_t environment)
 {
-    require(environment != NULL, done);
+    __Require(environment != NULL, done);
 
 #if DEBUG
     os_log_debug(AUTHD_LOG, "engine %llu: Dumping Environment: %@", engine->engine_index, environment);
@@ -1339,10 +1339,10 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
         }
 
         bool shared = auth_items_exist(environment, kAuthorizationEnvironmentShared);
-        require_action(user != NULL, done, os_log_debug(AUTHD_LOG, "engine %llu: user not used password", engine->engine_index));
+        __Require_Action(user != NULL, done, os_log_debug(AUTHD_LOG, "engine %llu: user not used password", engine->engine_index));
 
         struct passwd *pw = getpwnam(user);
-        require_action((pw != NULL) || (engine->flags & kAuthorizationFlagSkipInternalAuth), done, os_log_error(AUTHD_LOG, "User not found %{public}s (engine %llu)", user, engine->engine_index));
+        __Require_Action((pw != NULL) || (engine->flags & kAuthorizationFlagSkipInternalAuth), done, os_log_error(AUTHD_LOG, "User not found %{public}s (engine %llu)", user, engine->engine_index));
         
         auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
         auth_items_set_string(engine->context, kAuthorizationEnvironmentPassword, pass ? pass : "");
@@ -1354,14 +1354,14 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
         }
         
         CFStringRef uname = CFStringCreateWithCString(kCFAllocatorDefault, user, kCFStringEncodingUTF8);
-        require_action(uname != NULL, done, os_log_debug(AUTHD_LOG, "User name cannot be created (engine %llu)", engine->engine_index));
+        __Require_Action(uname != NULL, done, os_log_debug(AUTHD_LOG, "User name cannot be created (engine %llu)", engine->engine_index));
         int32_t enforced = TKGetSmartcardSettingForUser(kTKEnforceSmartcard, uname);
         CFReleaseSafe(uname);
-        require_action(enforced == 0, done, os_log_error(AUTHD_LOG, "User needs to use SmartCard (engine %llu)", engine->engine_index));
+        __Require_Action(enforced == 0, done, os_log_error(AUTHD_LOG, "User needs to use SmartCard (engine %llu)", engine->engine_index));
         
         if (!(engine->flags & kAuthorizationFlagSkipInternalAuth)) {
             int checkpw_status = checkpw_internal(pw, pass ? pass : "");
-            require_action(checkpw_status == CHECKPW_SUCCESS, done, os_log_error(AUTHD_LOG, "engine %llu: checkpw() returned %d; failed to authenticate user %{public}s (uid %u).", engine->engine_index, checkpw_status, pw->pw_name, pw->pw_uid));
+            __Require_Action(checkpw_status == CHECKPW_SUCCESS, done, os_log_error(AUTHD_LOG, "engine %llu: checkpw() returned %d; failed to authenticate user %{public}s (uid %u).", engine->engine_index, checkpw_status, pw->pw_name, pw->pw_uid));
             
             credential_t cred = credential_create(pw->pw_uid);
             if (credential_get_valid(cred)) {
@@ -1404,8 +1404,8 @@ OSStatus engine_get_right_properties(engine_t engine, const char *rightName, CFD
     OSStatus status = errAuthorizationInternal;
     
     CFMutableDictionaryRef properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require(properties != NULL, done);
-    require(rightName != NULL, done);
+    __Require(properties != NULL, done);
+    __Require(rightName != NULL, done);
 
     // first check if any of rights uses rule with password-only set to true
     // if so, set appropriate hint so SecurityAgent won't use alternate authentication methods like smartcard etc.
@@ -1533,7 +1533,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         return retval;
     };
     
-    require(rights != NULL, done);
+    __Require(rights != NULL, done);
     
     ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthorize);
     if (rights_count) {
@@ -1617,7 +1617,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
     // Restore all context values from the AuthorizationRef
     auth_items_t decrypted_items = auth_items_create();
-    require_action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %llu)", engine->engine_index));
+    __Require_Action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %llu)", engine->engine_index));
     auth_items_content_copy(decrypted_items, auth_token_get_context(engine->auth));
     auth_items_decrypt(decrypted_items, auth_token_get_encryption_key(engine->auth));
     auth_items_copy(engine->context, decrypted_items);
@@ -1685,13 +1685,13 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     
 	if (engine->flags & kAuthorizationFlagSheet) {
         // Try to use/update fresh context values from the environment
-        require_action(environment, done, os_log_error(AUTHD_LOG, "Missing environment for sheet authorization (engine %llu)", engine->engine_index); status = errAuthorizationDenied);
+        __Require_Action(environment, done, os_log_error(AUTHD_LOG, "Missing environment for sheet authorization (engine %llu)", engine->engine_index); status = errAuthorizationDenied);
             
-		require_action(user, done, os_log_error(AUTHD_LOG, "Missing username (engine %llu)", engine->engine_index); status = errAuthorizationDenied);
+		__Require_Action(user, done, os_log_error(AUTHD_LOG, "Missing username (engine %llu)", engine->engine_index); status = errAuthorizationDenied);
 
 		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
 		struct passwd *pwd = getpwnam(user);
-		require_action(pwd, done, os_log_error(AUTHD_LOG, "Invalid username %s (engine %llu)", user, engine->engine_index); status = errAuthorizationDenied);
+		__Require_Action(pwd, done, os_log_error(AUTHD_LOG, "Invalid username %s (engine %llu)", user, engine->engine_index); status = errAuthorizationDenied);
 		auth_items_set_uint(engine->context, "sheet-uid", pwd->pw_uid);
 
 		engine_acquire_sheet_data(engine);
@@ -1910,14 +1910,14 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             
             scConn = connection_create(engine->proc);
             scAuth = auth_token_create(engine->proc, kAuthorizationFlagDefaults);
-            require_action(scAuth != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create scAuth"));
+            __Require_Action(scAuth != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create scAuth"));
             
             scRights = auth_rights_create();
-            require_action(scRights != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create rights"));
+            __Require_Action(scRights != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create rights"));
             auth_rights_add(scRights, "com.apple.auth.user");
             
             scEnvironment = auth_items_create();
-            require_action(scEnvironment != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create env"));
+            __Require_Action(scEnvironment != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create env"));
             
             auth_items_set_string(scEnvironment, AGENT_HINT_REQUIRED_USER, reqScUser);
             
@@ -1984,12 +1984,12 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         } else if (auth_items_exist(engine->context, AGENT_CONTEXT_AP_USER_NAME)) {
             userName = auth_items_get_string(engine->context, AGENT_CONTEXT_AP_USER_NAME);
         }
-        require_action(userName != NULL, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to find an username"));
+        __Require_Action(userName != NULL, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to find an username"));
         int mbrRes = mbr_user_name_to_uuid(userName, userUuid);
-        require_action(mbrRes != 0, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to get UUID for %s", userName));
+        __Require_Action(mbrRes != 0, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to get UUID for %s", userName));
         nsUuid = [[NSUUID alloc] initWithUUIDBytes:userUuid];
         laUser = [[getLAUserStoreClass() sharedStore] fetchUserByUUID:nsUuid];
-        require_action(laUser != nil, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to LAUser for %{public}@", nsUuid));
+        __Require_Action(laUser != nil, revertKeyBagEnd, os_log_error(AUTHD_LOG, "Unable to LAUser for %{public}@", nsUuid));
 
         if (auth_items_get_bool(engine->context, AGENT_CONTEXT_OTIKBG_STATE)) {
             if ([laUser logOut:&error]) {
@@ -2009,7 +2009,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
     if ((status == errAuthorizationSuccess) || (status == errAuthorizationCanceled) || (engine->credentialsProvided)) {
 		auth_items_t encrypted_items = auth_items_create();
-		require_action(encrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %llu)", engine->engine_index));
+		__Require_Action(encrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %llu)", engine->engine_index));
 		auth_items_content_copy_with_flags(encrypted_items, engine->context, kAuthorizationContextFlagExtractable);
 #if DEBUG
 		os_log_debug(AUTHD_LOG,"engine %llu: ********** Dumping context for encryption **********", engine->engine_index);
@@ -2065,15 +2065,15 @@ _wildcard_right_exists(engine_t engine, const char * right)
     bool exists = false;
     rule_t rule = NULL;
     authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
-    require(dbconn != NULL, done);
+    __Require(dbconn != NULL, done);
     
     rule = _find_rule(engine, dbconn, right, false);
-    require(rule != NULL, done);
+    __Require(rule != NULL, done);
     
     const char * ruleName = rule_get_name(rule);
-    require(ruleName != NULL, done);
+    __Require(ruleName != NULL, done);
     size_t len = strlen(ruleName);
-    require(len != 0, done);
+    __Require(len != 0, done);
     
     if (ruleName[len-1] == '.') {
         exists = true;
@@ -2108,11 +2108,11 @@ OSStatus engine_verify_modification(engine_t engine, rule_t rule, bool remove, b
     memset(buf, 0, sizeof(buf));
     
     const char * right = rule_get_name(rule);
-    require(right != NULL, done);
+    __Require(right != NULL, done);
     size_t len = strlen(right);
-    require(len != 0, done);
+    __Require(len != 0, done);
 
-    require_action(right[len-1] != '.', done, os_log_error(AUTHD_LOG, "Not allowed to set wild card rules (engine %llu)", engine->engine_index));
+    __Require_Action(right[len-1] != '.', done, os_log_error(AUTHD_LOG, "Not allowed to set wild card rules (engine %llu)", engine->engine_index));
 
     if (strncasecmp(right, kConfigRight, strlen(kConfigRight)) == 0) {
         // special handling of meta right change:

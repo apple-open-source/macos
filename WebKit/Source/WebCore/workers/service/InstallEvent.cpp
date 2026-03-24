@@ -37,7 +37,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(InstallEvent);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InstallEvent);
 
 InstallEvent::InstallEvent(const AtomString& type, ExtendableEventInit&& initializer, IsTrusted isTrusted)
     : ExtendableEvent(EventInterfaceType::InstallEvent, type, initializer, isTrusted)
@@ -76,7 +76,7 @@ static ExceptionOr<ServiceWorkerRouteCondition> toServiceWorkerRouteCondition(Ro
 
     Vector<ServiceWorkerRouteCondition> orConditions;
     for (auto& orCondition : condition.orConditions) {
-        auto orConditionOrException = toServiceWorkerRouteCondition(WTFMove(orCondition));
+        auto orConditionOrException = toServiceWorkerRouteCondition(WTF::move(orCondition));
         if (orConditionOrException.hasException())
             return orConditionOrException.releaseException();
         orConditions.append(orConditionOrException.releaseReturnValue());
@@ -84,32 +84,32 @@ static ExceptionOr<ServiceWorkerRouteCondition> toServiceWorkerRouteCondition(Ro
 
     std::unique_ptr<ServiceWorkerRouteCondition> notCondition;
     if (condition.notCondition) {
-        auto notConditionOrException = toServiceWorkerRouteCondition(WTFMove(*condition.notCondition).value());
+        auto notConditionOrException = toServiceWorkerRouteCondition(WTF::move(*condition.notCondition).value());
         if (notConditionOrException.hasException())
             return notConditionOrException.releaseException();
         notCondition = makeUnique<ServiceWorkerRouteCondition>(notConditionOrException.releaseReturnValue());
     }
 
     return ServiceWorkerRouteCondition {
-        WTFMove(pattern),
-        WTFMove(condition.requestMethod),
-        WTFMove(condition.requestMode),
-        WTFMove(condition.requestDestination),
-        WTFMove(condition.runningStatus),
-        WTFMove(orConditions),
-        WTFMove(notCondition)
+        WTF::move(pattern),
+        WTF::move(condition.requestMethod),
+        WTF::move(condition.requestMode),
+        WTF::move(condition.requestDestination),
+        WTF::move(condition.runningStatus),
+        WTF::move(orConditions),
+        WTF::move(notCondition)
     };
 }
 
 static ExceptionOr<ServiceWorkerRoute> toServiceWorkerRoute(RouterRule&& rule)
 {
-    auto conditionOrException = toServiceWorkerRouteCondition(WTFMove(rule.condition));
+    auto conditionOrException = toServiceWorkerRouteCondition(WTF::move(rule.condition));
     if (conditionOrException.hasException())
         return conditionOrException.releaseException();
 
     return ServiceWorkerRoute {
         conditionOrException.releaseReturnValue(),
-        WTFMove(rule.source)
+        WTF::move(rule.source)
     };
 }
 
@@ -161,7 +161,7 @@ static std::optional<Exception> addServiceWorkerRoute(Vector<ServiceWorkerRoute>
     if (auto validationException = verifyRouterCondition(rule.condition, scope))
         return *validationException;
 
-    auto routeOrException = toServiceWorkerRoute(WTFMove(rule));
+    auto routeOrException = toServiceWorkerRoute(WTF::move(rule));
     if (routeOrException.hasException())
         return routeOrException.releaseException();
     routes.append(routeOrException.releaseReturnValue());
@@ -174,16 +174,16 @@ void InstallEvent::addRoutes(JSC::JSGlobalObject& globalObject, Variant<RouterRu
     auto& jsDOMGlobalObject = *JSC::jsCast<JSDOMGlobalObject*>(&globalObject);
     RefPtr serviceWorkerGlobalScope = dynamicDowncast<ServiceWorkerGlobalScope>(jsDOMGlobalObject.scriptExecutionContext());
 
-    auto rulesVector = switchOn(WTFMove(rules), [](RouterRule&& rule) -> Vector<RouterRule> {
-        return Vector<RouterRule>::from(WTFMove(rule));
+    auto rulesVector = switchOn(WTF::move(rules), [](RouterRule&& rule) -> Vector<RouterRule> {
+        return Vector<RouterRule>::from(WTF::move(rule));
     }, [](Vector<RouterRule>&& rules) -> Vector<RouterRule> {
-        return { WTFMove(rules) };
+        return { WTF::move(rules) };
     });
 
     Vector<ServiceWorkerRoute> routes;
     for (auto& rule : rulesVector) {
-        if (auto exception = addServiceWorkerRoute(routes, WTFMove(rule), *serviceWorkerGlobalScope)) {
-            promise->reject(WTFMove(*exception));
+        if (auto exception = addServiceWorkerRoute(routes, WTF::move(rule), *serviceWorkerGlobalScope)) {
+            promise->reject(WTF::move(*exception));
             return;
         }
 
@@ -205,7 +205,7 @@ void InstallEvent::addRoutes(JSC::JSGlobalObject& globalObject, Variant<RouterRu
     }
 
     Ref<SWClientConnection> connection = serviceWorkerGlobalScope->swClientConnection();
-    serviceWorkerGlobalScope->enqueueTaskWhenSettled(connection->addRoutes(serviceWorkerGlobalScope->registration().identifier(), WTFMove(routes)), TaskSource::Networking, [promise = WTFMove(promise), delayPromise = WTFMove(delayPromise)](auto&& result) mutable {
+    serviceWorkerGlobalScope->enqueueTaskWhenSettled(connection->addRoutes(serviceWorkerGlobalScope->registration().identifier(), WTF::move(routes)), TaskSource::Networking, [promise = WTF::move(promise), delayPromise = WTF::move(delayPromise)](auto&& result) mutable {
         if (!result) {
             promise->reject(result.error().toException());
             delayPromise->resolve();

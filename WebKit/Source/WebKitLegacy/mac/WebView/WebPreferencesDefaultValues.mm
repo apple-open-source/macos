@@ -156,6 +156,12 @@ bool defaultNeedsKeyboardEventDisambiguationQuirks()
 
 #endif // PLATFORM(MAC)
 
+bool defaultFontFaceSetConstructorEnabled()
+{
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoFontFaceSetConstructor);
+    return !newSDK;
+}
+
 bool defaultMutationEventsEnabled()
 {
     return WTF::CocoaApplication::isAppleApplication() || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MutationEventsDisabledByDefault);

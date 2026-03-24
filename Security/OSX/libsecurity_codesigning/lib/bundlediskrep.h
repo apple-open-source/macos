@@ -57,7 +57,6 @@ namespace CodeSigning {
 //
 class BundleDiskRep : public DiskRep, public EditableDiskRep {
 public:
-	BundleDiskRep(const char *path, const Context *ctx = NULL);
 	BundleDiskRep(CFBundleRef ref, const Context *ctx = NULL);
 	~BundleDiskRep();
 	
@@ -99,6 +98,11 @@ public:
 	bool appleInternalForcePlatform() const {return forcePlatform;};
 
 	CFBundleRef bundle() const { return mBundle; }
+
+public:
+	// A bundle creation helper to ensure consistent use of the appropriate underlying
+	// function and options.
+	static CFBundleRef createCFBundle(CFURLRef pathURL, boolean_t isExecutableURL);
 
 public:
 	Writer *writer();

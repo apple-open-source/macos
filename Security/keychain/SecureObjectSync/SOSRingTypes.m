@@ -279,7 +279,7 @@ bool SOSRingPeerTrusted(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRe
     bool retval = false;
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(requestor);
     SecKeyRef pubkey = SOSPeerInfoCopyPubKey(pi, error);
-    require_quiet(pubkey, exit);
+    __Require_Quiet(pubkey, exit);
     retval = SOSRingPKTrusted(ring, pubkey, error);
 exit:
     CFReleaseNull(pubkey);

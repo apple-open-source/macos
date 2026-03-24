@@ -45,18 +45,23 @@
 - (instancetype)initWithDocument:(std::reference_wrapper<WebCore::Document>)document
 {
     if (self = [super init])
-        _token = document.get().createParserYieldToken();
+        _token = Ref { document.get() }->createParserYieldToken();
     return self;
 }
 
 @end
+
+static Ref<WebCore::Document> protectedImpl(WKDOMDocument *document)
+{
+    return downcast<WebCore::Document>(*document->_impl);
+}
 
 @implementation WKDOMDocument
 
 - (WKDOMElement *)createElement:(NSString *)tagName
 {
     // FIXME: Do something about the exception.
-    auto result = downcast<WebCore::Document>(*_impl).createElementForBindings(tagName);
+    auto result = protectedImpl(self)->createElementForBindings(tagName);
     if (result.hasException())
         return nil;
     return WebKit::toWKDOMElement(result.releaseReturnValue().ptr());
@@ -64,27 +69,27 @@
 
 - (WKDOMText *)createTextNode:(NSString *)data
 {
-    return WebKit::toWKDOMText(downcast<WebCore::Document>(*_impl).createTextNode(data).ptr());
+    return WebKit::toWKDOMText(protectedImpl(self)->createTextNode(data).ptr());
 }
 
 - (WKDOMElement *)body
 {
-    return WebKit::toWKDOMElement(downcast<WebCore::Document>(*_impl).bodyOrFrameset());
+    return WebKit::toWKDOMElement(protectedImpl(self)->protectedBodyOrFrameset().get());
 }
 
 - (WKDOMNode *)createDocumentFragmentWithMarkupString:(NSString *)markupString baseURL:(NSURL *)baseURL
 {
-    return WebKit::toWKDOMNode(createFragmentFromMarkup(downcast<WebCore::Document>(*_impl), markupString, baseURL.absoluteString).ptr());
+    return WebKit::toWKDOMNode(createFragmentFromMarkup(protectedImpl(self), markupString, baseURL.absoluteString).ptr());
 }
 
 - (WKDOMNode *)createDocumentFragmentWithText:(NSString *)text
 {
-    return WebKit::toWKDOMNode(createFragmentFromText(makeRangeSelectingNodeContents(downcast<WebCore::Document>(*_impl)), text).ptr());
+    return WebKit::toWKDOMNode(createFragmentFromText(makeRangeSelectingNodeContents(protectedImpl(self)), text).ptr());
 }
 
 - (id)parserYieldToken
 {
-    return adoptNS([[WKDOMDocumentParserYieldToken alloc] initWithDocument:downcast<WebCore::Document>(*_impl)]).autorelease();
+    return adoptNS([[WKDOMDocumentParserYieldToken alloc] initWithDocument:protectedImpl(self)]).autorelease();
 }
 
 @end

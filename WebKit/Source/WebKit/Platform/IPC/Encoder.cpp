@@ -35,26 +35,12 @@
 #include <wtf/UniqueRef.h>
 
 #if OS(DARWIN)
-#include <wtf/Mmap.h>
+#include <wtf/MmapSpan.h>
 #endif
 
 namespace IPC {
 
 static constexpr uint8_t defaultMessageFlags = 0;
-
-#if OS(DARWIN)
-static inline MallocSpan<uint8_t, Mmap> allocateBuffer(size_t size)
-{
-    auto buffer = MallocSpan<uint8_t, Mmap>::mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1);
-    RELEASE_ASSERT(!!buffer);
-    return buffer;
-}
-#else
-static inline MallocSpan<uint8_t> allocateBuffer(size_t size)
-{
-    return MallocSpan<uint8_t>::malloc(size);
-}
-#endif
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Encoder);
 
@@ -112,8 +98,8 @@ void Encoder::wrapForTesting(UniqueRef<Encoder>&& original)
 
     auto attachments = original->releaseAttachments();
     reserve(attachments.size());
-    for (auto&& attachment : WTFMove(attachments))
-        addAttachment(WTFMove(attachment));
+    for (auto&& attachment : WTF::move(attachments))
+        addAttachment(WTF::move(attachment));
 }
 
 static inline size_t roundUpToAlignment(size_t value, size_t alignment)
@@ -131,10 +117,11 @@ void Encoder::reserve(size_t size)
     while (newCapacity < size)
         newCapacity *= 2;
 
-    auto newBuffer = allocateBuffer(newCapacity);
+    auto newBuffer = OutOfLineBufferSpan::tryAlloc(newCapacity);
+    RELEASE_ASSERT(newBuffer);
     memcpySpan(newBuffer.mutableSpan(), span());
 
-    m_outOfLineBuffer = WTFMove(newBuffer);
+    m_outOfLineBuffer = WTF::move(newBuffer);
 }
 
 void Encoder::encodeHeader()
@@ -185,7 +172,7 @@ std::span<const uint8_t> Encoder::capacityBuffer() const
 
 void Encoder::addAttachment(Attachment&& attachment)
 {
-    m_attachments.append(WTFMove(attachment));
+    m_attachments.append(WTF::move(attachment));
 }
 
 Vector<Attachment> Encoder::releaseAttachments()

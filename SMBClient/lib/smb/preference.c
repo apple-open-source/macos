@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 - 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -378,6 +378,19 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
             prefs->mc_clnt_rss_channels = 4; // default is 4
         } else if (prefs->mc_clnt_rss_channels > 64) {
             prefs->mc_clnt_rss_channels = 64;
+        }
+        
+        /*
+         * Another config option to do SRV DNS lookups before attempting
+         * direct connection. SRV lookups can help with service discovery
+         * but may add latency if the records don't exist.
+         */
+        if (rc_getbool(rcfile, sname, "srv_lookup_enabled", &altflags) == 0) {
+            if (altflags) {
+                prefs->srv_lookup_enabled = 1;
+            } else {
+                prefs->srv_lookup_enabled = 0;
+            }
         }
 	}
 	
@@ -950,6 +963,8 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* Now get any values stored in the System Configuration */
     getSCPreferences(prefs);
     
+    /* SRV lookup is OFF by default */
+    prefs->srv_lookup_enabled = 0;
 }
 
 void releasePreferenceInfo(struct smb_prefs *prefs)

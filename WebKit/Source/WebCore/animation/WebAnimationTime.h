@@ -39,7 +39,7 @@ public:
     WebAnimationTime(const CSSNumberish&);
 
     static WebAnimationTime fromMilliseconds(double);
-    static WebAnimationTime fromPercentage(double);
+    WEBCORE_EXPORT static WebAnimationTime fromPercentage(double);
 
     WEBCORE_EXPORT std::optional<Seconds> time() const;
     WEBCORE_EXPORT std::optional<double> percentage() const;

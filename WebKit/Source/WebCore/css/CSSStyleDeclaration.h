@@ -48,7 +48,7 @@ enum class StyleDeclarationType : uint8_t {
 
 class CSSStyleDeclaration : public ScriptWrappable, public AbstractRefCountedAndCanMakeSingleThreadWeakPtr<CSSStyleDeclaration> {
     WTF_MAKE_NONCOPYABLE(CSSStyleDeclaration);
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSStyleDeclaration);
+    WTF_MAKE_TZONE_ALLOCATED(CSSStyleDeclaration);
 public:
     virtual ~CSSStyleDeclaration();
 

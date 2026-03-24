@@ -653,7 +653,7 @@
     FSMetadataRange *blockRange = nil;
     __block uint32_t nextCluster = 0;
     uint32_t totalNumOfClusters = 0;
-    uint32_t availableLength = 0;
+    uint64_t availableLength = 0;
     NSError *error = nil;
 
     /*

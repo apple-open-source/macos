@@ -153,7 +153,7 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
     CFTypeRef constraint = NULL;
     CFMutableArrayRef constraints = NULL;
 
-    require_quiet(access_control = SecAccessControlCreate(allocator, error), errOut);
+    __Require_Quiet(access_control = SecAccessControlCreate(allocator, error), errOut);
 
     if (!SecAccessControlSetProtection(access_control, protection, error))
         goto errOut;
@@ -184,31 +184,31 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
         constraints = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
 
         if (flags & kSecAccessControlUserPresence) {
-            require_quiet(constraint = SecAccessConstraintCreatePolicy(allocator, CFSTR(kACMPolicyDeviceOwnerAuthentication), error), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreatePolicy(allocator, CFSTR(kACMPolicyDeviceOwnerAuthentication), error), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
 
         if (flags & kSecAccessControlDevicePasscode) {
-            require_quiet(constraint = SecAccessConstraintCreatePasscode(allocator), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreatePasscode(allocator), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
 
         if (flags & kSecAccessControlBiometryAny) {
-            require_quiet(constraint = SecAccessConstraintCreateBiometryAny(allocator, _getEmptyData()), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreateBiometryAny(allocator, _getEmptyData()), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
 
         if (flags & kSecAccessControlBiometryCurrentSet) {
-            require_quiet(constraint = SecAccessConstraintCreateBiometryCurrentSet(allocator, _getEmptyData(), _getEmptyData()), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreateBiometryCurrentSet(allocator, _getEmptyData(), _getEmptyData()), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
 
         if (flags & kSecAccessControlCompanion) {
-            require_quiet(constraint = SecAccessConstraintCreateCompanion(allocator), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreateCompanion(allocator), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
@@ -221,48 +221,48 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
 
         CFIndex constraints_count = CFArrayGetCount(constraints);
         if (constraints_count > 1) {
-            require_quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);
+            __Require_Quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);
             if (flags & kSecAccessControlPrivateKeyUsage) {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, constraint, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, constraint, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, constraint, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, constraint, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, constraint, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, constraint, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, constraint, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, constraint, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
             }
-            require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
+            __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             CFReleaseNull(constraint);
         } else if (constraints_count == 1) {
             if (flags & kSecAccessControlPrivateKeyUsage) {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
             }
-            require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
+            __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
         } else {
             if (flags & kSecAccessControlPrivateKeyUsage) {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, kCFBooleanTrue, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, kCFBooleanTrue, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, kCFBooleanTrue, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             }
             else {
-                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
+                __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
             }
         }
 
         CFReleaseNull(constraints);
     }
     else {
-        require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
+        __Require_Quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
     }
 
     return access_control;
@@ -366,7 +366,7 @@ static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRe
         CFSTR(kACMKeyAclConstraintUserPasscode), CFSTR(kACMKeyAclConstraintWatch) };
     SecAccessConstraintRef constraint;
     CFArrayForEachC(constraints, constraint) {
-        require_quiet(isDictionary(constraint), errOut);
+        __Require_Quiet(isDictionary(constraint), errOut);
         bool found = false;
         for (CFIndex i = 0; i < (CFIndex)(sizeof(keysToCopy) / sizeof(keysToCopy[0])); i++) {
             CFTypeRef value = CFDictionaryGetValue(constraint, keysToCopy[i]);
@@ -376,7 +376,7 @@ static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRe
                 break;
             }
         }
-        require_quiet(found, errOut);
+        __Require_Quiet(found, errOut);
     }
 
     return kofn;
@@ -389,7 +389,7 @@ errOut:
 
 SecAccessConstraintRef SecAccessConstraintCreateKofN(CFAllocatorRef allocator, size_t numRequired, CFArrayRef constraints, CFErrorRef *error) {
     SecAccessConstraintRef valueOfKofN =  SecAccessConstraintCreateValueOfKofN(allocator, numRequired, constraints, error);
-    require_quiet(valueOfKofN, errOut);
+    __Require_Quiet(valueOfKofN, errOut);
 
     SecAccessConstraintRef constraint = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintKofN), valueOfKofN, NULL);
     CFReleaseSafe(valueOfKofN);
@@ -504,12 +504,12 @@ CFDataRef SecAccessControlCopyData(SecAccessControlRef access_control) {
 
 SecAccessControlRef SecAccessControlCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error) {
     SecAccessControlRef access_control;
-    require_quiet(access_control = SecAccessControlCreate(allocator, error), errOut);
+    __Require_Quiet(access_control = SecAccessControlCreate(allocator, error), errOut);
 
     CFPropertyListRef plist = NULL;
     const uint8_t *der = CFDataGetBytePtr(data);
     const uint8_t *der_end = der + CFDataGetLength(data);
-    require_quiet(der = der_decode_plist(0, &plist, error, der, der_end), errOut);
+    __Require_Quiet(der = der_decode_plist(0, &plist, error, der, der_end), errOut);
     if (der != der_end) {
         SecError(errSecDecode, error, CFSTR("trailing garbage at end of SecAccessControl data"));
         goto errOut;

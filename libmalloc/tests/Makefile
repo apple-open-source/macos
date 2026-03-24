@@ -9,6 +9,11 @@ MALLOC_EXCLAVES := $(if $(findstring Exclave,$(PLATFORM)),YES,NO)
 MALLOC_EXCLAVECORE := $(if $(findstring ExclaveCore,$(PLATFORM)),YES,NO)
 MALLOC_EXCLAVEKIT := $(if $(findstring ExclaveKit,$(PLATFORM)),YES,NO)
 
+ifeq ($(MALLOC_EXCLAVES),NO)
+EXCLUDED_SOURCES := \
+	mvm_testing.c
+endif
+
 BATS_PLISTS_EXTRACT = \
 	$(patsubst %,$(SYMROOT)/%.plist,$(OTHER_TEST_TARGETS))
 
@@ -138,6 +143,7 @@ EXCLUDED_SOURCES += \
 	asan.c \
 	tsan.c \
 	memory_pressure.c \
+	malloc_logger_test.c \
 	malloc_msl.c \
 	madvise.c \
 	security_policy.c
@@ -151,8 +157,6 @@ EXCLUDED_SOURCES += guarded_range_tests.c
 # Backdeployment is not supported
 EXCLUDED_SOURCES += malloc_type_backdeploy.c
 
-# These tests both include C files to test submodules, which causes symbol
-# conflicts in the statically linked exclavecore tests
 ifeq ($(MALLOC_EXCLAVECORE),YES)
 EXCLUDED_SOURCES += \
 	mfm_test.c \
@@ -188,7 +192,7 @@ else
 EXCLUDED_SOURCES += tsan.c
 endif
 
-bounds_test: OTHER_CFLAGS += -fbounds-attributes
+bounds_test: OTHER_CFLAGS += -fbounds-safety -fbounds-safety-bringup-missing-checks=batch_0
 
 malloc_msl: OTHER_CFLAGS += -F $(PRIVATE_FRAMEWORKS)
 malloc_msl: OTHER_CFLAGS += -framework MallocStackLogging
@@ -220,6 +224,8 @@ endif
 
 malloc_with_options_test: OTHER_LDFLAGS += -F $(PRIVATE_FRAMEWORKS)
 malloc_with_options_test: OTHER_LDFLAGS += -framework ktrace
+
+xzone_metapool_tests: OTHER_CFLAGS += -DDEBUG
 endif
 malloc_with_options_test: OTHER_CFLAGS += -I../src
 
@@ -274,8 +280,8 @@ memory_pressure: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-ope
 # Build this test with no explicit TMO options to validate that it gets TMO
 # automatically on platforms where that's expected
 malloc_type: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS))
-malloc_type: OTHER_CFLAGS += $(SYMROOT)/malloc_type_cpp.o $(MALLOC_TYPE_SYM_SWIFT_OBJS) $(SYMROOT)/malloc_type_objc.o
-malloc_type: $(SYMROOT)/malloc_type_cpp.o $(MALLOC_TYPE_SYM_SWIFT_OBJS) $(SYMROOT)/malloc_type_objc.o
+malloc_type: OTHER_LDFLAGS += $(SYMROOT)/malloc_type_cpp.o $(SYMROOT)/malloc_type_swift.a $(SYMROOT)/malloc_type_objc.o
+malloc_type: $(SYMROOT)/malloc_type_cpp.o $(SYMROOT)/malloc_type_swift.a $(SYMROOT)/malloc_type_objc.o
 malloc_type: OTHER_LDFLAGS += -lc++ -L $(TOOLCHAIN_DIR)/usr/lib/swift/
 
 $(SYMROOT)/malloc_type_objc.o: malloc_type_objc.m
@@ -292,6 +298,9 @@ $(SYMROOT)/malloc_type_swift.swift: malloc_type_swift.swift.i
 
 $(SYMROOT)/malloc_type_swift_%.o: $(SYMROOT)/malloc_type_swift.swift
 	$(SWIFTC) -target $*-$(subst -target unknown-,,$(DEPLOYMENT_TARGET_FLAGS)) $(SWIFT_OBJ_FLAGS) $< -o $@
+
+$(SYMROOT)/malloc_type_swift.a: $(MALLOC_TYPE_SYM_SWIFT_OBJS)
+	lipo -create $^ -output $@
 
 EXCLUDED_SOURCES += malloc_type_cpp.cpp malloc_type_callsite_cpp.cpp malloc_type_swift.swift.i malloc_type_objc.m
 

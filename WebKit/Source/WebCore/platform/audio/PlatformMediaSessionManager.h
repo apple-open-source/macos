@@ -35,7 +35,7 @@ struct MediaConfiguration;
 struct NowPlayingInfo;
 struct NowPlayingMetadata;
 
-class PlatformMediaSessionManager : public MediaSessionManagerInterface
+class WEBCORE_EXPORT PlatformMediaSessionManager : public MediaSessionManagerInterface
 {
     WTF_MAKE_TZONE_ALLOCATED(PlatformMediaSessionManager);
 public:
@@ -44,19 +44,18 @@ public:
     void forEachMatchingSession(NOESCAPE const Function<bool(const PlatformMediaSessionInterface&)>& predicate, NOESCAPE const Function<void(PlatformMediaSessionInterface&)>& matchingCallback) final;
 
 protected:
-    PlatformMediaSessionManager(PageIdentifier);
+    explicit PlatformMediaSessionManager(PageIdentifier);
 
     void addSession(PlatformMediaSessionInterface&) override;
     void removeSession(PlatformMediaSessionInterface&) override;
     void setCurrentSession(PlatformMediaSessionInterface&) override;
     RefPtr<PlatformMediaSessionInterface> currentSession() const final;
 
-    WeakListHashSet<PlatformMediaSessionInterface>& sessions() const final { return m_sessions; }
+    WeakListHashSet<PlatformMediaSessionInterface>& sessions() const final;
     Vector<WeakPtr<PlatformMediaSessionInterface>> copySessionsToVector() const final;
     WeakPtr<PlatformMediaSessionInterface> bestEligibleSessionForRemoteControls(NOESCAPE const Function<bool(const PlatformMediaSessionInterface&)>&, PlatformMediaSessionPlaybackControlsPurpose) final;
 
 private:
-
     mutable WeakListHashSet<PlatformMediaSessionInterface> m_sessions;
 };
 

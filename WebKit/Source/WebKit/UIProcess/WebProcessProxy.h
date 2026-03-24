@@ -28,6 +28,7 @@
 #include "APIUserInitiatedAction.h"
 #include "AuxiliaryProcessProxy.h"
 #include "BackgroundProcessResponsivenessTimer.h"
+#include "EnhancedSecurity.h"
 #include "GPUProcessConnectionIdentifier.h"
 #include "MessageReceiverMap.h"
 #include "NetworkProcessProxy.h"
@@ -60,6 +61,7 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RetainReleaseSwift.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
@@ -83,6 +85,10 @@
 
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
 #include "ServiceWorkerDebuggableProxy.h"
+#endif
+
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+#include "WasmDebuggerDebuggable.h"
 #endif
 
 namespace API {
@@ -184,7 +190,6 @@ public:
 
     enum class ShouldLaunchProcess : bool { No, Yes };
     enum class LockdownMode : bool { Disabled, Enabled };
-    enum class EnhancedSecurity : bool { Disabled, Enabled };
 
     static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, LockdownMode, EnhancedSecurity, IsPrewarmed, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
     static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::Site&&, WebsiteDataStore&, LockdownMode, EnhancedSecurity);
@@ -196,7 +201,7 @@ public:
 
     void initializeWebProcess(WebProcessCreationParameters&&);
 
-    unsigned suspendedPageCount() const { return m_suspendedPages.computeSize(); }
+    unsigned suspendedPageCount() const;
     void addSuspendedPageProxy(SuspendedPageProxy&);
     void removeSuspendedPageProxy(SuspendedPageProxy&);
 
@@ -242,11 +247,11 @@ public:
 
     static RefPtr<WebProcessProxy> processForIdentifier(WebCore::ProcessIdentifier);
     static Ref<WebProcessProxy> fromConnection(const IPC::Connection&);
-    static RefPtr<WebPageProxy> webPage(WebPageProxyIdentifier);
-    static RefPtr<WebPageProxy> webPage(WebCore::PageIdentifier);
-    static RefPtr<WebPageProxy> audioCapturingWebPage();
+    static WebPageProxy* webPage(WebPageProxyIdentifier);
+    static WebPageProxy* webPage(WebCore::PageIdentifier);
+    static WebPageProxy* audioCapturingWebPage();
 #if ENABLE(WEBXR)
-    static RefPtr<WebPageProxy> webPageWithActiveXRSession();
+    static WebPageProxy* webPageWithActiveXRSession();
 #endif
     Ref<WebPageProxy> createWebPage(PageClient&, Ref<API::PageConfiguration>&&);
 
@@ -264,7 +269,7 @@ public:
     Vector<Ref<WebPageProxy>> pages() const;
     Vector<Ref<WebPageProxy>> mainPages() const;
     unsigned pageCount() const { return m_pageMap.size(); }
-    unsigned provisionalPageCount() const { return m_provisionalPages.computeSize(); }
+    unsigned provisionalPageCount() const;
     unsigned visiblePageCount() const { return m_visiblePageCounter.value(); }
 
     Vector<WeakPtr<RemotePageProxy>> remotePages() const;
@@ -578,6 +583,21 @@ public:
     bool receivedLogsDuringLaunchForTesting() const { return m_didReceiveLogsDuringLaunchForTesting; }
 #endif
 
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    void createWasmDebuggerTarget();
+    void destroyWasmDebuggerTarget();
+    void connectWasmDebuggerTarget(bool isAutomaticConnection, bool immediatelyPause);
+    void disconnectWasmDebuggerTarget();
+    void dispatchWasmDebuggerMessage(const String& message);
+    void setWasmDebuggerTargetIndicating(bool);
+
+    void sendWasmDebuggerResponse(const String& response);
+#endif
+
+#if ENABLE(IPC_TESTING_API)
+    void takeInvalidMessageStringForTesting(CompletionHandler<void(String&&)>&&);
+#endif
+
 private:
     Type type() const final { return Type::WebContent; }
 
@@ -602,7 +622,7 @@ private:
     bool isJITEnabled() const final;
     bool shouldEnableSharedArrayBuffer() const final { return m_crossOriginMode == WebCore::CrossOriginMode::Isolated; }
     bool shouldEnableLockdownMode() const final { return m_lockdownMode == LockdownMode::Enabled; }
-    bool shouldEnableEnhancedSecurity() const final { return m_enhancedSecurity == EnhancedSecurity::Enabled; }
+    bool shouldEnableEnhancedSecurity() const final { return isEnhancedSecurityEnabledForState(m_enhancedSecurity); }
     bool shouldDisableJITCage() const final;
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
     RefPtr<XPCEventHandler> xpcEventHandler() const final;
@@ -626,6 +646,10 @@ private:
 
     void platformInitialize();
     void platformDestroy();
+
+#if PLATFORM(COCOA)
+    static void registerNotifyObservers();
+#endif
 
     ProcessTerminationReason terminationReason() const;
 
@@ -748,11 +772,11 @@ private:
         RefPtr<T> m_strongObject;
     };
 
-    BackgroundProcessResponsivenessTimer m_backgroundResponsivenessTimer;
+    const UniqueRef<BackgroundProcessResponsivenessTimer> m_backgroundResponsivenessTimer;
     
     WeakOrStrongPtr<WebProcessPool> m_processPool; // Pre-warmed and cached processes do not hold a strong reference to their pool.
 
-    bool m_mayHaveUniversalFileReadSandboxExtension; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
+    bool m_mayHaveUniversalFileReadSandboxExtension { false }; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
     HashSet<String> m_localPathsWithAssumedReadAccess;
     HashSet<String> m_previouslyApprovedFilePaths;
 
@@ -765,13 +789,13 @@ private:
 
     WeakHashMap<VisitedLinkStore, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
 
-    int m_numberOfTimesSuddenTerminationWasDisabled;
+    int m_numberOfTimesSuddenTerminationWasDisabled { 0 };
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
     bool m_areThrottleStateChangesEnabled { true };
 
 #if HAVE(DISPLAY_LINK)
-    DisplayLinkProcessProxyClient m_displayLinkClient;
+    const UniqueRef<DisplayLinkProcessProxyClient> m_displayLinkClient;
 #endif
 
 #if PLATFORM(COCOA)
@@ -890,6 +914,9 @@ private:
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
     HashMap<WebCore::ServiceWorkerIdentifier, Ref<ServiceWorkerDebuggableProxy>> m_serviceWorkerDebuggableProxies;
 #endif
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    RefPtr<WasmDebuggerDebuggable> m_wasmDebuggerDebuggable;
+#endif
 
     HashMap<String, SandboxExtension::Handle> m_fileSandboxExtensions;
 
@@ -908,11 +935,21 @@ private:
 
     bool m_didReceiveLogsDuringLaunchForTesting { false };
 #endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-};
+} SWIFT_SHARED_REFERENCE(refWebProcessProxy, derefWebProcessProxy);
 
 WTF::TextStream& operator<<(WTF::TextStream&, const WebProcessProxy&);
 
 } // namespace WebKit
+
+inline void refWebProcessProxy(WebKit::WebProcessProxy* WTF_NONNULL obj)
+{
+    WTF::ref(obj);
+}
+
+inline void derefWebProcessProxy(WebKit::WebProcessProxy* WTF_NONNULL obj)
+{
+    WTF::deref(obj);
+}
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebProcessProxy)
 static bool isType(const WebKit::AuxiliaryProcessProxy& process) { return process.type() == WebKit::AuxiliaryProcessProxy::Type::WebContent; }

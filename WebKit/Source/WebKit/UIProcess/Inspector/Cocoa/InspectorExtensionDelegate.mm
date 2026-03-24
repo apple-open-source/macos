@@ -75,7 +75,7 @@ void InspectorExtensionDelegate::InspectorExtensionClient::didShowExtensionTab(c
     if (!m_inspectorExtensionDelegate->m_delegateMethods.inspectorExtensionDidShowTabWithIdentifier)
         return;
 
-    auto& delegate = m_inspectorExtensionDelegate->m_delegate;
+    RetainPtr delegate = m_inspectorExtensionDelegate->m_delegate.get();
     if (!delegate)
         return;
 
@@ -87,7 +87,7 @@ void InspectorExtensionDelegate::InspectorExtensionClient::didHideExtensionTab(c
     if (!m_inspectorExtensionDelegate->m_delegateMethods.inspectorExtensionDidHideTabWithIdentifier)
         return;
 
-    auto& delegate = m_inspectorExtensionDelegate->m_delegate;
+    RetainPtr delegate = m_inspectorExtensionDelegate->m_delegate.get();
     if (!delegate)
         return;
 
@@ -99,7 +99,7 @@ void InspectorExtensionDelegate::InspectorExtensionClient::didNavigateExtensionT
     if (!m_inspectorExtensionDelegate->m_delegateMethods.inspectorExtensionDidNavigateTabWithIdentifier)
         return;
 
-    auto& delegate = m_inspectorExtensionDelegate->m_delegate;
+    RetainPtr delegate = m_inspectorExtensionDelegate->m_delegate.get();
     if (!delegate)
         return;
 
@@ -111,7 +111,7 @@ void InspectorExtensionDelegate::InspectorExtensionClient::inspectedPageDidNavig
     if (!m_inspectorExtensionDelegate->m_delegateMethods.inspectorExtensionInspectedPageDidNavigate)
         return;
 
-    auto& delegate = m_inspectorExtensionDelegate->m_delegate;
+    RetainPtr delegate = m_inspectorExtensionDelegate->m_delegate.get();
     if (!delegate)
         return;
 

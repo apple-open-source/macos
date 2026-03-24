@@ -37,15 +37,15 @@ namespace WebKit {
 using namespace WebCore;
 
 RemoteRealtimeMediaSource::RemoteRealtimeMediaSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, const MediaConstraints* constraints, MediaDeviceHashSalts&& hashSalts, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess, std::optional<PageIdentifier> pageIdentifier)
-    : RealtimeMediaSource(device, WTFMove(hashSalts), pageIdentifier)
+    : RealtimeMediaSource(device, WTF::move(hashSalts), pageIdentifier)
     , m_proxy(identifier, device, shouldCaptureInGPUProcess, constraints)
     , m_manager(manager)
 {
 }
 
 RemoteRealtimeMediaSource::RemoteRealtimeMediaSource(RemoteRealtimeMediaSourceProxy&& proxy, MediaDeviceHashSalts&& hashSalts, UserMediaCaptureManager& manager, std::optional<PageIdentifier> pageIdentifier)
-    : RealtimeMediaSource(proxy.device(), WTFMove(hashSalts), pageIdentifier)
-    , m_proxy(WTFMove(proxy))
+    : RealtimeMediaSource(proxy.device(), WTF::move(hashSalts), pageIdentifier)
+    , m_proxy(WTF::move(proxy))
     , m_manager(manager)
 {
 }
@@ -56,12 +56,12 @@ void RemoteRealtimeMediaSource::createRemoteMediaSource()
 {
     m_proxy.createRemoteMediaSource(deviceIDHashSalts(), *pageIdentifier(), [this, protectedThis = Ref { *this }](WebCore::CaptureSourceError&& error, WebCore::RealtimeMediaSourceSettings&& settings, WebCore::RealtimeMediaSourceCapabilities&& capabilities) {
         if (error) {
-            m_proxy.didFail(WTFMove(error));
+            m_proxy.didFail(WTF::move(error));
             return;
         }
 
-        setSettings(WTFMove(settings));
-        setCapabilities(WTFMove(capabilities));
+        setSettings(WTF::move(settings));
+        setCapabilities(WTF::move(capabilities));
         setName(m_settings.label());
 
         m_proxy.setAsReady();
@@ -72,19 +72,19 @@ void RemoteRealtimeMediaSource::createRemoteMediaSource()
 
 void RemoteRealtimeMediaSource::setCapabilities(RealtimeMediaSourceCapabilities&& capabilities)
 {
-    m_capabilities = WTFMove(capabilities);
+    m_capabilities = WTF::move(capabilities);
 }
 
 void RemoteRealtimeMediaSource::setSettings(RealtimeMediaSourceSettings&& settings)
 {
     auto changed = m_settings.difference(settings);
-    m_settings = WTFMove(settings);
+    m_settings = WTF::move(settings);
     notifySettingsDidChangeObservers(changed);
 }
 
 Ref<RealtimeMediaSource::TakePhotoNativePromise> RemoteRealtimeMediaSource::takePhoto(PhotoSettings&& settings)
 {
-    return m_proxy.takePhoto(WTFMove(settings));
+    return m_proxy.takePhoto(WTF::move(settings));
 }
 
 Ref<RealtimeMediaSource::PhotoCapabilitiesNativePromise> RemoteRealtimeMediaSource::getPhotoCapabilities()
@@ -99,9 +99,9 @@ Ref<RealtimeMediaSource::PhotoSettingsNativePromise> RemoteRealtimeMediaSource::
 
 void RemoteRealtimeMediaSource::configurationChanged(String&& persistentID, WebCore::RealtimeMediaSourceSettings&& settings, WebCore::RealtimeMediaSourceCapabilities&& capabilities)
 {
-    setPersistentId(WTFMove(persistentID));
-    setSettings(WTFMove(settings));
-    setCapabilities(WTFMove(capabilities));
+    setPersistentId(WTF::move(persistentID));
+    setSettings(WTF::move(settings));
+    setCapabilities(WTF::move(capabilities));
     setName(m_settings.label());
 
     RealtimeMediaSource::configurationChanged();
@@ -109,7 +109,7 @@ void RemoteRealtimeMediaSource::configurationChanged(String&& persistentID, WebC
 
 void RemoteRealtimeMediaSource::applyConstraintsSucceeded(WebCore::RealtimeMediaSourceSettings&& settings)
 {
-    setSettings(WTFMove(settings));
+    setSettings(WTF::move(settings));
     m_proxy.applyConstraintsSucceeded();
 }
 
@@ -142,7 +142,7 @@ void RemoteRealtimeMediaSource::captureStopped(bool didFail)
 void RemoteRealtimeMediaSource::applyConstraints(const MediaConstraints& constraints, ApplyConstraintsHandler&& callback)
 {
     m_constraints = constraints;
-    m_proxy.applyConstraints(constraints, WTFMove(callback));
+    m_proxy.applyConstraints(constraints, WTF::move(callback));
 }
 
 #if ENABLE(GPU_PROCESS)

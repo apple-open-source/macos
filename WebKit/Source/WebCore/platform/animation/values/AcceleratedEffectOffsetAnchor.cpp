@@ -26,7 +26,7 @@
 #include "config.h"
 #include "AcceleratedEffectOffsetAnchor.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include "AnimationUtilities.h"
 
@@ -50,4 +50,4 @@ AcceleratedEffectOffsetAnchor blend(const AcceleratedEffectOffsetAnchor& from, c
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

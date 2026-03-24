@@ -34,7 +34,7 @@
 #include <WebCore/Gradient.h>
 #include <WebCore/NativeImage.h>
 #include <WebCore/ShareableBitmap.h>
-#include <wtf/CheckedRef.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
@@ -81,6 +81,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     unsigned nativeImageCountForTesting() const { return m_nativeImages.size(); }
 
@@ -102,10 +103,10 @@ private:
         RefPtr<WebCore::ShareableBitmap> bitmap; // Reused across GPUP crashes, held through the associated NativeImage lifetime.
         bool existsInRemote = true;
     };
-    HashMap<const WebCore::NativeImage*, NativeImageEntry> m_nativeImages;
-    HashMap<const WebCore::Gradient*, RemoteGradientIdentifier> m_gradients;
+    HashMap<CheckedPtr<const WebCore::NativeImage>, NativeImageEntry> m_nativeImages;
+    HashMap<CheckedPtr<const WebCore::Gradient>, RemoteGradientIdentifier> m_gradients;
     HashSet<WebCore::RenderingResourceIdentifier> m_filters;
-    HashMap<const WebCore::DisplayList::DisplayList*, RemoteDisplayListIdentifier> m_displayLists;
+    HashMap<CheckedPtr<const WebCore::DisplayList::DisplayList>, RemoteDisplayListIdentifier> m_displayLists;
     WeakPtrFactory<WebCore::RenderingResourceObserver> m_resourceObserverWeakFactory;
     WeakPtrFactory<WebCore::RenderingResourceObserver> m_nativeImageResourceObserverWeakFactory;
     WeakPtrFactory<RemoteResourceCacheProxy> m_remoteNativeImageProxyWeakFactory;

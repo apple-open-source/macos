@@ -32,6 +32,7 @@
 #include "JSDOMPromise.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSReadableStreamReadResult.h"
+#include "JSValueInWrappedObject.h"
 #include "ReadableByteStreamController.h"
 #include "ReadableStream.h"
 #include "ReadableStreamBYOBReader.h"
@@ -41,13 +42,13 @@
 
 namespace WebCore {
 
-class StreamTeeState : public RefCounted<StreamTeeState>, public ContextDestructionObserver {
+class StreamTeeState final : public ReadableStream::DependencyToVisit, public RefCounted<StreamTeeState>, public ContextDestructionObserver {
 public:
     template<typename Reader>
     static Ref<StreamTeeState> create(JSDOMGlobalObject& globalObject, Ref<ReadableStream>&& stream, Ref<Reader>&& reader)
     {
         auto [cancelPromise, cancelDeferred] = createPromiseAndWrapper(globalObject);
-        return adoptRef(*new StreamTeeState(globalObject.protectedScriptExecutionContext().get(), WTFMove(stream), WTFMove(reader), WTFMove(cancelDeferred), WTFMove(cancelPromise)));
+        return adoptRef(*new StreamTeeState(globalObject.protectedScriptExecutionContext().get(), WTF::move(stream), WTF::move(reader), WTF::move(cancelDeferred), WTF::move(cancelPromise)));
     }
 
     ~StreamTeeState();
@@ -72,17 +73,28 @@ public:
     bool canceled2() const { return m_canceled2; }
     void setCanceled1() { m_canceled1 = true; }
     void setCanceled2() { m_canceled2 = true; }
-    JSC::Strong<JSC::Unknown> takeReason1() { return std::exchange(m_branch1Reason, { }); }
-    JSC::Strong<JSC::Unknown> takeReason2() { return std::exchange(m_branch2Reason, { }); }
-    void setReason1(JSDOMGlobalObject& globalObject, JSC::JSValue value)
+    JSC::JSValue reason1() { return m_branch1Reason.getValue(); }
+    JSC::JSValue reason2() { return m_branch2Reason.getValue(); }
+    void setReason1(JSDOMGlobalObject& globalObject, const JSC::JSCell* owner, JSC::JSValue value)
     {
         Ref vm = globalObject.vm();
-        m_branch1Reason = { vm, value };
+        m_branch1Reason.set(vm, owner, value);
     }
-    void setReason2(JSDOMGlobalObject& globalObject, JSC::JSValue value)
+    void setReason2(JSDOMGlobalObject& globalObject, const JSC::JSCell* owner, JSC::JSValue value)
     {
         Ref vm = globalObject.vm();
-        m_branch2Reason = { vm, value };
+        m_branch2Reason.set(vm, owner, value);
+    }
+    void visit(JSC::AbstractSlotVisitor& visitor) final
+    {
+        m_branch1Reason.visit(visitor);
+        m_branch2Reason.visit(visitor);
+        m_stream->visitAdditionalChildren(visitor);
+    }
+    void clearReasons()
+    {
+        m_branch1Reason.clear();
+        m_branch2Reason.clear();
     }
 
     ReadableStream& stream() const { return m_stream; }
@@ -97,7 +109,7 @@ public:
     {
         ASSERT(!m_defaultReader);
         ASSERT(!m_byobReader);
-        m_byobReader = WTFMove(reader);
+        m_byobReader = WTF::move(reader);
     }
 
     ReadableStreamDefaultReader* defaultReader() const { return m_defaultReader.get(); }
@@ -106,7 +118,7 @@ public:
     {
         ASSERT(!m_defaultReader);
         ASSERT(!m_byobReader);
-        m_defaultReader = WTFMove(reader);
+        m_defaultReader = WTF::move(reader);
     }
 
     DOMPromise& cancelPromise() { return m_cancelPromise; }
@@ -153,7 +165,7 @@ public:
             return;
 
         auto& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(context->globalObject());
-        context->checkedEventLoop()->queueMicrotask([task = WTFMove(task), value = JSC::Strong<JSC::Unknown> { globalObject.vm(), value }] {
+        context->checkedEventLoop()->queueMicrotask([task = WTF::move(task), value = JSC::Strong<JSC::Unknown> { globalObject.vm(), value }] {
             task(value.get());
         });
     }
@@ -164,26 +176,25 @@ public:
         m_byobReader = nullptr;
         m_branch1 = nullptr;
         m_branch2 = nullptr;
-        m_branch1Reason.clear();
-        m_branch2Reason.clear();
+        clearReasons();
     }
 
 private:
     StreamTeeState(ScriptExecutionContext* context, Ref<ReadableStream>&& stream, Ref<ReadableStreamDefaultReader>&& reader, Ref<DeferredPromise>&& cancelDeferred, Ref<DOMPromise>&& cancelPromise)
         : ContextDestructionObserver(context)
-        , m_stream(WTFMove(stream))
-        , m_defaultReader(WTFMove(reader))
-        , m_cancelDeferredPromise(WTFMove(cancelDeferred))
-        , m_cancelPromise(WTFMove(cancelPromise))
+        , m_stream(WTF::move(stream))
+        , m_defaultReader(WTF::move(reader))
+        , m_cancelDeferredPromise(WTF::move(cancelDeferred))
+        , m_cancelPromise(WTF::move(cancelPromise))
     {
     }
 
     StreamTeeState(ScriptExecutionContext* context, Ref<ReadableStream>&& stream, Ref<ReadableStreamBYOBReader>&& reader, Ref<DeferredPromise>&& cancelDeferred, Ref<DOMPromise>&& cancelPromise)
         : ContextDestructionObserver(context)
-        , m_stream(WTFMove(stream))
-        , m_byobReader(WTFMove(reader))
-        , m_cancelDeferredPromise(WTFMove(cancelDeferred))
-        , m_cancelPromise(WTFMove(cancelPromise))
+        , m_stream(WTF::move(stream))
+        , m_byobReader(WTF::move(reader))
+        , m_cancelDeferredPromise(WTF::move(cancelDeferred))
+        , m_cancelPromise(WTF::move(cancelPromise))
     {
     }
 
@@ -199,10 +210,8 @@ private:
     Ref<DOMPromise> m_cancelPromise;
     RefPtr<ReadableStream> m_branch1;
     RefPtr<ReadableStream> m_branch2;
-
-    // FIXME: we should probably have m_stream mark m_branch1Reason and m_branch2Reason instead of taking strong.
-    JSC::Strong<JSC::Unknown> m_branch1Reason;
-    JSC::Strong<JSC::Unknown> m_branch2Reason;
+    JSValueInWrappedObject m_branch1Reason;
+    JSValueInWrappedObject m_branch2Reason;
 };
 
 // https://streams.spec.whatwg.org/#abstract-opdef-readablebytestreamtee
@@ -227,14 +236,14 @@ ExceptionOr<Vector<Ref<ReadableStream>>> byteStreamTee(JSDOMGlobalObject& global
 
     ReadableByteStreamController::CancelAlgorithm cancel1Algorithm = [state = Ref { state }](auto& globalObject, auto&&, auto&& reason) {
         state->setCanceled1();
-        state->setReason1(globalObject, reason.value_or(JSC::jsUndefined()));
+        state->setReason1(globalObject, &globalObject, reason.value_or(JSC::jsUndefined()));
 
         if (state->canceled2()) {
             // Create the array of reason1 and reason2.
             JSC::MarkedArgumentBuffer list;
             list.ensureCapacity(2);
-            list.append(state->takeReason1().get());
-            list.append(state->takeReason2().get());
+            list.append(state->reason1());
+            list.append(state->reason2());
             JSC::JSValue reason = JSC::constructArray(&globalObject, static_cast<JSC::ArrayAllocationProfile*>(nullptr), list);
 
             Ref promise = state->stream().cancel(globalObject, reason);
@@ -245,20 +254,21 @@ ExceptionOr<Vector<Ref<ReadableStream>>> byteStreamTee(JSDOMGlobalObject& global
                 }
                 state->resolveCancelPromise();
             });
+            state->clearReasons();
         }
         return Ref { state->cancelPromise() };
     };
 
     ReadableByteStreamController::CancelAlgorithm cancel2Algorithm = [state = Ref { state }](auto& globalObject, auto&&, auto&& reason) {
         state->setCanceled2();
-        state->setReason2(globalObject, reason.value_or(JSC::jsUndefined()));
+        state->setReason2(globalObject, &globalObject, reason.value_or(JSC::jsUndefined()));
 
         if (state->canceled1()) {
             // Create the array of reason1 and reason2.
             JSC::MarkedArgumentBuffer list;
             list.ensureCapacity(2);
-            list.append(state->takeReason1().get());
-            list.append(state->takeReason2().get());
+            list.append(state->reason1());
+            list.append(state->reason2());
             JSC::JSValue reason = JSC::constructArray(&globalObject, static_cast<JSC::ArrayAllocationProfile*>(nullptr), list);
 
             Ref promise = state->stream().cancel(globalObject, reason);
@@ -269,16 +279,28 @@ ExceptionOr<Vector<Ref<ReadableStream>>> byteStreamTee(JSDOMGlobalObject& global
                 }
                 state->resolveCancelPromise();
             });
+            state->clearReasons();
         }
         return Ref { state->cancelPromise() };
     };
 
+    auto isSourceReachableFromOpaqueRoot = stream.isReachableFromOpaqueRoots() ? ReadableStream::IsSourceReachableFromOpaqueRoot::Yes : ReadableStream::IsSourceReachableFromOpaqueRoot::No;
     Vector<Ref<ReadableStream>> branches;
-    branches.append(ReadableStream::createReadableByteStream(globalObject, WTFMove(pull1Algorithm), WTFMove(cancel1Algorithm), &stream));
-    branches.append(ReadableStream::createReadableByteStream(globalObject, WTFMove(pull2Algorithm), WTFMove(cancel2Algorithm), &stream));
+    Ref branch0 = ReadableStream::createReadableByteStream(globalObject, WTF::move(pull1Algorithm), WTF::move(cancel1Algorithm), {
+        .dependencyToVisit = state.ptr(),
+        .isSourceReachableFromOpaqueRoot = isSourceReachableFromOpaqueRoot
+    });
+    Ref branch1 = ReadableStream::createReadableByteStream(globalObject, WTF::move(pull2Algorithm), WTF::move(cancel2Algorithm), {
+        .dependencyToVisit = state.ptr(),
+        .isSourceReachableFromOpaqueRoot = isSourceReachableFromOpaqueRoot
+    });
 
-    state->setBranch1(branches[0]);
-    state->setBranch2(branches[1]);
+    state->setBranch1(branch0);
+    state->setBranch2(branch1);
+
+    stream.setTeedBranches(branch0, branch1);
+    branches.append(WTF::move(branch0));
+    branches.append(WTF::move(branch1));
 
     state->forwardReadError(reader.get());
 
@@ -293,7 +315,7 @@ static ExceptionOr<Ref<JSC::ArrayBufferView>> cloneAsUInt8Array(JSC::ArrayBuffer
     if (!buffer)
         return Exception { ExceptionCode::OutOfMemoryError };
 
-    Ref<JSC::ArrayBufferView> clone = JSC::Uint8Array::create(WTFMove(buffer), 0, o.byteLength());
+    Ref<JSC::ArrayBufferView> clone = JSC::Uint8Array::create(WTF::move(buffer), 0, o.byteLength());
 
     return clone;
 }
@@ -347,11 +369,11 @@ static Ref<DOMPromise> pull2Steps(JSDOMGlobalObject& globalObject, StreamTeeStat
 
 class TeeDefaultReadRequest : public ReadableStreamReadRequest {
 public:
-    static Ref<TeeDefaultReadRequest> create(Ref<StreamTeeState>&& state) { return adoptRef(*new TeeDefaultReadRequest(WTFMove(state))); }
+    static Ref<TeeDefaultReadRequest> create(Ref<StreamTeeState>&& state) { return adoptRef(*new TeeDefaultReadRequest(WTF::move(state))); }
 
 private:
     explicit TeeDefaultReadRequest(Ref<StreamTeeState>&& state)
-        : m_state(WTFMove(state))
+        : m_state(WTF::move(state))
     {
     }
 
@@ -458,11 +480,11 @@ private:
 
 class TeeBYOBReadRequest : public ReadableStreamReadIntoRequest {
 public:
-    static Ref<TeeBYOBReadRequest> create(Ref<StreamTeeState>&& state, bool forBranch2) { return adoptRef(*new TeeBYOBReadRequest(WTFMove(state), forBranch2)); }
+    static Ref<TeeBYOBReadRequest> create(Ref<StreamTeeState>&& state, bool forBranch2) { return adoptRef(*new TeeBYOBReadRequest(WTF::move(state), forBranch2)); }
 
 private:
     explicit TeeBYOBReadRequest(Ref<StreamTeeState>&& state, bool forBranch2)
-        : m_state(WTFMove(state))
+        : m_state(WTF::move(state))
         , m_forBranch2(forBranch2)
     {
     }
@@ -537,11 +559,16 @@ private:
         m_state->setReading(false);
         bool byobCanceled = m_forBranch2 ? m_state->canceled2() : m_state->canceled1();
         bool otherCanceled = m_forBranch2 ? m_state->canceled1() : m_state->canceled2();
+
+        bool shouldStopSteps = false;
         if (!byobCanceled && branch1)
-            branch1->controller()->close(*globalObject);
+            shouldStopSteps = !branch1->controller()->close(*globalObject, ReadableByteStreamController::ShouldThrowOnError::No);
 
         if (!otherCanceled && branch2)
-            branch2->controller()->close(*globalObject);
+            shouldStopSteps |= !branch2->controller()->close(*globalObject, ReadableByteStreamController::ShouldThrowOnError::No);
+
+        if (shouldStopSteps)
+            return;
 
         if (!value.isUndefined()) {
             auto scope = DECLARE_CATCH_SCOPE(globalObject->vm());

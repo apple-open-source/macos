@@ -64,11 +64,11 @@ bool SOSAccountInflateTransports(SOSAccount* account, CFStringRef circleName, CF
     account.key_transport = [[CKKeyParameter alloc] initWithAccount:account];
     account.circle_transport = [[SOSKVSCircleStorageTransport alloc]initWithAccount:account andCircleName:(__bridge NSString *)(circleName)];
     
-    require_quiet(account.key_transport, fail);
-    require_quiet(account.circle_transport, fail);
+    __Require_Quiet(account.key_transport, fail);
+    __Require_Quiet(account.circle_transport, fail);
         
     account.kvs_message_transport = [[SOSMessageKVS alloc] initWithAccount:account andName:(__bridge NSString*)circleName];
-    require_quiet(account.kvs_message_transport, fail);
+    __Require_Quiet(account.kvs_message_transport, fail);
     
     success = true;
     
@@ -114,8 +114,8 @@ bool SOSAccountSyncWithKVSPeerWithMessage(SOSAccountTransaction* txn, CFStringRe
     secnotice(LOG_CATEGORY,"Syncing with KVS capable peer: %@", peerid);
     secnotice(LOG_CATEGORY, "message: %@", message);
 
-    require_quiet(message, xit);
-    require_quiet(peerid && CFStringGetLength(peerid) <= kSOSPeerIDLengthMax, xit);
+    __Require_Quiet(message, xit);
+    __Require_Quiet(peerid && CFStringGetLength(peerid) <= kSOSPeerIDLengthMax, xit);
     if(SOSReadyToSync(account, &localError)) {
         encapsulatedMessage = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerid, message, NULL);
         result = [account.kvs_message_transport SOSTransportMessageSendMessages:account.kvs_message_transport pm:encapsulatedMessage err:&localError];
@@ -207,7 +207,7 @@ CF_RETURNS_RETAINED CFMutableSetRef SOSAccountSyncWithPeers(SOSAccountTransactio
         SOSCircleRef circle = NULL;
         SOSAccountTrustClassic *trust = account.trust;
         circle = trust.trustedCircle;
-        require_quiet(peerID, skip);
+        __Require_Quiet(peerID, skip);
 
         peerInfo = SOSCircleCopyPeerWithID(circle, peerID, NULL);
         if (peerInfo && SOSCircleHasValidSyncingPeer(circle, peerInfo, account.accountKey, NULL)){

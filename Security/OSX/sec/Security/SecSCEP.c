@@ -119,8 +119,8 @@ dictionary_array_value_1(CFDictionaryRef attrs, CFTypeRef attr)
     CFTypeRef value = NULL;
     CFArrayRef attr_values = NULL;
     
-    require(attr_values = (CFArrayRef)CFDictionaryGetValue(attrs, attr), out);
-    require(CFArrayGetCount(attr_values) == 1, out);
+    __Require(attr_values = (CFArrayRef)CFDictionaryGetValue(attrs, attr), out);
+    __Require(CFArrayGetCount(attr_values) == 1, out);
     value = CFArrayGetValueAtIndex(attr_values, 0);
 out:
     return value;
@@ -150,7 +150,7 @@ static CF_RETURNS_RETAINED CFDataRef hexencode(CFDataRef data)
     CFIndex ix, length = CFDataGetLength(data);
     const uint8_t *bin_data = CFDataGetBytePtr(data);
     uint8_t *hex_data = calloc(1, 2*length + 1);
-    require(length && bin_data && hex_data, out);
+    __Require(length && bin_data && hex_data, out);
 
     for (ix = 0; ix < length; ix++)
         snprintf((char *)&hex_data[2*ix], 3, "%02X", bin_data[ix]);
@@ -170,11 +170,11 @@ static CF_RETURNS_RETAINED CFDataRef pubkeyhash(SecKeyRef key)
     CFDataRef hash_pubkey_data = NULL, pubkey_data = NULL;
     uint8_t pubkey_hash[CC_SHA1_DIGEST_LENGTH];
     
-    require(pubkey_attrs = SecKeyCopyAttributeDictionary(key), out);
-    require( (key_type = CFDictionaryGetValue(pubkey_attrs, kSecAttrKeyClass)) &&
+    __Require(pubkey_attrs = SecKeyCopyAttributeDictionary(key), out);
+    __Require((key_type = CFDictionaryGetValue(pubkey_attrs, kSecAttrKeyClass)) &&
                 CFEqual(key_type, kSecAttrKeyClassPublic), out);
-    require(pubkey_data = CFDictionaryGetValue(pubkey_attrs, kSecValueData), out);
-    require((unsigned long)CFDataGetLength(pubkey_data)<=UINT32_MAX, out); /* Correct as long as CFIndex is long */
+    __Require(pubkey_data = CFDictionaryGetValue(pubkey_attrs, kSecValueData), out);
+    __Require((unsigned long)CFDataGetLength(pubkey_data)<=UINT32_MAX, out); /* Correct as long as CFIndex is long */
     CCDigest(kCCDigestSHA1, CFDataGetBytePtr(pubkey_data), (CC_LONG)CFDataGetLength(pubkey_data), pubkey_hash);
     hash_pubkey_data = CFDataCreate(kCFAllocatorDefault, pubkey_hash, sizeof(pubkey_hash));
 out:
@@ -208,31 +208,31 @@ SecIdentityRef SecSCEPCreateTemporaryIdentity(SecKeyRef publicKey, SecKeyRef pri
 	CFArrayRef cn_dn = NULL, cn_dns = NULL, unique_rdns = NULL;
 
 	key_usage_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_usage);
-	require(key_usage_num, out);
+	__Require(key_usage_num, out);
 
 	const void *key[] = { kSecCertificateKeyUsage };
 	const void *val[] = { key_usage_num };
 	self_signed_parameters = CFDictionaryCreate(kCFAllocatorDefault,
 	    key, val, array_size(key),
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	require(self_signed_parameters, out);
+	__Require(self_signed_parameters, out);
 
 	char uuid_string[37] = {};
 	uuid_t uuid;
 	uuid_generate_random(uuid);
 	uuid_unparse(uuid, uuid_string);
 	cn_uuid = CFStringCreateWithCString(kCFAllocatorDefault, uuid_string, kCFStringEncodingASCII);
-	require(cn_uuid, out);
+	__Require(cn_uuid, out);
 	const void * cn[] = { kSecOidCommonName, cn_uuid };
 	cn_dn = CFArrayCreate(kCFAllocatorDefault, cn, 2, NULL);
-	require(cn_dn, out);
+	__Require(cn_dn, out);
 	cn_dns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_dn, 1, NULL);
-	require(cn_dns, out);
+	__Require(cn_dns, out);
 	unique_rdns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_dns, 1, NULL);
-	require(unique_rdns, out);
+	__Require(unique_rdns, out);
 
 	self_signed_certificate = SecGenerateSelfSignedCertificate(unique_rdns, self_signed_parameters, publicKey, privateKey);
-	require(self_signed_certificate, out);
+	__Require(self_signed_certificate, out);
 	self_signed_identity = SecIdentityCreate(kCFAllocatorDefault, self_signed_certificate, privateKey);
 
 out:
@@ -296,11 +296,11 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
     } else if (CFGetTypeID(filteredRecipients) == CFArrayGetTypeID()) {
         recipient = (SecCertificateRef)CFArrayGetValueAtIndex(filteredRecipients, 0);
     }
-    require(recipient, out);
+    __Require(recipient, out);
 
     /* We don't support EC recipients for SCEP yet. */
     recipientKey = SecCertificateCopyKey(recipient);
-    require(SecKeyGetAlgorithmId(recipientKey) == kSecRSAAlgorithmID, out);
+    __Require(SecKeyGetAlgorithmId(recipientKey) == kSecRSAAlgorithmID, out);
 
     realPublicKey = SecKeyCopyPublicKey(privateKey);
     if (!realPublicKey) {
@@ -308,10 +308,10 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
          * fall back to the public key provided by the caller. */
         realPublicKey = CFRetainSafe(publicKey);
     }
-    require(realPublicKey, out);
-    require(csr = SecGenerateCertificateRequest(subject, parameters, realPublicKey, privateKey), out);
-    require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
-    require_noerr(SecCMSCreateEnvelopedData(recipient, parameters, csr, enveloped_data), out);
+    __Require(realPublicKey, out);
+    __Require(csr = SecGenerateCertificateRequest(subject, parameters, realPublicKey, privateKey), out);
+    __Require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
+    __Require_noErr(SecCMSCreateEnvelopedData(recipient, parameters, csr, enveloped_data), out);
     CFReleaseNull(csr);
 
     simple_attr = CFDictionaryCreateMutable(kCFAllocatorDefault, 3, 
@@ -333,15 +333,15 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
     /* message type: PKCSReq (19) */
     msgtype_value_data = NULL;
     msgtype_oid_data = NULL;
-    require(msgtype_oid_data = scep_oid(messageType), out);
-    require(msgtype_value_data = printable_string_data(strlen(PKCSReq), PKCSReq), out);
+    __Require(msgtype_oid_data = scep_oid(messageType), out);
+    __Require(msgtype_value_data = printable_string_data(strlen(PKCSReq), PKCSReq), out);
 
     CFDictionarySetValue(simple_attr, msgtype_oid_data, msgtype_value_data);
     CFReleaseNull(msgtype_oid_data);
     CFReleaseNull(msgtype_value_data);
 
     /* random sender nonce, to be verified against recipient nonce in reply */
-	require(generate_sender_nonce(simple_attr) == errSecSuccess, out);
+	__Require(generate_sender_nonce(simple_attr) == errSecSuccess, out);
 
 	/* XXX/cs remove auto-generation once managedconfig is no longer using this */
     if (signer) {
@@ -353,17 +353,17 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
         /* Add our temporary cert to the keychain for CMS decryption of
            the reply.  If we happened to have picked an existing UUID
            we fail.  We should pick a different UUID and try again. */
-        require(self_signed_identity, out);
+        __Require(self_signed_identity, out);
         CFDictionaryRef identity_add = CFDictionaryCreate(NULL, 
             (const void **)&kSecValueRef, (const void **)&self_signed_identity, 1, NULL, NULL);
-        require_noerr_action(SecItemAdd(identity_add, NULL), out,
+        __Require_noErr_Action(SecItemAdd(identity_add, NULL), out,
             CFReleaseSafe(identity_add));
         CFReleaseSafe(identity_add);
     }
-    require(self_signed_identity, out);
+    __Require(self_signed_identity, out);
 
     signed_request = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require_noerr_action(SecCMSCreateSignedData(self_signed_identity, enveloped_data,
+    __Require_noErr_Action(SecCMSCreateSignedData(self_signed_identity, enveloped_data,
     parameters, simple_attr, signed_request), out, CFReleaseNull(signed_request));
 
 
@@ -419,40 +419,40 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     SecCertificateRef recipient = NULL;
     CFMutableDictionaryRef parameters = NULL;
     
-    require_noerr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
+    __Require_noErr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
     ca_public_key = SecCertificateCopyKey(ca_certificate);
 
     /* unwrap outer layer: */
     policy = SecPolicyCreateBasicX509();
 
-    require_noerr(SecCMSVerifyCopyDataAndAttributes(request, NULL, 
+    __Require_noErr(SecCMSVerifyCopyDataAndAttributes(request, NULL, 
         policy, &trust, &signed_content, &signed_attributes), out);
     /* remember signer: is signer certified by us, then re-certify, no challenge needed */
     SecTrustResultType result;
-    require_noerr(SecTrustEvaluate(trust, &result), out);
-    require (signer_cert = copySignerCert(trust), out);
+    __Require_noErr(SecTrustEvaluate(trust, &result), out);
+    __Require(signer_cert = copySignerCert(trust), out);
     bool recertify = !SecCertificateIsSignedBy(signer_cert, ca_public_key);
         
     /* msgType should be certreq msg */
-    require(scep_attr_has_val(signed_attributes, messageType, PKCSReq), out);
+    __Require(scep_attr_has_val(signed_attributes, messageType, PKCSReq), out);
 
     /* remember transaction id just for reuse */
-    require(transid_oid_data = scep_oid(transId), out);
-    require(transid_value = 
+    __Require(transid_oid_data = scep_oid(transId), out);
+    __Require(transid_value = 
         dictionary_array_value_1(signed_attributes, transid_oid_data), out);
     
     /* senderNonce becomes recipientNonce */
-    require(senderNonce_oid_data = scep_oid(senderNonce), out);
-    require(senderNonce_value =
+    __Require(senderNonce_oid_data = scep_oid(senderNonce), out);
+    __Require(senderNonce_value =
         dictionary_array_value_1(signed_attributes, senderNonce_oid_data), out);
 
     /* decrypt the request */
     encrypted_content = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require_noerr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
-    require(recipient, out);
+    __Require_noErr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
+    __Require(recipient, out);
     
     /* verify CSR */
-    require(SecVerifyCertificateRequest(encrypted_content, &tbsPublicKey, &challenge, &subject, &extensions), out);
+    __Require(SecVerifyCertificateRequest(encrypted_content, &tbsPublicKey, &challenge, &subject, &extensions), out);
     CFReleaseNull(encrypted_content);
 
     /* @@@
@@ -464,21 +464,21 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     /* verify challenge - this would need to be a callout that can determine
        the challenge appropriate for the subject */
     if (!recertify)
-        require( challenge && (CFStringGetTypeID() == CFGetTypeID(challenge)) &&
+        __Require(challenge && (CFStringGetTypeID() == CFGetTypeID(challenge)) &&
             CFEqual(CFSTR("magic"), challenge), out);
 
-	require(cert_msg = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
+	__Require(cert_msg = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
 
 	if (!pend_request) {
         /* We can't yet support EC recipients for SCEP, so reject now. */
-        require (SecKeyGetAlgorithmId(tbsPublicKey) == kSecRSAAlgorithmID, out);
+        __Require(SecKeyGetAlgorithmId(tbsPublicKey) == kSecRSAAlgorithmID, out);
 
 		/* sign cert */
 		cert = SecIdentitySignCertificateWithAlgorithm(ca_identity, serialno,
 			tbsPublicKey, subject, extensions, hashingAlgorithm);
 
 		/* degenerate cms with cert */
-		require (cert_pkcs7 = SecCMSCreateCertificatesOnlyMessage(cert), out);
+		__Require(cert_pkcs7 = SecCMSCreateCertificatesOnlyMessage(cert), out);
 		CFReleaseNull(cert);
 
 		/* envelope for client */
@@ -489,7 +489,7 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
                                                    &kCFTypeDictionaryKeyCallBacks,
                                                    &kCFTypeDictionaryValueCallBacks);
         }
-		require_noerr(SecCMSCreateEnvelopedData(signer_cert, encryption_params, cert_pkcs7, cert_msg), out);
+		__Require_noErr(SecCMSCreateEnvelopedData(signer_cert, encryption_params, cert_pkcs7, cert_msg), out);
 		CFReleaseNull(cert_pkcs7);
         CFReleaseNull(encryption_params);
 	}
@@ -512,7 +512,7 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     if (hashingAlgorithm) {
         CFDictionaryAddValue(parameters, kSecCMSSignHashAlgorithm, hashingAlgorithm);
     }
-    require_noerr_action(SecCMSCreateSignedData(ca_identity, cert_msg, parameters, simple_attr, signed_reply), out, CFReleaseNull(signed_reply));
+    __Require_noErr_Action(SecCMSCreateSignedData(ca_identity, cert_msg, parameters, simple_attr, signed_reply), out, CFReleaseNull(signed_reply));
 
 out:
     CFReleaseSafe(ca_certificate);
@@ -553,33 +553,33 @@ SecSCEPVerifyGetCertInitial(CFDataRef request, SecIdentityRef ca_identity)
     SecCertificateRef recipient = NULL;
     bool status = false;
 
-    require_noerr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
+    __Require_noErr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
     ca_public_key = SecCertificateCopyKey(ca_certificate);
 
     /* unwrap outer layer: */
     policy = SecPolicyCreateBasicX509();
 
-    require_noerr(SecCMSVerifyCopyDataAndAttributes(request, NULL,
+    __Require_noErr(SecCMSVerifyCopyDataAndAttributes(request, NULL,
         policy, &trust, &signed_content, &signed_attributes), out);
 
     /* msgType should be certreq msg */
-    require(scep_attr_has_val(signed_attributes, messageType, GetCertInitial), out);
+    __Require(scep_attr_has_val(signed_attributes, messageType, GetCertInitial), out);
 
     /* remember transaction id just for reuse */
-    require(transid_oid_data = scep_oid(transId), out);
-    require(transid_value =
+    __Require(transid_oid_data = scep_oid(transId), out);
+    __Require(transid_value =
         dictionary_array_value_1(signed_attributes, transid_oid_data), out);
 
     /* senderNonce becomes recipientNonce */
-    require(senderNonce_oid_data = scep_oid(senderNonce), out);
-    require(senderNonce_value =
+    __Require(senderNonce_oid_data = scep_oid(senderNonce), out);
+    __Require(senderNonce_value =
         dictionary_array_value_1(signed_attributes, senderNonce_oid_data), out);
 
     /* decrypt the request */
     encrypted_content = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require_noerr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
-    require(recipient, out);
-    require(CFDataGetLength(encrypted_content) > 0, out);
+    __Require_noErr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
+    __Require(recipient, out);
+    __Require(CFDataGetLength(encrypted_content) > 0, out);
     status = true;
 
 out:
@@ -604,18 +604,18 @@ copy_signed_attr_printable_string_value(CFDictionaryRef signed_attributes, scep_
 	CFDataRef key_oid = NULL;
 
 	key_oid = scep_oid(attr);
-	require(key_oid, out);
+	__Require(key_oid, out);
 
 	CFArrayRef values = (CFArrayRef)CFDictionaryGetValue(signed_attributes, key_oid);
-	require_quiet(values && (CFGetTypeID(values) == CFArrayGetTypeID())
+	__Require_Quiet(values && (CFGetTypeID(values) == CFArrayGetTypeID())
 			&& (CFArrayGetCount(values) == 1), out);
 	CFDataRef value = CFArrayGetValueAtIndex(values, 0);
 	const uint8_t *bytes = CFDataGetBytePtr(value);
 	size_t length = CFDataGetLength(value);
-	require(length >= 2, out);
-	require(bytes[0] == 0x13, out);
+	__Require(length >= 2, out);
+	__Require(bytes[0] == 0x13, out);
 	/* no scep responses defined that are longer */
-	require(!(bytes[1] & 0x80) && (bytes[1] == length-2), out);
+	__Require(!(bytes[1] & 0x80) && (bytes[1] == length-2), out);
 	printable_string = CFStringCreateWithBytes(kCFAllocatorDefault,
 		bytes + 2, length - 2, kCFStringEncodingASCII, false);
 out:
@@ -659,12 +659,12 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
             reply_signer = (SecCertificateRef)CFArrayGetValueAtIndex(ca_certificates, 0);
         }
     }
-    require(reply_signer, out);
+    __Require(reply_signer, out);
 
     /* unwrap outer layer */
     policy = SecPolicyCreateBasicX509();
     CFArrayRef additional_certificates = CFArrayCreate(kCFAllocatorDefault, (const void **)&reply_signer, 1, &kCFTypeArrayCallBacks);
-    require_noerr(SecCMSVerifySignedData(reply, NULL,
+    __Require_noErr(SecCMSVerifySignedData(reply, NULL,
         policy, &trust, additional_certificates, &signed_content, &attributes), out);
     CFReleaseSafe(additional_certificates);
     if (attributes)
@@ -672,26 +672,26 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
 
     /* response should be signed by ra */
     SecTrustResultType result;
-    require_noerr(SecTrustEvaluate(trust, &result), out);
-    require(signer_cert = copySignerCert(trust), out);
-    require(CFEqual(reply_signer, signer_cert), out);
+    __Require_noErr(SecTrustEvaluate(trust, &result), out);
+    __Require(signer_cert = copySignerCert(trust), out);
+    __Require(CFEqual(reply_signer, signer_cert), out);
 
     /* msgType should be certreq msg */
-    require(signed_attributes, out);
+    __Require(signed_attributes, out);
     msg_type = copy_signed_attr_printable_string_value(signed_attributes, messageType);
     pki_status = copy_signed_attr_printable_string_value(signed_attributes, pkiStatus);
 
     if (msg_type || pki_status) {
-        require(msg_type && CFEqual(msg_type, CFSTR("3")), out);
+        __Require(msg_type && CFEqual(msg_type, CFSTR("3")), out);
 
-        require(pki_status, out);
+        __Require(pki_status, out);
         if (CFEqual(pki_status, CFSTR("2"))) {
             goto out; // FAILURE, the end (return NULL)
         } else if (CFEqual(pki_status, CFSTR("3"))) {
             CFDataRef transid_oid_data = NULL, transid_value = NULL;
             CFDictionaryRef err_dict = NULL;
-            require(transid_oid_data = scep_oid(transId), inner_out);
-            require(transid_value = dictionary_array_value_1(signed_attributes, transid_oid_data), inner_out);
+            __Require(transid_oid_data = scep_oid(transId), inner_out);
+            __Require(transid_value = dictionary_array_value_1(signed_attributes, transid_oid_data), inner_out);
             err_dict = CFDictionaryCreate(kCFAllocatorDefault, (const void **)&transid_oid_data, (const void **)&transid_value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
             if (server_error)
                 *server_error = CFErrorCreate(kCFAllocatorDefault, CFSTR("PENDING"), 3, err_dict);
@@ -700,17 +700,17 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
             CFReleaseSafe(transid_oid_data);
             goto out;
         }
-        require(CFEqual(pki_status, CFSTR("0")), out);
+        __Require(CFEqual(pki_status, CFSTR("0")), out);
     }
 
     // can we decode the request?
     encrypted_content = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require_noerr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
-    require(recipient, out);
+    __Require_noErr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
+    __Require(recipient, out);
     // verify recipient belongs with our private key
 
     // verify CSR:
-    require(certificates = SecCMSCertificatesOnlyMessageCopyCertificates(encrypted_content), out);
+    __Require(certificates = SecCMSCertificatesOnlyMessageCopyCertificates(encrypted_content), out);
 
     // recipient is either our temporary self-signed cert or the old cert we just used
     // to recertify.  if we have new certificates and have stored them successfully we
@@ -721,7 +721,7 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
 #if !TARGET_OS_OSX // See rdar://81992896 (SecItemDelete in SecSCEPVerifyReply() doesn't do anything on macOS)
     CFDictionaryRef cert_delete = CFDictionaryCreate(NULL,
         (const void **)&kSecValueRef, (const void **)&recipient, 1, NULL, NULL);
-    require_noerr_action(SecItemDelete(cert_delete), out,
+    __Require_noErr_Action(SecItemDelete(cert_delete), out,
         CFReleaseSafe(cert_delete));
     CFReleaseSafe(cert_delete);
 #endif
@@ -748,8 +748,8 @@ static CFDataRef SecCertificateCopyMD5Digest(SecCertificateRef cert)
     uint8_t cert_hash[CC_MD5_DIGEST_LENGTH];
     size_t cert_data_len = SecCertificateGetLength(cert);
     const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
-    require(cert_data_len && cert_data, out);
-    require(cert_data_len<UINT32_MAX, out);
+    __Require(cert_data_len && cert_data, out);
+    __Require(cert_data_len<UINT32_MAX, out);
     CC_MD5(cert_data, (CC_LONG)cert_data_len, cert_hash);
     return CFDataCreate(NULL, cert_hash, CC_MD5_DIGEST_LENGTH);
 
@@ -762,8 +762,8 @@ static CFDataRef SecCertificateCopySHA224Digest(SecCertificateRef cert)
     uint8_t cert_hash[CC_SHA224_DIGEST_LENGTH];
     size_t cert_data_len = SecCertificateGetLength(cert);
     const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
-    require(cert_data_len && cert_data, out);
-    require(cert_data_len<UINT32_MAX, out);
+    __Require(cert_data_len && cert_data, out);
+    __Require(cert_data_len<UINT32_MAX, out);
     CC_SHA224(cert_data, (CC_LONG)cert_data_len, cert_hash);
     return CFDataCreate(NULL, cert_hash, CC_SHA224_DIGEST_LENGTH);
 
@@ -776,8 +776,8 @@ static CFDataRef SecCertificateCopySHA384Digest(SecCertificateRef cert)
     uint8_t cert_hash[CC_SHA384_DIGEST_LENGTH];
     size_t cert_data_len = SecCertificateGetLength(cert);
     const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
-    require(cert_data_len && cert_data, out);
-    require(cert_data_len<UINT32_MAX, out);
+    __Require(cert_data_len && cert_data, out);
+    __Require(cert_data_len<UINT32_MAX, out);
     CC_SHA384(cert_data, (CC_LONG)cert_data_len, cert_hash);
     return CFDataCreate(NULL, cert_hash, CC_SHA384_DIGEST_LENGTH);
 
@@ -790,8 +790,8 @@ static CFDataRef SecCertificateCopySHA512Digest(SecCertificateRef cert)
     uint8_t cert_hash[CC_SHA512_DIGEST_LENGTH];
     size_t cert_data_len = SecCertificateGetLength(cert);
     const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
-    require(cert_data_len && cert_data, out);
-    require(cert_data_len<UINT32_MAX, out);
+    __Require(cert_data_len && cert_data, out);
+    __Require(cert_data_len<UINT32_MAX, out);
     CC_SHA512(cert_data, (CC_LONG)cert_data_len, cert_hash);
     return CFDataCreate(NULL, cert_hash, CC_SHA512_DIGEST_LENGTH);
 
@@ -1020,18 +1020,18 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
     CFDataRef msgtype_oid_data = NULL;
     CFTypeRef filteredRecipients = NULL;
 
-    require(signed_attrs, out);
-    require(pki_message_contents = SecGenerateCertificateRequestSubject(ca_certificate, subject), out);
-    require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
+    __Require(signed_attrs, out);
+    __Require(pki_message_contents = SecGenerateCertificateRequestSubject(ca_certificate, subject), out);
+    __Require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
     filteredRecipients = filterRecipients(recipient);
-    require_noerr(SecCMSCreateEnvelopedData(filteredRecipients, parameters, pki_message_contents, enveloped_data), out);
+    __Require_noErr(SecCMSCreateEnvelopedData(filteredRecipients, parameters, pki_message_contents, enveloped_data), out);
 
     /* remember transaction id just for reuse */
     simple_attr =  CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 3, signed_attrs);
 
     /* message type: GetCertInitial (20) */
-    require(msgtype_oid_data = scep_oid(messageType), out);
-    require(msgtype_value_data = printable_string_data(sizeof(GetCertInitial) - 1, GetCertInitial), out);
+    __Require(msgtype_oid_data = scep_oid(messageType), out);
+    __Require(msgtype_value_data = printable_string_data(sizeof(GetCertInitial) - 1, GetCertInitial), out);
     CFDictionarySetValue(simple_attr, msgtype_oid_data, msgtype_value_data);
     CFReleaseNull(msgtype_oid_data);
     CFReleaseNull(msgtype_value_data);
@@ -1039,7 +1039,7 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
     /* random sender nonce, to be verified against recipient nonce in reply */
 	generate_sender_nonce(simple_attr);
     signed_request = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    require_noerr_action(SecCMSCreateSignedData(signer, enveloped_data,
+    __Require_noErr_Action(SecCMSCreateSignedData(signer, enveloped_data,
 	parameters, simple_attr, signed_request), out, CFReleaseNull(signed_request));
 
 out:

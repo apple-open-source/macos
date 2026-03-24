@@ -30,6 +30,7 @@
 #import "Credential.h"
 #import <Foundation/NSURLAuthenticationChallenge.h>
 #import <Foundation/NSURLProtectionSpace.h>
+#import <wtf/WeakPtr.h>
 
 using namespace WebCore;
 

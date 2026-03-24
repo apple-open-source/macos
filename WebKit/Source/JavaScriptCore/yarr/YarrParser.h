@@ -76,6 +76,8 @@ template <class T> concept YarrSyntaxCheckable = requires (T& checker, Vector<Ve
     { checker.atomNamedForwardReference(subpatternName) } -> std::same_as<void>;
     { checker.quantifyAtom(unsigned { }, unsigned { }, bool { }) } -> std::same_as<void>;
     { checker.disjunction(CreateDisjunctionPurpose { }) } -> std::same_as<void>;
+    { checker.abortedDueToError() } -> std::same_as<bool>;
+    { checker.abortErrorCode() } -> std::same_as<ErrorCode>;
     { checker.resetForReparsing() } -> std::same_as<void>;
 };
 
@@ -182,10 +184,10 @@ private:
         {
             ASSERT(m_nestedCaptureGroupNames.size() > 1);
             ASSERT(m_activeCaptureGroupNames.size() > 1);
-            m_nestedCaptureGroupNames.last().addAll(WTFMove(m_activeCaptureGroupNames.last()));
+            m_nestedCaptureGroupNames.last().addAll(WTF::move(m_activeCaptureGroupNames.last()));
 
             // Add all the names seen in this parenthesis to the containing alternative.
-            m_activeCaptureGroupNames[m_activeCaptureGroupNames.size() - 2].addAll(WTFMove(m_nestedCaptureGroupNames.last()));
+            m_activeCaptureGroupNames[m_activeCaptureGroupNames.size() - 2].addAll(WTF::move(m_nestedCaptureGroupNames.last()));
 
             m_nestedCaptureGroupNames.removeLast();
             m_activeCaptureGroupNames.removeLast();
@@ -2219,39 +2221,8 @@ private:
  * Yarr::parse() returns null on success, or a const C string providing an error
  * message where a parse error occurs.
  *
- * The Delegate must implement `YarrSyntaxCheckable` concept.
- * The Delegate must implement the following interface:
- *
- *    void assertionBOL();
- *    void assertionEOL();
- *    void assertionWordBoundary(bool invert);
- *
- *    void atomPatternCharacter(char32_t ch);
- *    void atomBuiltInCharacterClass(BuiltInCharacterClassID classID, bool invert);
- *    void atomCharacterClassBegin(bool invert)
- *    void atomCharacterClassAtom(char32_t ch)
- *    void atomCharacterClassRange(char32_t begin, char32_t end)
- *    void atomCharacterClassBuiltIn(BuiltInCharacterClassID classID, bool invert)
- *    void atomClassStringDisjunction(Vector<Vector<char32_t>>&)
- *    void atomCharacterClassSetOp(CharacterClassSetOp setOp)
- *    void atomCharacterClassPushNested(bool invert)
- *    void atomCharacterClassPopNested(bool invert)
- *    void atomCharacterClassEnd()
- *    void atomParenthesesSubpatternBegin(bool capture = true, std::optional<String> groupName);
- *    void atomParentheticalAssertionBegin(bool invert, MatchDirection matchDirection);
- *    void atomParenthesesEnd();
- *    void atomBackReference(unsigned subpatternId);
- *    void atomNamedBackReference(const String& subpatternName);
- *    void atomNamedForwardReference(const String& subpatternName);
- *
- *    void quantifyAtom(unsigned min, unsigned max, bool greedy);
- *
- *    void disjunction(CreateDisjunctionPurpose purpose);
- *
- *    bool abortedDueToError() const;
- *    ErrorCode abortErrorCode() const;
- *
- *    void resetForReparsing();
+ * The Delegate must implement `YarrSyntaxCheckable` concept. Don't forget to
+ * modify the concept if adding new methods.
  *
  * The regular expression is described by a sequence of assertion*() and atom*()
  * callbacks to the delegate, describing the terms in the regular expression.

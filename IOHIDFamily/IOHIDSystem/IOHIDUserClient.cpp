@@ -67,7 +67,7 @@ bool IOHIDUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 
     bool result = false;
     OSObject* entitlement = NULL;
     
-    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    __Require_Action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
     
     entitlement = copyClientEntitlement(owningTask, kIOHIDSystemServerAccessEntitlement);
     if (entitlement) {
@@ -382,7 +382,7 @@ initWithTask(task_t owningTask, void *security_id, UInt32 type)
     bool result = false;
     OSObject* entitlement = NULL;
     
-    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    __Require_Action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
     
     entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
     if (entitlement) {
@@ -482,7 +482,7 @@ IOReturn IOHIDEventSystemUserClient::clientMemoryForType( UInt32 type,
 {
     IOReturn result;
     
-    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    __Require_Action(!isInactive(), exit, result=kIOReturnOffline);
     
     result = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::clientMemoryForTypeGated), (void*)(intptr_t)type, flags, memory);
     
@@ -497,8 +497,8 @@ IOReturn IOHIDEventSystemUserClient::clientMemoryForTypeGated( UInt32 type,
     IOMemoryDescriptor *descriptor = NULL;
     IOReturn ret = kIOReturnError;
     
-    require_action(type == kIOHIDEventSystemKernelQueueID, exit, ret = kIOReturnBadArgument);
-    require(kernelQueue, exit);
+    __Require_Action(type == kIOHIDEventSystemKernelQueueID, exit, ret = kIOReturnBadArgument);
+    __Require(kernelQueue, exit);
     
     descriptor = kernelQueue->getMemoryDescriptor();
     if (descriptor) {
@@ -553,12 +553,12 @@ IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*
     UInt32 *        pToken      = (UInt32 *)p3;
     IOReturn        ret         = kIOReturnError;
     
-    require_action(size && pToken && type == kIOHIDEventQueueTypeKernel, exit, ret = kIOReturnBadArgument);
-    require_action(owner, exit, ret = kIOReturnOffline);
-    require_action(!kernelQueue, exit, *pToken = kIOHIDEventSystemKernelQueueID; ret = kIOReturnSuccess);
+    __Require_Action(size && pToken && type == kIOHIDEventQueueTypeKernel, exit, ret = kIOReturnBadArgument);
+    __Require_Action(owner, exit, ret = kIOReturnOffline);
+    __Require_Action(!kernelQueue, exit, *pToken = kIOHIDEventSystemKernelQueueID; ret = kIOReturnSuccess);
     
     kernelQueue = IOHIDEventServiceQueue::withCapacity(this, (UInt32)size);
-    require_action(kernelQueue, exit, ret = kIOReturnNoMemory);
+    __Require_Action(kernelQueue, exit, ret = kIOReturnNoMemory);
     
     kernelQueue->setState(true);
     owner->registerEventQueue(kernelQueue);
@@ -583,9 +583,9 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueueGated(void*p1,void*p2,void
     UInt32      token   = (UInt32)(uintptr_t) p2;
     IOReturn    ret     = kIOReturnError;
     
-    require_action(type == kIOHIDEventQueueTypeKernel &&
+    __Require_Action(type == kIOHIDEventQueueTypeKernel &&
                    token == kIOHIDEventSystemKernelQueueID, exit, ret = kIOReturnBadArgument);
-    require(kernelQueue && kernelQueue->getOwner() == this, exit);
+    __Require(kernelQueue && kernelQueue->getOwner() == this, exit);
     
     kernelQueue->setState(false);
     if (owner) {
@@ -651,8 +651,8 @@ IOReturn IOHIDEventSystemUserClient::registerNotificationPortGated(mach_port_t p
 {
     IOReturn ret = kIOReturnError;
     
-    require_action(type == kIOHIDEventSystemKernelQueueID, exit, ret = kIOReturnBadArgument);
-    require(kernelQueue, exit);
+    __Require_Action(type == kIOHIDEventSystemKernelQueueID, exit, ret = kIOReturnBadArgument);
+    __Require(kernelQueue, exit);
     
     releaseNotificationPort(_port);
     

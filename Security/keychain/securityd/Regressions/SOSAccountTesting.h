@@ -241,7 +241,7 @@ static inline bool SOSAccountAssertUserCredentialsAndUpdate(SOSAccount* account,
 {
     bool success = false;
     success = SOSAccountAssertUserCredentials(account, user_account, user_password, error);
-    require_quiet(success, done);
+    __Require_Quiet(success, done);
     
     success = SOSAccountGenerationSignatureUpdate(account, error);
     
@@ -946,7 +946,7 @@ static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfa
 static inline bool SOSTestChangeAccountDeviceName(SOSAccount* account, CFStringRef name) {
     bool retval = false;
     CFMutableDictionaryRef mygestalt = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerGetGestalt(account.peerInfo));
-    require_quiet(mygestalt, retOut);
+    __Require_Quiet(mygestalt, retOut);
     CFDictionarySetValue(mygestalt, kPIUserDefinedDeviceNameKey, name);
     retval = [account.trust updateGestalt:account newGestalt:mygestalt];
 retOut:
@@ -1013,7 +1013,7 @@ static inline bool SOSTestMakeGhostInCircle(CFStringRef name, SOSPeerInfoDeviceC
     bool retval = false;
     SOSAccount* ghostAccount = SOSTestCreateAccountAsSerialClone(name, devClass, serial, idsID);
     ok(ghostAccount, "Created Ghost Account");
-    require_quiet(ghostAccount, retOut);
+    __Require_Quiet(ghostAccount, retOut);
     if(!ghostAccount) return false;
     ok(retval = SOSTestJoinWithApproval(cfpassword, cfaccount, changes, approver, ghostAccount, DROP_USERKEY, expectedCount, true), "Ghost Joined Circle with expected result");
 retOut:

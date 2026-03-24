@@ -31,9 +31,9 @@
 #include <wtf/HashMap.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/Ref.h>
-#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
 OBJC_CLASS AVAssetTrack;
@@ -45,7 +45,7 @@ namespace WebCore {
 
 class MediaSelectionGroupAVFObjC;
 
-class MediaSelectionOptionAVFObjC : public RefCountedAndCanMakeWeakPtr<MediaSelectionOptionAVFObjC> {
+class MediaSelectionOptionAVFObjC : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSelectionOptionAVFObjC, WTF::DestructionThread::Main> {
 public:
     static Ref<MediaSelectionOptionAVFObjC> create(MediaSelectionGroupAVFObjC&, AVMediaSelectionOption *);
 
@@ -54,7 +54,7 @@ public:
 
     int index() const;
 
-    AVMediaSelectionOption *avMediaSelectionOption() const { return m_mediaSelectionOption.get(); }
+    RetainPtr<AVMediaSelectionOption> avMediaSelectionOption() const { return m_mediaSelectionOption; }
     AVAssetTrack *assetTrack() const;
     AVPlayerItem *playerItem() const;
 
@@ -64,17 +64,17 @@ private:
 
     void clearGroup() { m_group = nullptr; }
 
-    WeakPtr<MediaSelectionGroupAVFObjC> m_group;
+    ThreadSafeWeakPtr<MediaSelectionGroupAVFObjC> m_group;
     RetainPtr<AVMediaSelectionOption> m_mediaSelectionOption;
 };
 
-class MediaSelectionGroupAVFObjC : public RefCountedAndCanMakeWeakPtr<MediaSelectionGroupAVFObjC> {
+class MediaSelectionGroupAVFObjC : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSelectionGroupAVFObjC, WTF::DestructionThread::Main> {
 public:
     static Ref<MediaSelectionGroupAVFObjC> create(AVPlayerItem*, AVMediaSelectionGroup*, const Vector<String>& characteristics);
     ~MediaSelectionGroupAVFObjC();
 
     void setSelectedOption(MediaSelectionOptionAVFObjC*);
-    MediaSelectionOptionAVFObjC* selectedOption() const { return m_selectedOption.get(); }
+    RefPtr<MediaSelectionOptionAVFObjC> selectedOption() const { return m_selectedOption.get(); }
 
     void updateOptions(const Vector<String>& characteristics);
 
@@ -92,7 +92,7 @@ private:
     RetainPtr<AVPlayerItem> m_playerItem;
     RetainPtr<AVMediaSelectionGroup> m_mediaSelectionGroup;
     OptionContainer m_options;
-    WeakPtr<MediaSelectionOptionAVFObjC> m_selectedOption;
+    ThreadSafeWeakPtr<MediaSelectionOptionAVFObjC> m_selectedOption;
     Timer m_selectionTimer;
     bool m_shouldSelectOptionAutomatically { true };
 };

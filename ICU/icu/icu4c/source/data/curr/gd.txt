@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 gd{
     Currencies{
         ADP{
@@ -1218,6 +1218,10 @@ gd{
         ZWD{
             "ZWD",
             "Dolar Sìombabuthach (1980–2008)",
+        }
+        ZWG{
+            "ZWG",
+            "Òr Sìombabuthach",
         }
         ZWL{
             "ZWL",
@@ -3058,6 +3062,12 @@ gd{
             one{"dolar Sìombabuthach (1980–2008)"}
             other{"dolar Sìombabuthach (1980–2008)"}
             two{"dholar Sìombabuthach (1980–2008)"}
+        }
+        ZWG{
+            few{"Òr Sìombabuthach"}
+            one{"Òr Sìombabuthach"}
+            other{"Òr Sìombabuthach"}
+            two{"Òr Sìombabuthach"}
         }
         ZWL{
             few{"dolaran Sìombabuthach (2009)"}

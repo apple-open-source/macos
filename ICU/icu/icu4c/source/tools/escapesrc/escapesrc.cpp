@@ -51,13 +51,23 @@ static const char
 // For convenience
 # define cp1047_to_8859(c) cp1047_8859_1[c]
 
+#if !APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
 // Our app's name
 std::string prog;
+#endif // APPLE_ICU_CHANGES
 
 /**
  * Give the usual 1-line documentation and exit
  */
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+void usage(const std::string& prog) {
+#else
 void usage() {
+#endif // APPLE_ICU_CHANGES
   fprintf(stderr, "%s: usage: %s infile.cpp outfile.cpp\n", prog.c_str(), prog.c_str());
 }
 
@@ -65,7 +75,13 @@ void usage() {
  * Delete the output file (if any)
  * We want to delete even if we didn't generate, because it might be stale.
  */
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+int cleanup(const std::string& prog, const std::string &outfile) {
+#else
 int cleanup(const std::string &outfile) {
+#endif // APPLE_ICU_CHANGES
   const char *outstr = outfile.c_str();
   if(outstr && *outstr) {
     int rc = std::remove(outstr);
@@ -364,7 +380,13 @@ bool fixLine(int /*no*/, std::string &linestr) {
  * @param outfile
  * @return 1 on err, 0 otherwise
  */
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+int convert(const std::string& prog, const std::string &infile, const std::string &outfile) {
+#else
 int convert(const std::string &infile, const std::string &outfile) {
+#endif // APPLE_ICU_CHANGES
   fprintf(stderr, "escapesrc: %s -> %s\n", infile.c_str(), outfile.c_str());
 
   std::ifstream inf;
@@ -373,7 +395,13 @@ int convert(const std::string &infile, const std::string &outfile) {
 
   if(!inf.is_open()) {
     fprintf(stderr, "%s: could not open input file %s\n", prog.c_str(), infile.c_str());
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    cleanup(prog, outfile);
+#else
     cleanup(outfile);
+#endif // APPLE_ICU_CHANGES
     return 1;
   }
 
@@ -405,7 +433,13 @@ int convert(const std::string &infile, const std::string &outfile) {
 fail:
   outf.close();
   fprintf(stderr, "%s:%d: Fixup failed by %s\n", infile.c_str(), no, prog.c_str());
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+  cleanup(prog, outfile);
+#else
   cleanup(outfile);
+#endif // APPLE_ICU_CHANGES
   return 1;
 }
 
@@ -413,15 +447,33 @@ fail:
  * Main function
  */
 int main(int argc, const char *argv[]) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+  std::string prog(argv[0]);
+#else
   prog = argv[0];
+#endif // APPLE_ICU_CHANGES
 
   if(argc != 3) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+    usage(prog);
+#else
     usage();
+#endif // APPLE_ICU_CHANGES
     return 1;
   }
 
   std::string infile = argv[1];
   std::string outfile = argv[2];
 
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+  return convert(prog, infile, outfile);
+#else
   return convert(infile, outfile);
+#endif // APPLE_ICU_CHANGES
 }

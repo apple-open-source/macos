@@ -112,6 +112,8 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorEscrowRepairIgnoredError                        = 91,
     OctagonErrorFailedToFetchEscrowContent                      = 92,
     OctagonErrorFailedToEnableWithPasscodeStashSecret           = 93,
+    OctagonErrorNotInClique                                     = 94,
+    OctagonErrorTPHEgoPeerMismatchesSelfPeer                    = 95,
 };
 
 /* used for defaults writes */
@@ -166,6 +168,9 @@ typedef NS_ERROR_ENUM(TrustedPeersHelperRecoveryKeySetErrorDomain, TrustedPeersH
     TrustedPeersHelperRecoveryKeySetErrorCoreCryptoKeyGeneration = 5,
     TrustedPeersHelperRecoveryKeySetErrorFailedToGenerateRandomKey = 6
 };
+
+#define ESCROW_TIME_BETWEEN_SILENT_MOVE (180*24*60*60) /* 180 days*/
+#define secondsInADay (24*60*60) /* seconds in 1 day */
 
 /*
  AppleKeyStorePasscodeCacheReason map to

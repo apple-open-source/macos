@@ -206,6 +206,7 @@ WI.settings = {
     gridOverlayShowExtendedGridLines: new WI.Setting("grid-overlay-show-extended-grid-lines", false),
     gridOverlayShowLineNames: new WI.Setting("grid-overlay-show-line-names", false),
     gridOverlayShowLineNumbers: new WI.Setting("grid-overlay-show-line-numbers", true),
+    gridOverlayShowOrderNumbers: new WI.Setting("grid-overlay-show-order-numbers", false),
     gridOverlayShowTrackSizes: new WI.Setting("grid-overlay-show-track-sizes", true),
     groupMediaRequestsByDOMNode: new WI.Setting("group-media-requests-by-dom-node", WI.Setting.migrateValue("group-by-dom-node") || false),
     indentUnit: new WI.Setting("indent-unit", 4),
@@ -227,6 +228,7 @@ WI.settings = {
     showRulers: new WI.Setting("show-rulers", false),
     showRulersDuringElementSelection: new WI.Setting("show-rulers-during-element-selection", true),
     showScopeChainOnPause: new WI.Setting("show-scope-chain-sidebar", true),
+    showUserAgentStyles: new WI.Setting("show-user-agent-styles", true),
     showWhitespaceCharacters: new WI.Setting("show-whitespace-characters", false),
     tabSize: new WI.Setting("tab-size", 4),
     timelinesAutoStop: new WI.Setting("timelines-auto-stop", true),
@@ -244,6 +246,7 @@ WI.settings = {
     experimentalLimitSourceCodeHighlighting: new WI.Setting("engineering-limit-source-code-highlighting", false),
     experimentalUseFuzzyMatchingForCSSCodeCompletion: new WI.Setting("experimental-use-fuzzy-matching-for-css-code-completion", true),
     experimentalUseStrictCheckForGlobMatching: new WI.Setting("experimental-use-strict-check-for-glob-matching", false),
+    experimentalLayers3DShowLayerContents: new WI.Setting("experimental-layers-3d-show-layer-contents", true),
 
     // Protocol
     protocolLogAsText: new WI.Setting("protocol-log-as-text", false),

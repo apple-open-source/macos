@@ -58,6 +58,7 @@ public:
 #if USE(GBM)
         BackedByDMABuf = 1 << 2,
         ForceLinearBuffer = 1 << 3,
+        ForceVivanteSuperTiledBuffer = 1 << 4,
 #endif
     };
 
@@ -94,7 +95,7 @@ public:
     int numberOfBytes() const { return size().width() * size().height() * 32 >> 3; }
 
     RefPtr<const FilterOperation> filterOperation() const { return m_filterOperation; }
-    void setFilterOperation(RefPtr<const FilterOperation>&& filterOperation) { m_filterOperation = WTFMove(filterOperation); }
+    void setFilterOperation(RefPtr<const FilterOperation>&& filterOperation) { m_filterOperation = WTF::move(filterOperation); }
 
     ClipStack& clipStack() { return m_clipStack; }
 
@@ -104,6 +105,9 @@ public:
 
 #if USE(GBM)
     MemoryMappedGPUBuffer* memoryMappedGPUBuffer() const { return m_memoryMappedGPUBuffer.get(); }
+    IntSize allocatedSize() const;
+#else
+    IntSize allocatedSize() const { return m_size; }
 #endif
 
 private:

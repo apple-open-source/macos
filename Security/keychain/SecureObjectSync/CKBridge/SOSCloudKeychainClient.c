@@ -289,14 +289,14 @@ static void SOSCloudTransportPut(SOSCloudTransportRef transport, CFDictionaryRef
     CFErrorRef error = NULL;
     xpc_object_t message = NULL;
     xpc_object_t xobject = NULL;
-    require_action(values, xit, error = makeError(kSOSObjectNotFoundError));
+    __Require_Action(values, xit, error = makeError(kSOSObjectNotFoundError));
 
     message = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
     xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationPUTDictionary);
     
     xobject = _CFXPCCreateXPCObjectFromCFObject(values);
-    require_action(xobject, xit, error = makeError(kSOSObjectCantBeConvertedToXPCObject));
+    __Require_Action(xobject, xit, error = makeError(kSOSObjectCantBeConvertedToXPCObject));
     xpc_dictionary_set_value(message, kMessageKeyValue, xobject);
     xpc_release(xobject);
     
@@ -319,7 +319,7 @@ void SOSCloudTransportGet(SOSCloudTransportRef transport, CFArrayRef keysToGet, 
     xpc_object_t xkeysOfInterest = xpc_dictionary_create(NULL, NULL, 0);
     xpc_object_t xkeysToGet = keysToGet ? _CFXPCCreateXPCObjectFromCFObject(keysToGet) : xpc_null_create();
 
-    require_action(xkeysToGet, xit, error = makeError(kSOSObjectNotFoundError));
+    __Require_Action(xkeysToGet, xit, error = makeError(kSOSObjectNotFoundError));
 
     if (keysToGet)  // don't add if nulll; will call getall
         xpc_dictionary_set_value(xkeysOfInterest, kMessageKeyKeysToGet, xkeysToGet);

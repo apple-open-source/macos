@@ -60,7 +60,7 @@ WebGeolocationManagerProxy::~WebGeolocationManagerProxy() = default;
 
 void WebGeolocationManagerProxy::setProvider(std::unique_ptr<API::GeolocationProvider>&& provider)
 {
-    m_clientProvider = WTFMove(provider);
+    m_clientProvider = WTF::move(provider);
 }
 
 // WebContextSupplement
@@ -89,16 +89,6 @@ void WebGeolocationManagerProxy::webProcessIsGoingAway(WebProcessProxy& proxy)
 std::optional<SharedPreferencesForWebProcess> WebGeolocationManagerProxy::sharedPreferencesForWebProcess(IPC::Connection& connection) const
 {
     return WebProcessProxy::fromConnection(connection)->sharedPreferencesForWebProcess();
-}
-
-void WebGeolocationManagerProxy::refWebContextSupplement()
-{
-    API::Object::ref();
-}
-
-void WebGeolocationManagerProxy::derefWebContextSupplement()
-{
-    API::Object::deref();
 }
 
 void WebGeolocationManagerProxy::providerDidChangePosition(WebGeolocationPosition* position)

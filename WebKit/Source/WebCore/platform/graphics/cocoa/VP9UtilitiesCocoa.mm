@@ -28,6 +28,7 @@
 
 #if ENABLE(VP9) && PLATFORM(COCOA)
 
+#import "CMUtilities.h"
 #import "FourCC.h"
 #import "LibWebRTCProvider.h"
 #import "MediaCapabilitiesInfo.h"
@@ -59,21 +60,21 @@ VP9TestingOverrides& VP9TestingOverrides::singleton()
 
 void VP9TestingOverrides::setHardwareDecoderDisabled(std::optional<bool>&& disabled)
 {
-    m_hardwareDecoderDisabled = WTFMove(disabled);
+    m_hardwareDecoderDisabled = WTF::move(disabled);
     if (m_configurationChangedCallback)
         m_configurationChangedCallback(false);
 }
 
 void VP9TestingOverrides::setVP9HardwareDecoderEnabledOverride(std::optional<bool>&& disabled)
 {
-    m_vp9HardwareDecoderEnabledOverride = WTFMove(disabled);
+    m_vp9HardwareDecoderEnabledOverride = WTF::move(disabled);
     if (m_configurationChangedCallback)
         m_configurationChangedCallback(false);
 }
 
 void VP9TestingOverrides::setVP9DecoderDisabled(std::optional<bool>&& disabled)
 {
-    m_vp9DecoderDisabled = WTFMove(disabled);
+    m_vp9DecoderDisabled = WTF::move(disabled);
     if (m_configurationChangedCallback)
         m_configurationChangedCallback(false);
 }
@@ -86,14 +87,14 @@ void VP9TestingOverrides::setSWVPDecodersAlwaysEnabled(bool enabled)
 
 void VP9TestingOverrides::setVP9ScreenSizeAndScale(std::optional<ScreenDataOverrides>&& overrides)
 {
-    m_screenSizeAndScale = WTFMove(overrides);
+    m_screenSizeAndScale = WTF::move(overrides);
     if (m_configurationChangedCallback)
         m_configurationChangedCallback(false);
 }
 
 void VP9TestingOverrides::setConfigurationChangedCallback(std::function<void(bool)>&& callback)
 {
-    m_configurationChangedCallback = WTFMove(callback);
+    m_configurationChangedCallback = WTF::move(callback);
 }
 
 void VP9TestingOverrides::resetOverridesToDefaultValues()
@@ -530,14 +531,18 @@ static Ref<VideoInfo> createVideoInfoFromVPCodecConfigurationRecord(const VPCode
     // FIXME: Convert existing struct to an ISOBox and replace the writing code below
     // with a subclass of ISOFullBox.
 
-    auto videoInfo = VideoInfo::create();
-    videoInfo->size = size;
-    videoInfo->displaySize = displaySize;
-    videoInfo->atomData = SharedBuffer::create(vpcCFromVPCodecConfigurationRecord(record));
-    videoInfo->colorSpace = colorSpaceFromVPCodecConfigurationRecord(record);
-    videoInfo->codecName = record.codecName == "vp09"_s ? 'vp09' : 'vp08';
-    videoInfo->codecString = createVPCodecParametersString(record);
-    return videoInfo;
+    FourCC codecName = record.codecName == "vp09"_s ? 'vp09' : 'vp08';
+    return VideoInfo::create({
+        {
+            .codecName = codecName,
+            .codecString = createVPCodecParametersString(record)
+        }, {
+            .size = size,
+            .displaySize = displaySize,
+            .colorSpace = colorSpaceFromVPCodecConfigurationRecord(record),
+            .extensionAtoms = { 1, { computeBoxType(codecName), SharedBuffer::create(vpcCFromVPCodecConfigurationRecord(record)) } },
+        }
+    });
 }
 
 Ref<VideoInfo> createVideoInfoFromVP9HeaderParser(const vp9_parser::Vp9HeaderParser& parser, const webm::Video& video)

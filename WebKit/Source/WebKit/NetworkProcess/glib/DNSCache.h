@@ -28,7 +28,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/MonotonicTime.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
@@ -38,7 +38,7 @@ typedef struct _GInetAddress GInetAddress;
 
 namespace WebKit {
 
-class DNSCache : public RefCounted<DNSCache> {
+class DNSCache : public RefCountedAndCanMakeWeakPtr<DNSCache> {
 public:
     static Ref<DNSCache> create();
 

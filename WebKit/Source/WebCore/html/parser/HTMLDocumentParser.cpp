@@ -28,6 +28,7 @@
 #include "HTMLDocumentParser.h"
 
 #include "CustomElementReactionQueue.h"
+#include "CustomElementRegistry.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "EventLoop.h"
@@ -47,7 +48,7 @@
 #include "ScriptElement.h"
 #include "TaskSource.h"
 #include "ThrowOnDynamicMarkupInsertionCountIncrementer.h"
-
+#include <JavaScriptCore/JSGlobalObject.h>
 #include <wtf/SystemTracing.h>
 
 #if PLATFORM(COCOA)
@@ -72,7 +73,7 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument& document, OptionSet<ParserC
     , m_scriptRunner(makeUnique<HTMLScriptRunner>(document, static_cast<HTMLScriptRunnerHost&>(*this)))
     , m_treeBuilder(makeUniqueRef<HTMLTreeBuilder>(*this, document, parserContentPolicy(), m_options))
     , m_parserScheduler(HTMLParserScheduler::create(*this))
-    , m_preloader(makeUnique<HTMLResourcePreloader>(document))
+    , m_preloader(HTMLResourcePreloader::create(document))
     , m_shouldEmitTracePoints(isMainDocumentLoadingFromHTTP(document))
 {
 }
@@ -248,7 +249,7 @@ void HTMLDocumentParser::runScriptsForPausedTreeBuilder()
             Ref elementInterface = constructionData->elementInterface.get();
             auto newElement = elementInterface->constructElementWithFallback(*document, constructionData->registry, constructionData->name,
                 m_scriptRunner && !m_scriptRunner->isExecutingScript() ? ParserConstructElementWithEmptyStack::Yes : ParserConstructElementWithEmptyStack::No);
-            m_treeBuilder->didCreateCustomOrFallbackElement(WTFMove(newElement), *constructionData);
+            m_treeBuilder->didCreateCustomOrFallbackElement(WTF::move(newElement), *constructionData);
         }
         return;
     }
@@ -371,7 +372,7 @@ void HTMLDocumentParser::constructTreeFromHTMLToken(HTMLTokenizer::TokenPtr& raw
         rawToken.clear();
     }
 
-    m_treeBuilder->constructTree(WTFMove(token));
+    m_treeBuilder->constructTree(WTF::move(token));
 }
 
 bool HTMLDocumentParser::hasInsertionPoint()
@@ -393,7 +394,7 @@ void HTMLDocumentParser::insert(SegmentedString&& source)
     Ref<HTMLDocumentParser> protectedThis(*this);
 
     source.setExcludeLineNumbers();
-    m_input.insertAtCurrentInsertionPoint(WTFMove(source));
+    m_input.insertAtCurrentInsertionPoint(WTF::move(source));
     pumpTokenizerIfPossible(SynchronousMode::ForceSynchronous);
 
     if (isWaitingForScripts() && !isDetached()) {
@@ -411,12 +412,12 @@ void HTMLDocumentParser::insert(SegmentedString&& source)
 
 void HTMLDocumentParser::append(RefPtr<StringImpl>&& inputSource)
 {
-    append(WTFMove(inputSource), SynchronousMode::AllowYield);
+    append(WTF::move(inputSource), SynchronousMode::AllowYield);
 }
 
 void HTMLDocumentParser::appendSynchronously(RefPtr<StringImpl>&& inputSource)
 {
-    append(WTFMove(inputSource), SynchronousMode::ForceSynchronous);
+    append(WTF::move(inputSource), SynchronousMode::ForceSynchronous);
 }
 
 void HTMLDocumentParser::append(RefPtr<StringImpl>&& inputSource, SynchronousMode synchronousMode)
@@ -428,7 +429,7 @@ void HTMLDocumentParser::append(RefPtr<StringImpl>&& inputSource, SynchronousMod
     // but we need to ensure it isn't deleted yet.
     Ref<HTMLDocumentParser> protectedThis(*this);
 
-    String source { WTFMove(inputSource) };
+    String source { WTF::move(inputSource) };
 
     if (m_preloadScanner) {
         if (m_input.current().isEmpty() && !isWaitingForScripts()) {

@@ -581,6 +581,7 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 	
 	AppleCDDAMountPtr		cddaMountPtr		= NULL;
 	UInt8 *					ptr					= NULL;
+	UInt8 *					endPtr				= NULL;
 	UInt8					length				= 0;
 	
 	DebugLog ( ( "FindName: entering\n" ) );
@@ -594,6 +595,7 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 	DebugLog ( ( "cddaMountPtr->nameDataSize = %ld\n", cddaMountPtr->nameDataSize ) );
 	
 	ptr = cddaMountPtr->nameData;
+	endPtr = cddaMountPtr->nameData + cddaMountPtr->nameDataSize;
 	
 	if ( ptr == NULL )
 	{
@@ -605,9 +607,15 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 	
 	do
 	{
-				
+		// ptr points to the current track. ptr[0] is track number, ptr[1] is the name length
+		// Need to verify both are valid
+		if (ptr + 2 > endPtr) {
+			DebugLog ( ( "ptr %llx + 2 > endPtr %llx\n", (uint64_t)ptr, (uint64_t)endPtr) );
+			break;
+		}
+
 		DebugLog ( ( "*ptr = %d\n", *ptr ) );
-		
+
 		if ( *ptr == trackNumber )
 		{
 			
@@ -617,8 +625,16 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 			
 			*nameSize 	= ptr[1];
 			*name 		= ( char * ) &ptr[2];
-			
-			bcopy ( &ptr[2], mylocalname, *nameSize );
+
+			// Check that track name has valid name, if not, return "Unknown" name
+			if (((*name) + (*nameSize) > endPtr) || ((*nameSize) == 0)) {
+				*name = "Unknown";
+				*nameSize = strlen(*name);
+				
+				DebugLog ( ( "Set track %d name to Unknown\n", trackNumber) );
+			}
+
+			bcopy ( *name, mylocalname, *nameSize );
 			mylocalname[*nameSize] = 0;
 			
 			DebugLog ( ( "NameSize = %d\n", *nameSize ) );
@@ -638,7 +654,7 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 			
 		}
 		
-	} while ( ptr < ( cddaMountPtr->nameData + cddaMountPtr->nameDataSize ) );
+	} while ( true );
 	
 	DebugLog ( ( "FindName: exiting\n" ) );
 	

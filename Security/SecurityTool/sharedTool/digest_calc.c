@@ -69,7 +69,7 @@ extern int command_digest(int argc, char * const *argv)
     ccdigest_di_decl(di, ctx);
     
     digest = malloc(di->output_size);
-    require_quiet(digest, exit);
+    __Require_Quiet(digest, exit);
     
     for (i = 2; i < (unsigned int)argc; ++i)
     {

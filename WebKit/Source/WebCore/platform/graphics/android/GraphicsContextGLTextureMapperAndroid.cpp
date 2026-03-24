@@ -32,7 +32,7 @@ namespace WebCore {
 
 RefPtr<GraphicsContextGLTextureMapperAndroid> GraphicsContextGLTextureMapperAndroid::create(GraphicsContextGLAttributes&& attributes)
 {
-    auto context = adoptRef(new GraphicsContextGLTextureMapperAndroid(WTFMove(attributes)));
+    auto context = adoptRef(new GraphicsContextGLTextureMapperAndroid(WTF::move(attributes)));
     if (!context->initialize())
         return nullptr;
     return context;
@@ -40,7 +40,7 @@ RefPtr<GraphicsContextGLTextureMapperAndroid> GraphicsContextGLTextureMapperAndr
 
 bool GraphicsContextGLTextureMapperAndroid::platformInitializeExtensions()
 {
-    if (!enableExtension("GL_OES_EGL_image"_s))
+    if (!enableExtensionsImpl({ "GL_OES_EGL_image"_s }))
         return false;
 
     const auto& eglExtensions = PlatformDisplay::sharedDisplay().eglExtensions();
@@ -104,12 +104,14 @@ bool GraphicsContextGLTextureMapperAndroid::enableRequiredWebXRExtensions()
     if (!makeContextCurrent())
         return false;
 
-    return enableExtension("GL_OES_EGL_image"_s)
-        && enableExtension("GL_OES_EGL_image_external"_s)
-        && enableExtension("EGL_KHR_image_base"_s)
-        && enableExtension("EGL_KHR_surfaceless_context"_s)
-        && enableExtension("EGL_ANDROID_get_native_client_buffer"_s)
-        && enableExtension("EGL_ANDROID_image_native_buffer"_s);
+    return enableExtensionsImpl({
+        "GL_OES_EGL_image"_s,
+        "GL_OES_EGL_image_external"_s,
+        "EGL_KHR_image_base"_s,
+        "EGL_KHR_surfaceless_context"_s,
+        "EGL_ANDROID_get_native_client_buffer"_s,
+        "EGL_ANDROID_image_native_buffer"_s,
+    });
 }
 #endif // ENABLE(WEBXR)
 

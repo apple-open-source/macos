@@ -177,7 +177,7 @@ void JSTestStringContextPrototype::finishCreation(VM& vm)
 const ClassInfo JSTestStringContext::s_info = { "TestStringContext"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestStringContext) };
 
 JSTestStringContext::JSTestStringContext(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestStringContext>&& impl)
-    : JSDOMWrapper<TestStringContext>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestStringContext>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -801,7 +801,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringContext>(impl.ptr());
 #endif
-    return createWrapper<TestStringContext>(globalObject, WTFMove(impl));
+    return createWrapper<TestStringContext>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestStringContext& impl)

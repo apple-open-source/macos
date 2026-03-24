@@ -284,7 +284,8 @@ struct UBiDi {
     /* memory sizes in bytes */
 #if APPLE_ICU_CHANGES
 // rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
-    int32_t dirInsertSize, dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
+// rdar://167443712 changed sizes from int32_t to int64_t to prevent overflow
+    int64_t dirInsertSize, dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
 #else
     int32_t dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
 #endif // APPLE_ICU_CHANGES
@@ -458,7 +459,11 @@ typedef union {
 
 /* helper function to (re)allocate memory if allowed */
 U_CFUNC UBool
+#if APPLE_ICU_CHANGES // rdar://167443712
+ubidi_getMemory(BidiMemoryForAllocation *pMemory, int64_t *pSize, UBool mayAllocate, int64_t sizeNeeded);
+#else
 ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded);
+#endif
 
 /* helper macros for each allocated array in UBiDi */
 #if APPLE_ICU_CHANGES

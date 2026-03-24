@@ -11,6 +11,20 @@ import CloudKitCode
 import Foundation
 import InternalSwiftProtobuf
 
+public let escrowProxyZoneName = "CuttlefishEscrow"
+public let stingrayLabel = "com.apple.protectedcloudstorage.record"
+public let dbrLabel = "com.apple.protectedcloudstorage.dbrv2.record"
+public let fdeLabel = "com.apple.protectedcloudstorage.fde.record"
+public let fallbackStingrayLabel = "com.apple.protectedcloudstorage.dbrv2-fallback.record"
+public let lrcfedLabel = "com.apple.protectedcloudstorage.dbrv2-ehsm-federation.record"
+public let lrcLabel = "com.apple.protectedcloudstorage.dbrv2-ehsm.record"
+
+/* EscrowProxyClubh Record */
+public let SecCKRecordEscrowProxyClubhType = "escrowproxyclubh"
+public let SecCKRecordEscrowProxyClubhMetadataKey = "metadata" // Represents the 'metadata' BYTES field.
+public let SecCKRecordEscrowProxyClubhRecordKey = "record" // Represents the 'record' BYTES field. This is considered to be a blob of bytes in Cylon/Cyrus.
+public let SecCKRecordEscrowProxyClubhLabelKey = "label" // Represents the 'label' STRING field.
+
 public class FakeManagedConfiguration: OTManagedConfigurationAdapter {
     var keychainAllowed = true
 
@@ -238,6 +252,19 @@ struct CurrentItemRecord {
     }
 }
 
+extension EscrowRecordFormatQuery {
+    func fakeRecord() -> CKRecord {
+        let zoneID = CKRecordZone.ID(__zoneName: escrowProxyZoneName, ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(__recordName: self.label, zoneID: zoneID)
+        let record = CKRecord(recordType: SecCKRecordEscrowProxyClubhType, recordID: recordID)
+
+        record[SecCKRecordEscrowProxyClubhLabelKey] = self.label
+        record[SecCKRecordEscrowProxyClubhRecordKey] = self.blob
+        record[SecCKRecordEscrowProxyClubhMetadataKey] = self.metadata
+        return record
+    }
+}
+
 @objc
 class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
@@ -251,11 +278,14 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         var recoverySigningPubKey: Data?
         var recoveryEncryptionPubKey: Data?
         var bottles: [Bottle] = []
-        var escrowRecords: [EscrowInformation] = []
+        var icscEscrowRecords: [EscrowInformation] = []
         var custodianRecoveryKeys: [String: SignedCustodianRecoveryKey] = [:]
 
         var viewKeys: [CKRecordZone.ID: ViewKeys] = [:]
         var tlkShares: [CKRecordZone.ID: [TLKShare]] = [:]
+
+        // In EP clubs, a record blob is enrolled to a record label. In our mock club, we'll store the full record for introspection.
+        var EscrowProxyClub: [String: CKRecord] = [:]
 
         init() {
         }
@@ -351,6 +381,8 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var fetchPolicyDocumentsListener: ((FetchPolicyDocumentsRequest) -> NSError?)?
     var fetchPolicyDocumentsReturnEmptyResponse: Bool = false
     var expectRateLimitListener: ((GetEscrowCheckRequest) -> NSError?)?
+    var enableWalrusListener: ((EnableWalrusRequest) -> NSError?)?
+    var disableWalrusListener: ((DisableWalrusRequest) -> NSError?)?
 
     static let mapper = { (doc: TPPolicyDocument) in (doc.version.versionNumber, (doc.version.policyHash, doc.protobuf)) }
 
@@ -633,6 +665,22 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         return allRecords
     }
 
+    func store(escrowRecords: [EscrowRecordFormatQuery]) -> [CKRecord] {
+        var allRecords: [CKRecord] = []
+
+        escrowRecords.forEach { er in
+            if let fakeZone = self.fakeCKZones[CKRecordZone.ID(zoneName: escrowProxyZoneName)] as? FakeCKZone {
+                let fakeEscrowRecord = er.fakeRecord()
+                allRecords.append(fakeEscrowRecord)
+                fakeZone.add(toZone: fakeEscrowRecord)
+            } else {
+                print("store:escrowRecords: Couldn't find EscrowProxy Zone \(escrowProxyZoneName)")
+            }
+        }
+
+        return allRecords
+    }
+
     func establish(_ request: EstablishRequest, completion: @escaping (Result<EstablishResponse, Error>) -> Void) {
         print("FakeCuttlefish: establish called")
         if !self.state.peersByID.isEmpty {
@@ -694,7 +742,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
             $0.escrowInformationMetadata = e
         }
-        self.state.escrowRecords.append(escrowInformation)
+        self.state.icscEscrowRecords.append(escrowInformation)
 
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
@@ -785,7 +833,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
             $0.escrowInformationMetadata = e
         }
-        self.state.escrowRecords.append(escrowInformation)
+        self.state.icscEscrowRecords.append(escrowInformation)
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
         keyRecords.append(contentsOf: store(tlkShares: request.tlkShares))
@@ -1081,7 +1129,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
                     $0.escrowRecordID = bottle.bottleID
                     $0.bottle = bottle
                     if self.includeEscrowRecords {
-                        $0.record = self.state.escrowRecords.first { $0.escrowInformationMetadata.bottleID == bottle.bottleID } ?? EscrowInformation()
+                        $0.record = self.state.icscEscrowRecords.first { $0.escrowInformationMetadata.bottleID == bottle.bottleID } ?? EscrowInformation()
                     }
                 }
             }
@@ -1452,5 +1500,132 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
         }
         completion(.success(RemoveUnreadableCKServerDataResponse()))
+    }
+
+    func disableWalrus(_ request: DisableWalrusRequest, completion: @escaping (Result<DisableWalrusResponse, any Error>) -> Void) {
+        // Check the validity of the change token
+        guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)))
+            return
+        }
+
+        // Check that we have a peer with the given peer ID.
+        guard var peer = self.state.peersByID[request.peerID] else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound)))
+            return
+        }
+
+        if request.hasStableInfoAndSig {
+            peer.stableInfoAndSig = request.stableInfoAndSig
+        } else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound)))
+            return
+        }
+
+        // Check for valid new stableInfo. If our new walrus value is not false, that's wrong.
+        let si = peer.stableInfoAndSig.toStableInfo()
+        if si?.walrusSetting?.value != false {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .invalidWalrusState)))
+            return
+        }
+
+        // Before performing operation, check if we should error
+        if let disableWalrusListener = self.disableWalrusListener {
+            let possibleError = disableWalrusListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+
+        // In Stingray mode, we'll have a blob enrolled in the EP Club containing only the FDE identity. Delete it.
+        if !request.isDbrv2 {
+            self.state.EscrowProxyClub.removeValue(forKey: stingrayLabel)
+        }
+
+        // Write our new non-ADP CK Records to CloudKit and the EP Club
+        let storedEscrowRecords = self.store(escrowRecords: request.escrowRecords)
+        storedEscrowRecords.forEach { record in
+            self.state.EscrowProxyClub[record[SecCKRecordEscrowProxyClubhLabelKey] as! String] = record
+        }
+
+        // Update peer
+        self.state.peersByID[request.peerID] = peer
+
+        self.makeSnapshot()
+        let response = DisableWalrusResponse.with {
+            $0.changes = self.changesSince(snapshot: snapshot)
+        }
+        completion(.success(response))
+    }
+
+    func enableWalrus(_ request: EnableWalrusRequest, completion: @escaping (Result<EnableWalrusResponse, any Error>) -> Void) {
+        guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)))
+            return
+        }
+
+        // Check that we have a peer with the given peer ID.
+        guard var peer = self.state.peersByID[request.peerID] else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound)))
+            return
+        }
+
+        if request.hasStableInfoAndSig {
+            peer.stableInfoAndSig = request.stableInfoAndSig
+        } else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound)))
+            return
+        }
+
+        // Check for valid new stableInfo. If our new walrus value is not true, that's wrong.
+        let si = peer.stableInfoAndSig.toStableInfo()
+        if si?.walrusSetting?.value != true {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .invalidWalrusState)))
+            return
+        }
+
+        // Before performing operation, check if we should error
+        if let enableWalrusListener = self.enableWalrusListener {
+            let possibleError = enableWalrusListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+
+        // Delete all records from CK and EP Club.
+        // NOTE: FDE record will always stay in CK and Club regardless of walrus state when DBR is on. For now, we'll pretend that it exists.
+        let recordIDs: [CKRecord.ID]
+        if let fakeZone = self.fakeCKZones[CKRecordZone.ID(zoneName: escrowProxyZoneName)] as? FakeCKZone {
+            recordIDs = fakeZone.currentDatabase.allKeys as! [CKRecord.ID]
+            recordIDs.forEach { recordID in
+                fakeZone.deleteCKRecordID(fromZone: recordID)
+                self.state.EscrowProxyClub.removeValue(forKey: recordID.recordName)
+            }
+        }
+
+        // Write ADP CK records
+        // If we're not DBR but turning on Walrus, we need to enroll the stingray blob containing the FDE identity in the club.
+        // It's also possible that the client might upload additional records. We want to err on the side of caution when ADP is being enabled, so filter out records that don't satisfy the ADP guarantee.
+        request.escrowRecords.forEach { query in
+            if [stingrayLabel, dbrLabel, fdeLabel].contains(query.label) {
+                let record: CKRecord = self.store(escrowRecords: [query]).first!
+                // FDE record and non-DBR+ADP get enrolled in the Club.
+                if query.label == stingrayLabel || query.label == fdeLabel {
+                    self.state.EscrowProxyClub[query.label] = record
+                }
+            }
+        }
+
+        // Update peer
+        self.state.peersByID[request.peerID] = peer
+
+        // Return changes
+        self.makeSnapshot()
+        let response = EnableWalrusResponse.with {
+            $0.changes = self.changesSince(snapshot: snapshot)
+        }
+        completion(.success(response))
     }
 }

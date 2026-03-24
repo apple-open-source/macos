@@ -219,7 +219,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
         exceptions.add(identifier);
 
     auto defaultEnablement = enabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
-    protectedWebsitePolicies(self)->setContentExtensionEnablement({ defaultEnablement, WTFMove(exceptions) });
+    protectedWebsitePolicies(self)->setContentExtensionEnablement({ defaultEnablement, WTF::move(exceptions) });
 }
 
 - (void)_setActiveContentRuleListActionPatterns:(NSDictionary<NSString *, NSSet<NSString *> *> *)patterns
@@ -230,9 +230,9 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
         vector.reserveInitialCapacity(value.count);
         for (NSString *pattern in value)
             vector.append(pattern);
-        map.add(key, WTFMove(vector));
+        map.add(key, WTF::move(vector));
     }];
-    protectedWebsitePolicies(self)->setActiveContentRuleListActionPatterns(WTFMove(map));
+    protectedWebsitePolicies(self)->setActiveContentRuleListActionPatterns(WTF::move(map));
 }
 
 - (NSDictionary<NSString *, NSSet<NSString *> *> *)_activeContentRuleListActionPatterns
@@ -403,10 +403,10 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (void)_setCustomHeaderFields:(NSArray<_WKCustomHeaderFields *> *)fields
 {
     Vector<WebCore::CustomHeaderFields> vector(fields.count, [fields](size_t i) {
-        _WKCustomHeaderFields *element = fields[i];
+        RetainPtr<_WKCustomHeaderFields> element = fields[i];
         return downcast<API::CustomHeaderFields>([element _apiObject]).coreFields();
     });
-    protectedWebsitePolicies(self)->setCustomHeaderFields(WTFMove(vector));
+    protectedWebsitePolicies(self)->setCustomHeaderFields(WTF::move(vector));
 }
 
 - (WKWebsiteDataStore *)_websiteDataStore
@@ -499,15 +499,27 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     }
 }
 
-- (void)_setEnhancedSecurityEnabled:(BOOL)enhancedSecurityEnabled
+- (void)_setOverrideReferrerForAllRequests:(NSString *)referrer
 {
-    _websitePolicies->setEnhancedSecurityEnabled(enhancedSecurityEnabled ? true : false);
+    _websitePolicies->setOverrideReferrerForAllRequests(referrer);
+}
+
+- (NSString *)_overrideReferrerForAllRequests
+{
+    return _websitePolicies->overrideReferrerForAllRequests().createNSString().autorelease();
+}
+
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
+- (void)_setEnhancedSecurityEnabled:(BOOL)isEnhancedSecurityEnabled
+{
+    _websitePolicies->setIsEnhancedSecurityEnabled(isEnhancedSecurityEnabled);
 }
 
 - (BOOL)_enhancedSecurityEnabled
 {
-    return _websitePolicies->enhancedSecurityEnabled();
+    return _websitePolicies->isEnhancedSecurityEnabled();
 }
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)_setCaptivePortalModeEnabled:(BOOL)enabled
 {
@@ -741,11 +753,11 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
             selectors.reserveInitialCapacity(nsSelectors.count);
             for (NSString *selector in nsSelectors)
                 selectors.add(selector);
-            selectorsForElement.append(WTFMove(selectors));
+            selectorsForElement.append(WTF::move(selectors));
         }
-        result.append(WTFMove(selectorsForElement));
+        result.append(WTF::move(selectorsForElement));
     }
-    protectedWebsitePolicies(self)->setVisibilityAdjustmentSelectors(WTFMove(result));
+    protectedWebsitePolicies(self)->setVisibilityAdjustmentSelectors(WTF::move(result));
 }
 
 - (NSArray<NSArray<NSSet<NSString *> *> *> *)_visibilityAdjustmentSelectorsIncludingShadowHosts
@@ -814,7 +826,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSURLRequest *)_alternateRequest
 {
-    return protectedWebsitePolicies(self)->alternateRequest().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
+    return protectedWebsitePolicies(self)->alternateRequest().protectedNSURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody).autorelease();
 }
 
 
@@ -826,6 +838,33 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (BOOL)_allowsJSHandleCreationInPageWorld
 {
     return _websitePolicies->allowsJSHandleCreationInPageWorld();
+}
+
+- (void)setSecurityRestrictionMode:(WKSecurityRestrictionMode)mode
+{
+    switch (mode) {
+    case WKSecurityRestrictionModeNone:
+        _websitePolicies->setIsEnhancedSecurityEnabled(false);
+        _websitePolicies->setLockdownModeEnabled(false);
+        break;
+    case WKSecurityRestrictionModeMaximizeCompatibility:
+        _websitePolicies->setIsEnhancedSecurityEnabled(true);
+        _websitePolicies->setLockdownModeEnabled(false);
+        break;
+    case WKSecurityRestrictionModeLockdown:
+        _websitePolicies->setIsEnhancedSecurityEnabled(false);
+        _websitePolicies->setLockdownModeEnabled(true);
+        break;
+    }
+}
+
+- (WKSecurityRestrictionMode)securityRestrictionMode
+{
+    if (Ref { *_websitePolicies }->lockdownModeEnabled())
+        return WKSecurityRestrictionModeLockdown;
+    if (_websitePolicies->isEnhancedSecurityEnabled())
+        return WKSecurityRestrictionModeMaximizeCompatibility;
+    return WKSecurityRestrictionModeNone;
 }
 
 @end

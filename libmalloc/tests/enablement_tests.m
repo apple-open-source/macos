@@ -9,7 +9,7 @@
 #include <darwintest_utils.h>
 #include <../src/internal.h>
 
-#if CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX || TARGET_OS_VISION || TARGET_OS_WATCH)
+#if CONFIG_XZONE_MALLOC && !TARGET_OS_BRIDGE
 
 #include <Foundation/Foundation.h>
 #include <Foundation/NSJSONSerialization.h>
@@ -25,7 +25,8 @@ static size_t print_buffer_index = 0;
 
 typedef struct enablement_configuration {
 	bool should_have_xzones;
-	bool guards_enabled;
+	bool guard_pages_enabled;
+	bool guard_objects_enabled;
 	bool thread_cache_enabled;
 	unsigned batch_size;
 	unsigned ptr_bucket_count;
@@ -40,6 +41,12 @@ static uint8_t
 get_ncpuclusters(void)
 {
 	return *(uint8_t *)(uintptr_t)_COMM_PAGE_CPU_CLUSTERS;
+}
+
+static uint8_t
+get_logical_ncpus(void)
+{
+	return *(uint8_t *)(uintptr_t)_COMM_PAGE_LOGICAL_CPUS;
 }
 
 static void
@@ -135,7 +142,7 @@ find_first_pid_for_process(const char *searchname)
 // procname exist, this function will choose to examine the one with the
 // lowest pid.
 static NSArray *
-get_process_json(char *procname, bool skip_if_not_found)
+get_process_json(const char *procname, bool skip_if_not_found)
 {
 	reset_print_buffer();
 
@@ -265,39 +272,72 @@ get_device_name(char *devicename, size_t buflen)
 }
 
 static bool
-get_device_should_defer_large(void)
+get_device_has_deferred_reclaim(bool deferred_reclaim_forced)
 {
-	bool should_defer_large = false;
+	bool deferred_reclaim = false;
 
 #if MALLOC_TARGET_IOS_ONLY
-	char device_name[16] = { 0 };
-	get_device_name(device_name, sizeof(device_name) - 1);
-
-	T_LOG("Device name: %s", device_name);
-
-	if (!strcmp(device_name, "J420") || !strcmp(device_name, "J421")) {
-		return false;
+	if (deferred_reclaim_forced) {
+		return true;
 	}
-
-	// If an iOS device has >=6GB of memory, the enablement configuration
-	// should have defer_large set to "true".  Note that here we check for >=
-	// 5GB because in practice various carve-outs reduce the actual size of
-	// various 6GB devices to a bit below that quantity.  There are no devices
-	// with >= 5GB of memory on iOS that aren't actually 6GB devices in the
-	// sense we mean here.
+	// If an iOS device has >= 6GB of memory, the enablement configuration
+	// should expect deferred reclaim to be enabled.  Note that here we check
+	// for >= 5GB because in practice various carve-outs reduce the actual size
+	// of various 6GB devices to a bit below that quantity.  There are no
+	// devices with >= 5GB of memory on iOS that aren't actually 6GB devices in
+	// the sense we mean here.
 	uint64_t memsize = platform_hw_memsize();
-	const uint64_t defer_large_ios_bytes_memsize = 5 * 1073741824ULL;
-	T_LOG("Device memsize: %"PRIu64", defer_large_ios_bytes_memsize: %"PRIu64"",
-			memsize, defer_large_ios_bytes_memsize);
-	if (memsize >= defer_large_ios_bytes_memsize) {
-		should_defer_large = true;
+	const uint64_t deferred_reclaim_ios_bytes_memsize = 5 * 1073741824ULL;
+	T_LOG("Device memsize: %"PRIu64", "
+			"deferred_reclaim_ios_bytes_memsize: %"PRIu64"", memsize,
+			deferred_reclaim_ios_bytes_memsize);
+	if (memsize >= deferred_reclaim_ios_bytes_memsize) {
+		return true;
 	}
 #elif TARGET_OS_OSX
-	should_defer_large = true;
+	return true;
 #endif
 
-	return should_defer_large;
+	return false;
 }
+
+#if TARGET_OS_TV
+
+struct tv_device_config {
+	bool enabled;
+	unsigned security_critical_ptr_bucket_count;
+	unsigned general_ptr_bucket_count;
+};
+
+static struct tv_device_config
+get_tv_device_config(void)
+{
+	struct tv_device_config result = { 0 };
+
+	result.enabled = true;
+
+	uint64_t memsize = platform_hw_memsize();
+	uint8_t ncpus = get_logical_ncpus();
+
+	if (ncpus <= 2) {
+		result.general_ptr_bucket_count = 1;
+
+
+		if (memsize >= GiB(7)) {
+			result.security_critical_ptr_bucket_count = 3;
+		} else {
+			result.security_critical_ptr_bucket_count = 2;
+		}
+	} else {
+		result.security_critical_ptr_bucket_count = 3;
+
+		result.general_ptr_bucket_count = 3;
+	}
+
+	return result;
+}
+
+#endif
 
 static void
 enablement_configuration_process_checks(NSArray *json_array,
@@ -310,6 +350,13 @@ enablement_configuration_process_checks(NSArray *json_array,
 	return;
 #endif
 
+#if TARGET_OS_TV
+	if (!get_tv_device_config().enabled) {
+		T_EXPECT_EQ(json_array.count, 0ul, "No zones should be present");
+		return;
+	}
+#endif
+
 	// Verify if the secure allocator is enabled for that process
 	if (configuration->should_have_xzones) {
 		T_ASSERT_GE(json_array.count, 1ul, "At least one zone is xzm");
@@ -318,12 +365,19 @@ enablement_configuration_process_checks(NSArray *json_array,
 		return;
 	}
 
-	// Verify guard configuration
-	NSDictionary *guard_config = json_array[0][@"guard_config"];
-	T_ASSERT_NE(guard_config, nil, "Guard config dictionary in output");
-	T_EXPECT_EQ([guard_config[@"guards_enabled"] boolValue],
-			(int)configuration->guards_enabled,
-			"Guard configuration");
+	// Verify guard pages configuration
+	NSDictionary *guard_page_config = json_array[0][@"guard_page_config"];
+	T_ASSERT_NE(guard_page_config, nil, "Guard config dictionary in output");
+	T_EXPECT_EQ([guard_page_config[@"guard_pages_enabled"] boolValue],
+			(int)configuration->guard_pages_enabled,
+			"Guard page configuration");
+
+	// Verify guard objects configuration
+	NSDictionary *guard_object_config = json_array[0][@"guard_object_config"];
+	T_ASSERT_NE(guard_object_config, nil, "Guard object dictionary in output");
+	T_EXPECT_EQ([guard_object_config[@"large_guards_enabled"] boolValue],
+			(int)configuration->guard_objects_enabled,
+			"Guard object configuration");
 
 	// Verify thread caching configuration
 	T_EXPECT_EQ([json_array[0][@"thread_cache_enabled"] boolValue],
@@ -374,11 +428,22 @@ spawn_process(char *new_argv[], char *new_envp[])
 
 static void
 security_critical_configuration_checks_with_space_efficiency(
-		const char *process, bool space_efficient)
+		const char *process, bool space_efficient, bool guard_objects,
+		bool deferred_reclaim_forced)
 {
+	bool deferred_reclaim = !space_efficient &&
+			 get_device_has_deferred_reclaim(deferred_reclaim_forced);
+
+	unsigned allocation_front_extra = ALLOCATION_FRONT_EXTRA;
+
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = true,
+		.guard_pages_enabled = true,
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+		.guard_objects_enabled = !deferred_reclaim && guard_objects,
+#else
+		.guard_objects_enabled = false,
+#endif
 #if TARGET_OS_VISION
 		.batch_size = 0,
 		.ptr_bucket_count = 4,
@@ -388,6 +453,10 @@ security_critical_configuration_checks_with_space_efficiency(
 #elif TARGET_OS_WATCH
 		.batch_size = 0,
 		.ptr_bucket_count = 2,
+#elif TARGET_OS_TV
+		.batch_size = 0,
+		.ptr_bucket_count =
+				get_tv_device_config().security_critical_ptr_bucket_count,
 #else
 		.batch_size = 0,
 		.ptr_bucket_count = 3,
@@ -396,16 +465,14 @@ security_critical_configuration_checks_with_space_efficiency(
 		.thread_cache_enabled = !space_efficient,
 #if TARGET_OS_OSX
 		.segment_group_count = (space_efficient ? 1 : get_ncpuclusters()) *
-				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
-		.defer_tiny = !space_efficient,
-		.defer_small = !space_efficient,
+				(XZM_SEGMENT_GROUP_IDS_COUNT + allocation_front_extra),
 #else
 		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
-				ALLOCATION_FRONT_EXTRA),
-		.defer_tiny = false,
-		.defer_small = false,
+				allocation_front_extra),
 #endif // TARGET_OS_OSX
-		.defer_large = (!space_efficient && get_device_should_defer_large()),
+		.defer_tiny = deferred_reclaim,
+		.defer_small = deferred_reclaim,
+		.defer_large = deferred_reclaim,
 	 };
 
 	enablement_configuration_process_checks(get_process_json(process, false),
@@ -413,23 +480,33 @@ security_critical_configuration_checks_with_space_efficiency(
 }
 
 static void
-security_critical_configuration_checks(const char *process)
+security_critical_configuration_checks(const char *process, bool guard_objects)
 {
+	unsigned allocation_front_extra = ALLOCATION_FRONT_EXTRA;
+
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = true,
+		.guard_pages_enabled = true,
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+		.guard_objects_enabled = guard_objects,
+#else
+		.guard_objects_enabled = false,
+#endif
 		.thread_cache_enabled = false,
 		.batch_size = 0,
 #if TARGET_OS_OSX || TARGET_OS_VISION
 		.ptr_bucket_count = 4,
 #elif TARGET_OS_WATCH
 		.ptr_bucket_count = 2,
+#elif TARGET_OS_TV
+		.ptr_bucket_count =
+				get_tv_device_config().security_critical_ptr_bucket_count,
 #else
 		.ptr_bucket_count = 3,
 #endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
 		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
-				ALLOCATION_FRONT_EXTRA),
+				allocation_front_extra),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
@@ -452,7 +529,7 @@ T_DECL(xzone_enabled_launchd,
 		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ASROOT(true))
 {
-	security_critical_configuration_checks("launchd.development");
+	security_critical_configuration_checks("launchd.development", true);
 }
 
 T_DECL(xzone_enabled_logd,
@@ -461,7 +538,7 @@ T_DECL(xzone_enabled_logd,
 		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ASROOT(true))
 {
-	security_critical_configuration_checks("logd");
+	security_critical_configuration_checks("logd", true);
 }
 
 T_DECL(xzone_enabled_notifyd,
@@ -469,10 +546,10 @@ T_DECL(xzone_enabled_notifyd,
 		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ASROOT(true))
 {
-	security_critical_configuration_checks("notifyd");
+	security_critical_configuration_checks("notifyd", true);
 }
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
 
 // This test needs to be run as the local (non-root) user on macOS in order to
 // successfully launch Safari
@@ -489,7 +566,7 @@ T_DECL(xzone_enabled_safari,
 	char *launch_safari_args[] = {"/usr/bin/open", "-a", "Safari",
 	"http://apple.com", NULL};
 	pid_t safari_pid = spawn_process(launch_safari_args, NULL);
-	security_critical_configuration_checks("Safari");
+	security_critical_configuration_checks("Safari", true);
 #else
 #if MALLOC_TARGET_IOS_ONLY
 	// Move past home screen to launch app in foreground
@@ -500,21 +577,21 @@ T_DECL(xzone_enabled_safari,
 
 	// We'd like to verify that Safari, along with its related subprocesses,
 	// are running with the secure critical process configuration
-	security_critical_configuration_checks("MobileSafari");
+	security_critical_configuration_checks("MobileSafari", true);
 #endif
-	security_critical_configuration_checks("com.apple.WebKit.Networking");
-	security_critical_configuration_checks("com.apple.WebKit.GPU");
-	security_critical_configuration_checks("com.apple.WebKit.WebContent");
+	security_critical_configuration_checks("com.apple.WebKit.Networking", true);
+	security_critical_configuration_checks("com.apple.WebKit.GPU", true);
+	security_critical_configuration_checks("com.apple.WebKit.WebContent", true);
 
 #if TARGET_OS_OSX
 	terminate_process(safari_pid);
 #endif
 }
 
-#endif // !TARGET_OS_WATCH
+#endif // !TARGET_OS_WATCH && !TARGET_OS_TV
 
-// TODO: port this test to watchOS
-#if !TARGET_OS_WATCH
+// TODO: port this test to watchOS and tvOS
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
 
 T_DECL(xzone_enabled_driverkit,
 		"Verify enablement configuration for Driverkit processes",
@@ -532,7 +609,8 @@ T_DECL(xzone_enabled_driverkit,
 	// label: com.apple.AppleUserHIDDriver
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = false,
+		.guard_pages_enabled = false,
+		.guard_objects_enabled = true,
 		.thread_cache_enabled = false,
 		.batch_size = 0,
 #if TARGET_OS_OSX || TARGET_OS_VISION
@@ -558,7 +636,7 @@ T_DECL(xzone_enabled_driverkit,
 	terminate_process(driver_test_pid);
 }
 
-#endif // !TARGET_OS_WATCH
+#endif // !TARGET_OS_WATCH && !TARGET_OS_TV
 
 T_DECL(xzone_enabled_general_process_test_runner,
 		"Verify enablement configuration for general processes (the test" "process itself)",
@@ -566,9 +644,13 @@ T_DECL(xzone_enabled_general_process_test_runner,
 		T_META_TAG_NO_ALLOCATOR_OVERRIDE,
 		T_META_ASROOT(true))
 {
+
+	unsigned allocation_front_extra = ALLOCATION_FRONT_EXTRA;
+
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = false,
+		.guard_pages_enabled = false,
+		.guard_objects_enabled = false,
 #if TARGET_OS_OSX
 		.thread_cache_enabled = true,
 		.batch_size = 10,
@@ -580,20 +662,23 @@ T_DECL(xzone_enabled_general_process_test_runner,
 		.ptr_bucket_count = 4,
 #elif TARGET_OS_WATCH
 		.ptr_bucket_count = 1,
+#elif TARGET_OS_TV
+		.ptr_bucket_count =
+				get_tv_device_config().general_ptr_bucket_count,
 #else
 		.ptr_bucket_count = 2,
 #endif
 #if TARGET_OS_OSX
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
 		.segment_group_count = get_ncpuclusters() *
-				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
+				(XZM_SEGMENT_GROUP_IDS_COUNT + allocation_front_extra),
 		.defer_tiny = true,
 		.defer_small = true,
 		.defer_large = true,
 #else
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
 		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
-				ALLOCATION_FRONT_EXTRA),
+				allocation_front_extra),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
@@ -611,21 +696,27 @@ T_DECL(xzone_enabled_general_daemon,
 		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ASROOT(true))
 {
+	unsigned allocation_front_extra = ALLOCATION_FRONT_EXTRA;
+
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = false,
+		.guard_pages_enabled = false,
+		.guard_objects_enabled = false,
 		.thread_cache_enabled = false,
 		.batch_size = 0,
 #if TARGET_OS_VISION || TARGET_OS_OSX
 		.ptr_bucket_count = 4,
 #elif TARGET_OS_WATCH
 		.ptr_bucket_count = 1,
+#elif TARGET_OS_TV
+		.ptr_bucket_count =
+				get_tv_device_config().general_ptr_bucket_count,
 #else
 		.ptr_bucket_count = 2,
 #endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
 		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
-				ALLOCATION_FRONT_EXTRA),
+				allocation_front_extra),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
@@ -645,7 +736,8 @@ T_DECL(xzone_enabled_overridden_app,
 {
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = false,
+		.guard_pages_enabled = false,
+		.guard_objects_enabled = false,
 		.thread_cache_enabled = true,
 		.batch_size = 10,
 		.ptr_bucket_count = 4,
@@ -671,17 +763,19 @@ T_DECL(xzone_enabled_overridden_app,
 }
 #endif // TARGET_OS_OSX
 
-#if !TARGET_OS_WATCH
+// TODO: this test is worth porting to tvOS
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
 
 T_DECL(xzone_enabled_general_app,
 		"Verify enablement configuration for a general app (Notes)",
 		T_META_TAG_VM_NOT_ELIGIBLE)
 {
-	bool should_defer_large = get_device_should_defer_large();
+	bool deferred_reclaim = get_device_has_deferred_reclaim(false);
 
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
-		.guards_enabled = false,
+		.guard_pages_enabled = false,
+		.guard_objects_enabled = false,
 		.thread_cache_enabled = true,
 #if TARGET_OS_VISION
 		.batch_size = 0,
@@ -697,16 +791,13 @@ T_DECL(xzone_enabled_general_app,
 #if TARGET_OS_OSX
 		.segment_group_count = get_ncpuclusters() *
 				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
-		.defer_tiny = true,
-		.defer_small = true,
-		.defer_large = true,
 #else
 		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
 				ALLOCATION_FRONT_EXTRA),
-		.defer_tiny = false,
-		.defer_small = false,
-		.defer_large = should_defer_large,
 #endif // TARGET_OS_OSX
+		.defer_tiny = deferred_reclaim,
+		.defer_small = deferred_reclaim,
+		.defer_large = deferred_reclaim,
 	 };
 
 #if TARGET_OS_OSX
@@ -740,7 +831,7 @@ T_DECL(xzone_enabled_general_app,
 #endif // TARGET_OS_OSX
 }
 
-#endif // !TARGET_OS_WATCH
+#endif // !TARGET_OS_WATCH && !TARGET_OS_TV
 
 T_DECL(xzone_enabled_hardened_heap_entitlement_space_efficient,
 		"Verify enablement configuration for hardened-heap entitled process"
@@ -767,7 +858,7 @@ T_DECL(xzone_enabled_hardened_heap_entitlement_space_efficient,
 	bool space_efficient = true;
 
 	security_critical_configuration_checks_with_space_efficiency(
-			"hardened_heap_test_tool", space_efficient);
+			"hardened_heap_test_tool", space_efficient, true, false);
 
 	terminate_process(pid);
 }
@@ -803,7 +894,7 @@ T_DECL(xzone_enabled_hardened_heap_entitlement_non_space_efficient,
 	bool space_efficient = false;
 
 	security_critical_configuration_checks_with_space_efficiency(
-			"hardened_heap_test_tool", space_efficient);
+			"hardened_heap_test_tool", space_efficient, true, true);
 
 	terminate_process(pid);
 }
@@ -826,19 +917,17 @@ T_DECL(xzone_enabled_hardened_browser_entitlement,
 	// The hardened-browser configuration is always SpaceEfficient
 	bool space_efficient = true;
 	security_critical_configuration_checks_with_space_efficiency(
-			"hardened_browser_test_tool", space_efficient);
+			"hardened_browser_test_tool", space_efficient, false, false);
 
 	terminate_process(pid);
 }
 
 #endif // MALLOC_TARGET_IOS_ONLY
 
-#else // CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX ||
-// TARGET_OS_VISION || TARGET_OS_WATCH)
+#else // CONFIG_XZONE_MALLOC && !TARGET_OS_BRIDGE
 T_DECL(skip_json_printer_tests, "Skip printer tests",
 		T_META_TAG_VM_PREFERRED, T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test without xzone malloc");
 }
-#endif // CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX ||
-// TARGET_OS_VISION)
+#endif // CONFIG_XZONE_MALLOC && !TARGET_OS_BRIDGE

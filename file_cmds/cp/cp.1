@@ -29,7 +29,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd March 28, 2024
+.Dd September 2, 2025
 .Dt CP 1
 .Os
 .Sh NAME
@@ -136,9 +136,8 @@ but not directory structure.
 .It Fl c
 copy files using
 .Xr clonefile 2 .
-Note that if
-.Xr clonefile 2
-is not supported for the target filesystem, then
+Note that if the source and target are on different filesystems, or
+the target filesystem does not support cloning,
 .Nm
 will fallback to using
 .Xr copyfile 2

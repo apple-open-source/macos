@@ -24,6 +24,9 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+#include <wtf/Platform.h>
+
 #if USE(CG)
 
 #include <pal/spi/cg/CoreGraphicsSPI.h>

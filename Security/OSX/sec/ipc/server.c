@@ -75,6 +75,7 @@
 #include "trust/trustd/SecPinningDb.h"
 #include "keychain/securityd/SFKeychainControlManager.h"
 #include "featureflags/featureflags.h"
+#include "keychain/analytics/SecDbStorageMetrics.h"
 
 
 #include "keychain/ckks/CKKS.h"
@@ -253,18 +254,18 @@ static CFDataRef SecXPCDictionaryCopyCFDataRef(xpc_object_t message, const char 
     size_t len = 0;
 
     bytes = xpc_dictionary_get_data(message, key, &len);
-    require_action_quiet(bytes, errOut, SOSCreateError(kSOSErrorBadKey, CFSTR("missing CFDataRef info"), NULL, error));
+    __Require_Action_Quiet(bytes, errOut, SOSCreateError(kSOSErrorBadKey, CFSTR("missing CFDataRef info"), NULL, error));
     retval = CFDataCreate(NULL, bytes, len);
-    require_action_quiet(retval, errOut, SOSCreateError(kSOSErrorBadKey, CFSTR("could not allocate CFDataRef info"), NULL, error));
+    __Require_Action_Quiet(retval, errOut, SOSCreateError(kSOSErrorBadKey, CFSTR("could not allocate CFDataRef info"), NULL, error));
 errOut:
     return retval;
 }
 
 static CFSetRef CreateCFSetRefFromXPCObject(xpc_object_t xpcSetDER, CFErrorRef* error) {
     CFSetRef retval = NULL;
-    require_action_quiet(xpcSetDER, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedNull, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Unexpected Null Set to decode")));
+    __Require_Action_Quiet(xpcSetDER, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedNull, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Unexpected Null Set to decode")));
 
-    require_action_quiet(xpc_get_type(xpcSetDER) == XPC_TYPE_DATA, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("xpcSetDER not data, got %@"), xpcSetDER));
+    __Require_Action_Quiet(xpc_get_type(xpcSetDER) == XPC_TYPE_DATA, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("xpcSetDER not data, got %@"), xpcSetDER));
 
     const uint8_t* der = xpc_data_get_bytes_ptr(xpcSetDER);
     const uint8_t* der_end = der + xpc_data_get_length(xpcSetDER);
@@ -531,6 +532,21 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 (void)SecXPCDictionarySetBool(replyMessage, kSecXPCKeyResult, result, &error);
                 break;
             }
+            case sec_delete_internal_items_on_sign_out_id:
+            {
+                if (!EntitlementAbsentOrFalse(sec_delete_internal_items_on_sign_out_id, client.task, kSecEntitlementKeychainDeny, &error) || !EntitlementPresentAndTrue(sec_delete_internal_items_on_sign_out_id, client.task, kSecEntitlementPrivateDeleteInternalItemsOnSignOut, &error)) {
+                    break;
+                }
+                CFStringRef persona = SecXPCDictionaryCopyString(event, kSecXPCKeyString, &error);
+                bool result = SecServerDeleteInternalItemsOnSignOut(&client, persona, &error);
+                if (!result) {
+                    CFReleaseNull(persona);
+                    break;
+                }
+                (void)SecXPCDictionarySetBool(replyMessage, kSecXPCKeyResult, result, &error);
+                CFReleaseNull(persona);
+                break;
+            }
             case sec_item_copy_matching_id:
             {
                 if (EntitlementAbsentOrFalse(sec_item_add_id, client.task, kSecEntitlementKeychainDeny, &error)) {
@@ -747,49 +763,6 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFReleaseNull(updates);
                     break;
                 }
-            }
-            case sec_keychain_backup_syncable_id:
-            {
-                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementRestoreKeychain, &error)) {
-                    CFDictionaryRef oldbackup = NULL;
-                    if (SecXPCDictionaryCopyDictionaryOptional(event, kSecXPCKeyBackup, &oldbackup, &error)) {
-                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                        if (keybag) {
-                            CFDataRef passcode = NULL;
-                            if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                                CFDictionaryRef newbackup = SecServerBackupSyncable(oldbackup, keybag, passcode, &error);
-                                if (newbackup) {
-                                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, newbackup, &error);
-                                    CFRelease(newbackup);
-                                }
-                                CFReleaseSafe(passcode);
-                            }
-                            CFReleaseNull(keybag);
-                        }
-                        CFReleaseSafe(oldbackup);
-                    }
-                }
-                break;
-            }
-            case sec_keychain_restore_syncable_id:
-            {
-                if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementRestoreKeychain, &error)) {
-                    CFDictionaryRef backup = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyBackup, &error);
-                    if (backup) {
-                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                        if (keybag) {
-                            CFDataRef passcode = NULL;
-                            if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                                bool result = SecServerRestoreSyncable(backup, keybag, passcode, &error);
-                                xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
-                                CFReleaseSafe(passcode);
-                            }
-                            CFReleaseNull(keybag);
-                        }
-                        CFReleaseNull(backup);
-                    }
-                }
-                break;
             }
             case sec_item_backup_copy_names_id:
             {
@@ -1227,10 +1200,10 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFArrayRef array = SOSCCCopyEngineState_Server(&error);
                     CFDataRef derData = NULL;
 
-                    require_quiet(array, done);
+                    __Require_Quiet(array, done);
                     derData = CFPropertyListCreateDERData(kCFAllocatorDefault, array, &error);
 
-                    require_quiet(derData, done);
+                    __Require_Quiet(derData, done);
                     xpc_dictionary_set_data(replyMessage, kSecXPCKeyResult, CFDataGetBytePtr(derData),CFDataGetLength(derData));
                     done:
                         CFReleaseNull(derData);
@@ -1671,6 +1644,19 @@ static void securityd_xpc_init_activities(void)
         }
     });
 #endif // OCTAGON
+    
+    xpc_activity_register("com.apple.securityd.weekly", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+        xpc_activity_state_t state = xpc_activity_get_state(activity);
+        if (state == XPC_ACTIVITY_STATE_RUN) {
+#if KCSHARING
+            KCSharingRequestResync();
+            // send KCSharing local storage metrics
+            KCSharingStorageMetrics();
+#endif
+            // Report Keychain DB metrics as part of weekly xpc activity
+            SecDbStorageStatsReportMetrics();
+        }
+    });
 
     xpc_activity_register("com.apple.securityd.entropyhealth", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t activityState = xpc_activity_get_state(activity);
@@ -1678,21 +1664,12 @@ static void securityd_xpc_init_activities(void)
             SecCoreAnalyticsSendKernEntropyAnalytics();
         }
     });
-
+    
     xpc_activity_register("com.apple.securityd.prng", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t state = xpc_activity_get_state(activity);
         if (state == XPC_ACTIVITY_STATE_RUN) {
             refresh_prng();
         }
-    });
-
-    xpc_activity_register("com.apple.securityd.kcsharing.resync", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
-#if KCSHARING
-        xpc_activity_state_t state = xpc_activity_get_state(activity);
-        if (state == XPC_ACTIVITY_STATE_RUN) {
-            KCSharingRequestResync();
-        }
-#endif
     });
 #pragma clang diagnostic pop
 

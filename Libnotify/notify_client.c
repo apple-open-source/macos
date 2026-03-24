@@ -968,11 +968,11 @@ _notify_log_enabled(const char *name) {
 static struct _notify_logging_s _notify_logging_global =
 {
 	.global = true,
-	.notifications = NULL
+	.notifications = {NULL}
 };
 
 static struct _notify_logging_s *
-_notify_lib_init_logging() {
+_notify_lib_init_logging(void) {
 	if (!os_variant_has_internal_diagnostics("com.apple.libnotify")) {
 		return NULL;
 	}
@@ -1911,7 +1911,7 @@ _notification_introspection_is_exempt(const char *notification)
 
 	const struct _notify_introspect_exempt_s *exempt = introspect->exempt_notifications;
 
-	for (int i = 0; i < introspect->num_exempt_notifications; i++) {
+	for (size_t i = 0; i < introspect->num_exempt_notifications; i++) {
 		if (exempt[i].str[exempt[i].len - 1] == INTROSPECTION_NAME_PREFIX_CHAR) {
 			if (strncmp(notification, exempt[i].str, exempt[i].len - 1) == 0) {
 				return true;
@@ -3523,7 +3523,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		if (pipe(fdpair) < 0)
 		{
 #ifdef DEBUG
-			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s [non-reused[ pipe failed errno=%d [%s]\n, name, errno, strerror(errno)");
+			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s [non-reused[ pipe failed errno=%d [%s]\n", name, errno, strerror(errno));
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
 			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
@@ -3752,7 +3752,7 @@ notify_check(int token, int *check)
 	if (check == NULL)
 	{
 #ifdef DEBUG
-		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check check=NULL\n", token);
+		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check check=NULL for token %d\n", token);
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
 		return NOTIFY_STATUS_NULL_INPUT;

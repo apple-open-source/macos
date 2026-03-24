@@ -37,7 +37,7 @@ class UserScript final : public ObjectImpl<Object::Type::UserScript>, public Ide
 public:
     static Ref<UserScript> create(WebCore::UserScript&& userScript, API::ContentWorld& world)
     {
-        return adoptRef(*new UserScript(WTFMove(userScript), world));
+        return adoptRef(*new UserScript(WTF::move(userScript), world));
     }
 
     UserScript(WebCore::UserScript, API::ContentWorld&);
@@ -50,7 +50,7 @@ public:
     
 private:
     WebCore::UserScript m_userScript;
-    Ref<ContentWorld> m_world;
+    const Ref<ContentWorld> m_world;
 };
 
 } // namespace API

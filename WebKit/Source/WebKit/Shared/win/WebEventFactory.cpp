@@ -418,7 +418,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(HWND hWnd, UINT message, WPAR
     FloatPoint position = positionPoint;
     position.scale(1 / deviceScaleFactor);
 
-    WebWheelEvent::Granularity granularity = WebWheelEvent::ScrollByPixelWheelEvent;
+    auto granularity = WebWheelEvent::Granularity::ScrollByPixelWheelEvent;
 
     auto modifiers = modifiersForEvent(wParam);
 
@@ -440,15 +440,15 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(HWND hWnd, UINT message, WPAR
     if (isMouseHWheel || (modifiers & WebEventModifier::ShiftKey)) {
         deltaX = delta * static_cast<float>(horizontalScrollChars()) * WebCore::cScrollbarPixelsPerLine;
         deltaY = 0;
-        granularity = WebWheelEvent::ScrollByPixelWheelEvent;
+        granularity = WebWheelEvent::Granularity::ScrollByPixelWheelEvent;
     } else {
         deltaX = 0;
         deltaY = delta;
         unsigned verticalMultiplier = verticalScrollLines();
         if (verticalMultiplier == WHEEL_PAGESCROLL)
-            granularity = WebWheelEvent::ScrollByPageWheelEvent;
+            granularity = WebWheelEvent::Granularity::ScrollByPageWheelEvent;
         else {
-            granularity = WebWheelEvent::ScrollByPixelWheelEvent;
+            granularity = WebWheelEvent::Granularity::ScrollByPixelWheelEvent;
             deltaY *= static_cast<float>(verticalMultiplier) * WebCore::cScrollbarPixelsPerLine;
         }
     }

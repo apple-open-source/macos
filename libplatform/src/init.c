@@ -58,13 +58,12 @@ static const struct _libkernel_string_functions _platform_string_functions = {
 #endif
 
 
+#if !VARIANT_STATIC
 void
 __libplatform_init(void *future_use __unused, const char *envp[],
 		const char *apple[], const struct ProgramVars *vars)
 {
-#if !VARIANT_STATIC
 	__os_security_config_init(apple);
-#endif
 
 
     /* In the Simulator, we just provide _simple for dyld */
@@ -75,7 +74,6 @@ __libplatform_init(void *future_use __unused, const char *envp[],
     _simple_asl_init(envp, vars);
 #endif
 
-#if !VARIANT_STATIC
     __libkernel_platform_init(&_platform_string_functions);
-#endif
 }
+#endif

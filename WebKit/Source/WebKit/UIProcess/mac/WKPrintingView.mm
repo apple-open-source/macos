@@ -49,6 +49,11 @@ NSString * const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomM
 
 NSString * const NSPrintInfoDidChangeNotification = @"NSPrintInfoDidChange";
 
+static Ref<WebKit::WebFrameProxy> protectedWebFrame(WKPrintingView *view)
+{
+    return *view->_webFrame;
+}
+
 static BOOL isForcingPreviewUpdate;
 
 @implementation WKPrintingView
@@ -59,7 +64,7 @@ static BOOL isForcingPreviewUpdate;
     if (!self)
         return nil;
 
-    lazyInitialize(_webFrame, Ref { frame });
+    _webFrame = &frame;
     _wkView = wkView;
 
     return self;
@@ -67,7 +72,7 @@ static BOOL isForcingPreviewUpdate;
 
 - (void)dealloc
 {
-    ensureOnMainRunLoop([frame = WTFMove(_webFrame), previews = WTFMove(_pagePreviews)] {
+    ensureOnMainRunLoop([frame = std::exchange(_webFrame, nullptr), previews = WTF::move(_pagePreviews)] {
         // Deallocate these on the main thread, not the current thread, since the
         // reference counting and the destructors aren't threadsafe.
     });
@@ -116,7 +121,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _setAutodisplay:YES];
 
     // Enabling autodisplay normally implicitly calls endPrinting() via -[WKView drawRect:], but not when content is in accelerated compositing mode.
-    if (RefPtr page = _webFrame->page())
+    if (RefPtr page = protectedWebFrame(self)->page())
         page->endPrinting();
 }
 
@@ -162,9 +167,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
     
     CGFloat scale = [info scalingFactor];
-    RefPtr page = _webFrame->page();
-    [info setTopMargin:originalTopMargin + page->headerHeightForPrinting(*_webFrame) * scale];
-    [info setBottomMargin:originalBottomMargin + page->footerHeightForPrinting(*_webFrame) * scale];
+    Ref webFrame = *_webFrame;
+    RefPtr page = webFrame->page();
+    [info setTopMargin:originalTopMargin + page->headerHeightForPrinting(webFrame) * scale];
+    [info setBottomMargin:originalBottomMargin + page->footerHeightForPrinting(webFrame) * scale];
 }
 
 - (BOOL)_isPrintingPreview
@@ -195,7 +201,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return 0;
 
     // Need to directly access the dictionary because -[NSPrintOperation pageRange] verifies pagination, potentially causing recursion.
-    return [[[[_printOperation.get() printInfo] dictionary] objectForKey:NSPrintFirstPage] unsignedIntegerValue];
+    return [retainPtr([retainPtr([retainPtr([_printOperation.get() printInfo]) dictionary]) objectForKey:NSPrintFirstPage]) unsignedIntegerValue];
 }
 
 - (NSUInteger)_lastPrintedPageNumber
@@ -206,8 +212,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return 0;
 
     // Need to directly access the dictionary because -[NSPrintOperation pageRange] verifies pagination, potentially causing recursion.
-    NSUInteger firstPage = [[[[_printOperation.get() printInfo] dictionary] objectForKey:NSPrintFirstPage] unsignedIntegerValue];
-    NSUInteger lastPage = [[[[_printOperation.get() printInfo] dictionary] objectForKey:NSPrintLastPage] unsignedIntegerValue];
+    NSUInteger firstPage = [[retainPtr([retainPtr([_printOperation.get() printInfo]) dictionary]) objectForKey:NSPrintFirstPage] unsignedIntegerValue];
+    NSUInteger lastPage = [[retainPtr([retainPtr([_printOperation.get() printInfo]) dictionary]) objectForKey:NSPrintLastPage] unsignedIntegerValue];
     if (lastPage - firstPage >= _printingPageRects.size())
         return _printingPageRects.size();
     return lastPage;
@@ -240,7 +246,7 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
         ASSERT([view _isPrintingPreview]);
 
         if (imageHandle) {
-            auto image = WebCore::ShareableBitmap::create(WTFMove(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly);
+            auto image = WebCore::ShareableBitmap::create(WTF::move(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly);
 
             if (image)
                 view->_pagePreviews.add(iter->value, image);
@@ -259,7 +265,8 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
 {
     ASSERT(RunLoop::isMain());
 
-    RefPtr page = _webFrame->page();
+    Ref webFrame = *_webFrame;
+    RefPtr page = webFrame->page();
     if (!page || !_printOperation) {
         _printingCallbackCondition.notifyOne();
         return;
@@ -281,7 +288,7 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
 
     WebKit::PrintInfo printInfo([_printOperation.get() printInfo]);
     // Return to printing mode if we're already back to screen (e.g. due to window resizing).
-    page->beginPrinting(_webFrame.get(), printInfo);
+    page->beginPrinting(webFrame.ptr(), printInfo);
 
     IPCCallbackContext* context = new IPCCallbackContext;
     auto callback = [context](API::Data* data) {
@@ -300,7 +307,7 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
             view->_printingCallbackCondition.notifyOne();
         }
     };
-    _expectedPrintCallback = page->drawPagesToPDF(*_webFrame, printInfo, firstPage - 1, lastPage - firstPage + 1, WTFMove(callback));
+    _expectedPrintCallback = page->drawPagesToPDF(webFrame, printInfo, firstPage - 1, lastPage - firstPage + 1, WTF::move(callback));
     context->view = self;
     context->callbackID = _expectedPrintCallback;
 }
@@ -358,7 +365,8 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
 {
     ASSERT(RunLoop::isMain());
 
-    if (!_webFrame->page() || !_printOperation)
+    Ref webFrame = *_webFrame;
+    if (!webFrame->page() || !_printOperation)
         return NO;
 
     ASSERT(!_expectedComputedPagesCallback);
@@ -368,7 +376,7 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
         std::unique_ptr<IPCCallbackContext> contextDeleter(context);
         pageDidComputePageRects(pageRects, totalScaleFactorForPrinting, computedPageMargin, context);
     };
-    _expectedComputedPagesCallback = _webFrame->protectedPage()->computePagesForPrinting(_webFrame->frameID(), WebKit::PrintInfo([_printOperation.get() printInfo]), WTFMove(callback));
+    _expectedComputedPagesCallback = webFrame->protectedPage()->computePagesForPrinting(webFrame->frameID(), WebKit::PrintInfo([_printOperation.get() printInfo]), WTF::move(callback));
     context->view = self;
     context->callbackID = _expectedComputedPagesCallback;
 
@@ -408,7 +416,7 @@ static void prepareDataForPrintingOnSecondaryThread(WKPrintingView *view)
     if (!RunLoop::isMain())
         _isPrintingFromSecondaryThread = YES;
 
-    if (_webFrame->pageIsClosed()) {
+    if (protectedWebFrame(self)->pageIsClosed()) {
         *range = NSMakeRange(1, NSIntegerMax);
         return YES;
     }
@@ -456,7 +464,7 @@ static void prepareDataForPrintingOnSecondaryThread(WKPrintingView *view)
 
 static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestination *destination)
 {
-    return adoptNS([[NSString alloc] initWithFormat:@"%lu-%f-%f", (unsigned long)[document indexForPage:destination.page], destination.point.x, destination.point.y]);
+    return adoptNS([[NSString alloc] initWithFormat:@"%lu-%f-%f", (unsigned long)[document indexForPage:retainPtr(destination.page).get()], destination.point.x, destination.point.y]);
 }
 
 - (void)_drawPDFDocument:(PDFDocument *)pdfDocument page:(unsigned)page atPoint:(NSPoint)point
@@ -514,11 +522,12 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
 - (void)_drawPreview:(NSRect)nsRect
 {
     ASSERT(RunLoop::isMain());
-    
-    if (!_webFrame || !_webFrame->page())
+
+    RefPtr webFrame = _webFrame;
+    if (!webFrame || !webFrame->page())
         return;
 
-    RefPtr page = _webFrame->page();
+    RefPtr page = webFrame->page();
     if (!page)
         return;
 
@@ -540,14 +549,14 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
 
                 // Preview isn't available yet, request it asynchronously.
                 // Return to printing mode if we're already back to screen (e.g. due to window resizing).
-                page->beginPrinting(_webFrame.get(), WebKit::PrintInfo([_printOperation.get() printInfo]));
+                page->beginPrinting(webFrame.get(), WebKit::PrintInfo([_printOperation.get() printInfo]));
 
                 IPCCallbackContext* context = new IPCCallbackContext;
                 auto callback = [context](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
                     std::unique_ptr<IPCCallbackContext> contextDeleter(context);
-                    pageDidDrawToImage(WTFMove(imageHandle), context);
+                    pageDidDrawToImage(WTF::move(imageHandle), context);
                 };
-                _latestExpectedPreviewCallback = page->drawRectToImage(*_webFrame, WebKit::PrintInfo([_printOperation.get() printInfo]), scaledPrintingRect, imageSize, WTFMove(callback));
+                _latestExpectedPreviewCallback = page->drawRectToImage(*webFrame, WebKit::PrintInfo([_printOperation.get() printInfo]), scaledPrintingRect, imageSize, WTF::move(callback));
                 _expectedPreviewCallbacks.add(*_latestExpectedPreviewCallback, scaledPrintingRect);
 
                 context->view = self;
@@ -565,7 +574,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
     WebCore::GraphicsContextCG context([[NSGraphicsContext currentContext] CGContext]);
     WebCore::GraphicsContextStateSaver stateSaver(context);
 
-    bitmap->paint(context, _webFrame->protectedPage()->deviceScaleFactor(), WebCore::IntPoint(nsRect.origin), bitmap->bounds());
+    bitmap->paint(context, protectedWebFrame(self)->protectedPage()->deviceScaleFactor(), WebCore::IntPoint(nsRect.origin), bitmap->bounds());
 }
 
 - (void)drawRect:(NSRect)nsRect
@@ -608,8 +617,8 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
                 if (!destination)
                     continue;
 
-                unsigned destinationPageIndex = [_printedPagesPDFDocument indexForPage:destination.get().page];
-                _linkDestinationsPerPage[destinationPageIndex].append(WTFMove(destination));
+                unsigned destinationPageIndex = [_printedPagesPDFDocument indexForPage:retainPtr(destination.get().page).get()];
+                _linkDestinationsPerPage[destinationPageIndex].append(WTF::move(destination));
             }
         }
     }
@@ -655,7 +664,8 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
         return;
     }
 
-    RefPtr page = _webFrame->page();
+    Ref webFrame = *_webFrame;
+    RefPtr page = webFrame->page();
     if (!page)
         return;
 
@@ -666,24 +676,24 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
     NSSize paperSize = [printInfo paperSize];
     CGFloat headerFooterLeft = [printInfo leftMargin] / scale;
     CGFloat headerFooterWidth = (paperSize.width - ([printInfo leftMargin] + [printInfo rightMargin])) / scale;
-    CGFloat headerHeight = page->headerHeightForPrinting(*_webFrame);
-    CGFloat footerHeight = page->footerHeightForPrinting(*_webFrame);
+    CGFloat headerHeight = page->headerHeightForPrinting(webFrame);
+    CGFloat footerHeight = page->footerHeightForPrinting(webFrame);
     NSRect footerRect = NSMakeRect(headerFooterLeft, [printInfo bottomMargin] / scale - footerHeight, headerFooterWidth, footerHeight);
     NSRect headerRect = NSMakeRect(headerFooterLeft, (paperSize.height - [printInfo topMargin]) / scale, headerFooterWidth, headerHeight);
 
     RetainPtr currentContext = [NSGraphicsContext currentContext];
     [currentContext saveGraphicsState];
     NSRectClip(headerRect);
-    page->drawHeaderForPrinting(*_webFrame, headerRect);
+    page->drawHeaderForPrinting(webFrame, headerRect);
     [currentContext restoreGraphicsState];
 
     [currentContext saveGraphicsState];
     NSRectClip(footerRect);
-    page->drawFooterForPrinting(*_webFrame, footerRect);
+    page->drawFooterForPrinting(webFrame, footerRect);
     [currentContext restoreGraphicsState];
 
     [currentContext saveGraphicsState];
-    page->drawPageBorderForPrinting(*_webFrame, static_cast<WebCore::FloatSize>(borderSize));
+    page->drawPageBorderForPrinting(webFrame, static_cast<WebCore::FloatSize>(borderSize));
     [currentContext restoreGraphicsState];
 }
 
@@ -695,7 +705,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
     ASSERT(_printOperation.get() == [NSPrintOperation currentOperation]);
     if (![self _hasPageRects]) {
         LOG(Printing, "-[WKPrintingView %p rectForPage:%d] - data is not yet available", self, (int)page);
-        if (!_webFrame->page()) {
+        if (!protectedWebFrame(self)->page()) {
             // We may have not told AppKit how many pages there are, so it will try to print until a null rect is returned.
             return NSZeroRect;
         }
@@ -707,7 +717,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
     // If Web process crashes while computing page rects, we never tell AppKit how many pages there are.
     // Returning a null rect prevents selecting non-existent pages in preview dialog.
     if (static_cast<unsigned>(page) > _printingPageRects.size()) {
-        ASSERT(!_webFrame->page());
+        ASSERT(!protectedWebFrame(self)->page());
         return NSZeroRect;
     }
 

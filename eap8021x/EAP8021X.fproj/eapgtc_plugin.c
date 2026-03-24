@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
+#include "EAPLog.h"
 
 /*
  * Declare these here to ensure that the compiler
@@ -149,6 +150,7 @@ eapgtc_process(EAPClientPluginDataRef plugin,
 
     switch (in_pkt->code) {
     case kEAPCodeRequest:
+	EAPLOG_FL(LOG_DEBUG, "[EAP-GTC]: received EAP Request");
 	if (plugin->password == NULL) {
 	    *client_status = kEAPClientStatusUserInputRequired;
 	}
@@ -158,9 +160,11 @@ eapgtc_process(EAPClientPluginDataRef plugin,
 	}
 	break;
     case kEAPCodeSuccess:
+	EAPLOG_FL(LOG_DEBUG, "[EAP-GTC]: received EAP Success");
 	plugin_state = kEAPClientStateSuccess;
 	break;
     case kEAPCodeFailure:
+	EAPLOG_FL(LOG_DEBUG, "[EAP-GTC]: received EAP Failure");
 	*client_status = kEAPClientStatusFailed;
 	plugin_state = kEAPClientStateFailure;
 	break;

@@ -127,6 +127,7 @@ public:
 
     WebCore::MediaPlayerIdentifier identifier() const { return m_id; }
     void invalidate();
+    void connectionToWebProcessClosed();
 
     // Ensure that all previously queued messages to the content process have completed.
     Ref<WebCore::MediaPromise> commitAllTransactions();
@@ -302,7 +303,7 @@ private:
     bool mediaPlayerIsVideo() const final;
     float mediaPlayerContentsScale() const final;
     bool mediaPlayerPlatformVolumeConfigurationRequired() const final;
-    WebCore::CachedResourceLoader* mediaPlayerCachedResourceLoader() final;
+    WebCore::CachedResourceLoader* mediaPlayerCachedResourceLoader() const final;
     Ref<WebCore::PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final;
     bool doesHaveAttribute(const AtomString&, AtomString* = nullptr) const final;
     bool mediaPlayerShouldUsePersistentCache() const final;
@@ -312,7 +313,7 @@ private:
     void textTrackRepresentationBoundsChanged(const WebCore::IntRect&) final;
 
 #if PLATFORM(COCOA)
-    Vector<RefPtr<WebCore::PlatformTextTrack>> outOfBandTrackSources() final;
+    Vector<Ref<WebCore::PlatformTextTrack>> outOfBandTrackSources() final;
 #endif
 
 #if PLATFORM(IOS_FAMILY)

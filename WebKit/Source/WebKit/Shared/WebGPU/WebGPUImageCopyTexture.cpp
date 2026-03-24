@@ -46,7 +46,7 @@ std::optional<ImageCopyTexture> ConvertToBackingContext::convertToBacking(const 
             return std::nullopt;
     }
 
-    return { { texture, imageCopyTexture.mipLevel, WTFMove(origin), imageCopyTexture.aspect } };
+    return { { texture, imageCopyTexture.mipLevel, WTF::move(origin), imageCopyTexture.aspect } };
 }
 
 std::optional<WebCore::WebGPU::ImageCopyTexture> ConvertFromBackingContext::convertFromBacking(const ImageCopyTexture& imageCopyTexture)
@@ -62,7 +62,7 @@ std::optional<WebCore::WebGPU::ImageCopyTexture> ConvertFromBackingContext::conv
             return std::nullopt;
     }
 
-    return { { *texture, imageCopyTexture.mipLevel, WTFMove(origin), imageCopyTexture.aspect } };
+    return { { *texture, imageCopyTexture.mipLevel, WTF::move(origin), imageCopyTexture.aspect } };
 }
 
 } // namespace WebKit

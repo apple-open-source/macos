@@ -31,10 +31,11 @@
 #include <WebCore/DisplayCaptureSourceCocoa.h>
 #include <WebCore/ScreenCaptureKitSharingSessionManager.h>
 #include <wtf/BlockPtr.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
-#include <wtf/OSObjectPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/darwin/DispatchOSObject.h>
 
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSError;
@@ -54,7 +55,10 @@ class ImageTransferSessionVT;
 
 class ScreenCaptureKitCaptureSource final
     : public DisplayCaptureSourceCocoa::Capturer
-    , public ScreenCaptureSessionSourceObserver {
+    , public ScreenCaptureSessionSourceObserver
+    , public CanMakeCheckedPtr<ScreenCaptureKitCaptureSource> {
+    WTF_MAKE_TZONE_ALLOCATED(ScreenCaptureKitCaptureSource);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScreenCaptureKitCaptureSource);
 public:
     static Expected<uint32_t, CaptureSourceError> computeDeviceID(const CaptureDevice&);
 
@@ -71,6 +75,13 @@ public:
     void sessionFailedWithError(RetainPtr<NSError>&&, const String&);
     void outputVideoEffectDidStartForStream() { m_isVideoEffectEnabled = true; }
     void outputVideoEffectDidStopForStream() { m_isVideoEffectEnabled = false; }
+
+    // ScreenCaptureSessionSourceObserver.
+    uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
 private:
     // DisplayCaptureSourceCocoa::Capturer

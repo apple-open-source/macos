@@ -491,6 +491,12 @@ U_CDECL_END
 // Compare ucnv_getUnicodeSet() with the set of characters that can be converted.
 void
 ConversionTest::TestGetUnicodeSet2() {
+#if APPLE_ICU_CHANGES // rdar://168155160
+    if (quick) {
+        logln("Skipping in quick mode (use -e for exhaustive mode).");
+        return;
+    }
+#endif
     // Build a string with all code points.
     UChar32 cpLimit;
     int32_t s0Length;
@@ -816,7 +822,7 @@ ConversionTest::TestUTF8ToUTF8Overflow() {
     assertEquals("illFormed number of bytes written", 0, length);
     errorLength = UPRV_LENGTHOF(errorBytes);
     ucnv_getInvalidChars(cnv1.getAlias(), errorBytes, &errorLength, errorCode);
-    assertEquals("illFormed truncated errorLength", 2, static_cast<int32_t>(errorLength));
+    assertEquals("illFormed truncated errorLength", 2, errorLength);
     if (errorLength == 2) {
         assertEquals("illFormed truncated errorBytes", 0xf191, 
                      (static_cast<int32_t>(static_cast<uint8_t>(errorBytes[0])) << 8) | static_cast<uint8_t>(errorBytes[1]));
@@ -833,7 +839,7 @@ ConversionTest::TestUTF8ToUTF8Overflow() {
     assertEquals("illFormed trail byte number of bytes written", 0, length);
     errorLength = UPRV_LENGTHOF(errorBytes);
     ucnv_getInvalidChars(cnv1.getAlias(), errorBytes, &errorLength, errorCode);
-    assertEquals("illFormed trail byte errorLength", 1, static_cast<int32_t>(errorLength));
+    assertEquals("illFormed trail byte errorLength", 1, errorLength);
     if (errorLength == 1) {
         assertEquals("illFormed trail byte errorBytes", 0x93, static_cast<int32_t>(static_cast<uint8_t>(errorBytes[0])));
     }

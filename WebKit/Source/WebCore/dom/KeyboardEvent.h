@@ -40,7 +40,7 @@ class PlatformKeyboardEvent;
 struct FocusEventData;
 
 class KeyboardEvent final : public UIEventWithKeyState {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(KeyboardEvent);
+    WTF_MAKE_TZONE_ALLOCATED(KeyboardEvent);
 public:
     enum KeyLocationCode {
         DOM_KEY_LOCATION_STANDARD = 0x00,
@@ -87,7 +87,6 @@ public:
     int keyCodeForKeyDown() const; // key code for the keydown that matches the keypress
     WEBCORE_EXPORT int charCode() const; // character code for keypress, 0 for keydown and keyup
 
-    bool isKeyboardEvent() const final;
     unsigned which() const final;
 
     bool isComposing() const { return m_isComposing; }

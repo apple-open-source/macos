@@ -49,7 +49,7 @@
     NSData *responseData = [NSData dataWithBytes:_ocsp_response1 length:sizeof(_ocsp_response1)];
     SecOCSPResponseRef response = SecOCSPResponseCreate((__bridge CFDataRef)responseData);
     /* use a verifyTime within the validity of the ocsp response */
-    (void)SecOCSPResponseCalculateValidity(response, 0, 60, 595602000.0); // as a side effect, populates the expire time
+    (void)SecOCSPResponseCalculateValidity(response, 0, 60, 595602000.0, NULL); // as a side effect, populates the expire time
     SecOCSPCacheReplaceResponse(NULL, response, NULL, 595602000.0);
     SecOCSPResponseFinalize(response);
 }
@@ -58,7 +58,7 @@
 {
     NSData *responseData = [NSData dataWithBytes:_ocsp_response2 length:sizeof(_ocsp_response2)];
     SecOCSPResponseRef response = SecOCSPResponseCreate((__bridge CFDataRef)responseData);
-    (void)SecOCSPResponseCalculateValidity(response, 0, 60, 596180000.0); // as a side effect, populates the expire time
+    (void)SecOCSPResponseCalculateValidity(response, 0, 60, 596180000.0, NULL); // as a side effect, populates the expire time
     SecOCSPCacheReplaceResponse(NULL, response, NULL,596180000.0);
     SecOCSPResponseFinalize(response);
 }
@@ -67,11 +67,11 @@
 {
     NSData *responseData = [NSData dataWithBytes:_ocsp_response1 length:sizeof(_ocsp_response1)];
     SecOCSPResponseRef response1 = SecOCSPResponseCreate((__bridge CFDataRef)responseData);
-    (void)SecOCSPResponseCalculateValidity(response1, 0, 60, 595602000.0); // populate the expire time
+    (void)SecOCSPResponseCalculateValidity(response1, 0, 60, 595602000.0, NULL); // populate the expire time
 
     responseData = [NSData dataWithBytes:_ocsp_response2 length:sizeof(_ocsp_response2)];
     SecOCSPResponseRef response2 = SecOCSPResponseCreate((__bridge CFDataRef)responseData);
-    (void)SecOCSPResponseCalculateValidity(response2, 0, 60, 596180000.0); // populate the expire time
+    (void)SecOCSPResponseCalculateValidity(response2, 0, 60, 596180000.0, NULL); // populate the expire time
 
     SecOCSPCacheReplaceResponse(response1, response2, NULL, 596180000.0);
     SecOCSPResponseFinalize(response1);

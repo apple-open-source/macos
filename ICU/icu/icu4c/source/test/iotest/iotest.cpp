@@ -14,6 +14,9 @@
 *   created by: George Rhoten
 */
 
+#include <string.h>
+#include <stdlib.h>
+#include <string_view>
 
 #if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
 // rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
@@ -35,9 +38,6 @@
 #include "unicode/tstdtmod.h"
 #include "putilimp.h"
 
-#include <string.h>
-#include <stdlib.h>
-
 class DataDrivenLogger : public TestLog {
     static const char* fgDataDir;
     static char *fgTestDataPath;
@@ -49,23 +49,26 @@ public:
             fgTestDataPath = nullptr;
         }
     }
-    virtual void errln( const UnicodeString &message ) override {
+    virtual void errln(std::u16string_view message) override {
         char buffer[4000];
-        message.extract(0, message.length(), buffer, sizeof(buffer));
+        UnicodeString us(message);
+        us.extract(0, us.length(), buffer, sizeof(buffer));
         buffer[3999] = 0; /* NUL terminate */
         log_err(buffer);
     }
 
-    virtual void logln( const UnicodeString &message ) override {
+    virtual void logln(std::u16string_view message) override {
         char buffer[4000];
-        message.extract(0, message.length(), buffer, sizeof(buffer));
+        UnicodeString us(message);
+        us.extract(0, us.length(), buffer, sizeof(buffer));
         buffer[3999] = 0; /* NUL terminate */
         log_info(buffer);
     }
 
-    virtual void dataerrln( const UnicodeString &message ) override {
+    virtual void dataerrln(std::u16string_view message) override {
         char buffer[4000];
-        message.extract(0, message.length(), buffer, sizeof(buffer));
+        UnicodeString us(message);
+        us.extract(0, us.length(), buffer, sizeof(buffer));
         buffer[3999] = 0; /* NUL terminate */
         log_data_err(buffer);
     }

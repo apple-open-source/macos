@@ -151,6 +151,25 @@ T_DECL(posix_memalign_free, "posix_memalign all power of two alignments <= 4096"
 	}
 }
 
+T_DECL(posix_memalign_free_guard_objects, "posix_memalign with guard objects",
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
+		T_META_TAG_VM_PREFERRED, T_META_TAG_XZONE_ONLY)
+{
+	// use sizes that also span small and huge, because alignment also affects
+	// the selection of size class
+	for (size_t alignment = sizeof(void*); alignment <= 4 * 1024 * 1024;
+			alignment *= 2) {
+		bool enumerate = true;
+		// test several sizes
+		for (size_t size = 1024; size <= 4 * alignment; size *= 2) {
+			void* ptr = t_posix_memalign(alignment, size, true, enumerate);
+			free(ptr);
+			enumerate = false;
+		}
+	}
+}
+
 T_DECL(posix_memalign_alignment_not_a_power_of_2,
 	   "posix_memalign should return EINVAL if alignment is not a power of 2",
 	   T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)

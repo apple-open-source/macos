@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "AXObjectCache.h"
 #include "AccessibilityMockObject.h"
 
 namespace WebCore {

@@ -29,7 +29,6 @@
 
 #include "GPUProcessConnection.h"
 #include "MessageReceiver.h"
-#include <WebCore/MediaPlaybackTargetContext.h>
 #include <WebCore/MediaSessionHelperIOS.h>
 
 namespace WebKit {
@@ -39,6 +38,9 @@ class WebProcess;
 
 class RemoteMediaSessionHelper final
     : public WebCore::MediaSessionHelper
+#if HAVE(AVROUTING_FRAMEWORK)
+    , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RemoteMediaSessionHelper>
+#endif
     , public IPC::MessageReceiver
     , public GPUProcessConnection::Client {
 public:
@@ -46,6 +48,7 @@ public:
     virtual ~RemoteMediaSessionHelper() = default;
 
     IPC::Connection& ensureConnection();
+    Ref<IPC::Connection> ensureProtectedConnection();
 
     using HasAvailableTargets = WebCore::MediaSessionHelperClient::HasAvailableTargets;
     using PlayingToAutomotiveHeadUnit = WebCore::MediaSessionHelperClient::PlayingToAutomotiveHeadUnit;

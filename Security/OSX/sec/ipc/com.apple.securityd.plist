@@ -62,7 +62,7 @@
 	<dict>
 		<key>com.apple.xpc.activity</key>
 		<dict>
-			<key>com.apple.securityd.kcsharing.resync</key>
+			<key>com.apple.securityd.weekly</key>
 			<dict>
 				<key>RequiresClassA</key>
 				<true/>

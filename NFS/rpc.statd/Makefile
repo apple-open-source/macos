@@ -4,7 +4,7 @@
 
 Project = rpc.statd
 
-CCOVERAGEDIR ?= /tmp/cc/nfs
+CCOVERAGEDIR ?= /tmp/coverage
 
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/

@@ -694,6 +694,13 @@ SMBConvertFromUTF16ToUTF8(
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
 
+/* Unicode normalization forms for SMBConvertFromUTF8ToUTF16 */
+#define NORMALIZE_FORM_NONE  0x00  /* No normalization */
+#define NORMALIZE_FORM_D     0x01  /* Canonical Decomposition */
+#define NORMALIZE_FORM_KD    0x02  /* Compatibility Decomposition */
+#define NORMALIZE_FORM_C     0x03  /* Canonical Composition */
+#define NORMALIZE_FORM_KC    0x04  /* Compatibility Composition */
+
 /*!
  * @function SMBConvertFromUTF8ToUTF16
  * @abstract Convert to a UTF8 string into a UTF16 string.
@@ -701,7 +708,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
  * terminated.
  * @param maxLen Buffer size of the utf8 string. At most maxLen-1 characters
  * will be converted.
- * @param options Currently not used, future expansion
+ * @param options Set to one of the NORMALIZE_FORM_* constants to normalize the UTF8 string
+ * before conversion. Set to NORMALIZE_FORM_NONE for no normalization.
  * @result UTF16 string.
  */
 SMBCLIENT_EXPORT

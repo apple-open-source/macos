@@ -33,7 +33,7 @@ namespace WebCore {
 class IDBResultData;
 
 class IDBOpenDBRequest final : public IDBRequest {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(IDBOpenDBRequest);
+    WTF_MAKE_TZONE_ALLOCATED(IDBOpenDBRequest);
 public:
     static Ref<IDBOpenDBRequest> createDeleteRequest(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBDatabaseIdentifier&);
     static Ref<IDBOpenDBRequest> createOpenRequest(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBDatabaseIdentifier&, uint64_t version);
@@ -78,6 +78,4 @@ private:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::IDBOpenDBRequest)
-    static bool isType(const WebCore::EventTarget& eventTarget) { return eventTarget.eventTargetInterface() == WebCore::EventTargetInterfaceType::IDBOpenDBRequest; }
-SPECIALIZE_TYPE_TRAITS_END()
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(IDBOpenDBRequest)

@@ -31,11 +31,11 @@
 #import "AVAssetTrackUtilities.h"
 #import "FormatDescriptionUtilities.h"
 #import "FourCC.h"
+#import "ImmersiveVideoMetadata.h"
 #import "MediaSelectionGroupAVFObjC.h"
 #import "PlatformAudioTrackConfiguration.h"
 #import "PlatformVideoTrackConfiguration.h"
 #import "SharedBuffer.h"
-#import "VideoProjectionMetadata.h"
 #import <AVFoundation/AVAssetTrack.h>
 #import <AVFoundation/AVMediaSelectionGroup.h>
 #import <AVFoundation/AVMetadataItem.h>
@@ -101,8 +101,8 @@ void AVTrackPrivateAVFObjCImpl::initializeAssetTrack()
     if (!m_assetTrack)
         return;
 
-    [m_assetTrack loadValuesAsynchronouslyForKeys:assetTrackConfigurationKeyNames() completionHandler:[weakThis = WeakPtr(this)] () mutable {
-        callOnMainThread([weakThis = WTFMove(weakThis)] {
+    [m_assetTrack loadValuesAsynchronouslyForKeys:assetTrackConfigurationKeyNames() completionHandler:[weakThis = ThreadSafeWeakPtr { *this }]() mutable {
+        callOnMainThread([weakThis = WTF::move(weakThis)] {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->initializationCompleted();
         });
@@ -111,6 +111,8 @@ void AVTrackPrivateAVFObjCImpl::initializeAssetTrack()
 
 void AVTrackPrivateAVFObjCImpl::initializationCompleted()
 {
+    assertIsMainThread();
+
     if (m_audioTrackConfigurationObserver)
         (*m_audioTrackConfigurationObserver)();
     if (m_videoTrackConfigurationObserver)
@@ -150,7 +152,7 @@ AudioTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::audioKind() const
     }
 
     if (m_mediaSelectionOption) {
-        AVMediaSelectionOption *option = m_mediaSelectionOption->avMediaSelectionOption();
+        RetainPtr option = m_mediaSelectionOption->avMediaSelectionOption();
         if ([option hasMediaCharacteristic:AVMediaCharacteristicIsAuxiliaryContent])
             return AudioTrackPrivate::Kind::Alternative;
         if ([option hasMediaCharacteristic:AVMediaCharacteristicDescribesVideoForAccessibility])
@@ -179,7 +181,7 @@ VideoTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::videoKind() const
     }
 
     if (m_mediaSelectionOption) {
-        AVMediaSelectionOption *option = m_mediaSelectionOption->avMediaSelectionOption();
+        RetainPtr option = m_mediaSelectionOption->avMediaSelectionOption();
         if ([option hasMediaCharacteristic:AVMediaCharacteristicDescribesVideoForAccessibility])
             return VideoTrackPrivate::Kind::Sign;
         if ([option hasMediaCharacteristic:AVMediaCharacteristicTranscribesSpokenDialogForAccessibility])
@@ -195,9 +197,9 @@ VideoTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::videoKind() const
     return VideoTrackPrivate::Kind::None;
 }
 
-InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVAssetTrack(const AVAssetTrack* track)
+InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVAssetTrack(const AVAssetTrack *track)
 {
-    NSString *mediaType = [track mediaType];
+    RetainPtr mediaType = [track mediaType];
     if ([mediaType isEqualToString:AVMediaTypeClosedCaption])
         return InbandTextTrackPrivate::Kind::Captions;
     if ([mediaType isEqualToString:AVMediaTypeSubtitle]) {
@@ -215,7 +217,7 @@ InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVAssetTrack(
         return InbandTextTrackPrivate::Kind::Subtitles;
     }
 
-    NSArray* formatDescriptions = [track formatDescriptions];
+    RetainPtr formatDescriptions = [track formatDescriptions];
     if ([formatDescriptions count]) {
         FourCC codec = PAL::softLink_CoreMedia_CMFormatDescriptionGetMediaSubType((__bridge CMFormatDescriptionRef)[formatDescriptions objectAtIndex:0]);
         if (codec == kCMSubtitleFormatType_WebVTT)
@@ -227,7 +229,7 @@ InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVAssetTrack(
 
 InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVMediaSelectionOption(const AVMediaSelectionOption *option)
 {
-    NSString *mediaType = [option mediaType];
+    RetainPtr mediaType = [option mediaType];
     if ([mediaType isEqualToString:AVMediaTypeClosedCaption])
         return InbandTextTrackPrivate::Kind::Captions;
     if ([mediaType isEqualToString:AVMediaTypeSubtitle]) {
@@ -254,7 +256,7 @@ InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKind() const
         return textKindForAVAssetTrack(m_assetTrack.get());
 
     if (m_mediaSelectionOption)
-        return textKindForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption());
+        return textKindForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption().get());
 
     return InbandTextTrackPrivate::Kind::None;
 }
@@ -279,47 +281,47 @@ TrackID AVTrackPrivateAVFObjCImpl::id() const
     return 0;
 }
 
-AtomString AVTrackPrivateAVFObjCImpl::label() const
+String AVTrackPrivateAVFObjCImpl::label() const
 {
     ASSERT(m_assetTrack || m_mediaSelectionOption);
 
-    NSArray *commonMetadata = nil;
+    RetainPtr<NSArray> commonMetadata = nil;
     if (m_assetTrack)
         commonMetadata = [m_assetTrack commonMetadata];
     if (![commonMetadata count] && m_mediaSelectionOption)
         commonMetadata = [m_mediaSelectionOption->avMediaSelectionOption() commonMetadata];
 
-    NSArray *titles = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
+    RetainPtr titles = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:commonMetadata.get() withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
     if (![titles count])
-        return emptyAtom();
+        return emptyString();
 
     // If possible, return a title in one of the user's preferred languages.
-    NSArray *titlesForPreferredLanguages = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:titles filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
+    RetainPtr titlesForPreferredLanguages = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:titles.get() filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
     if ([titlesForPreferredLanguages count])
         return [[titlesForPreferredLanguages objectAtIndex:0] stringValue];
     return [[titles objectAtIndex:0] stringValue];
 }
 
-AtomString AVTrackPrivateAVFObjCImpl::language() const
+String AVTrackPrivateAVFObjCImpl::language() const
 {
     if (m_assetTrack) {
         auto language = languageForAVAssetTrack(m_assetTrack.get());
         if (!language.isEmpty())
-            return AtomString { language };
+            return language;
     }
 
     if (m_mediaSelectionOption) {
-        auto language = languageForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption());
+        auto language = languageForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption().get());
         if (!language.isEmpty())
-            return AtomString { language };
+            return language;
     }
 
-    return emptyAtom();
+    return emptyString();
 }
 
-String AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(AVAssetTrack* track)
+String AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(const AVAssetTrack *track)
 {
-    NSString *language = [track extendedLanguageTag];
+    RetainPtr language = [track extendedLanguageTag];
 
     // If the language code is stored as a QuickTime 5-bit packed code there aren't enough bits for a full
     // RFC 4646 language tag so extendedLanguageTag returns NULL. In this case languageCode will return the
@@ -331,12 +333,12 @@ String AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(AVAssetTrack* track)
     if (!language || [language isEqualToString:@"und"])
         return emptyString();
 
-    return language;
+    return language.get();
 }
 
-String AVTrackPrivateAVFObjCImpl::languageForAVMediaSelectionOption(AVMediaSelectionOption* option)
+String AVTrackPrivateAVFObjCImpl::languageForAVMediaSelectionOption(const AVMediaSelectionOption *option)
 {
-    NSString *language = [option extendedLanguageTag];
+    RetainPtr language = [option extendedLanguageTag];
 
     // If the language code is stored as a QuickTime 5-bit packed code there aren't enough bits for a full
     // RFC 4646 language tag so extendedLanguageTag returns NULL. In this case languageCode will return the
@@ -347,8 +349,8 @@ String AVTrackPrivateAVFObjCImpl::languageForAVMediaSelectionOption(AVMediaSelec
     // Some legacy tracks have "und" as a language, treat that the same as no language at all.
     if (!language || [language isEqualToString:@"und"])
         return emptyString();
-    
-    return language;
+
+    return language.get();
 }
 
 PlatformVideoTrackConfiguration AVTrackPrivateAVFObjCImpl::videoTrackConfiguration() const
@@ -360,8 +362,8 @@ PlatformVideoTrackConfiguration AVTrackPrivateAVFObjCImpl::videoTrackConfigurati
         colorSpace(),
         framerate(),
         bitrate(),
-        spatialVideoMetadata(),
-        videoProjectionMetadata(),
+        immersiveVideoMetadata(),
+        isProtected(),
     };
 }
 
@@ -372,7 +374,22 @@ PlatformAudioTrackConfiguration AVTrackPrivateAVFObjCImpl::audioTrackConfigurati
         sampleRate(),
         numberOfChannels(),
         bitrate(),
+        isProtected(),
     };
+}
+
+void AVTrackPrivateAVFObjCImpl::setVideoTrackConfigurationObserver(VideoTrackConfigurationObserver& observer)
+{
+    assertIsMainThread();
+
+    m_videoTrackConfigurationObserver = observer;
+}
+
+void AVTrackPrivateAVFObjCImpl::setAudioTrackConfigurationObserver(AudioTrackConfigurationObserver& observer)
+{
+    assertIsMainThread();
+
+    m_audioTrackConfigurationObserver = observer;
 }
 
 static RetainPtr<CMFormatDescriptionRef> formatDescriptionFor(const AVTrackPrivateAVFObjCImpl& impl)
@@ -460,14 +477,14 @@ uint64_t AVTrackPrivateAVFObjCImpl::bitrate() const
     return assetTrack.estimatedDataRate;
 }
 
-std::optional<SpatialVideoMetadata> AVTrackPrivateAVFObjCImpl::spatialVideoMetadata() const
+bool AVTrackPrivateAVFObjCImpl::isProtected() const
 {
-    return spatialVideoMetadataFromFormatDescription(formatDescriptionFor(*this).get());
+    return formatDescriptionIsProtected(formatDescriptionFor(*this).get());
 }
 
-std::optional<VideoProjectionMetadata> AVTrackPrivateAVFObjCImpl::videoProjectionMetadata() const
+std::optional<ImmersiveVideoMetadata> AVTrackPrivateAVFObjCImpl::immersiveVideoMetadata() const
 {
-    return videoProjectionMetadataFromFormatDescription(formatDescriptionFor(*this).get());
+    return immersiveVideoMetadataFromFormatDescription(formatDescriptionFor(*this).get());
 }
 
 }

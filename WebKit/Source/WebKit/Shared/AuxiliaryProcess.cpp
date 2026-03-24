@@ -83,7 +83,7 @@ void AuxiliaryProcess::didClose(IPC::Connection&)
 
 void AuxiliaryProcess::initialize(AuxiliaryProcessInitializationParameters&& parameters)
 {
-    WTF::RefCountedBase::enableThreadingChecksGlobally();
+    WTF::RefCountDebugger::enableThreadingChecksGlobally();
 
 #if PLATFORM(COCOA)
     // On Cocoa platforms, setAuxiliaryProcessType() is called in XPCServiceInitializer().
@@ -114,7 +114,7 @@ void AuxiliaryProcess::initialize(AuxiliaryProcessInitializationParameters&& par
     PAL::SessionID::enableGenerationProtection();
     WebPageProxyIdentifier::enableGenerationProtection();
 
-    Ref connection = IPC::Connection::createClientConnection(WTFMove(parameters.connectionIdentifier));
+    Ref connection = IPC::Connection::createClientConnection(WTF::move(parameters.connectionIdentifier));
     m_connection = connection.ptr();
     initializeConnection(connection.ptr());
     connection->open(*this);
@@ -256,7 +256,7 @@ void AuxiliaryProcess::applyProcessCreationParameters(AuxiliaryProcessCreationPa
     WebKit::logChannels().initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
 #endif
 #if PLATFORM(COCOA)
-    SecureCoding::applyProcessCreationParameters(WTFMove(parameters));
+    SecureCoding::applyProcessCreationParameters(WTF::move(parameters));
 #endif
 #if ENABLE(CORE_IPC_SIGNPOSTS)
     if (parameters.shouldEnableIPCSignposts)

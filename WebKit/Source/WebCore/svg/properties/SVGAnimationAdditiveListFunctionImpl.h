@@ -52,7 +52,7 @@ public:
         m_to->parse(to);
     }
 
-    void setToAtEndOfDurationValue(const String& toAtEndOfDuration) override
+    void setToAtEndOfDurationValue(SVGElement&, const String& toAtEndOfDuration) override
     {
         m_toAtEndOfDuration->parse(toAtEndOfDuration);
     }
@@ -111,7 +111,7 @@ public:
         m_to->parse(to);
     }
 
-    void setToAtEndOfDurationValue(const String& toAtEndOfDuration) override
+    void setToAtEndOfDurationValue(SVGElement&, const String& toAtEndOfDuration) override
     {
         m_toAtEndOfDuration->parse(toAtEndOfDuration);
     }
@@ -161,7 +161,7 @@ public:
         m_to->parse(to);
     }
 
-    void setToAtEndOfDurationValue(const String& toAtEndOfDuration) override
+    void setToAtEndOfDurationValue(SVGElement&, const String& toAtEndOfDuration) override
     {
         m_toAtEndOfDuration->parse(toAtEndOfDuration);
     }
@@ -214,7 +214,7 @@ public:
         m_to->parse(to);
     }
 
-    void setToAtEndOfDurationValue(const String& toAtEndOfDuration) override
+    void setToAtEndOfDurationValue(SVGElement&, const String& toAtEndOfDuration) override
     {
         m_toAtEndOfDuration->parse(toAtEndOfDuration);
     }

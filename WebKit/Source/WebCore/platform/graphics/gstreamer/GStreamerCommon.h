@@ -33,8 +33,13 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/CStringView.h>
 
+#if USE(GSTREAMER_GL)
+#include "GraphicsTypesGL.h"
+#endif
+
 namespace WTF {
 class MediaTime;
+class URL;
 }
 
 namespace WebCore {
@@ -53,7 +58,8 @@ using TrackIDHashMap = HashMap<TrackID, MappedArg, WTF::IntHash<TrackID>, WTF::U
 #define GST_CHECK_VERSION_FULL(major, minor, micro, nano) \
     (GST_CHECK_VERSION(major, minor, micro) && (GST_VERSION_NANO >= nano))
 
-inline bool webkitGstCheckVersion(guint major, guint minor, guint micro)
+#if !GST_CHECK_VERSION_FULL(1, 27, 2, 1)
+inline bool gst_check_version(guint major, guint minor, guint micro)
 {
     guint currentMajor, currentMinor, currentMicro, currentNano;
     gst_version(&currentMajor, &currentMinor, &currentMicro, &currentNano);
@@ -73,6 +79,7 @@ inline bool webkitGstCheckVersion(guint major, guint minor, guint micro)
 
     return true;
 }
+#endif
 
 #define GST_VIDEO_CAPS_TYPE_PREFIX  "video/"_s
 #define GST_AUDIO_CAPS_TYPE_PREFIX  "audio/"_s
@@ -83,21 +90,24 @@ WARN_UNUSED_RETURN GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTempl
 bool getVideoSizeAndFormatFromCaps(const GstCaps*, WebCore::IntSize&, GstVideoFormat&, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride, double& frameRate, PlatformVideoColorSpace&);
 std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps*);
 bool getSampleVideoInfo(GstSample*, GstVideoInfo&);
+std::optional<WebCore::IntSize> getDisplaySize(WebCore::IntSize, int, int);
+bool isProtocolAllowed(const WTF::URL&);
 #endif
 CStringView capsMediaType(const GstCaps*);
 std::optional<TrackID> getStreamIdFromPad(const GRefPtr<GstPad>&);
 std::optional<TrackID> getStreamIdFromStream(const GRefPtr<GstStream>&);
-std::optional<TrackID> parseStreamId(StringView stringId);
+std::optional<TrackID> parseStreamId(const String& stringId);
 bool doCapsHaveType(const GstCaps*, ASCIILiteral);
 bool areEncryptedCaps(const GstCaps*);
 Vector<String> extractGStreamerOptionsFromCommandLine();
 void setGStreamerOptionsFromUIProcess(Vector<String>&&);
+bool ensureGStreamerInitializedNonWebProcess();
 bool ensureGStreamerInitialized();
 void registerWebKitGStreamerElements();
 void registerWebKitGStreamerVideoEncoder();
 void deinitializeGStreamer();
 
-unsigned getGstPlayFlag(const char* nick);
+unsigned getGstPlayFlag(ASCIILiteral nick);
 uint64_t toGstUnsigned64Time(const WTF::MediaTime&);
 
 inline GstClockTime toGstClockTime(const WTF::MediaTime& mediaTime)
@@ -206,7 +216,7 @@ public:
 private:
     GstMappedOwnedBuffer(GRefPtr<GstBuffer>&& buffer)
         : GstMappedBuffer(buffer, GST_MAP_READ)
-        , m_ownedBuffer(WTFMove(buffer)) { }
+        , m_ownedBuffer(WTF::move(buffer)) { }
 
     GRefPtr<GstBuffer> m_ownedBuffer;
 };
@@ -214,7 +224,9 @@ private:
 class GstMappedFrame {
     WTF_MAKE_TZONE_ALLOCATED(GstMappedFrame);
     WTF_MAKE_NONCOPYABLE(GstMappedFrame);
+
 public:
+    GstMappedFrame(GstMappedFrame&&);
     GstMappedFrame(GstBuffer*, const GstVideoInfo*, GstMapFlags);
     GstMappedFrame(const GRefPtr<GstSample>&, GstMapFlags);
 
@@ -222,7 +234,7 @@ public:
 
     GstVideoFrame* get();
 
-    uint8_t* componentData(int) const;
+    std::span<uint8_t> componentData(int) const;
     int componentStride(int) const;
     int componentWidth(int) const;
 
@@ -232,12 +244,19 @@ public:
     int height() const;
 
     int format() const;
-    void* planeData(uint32_t) const;
+    std::span<uint8_t> planeData(uint32_t) const;
     int planeStride(uint32_t) const;
 
     bool isValid() const { return m_frame.buffer; }
     explicit operator bool() const { return m_frame.buffer; }
     bool operator!() const { return !m_frame.buffer; }
+
+#if USE(GSTREAMER_GL)
+    GLuint textureID(int) const;
+#endif
+
+    unsigned componentPlane(int) const;
+    unsigned componentPlaneOffset(int) const;
 
 private:
     GstVideoFrame m_frame;
@@ -282,7 +301,7 @@ bool webkitGstSetElementStateSynchronously(GstElement*, GstState, Function<bool(
 GstBuffer* gstBufferNewWrappedFast(void* data, size_t length);
 
 // These functions should be used for elements not provided by WebKit itself and not provided by GStreamer -core.
-GstElement* makeGStreamerElement(ASCIILiteral factoryName, const String& name = emptyString());
+GstElement* makeGStreamerElement(CStringView factoryName, const String& name = emptyString());
 
 template<typename T>
 std::optional<T> gstStructureGet(const GstStructure*, CStringView key);
@@ -353,7 +372,7 @@ using GstId = GQuark;
 bool gstStructureForeach(const GstStructure*, Function<bool(GstId, const GValue*)>&&);
 void gstStructureIdSetValue(GstStructure*, GstId, const GValue*);
 bool gstStructureMapInPlace(GstStructure*, Function<bool(GstId, GValue*)>&&);
-StringView gstIdToString(GstId);
+String gstIdToString(GstId);
 void gstStructureFilterAndMapInPlace(GstStructure*, Function<bool(GstId, GValue*)>&&);
 
 #if USE(GBM)
@@ -365,6 +384,8 @@ bool setGstElementGLContext(GstElement*, ASCIILiteral contextType);
 #endif
 
 GstStateChangeReturn gstElementLockAndSetState(GstElement*, GstState);
+
+GRefPtr<GstElement> createVideoConvertScaleElement(const String& name = emptyString());
 
 } // namespace WebCore
 

@@ -41,7 +41,7 @@ class BindGroupLayoutImpl final : public BindGroupLayout {
 public:
     static Ref<BindGroupLayoutImpl> create(WebGPUPtr<WGPUBindGroupLayout>&& bindGroupLayout, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new BindGroupLayoutImpl(WTFMove(bindGroupLayout), convertToBackingContext));
+        return adoptRef(*new BindGroupLayoutImpl(WTF::move(bindGroupLayout), convertToBackingContext));
     }
 
     virtual ~BindGroupLayoutImpl();

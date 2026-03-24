@@ -47,6 +47,7 @@ public:
     WEBCORE_EXPORT int footerHeight() const final;
 
     WEBCORE_EXPORT FloatBoxExtent obscuredContentInsets(InsetType = InsetType::WebCoreInset) const final;
+    CornerRadii scrollbarAvoidanceCornerRadii() const override;
 
     float visibleContentScaleFactor() const final;
 
@@ -109,6 +110,14 @@ public:
     DoublePoint convertFromContainingView(DoublePoint) const final;
     IntRect convertFromContainingView(const IntRect&) const final;
     FloatRect convertFromContainingView(const FloatRect&) const final;
+
+    WEBCORE_EXPORT virtual LayoutRect layoutViewportRect() const = 0;
+
+    // Computes the visible area of a child frame in this frame as a rectangle.
+    // std::nullopt is returned if the child frame is entirely invisible, or
+    // the visible area is not computable. The given child frame must be a
+    // direct child of this frame.
+    virtual std::optional<LayoutRect> visibleRectOfChild(const Frame&) const = 0;
 
 private:
     ScrollableArea* enclosingScrollableArea() const final;

@@ -85,6 +85,9 @@ typedef void (^CompletionHandler)(void);
 @property NSURL *currentUpdateFileURL;
 @property NSDate *startedDownload;
 @property BOOL finishedDownloading;
+
+@property CFIndex version;
+@property BOOL forceVersion;
 @end
 
 @implementation ValidDelegate
@@ -102,7 +105,7 @@ typedef void (^CompletionHandler)(void);
     }
 }
 
-- (void)updateDb:(NSInteger)version {
+- (void)updateDb:(NSInteger)version forceVersion:(BOOL)forceVersion {
     __block NSURL *updateFileURL = self->_currentUpdateFileURL;
     __block NSString *updateServer = self->_currentUpdateServer;
     __block NSFileHandle *updateFile = self->_currentUpdateFile;
@@ -126,7 +129,7 @@ typedef void (^CompletionHandler)(void);
     dispatch_async(_revDbUpdateQueue, ^{
         /* LOG EVENT: background update started */
         NSDate *updateIngestionStarted = [NSDate date];
-        secnotice("validupdate", "update started at %@", updateIngestionStarted);
+        secnotice("validupdate", "update started at %@: version=%d", updateIngestionStarted, (int)version);
 
         CFDataRef updateData = NULL;
         const char *updateFilePath = [updateFileURL fileSystemRepresentation];
@@ -141,7 +144,7 @@ typedef void (^CompletionHandler)(void);
         }
 
         secdebug("validupdate", "verifying and ingesting data from %@", updateFileURL);
-        SecValidUpdateVerifyAndIngest(updateData, (__bridge CFStringRef)updateServer, (0 == version));
+        SecValidUpdateVerifyAndIngest(updateData, (__bridge CFStringRef)updateServer, (0 == version) || forceVersion);
         if (CFDataGetLength(updateData) < 0 ||
             (rtn = munmap((void *)CFDataGetBytePtr(updateData), (size_t)CFDataGetLength(updateData))) != 0) {
             secerror("unable to unmap current update %ld bytes at %p (error %d)", CFDataGetLength(updateData), CFDataGetBytePtr(updateData), rtn);
@@ -160,7 +163,10 @@ typedef void (^CompletionHandler)(void);
         /* LOG EVENT: background update finished */
         NSDate *updateIngestionFinished = [NSDate date];
         double updateIngestionDuration = [updateIngestionFinished timeIntervalSinceDate:updateIngestionStarted];
-        secnotice("validupdate", "update finished at %@ (took %f)", updateIngestionFinished, updateIngestionDuration);
+        secnotice("validupdate", "update finished at %@ (took %f) with version: %d",
+                  updateIngestionFinished,
+                  updateIngestionDuration,
+                  (int)SecRevocationDbGetVersion());
         NSNumber *ingestionDurationMetric = [NSNumber numberWithDouble:updateIngestionDuration];
 
         // Call this (instead of the logger directly) to ensure we're going through background_analytics_activate
@@ -172,10 +178,6 @@ typedef void (^CompletionHandler)(void);
         dispatch_source_cancel(termSource);
         transaction = nil; // we're all done now
     });
-}
-
-- (NSInteger)versionFromTask:(NSURLSessionTask *)task {
-    return atol([task.taskDescription cStringUsingEncoding:NSUTF8StringEncoding]);
 }
 
 - (void)URLSession:(NSURLSession *)session
@@ -288,7 +290,7 @@ didCompleteWithError:(NSError *)error {
 
         secdebug("validupdate", "Session %@ task %@ succeeded", session, task);
         self->_finishedDownloading = YES;
-        [self updateDb:[self versionFromTask:task]];
+        [self updateDb:self.version forceVersion:self.forceVersion];
     }
     if (self->_transaction) {
         self->_transaction = nil;
@@ -377,7 +379,10 @@ static ValidUpdateRequest *request = nil;
     }
 }
 
-- (BOOL) scheduleUpdateFromServer:(NSString *)server forVersion:(NSInteger)version withQueue:(dispatch_queue_t)updateQueue {
+- (BOOL) scheduleUpdateFromServer:(NSString *)server
+                       forVersion:(NSInteger)version
+                        withQueue:(dispatch_queue_t)updateQueue
+{
     if (!server) {
         secnotice("validupdate", "invalid update request");
         return NO;
@@ -430,6 +435,11 @@ static ValidUpdateRequest *request = nil;
             ValidDelegate *delegate = (ValidDelegate *)[self.backgroundSession delegate];
             delegate.currentUpdateServer = [server copy];
         }
+        
+        ValidDelegate *delegate = (ValidDelegate *)[self.backgroundSession delegate];
+        delegate.version = version;
+        delegate.forceVersion = NO;
+
 
         CFIndex validGeneration = SecRevocationDbGetGeneration();
         NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g%ld/v%ld",
@@ -446,7 +456,10 @@ static ValidUpdateRequest *request = nil;
     return YES;
 }
 
-- (BOOL)updateNowFromServer:(NSString *)server version:(NSInteger)version queue:(dispatch_queue_t)updateQueue
+- (BOOL)updateNowFromServer:(NSString *)server
+                    version:(NSInteger)version
+               forceVersion:(BOOL)forceVersion
+                      queue:(dispatch_queue_t)updateQueue
 {
     if (!server) {
         secnotice("validupdate", "invalid update request");
@@ -464,10 +477,20 @@ static ValidUpdateRequest *request = nil;
         ValidDelegate *delegate = (ValidDelegate *)[self.ephemeralSession delegate];
         delegate.currentUpdateServer = [server copy];
     }
+    
+    ValidDelegate *delegate = (ValidDelegate *)[self.ephemeralSession delegate];
+    delegate.version = version;
+    delegate.forceVersion = forceVersion;
 
     CFIndex validGeneration = SecRevocationDbGetGeneration();
-    NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g%ld/v%ld",
-                                            server, validGeneration, (long)version]];
+    NSURL *validUrl;
+    if (forceVersion) {
+        validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/o%ld/v%ld",
+                                         server, validGeneration, (long)version]];
+    } else {
+        validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g%ld/v%ld",
+                                         server, validGeneration, (long)version]];
+    }
     NSURLSessionDataTask *dataTask = [self.ephemeralSession dataTaskWithURL:validUrl];
     dataTask.taskDescription = [NSString stringWithFormat:@"%ld",(long)version];
     [dataTask resume];
@@ -495,10 +518,13 @@ bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex v
     }
 }
 
-bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex version) {
+bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex version, Boolean forceVersion) {
     SecValidUpdateCreateValidUpdateRequest();
     @autoreleasepool {
-        return [request updateNowFromServer:(__bridge NSString*)server version:version queue:queue];
+        return [request updateNowFromServer:(__bridge NSString*)server
+                                    version:version
+                               forceVersion:(BOOL)forceVersion
+                                      queue:queue];
     }
 }
 

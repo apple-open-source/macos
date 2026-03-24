@@ -49,7 +49,7 @@ public:
 
     const ServiceWorkerJobData& firstJob() const { return m_jobQueue.first(); }
     const ServiceWorkerJobData& lastJob() const { return m_jobQueue.last(); }
-    void enqueueJob(ServiceWorkerJobData&& jobData) { m_jobQueue.append(WTFMove(jobData)); }
+    void enqueueJob(ServiceWorkerJobData&& jobData) { m_jobQueue.append(WTF::move(jobData)); }
     size_t size() const { return m_jobQueue.size(); }
 
     void runNextJob();

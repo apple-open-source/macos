@@ -519,7 +519,7 @@ const GLContext::GLExtensions& GLContext::glExtensions() const
 }
 
 GLContext::ScopedGLContext::ScopedGLContext(std::unique_ptr<GLContext>&& context)
-    : m_context(WTFMove(context))
+    : m_context(WTF::move(context))
 {
     auto eglContext = eglGetCurrentContext();
     m_previous.glContext = GLContext::current();

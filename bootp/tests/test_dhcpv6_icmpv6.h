@@ -27,7 +27,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #import <netinet/in.h>
-#import <netinet6/in6.h>
 #import <netinet6/in6_var.h>
 #import <netinet/icmp6.h>
 #import <netinet/ip6.h>

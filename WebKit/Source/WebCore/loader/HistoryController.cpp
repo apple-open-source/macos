@@ -374,7 +374,7 @@ void HistoryController::goToItem(HistoryItem& targetItem, FrameLoadType frameLoa
         protectedThis->recursiveGoToItem(targetItem, currentItem.get(), frameLoadType, shouldTreatAsContinuingLoad);
     };
 
-    goToItemShared(targetItem, WTFMove(finishGoToItem), processSwapDisposition);
+    goToItemShared(targetItem, WTF::move(finishGoToItem), processSwapDisposition);
 }
 
 struct HistoryController::FrameToNavigate {
@@ -441,7 +441,7 @@ void HistoryController::goToItemForNavigationAPI(HistoryItem& targetItem, FrameL
         }
     };
 
-    goToItemShared(targetItem, WTFMove(finishGoToItem));
+    goToItemShared(targetItem, WTF::move(finishGoToItem));
 }
 
 void HistoryController::goToItemShared(HistoryItem& targetItem, CompletionHandler<void(ShouldGoToHistoryItem)>&& completionHandler, ProcessSwapDisposition processSwapDisposition)
@@ -463,7 +463,7 @@ void HistoryController::goToItemShared(HistoryItem& targetItem, CompletionHandle
         return;
     }
 
-    frame->loader().protectedClient()->shouldGoToHistoryItemAsync(targetItem, WTFMove(completionHandler));
+    frame->loader().protectedClient()->shouldGoToHistoryItemAsync(targetItem, WTF::move(completionHandler));
 }
 
 void HistoryController::clearPolicyItem()
@@ -614,7 +614,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
             if (RefPtr parentCurrentItem = parentFrame->loader().history().currentItem()) {
                 Ref item = createItem(page->historyItemClient(), parentCurrentItem->itemID());
                 parentCurrentItem->setChildItem(item.copyRef());
-                page->checkedBackForward()->setChildItem(parentCurrentItem->frameItemID(), WTFMove(item));
+                page->checkedBackForward()->setChildItem(parentCurrentItem->frameItemID(), WTF::move(item));
             }
         }
     }
@@ -790,7 +790,7 @@ void HistoryController::updateForFrameLoadCompleted()
 void HistoryController::setCurrentItem(Ref<HistoryItem>&& item)
 {
     m_frameLoadComplete = false;
-    m_previousItem = std::exchange(m_currentItem, WTFMove(item));
+    m_previousItem = std::exchange(m_currentItem, WTF::move(item));
 }
 
 void HistoryController::setCurrentItemTitle(const StringWithDirection& title)
@@ -821,7 +821,7 @@ void HistoryController::clearPreviousItem()
 
 void HistoryController::setProvisionalItem(RefPtr<HistoryItem>&& item)
 {
-    m_provisionalItem = WTFMove(item);
+    m_provisionalItem = WTF::move(item);
 }
 
 void HistoryController::initializeItem(HistoryItem& item, RefPtr<DocumentLoader> documentLoader)
@@ -857,7 +857,7 @@ void HistoryController::initializeItem(HistoryItem& item, RefPtr<DocumentLoader>
     item.setTarget(m_frame->tree().uniqueName());
     item.setFrameID(m_frame->frameID());
     // FIXME: Should store the title direction as well.
-    item.setTitle(WTFMove(title.string));
+    item.setTitle(WTF::move(title.string));
     item.setOriginalURLString(originalURL.string());
 
     if (!unreachableURL.isEmpty() || documentLoader->response().httpStatusCode() >= 400)
@@ -1066,13 +1066,13 @@ void HistoryController::pushState(RefPtr<SerializedScriptValue>&& stateObject, c
     // Override data in the current item (created by createItemTree) to reflect
     // the pushState() arguments.
     currentItem = m_currentItem;
-    currentItem->setStateObject(WTFMove(stateObject));
+    currentItem->setStateObject(WTF::move(stateObject));
     currentItem->setURLString(urlString);
     currentItem->setShouldRestoreScrollPosition(shouldRestoreScrollPosition);
 
     LOG(History, "HistoryController %p pushState: Adding top item %p, setting url of current item %p to %s, scrollRestoration is %s", this, topItem.ptr(), m_currentItem.get(), urlString.ascii().data(), topItem->shouldRestoreScrollPosition() ? "auto" : "manual");
 
-    page->checkedBackForward()->addItem(WTFMove(topItem));
+    page->checkedBackForward()->addItem(WTF::move(topItem));
 
     if (!canRecordHistoryForFrame(frame))
         return;
@@ -1094,7 +1094,7 @@ void HistoryController::updateBackForwardListForReplaceState(RefPtr<SerializedSc
 
     if (!urlString.isEmpty())
         currentItem->setURLString(urlString);
-    currentItem->setStateObject(WTFMove(stateObject));
+    currentItem->setStateObject(WTF::move(stateObject));
     currentItem->setFormData(nullptr);
     currentItem->setFormContentType(String());
     currentItem->notifyChanged();
@@ -1106,7 +1106,7 @@ void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject
     if (!currentItem)
         return;
 
-    updateBackForwardListForReplaceState(WTFMove(stateObject), urlString);
+    updateBackForwardListForReplaceState(WTF::move(stateObject), urlString);
 
     Ref frame = m_frame.get();
     RefPtr page = frame->page();
@@ -1130,9 +1130,9 @@ void HistoryController::replaceCurrentItem(RefPtr<HistoryItem>&& item)
 
     m_previousItem = nullptr;
     if (m_provisionalItem)
-        m_provisionalItem = WTFMove(item);
+        m_provisionalItem = WTF::move(item);
     else
-        m_currentItem = WTFMove(item);
+        m_currentItem = WTF::move(item);
 }
 
 RefPtr<HistoryItem> HistoryController::protectedCurrentItem() const

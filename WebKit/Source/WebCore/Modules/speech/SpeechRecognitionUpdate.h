@@ -60,7 +60,7 @@ public:
     WEBCORE_EXPORT Vector<SpeechRecognitionResultData> result() const;
 
 private:
-    friend struct IPC::ArgumentCoder<SpeechRecognitionUpdate, void>;
+    friend struct IPC::ArgumentCoder<SpeechRecognitionUpdate>;
     using Content = Variant<std::monostate, SpeechRecognitionError, Vector<SpeechRecognitionResultData>>;
     WEBCORE_EXPORT SpeechRecognitionUpdate(SpeechRecognitionConnectionClientIdentifier, SpeechRecognitionUpdateType, Content);
 

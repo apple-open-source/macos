@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/JSExportMacros.h>
 #include <wtf/Atomics.h>
 #include <wtf/DebugHeap.h>
 #include <wtf/FastMalloc.h>

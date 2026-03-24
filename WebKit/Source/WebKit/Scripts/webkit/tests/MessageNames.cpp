@@ -77,6 +77,8 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithLegacyReceiver_LoadSomethingElse"_s, ReceiverName::TestWithLegacyReceiver, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
 #endif
     MessageDescription { "TestWithLegacyReceiver_LoadURL"_s, ReceiverName::TestWithLegacyReceiver, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithLegacyReceiver_OpaqueTypeSecurityAssertion"_s, ReceiverName::TestWithLegacyReceiver, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithLegacyReceiver_OpaqueTypeSecurityAssertionReply"_s, ReceiverName::TestWithLegacyReceiver, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithLegacyReceiver_PreferencesDidChange"_s, ReceiverName::TestWithLegacyReceiver, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithLegacyReceiver_RunJavaScriptAlert"_s, ReceiverName::TestWithLegacyReceiver, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithLegacyReceiver_RunJavaScriptAlertReply"_s, ReceiverName::TestWithLegacyReceiver, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
@@ -118,6 +120,8 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithSuperclass_TestAsyncMessageWithNoArguments"_s, ReceiverName::TestWithSuperclass, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply"_s, ReceiverName::TestWithSuperclass, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
 #endif
+    MessageDescription { "TestWithSwift_TestAsyncMessage"_s, ReceiverName::TestWithSwift, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithSwift_TestAsyncMessageReply"_s, ReceiverName::TestWithSwift, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithValidator_AlwaysEnabled"_s, ReceiverName::TestWithValidator, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithValidator_EnabledIfPassValidation"_s, ReceiverName::TestWithValidator, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithValidator_EnabledIfSomeFeatureEnabledAndPassValidation"_s, ReceiverName::TestWithValidator, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
@@ -153,6 +157,8 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithoutAttributes_LoadSomethingElse"_s, ReceiverName::TestWithoutAttributes, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
 #endif
     MessageDescription { "TestWithoutAttributes_LoadURL"_s, ReceiverName::TestWithoutAttributes, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithoutAttributes_OpaqueTypeSecurityAssertion"_s, ReceiverName::TestWithoutAttributes, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithoutAttributes_OpaqueTypeSecurityAssertionReply"_s, ReceiverName::TestWithoutAttributes, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithoutAttributes_PreferencesDidChange"_s, ReceiverName::TestWithoutAttributes, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithoutAttributes_RunJavaScriptAlert"_s, ReceiverName::TestWithoutAttributes, false, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithoutAttributes_RunJavaScriptAlertReply"_s, ReceiverName::TestWithoutAttributes, false, false, true, ProcessName::Unknown, ProcessName::Unknown },
@@ -193,6 +199,7 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithSuperclassAndWantsDispatch_TestSyncMessage"_s, ReceiverName::TestWithSuperclassAndWantsDispatch, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithSuperclass_TestSyncMessage"_s, ReceiverName::TestWithSuperclass, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithSuperclass_TestSynchronousMessage"_s, ReceiverName::TestWithSuperclass, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
+    MessageDescription { "TestWithSwift_TestSyncMessage"_s, ReceiverName::TestWithSwift, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithWantsAsyncDispatch_TestSyncMessage"_s, ReceiverName::TestWithWantsAsyncDispatch, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithWantsDispatch_TestSyncMessage"_s, ReceiverName::TestWithWantsDispatch, true, false, false, ProcessName::Unknown, ProcessName::Unknown },
     MessageDescription { "TestWithoutAttributes_GetPluginProcessConnection"_s, ReceiverName::TestWithoutAttributes, true, false, false, ProcessName::Unknown, ProcessName::Unknown },

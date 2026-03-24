@@ -85,5 +85,7 @@ void		_seekdir(DIR *, long) __DARWIN_ALIAS_I(_seekdir);
 __attribute__ ((visibility ("hidden")))
 void        _fixtelldir(DIR *dirp, long oldseek, long oldloc) __DARWIN_INODE64(_fixtelldir);
 long		telldir(DIR *) __DARWIN_ALIAS_I(telldir);
+#define	RDU_SKIP	0x0001
+#define	RDU_SHORT	0x0002
 
 #endif

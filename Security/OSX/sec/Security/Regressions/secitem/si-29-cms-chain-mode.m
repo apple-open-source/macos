@@ -48,15 +48,15 @@ static NSData* CMSEncoder_encode_for_chain_mode(SecIdentityRef identity, CMSCert
     CFDataRef message = NULL;
 
     /* Create encoder */
-    require_noerr_action(CMSEncoderCreate(&encoder), exit, fail("Failed to create CMS encoder"));
-    require_noerr_action(CMSEncoderSetSignerAlgorithm(encoder, kCMSEncoderDigestAlgorithmSHA256), exit,
+    __Require_noErr_Action(CMSEncoderCreate(&encoder), exit, fail("Failed to create CMS encoder"));
+    __Require_noErr_Action(CMSEncoderSetSignerAlgorithm(encoder, kCMSEncoderDigestAlgorithmSHA256), exit,
                          fail("Failed to set digest algorithm to SHA256"));
 
     /* Set identity as signer */
-    require_noerr_action(CMSEncoderAddSigners(encoder, identity), exit, fail("Failed to add signer identity"));
+    __Require_noErr_Action(CMSEncoderAddSigners(encoder, identity), exit, fail("Failed to add signer identity"));
 
     /* Set chain mode */
-    require_noerr_action(CMSEncoderSetCertificateChainMode(encoder, chainMode), exit, fail("Failed to set chain mode"));
+    __Require_noErr_Action(CMSEncoderSetCertificateChainMode(encoder, chainMode), exit, fail("Failed to set chain mode"));
 
     /* Load content */
     CMSEncoderUpdateContent(encoder, _chain_mode_content, sizeof(_chain_mode_content));
@@ -92,10 +92,10 @@ static NSArray* CMSDecoder_copy_certs(NSData *cms_message) {
         return nil;
     }
 
-    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
-    require_noerr_action(CMSDecoderUpdateMessage(decoder, cms_message.bytes, cms_message.length), exit,
+    __Require_noErr_Action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
+    __Require_noErr_Action(CMSDecoderUpdateMessage(decoder, cms_message.bytes, cms_message.length), exit,
                          fail("Failed to update decoder with CMS message"));
-    require_noerr_action(CMSDecoderFinalizeMessage(decoder), exit, fail("Failed to finalize decoder"));
+    __Require_noErr_Action(CMSDecoderFinalizeMessage(decoder), exit, fail("Failed to finalize decoder"));
     ok_status(CMSDecoderCopyAllCerts(decoder, &certs), "Failed to get certs from cms message");
 
 exit:
@@ -217,15 +217,15 @@ static bool setup_keychain(const uint8_t *p12, size_t p12_len, SecIdentityRef *i
 
     NSDictionary *options = @{ (__bridge NSString *)kSecImportExportPassphrase : @"password" };
     NSData *p12Data = [NSData dataWithBytes:p12 length:p12_len];
-    require_noerr_action(SecPKCS12Import((__bridge CFDataRef)p12Data, (__bridge CFDictionaryRef)options,
+    __Require_noErr_Action(SecPKCS12Import((__bridge CFDataRef)p12Data, (__bridge CFDictionaryRef)options,
                                          &tmp_imported_items), exit,
                          fail("Failed to import identity"));
     imported_items = CFBridgingRelease(tmp_imported_items);
-    require_noerr_action([imported_items count] == 0 &&
+    __Require_noErr_Action([imported_items count] == 0 &&
                          [imported_items[0] isKindOfClass:[NSDictionary class]], exit,
                          fail("Wrong imported items output"));
     *identity = (SecIdentityRef)CFBridgingRetain(imported_items[0][(__bridge NSString*)kSecImportItemIdentity]);
-    require_action(*identity, exit, fail("Failed to get identity"));
+    __Require_Action(*identity, exit, fail("Failed to get identity"));
 
     return true;
 

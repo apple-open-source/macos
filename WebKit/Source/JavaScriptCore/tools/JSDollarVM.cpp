@@ -40,6 +40,8 @@
 #include "FrameTracers.h"
 #include "FunctionCodeBlock.h"
 #include "GetterSetter.h"
+#include "HeapProfiler.h"
+#include "HeapSnapshotBuilder.h"
 #include "InterpreterInlines.h"
 #include "JITSizeStatistics.h"
 #include "JSArray.h"
@@ -1676,7 +1678,7 @@ public:
     Message(ArrayBufferContents&&, int32_t);
     ~Message();
 
-    ArrayBufferContents&& releaseContents() { return WTFMove(m_contents); }
+    ArrayBufferContents&& releaseContents() { return WTF::move(m_contents); }
     int32_t index() const { return m_index; }
 
 private:
@@ -2150,7 +2152,6 @@ static JSC_DECLARE_HOST_FUNCTION(functionCpuClflush);
 static JSC_DECLARE_HOST_FUNCTION(functionLLintTrue);
 static JSC_DECLARE_HOST_FUNCTION(functionBaselineJITTrue);
 static JSC_DECLARE_HOST_FUNCTION(functionNoInline);
-static JSC_DECLARE_HOST_FUNCTION(functionIsNeverInline);
 static JSC_DECLARE_HOST_FUNCTION(functionTriggerMemoryPressure);
 static JSC_DECLARE_HOST_FUNCTION(functionGC);
 static JSC_DECLARE_HOST_FUNCTION(functionEdenGC);
@@ -2167,6 +2168,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionDumpCallFrame);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpStack);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpRegisters);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpCell);
+static JSC_DECLARE_HOST_FUNCTION(functionDumpHeapSnapshot);
 static JSC_DECLARE_HOST_FUNCTION(functionIndexingMode);
 static JSC_DECLARE_HOST_FUNCTION(functionInlineCapacity);
 static JSC_DECLARE_HOST_FUNCTION(functionClearLinkBufferStats);
@@ -2616,24 +2618,6 @@ JSC_DEFINE_HOST_FUNCTION(functionNoInline, (JSGlobalObject*, CallFrame* callFram
     return JSValue::encode(jsUndefined());
 }
 
-// Check that the argument function is never inlined (set by $vm.noInline or the @neverInline attribute)
-// Usage:
-// function f() {}
-// $vm.isNeverInline(f);
-JSC_DEFINE_HOST_FUNCTION(functionIsNeverInline, (JSGlobalObject*, CallFrame* callFrame))
-{
-    DollarVMAssertScope assertScope;
-    if (callFrame->argumentCount() < 1)
-        return JSValue::encode(jsBoolean(false));
-
-    JSValue theFunctionValue = callFrame->uncheckedArgument(0);
-
-    if (FunctionExecutable* executable = getExecutableForFunction(theFunctionValue))
-        return JSValue::encode(jsBoolean(executable->neverInline()));
-
-    return JSValue::encode(jsBoolean(false));
-}
-
 // Runs a full GC synchronously.
 // Usage: $vm.gc()
 JSC_DEFINE_HOST_FUNCTION(functionGC, (JSGlobalObject* globalObject, CallFrame*))
@@ -2897,6 +2881,29 @@ JSC_DEFINE_HOST_FUNCTION(functionDumpCell, (JSGlobalObject*, CallFrame* callFram
         return encodedJSUndefined();
     
     VMInspector::dumpCellMemory(value.asCell());
+    return encodedJSUndefined();
+}
+
+// Dumps a json of the current JS GC heap.
+// Usage: $vm.dumpHeapSnapshot()
+JSC_DEFINE_HOST_FUNCTION(functionDumpHeapSnapshot, (JSGlobalObject* globalObject, CallFrame*))
+{
+    VM& vm = globalObject->vm();
+    DollarVMAssertScope assertScope;
+
+    sanitizeStackForVM(vm);
+
+    {
+        DeferGCForAWhile deferGC(vm); // Prevent concurrent GC from interfering with the full GC that the snapshot does.
+
+        HeapSnapshotBuilder snapshotBuilder(vm.ensureHeapProfiler(), HeapSnapshotBuilder::SnapshotType::GCDebuggingSnapshot);
+        snapshotBuilder.buildSnapshot();
+        PrintStream& out = WTF::dataFile();
+        snapshotBuilder.dumpToStream(out);
+        out.println();
+        out.flush();
+    }
+
     return encodedJSUndefined();
 }
 
@@ -3422,8 +3429,16 @@ JSC_DEFINE_HOST_FUNCTION(functionCreateBuiltin, (JSGlobalObject* globalObject, C
     auto functionText = asString(callFrame->argument(0))->value(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
-    SourceCode source = makeSource(WTFMove(functionText), { }, SourceTaintedOrigin::Untainted);
-    JSFunction* func = JSFunction::create(vm, globalObject, createBuiltinExecutable(vm, source, Identifier::fromString(vm, "foo"_s), ImplementationVisibility::Public, ConstructorKind::None, ConstructAbility::CannotConstruct, InlineAttribute::None)->link(vm, nullptr, source), globalObject);
+    ImplementationVisibility visibility = ImplementationVisibility::Public;
+    if (callFrame->argumentCount() >= 2 && callFrame->argument(1).isString()) {
+        String visibilityString = asString(callFrame->argument(1))->value(globalObject);
+        RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        if (visibilityString == "private"_s)
+            visibility = ImplementationVisibility::Private;
+    }
+
+    SourceCode source = makeSource(WTF::move(functionText), { }, SourceTaintedOrigin::Untainted);
+    JSFunction* func = JSFunction::create(vm, globalObject, createBuiltinExecutable(vm, source, Identifier::fromString(vm, "foo"_s), visibility, ConstructorKind::None, ConstructAbility::CannotConstruct, InlineAttribute::None)->link(vm, nullptr, source), globalObject);
 
     return JSValue::encode(func);
 }
@@ -3859,7 +3874,7 @@ JSC_DEFINE_HOST_FUNCTION(functionMake16BitStringIfPossible, (JSGlobalObject* glo
     String string = callFrame->argument(0).toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
     string.convertTo16Bit();
-    return JSValue::encode(jsString(vm, WTFMove(string)));
+    return JSValue::encode(jsString(vm, WTF::move(string)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionGetStructureTransitionList, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -4132,7 +4147,7 @@ JSC_DEFINE_HOST_FUNCTION(functionEvaluateWithScopeExtension, (JSGlobalObject* gl
     String program = asString(scriptValue)->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    SourceCode source = makeSource(WTFMove(program), callFrame->callerSourceOrigin(vm), SourceTaintedOrigin::Untainted);
+    SourceCode source = makeSource(WTF::move(program), callFrame->callerSourceOrigin(vm), SourceTaintedOrigin::Untainted);
     JSObject* scopeExtension = callFrame->argument(1).getObject();
 
     NakedPtr<Exception> exception;
@@ -4373,7 +4388,6 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "baselineJITTrue"_s, functionBaselineJITTrue, 0);
 
     addFunction(vm, "noInline"_s, functionNoInline, 1);
-    addFunction(vm, "isNeverInline"_s, functionIsNeverInline, 1);
 
     addFunction(vm, "triggerMemoryPressure"_s, functionTriggerMemoryPressure, 0);
     addFunction(vm, "gc"_s, functionGC, 0);
@@ -4394,6 +4408,8 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "dumpRegisters"_s, functionDumpRegisters, 1);
 
     addFunction(vm, "dumpCell"_s, functionDumpCell, 1);
+
+    addFunction(vm, "dumpHeapSnapshot"_s, functionDumpHeapSnapshot, 0);
 
     addFunction(vm, "indexingMode"_s, functionIndexingMode, 1);
     addFunction(vm, "inlineCapacity"_s, functionInlineCapacity, 1);
@@ -4553,7 +4569,7 @@ void JSDollarVM::addConstructibleFunction(VM& vm, JSGlobalObject* globalObject, 
     putDirect(vm, identifier, JSFunction::create(vm, globalObject, arguments, identifier.string(), function, ImplementationVisibility::Public, NoIntrinsic, function), jsDollarVMPropertyAttributes);
 }
 
-void JSDollarVM::getOwnPropertyNames(JSObject* object, JSGlobalObject* globalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode)
+void JSDollarVM::getOwnPropertyNames(JSObject* object, JSGlobalObject* globalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode)
 {
     Base::getOwnPropertyNames(object, globalObject, propertyNames, DontEnumPropertiesMode::Exclude);
 }

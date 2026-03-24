@@ -501,7 +501,7 @@ pas_thread_local_cache_get_local_allocator_if_can_set_cache_for_possibly_uniniti
     unsigned allocator_index,
     const pas_heap_config* heap_config)
 {
-    if (!pas_thread_local_cache_can_set() || pas_system_heap_is_enabled(heap_config->kind))
+    if (!pas_thread_local_cache_can_set() || pas_system_heap_should_supplant_bmalloc(heap_config->kind))
         return pas_local_allocator_result_create_failure();
 
     return pas_thread_local_cache_get_local_allocator_for_possibly_uninitialized_index(

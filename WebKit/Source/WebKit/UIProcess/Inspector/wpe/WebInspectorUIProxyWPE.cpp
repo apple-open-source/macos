@@ -84,7 +84,7 @@ public:
         // Try to load the request in the inspected page.
         if (RefPtr page = m_proxy.inspectedPage()) {
             auto request = navigationAction->request();
-            page->loadRequest(WTFMove(request));
+            page->loadRequest(WTF::move(request));
         }
     }
 
@@ -99,7 +99,7 @@ static Ref<WebsiteDataStore> inspectorWebsiteDataStore()
     String baseDataDirectory = FileSystem::pathByAppendingComponent(FileSystem::userDataDirectory(), versionedDirectory);
 
     auto configuration = WebsiteDataStoreConfiguration::createWithBaseDirectories(baseCacheDirectory, baseDataDirectory);
-    return WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::generatePersistentSessionID());
+    return WebsiteDataStore::create(WTF::move(configuration), PAL::SessionID::generatePersistentSessionID());
 }
 
 RefPtr<WebPageProxy> WebInspectorUIProxy::platformCreateFrontendPage()

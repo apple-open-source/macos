@@ -38,7 +38,7 @@ struct CSSParserContext;
 enum class StyleRuleType : uint8_t;
 
 class PropertySetCSSDescriptors : public CSSStyleDeclaration, public RefCounted<PropertySetCSSDescriptors> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PropertySetCSSDescriptors);
+    WTF_MAKE_TZONE_ALLOCATED(PropertySetCSSDescriptors);
 public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
@@ -73,7 +73,7 @@ protected:
     RefPtr<DeprecatedCSSOMValue> wrapForDeprecatedCSSOM(CSSValue*);
 
     enum class MutationType : uint8_t { NoChanges, StyleAttributeChanged, PropertyChanged };
-    bool willMutate() WARN_UNUSED_RETURN;
+    WARN_UNUSED_RETURN bool willMutate();
     void didMutate(MutationType);
 
     // CSSPropertyID versions of the CSSOM functions to support bindings.

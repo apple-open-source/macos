@@ -65,6 +65,10 @@ Change settings for the process specified by
 Run the program with specified memory limit (in MiB).
 .It Fl j Ar pri
 Run the program at the specified jetsam priority.
+.It Fl P Ar pcontrol
+Run the program with the specified process control action, which may be invoked
+by the system upon resource exhaustion. Valid options include "kill",
+"throttle", and "suspend".
 .It Fl S Ar shims
 Run the program with security transition shims in effect.
 .It Fl b

@@ -47,7 +47,7 @@ static std::atomic<unsigned> globalLogCountForTesting { 0 };
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LogStream);
 
 LogStream::LogStream(WebProcessProxy& process, Ref<ConnectionType>&& connection, LogStreamIdentifier identifier)
-    : m_connection(WTFMove(connection))
+    : m_connection(WTF::move(connection))
 #if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
     , m_process(process)
 #endif
@@ -109,7 +109,7 @@ void LogStream::logOnBehalfOfWebContent(std::span<const uint8_t> logSubsystem, s
 
 RefPtr<LogStream> LogStream::create(WebProcessProxy& process, IPC::StreamServerConnectionHandle&& serverConnection, LogStreamIdentifier identifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&& completionHandler)
 {
-    RefPtr connection = IPC::StreamServerConnection::tryCreate(WTFMove(serverConnection), { });
+    RefPtr connection = IPC::StreamServerConnection::tryCreate(WTF::move(serverConnection), { });
     if (!connection)
         return nullptr;
     static NeverDestroyed<Ref<IPC::StreamConnectionWorkQueue>> logQueue = IPC::StreamConnectionWorkQueue::create("Log work queue"_s);
@@ -134,7 +134,7 @@ void LogStream::didReceiveInvalidMessage(IPC::StreamServerConnection&, IPC::Mess
 
 Ref<LogStream> LogStream::create(WebProcessProxy& process, Ref<IPC::Connection>&& connection, LogStreamIdentifier identifier)
 {
-    return adoptRef(*new LogStream(process, WTFMove(connection), identifier));
+    return adoptRef(*new LogStream(process, WTF::move(connection), identifier));
 }
 
 #endif

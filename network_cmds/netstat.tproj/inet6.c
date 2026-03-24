@@ -1287,4 +1287,16 @@ inet6name(struct netstat_parameters *params, struct in6_addr *in6p)
 	}
 	return (line);
 }
+
+void
+in6_addr_print(struct netstat_parameters *params, struct in6_addr *in6)
+{
+	char line[80];
+	int width;
+
+	snprintf(line, sizeof(line), "%s", inet6name(params, in6));
+
+	width = params->lflag ? 40 : 18;
+	printf("%-*.*s ", width, width, line);
+}
 #endif /*INET6*/

@@ -62,7 +62,7 @@ static bool isSampleBufferVideoRenderer(id object)
 }
 
 @interface WebAVSampleBufferListenerPrivate : NSObject {
-    WeakPtr<WebCore::WebAVSampleBufferListenerClient> _client WTF_GUARDED_BY_CAPABILITY(mainThread);
+    ThreadSafeWeakPtr<WebCore::WebAVSampleBufferListenerClient> _client WTF_GUARDED_BY_CAPABILITY(mainThread);
     Vector<RetainPtr<WebSampleBufferVideoRendering>> _videoRenderers;
     Vector<RetainPtr<AVSampleBufferAudioRenderer>> _audioRenderers;
 }
@@ -171,9 +171,9 @@ static bool isSampleBufferVideoRenderer(id object)
         if (WebCore::isSampleBufferVideoRenderer(object)) {
             RetainPtr renderer = (WebSampleBufferVideoRendering *)object;
 
-            ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), error = WTFMove(error)] {
+            ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), error = WTF::move(error)] {
                 ASSERT(_videoRenderers.contains(renderer.get()));
-                if (auto client = _client.get())
+                if (RefPtr client = _client.get())
                     client->videoRendererDidReceiveError(renderer.get(), error.get());
             });
             return;
@@ -182,9 +182,9 @@ static bool isSampleBufferVideoRenderer(id object)
         if ([object isKindOfClass:PAL::getAVSampleBufferAudioRendererClassSingleton()]) {
             RetainPtr renderer = (AVSampleBufferAudioRenderer *)object;
 
-            ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), error = WTFMove(error)] {
+            ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), error = WTF::move(error)] {
                 ASSERT(_audioRenderers.contains(renderer.get()));
-                if (auto client = _client.get())
+                if (RefPtr client = _client.get())
                     client->audioRendererDidReceiveError(renderer.get(), error.get());
             });
             return;
@@ -198,9 +198,9 @@ static bool isSampleBufferVideoRenderer(id object)
         RetainPtr renderer = WebCore::isSampleBufferVideoRenderer(object) ? (WebSampleBufferVideoRendering *)object : nil;
         BOOL isObscured = [[change valueForKey:NSKeyValueChangeNewKey] boolValue];
 
-        ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), isObscured] {
+        ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), isObscured] {
             ASSERT(_videoRenderers.contains(renderer.get()));
-            if (auto client = _client.get())
+            if (RefPtr client = _client.get())
                 client->outputObscuredDueToInsufficientExternalProtectionChanged(isObscured);
         });
         return;
@@ -212,12 +212,12 @@ static bool isSampleBufferVideoRenderer(id object)
 - (void)layerFailedToDecode:(NSNotification *)notification
 {
     RetainPtr renderer = WebCore::isSampleBufferVideoRenderer(notification.object) ? (WebSampleBufferVideoRendering *)notification.object : nil;
-    RetainPtr error = dynamic_objc_cast<NSError>([notification.userInfo valueForKey:AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey]);
+    RetainPtr error = dynamic_objc_cast<NSError>([retainPtr(notification.userInfo) valueForKey:AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey]);
 
-    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), error = WTFMove(error)] {
+    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), error = WTF::move(error)] {
         if (!_videoRenderers.contains(renderer.get()))
             return;
-        if (auto client = _client.get())
+        if (RefPtr client = _client.get())
             client->videoRendererDidReceiveError(renderer.get(), error.get());
     });
 }
@@ -227,10 +227,10 @@ static bool isSampleBufferVideoRenderer(id object)
     RetainPtr renderer = WebCore::isSampleBufferVideoRenderer(notification.object) ? (WebSampleBufferVideoRendering *)notification.object : nil;
     BOOL requiresFlush = [renderer requiresFlushToResumeDecoding];
 
-    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), requiresFlush] {
+    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), requiresFlush] {
         if (!_videoRenderers.contains(renderer.get()))
             return;
-        if (auto client = _client.get())
+        if (RefPtr client = _client.get())
             client->videoRendererRequiresFlushToResumeDecodingChanged(renderer.get(), requiresFlush);
     });
 }
@@ -243,10 +243,10 @@ static bool isSampleBufferVideoRenderer(id object)
 
     BOOL isReadyForDisplay = [layer isReadyForDisplay];
 
-    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, layer = WTFMove(layer), isReadyForDisplay] {
+    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, layer = WTF::move(layer), isReadyForDisplay] {
         if (!_videoRenderers.contains(layer.get()))
             return;
-        if (auto client = _client.get())
+        if (RefPtr client = _client.get())
             client->videoRendererReadyForDisplayChanged(layer.get(), isReadyForDisplay);
     });
 }
@@ -254,12 +254,12 @@ static bool isSampleBufferVideoRenderer(id object)
 - (void)audioRendererWasAutomaticallyFlushed:(NSNotification *)notification
 {
     RetainPtr renderer = dynamic_objc_cast<AVSampleBufferAudioRenderer>(notification.object);
-    CMTime flushTime = [[notification.userInfo valueForKey:AVSampleBufferAudioRendererFlushTimeKey] CMTimeValue];
+    CMTime flushTime = [[retainPtr(notification.userInfo) valueForKey:AVSampleBufferAudioRendererFlushTimeKey] CMTimeValue];
 
-    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTFMove(renderer), flushTime] {
+    ensureOnMainThread([self, protectedSelf = RetainPtr { self }, renderer = WTF::move(renderer), flushTime] {
         if (!_audioRenderers.contains(renderer.get()))
             return;
-        if (auto client = _client.get())
+        if (RefPtr client = _client.get())
             client->audioRendererWasAutomaticallyFlushed(renderer.get(), flushTime);
     });
 }

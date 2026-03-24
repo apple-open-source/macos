@@ -79,13 +79,13 @@ static bool SOSAccountResetCircleToNastyOffering(SOSAccount* account, SecKeyRef 
         SOSFullPeerInfoRef iCloudfpi = NULL;
         
         //sleep(10);
-        require_quiet(SOSCircleResetToEmpty(circle, error), err_out);
-        require_quiet([account.trust addiCloudIdentity:circle key:userPriv err:error], err_out);
-        require_quiet(iCloudfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, error), err_out);
+        __Require_Quiet(SOSCircleResetToEmpty(circle, error), err_out);
+        __Require_Quiet([account.trust addiCloudIdentity:circle key:userPriv err:error], err_out);
+        __Require_Quiet(iCloudfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, error), err_out);
         
         /* Add the defenders peerInfo to circle */
-        require_quiet(SOSCircleRequestReadmission(circle, userPub, pi, error), err_out);
-        require_quiet(SOSCircleAcceptRequest(circle, userPriv, iCloudfpi, pi, error), err_out);
+        __Require_Quiet(SOSCircleRequestReadmission(circle, userPub, pi, error), err_out);
+        __Require_Quiet(SOSCircleAcceptRequest(circle, userPriv, iCloudfpi, pi, error), err_out);
         
         [trust setDepartureCode:kSOSNeverLeftCircle];
         result = true;
@@ -133,18 +133,18 @@ static bool performiCloudIdentityAttack(SOSAccount* attacker, SOSAccount* defend
 
     /*----- Carole makes bogus circle with fake iCloud identity and Alice's peerInfo but only signed with fake iCloud identity -----*/
     
-    require_action_quiet(SOSAccountResetToNastyOffering(attacker, defenderTrust.peerInfo, &error), testDone, retval = true);
+    __Require_Action_Quiet(SOSAccountResetToNastyOffering(attacker, defenderTrust.peerInfo, &error), testDone, retval = true);
     CFReleaseNull(error);
     
     ProcessChangesUntilNoChange(changes, defender, accomplice, attacker, NULL);
     
     /*----- Now use our fake iCloud identity to get in to the circle for real -----*/
-    require_action_quiet(SOSAccountJoinCirclesAfterRestore_wTxn(attacker, &error), testDone, retval = true);
+    __Require_Action_Quiet(SOSAccountJoinCirclesAfterRestore_wTxn(attacker, &error), testDone, retval = true);
     CFReleaseNull(error);
-    require_action_quiet(countPeers(attacker) == 2, testDone, retval = true);
+    __Require_Action_Quiet(countPeers(attacker) == 2, testDone, retval = true);
     
     /*----- Let's see if carole can get bob into the circle and have alice believe it -----*/
-    require_action_quiet(SOSAccountJoinCircles_wTxn(accomplice, &error), testDone, retval = true);
+    __Require_Action_Quiet(SOSAccountJoinCircles_wTxn(accomplice, &error), testDone, retval = true);
     CFReleaseNull(error);
     
     ProcessChangesUntilNoChange(changes, defender, accomplice, attacker, NULL);
@@ -153,14 +153,14 @@ static bool performiCloudIdentityAttack(SOSAccount* attacker, SOSAccount* defend
     CFReleaseNull(error);
     
     if(CFArrayGetCount(applicants) > 0) {
-        require_action_quiet(SOSAccountAcceptApplicants(attacker, applicants, &error), testDone, retval = true);
+        __Require_Action_Quiet(SOSAccountAcceptApplicants(attacker, applicants, &error), testDone, retval = true);
     }
     
     ProcessChangesUntilNoChange(changes, defender, accomplice, attacker, NULL);
     
-    require_action_quiet(countPeers(defender) == 3, testDone, retval = true);
-    require_action_quiet(countPeers(accomplice) == 3, testDone, retval = true);
-    require_action_quiet(countPeers(attacker) == 3, testDone, retval = true);
+    __Require_Action_Quiet(countPeers(defender) == 3, testDone, retval = true);
+    __Require_Action_Quiet(countPeers(accomplice) == 3, testDone, retval = true);
+    __Require_Action_Quiet(countPeers(attacker) == 3, testDone, retval = true);
 
 testDone:
     CFReleaseNull(applicants);

@@ -1323,6 +1323,7 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp, uint32_t parse_fo
 		lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 	}
 	
+    SMBRQ_SLOCK(rqp);
     /* Need bigger buffer? */
 	if (rperror && (rqp->sr_ntstatus == STATUS_BUFFER_TOO_SMALL)) {
 		rqp->sr_flags |= SMBR_MOREDATA;
@@ -1330,6 +1331,7 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp, uint32_t parse_fo
     else {
 		rqp->sr_flags &= ~SMBR_MOREDATA;
 	}
+    SMBRQ_SUNLOCK(rqp);
 
 bad:
 	return error ? error : rperror;

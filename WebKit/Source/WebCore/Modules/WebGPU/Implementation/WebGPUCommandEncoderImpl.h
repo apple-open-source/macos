@@ -41,7 +41,7 @@ class CommandEncoderImpl final : public CommandEncoder {
 public:
     static Ref<CommandEncoderImpl> create(WebGPUPtr<WGPUCommandEncoder>&& commandEncoder, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new CommandEncoderImpl(WTFMove(commandEncoder), convertToBackingContext));
+        return adoptRef(*new CommandEncoderImpl(WTF::move(commandEncoder), convertToBackingContext));
     }
 
     virtual ~CommandEncoderImpl();

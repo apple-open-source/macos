@@ -88,11 +88,11 @@ SOFT_LINK_OPTIONAL(libnetwork, nw_context_set_tracker_lookup_callback, void, __c
 - (void)didUpdate:(NSNotification *)notification
 {
     ASSERT(PAL::isWebPrivacyFrameworkAvailable());
-    auto type = dynamic_objc_cast<NSNumber>([notification.userInfo objectForKey:PAL::get_WebPrivacy_WPNotificationUserInfoResourceTypeKeySingleton()]);
+    RetainPtr type = dynamic_objc_cast<NSNumber>([retainPtr(notification.userInfo) objectForKey:PAL::get_WebPrivacy_WPNotificationUserInfoResourceTypeKeySingleton()]);
     if (!type)
         return;
 
-    if (_callback && type.integerValue == _resourceType)
+    if (_callback && type.get().integerValue == _resourceType)
         _callback();
 }
 
@@ -115,7 +115,7 @@ Ref<ListDataObserver> ListDataControllerBase::observeUpdates(Function<void()>&& 
             });
         }]);
     }
-    Ref observer = ListDataObserver::create(WTFMove(callback));
+    Ref observer = ListDataObserver::create(WTF::move(callback));
     m_observers.add(observer.get());
     return observer;
 }
@@ -152,7 +152,7 @@ void LinkDecorationFilteringController::updateList(CompletionHandler<void()>&& c
     }
 
     static NeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
-    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    lookupCompletionHandlers->append(WTF::move(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
@@ -164,12 +164,12 @@ void LinkDecorationFilteringController::updateList(CompletionHandler<void()>&& c
         if (error)
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request query parameters from WebPrivacy.");
         else {
-            auto rules = [data rules];
-            for (WPLinkFilteringRule *rule : rules) {
+            RetainPtr rules = [data rules];
+            for (WPLinkFilteringRule *rule : rules.get()) {
                 auto domain = WebCore::RegistrableDomain { URL { makeString("http://"_s, String { rule.domain }) } };
-                result.append(WebCore::LinkDecorationFilteringData { WTFMove(domain), [rule respondsToSelector:@selector(path)] ? rule.path : @"", rule.queryParameter });
+                result.append(WebCore::LinkDecorationFilteringData { WTF::move(domain), [rule respondsToSelector:@selector(path)] ? rule.path : @"", rule.queryParameter });
             }
-            setCachedListData(WTFMove(result));
+            setCachedListData(WTF::move(result));
         }
 
         for (auto& completionHandler : std::exchange(lookupCompletionHandlers.get(), { }))
@@ -196,7 +196,7 @@ void requestLinkDecorationFilteringData(LinkFilteringRulesCallback&& callback)
     }
 
     static NeverDestroyed<Vector<LinkFilteringRulesCallback, 1>> lookupCallbacks;
-    lookupCallbacks->append(WTFMove(callback));
+    lookupCallbacks->append(WTF::move(callback));
     if (lookupCallbacks->size() > 1)
         return;
 
@@ -208,10 +208,10 @@ void requestLinkDecorationFilteringData(LinkFilteringRulesCallback&& callback)
         if (error)
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request allowed query parameters from WebPrivacy.");
         else {
-            auto rules = [data rules];
-            for (WPLinkFilteringRule *rule : rules) {
+            RetainPtr rules = [data rules];
+            for (WPLinkFilteringRule *rule : rules.get()) {
                 auto domain = WebCore::RegistrableDomain { URL { makeString("http://"_s, String { rule.domain }) } };
-                result.append(WebCore::LinkDecorationFilteringData { WTFMove(domain), { }, rule.queryParameter });
+                result.append(WebCore::LinkDecorationFilteringData { WTF::move(domain), { }, rule.queryParameter });
             }
         }
 
@@ -221,7 +221,7 @@ void requestLinkDecorationFilteringData(LinkFilteringRulesCallback&& callback)
             if (i)
                 callback(Vector { result });
             else
-                callback(WTFMove(result));
+                callback(WTF::move(result));
         }
     }];
 }
@@ -240,12 +240,12 @@ void StorageAccessPromptQuirkController::didUpdateCachedListData()
 static HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> quirkDomainsDictToMap(NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains)
 {
     HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> map;
-    auto* topDomains = quirkDomains.allKeys;
-    for (NSString *topDomain : topDomains) {
+    RetainPtr<NSArray<NSString *>> topDomains = quirkDomains.allKeys;
+    for (NSString *topDomain : topDomains.get()) {
         Vector<WebCore::RegistrableDomain> subFrameDomains;
         for (NSString *subFrameDomain : [quirkDomains objectForKey:topDomain])
             subFrameDomains.append(WebCore::RegistrableDomain::fromRawString(subFrameDomain));
-        map.add(WebCore::RegistrableDomain::fromRawString(String { topDomain }), WTFMove(subFrameDomains));
+        map.add(WebCore::RegistrableDomain::fromRawString(String { topDomain }), WTF::move(subFrameDomains));
     }
     return map;
 }
@@ -264,12 +264,12 @@ void StorageAccessPromptQuirkController::updateList(CompletionHandler<void()>&& 
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClassSingleton() instancesRespondToSelector:@selector(requestStorageAccessPromptQuirksData:completionHandler:)]) {
-        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTF::move(completionHandler));
         return;
     }
 
     static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
-    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    lookupCompletionHandlers->append(WTF::move(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
@@ -281,15 +281,15 @@ void StorageAccessPromptQuirkController::updateList(CompletionHandler<void()>&& 
         if (error)
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request storage access quirks from WebPrivacy.");
         else {
-            auto quirks = [data quirks];
+            RetainPtr quirks = [data quirks];
             auto hasQuirkDomainsAndTriggerPages = [PAL::getWPStorageAccessPromptQuirkClassSingleton() instancesRespondToSelector:@selector(quirkDomains)] && [PAL::getWPStorageAccessPromptQuirkClassSingleton() instancesRespondToSelector:@selector(triggerPages)];
-            for (WPStorageAccessPromptQuirk *quirk : quirks) {
+            for (WPStorageAccessPromptQuirk *quirk : quirks.get()) {
                 if (hasQuirkDomainsAndTriggerPages)
-                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(quirk.quirkDomains), quirkPagesArrayToVector(quirk.triggerPages) });
+                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(retainPtr(quirk.quirkDomains).get()), quirkPagesArrayToVector(retainPtr(quirk.triggerPages).get()) });
                 else
-                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(quirk.domainPairings), { } });
+                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(retainPtr(quirk.domainPairings).get()), { } });
             }
-            setCachedListData(WTFMove(result));
+            setCachedListData(WTF::move(result));
         }
 
         for (auto& completionHandler : std::exchange(lookupCompletionHandlers.get(), { }))
@@ -306,12 +306,12 @@ void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<v
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClassSingleton() instancesRespondToSelector:@selector(requestStorageAccessUserAgentStringQuirksData:completionHandler:)]) {
-        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTF::move(completionHandler));
         return;
     }
 
     static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
-    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    lookupCompletionHandlers->append(WTF::move(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
@@ -323,10 +323,10 @@ void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<v
         if (error)
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request storage access user agent string quirks from WebPrivacy.");
         else {
-            auto quirks = [data quirks];
-            for (WPStorageAccessUserAgentStringQuirk *quirk : quirks)
+            RetainPtr quirks = [data quirks];
+            for (WPStorageAccessUserAgentStringQuirk *quirk : quirks.get())
                 result.add(WebCore::RegistrableDomain::fromRawString(quirk.domain), quirk.userAgentString);
-            setCachedListData(WTFMove(result));
+            setCachedListData(WTF::move(result));
         }
 
         for (auto& completionHandler : std::exchange(lookupCompletionHandlers.get(), { }))
@@ -391,7 +391,7 @@ void RestrictedOpenerDomainsController::update()
             restrictedOpenerTypes.add(registrableDomain, restrictedOpenerType(domainInfo.openerType));
         }
 
-        m_restrictedOpenerTypes = WTFMove(restrictedOpenerTypes);
+        m_restrictedOpenerTypes = WTF::move(restrictedOpenerTypes);
     }];
 }
 
@@ -428,7 +428,7 @@ void ResourceMonitorURLsController::prepare(CompletionHandler<void(WKContentRule
     }
 
     static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void(WKContentRuleList*, bool)>, 1>> lookupCompletionHandlers;
-    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    lookupCompletionHandlers->append(WTF::move(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
@@ -452,7 +452,7 @@ void ResourceMonitorURLsController::getSource(CompletionHandler<void(String&&)>&
     }
 
     static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void(NSString *)>, 1>> lookupCompletionHandlers;
-    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    lookupCompletionHandlers->append(WTF::move(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
@@ -499,7 +499,7 @@ public:
     enum class CanBlock : bool { No, Yes };
 
     TrackerAddressLookupInfo(WebCore::IPAddress&& network, unsigned netMaskLength, String&& owner, String&& host, CanBlock canBlock)
-        : m_network { WTFMove(network) }
+        : m_network { WTF::move(network) }
         , m_netMaskLength { netMaskLength }
         , m_owner { owner.utf8() }
         , m_host { host.utf8() }
@@ -706,7 +706,7 @@ void configureForAdvancedPrivacyProtections(NSURLSession *session)
     if (!canSetTrackerLookupCallback)
         return;
 
-    auto context = session._networkContext;
+    RetainPtr<nw_context_t> context = session._networkContext;
     if (!context)
         return;
 
@@ -717,7 +717,7 @@ void configureForAdvancedPrivacyProtections(NSURLSession *session)
     if (!setTrackerLookupCallback)
         return;
 
-    setTrackerLookupCallback(context, ^(nw_endpoint_t endpoint, const char** hostName, const char** owner, bool* canBlock) {
+    setTrackerLookupCallback(context.get(), ^(nw_endpoint_t endpoint, const char** hostName, const char** owner, bool* canBlock) {
         if (auto address = ipAddress(endpoint)) {
             if (auto* info = TrackerAddressLookupInfo::find(*address)) {
                 *owner = info->owner().data();
@@ -742,7 +742,7 @@ bool isKnownTrackerAddressOrDomain(StringView host)
     TrackerAddressLookupInfo::populateIfNeeded();
     TrackerDomainLookupInfo::populateIfNeeded();
 
-    if (auto address = URL::hostIsIPAddress(host) ? IPAddress::fromString(host.toStringWithoutCopying()) : std::nullopt) {
+    if (auto address = URL::hostIsIPAddress(host) ? WebCore::IPAddress::fromString(host.toStringWithoutCopying()) : std::nullopt) {
         if (TrackerAddressLookupInfo::find(*address))
             return true;
     }
@@ -751,7 +751,7 @@ bool isKnownTrackerAddressOrDomain(StringView host)
     return TrackerDomainLookupInfo::find(domain.string()).owner().length();
 }
 
-IsKnownCrossSiteTracker isRequestToKnownCrossSiteTracker(const ResourceRequest& request)
+WebCore::IsKnownCrossSiteTracker isRequestToKnownCrossSiteTracker(const WebCore::ResourceRequest& request)
 {
     return request.isThirdParty() && isKnownTrackerAddressOrDomain(request.url().host()) ? WebCore::IsKnownCrossSiteTracker::Yes : WebCore::IsKnownCrossSiteTracker::No;
 }
@@ -800,12 +800,12 @@ void ScriptTrackingPrivacyController::updateList(CompletionHandler<void()>&& com
     ASSERT(RunLoop::isMain());
 #if ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClassSingleton() instancesRespondToSelector:@selector(requestFingerprintingScripts:completionHandler:)]) {
-        RunLoop::mainSingleton().dispatch(WTFMove(completion));
+        RunLoop::mainSingleton().dispatch(WTF::move(completion));
         return;
     }
 
     static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> pendingCompletionHandlers;
-    pendingCompletionHandlers->append(WTFMove(completion));
+    pendingCompletionHandlers->append(WTF::move(completion));
     if (pendingCompletionHandlers->size() > 1)
         return;
 
@@ -839,10 +839,10 @@ void ScriptTrackingPrivacyController::updateList(CompletionHandler<void()>&& com
                     result.thirdPartyHosts.append({ script.host, allowedCategories });
             }
         }
-        setCachedListData(WTFMove(result));
+        setCachedListData(WTF::move(result));
     }];
 #else
-    RunLoop::mainSingleton().dispatch(WTFMove(completion));
+    RunLoop::mainSingleton().dispatch(WTF::move(completion));
 #endif
 }
 

@@ -65,7 +65,7 @@ public:
     RefPtr<WebCore::NativeImage> getNativeImage(const WebCore::VideoFrame&);
 
     ThreadSafeWeakPtrControlBlock& controlBlock() const final { return IPC::WorkQueueMessageReceiver<WTF::DestructionThread::MainRunLoop>::controlBlock(); }
-    size_t weakRefCount() const final { return IPC::WorkQueueMessageReceiver<WTF::DestructionThread::MainRunLoop>::weakRefCount(); }
+    uint32_t weakRefCount() const final { return IPC::WorkQueueMessageReceiver<WTF::DestructionThread::MainRunLoop>::weakRefCount(); }
 
     void ref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::MainRunLoop>::ref(); }
     void deref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::MainRunLoop>::deref(); }

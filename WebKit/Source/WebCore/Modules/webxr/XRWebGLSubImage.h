@@ -28,7 +28,8 @@
 #if ENABLE(WEBXR_LAYERS)
 
 #include "XRSubImage.h"
-
+#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -37,7 +38,7 @@ class WebGLTexture;
 
 // https://immersive-web.github.io/layers/#xrwebglsubimagetype
 class XRWebGLSubImage : public XRSubImage {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(XRWebGLSubImage);
+    WTF_MAKE_TZONE_ALLOCATED(XRWebGLSubImage);
 public:
     virtual ~XRWebGLSubImage();
 

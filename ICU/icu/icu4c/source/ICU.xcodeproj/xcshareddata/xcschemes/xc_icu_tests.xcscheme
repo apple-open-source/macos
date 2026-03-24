@@ -23,6 +23,15 @@
          <TestPlanReference
             reference = "container:xc_iotest.xctestplan">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:xc_cintltst_exhaustive.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:xc_intltest_exhaustive.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:xc_iotest_exhaustive.xctestplan">
+         </TestPlanReference>
       </TestPlans>
    </TestAction>
    <LaunchAction

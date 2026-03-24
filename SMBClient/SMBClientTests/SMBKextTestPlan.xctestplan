@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "C4A5A14D-1BD2-4A1E-9F0A-619A415EB24C",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:smb.xcodeproj",
+        "identifier" : "DD17894D2170FB93008D17BB",
+        "name" : "SMBClientTests"
+      }
+    }
+  ],
+  "version" : 1
+}

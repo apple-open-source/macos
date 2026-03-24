@@ -76,6 +76,7 @@ dispatch_once(dispatch_once_t *predicate,
 
 #if DISPATCH_ONCE_INLINE_FASTPATH
 DISPATCH_INLINE DISPATCH_ALWAYS_INLINE DISPATCH_NONNULL_ALL DISPATCH_NOTHROW
+DISPATCH_NO_UBSAN
 DISPATCH_SWIFT3_UNAVAILABLE("Use lazily initialized globals instead")
 void
 _dispatch_once(dispatch_once_t *predicate,
@@ -102,7 +103,7 @@ dispatch_once_f(dispatch_once_t *predicate, void *_Nullable context,
 
 #if DISPATCH_ONCE_INLINE_FASTPATH
 DISPATCH_INLINE DISPATCH_ALWAYS_INLINE DISPATCH_NONNULL1 DISPATCH_NONNULL3
-DISPATCH_NOTHROW
+DISPATCH_NOTHROW DISPATCH_NO_UBSAN
 DISPATCH_SWIFT3_UNAVAILABLE("Use lazily initialized globals instead")
 void
 _dispatch_once_f(dispatch_once_t *predicate, void *_Nullable context,

@@ -351,7 +351,7 @@ void ViewGestureController::willEndSwipeGesture(WebBackForwardListItem& targetIt
     }
 
     // FIXME: Should we wait for VisuallyNonEmptyLayout like we do on Mac?
-    m_snapshotRemovalTracker.start(SnapshotRemovalTracker::RenderTreeSizeThreshold
+    m_snapshotRemovalTracker->start(SnapshotRemovalTracker::RenderTreeSizeThreshold
         | SnapshotRemovalTracker::RepaintAfterNavigation
         | SnapshotRemovalTracker::MainFrameLoad
         | SnapshotRemovalTracker::SubresourceLoads
@@ -433,7 +433,7 @@ void ViewGestureController::endSwipeGesture(WebBackForwardListItem* targetItem, 
     if (m_didStartProvisionalLoad)
         doAfterLoadStart();
     else
-        m_loadCallback = WTFMove(doAfterLoadStart);
+        m_loadCallback = WTF::move(doAfterLoadStart);
 }
 
 void ViewGestureController::setRenderTreeSize(uint64_t renderTreeSize)
@@ -460,7 +460,7 @@ void ViewGestureController::willCommitPostSwipeTransitionLayerTree(bool successf
 
 void ViewGestureController::removeSwipeSnapshot()
 {
-    m_snapshotRemovalTracker.reset();
+    m_snapshotRemovalTracker->reset();
 
     if (m_activeGestureType != ViewGestureType::Swipe)
         return;

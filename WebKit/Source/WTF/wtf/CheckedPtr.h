@@ -27,6 +27,7 @@
 
 #include <wtf/CheckedRef.h>
 #include <wtf/RawPtrTraits.h>
+#include <wtf/TypeTraits.h>
 
 namespace WTF {
 
@@ -160,14 +161,14 @@ public:
 
     CheckedPtr& operator=(CheckedPtr&& other)
     {
-        CheckedPtr moved { WTFMove(other) };
+        CheckedPtr moved { WTF::move(other) };
         PtrTraits::swap(m_ptr, moved.m_ptr);
         return *this;
     }
 
     template<typename OtherType, typename OtherPtrTraits> CheckedPtr& operator=(CheckedPtr<OtherType, OtherPtrTraits>&& other)
     {
-        CheckedPtr moved { WTFMove(other) };
+        CheckedPtr moved { WTF::move(other) };
         PtrTraits::swap(m_ptr, moved.m_ptr);
         return *this;
     }
@@ -227,7 +228,7 @@ template<typename P> struct HashTraits<CheckedPtr<P>> : SimpleClassHashTraits<Ch
     {
         // See unique_ptr's customDeleteBucket() for an explanation.
         ASSERT(!SimpleClassHashTraits<CheckedPtr<P>>::isDeletedValue(value));
-        auto valueToBeDestroyed = WTFMove(value);
+        auto valueToBeDestroyed = WTF::move(value);
         SimpleClassHashTraits<CheckedPtr<P>>::constructDeletedValue(value);
     }
 };
@@ -237,8 +238,22 @@ template<typename P> struct DefaultHash<CheckedPtr<P>> : PtrHash<CheckedPtr<P>> 
 template<typename> struct PackedPtrTraits;
 template<typename T> using PackedCheckedPtr = CheckedPtr<T, PackedPtrTraits<T>>;
 
+template<typename T, typename PtrTraits = RawPtrTraits<T>>
+    requires (HasCheckedPtrMemberFunctions<T>::value && !HasRefPtrMemberFunctions<T>::value)
+ALWAYS_INLINE CLANG_POINTER_CONVERSION CheckedPtr<T, PtrTraits> protect(T* ptr)
+{
+    return CheckedPtr<T, PtrTraits>(ptr);
+}
+
+template<typename T, typename PtrTraits>
+ALWAYS_INLINE CLANG_POINTER_CONVERSION CheckedPtr<T, PtrTraits> protect(const CheckedPtr<T, PtrTraits>& ptr)
+{
+    return ptr;
+}
+
 } // namespace WTF
 
 using WTF::CheckedPtr;
 using WTF::PackedCheckedPtr;
+using WTF::protect;
 

@@ -43,8 +43,8 @@ protected:
 
     friend std::unique_ptr<SystemSleepListener> SystemSleepListener::create(Client&);
 
-    id m_sleepObserver;
-    id m_wakeObserver;
+    const RetainPtr<id> m_sleepObserver;
+    const RetainPtr<id> m_wakeObserver;
 };
 
 } // namespace PAL

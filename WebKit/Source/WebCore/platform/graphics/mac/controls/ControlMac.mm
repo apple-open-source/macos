@@ -45,6 +45,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 namespace WebCore {
 
@@ -95,8 +96,8 @@ void ControlMac::updateCheckedState(NSCell *cell, const ControlStyle& style)
 
     auto newState = indeterminate ? NSControlStateValueMixed : (checked ? NSControlStateValueOn : NSControlStateValueOff);
 
-    if ([cell isKindOfClass:[NSButtonCell class]])
-        [(NSButtonCell *)cell _setState:newState animated:false];
+    if (auto *buttonCell = dynamic_objc_cast<NSButtonCell>(cell))
+        [buttonCell _setState:newState animated:false];
     else
         [cell setState:newState];
 }
@@ -126,8 +127,8 @@ void ControlMac::updatePressedState(NSCell *cell, const ControlStyle& style)
     if (pressed == oldPressed)
         return;
 
-    if ([cell isKindOfClass:[NSButtonCell class]])
-        [(NSButtonCell *)cell _setHighlighted:pressed animated:false];
+    if (auto *buttonCell = dynamic_objc_cast<NSButtonCell>(cell))
+        [buttonCell _setHighlighted:pressed animated:false];
     else
         [cell setHighlighted:pressed];
 }
@@ -269,8 +270,8 @@ static void drawCellInView(GraphicsContext& context, const FloatRect& rect, NSCe
 void ControlMac::drawCellInternal(GraphicsContext& context, const FloatRect& rect, float deviceScaleFactor, const ControlStyle& style, NSCell *cell)
 {
     // For slider cells, draw only the knob.
-    if ([cell isKindOfClass:[NSSliderCell class]]) {
-        drawSliderCell(context, rect, (NSSliderCell *)cell);
+    if (auto *sliderCell = dynamic_objc_cast<NSSliderCell>(cell)) {
+        drawSliderCell(context, rect, sliderCell);
         return;
     }
 
@@ -373,7 +374,7 @@ void ControlMac::drawCell(GraphicsContext& context, const FloatRect& rect, float
         return;
 
     drawCellOrFocusRing(imageBuffer->context(), cellDrawingRect, deviceScaleFactor, style, cell, drawCell);
-    context.drawConsumingImageBuffer(WTFMove(imageBuffer), rect.location() - focusRingPadding);
+    context.drawConsumingImageBuffer(WTF::move(imageBuffer), rect.location() - focusRingPadding);
 }
 
 void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect, float deviceScaleFactor, const ControlStyle& style)
@@ -416,9 +417,9 @@ void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect,
     auto& comboBoxButtonContext = comboBoxButtonImageBuffer->context();
 
     comboBoxButtonContext.scale(desiredComboBoxButtonSize.width() / comboBoxButtonSize.width());
-    comboBoxButtonContext.clipRoundedRect(FloatRoundedRect(FloatRect(FloatPoint::zero(), comboBoxButtonSize), FloatRoundedRect::Radii(comboBoxButtonCornerRadii)));
+    comboBoxButtonContext.clipRoundedRect(FloatRoundedRect(FloatRect(FloatPoint::zero(), comboBoxButtonSize), CornerRadii(comboBoxButtonCornerRadii)));
     comboBoxButtonContext.translate(comboBoxButtonInset.scaled(-1));
-    comboBoxButtonContext.drawConsumingImageBuffer(WTFMove(comboBoxImageBuffer), FloatPoint::zero(), ImagePaintingOptions { ImageOrientation::Orientation::OriginBottomRight });
+    comboBoxButtonContext.drawConsumingImageBuffer(WTF::move(comboBoxImageBuffer), FloatPoint::zero(), ImagePaintingOptions { ImageOrientation::Orientation::OriginBottomRight });
 
     auto isVerticalWritingMode = style.states.contains(ControlStyle::State::VerticalWritingMode);
 
@@ -435,7 +436,7 @@ void ControlMac::drawListButton(GraphicsContext& context, const FloatRect& rect,
     if (isVerticalWritingMode)
         listButtonLocation = listButtonLocation.transposedPoint();
 
-    context.drawConsumingImageBuffer(WTFMove(comboBoxButtonImageBuffer), listButtonLocation);
+    context.drawConsumingImageBuffer(WTF::move(comboBoxButtonImageBuffer), listButtonLocation);
 }
 
 } // namespace WebCore

@@ -111,9 +111,7 @@ private:
     static String familyNameFromPrimitive(const CSSPrimitiveValue&);
 
     using FontSelectionKey = std::optional<FontSelectionRequest>;
-    struct FontSelectionKeyHash {
-        static unsigned hash(const FontSelectionKey& key) { return computeHash(key); }
-        static bool equal(const FontSelectionKey& a, const FontSelectionKey& b) { return a == b; }
+    struct FontSelectionKeyHash : WTF::HasherBasedHash<FontSelectionKey> {
         static const bool safeToCompareToEmptyOrDeleted = true;
     };
     struct FontSelectionKeyHashTraits : SimpleClassHashTraits<FontSelectionKey> {

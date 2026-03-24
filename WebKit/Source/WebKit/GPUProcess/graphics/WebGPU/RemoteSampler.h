@@ -54,7 +54,7 @@ class RemoteSampler final : public IPC::StreamMessageReceiver {
 public:
     static Ref<RemoteSampler> create(WebCore::WebGPU::Sampler& sampler, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteSampler(sampler, objectHeap, WTFMove(streamConnection), gpu, identifier));
+        return adoptRef(*new RemoteSampler(sampler, objectHeap, WTF::move(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteSampler();

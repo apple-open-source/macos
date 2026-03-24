@@ -65,7 +65,7 @@ NavigatorGamepad& NavigatorGamepad::from(Navigator& navigator)
     if (!supplement) {
         auto newSupplement = makeUnique<NavigatorGamepad>(navigator);
         supplement = newSupplement.get();
-        provideTo(&navigator, supplementName(), WTFMove(newSupplement));
+        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
     }
     return *supplement;
 }
@@ -133,12 +133,13 @@ const Vector<RefPtr<Gamepad>>& NavigatorGamepad::gamepads()
 
     auto& platformGamepads = GamepadProvider::singleton().platformGamepads();
 
-    for (unsigned i = 0; i < platformGamepads.size(); ++i) {
-        if (!platformGamepads[i]) {
+    for (size_t i = 0; i < platformGamepads.size(); ++i) {
+        CheckedPtr gamepad = platformGamepads[i].get();
+        if (!gamepad) {
             ASSERT(!m_gamepads[i]);
             continue;
         }
-        Ref { *m_gamepads[i] }->updateFromPlatformGamepad(*platformGamepads[i]);
+        Ref { *m_gamepads[i] }->updateFromPlatformGamepad(*gamepad);
     }
 
     return m_gamepads;
@@ -149,11 +150,9 @@ void NavigatorGamepad::gamepadsBecameVisible()
     auto& platformGamepads = GamepadProvider::singleton().platformGamepads();
     m_gamepads.resize(platformGamepads.size());
 
-    for (unsigned i = 0; i < platformGamepads.size(); ++i) {
-        if (!platformGamepads[i])
-            continue;
-
-        m_gamepads[i] = Gamepad::create(m_navigator->protectedDocument().get(), *platformGamepads[i]);
+    for (size_t i = 0; i < platformGamepads.size(); ++i) {
+        if (CheckedPtr gamepad = platformGamepads[i].get())
+            m_gamepads[i] = Gamepad::create(m_navigator->protectedDocument().get(), *gamepad);
     }
 }
 

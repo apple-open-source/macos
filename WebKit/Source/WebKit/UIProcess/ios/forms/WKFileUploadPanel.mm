@@ -233,7 +233,7 @@ static NSString * firstUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers, U
     _processedVideoCount = 0;
     _videoCount = videoCount;
 
-    _completionHandler = WTFMove(completionHandler);
+    _completionHandler = WTF::move(completionHandler);
 
     return self;
 }
@@ -302,7 +302,7 @@ static NSString * firstUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers, U
     [_exportSession setOutputFileType:AVFileTypeQuickTimeMovie];
 
     [_exportSession exportAsynchronouslyWithCompletionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<WKFileUploadMediaTranscoder>(self), index] () mutable {
-        ensureOnMainRunLoop([weakSelf = WTFMove(weakSelf), index] {
+        ensureOnMainRunLoop([weakSelf = WTF::move(weakSelf), index] {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
@@ -1017,7 +1017,7 @@ static RetainPtr<NSString> displayStringForDocumentsAtURLs(NSArray<NSURL *> *url
         }
 
         [retainedSelf->_view _removeTemporaryDirectoriesWhenDeallocated:std::exchange(retainedSelf->_temporaryUploadedFileURLs, { })];
-        RunLoop::mainSingleton().dispatch([retainedSelf = WTFMove(retainedSelf), maybeMovedURLs = WTFMove(maybeMovedURLs)] {
+        RunLoop::mainSingleton().dispatch([retainedSelf = WTF::move(retainedSelf), maybeMovedURLs = WTF::move(maybeMovedURLs)] {
             [retainedSelf _chooseFiles:maybeMovedURLs.get() displayString:displayStringForDocumentsAtURLs(maybeMovedURLs.get()).get() iconImage:WebKit::iconForFiles({ maybeMovedURLs.get()[0].absoluteString }).get()];
         });
     }).get());
@@ -1170,7 +1170,7 @@ static RetainPtr<NSString> displayStringForDocumentsAtURLs(NSArray<NSURL *> *url
             }
 
             auto [operationResult, maybeMovedURL, temporaryURL] = [WKFileUploadPanel _moveToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get() asCopy:NO];
-            self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
+            self->_temporaryUploadedFileURLs.append(WTF::move(temporaryURL));
 
             successBlock(adoptNS([[_WKVideoFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
         }];
@@ -1201,7 +1201,7 @@ static RetainPtr<NSString> displayStringForDocumentsAtURLs(NSArray<NSURL *> *url
         }
 
         auto [operationResult, maybeMovedURL, temporaryURL] = [WKFileUploadPanel _moveToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get() asCopy:NO];
-        self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
+        self->_temporaryUploadedFileURLs.append(WTF::move(temporaryURL));
 
         successBlock(adoptNS([[_WKImageFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
     }];

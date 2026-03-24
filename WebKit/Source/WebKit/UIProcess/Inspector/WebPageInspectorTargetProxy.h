@@ -40,6 +40,7 @@ class WebPageProxy;
 class WebPageInspectorTargetProxy final : public InspectorTargetProxy {
     WTF_MAKE_TZONE_ALLOCATED(WebPageInspectorTargetProxy);
     WTF_MAKE_NONCOPYABLE(WebPageInspectorTargetProxy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebPageInspectorTargetProxy);
 public:
     static std::unique_ptr<WebPageInspectorTargetProxy> create(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
     static std::unique_ptr<WebPageInspectorTargetProxy> create(ProvisionalPageProxy&, const String& targetId, Inspector::InspectorTargetType);

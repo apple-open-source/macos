@@ -53,6 +53,12 @@ void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value)
                           }];
 }
 
+void SecCoreAnalyticsSendEventDict(CFStringRef _Nonnull eventName, CFDictionaryRef _Nonnull eventDict)
+{
+    [SecCoreAnalytics sendEvent:(__bridge NSString*)eventName
+                          event:(__bridge NSDictionary*)eventDict];
+}
+
 // Round up to the nearest power of two. If x is a power of two,
 // return x. If x is zero, return zero. If x > 2^63, return UINT64_MAX
 // (which is technically not a power of two). For example:

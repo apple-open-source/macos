@@ -173,28 +173,32 @@ namespace WTF {
     template<typename... Types>
     struct TupleHash {
         template<size_t I = 0>
-        static typename std::enable_if<I < sizeof...(Types) - 1, unsigned>::type hash(const std::tuple<Types...>& t)
+            requires (I < sizeof...(Types) - 1)
+        static unsigned hash(const std::tuple<Types...>& t)
         {
             using IthTupleElementType = typename std::tuple_element<I, typename std::tuple<Types...>>::type;
             return pairIntHash(DefaultHash<IthTupleElementType>::hash(std::get<I>(t)), hash<I + 1>(t));
         }
 
         template<size_t I = 0>
-        static typename std::enable_if<I == sizeof...(Types) - 1, unsigned>::type hash(const std::tuple<Types...>& t)
+            requires (I == sizeof...(Types) - 1)
+        static unsigned hash(const std::tuple<Types...>& t)
         {
             using IthTupleElementType = typename std::tuple_element<I, typename std::tuple<Types...>>::type;
             return DefaultHash<IthTupleElementType>::hash(std::get<I>(t));
         }
 
         template<size_t I = 0>
-        static typename std::enable_if<I < sizeof...(Types) - 1, bool>::type equal(const std::tuple<Types...>& a, const std::tuple<Types...>& b)
+            requires (I < sizeof...(Types) - 1)
+        static bool equal(const std::tuple<Types...>& a, const std::tuple<Types...>& b)
         {
             using IthTupleElementType = typename std::tuple_element<I, typename std::tuple<Types...>>::type;
             return DefaultHash<IthTupleElementType>::equal(std::get<I>(a), std::get<I>(b)) && equal<I + 1>(a, b);
         }
 
         template<size_t I = 0>
-        static typename std::enable_if<I == sizeof...(Types) - 1, bool>::type equal(const std::tuple<Types...>& a, const std::tuple<Types...>& b)
+            requires (I == sizeof...(Types) - 1)
+        static bool equal(const std::tuple<Types...>& a, const std::tuple<Types...>& b)
         {
             using IthTupleElementType = typename std::tuple_element<I, typename std::tuple<Types...>>::type;
             return DefaultHash<IthTupleElementType>::equal(std::get<I>(a), std::get<I>(b));
@@ -258,6 +262,26 @@ namespace WTF {
 
     template<typename T, typename U> struct DefaultHash<std::pair<T, U>> : PairHash<T, U> { };
     template<typename... Types> struct DefaultHash<std::tuple<Types...>> : TupleHash<Types...> { };
+
+    template<typename T> constexpr bool isSafeToCompareToHashTableEmptyOrDeletedValue() {
+        if constexpr (requires { T::safeToCompareToHashTableEmptyOrDeletedValue; }) {
+            static_assert(std::same_as<decltype(T::safeToCompareToHashTableEmptyOrDeletedValue), const bool>);
+            return T::safeToCompareToHashTableEmptyOrDeletedValue;
+        } else
+            return false;
+    }
+
+    // Default hash for any type with a hash() member function and an equality operator.
+    template<typename T> concept HashableWithMemberFunction = requires(const T& t) {
+        requires std::equality_comparable<T>;
+        { t.hash() } -> std::same_as<unsigned>;
+    };
+    template<HashableWithMemberFunction T> struct MemberBasedHash {
+        static unsigned hash(const T& key) { return key.hash(); }
+        static bool equal(const T& a, const T& b) { return a == b; }
+        static constexpr bool safeToCompareToEmptyOrDeleted = isSafeToCompareToHashTableEmptyOrDeletedValue<T>();
+    };
+    template<HashableWithMemberFunction T> struct DefaultHash<T> : MemberBasedHash<T> { };
 
 } // namespace WTF
 

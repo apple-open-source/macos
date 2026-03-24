@@ -73,7 +73,10 @@ CSSFontSelector::CSSFontSelector(ScriptExecutionContext& context)
     : ActiveDOMObject(&context)
     , m_context(context)
     , m_cssFontFaceSet(CSSFontFaceSet::create(this))
-    , m_fontModifiedObserver([this] { fontModified(); })
+    , m_fontModifiedObserver(CSSFontFaceSet::FontModifiedObserver::create([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->fontModified();
+    }))
     , m_uniqueId(++fontSelectorId)
     , m_version(0)
 {
@@ -83,7 +86,7 @@ CSSFontSelector::CSSFontSelector(ScriptExecutionContext& context)
             m_fontFamilyNames.constructAndAppend(familyName);
     } else {
         m_fontFamilyNames.appendContainerWithMapping(familyNamesData.get(), [](auto& familyName) {
-            return familyName;
+            return AtomString { *familyName };
         });
     }
 
@@ -291,10 +294,11 @@ void CSSFontSelector::opportunisticallyStartFontDataURLLoading(const FontCascade
     if (!segmentedFontFace)
         return;
 
-    if (!m_context)
+    RefPtr context = m_context.get();
+    if (!context)
         return;
 
-    auto trustedType = m_context->settingsValues().downloadableBinaryFontTrustedTypes;
+    auto trustedType = context->settingsValues().downloadableBinaryFontTrustedTypes;
 
     for (auto& face : segmentedFontFace->constituentFaces())
         face->opportunisticallyStartFontDataURLLoading(trustedType);
@@ -453,14 +457,14 @@ FontRanges CSSFontSelector::fontRangesForFamily(const FontDescription& fontDescr
         if (!preferredMathFamily.isEmpty() && familyName != preferredMathFamily) {
             auto ranges = fontRangesForFamily(fontDescription, AtomString(preferredMathFamily));
             if (!ranges.isNull())
-                return { WTFMove(ranges), IsGenericFontFamily::Yes };
+                return { WTF::move(ranges), IsGenericFontFamily::Yes };
         }
 
         // Otherwise, iterate through the font list to find a valid fallback.
         for (auto& family : mathFontList()) {
             auto ranges = fontRangesForFamily(fontDescription, family);
             if (!ranges.isNull())
-                return { WTFMove(ranges), IsGenericFontFamily::Yes };
+                return { WTF::move(ranges), IsGenericFontFamily::Yes };
         }
     }
 
@@ -479,7 +483,7 @@ FontRanges CSSFontSelector::fontRangesForFamily(const FontDescription& fontDescr
     auto font = FontCache::forCurrentThread()->fontForFamily(*fontDescriptionForLookup, familyForLookup, { { }, { }, fontPaletteValues, fontFeatureValues, 1.0 });
     if (document && document->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::singleton().logFontLoad(*document, familyForLookup.string(), !!font);
-    return { FontRanges { WTFMove(font) }, isGenericFontFamily };
+    return { FontRanges { WTF::move(font) }, isGenericFontFamily };
 }
 
 void CSSFontSelector::clearFonts()

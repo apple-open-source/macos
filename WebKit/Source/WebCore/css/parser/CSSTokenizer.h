@@ -58,7 +58,7 @@ public:
     static bool isWhitespace(CSSParserTokenType);
     static bool isNewline(char16_t);
 
-    Vector<String>&& escapedStringsForAdoption() { return WTFMove(m_stringPool); }
+    Vector<String>&& escapedStringsForAdoption() { return WTF::move(m_stringPool); }
 
 private:
     CSSTokenizer(const String&, CSSParserObserverWrapper*, bool* constructionSuccess);

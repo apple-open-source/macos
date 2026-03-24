@@ -39,6 +39,8 @@
 #import "DOMRangeInternal.h"
 #import "LegacyHistoryItemClient.h"
 #import "LegacySocketProvider.h"
+#import "LegacyWebPageDebuggable.h"
+#import "LegacyWebPageInspectorController.h"
 #import "PageStorageSessionProvider.h"
 #import "SocketStreamHandleImpl.h"
 #import "StorageThread.h"
@@ -217,7 +219,7 @@
 #import <WebCore/RemoteFrameClient.h>
 #import <WebCore/RemoteFrameGeometryTransformer.h>
 #import <WebCore/RemoteUserInputEventData.h>
-#import <WebCore/RenderStyleInlines.h>
+#import <WebCore/RenderStyle+GettersInlines.h>
 #import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
@@ -1530,7 +1532,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     pageConfiguration.pluginInfoProvider = WebPluginInfoProvider::singleton();
     pageConfiguration.storageNamespaceProvider = _private->group->storageNamespaceProvider();
     pageConfiguration.visitedLinkStore = _private->group->visitedLinkStore();
-    _private->page = WebCore::Page::create(WTFMove(pageConfiguration));
+    _private->page = WebCore::Page::create(WTF::move(pageConfiguration));
     storageProvider->setPage(*_private->page);
 
     _private->page->setGroupName(groupName);
@@ -1545,8 +1547,11 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     WebCore::provideMediaKeySystemTo(*_private->page.get(), WebMediaKeySystemClient::singleton());
 #endif
 
+    _private->inspectorController = LegacyWebPageInspectorController::create(*_private->page);
 #if ENABLE(REMOTE_INSPECTOR)
-    _private->page->setInspectable(true);
+    _private->inspectorDebuggable = LegacyWebPageDebuggable::create(*_private->inspectorController, *_private->page);
+    _private->inspectorDebuggable->init();
+    _private->inspectorDebuggable->setInspectable(true);
 #endif
 
     _private->page->setCanStartMedia([self window]);
@@ -1781,7 +1786,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     pageConfiguration.visitedLinkStore = _private->group->visitedLinkStore();
     pageConfiguration.pluginInfoProvider = WebPluginInfoProvider::singleton();
 
-    _private->page = WebCore::Page::create(WTFMove(pageConfiguration));
+    _private->page = WebCore::Page::create(WTF::move(pageConfiguration));
     storageProvider->setPage(*_private->page);
 
     [self setSmartInsertDeleteEnabled:YES];
@@ -1812,8 +1817,11 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     _private->page->setGroupName(groupName);
 
+    _private->inspectorController = LegacyWebPageInspectorController::create(*_private->page);
 #if ENABLE(REMOTE_INSPECTOR)
-    _private->page->setInspectable(isInternalInstall());
+    _private->inspectorDebuggable = LegacyWebPageDebuggable::create(*_private->inspectorController, *_private->page);
+    _private->inspectorDebuggable->init();
+    _private->inspectorDebuggable->setInspectable(isInternalInstall());
 #endif
 
     [self _updateScreenScaleFromWindow];
@@ -1904,7 +1912,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     RefPtr<WebCore::TextIndicator> textIndicator = dragImage.textIndicator();
 
     if (textIndicator)
-        _private->textIndicatorData = adoptNS([[WebUITextIndicatorData alloc] initWithImage:image textIndicator:WTFMove(textIndicator) scale:_private->page->deviceScaleFactor()]);
+        _private->textIndicatorData = adoptNS([[WebUITextIndicatorData alloc] initWithImage:image textIndicator:WTF::move(textIndicator) scale:_private->page->deviceScaleFactor()]);
     else
         _private->textIndicatorData = adoptNS([[WebUITextIndicatorData alloc] initWithImage:image scale:_private->page->deviceScaleFactor()]);
     _private->draggedLinkURL = dragItem.url.isEmpty() ? RetainPtr<NSURL>() : dragItem.url.createNSURL();
@@ -1972,7 +1980,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     WebThreadLock();
     auto dragData = [self dragDataForSession:session client:clientPosition global:globalPosition operation:operation];
-    return kit(std::get<std::optional<WebCore::DragOperation>>(_private->page->dragController().dragEnteredOrUpdated(*localMainFrame, WTFMove(dragData))));
+    return kit(std::get<std::optional<WebCore::DragOperation>>(_private->page->dragController().dragEnteredOrUpdated(*localMainFrame, WTF::move(dragData))));
 }
 
 - (uint64_t)_updatedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
@@ -1983,7 +1991,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     WebThreadLock();
     auto dragData = [self dragDataForSession:session client:clientPosition global:globalPosition operation:operation];
-    return kit(std::get<std::optional<WebCore::DragOperation>>(_private->page->dragController().dragEnteredOrUpdated(*localMainFrame, WTFMove(dragData))));
+    return kit(std::get<std::optional<WebCore::DragOperation>>(_private->page->dragController().dragEnteredOrUpdated(*localMainFrame, WTF::move(dragData))));
 }
 
 - (void)_exitedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
@@ -1994,7 +2002,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     WebThreadLock();
     auto dragData = [self dragDataForSession:session client:clientPosition global:globalPosition operation:operation];
-    _private->page->dragController().dragExited(*localMainFrame, WTFMove(dragData));
+    _private->page->dragController().dragExited(*localMainFrame, WTF::move(dragData));
 }
 
 - (void)_performDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
@@ -2006,7 +2014,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 {
     WebThreadLock();
     auto dragData = [self dragDataForSession:session client:clientPosition global:globalPosition operation:operation];
-    return _private->page->dragController().performDragOperation(WTFMove(dragData));
+    return _private->page->dragController().performDragOperation(WTF::move(dragData));
 }
 
 - (void)_endedDataInteraction:(CGPoint)clientPosition global:(CGPoint)globalPosition
@@ -2042,7 +2050,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         return;
     if (auto range = frame->selection().selection().toNormalizedRange()) {
         if (RefPtr textIndicator = WebCore::TextIndicator::createWithRange(*range, defaultEditDragTextIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, WebCore::FloatSize()))
-            _private->dataOperationTextIndicator = adoptNS([[WebUITextIndicatorData alloc] initWithImage:nil textIndicator:WTFMove(textIndicator) scale:page->deviceScaleFactor()]);
+            _private->dataOperationTextIndicator = adoptNS([[WebUITextIndicatorData alloc] initWithImage:nil textIndicator:WTF::move(textIndicator) scale:page->deviceScaleFactor()]);
     }
 }
 
@@ -2405,6 +2413,9 @@ static bool fastDocumentTeardownEnabled()
     if (!_private || _private->closed)
         return;
 
+    _private->inspectorDebuggable->detachFromPage();
+    _private->inspectorController->willDestroyPage(*_private->page);
+
     [[NSNotificationCenter defaultCenter] postNotificationName:WebViewWillCloseNotification object:self];
 
     _private->closed = YES;
@@ -2645,12 +2656,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)allowsRemoteInspection
 {
-    return _private->page->inspectable();
+    return _private->inspectorDebuggable->inspectable();
 }
 
 - (void)setAllowsRemoteInspection:(BOOL)allow
 {
-    _private->page->setInspectable(allow);
+    _private->inspectorDebuggable->setInspectable(allow);
 }
 
 - (void)setShowingInspectorIndication:(BOOL)showing
@@ -2757,7 +2768,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         Ref newItem = otherBackForward->itemAtIndex(i)->copy();
         if (i == 0)
             newItemToGoTo = newItem.ptr();
-        backForward->client().addItem(WTFMove(newItem));
+        backForward->client().addItem(WTF::move(newItem));
     }
 
     ASSERT(newItemToGoTo);
@@ -4263,7 +4274,7 @@ IGNORE_WARNINGS_END
         return;
 
     auto userScript = makeUnique<WebCore::UserScript>(source, url, makeVector<String>(includeMatchPatternStrings), makeVector<String>(excludeMatchPatternStrings), injectionTime == WebInjectAtDocumentStart ? WebCore::UserScriptInjectionTime::DocumentStart : WebCore::UserScriptInjectionTime::DocumentEnd, injectedFrames == WebInjectInAllFrames ? WebCore::UserContentInjectedFrames::InjectInAllFrames : WebCore::UserContentInjectedFrames::InjectInTopFrameOnly);
-    viewGroup->userContentController().addUserScript(*core(world), WTFMove(userScript));
+    viewGroup->userContentController().addUserScript(*core(world), WTF::move(userScript));
 }
 
 + (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url includeMatchPatternStrings:(NSArray *)includeMatchPatternStrings excludeMatchPatternStrings:(NSArray *)excludeMatchPatternStrings injectedFrames:(WebUserContentInjectedFrames)injectedFrames
@@ -4278,7 +4289,7 @@ IGNORE_WARNINGS_END
         return;
 
     auto styleSheet = makeUnique<WebCore::UserStyleSheet>(source, url, makeVector<String>(includeMatchPatternStrings), makeVector<String>(excludeMatchPatternStrings), injectedFrames == WebInjectInAllFrames ? WebCore::UserContentInjectedFrames::InjectInAllFrames : WebCore::UserContentInjectedFrames::InjectInTopFrameOnly);
-    viewGroup->userContentController().addUserStyleSheet(*core(world), WTFMove(styleSheet), WebCore::InjectInExistingDocuments);
+    viewGroup->userContentController().addUserStyleSheet(*core(world), WTF::move(styleSheet), WebCore::InjectInExistingDocuments);
 }
 
 + (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url
@@ -5002,11 +5013,11 @@ IGNORE_WARNINGS_END
     initialized = YES;
 
     if (WTF::CocoaApplication::shouldOSFaultLogForAppleApplicationUsingWebKit1())
-        os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, "WebView initialized", 0);
+        RELEASE_LOG_FAULT_WITH_PAYLOAD(Threading, "WebView initialized");
 
     WebCore::initializeMainThreadIfNeeded();
 
-    WTF::RefCountedBase::enableThreadingChecksGlobally();
+    WTF::RefCountDebugger::enableThreadingChecksGlobally();
 
     WTF::setProcessPrivileges(allPrivileges());
     WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
@@ -6134,7 +6145,7 @@ static bool needsWebViewInitThreadWorkaround()
         dataSource = [[self mainFrame] _dataSource];
     if (dataSource == nil)
         return nil;
-    return nsStringNilIfEmpty([dataSource _documentLoader]->overrideEncoding());
+    return nsStringNilIfEmpty([dataSource _documentLoader]->overrideEncoding()).autorelease();
 }
 
 - (NSString *)customTextEncodingName
@@ -6301,7 +6312,7 @@ static bool needsWebViewInitThreadWorkaround()
     WebCore::IntPoint global(WebCore::globalPoint([draggingInfo draggingLocation], [self window]));
 
     WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask([draggingInfo draggingSourceOperationMask]), [self _applicationFlagsForDrag:draggingInfo], [self actionMaskForDraggingInfo:draggingInfo]);
-    return kit(std::get<std::optional<WebCore::DragOperation>>(core(self)->dragController().dragEnteredOrUpdated(*localMainFrame, WTFMove(dragData))));
+    return kit(std::get<std::optional<WebCore::DragOperation>>(core(self)->dragController().dragEnteredOrUpdated(*localMainFrame, WTF::move(dragData))));
 }
 
 - (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)draggingInfo
@@ -6318,7 +6329,7 @@ static bool needsWebViewInitThreadWorkaround()
     WebCore::IntPoint global(WebCore::globalPoint([draggingInfo draggingLocation], [self window]));
 
     WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask([draggingInfo draggingSourceOperationMask]), [self _applicationFlagsForDrag:draggingInfo], [self actionMaskForDraggingInfo:draggingInfo]);
-    return kit(std::get<std::optional<WebCore::DragOperation>>(page->dragController().dragEnteredOrUpdated(*localMainFrame, WTFMove(dragData))));
+    return kit(std::get<std::optional<WebCore::DragOperation>>(page->dragController().dragEnteredOrUpdated(*localMainFrame, WTF::move(dragData))));
 }
 
 - (void)draggingExited:(id <NSDraggingInfo>)draggingInfo
@@ -6334,7 +6345,7 @@ static bool needsWebViewInitThreadWorkaround()
     WebCore::IntPoint client([draggingInfo draggingLocation]);
     WebCore::IntPoint global(WebCore::globalPoint([draggingInfo draggingLocation], [self window]));
     WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask([draggingInfo draggingSourceOperationMask]), [self _applicationFlagsForDrag:draggingInfo]);
-    page->dragController().dragExited(*localMainFrame, WTFMove(dragData));
+    page->dragController().dragExited(*localMainFrame, WTF::move(dragData));
 }
 
 - (BOOL)prepareForDragOperation:(id <NSDraggingInfo>)draggingInfo
@@ -8658,7 +8669,7 @@ FORWARD(toggleUnderline)
 
 - (id)_objectForIdentifier:(unsigned long)identifier
 {
-    return _private->identifierMap.get(identifier).unsafeGet();
+    return _private->identifierMap.get(identifier);
 }
 
 - (void)_removeObjectForIdentifier:(unsigned long)identifier
@@ -8946,14 +8957,14 @@ FORWARD(toggleUnderline)
 
     [_private->newFullscreenController setElement:element.get()];
     [_private->newFullscreenController setWebView:self];
-    [_private->newFullscreenController enterFullScreen:[[self window] screen] willEnterFullscreen:WTFMove(willEnterFullscreen) didEnterFullscreen:WTFMove(didEnterFullscreen)];
+    [_private->newFullscreenController enterFullScreen:[[self window] screen] willEnterFullscreen:WTF::move(willEnterFullscreen) didEnterFullscreen:WTF::move(didEnterFullscreen)];
 }
 
 - (void)_exitFullScreenForElement:(NakedPtr<WebCore::Element>)element completionHandler:(CompletionHandler<void()>&&)completionHandler
 {
     if (!_private->newFullscreenController)
         return completionHandler();
-    [_private->newFullscreenController exitFullScreen:WTFMove(completionHandler)];
+    [_private->newFullscreenController exitFullScreen:WTF::move(completionHandler)];
 }
 #endif
 
@@ -9182,7 +9193,7 @@ FORWARD(toggleUnderline)
     [self _devicePicker]->setMockMediaPlaybackTargetPickerEnabled(enabled);
 }
 
-- (void)_setMockMediaPlaybackTargetPickerName:(NSString *)name state:(WebCore::MediaPlaybackTargetContext::MockState)state
+- (void)_setMockMediaPlaybackTargetPickerName:(NSString *)name state:(WebCore::MediaPlaybackTargetMockState)state
 {
     [self _devicePicker]->setMockMediaPlaybackTargetPickerState(name, state);
 }
@@ -9317,25 +9328,25 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
 {
     NSTextAlignment textAlignment;
     switch (style->textAlign()) {
-    case WebCore::TextAlignMode::Right:
-    case WebCore::TextAlignMode::WebKitRight:
+    case WebCore::Style::TextAlign::Right:
+    case WebCore::Style::TextAlign::WebKitRight:
         textAlignment = NSTextAlignmentRight;
         break;
-    case WebCore::TextAlignMode::Left:
-    case WebCore::TextAlignMode::WebKitLeft:
+    case WebCore::Style::TextAlign::Left:
+    case WebCore::Style::TextAlign::WebKitLeft:
         textAlignment = NSTextAlignmentLeft;
         break;
-    case WebCore::TextAlignMode::Center:
-    case WebCore::TextAlignMode::WebKitCenter:
+    case WebCore::Style::TextAlign::Center:
+    case WebCore::Style::TextAlign::WebKitCenter:
         textAlignment = NSTextAlignmentCenter;
         break;
-    case WebCore::TextAlignMode::Justify:
+    case WebCore::Style::TextAlign::Justify:
         textAlignment = NSTextAlignmentJustified;
         break;
-    case WebCore::TextAlignMode::Start:
+    case WebCore::Style::TextAlign::Start:
         textAlignment = style->isLeftToRightDirection() ? NSTextAlignmentLeft : NSTextAlignmentRight;
         break;
-    case WebCore::TextAlignMode::End:
+    case WebCore::Style::TextAlign::End:
         textAlignment = style->isLeftToRightDirection() ? NSTextAlignmentRight : NSTextAlignmentLeft;
         break;
     default:
@@ -9439,7 +9450,7 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
                 } else
                     [_private->_textTouchBarItemController setTextIsUnderlined:style->textDecorationLineInEffect().hasUnderline()];
 
-                Color textColor = style->visitedDependentColor(CSSPropertyColor);
+                auto textColor = style->visitedDependentColor();
                 if (textColor.isValid())
                     [_private->_textTouchBarItemController setTextColor:cocoaColor(textColor).get()];
 
@@ -9623,6 +9634,11 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
 }
 
 #endif // HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
+
+- (LegacyWebPageInspectorController *)inspectorController
+{
+    return _private->inspectorController.get();
+}
 
 @end
 

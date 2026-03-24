@@ -36,12 +36,12 @@ struct ImageOrNone {
     }
 
     ImageOrNone(ImageWrapper&& image)
-        : m_value { WTFMove(image.value) }
+        : m_value { WTF::move(image.value) }
     {
     }
 
     ImageOrNone(RefPtr<StyleImage>&& image)
-        : m_value { WTFMove(image) }
+        : m_value { WTF::move(image) }
     {
     }
 

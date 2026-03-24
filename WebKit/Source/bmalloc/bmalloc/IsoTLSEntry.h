@@ -25,8 +25,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BAssert.h"
 #include "BMalloced.h"
+#include "BPlatform.h"
 #include "IsoTLSLayout.h"
 #include <climits>
 
@@ -109,3 +112,5 @@ protected:
 } // namespace bmalloc
 
 #endif
+
+#endif // __cplusplus

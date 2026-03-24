@@ -1,2 +1,12 @@
-CUSTOM_TARGETS += popen_test
-CUSTOM_TARGETS += t_basedirname
+FREEBSD_TESTS += fnmatch_test
+FREEBSD_TESTS += glob_blocks_test
+FREEBSD_TESTS += glob2_test
+FREEBSD_TESTS += opendir_test
+FREEBSD_TESTS += popen_test
+FREEBSD_TESTS += scandir_test
+FREEBSD_TESTS += scandir_blocks_test
+FREEBSD_TESTS += t_alarm
+FREEBSD_TESTS += t_basedirname
+FREEBSD_TESTS += t_dir
+FREEBSD_TESTS += t_ftok
+FREEBSD_TESTS += t_fnmatch

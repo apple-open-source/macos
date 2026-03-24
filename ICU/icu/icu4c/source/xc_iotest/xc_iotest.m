@@ -7,13 +7,15 @@
 //
 
 #import <XCTest/XCTest.h>
+#import "ctest.h"
+#import "unicode/uclean.h"
 
 extern int main(int argc, char* argv[]);
 
-int call_main(char *argv1) {
+int call_main(char *testname) {
     char argv0[] = "iotest";
-    int argc = 2;
-    char* argv[] = {argv0, argv1, NULL};
+    char* argv[4];
+    int argc = ctest_setup_xctest_argv(argv0, (const char **)argv, testname);
     int result = main(argc, argv);
     return result;
 }
@@ -24,53 +26,70 @@ int call_main(char *argv1) {
 
 @implementation xc_iotest
 
+//+ (void)setUp {
+//    // This method is called only once before any of the test methods begin.
+//}
+
++ (void)tearDown {
+    //This method is called only once after all of the test methods are done.
+
+    // rdar://163964842
+    // Do one last init to ensure we're leaving ICU in a good state
+    // because XCTest uses the libicucore.A.dylib we built and it calls
+    // udat_format() via CFDateFormatterCreateStringWithAbsoluteTime()
+    // after the tests complete, which will get an EXC_BAD_ACCESS
+    // if we've already cleaned up the timezone resource data.
+    UErrorCode errorCode = U_ZERO_ERROR;
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode)) {
+        fprintf(stderr, "u_init() failed with status: %s.\n",
+                u_errorName(errorCode));
+    }
+}
+
+
 //- (void)setUp {
-//    // Put setup code here. This method is called before the invocation of each test method in the class.
+    // This method is called before each test method in the class.
 //}
 
 //- (void)tearDown {
-//    // Put teardown code here. This method is called after the invocation of each test method in the class.
+    // This method is called after each test method in the class.
 //}
 
-//- (void)testExample {
-//    char argv1[] = "-h";
-//    int result = call_main(argv1);
-//    XCTAssertEqual(result, 0);
-//}
 
 - (void)test_datadriv {
-    char argv1[] = "/datadriv";
-    int result = call_main(argv1);
+    char testname[] = "/datadriv";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_file {
-    char argv1[] = "/file";
-    int result = call_main(argv1);
+    char testname[] = "/file";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_stream {
-    char argv1[] = "/stream";
-    int result = call_main(argv1);
+    char testname[] = "/stream";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_string {
-    char argv1[] = "/string";
-    int result = call_main(argv1);
+    char testname[] = "/string";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_translit {
-    char argv1[] = "/translit";
-    int result = call_main(argv1);
+    char testname[] = "/translit";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 
 - (void)test_ScanfMultipleIntegers {
-    char argv1[] = "/ScanfMultipleIntegers";
-    int result = call_main(argv1);
+    char testname[] = "/ScanfMultipleIntegers";
+    int result = call_main(testname);
     XCTAssertEqual(result, 0);
 }
 

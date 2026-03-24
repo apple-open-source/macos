@@ -32,7 +32,7 @@ namespace WebCore {
 class TextFieldInputType;
 
 class DataListButtonElement final : public HTMLDivElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DataListButtonElement);
+    WTF_MAKE_TZONE_ALLOCATED(DataListButtonElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DataListButtonElement);
 public:
     class DataListButtonOwner {
@@ -45,8 +45,12 @@ public:
 
     static Ref<DataListButtonElement> create(Document&, DataListButtonOwner&);
 
+    bool canAdjustStyleForAppearance() const;
+
 private:
     explicit DataListButtonElement(Document&, DataListButtonOwner&);
+
+    bool isDataListButtonElement() const override { return true; }
 
     void defaultEventHandler(Event&) override;
     bool isDisabledFormControl() const override;
@@ -55,3 +59,12 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DataListButtonElement)
+    static bool isType(const WebCore::HTMLElement& element) { return element.isDataListButtonElement(); }
+    static bool isType(const WebCore::Node& node)
+    {
+        auto* htmlElement = dynamicDowncast<WebCore::HTMLElement>(node);
+        return htmlElement && isType(*htmlElement);
+    }
+SPECIALIZE_TYPE_TRAITS_END()

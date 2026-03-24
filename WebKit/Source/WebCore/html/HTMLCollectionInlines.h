@@ -126,7 +126,7 @@ inline void HTMLCollection::setNamedItemCache(std::unique_ptr<CollectionNamedEle
     cache->didPopulate();
     {
         Locker locker { m_namedElementCacheAssignmentLock };
-        m_namedElementCache = WTFMove(cache);
+        m_namedElementCache = WTF::move(cache);
     }
     protectedDocument()->collectionCachedIdNameMap(*this);
 }

@@ -91,7 +91,7 @@ else
 endif
 
 #versions and platforms
-ICU_VERS = 76
+ICU_VERS = 78
 ICU_SUBVERS = 1
 CORE_VERS = A
 TZDATA_FORMAT_STRING = "44l"
@@ -131,8 +131,8 @@ endif
 # I want to go back to just hard-coding this if at all possible.  I think we might need to hard-code
 # several different versions, but I'm hoping we don't need all that complicated logic to figure it
 # out on the fly.
-MAC_OS_X_VERSION_MIN_REQUIRED=150000
-OSX_HOST_VERSION_MIN_STRING=15.0.0
+MAC_OS_X_VERSION_MIN_REQUIRED=260000
+OSX_HOST_VERSION_MIN_STRING=26.0.0
 # Turns out we DO need some of that logic, at least to make sure we're building icuhost (on non-macOS
 # builds) with an SDK that's actually available on the build machine...
 MACOS_BLDHOST_SDK_VERSION=$(shell xcodebuild -version -sdk macosx.internal SDKVersion)
@@ -600,6 +600,8 @@ $(BUILD_OUT)/libicucore.dylib : icu-separate-libs
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 			$(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) \
 			$(CXXFLAGS) $(LDFLAGS) -dead_strip \
+			-unexported_symbols_list $(ICU_SRC)/common/common_weakexterns.unexports \
+			-unexported_symbols_list $(ICU_SRC)/i18n/i18n_weakexterns.unexports \
 			-install_name /usr/lib/libicucore.$(CORE_VERS).dylib -o $(BUILD_OUT)/libicucore.$(CORE_VERS).dylib \
 			$(BUILD_OUT)/stubdata/*.o $(BUILD_OUT)/common/*.o $(BUILD_OUT)/i18n/*.o $(IO_OBJS_FOR_ICUCORE) ; \
 		ln -fs  $(BUILD_OUT)/libicucore.$(CORE_VERS).dylib $(BUILD_OUT)/libicucore.dylib ; \

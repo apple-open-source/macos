@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013, 2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,6 +134,7 @@ md5_process(EAPClientPluginDataRef plugin,
 
     switch (in_pkt->code) {
     case kEAPCodeRequest:
+	EAPLOG_FL(LOG_DEBUG, "[MD5-Challenge]: received EAP Request");
 	if (plugin->password == NULL) {
 	    *client_status = kEAPClientStatusUserInputRequired;
 	}
@@ -142,9 +143,11 @@ md5_process(EAPClientPluginDataRef plugin,
 	}
 	break;
     case kEAPCodeSuccess:
+	EAPLOG_FL(LOG_DEBUG, "[MD5-Challenge]: received EAP Success");
 	plugin_state = kEAPClientStateSuccess;
 	break;
     case kEAPCodeFailure:
+	EAPLOG_FL(LOG_DEBUG, "[MD5-Challenge]: received EAP Failure");
 	*client_status = kEAPClientStatusFailed;
 	plugin_state = kEAPClientStateFailure;
 	break;

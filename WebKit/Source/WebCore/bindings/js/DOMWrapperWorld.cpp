@@ -76,4 +76,9 @@ DOMWrapperWorld& mainThreadNormalWorldSingleton()
     return cachedNormalWorld;
 }
 
+bool isWorldCompatible(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSValue value)
+{
+    return !value.isObject() || &worldForDOMObject(*value.getObject()) == &currentWorld(lexicalGlobalObject);
+}
+
 } // namespace WebCore

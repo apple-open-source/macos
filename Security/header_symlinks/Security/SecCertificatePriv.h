@@ -85,6 +85,8 @@ typedef CF_ENUM(uint32_t, SecCertificateEscrowRootType) {
     kSecCertificateProductionEscrowBackupRoot = 5,
     kSecCertificateBaselineEscrowEnrollmentRoot = 6,    // v101 only
     kSecCertificateProductionEscrowEnrollmentRoot = 7,
+    kSecCertificateBaselineLRCEscrowRoot = 8,
+    kSecCertificateProductionLRCEscrowRoot = 9,
 };
 
 /* The names of the files that contain the escrow certificates */
@@ -398,26 +400,31 @@ CFArrayRef SecCertificateCopyLocalizedProperties(SecCertificateRef certificate, 
     API_AVAILABLE(macos(10.15.1), ios(13.2), watchos(6.1), tvos(13.1));
 
 /* Returns an array of CFDataRefs for all embedded SCTs */
-CFArrayRef SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certificate)
+CF_RETURNS_RETAINED CFArrayRef
+SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
 /* Return the precert TBSCertificate DER data - used for Certificate Transparency */
-CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
+CF_RETURNS_RETAINED CFDataRef
+SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
 /* Returns a dictionary of dictionaries for system-trusted CT logs, indexed by the LogID */
-CFDictionaryRef SecCertificateCopyTrustedCTLogs(void)
+CF_RETURNS_RETAINED CFDictionaryRef
+SecCertificateCopyTrustedCTLogs(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_13_0);
 
 /* Returns a dictionary for the CT log matching the provided
  * key ID, or NULL if no matching log is found.
  * And by keyID we mean LogID as specified in RFC 6962.
  */
-CFDictionaryRef SecCertificateCopyCTLogForKeyID(CFDataRef keyID)
+CF_RETURNS_RETAINED CFDictionaryRef
+SecCertificateCopyCTLogForKeyID(CFDataRef keyID)
     __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_13_0);
 
 /* Return the auth capabilities bitmask from the iAP marker extension */
-CF_RETURNS_RETAINED CFDataRef SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate)
+CF_RETURNS_RETAINED CFDataRef
+SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 typedef CF_ENUM(uint32_t, SeciAuthVersion) {

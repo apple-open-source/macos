@@ -28,21 +28,22 @@
 
 #if USE(CORE_IMAGE)
 
+#import "Filter.h"
 #import "FilterImage.h"
 #import "IOSurface.h"
 #import "ImageBuffer.h"
 #import "NativeImage.h"
-#import <CoreImage/CIContext.h>
-#import <CoreImage/CIFilter.h>
 #import <CoreImage/CoreImage.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(SourceGraphicCoreImageApplier);
 
-bool SourceGraphicCoreImageApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
+bool SourceGraphicCoreImageApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     auto& input = inputs[0].get();
 
     RefPtr sourceImage = input.imageBuffer();
@@ -58,8 +59,15 @@ bool SourceGraphicCoreImageApplier::apply(const Filter&, std::span<const Ref<Fil
     if (!image)
         return false;
 
-    result.setCIImage(WTFMove(image));
+    auto offset = filter.flippedRectRelativeToAbsoluteEnclosingFilterRegion(result.absoluteImageRect()).location();
+    if (!offset.isZero())
+        image = [image imageByApplyingTransform:CGAffineTransformMakeTranslation(offset.x(), offset.y())];
+
+    result.setCIImage(WTF::move(image));
     return true;
+
+    END_BLOCK_OBJC_EXCEPTIONS
+    return false;
 }
 
 } // namespace WebCore

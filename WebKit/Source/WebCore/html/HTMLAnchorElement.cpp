@@ -75,7 +75,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLAnchorElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLAnchorElement);
 
 using namespace HTMLNames;
 
@@ -333,7 +333,7 @@ String HTMLAnchorElement::text()
 
 void HTMLAnchorElement::setText(String&& text)
 {
-    setTextContent(WTFMove(text));
+    setTextContent(WTF::move(text));
 }
 
 bool HTMLAnchorElement::isLiveLink() const
@@ -449,13 +449,13 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
 
     auto privateClickMeasurement = PrivateClickMeasurement {
         SourceID(0),
-        SourceSite(WTFMove(*mainDocumentRegistrableDomain)),
+        SourceSite(WTF::move(*mainDocumentRegistrableDomain)),
         AttributionDestinationSite(*attributionDestinationDomain),
         bundleID,
         WallTime::now(),
         PCM::AttributionEphemeral::No
     };
-    privateClickMeasurement.setEphemeralSourceNonce(WTFMove(*attributionSourceNonce));
+    privateClickMeasurement.setEphemeralSourceNonce(WTF::move(*attributionSourceNonce));
     privateClickMeasurement.setAdamID(*adamID);
     return privateClickMeasurement;
 }
@@ -523,7 +523,7 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
 
     PrivateClickMeasurement privateClickMeasurement {
         SourceID(attributionSourceID.value()),
-        SourceSite(WTFMove(mainDocumentRegistrableDomain)),
+        SourceSite(WTF::move(mainDocumentRegistrableDomain)),
         AttributionDestinationSite(destinationURL),
         bundleID,
         WallTime::now(),
@@ -531,7 +531,7 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
     };
 
     if (auto ephemeralNonce = attributionSourceNonceForPCM())
-        privateClickMeasurement.setEphemeralSourceNonce(WTFMove(*ephemeralNonce));
+        privateClickMeasurement.setEphemeralSourceNonce(WTF::move(*ephemeralNonce));
 
     return privateClickMeasurement;
 }
@@ -584,7 +584,7 @@ void HTMLAnchorElement::handleClick(Event& event)
             systemPreviewInfo.previewRect = child->boundsInRootViewSpace();
 
         if (RefPtr page = document->page())
-            page->beginSystemPreview(completedURL, document->topOrigin().data(), WTFMove(systemPreviewInfo), [keepBlobAlive = URLKeepingBlobAlive(completedURL, document->topOrigin().data())] { });
+            page->beginSystemPreview(completedURL, document->topOrigin().data(), WTF::move(systemPreviewInfo), [keepBlobAlive = URLKeepingBlobAlive(completedURL, document->topOrigin().data())] { });
         return;
     }
 #endif
@@ -601,14 +601,14 @@ void HTMLAnchorElement::handleClick(Event& event)
     // Thus, URLs should be empty for now.
     ASSERT(!privateClickMeasurement || (privateClickMeasurement->attributionReportClickSourceURL().isNull() && privateClickMeasurement->attributionReportClickDestinationURL().isNull()));
     
-    frame->loader().changeLocation(completedURL, effectiveTarget, &event, referrerPolicy, document->shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute, WTFMove(privateClickMeasurement), NavigationHistoryBehavior::Push, this);
+    frame->loader().changeLocation(completedURL, effectiveTarget, &event, referrerPolicy, document->shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute, WTF::move(privateClickMeasurement), NavigationHistoryBehavior::Push, this);
 
     sendPings(completedURL);
 
     // Preconnect to the link's target for improved page load time.
     if (completedURL.protocolIsInHTTPFamily() && document->settings().linkPreconnectEnabled() && ((frame->isMainFrame() && isSelfTargetFrameName(effectiveTarget)) || isBlankTargetFrameName(effectiveTarget))) {
         auto storageCredentialsPolicy = frame->page() && frame->page()->canUseCredentialStorage() ? StoredCredentialsPolicy::Use : StoredCredentialsPolicy::DoNotUse;
-        platformStrategies()->loaderStrategy()->preconnectTo(frame->loader(), ResourceRequest { WTFMove(completedURL) }, storageCredentialsPolicy, LoaderStrategy::ShouldPreconnectAsFirstParty::Yes, [] (ResourceError) { });
+        platformStrategies()->loaderStrategy()->preconnectTo(frame->loader(), ResourceRequest { WTF::move(completedURL) }, storageCredentialsPolicy, LoaderStrategy::ShouldPreconnectAsFirstParty::Yes, [] (ResourceError) { });
     }
 }
 
@@ -682,7 +682,7 @@ Element* HTMLAnchorElement::rootEditableElementForSelectionOnMouseDown() const
 {
     if (!m_hasRootEditableElementForSelectionOnMouseDown)
         return 0;
-    return rootEditableElementMap().get(*this).get();
+    return rootEditableElementMap().get(*this);
 }
 
 void HTMLAnchorElement::clearRootEditableElementForSelectionOnMouseDown()
@@ -716,10 +716,17 @@ ReferrerPolicy HTMLAnchorElement::referrerPolicy() const
 
 Node::InsertedIntoAncestorResult HTMLAnchorElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
-    auto result = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
     protectedDocument()->processInternalResourceLinks(this);
+    if (document().settings().speculationRulesPrefetchEnabled())
+        return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
+    return InsertedIntoAncestorResult::Done;
+}
+
+void HTMLAnchorElement::didFinishInsertingNode()
+{
+    HTMLElement::didFinishInsertingNode();
     checkForSpeculationRules();
-    return result;
 }
 
 void HTMLAnchorElement::setFullURL(const URL& fullURL)
@@ -728,11 +735,13 @@ void HTMLAnchorElement::setFullURL(const URL& fullURL)
     checkForSpeculationRules();
 }
 
-void HTMLAnchorElement::setShouldBePrefetched(bool conservative, Vector<String>&& tags, std::optional<ReferrerPolicy>&& referrerPolicy)
+void HTMLAnchorElement::setShouldBePrefetched(SpeculationRules::Eagerness eagerness, Vector<String>&& tags, std::optional<ReferrerPolicy>&& referrerPolicy)
 {
-    m_prefetchEagerness = conservative ? PrefetchEagerness::Conservative : PrefetchEagerness::Immediate;
-    m_speculationRulesTags = WTFMove(tags);
-    m_prefetchReferrerPolicy = WTFMove(referrerPolicy);
+    // Map SpeculationRules::Eagerness to the anchor's PrefetchEagerness.
+    // Only Immediate triggers immediate prefetch; all others fall back to conservative behavior.
+    m_prefetchEagerness = eagerness == SpeculationRules::Eagerness::Immediate ? PrefetchEagerness::Immediate : PrefetchEagerness::Conservative;
+    m_speculationRulesTags = WTF::move(tags);
+    m_prefetchReferrerPolicy = WTF::move(referrerPolicy);
     if (m_prefetchEagerness == PrefetchEagerness::Immediate)
         protectedDocument()->prefetch(href(), m_speculationRulesTags, m_prefetchReferrerPolicy, true);
 }
@@ -742,7 +751,7 @@ void HTMLAnchorElement::checkForSpeculationRules()
     if (!document().settings().speculationRulesPrefetchEnabled())
         return;
     if (auto prefetchRule = SpeculationRulesMatcher::hasMatchingRule(protectedDocument(), *this))
-        setShouldBePrefetched(prefetchRule->conservative, WTFMove(prefetchRule->tags), WTFMove(prefetchRule->referrerPolicy));
+        setShouldBePrefetched(prefetchRule->eagerness, WTF::move(prefetchRule->tags), WTF::move(prefetchRule->referrerPolicy));
     else {
         m_prefetchEagerness = PrefetchEagerness::None;
         m_speculationRulesTags.clear();

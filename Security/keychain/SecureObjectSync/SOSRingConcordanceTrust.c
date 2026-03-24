@@ -51,13 +51,13 @@ static inline SOSConcordanceStatus CheckPeerStatus(CFStringRef peerID, SOSPeerIn
     SOSConcordanceStatus result = kSOSConcordanceNoPeer;
     SecKeyRef pubKey = NULL;
 
-    require_action_quiet(peer, exit, result = kSOSConcordanceNoPeer);
+    __Require_Action_Quiet(peer, exit, result = kSOSConcordanceNoPeer);
     pubKey = SOSPeerInfoCopyPubKey(peer, error);
-    require_quiet(pubKey, exit);
-    require_action_quiet(SOSRingHasPeerID(ring, peerID), exit, result = kSOSConcordanceNoPeer);
-    require_action_quiet(SOSPeerInfoApplicationVerify(peer, userPub, NULL), exit, result = kSOSConcordanceNoPeer);
-    require_action_quiet(SOSRingVerifySignatureExists(ring, pubKey, error), exit, result = kSOSConcordanceNoPeerSig);
-    require_action_quiet(SOSRingVerify(ring, pubKey, error), exit, result = kSOSConcordanceBadPeerSig);
+    __Require_Quiet(pubKey, exit);
+    __Require_Action_Quiet(SOSRingHasPeerID(ring, peerID), exit, result = kSOSConcordanceNoPeer);
+    __Require_Action_Quiet(SOSPeerInfoApplicationVerify(peer, userPub, NULL), exit, result = kSOSConcordanceNoPeer);
+    __Require_Action_Quiet(SOSRingVerifySignatureExists(ring, pubKey, error), exit, result = kSOSConcordanceNoPeerSig);
+    __Require_Action_Quiet(SOSRingVerify(ring, pubKey, error), exit, result = kSOSConcordanceBadPeerSig);
 
     result = kSOSConcordanceTrusted;
 

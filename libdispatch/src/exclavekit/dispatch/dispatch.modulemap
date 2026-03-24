@@ -1,4 +1,7 @@
 module Dispatch [system] {
-	umbrella header "dispatch/dispatch.h"
+	header "dispatch/dispatch.h"
+	header "dispatch/base.h"
+	header "dispatch/object.h"
+	header "dispatch/once.h"
 	export *
 }

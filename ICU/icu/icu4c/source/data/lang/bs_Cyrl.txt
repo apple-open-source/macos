@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 bs_Cyrl{
     %%Parent{"root"}
     Keys{
@@ -787,10 +787,8 @@ bs_Cyrl{
             standard{"стандардни формат валуте"}
         }
         collation{
-            big5han{"Традиционално кинеско сортирање"}
             dictionary{"Редослед сортирања у речнику"}
             ducet{"задани Unicode редослијед сортирања"}
-            gb2312han{"Поједностављено кинеско сортирање"}
             phonebook{"Сортирање као телефонски именик"}
             pinyin{"Пињин сортирање"}
             reformed{"Реформисани редослед сортирања"}

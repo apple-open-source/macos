@@ -85,6 +85,8 @@ SEC_CONST_DECL (kSecTrustInfoCertificateTransparencyKey, "CertificateTransparenc
 SEC_CONST_DECL (kSecTrustInfoQCStatementsKey, "QCStatements");
 SEC_CONST_DECL (kSecTrustInfoQWACValidationKey, "QWACValidation");
 
+SEC_CONST_DECL (kSecTrustInfoRevocationInfoKey, "RevocationInfo");
+
 /* This is the "real" trust validity date which includes all inputs. */
 SEC_CONST_DECL (kSecTrustInfoResultNotBefore, "TrustResultNotBefore");
 SEC_CONST_DECL (kSecTrustInfoResultNotAfter, "TrustResultNotAfter");
@@ -222,13 +224,13 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
     dispatch_queue_t queue = NULL;
     dispatch_group_t group = NULL;
 
-    check(certificates);
-    check(trust);
+    __Check(certificates);
+    __Check(trust);
     CFTypeID certType = CFGetTypeID(certificates);
     if (certType == CFArrayGetTypeID()) {
         CFIndex idx, count = CFArrayGetCount(certificates);
         /* We need at least 1 certificate. */
-        require_quiet(count > 0, errOut);
+        __Require_Quiet(count > 0, errOut);
         l_certs = (CFArrayRef) CFArrayCreateMutable(allocator, count,
             &kCFTypeArrayCallBacks);
         if (!l_certs) {
@@ -243,7 +245,7 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
                 secerror("BUG IN SECURITY CLIENT: certificates array contains non-certificate value");
             }
         }
-        require_quiet(count == CFArrayGetCount(l_certs), errOut);
+        __Require_Quiet(count == CFArrayGetCount(l_certs), errOut);
     } else if (certType == SecCertificateGetTypeID()) {
         l_certs = CFArrayCreate(allocator, &certificates, 1,
             &kCFTypeArrayCallBacks);
@@ -264,7 +266,7 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
     } else if (CFGetTypeID(policies) == CFArrayGetTypeID()) {
         CFIndex idx, count = CFArrayGetCount(policies);
         /* We need at least 1 policy. */
-        require_quiet(count > 0, errOut);
+        __Require_Quiet(count > 0, errOut);
         l_policies = (CFArrayRef) CFArrayCreateMutable(allocator, count,
             &kCFTypeArrayCallBacks);
         if (!l_policies) {
@@ -279,7 +281,7 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
                 secerror("BUG IN SECURITY CLIENT: policies array contains non-policy value");
             }
         }
-        require_quiet(count == CFArrayGetCount(l_policies), errOut);
+        __Require_Quiet(count == CFArrayGetCount(l_policies), errOut);
     } else if (CFGetTypeID(policies) == SecPolicyGetTypeID()) {
         l_policies = CFArrayCreate(allocator, &policies, 1,
             &kCFTypeArrayCallBacks);
@@ -300,7 +302,7 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
     }
 
     CFIndex size = sizeof(struct __SecTrust) - sizeof(CFRuntimeBase);
-    require_quiet(result = (SecTrustRef)_CFRuntimeCreateInstance(allocator, SecTrustGetTypeID(), size, 0), errOut);
+    __Require_Quiet(result = (SecTrustRef)_CFRuntimeCreateInstance(allocator, SecTrustGetTypeID(), size, 0), errOut);
     memset((char*)result + sizeof(result->_base), 0,
         sizeof(*result) - sizeof(result->_base));
     status = errSecSuccess;
@@ -380,7 +382,7 @@ OSStatus SecTrustAddToInputCertificates(SecTrustRef trust, CFTypeRef certificate
 }
 
 void SecTrustSetNeedsEvaluation(SecTrustRef trust) {
-    check(trust);
+    __Check(trust);
     if (trust) {
         dispatch_sync(trust->_trustQueue, ^{
             trust->_trustResult = kSecTrustResultInvalid;
@@ -553,7 +555,7 @@ OSStatus SecTrustSetPolicies(SecTrustRef trust, CFTypeRef newPolicies) {
         return errSecParam;
     }
     SecTrustSetNeedsEvaluation(trust);
-    check(newPolicies);
+    __Check(newPolicies);
 
     __block CFArrayRef policyArray = NULL;
     if (CFGetTypeID(newPolicies) == CFArrayGetTypeID()) {
@@ -650,12 +652,12 @@ OSStatus SecTrustCopyPolicies(SecTrustRef trust, CFArrayRef *policies) {
 
 static OSStatus SecTrustSetOptionInPolicies(CFArrayRef policies, CFStringRef key, CFTypeRef value) {
     OSStatus status = errSecSuccess;
-    require_action(policies && CFGetTypeID(policies) == CFArrayGetTypeID(), out, status = errSecInternal);
+    __Require_Action(policies && CFGetTypeID(policies) == CFArrayGetTypeID(), out, status = errSecInternal);
     for (int i=0; i < CFArrayGetCount(policies); i++) {
         SecPolicyRef policy = NULL;
-        require_action_quiet(policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i), out, status = errSecInternal);
+        __Require_Action_Quiet(policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i), out, status = errSecInternal);
         CFMutableDictionaryRef options = NULL;
-        require_action_quiet(options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options), out, status = errSecAllocate);
+        __Require_Action_Quiet(options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options), out, status = errSecAllocate);
         CFDictionarySetValue(options, key, value);
         CFReleaseNull(policy->_options);
         policy->_options = options;
@@ -666,13 +668,13 @@ out:
 
 static OSStatus SecTrustRemoveOptionInPolicies(CFArrayRef policies, CFStringRef key) {
     OSStatus status = errSecSuccess;
-    require_action(policies && CFGetTypeID(policies) == CFArrayGetTypeID(), out, status = errSecInternal);
+    __Require_Action(policies && CFGetTypeID(policies) == CFArrayGetTypeID(), out, status = errSecInternal);
     for (int i=0; i < CFArrayGetCount(policies); i++) {
         SecPolicyRef policy = NULL;
-        require_action_quiet(policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i), out, status = errSecInternal);
+        __Require_Action_Quiet(policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i), out, status = errSecInternal);
         if (CFDictionaryGetValue(policy->_options, key)) {
             CFMutableDictionaryRef options = NULL;
-            require_action_quiet(options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options), out, status = errSecAllocate);
+            __Require_Action_Quiet(options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options), out, status = errSecAllocate);
             CFDictionaryRemoveValue(options, key);
             CFReleaseNull(policy->_options);
             policy->_options = options;
@@ -867,16 +869,16 @@ Boolean SecTrustIsExpiredOnly(SecTrustRef trust) {
     Boolean result = false;
     Boolean foundExpired = false;
     CFArrayRef details = SecTrustCopyFilteredDetails(trust);
-    require(details != NULL, out);
+    __Require(details != NULL, out);
 
     CFIndex ix, pathLength = CFArrayGetCount(details);
     for (ix = 0; ix < pathLength; ++ix) {
         CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
         CFIndex count = (detail) ? CFDictionaryGetCount(detail) : 0;
-        require(count <= 1, out);
+        __Require(count <= 1, out);
         if (count) {
             CFBooleanRef valid = (CFBooleanRef)CFDictionaryGetValue(detail, kSecPolicyCheckTemporalValidity);
-            require(isBoolean(valid) && CFEqual(valid, kCFBooleanFalse), out);
+            __Require(isBoolean(valid) && CFEqual(valid, kCFBooleanFalse), out);
             foundExpired = true;
         }
     }
@@ -1379,7 +1381,7 @@ static bool CFDataAppendToXPCArray(CFDataRef data, xpc_object_t xpc_data_array, 
 
 static xpc_object_t CFDataArrayCopyXPCArray(CFArrayRef data_array, CFErrorRef *error) {
     xpc_object_t xpc_data_array;
-    require_action_quiet(xpc_data_array = xpc_array_create(NULL, 0), exit,
+    __Require_Action_Quiet(xpc_data_array = xpc_array_create(NULL, 0), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create xpc_array")));
     CFIndex ix, count = CFArrayGetCount(data_array);
     for (ix = 0; ix < count; ++ix) {
@@ -1410,9 +1412,9 @@ static bool SecXPCDictionaryCopyChainOptional(xpc_object_t message, const char *
         *path = NULL;
         return true;
     }
-    require_action_quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
-    require_action_quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
-    require_action_quiet(count < LONG_MAX, exit, SecError(errSecDecode, error, CFSTR("xpc_path array count > LONG_MAX")));
+    __Require_Action_Quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
+    __Require_Action_Quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
+    __Require_Action_Quiet(count < LONG_MAX, exit, SecError(errSecDecode, error, CFSTR("xpc_path array count > LONG_MAX")));
     output = CFArrayCreateMutable(NULL, (CFIndex)count, &kCFTypeArrayCallBacks);
 
     size_t ix;
@@ -1722,7 +1724,7 @@ static void SecTrustEvaluateThreadRuntimeCheck(void) {
 
 static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     __block OSStatus result;
-    check(trust);
+    __Check(trust);
     if (!trust) {
         return errSecParam;
     }
@@ -1817,9 +1819,9 @@ static CF_RETURNS_RETAINED SecTrustRef _resetAndDeepCopyTrust(SecTrustRef trust)
 static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
                                                  dispatch_queue_t queue,
                                                  void (^handler)(OSStatus status)) {
-    check(trust);
-    check(queue);
-    check(handler);
+    __Check(trust);
+    __Check(queue);
+    __Check(handler);
     if (handler == NULL) {
         return;
     }
@@ -2688,6 +2690,12 @@ CFDictionaryRef SecTrustCopyResult(SecTrustRef trust) {
         if (CFDictionaryGetValueIfPresent(info, kSecTrustInfoQWACValidationKey, (const void **)&qwacValue)) {
             CFDictionarySetValue(results, (const void *)kSecTrustQWACValidation, (const void *)qwacValue);
         }
+
+        // kSecTrustInfoRevocationInfoKey
+        CFBooleanRef revocationInfoValue;
+        if (CFDictionaryGetValueIfPresent(info, kSecTrustInfoRevocationInfoKey, (const void **)&revocationInfoValue)) {
+            CFDictionarySetValue(results, kSecTrustInfoRevocationInfoKey, revocationInfoValue);
+        }
     });
 
     return results;
@@ -2719,6 +2727,30 @@ static uint64_t do_ota_pki_op (enum SecXPCOperation op, CFErrorRef *error) {
     }
     return num;
 }
+
+static uint64_t do_validupdate(CFIndex version, CFErrorRef *error) {
+    uint64_t num = 0;
+    xpc_object_t message = securityd_create_message(kSecXPCOpValidUpdate, error);
+    if (version > 0) {
+        xpc_dictionary_set_int64(message, "version", version);
+    }
+    if (message) {
+        xpc_object_t response = securityd_message_with_reply_sync(message, error);
+        if (response && xpc_dictionary_entry_is_type(response, kSecXPCKeyResult, XPC_TYPE_UINT64)) {
+            num = xpc_dictionary_get_uint64(response, kSecXPCKeyResult);
+        }
+        if (response && error && xpc_dictionary_entry_is_type(response, kSecXPCKeyError, XPC_TYPE_DICTIONARY)) {
+            xpc_object_t xpc_error = xpc_dictionary_get_value(response, kSecXPCKeyError);
+            if (xpc_error) {
+                *error = SecCreateCFErrorWithXPCObject(xpc_error);
+            }
+        }
+        xpc_release_safe(message);
+        xpc_release_safe(response);
+    }
+    return num;
+}
+
 
 CFStringRef SecTrustCopyTrustStoreContentDigest(CFErrorRef *error) {
     __block CFStringRef result = NULL;
@@ -2850,16 +2882,29 @@ CFDictionaryRef SecTrustOTASecExperimentCopyAsset(CFErrorRef *error) {
 }
 
 bool SecTrustTriggerValidUpdate(CFErrorRef *error) {
-    do_if_registered(sec_valid_update, error);
+    do_if_registered(sec_valid_update, -1, error);
 
     os_activity_t activity = os_activity_create("SecTrustTriggerValidUpdate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
-    uint64_t num = do_ota_pki_op(kSecXPCOpValidUpdate, error);
+    uint64_t num = do_validupdate(SEC_TRUST_VALID_VERSION_DATABASE_VERSION, error);
 
     os_release(activity);
     return num;
 }
+
+bool SecTrustTriggerValidUpdateToVersion(CFIndex version, CFErrorRef *error) {
+    do_if_registered(sec_valid_update, version, error);
+
+    os_activity_t activity = os_activity_create("SecTrustTriggerValidUpdate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    uint64_t num = do_validupdate(version, error);
+
+    os_release(activity);
+    return num;
+}
+
 
 bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttributes, CFErrorRef *error) {
     if (!eventName || !eventAttributes) {
@@ -3028,7 +3073,7 @@ static void deserializeCert(const void *value, void *context) {
 
 static CF_RETURNS_RETAINED CFArrayRef SecCertificateArrayDeserialize(CFArrayRef serializedCertificates) {
     CFMutableArrayRef result = NULL;
-    require_quiet(isArray(serializedCertificates), errOut);
+    __Require_Quiet(isArray(serializedCertificates), errOut);
     CFIndex count = CFArrayGetCount(serializedCertificates);
     result = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
     CFRange all_certs = { 0, count };
@@ -3050,7 +3095,7 @@ static void serializeCertificate(const void *value, void *context) {
 
 static CF_RETURNS_RETAINED CFArrayRef SecCertificateArraySerialize(CFArrayRef certificates) {
     CFMutableArrayRef result = NULL;
-    require_quiet(isArray(certificates), errOut);
+    __Require_Quiet(isArray(certificates), errOut);
     CFIndex count = CFArrayGetCount(certificates);
     result = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
     CFRange all_certificates = { 0, count};
@@ -3134,13 +3179,13 @@ static CFPropertyListRef _onQueue_SecTrustCopyPlist(SecTrustRef trust) {
 CFDataRef SecTrustSerialize(SecTrustRef trust, CFErrorRef *error) {
     __block CFPropertyListRef plist = NULL;
     CFDataRef derTrust = NULL;
-    require_action_quiet(trust, out,
+    __Require_Action_Quiet(trust, out,
                          SecError(errSecParam, error, CFSTR("null trust input")));
     dispatch_sync(trust->_trustQueue, ^{
         plist = _onQueue_SecTrustCopyPlist(trust);
     });
-    require_action_quiet(plist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
-    require_quiet(derTrust = CFPropertyListCreateDERData(NULL, plist, error), out);
+    __Require_Action_Quiet(plist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
+    __Require_Quiet(derTrust = CFPropertyListCreateDERData(NULL, plist, error), out);
 
 out:
     CFReleaseNull(plist);
@@ -3157,12 +3202,12 @@ static OSStatus SecTrustCreateFromPlist(CFPropertyListRef plist, SecTrustRef CF_
     CFDateRef verifyDate = NULL;
     CFDictionaryRef info = NULL;
 
-    require_quiet(CFDictionaryGetTypeID() == CFGetTypeID(plist), out);
-    require_quiet(serializedCertificates = CFDictionaryGetValue(plist, CFSTR(kSecTrustCertificatesKey)), out);
-    require_quiet(certificates = SecCertificateArrayDeserialize(serializedCertificates), out);
-    require_quiet(serializedPolicies = CFDictionaryGetValue(plist, CFSTR(kSecTrustPoliciesKey)), out);
-    require_quiet(policies = SecPolicyArrayCreateDeserialized(serializedPolicies), out);
-    require_noerr_quiet(status = SecTrustCreateWithCertificates(certificates, policies, &output), out);
+    __Require_Quiet(CFDictionaryGetTypeID() == CFGetTypeID(plist), out);
+    __Require_Quiet(serializedCertificates = CFDictionaryGetValue(plist, CFSTR(kSecTrustCertificatesKey)), out);
+    __Require_Quiet(certificates = SecCertificateArrayDeserialize(serializedCertificates), out);
+    __Require_Quiet(serializedPolicies = CFDictionaryGetValue(plist, CFSTR(kSecTrustPoliciesKey)), out);
+    __Require_Quiet(policies = SecPolicyArrayCreateDeserialized(serializedPolicies), out);
+    __Require_noErr_Quiet(status = SecTrustCreateWithCertificates(certificates, policies, &output), out);
 
     serializedAnchors = CFDictionaryGetValue(plist, CFSTR(kSecTrustAnchorsKey));
     if (isArray(serializedAnchors)) {
@@ -3229,11 +3274,11 @@ SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error) {
     SecTrustRef trust = NULL;
     CFPropertyListRef plist = NULL;
     OSStatus status = errSecSuccess;
-    require_action_quiet(serializedTrust, out,
+    __Require_Action_Quiet(serializedTrust, out,
                          SecError(errSecParam, error, CFSTR("null serialized trust input")));
-    require_quiet(plist = CFPropertyListCreateWithDERData(NULL, serializedTrust,
+    __Require_Quiet(plist = CFPropertyListCreateWithDERData(NULL, serializedTrust,
                                                           kCFPropertyListImmutable, NULL, error), out);
-    require_noerr_action_quiet(status = SecTrustCreateFromPlist(plist, &trust), out,
+    __Require_noErr_Action_Quiet(status = SecTrustCreateFromPlist(plist, &trust), out,
                                SecError(status, error, CFSTR("unable to create trust ref")));
 
 out:
@@ -3243,12 +3288,12 @@ out:
 
 CFPropertyListRef SecTrustCopyPropertyListRepresentation(SecTrustRef trust, CFErrorRef *error) {
     __block CFPropertyListRef trustPlist = NULL;
-    require_action_quiet(trust, out,
+    __Require_Action_Quiet(trust, out,
                          SecError(errSecParam, error, CFSTR("null trust input")));
     dispatch_sync(trust->_trustQueue, ^{
         trustPlist = _onQueue_SecTrustCopyPlist(trust);
     });
-    require_action_quiet(trustPlist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
+    __Require_Action_Quiet(trustPlist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
 out:
     return trustPlist;
 }
@@ -3256,9 +3301,9 @@ out:
 SecTrustRef SecTrustCreateFromPropertyListRepresentation(CFPropertyListRef trustPlist, CFErrorRef *error) {
     SecTrustRef trust = NULL;
     OSStatus status = errSecSuccess;
-    require_action_quiet(trustPlist, out,
+    __Require_Action_Quiet(trustPlist, out,
                          SecError(errSecParam, error, CFSTR("null property list input")));
-    require_noerr_action_quiet(status = SecTrustCreateFromPlist(trustPlist, &trust), out,
+    __Require_noErr_Action_Quiet(status = SecTrustCreateFromPlist(trustPlist, &trust), out,
                                SecError(status, error, CFSTR("unable to create trust ref")));
 out:
     return trust;

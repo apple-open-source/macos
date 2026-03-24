@@ -26,36 +26,31 @@
 #import "config.h"
 #import "RemoteAnimationTimeline.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
+#import "RemoteAnimationUtilities.h"
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimationTimeline);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimationTimeline);
 
-static WebCore::WebAnimationTime computeCurrentTime(Seconds originTime, MonotonicTime now)
-{
-    return now.secondsSinceEpoch() - originTime;
-}
-
-Ref<RemoteAnimationTimeline> RemoteAnimationTimeline::create(Seconds originTime, MonotonicTime now)
-{
-    return adoptRef(*new RemoteAnimationTimeline(originTime, computeCurrentTime(originTime, now)));
-}
-
-RemoteAnimationTimeline::RemoteAnimationTimeline(Seconds originTime, WebCore::WebAnimationTime currentTime)
-    : m_originTime(originTime)
-    , m_currentTime(currentTime)
+RemoteAnimationTimeline::RemoteAnimationTimeline(TimelineID identifier, std::optional<WebCore::WebAnimationTime> duration)
+    : m_identifier(identifier)
+    , m_duration(duration)
 {
 }
 
-void RemoteAnimationTimeline::updateCurrentTime(MonotonicTime now)
+Ref<JSON::Object> RemoteAnimationTimeline::toJSONForTesting() const
 {
-    m_currentTime = computeCurrentTime(m_originTime, now);
+    Ref object = JSON::Object::create();
+    object->setValue("currentTime"_s, WebKit::toJSONForTesting(m_currentTime));
+    object->setValue("duration"_s, WebKit::toJSONForTesting(m_duration));
+    object->setInteger("identifier"_s, m_identifier.object().toRawValue());
+    return object;
 }
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)
 

@@ -121,7 +121,7 @@ Cookie::Cookie(NSHTTPCookie *cookie)
     , session { static_cast<bool>(cookie.sessionOnly) }
     , comment { cookie.comment }
     , commentURL { cookie.commentURL }
-    , ports { portVectorFromList(cookie.portList) }
+    , ports { portVectorFromList(retainPtr(cookie.portList).get()) }
 {
     sameSite = coreSameSitePolicy(cookie.sameSitePolicy);
 }

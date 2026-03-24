@@ -155,7 +155,7 @@ static bool SecDbItemSelectSHA1(SecDbQueryRef query, SecDbConnectionRef dbconn, 
 static SOSManifestRef SecItemDataSourceCopyManifestWithQueries(SecItemDataSourceRef ds, CFArrayRef queries, CFErrorRef *error) {
     __block SOSManifestRef manifest = NULL;
     __block CFErrorRef localError = NULL;
-    if (!kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+    if (!kc_with_custom_db(false, true, ds->db, false, error, ^bool(SecDbConnectionRef dbconn) {
         __block struct SOSDigestVector dv = SOSDigestVectorInit;
         Query *q;
         bool ok = true;
@@ -487,7 +487,7 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
     if (txn) {
         readBlock((SecDbConnectionRef)txn);
     } else {
-        result &= kc_with_custom_db(false, true, ds->db, error, readBlock);
+        result &= kc_with_custom_db(false, true, ds->db, false, error, readBlock);
     }
 
     return result;
@@ -558,7 +558,7 @@ static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *e
 static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourceTransactionSource source, bool onCommitQueue, void(^transaction)(SOSTransactionRef txn, bool *commit)) {
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     __block bool ok = true;
-    ok &= kc_with_custom_db(true, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+    ok &= kc_with_custom_db(true, true, ds->db, false, error, ^bool(SecDbConnectionRef dbconn) {
         return SecDbTransaction(dbconn,
                                source == kSOSDataSourceAPITransaction ? kSecDbExclusiveTransactionType : kSecDbExclusiveRemoteSOSTransactionType,
                                error, ^(bool *commit) {
@@ -577,7 +577,7 @@ static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourc
 static bool dsReadWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourceTransactionSource source, void(^perform)(SOSTransactionRef txn)) {
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     __block bool ok = true;
-    ok &= kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+    ok &= kc_with_custom_db(false, true, ds->db, false, error, ^bool(SecDbConnectionRef dbconn) {
         SecDbPerformOnCommitQueue(dbconn, ^{
             perform((SOSTransactionRef)dbconn);
         });
@@ -748,7 +748,7 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
         if (txn) {
             read_it((SecDbConnectionRef) txn);
         } else {
-            kc_with_custom_db(false, true, ds->db, error, read_it);
+            kc_with_custom_db(false, true, ds->db, false, error, read_it);
         }
         query_destroy(query, error);
     } else {
@@ -782,7 +782,7 @@ static CFDataRef dsCopyItemDataWithKeys(SOSDataSourceRef data_source, CFDictiona
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
-        kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
+        kc_with_custom_db(false, true, ds->db, false, error, ^bool(SecDbConnectionRef dbconn) {
             return SecDbItemSelect(query, dbconn, error, NULL, ^bool(const SecDbAttr *attr) {
                 return CFDictionaryContainsKey(dict, attr->name);
             }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {

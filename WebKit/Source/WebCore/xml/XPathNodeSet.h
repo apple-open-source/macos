@@ -35,17 +35,17 @@ namespace WebCore {
         public:
             NodeSet() : m_isSorted(true), m_subtreesAreDisjoint(false) { }
             explicit NodeSet(RefPtr<Node>&& node)
-                : m_isSorted(true), m_subtreesAreDisjoint(false), m_nodes(1, WTFMove(node))
+                : m_isSorted(true), m_subtreesAreDisjoint(false), m_nodes(1, WTF::move(node))
             { }
             
             size_t size() const { return m_nodes.size(); }
             bool isEmpty() const { return m_nodes.isEmpty(); }
-            Node* operator[](unsigned i) const { return m_nodes.at(i).get(); }
+            Node* operator[](unsigned i) const LIFETIME_BOUND { return m_nodes.at(i).get(); }
             void reserveCapacity(size_t newCapacity) { m_nodes.reserveCapacity(newCapacity); }
             void clear() { m_nodes.clear(); }
 
             // NodeSet itself does not verify that nodes in it are unique.
-            void append(RefPtr<Node>&& node) { m_nodes.append(WTFMove(node)); }
+            void append(RefPtr<Node>&& node) { m_nodes.append(WTF::move(node)); }
             void append(const NodeSet& nodeSet) { m_nodes.appendVector(nodeSet.m_nodes); }
 
             // Returns the set's first node in document order, or nullptr if the set is empty.
@@ -64,8 +64,8 @@ namespace WebCore {
             void markSubtreesDisjoint(bool disjoint) { m_subtreesAreDisjoint = disjoint; }
             bool subtreesAreDisjoint() const { return m_subtreesAreDisjoint || m_nodes.size() < 2; }
 
-            const RefPtr<Node>* begin() const { return m_nodes.begin(); }
-            const RefPtr<Node>* end() const { return m_nodes.end(); }
+            const RefPtr<Node>* begin() const LIFETIME_BOUND { return m_nodes.begin(); }
+            const RefPtr<Node>* end() const LIFETIME_BOUND { return m_nodes.end(); }
 
         private:
             void traversalSort() const;

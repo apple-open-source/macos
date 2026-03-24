@@ -28,6 +28,7 @@
 #pragma once
 
 #include <JavaScriptCore/YarrErrorCode.h>
+#include <climits>
 #include <limits>
 
 namespace JSC { namespace Yarr {
@@ -82,6 +83,7 @@ enum class SpecificPattern : uint8_t {
     LeadingSpacesPlus,
     TrailingSpacesStar,
     TrailingSpacesPlus,
+    Newlines,
 };
 
 struct BytecodePattern;

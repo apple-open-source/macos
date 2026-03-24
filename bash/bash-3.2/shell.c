@@ -192,7 +192,12 @@ static int su_shell;
 static int sourced_env;
 
 /* Is this shell running setuid? */
+#ifdef __APPLE__
+/* Used in exit as well, for interactive login shells and .bash_logout. */
+int running_setuid;
+#else
 static int running_setuid;
+#endif
 
 /* Values for the long-winded argument names. */
 static int debugging;			/* Do debugging things. */

@@ -47,7 +47,7 @@ class TargetedElementInfo final : public ObjectImpl<Object::Type::TargetedElemen
 public:
     static Ref<TargetedElementInfo> create(WebKit::WebPageProxy& page, WebCore::TargetedElementInfo&& info)
     {
-        return adoptRef(*new TargetedElementInfo(page, WTFMove(info)));
+        return adoptRef(*new TargetedElementInfo(page, WTF::move(info)));
     }
 
     explicit TargetedElementInfo(WebKit::WebPageProxy&, WebCore::TargetedElementInfo&&);

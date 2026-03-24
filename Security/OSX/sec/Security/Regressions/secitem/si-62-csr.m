@@ -328,10 +328,10 @@ static bool test_cert_trust(SecCertificateRef leaf_cert, CFArrayRef anchors, Sec
     bool status = false;
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult = kSecTrustResultInvalid;
-    require_noerr(SecTrustCreateWithCertificates(leaf_cert, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), out);
-    require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    require(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed, out);
+    __Require_noErr(SecTrustCreateWithCertificates(leaf_cert, policy, &trust), out);
+    __Require_noErr(SecTrustSetAnchorCertificates(trust, anchors), out);
+    __Require_noErr(SecTrustEvaluate(trust, &trustResult), out);
+    __Require(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed, out);
     CFReleaseNull(trust);
     status = true;
 out:
@@ -364,9 +364,9 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv, 
     ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
                                                (__bridge CFDictionaryRef)ca_parameters,
                                                NULL, ca_priv);
-    require(ca_cert, out);
+    __Require(ca_cert, out);
     ca_identity = SecIdentityCreate(NULL, ca_cert, ca_priv);
-    require(ca_identity, out);
+    __Require(ca_identity, out);
 
     /* Generate a CSR */
     leaf_rdns = @[
@@ -389,18 +389,18 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv, 
     csr = CFBridgingRelease(SecGenerateCertificateRequest((__bridge CFArrayRef)leaf_rdns,
                                                                   (__bridge CFDictionaryRef)leaf_parameters,
                                                                   NULL, leaf_priv));
-    require(csr, out);
+    __Require(csr, out);
 
     /* Verify that CSR */
-    require(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out);
-    require(csr_pub_key && csr_extensions && csr_subject, out);
+    __Require(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out);
+    __Require(csr_pub_key && csr_extensions && csr_subject, out);
 
     /* Sign that CSR */
     uint8_t serial_no_bytes[] = { 0xbb, 0x01 };
     serial_no = [NSData dataWithBytes:serial_no_bytes length:sizeof(serial_no_bytes)];
     leaf_cert1 = SecIdentitySignCertificateWithAlgorithm(ca_identity, (__bridge CFDataRef)serial_no,
                                                          csr_pub_key, csr_subject, csr_extensions, cert_hashing_alg);
-    require(leaf_cert1, out);
+    __Require(leaf_cert1, out);
 
     CFReleaseNull(csr_pub_key);
     CFReleaseNull(csr_subject);
@@ -413,11 +413,11 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv, 
 
     SecRDN atvs_leaf2[] = { c, o, cn, NULL };
     csr = CFBridgingRelease(SecGenerateCertificateRequestWithParameters(atvs_leaf2, (__bridge CFDictionaryRef)leaf_parameters, NULL, leaf_priv));
-    require(csr, out);
+    __Require(csr, out);
 
     /* Verify that CSR */
-    require(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out);
-    require(csr_pub_key && csr_extensions && csr_subject, out);
+    __Require(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out);
+    __Require(csr_pub_key && csr_extensions && csr_subject, out);
 
     /* Sign that CSR */
     uint8_t serial_no_bytes2[] = { 0xbb, 0x02 };
@@ -426,12 +426,12 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv, 
     leaf_cert2 = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no,
                                                          csr_pub_key, csr_subject, csr_extensions,
                                                           (__bridge CFDictionaryRef)leaf_parameters);
-    require(leaf_cert2, out);
+    __Require(leaf_cert2, out);
 
     /* Verify the signed leaf certs chain to the root */
     anchors = @[ (__bridge id)ca_cert ];
-    require(test_cert_trust(leaf_cert1, (__bridge CFArrayRef)anchors, policy), out);
-    require(test_cert_trust(leaf_cert2, (__bridge CFArrayRef)anchors, policy), out);
+    __Require(test_cert_trust(leaf_cert1, (__bridge CFArrayRef)anchors, policy), out);
+    __Require(test_cert_trust(leaf_cert2, (__bridge CFArrayRef)anchors, policy), out);
     status = true;
 out:
     CFReleaseNull(ca_cert);
@@ -449,7 +449,7 @@ static bool test_csr_create_sign_x509_verify(SecKeyRef ca_priv, SecKeyRef leaf_p
 
     bool status = false;
     SecPolicyRef policy = NULL;
-    require(policy = SecPolicyCreateBasicX509(), out);
+    __Require(policy = SecPolicyCreateBasicX509(), out);
     status = test_csr_create_sign_verify(ca_priv, leaf_priv, policy, cert_hashing_alg, csr_hashing_alg);
 out:
     CFReleaseNull(policy);
@@ -519,7 +519,7 @@ static bool test_csr_create_sign_ssl_verify(SecKeyRef ca_priv, SecKeyRef leaf_pr
 
     bool status = false;
     SecPolicyRef policy = NULL;
-    require(policy = SecPolicyCreateSSL(true, hostname), out);
+    __Require(policy = SecPolicyCreateSSL(true, hostname), out);
     status = test_csr_create_sign_verify(ca_priv, leaf_priv, policy, cert_hashing_alg, csr_hashing_alg);
     out:
     CFReleaseNull(policy);
@@ -730,9 +730,9 @@ static void test_ssl_algs(void) {
             ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
                                                        (__bridge CFDictionaryRef)ca_parameters,
                                                        NULL, ca_priv);
-            require_action(ca_cert, out, fail("failed to make ca_cert"));
+            __Require_Action(ca_cert, out, fail("failed to make ca_cert"));
             ca_identity = SecIdentityCreate(NULL, ca_cert, ca_priv);
-            require_action(ca_identity, out, fail("failed to make ca_identity"));
+            __Require_Action(ca_identity, out, fail("failed to make ca_identity"));
 
             /* Generate a CSR */
             common_name = [NSString stringWithFormat:@"CSR Leaf: %lld seconds", leaf_lifetime];
@@ -750,11 +750,11 @@ static void test_ssl_algs(void) {
             csr = CFBridgingRelease(SecGenerateCertificateRequest((__bridge CFArrayRef)leaf_rdns,
                                                                           (__bridge CFDictionaryRef)leaf_parameters,
                                                                           NULL, leaf_priv));
-            require_action(csr, out, fail("failed to make csr"));
+            __Require_Action(csr, out, fail("failed to make csr"));
 
             /* Verify that CSR */
-            require_action(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out,  fail("failed to verify csr"));
-            require_action(csr_pub_key && csr_extensions && csr_subject, out, fail("failed to get csr details"));
+            __Require_Action(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out,  fail("failed to verify csr"));
+            __Require_Action(csr_pub_key && csr_extensions && csr_subject, out, fail("failed to get csr details"));
 
             /* Sign that CSR */
             uint8_t serial_no_bytes[] = { 0xbb, 0x01 };
@@ -766,7 +766,7 @@ static void test_ssl_algs(void) {
             }
             leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no,
                                                                  csr_pub_key, csr_subject, csr_extensions, (__bridge CFDictionaryRef) leaf_parameters);
-            require_action(leaf_cert, out, fail("failed to make leaf_cert"));
+            __Require_Action(leaf_cert, out, fail("failed to make leaf_cert"));
 
             /* Check the lifetimes */
             if (ca_lifetime) {
@@ -941,9 +941,9 @@ static void test_ssl_algs(void) {
         ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
                                                    (__bridge CFDictionaryRef)ca_parameters,
                                                    NULL, ca_priv);
-        require_action(ca_cert, out, fail("failed to make ca_cert"));
+        __Require_Action(ca_cert, out, fail("failed to make ca_cert"));
         ca_identity = SecIdentityCreate(NULL, ca_cert, ca_priv);
-        require_action(ca_identity, out, fail("failed to make ca_identity"));
+        __Require_Action(ca_identity, out, fail("failed to make ca_identity"));
 
         /* Create leaf certs with no extensions */
         leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,

@@ -18,16 +18,16 @@ CFArrayRef SecCertificateCopyAppleCorporateRoots(void) {
     CFMutableArrayRef result = NULL;
     SecCertificateRef corp1 = NULL, corp2 = NULL, corp3 = NULL;
 
-    require_quiet(corp1= SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA, sizeof(_AppleCorporateRootCA)),
+    __Require_Quiet(corp1= SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA, sizeof(_AppleCorporateRootCA)),
                   errOut);
-    require_quiet(corp2 = SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA2,
+    __Require_Quiet(corp2 = SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA2,
                                                                           sizeof(_AppleCorporateRootCA2)),
                   errOut);
-    require_quiet(corp3 = SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA3,
+    __Require_Quiet(corp3 = SecCertificateCreateWithBytes(NULL, _AppleCorporateRootCA3,
                                                                           sizeof(_AppleCorporateRootCA3)),
                   errOut);
 
-    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    __Require_Quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     CFArrayAppendValue(result, corp1);
     CFArrayAppendValue(result, corp2);
     CFArrayAppendValue(result, corp3);

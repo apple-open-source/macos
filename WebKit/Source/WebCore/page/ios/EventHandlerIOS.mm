@@ -327,18 +327,18 @@ static bool findViewInSubviews(NSView *superview, NSView *target)
     return false;
 }
 
-NSView *EventHandler::mouseDownViewIfStillGood()
+RetainPtr<NSView> EventHandler::mouseDownViewIfStillGood()
 {
     // Since we have no way of tracking the lifetime of m_mouseDownView, we have to assume that
     // it could be deallocated already. We search for it in our subview tree; if we don't find
     // it, we set it to nil.
-    NSView *mouseDownView = m_mouseDownView;
+    RetainPtr mouseDownView = m_mouseDownView.get();
     if (!mouseDownView) {
         return nil;
     }
     auto* topFrameView = m_frame->view();
     NSView *topView = topFrameView ? topFrameView->platformWidget() : nil;
-    if (!topView || !findViewInSubviews(topView, mouseDownView)) {
+    if (!topView || !findViewInSubviews(topView, mouseDownView.get())) {
         m_mouseDownView = nil;
         return nil;
     }
@@ -352,7 +352,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
 
 bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
 {
-    NSView *view = mouseDownViewIfStillGood();
+    RetainPtr view = mouseDownViewIfStillGood();
     if (!view)
         return false;
 
@@ -824,7 +824,7 @@ void EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const I
 
     if (RefPtr subframe = subframeForHitTestResult(hitTestedMouseEvent)) {
         if (RefPtr localSubframe = dynamicDowncast<LocalFrame>(subframe.get()))
-            return localSubframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition, WTFMove(completionHandler));
+            return localSubframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition, WTF::move(completionHandler));
         if (RefPtr remoteSubframe = dynamicDowncast<RemoteFrame>(subframe.get())) {
             if (RefPtr remoteFrameView = remoteSubframe->view(); remoteFrameView && frameView)
                 return completionHandler(makeUnexpected(RemoteFrameGeometryTransformer(remoteFrameView.releaseNonNull(), frameView.releaseNonNull(), remoteSubframe->frameID())));
@@ -845,7 +845,7 @@ void EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const I
 #if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
     RefPtr targetElement = hitTestedMouseEvent.hitTestResult().targetElement();
     if (RefPtr modelElement = dynamicDowncast<HTMLModelElement>(targetElement))
-        return modelElement->tryAnimateModelToFitPortal(handledDrag, WTFMove(completionHandler));
+        return modelElement->tryAnimateModelToFitPortal(handledDrag, WTF::move(completionHandler));
 #endif
 
     return completionHandler(handledDrag);

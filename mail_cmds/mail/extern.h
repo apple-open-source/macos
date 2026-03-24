@@ -27,10 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)extern.h	8.2 (Berkeley) 4/20/95 
- *
- * $FreeBSD$
  */
 
 struct name *cat(struct name *, struct name *);
@@ -50,7 +46,9 @@ FILE	*collect(struct header *, int);
 char	*copyin(char *, char **);
 char	*detract(struct name *, int);
 char	*expand(char *);
+#ifdef __APPLE__
 char	*getauthor(char *);
+#endif
 char	*getdeadletter(void);
 char	*getname(uid_t);
 char	*hfield(const char *, struct message *);
@@ -67,7 +65,11 @@ char	*savestr(char *);
 FILE	*setinput(struct message *);
 char	*skin(char *);
 char	*skip_comment(char *);
+#ifdef __APPLE__
 char	*snarf(char [], int *, int);
+#else
+char	*snarf(char *, int *);
+#endif
 char	*username(void);
 char	*value(const char *);
 char	*vcopy(const char *);
@@ -76,12 +78,12 @@ char	*yanklogin(char *, char *);
 int	 Fclose(FILE *);
 int	 More(void *);
 int	 Pclose(FILE *);
-int	 Respond(int *);
+int	 Respond(void *);
 int	 Type(void *);
 int	 doRespond(int *);
 int	 dorespond(int *);
 void	 alter(char *);
-int	 alternates(char **);
+int	 alternates(void *);
 void	 announce(void);
 int	 append(struct message *, FILE *);
 int	 argcount(char **);
@@ -91,7 +93,7 @@ void	 brokpipe(int);
 int	 charcount(char *, int);
 int	 check(int, int);
 void	 clob1(int);
-int	 clobber(char **);
+int	 clobber(void *);
 void	 close_all_files(void);
 int	 cmatch(char *, char *);
 void	 collhup(int);
@@ -99,35 +101,39 @@ void	 collint(int);
 void	 collstop(int);
 void	 commands(void);
 int	 copycmd(void *v);
-int	 Capcopycmd(char []);
-int	 core(void);
+#ifdef __APPLE__
+int	 Capcopycmd(void *);
+#endif
+int	 core(void *);
 int	 count(struct name *);
 int	 deletecmd(void *);
 int	 delm(int *);
 int	 deltype(void *);
 void	 demail(void);
 int	 diction(const void *, const void *);
-int	 dosh(char *);
-int	 echo(char **);
+int	 dosh(void *);
+int	 echo(void *);
 int	 edit1(int *, int);
-int	 editor(int *);
+int	 editor(void *);
 void	 edstop(void);
-int	 elsecmd(void);
-int	 endifcmd(void);
+int	 elsecmd(void *);
+int	 endifcmd(void *);
 int	 evalcol(int);
 int	 execute(char *, int);
 int	 exwrite(char *, FILE *, int);
 void	 fail(const char *, const char *);
-int	 file(char **);
+int	 file(void *);
 struct grouphead *
 	 findgroup(char *);
 void	 findmail(char *, char *, int);
 int	 first(int, int);
 void	 fixhead(struct header *, struct name *);
 void	 fmt(const char *, struct name *, FILE *, int);
-int	 folders(void);
-int	 followup(int *);
-int	 Capfollowup(int *);
+int	 folders(void *);
+#ifdef __APPLE__
+int	 followup(void *);
+int	 Capfollowup(void *);
+#endif
 int	 forward(char *, FILE *, char *, int);
 void	 free_child(int);
 int	 from(void *);
@@ -142,9 +148,9 @@ int	 group(void *);
 int	 hash(const char *);
 void	 hdrstop(int);
 int	 headers(void *);
-int	 help(void);
+int	 help(void *);
 void	 holdsigs(void);
-int	 ifcmd(char **);
+int	 ifcmd(void *);
 int	 igcomp(const void *, const void *);
 int	 igfield(void *);
 int	 ignore1(char **, struct ignoretab *, const char *);
@@ -167,7 +173,9 @@ struct var *
 int	 mail(struct name *,
 	    struct name *, struct name *, struct name *, char *, char *);
 void	 mail1(struct header *, int);
-int	 mailpipe(char []);
+#ifdef __APPLE__
+int	 mailpipe(void *);
+#endif
 void	 makemessage(FILE *, int);
 void	 mark(int);
 int	 markall(char *, int);
@@ -182,10 +190,10 @@ int	 metamess(int, int);
 int	 more(void *);
 int	 newfileinfo(int);
 int	 next(void *);
-int	 null(int);
+int	 null(void *);
 void	 parse(char *, struct headline *, char *);
-int	 pcmdlist(void);
-int	 pdot(void);
+int	 pcmdlist(void *);
+int	 pdot(void *);
 void	 prepare_child(sigset_t *, int, int);
 int	 preserve(void *);
 void	 prettyprint(struct name *);
@@ -193,9 +201,9 @@ void	 printgroup(char *);
 void	 printhead(int);
 int	 puthead(struct header *, FILE *, int);
 int	 putline(FILE *, char *, int);
-int	 pversion(int);
+int	 pversion(void *);
 void	 quit(void);
-int	 quitcmd(void);
+int	 quitcmd(void *);
 int	 readline(FILE *, char *, int);
 void	 register_file(FILE *, int, int);
 void	 regret(int);
@@ -206,7 +214,9 @@ int	 rexit(void *);
 int	 rm(char *);
 int	 run_command(char *, sigset_t *, int, int, ...);
 int	 save(void *v);
-int	 Capsave(char []);
+#ifdef __APPLE__
+int	 Capsave(void *);
+#endif
 int	 save1(char *, int, const char *, struct ignoretab *);
 void	 savedeadletter(FILE *);
 int	 saveigfield(void *);
@@ -218,16 +228,16 @@ int	 schdir(void *);
 int	 screensize(void);
 int	 scroll(void *);
 int	 sendmessage(struct message *, FILE *, struct ignoretab *, char *);
-int	 sendmail(char *);
+int	 sendmail(void *);
 int	 set(void *);
 int	 setfile(char *);
 void	 setmsize(int);
 void	 setptr(FILE *, off_t);
 void	 setscreensize(void);
-int	 shell(char *);
+int	 shell(void *);
 void	 sigchild(int);
 void	 sort(char **);
-int	 source(char **);
+int	 source(void *);
 void	 spreserve(void);
 void	 sreset(void);
 int	 start_command(char *, sigset_t *, int, int, ...);
@@ -250,7 +260,7 @@ void	 unregister_file(FILE *);
 int	 unset(void *);
 int	 unstack(void);
 void	 vfree(char *);
-int	 visual(int *);
+int	 visual(void *);
 int	 wait_child(int);
 int	 wait_command(int);
 int	 writeback(FILE *);

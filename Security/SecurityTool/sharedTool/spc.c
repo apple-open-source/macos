@@ -229,7 +229,7 @@ static CF_RETURNS_RETAINED CFURLRef build_url(CFStringRef base, CFDictionaryRef 
     CFURLRef url = NULL, base_url = NULL;
     CFMutableStringRef query_string = 
         CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("?"));
-    require(query_string, out);
+    __Require(query_string, out);
     if (info)
         CFDictionaryApplyFunction(info, _query_string_apply, query_string);
     base_url = CFURLCreateWithString(kCFAllocatorDefault, base, NULL);
@@ -246,7 +246,7 @@ static CF_RETURNS_RETAINED CFURLRef scep_url_operation(CFStringRef base, CFStrin
     const void *keys[] = { CFSTR("operation"), CFSTR("message") };
     const void *values[] = { operation, message };
     
-    require(operation, out);
+    __Require(operation, out);
     CFDictionaryRef dict = CFDictionaryCreate(NULL, keys, values, message ? 2 : 1, NULL, NULL);
     url = build_url(base, dict);
     CFRelease(dict);
@@ -456,12 +456,12 @@ static SecIdentityRef perform_scep(CFDictionaryRef scep_dict)
     const void *keygen_keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
     const void *keygen_vals[] = { kSecAttrKeyTypeRSA, CFSTR("512") };
 
-    require(valid_cf_obj(scep_dict,CFDictionaryGetTypeID()), out);
-    require(scep_base_url = 
+    __Require(valid_cf_obj(scep_dict,CFDictionaryGetTypeID()), out);
+    __Require(scep_base_url = 
         dict_get_value_of_type(scep_dict, CFSTR("URL"), CFStringGetTypeID()), out);
-    require(scep_instance_name = 
+    __Require(scep_instance_name = 
         dict_get_value_of_type(scep_dict, CFSTR("NAME"), CFStringGetTypeID()), out);
-    require(scep_challenge = 
+    __Require(scep_challenge = 
         dict_get_value_of_type(scep_dict, CFSTR("CHALLENGE"), CFStringGetTypeID()), out);
 
     scep_key_bitsize =
@@ -505,11 +505,11 @@ static CFDataRef copy_profile(CFStringRef url_cfstring, SecIdentityRef identity)
     CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
     CFHTTPMessageRef response = NULL;
     
-    require(url = CFURLCreateWithString(kCFAllocatorDefault, url_cfstring, NULL), out);
-    require(request = CFHTTPMessageCreateRequest(kCFAllocatorDefault, 
+    __Require(url = CFURLCreateWithString(kCFAllocatorDefault, url_cfstring, NULL), out);
+    __Require(request = CFHTTPMessageCreateRequest(kCFAllocatorDefault, 
         CFSTR("POST"), url, kCFHTTPVersion1_1), out);
-    require_noerr(SecIdentityCopyCertificate(identity, &cert), out);
-    require(cert_data = SecCertificateCopyData(cert), out);
+    __Require_noErr(SecIdentityCopyCertificate(identity, &cert), out);
+    __Require(cert_data = SecCertificateCopyData(cert), out);
     CFHTTPMessageSetBody(request, cert_data);
     // this is technically the wrong mimetype; we'll probably switch to signed data
     CFHTTPMessageSetHeaderFieldValue(request, CFSTR("Content-Type"), CFSTR("application/x-x509-ca-cert"));
@@ -535,16 +535,16 @@ static bool validate_profile(CFDataRef profile_plist_data, SecIdentityRef identi
     bool ok = false;
     CFTypeRef result = CFPropertyListCreateWithData(kCFAllocatorDefault,
         profile_plist_data, kCFPropertyListImmutable, NULL, NULL);
-    require(valid_cf_obj(result, CFDictionaryGetTypeID()), out);
-    require(type = dict_get_value_of_type(result, CFSTR("PayloadType"), 
+    __Require(valid_cf_obj(result, CFDictionaryGetTypeID()), out);
+    __Require(type = dict_get_value_of_type(result, CFSTR("PayloadType"), 
         CFStringGetTypeID()), out);
-    require(uuid = dict_get_value_of_type(result, CFSTR("PayloadUUID"), 
+    __Require(uuid = dict_get_value_of_type(result, CFSTR("PayloadUUID"), 
         CFStringGetTypeID()), out);
     enc_payload = dict_get_value_of_type(result, CFSTR("EncryptedPayloadContent"), 
         CFDataGetTypeID());
     if (enc_payload) {
         dec_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
-        require_noerr(SecCMSDecryptEnvelopedData(enc_payload, dec_data, NULL), out);
+        __Require_noErr(SecCMSDecryptEnvelopedData(enc_payload, dec_data, NULL), out);
         ok = validate_profile(dec_data, identity);
     } else {
         ok = true;
@@ -587,9 +587,9 @@ static void annotate_machine_info(const void *value, void *context)
 {
     CFDictionaryRef machine_dict = NULL;
     CFStringRef machine_key = NULL;
-    require(machine_dict = (CFDictionaryRef)valid_cf_obj(context, 
+    __Require(machine_dict = (CFDictionaryRef)valid_cf_obj(context, 
         CFDictionaryGetTypeID()), out);
-    require(machine_key = (CFStringRef)valid_cf_obj((CFTypeRef)value, 
+    __Require(machine_key = (CFStringRef)valid_cf_obj((CFTypeRef)value, 
         CFStringGetTypeID()), out);
     if (CFEqual(machine_key, CFSTR("UDID"))) {
     
@@ -611,9 +611,9 @@ static void machine_authentication(CFDataRef req, CFDataRef reply)
     CFDictionaryRef auth_request_dict = CFPropertyListCreateWithData(kCFAllocatorDefault,
         machine_auth_request, kCFPropertyListImmutable, NULL, NULL);
     
-    require(auth_reply_dict, out);
-    require(valid_cf_obj(auth_request_dict, CFDictionaryGetTypeID()), out);
-    require(auth_dict = dict_get_value_of_type(auth_request_dict, CFSTR("PayloadContent"), CFDictionaryGetTypeID()), out);
+    __Require(auth_reply_dict, out);
+    __Require(valid_cf_obj(auth_request_dict, CFDictionaryGetTypeID()), out);
+    __Require(auth_dict = dict_get_value_of_type(auth_request_dict, CFSTR("PayloadContent"), CFDictionaryGetTypeID()), out);
     CFStringRef challenge = dict_get_value_of_type(auth_dict, CFSTR("CHALLENGE"), CFStringGetTypeID());
     if (challenge)
         CFDictionarySetValue(auth_reply_dict, CFSTR("CHALLENGE"), challenge);
@@ -677,27 +677,27 @@ extern int command_spc(int argc, char * const *argv)
         argv[0], kCFStringEncodingUTF8);
     CFDictionaryRef enroll_packet =
         get_encrypted_profile_packet(machine_id_url_cfstring);
-    require(enroll_packet && CFGetTypeID(enroll_packet) == CFDictionaryGetTypeID(), out);
+    __Require(enroll_packet && CFGetTypeID(enroll_packet) == CFDictionaryGetTypeID(), out);
     //require(payload_type(enroll_packet, "Encrypted Profile Service"), out);
-    require(payload_content = dict_get_value_of_type(enroll_packet,
+    __Require(payload_content = dict_get_value_of_type(enroll_packet,
         CFSTR("PayloadContent"), CFDictionaryGetTypeID()), out);
-    require(scep_config = dict_get_value_of_type(payload_content, 
+    __Require(scep_config = dict_get_value_of_type(payload_content, 
         CFSTR("SCEP"), CFDictionaryGetTypeID()), out);
-    require(identity = perform_scep(scep_config), out);
+    __Require(identity = perform_scep(scep_config), out);
     dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&identity, 1, NULL, NULL);
-    require_noerr(SecItemAdd(dict, NULL), out);
+    __Require_noErr(SecItemAdd(dict, NULL), out);
     CFReleaseNull(dict);
-    require(profile_url = dict_get_value_of_type(payload_content,
+    __Require(profile_url = dict_get_value_of_type(payload_content,
         CFSTR("URL"), CFStringGetTypeID()), out);
         
-    require(profile_data = copy_profile(profile_url, identity), out);
+    __Require(profile_data = copy_profile(profile_url, identity), out);
     if (debug)
         write_data("/tmp/profile.mobileconfig", profile_data);
     
-    require_noerr(SecCMSVerify(profile_data, NULL, NULL, NULL, &profile_plist), out);
+    __Require_noErr(SecCMSVerify(profile_data, NULL, NULL, NULL, &profile_plist), out);
     CFReleaseNull(profile_data);
-    require(profile_plist, out);
-    require(validate_profile(profile_plist, identity), out);
+    __Require(profile_plist, out);
+    __Require(validate_profile(profile_plist, identity), out);
 
     result = 0;
 out:

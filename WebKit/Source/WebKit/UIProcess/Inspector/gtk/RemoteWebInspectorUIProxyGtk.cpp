@@ -149,7 +149,7 @@ void RemoteWebInspectorUIProxy::platformSave(Vector<InspectorFrontendClient::Sav
         if (!decodedData)
             return;
         decodedData->shrinkToFit();
-        dataVector = WTFMove(*decodedData);
+        dataVector = WTF::move(*decodedData);
     } else
         dataString = saveDatas[0].content.utf8();
 

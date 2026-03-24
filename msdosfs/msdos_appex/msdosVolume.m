@@ -104,7 +104,7 @@ exit:
      * - number of FAT sectors > 0 (too large values handled later)
      */
     if (bytesPerSector != self.systemInfo.bytesPerSector) {
-        os_log_error(OS_LOG_DEFAULT, "%s: Logical sector size (%u) != physical sector size (%u)",
+        os_log_error(OS_LOG_DEFAULT, "%s: Logical sector size (%llu) != physical sector size (%u)",
                      __func__, self.systemInfo.bytesPerSector, bytesPerSector);
         return EINVAL;
     }
@@ -140,7 +140,7 @@ exit:
     self.systemInfo.rootDirSize = (rootEntryCount * sizeof(struct dosdirentry) + bytesPerSector - 1) / bytesPerSector;
     self.systemInfo.firstClusterOffset = self.systemInfo.rootSector + self.systemInfo.rootDirSize;
     self.systemInfo.metaDataZoneSize = self.systemInfo.rootSector * self.systemInfo.bytesPerSector;
-    self.systemInfo.firstDirBlockNum = FIRST_VALID_CLUSTER * (self.systemInfo.bytesPerCluster / self.systemInfo.dirBlockSize);
+    self.systemInfo.firstDirBlockNum = FIRST_VALID_CLUSTER * (uint32_t)(self.systemInfo.bytesPerCluster / self.systemInfo.dirBlockSize);
 
     if ((fatSectors > totalSectors) ||
         (self.systemInfo.rootSector < fatSectors) ||
@@ -503,7 +503,7 @@ exit:
             if (error) {
                 nsError = error;
             } else {
-                self.systemInfo.rootDirSize = numOfContigClusters * self.systemInfo.bytesPerCluster;
+                self.systemInfo.rootDirSize = (uint32_t)(numOfContigClusters * self.systemInfo.bytesPerCluster);
             }
         }];
     }
@@ -741,7 +741,7 @@ exit:
 -(NSError *)updateLabelInBootSector:(int8_t[SHORT_NAME_LEN])fromShortNameLabel
                              toName:(int8_t[SHORT_NAME_LEN])toShortNameLabel
 {
-    uint32_t bytesPerSector = self.systemInfo.bytesPerSector;
+    uint64_t bytesPerSector = self.systemInfo.bytesPerSector;
     NSMutableData *readBuffer = [[NSMutableData alloc] initWithLength:bytesPerSector];
 
     /* read the boot sector from the device */

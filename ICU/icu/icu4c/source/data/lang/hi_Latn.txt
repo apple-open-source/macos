@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 hi_Latn{
     %%Parent{"en_IN"}
     Keys{
@@ -111,6 +111,10 @@ hi_Latn{
             normal{"Words ke liye normal Line Breaks"}
             phrase{"Phrases mein Line Breaks se bachein"}
         }
+        lw%core{
+            keepall{"Sabhi rakhein"}
+            phrase{"Phrases mein rakhein"}
+        }
         numbers{
             hanidec{"Chinese Decimal Numbers"}
             hans{"Simplified Chinese Numbers"}
@@ -123,6 +127,12 @@ hi_Latn{
             roman{"Roman Numbers"}
             romanlow{"Roman Lowercase Numbers"}
             taml{"Traditional Tamil Numbers"}
+        }
+        numbers%core{
+            hanidec{
+                "Positional decimal system ke liye digits ke taur par Chinese number "
+                "ideographs kaa use"
+            }
         }
     }
     codePatterns{

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple Inc.
  * ("Apple") in consideration of your agreement to the following terms, and your
@@ -223,9 +223,9 @@ static DNSServiceRef sc1, sc2, sc3;     // DNSServiceRefs for kDNSServiceFlagsSh
 static int num_printed;
 static char addtest = 0;
 static DNSRecordRef record = NULL;
-static char myhinfoW[14] = "\002PC\012Windows XP";
-static char myhinfoX[ 9] = "\003Mac\004OS X";
-static char updatetest[3] = "\002AA";
+static char MDNS_NONSTRING myhinfoW[14] = "\002PC\012Windows XP";
+static char MDNS_NONSTRING myhinfoX[ 9] = "\003Mac\004OS X";
+static char MDNS_NONSTRING updatetest[3] = "\002AA";
 static char bigNULL[8192];       // 8K is maximum rdata we support
 static int exitTimeout;          // If nonzero, we exit immediately if kDNSServiceFlagsMoreComing is not set, and after that many seconds otherwise.
 static int exitWhenNoMoreComing; // If true, then when we get a callback with the kDNSServiceFlagsMoreComing bit clear, exit after printing the result.
@@ -2319,9 +2319,9 @@ int main(int argc, char **argv)
 
     case 'S':   {
         Opaque16 registerPort = { { 0x23, 0x45 } };                 // 9029 decimal
-        unsigned char txtrec[16] = "\xF" "/path=test.html";
+        unsigned char MDNS_NONSTRING txtrec[16] = "\xF" "/path=test.html";
         DNSRecordRef rec;
-        unsigned char nulrec[4] = "1234";
+        unsigned char MDNS_NONSTRING nulrec[4] = "1234";
 
         err = DNSServiceCreateConnection(&client);
         if (err) { fprintf(stderr, "DNSServiceCreateConnection failed %ld\n", (long int)err); return (-1); }

@@ -57,9 +57,9 @@ RetainPtr<id> CoreIPCPKContact::toID() const
     if (m_postalAddress)
         contact.get().postalAddress = (CNPostalAddress *)m_postalAddress->toID();
 
-    contact.get().emailAddress = nsStringNilIfNull(m_emailAddress);
+    contact.get().emailAddress = nsStringNilIfNull(m_emailAddress).get();
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    contact.get().supplementarySubLocality = nsStringNilIfNull(m_supplementarySublocality);
+    contact.get().supplementarySubLocality = nsStringNilIfNull(m_supplementarySublocality).get();
 ALLOW_DEPRECATED_DECLARATIONS_END
 
     return contact;

@@ -41,7 +41,7 @@ class PipelineLayoutImpl final : public PipelineLayout {
 public:
     static Ref<PipelineLayoutImpl> create(WebGPUPtr<WGPUPipelineLayout>&& pipelineLayout, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new PipelineLayoutImpl(WTFMove(pipelineLayout), convertToBackingContext));
+        return adoptRef(*new PipelineLayoutImpl(WTF::move(pipelineLayout), convertToBackingContext));
     }
 
     virtual ~PipelineLayoutImpl();

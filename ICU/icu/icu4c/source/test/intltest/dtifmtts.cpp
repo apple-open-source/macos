@@ -26,6 +26,10 @@
 #include "cstring.h"
 #include "simplethread.h"
 #include "japancal.h"
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+#include "testutil.h" // rdar://162810290
+#include <malloc/malloc.h>  // rdar://165873670
+#endif
 #include "unicode/gregocal.h"
 #include "unicode/dtintrv.h"
 #include "unicode/dtitvinf.h"
@@ -68,6 +72,9 @@ void DateIntervalFormatTest::runIndexedTest( int32_t index, UBool exec, const ch
     TESTCASE_AUTO(testTicket21939);
     TESTCASE_AUTO(testTicket20710_FieldIdentity);
     TESTCASE_AUTO(testTicket20710_IntervalIdentity);
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+    TESTCASE_AUTO(checkForUninitializedMemory);  // rdar://162810290
+#endif  // APPLE_ICU_CHANGES
     TESTCASE_AUTO_END;
 }
 
@@ -859,20 +866,20 @@ void DateIntervalFormatTest::testFormat() {
         "zh", "CE 2007 10 10 10:10:10", "CE 2008 10 10 10:10:10", "EEEEdMMMMy", "2007\\u5e7410\\u670810\\u65e5\\u661f\\u671f\\u4e09\\u81f32008\\u5e7410\\u670810\\u65e5\\u661f\\u671f\\u4e94",
 
 
-        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "dMMMMy", "2007\\u5e7410\\u670810\\u65e5\\u81f311\\u670810\\u65e5",
+        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "dMMMMy", "2007\\u5E74\\u5341\\u670810\\u65E5\\u2009\\u2013\\u2009\\u5341\\u4E00\\u670810\\u65E5",
 
 
-        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "MMMMy", "2007\\u5e7410\\u6708\\u81f311\\u6708",
+        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "MMMMy", "2007\\u5e7410\\u6708 \\u2013 11\\u6708",
 
 
 #if APPLE_ICU_CHANGES
 // rdar://
-        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "hmv", "2007/10/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4 \\u4E0A\\u534810:10\\u2009\\u2013\\u20092007/11/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4 \\u4E0A\\u534810:10",
+        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "hmv", "2007/10/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10\\u2009\\u2013\\u20092007/11/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10",
 #else
-        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "hmv", "2007/10/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4 \\u4E0A\\u534810:10 \\u2013 2007/11/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4 \\u4E0A\\u534810:10",
+        "zh", "CE 2007 10 10 10:10:10", "CE 2007 11 10 10:10:10", "hmv", "2007/10/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10 \\u2013 2007/11/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10",
 #endif  // APPLE_ICU_CHANGES
 
-        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "EEEEdMMMMy", "2007\\u5e7411\\u670810\\u65e5\\u661f\\u671f\\u516d\\u81f320\\u65e5\\u661f\\u671f\\u4e8c",
+        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "EEEEdMMMMy", "2007\\u5E74\\u5341\\u4E00\\u670810\\u65E5\\u661F\\u671F\\u516D\\u2009\\u2013\\u2009\\u5341\\u4E00\\u670820\\u65E5\\u661F\\u671F\\u4E8C",
 
 
         "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "dMMMM", "11\\u670810\\u65e5\\u81f320\\u65e5",
@@ -906,13 +913,13 @@ void DateIntervalFormatTest::testFormat() {
 
 #if APPLE_ICU_CHANGES
 // rdar://
-        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "hmz", "2007/11/10 GMT-8 \\u4e0a\\u534810:10\\u2009\\u2013\\u20092007/11/20 GMT-8 \\u4e0a\\u534810:10",
+        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "hmz", "2007/11/10 GMT-8\\u4e0a\\u534810:10\\u2009\\u2013\\u20092007/11/20 GMT-8\\u4e0a\\u534810:10",
 
         "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "h", "2007/11/10 \\u4e0a\\u534810\\u65f6\\u2009\\u2013\\u20092007/11/20 \\u4e0a\\u534810\\u65f6",
 
         "zh", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "EEEEdMMMMy", "2007\\u5e741\\u670810\\u65e5 \\u661f\\u671f\\u4e09", // (fixed expected result per ticket:6626:)
 #else
-        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "hmz", "2007/11/10 GMT-8 \\u4e0a\\u534810:10 \\u2013 2007/11/20 GMT-8 \\u4e0a\\u534810:10",
+        "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "hmz", "2007/11/10 GMT-8\\u4e0a\\u534810:10 \\u2013 2007/11/20 GMT-8\\u4e0a\\u534810:10",
 
         "zh", "CE 2007 11 10 10:10:10", "CE 2007 11 20 10:10:10", "h", "2007/11/10 \\u4e0a\\u534810\\u65f6 \\u2013 2007/11/20 \\u4e0a\\u534810\\u65f6",
 
@@ -1060,12 +1067,11 @@ void DateIntervalFormatTest::testFormat() {
 
         /* Following is an important test, because the 'h' in 'Uhr' is interpreted as a pattern
            if not escaped properly. */
+        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "h", "10\\u202FAM\\u2009\\u2013\\u20092\\u202FPM",
 #if APPLE_ICU_CHANGES
 // rdar://
-        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "h", "10\\u202FAM\\u2009\\u2013\\u20092\\u202FPM",
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "H", "10\\u201314",
 #else
-        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "h", "10 Uhr AM\\u2009\\u2013\\u20092 Uhr PM",
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "H", "10\\u201314 Uhr",
 #endif  // APPLE_ICU_CHANGES
 
@@ -1076,21 +1082,11 @@ void DateIntervalFormatTest::testFormat() {
 
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "hmz", "10:00\\u201310:20\\u202FAM GMT-8",
 
-#if APPLE_ICU_CHANGES
-// rdar://
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "h", "10\\u202FAM",
-#else
-        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "h", "10 Uhr AM",
-#endif  // APPLE_ICU_CHANGES
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "H", "10 Uhr",
 
 
-#if APPLE_ICU_CHANGES
-// rdar://
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "hz", "10\\u202FAM GMT-8",
-#else
-        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "hz", "10 Uhr AM GMT-8",
-#endif  // APPLE_ICU_CHANGES
 
         "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "EEEEdMMMy", "Mittwoch, 10. Jan. 2007",
 
@@ -1100,16 +1096,9 @@ void DateIntervalFormatTest::testFormat() {
         "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "hmz", "10:10\\u202FAM GMT-8",
 
 
-#if APPLE_ICU_CHANGES
-// rdar://
         "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "hv", "10\\u202FAM Los Angeles (Ortszeit)",
 
         "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "hz", "10\\u202FAM GMT-8",
-#else
-        "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "hv", "10 Uhr AM Los Angeles (Ortszeit)",
-
-        "de", "CE 2007 01 10 10:10:10", "CE 2007 01 10 10:10:20", "hz", "10 Uhr AM GMT-8",
-#endif  // APPLE_ICU_CHANGES
 
         // Thai (default calendar buddhist)
 
@@ -1121,14 +1110,14 @@ void DateIntervalFormatTest::testFormat() {
         "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "MMMy", "\\u0E15.\\u0E04. 2550 \\u2013 \\u0E15.\\u0E04. 2551",
 
 
-        "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "EdMy", "\\u0E1E. 10/10/2550 \\u2013 \\u0E28. 10/10/2551",
+        "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "EdMy", "\\u0E1E\\u0E38\\u0E18 10/10/2550 \\u2013 \\u0E28\\u0E38\\u0E01\\u0E23\\u0E4C 10/10/2551",
 
         "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "dMy", "10/10/2550 \\u2013 10/10/2551",
 
 
         "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "My", "10/2550 \\u2013 10/2551",
 
-        "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "EdM", "\\u0E1E. 10/10/2550 \\u2013 \\u0E28. 10/10/2551",
+        "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "EdM", "\\u0E1E\\u0E38\\u0E18 10/10/2550 \\u2013 \\u0E28\\u0E38\\u0E01\\u0E23\\u0E4C 10/10/2551",
 
 
         "th", "BE 2550 10 10 10:10:10", "BE 2551 10 10 10:10:10", "y", "2550\\u20132551",
@@ -1170,22 +1159,22 @@ void DateIntervalFormatTest::testFormat() {
 #if APPLE_ICU_CHANGES
 // rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMMMd", "Jan 5, 64 Sh\\u014Dwa\\u2009\\u2013\\u2009Jan 15, 1 Heisei",
-
 #endif  // APPLE_ICU_CHANGES
+
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "GGGGGyMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
  
 #if APPLE_ICU_CHANGES
 // rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
-        "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
+        "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMd", "1/5/64 Sh\\u014Dwa\\u2009\\u2013\\u20091/15/1 Heisei",
 
-        "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yyMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
-
+        "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yyMd", "1/5/64 Sh\\u014Dwa\\u2009\\u2013\\u20091/15/1 Heisei",
 #endif  // APPLE_ICU_CHANGES
+
         "en-u-ca-japanese", "H 31 04 15 09:00:00", JP_ERA_2019_NARROW " 1 05 15 09:00:00",  "GyMMMd", "Apr 15, 31 Heisei\\u2009\\u2013\\u2009May 15, 1 " JP_ERA_2019_ROOT,
 
         "en-u-ca-japanese", "H 31 04 15 09:00:00", JP_ERA_2019_NARROW " 1 05 15 09:00:00",  "GGGGGyMd", "4/15/31 H\\u2009\\u2013\\u20095/15/1 " JP_ERA_2019_NARROW,
- 
- 
+
+
         "ja-u-ca-japanese", "H 31 03 15 09:00:00", "H 31 04 15 09:00:00", "GyMMMd", "\\u5E73\\u621031\\u5E743\\u670815\\u65E5\\uFF5E4\\u670815\\u65E5",
 
         "ja-u-ca-japanese", "H 31 03 15 09:00:00", "H 31 04 15 09:00:00", "GGGGGyMd", "H31/03/15\\uFF5E31/04/15",
@@ -1226,7 +1215,7 @@ void DateIntervalFormatTest::testHourMetacharacters() {
     // Note that from_data/to_data are specified using era names from root, for the calendar specified by locale.
     const char* DATA[] = {
         "GGGGG y MM dd HH:mm:ss", // pattern for from_data/to_data
-        
+
         // This test is for tickets ICU-21154, ICU-21155, and ICU-21156 and is intended to verify
         // that all of the special skeleton characters for hours and day periods work as expected
         // with date intervals:
@@ -1280,10 +1269,10 @@ void DateIntervalFormatTest::testHourMetacharacters() {
         "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u20131\\u202FAM",
         "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u20131\\u202FAM",
 #else
-        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u20131 Uhr AM",
-        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u20131 Uhr AM",
-        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u20131 Uhr AM",
-        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u20131 Uhr AM",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u2009\\u2013\\u20091\\u202FAM",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u2009\\u2013\\u20091\\u202FAM",
+        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u2009\\u2013\\u20091\\u202FAM",
+        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u2009\\u2013\\u20091\\u202FAM",
 #endif  // APPLE_ICU_CHANGES
 
         // different lengths of the 'a' field
@@ -1408,7 +1397,7 @@ void DateIntervalFormatTest::testHourMetacharacters() {
 // rdar://
         "de", "CE 2010 09 27 01:00:00", "CE 2010 09 27 10:00:00", "KK", "1\\u201310\\u202FAM",
 #else
-        "de", "CE 2010 09 27 01:00:00", "CE 2010 09 27 10:00:00", "KK", "1\\u201310 Uhr AM",
+        "de", "CE 2010 09 27 01:00:00", "CE 2010 09 27 10:00:00", "KK", "1\\u2009\\u2013\\u200910\\u202FAM",
 #endif  // APPLE_ICU_CHANGES
         
         // regression test for ICU-21154 (single-date ranges should use the same hour cycle as multi-date ranges)
@@ -1466,7 +1455,7 @@ void DateIntervalFormatTest::expect(const char** data, int32_t data_length) {
             return;
         }
         const char* calType = defCal->getType();
- 
+
         Locale refLoc("root");
         if (calType) {
             refLoc.setKeywordValue("calendar", calType, ec);
@@ -1488,17 +1477,17 @@ void DateIntervalFormatTest::expect(const char** data, int32_t data_length) {
 
         const UnicodeString& oneSkeleton(ctou(data[i++]));
 
-        DateIntervalFormat* dtitvfmt = DateIntervalFormat::createInstance(oneSkeleton, loc, ec);
+        LocalPointer<DateIntervalFormat> dtitvfmt(DateIntervalFormat::createInstance(oneSkeleton, loc, ec));
         if (!assertSuccess("createInstance(skeleton) in expect", ec)) return;
         FieldPosition pos(FieldPosition::DONT_CARE);
         dtitvfmt->format(&dtitv, str.remove(), pos, ec);
         if (!assertSuccess("format in expect", ec)) return;
+
         assertEquals(UnicodeString("\"") + locName + "\\" + oneSkeleton + "\\" + ctou(datestr) + "\\" + ctou(datestr_2) + "\"", ctou(data[i++]), str);
 
         logln("interval date:" + str + "\"" + locName + "\", "
                  + "\"" + datestr + "\", "
               + "\"" + datestr_2 + "\", " + oneSkeleton);
-        delete dtitvfmt;
     }
 }
 
@@ -2294,7 +2283,7 @@ void DateIntervalFormatTest::testCreateInstanceForAllLocales() {
             fmt.adoptInsteadAndCheckErrorCode(
                 DateIntervalFormat::createInstance(u"dMMMMy", locale, status),
                 status);
-            status.errIfFailureAndReset(locales[i].getName());
+            status.errIfFailureAndReset("%s/%s", locales[i].getName(), calendar);
         }
     }
 }
@@ -2606,7 +2595,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 #elif APPLE_ICU_CHANGES
                  u"民國 1/1/2 上午6時至民國 2/1/2 上午6時",
 #else
-                 u"民國1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
+                 u"民國1/1/2上午6時\u2009\u2013\u2009民國2/1/2上午6時",
 #endif  // APPLE_ICU_CHANGES
                  formatted.toString(status));
     getCategoryAndField(formatted, expectedCategory,
@@ -2620,7 +2609,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 #elif APPLE_ICU_CHANGES
                  u"民國前 1/1/2 上午6時至民國 2/1/2 上午6時",
 #else
-                 u"民國前1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
+                 u"民國前1/1/2上午6時\u2009\u2013\u2009民國2/1/2上午6時",
 #endif  // APPLE_ICU_CHANGES
                  formatted.toString(status));
     verifyCategoryAndField(formatted, expectedCategory, expectedField, status);
@@ -2633,7 +2622,7 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 #elif APPLE_ICU_CHANGES
                  u"民國前 2/1/2 上午6時至民國前 1/1/2 上午6時",
 #else
-                 u"民國前2/1/2 上午6時\u2009\u2013\u2009民國前1/1/2 上午6時",
+                 u"民國前2/1/2上午6時\u2009\u2013\u2009民國前1/1/2上午6時",
 #endif  // APPLE_ICU_CHANGES
                  formatted.toString(status));
     verifyCategoryAndField(formatted, expectedCategory, expectedField, status);
@@ -2720,14 +2709,14 @@ void DateIntervalFormatTest::testTicket21222JapaneseEraDiff() {
 void DateIntervalFormatTest::testTicket21939() {
     IcuTestErrorCode err(*this, "testTicket21939");
     LocalPointer<DateIntervalFormat> dif(DateIntervalFormat::createInstance(u"rMdhm", Locale::forLanguageTag("en-u-ca-chinese", err), err));
-    
+
     if (assertSuccess("Error creating DateIntervalFormat", err)) {
         const DateFormat* df = dif->getDateFormat();
         const SimpleDateFormat* sdf = dynamic_cast<const SimpleDateFormat*>(df);
         UnicodeString pattern;
         assertEquals("Wrong pattern", u"M/d/r, h:mm\u202Fa", sdf->toPattern(pattern));
     }
-    
+
     // additional tests for the related ICU-22202
     dif.adoptInstead(DateIntervalFormat::createInstance(u"Lh", Locale::getEnglish(), err));
     if (assertSuccess("Error creating DateIntervalFormat", err)) {
@@ -2797,6 +2786,13 @@ void DateIntervalFormatTest::testTicket20710_IntervalIdentity() {
 
     for (int32_t i = 0; i < count; i++) {
         const Locale locale = locales[i];
+#if APPLE_ICU_CHANGES // rdar://167651963
+        const char* localeID = locale.getName();
+        if ((strcmp(localeID, "hi") == 0) || (strncmp(localeID, "hi_", 3) == 0)) {
+            logKnownIssue("rdar://167650142", "Hindi locales fail in exhaustive testTicket20710_IntervalIdentity");
+            continue;
+        }
+#endif
         LocalPointer<DateTimePatternGenerator> gen(DateTimePatternGenerator::createInstance(locale, status));
         LocalPointer<Calendar> calendar(Calendar::createInstance(TimeZone::createTimeZone(timeZone), status));
         calendar->setTime(static_cast<UDate>(1563235200000), status);
@@ -2817,7 +2813,34 @@ void DateIntervalFormatTest::testTicket20710_IntervalIdentity() {
             assertEquals("DateIntervalFormat should fall back to DateFormat in the identity format", resultDateFormat, resultIntervalFormat);
         }
     }
-    
+
 }
+
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://162810290 and rdar://165873670
+void DateIntervalFormatTest::checkForUninitializedMemory() {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<DateIntervalFormat> dtifmt(DateIntervalFormat::createInstance(UDAT_YEAR_MONTH_DAY, Locale::getUS(), status));
+    if(U_FAILURE(status)) {
+        errcheckln(status, "ERROR: Couldn't create DateIntervalFormat - %s", u_errorName(status));
+        return;
+    }
+
+    const void* objPtr = dtifmt.getAlias();
+
+    // Before any changes to reduce uninitialized memory, this test was showing that
+    // over 74% of DateIntervalFormat was uninitialized.
+
+    // The uninitialized memory was causing problems for our memory analysis tools as
+    // the DateIntervalFormat object appeared to have references to other objects
+    // due to data picked up from the heap in the uninitialized areas.
+
+    TestUtility::checkObjectForUninitializedMemory(
+        *this,
+        objPtr,
+        "DateIntervalFormat",
+        sizeof(DateIntervalFormat));
+}
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

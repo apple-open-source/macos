@@ -49,7 +49,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderCounter);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderCounter);
 
 using CounterMap = HashMap<AtomString, Ref<CounterNode>>;
 using CounterMaps = SingleThreadWeakHashMap<RenderElement, std::unique_ptr<CounterMap>>;
@@ -68,7 +68,7 @@ static Element* ancestorStyleContainmentObject(const Element& element)
     Element* ancestor = pseudoElement ? pseudoElement->hostElement() : element.parentElement();
     while (ancestor) {
         if (auto* style = ancestor->existingComputedStyle()) {
-            if (style->containsStyle())
+            if (style->usedContain().contains(Style::ContainValue::Style))
                 break;
         }
         // FIXME: this should use parentInComposedTree but for now matches the rest of RenderCounter.
@@ -133,7 +133,7 @@ static Element* previousSiblingOrParentElement(const Element& element)
     auto* parent = element.parentElement();
     if (parent && !parent->renderer())
         parent = previousSiblingOrParentElement(*parent);
-    if (parent && parent->renderer() && parent->renderer()->style().containsStyle())
+    if (parent && parent->renderer() && parent->renderer()->style().usedContain().contains(Style::ContainValue::Style))
         return nullptr;
     return parent;
 }
@@ -221,7 +221,7 @@ static std::optional<CounterPlan> planCounter(RenderElement& renderer, const Ato
             return std::nullopt;
     }
 
-    auto directives = style.counterDirectives().map.get(identifier);
+    auto directives = style.usedCounterDirectives().map.get(identifier);
 
     if (identifier == "list-item"_s) {
         auto itemDirectives = listItemCounterDirectives(renderer);
@@ -289,7 +289,7 @@ static CounterInsertionPoint findPlaceForCounter(RenderElement& counterOwner, co
         Vector<RenderElement*> previousRenderers;
         RenderElement* current = currentRenderer;
         while (current && !current->hasCounterNodeMap()) {
-            if (!current->style().counterDirectives().map.isEmpty())
+            if (!current->style().usedCounterDirectives().map.isEmpty())
                 previousRenderers.append(current);
             current = previousInPreOrderRespectingContainment(*current);
         }
@@ -322,7 +322,7 @@ static CounterInsertionPoint findPlaceForCounter(RenderElement& counterOwner, co
                         // our identified parent.
                         if (previousSibling->parent() != currentCounter)
                             previousSibling = nullptr;
-                        return { currentCounter, WTFMove(previousSibling) };
+                        return { currentCounter, WTF::move(previousSibling) };
                     }
                     // CurrentCounter, the counter at the EndSearchRenderer, is not reset.
                     if (!isReset || !areRenderersElementsSiblings(*currentRenderer, counterOwner)) {
@@ -330,7 +330,7 @@ static CounterInsertionPoint findPlaceForCounter(RenderElement& counterOwner, co
                         // to an ancestor of the placed counter's owner renderer we know we are a sibling of that node.
                         if (currentCounter->parent() != previousSibling->parent())
                             return { };
-                        return { currentCounter->parent(), WTFMove(previousSibling) };
+                        return { currentCounter->parent(), WTF::move(previousSibling) };
                     }
                 } else { 
                     // We are at the potential end of the search, but we had no previous sibling candidate
@@ -340,7 +340,7 @@ static CounterInsertionPoint findPlaceForCounter(RenderElement& counterOwner, co
                     if (currentCounter->actsAsReset()) {
                         if (isReset && areRenderersElementsSiblings(*currentRenderer, counterOwner))
                             return { currentCounter->parent(), currentCounter };
-                        return { currentCounter, WTFMove(previousSibling) };
+                        return { currentCounter, WTF::move(previousSibling) };
                     }
                     if (!isReset || !areRenderersElementsSiblings(*currentRenderer, counterOwner))
                         return { currentCounter->parent(), currentCounter };
@@ -507,7 +507,7 @@ void RenderCounter::updateCounter()
 static void destroyCounterNodeWithoutMapRemoval(const AtomString& identifier, CounterNode& node)
 {
     RefPtr<CounterNode> previous;
-    for (RefPtr<CounterNode> child = node.lastDescendant(); child && child != &node; child = WTFMove(previous)) {
+    for (RefPtr<CounterNode> child = node.lastDescendant(); child && child != &node; child = WTF::move(previous)) {
         previous = child->previousInPreOrder();
         child->parent()->removeChild(*child);
         ASSERT(counterMaps().find(child->owner())->value->get(identifier) == child);
@@ -551,8 +551,8 @@ void RenderCounter::rendererStyleChangedSlowCase(RenderElement& renderer, const 
         return; // cannot have generated content or if it can have, it will be handled during attaching
 
     const CounterDirectiveMap* oldCounterDirectives;
-    if (oldStyle && !(oldCounterDirectives = &oldStyle->counterDirectives())->map.isEmpty()) {
-        if (auto& newCounterDirectives = newStyle.counterDirectives().map; !newCounterDirectives.isEmpty()) {
+    if (oldStyle && !(oldCounterDirectives = &oldStyle->usedCounterDirectives())->map.isEmpty()) {
+        if (auto& newCounterDirectives = newStyle.usedCounterDirectives().map; !newCounterDirectives.isEmpty()) {
             for (auto& keyValue : newCounterDirectives) {
                 auto existingEntry = oldCounterDirectives->map.find(keyValue.key);
                 if (existingEntry != oldCounterDirectives->map.end()) {
@@ -578,7 +578,7 @@ void RenderCounter::rendererStyleChangedSlowCase(RenderElement& renderer, const 
         if (renderer.hasCounterNodeMap())
             RenderCounter::destroyCounterNodes(renderer);
 
-        for (auto& key : newStyle.counterDirectives().map.keys()) {
+        for (auto& key : newStyle.usedCounterDirectives().map.keys()) {
             // We must create this node here, because the added node may be a node with no display such as
             // as those created by the increment or reset directives and the re-layout that will happen will
             // not catch the change if the node had no children.

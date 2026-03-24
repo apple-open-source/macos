@@ -56,7 +56,7 @@ BoundaryPoint makeBoundaryPointAfterNodeContents(Node&);
 WEBCORE_EXPORT std::partial_ordering treeOrderForTesting(TreeType, const BoundaryPoint&, const BoundaryPoint&);
 
 inline BoundaryPoint::BoundaryPoint(Ref<Node>&& container, unsigned offset)
-    : container(WTFMove(container))
+    : container(WTF::move(container))
     , offset(offset)
 {
 }
@@ -81,7 +81,7 @@ struct WeakBoundaryPoint {
 };
 
 inline WeakBoundaryPoint::WeakBoundaryPoint(WeakPtr<Node, Node::WeakPtrImplType>&& container, unsigned offset)
-    : container(WTFMove(container))
+    : container(WTF::move(container))
     , offset(offset)
 {
 }

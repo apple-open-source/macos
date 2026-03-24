@@ -47,11 +47,12 @@
 #include "RenderObjectInlines.h"
 #include "RenderSVGInline.h"
 #include "RenderSlider.h"
-#include "RenderStyleInlines.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+GettersInlines.h"
+#include "RenderStyle+SettersInlines.h"
 #include "RenderTable.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "TextUtil.h"
 
 #if ENABLE(TREE_DEBUGGING)
@@ -116,7 +117,7 @@ CheckedRef<Layout::ElementBox> BoxTreeUpdater::build()
         auto newRootBox = createLayoutBox(m_rootRenderer);
         rootBox = downcast<Layout::ElementBox>(newRootBox.ptr());
         m_rootRenderer.setLayoutBox(*rootBox);
-        initialContainingBlock().appendChild(WTFMove(newRootBox));
+        initialContainingBlock().appendChild(WTF::move(newRootBox));
     }
 
     if (is<RenderBlockFlow>(m_rootRenderer))
@@ -164,7 +165,7 @@ void BoxTreeUpdater::tearDown()
 
     for (auto& toDetach : boxesToDetach) {
         auto detachedBox = toDetach->removeFromParent();
-        initialContainingBlock().appendChild(WTFMove(detachedBox));
+        initialContainingBlock().appendChild(WTF::move(detachedBox));
     }
 
     if (&rootLayoutBox().parent() == &initialContainingBlock())
@@ -187,6 +188,15 @@ void BoxTreeUpdater::adjustStyleIfNeeded(const RenderElement& renderer, RenderSt
                 styleToAdjust.setOverflowX(anonBlockParentStyle.overflowX());
                 styleToAdjust.setOverflowY(anonBlockParentStyle.overflowY());
             }
+            if (renderer.isRenderTextControl()
+#if ENABLE(MATHML)
+                || renderer.isRenderMathMLMath()
+#endif
+            ) {
+                // Something like <input style="appearance:none; display:table-header-group"> confuses IFC.
+                if (styleToAdjust.isInternalTableBox() || styleToAdjust.display() == DisplayType::TableCaption)
+                    styleToAdjust.setDisplay(DisplayType::Block);
+            }
             return;
         }
         if (auto* renderInline = dynamicDowncast<RenderInline>(renderer)) {
@@ -194,14 +204,16 @@ void BoxTreeUpdater::adjustStyleIfNeeded(const RenderElement& renderer, RenderSt
             auto shouldNotRetainBorderPaddingAndMarginEnd = !renderInline->isContinuation() && renderInline->inlineContinuation();
             // This looks like continuation renderer.
             if (shouldNotRetainBorderPaddingAndMarginStart) {
-                styleToAdjust.setMarginStart(RenderStyle::initialMargin());
+                // This uses `Style::ComputedStyle::initialMarginLeft()` because there is no defined initial value for margin start. However, since all margin edges have the same initial value, this is fine.
+                styleToAdjust.setMarginStart(Style::ComputedStyle::initialMarginLeft());
                 styleToAdjust.resetBorderLeft();
-                styleToAdjust.setPaddingLeft(RenderStyle::initialPadding());
+                styleToAdjust.setPaddingLeft(Style::ComputedStyle::initialPaddingLeft());
             }
             if (shouldNotRetainBorderPaddingAndMarginEnd) {
-                styleToAdjust.setMarginEnd(RenderStyle::initialMargin());
+                // This uses `Style::ComputedStyle::initialMarginRight()` because there is no defined initial value for margin end. However, since all margin edges have the same initial value, this is fine.
+                styleToAdjust.setMarginEnd(Style::ComputedStyle::initialMarginRight());
                 styleToAdjust.resetBorderRight();
-                styleToAdjust.setPaddingRight(RenderStyle::initialPadding());
+                styleToAdjust.setPaddingRight(Style::ComputedStyle::initialPaddingRight());
             }
 
             auto isSupportedInlineDisplay = [&] {
@@ -268,7 +280,7 @@ UniqueRef<Layout::Box> BoxTreeUpdater::createLayoutBox(RenderObject& renderer)
             textRenderer->setHasStrongDirectionalityContent(*hasStrongDirectionalityContent);
         }
 
-        auto contentCharacteristic = OptionSet<Layout::InlineTextBox::ContentCharacteristic> { };
+        auto contentCharacteristic = EnumSet<Layout::InlineTextBox::ContentCharacteristic> { };
         if (canUseSimpleFontCodePath)
             contentCharacteristic.add(Layout::InlineTextBox::ContentCharacteristic::CanUseSimpleFontCodepath);
         if (textRenderer->shouldUseSimpleGlyphOverflowCodePath())
@@ -280,7 +292,7 @@ UniqueRef<Layout::Box> BoxTreeUpdater::createLayoutBox(RenderObject& renderer)
         if (*hasStrongDirectionalityContent)
             contentCharacteristic.add(Layout::InlineTextBox::ContentCharacteristic::HasStrongDirectionalityContent);
 
-        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, contentCharacteristic, WTFMove(style), WTFMove(firstLineStyle));
+        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, contentCharacteristic, WTF::move(style), WTF::move(firstLineStyle));
     }
 
     auto& renderElement = downcast<RenderElement>(renderer);
@@ -289,15 +301,15 @@ UniqueRef<Layout::Box> BoxTreeUpdater::createLayoutBox(RenderObject& renderer)
     adjustStyleIfNeeded(renderElement, style, firstLineStyle.get());
 
     if (auto* listMarkerRenderer = dynamicDowncast<RenderListMarker>(renderElement)) {
-        OptionSet<Layout::ElementBox::ListMarkerAttribute> listMarkerAttributes;
+        EnumSet<Layout::ElementBox::ListMarkerAttribute> listMarkerAttributes;
         if (listMarkerRenderer->isImage())
             listMarkerAttributes.add(Layout::ElementBox::ListMarkerAttribute::Image);
         if (!listMarkerRenderer->isInside())
             listMarkerAttributes.add(Layout::ElementBox::ListMarkerAttribute::Outside);
-        return makeUniqueRef<Layout::ElementBox>(elementAttributes(renderElement), listMarkerAttributes, WTFMove(style), WTFMove(firstLineStyle));
+        return makeUniqueRef<Layout::ElementBox>(elementAttributes(renderElement), listMarkerAttributes, WTF::move(style), WTF::move(firstLineStyle));
     }
 
-    return makeUniqueRef<Layout::ElementBox>(elementAttributes(renderElement), WTFMove(style), WTFMove(firstLineStyle));
+    return makeUniqueRef<Layout::ElementBox>(elementAttributes(renderElement), WTF::move(style), WTF::move(firstLineStyle));
 };
 
 void BoxTreeUpdater::buildTreeForInlineContent()
@@ -321,8 +333,8 @@ void BoxTreeUpdater::buildTreeForFlexContent()
             continue;
         }
         auto style = RenderStyle::clone(flexItemRenderer.style());
-        auto flexItemBox = makeUniqueRef<Layout::ElementBox>(elementAttributes(flexItemRenderer), WTFMove(style));
-        insertChild(WTFMove(flexItemBox), flexItemRenderer, flexItemRenderer.previousSibling());
+        auto flexItemBox = makeUniqueRef<Layout::ElementBox>(elementAttributes(flexItemRenderer), WTF::move(style));
+        insertChild(WTF::move(flexItemBox), flexItemRenderer, flexItemRenderer.previousSibling());
     }
 }
 
@@ -334,8 +346,8 @@ void BoxTreeUpdater::buildTreeForGridContent()
             continue;
         }
         auto style = RenderStyle::clone(gridItemRenderer.style());
-        auto gridItemBox = makeUniqueRef<Layout::ElementBox>(elementAttributes(gridItemRenderer), WTFMove(style));
-        insertChild(WTFMove(gridItemBox), gridItemRenderer, gridItemRenderer.previousSibling());
+        auto gridItemBox = makeUniqueRef<Layout::ElementBox>(elementAttributes(gridItemRenderer), WTF::move(style));
+        insertChild(WTF::move(gridItemBox), gridItemRenderer, gridItemRenderer.previousSibling());
     }
 }
 
@@ -345,7 +357,7 @@ void BoxTreeUpdater::insertChild(UniqueRef<Layout::Box> childBox, RenderObject& 
     auto* beforeChildBox = beforeChild ? beforeChild->layoutBox() : nullptr;
 
     childRenderer.setLayoutBox(childBox);
-    parentBox.insertChild(WTFMove(childBox), const_cast<Layout::Box*>(beforeChildBox));
+    parentBox.insertChild(WTF::move(childBox), const_cast<Layout::Box*>(beforeChildBox));
 }
 
 static void updateContentCharacteristic(const RenderText& rendererText, Layout::InlineTextBox& inlineTextBox)
@@ -355,7 +367,7 @@ static void updateContentCharacteristic(const RenderText& rendererText, Layout::
     if (!shouldUpdateContentCharacteristic)
         return;
 
-    auto contentCharacteristic = OptionSet<Layout::InlineTextBox::ContentCharacteristic> { };
+    auto contentCharacteristic = EnumSet<Layout::InlineTextBox::ContentCharacteristic> { };
     // These may only change when content changes.
     if (inlineTextBox.canUseSimpleFontCodePath())
         contentCharacteristic.add(Layout::InlineTextBox::ContentCharacteristic::CanUseSimpleFontCodepath);
@@ -374,7 +386,7 @@ static void updateContentCharacteristic(const RenderText& rendererText, Layout::
 
 static void updateListMarkerAttributes(const RenderListMarker& listMarkerRenderer, Layout::ElementBox& layoutBox)
 {
-    auto listMarkerAttributes = OptionSet<Layout::ElementBox::ListMarkerAttribute> { };
+    auto listMarkerAttributes = EnumSet<Layout::ElementBox::ListMarkerAttribute> { };
     if (listMarkerRenderer.isImage())
         listMarkerAttributes.add(Layout::ElementBox::ListMarkerAttribute::Image);
     if (!listMarkerRenderer.isInside())
@@ -404,7 +416,7 @@ void BoxTreeUpdater::updateStyle(const RenderObject& renderer)
     auto firstLineNewStyle = firstLineStyleFor(renderer);
     auto newStyle = RenderStyle::clone(downcast<RenderElement>(renderer).style());
     adjustStyleIfNeeded(downcast<RenderElement>(renderer), newStyle, firstLineNewStyle.get());
-    layoutBox->updateStyle(WTFMove(newStyle), WTFMove(firstLineNewStyle));
+    layoutBox->updateStyle(WTF::move(newStyle), WTF::move(firstLineNewStyle));
     if (auto* listMarkerRenderer = dynamicDowncast<RenderListMarker>(renderer); listMarkerRenderer && is<Layout::ElementBox>(*layoutBox))
         updateListMarkerAttributes(*listMarkerRenderer, downcast<Layout::ElementBox>(*layoutBox));
 }
@@ -418,7 +430,7 @@ void BoxTreeUpdater::updateContent(const RenderText& textRenderer)
         return combineTextRenderer && combineTextRenderer->isCombined();
     }();
     auto text = style.textSecurity() == TextSecurity::None ? (isCombinedText ? textRenderer.originalText() : String { textRenderer.text() }) : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : String { textRenderer.text() });
-    auto contentCharacteristic = OptionSet<Layout::InlineTextBox::ContentCharacteristic> { };
+    auto contentCharacteristic = EnumSet<Layout::InlineTextBox::ContentCharacteristic> { };
     if (textRenderer.canUseSimpleFontCodePath())
         contentCharacteristic.add(Layout::InlineTextBox::ContentCharacteristic::CanUseSimpleFontCodepath);
     if (textRenderer.canUseSimpleFontCodePath() && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style.fontCascade(), style.collapseWhiteSpace(), &inlineTextBox.firstLineStyle()))
@@ -496,7 +508,9 @@ void showInlineContent(TextStream& stream, const InlineContent& inlineContent, s
         };
         addSpacing(stream);
         auto& line = lines[lineIndex];
-        stream << "line at (" << line.lineBoxLeft() << "," << line.lineBoxTop() << ") size (" << line.lineBoxRight() - line.lineBoxLeft() << "x" << line.lineBoxBottom() - line.lineBoxTop() << ") baseline (" << line.baseline() << ") enclosing top (" << line.enclosingContentLogicalTop() << ") bottom (" << line.enclosingContentLogicalBottom() << ")";
+        stream << "line at (" << line.lineBoxLeft() << "," << line.lineBoxTop() << ") size (" << line.lineBoxRight() - line.lineBoxLeft() << "x" << line.lineBoxBottom() - line.lineBoxTop() << ") baseline (" << line.baseline() << ") enclosing top (" << line.enclosingContentLogicalTop() << ") bottom (" << line.enclosingContentLogicalBottom() << ") ";
+        if (line.hasEllipsis())
+            stream << "truncated with ellipsis.";
         stream.nextLine();
 
         addSpacing(stream);
@@ -539,6 +553,8 @@ void showInlineContent(TextStream& stream, const InlineContent& inlineContent, s
                     runStream << "Line break";
                 else if (box.isAtomicInlineBox())
                     runStream << "Atomic box";
+                else if (box.isBlockLevelBox())
+                    runStream << "Block level box";
                 else if (box.isGenericInlineLevelBox())
                     runStream << "Generic inline level box";
                 runStream << " at (" << box.left() << "," << box.top() << ") size " << box.width() << "x" << box.height();

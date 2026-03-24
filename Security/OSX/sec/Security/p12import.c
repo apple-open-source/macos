@@ -162,8 +162,8 @@ static int algIdParse(pkcs12_context * context,
     p12DecodeLog("algIdParse");
     int result = 0;
     const SecAsn1Item *param = &algId->parameters;
-    require(pbeParams, out);
-    require(param && param->Length, out);
+    __Require(pbeParams, out);
+    __Require(param && param->Length, out);
     memset(pbeParams, 0, sizeof(*pbeParams));
     // first attempt to decode as PBE1. This will fill in the first two fields
     // (salt and iterations) if successful, and leave the rest nil.
@@ -178,7 +178,7 @@ static int algIdParse(pkcs12_context * context,
             pbeParams->iterations = pbeParams->kdf.params.iterations;
         }
     }
-    require_noerr(result, out);
+    __Require_noErr(result, out);
 
     return 0;
 out:
@@ -198,11 +198,11 @@ static int p12Decrypt(pkcs12_context * context, const SecAsn1AlgId *algId,
     uint32_t        hashSizeInBytes = 0;
     uint32_t        hashBlockSizeInBytes = 0;
     CCOptions       options = 0;
-    require_noerr_quiet(pkcsOidToParams(&algId->algorithm, &alg, &options, &keySizeInBits,
+    __Require_noErr_Quiet(pkcsOidToParams(&algId->algorithm, &alg, &options, &keySizeInBits,
                                         &blockSizeInBytes, &hashSizeInBytes, &hashBlockSizeInBytes), out);
 
     uint32_t iterCount = 0;
-    require_noerr(p12DataToInt(&pbep.iterations, &iterCount), out);
+    __Require_noErr(p12DataToInt(&pbep.iterations, &iterCount), out);
 
     /* P12 style key derivation */
     SecAsn1Item key = {0, NULL};
@@ -224,9 +224,9 @@ static int p12Decrypt(pkcs12_context * context, const SecAsn1AlgId *algId,
                                               kCCPRFHmacAlgSHA256, iterCount,
                                               key.Data, key.Length);
         });
-        require_noerr(kdf_result, out);
+        __Require_noErr(kdf_result, out);
     } else {
-        require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
+        __Require_noErr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
                                   iterCount, PBE_ID_Key, key.Data, key.Length,
                                   hashBlockSizeInBytes, hashSizeInBytes), out);
     }
@@ -237,13 +237,13 @@ static int p12Decrypt(pkcs12_context * context, const SecAsn1AlgId *algId,
         iv = pbep.enc.iv; // IV was provided in the PBE parameters
     } else if(blockSizeInBytes) {
         alloc_item(context, &iv, blockSizeInBytes);
-        require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
+        __Require_noErr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
                                   iterCount, PBE_ID_IV, iv.Data, iv.Length, hashBlockSizeInBytes, hashSizeInBytes), out);
     }
 
     SecAsn1Item ourPtext = {0, NULL};
     alloc_item(context, &ourPtext, cipherText->Length);
-    require_noerr(CCCrypt(kCCDecrypt, alg, options/*kCCOptionPKCS7Padding*/,
+    __Require_noErr(CCCrypt(kCCDecrypt, alg, options/*kCCOptionPKCS7Padding*/,
                           key.Data, key.Length, iv.Data, cipherText->Data, cipherText->Length,
                           ourPtext.Data, ourPtext.Length, &ourPtext.Length), out);
     *plainText = ourPtext;
@@ -260,7 +260,7 @@ static int emit_item(pkcs12_context * context, NSS_Attribute **attrs,
 	/* parse attrs into friendlyName, localKeyId; ignoring generic attrs */
     CFMutableDictionaryRef attr_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 
         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require(attr_dict, out);
+    __Require(attr_dict, out);
 	unsigned numAttrs = nssArraySize((const void **)attrs);
     unsigned int dex;
 	for(dex = 0; dex < numAttrs; dex++) {
@@ -271,9 +271,9 @@ static int emit_item(pkcs12_context * context, NSS_Attribute **attrs,
 			/* 
 			 * BMP string (UniCode). Spec says only one legal value.
 			 */
-			require(numValues == 1, out);
+			__Require(numValues == 1, out);
             SecAsn1Item friendly_name_asn1;
-			require_noerr(decode_item(context, attr->attrValue[0],
+			__Require_noErr(decode_item(context, attr->attrValue[0],
 					kSecAsn1BMPStringTemplate, &friendly_name_asn1), out);
             CFStringRef friendly_name = CFStringCreateWithBytes(kCFAllocatorDefault, 
                 friendly_name_asn1.Data, friendly_name_asn1.Length, 
@@ -287,9 +287,9 @@ static int emit_item(pkcs12_context * context, NSS_Attribute **attrs,
 			/* 
 			 * Octet string. Spec says only one legal value.
 			 */
-			require(numValues == 1, out);
+			__Require(numValues == 1, out);
             SecAsn1Item local_key_id;
-			require_noerr(decode_item(context, attr->attrValue[0],
+			__Require_noErr(decode_item(context, attr->attrValue[0],
 					kSecAsn1OctetStringTemplate, &local_key_id), out);
             CFDataRef keyid = CFDataCreate(kCFAllocatorDefault, local_key_id.Data, local_key_id.Length);
             if (keyid) {
@@ -331,13 +331,13 @@ static int shroudedKeyBagParse(pkcs12_context * context, const NSS_P12_SafeBag *
 
 	const NSS_P12_ShroudedKeyBag *keyBag = safeBag->bagValue.shroudedKeyBag;
     SecAsn1Item ptext = {0, NULL};
-    require_noerr_quiet(p12Decrypt(context, &keyBag->algorithm, 
+    __Require_noErr_Quiet(p12Decrypt(context, &keyBag->algorithm, 
         &keyBag->encryptedData, &ptext), out);
 
     /* Decode PKCS#8 formatted private key */
     NSS_PrivateKeyInfo pki;
     memset(&pki, 0, sizeof(pki));
-	require_noerr(decode_item(context, &ptext, kSecAsn1PrivateKeyInfoTemplate,
+	__Require_noErr(decode_item(context, &ptext, kSecAsn1PrivateKeyInfoTemplate,
 			&pki), out);
 
     DERItem algorithm = { pki.algorithm.algorithm.Data, pki.algorithm.algorithm.Length };
@@ -349,11 +349,11 @@ static int shroudedKeyBagParse(pkcs12_context * context, const NSS_P12_SafeBag *
     } else {
         goto out;
     }
-    require_noerr(emit_item(context, safeBag->bagAttrs, CFSTR("algid"), algoidData), out);
+    __Require_noErr(emit_item(context, safeBag->bagAttrs, CFSTR("algid"), algoidData), out);
     CFReleaseNull(algoidData);
 
     keyData = CFDataCreate(kCFAllocatorDefault, pki.privateKey.Data, pki.privateKey.Length);
-    require_noerr(emit_item(context, safeBag->bagAttrs, CFSTR("key"), keyData), out);
+    __Require_noErr(emit_item(context, safeBag->bagAttrs, CFSTR("key"), keyData), out);
     CFReleaseNull(keyData);
 
     return 0;
@@ -380,7 +380,7 @@ static int certBagParse(pkcs12_context * context, const NSS_P12_SafeBag *safeBag
 			   certEncoding = CSSM_CERT_ENCODING_DER; */
             certData = CFDataCreate(kCFAllocatorDefault, certBag->certValue.Data,
                 certBag->certValue.Length);
-            require_noerr(emit_item(context, safeBag->bagAttrs, CFSTR("cert"), certData), out);
+            __Require_noErr(emit_item(context, safeBag->bagAttrs, CFSTR("cert"), certData), out);
             CFRelease(certData);
             break;
         }
@@ -408,7 +408,7 @@ static int safeContentsParse(pkcs12_context * context, const SecAsn1Item *conten
 
 	NSS_P12_SafeContents sc;
 	memset(&sc, 0, sizeof(sc));
-	require_noerr(decode_item(context, contentsBlob, NSS_P12_SafeContentsTemplate,
+	__Require_noErr(decode_item(context, contentsBlob, NSS_P12_SafeContentsTemplate,
 			&sc), out);
 
 	unsigned numBags = nssArraySize((const void **)sc.bags);
@@ -418,17 +418,17 @@ static int safeContentsParse(pkcs12_context * context, const SecAsn1Item *conten
 		assert(bag != NULL);
 		
 		/* ensure that *something* is there */
-		require(bag->bagValue.keyBag != NULL, out);
+		__Require(bag->bagValue.keyBag != NULL, out);
 		
 		/*
 		 * Break out to individual bag type
 		 */
 		switch(bag->type) {
 			case BT_ShroudedKeyBag:
-				require_noerr(shroudedKeyBagParse(context, bag), out);
+				__Require_noErr(shroudedKeyBagParse(context, bag), out);
 				break;
 			case BT_CertBag:
-				require_noerr(certBagParse(context, bag), out);
+				__Require_noErr(certBagParse(context, bag), out);
 				break;
 
 			case BT_KeyBag:
@@ -468,7 +468,7 @@ static int authSafeElementParse(pkcs12_context * context, const NSS_P7_DecodedCo
 	switch(info->type) {
 		case CT_Data:
 			/* unencrypted SafeContents */
-			require_noerr(safeContentsParse(context, info->content.data), out);
+			__Require_noErr(safeContentsParse(context, info->content.data), out);
 			break;
 			
 		case CT_EncryptedData:
@@ -479,9 +479,9 @@ static int authSafeElementParse(pkcs12_context * context, const NSS_P7_DecodedCo
 			 */
 			SecAsn1Item ptext = {0, NULL};
             NSS_P7_EncryptedData *edata = info->content.encryptData;
-            require_noerr_quiet(p12Decrypt(context, &edata->contentInfo.encrAlg, 
+            __Require_noErr_Quiet(p12Decrypt(context, &edata->contentInfo.encrAlg, 
                 &edata->contentInfo.encrContent, &ptext), out);
-			require_noerr(safeContentsParse(context, &ptext), out);
+			__Require_noErr(safeContentsParse(context, &ptext), out);
 			break;
 		}	
 		default:
@@ -500,14 +500,14 @@ static int authSafeParse(pkcs12_context * context, const SecAsn1Item *authSafeBl
     p12DecodeLog("authSafeParse");
     NSS_P12_AuthenticatedSafe authSafe;
     memset(&authSafe, 0, sizeof(authSafe));
-    require_noerr(decode_item(context, authSafeBlob, 
+    __Require_noErr(decode_item(context, authSafeBlob, 
         NSS_P12_AuthenticatedSafeTemplate, &authSafe), out);
 
     unsigned numInfos = nssArraySize((const void **)authSafe.info);
     unsigned int dex;
     for (dex=0; dex<numInfos; dex++) {
         NSS_P7_DecodedContentInfo *info = authSafe.info[dex];
-        require_noerr_quiet(authSafeElementParse(context, info), out);
+        __Require_noErr_Quiet(authSafeElementParse(context, info), out);
     }
     return 0;
 out:
@@ -518,11 +518,11 @@ static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
 {
     uint8_t *hmacKey = NULL;
 	NSS_P12_MacData *macData = pfx->macData;
-	require(macData, out);
+	__Require(macData, out);
 	NSS_P7_DigestInfo *digestInfo  = &macData->mac;
-    require(digestInfo, out);
+    __Require(digestInfo, out);
 	SecAsn1Item *algOid = &digestInfo->digestAlgorithm.algorithm;
-    require(algOid, out);
+    __Require(algOid, out);
 
     /* supported algorithms: SHA1, SHA224, SHA256, SHA384, SHA512  */
     DERItem algOidItem = { algOid->Data, algOid->Length };
@@ -552,10 +552,10 @@ static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
         hmacAlg = kCCHmacAlgSHA224;
     }
     hmacLen = hashLen;
-    require(algOidItem.length && hmacLen, out);
+    __Require(algOidItem.length && hmacLen, out);
 
     uint32_t iterCount = 0;
-    require_noerr_quiet(p12DataToInt(&macData->iterations, &iterCount), out);
+    __Require_noErr_Quiet(p12DataToInt(&macData->iterations, &iterCount), out);
     if (iterCount == 0) { /* optional, default 1 */
         iterCount = 1;
     }
@@ -570,7 +570,7 @@ static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
      * So here we go.
      */
     hmacKey = (uint8_t *)malloc(hmacLen);
-    require_noerr_quiet(p12_pbe_gen(context->passphrase,
+    __Require_noErr_Quiet(p12_pbe_gen(context->passphrase,
                                     macData->macSalt.Data, macData->macSalt.Length,
                                     iterCount, PBE_ID_MAC, hmacKey, hmacLen,
                                     hashBlockSize, hashLen), out);
@@ -579,7 +579,7 @@ static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
     alloc_item(context, &verifyMac, hmacLen);
     SecAsn1Item *ptext = pfx->authSafe.content.data;
     CCHmac(hmacAlg, hmacKey, hmacLen, ptext->Data, ptext->Length, verifyMac.Data);
-    require_quiet(nssCompareSecAsn1Items(&verifyMac, &digestInfo->digest), out);
+    __Require_Quiet(nssCompareSecAsn1Items(&verifyMac, &digestInfo->digest), out);
 
     free(hmacKey);
     return 0;
@@ -595,15 +595,15 @@ p12_error p12decode(pkcs12_context * context, CFDataRef cdpfx)
 	memset(&pfx, 0, sizeof(pfx));
     SecAsn1Item raw_blob = { CFDataGetLength(cdpfx), (void*)CFDataGetBytePtr(cdpfx) };
 
-    require_noerr_quiet(decode_item(context, &raw_blob, NSS_P12_DecodedPFXTemplate, &pfx), out);
+    __Require_noErr_Quiet(decode_item(context, &raw_blob, NSS_P12_DecodedPFXTemplate, &pfx), out);
 	NSS_P7_DecodedContentInfo *dci = &pfx.authSafe;
     
     /* only support CT_Data at top level (password based integrity mode) */
-	require(dci->type == CT_Data, out);
-	require(pfx.macData, out);
+	__Require(dci->type == CT_Data, out);
+	__Require(pfx.macData, out);
     
-	require_noerr_action_quiet(p12VerifyMac(context, &pfx), out, err = p12_passwordErr);
-    require_noerr_quiet(authSafeParse(context, dci->content.data), out);
+	__Require_noErr_Action_Quiet(p12VerifyMac(context, &pfx), out, err = p12_passwordErr);
+    __Require_noErr_Quiet(authSafeParse(context, dci->content.data), out);
     
 	return errSecSuccess;
 out:

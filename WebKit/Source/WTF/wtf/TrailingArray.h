@@ -125,7 +125,7 @@ protected:
 
         for (auto[i, item] : indexedRange(span())) {
             if (auto value = generator(i))
-                new (NotNull, std::addressof(item)) T(WTFMove(*value));
+                new (NotNull, std::addressof(item)) T(WTF::move(*value));
             else {
                 m_size = i;
                 return;
@@ -191,7 +191,7 @@ public:
 
     void fill(const T& val)
     {
-        std::fill(begin(), end(), val);
+        std::ranges::fill(*this, val);
     }
 
     static constexpr ptrdiff_t offsetOfSize() { return OBJECT_OFFSETOF(Derived, m_size); }

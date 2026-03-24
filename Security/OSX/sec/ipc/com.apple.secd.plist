@@ -70,7 +70,7 @@
 				<key>RequiresClassC</key>
 				<false/>
 			</dict>
-			<key>com.apple.securityd.kcsharing.resync</key>
+			<key>com.apple.securityd.weekly</key>
 			<dict>
 				<key>RequiresClassA</key>
 				<true/>

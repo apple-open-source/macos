@@ -40,8 +40,9 @@ namespace API {
 
 class ContentWorld final : public API::ObjectImpl<API::Object::Type::ContentWorld>, public CanMakeWeakPtr<ContentWorld> {
 public:
+    static OptionSet<WebKit::ContentWorldOption> defaultOptions();
     static ContentWorld* worldForIdentifier(WebKit::ContentWorldIdentifier);
-    static Ref<ContentWorld> sharedWorldWithName(const WTF::String&, OptionSet<WebKit::ContentWorldOption> options = { });
+    static Ref<ContentWorld> sharedWorldWithName(const WTF::String&, OptionSet<WebKit::ContentWorldOption> = defaultOptions() );
     static ContentWorld& pageContentWorldSingleton();
     static ContentWorld& defaultClientWorldSingleton();
 

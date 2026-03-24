@@ -121,14 +121,14 @@ void MediaKeySystemPermissionRequestManagerProxy::createRequestForFrame(MediaKey
 {
     ALWAYS_LOG(LOGIDENTIFIER, mediaKeySystemID.toUInt64());
     Ref page = m_page.get();
-    auto request = MediaKeySystemPermissionRequestProxy::create(*this, mediaKeySystemID, page->mainFrame()->frameID(), frameID, WTFMove(mediaKeyRequestOrigin), WTFMove(topLevelDocumentOrigin), keySystem);
+    auto request = MediaKeySystemPermissionRequestProxy::create(*this, mediaKeySystemID, page->mainFrame()->frameID(), frameID, WTF::move(mediaKeyRequestOrigin), WTF::move(topLevelDocumentOrigin), keySystem);
     m_pendingRequests.add(mediaKeySystemID, request.ptr());
 
     Ref mediaKeyRequestDocumentSecurityOrigin = request->mediaKeyRequestSecurityOrigin();
     Ref topLevelDocumentSecurityOrigin = request->topLevelDocumentSecurityOrigin();
-    page->protectedWebsiteDataStore()->ensureProtectedDeviceIdHashSaltStorage()->deviceIdHashSaltForOrigin(mediaKeyRequestDocumentSecurityOrigin, topLevelDocumentSecurityOrigin, [request = WTFMove(request), completionHandler = WTFMove(completionHandler)] (String&& mediaKeysHashSalt) mutable {
-        request->setMediaKeysHashSalt(WTFMove(mediaKeysHashSalt));
-        completionHandler(WTFMove(request));
+    page->protectedWebsiteDataStore()->ensureProtectedDeviceIdHashSaltStorage()->deviceIdHashSaltForOrigin(mediaKeyRequestDocumentSecurityOrigin, topLevelDocumentSecurityOrigin, [request = WTF::move(request), completionHandler = WTF::move(completionHandler)] (String&& mediaKeysHashSalt) mutable {
+        request->setMediaKeysHashSalt(WTF::move(mediaKeysHashSalt));
+        completionHandler(WTF::move(request));
     });
 }
 

@@ -57,6 +57,7 @@
 #import "WebProcessProxy.h"
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/AttributedString.h>
+#import <WebCore/CornerRadii.h>
 #import <WebCore/DestinationColorSpace.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/DragItem.h>
@@ -161,22 +162,19 @@ String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent
 void WebPageProxy::getIsSpeaking(CompletionHandler<void(bool)>&& completionHandler)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    // FIXME: This is a safer cpp false positive (rdar://problem/161068288).
-    SUPPRESS_UNRETAINED_ARG completionHandler([NSApp isSpeaking]);
+    completionHandler([NSApp isSpeaking]);
 }
 
 void WebPageProxy::speak(const String& string)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    // FIXME: This is a safer cpp false positive (rdar://problem/161068288).
-    SUPPRESS_UNRETAINED_ARG [NSApp speakString:string.createNSString().get()];
+    [NSApp speakString:string.createNSString().get()];
 }
 
 void WebPageProxy::stopSpeaking()
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    // FIXME: This is a safer cpp false positive (rdar://problem/161068288).
-    SUPPRESS_UNRETAINED_ARG [NSApp stopSpeaking:nil];
+    [NSApp stopSpeaking:nil];
 }
 
 void WebPageProxy::searchTheWeb(const String& string)
@@ -211,8 +209,30 @@ void WebPageProxy::windowAndViewFramesChanged(const FloatRect& viewFrameInWindow
         if (!hasRunningProcess())
             return;
 
-        protectedLegacyMainFrameProcess()->send(Messages::WebPage::WindowAndViewFramesChanged(*m_viewWindowCoordinates), webPageIDInMainFrameProcess());
+        protectedLegacyMainFrameProcess()->sendWithAsyncReply(
+            Messages::WebPage::WindowAndViewFramesChanged(*m_viewWindowCoordinates),
+            [this, protectedThis, viewFrameInWindowCoordinates]() {
+                updateMouseEventTargetAfterWindowAndViewFramesChanged(viewFrameInWindowCoordinates);
+            },
+            webPageIDInMainFrameProcess()
+        );
     });
+}
+
+void WebPageProxy::updateMouseEventTargetAfterWindowAndViewFramesChanged(const FloatRect& viewFrameInWindowCoordinates)
+{
+    RetainPtr window = platformWindow();
+
+    // The origin of mac coordinate system is the bottom left corner. We need to convert
+    // the point to the web coordinate system which has an origin of the top left corner.
+    auto macMouseLocationInWindow = [window mouseLocationOutsideOfEventStream];
+
+    auto webMouseLocationInWindow = DoublePoint(macMouseLocationInWindow.x, [window frame].size.height - macMouseLocationInWindow.y);
+
+    // do same conversion as above
+    auto macMouseLocationInScreen = [NSEvent mouseLocation];
+    auto webMouseLocationInScreen = DoublePoint(macMouseLocationInScreen.x, [[NSScreen mainScreen] frame].size.height - macMouseLocationInScreen.y);
+    protectedLegacyMainFrameProcess()->send(Messages::WebPage::UpdateMouseEventTargetAfterWindowAndViewFramesChanged(webMouseLocationInWindow, webMouseLocationInScreen), webPageIDInMainFrameProcess());
 }
 
 void WebPageProxy::setMainFrameIsScrollable(bool isScrollable)
@@ -230,7 +250,7 @@ void WebPageProxy::attributedSubstringForCharacterRangeAsync(const EditingRange&
         return;
     }
 
-    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::AttributedSubstringForCharacterRangeAsync(range), WTFMove(callbackFunction), webPageIDInMainFrameProcess());
+    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::AttributedSubstringForCharacterRangeAsync(range), WTF::move(callbackFunction), webPageIDInMainFrameProcess());
 }
 
 static constexpr auto timeoutForPasteboardSyncIPC = 5_s;
@@ -285,18 +305,18 @@ void WebPageProxy::setPromisedDataForImage(IPC::Connection& connection, const St
     MESSAGE_CHECK_URL(visibleURL);
     MESSAGE_CHECK(extension == FileSystem::lastComponentOfPathIgnoringTrailingSlash(extension), connection);
 
-    auto sharedMemoryImage = SharedMemory::map(WTFMove(imageHandle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryImage = SharedMemory::map(WTF::move(imageHandle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryImage)
         return;
     auto imageBuffer = sharedMemoryImage->createSharedBuffer(sharedMemoryImage->size());
 
     RefPtr<FragmentedSharedBuffer> archiveBuffer;
-    auto sharedMemoryArchive = SharedMemory::map(WTFMove(archiveHandle), SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryArchive = SharedMemory::map(WTF::move(archiveHandle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryArchive)
         return;
     archiveBuffer = sharedMemoryArchive->createSharedBuffer(sharedMemoryArchive->size());
     if (RefPtr pageClient = this->pageClient())
-        pageClient->setPromisedDataForImage(pasteboardName, WTFMove(imageBuffer), ResourceResponseBase::sanitizeSuggestedFilename(filename), extension, title, url, visibleURL, WTFMove(archiveBuffer), originIdentifier);
+        pageClient->setPromisedDataForImage(pasteboardName, WTF::move(imageBuffer), ResourceResponseBase::sanitizeSuggestedFilename(filename), extension, title, url, visibleURL, WTF::move(archiveBuffer), originIdentifier);
 }
 
 #endif
@@ -317,7 +337,7 @@ void WebPageProxy::didPerformDictionaryLookup(const DictionaryPopupInfo& diction
         pageClient->didPerformDictionaryLookup(dictionaryPopupInfo);
 
         DictionaryLookup::showPopup(dictionaryPopupInfo, pageClient->protectedViewForPresentingRevealPopover().get(), [this](TextIndicator& textIndicator) {
-            setTextIndicator(textIndicator.data(), WebCore::TextIndicatorLifetime::Permanent);
+            setTextIndicator(textIndicator, WebCore::TextIndicatorLifetime::Permanent);
         }, nullptr, [weakThis = WeakPtr { *this }] {
             if (!weakThis)
                 return;
@@ -624,7 +644,7 @@ void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const St
     FileSystem::setMetadataURL(nsPath.get(), originatingURLString);
 
     auto pdfFileURL = URL::fileURLWithFileSystemPath(String(nsPath.get()));
-    m_uiClient->confirmPDFOpening(*this, pdfFileURL, WTFMove(frameInfo), [pdfFileURL] (bool allowed) {
+    m_uiClient->confirmPDFOpening(*this, pdfFileURL, WTF::move(frameInfo), [pdfFileURL] (bool allowed) {
         if (!allowed)
             return;
         [[NSWorkspace sharedWorkspace] openURL:pdfFileURL.createNSURL().get()];
@@ -763,7 +783,7 @@ void WebPageProxy::showValidationMessage(const IntRect& anchorClientRect, String
     if (!pageClient)
         return;
 
-    m_validationBubble = protectedPageClient()->createValidationBubble(WTFMove(message), { protectedPreferences()->minimumFontSize() });
+    m_validationBubble = protectedPageClient()->createValidationBubble(WTF::move(message), { protectedPreferences()->minimumFontSize() });
     RefPtr { m_validationBubble }->showRelativeTo(anchorClientRect);
 }
 
@@ -797,7 +817,7 @@ RetainPtr<NSEvent> WebPageProxy::createSyntheticEventForContextMenu(FloatPoint l
 void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData& item, CompletionHandler<void()>&& completionHandler)
 {
     if (item.action() == ContextMenuItemTagPaste)
-        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTFMove(completionHandler));
+        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTF::move(completionHandler));
     else
         completionHandler();
 }
@@ -808,9 +828,9 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::willPerformPasteCommand(DOMPasteA
 {
     switch (pasteAccessCategory) {
     case DOMPasteAccessCategory::General:
-        return grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTFMove(completionHandler), frameID);
+        return grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTF::move(completionHandler), frameID);
     case DOMPasteAccessCategory::Fonts:
-        return grantAccessToCurrentPasteboardData(NSPasteboardNameFont, WTFMove(completionHandler), frameID);
+        return grantAccessToCurrentPasteboardData(NSPasteboardNameFont, WTF::move(completionHandler), frameID);
     }
 }
 
@@ -856,7 +876,7 @@ void WebPageProxy::pdfZoomOut(PDFPluginIdentifier identifier, WebCore::FrameIden
 void WebPageProxy::pdfSaveToPDF(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID)
 {
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::SavePDF(identifier), Messages::WebPage::SavePDF::Reply { [this, protectedThis = Ref { *this }] (String&& suggestedFilename, URL&& originatingURL, std::span<const uint8_t> dataReference) {
-        savePDFToFileInDownloadsFolder(WTFMove(suggestedFilename), WTFMove(originatingURL), dataReference);
+        savePDFToFileInDownloadsFolder(WTF::move(suggestedFilename), WTF::move(originatingURL), dataReference);
     } });
 }
 
@@ -866,7 +886,7 @@ void WebPageProxy::pdfOpenWithPreview(PDFPluginIdentifier identifier, WebCore::F
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::OpenPDFWithPreview(identifier), Messages::WebPage::OpenPDFWithPreview::Reply { [this, protectedThis = Ref { *this }](String&& suggestedFilename, std::optional<FrameInfoData>&& frameInfo, std::span<const uint8_t> data) {
         if (!frameInfo)
             return;
-        savePDFToTemporaryFolderAndOpenWithNativeApplication(WTFMove(suggestedFilename), WTFMove(*frameInfo), data);
+        savePDFToTemporaryFolderAndOpenWithNativeApplication(WTF::move(suggestedFilename), WTF::move(*frameInfo), data);
     } });
 }
 
@@ -1083,17 +1103,35 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
 {
     Ref preferences = m_preferences;
     if (preferences->needsSiteSpecificQuirks()) {
-        if (policies.customUserAgent().isEmpty() && customUserAgent().isEmpty()) {
+        if (policies.customUserAgent().isEmpty()) {
             // FIXME (263619): This is done here for adding a UA override to tiktok. Should be in a common location.
             // needsCustomUserAgentOverride() is currently very generic on purpose.
             // In the future we want to pass more parameters for targeting specific domains.
-            if (auto customUserAgentForQuirk = Quirks::needsCustomUserAgentOverride(request.url(), m_applicationNameForUserAgent))
-                policies.setCustomUserAgent(WTFMove(*customUserAgentForQuirk));
+            // Domain-specific quirks should take precedence over page-level defaults
+            if (auto customUserAgentForQuirk = Quirks::needsCustomUserAgentOverride(request.url(), m_applicationNameForUserAgent, m_userAgent))
+                policies.setCustomUserAgent(WTF::move(*customUserAgentForQuirk));
+            const auto& customUserAgentAsSiteSpecificQuirks = policies.customUserAgentAsSiteSpecificQuirks();
+            if (!customUserAgentAsSiteSpecificQuirks.isEmpty()) {
+                if (auto correctedCustomUserAgentAsSiteSpecificQuirk = Quirks::needsCustomUserAgentOverride(request.url(), m_applicationNameForUserAgent, customUserAgentAsSiteSpecificQuirks))
+                    policies.setCustomUserAgentAsSiteSpecificQuirks(WTF::move(*correctedCustomUserAgentAsSiteSpecificQuirk));
+            }
         }
     }
 
     return WebContentMode::Recommended;
 }
+
+#if HAVE(NSVIEW_CORNER_CONFIGURATION)
+void WebPageProxy::setScrollbarAvoidanceCornerRadii(CornerRadii&& cornerRadii)
+{
+    internals().scrollbarAvoidanceCornerRadii = WTF::move(cornerRadii);
+
+    if (!hasRunningProcess())
+        return;
+
+    protectedLegacyMainFrameProcess()->send(Messages::WebPage::SetScrollbarAvoidanceCornerRadii(cornerRadii), webPageIDInMainFrameProcess());
+}
+#endif
 
 #if ENABLE(POINTER_LOCK)
 

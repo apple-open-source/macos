@@ -1013,9 +1013,7 @@ static UDataMemory *doLoadFromIndividualFiles(const char *pkgName,
                 *  and return it.   */
                 pEntryData->mapAddr = dataMemory.mapAddr;
                 pEntryData->map     = dataMemory.map;
-#if APPLE_ICU_CHANGES // rdar://155639864
                 pEntryData->length  = dataMemory.length;
-#endif
 
 #ifdef UDATA_DEBUG
                 fprintf(stderr, "** Mapped file: %s\n", pathBuffer);

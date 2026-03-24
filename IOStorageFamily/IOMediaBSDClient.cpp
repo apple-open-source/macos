@@ -119,9 +119,9 @@ typedef enum { DKRTYPE_BUF, DKRTYPE_DIO } dkrtype_t;
 static int  dkreadwrite(dkr_t dkr, dkrtype_t dkrtype);
 static void dkreadwritecompletion(void *, void *, IOReturn, UInt64);
 
-inline int32_t getminor(dev_t dev)
+inline UInt32 getminor(dev_t dev)
 {
-    return minor(dev);
+    return (UInt32)minor((UInt32)dev);
 }
 
 const UInt32 kInvalidAnchorID = (UInt32) (-1);
@@ -200,7 +200,7 @@ protected:
     public:
         MinorSlot ** buckets;
 
-        inline MinorSlot & operator[](const int i)
+        inline MinorSlot & operator[](const UInt32 i)
         {
             return (buckets[i >> kMinorsAddCountBits])[i & kMinorsAddCountMask];
         }
@@ -730,7 +730,7 @@ static IOStorageAccess DK_ADD_ACCESS(IOStorageAccess a1, IOStorageAccess a2)
     if ( a1 > 003 )  return kIOStorageAccessNone;
     if ( a2 > 003 )  return kIOStorageAccessNone;
 
-    return (table[a1][a2] << 1) + 1;
+    return ((IOStorageAccess)table[a1][a2] << 1) + 1;
 }
 
 static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
@@ -2133,7 +2133,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             char * p = ((dk_firmware_path_t *)data)->path;
 
             if ( minor->media->getPath(p, &l, gIODTPlane) && strchr(p, ':') )
-                strlcpy(p, strchr(p, ':') + 1, l);     // (strip the plane name)
+                strlcpy(p, strchr(p, ':') + 1, (size_t)l);     // (strip the plane name)
             else
                 error = EINVAL;
 
@@ -2665,7 +2665,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 status = minor->media->setPriority( /* client       */ minor->client,
                                                     /* extents      */ extents,
                                                     /* extentsCount */ request.extentsCount,
-                                                    /* priority     */ DK_TIER_TO_PRIORITY(request.tier) );
+                                                    /* priority     */ (IOStoragePriority)DK_TIER_TO_PRIORITY(request.tier) );
 
                 error = minor->media->errnoFromReturn(status);
             }
@@ -2778,7 +2778,7 @@ inline UInt64 DKR_GET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
            ? buf_count((buf_t)dkr)
-           : uio_resid(((dio_t)dkr)->uio);
+           : (UInt64)uio_resid(((dio_t)dkr)->uio);  // uio_resid returns a user_size_t cast to a user_ssize_t
 }
 
 inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
@@ -2793,7 +2793,7 @@ inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
         return (UInt64)buf_blkno(bp) * minor->bdevBlockSize;
     }
 
-    return uio_offset(((dio_t)dkr)->uio);
+    return (UInt64)uio_offset(((dio_t)dkr)->uio);
 }
 
 inline bool DKR_IS_READ(dkr_t dkr, dkrtype_t dkrtype)
@@ -2822,7 +2822,7 @@ inline void DKR_SET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype, UInt64 bcount)
     if (dkrtype == DKRTYPE_BUF)
         buf_setresid((buf_t)dkr, buf_count((buf_t)dkr) - (uint32_t) bcount);
     else
-        uio_setresid(((dio_t)dkr)->uio, uio_resid(((dio_t)dkr)->uio) - bcount);
+        uio_setresid(((dio_t)dkr)->uio, uio_resid(((dio_t)dkr)->uio) - (user_ssize_t)bcount);
 }
 
 inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, int error)
@@ -2878,7 +2878,7 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptio
 
         buffer = IOMemoryDescriptor::withOptions(              // (multiple-range)
             uio,
-            uio_iovcnt(uio),
+            (UInt32)uio_iovcnt(uio),
             0,
             (uio_isuserspace(uio)) ? get_user_task() : get_kernel_task(),
             options );
@@ -2927,7 +2927,7 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
         attributes.options |= (flags & B_ENCRYPTED_IO ) ? kIOStorageOptionIsEncrypted     : 0;
         attributes.options |= (flags & B_STATICCONTENT) ? kIOStorageOptionIsStatic        : 0;
 
-        attributes.priority = DK_TIER_TO_PRIORITY(bufattr_throttled(attributes.bufattr));
+        attributes.priority = (IOStoragePriority)DK_TIER_TO_PRIORITY(bufattr_throttled(attributes.bufattr));
     }
 #if !TARGET_OS_OSX
     else
@@ -2962,8 +2962,8 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     IOStorageAttributes  attributes;
     IOMemoryDescriptor * buffer;
-    register UInt64      byteCount;
-    register UInt64      byteStart;
+    UInt64               byteCount;
+    UInt64               byteStart;
     UInt64               mediaSize;
     MinorSlot *          minor;
     IOReturn             status;
@@ -2987,6 +2987,16 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
     byteCount = DKR_GET_BYTE_COUNT(dkr, dkrtype);            // (get byte count)
     byteStart = DKR_GET_BYTE_START(dkr, dkrtype);            // (get byte start)
     mediaSize = minor->media->getSize();                     // (get media size)
+
+    //
+    // Despite the POSIX not disallowing zero-byte IOs, trying to create an
+    // IOMemoryDescriptor will hit an assert, so we should abort the IO here.
+    //
+    if ( byteCount == 0 )
+    {
+        status = kIOReturnBadArgument;
+        goto dkreadwriteErr;
+    }
 
     //
     // Reads that start at (or perhaps past) the end-of-media are not considered
@@ -3626,7 +3636,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
     // Create a block and character device node in BSD for this media.
 
     const char *owner_keys[3] = {"owner-uid", "owner-gid", "owner-mode"};
-    int owner_id_mode[3] = {UID_ROOT, GID_OPERATOR, 0640};
+    unsigned int owner_id_mode[3] = {UID_ROOT, GID_OPERATOR, 0640};
     int i;
 
     for (i=0; i<3; i++)
@@ -3639,7 +3649,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
                                 /* type       */ DEVFS_BLOCK, 
                                 /* owner      */ owner_id_mode[0],
                                 /* group      */ owner_id_mode[1],
-                                /* permission */ owner_id_mode[2],
+                                /* permission */ (int)owner_id_mode[2],
                                 /* name (fmt) */ "disk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
@@ -3648,7 +3658,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
                                 /* type       */ DEVFS_CHAR, 
                                 /* owner      */ owner_id_mode[0],
                                 /* group      */ owner_id_mode[1],
-                                /* permission */ owner_id_mode[2],
+                                /* permission */ (int)owner_id_mode[2],
                                 /* name (fmt) */ "rdisk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
@@ -3980,7 +3990,7 @@ IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
     _anchors   = new AnchorTable();
     _minors    = new MinorTable();
 
-    _majorID   = devsw_add(-1, &bdevswFunctions, &cdevswFunctions);
+    _majorID   = (UInt32)devsw_add(-1, &bdevswFunctions, &cdevswFunctions);
 
     _openLock  = IOLockAlloc();
     _stateLock = IOLockAlloc();
@@ -4008,7 +4018,7 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
     if ( _openLock )                    IOLockFree(_openLock);
     if ( _stateLock )                   IOLockFree(_stateLock);
 
-    if ( _majorID != kInvalidMajorID )  devsw_remove(_majorID, &bdevswFunctions, &cdevswFunctions);
+    if ( _majorID != kInvalidMajorID )  devsw_remove((int)_majorID, &bdevswFunctions, &cdevswFunctions);
 
     if ( _minors )                      delete _minors;
     if ( _anchors )                     delete _anchors;

@@ -60,6 +60,10 @@ public:
 
     virtual ~CDMFactoryThunder() = default;
 
+    // Do nothing since this is a singleton object.
+    void ref() const final { }
+    void deref() const final { }
+
     std::unique_ptr<CDMPrivate> createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient&) final;
     RefPtr<CDMProxy> createCDMProxy(const String&) final;
     bool supportsKeySystem(const String&) final;
@@ -73,11 +77,12 @@ private:
 
 class CDMPrivateThunder final : public CDMPrivate {
     WTF_MAKE_TZONE_ALLOCATED(CDMPrivateThunder);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CDMPrivateThunder);
 public:
     CDMPrivateThunder(const String& keySystem);
     virtual ~CDMPrivateThunder() = default;
 
-    Vector<AtomString> supportedInitDataTypes() const final;
+    Vector<String> supportedInitDataTypes() const final;
     bool supportsConfiguration(const CDMKeySystemConfiguration&) const final;
     bool supportsConfigurationWithRestrictions(const CDMKeySystemConfiguration& configuration, const CDMRestrictions&) const final
     {
@@ -87,7 +92,7 @@ public:
     {
         return supportsConfiguration(configuration);
     }
-    Vector<AtomString> supportedRobustnesses() const final;
+    Vector<String> supportedRobustnesses() const final;
     CDMRequirement distinctiveIdentifiersRequirement(const CDMKeySystemConfiguration&, const CDMRestrictions&) const final;
     CDMRequirement persistentStateRequirement(const CDMKeySystemConfiguration&, const CDMRestrictions&) const final;
     bool distinctiveIdentifiersAreUniquePerOriginAndClearable(const CDMKeySystemConfiguration&) const final;
@@ -95,7 +100,7 @@ public:
     void loadAndInitialize() final;
     bool supportsServerCertificates() const final;
     bool supportsSessions() const final;
-    bool supportsInitData(const AtomString&, const SharedBuffer&) const final;
+    bool supportsInitData(const String&, const SharedBuffer&) const final;
     RefPtr<SharedBuffer> sanitizeResponse(const SharedBuffer&) const final;
     std::optional<String> sanitizeSessionId(const String&) const final;
 
@@ -105,6 +110,8 @@ private:
 };
 
 class CDMInstanceThunder final : public CDMInstanceProxy {
+    WTF_MAKE_TZONE_ALLOCATED(CDMInstanceThunder);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CDMInstanceThunder);
 public:
     CDMInstanceThunder(const String& keySystem);
     virtual ~CDMInstanceThunder() = default;
@@ -128,7 +135,7 @@ class CDMInstanceSessionThunder final : public CDMInstanceSessionProxy {
 public:
     CDMInstanceSessionThunder(CDMInstanceThunder&);
 
-    void requestLicense(LicenseType, KeyGroupingStrategy, const AtomString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&&) final;
+    void requestLicense(LicenseType, KeyGroupingStrategy, const String& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&&) final;
     void updateLicense(const String&, LicenseType, Ref<SharedBuffer>&&, LicenseUpdateCallback&&) final;
     void loadSession(LicenseType, const String&, const String&, LoadSessionCallback&&) final;
     void closeSession(const String&, CloseSessionCallback&&) final;
@@ -137,7 +144,7 @@ public:
 
     bool isValid() const { return m_session && m_message && !m_message->isEmpty(); }
 
-    void setClient(WeakPtr<CDMInstanceSessionClient>&& client) final { m_client = WTFMove(client); }
+    void setClient(WeakPtr<CDMInstanceSessionClient>&& client) final { m_client = WTF::move(client); }
     void clearClient() final { m_client.clear(); }
 
 private:
@@ -152,7 +159,12 @@ private:
     void keysUpdateDoneCallback();
     void errorCallback(RefPtr<SharedBuffer>&&);
     CDMInstanceSession::KeyStatus status(const KeyIDType&) const;
-    void sessionFailure();
+
+    enum class SessionChangedResult : bool {
+        Failure,
+        Success
+    };
+    void sessionChanged(SessionChangedResult);
 
     // FIXME: Check all original uses of these attributes.
     String m_sessionID;

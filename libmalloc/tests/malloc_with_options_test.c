@@ -60,7 +60,6 @@ run_options_test(int iterations)
 		int opt_rand = rand();
 
 		bool aligned = opt_rand & 0x1;
-
 		bool zeroed = opt_rand & 0x2;
 		malloc_zone_malloc_options_t options = MALLOC_ZONE_MALLOC_OPTION_NONE;
 		if (zeroed) {
@@ -84,16 +83,17 @@ run_options_test(int iterations)
 			// For maximum size = 8M, make size up to align*8
 			size = align * (((opt_rand >> 4) & 0x7) + 1);
 		} else {
+			// new api requires a non-zero alignment
 			align = MALLOC_ZONE_MALLOC_DEFAULT_ALIGN;
 
 			// size anywhere from 0 to 8M
-			size = (opt_rand & 0x7fffff) + 1;
+			size = (opt_rand & 0x7fffff) & ~(align - 1);
 		}
 
 		free(pointers[index]);
 		if (opt_rand % 2) {
-			pointers[index] = malloc_zone_malloc_with_options(NULL, align,
-					size, options);
+			pointers[index] = malloc_zone_malloc_with_options(NULL, align, size,
+				options);
 		} else {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -101,7 +101,9 @@ run_options_test(int iterations)
 				size, options);
 #pragma GCC diagnostic pop
 		}
-		T_QUIET; T_ASSERT_NOTNULL(pointers[index], "Allocation failed\n");
+		T_QUIET; T_ASSERT_NOTNULL(pointers[index],
+				"Allocation failed, iteration %d, align %lu, size %lu\n",
+				iteration, align, size);
 
 		if (zeroed) {
 			T_QUIET; T_ASSERT_TRUE(check_zeroed_memory(pointers[index], size),
@@ -111,7 +113,7 @@ run_options_test(int iterations)
 			T_QUIET; T_ASSERT_TRUE(check_canonical_tag(pointers[index]),
 					"Tag isn't canonical");
 		}
-		if (align) {
+		if (aligned) {
 			T_QUIET; T_ASSERT_TRUE(check_ptr_is_aligned(pointers[index], align),
 				"Pointer isn't aligned");
 		}
@@ -161,6 +163,8 @@ T_DECL(malloc_msl_lite_options, "malloc with options, but MSL Lite is enabled",
 T_DECL(malloc_data_only_options, "Malloc with options, all xzones pure data",
 		T_META_ENVVAR("MallocXzoneDataOnly=1"),
 		T_META_ENVVAR("MallocXzoneGuarded=1"),
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"),
 		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {
 	unsigned seed = time(NULL);

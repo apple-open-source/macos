@@ -218,7 +218,7 @@ private:
 
     static bool customHasInstance(JSObject*, JSGlobalObject*, JSValue);
 
-    static void getOwnSpecialPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArray&, DontEnumPropertiesMode);
+    static void getOwnSpecialPropertyNames(JSObject*, JSGlobalObject*, PropertyNameArrayBuilder&, DontEnumPropertiesMode);
 
     static CallData getConstructData(JSCell*);
     static CallData getCallData(JSCell*);

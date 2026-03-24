@@ -138,11 +138,11 @@ static CF_RETURNS_RETAINED CFTypeRef CERT_FindItemInAllAvailableKeychains(CFDict
     const uint8_t activeUserUuid[16] = "\xA7\x5A\x3A\x35\xA5\x57\x4B\x10\xBE\x2E\x83\x94\x7E\x4A\x34\x72";
 
     /* Do the standard keychain query */
-    require_quiet(errSecItemNotFound == SecItemCopyMatching(query, &item), out);
+    __Require_Quiet(errSecItemNotFound == SecItemCopyMatching(query, &item), out);
 
     /* No item found. Can caller use the system keychain? */
     whoAmI = _SecSecuritydCopyWhoAmI(&error);
-    require_quiet(NULL == error && whoAmI && CFDictionaryGetValue(whoAmI, CFSTR("status")), out);
+    __Require_Quiet(NULL == error && whoAmI && CFDictionaryGetValue(whoAmI, CFSTR("status")), out);
     musr = CFDictionaryGetValue(whoAmI, CFSTR("musr"));
     /* Caller has system-keychain entitlement, is in multi-user mode, and is an active user. */
     if (CFDictionaryGetValue(whoAmI, CFSTR("system-keychain")) && musr &&
@@ -345,8 +345,8 @@ static CF_RETURNS_RETAINED CFTypeRef CERT_FindByIssuerAndSN(CFTypeRef keychainOr
 
     DERItem der_issuer = {issuerAndSN->derIssuer.Data, issuerAndSN->derIssuer.Length};
     DERDecodedInfo content;
-    require_noerr_quiet(DERDecodeItem(&der_issuer, &content), out);
-    require_quiet(issuer = createNormalizedX501Name(kCFAllocatorDefault, &content.content), out);
+    __Require_noErr_Quiet(DERDecodeItem(&der_issuer, &content), out);
+    __Require_Quiet(issuer = createNormalizedX501Name(kCFAllocatorDefault, &content.content), out);
 
     if (keychainOrArray && (CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) &&
         CFEqualSafe(class, kSecClassCertificate)) {

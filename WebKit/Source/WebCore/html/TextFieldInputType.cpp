@@ -300,7 +300,7 @@ RenderPtr<RenderElement> TextFieldInputType::createInputRenderer(RenderStyle&& s
 {
     ASSERT(element());
     // FIXME: https://github.com/llvm/llvm-project/pull/142471 Moving style is not unsafe.
-    SUPPRESS_UNCOUNTED_ARG return createRenderer<RenderTextControlSingleLine>(RenderObject::Type::TextControlSingleLine, *protectedElement(), WTFMove(style));
+    SUPPRESS_UNCOUNTED_ARG return createRenderer<RenderTextControlSingleLine>(RenderObject::Type::TextControlSingleLine, *protectedElement(), WTF::move(style));
 }
 
 bool TextFieldInputType::needsContainer() const
@@ -652,7 +652,7 @@ void TextFieldInputType::updatePlaceholderText()
         else
             element->protectedUserAgentShadowRoot()->insertBefore(placeholder, innerTextElement());
     }
-    RefPtr { m_placeholder }->setInnerText(WTFMove(placeholderText));
+    RefPtr { m_placeholder }->setInnerText(WTF::move(placeholderText));
 }
 
 bool TextFieldInputType::appendFormData(DOMFormData& formData) const
@@ -796,9 +796,9 @@ void TextFieldInputType::autoFillButtonElementWasClicked()
     if (!page)
         return;
 
-    auto event = Event::create(eventNames().webkitautofillrequestEvent, Event::CanBubble::No, Event::IsCancelable::No);
+    auto event = Event::create(eventNames().webkitautofillrequestEvent, Event::CanBubble::No, Event::IsCancelable::No, Event::IsComposed::Yes);
     event->setIsAutofillEvent();
-    element->dispatchEvent(WTFMove(event));
+    element->dispatchEvent(WTF::move(event));
 
     page->chrome().client().handleAutoFillButtonClick(*element);
 }
@@ -964,13 +964,13 @@ Vector<DataListSuggestion> TextFieldInputType::suggestions()
                 suggestion.label = { };
 
             if (elementValue.isEmpty() || suggestion.value.startsWithIgnoringASCIICase(elementValue))
-                suggestions.append(WTFMove(suggestion));
+                suggestions.append(WTF::move(suggestion));
             else if (suggestion.value.containsIgnoringASCIICase(elementValue) || (canShowLabels && suggestion.label.containsIgnoringASCIICase(elementValue)))
-                matchesContainingValue.append(WTFMove(suggestion));
+                matchesContainingValue.append(WTF::move(suggestion));
         }
     }
 
-    suggestions.appendVector(WTFMove(matchesContainingValue));
+    suggestions.appendVector(WTF::move(matchesContainingValue));
     m_cachedSuggestions = std::make_pair(elementValue, suggestions);
 
     return suggestions;

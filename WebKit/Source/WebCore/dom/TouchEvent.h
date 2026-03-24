@@ -36,14 +36,14 @@
 namespace WebCore {
 
 class TouchEvent final : public MouseRelatedEvent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TouchEvent);
+    WTF_MAKE_TZONE_ALLOCATED(TouchEvent);
 public:
     virtual ~TouchEvent();
 
     static Ref<TouchEvent> create(TouchList* touches, TouchList* targetTouches, TouchList* changedTouches,
         const AtomString& type, RefPtr<WindowProxy>&& view, const DoublePoint& globalLocation, OptionSet<Modifier> modifiers)
     {
-        return adoptRef(*new TouchEvent(touches, targetTouches, changedTouches, type, WTFMove(view), globalLocation, modifiers));
+        return adoptRef(*new TouchEvent(touches, targetTouches, changedTouches, type, WTF::move(view), globalLocation, modifiers));
     }
     static Ref<TouchEvent> createForBindings()
     {
@@ -68,8 +68,6 @@ public:
     void setTouches(RefPtr<TouchList>&& touches) { m_touches = touches; }
     void setTargetTouches(RefPtr<TouchList>&& targetTouches) { m_targetTouches = targetTouches; }
     void setChangedTouches(RefPtr<TouchList>&& changedTouches) { m_changedTouches = changedTouches; }
-
-    bool isTouchEvent() const override;
 
 private:
     TouchEvent();

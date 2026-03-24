@@ -7,16 +7,12 @@ ARGS=("$@")
 cd $SRCROOT
 
 if [ -z "${BUILD_SCRIPTS_DIR}" ]; then
-    if [ "${DEPLOYMENT_LOCATION}" == "YES" ]; then
-        BUILD_SCRIPTS_DIR="${SDKROOT}${WK_ALTERNATE_WEBKIT_SDK_PATH}${WK_LIBRARY_HEADERS_FOLDER_PATH}/wtf/Scripts"
-    else
-        BUILD_SCRIPTS_DIR="${BUILT_PRODUCTS_DIR}${WK_LIBRARY_HEADERS_FOLDER_PATH}/wtf/Scripts"
-    fi
+    BUILD_SCRIPTS_DIR="${WTF_BUILD_SCRIPTS_DIR}"
 fi
 
 UnifiedSourceCppFileCount=530
 UnifiedSourceCFileCount=0
-UnifiedSourceMmFileCount=0
+UnifiedSourceMmFileCount=1
 UnifiedSourceNonARCMmFileCount=62
 
 if [ $# -eq 0 ]; then

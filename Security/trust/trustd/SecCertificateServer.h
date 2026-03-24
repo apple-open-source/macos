@@ -34,9 +34,6 @@
 
 #include <Security/SecCertificate.h>
 
-#include "trust/trustd/policytree.h"
-
-
 typedef struct SecCertificateVC *SecCertificateVCRef;
 
 SecCertificateVCRef SecCertificateVCCreate(SecCertificateRef certificate, CFArrayRef usageContraints);
@@ -142,6 +139,8 @@ void SecCertificatePathVCSetRevocationRequiredForCertificateAtIndex(SecCertifica
 void SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
                                                                   CFIndex ix, CFNumberRef revocationReason);
 CFNumberRef SecCertificatePathVCGetRevocationReason(SecCertificatePathVCRef certificatePath); // returns first revocation reason found
+CF_RETURNS_RETAINED CFArrayRef SecCertificatePathVCCopyRevocationInfo(SecCertificatePathVCRef certificatePath);
+
 
 bool SecCertificatePathVCCheckedIssuers(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetCheckedIssuers(SecCertificatePathVCRef certificatePath, bool checked);
@@ -188,5 +187,8 @@ void SecCertificatePathVCSetIsAllowlisted(SecCertificatePathVCRef certificatePat
 
 /* Policy Tree */
 bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anchor_trusted);
+
+/* Policy Graph (RFC 9618) */
+bool SecCertificatePathVCVerifyPolicyGraph(SecCertificatePathVCRef path, bool anchor_trusted);
 
 #endif /* _SECURITY_SECCERTIFICATESERVER_H_ */

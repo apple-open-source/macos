@@ -41,7 +41,7 @@ class RenderBundleImpl final : public RenderBundle {
 public:
     static Ref<RenderBundleImpl> create(WebGPUPtr<WGPURenderBundle>&& renderBundle, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new RenderBundleImpl(WTFMove(renderBundle), convertToBackingContext));
+        return adoptRef(*new RenderBundleImpl(WTF::move(renderBundle), convertToBackingContext));
     }
 
     virtual ~RenderBundleImpl();

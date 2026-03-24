@@ -44,8 +44,8 @@
 #include "RenderLayerCompositor.h"
 #include "RenderObjectInlines.h"
 #include "RenderStyle.h"
-#include "RenderStyleInlines.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+GettersInlines.h"
+#include "RenderStyle+SettersInlines.h"
 #include "RenderView.h"
 #include "StyleBuilderState.h"
 #include "StyleScope.h"
@@ -86,30 +86,40 @@ AnchorScrollAdjuster::AnchorScrollAdjuster(RenderBox& anchored, const RenderBoxM
     m_needsYAdjustment = compensatedAxes.contains(BoxAxis::Vertical);
 
     auto containingWritingMode = anchored.container()->style().writingMode();
-    if (auto positionArea = style.positionArea()) {
-        if (positionArea->coordMatchedTrackForAxis(BoxAxis::Horizontal, containingWritingMode, style.writingMode()) != PositionAreaTrack::SpanAll)
+    if (auto positionAreaValue = style.positionArea().tryValue()) {
+        if (positionAreaValue->coordMatchedTrackForAxis(BoxAxis::Horizontal, containingWritingMode, style.writingMode()) != Style::PositionAreaTrack::SpanAll)
             m_needsXAdjustment |= true;
         else {
-            auto alignment = containingWritingMode.isHorizontal() ? style.justifySelf().position() : style.alignSelf().position();
-            m_needsXAdjustment |= alignment == ItemPosition::Auto || alignment == ItemPosition::Normal || alignment == ItemPosition::AnchorCenter;
+            if (containingWritingMode.isHorizontal()) {
+                auto alignment = style.justifySelf();
+                m_needsXAdjustment |= alignment.isAuto() || alignment.isNormal() || alignment.isAnchorCenter();
+            } else {
+                auto alignment = style.alignSelf();
+                m_needsXAdjustment |= alignment.isAuto() || alignment.isNormal() || alignment.isAnchorCenter();
+            }
         }
-        if (positionArea->coordMatchedTrackForAxis(BoxAxis::Vertical, containingWritingMode, style.writingMode()) != PositionAreaTrack::SpanAll)
+        if (positionAreaValue->coordMatchedTrackForAxis(BoxAxis::Vertical, containingWritingMode, style.writingMode()) != Style::PositionAreaTrack::SpanAll)
             m_needsYAdjustment |= true;
         else {
-            auto alignment = containingWritingMode.isHorizontal() ? style.alignSelf().position() : style.justifySelf().position();
-            m_needsYAdjustment |= alignment == ItemPosition::Auto || alignment == ItemPosition::Normal || alignment == ItemPosition::AnchorCenter;
+            if (containingWritingMode.isHorizontal()) {
+                auto alignment = style.alignSelf();
+                m_needsYAdjustment |= alignment.isAuto() || alignment.isNormal() || alignment.isAnchorCenter();
+            } else {
+                auto alignment = style.justifySelf();
+                m_needsYAdjustment |= alignment.isAuto() || alignment.isNormal() || alignment.isAnchorCenter();
+            }
         }
     }
 
     if (!m_needsXAdjustment) {
         m_needsXAdjustment = containingWritingMode.isHorizontal()
-            ? style.justifySelf().position() == ItemPosition::AnchorCenter
-            : style.alignSelf().position() == ItemPosition::AnchorCenter;
+            ? style.justifySelf().isAnchorCenter()
+            : style.alignSelf().isAnchorCenter();
     }
     if (!m_needsYAdjustment) {
         m_needsYAdjustment = containingWritingMode.isHorizontal()
-            ? style.alignSelf().position() == ItemPosition::AnchorCenter
-            : style.alignSelf().position() == ItemPosition::AnchorCenter;
+            ? style.alignSelf().isAnchorCenter()
+            : style.alignSelf().isAnchorCenter();
     }
 
     m_isHidden = style.isForceHidden();
@@ -271,11 +281,11 @@ void AnchorPositionEvaluator::captureScrollSnapshots(RenderBox& anchored, bool i
     if (adjuster.isEmpty())
         return clearAnchorScrollSnapshots(anchored);
 
-    if (!anchored.style().positionTryFallbacks().isEmpty()
-        || anchored.style().positionVisibility().contains(PositionVisibility::NoOverflow))
+    if (!anchored.style().positionTryFallbacks().isNone()
+        || anchored.style().positionVisibility().contains(PositionVisibilityValue::NoOverflow))
         adjuster.setFallbackLimits(anchored);
 
-    auto captureDiff = anchored.layoutContext().registerAnchorScrollAdjuster(WTFMove(adjuster));
+    auto captureDiff = anchored.layoutContext().registerAnchorScrollAdjuster(WTF::move(adjuster));
     if (invalidateStyleForScrollPositionChanges && AnchorScrollAdjuster::SnapshotsDiffer == captureDiff && anchored.style().usesAnchorFunctions()) {
         // Scroll positions changed since the last capture, which means anchor() resolution needs updating.
         if (CheckedPtr element = anchored.element())
@@ -305,14 +315,14 @@ void AnchorPositionEvaluator::updateScrollAdjustments(RenderView& renderView)
         bool needsInvalidation = false;
         if (adjuster.hasFallbackLimits()) {
             if (adjuster.exceedsFallbackLimits(scrollOffset)) {
-                if (!anchored->style().positionTryFallbacks().isEmpty()) {
+                if (!anchored->style().positionTryFallbacks().isNone()) {
                     anchored->setNeedsLayout();
                     needsInvalidation = true;
                 } else
-                    shouldBeHidden = anchored->style().positionVisibility().contains(PositionVisibility::NoOverflow);
+                    shouldBeHidden = anchored->style().positionVisibility().contains(PositionVisibilityValue::NoOverflow);
             }
         }
-        if (!shouldBeHidden && anchored->style().positionVisibility().contains(PositionVisibility::AnchorsVisible))
+        if (!shouldBeHidden && anchored->style().positionVisibility().contains(PositionVisibilityValue::AnchorsVisible))
             shouldBeHidden = AnchorPositionEvaluator::isDefaultAnchorInvisibleOrClippedByInterveningBoxes(*anchored);
 
         if (needsInvalidation || shouldBeHidden != adjuster.isHidden()) {
@@ -427,7 +437,7 @@ static LayoutSize offsetFromAncestorContainer(const RenderElement& descendantCon
 
         offset += currentOffset;
         referencePoint.move(currentOffset);
-        currentContainer = WTFMove(nextContainer);
+        currentContainer = WTF::move(nextContainer);
     } while (currentContainer != maxContainer);
 
     if (CheckedPtr descendantInline = dynamicDowncast<RenderInline>(&descendantContainer)) {
@@ -728,7 +738,7 @@ static LayoutUnit computeInsetValue(CSSPropertyID insetPropertyID, CheckedRef<co
 
 CheckedPtr<RenderBoxModelObject> AnchorPositionEvaluator::findAnchorForAnchorFunctionAndAttemptResolution(BuilderState& builderState, std::optional<ScopedName> anchorNameArgument)
 {
-    auto& style = builderState.style();
+    auto& style = builderState.renderStyle();
     style.setUsesAnchorFunctions();
 
     if (!builderState.anchorPositionedStates())
@@ -792,7 +802,7 @@ CheckedPtr<RenderBoxModelObject> AnchorPositionEvaluator::findAnchorForAnchorFun
 
     // Anchor value may now be resolved using layout information
 
-    RefPtr anchorElement = anchorPositionedState.anchorElements.get(resolvedAnchorName).get();
+    RefPtr anchorElement = anchorPositionedState.anchorElements.get(resolvedAnchorName);
     if (!anchorElement) {
         // See: https://drafts.csswg.org/css-anchor-position-1/#valid-anchor-function
         anchorPositionedState.stage = AnchorPositionResolutionStage::Resolved;
@@ -818,7 +828,7 @@ bool AnchorPositionEvaluator::propertyAllowsAnchorFunction(CSSPropertyID propert
 
 std::optional<double> AnchorPositionEvaluator::evaluate(BuilderState& builderState, std::optional<ScopedName> elementName, Side side)
 {
-    auto& style = builderState.style();
+    auto& style = builderState.renderStyle();
 
     auto propertyID = builderState.cssPropertyID();
     auto physicalAxis = mapInsetPropertyToPhysicalAxis(propertyID, style.writingMode());
@@ -942,7 +952,7 @@ bool AnchorPositionEvaluator::propertyAllowsAnchorSizeFunction(CSSPropertyID pro
 std::optional<double> AnchorPositionEvaluator::evaluateSize(BuilderState& builderState, std::optional<ScopedName> elementName, std::optional<AnchorSizeDimension> dimension)
 {
     auto propertyID = builderState.cssPropertyID();
-    const auto& style = builderState.style();
+    const auto& style = builderState.renderStyle();
 
     auto isValidAnchorSize = [&] {
         // It’s being used in a sizing property, an inset property, or a margin property...
@@ -1058,7 +1068,7 @@ static CheckedPtr<const Element> anchorScopeForAnchorName(const RenderBoxModelOb
             continue;
         const auto& currentAncestorAnchorScope = currentAncestorStyle->anchorScope();
 
-        if (NameScope::Type::None == currentAncestorAnchorScope.type)
+        if (Style::NameScope::Type::None == currentAncestorAnchorScope.type)
             continue;
 
         auto styleScope = Scope::forOrdinal(*currentAncestor, currentAncestorAnchorScope.scopeOrdinal);
@@ -1066,8 +1076,8 @@ static CheckedPtr<const Element> anchorScopeForAnchorName(const RenderBoxModelOb
         if (anchorName.scopeIdentifier() != styleScope->identifier())
             continue;
 
-        if (NameScope::Type::All == currentAncestorAnchorScope.type
-            || currentAncestorAnchorScope.names.contains(anchorName.name()))
+        if (Style::NameScope::Type::All == currentAncestorAnchorScope.type
+            || currentAncestorAnchorScope.names.contains(CustomIdentifier { anchorName.name() }))
             return currentAncestor;
     }
 
@@ -1197,7 +1207,7 @@ static RefPtr<Element> findLastAcceptableAnchorWithName(ResolvedScopedName ancho
 
     const auto& anchors = anchorsForAnchorName.get(anchorName);
 
-    for (auto& anchor : makeReversedRange(anchors)) {
+    for (auto& anchor : anchors | std::views::reverse) {
         if (isAcceptableAnchorElement(anchor.get(), anchorPositionedElement, anchorName))
             return anchor->element();
     }
@@ -1285,7 +1295,7 @@ void AnchorPositionEvaluator::updateAnchorPositioningStatesAfterInterleavedLayou
                 }
                 document.styleScope().anchorPositionedToAnchorMap().set(*element, AnchorPositionedToAnchorEntry {
                     .pseudoElementIdentifier = elementAndState.key.second,
-                    .anchors = WTFMove(anchors)
+                    .anchors = WTF::move(anchors)
                 });
             }
             state.stage = renderer && renderer->style().usesAnchorFunctions() ? AnchorPositionResolutionStage::ResolveAnchorFunctions : AnchorPositionResolutionStage::Resolved;
@@ -1313,7 +1323,7 @@ void AnchorPositionEvaluator::updateAnchorPositionedStateForDefaultAnchorAndPosi
 
     // `position-visibility: no-overflow` should also work for non-anchor positioned out-of-flow boxes.
     // Create an empty anchor positioning state for it so we perform the required layout interleaving.
-    auto hasPositionVisibilityNoOverflow = generatesBox(style) && style.hasOutOfFlowPosition() && style.positionVisibility().contains(PositionVisibility::NoOverflow);
+    auto hasPositionVisibilityNoOverflow = generatesBox(style) && style.hasOutOfFlowPosition() && style.positionVisibility().contains(PositionVisibilityValue::NoOverflow);
 
     if (!shouldResolveDefaultAnchor && !hasPositionVisibilityNoOverflow)
         return;
@@ -1368,10 +1378,10 @@ bool AnchorPositionEvaluator::isLayoutTimeAnchorPositioned(const RenderStyle& st
     if (!generatesBox(style) || !style.hasOutOfFlowPosition())
         return false;
 
-    if (style.positionArea())
+    if (!style.positionArea().isNone())
         return true;
 
-    return style.justifySelf().position() == ItemPosition::AnchorCenter || style.alignSelf().position() == ItemPosition::AnchorCenter;
+    return style.justifySelf().isAnchorCenter() || style.alignSelf().isAnchorCenter();
 }
 
 static CSSPropertyID flipHorizontal(CSSPropertyID propertyID)
@@ -1477,6 +1487,81 @@ CSSPropertyID AnchorPositionEvaluator::resolvePositionTryFallbackProperty(CSSPro
     return propertyID;
 }
 
+CSSValueID AnchorPositionEvaluator::resolvePositionTryFallbackValueForSelfPosition(CSSPropertyID propertyID, CSSValueID position, WritingMode writingMode, const BuilderPositionTryFallback& fallback)
+{
+    // Implements the bullet starting "For the self-alignment properties" from step 4 of https://drafts.csswg.org/css-anchor-position-1/#swap-due-to-a-try-tactic.
+
+    ASSERT(propertyID == CSSPropertyAlignSelf || propertyID == CSSPropertyJustifySelf);
+
+    auto flipSidedPosition = [](auto position) -> CSSValueID {
+        // Swap to the "opposite" position if the current position is "sided".
+        // If there is no opposite value, nothing is changed.
+        switch (position) {
+        case CSSValueStart:
+            return CSSValueEnd;
+        case CSSValueEnd:
+            return CSSValueStart;
+        case CSSValueSelfStart:
+            return CSSValueSelfEnd;
+        case CSSValueSelfEnd:
+            return CSSValueSelfStart;
+        case CSSValueFlexStart:
+            return CSSValueFlexEnd;
+        case CSSValueFlexEnd:
+            return CSSValueFlexStart;
+        case CSSValueLeft:
+            return CSSValueRight;
+        case CSSValueRight:
+            return CSSValueLeft;
+        default:
+            return position;
+        }
+    };
+
+    auto flipStart = [](auto writingMode, auto position) -> CSSValueID {
+        // `justify-self` additionally takes `left`/`right`, `align-self` doesn't. When
+        // applying `flip-start`, `justify-self` gets swapped with `align-self` (see
+        // call to `flipStart` in `AnchorPositionEvaluator::resolvePositionTryFallbackProperty`).
+        // So if we're resolving `justify-self` (which later gets swapped with `align-self`),
+        // and the position is `left`/`right`, resolve it to `self-start`/`self-end`.
+        switch (position) {
+        case CSSValueLeft:
+            return writingMode.bidiDirection() == TextDirection::LTR ? CSSValueSelfStart : CSSValueSelfEnd;
+        case CSSValueRight:
+            return writingMode.bidiDirection() == TextDirection::LTR ? CSSValueSelfEnd : CSSValueSelfStart;
+        default:
+            return position;
+        }
+    };
+
+    for (auto tactic : fallback.tactics) {
+        switch (tactic) {
+        case PositionTryFallback::Tactic::FlipBlock:
+            if (propertyID == CSSPropertyAlignSelf)
+                position = flipSidedPosition(position);
+            break;
+        case PositionTryFallback::Tactic::FlipInline:
+            if (propertyID == CSSPropertyJustifySelf)
+                position = flipSidedPosition(position);
+            break;
+        case PositionTryFallback::Tactic::FlipX:
+            if (propertyID == (writingMode.isHorizontal() ? CSSPropertyJustifySelf : CSSPropertyAlignSelf))
+                position = flipSidedPosition(position);
+            break;
+        case PositionTryFallback::Tactic::FlipY:
+            if (propertyID == (writingMode.isHorizontal() ? CSSPropertyAlignSelf : CSSPropertyJustifySelf))
+                position = flipSidedPosition(position);
+            break;
+        case PositionTryFallback::Tactic::FlipStart:
+            if (propertyID == CSSPropertyJustifySelf)
+                position = flipStart(writingMode, position);
+            break;
+        }
+    }
+
+    return position;
+}
+
 bool AnchorPositionEvaluator::overflowsInsetModifiedContainingBlock(const RenderBox& anchoredBox)
 {
     if (!anchoredBox.isOutOfFlowPositioned())
@@ -1578,7 +1663,7 @@ bool AnchorPositionEvaluator::isImplicitAnchor(const RenderStyle& style)
         if (!pseudoElementStyle)
             return false;
         // If we have an explicit anchor name then there is no need for an implicit anchor.
-        if (pseudoElementStyle->positionAnchor())
+        if (!pseudoElementStyle->positionAnchor().isAuto())
             return false;
 
         return pseudoElementStyle->usesAnchorFunctions() || isLayoutTimeAnchorPositioned(*pseudoElementStyle);
@@ -1588,8 +1673,8 @@ bool AnchorPositionEvaluator::isImplicitAnchor(const RenderStyle& style)
 
 ScopedName AnchorPositionEvaluator::defaultAnchorName(const RenderStyle& style)
 {
-    if (style.positionAnchor())
-        return *style.positionAnchor();
+    if (auto name = style.positionAnchor().tryName())
+        return *name;
     return implicitAnchorElementName();
 }
 

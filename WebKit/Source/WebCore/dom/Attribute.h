@@ -42,8 +42,8 @@ public:
     }
 
     Attribute(QualifiedName&& name, AtomString&& value)
-        : m_name(WTFMove(name))
-        , m_value(WTFMove(value))
+        : m_name(WTF::move(name))
+        , m_value(WTF::move(value))
     {
     }
 

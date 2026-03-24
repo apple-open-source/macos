@@ -36,6 +36,11 @@
 #import <wtf/MainThread.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+static Ref<WebCore::Node> protectedImpl(WKDOMNode *node)
+{
+    return *node->_impl;
+}
+
 @implementation WKDOMNode
 
 - (id)_initWithImpl:(WebCore::Node*)impl
@@ -44,6 +49,7 @@
     if (!self)
         return nil;
 
+    RELEASE_ASSERT(impl);
     _impl = impl;
     WebKit::WKDOMNodeCache().add(impl, self);
 
@@ -52,7 +58,7 @@
 
 - (void)dealloc
 {
-    ensureOnMainRunLoop([node = WTFMove(_impl)] {
+    ensureOnMainRunLoop([node = std::exchange(_impl, nullptr)] {
         WebKit::WKDOMNodeCache().remove(node.get());
     });
     [super dealloc];
@@ -63,7 +69,7 @@
     if (!node)
         return;
 
-    _impl->insertBefore(*WebKit::toWebCoreNode(node), WebKit::toWebCoreNode(refNode));
+    protectedImpl(self)->insertBefore(*WebKit::toProtectedWebCoreNode(node).get(), WebKit::toProtectedWebCoreNode(refNode).get());
 }
 
 - (void)appendChild:(WKDOMNode *)node
@@ -71,7 +77,7 @@
     if (!node)
         return;
 
-    _impl->appendChild(*WebKit::toWebCoreNode(node));
+    protectedImpl(self)->appendChild(*WebKit::toProtectedWebCoreNode(node).get());
 }
 
 - (void)removeChild:(WKDOMNode *)node
@@ -79,45 +85,46 @@
     if (!node)
         return;
 
-    _impl->removeChild(*WebKit::toWebCoreNode(node));
+    protectedImpl(self)->removeChild(*WebKit::toProtectedWebCoreNode(node).get());
 }
 
 - (WKDOMDocument *)document
 {
-    return WebKit::toWKDOMDocument(&_impl->document());
+    return WebKit::toWKDOMDocument(protectedImpl(self)->protectedDocument().ptr());
 }
 
 - (WKDOMNode *)parentNode
 {
-    return WebKit::toWKDOMNode(_impl->parentNode());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedParentNode().get());
 }
 
 - (WKDOMNode *)firstChild
 {
-    return WebKit::toWKDOMNode(_impl->firstChild());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedFirstChild().get());
 }
 
 - (WKDOMNode *)lastChild
 {
-    return WebKit::toWKDOMNode(_impl->lastChild());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedLastChild().get());
 }
 
 - (WKDOMNode *)previousSibling
 {
-    return WebKit::toWKDOMNode(_impl->previousSibling());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedPreviousSibling().get());
 }
 
 - (WKDOMNode *)nextSibling
 {
-    return WebKit::toWKDOMNode(_impl->nextSibling());
+    return WebKit::toWKDOMNode(protectedImpl(self)->protectedNextSibling().get());
 }
 
 - (NSArray *)textRects
 {
-    _impl->document().updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
-    if (!_impl->renderer())
+    Ref impl = *_impl;
+    impl->protectedDocument()->updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
+    if (!impl->renderer())
         return nil;
-    return createNSArray(WebCore::RenderObject::absoluteTextRects(WebCore::makeRangeSelectingNodeContents(*_impl))).autorelease();
+    return createNSArray(WebCore::RenderObject::absoluteTextRects(WebCore::makeRangeSelectingNodeContents(impl))).autorelease();
 }
 
 @end
@@ -126,7 +133,7 @@
 
 - (WKBundleNodeHandleRef)_copyBundleNodeHandleRef
 {
-    return toAPI(WebKit::InjectedBundleNodeHandle::getOrCreate(_impl.get()).leakRef());
+    return toAPILeakingRef(WebKit::InjectedBundleNodeHandle::getOrCreate(protectedImpl(self).ptr()));
 }
 
 @end

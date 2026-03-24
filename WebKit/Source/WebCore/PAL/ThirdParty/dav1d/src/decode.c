@@ -3213,7 +3213,11 @@ int dav1d_decode_frame_init(Dav1dFrameContext *const f) {
     const int re_sz = f->sb128h * f->frame_hdr->tiling.cols;
     if (re_sz != f->lf.re_sz) {
         freep(&f->lf.tx_lpf_right_edge[0]);
+#ifdef __APPLE__
+        f->lf.tx_lpf_right_edge[0] = malloc(re_sz * 32 * 2 * sizeof(*f->lf.tx_lpf_right_edge[0]));
+#else
         f->lf.tx_lpf_right_edge[0] = malloc(re_sz * 32 * 2);
+#endif
         if (!f->lf.tx_lpf_right_edge[0]) {
             f->lf.re_sz = 0;
             goto error;

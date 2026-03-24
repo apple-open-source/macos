@@ -67,21 +67,19 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Performance);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Performance);
 
 static Seconds timePrecision { 1_ms };
 
 static bool isSignpostEnabled()
 {
-    static bool flag = false;
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [&] {
-        const char* value = getenv("WebKitPerformanceSignpostEnabled");
-        if (value) {
+    static bool flag = [] {
+        if (const char* value = getenv("WebKitPerformanceSignpostEnabled")) {
             if (auto result = parseInteger<int>(StringView::fromLatin1(value)); result && result.value())
-                flag = true;
+                return true;
         }
-    });
+        return false;
+    }();
     return flag;
 }
 
@@ -389,7 +387,7 @@ void Performance::enqueueLargestContentfulPaint(Ref<LargestContentfulPaint>&& pa
     if (RefPtr context = scriptExecutionContext())
         InspectorInstrumentation::didEnqueueLargestContentfulPaint(*context, paintEntry.get());
 
-    m_largestContentfulPaint = RefPtr { WTFMove(paintEntry) };
+    m_largestContentfulPaint = RefPtr { WTF::move(paintEntry) };
     queueEntry(*m_largestContentfulPaint);
 }
 
@@ -419,10 +417,10 @@ void Performance::addResourceTiming(ResourceTiming&& resourceTiming)
 {
     ASSERT(scriptExecutionContext());
 
-    auto entry = PerformanceResourceTiming::create(m_timeOrigin, WTFMove(resourceTiming));
+    auto entry = PerformanceResourceTiming::create(m_timeOrigin, WTF::move(resourceTiming));
 
     if (m_waitingForBackupBufferToBeProcessed) {
-        m_backupResourceTimingBuffer.append(WTFMove(entry));
+        m_backupResourceTimingBuffer.append(WTF::move(entry));
         return;
     }
 
@@ -435,14 +433,14 @@ void Performance::addResourceTiming(ResourceTiming&& resourceTiming)
 
     if (isResourceTimingBufferFull()) {
         ASSERT(!m_resourceTimingBufferFullTimer.isActive());
-        m_backupResourceTimingBuffer.append(WTFMove(entry));
+        m_backupResourceTimingBuffer.append(WTF::move(entry));
         m_waitingForBackupBufferToBeProcessed = true;
         m_resourceTimingBufferFullTimer.startOneShot(0_s);
         return;
     }
 
     queueEntry(entry.get());
-    m_resourceTimingBuffer.append(WTFMove(entry));
+    m_resourceTimingBuffer.append(WTF::move(entry));
 }
 
 bool Performance::isResourceTimingBufferFull() const
@@ -500,7 +498,7 @@ ExceptionOr<Ref<PerformanceMark>> Performance::mark(JSC::JSGlobalObject& globalO
     if (!m_userTiming)
         m_userTiming = makeUnique<PerformanceUserTiming>(*this);
 
-    auto mark = m_userTiming->mark(globalObject, markName, WTFMove(markOptions));
+    auto mark = m_userTiming->mark(globalObject, markName, WTF::move(markOptions));
     if (mark.hasException())
         return mark.releaseException();
 
@@ -520,7 +518,7 @@ ExceptionOr<Ref<PerformanceMeasure>> Performance::measure(JSC::JSGlobalObject& g
     if (!m_userTiming)
         m_userTiming = makeUnique<PerformanceUserTiming>(*this);
 
-    auto measure = m_userTiming->measure(globalObject, measureName, WTFMove(startOrMeasureOptions), endMark);
+    auto measure = m_userTiming->measure(globalObject, measureName, WTF::move(startOrMeasureOptions), endMark);
     if (measure.hasException())
         return measure.releaseException();
 
@@ -547,7 +545,7 @@ ExceptionOr<Ref<PerformanceMeasure>> Performance::measure(JSC::JSGlobalObject& g
             auto timeOrigin = m_continuousTimeOrigin.approximateMonotonicTime();
             auto startTime = timeOrigin + Seconds::fromMilliseconds(entry->startTime());
             auto endTime = timeOrigin + Seconds::fromMilliseconds(entry->startTime() + entry->duration());
-            JSC::ProfilerSupport::markInterval(entry.ptr(), JSC::ProfilerSupport::Category::WebKitPerformanceSignpost, startTime, endTime, WTFMove(message));
+            JSC::ProfilerSupport::markInterval(entry.ptr(), JSC::ProfilerSupport::Category::WebKitPerformanceSignpost, startTime, endTime, WTF::move(message));
         }
     }
 

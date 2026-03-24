@@ -32,7 +32,7 @@ class PlatformRawAudioDataGStreamer final : public PlatformRawAudioData {
 public:
     static Ref<PlatformRawAudioData> create(GRefPtr<GstSample>&& sample)
     {
-        return adoptRef(*new PlatformRawAudioDataGStreamer(WTFMove(sample)));
+        return adoptRef(*new PlatformRawAudioDataGStreamer(WTF::move(sample)));
     }
 
     AudioSampleFormat format() const final;

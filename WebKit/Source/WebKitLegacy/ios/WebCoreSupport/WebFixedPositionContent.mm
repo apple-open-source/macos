@@ -30,6 +30,7 @@
 
 #import "WebViewInternal.h"
 #import <WebCore/ChromeClient.h>
+#import <WebCore/Document.h>
 #import <WebCore/IntSize.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/ScrollingConstraints.h>
@@ -180,9 +181,9 @@ WebFixedPositionContentData::~WebFixedPositionContentData() = default;
         auto layerData = makeUnique<ViewportConstrainedLayerData>();
 
         layerData->m_enclosingAcceleratedScrollLayer = stickyContainers.get(layer);
-        layerData->m_viewportConstraints = WTFMove(layerAndConstraints.value);
+        layerData->m_viewportConstraints = WTF::move(layerAndConstraints.value);
 
-        _private->m_viewportConstrainedLayers.set(layer, WTFMove(layerData));
+        _private->m_viewportConstrainedLayers.set(layer, WTF::move(layerData));
     }
 }
 

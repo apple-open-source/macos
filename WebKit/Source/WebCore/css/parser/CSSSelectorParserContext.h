@@ -43,8 +43,6 @@ struct CSSSelectorParserContext {
     bool targetTextPseudoElementEnabled : 1 { false };
     bool thumbAndTrackPseudoElementsEnabled : 1 { false };
     bool viewTransitionsEnabled : 1 { false };
-    bool viewTransitionClassesEnabled : 1 { false };
-    bool viewTransitionTypesEnabled : 1 { false };
     bool webkitMediaTextTrackDisplayQuirkEnabled : 1 { false };
 
     bool isHashTableDeletedValue : 1 { false };
@@ -58,12 +56,6 @@ struct CSSSelectorParserContext {
 
 void add(Hasher&, const CSSSelectorParserContext&);
 
-struct CSSSelectorParserContextHash {
-    static unsigned hash(const CSSSelectorParserContext& context) { return computeHash(context); }
-    static bool equal(const CSSSelectorParserContext& a, const CSSSelectorParserContext& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
-
 } // namespace WebCore
 
 namespace WTF {
@@ -73,7 +65,5 @@ template<> struct HashTraits<WebCore::CSSSelectorParserContext> : GenericHashTra
     static bool isDeletedValue(const WebCore::CSSSelectorParserContext& value) { return value.isHashTableDeletedValue; }
     static WebCore::CSSSelectorParserContext emptyValue() { return { }; }
 };
-
-template<> struct DefaultHash<WebCore::CSSSelectorParserContext> : WebCore::CSSSelectorParserContextHash { };
 
 } // namespace WTF

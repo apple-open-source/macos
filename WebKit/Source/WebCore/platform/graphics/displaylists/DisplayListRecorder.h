@@ -89,7 +89,7 @@ protected:
             std::optional<GraphicsContextState> lastDrawingStateClone;
             if (lastDrawingStateClone)
                 lastDrawingStateClone = lastDrawingState->clone(GraphicsContextState::Purpose::TransparencyLayer);
-            return ContextState { WTFMove(stateClone), ctm, clipBounds, WTFMove(lastDrawingStateClone) };
+            return ContextState { WTF::move(stateClone), ctm, clipBounds, WTF::move(lastDrawingStateClone) };
         }
 
         void translate(float x, float y);
@@ -125,7 +125,7 @@ protected:
     WEBCORE_EXPORT void updateStateForClipToImageBuffer(const FloatRect&);
     WEBCORE_EXPORT void updateStateForApplyDeviceScaleFactor(float);
     WEBCORE_EXPORT bool decomposeDrawGlyphsIfNeeded(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& anchorPoint, FontSmoothingMode);
-    FloatRect initialClip() const { return m_initialClip; }
+    WEBCORE_EXPORT FloatRect initialClip() const;
     DrawGlyphsMode drawGlyphsMode() const { return m_drawGlyphsMode; }
 
     const DestinationColorSpace& colorSpace() const final { return m_colorSpace; }

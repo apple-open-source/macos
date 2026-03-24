@@ -1,6 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_MX{
     %%Parent{"es_419"}
     Languages{
@@ -45,7 +45,6 @@ es_MX{
         shu{"árabe chadiano"}
         slh{"lushootseed del sur"}
         ss{"siswati"}
-        sw{"suajili"}
         sw_CD{"suajili del Congo"}
         syr{"siriaco"}
         tce{"tutchone del sur"}
@@ -62,8 +61,20 @@ es_MX{
         calendar{
             roc{"calendario minguo"}
         }
+        calendar%core{
+            roc{"minguo"}
+        }
         collation{
             ducet{"orden de clasificación de Unicode predeterminado"}
+        }
+        collation%core{
+            phonetic{"fonético"}
+            stroke{"trazos"}
+            unihan{"trazos radicales"}
+        }
+        lw%core{
+            breakall{"dividir todo"}
+            keepall{"conservar todo"}
         }
         numbers{
             gujr{"dígitos en gujarati"}

@@ -36,7 +36,6 @@ namespace WTF {
 
 #define USING_CAN_MAKE_WEAKPTR(BASE) \
     using BASE::weakImpl; \
-    using BASE::weakImplIfExists; \
     using BASE::weakCount; \
     using BASE::WeakValueType; \
     using BASE::WeakPtrImplType;
@@ -55,6 +54,13 @@ public:
         : m_wasConstructedOnMainThread(isMainThread())
 #endif
     {
+    }
+
+    void prepareForUseOnlyOnMainThread()
+    {
+#if ASSERT_ENABLED
+        m_wasConstructedOnMainThread = true;
+#endif
     }
 
     void prepareForUseOnlyOnNonMainThread()
@@ -111,9 +117,6 @@ public:
 #endif
 
 private:
-    template<typename, typename, EnableWeakPtrThreadingAssertions> friend class WeakHashSet;
-    template<typename, typename, EnableWeakPtrThreadingAssertions> friend class WeakListHashSet;
-    template<typename, typename, typename> friend class WeakHashMap;
     template<typename, typename, typename> friend class WeakPtr;
     template<typename, typename> friend class WeakRef;
 
@@ -192,9 +195,6 @@ public:
     void setBitfield(uint16_t value) const { return m_impl.setType(value); }
 
 private:
-    template<typename, typename, EnableWeakPtrThreadingAssertions> friend class WeakHashSet;
-    template<typename, typename, EnableWeakPtrThreadingAssertions> friend class WeakListHashSet;
-    template<typename, typename, typename> friend class WeakHashMap;
     template<typename, typename, typename> friend class WeakPtr;
     template<typename, typename> friend class WeakRef;
 

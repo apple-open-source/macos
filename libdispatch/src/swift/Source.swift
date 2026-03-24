@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2016 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -10,54 +10,59 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CDispatch
-import _SwiftDispatchOverlayShims
-#if os(Windows)
-import WinSDK
-#endif
+// import Foundation
+@_implementationOnly import _DispatchOverlayShims
+@_spiOnly import DispatchPrivate
 
 extension DispatchSourceProtocol {
+	public typealias DispatchSourceHandler = @convention(block) () -> Void
 
 	public func setEventHandler(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], handler: DispatchSourceHandler?) {
-		if #available(macOS 10.10, iOS 8.0, *), let h = handler, qos != .unspecified || !flags.isEmpty {
+		if #available(macOS 10.10, iOS 8.0, *),
+                   let h = handler,
+                   qos != .unspecified || !flags.isEmpty {
 			let item = DispatchWorkItem(qos: qos, flags: flags, block: h)
-			CDispatch.dispatch_source_set_event_handler((self as! DispatchSource).__wrapped, item._block)
+			_swift_dispatch_source_set_event_handler(self as! DispatchSource, item._block)
 		} else {
-			CDispatch.dispatch_source_set_event_handler((self as! DispatchSource).__wrapped, handler)
+			_swift_dispatch_source_set_event_handler(self as! DispatchSource, handler)
 		}
 	}
 
 	@available(macOS 10.10, iOS 8.0, *)
 	public func setEventHandler(handler: DispatchWorkItem) {
-		CDispatch.dispatch_source_set_event_handler((self as! DispatchSource).__wrapped, handler._block)
+		_swift_dispatch_source_set_event_handler(self as! DispatchSource, handler._block)
 	}
 
 	public func setCancelHandler(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], handler: DispatchSourceHandler?) {
-		if #available(macOS 10.10, iOS 8.0, *), let h = handler, qos != .unspecified || !flags.isEmpty {
+		if #available(macOS 10.10, iOS 8.0, *),
+                   let h = handler,
+                   qos != .unspecified || !flags.isEmpty {
 			let item = DispatchWorkItem(qos: qos, flags: flags, block: h)
-			CDispatch.dispatch_source_set_cancel_handler((self as! DispatchSource).__wrapped, item._block)
+			_swift_dispatch_source_set_cancel_handler(self as! DispatchSource, item._block)
 		} else {
-			CDispatch.dispatch_source_set_cancel_handler((self as! DispatchSource).__wrapped, handler)
+			_swift_dispatch_source_set_cancel_handler(self as! DispatchSource, handler)
 		}
 	}
 
 	@available(macOS 10.10, iOS 8.0, *)
 	public func setCancelHandler(handler: DispatchWorkItem) {
-		CDispatch.dispatch_source_set_cancel_handler((self as! DispatchSource).__wrapped, handler._block)
+		_swift_dispatch_source_set_cancel_handler(self as! DispatchSource, handler._block)
 	}
 
 	public func setRegistrationHandler(qos: DispatchQoS = .unspecified, flags: DispatchWorkItemFlags = [], handler: DispatchSourceHandler?) {
-		if #available(macOS 10.10, iOS 8.0, *), let h = handler, qos != .unspecified || !flags.isEmpty {
+		if #available(macOS 10.10, iOS 8.0, *),
+                   let h = handler,
+                   qos != .unspecified || !flags.isEmpty {
 			let item = DispatchWorkItem(qos: qos, flags: flags, block: h)
-			CDispatch.dispatch_source_set_registration_handler((self as! DispatchSource).__wrapped, item._block)
+			_swift_dispatch_source_set_registration_handler(self as! DispatchSource, item._block)
 		} else {
-			CDispatch.dispatch_source_set_registration_handler((self as! DispatchSource).__wrapped, handler)
+			_swift_dispatch_source_set_registration_handler(self as! DispatchSource, handler)
 		}
 	}
 
 	@available(macOS 10.10, iOS 8.0, *)
 	public func setRegistrationHandler(handler: DispatchWorkItem) {
-		CDispatch.dispatch_source_set_registration_handler((self as! DispatchSource).__wrapped, handler._block)
+		_swift_dispatch_source_set_registration_handler(self as! DispatchSource, handler._block)
 	}
 
 	@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
@@ -66,7 +71,7 @@ extension DispatchSourceProtocol {
 	}
 
 	public func cancel() {
-		CDispatch.dispatch_source_cancel((self as! DispatchSource).__wrapped)
+		__dispatch_source_cancel(self as! DispatchSource)
 	}
 
 	public func resume() {
@@ -78,33 +83,30 @@ extension DispatchSourceProtocol {
 	}
 
 	public var handle: UInt {
-		return CDispatch.dispatch_source_get_handle((self as! DispatchSource).__wrapped)
+		return __dispatch_source_get_handle(self as! DispatchSource)
 	}
 
 	public var mask: UInt {
-		return CDispatch.dispatch_source_get_mask((self as! DispatchSource).__wrapped)
+		return __dispatch_source_get_mask(self as! DispatchSource)
 	}
 
 	public var data: UInt {
-		return CDispatch.dispatch_source_get_data((self as! DispatchSource).__wrapped)
+		return __dispatch_source_get_data(self as! DispatchSource)
 	}
 
 	public var isCancelled: Bool {
-		return CDispatch.dispatch_source_testcancel((self as! DispatchSource).__wrapped) != 0
+		return __dispatch_source_testcancel(self as! DispatchSource) != 0
 	}
 }
 
 extension DispatchSource {
-#if HAVE_MACH
 	public struct MachSendEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
 
 		public static let dead = MachSendEvent(rawValue: 0x1)
 	}
-#endif
 
-#if HAVE_MACH
 	public struct MemoryPressureEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
@@ -112,11 +114,23 @@ extension DispatchSource {
 		public static let normal = MemoryPressureEvent(rawValue: 0x1)
 		public static let warning = MemoryPressureEvent(rawValue: 0x2)
 		public static let critical = MemoryPressureEvent(rawValue: 0x4)
+
+		@_spi(procLimitWarn)
+		@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
+		public static let procLimitWarn = MemoryPressureEvent(rawValue: 0x10)
+
+		@_spi(procLimitCritical)
+		@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
+		public static let procLimitCritical = MemoryPressureEvent(rawValue: 0x20)
+
+		@_spi(mslStatus)
+		@available(macOS 10.13, iOS 11.0, tvOS 11.0, watchOS 4.0, *)
+		public static let mslStatus = MemoryPressureEvent(rawValue: 0xf0000000)
+
+		/* Do not include spi flags by default. */
 		public static let all: MemoryPressureEvent = [.normal, .warning, .critical]
 	}
-#endif
 
-#if !os(Linux) && !os(Android) && !os(Windows)
 	public struct ProcessEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
@@ -127,7 +141,6 @@ extension DispatchSource {
 		public static let signal = ProcessEvent(rawValue: 0x08000000)
 		public static let all: ProcessEvent = [.exit, .fork, .exec, .signal]
 	}
-#endif
 
 	public struct TimerFlags : OptionSet, RawRepresentable {
 		public let rawValue: UInt
@@ -153,158 +166,129 @@ extension DispatchSource {
 			.delete, .write, .extend, .attrib, .link, .rename, .revoke]
 	}
 
-#if HAVE_MACH
 	public class func makeMachSendSource(port: mach_port_t, eventMask: MachSendEvent, queue: DispatchQueue? = nil) -> DispatchSourceMachSend {
-		let source = dispatch_source_create(_swift_dispatch_source_type_MACH_SEND(), UInt(port), eventMask.rawValue, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceMachSend
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_MACH_SEND(), UInt(port), eventMask.rawValue, queue) as DispatchSourceMachSend
 	}
-#endif
 
-#if HAVE_MACH
 	public class func makeMachReceiveSource(port: mach_port_t, queue: DispatchQueue? = nil) -> DispatchSourceMachReceive {
-		let source = dispatch_source_create(_swift_dispatch_source_type_MACH_RECV(), UInt(port), 0, queue?.__wrapped)
-		return DispatchSource(source) as DispatchSourceMachReceive
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_MACH_RECV(), UInt(port), 0, queue) as DispatchSourceMachReceive
 	}
-#endif
 
-#if HAVE_MACH
 	public class func makeMemoryPressureSource(eventMask: MemoryPressureEvent, queue: DispatchQueue? = nil) -> DispatchSourceMemoryPressure {
-		let source = dispatch_source_create(_swift_dispatch_source_type_MEMORYPRESSURE(), 0, eventMask.rawValue, queue.__wrapped)
-		return DispatchSourceMemoryPressure(source)
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_MEMORYPRESSURE(), 0, eventMask.rawValue, queue) as DispatchSourceMemoryPressure
 	}
-#endif
 
-#if !os(Linux) && !os(Android) && !os(Windows)
 	public class func makeProcessSource(identifier: pid_t, eventMask: ProcessEvent, queue: DispatchQueue? = nil) -> DispatchSourceProcess {
-		let source = dispatch_source_create(_swift_dispatch_source_type_PROC(), UInt(identifier), eventMask.rawValue, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceProcess
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_PROC(), UInt(identifier), eventMask.rawValue, queue) as DispatchSourceProcess
 	}
-#endif
-
-#if os(Windows)
-	public class func makeReadSource(handle: HANDLE, queue: DispatchQueue? = nil) -> DispatchSourceRead {
-		let source = dispatch_source_create(_swift_dispatch_source_type_READ(), UInt(bitPattern: handle), 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceRead
-	}
-#endif
 
 	public class func makeReadSource(fileDescriptor: Int32, queue: DispatchQueue? = nil) -> DispatchSourceRead {
-#if os(Windows)
-		let handle: UInt = UInt(_get_osfhandle(fileDescriptor))
-		if handle == UInt(bitPattern: INVALID_HANDLE_VALUE) { fatalError("unable to get underlying handle from file descriptor") }
-#else
-		let handle: UInt = UInt(fileDescriptor)
-#endif
-		let source = dispatch_source_create(_swift_dispatch_source_type_READ(), handle, 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceRead
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_READ(), UInt(fileDescriptor), 0, queue) as DispatchSourceRead
 	}
 
 	public class func makeSignalSource(signal: Int32, queue: DispatchQueue? = nil) -> DispatchSourceSignal {
-		let source = dispatch_source_create(_swift_dispatch_source_type_SIGNAL(), UInt(signal), 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceSignal
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_SIGNAL(), UInt(signal), 0, queue) as DispatchSourceSignal
 	}
 
 	public class func makeTimerSource(flags: TimerFlags = [], queue: DispatchQueue? = nil) -> DispatchSourceTimer {
-		let source = dispatch_source_create(_swift_dispatch_source_type_TIMER(), 0, UInt(flags.rawValue), queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceTimer
+		return _swift_dispatch_source_create(_swift_dispatch_source_type_TIMER(), 0, flags.rawValue, queue) as DispatchSourceTimer
 	}
 
 	public class func makeUserDataAddSource(queue: DispatchQueue? = nil) -> DispatchSourceUserDataAdd {
-		let source = dispatch_source_create(_swift_dispatch_source_type_DATA_ADD(), 0, 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceUserDataAdd
+		return _swift_dispatch_source_create(_swift_dispatch_source_type_DATA_ADD(), 0, 0, queue) as DispatchSourceUserDataAdd
 	}
 
 	public class func makeUserDataOrSource(queue: DispatchQueue? = nil) -> DispatchSourceUserDataOr {
-		let source = dispatch_source_create(_swift_dispatch_source_type_DATA_OR(), 0, 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceUserDataOr
+		return _swift_dispatch_source_create(_swift_dispatch_source_type_DATA_OR(), 0, 0, queue) as DispatchSourceUserDataOr
 	}
-    
+
 	public class func makeUserDataReplaceSource(queue: DispatchQueue? = nil) -> DispatchSourceUserDataReplace {
-		let source = dispatch_source_create(_swift_dispatch_source_type_DATA_REPLACE(), 0, 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceUserDataReplace
+		return _swift_dispatch_source_create(_swift_dispatch_source_type_DATA_REPLACE(), 0, 0, queue) as DispatchSourceUserDataReplace
 	}
 
-#if !os(Linux) && !os(Android) && !os(Windows)
-	public class func makeFileSystemObjectSource(fileDescriptor: Int32, eventMask: FileSystemEvent, queue: DispatchQueue? = nil) -> DispatchSourceFileSystemObject {
-		let source = dispatch_source_create(_swift_dispatch_source_type_VNODE(), UInt(fileDescriptor), eventMask.rawValue, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceFileSystemObject
+	public class func makeFileSystemObjectSource(
+		fileDescriptor: Int32, eventMask: FileSystemEvent, queue: DispatchQueue? = nil) -> DispatchSourceFileSystemObject
+	{
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_VNODE(), UInt(fileDescriptor), eventMask.rawValue, queue) as DispatchSourceFileSystemObject
 	}
-#endif
-
-#if os(Windows)
-	public class func makeWriteSource(handle: HANDLE, queue: DispatchQueue? = nil) -> DispatchSourceWrite {
-		let source = dispatch_source_create(_swift_dispatch_source_type_WRITE(), UInt(bitPattern: handle), 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceWrite
-	}
-#endif
 
 	public class func makeWriteSource(fileDescriptor: Int32, queue: DispatchQueue? = nil) -> DispatchSourceWrite {
-#if os(Windows)
-		let handle: UInt = UInt(_get_osfhandle(fileDescriptor))
-		if handle == UInt(bitPattern: INVALID_HANDLE_VALUE) { fatalError("unable to get underlying handle from file descriptor") }
-#else
-		let handle: UInt = UInt(fileDescriptor)
-#endif
-		let source = dispatch_source_create(_swift_dispatch_source_type_WRITE(), handle, 0, queue?.__wrapped)
-		return DispatchSource(source: source) as DispatchSourceWrite
+		return _swift_dispatch_source_create(
+			_swift_dispatch_source_type_WRITE(), UInt(fileDescriptor), 0, queue) as DispatchSourceWrite
 	}
 }
 
-#if HAVE_MACH
+@available(macOS 15.0, iOS 18.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+extension DispatchSource.MemoryPressureEvent : CustomStringConvertible {
+    public var description: String {
+        switch self {
+            case .normal: return "normal"
+            case .warning: return "warning"
+            case .critical: return "critical"
+            case .procLimitWarn: return "process limit warning"
+            case .procLimitCritical: return "process limit critical"
+            case .mslStatus: return "malloc stack logging"
+            default: return String(describing: rawValue)
+        }
+    }
+}
+
 extension DispatchSourceMachSend {
 	public var handle: mach_port_t {
-		return mach_port_t(dispatch_source_get_handle(self as! DispatchSource))
+		return mach_port_t(__dispatch_source_get_handle(self as! DispatchSource))
 	}
 
 	public var data: DispatchSource.MachSendEvent {
-		let data = dispatch_source_get_data(self as! DispatchSource)
+		let data = __dispatch_source_get_data(self as! DispatchSource)
 		return DispatchSource.MachSendEvent(rawValue: data)
 	}
 
 	public var mask: DispatchSource.MachSendEvent {
-		let mask = dispatch_source_get_mask(self as! DispatchSource)
+		let mask = __dispatch_source_get_mask(self as! DispatchSource)
 		return DispatchSource.MachSendEvent(rawValue: mask)
 	}
 }
-#endif
 
-#if HAVE_MACH
 extension DispatchSourceMachReceive {
 	public var handle: mach_port_t {
-		return mach_port_t(dispatch_source_get_handle(self as! DispatchSource))
+		return mach_port_t(__dispatch_source_get_handle(self as! DispatchSource))
 	}
 }
-#endif
 
-#if HAVE_MACH
 extension DispatchSourceMemoryPressure {
 	public var data: DispatchSource.MemoryPressureEvent {
-		let data = dispatch_source_get_data(self as! DispatchSource)
+		let data = __dispatch_source_get_data(self as! DispatchSource)
 		return DispatchSource.MemoryPressureEvent(rawValue: data)
 	}
 
 	public var mask: DispatchSource.MemoryPressureEvent {
-		let mask = dispatch_source_get_mask(self as! DispatchSource)
+		let mask = __dispatch_source_get_mask(self as! DispatchSource)
 		return DispatchSource.MemoryPressureEvent(rawValue: mask)
 	}
 }
-#endif
 
-#if !os(Linux) && !os(Android) && !os(Windows)
 extension DispatchSourceProcess {
 	public var handle: pid_t {
-		return pid_t(dispatch_source_get_handle(self as! DispatchSource))
+		return pid_t(__dispatch_source_get_handle(self as! DispatchSource))
 	}
 
 	public var data: DispatchSource.ProcessEvent {
-		return DispatchSource.ProcessEvent(rawValue: (self as! DispatchSource).data)
+		let data = __dispatch_source_get_data(self as! DispatchSource)
+		return DispatchSource.ProcessEvent(rawValue: data)
 	}
 
 	public var mask: DispatchSource.ProcessEvent {
-		return DispatchSource.ProcessEvent(rawValue: (self as! DispatchSource).mask)
+		let mask = __dispatch_source_get_mask(self as! DispatchSource)
+		return DispatchSource.ProcessEvent(rawValue: mask)
 	}
 }
-#endif
 
 extension DispatchSourceTimer {
 	///
@@ -333,7 +317,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleOneshot(deadline: DispatchTime, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, ~0, UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, UInt64(deadline.rawValue), ~0, UInt64(leeway.rawValue))
 	}
 
 	///
@@ -362,9 +346,8 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleOneshot(wallDeadline: DispatchWallTime, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, ~0, UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, UInt64(wallDeadline.rawValue), ~0, UInt64(leeway.rawValue))
 	}
-
 	///
 	/// Sets the deadline, interval and leeway for a timer event that fires at least once.
 	///
@@ -396,7 +379,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleRepeating(deadline: DispatchTime, interval: DispatchTimeInterval, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -430,7 +413,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleRepeating(deadline: DispatchTime, interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -464,7 +447,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleRepeating(wallDeadline: DispatchWallTime, interval: DispatchTimeInterval, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -498,7 +481,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleRepeating(wallDeadline: DispatchWallTime, interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -534,7 +517,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, introduced: 4)
 	public func schedule(deadline: DispatchTime, repeating interval: DispatchTimeInterval = .never, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -570,7 +553,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, introduced: 4)
 	public func schedule(deadline: DispatchTime, repeating interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -606,7 +589,7 @@ extension DispatchSourceTimer {
 	///
 	@available(swift, introduced: 4)
 	public func schedule(wallDeadline: DispatchWallTime, repeating interval: DispatchTimeInterval = .never, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
 	///
@@ -636,64 +619,80 @@ extension DispatchSourceTimer {
 	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
 	///     leeway and other considerations described above. The deadline is based on
 	///     `gettimeofday(3)`.
-	/// - parameter repeating: the repeat interval for the timer in seconds, or `.infinity` if the timer
-	///		should fire only once.
+	/// - parameter repeating: the repeat interval for the timer in secondss, or `.infinity` if the timer
+	/// 	should fire only once.
 	/// - parameter leeway: the leeway for the timer.
 	///
 	@available(swift, introduced: 4)
 	public func schedule(wallDeadline: DispatchWallTime, repeating interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		__dispatch_source_set_timer(self as! DispatchSource, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 }
 
-#if !os(Linux) && !os(Android) && !os(Windows)
 extension DispatchSourceFileSystemObject {
 	public var handle: Int32 {
-		return Int32(dispatch_source_get_handle((self as! DispatchSource).__wrapped))
+		return Int32(__dispatch_source_get_handle(self as! DispatchSource))
 	}
 
 	public var data: DispatchSource.FileSystemEvent {
-		let data = dispatch_source_get_data((self as! DispatchSource).__wrapped)
-		return DispatchSource.FileSystemEvent(rawValue: UInt(data))
+		let data = __dispatch_source_get_data(self as! DispatchSource)
+		return DispatchSource.FileSystemEvent(rawValue: data)
 	}
 
 	public var mask: DispatchSource.FileSystemEvent {
-		let data = dispatch_source_get_mask((self as! DispatchSource).__wrapped)
-		return DispatchSource.FileSystemEvent(rawValue: UInt(data))
+		let data = __dispatch_source_get_mask(self as! DispatchSource)
+		return DispatchSource.FileSystemEvent(rawValue: data)
 	}
 }
-#endif
 
 extension DispatchSourceUserDataAdd {
-	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_ADD`
+	/// @function add
+	///
+	/// @abstract
+	/// Merges data into a dispatch source of type DISPATCH_SOURCE_TYPE_DATA_ADD
 	/// and submits its event handler block to its target queue.
 	///
-	/// - parameter data: the value to add to the current pending data. A value of zero
-	///		has no effect and will not result in the submission of the event handler block.
+	/// @param data
+	/// The value to add to the current pending data. A value of zero has no effect
+	/// and will not result in the submission of the event handler block.
 	public func add(data: UInt) {
-		dispatch_source_merge_data((self as! DispatchSource).__wrapped, UInt(data))
+		__dispatch_source_merge_data(self as! DispatchSource, data)
 	}
 }
 
 extension DispatchSourceUserDataOr {
-	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_OR` and
+	/// @function or
+	///
+	/// @abstract
+	/// Merges data into a dispatch source of type DISPATCH_SOURCE_TYPE_DATA_OR and
 	/// submits its event handler block to its target queue.
 	///
-	/// - parameter data: The value to OR into the current pending data. A value of zero
-	///		has no effect and will not result in the submission of the event handler block.
+	/// @param data
+	/// The value to OR into the current pending data. A value of zero has no effect
+	/// and will not result in the submission of the event handler block.
 	public func or(data: UInt) {
-		dispatch_source_merge_data((self as! DispatchSource).__wrapped, UInt(data))
+		__dispatch_source_merge_data(self as! DispatchSource, data)
 	}
 }
 
 extension DispatchSourceUserDataReplace {
-	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_REPLACE`
+	/// @function replace
+	///
+	/// @abstract
+	/// Merges data into a dispatch source of type DISPATCH_SOURCE_TYPE_DATA_REPLACE
 	/// and submits its event handler block to its target queue.
 	///
-	/// - parameter data: The value that will replace the current pending data.
-	///		A value of zero will be stored but will not result in the submission of the event
-	///		handler block.
+	/// @param data
+	/// The value that will replace the current pending data. A value of zero will be stored
+	/// but will not result in the submission of the event handler block.
 	public func replace(data: UInt) {
-		dispatch_source_merge_data((self as! DispatchSource).__wrapped, UInt(data))
+		__dispatch_source_merge_data(self as! DispatchSource, data)
 	}
+}
+
+@_spi(ExclavesNotification)
+extension DispatchSource {
+    public class func makeExclavesNotificationSource(identifier: UInt, eventMask: UInt32, queue: DispatchQueue? = nil) -> DispatchSourceExclavesNotification {
+        return _swift_dispatch_source_create(_swift_dispatch_source_type_EXCLAVES_NOTIFICATION(), identifier, UInt(eventMask), queue) as DispatchSourceExclavesNotification
+    }
 }

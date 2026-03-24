@@ -26,11 +26,13 @@
 #pragma once
 
 #include "APIObject.h"
+#include "EnhancedSecurity.h"
 #include "SessionState.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebsiteDataStore.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Ref.h>
+#include <wtf/RetainReleaseSwift.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -67,16 +69,16 @@ public:
     bool wasCreatedByJSWithoutUserInteraction() const;
 
     const URL& resourceDirectoryURL() const { return m_resourceDirectoryURL; }
-    void setResourceDirectoryURL(URL&& url) { m_resourceDirectoryURL = WTFMove(url); }
+    void setResourceDirectoryURL(URL&& url) { m_resourceDirectoryURL = WTF::move(url); }
     RefPtr<WebsiteDataStore> dataStoreForWebArchive() const { return m_dataStoreForWebArchive; }
     void setDataStoreForWebArchive(WebsiteDataStore* dataStore) { m_dataStoreForWebArchive = dataStore; }
 
     bool itemIsInSameDocument(const WebBackForwardListItem&) const;
     bool itemIsClone(const WebBackForwardListItem&);
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
     ViewSnapshot* snapshot() const { return m_snapshot.get(); }
-    void setSnapshot(RefPtr<ViewSnapshot>&& snapshot) { m_snapshot = WTFMove(snapshot); }
+    void setSnapshot(RefPtr<ViewSnapshot>&& snapshot) { m_snapshot = WTF::move(snapshot); }
 #endif
 
     void wasRemovedFromBackForwardList();
@@ -99,9 +101,10 @@ public:
 
     void setWasRestoredFromSession();
 
-#if !LOG_DISABLED
     String loggingString();
-#endif
+
+    void setEnhancedSecurity(EnhancedSecurity state) { m_enhancedSecurity = state; }
+    EnhancedSecurity enhancedSecurity() const { return m_enhancedSecurity; }
 
 private:
     WebBackForwardListItem(Ref<FrameState>&&, WebPageProxyIdentifier, std::optional<WebCore::FrameIdentifier>, BrowsingContextGroup*);
@@ -121,15 +124,26 @@ private:
     WebCore::ProcessIdentifier m_lastProcessIdentifier;
     RefPtr<WebBackForwardCacheEntry> m_backForwardCacheEntry;
     const RefPtr<BrowsingContextGroup> m_browsingContextGroup;
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
     RefPtr<ViewSnapshot> m_snapshot;
 #endif
     bool m_isRemoteFrameNavigation { false };
-};
+    EnhancedSecurity m_enhancedSecurity { EnhancedSecurity::Disabled };
+} SWIFT_SHARED_REFERENCE(refBackForwardListItem, derefBackForwardListItem);
 
 typedef Vector<Ref<WebBackForwardListItem>> BackForwardListItemVector;
 
 } // namespace WebKit
+
+inline void refBackForwardListItem(WebKit::WebBackForwardListItem* WTF_NONNULL obj)
+{
+    WTF::ref(obj);
+}
+
+inline void derefBackForwardListItem(WebKit::WebBackForwardListItem* WTF_NONNULL obj)
+{
+    WTF::deref(obj);
+}
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebBackForwardListItem)
 static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BackForwardListItem; }

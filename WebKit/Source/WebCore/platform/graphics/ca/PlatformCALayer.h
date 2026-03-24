@@ -64,7 +64,7 @@ struct PlatformCALayerInProcessDelegatedContentsFinishedEvent;
 typedef Vector<RefPtr<PlatformCALayer>> PlatformCALayerList;
 using AcceleratedEffects = Vector<Ref<AcceleratedEffect>>;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 class AcceleratedEffect;
 struct AcceleratedEffectValues;
 #endif
@@ -189,7 +189,7 @@ public:
     virtual void removeAnimationForKey(const String& key) = 0;
     virtual RefPtr<PlatformCAAnimation> animationForKey(const String& key) = 0;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     virtual void clearAcceleratedEffectsAndBaseValues();
     virtual void setAcceleratedEffectsAndBaseValues(const AcceleratedEffects&, const AcceleratedEffectValues&);
 #endif
@@ -291,6 +291,9 @@ public:
 
     virtual float cornerRadius() const = 0;
     virtual void setCornerRadius(float) = 0;
+
+    virtual Path shadowPath() const = 0;
+    virtual void setShadowPath(const Path&) = 0;
 
     virtual void setAntialiasesEdges(bool) = 0;
 

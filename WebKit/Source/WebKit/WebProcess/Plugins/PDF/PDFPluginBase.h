@@ -127,6 +127,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeThreadSafeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeThreadSafeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeThreadSafeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeThreadSafeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     void startLoading();
     void destroy();
@@ -343,6 +344,8 @@ public:
 
     virtual bool delegatesScrollingToMainFrame() const { return false; }
 
+    virtual void effectiveAppearanceDidChange() { }
+
 protected:
     virtual double contentScaleFactor() const = 0;
     virtual bool platformPopulateEditorStateIfNeeded(EditorState&) const { return false; }
@@ -468,7 +471,7 @@ protected:
 
     std::optional<WebCore::PageIdentifier> pageIdentifier() const;
 
-    static WebCore::Color pluginBackgroundColor();
+    WebCore::Color pluginBackgroundColor() const;
 
     RefPtr<PluginView> protectedView() const;
     RefPtr<WebFrame> protectedFrame() const;

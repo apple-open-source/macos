@@ -29,19 +29,17 @@
 #if ENABLE(WEBXR_LAYERS)
 
 #include "PlatformXR.h"
+#include "XRLayerBacking.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(XRProjectionLayer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(XRProjectionLayer);
 
-#if ENABLE(WEBGPU)
-XRProjectionLayer::XRProjectionLayer(ScriptExecutionContext& scriptExecutionContext, Ref<WebCore::WebGPU::XRProjectionLayer>&& backing)
-    : XRCompositionLayer(&scriptExecutionContext)
-    , m_backing(WTFMove(backing))
+XRProjectionLayer::XRProjectionLayer(ScriptExecutionContext& scriptExecutionContext, Ref<XRLayerBacking>&& backing)
+    : XRCompositionLayer(&scriptExecutionContext, WTF::move(backing))
 {
 }
-#endif
 
 XRProjectionLayer::~XRProjectionLayer() = default;
 
@@ -60,7 +58,7 @@ void XRProjectionLayer::startFrame(PlatformXR::FrameData& data)
     if (frameData->layerSetup && frameData->textureData) {
         m_layerData = frameData;
         auto& textureData = frameData->textureData;
-        m_backing->startFrame(frameData->renderingFrameIndex, WTFMove(textureData->colorTexture.handle), WTFMove(textureData->depthStencilBuffer.handle), WTFMove(frameData->layerSetup->completionSyncEvent), textureData->reusableTextureIndex, WTFMove(frameData->layerSetup->foveationRateMapDesc));
+        m_backing->startFrame(frameData->renderingFrameIndex, WTF::move(textureData->colorTexture.handle), WTF::move(textureData->depthStencilBuffer.handle), WTF::move(frameData->layerSetup->completionSyncEvent), textureData->reusableTextureIndex, WTF::move(frameData->layerSetup->foveationRateMapDesc));
     }
 #else
     UNUSED_PARAM(data);
@@ -76,9 +74,7 @@ std::optional<PlatformXR::FrameData::LayerData> XRProjectionLayer::layerData() c
 
 PlatformXR::Device::Layer XRProjectionLayer::endFrame()
 {
-#if ENABLE(WEBGPU)
     m_backing->endFrame();
-#endif
     return PlatformXR::Device::Layer {
         .handle = 0,
         .visible = true,
@@ -91,31 +87,22 @@ PlatformXR::Device::Layer XRProjectionLayer::endFrame()
 
 uint32_t XRProjectionLayer::textureWidth() const
 {
-#if ENABLE(WEBGPU)
     return m_backing->textureWidth();
-#endif
-    return 0;
 }
 
 uint32_t XRProjectionLayer::textureHeight() const
 {
-#if ENABLE(WEBGPU)
     return m_backing->textureHeight();
-#endif
-    return 0;
 }
 
 uint32_t XRProjectionLayer::textureArrayLength() const
 {
-#if ENABLE(WEBGPU)
 #if PLATFORM(IOS_FAMILY_SIMULATOR)
     ASSERT(m_backing->textureArrayLength() == 1);
 #else
     ASSERT(m_backing->textureArrayLength() == 2);
 #endif
     return m_backing->textureArrayLength();
-#endif
-    return 0;
 }
 
 bool XRProjectionLayer::ignoreDepthValues() const
@@ -141,13 +128,6 @@ void XRProjectionLayer::setDeltaPose(WebXRRigidTransform* deltaPose)
 {
     m_transform = deltaPose;
 }
-
-#if ENABLE(WEBGPU)
-WebCore::WebGPU::XRProjectionLayer& XRProjectionLayer::backing()
-{
-    return m_backing;
-}
-#endif
 
 } // namespace WebCore
 

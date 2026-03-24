@@ -157,18 +157,25 @@ KeyBlob *KeychainKey::blob()
         // export Key ACL to blob form
         CssmData pubAcl, privAcl;
 		acl().exportBlob(pubAcl, privAcl);
-        
-        // assemble external key form
-        CssmKey externalKey = mKey;
-		externalKey.clearAttribute(forcedAttributes);
-        externalKey.setAttribute(mAttributes);
 
-        // encode the key and replace blob
-        KeyBlob *newBlob = database().encodeKey(externalKey, pubAcl, privAcl);
-        Allocator::standard().free(mBlob);
-        mBlob = newBlob;
-        mValidBlob = true;
-    
+        try {
+            // assemble external key form
+            CssmKey externalKey = mKey;
+            externalKey.clearAttribute(forcedAttributes);
+            externalKey.setAttribute(mAttributes);
+
+            // encode the key and replace blob
+            KeyBlob *newBlob = database().encodeKey(externalKey, pubAcl, privAcl);
+            Allocator::standard().free(mBlob);
+            mBlob = newBlob;
+            mValidBlob = true;
+        } catch (...) {
+            secnotice("SSkey", "blob() caught exception");
+            acl().allocator.free(pubAcl);
+            acl().allocator.free(privAcl);
+            throw;
+        }
+
         // clean up and go
         acl().allocator.free(pubAcl);
         acl().allocator.free(privAcl);

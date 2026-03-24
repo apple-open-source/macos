@@ -1,12 +1,16 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
-// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+// Generated using tools/cldr/cldr-to-icu/
 es_PY{
     %%Parent{"es_419"}
     NumberElements{
         latn{
             patterns{
+                accountingFormat%alphaNextToNumber{"¤ #,##0.00;¤ -#,##0.00"}
+                accountingFormat%noCurrency{"#,##0.00"}
                 currencyFormat{"¤ #,##0.00;¤ -#,##0.00"}
+                currencyFormat%alphaNextToNumber{"¤ #,##0.00;¤ -#,##0.00"}
+                currencyFormat%noCurrency{"#,##0.00"}
             }
             symbols{
                 decimal{","}
@@ -55,9 +59,7 @@ es_PY{
                         pm{"p. m."}
                     }
                     narrow{
-                        am{"a. m."}
                         noon{"m."}
-                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}

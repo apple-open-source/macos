@@ -71,6 +71,7 @@
 #include "XMLNSNames.h"
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
+#include <limits>
 #include <wtf/MallocSpan.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -115,33 +116,26 @@ static inline bool shouldRenderInXMLTreeViewerMode(Document& document)
 // infinite recusion.
 
 #if HAVE(TYPE_AWARE_MALLOC)
-static void* xmlMallocHelper(size_t size, malloc_type_id_t typeID)
-{
-    return malloc_type_malloc(size, typeID);
-}
+using XMLMalloc = WTF::SystemMalloc;
 #else
 static void* xmlMallocHelper(size_t size)
 {
     return xmlMalloc(size);
 }
-#endif
 
 static void xmlFreeHelper(void* p)
 {
-#if HAVE(TYPE_AWARE_MALLOC)
-    free(p);
-#else
     xmlFree(p);
-#endif
 }
 
 struct XMLMalloc {
-    static void* malloc(size_t size) WTF_TYPE_AWARE_MALLOC_FUNCTION(xmlMallocHelper, 1)
+    static void* malloc(size_t size)
     {
         return xmlMallocHelper(size);
     }
     static void free(void* p) { xmlFreeHelper(p); }
 };
+#endif
 
 static std::span<xmlChar> unsafeSpanIncludingNullTerminator(xmlChar* string)
 {
@@ -182,7 +176,7 @@ public:
             callback->attributes[i * 5 + 4] = unsafeSpanIncludingNullTerminator(callback->attributes[i * 5 + 3]).subspan(len).data();
         }
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendEndElementNSCallback()
@@ -197,7 +191,7 @@ public:
         callback->s = MallocSpan<xmlChar, XMLMalloc>::malloc(s.size());
         memcpySpan(callback->s.mutableSpan(), s);
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendProcessingInstructionCallback(const xmlChar* target, const xmlChar* data)
@@ -207,7 +201,7 @@ public:
         callback->target = xmlStrdup(target);
         callback->data = xmlStrdup(data);
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendCDATABlockCallback(std::span<const xmlChar> s)
@@ -216,7 +210,7 @@ public:
         callback->s = MallocSpan<xmlChar, XMLMalloc>::malloc(s.size());
         memcpySpan(callback->s.mutableSpan(), s);
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendCommentCallback(const xmlChar* s)
@@ -225,7 +219,7 @@ public:
 
         callback->s = xmlStrdup(s);
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendInternalSubsetCallback(const xmlChar* name, const xmlChar* externalID, const xmlChar* systemID)
@@ -236,7 +230,7 @@ public:
         callback->externalID = xmlStrdup(externalID);
         callback->systemID = xmlStrdup(systemID);
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void appendErrorCallback(XMLErrors::Type type, const xmlChar* message, OrdinalNumber lineNumber, OrdinalNumber columnNumber)
@@ -248,7 +242,7 @@ public:
         callback->lineNumber = lineNumber;
         callback->columnNumber = columnNumber;
 
-        m_callbacks.append(WTFMove(callback));
+        m_callbacks.append(WTF::move(callback));
     }
 
     void callAndRemoveFirstCallback(XMLDocumentParser* parser)
@@ -403,7 +397,7 @@ class OffsetBuffer {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(OffsetBuffer);
 public:
     OffsetBuffer(Vector<uint8_t>&& buffer)
-        : m_buffer(WTFMove(buffer))
+        : m_buffer(WTF::move(buffer))
     {
     }
 
@@ -636,13 +630,16 @@ RefPtr<XMLParserContext> XMLParserContext::createMemoryParser(xmlSAXHandlerPtr h
     // FIXME: Why is XML_PARSE_NODICT needed? This is different from what createStringParser does.
     xmlCtxtUseOptions(parser, XML_PARSE_NODICT | XML_PARSE_NOENT | XML_PARSE_HUGE);
 
-    // Internal initialization
+#if LIBXML_VERSION < 21300
+    // Internal initialization required before libxml2 2.13.
+    // Fixed with https://gitlab.gnome.org/GNOME/libxml2/-/commit/8c5848bd
     parser->sax2 = 1;
     parser->instate = XML_PARSER_CONTENT; // We are parsing a CONTENT
     parser->depth = 0;
     parser->str_xml = xmlDictLookup(parser->dict, byteCast<xmlChar>(const_cast<char*>("xml")), 3);
     parser->str_xmlns = xmlDictLookup(parser->dict, byteCast<xmlChar>(const_cast<char*>("xmlns")), 5);
     parser->str_xml_ns = xmlDictLookup(parser->dict, XML_XML_NAMESPACE, 36);
+#endif
     parser->_private = userData;
 
     return adoptRef(*new XMLParserContext(parser));
@@ -670,7 +667,7 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment& fragment, HashMap<AtomStr
     , m_currentNode(&fragment)
     , m_scriptStartPosition(TextPosition::belowRangePosition())
     , m_parsingFragment(true)
-    , m_prefixToNamespaceMap(WTFMove(prefixToNamespaceMap))
+    , m_prefixToNamespaceMap(WTF::move(prefixToNamespaceMap))
     , m_defaultNamespaceURI(defaultNamespaceURI)
 {
     fragment.ref();
@@ -755,7 +752,7 @@ struct _xmlSAX2Namespace {
 };
 typedef struct _xmlSAX2Namespace xmlSAX2Namespace;
 
-static inline bool handleNamespaceAttributes(Vector<Attribute>& prefixedAttributes, const xmlChar** libxmlNamespaces, int numNamespaces)
+static inline bool handleNamespaceAttributes(Vector<Attribute>& prefixedAttributes, const xmlChar** libxmlNamespaces, int numNamespaces, bool& shouldUseNullCustomElementRegistry)
 {
     auto namespaces = unsafeMakeSpan(reinterpret_cast<xmlSAX2Namespace*>(libxmlNamespaces), numNamespaces);
     for (auto& xmlNamespace : namespaces) {
@@ -768,7 +765,11 @@ static inline bool handleNamespaceAttributes(Vector<Attribute>& prefixedAttribut
         if (result.hasException())
             return false;
 
-        prefixedAttributes.append(Attribute(result.releaseReturnValue(), namespaceURI));
+        QualifiedName attributeName = result.releaseReturnValue();
+        if (attributeName == HTMLNames::customelementregistryAttr)
+            shouldUseNullCustomElementRegistry = true;
+
+        prefixedAttributes.append(Attribute(attributeName, namespaceURI));
     }
     return true;
 }
@@ -782,7 +783,7 @@ struct _xmlSAX2Attributes {
 };
 typedef struct _xmlSAX2Attributes xmlSAX2Attributes;
 
-static inline bool handleElementAttributes(Vector<Attribute>& prefixedAttributes, const xmlChar** libxmlAttributes, int numAttributes)
+static inline bool handleElementAttributes(Vector<Attribute>& prefixedAttributes, const xmlChar** libxmlAttributes, int numAttributes, bool& shouldUseNullCustomElementRegistry)
 {
     auto attributes = unsafeMakeSpan(reinterpret_cast<xmlSAX2Attributes*>(libxmlAttributes), numAttributes);
     for (auto& attribute : attributes) {
@@ -796,7 +797,11 @@ static inline bool handleElementAttributes(Vector<Attribute>& prefixedAttributes
         if (result.hasException())
             return false;
 
-        prefixedAttributes.append(Attribute(result.releaseReturnValue(), attrValue));
+        QualifiedName attributeName = result.releaseReturnValue();
+        if (attributeName == HTMLNames::customelementregistryAttr)
+            shouldUseNullCustomElementRegistry = true;
+
+        prefixedAttributes.append(Attribute(attributeName, attrValue));
     }
     return true;
 }
@@ -848,17 +853,20 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
         customElementReactionStack.emplace(m_currentNode->document().globalObject());
     }
 
-    auto newElement = m_currentNode->document().createElement(qName, true,
-        CustomElementRegistry::registryForNodeOrTreeScope(*m_currentNode, m_currentNode->treeScope()));
-
     Vector<Attribute> prefixedAttributes;
-    if (!handleNamespaceAttributes(prefixedAttributes, libxmlNamespaces, numNamespaces)) {
+    bool shouldUseNullCustomElementRegistry = false;
+    bool handledAttributes = handleNamespaceAttributes(prefixedAttributes, libxmlNamespaces, numNamespaces, shouldUseNullCustomElementRegistry);
+    bool success = handledAttributes ? handleElementAttributes(prefixedAttributes, libxmlAttributes, numAttributes, shouldUseNullCustomElementRegistry) : false;
+
+    RefPtr registry = shouldUseNullCustomElementRegistry ? nullptr : CustomElementRegistry::registryForNodeOrTreeScope(*m_currentNode, m_currentNode->treeScope());
+    auto newElement = m_currentNode->document().createElement(qName, true, registry.get());
+
+    if (!handledAttributes) {
         setAttributes(newElement.ptr(), prefixedAttributes, parserContentPolicy());
         stopParsing();
         return;
     }
 
-    bool success = handleElementAttributes(prefixedAttributes, libxmlAttributes, numAttributes);
     setAttributes(newElement.ptr(), prefixedAttributes, parserContentPolicy());
     if (!success) {
         stopParsing();
@@ -1411,8 +1419,11 @@ xmlDocPtr xmlDocPtrForString(CachedResourceLoader& cachedResourceLoader, const S
     size_t sizeInBytes = source.length() * (is8Bit ? sizeof(Latin1Character) : sizeof(char16_t));
     const char* encoding = is8Bit ? "iso-8859-1" : nativeEndianUTF16Encoding();
 
+    if (sizeInBytes > std::numeric_limits<int>::max())
+        return nullptr;
+
     XMLDocumentParserScope scope(&cachedResourceLoader, errorFunc);
-    return xmlReadMemory(characters.data(), sizeInBytes, url.latin1().data(), encoding, XSLT_PARSE_OPTIONS);
+    return xmlReadMemory(characters.data(), static_cast<int>(sizeInBytes), url.latin1().data(), encoding, XSLT_PARSE_OPTIONS);
 }
 #endif
 
@@ -1485,6 +1496,7 @@ bool XMLDocumentParser::appendFragmentSource(const String& chunk)
     xmlParseContent(context());
     endDocument(); // Close any open text nodes.
 
+#if LIBXML_VERSION < 21400
     // FIXME: If this code is actually needed, it should probably move to finish()
     // XMLDocumentParserQt has a similar check (m_stream.error() == QXmlStreamReader::PrematureEndOfDocumentError) in doEnd().
     // Check if all the chunk has been processed.
@@ -1495,6 +1507,7 @@ bool XMLDocumentParser::appendFragmentSource(const String& chunk)
         ASSERT(m_sawError || (bytesProcessed >= 0 && !chunkAsUTF8.span()[bytesProcessed]));
         return false;
     }
+#endif
 
     // No error if the chunk is well formed or it is not but we have no error.
     return context()->wellFormed || !xmlCtxtGetLastError(context());

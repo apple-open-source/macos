@@ -149,7 +149,7 @@ void JSTestMapLikePrototype::finishCreation(VM& vm)
 const ClassInfo JSTestMapLike::s_info = { "TestMapLike"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestMapLike) };
 
 JSTestMapLike::JSTestMapLike(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestMapLike>&& impl)
-    : JSDOMWrapper<TestMapLike>(structure, globalObject, WTFMove(impl))
+    : JSDOMWrapper<TestMapLike>(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -429,7 +429,7 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlo
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestMapLike>(impl.ptr());
 #endif
-    return createWrapper<TestMapLike>(globalObject, WTFMove(impl));
+    return createWrapper<TestMapLike>(globalObject, WTF::move(impl));
 }
 
 JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestMapLike& impl)

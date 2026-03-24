@@ -25,6 +25,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include "BPlatform.h"
+
 #if !BUSE(TZONE)
 
 #include "Bits.h"
@@ -34,6 +38,8 @@
 #include "Vector.h"
 
 #if !BUSE(LIBPAS)
+
+#include "DeferredDecommit.h"
 
 namespace bmalloc {
 
@@ -99,3 +105,5 @@ private:
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

@@ -234,7 +234,7 @@ static void delayBetweenMove(int eventIndex, double elapsed)
         auto contextId = window._contextId;
         ASSERT(contextId);
 
-        RunLoop::mainSingleton().dispatch([markerEvent = WTFMove(markerEvent), contextId] {
+        RunLoop::mainSingleton().dispatch([markerEvent = WTF::move(markerEvent), contextId] {
             BKSHIDEventSetDigitizerInfo(markerEvent.get(), contextId, false, false, NULL, 0, 0);
             [[UIApplication sharedApplication] _enqueueHIDEvent:markerEvent.get()];
         });

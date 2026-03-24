@@ -114,7 +114,7 @@ void JSServiceWorkerGlobalScopePrototype::finishCreation(VM& vm)
 const ClassInfo JSServiceWorkerGlobalScope::s_info = { "ServiceWorkerGlobalScope"_s, &Base::s_info, &JSServiceWorkerGlobalScopeTable, nullptr, CREATE_METHOD_TABLE(JSServiceWorkerGlobalScope) };
 
 JSServiceWorkerGlobalScope::JSServiceWorkerGlobalScope(VM& vm, Structure* structure, Ref<ServiceWorkerGlobalScope>&& impl)
-    : JSWorkerGlobalScope(vm, structure, WTFMove(impl))
+    : JSWorkerGlobalScope(vm, structure, WTF::move(impl))
 {
 }
 

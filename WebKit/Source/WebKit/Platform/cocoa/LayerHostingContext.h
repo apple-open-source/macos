@@ -109,7 +109,7 @@ public:
     static RetainPtr<BELayerHierarchyHostingTransactionCoordinator> createHostingUpdateCoordinator(WTF::MachSendRightAnnotated&&);
     static WTF::MachSendRightAnnotated fence(BELayerHierarchyHostingTransactionCoordinator *);
 #else
-    OSObjectPtr<xpc_object_t> xpcRepresentation() const;
+    XPCObjectPtr<xpc_object_t> xpcRepresentation() const;
     static RetainPtr<BELayerHierarchyHandle> createHostingHandle(uint64_t pid, uint64_t contextID);
     static RetainPtr<BELayerHierarchyHostingTransactionCoordinator> createHostingUpdateCoordinator(mach_port_t sendRight);
 #endif // ENABLE(MACH_PORT_LAYER_HOSTING)

@@ -1,6 +1,13 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
  * Copyright (C) 1996 by Andrey A. Chernov, Moscow, Russia.
  * All rights reserved.
+ *
+ * Copyright (c) 2011 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by David Chisnall
+ * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,10 +31,7 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.18 2005/02/27 14:54:23 phantom Exp $");
-
-#include <xlocale.h>
+#include <string.h>
 #include <wchar.h>
 #include "collate.h"
 
@@ -35,12 +39,32 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.18 2005/02/27 14:54:23 pha
  * Compare two characters using collate
  */
 
-__private_extern__ int
-__collate_range_cmp(wchar_t c1, wchar_t c2, locale_t loc)
+#ifdef __APPLE__
+__private_extern__
+#endif
+int
+ __collate_range_cmp(char c1, char c2)
 {
-	static wchar_t s1[2], s2[2];
+	char s1[2], s2[2];
 
 	s1[0] = c1;
+	s1[1] = '\0';
 	s2[0] = c2;
-	return (wcscoll_l(s1, s2, loc));
+	s2[1] = '\0';
+	return (strcoll(s1, s2));
+}
+
+#ifdef __APPLE__
+__private_extern__
+#endif
+int
+__wcollate_range_cmp(wchar_t c1, wchar_t c2)
+{
+	wchar_t s1[2], s2[2];
+
+	s1[0] = c1;
+	s1[1] = L'\0';
+	s2[0] = c2;
+	s2[1] = L'\0';
+	return (wcscoll(s1, s2));
 }

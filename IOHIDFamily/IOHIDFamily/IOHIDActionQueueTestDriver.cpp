@@ -20,25 +20,25 @@ bool IOHIDActionQueueTestDriver::start(IOService *provider)
 {
     bool result = false;
     
-    require(super::start(provider), exit);
+    __Require(super::start(provider), exit);
     
     _testWL1 = IOWorkLoop::workLoop();
     _interrupt1 = IOInterruptEventSource::interruptEventSource(this,
                                                                OSMemberFunctionCast(IOInterruptEventAction,
                                                                                     this, &IOHIDActionQueueTestDriver::interruptAction1));
-    require_noerr(_testWL1->addEventSource(_interrupt1), exit);
+    __Require_noErr(_testWL1->addEventSource(_interrupt1), exit);
     
     _testWL2 = IOWorkLoop::workLoop();
     _interrupt2 = IOInterruptEventSource::interruptEventSource(this,
                                                                OSMemberFunctionCast(IOInterruptEventAction,
                                                                                     this, &IOHIDActionQueueTestDriver::interruptAction2));
-    require_noerr(_testWL2->addEventSource(_interrupt2), exit);
+    __Require_noErr(_testWL2->addEventSource(_interrupt2), exit);
     
     _actionWL = IOWorkLoop::workLoop();
-    require(_actionWL, exit);
+    __Require(_actionWL, exit);
     
     _actionQueue = IOHIDActionQueue::actionQueue(this, _actionWL);
-    require(_actionQueue, exit);
+    __Require(_actionQueue, exit);
     
     _actionQueue->setCancelHandler(^{
         cancelHandlerCall();
@@ -88,7 +88,7 @@ IOReturn IOHIDActionQueueTestDriver::setProperties(OSObject *properties)
     IOReturn result = kIOReturnUnsupported;
     
     propertyDict = OSDynamicCast(OSDictionary, properties);
-    require(propertyDict, exit);
+    __Require(propertyDict, exit);
     
     start = OSDynamicCast(OSBoolean, propertyDict->getObject("StartTest"));
     if (start == kOSBooleanTrue) {

@@ -102,7 +102,7 @@ private:
         imageBufferContext.translate(-dirtyRect.location());
         m_client.drawRect(toAPI(&pageOverlay), imageBufferContext.platformContext(), WebKit::toAPI(dirtyRect), m_client.base.clientInfo);
 
-        graphicsContext.drawConsumingImageBuffer(WTFMove(imageBuffer), dirtyRect);
+        graphicsContext.drawConsumingImageBuffer(WTF::move(imageBuffer), dirtyRect);
     }
 
     bool mouseEvent(WebKit::WebPageOverlay& pageOverlay, const WebCore::PlatformMouseEvent& event) override
@@ -235,7 +235,7 @@ WKTypeID WKBundlePageOverlayGetTypeID()
 WKBundlePageOverlayRef WKBundlePageOverlayCreate(WKBundlePageOverlayClientBase* wkClient)
 {
     auto clientImpl = makeUnique<PageOverlayClientImpl>(wkClient);
-    SUPPRESS_UNCOUNTED_ARG return toAPI(&WebKit::WebPageOverlay::create(WTFMove(clientImpl)).leakRef());
+    return toAPILeakingRef(WebKit::WebPageOverlay::create(WTF::move(clientImpl)));
 }
 
 void WKBundlePageOverlaySetAccessibilityClient(WKBundlePageOverlayRef bundlePageOverlayRef, WKBundlePageOverlayAccessibilityClientBase* client)

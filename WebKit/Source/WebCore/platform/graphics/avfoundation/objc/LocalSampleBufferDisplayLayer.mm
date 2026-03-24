@@ -154,13 +154,13 @@ RefPtr<LocalSampleBufferDisplayLayer> LocalSampleBufferDisplayLayer::create(Samp
     if (!sampleBufferDisplayLayer)
         return nullptr;
 
-    return adoptRef(*new LocalSampleBufferDisplayLayer(WTFMove(sampleBufferDisplayLayer), client));
+    return adoptRef(*new LocalSampleBufferDisplayLayer(WTF::move(sampleBufferDisplayLayer), client));
 }
 
 LocalSampleBufferDisplayLayer::LocalSampleBufferDisplayLayer(RetainPtr<AVSampleBufferDisplayLayer>&& sampleBufferDisplayLayer, SampleBufferDisplayLayerClient& client)
     : SampleBufferDisplayLayer(client)
     , m_statusChangeListener(adoptNS([[WebAVSampleBufferStatusChangeListener alloc] initWithParent:this]))
-    , m_sampleBufferDisplayLayer(WTFMove(sampleBufferDisplayLayer))
+    , m_sampleBufferDisplayLayer(WTF::move(sampleBufferDisplayLayer))
     , m_processingQueue(WorkQueue::create("LocalSampleBufferDisplayLayer queue"_s))
 #if !RELEASE_LOG_DISABLED
     , m_frameRateMonitor([this](auto info) { onIrregularFrameRateNotification(info.frameTime, info.lastFrameTime); })
@@ -427,8 +427,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if !RELEASE_LOG_DISABLED
     constexpr size_t frameCountPerLog = 1800; // log every minute at 30 fps
     if (!(m_frameRateMonitor.frameCount() % frameCountPerLog)) {
-        if (auto* metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics])
-            RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer (%llu) metrics, total=%lu, dropped=%lu, corrupted=%lu, display-composited=%lu, non-display-composited=%lu (pending=%lu)", m_logIdentifier, metrics.totalNumberOfVideoFrames, metrics.numberOfDroppedVideoFrames, metrics.numberOfCorruptedVideoFrames, metrics.numberOfDisplayCompositedVideoFrames, metrics.numberOfNonDisplayCompositedVideoFrames, m_pendingVideoFrameQueue.size());
+        if (RetainPtr metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics])
+            RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer (%llu) metrics, total=%lu, dropped=%lu, corrupted=%lu, display-composited=%lu, non-display-composited=%lu (pending=%lu)", m_logIdentifier, metrics.get().totalNumberOfVideoFrames, metrics.get().numberOfDroppedVideoFrames, metrics.get().numberOfCorruptedVideoFrames, metrics.get().numberOfDisplayCompositedVideoFrames, metrics.get().numberOfNonDisplayCompositedVideoFrames, m_pendingVideoFrameQueue.size());
     }
     m_frameRateMonitor.update();
 #endif
@@ -475,7 +475,7 @@ void LocalSampleBufferDisplayLayer::addVideoFrameToPendingQueue(Ref<VideoFrame>&
     assertIsCurrent(workQueue());
 
     removeOldVideoFramesFromPendingQueue();
-    m_pendingVideoFrameQueue.append(WTFMove(videoFrame));
+    m_pendingVideoFrameQueue.append(WTF::move(videoFrame));
 }
 
 void LocalSampleBufferDisplayLayer::clearVideoFrames()

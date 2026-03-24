@@ -83,7 +83,7 @@ private:
         );
 
     void requestPermissionForRequest(WebCore::SpeechRecognitionRequest&, FrameInfoData&&);
-    void handleRequest(UniqueRef<WebCore::SpeechRecognitionRequest>&&);
+    void handleRequest(Ref<WebCore::SpeechRecognitionRequest>&&);
     void sendUpdate(WebCore::SpeechRecognitionConnectionClientIdentifier, WebCore::SpeechRecognitionUpdateType, std::optional<WebCore::SpeechRecognitionError> = std::nullopt, std::optional<Vector<WebCore::SpeechRecognitionResultData>> = std::nullopt);
     void sendUpdate(const WebCore::SpeechRecognitionUpdate&);
 
@@ -98,7 +98,7 @@ private:
 
     WeakPtr<WebProcessProxy> m_process;
     SpeechRecognitionServerIdentifier m_identifier;
-    HashMap<WebCore::SpeechRecognitionConnectionClientIdentifier, std::unique_ptr<WebCore::SpeechRecognitionRequest>> m_requests;
+    HashMap<WebCore::SpeechRecognitionConnectionClientIdentifier, Ref<WebCore::SpeechRecognitionRequest>> m_requests;
     SpeechRecognitionPermissionChecker m_permissionChecker;
     std::unique_ptr<WebCore::SpeechRecognizer> m_recognizer;
     SpeechRecognitionCheckIfMockSpeechRecognitionEnabled m_checkIfMockSpeechRecognitionEnabled;

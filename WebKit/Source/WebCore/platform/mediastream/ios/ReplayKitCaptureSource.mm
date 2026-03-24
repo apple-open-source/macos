@@ -56,7 +56,7 @@ using namespace WebCore;
     if (!self)
         return self;
 
-    _capturer = WTFMove(capturer);
+    _capturer = WTF::move(capturer);
     [[PAL::getRPScreenRecorderClassSingleton() sharedRecorder] addObserver:self forKeyPath:@"recording" options:NSKeyValueObservingOptionNew context:(void *)nil];
 
     return self;
@@ -148,7 +148,7 @@ bool ReplayKitCaptureSource::start()
             if (!weakThis)
                 return;
 
-            weakThis->screenRecorderDidOutputVideoSample(WTFMove(sampleBuffer));
+            weakThis->screenRecorderDidOutputVideoSample(WTF::move(sampleBuffer));
         });
     });
 

@@ -66,7 +66,7 @@ public:
     Class objectClass() { return m_secureCoding.get().class; }
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCSecureCoding, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCSecureCoding>;
 
     IPC::CoreIPCRetainPtr<NSObject<NSSecureCoding>> m_secureCoding;
 };

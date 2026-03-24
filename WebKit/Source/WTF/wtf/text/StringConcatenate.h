@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,7 +53,7 @@ template<typename StringType> concept StringTypeAdaptable = requires {
     typename StringTypeAdapter<StringType>;
 };
 
-template<> class StringTypeAdapter<char, void> {
+template<> class StringTypeAdapter<char> {
 public:
     StringTypeAdapter(char character)
         : m_character { character }
@@ -68,7 +68,7 @@ private:
     char m_character;
 };
 
-template<> class StringTypeAdapter<char16_t, void> {
+template<> class StringTypeAdapter<char16_t> {
 public:
     StringTypeAdapter(char16_t character)
         : m_character { character }
@@ -90,7 +90,7 @@ private:
     char16_t m_character;
 };
 
-template<> class StringTypeAdapter<char32_t, void> {
+template<> class StringTypeAdapter<char32_t> {
 public:
     StringTypeAdapter(char32_t character)
         : m_character { character }
@@ -109,7 +109,7 @@ public:
     void writeTo(std::span<char16_t> destination) const
     {
         if (U_IS_BMP(m_character)) {
-            destination[0] = m_character;
+            destination[0] = static_cast<char16_t>(m_character);
             return;
         }
         destination[0] = U16_LEAD(m_character);
@@ -120,23 +120,7 @@ private:
     char32_t m_character;
 };
 
-template<> class StringTypeAdapter<const Latin1Character*, void> {
-public:
-    StringTypeAdapter(const Latin1Character* characters)
-        : m_characters { unsafeSpan(characters) }
-    {
-        RELEASE_ASSERT(m_characters.size() <= String::MaxLength);
-    }
-
-    unsigned length() const { return m_characters.size(); }
-    bool is8Bit() const { return true; }
-    template<typename CharacterType> void writeTo(std::span<CharacterType> destination) const { StringImpl::copyCharacters(destination, m_characters); }
-
-private:
-    std::span<const Latin1Character> m_characters;
-};
-
-template<> class StringTypeAdapter<const char16_t*, void> {
+template<> class StringTypeAdapter<const char16_t*> {
 public:
     StringTypeAdapter(const char16_t* characters)
         : m_characters { unsafeSpan(characters) }
@@ -153,7 +137,7 @@ private:
     std::span<const char16_t> m_characters;
 };
 
-template<typename CharacterType, size_t Extent> class StringTypeAdapter<std::span<CharacterType, Extent>, void> {
+template<typename CharacterType, size_t Extent> class StringTypeAdapter<std::span<CharacterType, Extent>> {
 public:
     StringTypeAdapter(std::span<CharacterType, Extent> span)
         : m_characters { span }
@@ -175,23 +159,23 @@ private:
     std::span<const CharacterType> m_characters;
 };
 
-template<> class StringTypeAdapter<CString, void> : public StringTypeAdapter<std::span<const char>, void> {
+template<> class StringTypeAdapter<CString> : public StringTypeAdapter<std::span<const char>> {
 public:
     StringTypeAdapter(const CString& string)
-        : StringTypeAdapter<std::span<const char>, void> { spanReinterpretCast<const char>(string.span()) }
+        : StringTypeAdapter<std::span<const char>> { spanReinterpretCast<const char>(string.span()) }
     {
     }
 };
 
-template<> class StringTypeAdapter<ASCIILiteral, void> : public StringTypeAdapter<std::span<const Latin1Character>, void> {
+template<> class StringTypeAdapter<ASCIILiteral> : public StringTypeAdapter<std::span<const Latin1Character>> {
 public:
     StringTypeAdapter(ASCIILiteral characters)
-        : StringTypeAdapter<std::span<const Latin1Character>, void> { characters.span8() }
+        : StringTypeAdapter<std::span<const Latin1Character>> { characters.span8() }
     {
     }
 };
 
-template<typename CharacterType, size_t InlineCapacity> class StringTypeAdapter<Vector<CharacterType, InlineCapacity>, void> : public StringTypeAdapter<std::span<const CharacterType>> {
+template<typename CharacterType, size_t InlineCapacity> class StringTypeAdapter<Vector<CharacterType, InlineCapacity>> : public StringTypeAdapter<std::span<const CharacterType>> {
 public:
     StringTypeAdapter(const Vector<CharacterType, InlineCapacity>& vector)
         : StringTypeAdapter<std::span<const CharacterType>> { vector.span() }
@@ -199,7 +183,7 @@ public:
     }
 };
 
-template<> class StringTypeAdapter<StringImpl*, void> {
+template<> class StringTypeAdapter<StringImpl*> {
 public:
     StringTypeAdapter(StringImpl* string)
         : m_string { string }
@@ -218,31 +202,31 @@ private:
     SUPPRESS_UNCOUNTED_MEMBER StringImpl* const m_string;
 };
 
-template<> class StringTypeAdapter<AtomStringImpl*, void> : public StringTypeAdapter<StringImpl*, void> {
+template<> class StringTypeAdapter<AtomStringImpl*> : public StringTypeAdapter<StringImpl*> {
 public:
     StringTypeAdapter(AtomStringImpl* string)
-        : StringTypeAdapter<StringImpl*, void> { static_cast<StringImpl*>(string) }
+        : StringTypeAdapter<StringImpl*> { static_cast<StringImpl*>(string) }
     {
     }
 };
 
-template<> class StringTypeAdapter<String, void> : public StringTypeAdapter<StringImpl*, void> {
+template<> class StringTypeAdapter<String> : public StringTypeAdapter<StringImpl*> {
 public:
     StringTypeAdapter(const String& string)
-        : StringTypeAdapter<StringImpl*, void> { string.impl() }
+        : StringTypeAdapter<StringImpl*> { string.impl() }
     {
     }
 };
 
-template<> class StringTypeAdapter<AtomString, void> : public StringTypeAdapter<String, void> {
+template<> class StringTypeAdapter<AtomString> : public StringTypeAdapter<String> {
 public:
     StringTypeAdapter(const AtomString& string)
-        : StringTypeAdapter<String, void> { string.string() }
+        : StringTypeAdapter<String> { string.string() }
     {
     }
 };
 
-template<> class StringTypeAdapter<StringImpl&, void> {
+template<> class StringTypeAdapter<StringImpl&> {
 public:
     StringTypeAdapter(StringImpl& string)
         : m_string { string }
@@ -261,15 +245,15 @@ private:
     SUPPRESS_UNCOUNTED_MEMBER StringImpl& m_string;
 };
 
-template<> class StringTypeAdapter<AtomStringImpl&, void> : public StringTypeAdapter<StringImpl&, void> {
+template<> class StringTypeAdapter<AtomStringImpl&> : public StringTypeAdapter<StringImpl&> {
 public:
     StringTypeAdapter(StringImpl& string)
-        : StringTypeAdapter<StringImpl&, void> { string }
+        : StringTypeAdapter<StringImpl&> { string }
     {
     }
 };
 
-template<> class StringTypeAdapter<Unicode::CheckedUTF8, void> {
+template<> class StringTypeAdapter<Unicode::CheckedUTF8> {
 public:
     StringTypeAdapter(Unicode::CheckedUTF8 characters)
         : m_characters { characters }
@@ -289,15 +273,15 @@ private:
     Unicode::CheckedUTF8 m_characters;
 };
 
-template<size_t Extent> class StringTypeAdapter<std::span<const char8_t, Extent>, void> : public StringTypeAdapter<Unicode::CheckedUTF8, void> {
+template<size_t Extent> class StringTypeAdapter<std::span<const char8_t, Extent>> : public StringTypeAdapter<Unicode::CheckedUTF8> {
 public:
     StringTypeAdapter(std::span<const char8_t, Extent> span)
-        : StringTypeAdapter<Unicode::CheckedUTF8, void> { Unicode::checkUTF8(span) }
+        : StringTypeAdapter<Unicode::CheckedUTF8> { Unicode::checkUTF8(span) }
     {
     }
 };
 
-template<typename... StringTypes> class StringTypeAdapter<std::tuple<StringTypes...>, void> {
+template<typename... StringTypes> class StringTypeAdapter<std::tuple<StringTypes...>> {
 public:
     StringTypeAdapter(const std::tuple<StringTypes...>& tuple)
         : m_tuple { tuple }
@@ -396,7 +380,7 @@ struct IndentationScope {
     Indentation<N>& m_indentation;
 };
 
-template<unsigned N> class StringTypeAdapter<Indentation<N>, void> {
+template<unsigned N> class StringTypeAdapter<Indentation<N>> {
 public:
     StringTypeAdapter(Indentation<N> indentation)
         : m_indentation { indentation }
@@ -437,7 +421,7 @@ inline ASCIICaseConverter asASCIIUppercase(StringView stringView)
     return { StringView::CaseConvertType::Upper, stringView };
 }
 
-template<> class StringTypeAdapter<ASCIICaseConverter, void> {
+template<> class StringTypeAdapter<ASCIICaseConverter> {
 public:
     StringTypeAdapter(const ASCIICaseConverter& converter)
         : m_converter { converter }
@@ -459,7 +443,7 @@ template<typename C, typename E, typename B> class Interleave {
 public:
     Interleave(const C& container, E each, const B& between)
         : container { container }
-        , each { WTFMove(each) }
+        , each { WTF::move(each) }
         , between { between }
     {
     }
@@ -470,35 +454,31 @@ public:
     Interleave(Interleave&&) = default;
     Interleave& operator=(Interleave&&) = default;
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     template<typename Accumulator> void writeUsing(Accumulator& accumulator) const
     {
-        auto begin = std::begin(container);
-        auto end = std::end(container);
-        if (begin == end)
-            return;
-
         constexpr bool eachTakesAccumulator = requires {
-            { std::invoke(each, accumulator, *begin) } -> std::same_as<void>;
+            { std::invoke(each, accumulator, *std::begin(container)) } -> std::same_as<void>;
         };
 
+        bool isFirst = true;
         if constexpr (eachTakesAccumulator) {
-            std::invoke(each, accumulator, *begin);
-
-            ++begin;
-            for (; begin != end; ++begin) {
-                accumulator.append(between);
-                std::invoke(each, accumulator, *begin);
+            for (auto& item : container) {
+                if (isFirst)
+                    isFirst = false;
+                else
+                    accumulator.append(between);
+                std::invoke(each, accumulator, item);
             }
         } else {
-            accumulator.append(std::invoke(each, *begin));
-
-            ++begin;
-            for (; begin != end; ++begin)
-                accumulator.append(between, std::invoke(each, *begin));
+            for (auto& item : container) {
+                if (isFirst)
+                    isFirst = false;
+                else
+                    accumulator.append(between);
+                accumulator.append(std::invoke(each, item));
+            }
         }
     }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 private:
     const C& container;
@@ -561,22 +541,22 @@ template<typename C> using EachTakingAccumulatorAndValueFunction = void(&)(Strin
 
 template<typename C, std::invocable<decltype(*std::begin(std::declval<C>()))> E, StringTypeAdaptable B>
     requires EachTakingValue<C, E>
-decltype(auto) interleave(const C& container, E each, const B& between)
+decltype(auto) interleave(const C& container, NOESCAPE E&& each, const B& between)
 {
     return Interleave {
         container,
-        WTFMove(each),
+        std::forward<E>(each),
         between
     };
 }
 
 template<typename C, std::invocable<decltype(std::declval<StringBuilder&>()), decltype(*std::begin(std::declval<C>()))> E, StringTypeAdaptable B>
     requires EachTakingAccumulatorAndValue<C, E>
-decltype(auto) interleave(const C& container, E each, const B& between)
+decltype(auto) interleave(const C& container, NOESCAPE E&& each, const B& between)
 {
     return Interleave {
         container,
-        WTFMove(each),
+        std::forward<E>(each),
         between
     };
 }
@@ -599,7 +579,7 @@ template<typename C, StringTypeAdaptable B> decltype(auto) interleave(const C& c
     );
 }
 
-template<typename C, typename E, typename B> class StringTypeAdapter<Interleave<C, E, B>, void> {
+template<typename C, typename E, typename B> class StringTypeAdapter<Interleave<C, E, B>> {
 public:
     StringTypeAdapter(const Interleave<C, E, B>& interleave)
         : m_interleave { interleave }

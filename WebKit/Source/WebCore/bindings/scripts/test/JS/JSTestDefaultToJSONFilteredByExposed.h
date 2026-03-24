@@ -32,7 +32,7 @@ public:
     static JSTestDefaultToJSONFilteredByExposed* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestDefaultToJSONFilteredByExposed>&& impl)
     {
         SUPPRESS_UNCOUNTED_LOCAL auto& vm = globalObject->vm();
-        JSTestDefaultToJSONFilteredByExposed* ptr = new (NotNull, JSC::allocateCell<JSTestDefaultToJSONFilteredByExposed>(vm)) JSTestDefaultToJSONFilteredByExposed(structure, *globalObject, WTFMove(impl));
+        JSTestDefaultToJSONFilteredByExposed* ptr = new (NotNull, JSC::allocateCell<JSTestDefaultToJSONFilteredByExposed>(vm)) JSTestDefaultToJSONFilteredByExposed(structure, *globalObject, WTF::move(impl));
         ptr->finishCreation(vm);
         return ptr;
     }

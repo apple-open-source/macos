@@ -31,7 +31,7 @@
 #include "RenderBlock.h"
 #include "RenderElementInlines.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderText.h"
 #include "StyleAppleColorFilter.h"
 #include "StyleTextDecorationLine.h"
@@ -209,7 +209,7 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
                     auto intersections = m_font.lineSegmentsForIntersectionsWithRect(textRun, decorationGeometry.textOrigin, underlineBoundingBox);
                     if (!intersections.isEmpty()) {
                         auto dilationAmount = std::min(underlineBoundingBox.height(), style.metricsOfPrimaryFont().height() / 5);
-                        auto boundaries = differenceWithDilation({ 0, rect.width() }, WTFMove(intersections), dilationAmount);
+                        auto boundaries = differenceWithDilation({ 0, rect.width() }, WTF::move(intersections), dilationAmount);
                         // We don't use underlineBoundingBox here because drawLinesForText() will run computeUnderlineBoundsForText() internally.
                         m_context.drawLinesForText(rect.location(), rect.height(), boundaries.span(), m_isPrinting, underlineStyle == TextDecorationStyle::Double, strokeStyle);
                     } else
@@ -277,7 +277,8 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
                 boxOrigin.move(0, -extraOffset);
                 extraOffset = 0;
             }
-            auto shadowColor = style.colorResolvingCurrentColor(shadow.color);
+            Style::ColorResolver colorResolver { style };
+            auto shadowColor = colorResolver.colorResolvingCurrentColor(shadow.color);
 
             m_shadowColorFilter.transformColor(shadowColor);
 
@@ -383,7 +384,7 @@ Color TextDecorationPainter::decorationColor(const RenderStyle& style, OptionSet
     if (paintBehavior.contains(PaintBehavior::ForceWhiteText))
         return Color::white;
 
-    return style.visitedDependentColorWithColorFilter(CSSPropertyTextDecorationColor, paintBehavior);
+    return style.visitedDependentTextDecorationColorApplyingColorFilter(paintBehavior);
 }
 
 auto TextDecorationPainter::stylesForRenderer(const RenderObject& renderer, Style::TextDecorationLine requestedDecorations, bool firstLineStyle, OptionSet<PaintBehavior> paintBehavior, std::optional<PseudoElementType> pseudoElementType) -> Styles

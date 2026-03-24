@@ -88,7 +88,7 @@ SCSIParallelWorkLoop::Create ( const char *	lockGroupName )
 	workLoop = OSTypeAlloc ( SCSIParallelWorkLoop );
 	require_nonzero ( workLoop, ErrorExit );
 	
-	require ( workLoop->InitWithLockGroupName ( lockGroupName ), ReleaseWorkLoop );
+	__Require(workLoop->InitWithLockGroupName ( lockGroupName ), ReleaseWorkLoop);
 	
 	return workLoop;
 	

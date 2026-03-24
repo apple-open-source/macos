@@ -100,41 +100,41 @@ AppleSCSIEmulatorDebugAssert (
 
 
 #define require_success( errorCode, exceptionLabel ) \
-	require( kIOReturnSuccess == (errorCode), exceptionLabel )
+	__Require(kIOReturnSuccess == (errorCode), exceptionLabel)
 
 #define require_success_action( errorCode, exceptionLabel, action ) \
-	require_action( kIOReturnSuccess == (errorCode), exceptionLabel, action )
+	__Require_Action(kIOReturnSuccess == (errorCode), exceptionLabel, action)
 
 #define require_success_quiet( errorCode, exceptionLabel ) \
-	require_quiet( kIOReturnSuccess == (errorCode), exceptionLabel )
+	__Require_Quiet(kIOReturnSuccess == (errorCode), exceptionLabel)
 
 #define require_success_action_quiet( errorCode, exceptionLabel, action ) \
-	require_action_quiet( kIOReturnSuccess == (errorCode), exceptionLabel, action )
+	__Require_Action_Quiet(kIOReturnSuccess == (errorCode), exceptionLabel, action)
 
 #define require_success_string( errorCode, exceptionLabel, message ) \
-	require_string( kIOReturnSuccess == (errorCode), exceptionLabel, message )
+	__Require_String(kIOReturnSuccess == (errorCode), exceptionLabel, message)
 
 #define require_success_action_string( errorCode, exceptionLabel, action, message ) \
-	require_action_string( kIOReturnSuccess == (errorCode), exceptionLabel, action, message )
+	__Require_Action_String(kIOReturnSuccess == (errorCode), exceptionLabel, action, message)
 
 
 #define require_nonzero( obj, exceptionLabel ) \
-	require( ( 0 != obj ), exceptionLabel )
+	__Require(( 0 != obj ), exceptionLabel)
 
 #define require_nonzero_action( obj, exceptionLabel, action ) \
-	require_action( ( 0 != obj ), exceptionLabel, action )
+	__Require_Action(( 0 != obj ), exceptionLabel, action)
 
 #define require_nonzero_quiet( obj, exceptionLabel ) \
-	require_quiet( ( 0 != obj ), exceptionLabel )
+	__Require_Quiet(( 0 != obj ), exceptionLabel)
 
 #define require_nonzero_action_quiet( obj, exceptionLabel, action ) \
-	require_action_quiet( ( 0 != obj ), exceptionLabel, action )
+	__Require_Action_Quiet(( 0 != obj ), exceptionLabel, action)
 
 #define require_nonzero_string( obj, exceptionLabel, message ) \
-	require_string( ( 0 != obj ), exceptionLabel, message )
+	__Require_String(( 0 != obj ), exceptionLabel, message)
 
 #define require_nonzero_action_string( obj, exceptionLabel, action, message ) \
-	require_action_string( ( 0 != obj ), exceptionLabel, action, message )
+	__Require_Action_String(( 0 != obj ), exceptionLabel, action, message)
 
 
 #endif	/* __DEBUG_SUPPORT_H__ */

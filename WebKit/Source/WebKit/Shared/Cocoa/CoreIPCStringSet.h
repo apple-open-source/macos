@@ -41,7 +41,7 @@ public:
     RetainPtr<id> toID() const;
 
 private:
-    friend struct IPC::ArgumentCoder<CoreIPCStringSet, void>;
+    friend struct IPC::ArgumentCoder<CoreIPCStringSet>;
 
     CoreIPCStringSet(Vector<String>&&);
 

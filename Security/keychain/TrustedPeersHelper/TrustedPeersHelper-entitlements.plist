@@ -6,6 +6,8 @@
 	<string>com.apple.TrustedPeersHelper</string>
 	<key>aps-environment</key>
 	<string>serverPreferred</string>
+	<key>com.apple.TapToRadarKit.service-access</key>
+	<true/>
 	<key>com.apple.accounts.appleaccount.fullaccess</key>
 	<true/>
 	<key>com.apple.accounts.idms.fullaccess</key>
@@ -36,6 +38,8 @@
 	<true/>
 	<key>com.apple.private.cloudkit.systemService</key>
 	<true/>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 	<key>com.apple.security.exception.files.absolute-path.read-write</key>
 	<array>
 		<string>/private/var/Keychains/</string>
@@ -58,10 +62,16 @@
 		<string>com.apple.TrustedPeersHelper</string>
 		<string>com.apple.security</string>
 	</array>
+	<key>com.apple.security.hardened-process</key>
+	<true/>
+	<key>com.apple.security.hardened-process.checked-allocations</key>
+	<true/>
 	<key>com.apple.security.ts.cloudkit-client</key>
 	<true/>
 	<key>com.apple.security.ts.tmpdir</key>
 	<string>com.apple.TrustedPeersHelper</string>
+	<key>com.apple.springboard.openurlinbackground</key>
+	<true/>
 	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
 	<key>com.apple.usermanagerd.persona.fetch</key>
@@ -77,11 +87,5 @@
 	<array>
 		<string>temporary-sandbox</string>
 	</array>
-	<key>com.apple.private.security.storage.Keychains</key>
-	<true/>
-	<key>com.apple.TapToRadarKit.service-access</key>
-	<true/>
-	<key>com.apple.springboard.openurlinbackground</key>
-	<true/>
 </dict>
 </plist>

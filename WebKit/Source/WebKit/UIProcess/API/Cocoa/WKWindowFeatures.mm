@@ -39,7 +39,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWindowFeatures.class, self))
         return;
 
-    _windowFeatures->API::WindowFeatures::~WindowFeatures();
+    SUPPRESS_UNRETAINED_ARG _windowFeatures->API::WindowFeatures::~WindowFeatures();
 
     [super dealloc];
 }

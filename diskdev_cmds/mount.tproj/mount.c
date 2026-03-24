@@ -196,7 +196,7 @@ bootstrap_apfs(int phase)
 }
 
 int
-main(int argc, char *argv[])
+mount_main(int argc, char *argv[])
 {
 	const char **vfslist, *vfstype;
 	struct fstab *fs;
@@ -230,8 +230,12 @@ main(int argc, char *argv[])
 			case 'o':
 				if (*optarg) {
 					options = catopt(options, optarg);
-					if (strstr(optarg, "union"))
+					if (strstr(optarg, "union")) {
 						init_flags |= MNT_UNION;
+					}
+					if (strstr(optarg, "nofollow")) {
+						init_flags |= MNT_NOFOLLOW;
+					}
 				}
 				break;
 			case 'r':
@@ -585,6 +589,11 @@ main(int argc, char *argv[])
 	}
 
 	exit(rval);
+}
+
+int
+main(int argc, char *argv[]) {
+    return mount_main(argc, argv);
 }
 
 int

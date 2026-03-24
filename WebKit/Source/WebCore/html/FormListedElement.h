@@ -25,8 +25,8 @@
 
 #include <WebCore/FormAssociatedElement.h>
 #include <WebCore/Node.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -40,7 +40,7 @@ class HTMLFormElement;
 class ValidityState;
 
 // https://html.spec.whatwg.org/multipage/forms.html#category-listed
-class FormListedElement : public FormAssociatedElement {
+class FormListedElement : public FormAssociatedElement, public CanMakeWeakPtr<FormListedElement> {
     WTF_MAKE_TZONE_ALLOCATED(FormListedElement);
     WTF_MAKE_NONCOPYABLE(FormListedElement);
 public:
@@ -90,7 +90,7 @@ public:
     virtual ValidatedFormListedElement* asValidatedFormListedElement() = 0;
 
 protected:
-    FormListedElement(HTMLFormElement*);
+    explicit FormListedElement(HTMLFormElement*);
 
     void clearForm() { setForm(nullptr); }
 

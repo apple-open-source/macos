@@ -57,34 +57,34 @@ CFRelease((cptr));	\
 } while (0)
 #define REQUIRE_EQUAL(val1, val2, lbl, str, ...)						\
 do {											\
-require_action_quiet((val1) == (val2), lbl, NSLog(@str "\n", ## __VA_ARGS__));	\
+__Require_Action_Quiet((val1) == (val2), lbl, NSLog(@str "\n", ## __VA_ARGS__));	\
 } while (0)
 #define XCT_REQUIRE_EQUAL(val1, val2, lbl, str, ...)		\
 do {							\
 XCTAssertEqual((val1), (val2), str, ## __VA_ARGS__);	\
-require_quiet((val1) == (val2), lbl);			\
+__Require_Quiet((val1) == (val2), lbl);			\
 } while (0)
 #define REQUIRE_NEQUAL(val1, val2, lbl, str, ...)						\
 do {											\
-require_action_quiet((val1) != (val2), lbl, NSLog(@str "\n", ## __VA_ARGS__));	\
+__Require_Action_Quiet((val1) != (val2), lbl, NSLog(@str "\n", ## __VA_ARGS__));	\
 } while (0)
 #define REQUIRE_NONNULL(ptr, lbl, str, ...) REQUIRE_NEQUAL((ptr), NULL, lbl, str, ## __VA_ARGS__)
 #define XCT_REQUIRE_NONNULL(ptr, lbl, str, ...)			\
 do {							\
 XCTAssertNotNil((ptr), str, ## __VA_ARGS__);		\
-require_quiet((ptr) != nil, lbl);			\
+__Require_Quiet((ptr) != nil, lbl);			\
 } while (0)
 #define REQUIRE_TRUE(ok, lbl, str, ...) REQUIRE_EQUAL((ok), TRUE, lbl, str, ## __VA_ARGS__)
 #define XCT_REQUIRE_TRUE(val, lbl, str, ...)			\
 do {							\
 XCTAssertTrue((val) == TRUE, str, ## __VA_ARGS__);	\
-require_quiet((val) == TRUE, lbl);			\
+__Require_Quiet((val) == TRUE, lbl);			\
 } while (0)
 #define REQUIRE_NERROR(err, lbl, str, ...) REQUIRE_EQUAL((err), 0, lbl, str, ## __VA_ARGS__)
 #define XCT_REQUIRE_NERROR(err, lbl, str, ...)			\
 do {							\
 XCTAssertEqual((err), 0, str, ## __VA_ARGS__);		\
-require_quiet((err) == 0, lbl);				\
+__Require_Quiet((err) == 0, lbl);				\
 } while (0)
 
 #define _LABEL						"IPConfigurationFrameworkTests"
@@ -160,9 +160,9 @@ createInterface(const char * ifname)
 	int sockfd = -1;
 	struct ifreq ifr = {0};
 
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
 	(void)strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-	require_action_quiet(ioctl(sockfd, SIOCIFCREATE, &ifr) >= 0,
+	__Require_Action_Quiet(ioctl(sockfd, SIOCIFCREATE, &ifr) >= 0,
 			     done, NSLogDebug(@"ioctl: SIOCIFCREATE failed"));
 	ret = [NSString stringWithFormat:@"%s", ifr.ifr_name];
 	NSLogDebug(@"ioctl: created interface '%@'", ret);
@@ -185,10 +185,10 @@ destroyFethInterface(NSString * ifName)
 	int sockfd = -1;
 	struct ifreq ifr = {0};
 
-	require_quiet([ifName hasPrefix:@NETIF_FETH_PREFIX], done);
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet([ifName hasPrefix:@NETIF_FETH_PREFIX], done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
 	(void)strlcpy(ifr.ifr_name, [ifName UTF8String], sizeof(ifr.ifr_name));
-	require_quiet(ioctl(sockfd, SIOCIFDESTROY, &ifr) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCIFDESTROY, &ifr) >= 0, done);
 	ret = [NSString stringWithUTF8String:ifr.ifr_name];
 	NSLogDebug(@"ioctl: destroyed interface '%@'", ret);
 
@@ -204,10 +204,10 @@ setInterfaceUp(NSString * ifName)
 	int sockfd = -1;
 	struct ifreq ifr = {0};
 
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
 	(void)strlcpy(ifr.ifr_name, [ifName UTF8String], sizeof(ifr.ifr_name));
 	ifr.ifr_flags |= IFF_UP;
-	require_quiet(ioctl(sockfd, SIOCSIFFLAGS, &ifr) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCSIFFLAGS, &ifr) >= 0, done);
 	ret = [NSString stringWithUTF8String:ifr.ifr_name];
 	NSLogDebug(@"ioctl: set interface '%@' up", ret);
 
@@ -223,10 +223,10 @@ setInterfaceDown(NSString * ifName)
 	int sockfd = -1;
 	struct ifreq ifr = {0};
 
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
 	(void)strlcpy(ifr.ifr_name, [ifName UTF8String], sizeof(ifr.ifr_name));
 	ifr.ifr_flags &= ~IFF_UP;
-	require_quiet(ioctl(sockfd, SIOCSIFFLAGS, &ifr) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCSIFFLAGS, &ifr) >= 0, done);
 	ret = [NSString stringWithUTF8String:ifr.ifr_name];
 	NSLogDebug(@"ioctl: set interface '%@' down", ret);
 
@@ -286,14 +286,14 @@ interfaceAddIPv4Addr(const char * ifName, const char * addr, const char * netmas
 	struct ifaliasreq ifr = {0};
 
 	// sets ipv4 addr
-	require_quiet(inet_pton(AF_INET, addr, &inaddr) == 1, done);
+	__Require_Quiet(inet_pton(AF_INET, addr, &inaddr) == 1, done);
 	sockaddr.sin_len = sizeof(sockaddr);
 	sockaddr.sin_family = AF_INET;
 	memcpy(&sockaddr.sin_addr, &inaddr, sizeof(sockaddr.sin_addr));
 	memcpy(&ifr.ifra_addr, &sockaddr, sizeof(ifr.ifra_addr));
 
 	// sets ipv4 netmask
-	require_quiet(inet_pton(AF_INET, netmask, &inaddrNetmask) == 1, done);
+	__Require_Quiet(inet_pton(AF_INET, netmask, &inaddrNetmask) == 1, done);
 	sockaddrNetmask.sin_len = sizeof(sockaddrNetmask);
 	sockaddrNetmask.sin_family = AF_INET;
 	memcpy(&sockaddrNetmask.sin_addr, &inaddrNetmask, sizeof(sockaddrNetmask.sin_addr));
@@ -303,8 +303,8 @@ interfaceAddIPv4Addr(const char * ifName, const char * addr, const char * netmas
 	(void)strlcpy(ifr.ifra_name, ifName, sizeof(ifr.ifra_name));
 
 	// makes ioctl call
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
-	require_quiet(ioctl(sockfd, SIOCSIFADDR, &ifr) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCSIFADDR, &ifr) >= 0, done);
 	ret = TRUE;
 
 done:
@@ -325,14 +325,14 @@ interfaceAddIPv6Addr(const char * ifName, const char * addr, const char * prefix
 	struct in6_aliasreq ifr = {0};
 
 	// sets ipv6 addr
-	require_quiet(inet_pton(AF_INET6, addr, &in6addr) == 1, done);
+	__Require_Quiet(inet_pton(AF_INET6, addr, &in6addr) == 1, done);
 	sockaddr.sin6_len = sizeof(sockaddr);
 	sockaddr.sin6_family = AF_INET6;
 	memcpy(&sockaddr.sin6_addr, &in6addr, sizeof(sockaddr.sin6_addr));
 	memcpy(&ifr.ifra_addr, &sockaddr, sizeof(ifr.ifra_addr));
 
 	// sets ipv6 prefixmask
-	require_quiet(inet_pton(AF_INET6, prefixmask, &in6addrPrefixmask) == 1, done);
+	__Require_Quiet(inet_pton(AF_INET6, prefixmask, &in6addrPrefixmask) == 1, done);
 	sockaddrPrefixmask.sin6_len = sizeof(sockaddrPrefixmask);
 	sockaddrPrefixmask.sin6_family = AF_INET6;
 	memcpy(&sockaddrPrefixmask.sin6_addr, &in6addrPrefixmask, sizeof(sockaddrPrefixmask.sin6_addr));
@@ -349,8 +349,8 @@ interfaceAddIPv6Addr(const char * ifName, const char * addr, const char * prefix
 	(void)strlcpy(ifr.ifra_name, ifName, sizeof(ifr.ifra_name));
 
 	// makes ioctl call
-	require_quiet((sockfd = socket(AF_INET6, SOCK_DGRAM, 0)) >= 0, done);
-	require_quiet(ioctl(sockfd, SIOCAIFADDR_IN6, &ifr) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET6, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCAIFADDR_IN6, &ifr) >= 0, done);
 	ret = TRUE;
 
 done:
@@ -369,15 +369,15 @@ fethSetPeer(const char * feth, const char * fethPeer)
 	int sockfd = -1;
 	BOOL ret = FALSE;
 
-	require_quiet(feth != NULL, done);
-	require_quiet(fethPeer != NULL, done);
+	__Require_Quiet(feth != NULL, done);
+	__Require_Quiet(fethPeer != NULL, done);
 	strlcpy(iffr.iffr_peer_name, fethPeer, sizeof(iffr.iffr_peer_name));
-	require_quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
+	__Require_Quiet((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0, done);
 	strlcpy(ifd.ifd_name, feth, sizeof(ifd.ifd_name));
 	ifd.ifd_cmd = IF_FAKE_S_CMD_SET_PEER;
 	ifd.ifd_len = sizeof(iffr);
 	ifd.ifd_data = &iffr;
-	require_quiet(ioctl(sockfd, SIOCSDRVSPEC, &ifd) >= 0, done);
+	__Require_Quiet(ioctl(sockfd, SIOCSDRVSPEC, &ifd) >= 0, done);
 	ret = TRUE;
 
 done:
@@ -392,9 +392,9 @@ setupForMockDHCPExchange(NSString ** outServerIfname, NSString **outClientIfname
 	NSString *clientIfname = nil;
 
 	// creates a couple of feth interfaces
-	require_action_quiet((serverIfname = createFethInterface()) != nil,
+	__Require_Action_Quiet((serverIfname = createFethInterface()) != nil,
 			     done, NSLogDebug(@"%s: Failed to create server if", __func__));
-	require_action_quiet((clientIfname = createFethInterface()) != nil,
+	__Require_Action_Quiet((clientIfname = createFethInterface()) != nil,
 			     done, NSLogDebug(@"%s: Failed to create client if", __func__));
 	while (if_nametoindex([serverIfname UTF8String]) == 0
 	       || if_nametoindex([clientIfname UTF8String]) == 0) {
@@ -405,19 +405,19 @@ setupForMockDHCPExchange(NSString ** outServerIfname, NSString **outClientIfname
 	}
 
 	// peers the 2 interfaces
-	require_action_quiet(fethSetPeer([serverIfname UTF8String], [clientIfname UTF8String]),
+	__Require_Action_Quiet(fethSetPeer([serverIfname UTF8String], [clientIfname UTF8String]),
 			     done, NSLogDebug(@"%s: Failed to peer interfaces", __func__));
 
 	// assigns ipv4 addresses
-	require_action_quiet(interfaceAddIPv4Addr([serverIfname UTF8String], DHCPV4_SERVER_ADDR, DHCPV4_SERVER_NETMASK),
+	__Require_Action_Quiet(interfaceAddIPv4Addr([serverIfname UTF8String], DHCPV4_SERVER_ADDR, DHCPV4_SERVER_NETMASK),
 			     done, NSLogDebug(@"%s: Failed to set server ipv4 addr", __func__));
-	require_action_quiet(interfaceAddIPv4Addr([clientIfname UTF8String], DHCPV4_CLIENT_ADDR, DHCPV4_CLIENT_NETMASK),
+	__Require_Action_Quiet(interfaceAddIPv4Addr([clientIfname UTF8String], DHCPV4_CLIENT_ADDR, DHCPV4_CLIENT_NETMASK),
 			     done, NSLogDebug(@"%s: Failed to set client ipv4 addr", __func__));
 
 	// assigns ipv6 ula addresses
-	require_action_quiet(interfaceAddIPv6Addr([serverIfname UTF8String], DHCPV6_SERVER_ULA, DHCPV6_SERVER_PREFIXMASK),
+	__Require_Action_Quiet(interfaceAddIPv6Addr([serverIfname UTF8String], DHCPV6_SERVER_ULA, DHCPV6_SERVER_PREFIXMASK),
 			     done, NSLogDebug(@"%s: Failed to set server ipv6 addr", __func__));
-	require_action_quiet(interfaceAddIPv6Addr([clientIfname UTF8String], DHCPV6_CLIENT_ULA, DHCPV6_CLIENT_PREFIXMASK),
+	__Require_Action_Quiet(interfaceAddIPv6Addr([clientIfname UTF8String], DHCPV6_CLIENT_ULA, DHCPV6_CLIENT_PREFIXMASK),
 			     done, NSLogDebug(@"%s: Failed to set client ipv6 addr"));
 	*outServerIfname = serverIfname;
 	*outClientIfname = clientIfname;

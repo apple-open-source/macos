@@ -79,6 +79,7 @@ static void TestFlushInternalBuffer(void);  /*for improved code coverage in ucnv
 static void TestResetBehaviour(void);
 static void TestTruncated(void);
 static void TestUnicodeSet(void);
+static void TestISO2022Crash(void);
 
 static void TestWithBufferSize(int32_t osize, int32_t isize);
 
@@ -142,10 +143,7 @@ void addExtraTests(TestNode** root)
      addTest(root, &TestRegressionUTF32,            "tsconv/ncnvtst/TestRegressionUTF32");
      addTest(root, &TestTruncated,                  "tsconv/ncnvtst/TestTruncated");
      addTest(root, &TestUnicodeSet,                 "tsconv/ncnvtst/TestUnicodeSet");
-#if APPLE_ICU_CHANGES
-// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
-    addTest(root, &TestISO2022Crash,                 "tsconv/ncnvtst/TestISO2022Crash");
-#endif
+     addTest(root, &TestISO2022Crash,               "tsconv/ncnvtst/TestISO2022Crash");
 }
 
 /*test surrogate behaviour*/
@@ -2071,9 +2069,7 @@ TestUnicodeSet(void) {
     uset_close(set);
 }
 
-#if APPLE_ICU_CHANGES
-// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
-// Filed https://unicode-org.atlassian.net/browse/ICU-23165 to fix this in OSICU
+// Test for https://unicode-org.atlassian.net/browse/ICU-23165
 static void TestISO2022Crash(void) {
     static const char offendingText[] = {
         0x6d, 0x1b, 0x24, 0x29, 0x45, 0x65, 0x6c, 0x3a,
@@ -2101,4 +2097,3 @@ static void TestISO2022Crash(void) {
     }
     ucnv_close(cnv);
 }
-#endif

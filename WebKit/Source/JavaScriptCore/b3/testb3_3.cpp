@@ -4212,10 +4212,15 @@ void addArgTests(const TestConfig* config, Deque<RefPtr<SharedTask<void()>>>& ta
     RUN_UNARY(testDivArgFloatWithUselessDoubleConversion, floatingPointOperands<float>());
     RUN_BINARY(testDivArgsFloatWithUselessDoubleConversion, floatingPointOperands<float>(), floatingPointOperands<float>());
     RUN_BINARY(testDivArgsFloatWithEffectfulDoubleConversion, floatingPointOperands<float>(), floatingPointOperands<float>());
-    
+
     RUN_BINARY(testUDivArgsInt32, int32Operands(), int32Operands());
     RUN_BINARY(testUDivArgsInt64, int64Operands(), int64Operands());
-    
+    RUN_BINARY(testUDivByConstantInt32, int32Operands(), int32Operands());
+    RUN_UNARY(testUDivByConstantInt32PowerOf2, int32Operands());
+    RUN_UNARY(testUDivByConstantInt32NonPowerOf2, int32Operands());
+    RUN_UNARY(testUDivByConstantInt32EvenDivisors, int32Operands());
+    RUN_UNARY(testUDivByConstantInt32EdgeCases, int32Operands());
+
     RUN_UNARY(testModArgDouble, floatingPointOperands<double>());
     RUN_BINARY(testModArgsDouble, floatingPointOperands<double>(), floatingPointOperands<double>());
     RUN_BINARY(testModArgImmDouble, floatingPointOperands<double>(), floatingPointOperands<double>());

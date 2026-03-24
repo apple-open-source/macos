@@ -65,6 +65,9 @@ _EXPERIMENTAL_SWIFT_EXPLICIT_MODULES = $(WK_DEFAULT_SWIFT_ENABLE_EXPLICIT_MODULE
 WK_DEFAULT_SWIFT_ENABLE_EXPLICIT_MODULES = YES;
 WK_DEFAULT_SWIFT_ENABLE_EXPLICIT_MODULES[sdk=macosx14*] = ;
 
+WK_DEFAULT_COMPILATION_CACHE_ENABLE_CACHING = YES;
+COMPILATION_CACHE_ENABLE_CACHING = $(WK_DEFAULT_COMPILATION_CACHE_ENABLE_CACHING);
+
 WK_COMMON_OTHER_LDFLAGS = $(WK_SANITIZER_OTHER_LDFLAGS) $(WK_COMMON_OTHER_LDFLAGS_INSTRUMENTATION_$(CLANG_INSTRUMENT_FOR_OPTIMIZATION_PROFILING));
 // Work around rdar://151083138 by moving the section the profiling runtime
 // mmaps to its own segment.
@@ -74,7 +77,7 @@ OTHER_LDFLAGS = $(inherited) $(WK_COMMON_OTHER_LDFLAGS);
 WK_COMMON_OTHER_TAPI_FLAGS = -x objective-c++ -std=c++2b -fno-rtti $(WK_SANITIZER_OTHER_TAPI_FLAGS);
 OTHER_TAPI_FLAGS = $(inherited) $(WK_COMMON_OTHER_TAPI_FLAGS);
 
-WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos*] = $(WK_NOT_$(WK_ANY_SANITIZER_ENABLED));
+WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos*] = $(WK_NOT_$(WK_OR_$(WK_ANY_SANITIZER_ENABLED)_$(OVERRIDE_SUPPORTS_TEXT_BASED_API)));
 // Explicitly disable auditing on other embedded platforms, because some SDKs
 // fall back to reading settings for iOS.
 WK_DEFAULT_WK_AUDIT_SPI[sdk=appletvos*] = ;
@@ -93,33 +96,10 @@ WK_OTHER_AUDIT_SPI_FLAGS_148943382[sdk=*.internal] = -DSDKDB_HAS_148943382;
 WK_OTHER_AUDIT_SPI_FLAGS_148943382[sdk=iphoneos18*] = ;
 
 GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+GCC_THREADSAFE_STATICS = YES;
 
-WK_COMMON_WARNING_CFLAGS = -Wall -Wc99-designator -Wconditional-uninitialized -Wextra -Wdeprecated-enum-enum-conversion -Wdeprecated-enum-float-conversion -Wenum-float-conversion -Wfinal-dtor-non-final-class -Wformat=2 -Wmisleading-indentation -Wpointer-to-int-cast -Wreorder-init-list -Wundef -Wunused-but-set-variable -Wvla;
+WK_COMMON_WARNING_CFLAGS = -Wall -Wc99-designator -Wconditional-uninitialized -Wextra -Wdeprecated-enum-enum-conversion -Wdeprecated-enum-float-conversion -Wenum-float-conversion -Wfinal-dtor-non-final-class -Wformat=2 -Wmisleading-indentation -Wpointer-to-int-cast -Wreorder-init-list -Wundef -Wunused-but-set-variable -Wvla -Werror=unguarded-availability;
 WARNING_CFLAGS = $(inherited) $(WK_COMMON_WARNING_CFLAGS) $(WK_SANITIZER_WARNING_CFLAGS);
-
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx13*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx14*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.3*] = ;
 
 CLANG_CXX_STANDARD_LIBRARY_HARDENING = extensive;
 
@@ -133,6 +113,18 @@ WK_LIBCPP_ASSERTIONS_CFLAGS[sdk=watch*10*] = -D_LIBCPP_ENABLE_ASSERTIONS=1;
 // Enable strict memory safety in Swift, and treat any such warnings as errors.
 // Enable for sufficiently recent Xcode only.
 WK_SWIFT_MEMORY_SAFETY_FLAGS = $(WK_SWIFT_MEMORY_SAFETY_FLAGS_$(WK_XCODE_BEFORE_17));
-WK_SWIFT_MEMORY_SAFETY_FLAGS_ = -Werror StrictMemorySafety -strict-memory-safety -enable-experimental-feature Lifetimes -enable-experimental-feature LifetimeDependence -enable-experimental-feature ImportNonPublicCxxMembers;
+WK_SWIFT_MEMORY_SAFETY_FLAGS_ = -strict-memory-safety -enable-experimental-feature Lifetimes -enable-experimental-feature LifetimeDependence -enable-experimental-feature ImportNonPublicCxxMembers;
+// rdar://164903024: Work around strict safety bug by only promoting warnings
+// to errors in certain SDK versions. Merge this -Werror argument into the
+// above build setting once fixed.
+// Keep it turned off on VisionOS until rdar://164555610 and rdar://164559261 are fixed.
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=macosx26.0*] = -Werror StrictMemorySafety $(inherited);
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=macosx26.1*] = -Werror StrictMemorySafety $(inherited);
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=macosx26.2*] = -Werror StrictMemorySafety $(inherited);
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=iphone*26.0*] = -Werror StrictMemorySafety $(inherited);
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=iphone*26.1*] = -Werror StrictMemorySafety $(inherited);
+WK_SWIFT_MEMORY_SAFETY_FLAGS_[sdk=iphone*26.2*] = -Werror StrictMemorySafety $(inherited);
 
 OTHER_SWIFT_FLAGS = $(inherited) $(WK_SWIFT_MEMORY_SAFETY_FLAGS);
+
+OTHER_LIBTOOLFLAGS = -no_warning_for_no_symbols;

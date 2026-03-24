@@ -132,7 +132,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             os_log_error(AUTHD_LOG, "Unable to get system volume UUID: %d", (int)status);
             return;
         }
-        os_log_debug(AUTHD_LOG, "System volume UUID: %{public}s", sysVolumeUuid);
+        os_log_debug_air("System volume UUID: %{public}s", sysVolumeUuid);
         result = sysVolumeUuid;
     });
     
@@ -186,7 +186,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     }
 
     NSUUID *uuid = [self currentRecoveryVolumeUUID];
-    os_log_info(AUTHD_LOG, "Current Recovery Volume UUID: %{public}@", uuid);
+    os_log_debug_air("Current Recovery Volume UUID: %{public}@", uuid);
     
     OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) {
         [self processVolumeData:volumeUuid mountPoint:mountPoint preboot:prebootNode];
@@ -198,7 +198,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     if (err) {
         *err = nil;
     }
-    os_log_info(AUTHD_LOG, "AIR initial phase done.");
+    os_log_debug_air("AIR initial phase done.");
     return YES;
 }
 
@@ -217,7 +217,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     if (localVolumes.count == 0) {
         return;
     }
-    os_log_info(AUTHD_LOG, "Checking busy volumes if they are available: %{public}@", localVolumes);
+    os_log_debug_air("Checking busy volumes if they are available: %{public}@", localVolumes);
 
     OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) {
         [self processVolumeData:volumeUuid mountPoint:mountPoint preboot:prebootNode];
@@ -242,7 +242,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     if (requestedUuid && !_dbDataDict[requestedUuid]) {
         NSString *realUuid = _dbVolumeGroupMap[requestedUuid];
         if (!realUuid) {
-            os_log_info(AUTHD_LOG, "Requested volume %{public}@ was not found and is not volumeGroup", requestedUuid);
+            os_log_debug_air("Requested volume %{public}@ was not found and is not volumeGroup", requestedUuid);
             NSArray *keys = [_dbVolumeGroupMap allKeysForObject:requestedUuid];
             for(NSString *uuid in keys) {
                 if (_dbDataDict[uuid]) {
@@ -251,18 +251,18 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 }
             }
             if (!realUuid) {
-                os_log_info(AUTHD_LOG, "Requested volumeGroup %{public}@ was not found", requestedUuid);
+                os_log_debug_air("Requested volumeGroup %{public}@ was not found", requestedUuid);
                 return nil; // no users for requested partition and no mapping for VolumeGroup or vice versa
             }
         }
-        os_log_info(AUTHD_LOG, "Requested volume %{public}@ has no users, trying volume %{public}@", requestedUuid, realUuid);
+        os_log_debug_air("Requested volume %{public}@ has no users, trying volume %{public}@", requestedUuid, realUuid);
         requestedUuid = realUuid;
     }
     
     NSMutableArray *allUsers = [NSMutableArray new];
     for (NSString *uuid in _dbDataDict) {
         if (requestedUuid && ![requestedUuid isEqualToString:uuid]) {
-            os_log_info(AUTHD_LOG, "Requested volume %{public}@ so ignoring volume %{public}@", requestedUuid, uuid);
+            os_log_debug_air("Requested volume %{public}@ so ignoring volume %{public}@", requestedUuid, uuid);
             continue;
         }
         [allUsers addObjectsFromArray:_dbDataDict[uuid]];
@@ -324,7 +324,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 {
     NSDictionary *volumeGlobalPrefs = _globalPrefs[uuid];
     if (!volumeGlobalPrefs) {
-        os_log_debug(AUTHD_LOG, "No global prefs for volume %{public}@ were found", uuid);
+        os_log_debug_air("No global prefs for volume %{public}@ were found", uuid);
         return nil;
     }
     return volumeGlobalPrefs[domain];
@@ -343,12 +343,12 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 {
     NSDictionary *volumeUserPrefs = _userPrefs[uuid];
     if (!volumeUserPrefs) {
-        os_log_debug(AUTHD_LOG, "No user prefs for volume %{public}@ were found", uuid);
+        os_log_debug_air("No user prefs for volume %{public}@ were found", uuid);
         return nil;
     }
     NSDictionary *userPrefs = volumeUserPrefs[user];
     if (!userPrefs) {
-        os_log_debug(AUTHD_LOG, "No user prefs for volume %{public}@ and user %{public}@ were found", uuid, user);
+        os_log_debug_air("No user prefs for volume %{public}@ and user %{public}@ were found", uuid, user);
         return nil;
     }
     return userPrefs[domain];
@@ -356,7 +356,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 
 - (OSStatus)setEnforcedSmartcardOverride:(NSUUID *)uuid operation:(unsigned char)operation status:(Boolean *)status internal:(Boolean)internal
 {
-    os_log_info(AUTHD_LOG, "Enforcement operation %d on %{public}@%s", operation, uuid.UUIDString, internal ? " (internal)":"");
+    os_log_debug_air("Enforcement operation %d on %{public}@%s", operation, uuid.UUIDString, internal ? " (internal)":"");
     
     if (!isInFVUnlockOrRecovery()) {
         if (operation == kAuthorizationOverrideOperationQuery && !internal) {
@@ -376,16 +376,16 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, id preboot) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, id preboot) {
 
         if (uuid && [volumeUuid isNotEqualTo:uuid]) {
-            os_log_info(AUTHD_LOG, "The preboot volume skipped: %{public}@ (not the expected %{public}@)", volumeUuid, uuid);
+            os_log_debug_air("The preboot volume skipped: %{public}@ (not the expected %{public}@)", volumeUuid, uuid);
             return errInvalidRange;
         }
         
         NSString *usersPath = [NSString stringWithFormat:kUsersFile, mountPoint, volumeUuid.UUIDString];
         if (access(usersPath.UTF8String, F_OK)) {
-            os_log_info(AUTHD_LOG, "This preboot volume is not usable for FVUnlock");
+            os_log_debug_air("This preboot volume is not usable for FVUnlock");
             return errSecInvalidItemRef;
         }
-        os_log_info(AUTHD_LOG, "Preboot volume %{public}@ is usable for FVUnlock", volumeUuid);
+        os_log_debug_air("Preboot volume %{public}@ is usable for FVUnlock", volumeUuid);
 
         NSString *filePath = [NSString stringWithFormat:kFvunlockOverrideScEnforcementFileName, mountPoint, volumeUuid.UUIDString];
         BOOL overrideFileExists = !access(filePath.UTF8String, F_OK);
@@ -428,7 +428,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 }
                 
                 *status = overrideFileExists;
-                os_log_debug(AUTHD_LOG, "SmartCard enforcement override status %d", overrideFileExists);
+                os_log_debug_air("SmartCard enforcement override status %d", overrideFileExists);
                 retval = noErr;
                 break;
             }
@@ -484,7 +484,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             }
             
             if (mountOperationResult == kDAReturnBusy || mountOperationResult == kDAReturnExclusiveAccess) {
-                os_log_info(AUTHD_LOG, "Volume %{public}@ busy, retrying mount", prebootVolume);
+                os_log_debug_air("Volume %{public}@ busy, retrying mount", prebootVolume);
                 continue;
             }
             
@@ -519,49 +519,49 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             if (canMount) {
                 if (mountResult == kDAReturnBusy || mountResult == kDAReturnExclusiveAccess) {
                     // consider this failure as recoverable and schedule for later rescan
-                    os_log_info(AUTHD_LOG, "Volume %{public}@ not available yet, scheduling for the later scan", prebootVolume);
+                    os_log_debug_air("Volume %{public}@ not available yet, scheduling for the later scan", prebootVolume);
                     @synchronized (_volumesToProcess) {
                         const char *bsdName = soft_DADiskGetBSDName((__bridge DADiskRef)prebootVolume);
                         if (bsdName) {
                             NSString *devicePath = [NSString stringWithFormat:@"/dev/%s", bsdName];
                             _volumesToProcess[devicePath] = prebootVolume;
                         } else {
-                            os_log_info(AUTHD_LOG, "Volume %{public}@ not available but failed to get disk name. NOT scheduling for the later scan", prebootVolume);
+                            os_log_debug_air("Volume %{public}@ not available but failed to get disk name. NOT scheduling for the later scan", prebootVolume);
                         }
                     }
                 } else {
                     // unrecoverable failure, do not check this volume again
-                    os_log_info(AUTHD_LOG, "Volume %{public}@ mount failed with error %d, skipping", prebootVolume, mountResult);
+                    os_log_debug_air("Volume %{public}@ mount failed with error %d, skipping", prebootVolume, mountResult);
                 }
             } else {
                 // volume is not mounted and we were asked not to mount it
-                os_log_info(AUTHD_LOG, "Volume %{public}@ not available, skipping", prebootVolume);
+                os_log_debug_air("Volume %{public}@ not available, skipping", prebootVolume);
             }
             continue;
         }
         
         // process the preboot volume
-        os_log_info(AUTHD_LOG, "Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
+        os_log_debug_air("Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
         NSError *err;
         NSArray *dirContents = [NSFileManager.defaultManager contentsOfDirectoryAtPath:mountPoint error:&err];
         if (err) {
             os_log_error(AUTHD_LOG, "Error while getting content of %{public}@: %{public}@", mountPoint, err);
             continue;
         } else {
-            os_log_info(AUTHD_LOG, "Going to process %lu items", (unsigned long)dirContents.count);
+            os_log_debug_air("Going to process %lu items", (unsigned long)dirContents.count);
         }
         for (NSString *path in dirContents) {
             NSString *fullPath = [mountPoint stringByAppendingPathComponent:path];
             BOOL isDir = NO;
             [[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:&isDir];
             if (!isDir) {
-                os_log_info(AUTHD_LOG, "Skipping file %{public}@ (not a directory)", fullPath);
+                os_log_debug_air("Skipping file %{public}@ (not a directory)", fullPath);
                 continue;
             }
 
             NSUUID *volumeUUID = [[NSUUID alloc] initWithUUIDString:path.lastPathComponent]; // the dir has the name as UUID
             if (!volumeUUID) {
-                os_log_info(AUTHD_LOG, "Ignoring folder %{public}@ (not UUID)", fullPath);
+                os_log_debug_air("Ignoring folder %{public}@ (not UUID)", fullPath);
                 continue;
             }
 
@@ -577,7 +577,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             NSString *sessionVolumeGroup = [self sessionVolumeGroup];
             if (sessionVolumeGroup && [_systemVolumePreboots containsObject:prebootVolume]) {
                 unmount = NO;
-                os_log_debug(AUTHD_LOG, "Not unmounting session preboot");
+                os_log_debug_air("Not unmounting session preboot");
             }
             if (unmount) {
                 [self unmountPrebootVolume:prebootVolume];
@@ -616,10 +616,10 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             continue;
         }
         if (!preboot) {
-            os_log_info(AUTHD_LOG, "Not a preboot volume: %{public}@", disk);
+            os_log_debug_air("Not a preboot volume: %{public}@", disk);
             continue;
         }
-        os_log_info(AUTHD_LOG, "Will use preboot volume: %{public}@", disk);
+        os_log_debug_air("Will use preboot volume: %{public}@", disk);
 
         [result addObject:disk];
     }
@@ -690,7 +690,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 CFRelease(entry);
         }
     }
-    os_log_info(AUTHD_LOG, "Current boot volume: %{public}@", data);
+    os_log_debug_air("Current boot volume: %{public}@", data);
     
     if (data) {
         return [[NSUUID alloc] initWithUUIDBytes:data.bytes];
@@ -715,13 +715,13 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             continue;
         }
         if (!preboot) {
-            os_log_info(AUTHD_LOG, "Not a preboot volume: %{public}@", diskRef);
+            os_log_debug_air("Not a preboot volume: %{public}@", diskRef);
             continue;
         }
 
         id prebootVolume = CFBridgingRelease([_diskMgr copyBooterDiskForDisk:diskRef error:&diskErr]);
         if (prebootVolume) {
-            os_log_info(AUTHD_LOG, "Found APFS preboot %{public}@", prebootVolume);
+            os_log_debug_air("Found APFS preboot %{public}@", prebootVolume);
             [result addObject:prebootVolume];
         } else {
             os_log_error(AUTHD_LOG, "Failed to copy preboot for disk %{public}@, err: %{public}@", diskRef, soft_DMUnlocalizedTechnicalErrorString(diskErr));
@@ -746,7 +746,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     };
     soft_DADiskMount((__bridge DADiskRef _Nonnull)(preboot), NULL, kDADiskMountOptionDefault, _commonDACompletionCallback, (__bridge void * _Nullable)(completionHandler));
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
-    os_log_info(AUTHD_LOG, "Mount preboot volume %{public}@ result: %d", preboot, retval);
+    os_log_debug_air("Mount preboot volume %{public}@ result: %d", preboot, retval);
 
     return retval;
 }
@@ -754,7 +754,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 - (void)unmountPrebootVolume:(id)preboot
 {
     soft_DADiskUnmount((__bridge DADiskRef _Nonnull)(preboot), kDADiskUnmountOptionDefault, nil, nil);
-    os_log_info(AUTHD_LOG, "Preboot partition unmounted: %{public}@", preboot);
+    os_log_debug_air("Preboot partition unmounted: %{public}@", preboot);
 }
 
 - (NSString *)deviceNodeForVolumeWithUUID:(NSUUID *)volumeUuid diskRef:(DADiskRef *)diskRef
@@ -769,7 +769,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         *diskRef = localDiskRef;
         CFRetain(*diskRef);
     }
-    os_log_info(AUTHD_LOG, "Found disk %{public}@ with volume UUID %{public}@", localDiskRef, volumeUuid);
+    os_log_debug_air("Found disk %{public}@ with volume UUID %{public}@", localDiskRef, volumeUuid);
     NSString *deviceNode = [self deviceNodeForDisk:localDiskRef];
     CFRelease(localDiskRef);
     return deviceNode;
@@ -783,7 +783,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         os_log_error(AUTHD_LOG, "Failed to find device node for disk %{public}@: %{public}@", diskRef, soft_DMUnlocalizedTechnicalErrorString(diskErr));
         return nil;
     }
-    os_log_info(AUTHD_LOG, "Device node found: %{public}@", deviceNode);
+    os_log_debug_air("Device node found: %{public}@", deviceNode);
     return deviceNode;
 }
 
@@ -796,7 +796,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         os_log_error(AUTHD_LOG, "Failed to load DiskToken from %{public}@", vekPath);
         return nil;
     }
-    os_log_info(AUTHD_LOG, "Loaded DiskToken from %{public}@", vekPath);
+    os_log_debug_air("Loaded DiskToken from %{public}@", vekPath);
     
     return vek;
 }
@@ -815,7 +815,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 if (sourcePrebootNode && ![_volumesToProcess objectForKey:sourcePrebootNode]) {
                     id disk = CFBridgingRelease(soft_DADiskCreateFromBSDName(kCFAllocatorDefault, (__bridge DASessionRef _Nullable)_daSession, sourcePrebootNode.UTF8String));
                     if (disk) {
-                        os_log_info(AUTHD_LOG, "Scheduling preboot %{public}@ for busy volume %{public}@ for later scan", sourcePrebootNode, deviceNode);
+                        os_log_debug_air("Scheduling preboot %{public}@ for busy volume %{public}@ for later scan", sourcePrebootNode, deviceNode);
                         _volumesToProcess[sourcePrebootNode] = disk;
                     } else {
                         os_log_error(AUTHD_LOG, "Failed to find the disk for the preboot node %{public}@", sourcePrebootNode);
@@ -825,7 +825,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         }
         return nil;
     }
-    os_log_info(AUTHD_LOG, "Loaded SecureToken from device node %{public}@", deviceNode);
+    os_log_debug_air("Loaded SecureToken from device node %{public}@", deviceNode);
     
     NSData *kek = CFBridgingRelease(dataCF);
     return kek;
@@ -839,7 +839,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         os_log_error(AUTHD_LOG, "Failed to find user records in file %{public}@", usersPath);
         return nil;
     }
-    os_log_debug(AUTHD_LOG, "Loaded %lu user records from file %{public}@", (unsigned long)users.count, usersPath);
+    os_log_debug_air("Loaded %lu user records from file %{public}@", (unsigned long)users.count, usersPath);
     return users;
 }
 
@@ -852,7 +852,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     // - UUID of the data volume
     // - UUID of the volume group
     
-    os_log_info(AUTHD_LOG, "Processing volume data: %{public}@", volumeUuid);
+    os_log_debug_air("Processing volume data: %{public}@", volumeUuid);
     NSData *vek = [self loadVEKforVolumeWithUUID:volumeUuid mountPoint:mountPoint];
     if (!vek) {
         return;
@@ -875,7 +875,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             os_log_error(AUTHD_LOG, "Error %d while trying to get volume group disks for %{public}@", diskErr, volumeUuid.UUIDString);
             return;
         }
-        os_log_info(AUTHD_LOG, "Direct volume device node %{public}@", deviceNode);
+        os_log_debug_air("Direct volume device node %{public}@", deviceNode);
     } else {
         // Volume group was found and now we have to find all the references which might be used when looking
         // for data on this volume group. We will do a map <data|system volume UUID> - <volume group UUID>
@@ -891,9 +891,9 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 } else {
                     if (!systemVolume && !deviceNode) {
                         deviceNode = [self deviceNodeForDisk:volumeDiskRef];
-                        os_log_info(AUTHD_LOG, "Data volume device node %{public}@", deviceNode);
+                        os_log_debug_air("Data volume device node %{public}@", deviceNode);
                     }
-                    os_log_info(AUTHD_LOG, "Volume %{public}@ belongs to the group %{public}@", volUuid, volumeUuid.UUIDString);
+                    os_log_debug_air("Volume %{public}@ belongs to the group %{public}@", volUuid, volumeUuid.UUIDString);
                     self->_dbVolumeGroupMap[volUuid] = volumeUuid.UUIDString;
                 }
             }
@@ -910,7 +910,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     NSDictionary *users = [self loadUserDatabaseForVolumeUUID:volumeUuid mountPoint:mountPoint];
     for (NSString *userName in users) {
         NSDictionary *userData = users[userName];
-        os_log_debug(AUTHD_LOG, "Processing user: %{public}@", userData);
+        os_log_debug_air("Processing user: %{public}@", userData);
         NSString *userGuid = userData[kGUIDItemName];
         if (userGuid == nil) {
             os_log_error(AUTHD_LOG, "Failed to find GUID for user %{public}@", userName);
@@ -926,7 +926,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         NSMutableDictionary *dict = @{}.mutableCopy;
         if (aauthority) {
             dict[@PLUDB_SCPAIR] = aauthority;
-            os_log_debug(AUTHD_LOG, "Using authority: %{public}@", aauthority);
+            os_log_debug_air("Using authority: %{public}@", aauthority);
         }
         
         Boolean owner;
@@ -982,14 +982,14 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             _dbDataDict[volumeUuid.UUIDString] = array;
         }
         
-        os_log_info(AUTHD_LOG, "Prelogin UserDB added entry: %{public}@", dict);
+        os_log_debug_air("Prelogin UserDB added entry: %{public}@", dict);
         [array addObject:dict];
     }
     
     // check for SC override
     scEnforcementOverridden = NO;
     [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverridden internal:YES];
-    os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverridden);
+    os_log_debug_air("SC enforcement override: %d", scEnforcementOverridden);
     if (!isInFVUnlockOrRecovery()) {
     _resetDb = NO;
         
@@ -1009,7 +1009,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     }
     
     if (![PreloginUserDb fvunlockMode]) {
-        os_log_debug(AUTHD_LOG, "Not processing prefs");
+        os_log_debug_air("Not processing prefs");
         return; // do not process prefs when not in FVUnlock
     }
     
@@ -1023,7 +1023,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         BOOL isDir = NO;
         [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
         if (isDir) {
-            os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", url.path);
+            os_log_debug_air("Skipping dir %{public}@ (not a file)", url.path);
             continue;
         }
         NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:url.path];
@@ -1034,7 +1034,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     }
     
     if (scEnforcementOverridden) {
-        os_log_info(AUTHD_LOG, "SC enforcement overridden for this boot");
+        os_log_debug_air("SC enforcement overridden for this boot");
         global[kFvunlockOverrideScEnforcementPrefsName] = @{ @"overrideScEnforcement": @YES };
     }
 
@@ -1051,7 +1051,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         BOOL isDir = NO;
         [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
         if (isDir) {
-            os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", url.path);
+            os_log_debug_air("Skipping dir %{public}@ (not a file)", url.path);
             continue;
         }
         NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:url.path];
@@ -1073,7 +1073,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         BOOL isDir = NO;
         [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
         if (!isDir) {
-            os_log_info(AUTHD_LOG, "Skipping file %{public}@ (not a directory)", url.path);
+            os_log_debug_air("Skipping file %{public}@ (not a directory)", url.path);
             continue;
         }
 
@@ -1085,7 +1085,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             isDir = NO;
             [[NSFileManager defaultManager] fileExistsAtPath:userUrl.path isDirectory:&isDir];
             if (isDir) {
-                os_log_info(AUTHD_LOG, "Skipping dir %{public}@ (not a file)", userUrl.path);
+                os_log_debug_air("Skipping dir %{public}@ (not a file)", userUrl.path);
                 continue;
             }
             NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:userUrl.path];
@@ -1102,9 +1102,9 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     if (user.count) {
         _userPrefs[volumeUuid.UUIDString] = user;
     }
-    os_log_debug(AUTHD_LOG, "Global prefs for volume %@: %@", volumeUuid.UUIDString, global);
-    os_log_debug(AUTHD_LOG, "Managed prefs for volume %@: %@", volumeUuid.UUIDString, managed);
-    os_log_debug(AUTHD_LOG, "User prefs for volume %@: %@", volumeUuid.UUIDString, user);
+    os_log_debug_air("Global prefs for volume %@: %@", volumeUuid.UUIDString, global);
+    os_log_debug_air("Managed prefs for volume %@: %@", volumeUuid.UUIDString, managed);
+    os_log_debug_air("User prefs for volume %@: %@", volumeUuid.UUIDString, user);
 }
 
 @end
@@ -1115,7 +1115,7 @@ OSStatus preloginDb(PreloginUserDb **db)
     static OSStatus loadError = errAuthorizationSuccess;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        os_log_info(AUTHD_LOG, "Going to load User DB");
+        os_log_debug_air("Going to load User DB");
 
         database = [[PreloginUserDb alloc] init];
         if (!database) {
@@ -1149,7 +1149,7 @@ OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *out
         return retval;
     }
     
-    os_log_debug(AUTHD_LOG, "Processing user db for volume %{public}s with flags %d", uuid, flags);
+    os_log_debug_air("Processing user db for volume %{public}s with flags %d", uuid, flags);
 
     *output = CFBridgingRetain([database users:uuid ? [NSString stringWithUTF8String:uuid]  : nil]);
     return errAuthorizationSuccess;
@@ -1172,28 +1172,28 @@ OSStatus prelogin_copy_pref_value(const char * _Nullable uuid, const char *user,
     NSString *_domain = [NSString stringWithUTF8String:domain];
     NSString *_uuid = [NSString stringWithUTF8String:uuid];
     if (user) {
-        os_log_debug(AUTHD_LOG, "Reading user pref volume %{public}s %{public}s/%{public}s for user %s", uuid, domain, item, user);
+        os_log_debug_air("Reading user pref volume %{public}s %{public}s/%{public}s for user %s", uuid, domain, item, user);
         prefs = [database userPrefs:_uuid user:[NSString stringWithUTF8String:user] domain:_domain];
     } else {
-        os_log_debug(AUTHD_LOG, "Reading global pref volume %{public}s %{public}s/%{public}s", uuid, domain, item);
+        os_log_debug_air("Reading global pref volume %{public}s %{public}s/%{public}s", uuid, domain, item);
         managed = [database managedPrefs:_uuid domain:_domain];
         prefs = [database globalPrefs:_uuid domain:_domain];
     }
     
     if (!prefs && !managed) {
-        os_log_debug(AUTHD_LOG, "No pref found");
+        os_log_debug_air("No pref found");
         return errAuthorizationInvalidSet;
     }
     
     id value = managed[[NSString stringWithUTF8String:item]];
     if (value) {
-        os_log_info(AUTHD_LOG, "Using managed prefs for %{public}s", item);
+        os_log_debug_air("Using managed prefs for %{public}s", item);
     } else {
-        os_log_debug(AUTHD_LOG, "Using global prefs for %{public}s", item);
+        os_log_debug_air("Using global prefs for %{public}s", item);
         value = prefs[[NSString stringWithUTF8String:item]];
     }
     if (!value) {
-        os_log_debug(AUTHD_LOG, "No pref value with name %{public}s was found", item);
+        os_log_debug_air("No pref value with name %{public}s was found", item);
         return errAuthorizationInvalidTag;
     }
     

@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(AudioWorkletGlobalScope);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AudioWorkletGlobalScope);
 
 RefPtr<AudioWorkletGlobalScope> AudioWorkletGlobalScope::tryCreate(AudioWorkletThread& thread, const WorkletParameters& parameters)
 {
@@ -61,7 +61,7 @@ RefPtr<AudioWorkletGlobalScope> AudioWorkletGlobalScope::tryCreate(AudioWorkletT
 }
 
 AudioWorkletGlobalScope::AudioWorkletGlobalScope(AudioWorkletThread& thread, Ref<JSC::VM>&& vm, const WorkletParameters& parameters)
-    : WorkletGlobalScope(thread, WTFMove(vm), parameters)
+    : WorkletGlobalScope(thread, WTF::move(vm), parameters)
     , m_sampleRate(parameters.sampleRate)
 {
     ASSERT(!isMainThread());
@@ -117,7 +117,7 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
         }
     }
 
-    auto addResult = m_processorConstructorMap.add(name, WTFMove(processorConstructor));
+    auto addResult = m_processorConstructorMap.add(name, WTF::move(processorConstructor));
 
     // We've already checked at the beginning of this function but then we ran some JS so we need to check again.
     if (!addResult.isNewEntry)
@@ -127,10 +127,10 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
     if (!messagingProxy)
         return Exception { ExceptionCode::InvalidStateError };
 
-    messagingProxy->postTaskToAudioWorklet([name = WTFMove(name).isolatedCopy(), parameterDescriptors = crossThreadCopy(WTFMove(parameterDescriptors))](AudioWorklet& worklet) mutable {
+    messagingProxy->postTaskToAudioWorklet([name = WTF::move(name).isolatedCopy(), parameterDescriptors = crossThreadCopy(WTF::move(parameterDescriptors))](AudioWorklet& worklet) mutable {
         ASSERT(isMainThread());
         if (RefPtr audioContext = worklet.audioContext())
-            audioContext->addAudioParamDescriptors(name, WTFMove(parameterDescriptors));
+            audioContext->addAudioParamDescriptors(name, WTF::move(parameterDescriptors));
     });
 
     return { };
@@ -138,7 +138,7 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
 
 RefPtr<AudioWorkletProcessor> AudioWorkletGlobalScope::createProcessor(const String& name, TransferredMessagePort port, Ref<SerializedScriptValue>&& options)
 {
-    auto constructor = m_processorConstructorMap.get(name);
+    RefPtr constructor = m_processorConstructorMap.get(name);
     ASSERT(constructor);
     if (!constructor)
         return nullptr;
@@ -153,7 +153,7 @@ RefPtr<AudioWorkletProcessor> AudioWorkletGlobalScope::createProcessor(const Str
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSC::JSLockHolder lock { globalObject };
 
-    m_pendingProcessorConstructionData = makeUnique<AudioWorkletProcessorConstructionData>(String { name }, MessagePort::entangle(*this, WTFMove(port)));
+    m_pendingProcessorConstructionData = makeUnique<AudioWorkletProcessorConstructionData>(String { name }, MessagePort::entangle(*this, WTF::move(port)));
 
     JSC::MarkedArgumentBuffer args;
     bool didFail = false;

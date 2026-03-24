@@ -88,8 +88,7 @@ void GStreamerAudioMixer::ensureState(GstStateChange stateChange)
 
 GRefPtr<GstPad> GStreamerAudioMixer::registerProducer(GstElement* interaudioSink, std::optional<int> forcedSampleRate)
 {
-    auto name = StringView::fromLatin1(GST_ELEMENT_NAME(interaudioSink));
-    GstElement* src = makeGStreamerElement("interaudiosrc"_s, name.toStringWithoutCopying());
+    GstElement* src = makeGStreamerElement("interaudiosrc"_s, unsafeSpan(GST_ELEMENT_NAME(interaudioSink)));
 
     g_object_set(src, "channel", GST_ELEMENT_NAME(interaudioSink), nullptr);
     g_object_set(interaudioSink, "channel", GST_ELEMENT_NAME(interaudioSink), nullptr);
@@ -158,9 +157,9 @@ void GStreamerAudioMixer::unregisterProducer(const GRefPtr<GstPad>& mixerPad)
     GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(m_pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, "audio-mixer-after-producer-unregistration");
 }
 
-void GStreamerAudioMixer::configureSourcePeriodTime(StringView sourceName, uint64_t periodTime)
+void GStreamerAudioMixer::configureSourcePeriodTime(CStringView sourceName, uint64_t periodTime)
 {
-    auto src = adoptGRef(gst_bin_get_by_name(GST_BIN_CAST(m_pipeline.get()), sourceName.toStringWithoutCopying().ascii().data()));
+    auto src = adoptGRef(gst_bin_get_by_name(GST_BIN_CAST(m_pipeline.get()), sourceName.utf8()));
     if (!src) [[unlikely]]
         return;
 

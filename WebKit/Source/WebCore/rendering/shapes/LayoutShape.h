@@ -31,7 +31,7 @@
 
 #include <WebCore/LayoutRect.h>
 #include <WebCore/Path.h>
-#include <WebCore/StyleBasicShape.h>
+#include <WebCore/StyleShapeForward.h>
 #include <WebCore/WritingMode.h>
 #include <wtf/RefCounted.h>
 

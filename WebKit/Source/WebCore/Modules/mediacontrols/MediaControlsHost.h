@@ -27,7 +27,6 @@
 
 #if ENABLE(VIDEO)
 
-#include "HTMLMediaElement.h"
 #include "JSValueInWrappedObject.h"
 #include "MediaSession.h"
 #include <wtf/Ref.h>
@@ -39,6 +38,8 @@ namespace WebCore {
 
 class AudioTrack;
 class AudioTrackList;
+class ContextMenuItem;
+class DOMPromise;
 class Element;
 class WeakPtrImplWithEventTargetData;
 class HTMLElement;
@@ -47,7 +48,12 @@ class MediaControlTextTrackContainerElement;
 class TextTrack;
 class TextTrackList;
 class TextTrackRepresentation;
+class VTTCue;
 class VoidCallback;
+
+struct MediaControlsContextMenuItem;
+
+enum class HTMLMediaElementSourceType : uint8_t;
 
 class MediaControlsHost final
     : public CanMakeWeakPtr<MediaControlsHost>
@@ -62,8 +68,13 @@ public:
     explicit MediaControlsHost(HTMLMediaElement&);
     ~MediaControlsHost();
 
-    void ref() const;
-    void deref() const;
+#if ENABLE(MEDIA_SESSION)
+    WEBCORE_EXPORT void ref() const final;
+    WEBCORE_EXPORT void deref() const final;
+#else
+    WEBCORE_EXPORT void ref() const;
+    WEBCORE_EXPORT void deref() const;
+#endif
 
     static const AtomString& automaticKeyword();
     static const AtomString& forcedOnlyKeyword();
@@ -74,14 +85,15 @@ public:
     double brightness() const { return 1; }
     void setBrightness(double) { }
 
-    Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList&);
-    Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList&);
+    Vector<Ref<TextTrack>> sortedTrackListForMenu(TextTrackList&);
+    Vector<Ref<AudioTrack>> sortedTrackListForMenu(AudioTrackList&);
 
     using TextOrAudioTrack = Variant<RefPtr<TextTrack>, RefPtr<AudioTrack>>;
     String displayNameForTrack(const std::optional<TextOrAudioTrack>&);
 
     static TextTrack& captionMenuOffItem();
     static TextTrack& captionMenuAutomaticItem();
+    static TextTrack& captionMenuOnItem();
     AtomString captionDisplayMode() const;
     void setSelectedTextTrack(TextTrack*);
     Element* textTrackContainer();
@@ -99,6 +111,7 @@ public:
     bool needsChromeMediaControlsPseudoElement() const;
     bool isMediaControlsMacInlineSizeSpecsEnabled() const;
 
+    void captionPreferencesChanged();
     enum class ForceUpdate : bool { No, Yes };
     void updateCaptionDisplaySizes(ForceUpdate = ForceUpdate::No);
     void updateTextTrackRepresentationImageIfNeeded();
@@ -118,11 +131,15 @@ public:
 
     Vector<String, 2> shadowRootStyleSheets() const;
     static String base64StringForIconNameAndType(const String& iconName, const String& iconType);
+
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    Vector<MediaControlsContextMenuItem> mediaControlsContextMenuItemsForBindings(String&& optionsJSONString);
     bool showMediaControlsContextMenu(HTMLElement&, String&& optionsJSONString, Ref<VoidCallback>&&);
+    void showCaptionDisplaySettingsPreview();
+    void hideCaptionDisplaySettingsPreview();
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
 
-    using SourceType = HTMLMediaElement::SourceType;
+    using SourceType = HTMLMediaElementSourceType;
     std::optional<SourceType> sourceType() const;
 
     void presentationModeChanged();
@@ -137,6 +154,10 @@ public:
 private:
     void savePreviouslySelectedTextTrackIfNecessary();
     void restorePreviouslySelectedTextTrackIfNecessary();
+    void handleCaptionVisibilityInFullscreenAndPictureInPictureQuirk();
+    bool needsCaptionVisibilityInFullscreenAndPictureInPictureQuirk() const;
+
+    MediaControlTextTrackContainerElement* ensureTextTrackContainer();
 
 #if ENABLE(MEDIA_SESSION)
     RefPtr<MediaSession> mediaSession() const;
@@ -144,6 +165,35 @@ private:
     // MediaSessionObserver
     void metadataChanged(const RefPtr<MediaMetadata>&) final;
 #endif
+
+    enum class PlaybackSpeed;
+    enum class PictureInPictureTag;
+    enum class ShowMediaStatsTag;
+
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+#if ENABLE(CONTEXT_MENUS) && USE(ACCESSIBILITY_CONTEXT_MENUS)
+    using MenuItem = ContextMenuItem;
+#else
+    using MenuItem = MediaControlsContextMenuItem;
+#endif
+    using MenuItemIdentifier = uint64_t;
+
+    using MenuData = Variant<
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+        PictureInPictureTag,
+#endif
+        Ref<AudioTrack>,
+        Ref<TextTrack>,
+        Ref<VTTCue>,
+        PlaybackSpeed,
+        ShowMediaStatsTag
+    >;
+    using MenuDataMap = HashMap<MenuItemIdentifier, MenuData>;
+
+    std::pair<Vector<MenuItem>, MenuDataMap> mediaControlsContextMenuItems(String&& optionsJSONString);
+#endif
+
+    Ref<HTMLMediaElement> protectedMediaElement() const;
 
     WeakRef<HTMLMediaElement> m_mediaElement;
     RefPtr<MediaControlTextTrackContainerElement> m_textTrackContainer;
@@ -159,4 +209,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(VIDEO)
-

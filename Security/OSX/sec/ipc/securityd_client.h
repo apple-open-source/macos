@@ -185,9 +185,9 @@ enum SecXPCOperation {
     // This allows updating roots on a device, since SecTrustEvaluate must continue to work
     sec_keychain_backup_id,
     sec_keychain_restore_id,
-    sec_keychain_backup_syncable_id,
-    sec_keychain_restore_syncable_id,
-    sec_item_backup_copy_names_id,
+//    sec_keychain_backup_syncable_id,
+//    sec_keychain_restore_syncable_id,
+    sec_item_backup_copy_names_id = 11, // int id added due to commenting-out last two.
     sec_item_backup_ensure_copy_view_id,
     sec_item_backup_handoff_fd_id,
     sec_item_backup_set_confirmed_manifest_id,
@@ -313,6 +313,7 @@ enum SecXPCOperation {
     sec_ota_pki_trust_store_content_digest_id,
     sec_ota_pki_trust_store_asset_version_id,
     sec_item_update_token_items_for_system_keychain_id,
+    sec_delete_internal_items_on_sign_out_id,
 };
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
@@ -346,7 +347,7 @@ typedef struct SecurityClient {
 #endif
     bool isAppClip;
     CFStringRef applicationIdentifier;
-    bool isMusrOverridden;
+    bool isMusrOverriddenForTests;
     bool allowKeychainSharing;
 } SecurityClient;
 
@@ -356,7 +357,7 @@ void
 SecSecurityFixUpClientWithPersona(SecurityClient* src, SecurityClient* dest);
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 void SecSecuritySetMusrMode(bool inEduMode, uid_t uid, int activeUser);
-void SecSecuritySetPersonaMusr(CFStringRef uuid);
+void SecSecuritySetPersonaMusrForTests(CFStringRef uuid);
 #endif
 
 struct securityd {
@@ -376,11 +377,10 @@ struct securityd {
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     CFTypeRef (*sec_item_share_with_group)(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error);
     bool (*sec_delete_items_on_sign_out)(SecurityClient *client, CFErrorRef *error);
+    bool (*sec_delete_internal_items_on_sign_out)(SecurityClient *client, CFStringRef persona, CFErrorRef *error);
     /* SHAREDWEBCREDENTIALS */
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     /* SECUREOBJECTSYNC */
-    CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
-    bool (*sec_keychain_restore_syncable)(CFDictionaryRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFArrayRef (*sec_item_backup_copy_names)(CFErrorRef *error);
     CFStringRef (*sec_item_backup_ensure_copy_view)(CFStringRef viewName, CFErrorRef *error);
     int (*sec_item_backup_handoff_fd)(CFStringRef backupName, CFErrorRef *error);
@@ -456,7 +456,11 @@ struct securityd {
     CFTypeRef secd_xpc_server;
 };
 
+#if __has_feature(ptrauth_calls)
+extern struct securityd* __ptrauth(ptrauth_key_process_dependent_data, 1) gSecurityd; //signed with B key which is unique per process
+#else
 extern struct securityd *gSecurityd;
+#endif
 
 struct trustd {
     SecTrustStoreRef (*sec_trust_store_for_domain)(CFStringRef domainName, CFErrorRef* error);
@@ -484,7 +488,7 @@ struct trustd {
     uint64_t (*sec_trust_get_exception_reset_count)(CFErrorRef *error);
     bool (*sec_trust_store_set_ca_revocation_additions)(CFStringRef appID, CFDictionaryRef additions, CFErrorRef *error);
     CFDictionaryRef (*sec_trust_store_copy_ca_revocation_additions)(CFStringRef appID, CFErrorRef *error);
-    bool (*sec_valid_update)(CFErrorRef *error);
+    bool (*sec_valid_update)(CFIndex version, CFErrorRef *error);
     bool (*sec_trust_store_set_transparent_connection_pins)(CFStringRef appID, CFArrayRef exceptions, CFErrorRef *error);
     CFArrayRef (*sec_trust_store_copy_transparent_connection_pins)(CFStringRef appID, CFErrorRef *error);
     bool (*sec_trust_settings_set_data)(uid_t uid, CFStringRef domain, CFDataRef auth, CFDataRef trustSettings, CFErrorRef* error);

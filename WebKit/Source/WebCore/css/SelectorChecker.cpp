@@ -253,8 +253,8 @@ bool SelectorChecker::matchHostPseudoClass(const CSSSelector& selector, const El
         return false;
 
     if (auto* selectorList = selector.selectorList()) {
-        ASSERT(selectorList->listSize() == 1);
-        LocalContext context(*selectorList->first(), element, VisitedMatchType::Enabled, std::nullopt);
+        ASSERT(selectorList->size() == 1);
+        LocalContext context(selectorList->first(), element, VisitedMatchType::Enabled, std::nullopt);
         context.inFunctionalPseudoClass = true;
         context.pseudoElementEffective = false;
         EnumSet<PseudoElementType> ignoredPseudoElements;
@@ -801,7 +801,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
                 subcontext.inFunctionalPseudoClass = true;
                 subcontext.pseudoElementEffective = false;
                 subcontext.selector = &subselector;
-                subcontext.firstSelectorOfTheFragment = selectorList->first();
+                subcontext.firstSelectorOfTheFragment = &selectorList->first();
                 EnumSet<PseudoElementType> ignoredPseudoElements;
 
                 if (matchRecursively(checkingContext, subcontext, ignoredPseudoElements).match == Match::SelectorMatches) {
@@ -1073,10 +1073,6 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
             return matchesFocusWithinPseudoClass(element);
         case CSSSelector::PseudoClass::Hover:
             if (m_strictParsing || element.isLink() || canMatchHoverOrActiveInQuirksMode(context)) {
-                // See the comment in generateElementIsHovered() in SelectorCompiler.
-                if (checkingContext.resolvingMode == SelectorChecker::Mode::StyleInvalidation && !context.isMatchElement)
-                    return true;
-
                 if (element.hovered() || InspectorInstrumentation::forcePseudoState(element, CSSSelector::PseudoClass::Hover))
                     return true;
             }
@@ -1129,6 +1125,10 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
 #if ENABLE(PICTURE_IN_PICTURE_API)
         case CSSSelector::PseudoClass::PictureInPicture:
             return matchesPictureInPicturePseudoClass(element);
+#endif
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+        case CSSSelector::PseudoClass::Immersive:
+            return matchesImmersivePseudoClass(element);
 #endif
         case CSSSelector::PseudoClass::InRange:
             return isInRange(element);
@@ -1266,10 +1266,10 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
             // ::slotted matches after flattening so it can't match an active <slot>.
             if (is<HTMLSlotElement>(*context.element) && context.element->containingShadowRoot())
                 return false;
-            auto* subselector = context.selector->selectorList()->first();
+            auto& subselector = context.selector->selectorList()->first();
             LocalContext subcontext(context);
-            subcontext.selector = subselector;
-            subcontext.firstSelectorOfTheFragment = subselector;
+            subcontext.selector = &subselector;
+            subcontext.firstSelectorOfTheFragment = &subselector;
             subcontext.pseudoElementEffective = false;
             subcontext.inFunctionalPseudoClass = true;
             EnumSet<PseudoElementType> ignoredPseudoElements;
@@ -1664,7 +1664,7 @@ bool SelectorChecker::checkViewTransitionPseudoClass(const CheckingContext& chec
     }
 }
 
-unsigned SelectorChecker::determineLinkMatchType(const CSSSelector* selector, const StyleRuleScope* scopeRule)
+unsigned SelectorChecker::determineLinkMatchType(const CSSSelector& selector, const StyleRuleScope* scopeRule)
 {
     unsigned linkMatchType = MatchAll;
 
@@ -1681,9 +1681,9 @@ unsigned SelectorChecker::determineLinkMatchType(const CSSSelector* selector, co
 
     // Statically determine if this selector will match a link in visited, unvisited or any state, or never.
     // :visited never matches other elements than the innermost link element.
-    for (; selector; selector = selector->precedingInComplexSelector()) {
-        if (selector->match() == CSSSelector::Match::PseudoClass) {
-            switch (selector->pseudoClass()) {
+    for (auto* current = &selector; current; current = current->precedingInComplexSelector()) {
+        if (current->match() == CSSSelector::Match::PseudoClass) {
+            switch (current->pseudoClass()) {
             case CSSSelector::PseudoClass::Link:
                 linkMatchType &= ~SelectorChecker::MatchVisited;
                 break;
@@ -1698,10 +1698,10 @@ unsigned SelectorChecker::determineLinkMatchType(const CSSSelector* selector, co
                 break;
             }
         }
-        auto relation = selector->relation();
+        auto relation = current->relation();
         if (relation == CSSSelector::Relation::Subselector)
             continue;
-        if (!selector->hasDescendantOrChildRelation())
+        if (!current->hasDescendantOrChildRelation())
             return linkMatchType;
         if (linkMatchType != MatchAll)
             return linkMatchType;

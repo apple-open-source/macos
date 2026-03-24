@@ -70,7 +70,7 @@ static void hasCompatibleServicesForItems(dispatch_group_t group, NSArray *items
     NSSharingServiceMask servicesMask = NSSharingServiceMaskViewer | NSSharingServiceMaskEditor;
 
     dispatch_group_enter(group);
-    [NSSharingService getSharingServicesForItems:items mask:servicesMask completion:makeBlockPtr([completionHandler = WTFMove(completionHandler), group = retainPtr(group)](NSArray *services) {
+    [NSSharingService getSharingServicesForItems:items mask:servicesMask completion:makeBlockPtr([completionHandler = WTF::move(completionHandler), group = retainPtr(group)](NSArray *services) {
         completionHandler(services.count);
         dispatch_group_leave(group.get());
     }).get()];
@@ -97,18 +97,18 @@ void ServicesController::refreshExistingServices(bool refreshImmediately)
             m_hasSelectionServices = hasServices;
         });
 
-        static NeverDestroyed<RetainPtr<NSAttributedString>> attributedStringWithRichContent;
-        static std::once_flag attributedStringWithRichContentOnceFlag;
-        std::call_once(attributedStringWithRichContentOnceFlag, [&] {
+        static NeverDestroyed<RetainPtr<NSAttributedString>> attributedStringWithRichContent = [&] {
+            RetainPtr<NSAttributedString> result;
             WorkQueue::mainSingleton().dispatchSync([&] {
                 auto attachment = adoptNS([[NSTextAttachment alloc] init]);
                 auto cell = adoptNS([[NSTextAttachmentCell alloc] initImageCell:image.get().get()]);
                 [attachment setAttachmentCell:cell.get()];
                 auto richString = adoptNS([[NSAttributedString attributedStringWithAttachment:attachment.get()] mutableCopy]);
                 [richString appendAttributedString:attributedString.get().get()];
-                attributedStringWithRichContent.get() = WTFMove(richString);
+                result = WTF::move(richString);
             });
-        });
+            return result;
+        }();
 
         hasCompatibleServicesForItems(serviceLookupGroup.get(), @[ attributedStringWithRichContent.get().get() ], [this] (bool hasServices) {
             m_hasRichContentServices = hasServices;

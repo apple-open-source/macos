@@ -29,6 +29,7 @@
 #if PLATFORM(MAC)
 
 #import "Logging.h"
+#import "RemoteLayerTreeCommitBundle.h"
 #import "WebPage.h"
 #import "WebPageCreationParameters.h"
 #import <WebCore/GraphicsLayer.h>
@@ -83,7 +84,7 @@ void RemoteLayerTreeDrawingAreaMac::adjustTransientZoom(double scale, WebCore::F
     prepopulateRectForZoom(totalScale, origin);
 }
 
-void RemoteLayerTreeDrawingAreaMac::willCommitLayerTree(RemoteLayerTreeTransaction& transaction)
+void RemoteLayerTreeDrawingAreaMac::willCommitMainFrameData(MainFrameData& data)
 {
     // FIXME: Probably need something here for PDF.
     RefPtr frameView = protectedWebPage()->localMainFrameView();
@@ -91,13 +92,13 @@ void RemoteLayerTreeDrawingAreaMac::willCommitLayerTree(RemoteLayerTreeTransacti
         return;
 
     if (RefPtr renderViewGraphicsLayer = frameView->graphicsLayerForPageScale())
-        transaction.setPageScalingLayerID(renderViewGraphicsLayer->primaryLayerID());
+        data.pageScalingLayerID = renderViewGraphicsLayer->primaryLayerID();
 
     if (RefPtr scrolledContentsLayer = frameView->graphicsLayerForScrolledContents())
-        transaction.setScrolledContentsLayerID(scrolledContentsLayer->primaryLayerID());
+        data.scrolledContentsLayerID = scrolledContentsLayer->primaryLayerID();
 
     if (RefPtr mainFrameClipLayerID = frameView->clipLayer())
-        transaction.setMainFrameClipLayerID(mainFrameClipLayerID->primaryLayerID());
+        data.mainFrameClipLayerID = mainFrameClipLayerID->primaryLayerID();
 }
 
 } // namespace WebKit

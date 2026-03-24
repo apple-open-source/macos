@@ -95,13 +95,13 @@ public:
     const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
     void setLayerTreeStateIsFrozen(bool);
 
-    void scheduleLayerFlush();
-    void cancelPendingLayerFlush();
+    void scheduleRenderingUpdate();
+    void cancelRenderingUpdate();
     void setRootCompositingLayer(WebCore::GraphicsLayer*);
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*);
 
-    void forceRepaint();
-    void forceRepaintAsync(CompletionHandler<void()>&&);
+    void updateRenderingWithForcedRepaint();
+    void updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&&);
     void sizeDidChange();
 
     void pauseRendering();
@@ -150,9 +150,11 @@ private:
     void detachLayer(WebCore::CoordinatedPlatformLayer&) override;
     void notifyCompositionRequired() override;
     bool isCompositionRequiredOrOngoing() const override;
-    void requestComposition() override;
+    void requestComposition(WebCore::CompositionReason) override;
     RunLoop* compositingRunLoop() const override;
     int maxTextureSize() const override;
+    void willPaintTile() override { };
+    void didPaintTile() override { };
 
     // GraphicsLayerFactory
     Ref<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;

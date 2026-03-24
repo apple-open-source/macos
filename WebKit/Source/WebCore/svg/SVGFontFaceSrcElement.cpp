@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGFontFaceSrcElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SVGFontFaceSrcElement);
 
 using namespace SVGNames;
     
@@ -54,13 +54,13 @@ Ref<CSSValueList> SVGFontFaceSrcElement::createSrcValue() const
     for (auto& child : childrenOfType<SVGElement>(*this)) {
         if (RefPtr element = dynamicDowncast<SVGFontFaceUriElement>(child)) {
             if (auto srcValue = element->createSrcValue(); !srcValue->isEmpty())
-                list.append(WTFMove(srcValue));
+                list.append(WTF::move(srcValue));
         } else if (RefPtr element = dynamicDowncast<SVGFontFaceNameElement>(child)) {
             if (auto srcValue = element->createSrcValue(); !srcValue->isEmpty())
-                list.append(WTFMove(srcValue));
+                list.append(WTF::move(srcValue));
         }
     }
-    return CSSValueList::createCommaSeparated(WTFMove(list));
+    return CSSValueList::createCommaSeparated(WTF::move(list));
 }
 
 void SVGFontFaceSrcElement::childrenChanged(const ChildChange& change)

@@ -69,6 +69,8 @@ static void initializeSQLiteIfNecessary()
         // completely threadsafe. But in the past it was not safe, and the SQLite developers still
         // aren't confident that it really is, and we still support ancient versions of SQLite. So
         // std::call_once is used to stay on the safe side. See bug #143245.
+
+#if OS(DARWIN)
         int ret;
         callOnMainThreadAndWait([&] {
             // In the Network process, this function can be called on a background thread when
@@ -78,6 +80,14 @@ static void initializeSQLiteIfNecessary()
             // main thread.
             ret = sqlite3_initialize();
         });
+#else
+        // On non-Darwin systems confstr() is MT-safe and it does not try to fiddle with environment
+        // variables, and it is better initialize directly. This is true at least on Linux with the
+        // supported C libraries (glibc, Musl, uClibc), the "big" BSDs (FreeBSD, NetBSD, OpenBSD),
+        // and the Android C library (Bionic) does not even provide confstr().
+        int ret = sqlite3_initialize();
+#endif
+
         if (ret != SQLITE_OK) {
 #if SQLITE_VERSION_NUMBER >= 3007015
             WTFLogAlways("Failed to initialize SQLite: %s", sqlite3_errstr(ret));
@@ -88,9 +98,6 @@ static void initializeSQLiteIfNecessary()
         }
     });
 }
-
-static Lock isDatabaseOpeningForbiddenLock;
-static bool isDatabaseOpeningForbidden WTF_GUARDED_BY_LOCK(isDatabaseOpeningForbiddenLock) { false };
 
 void SQLiteDatabase::useFastMalloc()
 {
@@ -112,12 +119,6 @@ void SQLiteDatabase::useFastMalloc()
     returnCode = sqlite3_config(SQLITE_CONFIG_MALLOC, &fastMallocMethods);
     RELEASE_LOG_ERROR_IF(returnCode != SQLITE_OK, SQLDatabase, "Unable to replace SQLite malloc: %d", returnCode);
 #endif
-}
-
-void SQLiteDatabase::setIsDatabaseOpeningForbidden(bool isForbidden)
-{
-    Locker locker { isDatabaseOpeningForbiddenLock };
-    isDatabaseOpeningForbidden = isForbidden;
 }
 
 SQLiteDatabase::SQLiteDatabase() = default;
@@ -143,12 +144,6 @@ bool SQLiteDatabase::open(const String& filename, OpenMode openMode, OptionSet<O
     });
 
     {
-        Locker locker { isDatabaseOpeningForbiddenLock };
-        if (isDatabaseOpeningForbidden) {
-            m_openErrorMessage = "opening database is forbidden";
-            return false;
-        }
-
         int flags = SQLITE_OPEN_AUTOPROXY;
         switch (openMode) {
         case OpenMode::ReadOnly:
@@ -326,7 +321,7 @@ void SQLiteDatabase::close()
 
 void SQLiteDatabase::overrideUnauthorizedFunctions()
 {
-    static const std::pair<ASCIILiteral, int> functionParameters[] = {
+    static constexpr auto functionParameters = std::to_array<std::pair<ASCIILiteral, int>>({
         { "rtreenode"_s, 2 },
         { "rtreedepth"_s, 1 },
         { "eval"_s, 1 },
@@ -334,7 +329,7 @@ void SQLiteDatabase::overrideUnauthorizedFunctions()
         { "printf"_s, -1 },
         { "fts3_tokenizer"_s, 1 },
         { "fts3_tokenizer"_s, 2 },
-    };
+    });
 
     for (auto& functionParameter : functionParameters)
         sqlite3_create_function(m_db, functionParameter.first, functionParameter.second, SQLITE_UTF8, const_cast<char*>(functionParameter.first.characters()), unauthorizedSQLFunction, 0, 0);
@@ -766,7 +761,7 @@ static int callCollationFunction(void* arg, int aLength, const void* a, int bLen
 
 void SQLiteDatabase::setCollationFunction(const String& collationName, Function<int(int, const void*, int, const void*)>&& collationFunction)
 {
-    auto functionObject = new Function<int(int, const void*, int, const void*)>(WTFMove(collationFunction));
+    auto functionObject = new Function<int(int, const void*, int, const void*)>(WTF::move(collationFunction));
     sqlite3_create_collation_v2(m_db, collationName.utf8().data(), SQLITE_UTF8, functionObject, callCollationFunction, destroyCollationFunction);
 }
 

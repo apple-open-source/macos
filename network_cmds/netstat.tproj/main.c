@@ -147,7 +147,7 @@ struct protox ip6protox[] = {
 
 #ifdef IPSEC
 struct protox pfkeyprotox[] = {
-	{ NULL,		pfkey_stats,	NULL,	NULL,		"pfkey", PF_KEY_V2 },
+	{ keysockpr,		pfkey_stats,	NULL,	NULL,		"pfkey", PF_KEY_V2 },
 	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 #endif
@@ -173,6 +173,7 @@ struct protox kernprotox[] = {
 	{ NULL,		print_net_api_stats,	NULL,	NULL,		"net_api", 0 },
 	{ NULL,		print_if_ports_used_stats,	NULL,	NULL,		"if_ports_used", 0 },
 	{ NULL,		NULL,	print_if_link_heuristics_stats,	NULL,		"link_heuristics", 0 },
+	{ NULL,		NULL,	print_if_lpw_stats,	NULL,		"lpw", 0 },
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
@@ -189,6 +190,11 @@ struct protox unixprotox[] = {
 	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
+struct protox routeprotox[] = {
+	{ rtsock_pcblist,		NULL,	NULL,	NULL,		"route", 0 },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
+};
+
 struct protox *protoprotox[] = {
 	protox,
 #ifdef INET6
@@ -201,6 +207,7 @@ struct protox *protoprotox[] = {
 	nstatprotox,
 	ipcprotox,
 	kernprotox,
+	routeprotox,
 #ifdef AF_VSOCK
 	vsockprotox,
 #endif
@@ -336,14 +343,16 @@ netstat_parse_parameters(int argc, char *argv[], struct netstat_parameters *para
 			else if (strcmp(optarg, "inet6") == 0)
 				params->af = AF_INET6;
 #endif /*INET6*/
-#ifdef INET6
+#ifdef IPSEC
 			else if (strcmp(optarg, "pfkey") == 0)
 				params->af = PF_KEY;
-#endif /*INET6*/
+#endif /*IPSEC */
 			else if (strcmp(optarg, "unix") == 0)
 				params->af = AF_UNIX;
 			else if (strcmp(optarg, "systm") == 0)
 				params->af = AF_SYSTEM;
+			else if (strcmp(optarg, "route") == 0)
+				params->af = AF_ROUTE;
 #ifdef AF_VSOCK
 			else if (strcmp(optarg, "vsock") == 0)
 				params->af = AF_VSOCK;
@@ -541,10 +550,6 @@ netstat_run(struct netstat_parameters *params)
 		for (tp = ip6protox; tp->pr_name; tp++)
 			printproto(params, tp, tp->pr_name);
 
-	if (params->af == PF_KEY || params->af == AF_UNSPEC)
-		for (tp = pfkeyprotox; tp->pr_name; tp++)
-			printproto(params, tp, tp->pr_name);
-
 	if ((params->af == AF_UNIX || params->af == AF_UNSPEC) && !params->Lflag) {
 		for (tp = unixprotox; tp->pr_name; tp++)
 			printproto(params, tp, tp->pr_name);
@@ -564,6 +569,14 @@ netstat_run(struct netstat_parameters *params)
 
 	if (params->af == AF_UNSPEC && !params->Lflag)
 		for (tp = kernprotox; tp->pr_name; tp++)
+			printproto(params, tp, tp->pr_name);
+
+	if (params->af == PF_KEY || params->af == AF_UNSPEC)
+		for (tp = pfkeyprotox; tp->pr_name; tp++)
+			printproto(params, tp, tp->pr_name);
+
+	if (params->af == PF_ROUTE || params->af == AF_UNSPEC)
+		for (tp = routeprotox; tp->pr_name; tp++)
 			printproto(params, tp, tp->pr_name);
 
 	if ((params->af == AF_VSOCK || params->af == AF_UNSPEC) && !params->Lflag) {

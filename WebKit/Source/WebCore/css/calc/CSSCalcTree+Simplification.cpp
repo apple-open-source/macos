@@ -39,7 +39,7 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSUnevaluatedCalc.h"
 #include "RenderStyle.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleBuilderState.h"
 #include "StyleLengthResolution.h"
 #include <wtf/StdLibExtras.h>
@@ -172,12 +172,8 @@ std::optional<CanonicalDimension> canonicalize(NonCanonicalDimension root, const
     };
 
     auto tryMakeCanonical = [&](double value, CSS::LengthUnit lengthUnit) -> std::optional<CanonicalDimension> {
-        if (conversionData) {
-            // We are only interested in canonicalizing to `px`, not adjusting for zoom, which will be handled later. When computing font-size, zoom is not applied in the same way, so must be special cased here.
-            if (conversionData->computingFontSize())
-                return CanonicalDimension { .value = Style::computeNonCalcLengthDouble(value, lengthUnit, *conversionData), .dimension = CanonicalDimension::Dimension::Length };
-            return CanonicalDimension { .value = Style::computeNonCalcLengthDouble(value, lengthUnit, *conversionData) / conversionData->style()->usedZoom(), .dimension = CanonicalDimension::Dimension::Length };
-        }
+        if (conversionData)
+            return CanonicalDimension { .value = Style::computeCanonicalNonCalcLengthDouble(value, lengthUnit, *conversionData), .dimension = CanonicalDimension::Dimension::Length };
         return { };
     };
 
@@ -414,7 +410,7 @@ template<typename Op> static std::optional<Child> simplifyForMinMax(Op& root, co
 
     // Special case a root with one child to avoid doing any work at all, and just returning the child.
     if (root.children.size() == 1)
-        return { WTFMove(root.children[0]) };
+        return { WTF::move(root.children[0]) };
 
     // Map of unit types (via NumericIdentity) to the first index in `root.children` where a value with that unit can be found.
     // More specifically, it maps the unit to the index + 1, as 0 is used to indicate no units of that type have been found.
@@ -461,7 +457,7 @@ template<typename Op> static std::optional<Child> simplifyForMinMax(Op& root, co
 
     // If all the removal from merges leaves a single child, that means everything merged into the first child.
     if (combinedChildrenSize == 1)
-        return { WTFMove(root.children[0]) };
+        return { WTF::move(root.children[0]) };
 
     Vector<Child> combinedChildren;
     combinedChildren.reserveInitialCapacity(combinedChildrenSize);
@@ -473,18 +469,18 @@ template<typename Op> static std::optional<Child> simplifyForMinMax(Op& root, co
 
                 // If the stored offset for this type is unset (as it would be for percentages if merging them is disallowed) or is set to this index (as it would be for the first instance of a merged type), append the child as normal.
                 if (!offset || (offset - 1) == i) {
-                    combinedChildren.append(WTFMove(root.children[i]));
+                    combinedChildren.append(WTF::move(root.children[i]));
                     return;
                 }
 
                 // Otherwise, it's one that can be dropped.
             },
             [&](const auto&) {
-                combinedChildren.append(WTFMove(root.children[i]));
+                combinedChildren.append(WTF::move(root.children[i]));
             }
         );
     }
-    root.children = WTFMove(combinedChildren);
+    root.children = WTF::move(combinedChildren);
 
     return { };
 }
@@ -500,7 +496,7 @@ std::optional<Child> simplify(Number&, const SimplificationOptions&)
 std::optional<Child> simplify(Percentage&, const SimplificationOptions&)
 {
     // 1.1. If root is a percentage that will be resolved against another value, and there is enough information available to resolve it, do so, and express the resulting numeric value in the appropriate canonical unit. Return the value.
-    // NOTE: Handled by the Style::Calculation::Tree / Style::CalculationValue types at use time.
+    // NOTE: Handled by the Style::Calculation::Tree / Style::Calculation::Value types at use time.
     return { };
 }
 
@@ -516,7 +512,7 @@ std::optional<Child> simplify(NonCanonicalDimension& root, const SimplificationO
 
     // 1.2. If root is a dimension that is not expressed in its canonical unit, and there is enough information available to convert it to the canonical unit, do so, and return the value.
     if (auto canonical = canonicalize(root, options.conversionData))
-        return makeChild(WTFMove(*canonical));
+        return makeChild(WTF::move(*canonical));
 
     return { };
 }
@@ -563,11 +559,11 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
         Vector<Child> newChildren;
         for (auto& child : root.children) {
             if (auto* childSum = get_if<IndirectNode<Sum>>(&child))
-                newChildren.appendVector(WTFMove((*childSum)->children.value));
+                newChildren.appendVector(WTF::move((*childSum)->children.value));
             else
-                newChildren.append(WTFMove(child));
+                newChildren.append(WTF::move(child));
         }
-        root.children = WTFMove(newChildren);
+        root.children = WTF::move(newChildren);
     }
 
     // 8.2. For each set of root’s children that are numeric values with identical units, remove those children and replace them with a single numeric value containing the sum of the removed nodes, and with the same unit. (E.g. combine numbers, combine percentages, combine px values, etc.)
@@ -600,7 +596,7 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
 
     // Special case a root with one child to avoid doing any work at all, and just returning the child.
     if (root.children.size() == 1)
-        return { WTFMove(root.children[0]) };
+        return { WTF::move(root.children[0]) };
 
     // Map of unit types (via NumericIdentity) to the first index in `root.children` where a value with that unit can be found.
     // More specifically, it maps the unit to the index + 1, as 0 is used to indicate no units of that type have been found.
@@ -625,7 +621,7 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
                     auto [mergedChild, mergedValue] = evaluate(root.children[firstInstance.offset - 1], root.children[i]);
 
                     // Store the merged value in the original array.
-                    root.children[firstInstance.offset - 1] = WTFMove(mergedChild);
+                    root.children[firstInstance.offset - 1] = WTF::move(mergedChild);
 
                     // Update the `merges` count and `canRemove` bit for the new merged value.
                     firstInstance.merges += 1;
@@ -662,7 +658,7 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
 
     // If all the removal from merges leaves a single child, that means everything merged into the first child.
     if ((root.children.size() - childrenToRemoveFromMerges) == 1)
-        return { WTFMove(root.children[0]) };
+        return { WTF::move(root.children[0]) };
 
     auto combinedChildrenSize = root.children.size() - childrenToRemoveTotal;
 
@@ -680,17 +676,17 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
 
                     // If the stored offset for this type is set to this index and it's not one that can be removed, this is the 1 child to return.
                     if ((firstInstance.offset - 1) == i && !firstInstance.canRemove)
-                        return { WTFMove(root.children[i]) };
+                        return { WTF::move(root.children[i]) };
 
                     // Otherwise, it's one that can be dropped.
                     return { };
                 },
                 [&](const auto&) -> std::optional<Child> {
-                    return { WTFMove(root.children[i]) };
+                    return { WTF::move(root.children[i]) };
                 }
             );
             if (replacement)
-                return { WTFMove(*replacement) };
+                return { WTF::move(*replacement) };
         }
     }
 
@@ -705,18 +701,18 @@ std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
 
                 // If the stored offset for this type is set to this index and it's not one that can be removed, append the child as normal
                 if ((firstInstance.offset - 1) == i && !firstInstance.canRemove) {
-                    combinedChildren.append(WTFMove(root.children[i]));
+                    combinedChildren.append(WTF::move(root.children[i]));
                     return;
                 }
 
                 // Otherwise, it's one that can be dropped.
             },
             [&](const auto&) {
-                combinedChildren.append(WTFMove(root.children[i]));
+                combinedChildren.append(WTF::move(root.children[i]));
             }
         );
     }
-    root.children = WTFMove(combinedChildren);
+    root.children = WTF::move(combinedChildren);
 
     return { };
 }
@@ -745,7 +741,7 @@ std::optional<Child> simplify(Product& root, const SimplificationOptions& option
             else
                 numericProduct = Number { .value = childValue->value };
         } else
-            newChildren.append(WTFMove(child));
+            newChildren.append(WTF::move(child));
     };
 
     for (auto& child : root.children) {
@@ -783,7 +779,7 @@ std::optional<Child> simplify(Product& root, const SimplificationOptions& option
                         );
                     }
 
-                    return { Child { WTFMove(sum) } };
+                    return { Child { WTF::move(sum) } };
                 },
                 [&](IndirectNode<Invert>& invert) -> std::optional<Child> {
                     return WTF::switchOn(invert->a,
@@ -801,14 +797,14 @@ std::optional<Child> simplify(Product& root, const SimplificationOptions& option
             );
 
             if (replacement)
-                return { WTFMove(*replacement) };
+                return { WTF::move(*replacement) };
         }
 
         // If there was more than one child or no replacement was found, append the product from step 9.2 into the newChildren array.
         newChildren.append(makeChild(*numericProduct));
     }
 
-    root.children = WTFMove(newChildren);
+    root.children = WTF::move(newChildren);
 
     // 9.4. If root contains only numeric values and/or Invert nodes containing numeric values, and multiplying the types of all the children (noting that the type of an Invert node is the inverse of its child’s type) results in a type that matches any of the types that a math function can resolve to, return the result of multiplying all the values of the children (noting that the value of an Invert node is the reciprocal of its child’s value), expressed in the result’s canonical unit.
 
@@ -926,7 +922,7 @@ std::optional<Child> simplify(Negate& root, const SimplificationOptions&)
         },
         [](IndirectNode<Negate>& a) -> std::optional<Child> {
             // 6.2. If root’s child is a Negate node, return the child’s child.
-            return { WTFMove(a->a) };
+            return { WTF::move(a->a) };
         },
         [](IndirectNode<Sum>& a) -> std::optional<Child> {
             // Not stated in spec, but needed for tests.
@@ -941,7 +937,7 @@ std::optional<Child> simplify(Negate& root, const SimplificationOptions&)
                 );
             }
 
-            return { Child { WTFMove(a) } };
+            return { Child { WTF::move(a) } };
         },
         [](IndirectNode<Product>& a) -> std::optional<Child> {
             // Not stated in spec, but needed for tests.
@@ -956,7 +952,7 @@ std::optional<Child> simplify(Negate& root, const SimplificationOptions&)
                 );
             }
 
-            return { Child { WTFMove(a) } };
+            return { Child { WTF::move(a) } };
         },
         [](auto&) -> std::optional<Child> {
             return { };
@@ -975,7 +971,7 @@ std::optional<Child> simplify(Invert& root, const SimplificationOptions&)
         },
         [](IndirectNode<Invert>& a) -> std::optional<Child> {
             // 7.2. If root’s child is an Invert node, return the child’s child.
-            return { WTFMove(a->a) };
+            return { WTF::move(a->a) };
         },
         [](auto&) -> std::optional<Child> {
             return { };
@@ -1000,7 +996,7 @@ std::optional<Child> simplify(Clamp& root, const SimplificationOptions& options)
 
     if (minIsNone && maxIsNone) {
         // - clamp(none, VAL, none) is equivalent to just calc(VAL).
-        return { WTFMove(root.val) };
+        return { WTF::move(root.val) };
     }
 
     // FIXME: Are any of these transforms kosher?
@@ -1505,9 +1501,9 @@ Child copyAndSimplify(const Child& root, const SimplificationOptions& options)
 
             // Attempt to simplify the term itself, using the result as a replacement if successful.
             if (auto replacement = simplify(simplified, options))
-                return WTFMove(*replacement);
+                return WTF::move(*replacement);
 
-            return makeChild(WTFMove(simplified), getType(root));
+            return makeChild(WTF::move(simplified), getType(root));
         }
     );
 }

@@ -6,11 +6,11 @@
 		<key>OpenSourceProject</key>
 		<string>mail</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-08-23</string>
+		<string>2025-05-29</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/mail?id=1f474190fc280d4a4ef0c214e4d7fff0d1237e22</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/mail?id=d5e5e24179f4a98efaadea2b3c43006b322d7f15</string>
 		<key>OpenSourceImportDate</key>
-		<string>2020-10-27</string>
+		<string>2025-05-30</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>mail/popen.c: fix /tset/POSIX.cmd/mailx/mailx_01.ex{42} and others which start sub processes</string>

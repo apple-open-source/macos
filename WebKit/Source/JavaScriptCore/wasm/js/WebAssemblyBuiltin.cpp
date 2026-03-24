@@ -98,7 +98,7 @@ const WebAssemblyBuiltin* WebAssemblyBuiltinSet::findBuiltin(const String& name)
 
 void WebAssemblyBuiltinSet::add(WebAssemblyBuiltin&& builtin)
 {
-    m_builtins.append(WTFMove(builtin));
+    m_builtins.append(WTF::move(builtin));
 }
 
 void WebAssemblyBuiltinSet::finalizeCreation()
@@ -120,10 +120,9 @@ void WebAssemblyBuiltinSet::finalizeCreation()
         String fullName = makeString(String(m_qualifiedName), "."_s, builtinName);
         auto span = fullName.span8();
         Wasm::Name name;
-        name.tryReserveCapacity(span.size());
         name.grow(span.size());
         memcpySpan(name.mutableSpan(), span);
-        m_nameSection->functionNames[i] = WTFMove(name);
+        m_nameSection->functionNames[i] = WTF::move(name);
         builtin.m_wasmName = &m_nameSection->functionNames[i];
         builtin.m_nameSection = m_nameSection.ptr();
         // Effectively leaked, which is okay because builtins live forever

@@ -6,7 +6,7 @@
 
 MALLOC_NOEXPORT
 uint8_t *
-memtag_assign_tag(uint8_t *address, size_t size)
+memtag_assign_tag_contiguous(uint8_t *address, size_t size)
 {
 	// Exclude the canonical tag by default.
 	uint64_t mask = 0x0001;
@@ -34,17 +34,11 @@ uint8_t *
 memtag_init_chunk(uint8_t *chunk_start, size_t chunk_size, uint64_t block_size)
 {
 	size_t num_blocks = chunk_size / block_size;
-	uint8_t *tagged_addr = NULL;
 	uint8_t *first_block = NULL;
-	for (size_t idx = 0; idx < num_blocks; idx++) {
+	for (uint32_t idx = 0; idx < num_blocks; idx++) {
+		uint64_t mask = memtag_derive_odd_even_mask(idx);
 		uint8_t *block_addr = &chunk_start[idx * block_size];
-		// Exclude the canonical tag by default.
-		uint64_t exclude_mask = 0x0001;
-		// Exclude the tag of the previously tagged block
-		if (tagged_addr != NULL) {
-			exclude_mask = _memtag_update_mask(tagged_addr, exclude_mask);
-		}
-		tagged_addr = _memtag_create_random_tag(block_addr, exclude_mask);
+		uint8_t *tagged_addr = _memtag_create_random_tag(block_addr, mask);
 		if (idx == 0) {
 			first_block = tagged_addr;
 		}

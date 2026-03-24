@@ -48,7 +48,7 @@ public:
 
     float computedSize() const { return m_computedSize; }
     float usedZoomFactor() const { return m_usedZoomFactor; }
-    float computedSizeForRangeZoomOption(CSS::RangeZoomOptions option) const { return (enableEvaluationTimeZoom() && option == CSS::RangeZoomOptions::Unzoomed) ? unzoomedComputedSize() : computedSize(); }
+    float computedSizeForRangeZoomOption(CSS::RangeZoomOptions option) const { return (evaluationTimeZoomEnabled() && option == CSS::RangeZoomOptions::Unzoomed) ? unzoomedComputedSize() : computedSize(); }
     float unzoomedComputedSize() const { return m_computedSize / m_usedZoomFactor; }
     // Adjusted size regarding @font-face size-adjust but not regarding font-size-adjust. The latter adjustment is done with updateSizeWithFontSizeAdjust() after the font's creation.
     float adjustedSizeForFontFace(float) const;
@@ -62,7 +62,7 @@ public:
     UScriptCode script() const { return static_cast<UScriptCode>(m_script); }
     const AtomString& computedLocale() const { return m_locale; } // This is what you should be using for things like text shaping and font fallback
     const AtomString& specifiedLocale() const { return m_specifiedLocale; } // This is what you should be using for web-exposed things like -webkit-locale
-    bool enableEvaluationTimeZoom() const { return m_enableEvaluationTimeZoom; }
+    bool evaluationTimeZoomEnabled() const { return m_evaluationTimeZoomEnabled; }
 
     FontOrientation orientation() const { return static_cast<FontOrientation>(m_orientation); }
     NonCJKGlyphOrientation nonCJKGlyphOrientation() const { return static_cast<NonCJKGlyphOrientation>(m_nonCJKGlyphOrientation); }
@@ -115,8 +115,8 @@ public:
     void setNonCJKGlyphOrientation(NonCJKGlyphOrientation orientation) { m_nonCJKGlyphOrientation = enumToUnderlyingType(orientation); }
     void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = enumToUnderlyingType(widthVariant); } // Make sure new callers of this sync with FontPlatformData::isForTextCombine()!
     void setSpecifiedLocale(const AtomString&);
-    void setFeatureSettings(FontFeatureSettings&& settings) { m_featureSettings = WTFMove(settings); }
-    void setVariationSettings(FontVariationSettings&& settings) { m_variationSettings = WTFMove(settings); }
+    void setFeatureSettings(FontFeatureSettings&& settings) { m_featureSettings = WTF::move(settings); }
+    void setVariationSettings(FontVariationSettings&& settings) { m_variationSettings = WTF::move(settings); }
     void setFontSynthesisWeight(FontSynthesisLonghandValue value) { m_fontSynthesisWeight =  enumToUnderlyingType(value); }
     void setFontSynthesisStyle(FontSynthesisLonghandValue value) { m_fontSynthesisStyle = enumToUnderlyingType(value); }
     void setFontSynthesisSmallCaps(FontSynthesisLonghandValue value) { m_fontSynthesisCaps = enumToUnderlyingType(value); }
@@ -132,7 +132,7 @@ public:
     void setVariantNumericOrdinal(FontVariantNumericOrdinal variant) { m_variantNumericOrdinal = enumToUnderlyingType(variant); }
     void setVariantNumericSlashedZero(FontVariantNumericSlashedZero variant) { m_variantNumericSlashedZero = enumToUnderlyingType(variant); }
     void setVariantAlternates(const FontVariantAlternates& variant) { m_variantAlternates = variant; }
-    void setVariantAlternates(FontVariantAlternates&& variant) { m_variantAlternates = WTFMove(variant); }
+    void setVariantAlternates(FontVariantAlternates&& variant) { m_variantAlternates = WTF::move(variant); }
     void setVariantEastAsianVariant(FontVariantEastAsianVariant variant) { m_variantEastAsianVariant = enumToUnderlyingType(variant); }
     void setVariantEastAsianWidth(FontVariantEastAsianWidth variant) { m_variantEastAsianWidth = enumToUnderlyingType(variant); }
     void setVariantEastAsianRuby(FontVariantEastAsianRuby variant) { m_variantEastAsianRuby = enumToUnderlyingType(variant); }
@@ -145,7 +145,7 @@ public:
     void setShouldDisableLigaturesForSpacing(bool shouldDisableLigaturesForSpacing) { m_shouldDisableLigaturesForSpacing = shouldDisableLigaturesForSpacing; }
     void setFontPalette(const FontPalette& fontPalette) { m_fontPalette = fontPalette; }
     void setFontSizeAdjust(FontSizeAdjust fontSizeAdjust) { m_sizeAdjust = fontSizeAdjust; }
-    void setEnableEvaluationTimeZoom(bool enableEvaluationTimeZoom) { m_enableEvaluationTimeZoom = enableEvaluationTimeZoom; }
+    void setEvaluationTimeZoomEnabled(bool evaluationTimeZoomEnabled) { m_evaluationTimeZoomEnabled = evaluationTimeZoomEnabled; }
 
 
     static AtomString platformResolveGenericFamily(UScriptCode, const AtomString& locale, const AtomString& familyName);
@@ -193,7 +193,7 @@ private:
     PREFERRED_TYPE(FontStyleAxis) unsigned m_fontStyleAxis : 1;
     PREFERRED_TYPE(AllowUserInstalledFonts) unsigned m_shouldAllowUserInstalledFonts : 1; // If this description is allowed to match a user-installed font
     PREFERRED_TYPE(bool) unsigned m_shouldDisableLigaturesForSpacing : 1; // If letter-spacing is nonzero, we need to disable ligatures, which affects font preparation
-    PREFERRED_TYPE(bool) unsigned m_enableEvaluationTimeZoom : 1;
+    PREFERRED_TYPE(bool) unsigned m_evaluationTimeZoomEnabled : 1;
 };
 
 } // namespace WebCore

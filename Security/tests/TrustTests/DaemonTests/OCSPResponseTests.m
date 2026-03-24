@@ -114,27 +114,45 @@ const NSString *OCSPCTSourcedCorpus =@"OCSPResponseTests-data/CTSourcedCorpus";
     SecOCSPResponseRef response = SecOCSPResponseCreateWithID((__bridge CFDataRef)responseData, 42);
     XCTAssert(NULL != response);
 
-    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 0));
-    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 999999999.0));
-    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 0, 0, 632104000.0)); // January 11, 2021 at 4:26:40 PM PST
-    XCTAssertEqual(response->expireTime, 632142381.0);
+    CFAbsoluteTime thisUpdate = 0.0;
 
+    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 0, &thisUpdate));
+    XCTAssertEqual(thisUpdate, 0.0);
+
+    thisUpdate = 0.0;
+    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 999999999.0, &thisUpdate));
+    XCTAssertEqual(thisUpdate, 632099181);
+
+    thisUpdate = 0.0;
+    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 0, 0, 632104000.0, &thisUpdate)); // January 11, 2021 at 4:26:40 PM PST
+    XCTAssertEqual(response->expireTime, 632142381.0);
+    XCTAssertEqual(thisUpdate, 632099181);
+
+    thisUpdate = 0.0;
     response->producedAt = 123456789;
-    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 600000000.0));
+    XCTAssertFalse(SecOCSPResponseCalculateValidity(response, 0, 0, 600000000.0, &thisUpdate));
+    XCTAssertEqual(thisUpdate, 0);
 
-    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 50, 0, 632104000.0));
+    thisUpdate = 0.0;
+    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 50, 0, 632104000.0, &thisUpdate));
     XCTAssertEqual(response->expireTime, 632104050.0);
+    XCTAssertEqual(thisUpdate, 632099181);
 
-    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 50000000, 0, 632104000.0));
+    thisUpdate = 0.0;
+    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 50000000, 0, 632104000.0, &thisUpdate));
     XCTAssertEqual(response->expireTime, 632142381.0);
+    XCTAssertEqual(thisUpdate, 632099181);
 
     SecOCSPResponseFinalize(response);
 
     responseData = [NSData dataWithBytes:_ocsp_response_no_next_update length:sizeof(_ocsp_response_no_next_update)];
     response = SecOCSPResponseCreateWithID((__bridge CFDataRef)responseData, 42);
     XCTAssert(NULL != response);
-    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 0, 500000, 663900000.0)); // January 14, 2022 at 4:40:00 PM PST
+
+    thisUpdate = 0.0;
+    XCTAssertTrue(SecOCSPResponseCalculateValidity(response, 0, 500000, 663900000.0, &thisUpdate)); // January 14, 2022 at 4:40:00 PM PST
     XCTAssertEqual(response->expireTime, 663900000.0+500000); // expected to be verifyTime + TTL
+    XCTAssertEqual(thisUpdate, 663814062);
     SecOCSPResponseFinalize(response);
 }
 

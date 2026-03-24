@@ -310,7 +310,7 @@ WI.HARBuilder = class HARBuilder
         if (!index)
             return undefined;
 
-        let portString = remoteAddress.substr(index + 1);
+        let portString = remoteAddress.substring(index + 1);
         let port = parseInt(portString);
         if (isNaN(port))
             return undefined;

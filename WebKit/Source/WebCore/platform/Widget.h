@@ -191,8 +191,7 @@ public:
 #if PLATFORM(COCOA)
     virtual id accessibilityHitTest(const IntPoint&) const { return nil; }
     virtual id accessibilityObject() const { return nil; }
-    NSView* outerView() const;
-    RetainPtr<NSView> protectedOuterView() const;
+    RetainPtr<NSView> outerView() const;
 
     void removeFromSuperview();
 #endif

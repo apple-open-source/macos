@@ -89,8 +89,8 @@ public:
 
     const RenderBox* sourceScrollerRenderer() const;
     CheckedPtr<const RenderElement> stickyContainer() const;
-    Element* bindingsSource() const override;
-    Element* source() const override;
+    RefPtr<Element> bindingsSource() const override;
+    RefPtr<Element> source() const override;
     Style::SingleAnimationRange defaultRange() const final;
 
     std::pair<WebAnimationTime, WebAnimationTime> intervalForAttachmentRange(const Style::SingleAnimationRange&) const final;
@@ -98,7 +98,7 @@ public:
     std::pair<double, double> offsetIntervalForTimelineRangeName(Style::SingleAnimationRangeName) const;
 
 private:
-    ScrollTimeline::Data computeTimelineData() const final;
+    ScrollTimeline::Data computeTimelineData(UseCachedCurrentTime = UseCachedCurrentTime::Yes) const final;
     std::pair<double, double> intervalForTimelineRangeName(const ScrollTimeline::Data&, Style::SingleAnimationRangeName) const;
     template<typename F> double mapOffsetToTimelineRange(const ScrollTimeline::Data&, Style::SingleAnimationRangeName, F&&) const;
 

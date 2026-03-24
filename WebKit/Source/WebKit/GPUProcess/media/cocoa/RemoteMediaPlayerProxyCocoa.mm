@@ -76,7 +76,7 @@ void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
 
 void RemoteMediaPlayerProxy::requestHostingContext(CompletionHandler<void(WebCore::HostingContext)>&& completionHandler)
 {
-    m_layerHostingContextManager->requestHostingContext(WTFMove(completionHandler));
+    m_layerHostingContextManager->requestHostingContext(WTF::move(completionHandler));
 }
 
 void RemoteMediaPlayerProxy::setVideoLayerSizeFenced(const WebCore::FloatSize& size, WTF::MachSendRightAnnotated&& sendRightAnnotated)
@@ -85,13 +85,13 @@ void RemoteMediaPlayerProxy::setVideoLayerSizeFenced(const WebCore::FloatSize& s
 
     ALWAYS_LOG(LOGIDENTIFIER, size.width(), "x", size.height());
     m_layerHostingContextManager->setVideoLayerSizeFenced(size, WTF::MachSendRightAnnotated { sendRightAnnotated }, [&] {
-        protectedPlayer()->setVideoLayerSizeFenced(size, WTFMove(sendRightAnnotated));
+        protectedPlayer()->setVideoLayerSizeFenced(size, WTF::move(sendRightAnnotated));
     });
 }
 
 void RemoteMediaPlayerProxy::mediaPlayerOnNewVideoFrameMetadata(WebCore::VideoFrameMetadata&& metadata, RetainPtr<CVPixelBufferRef>&& buffer)
 {
-    auto properties = protectedVideoFrameObjectHeap()->add(WebCore::VideoFrameCV::create({ }, false, WebCore::VideoFrame::Rotation::None, WTFMove(buffer)));
+    auto properties = protectedVideoFrameObjectHeap()->add(WebCore::VideoFrameCV::create({ }, false, WebCore::VideoFrame::Rotation::None, WTF::move(buffer)));
     protectedConnection()->send(Messages::MediaPlayerPrivateRemote::PushVideoFrameMetadata(metadata, properties), m_id);
 }
 

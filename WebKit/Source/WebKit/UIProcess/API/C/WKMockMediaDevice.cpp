@@ -55,7 +55,7 @@ void WKAddMockMediaDevice(WKContextRef context, WKStringRef persistentId, WKStri
                     cameraProperties.fillColor = WebCore::Color::green;
             }
         }
-        deviceProperties = WTFMove(cameraProperties);
+        deviceProperties = WTF::move(cameraProperties);
     } else if (typeString == "screen"_s)
         deviceProperties = WebCore::MockDisplayProperties { };
     else if (typeString == "speaker"_s)
@@ -72,7 +72,7 @@ void WKAddMockMediaDevice(WKContextRef context, WKStringRef persistentId, WKStri
         }
     }
 
-    toProtectedImpl(context)->addMockMediaDevice({ WebKit::toProtectedImpl(persistentId)->string(), WebKit::toProtectedImpl(label)->string(), flags, isDefault, WTFMove(deviceProperties) });
+    toProtectedImpl(context)->addMockMediaDevice({ WebKit::toProtectedImpl(persistentId)->string(), WebKit::toProtectedImpl(label)->string(), flags, isDefault, WTF::move(deviceProperties) });
 #endif
 }
 

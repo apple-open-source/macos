@@ -23,6 +23,10 @@
 
 #define RES_EXT_SUFFIX_LEN 64
 
+#define	CLOCK_MONOTONIC_FAST	CLOCK_MONOTONIC
+#define	st_mtim	st_mtimespec
+#define	_fstat	fstat
+
 #include <resolv.h>
 #endif /* __APPLE__ */
 
@@ -40,6 +44,9 @@ struct __res_state_ext {
 	char bsuffix[64];
 #endif	/* __APPLE__ */
 	char nsuffix2[64];
+#ifdef __APPLE__
+	int conf_sys_notify_token;	/* system config notify token */
+#endif
 	struct timespec	conf_mtim;	/* mod time of loaded resolv.conf */
 	time_t		conf_stat;	/* time of last stat(resolv.conf) */
 	u_short	reload_period;		/* seconds between stat(resolv.conf) */

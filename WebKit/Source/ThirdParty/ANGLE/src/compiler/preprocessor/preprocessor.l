@@ -26,6 +26,11 @@ IF YOU MODIFY THIS FILE YOU ALSO NEED TO RUN scripts/run_code_generation.py
 #ifdef UNSAFE_BUFFERS_BUILD
 #pragma allow_unsafe_buffers
 #endif
+
+// Rename yyalloc/yyrealloc/yyfree during flex generation to allow macro definitions.
+#define yyalloc yyalloc_FLEXGEN
+#define yyrealloc yyrealloc_FLEXGEN
+#define yyfree yyfree_FLEXGEN
 }
 
 %{
@@ -98,8 +103,17 @@ typedef angle::pp::SourceLocation YYLTYPE;
 #define YY_INPUT(buf, result, maxSize) \
     result = yyextra->input.read(buf, maxSize, &yylineno);
 
+// Undefine renames and define yyalloc/yyrealloc/yyfree as macros for typed malloc support.
+#undef yyalloc
+#undef yyrealloc
+#undef yyfree
+#define yyalloc(size, yyscanner) malloc(size)
+#define yyrealloc(ptr, size, yyscanner) realloc((ptr), (size))
+#define yyfree(ptr, yyscanner) free(ptr)
+
 %}
 
+%option noyyalloc noyyrealloc noyyfree
 %option noyywrap nounput never-interactive
 %option reentrant bison-bridge bison-locations
 %option prefix="pp"

@@ -41,7 +41,7 @@ class SamplerImpl final : public Sampler {
 public:
     static Ref<SamplerImpl> create(WebGPUPtr<WGPUSampler>&& sampler, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new SamplerImpl(WTFMove(sampler), convertToBackingContext));
+        return adoptRef(*new SamplerImpl(WTF::move(sampler), convertToBackingContext));
     }
 
     virtual ~SamplerImpl();

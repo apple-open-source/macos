@@ -61,4 +61,6 @@ private:
 
 } // namespace WebKit
 
+SPECIALIZE_TYPE_TRAITS_WEB_EXTENSION(WebExtensionAPICookies, cookies);
+
 #endif // ENABLE(WK_WEB_EXTENSIONS)

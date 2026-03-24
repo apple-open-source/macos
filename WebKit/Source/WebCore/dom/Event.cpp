@@ -44,7 +44,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Event);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Event);
 
 ALWAYS_INLINE Event::Event(MonotonicTime createTime, enum EventInterfaceType eventInterface, const AtomString& type, IsTrusted isTrusted, CanBubble canBubble, IsCancelable cancelable, IsComposed composed)
     : m_isInitialized { !type.isNull() }
@@ -135,7 +135,7 @@ void Event::setTarget(RefPtr<EventTarget>&& target)
     if (m_target == target)
         return;
 
-    m_target = WTFMove(target);
+    m_target = WTF::move(target);
     if (m_target)
         receivedTarget();
 }
@@ -152,7 +152,7 @@ RefPtr<EventTarget> Event::protectedCurrentTarget() const
 
 void Event::setCurrentTarget(RefPtr<EventTarget>&& currentTarget, std::optional<bool> isInShadowTree)
 {
-    m_currentTarget = WTFMove(currentTarget);
+    m_currentTarget = WTF::move(currentTarget);
     if (isInShadowTree)
         m_currentTargetIsInShadowTree = *isInShadowTree;
     else {

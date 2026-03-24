@@ -81,7 +81,7 @@ private:
     std::optional<WebCore::MediaSessionReadyState> m_readyState;
     std::optional<WebCore::MediaSessionPlaybackState> m_playbackState;
 
-    GroupActivitiesSession::StateChangeObserver m_stateChangeObserver;
+    const Ref<GroupActivitiesSession::StateChangeObserver> m_stateChangeObserver;
 };
 
 }

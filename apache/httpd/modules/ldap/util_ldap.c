@@ -176,7 +176,7 @@ static int util_ldap_handler(request_rec *r)
     if (r->header_only)
         return OK;
 
-    ap_rputs(DOCTYPE_HTML_3_2
+    ap_rputs(DOCTYPE_HTML_4_01
              "<html><head><title>LDAP Cache Information</title></head>\n", r);
     ap_rputs("<body bgcolor='#ffffff'><h1 align=center>LDAP Cache Information"
              "</h1>\n", r);
@@ -350,7 +350,7 @@ static int uldap_connection_init(request_rec *r,
         /* something really bad happened */
         ldc->bound = 0;
         if (NULL == ldc->reason) {
-            ldc->reason = "LDAP: ldap initialization failed";
+            ldc->reason = "LDAP: ldap initialization failed. Make sure the apr_ldap module is installed.";
         }
         return(APR_EGENERAL);
     }
@@ -423,7 +423,7 @@ static int uldap_connection_init(request_rec *r,
 
     if (ldc->ChaseReferrals != AP_LDAP_CHASEREFERRALS_SDKDEFAULT) {
         /* Set options for rebind and referrals. */
-        ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, r->server, APLOGNO(01278)
+        ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, r->server,
                 "LDAP: Setting referrals to %s.",
                 ((ldc->ChaseReferrals == AP_LDAP_CHASEREFERRALS_ON) ? "On" : "Off"));
         apr_ldap_set_option(r->pool, ldc->ldap,

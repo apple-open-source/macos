@@ -293,7 +293,7 @@ JSString* JSStringJoiner::joinImpl(JSGlobalObject* globalObject)
         return { };
     }
 
-    return jsString(vm, WTFMove(result));
+    return jsString(vm, WTF::move(result));
 }
 
 JSString* JSOnlyStringsAndInt32sJoiner::joinImpl(JSGlobalObject* globalObject, const WriteBarrier<Unknown>* data, unsigned length)
@@ -324,7 +324,7 @@ JSString* JSOnlyStringsAndInt32sJoiner::joinImpl(JSGlobalObject* globalObject, c
 
     RETURN_IF_EXCEPTION(scope, { });
 
-    return jsString(vm, WTFMove(result));
+    return jsString(vm, WTF::move(result));
 }
 
 } // namespace JSC

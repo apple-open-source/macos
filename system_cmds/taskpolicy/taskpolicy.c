@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
 #include <System/sys/proc.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +50,7 @@ static void usage(void);
 static int parse_disk_policy(const char *strpolicy);
 static int parse_qos_tier(const char *strpolicy, int parameter);
 static uint64_t parse_qos_clamp(const char *qos_string);
+static int parse_pcontrol(const char *pcontrol_str);
 static posix_spawn_secflag_options parse_sec_transition_shims(const char *sec_trans_shims_string);
 
 int main(int argc, char * argv[])
@@ -63,11 +65,12 @@ int main(int argc, char * argv[])
 	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false, flag_s = false;
 	int flagd = -1, flagg = -1;
 	posix_spawn_secflag_options sec_transition_shims = 0;
+	int pcontrol = POSIX_SPAWN_PCONTROL_NONE;
 	short spawn_flags = POSIX_SPAWN_SETEXEC;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
 	uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 
-	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:asS:m:j:")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:asS:m:j:P:")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -143,6 +146,9 @@ int main(int argc, char * argv[])
 				break;
 			case 's':
 				flag_s = true;
+				break;
+			case 'P':
+				pcontrol = parse_pcontrol(optarg);
 				break;
 			case 'S':
 				sec_transition_shims = parse_sec_transition_shims(optarg);
@@ -274,6 +280,11 @@ int main(int argc, char * argv[])
 		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_darwin_role_np");
 	}
 
+	if (pcontrol) {
+		ret = posix_spawnattr_setpcontrol_np(&attr, pcontrol);
+		if (ret != 0) errc(EX_NOINPUT, ret, "setting process control");
+	}
+
 	if (sec_transition_shims) {
 		ret = posix_spawnattr_set_use_sec_transition_shims_np(&attr, sec_transition_shims);
 		if (ret != 0) errc(EX_NOINPUT, ret, "setting security transition shims");
@@ -288,8 +299,9 @@ int main(int argc, char * argv[])
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g <policy>] [-c <clamp>] [-b] [-t <tier>]\n"
-                    "                  [-l <tier>] [-a] [-s] [-S <shims>] [-m <limit>] [-j <pri>]\n"
-					"                  <program> [<pargs> [...]]\n", getprogname());
+                    "                  [-l <tier>] [-a] [-s] [-S <shims>] [-P <control>]\n"
+					"                  [-m <limit>] [-j <pri>] <program> [<pargs> [...]]\n",
+					getprogname());
 	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }
@@ -369,6 +381,25 @@ static uint64_t parse_qos_clamp(const char *qos_string)
 		return POSIX_SPAWN_PROC_CLAMP_MAINTENANCE;
 	} else {
 		return POSIX_SPAWN_PROC_CLAMP_NONE;
+	}
+}
+
+static int parse_pcontrol(const char *pcontrol_str)
+{
+	const char *errstr = NULL;
+	uint64_t pcontrol = strtonum(pcontrol_str, 0, UINT32_MAX, &errstr);
+	if (errstr == NULL) {
+		return (unsigned int)pcontrol;
+	}
+
+	if (0 == strcasecmp(pcontrol_str, "THROTTLE")) {
+		return POSIX_SPAWN_PCONTROL_THROTTLE;
+	} else if (0 == strcasecmp(pcontrol_str, "KILL")) {
+		return POSIX_SPAWN_PCONTROL_KILL;
+	} else if (0 == strcasecmp(pcontrol_str, "SUSPEND")) {
+		return POSIX_SPAWN_PCONTROL_SUSPEND;
+	} else {
+		return POSIX_SPAWN_PCONTROL_NONE;
 	}
 }
 

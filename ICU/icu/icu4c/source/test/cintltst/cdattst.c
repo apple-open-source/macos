@@ -98,6 +98,7 @@ static void TestSpanishDayPeriods(void); // rdar://72624367
 static void TestUkrainianDayNames(void); //rdar://122185743
 static void TestEnglishDayPeriods(void); // rdar://123446235
 static void TestAbbreviationForSeptember(void); // rdar://87654639
+static void TestISO8601CalendarSymbols(void); // rdar://166595417
 static void TestParseTooStrict(void); // rdar://106745488
 static void TestRgSubtag(void); // rdar://106566783
 static void TestTimeFormatInheritance(void); // rdar://106179361
@@ -108,6 +109,11 @@ static void TestIndianAMPM(void); // rdar://142529306, rdar://142529982, rdar://
 static void TestTaiwanDayPeriods(void); // rdar://142599503
 static void TestMonthAndDayNames(void); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
 static void TestFinnishSunday(void); // rdar://152838495
+static void TestKoreanAmPm(void); // rdar://167122698
+static void TestUSSpanishDates(void); // rdar://153301907
+static void TestVietnameseYear(void); // rdar://167828339
+static void TestEnglishHvPattern(void); // rdar://167586717
+static void TestHebrewEra(void); // rdar://157277149
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -189,6 +195,12 @@ void addDateForTest(TestNode** root)
 #endif
     TESTCASE(TestMonthAndDayNames); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
     TESTCASE(TestFinnishSunday); // rdar://152838495
+    TESTCASE(TestKoreanAmPm); // rdar://167122698
+    TESTCASE(TestUSSpanishDates); // rdar://153301907
+    TESTCASE(TestISO8601CalendarSymbols); // rdar://166595417
+    TESTCASE(TestVietnameseYear); // rdar://167828339
+    TESTCASE(TestEnglishHvPattern); // rdar://167586717
+    TESTCASE(TestHebrewEra); // rdar://157277149
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -713,9 +725,9 @@ static void TestSymbols(void)
 // rdar://
 // rdar://107613655 LA: REGRESSION Time format for 12 hours for AM and PM has space between the letters again
 // rdar://118178213 #440 Update data for date/time format for regions CL,CO
-    UDateFormat *def, *fr, *zhChiCal, *esMX, *esUS, *msIslamic, *es419, *esCo, *esCl;
+    UDateFormat *def, *fr, *zhChiCal, *esMX, *th, *esUS, *msIslamic, *es419, *esCo, *esCl;
 #else
-    UDateFormat *def, *fr, *zhChiCal, *esMX;
+    UDateFormat *def, *fr, *zhChiCal, *esMX, *th;
 #endif  // APPLE_ICU_CHANGES
     UErrorCode status = U_ZERO_ERROR;
     UChar *value=NULL;
@@ -761,6 +773,15 @@ static void TestSymbols(void)
     if(U_FAILURE(status))
     {
         log_data_err("error in creating the dateformat using no date, short time, locale es_MX -> %s (Are you missing data?)\n",
+            myErrorName(status) );
+        return;
+    }
+    /*creating a dateformat with th locale */
+    log_verbose("\ncreating a date format with th locale\n");
+    th = udat_open(UDAT_SHORT, UDAT_NONE, "th", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using no date, short time, locale th -> %s (Are you missing data?)\n",
             myErrorName(status) );
         return;
     }
@@ -880,13 +901,25 @@ static void TestSymbols(void)
 #if APPLE_ICU_CHANGES
 // rdar://
     VerifygetSymbols(esMX, UDAT_NARROW_QUARTERS, 1, "2T");
-#endif  // APPLE_ICU_CHANGES
     VerifygetSymbols(esMX, UDAT_STANDALONE_NARROW_QUARTERS, 1, "2T");
+#else
+    VerifygetSymbols(esMX, UDAT_STANDALONE_NARROW_QUARTERS, 1, "22");
+#endif  // APPLE_ICU_CHANGES
     VerifygetSymbols(def, UDAT_NARROW_QUARTERS, 2, "3");
     VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_ABBREVIATED, 0, "\\u7532\\u5B50");
     VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_NARROW, 59, "\\u7678\\u4EA5");
     VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_ABBREVIATED, 0, "\\u9F20");
     VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_WIDE, 11, "\\u732A");
+    VerifygetSymbols(def, UDAT_AM_PMS_NARROW, 0, "a");
+    VerifygetSymbols(def, UDAT_AM_PMS_NARROW, 1, "p");
+#if APPLE_ICU_CHANGES
+// rdar://22467640 (cs,de,el,en_GB,he,nb,nl,th: Update am/pm translations in CLDR)
+    VerifygetSymbols(th, UDAT_AM_PMS_WIDE, 0, "AM");
+    VerifygetSymbols(th, UDAT_AM_PMS_WIDE, 1, "PM");
+#else
+    VerifygetSymbols(th, UDAT_AM_PMS_WIDE, 0, "\\u0E01\\u0E48\\u0E2D\\u0E19\\u0E40\\u0E17\\u0E35\\u0E48\\u0E22\\u0E07");
+    VerifygetSymbols(th, UDAT_AM_PMS_WIDE, 1, "\\u0E2B\\u0E25\\u0E31\\u0E07\\u0E40\\u0E17\\u0E35\\u0E48\\u0E22\\u0E07");
+#endif // APPLE_ICU_CHANGES
 #if APPLE_ICU_CHANGES
 // rdar://
     VerifygetSymbols(esMX, UDAT_AM_PMS, 0, "a.m."); // see rdar://52923924
@@ -1078,6 +1111,7 @@ free(pattern);
     udat_close(def);
     udat_close(zhChiCal);
     udat_close(esMX);
+    udat_close(th);
 #if APPLE_ICU_CHANGES
 // rdar://
     udat_close(esUS);
@@ -2573,7 +2607,7 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_SI", UDAT_FULL,   UDAT_NONE, u"Wednesday, 25 February 2015" },
     { "en_SI", UDAT_LONG,   UDAT_NONE, u"25 February 2015" },
     { "en_SI", UDAT_MEDIUM, UDAT_NONE, u"25 Feb 2015" },
-    { "en_SI", UDAT_SHORT,  UDAT_NONE, u"25. 2. 15" },
+    { "en_SI", UDAT_SHORT,  UDAT_NONE, u"25. 2. 2015" },
     // Add tests for rdar://122185743
     { "uk_UA", UDAT_FULL,   UDAT_NONE, u"середа, 25 лютого 2015 р." },
     // Add tests for rdar://116387918
@@ -4421,12 +4455,12 @@ static void TestCountryFallback(void) { /* rdar://26911014 */
 //        "en_CO", "en_001", "*es_CO", "es_CO",  // medium date pattern is wrong?
 //        "en_DE", "de_DE",  "de_DE",  "de_DE",  // medium date pattern is wrong?
         "en_ER", "en_001", "en_001", "en_001", // short date pattern for ti_ER is different?
-        "en_ES", "en_150", "en_150", "es_ES",
+//        "en_ES", "en_150", "en_150", "es_ES", // as of CLDR 48, this goes to the new en_ES locale data file
         "en_GH", "en_001", "en_001", "en_001", // short date pattern for ak_GH is different?
         "en_GR", "en_150", "el_GR",  "el_GR",
         "en_HK", "en_001", "en_001", "zh_HK",
         "en_IS", "en_150", "en_150", "is_IS",
-        "en_IT", "en_150", "en_150", "it_IT",
+//        "en_IT", "en_150", "en_150", "it_IT", // as of CLDR 48, this goes to the new en_IT locale data file
         "en_JP", "en",     "en",     "ja_JP",
 //        "en_KR", "en",     "en",     "ko_KR",  // short date pattern is different?
         "en_LU", "en_150", "fr_LU",  "fr_LU",
@@ -4437,12 +4471,12 @@ static void TestCountryFallback(void) { /* rdar://26911014 */
         "en_MY", "en_001", "en_001", "en_001", // short date pattern for ms_MY is different?
         "en_NL", "en_150", "en_150", "en_150", // short date pattern for nl_NL is different?
         "en_PH", "en",     "fil_PH", "fil_PH",
-        "en_RO", "en_150", "en_150", "ro_RO",
+//        "en_RO", "en_150", "en_150", "ro_RO", // as of CLDR 48, this goes to the new en_RO locale data file
         "en_RS", "en_150", "sr_RS", "sr_RS",
 //        "en_TR", "en_150", "en_150", "tr_TR",  // long date pattern for en_150 is different
         "en_TW", "en",     "en",     "zh_TW",
 //        "en_ZW", "en_001", "en_001", "sn_ZW",  // all date patterns are different from en_001 and sn_ZW
-        "es_US", "es_419", "en_US",  "en_US",
+        "es_US", "en_US", "en_US",  "en_US",
         
         // The following locales are specifically mentioned in Radars (some of these have resource bundles too):
         "fr_US", "fr",     "fr",     "en_US",  // rdar://54886964
@@ -4577,6 +4611,16 @@ static void TestSpanishDayPeriods(void) {
         u"es_419", u"a",       u"a.m.",                  u"p.m.",
         u"es_419", u"aaaa",    u"a.m.",                  u"p.m.",
         u"es_419", u"aaaaa",   u"a.m.",                  u"p.m.",
+        // rdar://105620406 - Test es_CA wide and narrow formats
+        u"es_CA",  u"hm",      u"10:00\u202fa.\u202fm.", u"2:00\u202fp.\u202fm.",
+        u"es_CA",  u"hma",     u"10:00\u202fa.\u202fm.", u"2:00\u202fp.\u202fm.",
+        u"es_CA",  u"hmaaaaa", u"10:00\u202fa.m.",       u"2:00\u202fp.m.",
+        u"es_CA",  u"a",       u"a.\u202fm.",            u"p.\u202fm.",
+        u"es_CA",  u"aaaaa",   u"a.m.",                  u"p.m.",
+        // rdar://105620406 - Test es_AR narrow format
+        u"es_AR",  u"hmaaaaa", u"10:00\u202fa.m.",       u"2:00\u202fp.m.",
+        u"es_AR",  u"a",       u"a.\u202fm.",            u"p.\u202fm.",
+        u"es_AR",  u"aaaaa",   u"a.m.",                  u"p.m.",
     };
     
     UErrorCode err = U_ZERO_ERROR;
@@ -4793,7 +4837,7 @@ static void TestRgSubtag(void) { // rdar://106566783
         u"es_ES@rg=USzzzz",  u"3/16/43, 11:56 p. m.",
 
         u"zh_CN",            u"1943/3/16 23:56",
-        u"zh_TW",            u"1943/3/16 晚上11:56", // rdar://17278425
+        u"zh_TW",            u"1943/3/16 晚上11:56", // rdar://17278425
         u"zh_US",            u"3/16/43 下午11:56",
         u"zh_CN@rg=USzzzz",  u"3/16/43 下午11:56",
         u"zh_TW@rg=USzzzz",  u"3/16/43 晚上11:56", // rdar://17278425
@@ -5197,6 +5241,151 @@ static void TestFinnishSunday(void) {
     }
 }
 
+// rdar://167122698
+static void TestKoreanAmPm(void) {
+    const char* locale = "ko_KR@calendar=gregorian";
+    UErrorCode err = U_ZERO_ERROR;
+    UChar pattern[50];
+    UDateTimePatternGenerator* dtpg = udatpg_open(locale, &err);
+    udatpg_getBestPattern(dtpg, u"ahmm", -1, pattern, 50, &err);
+    
+    UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, locale, u"America/Los_Angeles", -1, pattern, -1, &err);
+    UChar formattedDate[100];
+    UDate testDate = 1767738458309; // 2:27 PM PST, January 6, 2026
+    udat_format(df, testDate, formattedDate, 100, NULL, &err);
+    
+    if (assertSuccess("Formatting failed", &err)) {
+        assertUEquals("Wrong result", u"오후 2:27", formattedDate);
+    }
+    
+    udat_close(df);
+    udatpg_close(dtpg);
+}
+
+// rdar://153301907
+static void TestUSSpanishDates(void) {
+    struct TestCase {
+        const UDateFormatStyle formatStyle;
+        const UChar* expectedResult;
+    } testCases[] = {
+        { UDAT_FULL,   u"martes, enero 6, 2026" },
+        { UDAT_LONG,   u"enero 6, 2026" },
+        { UDAT_MEDIUM, u"ene 6, 2026" },
+        { UDAT_SHORT,  u"1/6/26" },
+    };
+    const UDate testDate = 1767738458309; // 2:27 PM PST, January 6, 2026
+
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateFormat* df = udat_open(UDAT_NONE, testCases[i].formatStyle, "es_US", u"America/Los_Angeles", -1, NULL, 0, &err);
+        UChar formattedDate[100];
+        
+        udat_format(df, testDate, formattedDate, 100, NULL, &err);
+        
+        if (assertSuccess("Creating formatted failed", &err)) {
+            assertUEquals("Wrong result", testCases[i].expectedResult, formattedDate);
+        }
+        udat_close(df);
+    }
+}
+
+// rdar://166595417
+static void TestISO8601CalendarSymbols(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDateFormat* fmt = NULL;
+    int32_t count = 0;
+    const char* locale = "en_001@calendar=iso8601;rg=dezzzz";
+    const UChar* tzID = u"Europe/Stockholm";
+
+    fmt = udat_open(UDAT_SHORT, UDAT_SHORT, locale, tzID, -1, NULL, 0, &status);
+    if (!assertSuccess("udat_open with iso8601 calendar failed", &status)) {
+        return;
+    }
+
+    // a symptom of the bug was that udat_countSymbols
+    // returned 0 for months with the ISO 8601 calendar
+    count = udat_countSymbols(fmt, UDAT_SHORT_MONTHS);
+    if (count != 12) {
+        log_err("FAIL: udat_countSymbols(UDAT_SHORT_MONTHS) returned %d for iso8601 calendar (locale=%s), expected 12\n", count, locale);
+    }
+
+    udat_close(fmt);
+}
+
+// rdar://167828339
+static void TestVietnameseYear(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UChar result[100];
+    const UChar pattern[] = u"U r";
+    const UChar expectedResult[] = u"B\u00ednh Ng\u1ecd 2026";
+    const UDate testDate = 1773532800000.0; // 2026 Mar 15 00:00:00 UTC
+    
+    UDateFormat* fmt = udat_open(UDAT_NONE, UDAT_NONE,
+                                 "vi_US@calendar=vietnamese",
+                                 u"US/Pacific", 10, NULL, 0, &status);
+    if (!assertSuccess("udat_open failed", &status)) {
+        return;
+    }
+    
+    udat_applyPattern(fmt, false, pattern, u_strlen(pattern));
+    
+    status = U_ZERO_ERROR;
+    udat_format(fmt, testDate, result, 100, NULL, &status);
+    if (assertSuccess("udat_format failed", &status)) {
+        assertUEquals("udat_format returned wrong result", expectedResult, result);
+    }
+
+    udat_close(fmt);
+}
+
+// rdar://167586717
+static void TestEnglishHvPattern(void) {
+    const UDate testDate = 1773532800000.0; // 2026 Mar 15 00:00:00 UTC
+    UErrorCode err = U_ZERO_ERROR;
+    UChar pattern[50];
+    UDateTimePatternGenerator* dtpg = udatpg_open("en_GB", &err);
+    udatpg_getBestPattern(dtpg, u"HOOOO", -1, pattern, 50, &err);
+    
+    UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, "en_GB", u"America/Los_Angeles", -1, pattern, -1, &err);
+    
+    if (assertSuccess("Failed to create date formatter", &err)) {
+        UChar result[100];
+        udat_format(df, testDate, result, 100, NULL, &err);
+        
+        if (assertSuccess("Formatting failed", &err)) {
+            assertUEquals("Wrong result", u"17 GMT-07:00", result);
+        }
+    }
+    udat_close(df);
+    udatpg_close(dtpg);
+}
+
+// rdar://157277149
+static void TestHebrewEra(void) {
+    const char* locales[] = { "en", "fr", "es", "de", "ar" };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(locales); i++) {
+        const char* locale = locales[i];
+        
+        for (UDateFormatStyle style = UDAT_FULL; style <= UDAT_SHORT; ++style) {
+            UErrorCode err = U_ZERO_ERROR;
+            UChar pattern[50];
+            UDateFormat* df = udat_open(UDAT_NONE, style, locale, NULL, 0, NULL, 0, &err);
+            udat_toPattern(df, false, pattern, 50, &err);
+            
+            if (assertSuccess("Failed to create formatter", &err)) {
+                size_t length = u_strlen(pattern);
+                for (int32_t p = 0; p < length; p++) {
+                    if (pattern[p] == u'G') {
+                        log_err("Pattern for length %d contains G", style);
+                        break;
+                    }
+                }
+            }
+            udat_close(df);
+        }
+    }
+}
 
 #endif  // APPLE_ICU_CHANGES
 

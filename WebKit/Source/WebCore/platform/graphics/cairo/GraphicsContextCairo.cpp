@@ -69,7 +69,7 @@ public:
 };
 
 GraphicsContextCairo::GraphicsContextCairo(RefPtr<cairo_t>&& context)
-    : m_cr(WTFMove(context))
+    : m_cr(WTF::move(context))
 {
     m_cairoStateStack.append(CairoState());
     m_cairoState = &m_cairoStateStack.last();

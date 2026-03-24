@@ -42,6 +42,7 @@
 #import <wtf/Deque.h>
 #import <wtf/NakedPtr.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 // FIXME: Implement scrollFindMatchToVisible.
@@ -212,7 +213,7 @@ private:
         if ([match isKindOfClass:WKTextFinderMatch.class])
             matchIndices.append([(WKTextFinderMatch *)match index]);
     }
-    self._protectedPage->replaceMatches(WTFMove(matchIndices), replacementText, selectionOnly, [collector = makeBlockPtr(resultCollector)] (uint64_t numberOfReplacements) {
+    self._protectedPage->replaceMatches(WTF::move(matchIndices), replacementText, selectionOnly, [collector = makeBlockPtr(resultCollector)] (uint64_t numberOfReplacements) {
         collector(numberOfReplacements);
     });
 }

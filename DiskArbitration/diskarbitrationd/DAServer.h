@@ -37,8 +37,18 @@ extern "C" {
 #endif /* __cplusplus */
 #if TARGET_OS_OSX
 extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, void * info );
+extern void __DAPowerNotificationCallback( void        *context ,
+                                           io_service_t service ,
+                                           natural_t    messageType ,
+                                           void         *messageArgument );
+
+struct __DAPowerContext
+{
+    io_connect_t power_session;
+};
+
 #endif
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_OSX
 extern void DARegisterForUnlockNotification( void );
 #endif
 extern DADiskRef DADiskListGetDisk( const char * diskID );

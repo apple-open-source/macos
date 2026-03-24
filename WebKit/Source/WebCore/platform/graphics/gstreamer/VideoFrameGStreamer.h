@@ -49,8 +49,8 @@ public:
     struct CreateOptions {
         CreateOptions() = default;
         CreateOptions(IntSize&& presentationSize, std::optional<Info>&& info = { })
-            : presentationSize(WTFMove(presentationSize))
-            , info(WTFMove(info))
+            : presentationSize(WTF::move(presentationSize))
+            , info(WTF::move(info))
         { }
         IntSize presentationSize;
         std::optional<Info> info;

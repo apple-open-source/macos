@@ -121,7 +121,7 @@ static String availableNamedTimeZoneIdentifier(StringView timeZoneName)
             break;
 
         StringView ianaTimeZoneView(std::span(ianaTimeZone, ianaTimeZoneLength));
-        if (!equalIgnoringASCIICase(timeZoneName, ianaTimeZoneView))
+        if (!equalIgnoringASCIICase(timeZoneName, ianaTimeZoneView) || isNonIANA(ianaTimeZoneView))
             continue;
         return ianaTimeZoneView.toString();
     } while (true);
@@ -152,13 +152,13 @@ Vector<String> IntlDateTimeFormat::localeData(const String& locale, RelevantExte
                 // This is fine because this function's purpose is collecting what calendar strings are accepted by IntlDateTimeFormat.
                 // When "gregorian" is specified, we convert it to "gregory" to make it aligned to BCP-47. Thus we accept non BCP-47 compliant
                 // calendar IDs only when we can convert it to corresponding BCP-47 compliant ID: when mapICUCalendarKeywordToBCP47 returns a mapped value.
-                keyLocaleData.append(WTFMove(calendar));
-                keyLocaleData.append(WTFMove(mapped.value()));
+                keyLocaleData.append(WTF::move(calendar));
+                keyLocaleData.append(WTF::move(mapped.value()));
             } else {
                 // Skip if the obtained calendar code is not meeting Unicode Locale Identifier's `type` definition
                 // as whole ECMAScript's i18n is relying on Unicode Local Identifiers.
                 if (isUnicodeLocaleIdentifierType(calendar))
-                    keyLocaleData.append(WTFMove(calendar));
+                    keyLocaleData.append(WTF::move(calendar));
             }
         }
         uenum_close(calendars);
@@ -713,9 +713,9 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
     {
         String calendar = resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Ca)];
         if (auto mapped = mapICUCalendarKeywordToBCP47(calendar))
-            calendar = WTFMove(mapped.value());
+            calendar = WTF::move(mapped.value());
 
-        m_calendar = WTFMove(calendar);
+        m_calendar = WTF::move(calendar);
         // Handling "islamicc" candidate for backward compatibility.
         if (m_calendar == "islamicc"_s)
             m_calendar = "islamic-civil"_s;
@@ -755,7 +755,7 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
         tz = vm.dateCache.defaultTimeZone();
     m_timeZone = tz;
     if (!timeZoneForICU.isNull())
-        m_timeZoneForICU = WTFMove(timeZoneForICU);
+        m_timeZoneForICU = WTF::move(timeZoneForICU);
     else
         m_timeZoneForICU = tz;
 
@@ -1261,7 +1261,7 @@ JSValue IntlDateTimeFormat::format(JSGlobalObject* globalObject, double value) c
         return throwTypeError(globalObject, scope, "failed to format date value"_s);
     replaceNarrowNoBreakSpaceOrThinSpaceWithNormalSpace(result);
 
-    return jsString(vm, String(WTFMove(result)));
+    return jsString(vm, String(WTF::move(result)));
 }
 
 static ASCIILiteral partTypeString(UDateFormatField field)
@@ -1573,7 +1573,7 @@ JSValue IntlDateTimeFormat::formatRange(JSGlobalObject* globalObject, double sta
     Vector<char16_t, 32> buffer(std::span<const char16_t> { formattedStringPointer, static_cast<size_t>(formattedStringLength) });
     replaceNarrowNoBreakSpaceOrThinSpaceWithNormalSpace(buffer);
 
-    return jsString(vm, String(WTFMove(buffer)));
+    return jsString(vm, String(WTF::move(buffer)));
 }
 
 JSValue IntlDateTimeFormat::formatRangeToParts(JSGlobalObject* globalObject, double startDate, double endDate)

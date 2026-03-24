@@ -94,7 +94,7 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
         rootLayer.setSize(m_webPage.size());
     }
 
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 
 #if HAVE(DISPLAY_LINK)
     m_compositor = ThreadedCompositor::create(*this);
@@ -121,7 +121,7 @@ LayerTreeHost::~LayerTreeHost()
     if (m_forceRepaintAsync.callback)
         m_forceRepaintAsync.callback();
 
-    cancelPendingLayerFlush();
+    cancelRenderingUpdate();
 
     m_sceneState->invalidate();
 
@@ -140,12 +140,12 @@ void LayerTreeHost::setLayerTreeStateIsFrozen(bool isFrozen)
     m_layerTreeStateIsFrozen = isFrozen;
 
     if (m_layerTreeStateIsFrozen)
-        cancelPendingLayerFlush();
+        cancelRenderingUpdate();
     else
-        scheduleLayerFlush();
+        scheduleRenderingUpdate();
 }
 
-void LayerTreeHost::scheduleLayerFlush()
+void LayerTreeHost::scheduleRenderingUpdate()
 {
     WTFEmitSignpost(this, ScheduleLayerFlush, "isWaitingForRenderer %i", m_isWaitingForRenderer);
 
@@ -164,7 +164,7 @@ void LayerTreeHost::scheduleLayerFlush()
         m_layerFlushTimer.startOneShot(0_s);
 }
 
-void LayerTreeHost::cancelPendingLayerFlush()
+void LayerTreeHost::cancelRenderingUpdate()
 {
     m_layerFlushTimer.stop();
 }
@@ -249,7 +249,7 @@ void LayerTreeHost::updateRootLayer()
             children.append(downcast<GraphicsLayerCoordinated>(m_overlayCompositingLayer)->coordinatedPlatformLayer());
     }
 
-    m_sceneState->setRootLayerChildren(WTFMove(children));
+    m_sceneState->setRootLayerChildren(WTF::move(children));
 }
 
 void LayerTreeHost::setRootCompositingLayer(GraphicsLayer* graphicsLayer)
@@ -270,7 +270,7 @@ void LayerTreeHost::setViewOverlayRootLayer(GraphicsLayer* graphicsLayer)
     updateRootLayer();
 }
 
-void LayerTreeHost::forceRepaint()
+void LayerTreeHost::updateRenderingWithForcedRepaint()
 {
 #if !HAVE(DISPLAY_LINK)
     // This is necessary for running layout tests. Since in this case we are not waiting for a UIProcess to reply nicely.
@@ -280,7 +280,7 @@ void LayerTreeHost::forceRepaint()
 
     // We need to schedule another flush, otherwise the forced paint might cancel a later expected flush.
     m_forceFrameSync = true;
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 
     if (!m_isWaitingForRenderer)
         flushLayers();
@@ -300,31 +300,31 @@ void LayerTreeHost::forceRepaint()
     // is none ongoing at present.
     m_waitUntilPaintingComplete = true;
 
-    // If forceRepaint() is invoked via JS through e.g. a rAF() callback, a call
+    // If updateRenderingWithForcedRepaint() is invoked via JS through e.g. a rAF() callback, a call
     // to `page->updateRendering()` _during_ a layer flush is responsible for that.
     // If m_isFlushingLayers is true, that layer flush is still ongoing, so we do
     // not need to cancel pending ones and immediately flush again (re-entrancy!).
     if (m_isFlushingLayers)
         return;
-    cancelPendingLayerFlush();
+    cancelRenderingUpdate();
     flushLayers();
 #endif
 }
 
-void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& callback)
+void LayerTreeHost::updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&& callback)
 {
 #if !HAVE(DISPLAY_LINK)
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 
     // We want a clean repaint, meaning that if we're currently waiting for the renderer
     // to finish an update, we'll have to schedule another flush when it's done.
     ASSERT(!m_forceRepaintAsync.callback);
-    m_forceRepaintAsync.callback = WTFMove(callback);
+    m_forceRepaintAsync.callback = WTF::move(callback);
     m_forceRepaintAsync.needsFreshFlush = m_scheduledWhileWaitingForRenderer;
 #else
     ASSERT(!m_forceRepaintAsync.callback);
-    m_forceRepaintAsync.callback = WTFMove(callback);
-    forceRepaint();
+    m_forceRepaintAsync.callback = WTF::move(callback);
+    updateRenderingWithForcedRepaint();
     if (m_pendingForceRepaint)
         m_forceRepaintAsync.compositionRequestID = std::nullopt;
     else
@@ -336,9 +336,9 @@ void LayerTreeHost::sizeDidChange()
 {
     m_pendingResize = true;
     if (m_isWaitingForRenderer)
-        scheduleLayerFlush();
+        scheduleRenderingUpdate();
     else {
-        cancelPendingLayerFlush();
+        cancelRenderingUpdate();
         flushLayers();
     }
 }
@@ -353,7 +353,7 @@ void LayerTreeHost::resumeRendering()
 {
     m_isSuspended = false;
     m_compositor->resume();
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 }
 
 GraphicsLayerFactory* LayerTreeHost::graphicsLayerFactory()
@@ -404,7 +404,7 @@ bool LayerTreeHost::isCompositionRequiredOrOngoing() const
     return m_compositionRequired || m_forceFrameSync || m_compositor->isActive();
 }
 
-void LayerTreeHost::requestComposition()
+void LayerTreeHost::requestComposition(CompositionReason)
 {
 #if ENABLE(SCROLLING_THREAD)
     if (ScrollingThread::isCurrentThread()) {
@@ -438,7 +438,7 @@ Ref<CoordinatedImageBackingStore> LayerTreeHost::imageBackingStore(Ref<NativeIma
 {
     auto nativeImageID = nativeImage->uniqueID();
     auto addResult = m_imageBackingStores.ensure(nativeImageID, [&] {
-        return CoordinatedImageBackingStore::create(WTFMove(nativeImage));
+        return CoordinatedImageBackingStore::create(WTF::move(nativeImage));
     });
     return addResult.iterator->value;
 }
@@ -461,7 +461,7 @@ void LayerTreeHost::requestDisplayRefreshMonitorUpdate()
     // flush won't do anything, but that means there's a painting ongoing that will send the
     // display refresh notification when it's done.
     m_forceFrameSync = true;
-    scheduleLayerFlush();
+    scheduleRenderingUpdate();
 }
 
 void LayerTreeHost::handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled)
@@ -508,12 +508,12 @@ void LayerTreeHost::didComposite(uint32_t compositionResponseID)
                     m_forceRepaintAsync.compositionRequestID = std::nullopt;
                 }
             } else {
-                forceRepaint();
+                updateRenderingWithForcedRepaint();
                 if (m_forceRepaintAsync.callback)
                     m_forceRepaintAsync.compositionRequestID = m_compositionRequestID;
             }
         } else if (!m_isSuspended && !m_layerTreeStateIsFrozen && (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive())) {
-            cancelPendingLayerFlush();
+            cancelRenderingUpdate();
             flushLayers();
         }
     }
@@ -565,7 +565,7 @@ void LayerTreeHost::renderNextFrame(bool forceRepaint)
 void LayerTreeHost::notifyFrameDamageForTesting(Region&& damageRegion)
 {
     Locker locker { m_frameDamageHistoryForTestingLock };
-    m_frameDamageHistoryForTesting.append(WTFMove(damageRegion));
+    m_frameDamageHistoryForTesting.append(WTF::move(damageRegion));
 }
 
 void LayerTreeHost::resetDamageHistoryForTesting()

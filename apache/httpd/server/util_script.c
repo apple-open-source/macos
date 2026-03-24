@@ -126,6 +126,8 @@ AP_DECLARE(char **) ap_create_environment(apr_pool_t *p, apr_table_t *t)
         }
     }
     for (i = 0; i < env_arr->nelts; ++i) {
+        int changed = 0;
+
         if (!elts[i].key) {
             continue;
         }
@@ -133,18 +135,36 @@ AP_DECLARE(char **) ap_create_environment(apr_pool_t *p, apr_table_t *t)
         whack = env[j];
         if (apr_isdigit(*whack)) {
             *whack++ = '_';
+            changed = 1;
         }
         while (*whack != '=') {
 #ifdef WIN32
-            if (!apr_isalnum(*whack) && *whack != '(' && *whack != ')') {
+            if (!apr_isalnum(*whack) && *whack != '_' && *whack != '(' && *whack != ')') {
 #else
-            if (!apr_isalnum(*whack)) {
+            if (!apr_isalnum(*whack) && *whack != '_') {
 #endif
                 *whack = '_';
+                changed = 1;
             }
             ++whack;
         }
-        ++j;
+        if (changed) {
+            *whack = '\0';
+            /*
+             * If after cleaning up the key the key is identical to an existing key
+             * in the table drop this environment variable. This also prevents
+             * to override CGI reserved environment variables with variables whose
+             * names have an invalid character instead of '_', but are otherwise
+             * equal to the names CGI reserved environment variables.
+             */
+            if (!apr_table_get(t, env[j])) {
+                ++j;
+                *whack = '=';
+            }
+        }
+        else {
+            ++j;
+        }
     }
 
     env[j] = NULL;
@@ -466,7 +486,7 @@ AP_DECLARE(int) ap_scan_script_header_err_core_ex(request_rec *r, char *buffer,
 {
     char x[MAX_STRING_LEN];
     char *w, *l;
-    int p;
+    apr_size_t p;
     int cgi_status = HTTP_UNSET;
     apr_table_t *merge;
     apr_table_t *cookie_table;
@@ -837,7 +857,7 @@ static int getsfunc_STRING(char *w, int len, void *pvastrs)
 {
     struct vastrs *strs = (struct vastrs*) pvastrs;
     const char *p;
-    int t;
+    apr_size_t t;
 
     if (!strs->curpos || !*strs->curpos) {
         w[0] = '\0';

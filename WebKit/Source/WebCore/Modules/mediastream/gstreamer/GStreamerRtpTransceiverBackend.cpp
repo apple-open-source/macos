@@ -28,6 +28,7 @@
 #include "GStreamerWebRTCUtils.h"
 #include "RTCRtpCodecCapability.h"
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/glib/GMallocString.h>
 #include <wtf/glib/GUniquePtr.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_transceiver_debug);
@@ -38,7 +39,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GStreamerRtpTransceiverBackend);
 
 GStreamerRtpTransceiverBackend::GStreamerRtpTransceiverBackend(GRefPtr<GstWebRTCRTPTransceiver>&& rtcTransceiver)
-    : m_rtcTransceiver(WTFMove(rtcTransceiver))
+    : m_rtcTransceiver(WTF::move(rtcTransceiver))
 {
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
@@ -66,11 +67,11 @@ std::unique_ptr<GStreamerRtpReceiverBackend> GStreamerRtpTransceiverBackend::cre
     return WTF::makeUnique<GStreamerRtpReceiverBackend>(GRefPtr(m_rtcTransceiver));
 }
 
-std::unique_ptr<GStreamerRtpSenderBackend> GStreamerRtpTransceiverBackend::createSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&& backend, GStreamerRtpSenderBackend::Source&& source, GUniquePtr<GstStructure>&& initData)
+Ref<GStreamerRtpSenderBackend> GStreamerRtpTransceiverBackend::createSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&& backend, GStreamerRtpSenderBackend::Source&& source, GUniquePtr<GstStructure>&& initData)
 {
     GRefPtr<GstWebRTCRTPSender> sender;
     g_object_get(m_rtcTransceiver.get(), "sender", &sender.outPtr(), nullptr);
-    return WTF::makeUnique<GStreamerRtpSenderBackend>(WTFMove(backend), WTFMove(sender), WTFMove(source), WTFMove(initData));
+    return GStreamerRtpSenderBackend::create(WTF::move(backend), WTF::move(sender), WTF::move(source), WTF::move(initData));
 }
 
 RTCRtpTransceiverDirection GStreamerRtpTransceiverBackend::direction() const
@@ -93,8 +94,8 @@ void GStreamerRtpTransceiverBackend::setDirection(RTCRtpTransceiverDirection dir
 {
     auto gstDirection = fromRTCRtpTransceiverDirection(direction);
 #ifndef GST_DISABLE_GST_DEBUG
-    GUniquePtr<char> directionString(g_enum_to_string(GST_TYPE_WEBRTC_RTP_TRANSCEIVER_DIRECTION, gstDirection));
-    GST_DEBUG_OBJECT(m_rtcTransceiver.get(), "Setting direction to %s", directionString.get());
+    auto directionString = GMallocString::unsafeAdoptFromUTF8(g_enum_to_string(GST_TYPE_WEBRTC_RTP_TRANSCEIVER_DIRECTION, gstDirection));
+    GST_DEBUG_OBJECT(m_rtcTransceiver.get(), "Setting direction to %s", directionString.utf8());
 #endif
     g_object_set(m_rtcTransceiver.get(), "direction", gstDirection, nullptr);
 }
@@ -118,7 +119,7 @@ bool GStreamerRtpTransceiverBackend::stopped() const
     return m_isStopped;
 }
 
-static inline WARN_UNUSED_RETURN ExceptionOr<GRefPtr<GstCaps>> toRtpCodecCapability(const RTCRtpCodecCapability& codec, int& dynamicPayloadType, const String& msid)
+WARN_UNUSED_RETURN static inline ExceptionOr<GRefPtr<GstCaps>> toRtpCodecCapability(const RTCRtpCodecCapability& codec, int& dynamicPayloadType, const String& msid)
 {
     if (!codec.mimeType.startsWith("video/"_s) && !codec.mimeType.startsWith("audio/"_s))
         return Exception { ExceptionCode::InvalidModificationError, "RTCRtpCodecCapability bad mimeType"_s };
@@ -160,14 +161,14 @@ ExceptionOr<void> GStreamerRtpTransceiverBackend::setCodecPreferences(const Vect
     if (currentCaps && gst_caps_get_size(currentCaps.get()) > 0) {
         auto structure = gst_caps_get_structure(currentCaps.get(), 0);
         if (auto msIdValue = gstStructureGetString(structure, "a-msid"_s))
-            msid = msIdValue.toString();
+            msid = msIdValue.span();
 
         gstStructureForeach(structure, [&](auto id, const auto& value) -> bool {
             auto key = gstIdToString(id);
             if (!key.startsWith("extmap-"_s))
                 return true;
 
-            extensions.add(key.toString(), String::fromLatin1(g_value_get_string(value)));
+            extensions.add(key, byteCast<char8_t>(unsafeSpan(g_value_get_string(value))));
             return true;
         });
     }

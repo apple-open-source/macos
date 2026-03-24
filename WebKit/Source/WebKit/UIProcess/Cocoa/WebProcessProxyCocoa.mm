@@ -88,6 +88,14 @@ namespace WebKit {
 
 static const Seconds unexpectedActivityDuration = 10_s;
 
+void WebProcessProxy::registerNotifyObservers()
+{
+    PAL::registerNotifyCallback("com.apple.WebKit.logFrameTrees"_s, [] {
+        for (Ref page : WebProcessProxy::globalPages())
+            page->logFrameTree();
+    });
+}
+
 const MemoryCompactLookupOnlyRobinHoodHashSet<String>& WebProcessProxy::platformPathsWithAssumedReadAccess()
 {
     static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<String>> platformPathsWithAssumedReadAccess(std::initializer_list<String> {
@@ -179,7 +187,7 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
     handleArray = SandboxExtension::createHandlesForMachLookup({ }, auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
 #endif
 
-    send(Messages::WebProcess::UnblockServicesRequiredByAccessibility(WTFMove(handleArray)), 0);
+    send(Messages::WebProcess::UnblockServicesRequiredByAccessibility(WTF::move(handleArray)), 0);
     m_hasSentMessageToUnblockAccessibilityServer = true;
 }
 
@@ -209,11 +217,11 @@ void WebProcessProxy::sendAudioComponentRegistrations()
         if (!registrations)
             return;
         
-        RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), registrations = WTFMove(registrations)] () mutable {
+        RunLoop::mainSingleton().dispatch([weakThis = WTF::move(weakThis), registrations = WTF::move(registrations)] () mutable {
             if (!weakThis)
                 return;
 
-            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTFMove(registrations))), 0);
+            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTF::move(registrations))), 0);
         });
     });
 }
@@ -278,7 +286,7 @@ bool WebProcessProxy::shouldDisableJITCage() const
 void WebProcessProxy::createLogStream(IPC::StreamServerConnectionHandle&& serverConnection, LogStreamIdentifier identifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&& completionHandler)
 {
     MESSAGE_CHECK(!m_logStream.get());
-    m_logStream = LogStream::create(*this, WTFMove(serverConnection), identifier, WTFMove(completionHandler));
+    m_logStream = LogStream::create(*this, WTF::move(serverConnection), identifier, WTF::move(completionHandler));
 }
 #else
 void WebProcessProxy::createLogStream(LogStreamIdentifier identifier, CompletionHandler<void()>&& completionHandler)
@@ -286,7 +294,7 @@ void WebProcessProxy::createLogStream(LogStreamIdentifier identifier, Completion
     MESSAGE_CHECK(!m_logStream.get());
     Ref logStream = LogStream::create(*this, protectedConnection(), identifier);
     addMessageReceiver(Messages::LogStream::messageReceiverName(), logStream->identifier(), logStream);
-    m_logStream = WTFMove(logStream);
+    m_logStream = WTF::move(logStream);
     completionHandler();
 }
 #endif
@@ -332,7 +340,7 @@ void WebProcessProxy::sendMessageToInspector(WebCore::ServiceWorkerIdentifier id
         return;
     if (RefPtr serviceWorkerDebuggableProxy = m_serviceWorkerDebuggableProxies.get(identifier)) {
         auto targetID = serviceWorkerDebuggableProxy->targetIdentifier();
-        Inspector::RemoteInspector::singleton().sendMessageToRemote(targetID, WTFMove(message));
+        Inspector::RemoteInspector::singleton().sendMessageToRemote(targetID, WTF::move(message));
     }
 }
 #endif

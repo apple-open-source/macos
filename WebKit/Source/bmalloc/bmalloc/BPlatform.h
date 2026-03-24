@@ -35,7 +35,11 @@
 
 #if defined(__has_include)
 #if __has_include(<WebKitAdditions/pas_mte_additions.h>)
+// FIXME: Properly support using WKA in modules.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
 #include <WebKitAdditions/pas_mte_additions.h>
+#pragma clang diagnostic pop
 #endif // __has_include(<WebKitAdditions/pas_mte_additions.h>)
 #endif // defined(__has_include)
 
@@ -317,14 +321,11 @@
 #error "Unsupported compiler for bmalloc"
 #endif
 
-#if BCPU(ADDRESS64) && BPLATFORM(IOS_FAMILY) && !BPLATFORM(IOS_FAMILY_SIMULATOR) && !BPLATFORM(MACCATALYST)
-#define BHAVE_36BIT_ADDRESS 1
-#endif
-
 #if BCPU(ADDRESS64)
 #if BHAVE(36BIT_ADDRESS)
 #define BOS_EFFECTIVE_ADDRESS_WIDTH 36
-#elif BOS(DARWIN)
+/* iOS simulators lie about the size of the address space */
+#elif BOS(DARWIN) && !BPLATFORM(IOS_FAMILY_SIMULATOR)
 #define BOS_EFFECTIVE_ADDRESS_WIDTH (bmalloc::getMSBSetConstexpr(MACH_VM_MAX_ADDRESS) + 1)
 #else
 /* We strongly assume that effective address width is <= 48 in 64bit architectures (e.g. NaN boxing). */
@@ -403,7 +404,7 @@
 #endif // BUSE_OPENSOURCE_MTE
 
 #ifndef BENABLE_MTE
-#define BENABLE_MTE (BUSE(APPLE_INTERNAL_SDK) && BPLATFORM(IOS_FAMILY) && BCPU(ARM64E) && BUSE_OPENSOURCE_MTE)
+#define BENABLE_MTE (BUSE(APPLE_INTERNAL_SDK) && BCPU(ARM64E) && BUSE_OPENSOURCE_MTE)
 #endif // !defined(BENABLE_MTE)
 #else // !BUSE_LIBPAS
 #define BENABLE_MTE 0
@@ -432,13 +433,5 @@
 #define BUSE_TZONE 1
 #else
 #define BUSE_TZONE 0
-#endif
-#endif
-
-#if !defined(BUSE_DYNAMIC_TZONE_COMPACTION)
-#if BUSE(TZONE) && (BASAN_ENABLED || BASSERT_ENABLED)
-#define BUSE_DYNAMIC_TZONE_COMPACTION 1
-#else
-#define BUSE_DYNAMIC_TZONE_COMPACTION 0
 #endif
 #endif

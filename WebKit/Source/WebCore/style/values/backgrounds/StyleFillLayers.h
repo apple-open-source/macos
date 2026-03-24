@@ -27,9 +27,12 @@
 
 #include <WebCore/GraphicsTypes.h>
 #include <WebCore/RenderStyleConstants.h>
-#include <WebCore/StyleImage.h>
-#include <WebCore/StyleValueTypes.h>
-#include <wtf/RefCountedFixedVector.h>
+#include <WebCore/StyleBackgroundSize.h>
+#include <WebCore/StyleCoordinatedValueList.h>
+#include <WebCore/StyleImageOrNone.h>
+#include <WebCore/StylePosition.h>
+#include <WebCore/StyleRepeatStyle.h>
+#include <ranges>
 
 namespace WebCore {
 
@@ -37,123 +40,56 @@ class RenderElement;
 
 namespace Style {
 
-template<typename T> struct FillLayers {
-    using Layer = T;
-    using Container = RefCountedFixedVector<Layer>;
-    using iterator = typename Container::iterator;
-    using const_iterator = typename Container::const_iterator;
-    using reverse_iterator = typename Container::reverse_iterator;
-    using const_reverse_iterator = typename Container::const_reverse_iterator;
+// Utilities for working with the BackgroundLayers and MaskLayers types.
 
-    FillLayers()
-        : FillLayers { Layer { CSS::Keyword::None { } } }
-    {
-    }
-
-    FillLayers(Layer&& layer)
-        : m_layers { Container::create({ WTFMove(layer) }) }
-    {
-    }
-
-    FillLayers(Ref<Container>&& layers)
-        : m_layers { WTFMove(layers) }
-    {
-        RELEASE_ASSERT(!m_layers->isEmpty());
-    }
-
-    iterator begin() LIFETIME_BOUND { return m_layers->begin(); }
-    iterator end() LIFETIME_BOUND { return m_layers->end(); }
-    const_iterator begin() const LIFETIME_BOUND { return m_layers->begin(); }
-    const_iterator end() const LIFETIME_BOUND { return m_layers->end(); }
-
-    reverse_iterator rbegin() LIFETIME_BOUND { return m_layers->rbegin(); }
-    reverse_iterator rend() LIFETIME_BOUND { return m_layers->rend(); }
-    const_reverse_iterator rbegin() const LIFETIME_BOUND { return m_layers->rbegin(); }
-    const_reverse_iterator rend() const LIFETIME_BOUND { return m_layers->rend(); }
-
-    // Unlike most containers, `first()` and `last()` are always valid because the minimum number of elements
-    // in Layers is 1.
-
-    T& first() LIFETIME_BOUND { return m_layers->first(); }
-    const T& first() const LIFETIME_BOUND { return m_layers->first(); }
-
-    T& last() LIFETIME_BOUND { return m_layers->last(); }
-    const T& last() const LIFETIME_BOUND { return m_layers->last(); }
-
-    T& operator[](size_t i) LIFETIME_BOUND { return m_layers.get()[i]; }
-    const T& operator[](size_t i) const LIFETIME_BOUND { return m_layers.get()[i]; }
-
-    unsigned size() const { return m_layers->size(); }
-    bool isEmpty() const { return m_layers->isEmpty(); }
-
-    FillLayers& access() LIFETIME_BOUND
-    {
-        if (!m_layers->hasOneRef())
-            m_layers = m_layers->clone();
-        return *this;
-    }
-
-    bool isNone() const { return isEmpty() || (size() == 1 && first().image().isNone()); }
-
-    void computeClipMax() const;
-
-    bool imagesAreLoaded(const RenderElement*) const;
-    bool hasImage() const { return hasImageInAnyLayer(); }
-    bool hasImageInAnyLayer() const;
-    bool hasImageWithAttachment(FillAttachment) const;
-    bool hasHDRContent() const;
-    bool hasEntirelyFixedBackground() const;
-    bool hasAnyBackgroundClipText() const;
-    RefPtr<StyleImage> findLayerUsedImage(WrappedImagePtr, bool& isNonEmpty) const;
-
-    bool operator==(const FillLayers& other) const
-    {
-        return arePointingToEqualData(m_layers, other.m_layers);
-    }
-
-private:
-    Ref<Container> m_layers;
+template<typename T> concept FillLayer = CoordinatedValueListValue<T> && requires(T value) {
+    { value.image() } -> std::same_as<const ImageOrNone&>;
+    { value.hasImage() } -> std::same_as<bool>;
+    { value.size() } -> std::same_as<const BackgroundSize&>;
+    { value.attachment() } -> std::same_as<FillAttachment>;
+    { value.clip() } -> std::same_as<FillBox>;
+    { value.setClipMax(std::declval<FillBox>()) };
 };
 
-template<typename Layer>
-void FillLayers<Layer>::computeClipMax() const
+template<FillLayer T>
+void computeClipMax(const CoordinatedValueList<T>& list)
 {
     auto computedClipMax = FillBox::NoClip;
-    for (auto& layer : makeReversedRange(*this)) {
+    for (auto& layer : list.usedValues() | std::views::reverse) {
         computedClipMax = clipMax(computedClipMax, layer.clip());
         layer.setClipMax(computedClipMax);
     }
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::imagesAreLoaded(const RenderElement* renderer) const
+template<FillLayer T>
+bool imagesAreLoaded(const CoordinatedValueList<T>& list, const RenderElement& renderer)
 {
-    return std::ranges::all_of(*this, [&renderer](auto& layer) {
+    return std::ranges::all_of(list.usedValues(), [&renderer](auto& layer) {
         RefPtr image = layer.image().tryStyleImage();
-        return !image || image->isLoaded(renderer);
+        return !image || image->isLoaded(&renderer);
     });
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::hasImageInAnyLayer() const
+template<FillLayer T>
+bool hasImageInAnyLayer(const CoordinatedValueList<T>& list)
 {
-    return std::ranges::any_of(*this, [](auto& layer) {
+    return std::ranges::any_of(list.usedValues(), [](auto& layer) {
         return layer.hasImage();
     });
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::hasImageWithAttachment(FillAttachment attachment) const
+template<FillLayer T>
+bool hasImageWithAttachment(const CoordinatedValueList<T>& list, FillAttachment attachment)
 {
-    return std::ranges::any_of(*this, [&attachment](auto& layer) {
+    return std::ranges::any_of(list.usedValues(), [&attachment](auto& layer) {
         return layer.hasImage() && layer.attachment() == attachment;
     });
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::hasHDRContent() const
+template<FillLayer T>
+bool hasHDRContent(const CoordinatedValueList<T>& list)
 {
-    return std::ranges::any_of(*this, [](auto& layer) {
+    return std::ranges::any_of(list.usedValues(), [](auto& layer) {
         RefPtr image = layer.image().tryStyleImage();
         if (auto* cachedImage = image ? image->cachedImage() : nullptr) {
             if (cachedImage->hasHDRContent())
@@ -163,26 +99,26 @@ bool FillLayers<Layer>::hasHDRContent() const
     });
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::hasEntirelyFixedBackground() const
+template<FillLayer T>
+bool hasEntirelyFixedBackground(const CoordinatedValueList<T>& list)
 {
-    return std::ranges::all_of(*this, [](auto& layer) {
+    return std::ranges::all_of(list.usedValues(), [](auto& layer) {
         return layer.hasImage() && layer.attachment() == FillAttachment::FixedBackground;
     });
 }
 
-template<typename Layer>
-bool FillLayers<Layer>::hasAnyBackgroundClipText() const
+template<FillLayer T>
+bool hasAnyBackgroundClipText(const CoordinatedValueList<T>& list)
 {
-    return std::ranges::any_of(*this, [](auto& layer) {
+    return std::ranges::any_of(list.usedValues(), [](auto& layer) {
         return layer.clip() == FillBox::Text;
     });
 }
 
-template<typename Layer>
-RefPtr<StyleImage> FillLayers<Layer>::findLayerUsedImage(WrappedImagePtr image, bool& isNonEmpty) const
+template<FillLayer T>
+RefPtr<StyleImage> findLayerUsedImage(const CoordinatedValueList<T>& list, WrappedImagePtr image, bool& isNonEmpty)
 {
-    for (auto& layer : *this) {
+    for (auto& layer : list.usedValues()) {
         RefPtr layerImage = layer.image().tryStyleImage();
         if (!layerImage || layerImage->data() != image)
             continue;
@@ -220,13 +156,6 @@ RefPtr<StyleImage> FillLayers<Layer>::findLayerUsedImage(WrappedImagePtr image, 
 
     isNonEmpty = false;
     return nullptr;
-}
-
-template<typename Layer>
-TextStream& operator<<(TextStream& ts, const FillLayers<Layer>& value)
-{
-    logForCSSOnRangeLike(ts, value, ", "_s);
-    return ts;
 }
 
 } // namespace Style

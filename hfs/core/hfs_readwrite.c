@@ -5797,7 +5797,7 @@ hfs_clonefile(struct vnode *vp, int blkstart, int blkcnt, int blksize)
 	}
 #endif /* CONFIG_PROTECT */
 
-	bufp = hfs_malloc_data(bufsize);
+	bufp = hfs_malloc_data_shareable(bufsize);
 	auio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 
 	while (offset < copysize) {
@@ -5855,7 +5855,7 @@ hfs_clonefile(struct vnode *vp, int blkstart, int blkcnt, int blksize)
 		 * boundary in the file.
 		 */
 	}
-	hfs_free_data(bufp, bufsize);
+	hfs_free_data_shareable(bufp, bufsize);
 
 	hfs_lock(VTOC(vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_ALLOW_NOEXISTS);	
 	return (error);

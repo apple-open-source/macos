@@ -51,8 +51,8 @@ static constexpr bool verbose = false;
 }
 
 OMGPlan::OMGPlan(VM& vm, Ref<Module>&& module, FunctionCodeIndex functionIndex, MemoryMode mode, CompletionTask&& task)
-    : Base(vm, const_cast<ModuleInformation&>(module->moduleInformation()), WTFMove(task))
-    , m_module(WTFMove(module))
+    : Base(vm, const_cast<ModuleInformation&>(module->moduleInformation()), WTF::move(task))
+    , m_module(WTF::move(module))
     , m_calleeGroup(*m_module->calleeGroupFor(mode))
     , m_functionIndex(functionIndex)
 {
@@ -163,20 +163,20 @@ void OMGPlan::work()
         dumpDisassembly(context, linkBuffer, signature, functionIndexSpace);
         omgEntrypoint.compilation = makeUnique<Compilation>(
             FINALIZE_CODE_IF(context.procedure->shouldDumpIR(), linkBuffer, JITCompilationPtrTag, nullptr, "OMG functionIndexSpace:(", functionIndexSpace, "),sig:(", signature.toString().ascii().data(), "),name:(", makeString(IndexOrName(functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace))).ascii().data(), "),wasmSize:(", m_moduleInformation->functionWasmSizeImportSpace(functionIndexSpace), ")"),
-            WTFMove(context.wasmEntrypointByproducts));
+            WTF::move(context.wasmEntrypointByproducts));
     }
 
-    omgEntrypoint.calleeSaveRegisters = WTFMove(internalFunction->entrypoint.calleeSaveRegisters);
+    omgEntrypoint.calleeSaveRegisters = WTF::move(internalFunction->entrypoint.calleeSaveRegisters);
 
     bool newlyInstalled = false;
     CodePtr<WasmEntryPtrTag> entrypoint;
     {
         ASSERT(m_calleeGroup.ptr() == m_module->calleeGroupFor(mode()));
-        callee->setEntrypoint(WTFMove(omgEntrypoint), WTFMove(unlinkedCalls), WTFMove(internalFunction->stackmaps), WTFMove(internalFunction->exceptionHandlers), WTFMove(exceptionHandlerLocations));
+        callee->setEntrypoint(WTF::move(omgEntrypoint), WTF::move(unlinkedCalls), WTF::move(internalFunction->stackmaps), WTF::move(internalFunction->exceptionHandlers), WTF::move(exceptionHandlerLocations));
         entrypoint = callee->entrypoint();
 
         if (samplingProfilerMap)
-            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(samplingProfilerMap));
+            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTF::move(samplingProfilerMap));
 
         Locker locker { m_calleeGroup->m_lock };
         newlyInstalled = m_calleeGroup->installOptimizedCallee(locker, m_moduleInformation, m_functionIndex, callee.copyRef(), internalFunction->outgoingJITDirectCallees);

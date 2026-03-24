@@ -27,10 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)glob.h	8.1 (Berkeley) 6/6/93
- *
- * $FreeBSD$
  */
 
 /*
@@ -41,6 +37,9 @@
 extern int	msgCount;			/* Count of messages read in */
 extern int	rcvmode;			/* True if receiving mail */
 extern int	sawcom;				/* Set after first command */
+#ifndef __APPLE__
+extern char	*Tflag;				/* -T temp file for netnews */
+#endif
 extern int	senderr;			/* An error while checking */
 extern int	edit;				/* Indicates editing a file */
 extern int	readonly;			/* Will be unable to rewrite file */

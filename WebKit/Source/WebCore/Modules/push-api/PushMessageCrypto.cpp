@@ -170,7 +170,7 @@ std::optional<Vector<uint8_t>> decryptAES128GCMPayload(const ClientKeys& clientK
     if (!plainTextResult)
         return std::nullopt;
 
-    auto plainText = WTFMove(plainTextResult.value());
+    auto plainText = WTF::move(plainTextResult.value());
     size_t paddingLength = computeAES128GCMPaddingLength(plainText.span());
     if (paddingLength == SIZE_MAX)
         return std::nullopt;
@@ -291,7 +291,7 @@ std::optional<Vector<uint8_t>> decryptAESGCMPayload(const ClientKeys& clientKeys
     if (!plainTextResult)
         return std::nullopt;
 
-    auto plainText = WTFMove(plainTextResult.value());
+    auto plainText = WTF::move(plainTextResult.value());
     size_t paddingLength = computeAESGCMPaddingLength(plainText.span());
     if (paddingLength == SIZE_MAX)
         return std::nullopt;

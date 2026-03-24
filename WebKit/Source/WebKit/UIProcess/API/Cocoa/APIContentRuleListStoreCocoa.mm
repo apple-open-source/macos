@@ -35,25 +35,22 @@ namespace API {
 
 WTF::String ContentRuleListStore::defaultStorePath()
 {
-    static dispatch_once_t onceToken;
-    static NeverDestroyed<RetainPtr<NSURL>> contentRuleListStoreURL;
-
-    dispatch_once(&onceToken, ^{
-        NSURL *url = [[NSFileManager defaultManager] URLForDirectory:NSLibraryDirectory inDomain:NSUserDomainMask appropriateForURL:nullptr create:NO error:nullptr];
+    static NeverDestroyed<RetainPtr<NSURL>> contentRuleListStoreURL = [] {
+        RetainPtr<NSURL> url = [[NSFileManager defaultManager] URLForDirectory:NSLibraryDirectory inDomain:NSUserDomainMask appropriateForURL:nullptr create:NO error:nullptr];
         if (!url)
             RELEASE_ASSERT_NOT_REACHED();
 
         url = [url URLByAppendingPathComponent:@"WebKit" isDirectory:YES];
 
         if (!WebKit::processHasContainer()) {
-            NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
+            RetainPtr<NSString> bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
             if (!bundleIdentifier)
                 bundleIdentifier = [NSProcessInfo processInfo].processName;
-            url = [url URLByAppendingPathComponent:bundleIdentifier isDirectory:YES];
+            url = [url URLByAppendingPathComponent:bundleIdentifier.get() isDirectory:YES];
         }
         
-        contentRuleListStoreURL.get() = [url URLByAppendingPathComponent:@"ContentRuleLists" isDirectory:YES];
-    });
+        return [url URLByAppendingPathComponent:@"ContentRuleLists" isDirectory:YES];
+    }();
 
     if (![[NSFileManager defaultManager] createDirectoryAtURL:contentRuleListStoreURL.get().get() withIntermediateDirectories:YES attributes:nil error:nullptr])
         LOG_ERROR("Failed to create directory %@", contentRuleListStoreURL.get().get());

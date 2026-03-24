@@ -132,6 +132,10 @@ static void _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode
 static int
 _path_stat(const char *path, int link, uid_t uid, gid_t gid)
 {
+#if TARGET_OS_IPHONE
+	// Prune on embedded. It never works as identified in rdar://167445250.
+	return PATH_STAT_ACCESS;
+#else // TARGET_OS_IPHONE
 	struct stat sb;
 	gid_t orig_gidset[NGROUPS_MAX];
 	int ngroups, status, stat_status;
@@ -204,6 +208,7 @@ _path_stat(const char *path, int link, uid_t uid, gid_t gid)
 	}
 
 	return PATH_STAT_FAILED;
+#endif // TARGET_OS_IPHONE
 }
 
 /*
@@ -483,7 +488,7 @@ _vnode_create_real_path(const char *path, uint32_t type, path_node_t *pnode)
  * frees any that have no path nodes.
  */
 static void
-_vnode_sweep()
+_vnode_sweep(void)
 {
 	uint32_t i, j, new_vnode_count, new_path_node_count;
 	vnode_t **new_source, *vnode;
@@ -677,7 +682,7 @@ path_node_close(path_node_t *pnode)
 }
 
 static void
-_pathwatch_init()
+_pathwatch_init(void)
 {
 	char buf[MAXPATHLEN];
 

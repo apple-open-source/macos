@@ -169,8 +169,8 @@ void FileDiskRep::Writer::flush()
 {
     size_t size = fd().listAttr(NULL, 0);
     std::vector<char> buffer(size);
-    char *s = &buffer[0];
-    char *end = &buffer[size];
+    char *s = buffer.data();
+    char *end = buffer.data() + size;
     fd().listAttr(s, size);
     while (s < end) {
         std::string name = s;

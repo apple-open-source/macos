@@ -125,9 +125,9 @@ WebPageProxy* RemoteWebInspectorUIProxy::platformCreateFrontendPageAndWindow()
     [m_window setDelegate:m_objCAdapter.get()];
     [m_window setFrameAutosaveName:@"WKRemoteWebInspectorWindowFrame"];
 
-    NSView *contentView = m_window.get().contentView;
+    RetainPtr<NSView> contentView = m_window.get().contentView;
     RetainPtr webView = this->webView();
-    [webView setFrame:contentView.bounds];
+    [webView setFrame:contentView.get().bounds];
     [contentView addSubview:webView.get()];
 
     return webView->_page.get();
@@ -152,7 +152,7 @@ void RemoteWebInspectorUIProxy::platformCloseFrontendPageAndWindow()
 
 void RemoteWebInspectorUIProxy::platformResetState()
 {
-    [NSWindow removeFrameUsingName:[m_window frameAutosaveName]];
+    [NSWindow removeFrameUsingName:retainPtr([m_window frameAutosaveName]).get()];
 }
 
 void RemoteWebInspectorUIProxy::platformBringToFront()
@@ -180,7 +180,7 @@ void RemoteWebInspectorUIProxy::platformSave(Vector<InspectorFrontendClient::Sav
         forceSaveAs = true;
     }
 
-    WebInspectorUIProxy::showSavePanel(m_window.get(), platformURL.get(), WTFMove(saveDatas), forceSaveAs, [urlCommonPrefix, protectedThis = Ref { *this }] (NSURL *actualURL) {
+    WebInspectorUIProxy::showSavePanel(m_window.get(), platformURL.get(), WTF::move(saveDatas), forceSaveAs, [urlCommonPrefix, protectedThis = Ref { *this }] (NSURL *actualURL) {
         protectedThis->m_suggestedToActualURLMap.set(urlCommonPrefix.get(), actualURL);
     });
 }
@@ -196,7 +196,7 @@ void RemoteWebInspectorUIProxy::platformLoad(const String& path, CompletionHandl
 void RemoteWebInspectorUIProxy::platformPickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
 {
     auto sampler = adoptNS([[NSColorSampler alloc] init]);
-    [sampler.get() showSamplerWithSelectionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSColor *selectedColor) mutable {
+    [sampler.get() showSamplerWithSelectionHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler)](NSColor *selectedColor) mutable {
         if (!selectedColor) {
             completionHandler(std::nullopt);
             return;
@@ -260,7 +260,7 @@ void RemoteWebInspectorUIProxy::platformShowCertificate(const CertificateInfo& c
     [certificatePanel beginSheetForWindow:m_window.get() modalDelegate:nil didEndSelector:NULL contextInfo:nullptr trust:certificateInfo.trust().get() showGroup:YES];
 
     // This must be called after the trust panel has been displayed, because the certificateView doesn't exist beforehand.
-    SFCertificateView *certificateView = [certificatePanel certificateView];
+    RetainPtr certificateView = [certificatePanel certificateView];
     [certificateView setDisplayTrust:YES];
     [certificateView setEditableTrust:NO];
     [certificateView setDisplayDetails:YES];

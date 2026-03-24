@@ -905,22 +905,38 @@ _dispatch_kq_unote_set_kevent(dispatch_unote_t _du, dispatch_kevent_t dk,
 	};
 }
 
+// We have a linked list of dispatch sources that we hold srefs to, and unotes
+// that we need to free. The former is identified by having the LSb set in the
+// pointer to it. We want to drop all of those srefs/free all those unotes
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_free_unote_chain(dispatch_unote_class_t du)
+_dispatch_free_freelist(dispatch_deferred_free_items_t dfi)
 {
 	uint16_t count = 0;
-	while (du) {
-		dispatch_unote_class_t next = du->du_freelist_next;
-		free(du);
+	while (dfi) {
+		dispatch_deferred_free_items_t next;
+		if (dfi & DISPATCH_DEFERRED_FREELIST_SREF_MARKER) {
+			dispatch_source_t ds = (dispatch_source_t)
+				(dfi & ~DISPATCH_DEFERRED_FREELIST_SREF_MARKER);
+			next = ds->ds_sref_linkage;
+			ds->ds_sref_linkage = (uintptr_t)NULL;
+			_dispatch_object_debug(ds, "%s", __func__);
+			_dispatch_queue_release_storage(ds);
+		} else {
+			dispatch_unote_class_t du = (dispatch_unote_class_t)dfi;
+			next = du->du_freelist_next;
+			du->du_freelist_next = (uintptr_t)NULL;
+			_dispatch_du_debug(__func__, du);
+			free(du);
+		}
 		count++;
-		du = next;
+		dfi = next;
 	}
 	if (count) {
 		_dispatch_debug("freed %d deferred unotes", count);
 	}
 	if (unlikely(count > DISPATCH_DEFERRED_ITEMS_EVENT_COUNT)) {
-		DISPATCH_INTERNAL_CRASH(count, "Too many defer-free unotes");
+		DISPATCH_INTERNAL_CRASH(count, "Too many deferred free items");
 	}
 }
 
@@ -953,12 +969,12 @@ _dispatch_kq_deferred_reuse_slot(dispatch_wlh_t wlh,
 		// _dispatch_kq_update_all doesn't poll for events, and only drains
 		// errors which don't can't defer events. Assert that nothing gets
 		// pushed to the ddi unote freelist across that call.
-		dispatch_unote_class_t unotes_to_free = ddi->ddi_unote_freelist;
-		ddi->ddi_unote_freelist = NULL;
+		dispatch_deferred_free_items_t freelist = ddi->ddi_freelist;
+		ddi->ddi_freelist = (uintptr_t)NULL;
 		_dispatch_kq_update_all(wlh, ddi->ddi_eventlist, nevents);
 		dispatch_assert(ddi->ddi_nevents == 1);
-		dispatch_assert(ddi->ddi_unote_freelist == NULL);
-		_dispatch_free_unote_chain(unotes_to_free);
+		dispatch_assert(ddi->ddi_freelist == (uintptr_t)NULL);
+		_dispatch_free_freelist(freelist);
 		slot = 0;
 	} else if (slot == ddi->ddi_nevents) {
 		ddi->ddi_nevents++;
@@ -1056,7 +1072,7 @@ _dispatch_sync_ipc_handoff_end(dispatch_wlh_t wlh, mach_port_t port)
 DISPATCH_NOINLINE
 static bool
 _dispatch_kq_unote_update(dispatch_wlh_t wlh, dispatch_unote_t _du,
-		uint16_t action_flags)
+		uint16_t action_flags, bool free_on_delete, bool no_defer)
 {
 	dispatch_deferred_items_t ddi = _dispatch_deferred_items_get();
 	dispatch_unote_class_t du = _du._du;
@@ -1079,11 +1095,37 @@ _dispatch_kq_unote_update(dispatch_wlh_t wlh, dispatch_unote_t _du,
 			action_flags |= (ddi->ddi_eventlist[slot].flags & EV_ENABLE);
 		}
 
-		if (!(action_flags & EV_ADD) && (action_flags & EV_ENABLE)) {
+		if (!(action_flags & EV_ADD) && (action_flags & EV_ENABLE) &&
+				likely(!no_defer)) {
 			// can be deferred, so do it!
 			ke = _dispatch_kq_deferred_reuse_slot(wlh, ddi, slot);
 			_dispatch_kq_unote_set_kevent(du, ke, action_flags);
 			_dispatch_kevent_debug("deferred", ke);
+			if (action_flags & EV_DELETE) {
+				if (free_on_delete) {
+					// We own this unote now - put it in our ddi list to free
+					// after we return the event to the kernel
+					free_on_delete = false;
+					du->du_freelist_next = ddi->ddi_freelist;
+					ddi->ddi_freelist = (dispatch_deferred_free_items_t)du;
+					_dispatch_du_debug("deferred free", du);
+				} else {
+					// Take an sref on the source object associated with this
+					// unote, which extends the lifetime of the unote until we
+					// guarantee the kernel has seen the EV_DELETE. Mach
+					// channels are a subclass of sources, so we're safe to
+					// treat both as a dispatch_source_t here
+					dispatch_source_t ds = _dispatch_source_from_refs(du);
+					_dispatch_queue_retain_storage(ds);
+					dispatch_assert(ds->ds_sref_linkage == (uintptr_t)NULL);
+					ds->ds_sref_linkage = ddi->ddi_freelist;
+					ddi->ddi_freelist = (dispatch_deferred_free_items_t)ds |
+							DISPATCH_DEFERRED_FREELIST_SREF_MARKER;
+					_dispatch_du_debug("retained owner storage", du);
+				}
+			} else {
+				dispatch_assert(!(free_on_delete));
+			}
 			goto done;
 		}
 
@@ -1099,6 +1141,7 @@ _dispatch_kq_unote_update(dispatch_wlh_t wlh, dispatch_unote_t _du,
 
 done:
 	if (action_flags & EV_ADD) {
+		dispatch_assert(!free_on_delete);
 		if (unlikely(r)) {
 			_dispatch_wlh_release(wlh);
 			_dispatch_unote_state_set(du, DU_STATE_UNREGISTERED);
@@ -1116,7 +1159,11 @@ done:
 		_dispatch_wlh_release(wlh);
 		_dispatch_unote_state_set(du, DU_STATE_UNREGISTERED);
 		_dispatch_du_debug("deleted", du);
+		if (free_on_delete) {
+			free(du);
+		}
 	} else if (action_flags & EV_ENABLE) {
+		dispatch_assert(!free_on_delete);
 		_dispatch_du_debug("rearmed", du);
 	}
 
@@ -1296,14 +1343,15 @@ _dispatch_unote_unregister_muxed(dispatch_unote_t du)
 bool
 _dispatch_unote_register_direct(dispatch_unote_t du, dispatch_wlh_t wlh)
 {
-	return _dispatch_kq_unote_update(wlh, du, EV_ADD | EV_ENABLE);
+	return _dispatch_kq_unote_update(wlh, du, EV_ADD | EV_ENABLE, false, false);
 }
 
 void
 _dispatch_unote_resume_direct(dispatch_unote_t du)
 {
 	_dispatch_unote_state_set_bit(du, DU_STATE_ARMED);
-	_dispatch_kq_unote_update(_dispatch_unote_wlh(du), du, EV_ENABLE);
+	_dispatch_kq_unote_update(_dispatch_unote_wlh(du), du, EV_ENABLE, false,
+			false);
 }
 
 bool
@@ -1329,6 +1377,7 @@ _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags)
 			// There is no knote to unregister anymore, just do it.
 			_dispatch_unote_state_set(du, DU_STATE_UNREGISTERED);
 			_dispatch_du_debug("acknowledged deleted oneshot", du._du);
+			dispatch_assert(!(flags & DUU_PASS_OWNERSHIP));
 			return true;
 		}
 		if (!_du_state_armed(du_state)) {
@@ -1336,7 +1385,8 @@ _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags)
 			flags |= DUU_MUST_SUCCEED;
 		}
 		if ((action & EV_ENABLE) || (flags & DUU_PROBE)) {
-			if (_dispatch_kq_unote_update(du_wlh, du, action)) {
+			if (_dispatch_kq_unote_update(du_wlh, du, action,
+					flags & DUU_PASS_OWNERSHIP, flags & DUU_NO_DEFER)) {
 				return true;
 			}
 		}
@@ -1347,57 +1397,10 @@ _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags)
 	return false;
 }
 
-/*
- * rdar://61528779: knotes are uniquely identified by their filter/ident/udata
- * tuple. As a performance optimization for kqworkloop based queues, we don't
- * always immediately delete a knote when we unregister the unote for it,
- * instead stashing the delete in our ddi and continuing. If the EV_DELETE is
- * deferred, but the unote is still freed, then we can't guarantee uniqueness
- * of the filter/ident/udata tuple (the udata is a pointer to the unote, which
- * malloc can reuse, and most idents are reusable). To fix this problem, when
- * we go to dispose of a unote, we check if we hold the EV_DELETE event for it
- * in our ddi, and if so stash it in a freelist to free to malloc after the
- * EV_DELETE is delivered. We free this whole list whenever we return to
- * userspace after delivering our deferred events.
- * TODO: In rdar://147852703, we should remove _dispatch_unote_dispose
- * entirely, and just have _dispatch_unote_unregister handle freeing the unote,
- * since that's where we know whether the EV_DELETE was deferred or not.
- * Currently we're open to races where other threads free the unote while we
- * hold the EV_DELETE in our ddi.
- */
 void
-_dispatch_unote_dispose_defer(dispatch_unote_t _du)
+_dispatch_free_deferred_items(dispatch_deferred_free_items_t dfi)
 {
-	dispatch_unote_class_t du = _du._du;
-	dispatch_deferred_items_t ddi = _dispatch_deferred_items_get();
-	// By this point, we've removed the wlh from the du_state, so we can't
-	// short circuit if it doesn't belong to our wlh. However, we shouldn't
-	// have deferred the EV_DELETE for any knotes off of our wlh, so the ddi
-	// search should fail if this unote belongs to someone else.
-	if (ddi) {
-		int slot = _dispatch_kq_deferred_find_slot(ddi, du->du_filter,
-				du->du_ident, (dispatch_kevent_udata_t)du);
-		if (slot < ddi->ddi_nevents) {
-			// Disposing a unote while we have an event for it in the deferred
-			// items. We need to delay this free until after we've passed this
-			// event into the kernel.
-			if (unlikely(!(ddi->ddi_eventlist[slot].flags & EV_DELETE))) {
-				DISPATCH_INTERNAL_CRASH(ddi->ddi_eventlist[slot].flags,
-						"Disposing a direct unote while deferring an event");
-			}
-			du->du_freelist_next = ddi->ddi_unote_freelist;
-			ddi->ddi_unote_freelist = du;
-			_dispatch_du_debug("deferred free", du);
-			return;
-		}
-	}
-	free(du);
-}
-
-void
-_dispatch_free_deferred_unotes(dispatch_unote_class_t du)
-{
-	_dispatch_free_unote_chain(du);
+	_dispatch_free_freelist(dfi);
 }
 #endif // DISPATCH_HAVE_DIRECT_KNOTES
 
@@ -2031,13 +2034,13 @@ again:
 	ddi->ddi_nevents = 0;
 	// It's possible for _dispatch_kq_drain to generate more deferred-free
 	// unotes when it merges the events that it polls from the kernel. That
-	// could trip the assert in _dispatch_free_unote_chain that the freelist
+	// could trip the assert in _dispatch_free_freelist that the freelist
 	// was shorter than some max number. To avoid this, stack the freelist
 	// before pumping for events, and free the whole thing after.
-	dispatch_unote_class_t unotes_to_free = ddi->ddi_unote_freelist;
-	ddi->ddi_unote_freelist = NULL;
+	dispatch_deferred_free_items_t freelist = ddi->ddi_freelist;
+	ddi->ddi_freelist = (uintptr_t)NULL;
 	_dispatch_kq_drain(wlh, ddi->ddi_eventlist, n, flags);
-	_dispatch_free_unote_chain(unotes_to_free);
+	_dispatch_free_freelist(freelist);
 
 #if DISPATCH_USE_KEVENT_WORKLOOP
 	dispatch_workloop_t dwl = _dispatch_wlh_to_workloop(wlh);
@@ -2301,6 +2304,7 @@ _dispatch_event_loop_wait_for_ownership(dispatch_sync_context_t dsc)
 	int i, n = 0;
 
 	dq_state = os_atomic_load(&((dispatch_queue_t)wlh)->dq_state, relaxed);
+reevaluate_state:
 	if (!_dq_state_drain_locked(dq_state) &&
 			_dq_state_is_enqueued_on_target(dq_state)) {
 		//
@@ -2335,6 +2339,41 @@ _dispatch_event_loop_wait_for_ownership(dispatch_sync_context_t dsc)
 		_dispatch_kq_fill_workloop_sync_event(&ke[n++],
 				DISPATCH_WORKLOOP_SYNC_DISCOVER, wlh, dq_state,
 				_dq_state_drain_owner(dq_state));
+	} else if (_dq_state_in_uncontended_sync(dq_state)) {
+		//
+		// <rdar://problem/164416008>
+		//
+		// We raced with someone uncontended syncing to the queue (and not
+		// doing a lock handoff, which doesn't set the uncontended sync bit),
+		// and we didn't set the RSW bit (because we evaluate that separately
+		// from attempting the dispatch_sync fastpath). If we park with just a
+		// NOTE_WL_SYNC_WAIT here, we won't propagate priority to the
+		// uncontended owner.
+		//
+		// This race can happen because we go into the sync slowpath if we
+		// observe an uncontended sync owner, but if that thread unlocks before
+		// we get to _dispatch_wait_prepare, we won't set the RSW bit. If
+		// another thread then uncontended syncs before we push the dsc, we'll
+		// get here while the wlh is still in uncontended sync.
+		//
+		// There is another race possible with multiple queues in the
+		// hierarchy, where a low priority thread can lock the top of the
+		// hierarchy in uncontended sync but be preempted before trying to lock
+		// the bottom of the hierarchy. High priority syncing threads can get
+		// here while the wlh is unlocked and not enqueued, and not boost the
+		// low priority preempted thread. That can't be fixed here, and needs a
+		// followup patch to the push_waiter path.
+		//
+		uint64_t new_state = dq_state | DISPATCH_QUEUE_RECEIVED_SYNC_WAIT;
+		if (os_atomic_cmpxchgv(&((dispatch_queue_t)wlh)->dq_state, dq_state,
+				new_state, &dq_state, relaxed)) {
+			// If the cmpxchgv succeeds, reevaluate the state machine with the
+			// RSW bit set. If it fails, we'll have loaded the new value into
+			// dq_state, so reevaluate with that.
+			dq_state = new_state;
+		}
+		// Note: Make sure not to increment n in any path that loops back up.
+		goto reevaluate_state;
 	}
 
 again:

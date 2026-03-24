@@ -36,7 +36,7 @@ class Document;
 template<typename> class ExceptionOr;
 
 class CSSSkewY : public CSSTransformComponent {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CSSSkewY);
+    WTF_MAKE_TZONE_ALLOCATED(CSSSkewY);
 public:
     static ExceptionOr<Ref<CSSSkewY>> create(Ref<CSSNumericValue>);
     static ExceptionOr<Ref<CSSSkewY>> create(Ref<const CSSFunctionValue>, Document&);

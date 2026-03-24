@@ -39,6 +39,7 @@
 #include <wtf/Platform.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/StringHash.h>
 
@@ -162,7 +163,7 @@ private:
 
     void deleteOriginLockFor(const SecurityOriginData&) WTF_REQUIRES_LOCK(m_databaseGuard);
 
-    using DatabaseSet = HashSet<Database*>;
+    using DatabaseSet = ThreadSafeWeakHashSet<Database>;
     using DatabaseNameMap = HashMap<String, DatabaseSet>;
     using DatabaseOriginMap = HashMap<SecurityOriginData, DatabaseNameMap>;
 
@@ -171,7 +172,7 @@ private:
 
     // This lock protects m_database, m_originLockMap, m_databaseDirectoryPath, m_originsBeingDeleted, m_beingCreated, and m_beingDeleted.
     Lock m_databaseGuard;
-    SQLiteDatabase m_database WTF_GUARDED_BY_LOCK(m_databaseGuard);
+    const UniqueRef<SQLiteDatabase> m_database WTF_GUARDED_BY_LOCK(m_databaseGuard);
 
     using OriginLockMap = HashMap<String, Ref<OriginLock>>;
     OriginLockMap m_originLockMap WTF_GUARDED_BY_LOCK(m_databaseGuard);

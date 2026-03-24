@@ -56,7 +56,7 @@
 // https://lpc.events/event/7/contributions/729/attachments/496/903/CET-LPC-2020.pdf
 //
 // cet.h defines _CET_ENDBR which is used to mark function entry points for IBT.
-// and adds the assembly marker. The value of _CET_ENDBR is made dependant on if
+// and adds the assembly marker. The value of _CET_ENDBR is made dependent on if
 // '-fcf-protection' is passed to the compiler. _CET_ENDBR is only required when
 // the function is the target of an indirect jump, but BoringSSL chooses to mark
 // all assembly entry points because it is easier, and allows BoringSSL's ABI
@@ -186,7 +186,7 @@
 #define AARCH64_VALIDATE_LINK_REGISTER
 #endif
 
-#if GNU_PROPERTY_AARCH64_POINTER_AUTH != 0 || GNU_PROPERTY_AARCH64_BTI != 0
+#if (GNU_PROPERTY_AARCH64_POINTER_AUTH != 0 || GNU_PROPERTY_AARCH64_BTI != 0) && defined(__ELF__)
 .pushsection .note.gnu.property, "a";
 .balign 8;
 .long 4;

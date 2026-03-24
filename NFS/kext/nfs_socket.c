@@ -1401,6 +1401,21 @@ tryagain:
 		    nss.nss_protocol, nss.nss_version);
 	} else {
 		/* we've connected before, just connect to NFS port */
+#if CONFIG_NFS4
+		if (nmp->nm_vers >= NFS_VER4 && tryv4) {
+			nss.nss_port = nmp->nm_nfsport ? nmp->nm_nfsport : NFS_PORT;
+			nss.nss_protocol = NFS_PROG;
+			nss.nss_version = nmp->nm_vers;
+			/*
+			 * set NSS_FALLBACK2PMAP here to pick up any non standard port
+			 * if no port is specified on the mount;
+			 * Note nm_vers is set so we will only try NFS_VER4.
+			 */
+			if (!nmp->nm_nfsport) {
+				nss.nss_flags |= NSS_FALLBACK2PMAP;
+			}
+		} else
+#endif
 		if (!nmp->nm_nfsport) {
 			/* need to ask portmapper which port that would be */
 			nss.nss_port = PMAPPORT;

@@ -42,6 +42,10 @@
 #define MALLOC_TARGET_DK_WATCH 0
 #endif // MALLOC_TARGET_DK_WATCH
 
+#ifndef MALLOC_TARGET_DK_TV
+#define MALLOC_TARGET_DK_TV 0
+#endif // MALLOC_TARGET_DK_TV
+
 #ifndef MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #define MALLOC_TARGET_EXCLAVES_INTROSPECTOR 0
 #endif // MALLOC_TARGET_EXCLAVES_INTROSPECTOR
@@ -113,12 +117,15 @@
 // enable nano checking for corrupt free list
 #define NANO_FREE_DEQUEUE_DILIGENCE 1
 
-// Conditional behaviour depends on MallocSpaceEfficient being set by
-// JetsamProperties which isn't true on iOS
-#if MALLOC_TARGET_IOS || TARGET_OS_DRIVERKIT
-#define NANOV2_DEFAULT_MODE NANO_ENABLED
-#else
+// On macOS, nano should be enabled by default if MallocSpaceEfficient isn't set
+// (which is what the "conditional" behavior means)
+//
+// On all other platforms, nano should be enabled only if specifically requested
+// via either the apple or environment arrays
+#if TARGET_OS_OSX
 #define NANOV2_DEFAULT_MODE NANO_CONDITIONAL
+#else
+#define NANOV2_DEFAULT_MODE NANO_ENABLED
 #endif
 
 // whether to pre-reserve all available nano regions during initialization
@@ -205,13 +212,11 @@
 #endif
 
 // Support cluster-aware policies in xzone malloc
-#if ((TARGET_OS_IOS || TARGET_OS_VISION) && !TARGET_OS_SIMULATOR) || \
-		MALLOC_TARGET_DK_IOS || MALLOC_TARGET_DK_VISIONOS || \
-		TARGET_OS_OSX || MALLOC_TARGET_DK_OSX || \
-		(TARGET_OS_WATCH && !TARGET_OS_SIMULATOR) || MALLOC_TARGET_DK_WATCH
-#define CONFIG_XZM_CLUSTER_AWARE 1
-#else
+#if TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE || \
+		MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #define CONFIG_XZM_CLUSTER_AWARE 0
+#else
+#define CONFIG_XZM_CLUSTER_AWARE 1
 #endif
 
 // Build with supporting logic for cluster awareness in either allocator
@@ -259,23 +264,13 @@
 #define CONFIG_MADV_ZERO 0
 #endif
 
-#if CONFIG_XZONE_MALLOC && (MALLOC_TARGET_DK_VISIONOS || \
-		MALLOC_TARGET_DK_IOS || (MALLOC_TARGET_DK_OSX && TARGET_CPU_ARM64) || \
-		MALLOC_TARGET_DK_WATCH)
-#define MALLOC_XZONE_ENABLED_DEFAULT true
-#endif
-
-#ifndef MALLOC_XZONE_ENABLED_DEFAULT
-#define MALLOC_XZONE_ENABLED_DEFAULT false
-#endif
-
 #if MALLOC_TARGET_64BIT
 #define CONFIG_EARLY_MALLOC 1
 #else
 #define CONFIG_EARLY_MALLOC 0
 #endif
 
-#if MALLOC_TARGET_IOS_ONLY || TARGET_OS_VISION || TARGET_OS_OSX || TARGET_OS_WATCH
+#if !TARGET_OS_BRIDGE && !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #define CONFIG_MALLOC_PROCESS_IDENTITY 1
 #else
 #define CONFIG_MALLOC_PROCESS_IDENTITY 0
@@ -292,10 +287,6 @@
 // GCC_PREPROCESSOR_DEFINITIONS in the Xcode config.
 #ifndef CONFIG_MTE
 #define CONFIG_MTE 0
-#endif
-
-#ifndef HEADER_MTE
-#define HEADER_MTE CONFIG_MTE
 #endif
 
 #endif // __PLATFORM_H

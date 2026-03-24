@@ -28,6 +28,7 @@
 
 #include "APIArray.h"
 #include "APIContentWorld.h"
+#include "APIJSBuffer.h"
 #include "APIUserScript.h"
 #include "APIUserStyleSheet.h"
 #include "InjectUserScriptImmediately.h"
@@ -41,6 +42,7 @@
 #include "WebUserContentControllerDataTypes.h"
 #include "WebUserContentControllerMessages.h"
 #include <WebCore/SerializedScriptValue.h>
+#include <WebCore/SharedMemory.h>
 #include <wtf/CheckedPtr.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -107,15 +109,22 @@ UserContentControllerParameters WebUserContentControllerProxy::parametersForProc
     for (RefPtr userStyleSheet : m_userStyleSheets->elementsOfType<API::UserStyleSheet>())
         userStyleSheets.append({ userStyleSheet->identifier(), Ref { userStyleSheet->contentWorld() }->worldDataForProcess(process), userStyleSheet->userStyleSheet() });
 
+    Vector<WebJSBufferData> buffers;
+    for (auto& [pair, buffer] : m_buffers) {
+        if (RefPtr world = API::ContentWorld::worldForIdentifier(pair.first))
+            buffers.append(WebJSBufferData { Ref { buffer }->sharedMemory(), world->worldDataForProcess(process), pair.second });
+    }
+
     auto messageHandlers = WTF::map(m_scriptMessageHandlers, [&](auto entry) {
         return WebScriptMessageHandlerData { entry.value->identifier(), entry.value->world().worldDataForProcess(process), entry.value->name() };
     });
 
     return {
         identifier()
-        , WTFMove(userScripts)
-        , WTFMove(userStyleSheets)
-        , WTFMove(messageHandlers)
+        , WTF::move(userScripts)
+        , WTF::move(userStyleSheets)
+        , WTF::move(messageHandlers)
+        , WTF::move(buffers)
 #if ENABLE(CONTENT_EXTENSIONS)
         , contentRuleListData()
 #endif
@@ -327,7 +336,7 @@ void WebUserContentControllerProxy::didPostMessage(WebPageProxy& page, FrameInfo
     RefPtr handler = m_scriptMessageHandlers.get(messageHandlerID);
     if (!handler)
         return reply(makeUnexpected(String()));
-    handler->client().didPostMessage(page, WTFMove(frameInfoData), handler->world(), WTFMove(message), WTFMove(reply));
+    handler->client().didPostMessage(page, WTF::move(frameInfoData), handler->world(), WTF::move(message), WTF::move(reply));
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -393,5 +402,19 @@ void WebUserContentControllerProxy::removeAllContentRuleLists()
 #endif
 }
 #endif
+
+void WebUserContentControllerProxy::addJSBuffer(API::JSBuffer& buffer, API::ContentWorld& world, const String& name)
+{
+    m_buffers.set({ world.identifier(), name }, buffer);
+    for (Ref process : m_processes)
+        process->send(Messages::WebUserContentController::AddJSBuffer(WebJSBufferData { buffer.sharedMemory(), world.worldDataForProcess(process), name }), identifier());
+}
+
+void WebUserContentControllerProxy::removeJSBuffer(API::ContentWorld& world, const String& name)
+{
+    m_buffers.remove({ world.identifier(), name });
+    for (Ref process : m_processes)
+        process->send(Messages::WebUserContentController::RemoveJSBuffer(world.identifier(), name), identifier());
+}
 
 } // namespace WebKit

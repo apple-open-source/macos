@@ -181,10 +181,10 @@ void createMediaPlayerDecodingConfigurationCocoa(MediaDecodingConfiguration&& co
 {
     auto info = computeMediaCapabilitiesInfo(configuration);
     if (!info)
-        callback({ { }, WTFMove(configuration) });
+        callback({ { }, WTF::move(configuration) });
     else {
-        MediaCapabilitiesDecodingInfo infoWithConfiguration = { WTFMove(*info), WTFMove(configuration) };
-        callback(WTFMove(infoWithConfiguration));
+        MediaCapabilitiesDecodingInfo infoWithConfiguration = { WTF::move(*info), WTF::move(configuration) };
+        callback(WTF::move(infoWithConfiguration));
     }
 }
 

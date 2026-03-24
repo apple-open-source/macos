@@ -196,7 +196,7 @@ void StyleSheetContents::parserAppendRule(Ref<StyleRuleBase>&& rule)
         return;
     }
 
-    m_childRules.append(WTFMove(rule));
+    m_childRules.append(WTF::move(rule));
 }
 
 StyleRuleBase* StyleSheetContents::ruleAt(unsigned index) const
@@ -342,7 +342,7 @@ bool StyleSheetContents::wrapperInsertRule(Ref<StyleRuleBase>&& rule, unsigned i
             return false;
     }
 
-    m_childRules.insert(childVectorIndex, WTFMove(rule));
+    m_childRules.insert(childVectorIndex, WTF::move(rule));
     return true;
 }
 

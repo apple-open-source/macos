@@ -48,7 +48,7 @@ public:
     static Ref<InjectedBundleScriptWorld> create(ContentWorldIdentifier, Type = Type::Internal);
     static Ref<InjectedBundleScriptWorld> create(ContentWorldIdentifier, const String& name, Type = Type::Internal);
     static Ref<InjectedBundleScriptWorld> getOrCreate(WebCore::DOMWrapperWorld&);
-    static RefPtr<InjectedBundleScriptWorld> get(WebCore::DOMWrapperWorld&);
+    static RefPtr<InjectedBundleScriptWorld> get(const WebCore::DOMWrapperWorld&);
     static InjectedBundleScriptWorld* find(const String&);
     static InjectedBundleScriptWorld& normalWorldSingleton();
 

@@ -44,7 +44,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteQueue);
 RemoteQueue::RemoteQueue(WebCore::WebGPU::Queue& queue, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(queue)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(WTF::move(streamConnection))
     , m_gpu(gpu)
     , m_identifier(identifier)
 {
@@ -74,12 +74,12 @@ void RemoteQueue::submit(Vector<WebGPUIdentifier>&& commandBuffers)
             return;
         convertedCommandBuffers.append(*convertedCommandBuffer);
     }
-    protectedBacking()->submit(WTFMove(convertedCommandBuffers));
+    protectedBacking()->submit(WTF::move(convertedCommandBuffers));
 }
 
 void RemoteQueue::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
 {
-    protectedBacking()->onSubmittedWorkDone([callback = WTFMove(callback)] () mutable {
+    protectedBacking()->onSubmittedWorkDone([callback = WTF::move(callback)] () mutable {
         callback();
     });
 }
@@ -90,7 +90,7 @@ void RemoteQueue::writeBuffer(
     std::optional<WebCore::SharedMemoryHandle>&& dataHandle,
     CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto data = dataHandle ? WebCore::SharedMemory::map(WTFMove(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
+    auto data = dataHandle ? WebCore::SharedMemory::map(WTF::move(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
     auto convertedBuffer = protectedObjectHeap()->convertBufferFromBacking(buffer);
     ASSERT(convertedBuffer);
     if (!convertedBuffer || !data || data->size() <= WebGPU::maxCrossProcessResourceCopySize) {
@@ -123,7 +123,7 @@ void RemoteQueue::writeTexture(
     const WebGPU::Extent3D& size,
     CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto data = dataHandle ? WebCore::SharedMemory::map(WTFMove(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
+    auto data = dataHandle ? WebCore::SharedMemory::map(WTF::move(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
     Ref objectHeap = m_objectHeap.get();
     auto convertedDestination = objectHeap->convertFromBacking(destination);
     ASSERT(convertedDestination);
@@ -179,7 +179,7 @@ void RemoteQueue::copyExternalImageToTexture(
 
 void RemoteQueue::setLabel(String&& label)
 {
-    protectedBacking()->setLabel(WTFMove(label));
+    protectedBacking()->setLabel(WTF::move(label));
 }
 
 Ref<WebCore::WebGPU::Queue> RemoteQueue::protectedBacking()
@@ -189,7 +189,7 @@ Ref<WebCore::WebGPU::Queue> RemoteQueue::protectedBacking()
 
 Ref<WebGPU::ObjectHeap> RemoteQueue::protectedObjectHeap() const
 {
-    return m_objectHeap.get();
+    return m_objectHeap;
 }
 
 } // namespace WebKit

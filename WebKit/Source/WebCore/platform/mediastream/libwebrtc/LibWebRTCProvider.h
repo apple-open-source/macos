@@ -138,6 +138,8 @@ protected:
     bool m_useNetworkThreadWithSocketServer { true };
 
 private:
+    bool isWebCoreLibWebRTCProvider() const final { return true; }
+
     void initializeAudioDecodingCapabilities() final;
     void initializeVideoDecodingCapabilities() final;
     void initializeAudioEncodingCapabilities() final;
@@ -165,5 +167,9 @@ inline LibWebRTCAudioModule* LibWebRTCProvider::audioModule()
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::LibWebRTCProvider) \
+static bool isType(const WebCore::WebRTCProvider& provider) { return provider.isWebCoreLibWebRTCProvider(); } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // USE(LIBWEBRTC)

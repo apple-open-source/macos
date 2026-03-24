@@ -19,6 +19,8 @@
 #ifndef __UIDNA_H__
 #define __UIDNA_H__
 
+DECLARE_SYSTEM_HEADER
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_IDNA

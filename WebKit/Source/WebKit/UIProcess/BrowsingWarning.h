@@ -51,13 +51,13 @@ public:
 #if HAVE(SAFE_BROWSING)
     static Ref<BrowsingWarning> create(const URL& url, bool forMainFrameNavigation, Data&& data)
     {
-        return adoptRef(*new BrowsingWarning(url, forMainFrameNavigation, WTFMove(data)));
+        return adoptRef(*new BrowsingWarning(url, forMainFrameNavigation, WTF::move(data)));
     }
 #endif
 #if PLATFORM(COCOA)
     static Ref<BrowsingWarning> create(URL&& url, String&& title, String&& warning, RetainPtr<NSAttributedString>&& details, Data&& data)
     {
-        return adoptRef(*new BrowsingWarning(WTFMove(url), WTFMove(title), WTFMove(warning), WTFMove(details), WTFMove(data)));
+        return adoptRef(*new BrowsingWarning(WTF::move(url), WTF::move(title), WTF::move(warning), WTF::move(details), WTF::move(data)));
     }
 #endif
 

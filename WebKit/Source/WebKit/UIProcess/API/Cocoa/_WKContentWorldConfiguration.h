@@ -48,6 +48,7 @@ WK_CLASS_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4))
 @property (nonatomic) BOOL allowElementUserInfo;
 
 /*! @abstract A boolean value indicating whether the behavior that elements with a name attribute overrides builtin methods on document object should be disabled or not. */
+// FIXME: Give this a positive name like enableLegacyBuiltinOverrides to avoid double-negatives in code.
 @property (nonatomic) BOOL disableLegacyBuiltinOverrides;
 
 /*! @abstract A boolean indicating whether window.webkit.createJSHandle is available. */
@@ -55,6 +56,9 @@ WK_CLASS_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4))
 
 /*! @abstract A boolean indicating whether window.webkit.serializeNode is available. */
 @property (nonatomic) BOOL allowNodeSerialization WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+/*! @abstract A boolean indicating whether the JavaScript in this world is visible to the Web Inspector. */
+@property (nonatomic, getter=isInspectable) BOOL inspectable NS_SWIFT_NAME(isInspectable) WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 @end
 

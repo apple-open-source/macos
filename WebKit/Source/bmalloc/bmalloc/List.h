@@ -25,9 +25,13 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(LIBPAS)
+
+#include <type_traits>
 
 namespace bmalloc {
 
@@ -122,3 +126,5 @@ private:
 } // namespace bmalloc
 
 #endif
+
+#endif // __cplusplus

@@ -26,12 +26,14 @@
 #pragma once
 
 #include "WritableStream.h"
+#include <wtf/TypeCasts.h>
 
 namespace WebCore {
 
 class DeferredPromise;
+class WebTransport;
+class WebTransportSendGroup;
 class WebTransportSendStreamSink;
-class WebTransportSession;
 
 struct WebTransportSendStreamStats;
 struct WebTransportStreamIdentifierType;
@@ -40,19 +42,22 @@ using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifi
 
 class WebTransportSendStream : public WritableStream {
 public:
-    static ExceptionOr<Ref<WebTransportSendStream>> create(WebTransportSession&, JSDOMGlobalObject&, Ref<WebTransportSendStreamSink>&&);
+    static ExceptionOr<Ref<WebTransportSendStream>> create(WebTransport&, JSDOMGlobalObject&, Ref<WebTransportSendStreamSink>&&);
     ~WebTransportSendStream();
 
     void getStats(ScriptExecutionContext&, Ref<DeferredPromise>&&);
+    WebTransportSendGroup* sendGroup();
+    ExceptionOr<void> setSendGroup(WebTransportSendGroup*);
     std::optional<int64_t> sendOrder() { return m_sendOrder; }
     void setSendOrder(std::optional<int64_t> order) { m_sendOrder = order; }
 private:
-    WebTransportSendStream(WebTransportStreamIdentifier, WebTransportSession&, Ref<InternalWritableStream>&&);
+    WebTransportSendStream(WebTransportStreamIdentifier, WebTransport&, Ref<InternalWritableStream>&&);
 
     virtual Type type() const { return Type::WebTransport; }
 
     const WebTransportStreamIdentifier m_identifier;
-    const ThreadSafeWeakPtr<WebTransportSession> m_session;
+    const ThreadSafeWeakPtr<WebTransport> m_transport;
+    RefPtr<WebTransportSendGroup> m_sendGroup;
     std::optional<int64_t> m_sendOrder;
 };
 

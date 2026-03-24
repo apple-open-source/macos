@@ -36,7 +36,8 @@ class GraphicsContext;
 }
 
 namespace WebKit {
-
+class NonCompositedFrameRenderer;
+struct RenderProcessInfo;
 struct UpdateInfo;
 
 class DrawingAreaCoordinatedGraphics final : public DrawingArea {
@@ -47,6 +48,10 @@ public:
     }
 
     virtual ~DrawingAreaCoordinatedGraphics();
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    void fillGLInformation(RenderProcessInfo&&, CompletionHandler<void(RenderProcessInfo&&)>&&);
+#endif
 
 private:
     DrawingAreaCoordinatedGraphics(WebPage&, const WebPageCreationParameters&);
@@ -69,7 +74,7 @@ private:
     void backgroundColorDidChange() override;
 #endif
 
-#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM) && (USE(GBM)|| OS(ANDROID))
     void preferredBufferFormatsDidChange() override;
 #endif
 
@@ -88,7 +93,7 @@ private:
 
     // IPC message handlers.
     void updateGeometry(const WebCore::IntSize&, CompletionHandler<void()>&&) override;
-    void displayDidRefresh() override;
+    void displayDidRefresh(MonotonicTime) override;
     void setDeviceScaleFactor(float, CompletionHandler<void()>&&) override;
     void forceUpdate() override;
     void didDiscardBackingStore() override;
@@ -144,6 +149,11 @@ private:
 
     // The layer tree host that handles accelerated compositing.
     std::unique_ptr<LayerTreeHost> m_layerTreeHost;
+
+#if PLATFORM(WPE)
+    // Frame renderer used in non-composited mode.
+    std::unique_ptr<NonCompositedFrameRenderer> m_nonCompositedFrameRenderer;
+#endif
 
     WebCore::Region m_dirtyRegion;
     WebCore::IntRect m_scrollRect;

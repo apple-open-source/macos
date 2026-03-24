@@ -33,6 +33,7 @@
 #include <wtf/NumberOfCores.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #if PLATFORM(IOS_FAMILY)
+#import <pal/system/ios/Device.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #endif
 #endif
@@ -181,14 +182,11 @@ bool defaultManagedMediaSourceNeedsAirPlay()
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 bool defaultMediaSessionCoordinatorEnabled()
 {
-    static dispatch_once_t onceToken;
-    static bool enabled { false };
-    dispatch_once(&onceToken, ^{
+    static bool enabled = [] {
         if (isInWebProcess())
-            enabled = WebProcess::singleton().parentProcessHasEntitlement("com.apple.developer.group-session.urlactivity"_s);
-        else
-            enabled = WTF::processHasEntitlement("com.apple.developer.group-session.urlactivity"_s);
-    });
+            return WebProcess::singleton().parentProcessHasEntitlement("com.apple.developer.group-session.urlactivity"_s);
+        return WTF::processHasEntitlement("com.apple.developer.group-session.urlactivity"_s);
+    }();
     return enabled;
 }
 #endif
@@ -257,16 +255,14 @@ bool defaultGamepadVibrationActuatorEnabled()
 bool defaultDigitalCredentialsEnabled()
 {
 #if HAVE(DIGITAL_CREDENTIALS_UI)
-    static dispatch_once_t onceToken;
-    static bool enabled { false };
-    dispatch_once(&onceToken, ^{
+    static bool enabled = [] {
         auto entitlementChecker = [inWebProcess = isInWebProcess()](auto entitlement) {
             if (inWebProcess)
                 return WebProcess::singleton().parentProcessHasEntitlement(entitlement);
             return WTF::processHasEntitlement(entitlement);
         };
-        enabled = entitlementChecker("com.apple.developer.web-browser"_s) || entitlementChecker("com.apple.developer.identity-document-services.web-presentment-controller"_s);
-    });
+        return entitlementChecker("com.apple.developer.web-browser"_s) || entitlementChecker("com.apple.developer.identity-document-services.web-presentment-controller"_s);
+    }();
     return enabled;
 #else
     return false;
@@ -293,6 +289,15 @@ bool defaultPeerConnectionEnabledAvailable()
     return WebCore::WebRTCProvider::webRTCAvailable();
 }
 #endif
+
+bool defaultWebRTCSocketsServiceClassEnabled()
+{
+#if ENABLE(WEBRTC_SOCKETS_SERVICECLASS_ENABLED)
+    return true;
+#else
+    return false;
+#endif
+}
 
 bool defaultPopoverAttributeEnabled()
 {
@@ -391,6 +396,15 @@ bool defaultPreferSpatialAudioExperience()
 }
 #endif
 
+bool defaultRTCEncodedStreamsQuirkEnabled()
+{
+#if PLATFORM(MAC)
+    return true;
+#else
+    return false;
+#endif
+}
+
 #if PLATFORM(COCOA)
 static bool isSafariOrWebApp()
 {
@@ -417,6 +431,36 @@ bool defaultTrustedTypesEnabled()
     return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableTrustedTypesByDefault);
 #else
     return true;
+#endif
+}
+
+bool defaultGetBoundingClientRectZoomedEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::GetBoundingClientRectZoomed);
+#else
+    return true;
+#endif
+}
+
+bool defaultFacebookLiveRecordingQuirkEnabled()
+{
+#if PLATFORM(MAC)
+    return true;
+#elif PLATFORM(IOS)
+    return !PAL::deviceClassIsSmallScreen();
+#else
+    return false;
+#endif
+}
+
+bool defaultFontFaceSetConstructorEnabled()
+{
+#if PLATFORM(COCOA)
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoFontFaceSetConstructor);
+    return !newSDK;
+#else
+    return false;
 #endif
 }
 
@@ -449,5 +493,21 @@ bool defaultScrollbarColorEnabled()
     return false;
 #endif
 }
+
+bool defaultAllowMultipleCommitLayerTreePending()
+{
+#if ENABLE(ALLOW_MULTIPLE_COMMIT_LAYER_TREE_PENDING)
+    return true;
+#else
+    return false;
+#endif
+}
+
+#if !PLATFORM(COCOA) && ENABLE(VIDEO)
+bool defaultCaptionDisplaySettingsEnabled()
+{
+    return false;
+}
+#endif
 
 } // namespace WebKit

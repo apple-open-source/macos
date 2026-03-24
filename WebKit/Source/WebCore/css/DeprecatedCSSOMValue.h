@@ -92,7 +92,7 @@ class DeprecatedCSSOMComplexValue : public DeprecatedCSSOMValue {
 public:
     static Ref<DeprecatedCSSOMComplexValue> create(Ref<const CSSValue> value, CSSStyleDeclaration& owner)
     {
-        return adoptRef(*new DeprecatedCSSOMComplexValue(WTFMove(value), owner));
+        return adoptRef(*new DeprecatedCSSOMComplexValue(WTF::move(value), owner));
     }
 
     String cssText() const;
@@ -101,7 +101,7 @@ public:
 protected:
     DeprecatedCSSOMComplexValue(Ref<const CSSValue> value, CSSStyleDeclaration& owner)
         : DeprecatedCSSOMValue(ClassType::Complex, owner)
-        , m_value(WTFMove(value))
+        , m_value(WTF::move(value))
     {
     }
 

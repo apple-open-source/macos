@@ -34,7 +34,7 @@
 namespace WebCore {
 
 class WebGLMultiDraw final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLMultiDraw);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLMultiDraw);
     WTF_MAKE_NONCOPYABLE(WebGLMultiDraw);
 public:
     using Int32List = WebGLRenderingContextBase::TypedList<Int32Array, int32_t>;

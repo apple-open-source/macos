@@ -123,7 +123,7 @@ ncpu(void)
 }
 
 static uint32_t live_allocations;
-static void **allocations;
+static _Atomic(void *) *allocations;
 static size_t max_rand, min_size, incr_size;
 
 static void
@@ -223,6 +223,7 @@ malloc_threaded_stress(bool singlethreaded, size_t from, size_t to, size_t incr,
 	}
 
 	free(threads);
+	free(allocations);
 }
 
 static void *
@@ -267,9 +268,7 @@ malloc_size_stress_thread(void *arg)
 		// Size without taking ownership to allow another thread to race to free
 		(void)malloc_size(allocations[pos % live_allocations]);
 
-		alloc = atomic_exchange(
-				(_Atomic(void *) *)&allocations[(pos++)%live_allocations],
-				alloc);
+		alloc = atomic_exchange(&allocations[(pos++)%live_allocations], alloc);
 		if (alloc) {
 			// Size again while definitely allocated
 			(void)malloc_size(alloc);
@@ -342,7 +341,7 @@ malloc_fork_stress_thread(void *arg)
 	uint64_t children = 0;
 
 	char *e;
-	unsigned long fork_prob = 100000;
+	unsigned long fork_prob = 10000;
 	if ((e = getenv("THREADED_STRESS_FORK_PROB"))) {
 		unsigned long env_prob = strtoul(e, NULL, 0);
 		if (env_prob) {
@@ -382,9 +381,7 @@ malloc_fork_stress_thread(void *arg)
 			if (!remaining_frees--) break;
 			alloc = NULL;
 		}
-		alloc = atomic_exchange(
-				(_Atomic(void *) *)&allocations[(pos++)%live_allocations],
-				alloc);
+		alloc = atomic_exchange(&allocations[(pos++)%live_allocations], alloc);
 		if (alloc) {
 			dummy = busy(second);
 			free(alloc);
@@ -415,7 +412,7 @@ T_DECL(threaded_stress_fork, "multi-threaded stress test for fork",
 	iterations = 200000ull;
 #endif // TARGET_OS_TV || TARGET_OS_WATCH
 
-	malloc_threaded_stress(false, 16, 256, 16, 2048,
+	malloc_threaded_stress(false, 16, 256, 16, KiB(2),
 			iterations, malloc_fork_stress_thread);
 }
 
@@ -428,7 +425,46 @@ T_DECL(threaded_stress_fork_small,
 	iterations = 20000ull;
 #endif // TARGET_OS_TV || TARGET_OS_WATCH
 
-	malloc_threaded_stress(false, 2048, 8192, 2048, 64,
+	malloc_threaded_stress(false, KiB(2), KiB(8), KiB(2), 64,
+			iterations, malloc_fork_stress_thread);
+}
+
+T_DECL(threaded_stress_fork_large_guard_objects,
+		"multi-threaded stress test of large for fork with guard objects",
+		T_META_ENVVAR("MallocNanoZone=0"), // rdar://118860589
+		T_META_ENVVAR("MallocDeferredReclaim=0"),
+		T_META_ENVVAR("MallocXzoneGuardLarge=1"),
+		T_META_ENVVAR("MallocXzoneGuardLargeQuarantine=1"))
+{
+	uint64_t iterations = 200000ull;
+#if TARGET_OS_TV || TARGET_OS_WATCH
+	iterations = 20000ull;
+#endif // TARGET_OS_TV || TARGET_OS_WATCH
+
+	malloc_threaded_stress(false, KiB(32), KiB(64), KiB(8), 64,
+			iterations / 5, malloc_fork_stress_thread);
+	malloc_threaded_stress(false, KiB(64), KiB(128), KiB(16), 64,
+			iterations / 5, malloc_fork_stress_thread);
+	malloc_threaded_stress(false, KiB(128), KiB(256), KiB(32), 64,
+			iterations / 5, malloc_fork_stress_thread);
+	malloc_threaded_stress(false, KiB(256), KiB(512), KiB(64), 64,
+			iterations / 5, malloc_fork_stress_thread);
+	malloc_threaded_stress(false, KiB(512), MiB(1), KiB(128), 64,
+			iterations / 5, malloc_fork_stress_thread);
+}
+
+T_DECL(threaded_stress_fork_huge,
+		"multi-threaded stress test of huge for fork",
+		T_META_ENVVAR("MallocNanoZone=0")) // rdar://118860589
+{
+	uint64_t iterations = 20000ull;
+	uint32_t live_allocations = 64;
+#if TARGET_OS_TV || TARGET_OS_WATCH
+	iterations = 2000ull;
+	live_allocations = 16;
+#endif // TARGET_OS_TV || TARGET_OS_WATCH
+
+	malloc_threaded_stress(false, MiB(2), MiB(64), MiB(1), live_allocations,
 			iterations, malloc_fork_stress_thread);
 }
 #endif // MALLOC_TARGET_EXCLAVES

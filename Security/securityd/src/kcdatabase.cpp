@@ -65,6 +65,7 @@
 #include <security_utilities/errors.h>
 #include <AssertMacros.h>
 #include <syslog.h>
+#include <os/variant_private.h>
 #include <sys/sysctl.h>
 #include <sys/kauth.h>
 #include <sys/csr.h>
@@ -98,7 +99,7 @@ static void get_process_euid(pid_t pid, uid_t * out_euid)
 }
 
 static int
-unlock_keybag(KeychainDatabase & db, const void * secret, int secret_len)
+unlock_keybag(const KeychainDatabase & db, const void * secret, int secret_len, bool loadAndSwap = true)
 {
     int rc = -1;
 
@@ -115,6 +116,13 @@ unlock_keybag(KeychainDatabase & db, const void * secret, int secret_len)
     // loading should happen when the kb common object is created
     // if it doesn't exist yet then the unlock will fail and we'll create everything
     rc = kb_unlock(&context, secret, secret_len);
+
+    // When calculating derivedEntropy, we do not want to create the keybag, or swap
+    // encryption key to password, as we should have already done that.
+    if (!loadAndSwap) {
+        return rc;
+    }
+
     if (rc == KB_BagNotLoaded) {
         if (kb_load(&context) == KB_BagNotFound) {
             rc = kb_create(&context, secret, secret_len);
@@ -926,6 +934,7 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKe
             
             service_context_t context = common().session().get_current_service_context();
             kb_stash_load_key(&context, rawMaster.keyData(), (int)rawMaster.length());
+            Server::csp()->allocator().free(rawMaster);
         }
 	} else if (unlockKeybag && common().isLoginKeychain()) {
         bool locked = false;
@@ -1731,6 +1740,30 @@ bool KeychainDatabase::derivePassphraseIfNecessary(const CssmData &passphraseIn,
     removeHandle(kh);
     secinfo("dp_login", "KeychainDatabase::derivePassphraseIfNecessary: %s", ret ? "derived" : "passed through");
     return ret;
+}
+
+// Validate a putative passphrase against the keybag, even if already unlocked.
+// This is to prevent using any other passphrase when protecting a login.keychain.
+bool KeychainDatabase::validatePassphraseAgainstKeybag(const CssmData &passphrase) const
+{
+    // rdar://170642778
+    return true;
+#if 0
+    // recovery os doesn't load keybags before login keychain unlock, so we can't check against the keybag here
+    if (os_variant_is_recovery("securityd")) {
+        secnotice("dp_login", "unlocking keybag recovery");
+        return true;
+    }
+
+    try {
+        int rc = unlock_keybag(*this, passphrase.data(), (int)passphrase.length(), false);
+        secnotice("dp_login", "validating passphrase against keybag returned %d", rc);
+        return (0 == rc);
+    } catch (...) {
+        secnotice("dp_login", "unlocking keybag threw");
+        throw;
+    }
+#endif
 }
 
 //

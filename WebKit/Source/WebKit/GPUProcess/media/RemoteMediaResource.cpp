@@ -69,7 +69,7 @@ void RemoteMediaResource::shutdown()
     if (RefPtr remoteMediaResourceManager = m_remoteMediaResourceManager.get())
         remoteMediaResourceManager->removeMediaResource(m_id);
 
-    ensureOnMainRunLoop([remoteMediaPlayerProxy = WTFMove(m_remoteMediaPlayerProxy), id = m_id] {
+    ensureOnMainRunLoop([remoteMediaPlayerProxy = WTF::move(m_remoteMediaPlayerProxy), id = m_id] {
         if (remoteMediaPlayerProxy)
             remoteMediaPlayerProxy->removeResource(id);
     });
@@ -89,7 +89,7 @@ void RemoteMediaResource::responseReceived(const ResourceResponse& response, boo
         return completionHandler(ShouldContinuePolicyCheck::No);
 
     m_didPassAccessControlCheck = didPassAccessControlCheck;
-    client->responseReceived(*this, response, [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](auto shouldContinue) mutable {
+    client->responseReceived(*this, response, [protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)](auto shouldContinue) mutable {
         if (shouldContinue == ShouldContinuePolicyCheck::No) {
             ensureOnMainThread([protectedThis] {
                 protectedThis->shutdown();
@@ -105,7 +105,7 @@ void RemoteMediaResource::redirectReceived(ResourceRequest&& request, const Reso
     assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
     if (auto client = this->client())
-        client->redirectReceived(*this, WTFMove(request), response, WTFMove(completionHandler));
+        client->redirectReceived(*this, WTF::move(request), response, WTF::move(completionHandler));
 }
 
 void RemoteMediaResource::dataSent(uint64_t bytesSent, uint64_t totalBytesToBeSent)

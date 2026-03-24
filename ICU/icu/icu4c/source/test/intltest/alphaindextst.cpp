@@ -532,7 +532,7 @@ static const char *localeAndIndexCharactersLists[][2] = {
     /* Chinese*/    {"zh", "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:V:W:X:Y:Z"},
 #if APPLE_ICU_CHANGES
 // rdar://104369003 use full pinyin/stroke collations
-    /* Chinese (Traditional Han)*/  {"zh_Hant", "1\\u5283:2\\u5283:3\\u5283:4\\u5283:5\\u5283:6\\u5283:7\\u5283:8\\u5283:9\\u5283:10\\u5283:11\\u5283:12\\u5283:13\\u5283:14\\u5283:15\\u5283:16\\u5283:17\\u5283:18\\u5283:19\\u5283:20\\u5283:21\\u5283:22\\u5283:23\\u5283:24\\u5283:25\\u5283:26\\u5283:27\\u5283:28\\u5283:29\\u5283:30\\u5283:31\\u5283:32\\u5283:33\\u5283:34\\u5283:35\\u5283:36\\u5283:37\\u5283:38\\u5283:39\\u5283:40\\u5283:41\\u5283:42\\u5283:43\\u5283:44\\u5283:46\\u5283:48\\u5283:52\\u5283:53\\u5283:58\\u5283:64\\u5283:76\\u5283:84\\u5283"},
+    /* Chinese (Traditional Han)*/  {"zh_Hant", "1\\u5283:2\\u5283:3\\u5283:4\\u5283:5\\u5283:6\\u5283:7\\u5283:8\\u5283:9\\u5283:10\\u5283:11\\u5283:12\\u5283:13\\u5283:14\\u5283:15\\u5283:16\\u5283:17\\u5283:18\\u5283:19\\u5283:20\\u5283:21\\u5283:22\\u5283:23\\u5283:24\\u5283:25\\u5283:26\\u5283:27\\u5283:28\\u5283:29\\u5283:30\\u5283:31\\u5283:32\\u5283:33\\u5283:34\\u5283:35\\u5283:36\\u5283:37\\u5283:38\\u5283:39\\u5283:40\\u5283:41\\u5283:42\\u5283:43\\u5283:44\\u5283:46\\u5283:48\\u5283:52\\u5283:53\\u5283:56\\u5283:58\\u5283:64\\u5283:76\\u5283:84\\u5283"},
 #else
     /* Chinese (Traditional Han)*/  {"zh_Hant", "1\\u5283:2\\u5283:3\\u5283:4\\u5283:5\\u5283:6\\u5283:7\\u5283:8\\u5283:9\\u5283:10\\u5283:11\\u5283:12\\u5283:13\\u5283:14\\u5283:15\\u5283:16\\u5283:17\\u5283:18\\u5283:19\\u5283:20\\u5283:21\\u5283:22\\u5283:23\\u5283:24\\u5283:25\\u5283:26\\u5283:27\\u5283:28\\u5283:29\\u5283:30\\u5283:31\\u5283:32\\u5283:33\\u5283:35\\u5283:36\\u5283:39\\u5283:48\\u5283"},
 #endif  // APPLE_ICU_CHANGES
@@ -606,11 +606,11 @@ void AlphabeticIndexTest::TestPinyinFirst() {
     index.addLabels(Locale::getChinese(), status);
     assertEquals("getBucketCount()", 28, index.getBucketCount(status));  // ... A-Z ...
     int32_t bucketIndex = index.getBucketIndex(UnicodeString(static_cast<char16_t>(0x897f)), status);
-    assertEquals("getBucketIndex(U+897F)", static_cast<int32_t>(static_cast<char16_t>(0x0058) /*X*/ - static_cast<char16_t>(0x0041) /*A*/ + 1), bucketIndex);
+    assertEquals("getBucketIndex(U+897F)", u'X' - u'A' + 1, bucketIndex);
     bucketIndex = index.getBucketIndex("i", status);
     assertEquals("getBucketIndex(i)", 9, bucketIndex);
     bucketIndex = index.getBucketIndex(UnicodeString(static_cast<char16_t>(0x03B1)), status);
-    assertEquals("getBucketIndex(Greek alpha)", static_cast<int32_t>(27), bucketIndex);
+    assertEquals("getBucketIndex(Greek alpha)", 27, bucketIndex);
     // U+50005 is an unassigned code point which sorts at the end, independent of the Hani group.
     bucketIndex = index.getBucketIndex(UnicodeString(static_cast<UChar32>(0x50005)), status);
     assertEquals("getBucketIndex(U+50005)", 27, bucketIndex);
@@ -673,8 +673,8 @@ void AlphabeticIndexTest::TestNoLabels() {
     index.addRecord(UnicodeString(static_cast<char16_t>(0x03B1)), nullptr, status);
     assertEquals("getBucketCount()", 1, index.getBucketCount(status));  // ...
     TEST_ASSERT(index.nextBucket(status));
-    assertEquals("underflow label type", static_cast<int32_t>(U_ALPHAINDEX_UNDERFLOW), index.getBucketLabelType());
-    assertEquals("all records in the underflow bucket", static_cast<int32_t>(3), index.getBucketRecordCount());
+    assertEquals("underflow label type", U_ALPHAINDEX_UNDERFLOW, index.getBucketLabelType());
+    assertEquals("all records in the underflow bucket", 3, index.getBucketRecordCount());
 }
 
 void AlphabeticIndexTest::TestChineseZhuyin() {

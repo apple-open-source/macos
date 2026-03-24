@@ -244,11 +244,11 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
         console.assert(false, "not reached");
     }
 
-    messageRepeatCountUpdated(count, timestamp)
+    messageRepeatCountUpdated(target, count, timestamp)
     {
         this._incrementMessageLevelCount(this._lastMessageLevel, 1);
 
-        this.dispatchEventToListeners(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, {count, timestamp});
+        this.dispatchEventToListeners(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, {target, count, timestamp});
     }
 
     requestClearMessages()

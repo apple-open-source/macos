@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)send.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include "rcv.h"
 #include "extern.h"
 
@@ -60,7 +52,11 @@ sendmessage(struct message *mp, FILE *obuf, struct ignoretab *doign,
 	long count;
 	FILE *ibuf;
 	char *cp, *cp2, line[LINESIZE];
+#ifdef __APPLE__
 	int ishead, infld, ignoring = 0, dostat, firstline;
+#else
+	int ishead, infld, ignoring, dostat, firstline;
+#endif
 	int c = 0, length, prefixlen;
 
 	/*
@@ -268,7 +264,7 @@ mail(struct name *to, struct name *cc, struct name *bcc, struct name *smopts,
  * the mail routine below.
  */
 int
-sendmail(char *str)
+sendmail(void *str)
 {
 	struct header head;
 
@@ -301,8 +297,10 @@ mail1(struct header *hp, int printheaders)
 	 * Collect user's mail from standard input.
 	 * Get the result as mtf.
 	 */
-	if ((mtf = collect(hp, printheaders)) == NULL)
+	if ((mtf = collect(hp, printheaders)) == NULL) {
+		senderr++;
 		return;
+	}
 	if (value("interactive") != NULL) {
 		if (value("askcc") != NULL || value("askbcc") != NULL) {
 			if (value("askcc") != NULL)
@@ -381,7 +379,9 @@ mail1(struct header *hp, int printheaders)
 			(void)savemail(expand(nbuf), mtf);
 		free(nbuf);
 		free(nsto);
-	} else if ((cp = value("record")) != NULL) {
+	} else if ((cp = value("record")) != NULL)
+#ifdef __APPLE__
+	{
 		char * expanded_record_name = expand(cp);
 		char * outfolder = value("outfolder");
 		if ((outfolder != NULL) && (*expanded_record_name != '/')) {
@@ -398,6 +398,9 @@ mail1(struct header *hp, int printheaders)
 			(void)savemail(expanded_record_name, mtf);
 		}
 	}
+#else
+		(void)savemail(expand(cp), mtf);
+#endif
 	/*
 	 * Fork, set up the temporary mail file as standard
 	 * input for "mail", and exec with the user list we generated
@@ -584,7 +587,7 @@ savemail(char name[], FILE *fi)
 	int i;
 	time_t now;
 #ifndef __APPLE__
-    mode_t saved_umask;
+	mode_t saved_umask;
 #endif
 
 #ifndef __APPLE__

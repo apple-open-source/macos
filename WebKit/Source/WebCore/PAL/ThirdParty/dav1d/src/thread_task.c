@@ -177,8 +177,13 @@ static int create_filter_sbrow(Dav1dFrameContext *const f,
     const int uses_2pass = f->c->n_fc > 1;
     int num_tasks = f->sbh * (1 + uses_2pass);
     if (num_tasks > f->task_thread.num_tasks) {
+#ifdef __APPLE__
+        size_t size;
+        tasks = realloc(f->task_thread.tasks, (size = num_tasks * sizeof(*tasks)));
+#else
         const size_t size = sizeof(Dav1dTask) * num_tasks;
         tasks = realloc(f->task_thread.tasks, size);
+#endif
         if (!tasks) return -1;
         memset(tasks, 0, size);
         f->task_thread.tasks = tasks;
@@ -227,8 +232,13 @@ int dav1d_task_create_tile_sbrow(Dav1dFrameContext *const f, const int pass,
     const int num_tasks = f->frame_hdr->tiling.cols * f->frame_hdr->tiling.rows;
     int alloc_num_tasks = num_tasks * (1 + uses_2pass);
     if (alloc_num_tasks > f->task_thread.num_tile_tasks) {
+#ifdef __APPLE__
+        size_t size;
+        tasks = realloc(f->task_thread.tile_tasks[0], (size = alloc_num_tasks * sizeof(*tasks)));
+#else
         const size_t size = sizeof(Dav1dTask) * alloc_num_tasks;
         tasks = realloc(f->task_thread.tile_tasks[0], size);
+#endif
         if (!tasks) return -1;
         memset(tasks, 0, size);
         f->task_thread.tile_tasks[0] = tasks;

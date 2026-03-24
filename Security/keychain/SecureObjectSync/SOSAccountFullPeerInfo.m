@@ -174,7 +174,7 @@ bool SOSAccountHasFullPeerInfo(SOSAccount* account, CFErrorRef* error) {
     SOSAccountTrustClassic *trust = account.trust;
     SOSFullPeerInfoRef identity = trust.fullPeerInfo;
 
-    require(SOSAccountHasCircle(account, error), fail);
+    __Require(SOSAccountHasCircle(account, error), fail);
 
     hasPeer = identity != NULL;
 
@@ -236,16 +236,16 @@ SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error) {
     
     CFDictionaryRef gestalt = NULL;
     
-    require_action_quiet(cloud_key, fail, SecError(errSecAllocate, error, CFSTR("Can't generate keypair for icloud identity")));
+    __Require_Action_Quiet(cloud_key, fail, SecError(errSecAllocate, error, CFSTR("Can't generate keypair for icloud identity")));
 
     gestalt = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                            kPIUserDefinedDeviceNameKey, CFSTR("iCloud"),
                                                            NULL);
-    require_action_quiet(gestalt, fail, SecError(errSecAllocate, error, CFSTR("Can't allocate gestalt")));
+    __Require_Action_Quiet(gestalt, fail, SecError(errSecAllocate, error, CFSTR("Can't allocate gestalt")));
     
     cloud_peer = SOSPeerInfoCreateCloudIdentity(kCFAllocatorDefault, gestalt, cloud_key, error);
     
-    require(cloud_peer, fail);
+    __Require(cloud_peer, fail);
     
     UpdateKeyName(cloud_key, cloud_peer, error);
 

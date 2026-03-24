@@ -67,7 +67,7 @@ private:
 
     explicit BlobDataItem(Ref<BlobDataFileReference>&& file)
         : m_type(Type::File)
-        , m_file(WTFMove(file))
+        , m_file(WTF::move(file))
         , m_offset(0)
         , m_length(toEndOfFile)
     {
@@ -75,7 +75,7 @@ private:
 
     BlobDataItem(Ref<DataSegment>&& data, long long offset, long long length)
         : m_type(Type::Data)
-        , m_data(WTFMove(data))
+        , m_data(WTF::move(data))
         , m_offset(offset)
         , m_length(length)
     {

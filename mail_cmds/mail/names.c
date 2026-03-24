@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)names.c	8.1 (Berkeley) 6/6/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 /*
  * Mail -- a mail program
  *
@@ -288,9 +280,10 @@ outof(struct name *names, FILE *fo, struct header *hp)
 	char *date, *fname;
 	FILE *fout, *fin;
 
+#ifdef __APPLE__
 	if (value("expandaddr") == NULL)
 		return(names);
-
+#endif
 	top = names;
 	np = names;
 	(void)time(&now);
@@ -368,7 +361,11 @@ outof(struct name *names, FILE *fo, struct header *hp)
 			 * on one another.
 			 */
 			if ((sh = value("SHELL")) == NULL)
+#ifdef __APPLE__
 				sh = _PATH_BSHELL;
+#else
+				sh = _PATH_CSHELL;
+#endif
 			(void)sigemptyset(&nset);
 			(void)sigaddset(&nset, SIGHUP);
 			(void)sigaddset(&nset, SIGINT);

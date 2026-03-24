@@ -57,7 +57,7 @@ struct ClipperData {
 };
 
 class LegacyRenderSVGResourceClipper final : public LegacyRenderSVGResourceContainer {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(LegacyRenderSVGResourceClipper);
+    WTF_MAKE_TZONE_ALLOCATED(LegacyRenderSVGResourceClipper);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LegacyRenderSVGResourceClipper);
 public:
     LegacyRenderSVGResourceClipper(SVGClipPathElement&, RenderStyle&&);

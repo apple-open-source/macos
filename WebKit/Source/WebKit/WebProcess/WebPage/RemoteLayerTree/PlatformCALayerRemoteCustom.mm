@@ -53,7 +53,7 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(PlatformLayer *pl
 {
     auto layer = adoptRef(*new PlatformCALayerRemoteCustom(PlatformCALayerCocoa::layerTypeForPlatformLayer(platformLayer), platformLayer, owner, context));
     context.layerDidEnterContext(layer.get(), layer->layerType());
-    return WTFMove(layer);
+    return WTF::move(layer);
 }
 
 #if ENABLE(MODEL_PROCESS)
@@ -61,7 +61,7 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(Ref<WebCore::Mode
 {
     auto layer = adoptRef(*new PlatformCALayerRemoteCustom(WebCore::PlatformCALayer::LayerType::LayerTypeCustom, modelContext, owner, context));
     context.layerDidEnterContext(layer.get(), layer->layerType());
-    return WTFMove(layer);
+    return WTF::move(layer);
 }
 #endif
 
@@ -70,7 +70,7 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(WebCore::HTMLVide
 {
     auto layer = adoptRef(*new PlatformCALayerRemoteCustom(videoElement, owner, context));
     context.layerDidEnterContext(layer.get(), layer->layerType(), videoElement);
-    return WTFMove(layer);
+    return WTF::move(layer);
 }
 #endif
 
@@ -106,7 +106,7 @@ PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(LayerType layerType, Pl
     m_layerHostingContext->setRootLayer(customLayer);
     [customLayer setValue:[NSValue valueWithPointer:this] forKey:platformCALayerPointer];
 
-    m_platformLayer = customLayer;
+    lazyInitialize(m_platformLayer, RetainPtr { customLayer });
     [customLayer web_disableAllActions];
 
     properties().position = FloatPoint3D(customLayer.position.x, customLayer.position.y, customLayer.zPosition);
@@ -154,12 +154,12 @@ Ref<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(PlatformCALayer
 
     if (layerType() == PlatformCALayer::LayerType::LayerTypeAVPlayerLayer) {
         
-        if (PAL::isAVFoundationFrameworkAvailable() && [platformLayer() isKindOfClass:PAL::getAVPlayerLayerClassSingleton()]) {
+        if (PAL::isAVFoundationFrameworkAvailable() && [m_platformLayer isKindOfClass:PAL::getAVPlayerLayerClassSingleton()]) {
             clonedLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
 
             RetainPtr destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());
             RetainPtr sourcePlayerLayer = static_cast<AVPlayerLayer *>(platformLayer());
-            RunLoop::mainSingleton().dispatch([destinationPlayerLayer = WTFMove(destinationPlayerLayer), sourcePlayerLayer = WTFMove(sourcePlayerLayer)] {
+            RunLoop::mainSingleton().dispatch([destinationPlayerLayer = WTF::move(destinationPlayerLayer), sourcePlayerLayer = WTF::move(sourcePlayerLayer)] {
                 [destinationPlayerLayer setPlayer:[sourcePlayerLayer player]];
             });
         } else {
@@ -177,7 +177,7 @@ Ref<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(PlatformCALayer
     updateClonedLayerProperties(clone.get(), copyContents);
 
     clone->setClonedLayer(this);
-    return WTFMove(clone);
+    return WTF::move(clone);
 }
 
 CFTypeRef PlatformCALayerRemoteCustom::contents() const

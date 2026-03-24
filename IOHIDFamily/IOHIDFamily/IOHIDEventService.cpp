@@ -287,7 +287,29 @@ bool IOHIDEventService::start ( IOService * provider )
     calculateStandardType();
 
     _readyForInputReports = true;
-    
+
+    // Initialize HIDRM state based on built-in status
+    OSBoolean *builtIn = OSDynamicCast(OSBoolean, getProperty(kIOHIDBuiltInKey));
+    OSString *stateString = NULL;
+    if (builtIn && builtIn->getValue()) {
+        // Built-in devices are always allowed
+        stateString = OSString::withCString("Allowed");
+        HIDServiceLogInfo("HIDRM: Built-in device detected, state = Allowed");
+    } else {
+        // External devices default to approving until HIDRM authorizes them
+        stateString = OSString::withCString("Approving");
+        HIDServiceLogInfo("HIDRM: External device detected, state = Approving");
+    }
+
+    // Publish HIDRM state as property on both this service and parent device
+    if (stateString) {
+        setProperty(kIOHIDRMDeviceStateKey, stateString);
+        if (device) {
+            device->setProperty(kIOHIDRMDeviceStateKey, stateString);
+        }
+        stateString->release();
+    }
+
     obj = getProperty(kIOHIDRegisterServiceKey);
     if (obj != kOSBooleanFalse) {
         registerService(kIOServiceAsynchronous);
@@ -448,7 +470,7 @@ bool IOHIDEventService::supportsHeadset(OSArray *elements)
     bool playPause = false, volumeIncrement = false, volumeDecrement = false;
     bool unsupportedUsage = false;
     
-    require(elements, exit);
+    __Require(elements, exit);
     
     for (index = 0, count = elements->getCount(); index < count; index++) {
         IOHIDElement *element = NULL;
@@ -512,14 +534,14 @@ bool IOHIDEventService::supportsHeadset(OSArray *elements)
     
     // If kHIDPage_Telephony/kHIDUsage_Tfon_Flash element was not present, then
     // device must conform to primaryUsagePage/primaryUsage of consumer/consumer control
-    require_quiet(getPrimaryUsagePage() == kHIDPage_Consumer &&
+    __Require_Quiet(getPrimaryUsagePage() == kHIDPage_Consumer &&
                   getPrimaryUsage() == kHIDUsage_Csmr_ConsumerControl, exit);
     
     // Play/Pause, volume increment and volume decrement elements must be present
-    require_quiet(playPause && volumeIncrement && volumeDecrement, exit);
+    __Require_Quiet(playPause && volumeIncrement && volumeDecrement, exit);
     
     // None of the unsupported elements must be present
-    require_quiet(!unsupportedUsage, exit);
+    __Require_Quiet(!unsupportedUsage, exit);
     
     result = true;
     
@@ -545,8 +567,15 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
     if (hidrmDeviceState) {
         setProperty(kIOHIDRMDeviceStateKey, hidrmDeviceState);
         properties->removeObject(kIOHIDRMDeviceStateKey);
+
         if(hidrmDeviceState->isEqualTo("Allowed")) {
             registerService();
+        }
+
+        // Sync property to parent IOHIDDevice
+        IOHIDDevice *device = OSDynamicCast(IOHIDDevice, _provider->getProvider());
+        if (device) {
+            device->setProperty(kIOHIDRMDeviceStateKey, hidrmDeviceState);
         }
     }
     
@@ -879,12 +908,12 @@ IOHIDPointing * IOHIDEventService::newPointingShim (
     IOHIDPointing   *pointingNub = IOHIDPointing::Pointing(buttonCount, pointerResolution, scrollResolution, isDispatcher);;
     OSNumber        *value;
     
-    require(pointingNub, no_nub);
+    __Require(pointingNub, no_nub);
 
 	SET_HID_PROPERTIES(pointingNub);
 
-    require(pointingNub->attach(this), no_attach);
-    require(pointingNub->start(this), no_start);
+    __Require(pointingNub->attach(this), no_attach);
+    __Require(pointingNub->start(this), no_start);
     value = OSNumber::withNumber(getRegistryEntryID(), 64);
     if (value) {
         pointingNub->setProperty(kIOHIDAltSenderIdKey, value);
@@ -915,12 +944,12 @@ IOHIDKeyboard * IOHIDEventService::newKeyboardShim (
     bool            isDispatcher = ((options & kShimEventProcessor) == 0);
     IOHIDKeyboard   *keyboardNub = IOHIDKeyboard::Keyboard(supportedModifiers, isDispatcher);
 
-    require(keyboardNub, no_nub);
+    __Require(keyboardNub, no_nub);
 
         SET_HID_PROPERTIES(keyboardNub);
 
-    require(keyboardNub->attach(this), no_attach);
-    require(keyboardNub->start(this), no_start);
+    __Require(keyboardNub->attach(this), no_attach);
+    __Require(keyboardNub->start(this), no_start);
     keyboardNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
 
     return keyboardNub;
@@ -944,12 +973,12 @@ IOHIDConsumer * IOHIDEventService::newConsumerShim ( IOOptionBits options )
     bool            isDispatcher = ((options & kShimEventProcessor) == 0);
     IOHIDConsumer   *consumerNub = IOHIDConsumer::Consumer(isDispatcher);;
 
-    require(consumerNub, no_nub);
+    __Require(consumerNub, no_nub);
 
         SET_HID_PROPERTIES(consumerNub);
 
-    require(consumerNub->attach(this), no_attach);
-    require(consumerNub->start(this), no_start);
+    __Require(consumerNub->attach(this), no_attach);
+    __Require(consumerNub->start(this), no_start);
     consumerNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
 
     return consumerNub;
@@ -1144,7 +1173,7 @@ void IOHIDEventService::handleClose(IOService * client, IOOptionBits options __u
 
     // Copy before mutation.
     clientDict = OSDictionary::withDictionary(_clientDict);
-    require(clientDict, exit);
+    __Require(clientDict, exit);
 
     _clientDict->release();
     _clientDict = clientDict;
@@ -2251,7 +2280,24 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
     
     if (event->getType() == kIOHIDEventTypeKeyboard &&
         event->getIntegerValue(kIOHIDEventFieldKeyboardDown)) {
-        _sleepDisplayTickle(this);
+        OSObject *obj = copyProperty(kIOHIDRMDeviceStateKey);
+        OSString *stateString = OSDynamicCast(OSString, obj);
+        HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
+
+        if (stateString) {
+            if (stateString->isEqualTo("Allowed")) {
+                state = kHIDRMDeviceStateAllowed;
+            } else if (stateString->isEqualTo("Denied")) {
+                state = kHIDRMDeviceStateDenied;
+            } else if (stateString->isEqualTo("Approving")) {
+                state = kHIDRMDeviceStateApproving;
+            }
+        }
+        OSSafeReleaseNULL(obj);
+
+        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+            _sleepDisplayTickle(this);
+        }
     }
     
     clock_get_uptime(&currentTime);
@@ -2584,9 +2630,9 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
     UInt32 debugMask = 0;
     OSBoundedArrayRef<Key> keys(&(_keyboard.pressedKeys[0]), (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])));
     
-    require_action(!(options & kIOHIDEventOptionSynthetic), dispatch, HIDServiceLogInfo("Ignoring synthetic event for keychord"));
+    __Require_Action(!(options & kIOHIDEventOptionSynthetic), dispatch, HIDServiceLogInfo("Ignoring synthetic event for keychord"));
 
-    require_quiet(usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardPower, dispatch);
+    __Require_Quiet(usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardPower, dispatch);
 
     for ( Key &key : keys ) {
         if (value) {

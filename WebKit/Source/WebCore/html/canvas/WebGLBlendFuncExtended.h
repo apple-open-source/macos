@@ -33,7 +33,7 @@
 namespace WebCore {
 
 class WebGLBlendFuncExtended final : public WebGLExtension<WebGLRenderingContextBase> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebGLBlendFuncExtended);
+    WTF_MAKE_TZONE_ALLOCATED(WebGLBlendFuncExtended);
     WTF_MAKE_NONCOPYABLE(WebGLBlendFuncExtended);
 public:
     explicit WebGLBlendFuncExtended(WebGLRenderingContextBase&);

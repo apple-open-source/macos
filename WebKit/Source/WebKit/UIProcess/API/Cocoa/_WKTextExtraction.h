@@ -30,9 +30,41 @@
 NS_HEADER_AUDIT_BEGIN(nullability, sendability)
 
 @class WKWebView;
+@class _WKJSHandle;
+
+typedef NS_OPTIONS(NSUInteger, _WKTextExtractionFilterOptions) {
+    _WKTextExtractionFilterNone = 0,
+    _WKTextExtractionFilterTextRecognition = 1 << 0,
+    _WKTextExtractionFilterClassifier = 1 << 1,
+    _WKTextExtractionFilterRules = 1 << 2,
+    _WKTextExtractionFilterAll = NSUIntegerMax,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+typedef NS_ENUM(NSInteger, _WKTextExtractionNodeIdentifierInclusion) {
+    _WKTextExtractionNodeIdentifierInclusionNone = 0,
+    _WKTextExtractionNodeIdentifierInclusionEditableOnly,
+    _WKTextExtractionNodeIdentifierInclusionInteractive,
+    _WKTextExtractionNodeIdentifierInclusionAllContainers,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+typedef NS_ENUM(NSInteger, _WKTextExtractionOutputFormat) {
+    _WKTextExtractionOutputFormatTextTree = 0,
+    _WKTextExtractionOutputFormatHTML,
+    _WKTextExtractionOutputFormatMarkdown,
+    _WKTextExtractionOutputFormatJSON,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
 @interface _WKTextExtractionConfiguration : NSObject
+
+@property (nonatomic, class, copy, readonly) _WKTextExtractionConfiguration *configurationForVisibleTextOnly NS_SWIFT_NAME(visibleTextOnly);
+
+/*!
+ Output format to use when collating extracted elements into the final text output.
+ The default value is `.textTree`, which produces at most 1 element and text node per line,
+ and uses indentation to represent DOM hierarchy.
+ */
+@property (nonatomic) _WKTextExtractionOutputFormat outputFormat;
 
 /*!
  Element extraction is constrained to this rect (in the web view's coordinate space).
@@ -54,10 +86,104 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
 @property (nonatomic) BOOL includeRects;
 
 /*!
+ Policy determining which nodes should be uniquely identified in the output.
+ `.none`          	Prevents collection of any identifiers.
+ `.editableOnly`    Limits collection of identifiers to editable elements and form controls.
+ `.interactive`     Collects identifiers for all buttons, links, and other interactive elements.
+ `.allContainers`   All containers (excludes text items).
+ The default value is `.interactive`.
+ */
+@property (nonatomic) _WKTextExtractionNodeIdentifierInclusion nodeIdentifierInclusion;
+
+/*!
+ Include information about event listeners.
+ The default value is `YES`.
+ */
+@property (nonatomic) BOOL includeEventListeners;
+
+/*!
+ Include accessibility attributes (e.g. `role`, `aria-label`).
+ The default value is `YES`.
+ */
+@property (nonatomic) BOOL includeAccessibilityAttributes;
+
+/*!
+ Include text content underneath form controls that have been modified via AutoFill.
+ The default value is `YES`.
+ */
+@property (nonatomic) BOOL includeTextInAutoFilledControls;
+
+/*!
  Max number of words to include per paragraph; remaining text is truncated with an ellipsis (…).
  The default value is `NSUIntegerMax`.
  */
 @property (nonatomic) NSUInteger maxWordsPerParagraph;
+
+/*!
+ If specified, text extraction is limited to the subtree of this node.
+ The default value is `nil`.
+ */
+@property (nonatomic, copy, nullable) _WKJSHandle *targetNode;
+
+/*!
+ If specified, these DOM nodes and their subtrees will be skipped during extraction.
+ The default value is an empty array.
+ */
+@property (nonatomic, copy) NSArray<_WKJSHandle *> *nodesToSkip;
+
+/*!
+ Client-specified attributes and values to add when extracting DOM nodes.
+ Will appear as "attribute=value" in text extraction output.
+ */
+- (void)addClientAttribute:(NSString *)attributeName value:(NSString *)attributeValue forNode:(_WKJSHandle *)node;
+
+/*!
+ A mapping of strings to replace in text extraction output.
+ Each key represents a string that should be replaced, and the corresponding
+ value represents the string to replace it with.
+ The default value is `nil`.
+ */
+@property (nonatomic, copy, nullable) NSDictionary<NSString *, NSString *> *replacementStrings;
+
+/*!
+ Filters to apply when extracting text.
+ Defaults to `_WKTextExtractionFilterAll`.
+ */
+@property (nonatomic) _WKTextExtractionFilterOptions filterOptions;
+
+/*!
+ Automatically shorten extracted URLs by removing or replacing parts of each URL.
+ The default value is `NO`.
+ */
+@property (nonatomic) BOOL shortenURLs;
+
+@end
+
+WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
+@interface _WKTextExtractionResult : NSObject
+
+@property (nonatomic, readonly) NSString *textContent;
+
+/*!
+ Set to `YES` if and only if any output text was filtered out as a result
+ of `_WKTextExtractionFilterOptions` or the maximum paragraph word limit.
+ */
+@property (nonatomic, readonly) BOOL filteredOutAnyText;
+
+/*!
+ A map of shortened URL strings to their original URLs; only populated when
+ `shortenURLs` is set when performing text extraction.
+ */
+@property (nonatomic, readonly) NSDictionary<NSString *, NSURL *> *shortenedURLs;
+
+/*!
+ Asynchronously map a node identifier string (corresponding to a `uid` in
+ text extraction output) to a corresponding JS handle to the node.
+ @param nodeIdentifier  The ID of the node to extract, or the ID of the node to search if `searchText` is additionally specified.
+ @param searchText      Rendered text to search inside the document or node corresponding to `nodeIdentifier`. The resulting element will fully contain this text.
+ At least one of `nodeIdentifier` or `searchText` must be specified.
+ */
+- (void)requestJSHandleForNodeIdentifier:(nullable NSString *)nodeIdentifier searchText:(nullable NSString *)searchText completionHandler:(void (^)(_WKJSHandle * _Nullable))completionHandler;
 
 @end
 
@@ -67,6 +193,8 @@ typedef NS_ENUM(NSInteger, _WKTextExtractionAction) {
     _WKTextExtractionActionSelectMenuItem,
     _WKTextExtractionActionTextInput,
     _WKTextExtractionActionKeyPress,
+    _WKTextExtractionActionHighlightText,
+    _WKTextExtractionActionScrollBy
 } WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
@@ -83,6 +211,8 @@ NS_REQUIRES_PROPERTY_DEFINITIONS
 @property (nonatomic, copy, nullable) NSString *nodeIdentifier;
 @property (nonatomic, copy, nullable) NSString *text;
 @property (nonatomic) BOOL replaceAll;
+@property (nonatomic) BOOL scrollToVisible;
+@property (nonatomic) CGSize scrollDelta;
 
 // Must be within the visible bounds of the web view.
 @property (nonatomic) CGPoint location;

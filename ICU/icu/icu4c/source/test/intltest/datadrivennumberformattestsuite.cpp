@@ -70,7 +70,13 @@ void DataDrivenNumberFormatTestSuite::run(const char *fileName, UBool runAllTest
         } else if (state == 1) {
             columnCount = splitBy(columnValues, UPRV_LENGTHOF(columnValues), 0x9);
             for (int32_t i = 0; i < columnCount; ++i) {
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+                columnTypes[i] = fTuple.getFieldByName(
+#else
                 columnTypes[i] = NumberFormatTestTuple::getFieldByName(
+#endif // APPLE_ICU_CHANGES
                     columnValues[i]);
                 if (columnTypes[i] == kNumberFormatTestTupleFieldCount) {
                     showError("Unrecognized field name.");
@@ -134,7 +140,13 @@ void DataDrivenNumberFormatTestSuite::setTupleField(UErrorCode &status) {
         return;
     }
     if (!fTuple.setField(
+#if APPLE_ICU_CHANGES
+// rdar://165672453 (ICU-23254 Remove C++ static initialization)
+// (Port of ICU-23254: Should be included in ICU 78.2)
+            fTuple.getFieldByName(parts[1]),
+#else
             NumberFormatTestTuple::getFieldByName(parts[1]),
+#endif // APPLE_ICU_CHANGES
             parts[2].unescape(),
             status)) {
         showError("Invalid field value");

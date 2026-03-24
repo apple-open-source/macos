@@ -390,7 +390,7 @@ std::optional<std::pair<UnicodeRanges, HashSet<String>>> parseKerningUnicodeStri
 
             // Try to parse unicode range first
             if (auto range = parseUnicodeRange(std::span { inputStart, buffer.position() }))
-                rangeList.append(WTFMove(*range));
+                rangeList.append(WTF::move(*range));
             else
                 stringList.add(String({ inputStart, buffer.position() }));
 
@@ -400,7 +400,7 @@ std::optional<std::pair<UnicodeRanges, HashSet<String>>> parseKerningUnicodeStri
             ++buffer;
         }
 
-        return std::make_pair(WTFMove(rangeList), WTFMove(stringList));
+        return std::make_pair(WTF::move(rangeList), WTF::move(stringList));
     });
 }
 

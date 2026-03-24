@@ -26,7 +26,7 @@
 #import "config.h"
 #import "RemoteScrollingCoordinatorProxyIOS.h"
 
-#if PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
+#if PLATFORM(IOS_FAMILY)
 
 #import "RemoteLayerTreeDrawingAreaProxyIOS.h"
 #import "RemoteLayerTreeHost.h"
@@ -55,6 +55,10 @@
 #import <WebCore/ScrollingTreeStickyNodeCocoa.h>
 #import <tuple>
 #import <wtf/TZoneMallocInlines.h>
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+#import "WKWebViewIOS.h"
+#endif
 
 namespace WebKit {
 
@@ -107,43 +111,105 @@ UIScrollView *RemoteScrollingCoordinatorProxyIOS::scrollViewForScrollingNodeID(s
 }
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-void RemoteScrollingCoordinatorProxyIOS::removeDestroyedLayerIDs(const Vector<WebCore::PlatformLayerIdentifier>& destroyedLayers)
+
+void RemoteScrollingCoordinatorProxyIOS::updateOverlayRegions(const Vector<WebCore::PlatformLayerIdentifier>& destroyedLayers)
 {
     for (auto layerID : destroyedLayers) {
         m_fixedScrollingNodesByLayerID.remove(layerID);
-        m_scrollingNodesByLayerID.remove(layerID);
+        if (m_scrollingNodesByLayerID.remove(layerID))
+            m_needsOverlayRegionScrollViewSelection = true;
     }
+
+    selectOverlayRegionScrollViewIfNeeded();
+    updateOverlayRegionLayers();
 }
 
-HashSet<WebCore::PlatformLayerIdentifier> RemoteScrollingCoordinatorProxyIOS::fixedScrollingNodeLayerIDs() const
+void RemoteScrollingCoordinatorProxyIOS::overlayRegionsEnabledChanged()
 {
-    HashSet<WebCore::PlatformLayerIdentifier> actuallyFixed;
-    for (auto& [layerID, scrollingNodeID] : m_fixedScrollingNodesByLayerID) {
-        auto* treeNode = scrollingTree().nodeForID(scrollingNodeID);
-        if (auto* scrollingNode = dynamicDowncast<ScrollingTreeStickyNodeCocoa>(treeNode)) {
-            if (scrollingNode->isCurrentlySticking())
-                actuallyFixed.add(layerID);
-        } else
-            actuallyFixed.add(layerID);
-    }
-    return actuallyFixed;
+    m_needsOverlayRegionScrollViewSelection = true;
+    updateOverlayRegions();
 }
 
-RemoteScrollingCoordinatorProxyIOS::OverlayRegionCandidatesMap RemoteScrollingCoordinatorProxyIOS::overlayRegionCandidates() const
+void RemoteScrollingCoordinatorProxyIOS::selectOverlayRegionScrollViewIfNeeded()
 {
-    OverlayRegionCandidatesMap candidates;
-    auto& relatedNodesMap = scrollingTree().overflowRelatedNodes();
-    for (auto scrollingNodeID : m_scrollingNodesByLayerID.values()) {
-        auto* treeNode = scrollingTree().nodeForID(scrollingNodeID);
-        if (auto* scrollingNode = dynamicDowncast<ScrollingTreeScrollingNode>(treeNode)) {
-            RetainPtr<WKBaseScrollView> scrollView = (WKBaseScrollView *)scrollViewForScrollingNodeID(scrollingNodeID);
-            if (scrollView && scrollingNode->snapOffsetsInfo().isEmpty()) {
+    if (!m_needsOverlayRegionScrollViewSelection)
+        return;
 
-                HashSet<WebCore::PlatformLayerIdentifier> relatedLayers;
+    m_needsOverlayRegionScrollViewSelection = false;
+
+    Ref page = webPageProxy();
+
+    RetainPtr<WKBaseScrollView> newSelectedScrollView;
+
+    if (page->preferences().overlayRegionsEnabled()) {
+        RetainPtr cocoaView = page->cocoaView();
+        if (!cocoaView)
+            return;
+
+        auto scrollViewCanHaveOverlayRegions = [](WKBaseScrollView *scrollView, WKBaseScrollView *mainScrollView) -> bool {
+            if (![scrollView _hasEnoughContentForOverlayRegions])
+                return false;
+
+            if (scrollView == mainScrollView)
+                return true;
+
+            auto mainScrollViewArea = mainScrollView.bounds.size.width * mainScrollView.bounds.size.height;
+            auto scrollViewArea = scrollView.bounds.size.width * scrollView.bounds.size.height;
+            return scrollViewArea > mainScrollViewArea / 2;
+        };
+
+        RetainPtr mainScrollView = (WKBaseScrollView *)[cocoaView scrollView];
+
+        RefPtr rootNode = scrollingTree().rootNode();
+        if (scrollViewCanHaveOverlayRegions(mainScrollView.get(), mainScrollView.get()) && rootNode && rootNode->snapOffsetsInfo().isEmpty())
+            newSelectedScrollView = mainScrollView;
+        else {
+            Vector<RetainPtr<WKBaseScrollView>> candidateScrollViews;
+            for (auto scrollingNodeID : m_scrollingNodesByLayerID.values()) {
+                RefPtr treeNode = scrollingTree().nodeForID(scrollingNodeID);
+                if (RefPtr scrollingNode = dynamicDowncast<ScrollingTreeScrollingNode>(treeNode)) {
+                    RetainPtr<WKBaseScrollView> scrollView = (WKBaseScrollView *)scrollViewForScrollingNodeID(scrollingNodeID);
+                    if (scrollView && scrollingNode->snapOffsetsInfo().isEmpty())
+                        candidateScrollViews.append(scrollView);
+                }
+            }
+
+            std::ranges::sort(candidateScrollViews, [](auto& first, auto& second) {
+                auto firstFrame = [first frame];
+                auto secondFrame = [second frame];
+                return firstFrame.size.width * firstFrame.size.height
+                    > secondFrame.size.width * secondFrame.size.height;
+            });
+
+            for (auto scrollView : candidateScrollViews) {
+                if (scrollViewCanHaveOverlayRegions(scrollView.get(), mainScrollView.get())) {
+                    newSelectedScrollView = scrollView;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (newSelectedScrollView == m_selectedOverlayRegionScrollView)
+        return;
+
+    if (m_selectedOverlayRegionScrollView) {
+        [m_selectedOverlayRegionScrollView _updateOverlayRegionsBehavior:NO];
+        m_lastOverlayRegionRects.clear();
+    }
+
+    if (newSelectedScrollView) {
+        [newSelectedScrollView _updateOverlayRegionsBehavior:YES];
+
+        HashSet<WebCore::PlatformLayerIdentifier> relatedLayers;
+        auto& relatedNodesMap = scrollingTree().overflowRelatedNodes();
+
+        for (auto [layerID, scrollingNodeID] : m_scrollingNodesByLayerID) {
+            if ((WKBaseScrollView *)scrollViewForScrollingNodeID(scrollingNodeID) == newSelectedScrollView.get()) {
                 auto relatedIterator = relatedNodesMap.find(scrollingNodeID);
                 if (relatedIterator != relatedNodesMap.end()) {
                     for (auto relatedNodeID : relatedIterator->value) {
-                        auto* treeNode = scrollingTree().nodeForID(relatedNodeID);
+                        RefPtr treeNode = scrollingTree().nodeForID(relatedNodeID);
                         if (RefPtr proxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(treeNode)) {
                             if (RetainPtr layer = proxyNode->layer()) {
                                 if (auto layerID = WebKit::RemoteLayerTreeNode::layerID(layer.get()))
@@ -152,12 +218,156 @@ RemoteScrollingCoordinatorProxyIOS::OverlayRegionCandidatesMap RemoteScrollingCo
                         }
                     }
                 }
-
-                candidates.add(scrollView, relatedLayers);
+                break;
             }
         }
+
+        if (!relatedLayers.isEmpty()) {
+            auto& layerTreeHost = drawingAreaIOS().remoteLayerTreeHost();
+            [newSelectedScrollView _associateRelatedLayersForOverlayRegions:relatedLayers with:layerTreeHost];
+        }
     }
-    return candidates;
+
+    m_selectedOverlayRegionScrollView = newSelectedScrollView;
+}
+
+static bool overlayDrawsAboveScrollView(const HashSet<RetainPtr<UIView>>& overlayAncestors, const HashSet<RetainPtr<UIView>>& targetScrollViewAncestors)
+{
+    auto commonAncestors = overlayAncestors.intersectionWith(targetScrollViewAncestors);
+    if (commonAncestors.isEmpty())
+        return false;
+
+    for (RetainPtr ancestor : commonAncestors) {
+        bool foundOverlaySubtree = false;
+        for (UIView* subview in [ancestor subviews]) {
+            if (commonAncestors.contains(subview))
+                break;
+
+            if (overlayAncestors.contains(subview))
+                foundOverlaySubtree = true;
+            if (targetScrollViewAncestors.contains(subview))
+                return !foundOverlaySubtree;
+        }
+    }
+
+    return false;
+}
+
+void RemoteScrollingCoordinatorProxyIOS::updateOverlayRegionLayers()
+{
+    Ref page = webPageProxy();
+    if (!page->preferences().overlayRegionsEnabled())
+        return;
+
+    if (!m_selectedOverlayRegionScrollView) {
+        m_lastOverlayRegionRects.clear();
+        return;
+    }
+
+    RetainPtr webView = page->cocoaView();
+    RetainPtr targetScrollView = m_selectedOverlayRegionScrollView;
+    BOOL stable = webView && [webView _isInStableState:targetScrollView.get()];
+    if (!stable)
+        return;
+
+    auto& layerTreeHost = drawingAreaIOS().remoteLayerTreeHost();
+
+    HashSet<WebCore::IntRect> overlayRegionRects;
+
+    HashSet<RetainPtr<UIView>> targetScrollViewAncestors;
+    auto getTargetScrollViewAncestors = [&]() {
+        if (!targetScrollViewAncestors.isEmpty())
+            return targetScrollViewAncestors;
+
+        for (RetainPtr<UIView> scrollViewAncestor = [targetScrollView superview]; scrollViewAncestor; scrollViewAncestor = [scrollViewAncestor superview]) {
+            targetScrollViewAncestors.add(scrollViewAncestor);
+            if ([scrollViewAncestor isKindOfClass:[WKWebView class]])
+                break;
+        }
+        return targetScrollViewAncestors;
+    };
+
+    std::function<void(RefPtr<RemoteLayerTreeNode>, RetainPtr<WKBaseScrollView>)> traverseAndAddRects = [&](RefPtr<RemoteLayerTreeNode> node, RetainPtr<WKBaseScrollView> enclosingScrollView) {
+        if (!node)
+            return;
+
+        RetainPtr overlayView = node->uiView();
+        if (!overlayView)
+            return;
+        if ([overlayView isKindOfClass:[WKBaseScrollView class]])
+            return;
+
+        auto traverse = [&]() {
+            for (CALayer *sublayer in node->layer().sublayers)
+                traverseAndAddRects(WebKit::RemoteLayerTreeNode::forCALayer(sublayer), enclosingScrollView);
+        };
+
+        // Simply traverse containers without event regions.
+        if (node->eventRegion().region().isEmpty()) {
+            traverse();
+            return;
+        }
+
+        bool needsClipping = true;
+        auto clippedRegion = node->eventRegion().region();
+
+        if (!enclosingScrollView) {
+            HashSet<RetainPtr<UIView>> overlayAncestors;
+            for (RetainPtr<UIView> overlayAncestor = overlayView; overlayAncestor; overlayAncestor = [overlayAncestor superview]) {
+                overlayAncestors.add(overlayAncestor);
+                if (overlayAncestor.get().clipsToBounds || overlayAncestor.get().layer.mask)
+                    clippedRegion.intersect(WebCore::enclosingIntRect([overlayAncestor convertRect:overlayAncestor.get().bounds toView:overlayView.get()]));
+                if (RetainPtr scrollView = dynamic_objc_cast<WKBaseScrollView>(overlayAncestor.get())) {
+                    enclosingScrollView = scrollView;
+                    break;
+                }
+            }
+            needsClipping = false;
+
+            if (!enclosingScrollView)
+                return;
+
+            if (enclosingScrollView != targetScrollView) {
+                // Ignore this subtree.
+                if (!overlayDrawsAboveScrollView(overlayAncestors, getTargetScrollViewAncestors()))
+                    return;
+            }
+        }
+
+        if (needsClipping) {
+            for (RetainPtr<UIView> overlayAncestor = overlayView; overlayAncestor; overlayAncestor = [overlayAncestor superview]) {
+                if (overlayAncestor.get().clipsToBounds || overlayAncestor.get().layer.mask)
+                    clippedRegion.intersect(WebCore::enclosingIntRect([overlayAncestor convertRect:overlayAncestor.get().bounds toView:overlayView.get()]));
+                if (overlayAncestor == enclosingScrollView)
+                    break;
+            }
+        }
+
+        CGRect frame = [targetScrollView frame];
+        RetainPtr toView = [targetScrollView superview];
+        for (auto regionRect : clippedRegion.rects()) {
+            CGRect rect = [overlayView convertRect:regionRect toView:toView.get()];
+            CGRect offsetRect = CGRectOffset(rect, -frame.origin.x, -frame.origin.y);
+            overlayRegionRects.add(WebCore::enclosingIntRect(offsetRect));
+        }
+
+        traverse();
+    };
+
+    for (auto& [layerID, scrollingNodeID] : m_fixedScrollingNodesByLayerID) {
+        RefPtr treeNode = scrollingTree().nodeForID(scrollingNodeID);
+        if (RefPtr scrollingNode = dynamicDowncast<ScrollingTreeStickyNodeCocoa>(treeNode)) {
+            if (!scrollingNode->isCurrentlySticking())
+                continue;
+        }
+
+        traverseAndAddRects(layerTreeHost.nodeForID(layerID), nullptr);
+    }
+
+    if (overlayRegionRects != m_lastOverlayRegionRects) {
+        m_lastOverlayRegionRects = overlayRegionRects;
+        [targetScrollView _updateOverlayRegionRects:overlayRegionRects whileStable:stable];
+    }
 }
 #endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 
@@ -172,14 +382,24 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
             if (platformLayerID && (currNode->isFixedNode() || currNode->isStickyNode()))
                 m_fixedScrollingNodesByLayerID.add(*platformLayerID, currNode->scrollingNodeID());
-            if (platformLayerID && currNode->isScrollingNode())
+            if (platformLayerID && currNode->isScrollingNode()) {
                 m_scrollingNodesByLayerID.add(*platformLayerID, currNode->scrollingNodeID());
+                m_needsOverlayRegionScrollViewSelection = true;
+            }
 #endif
         }
 
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+        if (currNode->hasChangedProperty(ScrollingStateNode::Property::SnapOffsetsInfo)
+            || currNode->hasChangedProperty(ScrollingStateNode::Property::TotalContentsSize)
+            || currNode->hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)
+            || currNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
+            m_needsOverlayRegionScrollViewSelection = true;
+#endif
+
         switch (currNode->nodeType()) {
         case ScrollingNodeType::Overflow: {
-            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode).unsafeGet();
+            auto& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode.get());
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -194,7 +414,7 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
         };
         case ScrollingNodeType::MainFrame:
         case ScrollingNodeType::Subframe: {
-            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode).unsafeGet();
+            auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode.get());
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -218,7 +438,7 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
             break;
         }
         case ScrollingNodeType::PluginScrolling: {
-            ScrollingStatePluginScrollingNode& scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode).unsafeGet();
+            auto& scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode.get());
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -291,7 +511,7 @@ void RemoteScrollingCoordinatorProxyIOS::establishLayerTreeScrollingRelations(co
 
     // Usually a scroll view scrolls its descendant layers. In some positioning cases it also controls non-descendants, or doesn't control a descendant.
     // To do overlap hit testing correctly we tell layers about such relations.
-    
+
     for (auto& positionedNode : scrollingTree().activePositionedNodes()) {
         Vector<PlatformLayerIdentifier> stationaryScrollContainerIDs;
 
@@ -305,7 +525,7 @@ void RemoteScrollingCoordinatorProxyIOS::establishLayerTreeScrollingRelations(co
         }
 
         if (auto* layerNode = RemoteLayerTreeNode::forCALayer(positionedNode->layer())) {
-            layerNode->setStationaryScrollContainerIDs(WTFMove(stationaryScrollContainerIDs));
+            layerNode->setStationaryScrollContainerIDs(WTF::move(stationaryScrollContainerIDs));
             m_layersWithScrollingRelations.add(layerNode->layerID());
         }
     }
@@ -336,7 +556,7 @@ void RemoteScrollingCoordinatorProxyIOS::adjustTargetContentOffsetForSnapping(CG
         float potentialSnapPosition;
         FloatPoint projectedOffset { *targetContentOffset };
         projectedOffset.move(0, topInset);
-        std::tie(potentialSnapPosition, m_currentVerticalSnapPointIndex) = closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis::Vertical, currentContentOffset.y + topInset, WTFMove(projectedOffset), velocity.y);
+        std::tie(potentialSnapPosition, m_currentVerticalSnapPointIndex) = closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis::Vertical, currentContentOffset.y + topInset, WTF::move(projectedOffset), velocity.y);
         if (m_currentVerticalSnapPointIndex)
             potentialSnapPosition -= topInset;
 
@@ -433,8 +653,8 @@ CGPoint RemoteScrollingCoordinatorProxyIOS::nearestActiveContentInsetAdjustedSna
 
 void RemoteScrollingCoordinatorProxyIOS::displayDidRefresh(PlatformDisplayID displayID)
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    updateAnimations();
+#if ENABLE(THREADED_ANIMATIONS)
+    updateTimeDependentAnimationStacks();
 #endif
 }
 
@@ -443,50 +663,84 @@ RemoteLayerTreeDrawingAreaProxyIOS& RemoteScrollingCoordinatorProxyIOS::drawingA
     return *downcast<RemoteLayerTreeDrawingAreaProxyIOS>(webPageProxy().drawingArea());
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void RemoteScrollingCoordinatorProxyIOS::animationsWereAddedToNode(RemoteLayerTreeNode& node)
 {
     m_animatedNodeLayerIDs.add(node.layerID());
-    drawingAreaIOS().scheduleDisplayRefreshCallbacksForAnimation();
+    if (m_monotonicTimelineRegistry && !m_monotonicTimelineRegistry->isEmpty())
+        drawingAreaIOS().scheduleDisplayRefreshCallbacksForMonotonicAnimations();
+}
+
+void RemoteScrollingCoordinatorProxyIOS::progressBasedTimelinesWereUpdatedForNode(const WebCore::ScrollingTreeScrollingNode& node)
+{
+    updateAnimationStacksDependentOnScrollingNode(node);
 }
 
 void RemoteScrollingCoordinatorProxyIOS::animationsWereRemovedFromNode(RemoteLayerTreeNode& node)
 {
     m_animatedNodeLayerIDs.remove(node.layerID());
-    if (m_animatedNodeLayerIDs.isEmpty())
-        drawingAreaIOS().pauseDisplayRefreshCallbacksForAnimation();
+    if (m_animatedNodeLayerIDs.isEmpty() || !m_monotonicTimelineRegistry || m_monotonicTimelineRegistry->isEmpty())
+        drawingAreaIOS().pauseDisplayRefreshCallbacksForMonotonicAnimations();
 }
 
-void RemoteScrollingCoordinatorProxyIOS::registerTimelineIfNecessary(WebCore::ProcessIdentifier processIdentifier, Seconds originTime, MonotonicTime now)
+void RemoteScrollingCoordinatorProxyIOS::updateTimelinesRegistration(WebCore::ProcessIdentifier processIdentifier, const WebCore::AcceleratedTimelinesUpdate& timelinesUpdate, MonotonicTime now)
 {
-    if (m_timelines.find(processIdentifier) == m_timelines.end())
-        m_timelines.set(processIdentifier, RemoteAnimationTimeline::create(originTime, now));
+    scrollingTree().updateTimelinesRegistration(processIdentifier, timelinesUpdate);
+    if (!m_monotonicTimelineRegistry)
+        m_monotonicTimelineRegistry = makeUnique<RemoteMonotonicTimelineRegistry>();
+    m_monotonicTimelineRegistry->update(processIdentifier, timelinesUpdate, now);
+    if (m_monotonicTimelineRegistry->isEmpty())
+        m_monotonicTimelineRegistry = nullptr;
 }
 
-const RemoteAnimationTimeline* RemoteScrollingCoordinatorProxyIOS::timeline(WebCore::ProcessIdentifier processIdentifier) const
+RefPtr<const RemoteAnimationTimeline> RemoteScrollingCoordinatorProxyIOS::timeline(const TimelineID& timelineID) const
 {
-    auto it = m_timelines.find(processIdentifier);
-    if (it != m_timelines.end())
-        return it->value.ptr();
-    return nullptr;
+    if (m_monotonicTimelineRegistry) {
+        if (RefPtr timeline = m_monotonicTimelineRegistry->get(timelineID))
+            return timeline;
+    }
+    return scrollingTree().timeline(timelineID);
 }
 
-void RemoteScrollingCoordinatorProxyIOS::updateAnimations()
+HashSet<Ref<RemoteProgressBasedTimeline>> RemoteScrollingCoordinatorProxyIOS::timelinesForScrollingNodeIDForTesting(WebCore::ScrollingNodeID scrollingNodeID) const
 {
+    return scrollingTree().timelinesForScrollingNodeIDForTesting(scrollingNodeID);
+}
+
+void RemoteScrollingCoordinatorProxyIOS::updateTimeDependentAnimationStacks()
+{
+    if (!m_monotonicTimelineRegistry)
+        return;
+
     // FIXME: Rather than using 'now' at the point this is called, we
     // should probably be using the timestamp of the (next?) display
     // link update or vblank refresh.
-    auto now = MonotonicTime::now();
-    for (auto& timeline : m_timelines.values())
-        timeline->updateCurrentTime(now);
+    m_monotonicTimelineRegistry->advanceCurrentTime(MonotonicTime::now());
 
+    updateAnimationStacks([](auto& animationStack) {
+        return animationStack.isTimeDependent();
+    });
+}
+
+void RemoteScrollingCoordinatorProxyIOS::updateAnimationStacksDependentOnScrollingNode(const WebCore::ScrollingTreeScrollingNode& node)
+{
+    auto scrollingNodeID = node.scrollingNodeID();
+    updateAnimationStacks([scrollingNodeID](auto& animationStack) {
+        return animationStack.isDependentOnScrollingNodeWithID(scrollingNodeID);
+    });
+}
+
+void RemoteScrollingCoordinatorProxyIOS::updateAnimationStacks(NOESCAPE const Function<bool(const RemoteAnimationStack&)>& predicate)
+{
     auto& layerTreeHost = drawingAreaIOS().remoteLayerTreeHost();
 
     auto animatedNodeLayerIDs = std::exchange(m_animatedNodeLayerIDs, { });
     for (auto animatedNodeLayerID : animatedNodeLayerIDs) {
-        auto* animatedNode = layerTreeHost.nodeForID(animatedNodeLayerID);
-        auto* animationStack = animatedNode->animationStack();
-        animationStack->applyEffectsFromMainThread(animatedNode->layer(), animatedNode->backdropRootIsOpaque());
+        RefPtr animatedNode = layerTreeHost.nodeForID(animatedNodeLayerID);
+        RefPtr animationStack = animatedNode->animationStack();
+        ASSERT(animationStack);
+        if (predicate(*animationStack))
+            animationStack->applyEffectsFromMainThread(animatedNode->layer(), animatedNode->backdropRootIsOpaque());
 
         // We can clear the effect stack if it's empty, but the previous
         // call to applyEffects() is important so that the base values
@@ -501,4 +755,4 @@ void RemoteScrollingCoordinatorProxyIOS::updateAnimations()
 
 } // namespace WebKit
 
-#endif // PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
+#endif // PLATFORM(IOS_FAMILY)

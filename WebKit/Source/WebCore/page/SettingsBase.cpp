@@ -236,7 +236,7 @@ void SettingsBase::setAllowedMediaContainerTypes(const String& types)
     for (auto type : StringView(types).split(','))
         newTypes.append(type.toString());
 
-    m_allowedMediaContainerTypes = WTFMove(newTypes);
+    m_allowedMediaContainerTypes = WTF::move(newTypes);
 }
 
 void SettingsBase::setAllowedMediaCodecTypes(const String& types)
@@ -250,7 +250,7 @@ void SettingsBase::setAllowedMediaCodecTypes(const String& types)
     for (auto type : StringView(types).split(','))
         newTypes.append(type.toString());
 
-    m_allowedMediaCodecTypes = WTFMove(newTypes);
+    m_allowedMediaCodecTypes = WTF::move(newTypes);
 }
 
 void SettingsBase::setAllowedMediaVideoCodecIDs(const String& types)
@@ -263,10 +263,10 @@ void SettingsBase::setAllowedMediaVideoCodecIDs(const String& types)
     Vector<FourCC> newTypes;
     for (auto type : StringView(types).split(',')) {
         if (auto fourCC = FourCC::fromString(type))
-            newTypes.append(WTFMove(*fourCC));
+            newTypes.append(WTF::move(*fourCC));
     }
 
-    m_allowedMediaVideoCodecIDs = WTFMove(newTypes);
+    m_allowedMediaVideoCodecIDs = WTF::move(newTypes);
 }
 
 void SettingsBase::setAllowedMediaAudioCodecIDs(const String& types)
@@ -279,10 +279,10 @@ void SettingsBase::setAllowedMediaAudioCodecIDs(const String& types)
     Vector<FourCC> newTypes;
     for (auto type : StringView(types).split(',')) {
         if (auto fourCC = FourCC::fromString(type))
-            newTypes.append(WTFMove(*fourCC));
+            newTypes.append(WTF::move(*fourCC));
     }
 
-    m_allowedMediaAudioCodecIDs = WTFMove(newTypes);
+    m_allowedMediaAudioCodecIDs = WTF::move(newTypes);
 }
 
 void SettingsBase::setAllowedMediaCaptionFormatTypes(const String& types)
@@ -295,10 +295,10 @@ void SettingsBase::setAllowedMediaCaptionFormatTypes(const String& types)
     Vector<FourCC> newTypes;
     for (auto type : StringView(types).split(',')) {
         if (auto fourCC = FourCC::fromString(type))
-            newTypes.append(WTFMove(*fourCC));
+            newTypes.append(WTF::move(*fourCC));
     }
 
-    m_allowedMediaCaptionFormatTypes = WTFMove(newTypes);
+    m_allowedMediaCaptionFormatTypes = WTF::move(newTypes);
 }
 
 void SettingsBase::resetToConsistentState()

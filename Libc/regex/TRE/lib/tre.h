@@ -65,16 +65,28 @@ typedef int reg_errcode_t;
 #define REG_LITERAL 0x1000
 #endif
 
+/* Extra tre_regcomp() return error codes. */
+#ifndef REG_BADMAX
+#define REG_BADMAX REG_BADPAT
+#endif
+
 /* Extra tre_regcomp() flags. */
 #ifndef REG_BASIC
 #define REG_BASIC	0
 #endif /* !REG_BASIC */
-#if 0
 #define REG_LEFT_ASSOC  (REG_LITERAL << 1)
+#ifndef REG_UNGREEDY
 #define REG_UNGREEDY    (REG_LEFT_ASSOC << 1)
+#endif
+#ifndef REG_USEBYTES
+#define REG_USEBYTES    (REG_UNGREEDY << 1)
+#endif
 
 /* Extra tre_regexec() flags. */
+#ifndef REG_APPROX_MATCHER
 #define REG_APPROX_MATCHER	 0x1000
+#endif
+#ifndef REG_BACKTRACKING_MATCHER
 #define REG_BACKTRACKING_MATCHER (REG_APPROX_MATCHER << 1)
 #endif
 
@@ -88,7 +100,6 @@ typedef int reg_errcode_t;
 typedef int regoff_t;
 typedef struct {
   size_t re_nsub;      /* Number of parenthesized subexpressions. */
-  const void *re_endp; /* regex string end pointer (REG_PEND) */
   void *value;	       /* For internal use only. */
 } regex_t;
 
@@ -117,6 +128,7 @@ typedef enum {
   REG_BADRPT,           /* Invalid use of repetition operators. */
   REG_INVARG,           /* Invalid argument, e.g. negative-length string */
   REG_ILLSEQ,           /* illegal byte sequence (bad multibyte character) */
+  REG_BADMAX,		/* Maximum repetition in {} too large */
 } reg_errcode_t;
 
 /* POSIX tre_regcomp() flags. */
@@ -130,7 +142,8 @@ typedef enum {
 #define REG_LITERAL	(REG_NOSUB << 1)
 #define REG_LEFT_ASSOC  (REG_LITERAL << 1)
 #define REG_UNGREEDY    (REG_LEFT_ASSOC << 1)
-#define REG_PEND        (REG_UNGREEDY << 1)
+
+#define REG_USEBYTES    (REG_UNGREEDY << 1)
 
 /* POSIX tre_regexec() flags. */
 #define REG_NOTBOL 1
@@ -162,6 +175,15 @@ extern int
 tre_regexec(const regex_t * __restrict preg, const char * __restrict string, size_t nmatch,
 	regmatch_t pmatch[ __restrict ], int eflags);
 
+#ifndef __APPLE__
+extern int
+tre_regcompb(regex_t *preg, const char *regex, int cflags);
+
+extern int
+tre_regexecb(const regex_t *preg, const char *string, size_t nmatch,
+	regmatch_t pmatch[], int eflags);
+#endif /* !__APPLE__ */
+
 extern size_t
 tre_regerror(int errcode, const regex_t * __restrict preg, char * __restrict errbuf,
 	 size_t errbuf_size);
@@ -191,6 +213,16 @@ tre_regncomp(regex_t * __restrict preg, const char * __restrict regex, size_t le
 extern int
 tre_regnexec(const regex_t * __restrict preg, const char * __restrict string, size_t len,
 	 size_t nmatch, regmatch_t pmatch[ __restrict ], int eflags);
+
+#ifndef __APPLE__
+/* regn*b versions take byte literally as 8-bit values */
+extern int
+tre_regncompb(regex_t *preg, const char *regex, size_t n, int cflags);
+
+extern int
+tre_regnexecb(const regex_t *preg, const char *str, size_t len,
+	  size_t nmatch, regmatch_t pmatch[], int eflags);
+#endif /* !__APPLE__ */
 
 #ifdef TRE_WCHAR
 extern int
@@ -256,6 +288,13 @@ tre_regaexec(const regex_t * __restrict preg, const char * __restrict string,
 extern int
 tre_reganexec(const regex_t * __restrict preg, const char * __restrict string, size_t len,
 	  regamatch_t * __restrict match, regaparams_t params, int eflags);
+
+#ifndef __APPLE__
+extern int
+tre_regaexecb(const regex_t *preg, const char *string,
+	  regamatch_t *match, regaparams_t params, int eflags);
+#endif /* !__APPLE__ */
+
 #ifdef TRE_WCHAR
 /* Wide character approximate matching. */
 extern int

@@ -204,7 +204,7 @@ template<typename T> void WebSocketChannel::sendMessageInternal(T&& message, siz
     CompletionHandler<void()> completionHandler = [this, protectedThis = Ref { *this }, byteLength] {
         decreaseBufferedAmount(byteLength);
     };
-    sendWithAsyncReply(std::forward<T>(message), WTFMove(completionHandler));
+    sendWithAsyncReply(std::forward<T>(message), WTF::move(completionHandler));
 }
 
 void WebSocketChannel::send(CString&& message)
@@ -212,7 +212,7 @@ void WebSocketChannel::send(CString&& message)
     if (!increaseBufferedAmount(message.length()))
         return;
 
-    m_messageQueue->enqueue(WTFMove(message));
+    m_messageQueue->enqueue(WTF::move(message));
 }
 
 void WebSocketChannel::send(const JSC::ArrayBuffer& binaryData, unsigned byteOffset, unsigned byteLength)
@@ -288,8 +288,8 @@ void WebSocketChannel::didConnect(String&& subprotocol, String&& extensions)
     if (!client)
         return;
 
-    m_subprotocol = WTFMove(subprotocol);
-    m_extensions = WTFMove(extensions);
+    m_subprotocol = WTF::move(subprotocol);
+    m_extensions = WTF::move(extensions);
     client->didConnect();
 }
 
@@ -299,7 +299,7 @@ void WebSocketChannel::didReceiveText(String&& message)
         return;
 
     if (RefPtr client = m_client.get())
-        client->didReceiveMessage(WTFMove(message));
+        client->didReceiveMessage(WTF::move(message));
 }
 
 void WebSocketChannel::didReceiveBinaryData(std::span<const uint8_t> data)
@@ -348,7 +348,7 @@ void WebSocketChannel::didReceiveMessageError(String&& errorMessage)
         return;
 
     logErrorMessage(errorMessage);
-    client->didReceiveMessageError(WTFMove(errorMessage));
+    client->didReceiveMessageError(WTF::move(errorMessage));
 }
 
 void WebSocketChannel::networkProcessCrashed()
@@ -367,13 +367,13 @@ void WebSocketChannel::resume()
 void WebSocketChannel::didSendHandshakeRequest(ResourceRequest&& request)
 {
     m_inspector.willSendWebSocketHandshakeRequest(request);
-    m_handshakeRequest = WTFMove(request);
+    m_handshakeRequest = WTF::move(request);
 }
 
 void WebSocketChannel::didReceiveHandshakeResponse(ResourceResponse&& response)
 {
     m_inspector.didReceiveWebSocketHandshakeResponse(response);
-    m_handshakeResponse = WTFMove(response);
+    m_handshakeResponse = WTF::move(response);
 }
 
 } // namespace WebKit

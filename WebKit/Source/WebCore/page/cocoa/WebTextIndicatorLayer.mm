@@ -91,7 +91,7 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
     return false;
 }
 
-- (void)updateWithFrame:(CGRect)frame textIndicator:(RefPtr<WebCore::TextIndicator>)textIndicator margin:(CGSize)margin offset:(CGPoint)offset updatingIndicator:(BOOL)updatingIndicator
+- (void)updateWithFrame:(CGRect)frame textIndicator:(WebCore::TextIndicator*)textIndicator margin:(CGSize)margin offset:(CGPoint)offset updatingIndicator:(BOOL)updatingIndicator
 {
     self.anchorPoint = CGPointZero;
     self.frame = frame;
@@ -210,7 +210,7 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
 
     self.name = @"WebTextIndicatorLayer";
 
-    [self updateWithFrame:frame textIndicator:textIndicator margin:margin offset:offset updatingIndicator:NO];
+    [self updateWithFrame:frame textIndicator:textIndicator.get() margin:margin offset:offset updatingIndicator:NO];
 
     return self;
 }

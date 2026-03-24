@@ -44,7 +44,7 @@ namespace WebKit {
     RetainPtr<id> NAME = dict.get()[@#NAME];        \
     if ([NAME isKindOfClass:CLASS.class]) {         \
         auto var = WRAPPER(NAME.get());             \
-        m_data.NAME = WTFMove(var);                 \
+        m_data.NAME = WTF::move(var);                 \
     }
 
 #define SET_NSURLREQUESTDATA_PRIMITIVE(NAME, CLASS, PRIMITIVE) \
@@ -81,7 +81,7 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(NSURLRequest *request)
     RetainPtr<id> url = dict.get()[@"URL"];
     if ([url isKindOfClass:NSURL.class]) {
         auto var = CoreIPCURL(url.get());
-        m_data.url = WTFMove(var);
+        m_data.url = WTF::move(var);
     }
 
     SET_NSURLREQUESTDATA_PRIMITIVE(timeout, NSNumber, double);
@@ -139,7 +139,7 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(NSURLRequest *request)
                 vector.append({ key, nsString.get() });
         }
         vector.shrinkToFit();
-        m_data.headerFields = WTFMove(vector);
+        m_data.headerFields = WTF::move(vector);
     }
 
     SET_NSURLREQUESTDATA(body, NSData, CoreIPCData);
@@ -151,15 +151,15 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(NSURLRequest *request)
         for (id element in bodyParts.get()) {
             if ([element isKindOfClass:[NSString class]]) {
                 CoreIPCString tooAdd(element);
-                vector.append(WTFMove(tooAdd));
+                vector.append(WTF::move(tooAdd));
             }
             if ([element isKindOfClass:[NSData class]]) {
                 CoreIPCData tooAdd(element);
-                vector.append(WTFMove(tooAdd));
+                vector.append(WTF::move(tooAdd));
             }
         }
         vector.shrinkToFit();
-        m_data.bodyParts = WTFMove(vector);
+        m_data.bodyParts = WTF::move(vector);
     }
 
     SET_NSURLREQUESTDATA_PRIMITIVE(startTimeoutTime, NSNumber, double);
@@ -212,12 +212,12 @@ CoreIPCNSURLRequest::CoreIPCNSURLRequest(NSURLRequest *request)
                 vector.append(CoreIPCNumber(element));
         }
         vector.shrinkToFit();
-        m_data.contentDispositionEncodingFallbackArray = WTFMove(vector);
+        m_data.contentDispositionEncodingFallbackArray = WTF::move(vector);
     }
 }
 
 CoreIPCNSURLRequest::CoreIPCNSURLRequest(CoreIPCNSURLRequestData&& data)
-    : m_data(WTFMove(data)) { }
+    : m_data(WTF::move(data)) { }
 
 CoreIPCNSURLRequest::CoreIPCNSURLRequest(const RetainPtr<NSURLRequest>& request)
     : CoreIPCNSURLRequest(request.get()) { }

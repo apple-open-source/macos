@@ -53,8 +53,6 @@ private:
     // WebCore::ModelPlayer overrides.
     void load(WebCore::Model&, WebCore::LayoutSize) override;
     void sizeDidChange(WebCore::LayoutSize) override;
-    PlatformLayer* layer() override;
-    std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier() override;
     void enterFullscreen() override;
     void getCamera(CompletionHandler<void(std::optional<WebCore::HTMLModelElementCamera>&&)>&&) override;
     void setCamera(WebCore::HTMLModelElementCamera, CompletionHandler<void(bool success)>&&) override;

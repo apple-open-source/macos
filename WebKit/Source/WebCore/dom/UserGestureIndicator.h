@@ -66,7 +66,7 @@ public:
 
     void addDestructionObserver(Function<void(UserGestureToken&)>&& observer)
     {
-        m_destructionObservers.append(WTFMove(observer));
+        m_destructionObservers.append(WTF::move(observer));
     }
 
     DOMPasteAccessPolicy domPasteAccessPolicy() const { return m_domPasteAccessPolicy; }
@@ -88,6 +88,7 @@ public:
     enum class GestureScope { All, MediaOnly };
     void setScope(GestureScope scope) { m_scope = scope; }
     void resetScope() { m_scope = GestureScope::All; }
+    GestureScope scope() const { return m_scope; }
 
     // Expand the following methods if more propagation sources are added later.
     enum class ShouldPropagateToMicroTask : bool { No, Yes };

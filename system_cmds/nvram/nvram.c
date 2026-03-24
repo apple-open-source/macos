@@ -234,8 +234,7 @@ int main(int argc, char **argv)
             result = ClearOFVariables();
             break;
           case 's':
-            // -s option is unadvertised -- advises the kernel more forcibly to
-            // commit the variable to nonvolatile storage
+            // -s advises the kernel more forcibly to commit the variable to nonvolatile storage
             gUseForceSync = true;
             break;
 #if TARGET_OS_BRIDGE
@@ -303,7 +302,7 @@ static void UsageMessage(const char *message)
 {
   warnx("(usage: %s)", message);
 
-  printf("nvram [-x|-X] [-p] [-f filename] [-d name] [-c] name[=value] ...\n");
+  printf("nvram [-x|-X] [-p] [-f filename] [-d name] [-c] [-s] name[=value] ...\n");
   printf("\t-x         use XML format for printing or reading variables\n");
   printf("\t           (must appear before -p or -f)\n");
   printf("\t-X         use HEX format for printing or reading variables\n");
@@ -313,6 +312,7 @@ static void UsageMessage(const char *message)
   printf("\t-d         delete the named variable(does not return error code)\n");
   printf("\t-r         delete the named variable(returns error code if any)\n");
   printf("\t-c         delete all variables\n");
+  printf("\t-s         force sync changes to storage\n");
   printf("\t-b         set variable using binary file. invoked with the following format: nvram -b <variable name> <binary file>\n");
 #if TARGET_OS_BRIDGE
   printf("\t-m         set nvram variables on macOS from bridgeOS\n");

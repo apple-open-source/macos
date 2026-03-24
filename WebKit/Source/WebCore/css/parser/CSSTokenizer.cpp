@@ -49,7 +49,7 @@ String CSSTokenizer::preprocessString(const String& string)
     // we treat them all the same in the isNewline function below.
     StringImpl* oldImpl = string.impl();
     String replaced = makeStringByReplacingAll(string, '\0', replacementCharacter);
-    replaced = replaceUnpairedSurrogatesWithReplacementCharacter(WTFMove(replaced));
+    replaced = replaceUnpairedSurrogatesWithReplacementCharacter(WTF::move(replaced));
     if (replaced.impl() != oldImpl)
         registerString(replaced);
     return replaced;

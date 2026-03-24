@@ -41,7 +41,7 @@ class CommandBufferImpl final : public CommandBuffer {
 public:
     static Ref<CommandBufferImpl> create(WebGPUPtr<WGPUCommandBuffer>&& commandBuffer, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new CommandBufferImpl(WTFMove(commandBuffer), convertToBackingContext));
+        return adoptRef(*new CommandBufferImpl(WTF::move(commandBuffer), convertToBackingContext));
     }
 
     virtual ~CommandBufferImpl();

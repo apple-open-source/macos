@@ -52,7 +52,8 @@
 #include <Security/SecTask.h>
 #include <os/log.h>
 
-#include <System/sys/kdebug.h>
+#include <sys/kdebug.h>
+#include <sys/kdebug_private.h>
 
 #if !(BHUI_XCTEST || POWERD_IOS_XCTEST)
 #include "powermanagementServer.h" // mig generated

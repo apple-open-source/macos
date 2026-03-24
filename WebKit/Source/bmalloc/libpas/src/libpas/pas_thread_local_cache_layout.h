@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,8 @@
 #include "pas_thread_local_cache_layout_node.h"
 #include "pas_utils.h"
 #include "pas_zero_memory.h"
+
+#if LIBPAS_ENABLED
 
 PAS_BEGIN_EXTERN_C;
 
@@ -113,5 +115,5 @@ static PAS_ALWAYS_INLINE pas_thread_local_cache_layout_node pas_thread_local_cac
 
 PAS_END_EXTERN_C;
 
+#endif /* LIBPAS_ENABLED */
 #endif /* PAS_THREAD_LOCAL_CACHE_LAYOUT_H */
-

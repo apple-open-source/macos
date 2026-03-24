@@ -257,7 +257,7 @@ OSStatus fvUnlockWriteResetDb(const char *uuid)
 
 int fvunlock(int argc, char * const *argv) {
     int result = SHOW_USAGE_MESSAGE;
-    require_quiet(argc > 3, out); // three arguments needed
+    __Require_Quiet(argc > 3, out); // three arguments needed
     @autoreleasepool {
         if (!strcmp("skip-sc-enforcement", argv[1])) {
             result = skipScEnforcement(argc - 1, argv + 1);

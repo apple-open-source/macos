@@ -67,7 +67,7 @@ void WebExtensionAPIEvent::invokeListenersWithArgument(id argument1)
     auto listenersCopy = m_listeners;
 
     for (RefPtr listener : listenersCopy)
-        listener->call(argument1);
+        listener->call(toJSValueRef(listener->globalContext(), argument1));
 }
 
 void WebExtensionAPIEvent::invokeListenersWithArgument(id argument1, id argument2)
@@ -79,7 +79,10 @@ void WebExtensionAPIEvent::invokeListenersWithArgument(id argument1, id argument
     auto listenersCopy = m_listeners;
 
     for (RefPtr listener : listenersCopy)
-        listener->call(argument1, argument2);
+        listener->call(
+            toJSValueRef(listener->globalContext(), argument1),
+            toJSValueRef(listener->globalContext(), argument2)
+        );
 }
 
 void WebExtensionAPIEvent::invokeListenersWithArgument(id argument1, id argument2, id argument3)
@@ -91,7 +94,11 @@ void WebExtensionAPIEvent::invokeListenersWithArgument(id argument1, id argument
     auto listenersCopy = m_listeners;
 
     for (RefPtr listener : listenersCopy)
-        listener->call(argument1, argument2, argument3);
+        listener->call(
+            toJSValueRef(listener->globalContext(), argument1),
+            toJSValueRef(listener->globalContext(), argument2),
+            toJSValueRef(listener->globalContext(), argument3)
+        );
 }
 
 void WebExtensionAPIEvent::addListener(WebCore::FrameIdentifier frameIdentifier, RefPtr<WebExtensionCallbackHandler> listener)

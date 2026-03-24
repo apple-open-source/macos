@@ -1579,6 +1579,13 @@ rtilist(struct ndp_command_args *args)
 	for (p = (struct in6_route_info *)buf; p < ep; p = n) {
 
 		dr = (struct in6_defrouter *)(p + 1);
+
+		/* bounds check to ensure defrtrs array fits within buffer */
+		if ((uintptr_t)&dr[p->defrtrs] > (uintptr_t)(buf + l)) {
+			warnx("rtilist: truncated data");
+			break;
+		}
+
 		n = (struct in6_route_info *)&dr[p->defrtrs];
 
 		inet_ntop(AF_INET6, &p->prefix, host_buf, sizeof(host_buf));
@@ -1592,6 +1599,12 @@ rtilist(struct ndp_command_args *args)
 			printf("  routers:\n");
 			for (j = 0; j < p->defrtrs; j++) {
 				int rtpref;
+
+				/* bounds check each router entry */
+				if ((uintptr_t)(x + 1) > (uintptr_t)(buf + l)) {
+					warnx("rtilist: truncated router data");
+					break;
+				}
 
 				if (getnameinfo((struct sockaddr *)&x->rtaddr,
 								x->rtaddr.sin6_len, host_buf, sizeof(host_buf), NULL, 0,
@@ -1660,6 +1673,13 @@ plist(struct ndp_command_args *args)
 	ep = (struct in6_prefix *)(buf + l);
 	for (p = (struct in6_prefix *)buf; p < ep; p = n) {
 		advrtr = (struct sockaddr_in6 *)(p + 1);
+
+		/* bounds check to ensure advrtrs array fits within buffer */
+		if ((uintptr_t)&advrtr[p->advrtrs] > (uintptr_t)(buf + l)) {
+			warnx("plist: truncated data");
+			break;
+		}
+
 		n = (struct in6_prefix *)&advrtr[p->advrtrs];
 
 		if (getnameinfo((struct sockaddr *)&p->prefix,
@@ -1711,6 +1731,12 @@ plist(struct ndp_command_args *args)
 			printf("  advertised by\n");
 			for (j = 0; j < p->advrtrs; j++) {
 				struct in6_nbrinfo *nbi;
+
+				/* bounds check each advertiser entry */
+				if ((uintptr_t)(sin6 + 1) > (uintptr_t)(buf + l)) {
+					warnx("plist: truncated advertiser data");
+					break;
+				}
 
 				if (getnameinfo((struct sockaddr *)sin6,
 				    sin6->sin6_len, namebuf, sizeof (namebuf),

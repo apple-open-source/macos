@@ -49,6 +49,8 @@ enum
     _kDADiskStateProbedWithFSKit       = 0x00000100,
     _kDADiskStateMountedWithFSKit      = 0x00000200,
     _kDADiskStateMountedWithUserFS     = 0x00000400,
+    _kDADiskStateWillSleep             = 0x00000800,
+    _kDADiskStateHibernateUnmount      = 0x00001000,
 
     kDADiskStateCommandActive       = 0x00000001,
     kDADiskStateRequireRepair       = 0x00000002,
@@ -64,6 +66,17 @@ enum
 };
 
 typedef UInt32 DADiskState;
+
+enum
+{
+    _kDADeviceTypeOther = 0,
+    _kDADeviceTypeIOUSB,
+    _kDADeviceTypeIONVMeFamily,
+    _kDADeviceTypeSD,
+    _kDADeviceTypeAppleSDXC
+};
+
+typedef UInt32 _DADiskDeviceType;
 
 extern CFComparisonResult DADiskCompareDescription( DADiskRef disk, CFStringRef description, CFTypeRef value );
 extern DADiskRef          DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media );

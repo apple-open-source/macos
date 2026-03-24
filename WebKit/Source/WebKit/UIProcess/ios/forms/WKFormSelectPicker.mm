@@ -699,10 +699,9 @@ static constexpr auto removeLineLimitForChildrenMenuOption = static_cast<UIMenuO
 {
     _isAnimatingContextMenuDismissal = YES;
     [animator addCompletion:[weakSelf = WeakObjCPtr<WKSelectPicker>(self), elementContext = _view.focusedElementInformation.elementContext] {
-        auto strongSelf = weakSelf.get();
-        if (strongSelf) {
+        if (RetainPtr strongSelf = weakSelf.get()) {
             RetainPtr view = strongSelf->_view;
-            if (elementContext.isSameElement([view focusedElementInformation].elementContext))
+            if ([view _isSameAsFocusedElement:elementContext])
                 [view accessoryDone];
             [[view webView] _didDismissContextMenu];
             strongSelf->_isAnimatingContextMenuDismissal = NO;

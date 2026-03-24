@@ -41,7 +41,7 @@ class XRSubImageImpl final : public XRSubImage {
 public:
     static Ref<XRSubImageImpl> create(WebGPUPtr<WGPUXRSubImage>&& backing, ConvertToBackingContext& convertToBackingContext)
     {
-        return adoptRef(*new XRSubImageImpl(WTFMove(backing), convertToBackingContext));
+        return adoptRef(*new XRSubImageImpl(WTF::move(backing), convertToBackingContext));
     }
 
     virtual ~XRSubImageImpl();

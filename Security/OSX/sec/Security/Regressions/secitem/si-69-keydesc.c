@@ -65,10 +65,10 @@ static void testECKeyDesc(void) {
     long pubLength = 0;
 
     pubKey = SecKeyCreateECPublicKey(kCFAllocatorDefault, ecPubKey, sizeof(ecPubKey), kSecKeyEncodingBytes);
-    require_quiet( pubKey, fail);
+    __Require_Quiet(pubKey, fail);
     
     pubRef = CFCopyDescription(pubKey);
-    require_quiet(pubRef, fail);
+    __Require_Quiet(pubRef, fail);
 
     pubLength = CFStringGetLength(pubRef)+1;
     char *publicDescription = (char*)malloc(pubLength);
@@ -101,14 +101,14 @@ static void testRSAKeyDesc(void)
     long pubLength = 0;
     	
     pubKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault, rsaPubKey, sizeof(rsaPubKey), kSecKeyEncodingBytes);
-    require_quiet( pubKey, fail);
+    __Require_Quiet(pubKey, fail);
     
     pubRef = CFCopyDescription(pubKey);
-    require_quiet(pubRef, fail);
+    __Require_Quiet(pubRef, fail);
     
     pubLength = CFStringGetLength(pubRef)+1;
     char *publicDescription = (char*)malloc(pubLength);
-    require_quiet(publicDescription != NULL, fail);
+    __Require_Quiet(publicDescription != NULL, fail);
 
     if(false == CFStringGetCString(pubRef, publicDescription, pubLength, kCFStringEncodingUTF8))
     {

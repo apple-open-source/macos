@@ -49,7 +49,7 @@ inline MediaConfiguration MediaConfiguration::isolatedCopy() const &
 
 inline MediaConfiguration MediaConfiguration::isolatedCopy() &&
 {
-    return { crossThreadCopy(WTFMove(video)),  crossThreadCopy(WTFMove(audio)), crossThreadCopy(WTFMove(allowedMediaContainerTypes)), crossThreadCopy(WTFMove(allowedMediaCodecTypes)) };
+    return { crossThreadCopy(WTF::move(video)),  crossThreadCopy(WTF::move(audio)), crossThreadCopy(WTF::move(allowedMediaContainerTypes)), crossThreadCopy(WTF::move(allowedMediaCodecTypes)) };
 }
 
 } // namespace WebCore

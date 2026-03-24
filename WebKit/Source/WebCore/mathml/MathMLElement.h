@@ -37,7 +37,7 @@
 namespace WebCore {
 
 class MathMLElement : public StyledElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MathMLElement);
+    WTF_MAKE_TZONE_ALLOCATED(MathMLElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(MathMLElement);
 public:
     static Ref<MathMLElement> create(const QualifiedName& tagName, Document&);
@@ -88,7 +88,8 @@ private:
 
 inline bool Node::hasTagName(const MathMLQualifiedName& name) const
 {
-    return isMathMLElement() && downcast<MathMLElement>(*this).hasTagName(name);
+    auto* element = dynamicDowncast<MathMLElement>(*this);
+    return element && element->hasTagName(name);
 }
 
 } // namespace WebCore
